@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from base64 import urlsafe_b64decode, urlsafe_b64encode
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import hashlib
 import json
 import re
@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from yoke_contracts.timestamps import as_utc, format_instant, parse_instant, utc_now
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
 
 
@@ -22,13 +23,6 @@ _SHA = re.compile(r"^[0-9a-f]{40}$")
 _RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 _OPERATIONS = frozenset({"create", "message_active", "message_idle", "message_stopped"})
 _ROUTES = frozenset({"direct", "broker", "hook"})
-
-
-def _utc(value: str) -> datetime:
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
 
 
 class PrivateRouteQualificationScope(BaseModel):
@@ -131,9 +125,14 @@ class PrivateRouteQualificationGrant(BaseModel):
     grant_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     scope: PrivateRouteQualificationScope
 
+    @field_validator("opened_at", "expires_at", mode="before")
+    @classmethod
+    def canonical_instant(cls, value: str | datetime) -> str:
+        return format_instant(parse_instant(value))
+
     def expired(self, *, now: datetime | None = None) -> bool:
-        current = now or datetime.now(timezone.utc)
-        return current >= _utc(self.expires_at)
+        current = utc_now() if now is None else as_utc(now)
+        return current >= parse_instant(self.expires_at)
 
 
 class PrivateRouteQualificationOpenResponse(BaseModel):
@@ -155,9 +154,9 @@ def decode_qualification_lease_key(
     return scope if scope.lease_key == lease_key else None
 
 
-def qualification_expires_at(opened_at: str) -> str:
-    value = _utc(opened_at) + timedelta(seconds=QUALIFICATION_TTL_SECONDS)
-    return value.strftime("%Y-%m-%dT%H:%M:%SZ")
+def qualification_expires_at(opened_at: datetime | str) -> str:
+    value = parse_instant(opened_at) + timedelta(seconds=QUALIFICATION_TTL_SECONDS)
+    return format_instant(value)
 
 
 __all__ = [

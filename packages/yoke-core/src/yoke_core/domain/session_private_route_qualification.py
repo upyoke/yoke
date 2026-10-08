@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 import os
 from typing import Any, Mapping
 
@@ -23,7 +23,8 @@ from yoke_core.domain.coordination_claim_record import CoordinationClaim
 from yoke_core.domain.work_claim_targets import (
     make_route_qualification_target,
 )
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 
 
 QUALIFICATION_ACQUIRE_REASON = "private-route-qualification"
@@ -37,13 +38,6 @@ class PrivateRouteQualificationError(ValueError):
 
 def _marker(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _utc(value: str) -> datetime:
-    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
 
 
 def _runtime_release(scope: PrivateRouteQualificationScope) -> None:
@@ -147,7 +141,7 @@ def grant_from_lease(
     _private_candidate(scope)
     _active_operator(conn, lease)
     expires_at = qualification_expires_at(lease.claimed_at)
-    if (now or datetime.now(timezone.utc)) >= _utc(expires_at):
+    if (utc_now() if now is None else parse_instant(now)) >= parse_instant(expires_at):
         raise PrivateRouteQualificationError(
             "qualification_grant_expired", "qualification grant has expired"
         )
@@ -156,7 +150,7 @@ def grant_from_lease(
         project_id=int(lease.project_id or 0),
         sender_session_id=lease.session_id,
         operator_actor_id=str(lease.actor_id),
-        opened_at=lease.claimed_at,
+        opened_at=format_instant(lease.claimed_at),
         expires_at=expires_at,
         grant_digest=scope.digest,
         scope=scope,
@@ -170,7 +164,7 @@ def open_qualification_grant(
     sender_session_id: str,
     operator_actor_id: int,
     scope: PrivateRouteQualificationScope,
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> PrivateRouteQualificationGrant:
     _runtime_release(scope)
     _private_candidate(scope)
@@ -186,10 +180,10 @@ def open_qualification_grant(
         release,
     )
 
-    opened_at = now or iso8601_now()
+    opened_at = utc_now() if now is None else parse_instant(now)
     target = make_route_qualification_target(project_id, scope.grant_key)
     existing = active_claim(conn, target, for_update=True)
-    if existing is not None and _utc(opened_at) >= _utc(
+    if existing is not None and opened_at >= parse_instant(
         qualification_expires_at(existing.claimed_at)
     ):
         release(
@@ -276,9 +270,7 @@ def qualification_for_message(
 
     lease = active_claim(
         conn,
-        make_route_qualification_target(
-            int(candidate["project_id"]), scope.grant_key
-        ),
+        make_route_qualification_target(int(candidate["project_id"]), scope.grant_key),
         for_update=True,
     )
     if lease is None or lease.session_id != sender_session_id:
@@ -290,10 +282,12 @@ def consume_qualification_grant(
     conn: Any,
     grant: PrivateRouteQualificationGrant,
     *,
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> None:
     marker = _marker(conn)
-    released_at = now or iso8601_now()
+    released_at = instant_parameter(
+        conn, utc_now() if now is None else parse_instant(now)
+    )
     cursor = conn.execute(
         "UPDATE work_claims SET released_at="
         + marker

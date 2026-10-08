@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from datetime import timedelta
 
 import pytest
@@ -50,7 +52,7 @@ def _connection(*, target_version: str):
     # Activity is a full day old so the target is idle under any staleness
     # window, pinning the wake to the private idle route rather than leaving
     # it to resolve near the boundary.
-    idle_since = str(NOW - timedelta(days=1))
+    idle_since = format_instant(NOW - timedelta(days=1))
     conn.execute(
         "UPDATE harness_sessions SET executor_surface='claude-cli',"
         "executor_version=?,machine_id=?,turn_posture='running',"
@@ -119,7 +121,7 @@ def test_candidate_direct_wake_consumes_grant_before_return(monkeypatch) -> None
         conn,
         _heartbeat("2.1.241"),
         wait_seconds=0,
-        now_provider=lambda: "2026-08-22T16:11:00Z",
+        now_provider=lambda: "2026-08-22T16:11:00.000000Z",
     )
 
     assert len(outcome.jobs) == 1
@@ -134,7 +136,7 @@ def test_candidate_direct_wake_consumes_grant_before_return(monkeypatch) -> None
         "SELECT released_at,release_reason_intent FROM work_claims WHERE id=?",
         (grant.lease_id,),
     ).fetchone()
-    assert row["released_at"] == "2026-08-22T16:11:00Z"
+    assert row["released_at"] == "2026-08-22T16:11:00.000000Z"
     assert row["release_reason_intent"] == QUALIFICATION_RELEASE_REASON
 
 
@@ -148,7 +150,7 @@ def test_candidate_without_exact_grant_remains_unclaimed(monkeypatch) -> None:
         conn,
         _heartbeat("2.1.241"),
         wait_seconds=0,
-        now_provider=lambda: "2026-08-22T16:11:00Z",
+        now_provider=lambda: "2026-08-22T16:11:00.000000Z",
     )
 
     assert outcome.jobs == ()
@@ -170,7 +172,7 @@ def test_canonical_version_stays_first_and_needs_no_grant(monkeypatch) -> None:
         conn,
         _heartbeat("2.1.238"),
         wait_seconds=0,
-        now_provider=lambda: "2026-08-22T16:11:00Z",
+        now_provider=lambda: "2026-08-22T16:11:00.000000Z",
     )
 
     assert len(outcome.jobs) == 1

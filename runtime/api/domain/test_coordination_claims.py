@@ -105,7 +105,7 @@ class TestAcquireRelease:
             assert claim.session_id == "sess-a"
             assert claim.owner_item_id == 7
             assert claim.sticky is True
-            assert claim.claimed_at.endswith("Z")
+            assert claim.claimed_at.utcoffset().total_seconds() == 0
             assert claim.last_heartbeat == claim.claimed_at
             assert claim.released_at is None
         finally:

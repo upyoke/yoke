@@ -73,7 +73,7 @@ def _inject_through_ordinary_delivery(conn, launch, session_id: str):
         conn,
         message_id=launch.message_id,
         session_id=session_id,
-        now="2026-08-22T12:00:32Z",
+        now="2026-08-22T12:00:32.000000Z",
     )
 
 
@@ -89,17 +89,17 @@ def test_native_report_binds_a_session_that_registered_before_correlation() -> N
         lease_id=claim.lease_id,
         result_code="native_created",
         native_session_id="native-session",
-        now="2026-08-22T12:00:30Z",
+        now="2026-08-22T12:00:30.000000Z",
     )
 
     assert bound.state == "awaiting_registration"
     assert bound.native_session_id == bound.registered_session_id == "native-session"
     assert bound.result_code == "registration_bound"
-    assert bound.attestation_consumed_at == parse_instant("2026-08-22T12:00:30Z")
+    assert bound.attestation_consumed_at == parse_instant("2026-08-22T12:00:30.000000Z")
     assert tuple(_recipient(conn, launch.message_id)) == (
         "native-session",
         "pending",
-        "2026-08-22T12:00:30Z",
+        "2026-08-22T12:00:30.000000Z",
     )
     assert _inject_through_ordinary_delivery(conn, launch, "native-session").state == (
         "awaiting_registration"
@@ -116,7 +116,7 @@ def test_reconciliation_reopens_and_routes_the_stranded_instruction() -> None:
         lease_id=claim.lease_id,
         result_code="outcome_unknown",
         evidence={"result_code": "identity_parse_failed"},
-        now="2026-08-22T12:00:20Z",
+        now="2026-08-22T12:00:20.000000Z",
     )
     assert uncertain.state == "outcome_unknown"
     cancelled = conn.execute(
@@ -131,7 +131,7 @@ def test_reconciliation_reopens_and_routes_the_stranded_instruction() -> None:
         launch_id=launch.launch_id,
         auth=authorization(),
         observed_native_id="reconciled-session",
-        now="2026-08-22T12:00:30Z",
+        now="2026-08-22T12:00:30.000000Z",
     )
 
     assert (
@@ -141,7 +141,7 @@ def test_reconciliation_reopens_and_routes_the_stranded_instruction() -> None:
     assert tuple(_recipient(conn, launch.message_id)) == (
         "reconciled-session",
         "pending",
-        "2026-08-22T12:00:30Z",
+        "2026-08-22T12:00:30.000000Z",
     )
     reopened = conn.execute(
         "SELECT cancellation_reason FROM session_messages WHERE message_id=?",
@@ -156,14 +156,14 @@ def test_attested_registration_anchors_wake_at_delivery_without_changing_deadlin
     conn = launch_connection()
     add_relay(conn)
     launch, claim = _claim(conn, key="attested-identity")
-    registration_time = "2026-08-22T12:00:30Z"
+    registration_time = "2026-08-22T12:00:30.000000Z"
     uncertain = report_launch_attempt(
         conn,
         launch_id=launch.launch_id,
         lease_id=claim.lease_id,
         result_code="outcome_unknown",
         evidence={"result_code": "identity_parse_failed"},
-        now="2026-08-22T12:00:20Z",
+        now="2026-08-22T12:00:20.000000Z",
     )
     assert uncertain.native_session_id is None
     _register(conn, "attested-session")
@@ -181,9 +181,9 @@ def test_attested_registration_anchors_wake_at_delivery_without_changing_deadlin
     assert bound.state == "awaiting_registration"
     assert bound.native_session_id == bound.registered_session_id == "attested-session"
     assert bound.result_code == "registration_bound"
-    assert bound.attestation_consumed_at == registration_time
+    assert bound.attestation_consumed_at == parse_instant(registration_time)
     assert bound.deadline_at == launch.deadline_at
-    assert bound.deadline_at != registration_time
+    assert bound.deadline_at != parse_instant(registration_time)
     attempt = conn.execute(
         "SELECT native_session_id FROM session_launch_attempts WHERE launch_id=?",
         (launch.launch_id,),
@@ -205,8 +205,8 @@ def test_successful_send_restamps_wake_after_without_moving_deadline() -> None:
     conn = launch_connection()
     add_relay(conn)
     launch, claim = _claim(conn, key="send-time-wake")
-    bind_time = "2026-08-22T12:00:30Z"
-    send_time = "2026-08-22T12:00:45Z"
+    bind_time = "2026-08-22T12:00:30.000000Z"
+    send_time = "2026-08-22T12:00:45.000000Z"
     _register(conn, "send-session")
     report_launch_attempt(
         conn,
@@ -223,8 +223,8 @@ def test_successful_send_restamps_wake_after_without_moving_deadline() -> None:
         bind_time,
     )
     deadline_at = get_launch(conn, launch.launch_id).deadline_at
-    assert deadline_at != bind_time
-    assert deadline_at != send_time
+    assert deadline_at != parse_instant(bind_time)
+    assert deadline_at != parse_instant(send_time)
 
     complete_launch_injection(
         conn,
@@ -241,14 +241,14 @@ def test_successful_send_restamps_wake_after_without_moving_deadline() -> None:
     )
     bound = get_launch(conn, launch.launch_id)
     assert bound.deadline_at == deadline_at
-    assert bound.deadline_at != send_time
+    assert bound.deadline_at != parse_instant(send_time)
 
 
 def test_failed_injection_does_not_restamp_wake_after() -> None:
     conn = launch_connection()
     add_relay(conn)
     launch, claim = _claim(conn, key="failed-send-wake")
-    bind_time = "2026-08-22T12:00:30Z"
+    bind_time = "2026-08-22T12:00:30.000000Z"
     _register(conn, "failed-send-session")
     report_launch_attempt(
         conn,
@@ -264,7 +264,7 @@ def test_failed_injection_does_not_restamp_wake_after() -> None:
         launch_id=launch.launch_id,
         session_id="failed-send-session",
         injected=False,
-        now="2026-08-22T12:00:45Z",
+        now="2026-08-22T12:00:45.000000Z",
     )
 
     assert tuple(_recipient(conn, launch.message_id)) == (
@@ -272,7 +272,7 @@ def test_failed_injection_does_not_restamp_wake_after() -> None:
         "pending",
         bind_time,
     )
-    assert get_launch(conn, launch.launch_id).deadline_at != bind_time
+    assert get_launch(conn, launch.launch_id).deadline_at != parse_instant(bind_time)
 
 
 def test_existing_session_mismatch_is_visible_without_losing_native_evidence() -> None:
@@ -287,7 +287,7 @@ def test_existing_session_mismatch_is_visible_without_losing_native_evidence() -
         lease_id=claim.lease_id,
         result_code="native_created",
         native_session_id="wrong-surface",
-        now="2026-08-22T12:00:30Z",
+        now="2026-08-22T12:00:30.000000Z",
     )
 
     assert awaiting.state == "awaiting_registration"

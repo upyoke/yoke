@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
+from yoke_contracts.timestamps import format_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _get_columns
 
@@ -34,12 +36,8 @@ def _posture_columns_present(conn: Any) -> bool:
 
 
 def posture_timestamp(value: datetime) -> str:
-    """Return a fixed-width UTC timestamp suitable for atomic ordering."""
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    else:
-        value = value.astimezone(timezone.utc)
-    return value.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    """Return the canonical wire form of an aware posture observation."""
+    return format_instant(value)
 
 
 def accepted_hook_posture(
@@ -78,7 +76,7 @@ def stamp_turn_posture(
     if not session_id or not _posture_columns_present(conn):
         return False
     marker = _p(conn)
-    stamp = posture_timestamp(observed_at)
+    stamp = instant_parameter(conn, observed_at)
     cursor = conn.execute(
         "UPDATE harness_sessions SET turn_posture="
         + marker

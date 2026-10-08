@@ -14,6 +14,8 @@ is the audited human operator release rather than an automatic reclaim.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import Any, Dict, Optional
 
 from yoke_core.domain import db_backend
@@ -23,7 +25,8 @@ from yoke_core.domain.coordination_claim_record import (
     CoordinationClaim,
     row_to_claim,
 )
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import parse_instant, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.work_claim_target_sql import conflict_match_clause
 from yoke_core.domain.work_claim_targets import WorkClaimTarget
 
@@ -125,7 +128,7 @@ def acquire(
     session_id: str,
     *,
     reason: Optional[str] = None,
-    now: Optional[str] = None,
+    now: datetime | str | None = None,
     commit: bool = True,
 ) -> CoordinationClaim:
     """Take the exclusive claim on ``target``.
@@ -145,7 +148,7 @@ def acquire(
     lock_host_turn(conn, target)
     if not str(reason or "").startswith(HOST_TURN_REASON):
         reserve_host_turn(conn, target)
-    now = now or iso8601_now()
+    now = instant_parameter(conn, utc_now() if now is None else parse_instant(now))
     p = _p(conn)
     existing = active_claim(conn, target)
     if existing is not None:
@@ -205,11 +208,11 @@ def heartbeat(
     conn: Any,
     claim_id: int,
     *,
-    now: Optional[str] = None,
+    now: datetime | str | None = None,
     commit: bool = True,
 ) -> CoordinationClaim:
     """Refresh ``last_heartbeat`` on a held claim."""
-    now = now or iso8601_now()
+    now = instant_parameter(conn, utc_now() if now is None else parse_instant(now))
     p = _p(conn)
     claim = get_claim(conn, claim_id)
     if not claim.is_active:
@@ -237,13 +240,13 @@ def release(
     reason: str,
     *,
     canonical_reason: str = DEFAULT_RELEASE_REASON,
-    now: Optional[str] = None,
+    now: datetime | str | None = None,
     released_by_session_id: Optional[str] = None,
     released_by_actor_id: Optional[int] = None,
     commit: bool = True,
 ) -> CoordinationClaim:
     """Release a held claim. Idempotent — re-releasing returns unchanged."""
-    now = now or iso8601_now()
+    now = instant_parameter(conn, utc_now() if now is None else parse_instant(now))
     p = _p(conn)
     claim = get_claim(conn, claim_id)
     if not claim.is_active:

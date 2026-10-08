@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 import json
 from typing import Any
 
@@ -268,8 +270,10 @@ def _test_machine_detail(
                 "id": claim.id,
                 "session_id": claim.session_id,
                 "actor_id": claim.actor_id,
-                "acquired_at": claim.claimed_at,
-                "heartbeat_at": claim.last_heartbeat,
+                "acquired_at": format_instant(claim.claimed_at),
+                "heartbeat_at": None
+                if claim.last_heartbeat is None
+                else format_instant(claim.last_heartbeat),
                 "item": claim_item,
             }
             if claim is not None

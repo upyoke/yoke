@@ -25,6 +25,8 @@ exists to prevent.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from typing import Any, Optional, Union
 
 from yoke_contracts.coordination_claim_keys import DEPLOY_KEY_PREFIX
@@ -114,8 +116,8 @@ def require_deploy_lock(
         raise DeployLockHeldElsewhereError(
             f"{operation} refused: the deploy lock {deploy_lock_key(slug)} "
             f"for project {slug!r} is held by session "
-            f"{claim.session_id} since {claim.claimed_at} "
-            f"(heartbeat {claim.last_heartbeat or 'none'}). Wait for that "
+            f"{claim.session_id} since {format_instant(claim.claimed_at)} "
+            f"(heartbeat {format_instant(claim.last_heartbeat) if claim.last_heartbeat is not None else 'none'}). Wait for that "
             "release pair to finish, or coordinate with its driver. "
             "Human-only recovery for a stranded hold: "
             f"`{operator_release_command(slug, deploy_lock_key(slug), claim_id=claim.id, holder_session_id=claim.session_id)}`, "

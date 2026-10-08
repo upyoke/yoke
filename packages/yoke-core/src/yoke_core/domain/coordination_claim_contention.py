@@ -4,29 +4,16 @@ from __future__ import annotations
 from yoke_core.domain.project_identity import render_item_ref
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
+
+from yoke_contracts.timestamps import as_utc, format_instant, parse_instant, utc_now
 from typing import Any
 
 from yoke_contracts.coordination_claim_recovery import operator_release_command
 
 
-def _timestamp(value: object) -> datetime | None:
-    text = str(value or "").strip()
-    if not text:
-        return None
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
-
-
 def _age_seconds(value: object, now: datetime) -> int | None:
-    parsed = _timestamp(value)
+    parsed = None if value is None else parse_instant(value)
     if parsed is None:
         return None
     return max(0, int((now - parsed).total_seconds()))
@@ -102,13 +89,12 @@ def describe_claim_contention(
     """
     from yoke_core.domain.session_reclaim_activity import read_activity_signals
 
-    current = now or datetime.now(timezone.utc)
-    if current.tzinfo is None:
-        current = current.replace(tzinfo=timezone.utc)
-    current = current.astimezone(timezone.utc)
+    current = utc_now() if now is None else as_utc(now)
     item_owned = claim.owner_item_id is not None
     holder = (
-        render_item_ref(conn, claim.owner_item_id) if item_owned else f"session {claim.session_id}"
+        render_item_ref(conn, claim.owner_item_id)
+        if item_owned
+        else f"session {claim.session_id}"
     )
     heartbeat_at = claim.last_heartbeat or claim.claimed_at
     heartbeat_age = _age_seconds(heartbeat_at, current)
@@ -128,8 +114,8 @@ def describe_claim_contention(
         project_id=int(claim.project_id or 0),
         key=claim.key,
         holder_label=holder,
-        acquired_at=str(claim.claimed_at),
-        heartbeat_at=str(heartbeat_at) if heartbeat_at is not None else None,
+        acquired_at=format_instant(claim.claimed_at),
+        heartbeat_at=format_instant(heartbeat_at) if heartbeat_at is not None else None,
         heartbeat_age_seconds=heartbeat_age,
         effective_stale_ttl_minutes=ttl,
         holder_stale=stale,
@@ -153,8 +139,10 @@ def waiting_claim_evidence(
         "id": int(claim.id),
         "key": claim.key,
         "holder_session_id": f"session {claim.session_id}",
-        "acquired_at": str(claim.claimed_at),
-        "heartbeat_at": claim.last_heartbeat,
+        "acquired_at": format_instant(claim.claimed_at),
+        "heartbeat_at": None
+        if claim.last_heartbeat is None
+        else format_instant(claim.last_heartbeat),
     }
 
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from datetime import timedelta
 
 import yoke_core.domain.session_message_delivery as message_delivery
@@ -26,7 +28,7 @@ def _waiting_candidate(conn):
     )
     conn.execute(
         "UPDATE harness_sessions SET ended_at=? WHERE session_id=?",
-        (str(NOW), NATIVE_WAKE_SESSION_ID),
+        (format_instant(NOW), NATIVE_WAKE_SESSION_ID),
     )
     conn.commit()
     send_message(
@@ -55,7 +57,9 @@ def test_prompt_injection_lease_closes_the_waiting_wake_window(monkeypatch) -> N
         hook_event="UserPromptSubmit",
         limit=10,
     )
-    claim = claim_wake_attempt(conn, candidate=candidate, now="2026-08-22T16:00:03Z")
+    claim = claim_wake_attempt(
+        conn, candidate=candidate, now="2026-08-22T16:00:03.000000Z"
+    )
 
     assert hook is not None
     assert claim is None
@@ -94,7 +98,9 @@ def test_posture_timestamp_change_invalidates_a_selected_candidate() -> None:
     )
     conn.commit()
 
-    claim = claim_wake_attempt(conn, candidate=candidate, now="2026-08-22T16:00:03Z")
+    claim = claim_wake_attempt(
+        conn, candidate=candidate, now="2026-08-22T16:00:03.000000Z"
+    )
 
     assert claim is None
     assert (
