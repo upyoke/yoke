@@ -19,6 +19,17 @@ def test_real_pipeline_splits():
     assert split_pipeline("a | b") == ["a", "b"]
 
 
+def test_invocation_background_split_preserves_data_and_descriptor_redirects():
+    command = "rg '&' file & pytest tests/ >out 2>&1"
+    assert split_pipeline(command, split_background=True) == [
+        "rg '&' file",
+        "pytest tests/ >out 2>&1",
+    ]
+    assert split_pipeline("pytest tests/ &>out", split_background=True) == [
+        "pytest tests/ &>out",
+    ]
+
+
 def test_real_chain_splits_on_semicolon():
     assert split_pipeline("a ; b ; c") == ["a", "b", "c"]
 
