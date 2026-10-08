@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import io
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,20 @@ import pytest
 from yoke_core.tools import _source_pythonpath, run_tests
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
+
+
+@pytest.fixture(autouse=True)
+def isolated_pytest_launch(monkeypatch):
+    """These runner lifecycle fixtures launch stubs, not locked checkouts.
+
+    Interpreter selection has its own real-environment regressions. Keep this
+    boundary explicit so a missing stub lock cannot mask DB or signal behavior.
+    """
+    monkeypatch.setattr(
+        run_tests,
+        "pytest_argv",
+        lambda args, *, cwd: [sys.executable, "-m", "pytest", *args],
+    )
 
 
 class _LaunchedPytest:
@@ -48,7 +63,7 @@ def _yoke_shaped_checkout(tmp_path: Path, monkeypatch) -> Path:
     monkeypatch.setattr(
         run_tests._source_pythonpath,
         "verified_source_environment",
-        lambda _root, env: (dict(env), None),
+        lambda root, env: (_source_pythonpath.with_source_pythonpath(root, env), None),
     )
     return root
 
@@ -109,7 +124,10 @@ class TestCanonicalYokeDbSetup:
         monkeypatch.setattr(
             run_tests._source_pythonpath,
             "verified_source_environment",
-            lambda _root, env: (dict(env), None),
+            lambda root, env: (
+                _source_pythonpath.with_source_pythonpath(root, env),
+                None,
+            ),
         )
         monkeypatch.setattr(
             run_tests.process_group_reaping,
@@ -123,7 +141,7 @@ class TestCanonicalYokeDbSetup:
             str((root / rel).resolve()) for rel in _source_pythonpath.PACKAGE_SRC_RELS
         ]
         assert str(root.resolve()) in env_entries
-        assert "/already/there" in env_entries
+        assert "/already/there" not in env_entries
 
     def test_run_tests_refuses_wrong_checkout_import_origin(
         self, tmp_path: Path, monkeypatch, capsys
