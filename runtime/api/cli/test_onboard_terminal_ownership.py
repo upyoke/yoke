@@ -82,6 +82,6 @@ def test_intentional_noninteractive_setup_bypasses_terminal_checks(
             "noninteractive setup attempted terminal ownership validation"
         ),
     )
-    assert onboard.run([mode, "--config", str(tmp_path / "config.json")]) == 2
+    assert onboard.onboard([mode, "--config", str(tmp_path / "config.json")]) == 2
     assert "setup_terminal_" not in capsys.readouterr().err
     assert not (tmp_path / "config.json").exists()
