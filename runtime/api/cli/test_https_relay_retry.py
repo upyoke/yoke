@@ -199,7 +199,7 @@ def test_typed_resource_unavailability_exhausts_the_bounded_budget(
     assert response.error.code == "permission_check_unavailable"
 
 
-def test_the_refusal_stops_blaming_the_operators_configuration(
+def test_unknown_reachability_preserves_uncertainty_and_replay_advice(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
@@ -217,7 +217,8 @@ def test_the_refusal_stops_blaming_the_operators_configuration(
     hint = response.error.recovery_hint or ""
     assert "yoke status" not in hint
     assert "config.json" not in hint
-    assert "not implicated" in hint
+    assert "cause is unknown" in hint
+    assert "not implicated" not in hint
     assert "may or may not have been applied" in hint
 
 
