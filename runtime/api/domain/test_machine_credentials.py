@@ -9,6 +9,7 @@ from runtime.api.domain.machine_registry_test_support import (
     NOW,
     registry_connection,
 )
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import api_tokens, machine_credentials, machine_registry
 
 
@@ -73,7 +74,7 @@ def test_retirement_revokes_only_bound_credentials_and_refuses_same_identity():
         conn, machine_id=MACHINE_ID, actor_id=1, now=NOW
     )
 
-    assert retired.retired_at == NOW
+    assert retired.retired_at == parse_instant(NOW)
     with pytest.raises(api_tokens.TokenMachineRetired):
         api_tokens.verify_token(conn, credential.token)
     audit = conn.execute(

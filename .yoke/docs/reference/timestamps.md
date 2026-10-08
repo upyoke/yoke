@@ -90,6 +90,10 @@ Browser-session and one-time sign-in link deadlines retain microseconds and
 expire exactly at the deadline. Session cookie expiry responses use fixed-six UTC.
 Token hashes, opaque diagnostic strings and cookie lifetime seconds retain their
 existing contracts.
+Machine registration, relay-seen stamps, credential rotation and retirement retain
+native instants; public machine and credential records format canonical UTC.
+Device authorization codes use one aware clock for expiry and pruning and expire
+at their exact deadline. Their protocol lifetime and polling interval stay seconds.
 Installed frontend events, signed attribution cookies and one-time handoffs
 use the same contract. Old numeric expiry payloads are refused and reminted.
 The collector validates and normalizes qualified event times before storage.
