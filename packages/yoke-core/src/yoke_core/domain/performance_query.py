@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
+
+from yoke_contracts.timestamps import as_utc, utc_now
 
 from yoke_core.domain.actor_permissions import PERM_EVENTS_READ, PermissionDenied
 from yoke_core.domain.actor_project_visibility import (
@@ -80,8 +82,8 @@ def read_observations(
         f"AND e.event_name IN ({names}) ORDER BY e.created_at, e.id LIMIT %s",
         (
             *params,
-            start.isoformat().replace("+00:00", "Z"),
-            end.isoformat().replace("+00:00", "Z"),
+            as_utc(start),
+            as_utc(end),
             *TIMING_EVENTS,
             MAX_OBSERVATIONS + 1,
         ),
@@ -91,7 +93,7 @@ def read_observations(
             f"performance_observation_budget: range exceeds {MAX_OBSERVATIONS} observations; "
             "shorten the time range. No partial aggregate was returned."
         )
-    return unique_observations([dict(row) for row in rows], datetime.now(timezone.utc))
+    return unique_observations([dict(row) for row in rows], utc_now())
 
 
 def details(

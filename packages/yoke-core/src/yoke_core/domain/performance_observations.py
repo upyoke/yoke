@@ -7,6 +7,8 @@ import re
 from datetime import datetime
 from typing import Any
 
+from yoke_contracts.timestamps import format_instant
+
 from yoke_core.domain.hook_overhead import _duration, _timestamp
 from yoke_core.domain.hook_overhead_tool import _classify_call
 from yoke_core.domain.observe_timing import delivery_is_pending
@@ -90,7 +92,7 @@ def observation(row: dict[str, Any], now: datetime) -> dict[str, Any] | None:
         breakdown["handler_ms"] = duration
     return {
         "event_id": str(row["event_id"]),
-        "observed_at": observed.isoformat(),
+        "observed_at": format_instant(observed),
         "timestamp": observed.timestamp(),
         "family": family,
         "duration_ms": duration,

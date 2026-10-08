@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from yoke_contracts.timestamps import temporal_wire
+
 VALID_SEVERITIES = ("DEBUG", "INFO", "STATUS", "WARN", "ERROR", "FATAL")
 SEVERITY_ORDER: Dict[str, int] = {
     "DEBUG": 0,
@@ -37,11 +39,29 @@ _EVT_SELECT_COLS = (
 # Result names for `_EVT_SELECT_COLS`, in SELECT order. Keep the two
 # tuples in lockstep — the typed events.* read handlers zip them.
 EVT_COLUMN_NAMES = (
-    "id", "event_id", "source_type", "session_id", "severity",
-    "event_kind", "event_type", "event_name", "event_outcome", "org_id",
-    "actor_id", "environment", "service", "project", "item_id",
-    "task_num", "agent", "tool_name", "duration_ms", "exit_code",
-    "trace_id", "anomaly_flags", "created_at",
+    "id",
+    "event_id",
+    "source_type",
+    "session_id",
+    "severity",
+    "event_kind",
+    "event_type",
+    "event_name",
+    "event_outcome",
+    "org_id",
+    "actor_id",
+    "environment",
+    "service",
+    "project",
+    "item_id",
+    "task_num",
+    "agent",
+    "tool_name",
+    "duration_ms",
+    "exit_code",
+    "trace_id",
+    "anomaly_flags",
+    "created_at",
 )
 
 # Registry SELECT columns
@@ -64,5 +84,7 @@ def _format_rows(rows: List[Any]) -> str:
     """
     lines = []
     for row in rows:
-        lines.append("|".join("" if v is None else str(v) for v in tuple(row)))
+        lines.append(
+            "|".join("" if v is None else str(temporal_wire(v)) for v in tuple(row))
+        )
     return "\n".join(lines)

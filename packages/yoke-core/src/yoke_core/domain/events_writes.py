@@ -1,20 +1,8 @@
 """Insert and severity config/check helpers for the Yoke event platform.
 
-Owns the row-level insert path (``cmd_insert``) plus the severity-config
-read/write/check surface (``check_severity``, ``cmd_severity_config_set``,
-``cmd_severity_config_list``, ``cmd_severity_check``). Schema DDL and
-table init live in ``events_schema``; per-severity retention pruning
-lives in ``events_prune``. Re-exports below preserve the public surface
-for ``events_crud`` and other historical callers.
-
-Imports of constants/helpers from ``events_crud`` happen lazily inside
-each function. ``events_crud`` does a late re-export from this module
-after defining its own helpers; binding ``events_crud`` symbols at
-module top-level here would re-enter the partially-initialised
-``events_crud`` whenever a caller imports ``events_writes`` directly,
-which raises ``ImportError`` for the late-bound names. Function-local
-imports break that cycle while preserving ``events_crud``'s late
-re-export.
+Schema/init belongs to events_schema and retention to events_prune.
+Import events_crud constants inside functions: that module re-exports this
+module after defining its helpers, so eager imports would create a cycle.
 """
 
 from __future__ import annotations
@@ -23,7 +11,8 @@ from contextlib import contextmanager
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect, iso8601_now, query_rows, query_scalar
+from yoke_contracts.timestamps import parse_instant, utc_now
+from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
 from yoke_core.domain.events_schema import _create_events_table, cmd_init
 from yoke_core.domain.events_prune import cmd_prune
 from yoke_core.domain.events_retired_name_guard import assert_event_name_not_retired
@@ -206,11 +195,10 @@ def cmd_insert(
         normalize_severity,
     )
 
+    instant = utc_now() if created_at is None else parse_instant(created_at)
     raw_item_id = item_id
     if source_type not in VALID_SOURCE_TYPES:
-        raise ValueError(
-            f"source_type must be one of: {', '.join(VALID_SOURCE_TYPES)}"
-        )
+        raise ValueError(f"source_type must be one of: {', '.join(VALID_SOURCE_TYPES)}")
     severity = normalize_severity(severity)
 
     # Write-side severity filter
@@ -266,13 +254,32 @@ def cmd_insert(
             )
             ON CONFLICT(event_id) DO NOTHING""",
             (
-                event_id, source_type, session_id, severity,
-                event_kind, event_type, event_name, event_outcome,
-                org_id, actor_id, environment, service, project_id,
-                item_id, task_num, agent, tool_name,
-                duration_ms, exit_code, trace_id,
-                anomaly_flags, tool_use_id, turn_id,
-                hook_event_name, envelope, created_at or iso8601_now(),
+                event_id,
+                source_type,
+                session_id,
+                severity,
+                event_kind,
+                event_type,
+                event_name,
+                event_outcome,
+                org_id,
+                actor_id,
+                environment,
+                service,
+                project_id,
+                item_id,
+                task_num,
+                agent,
+                tool_name,
+                duration_ms,
+                exit_code,
+                trace_id,
+                anomaly_flags,
+                tool_use_id,
+                turn_id,
+                hook_event_name,
+                envelope,
+                instant,
             ),
         )
         conn.commit()
@@ -291,9 +298,7 @@ def cmd_severity_config_set(
     from yoke_core.domain.events_crud import VALID_SEVERITIES
 
     if min_severity not in VALID_SEVERITIES:
-        raise ValueError(
-            f"min_severity must be one of: {', '.join(VALID_SEVERITIES)}"
-        )
+        raise ValueError(f"min_severity must be one of: {', '.join(VALID_SEVERITIES)}")
     conn = connect(db_path)
     try:
         conn.execute(
@@ -301,7 +306,7 @@ def cmd_severity_config_set(
             "VALUES (%s, %s, %s, %s) "
             "ON CONFLICT(event_name, source_type) "
             "DO UPDATE SET min_severity=%s",
-            (event_name, source_type, min_severity, iso8601_now(), min_severity),
+            (event_name, source_type, min_severity, utc_now(), min_severity),
         )
         conn.commit()
         return (

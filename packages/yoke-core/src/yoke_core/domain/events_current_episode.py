@@ -32,6 +32,7 @@ cross-harness decision record under
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Mapping, MutableMapping, Optional, Sequence, Tuple
 
 from .schema_common import _get_columns as _schema_get_columns
@@ -48,8 +49,8 @@ _BOUNDARY_EVENT_NAMES: Tuple[str, ...] = (
 def resolve_current_episode_boundary(
     conn: Any,
     session_id: str,
-) -> Optional[str]:
-    """Return the ISO timestamp of the current episode boundary.
+) -> Optional[datetime]:
+    """Return the native instant of the current episode boundary.
 
     Returns ``None`` when the session has no recorded boundary. Callers
     in the audit path fail closed on ``None`` so the filter never
@@ -64,14 +65,15 @@ def resolve_current_episode_boundary(
     if "episode_started_at" not in columns:
         return None
     row = conn.execute(
-        "SELECT episode_started_at FROM harness_sessions "
-        "WHERE session_id = %s",
+        "SELECT episode_started_at FROM harness_sessions WHERE session_id = %s",
         (session_id,),
     ).fetchone()
     if row is None:
         return None
     value = row[0] if not hasattr(row, "keys") else row["episode_started_at"]
-    return str(value) if value else None
+    from yoke_contracts.timestamps import parse_instant
+
+    return parse_instant(value) if value is not None else None
 
 
 def episode_boundary_event_names() -> Sequence[str]:
@@ -121,7 +123,8 @@ def note_elided_prior_episodes(
         conn = connect(db_path)
         try:
             row = conn.execute(
-                f"SELECT COUNT(*) FROM events {prior}", tuple(params),
+                f"SELECT COUNT(*) FROM events {prior}",
+                tuple(params),
             ).fetchone()
         finally:
             conn.close()
@@ -134,8 +137,8 @@ def note_elided_prior_episodes(
 
 def claim_episode_scope(
     *,
-    claim_claimed_at: Optional[str],
-    boundary_created_at: Optional[str],
+    claim_claimed_at: str | datetime | None,
+    boundary_created_at: str | datetime | None,
 ) -> str:
     """Classify an active claim against the current-episode boundary.
 
@@ -144,18 +147,17 @@ def claim_episode_scope(
     of ``"current_episode"`` (claim was acquired at or after the
     boundary), ``"inherited_from_prior_episode"`` (claim predates the
     boundary), or ``"unknown"`` (either timestamp is missing or
-    unparseable).
+    absent).
     """
-    if not claim_claimed_at or not boundary_created_at:
+    if claim_claimed_at is None or boundary_created_at is None:
         return "unknown"
-    try:
-        return (
-            "current_episode"
-            if str(claim_claimed_at) >= str(boundary_created_at)
-            else "inherited_from_prior_episode"
-        )
-    except TypeError:
-        return "unknown"
+    from yoke_contracts.timestamps import parse_instant
+
+    return (
+        "current_episode"
+        if parse_instant(claim_claimed_at) >= parse_instant(boundary_created_at)
+        else "inherited_from_prior_episode"
+    )
 
 
 __all__ = [

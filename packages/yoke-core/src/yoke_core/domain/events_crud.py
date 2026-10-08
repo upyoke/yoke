@@ -21,8 +21,9 @@ from __future__ import annotations
 
 import re
 import sys
-from datetime import datetime, timezone
 from typing import Optional, Tuple
+
+from yoke_contracts.timestamps import iso8601_now
 
 if __name__ == "__main__":
     sys.modules.setdefault("yoke_core.domain.events_crud", sys.modules[__name__])
@@ -58,7 +59,7 @@ from yoke_core.domain.events_prune import (  # noqa: E402,F401
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return iso8601_now()
 
 
 def normalize_event_item_id(item_id: Optional[str]) -> Optional[str]:

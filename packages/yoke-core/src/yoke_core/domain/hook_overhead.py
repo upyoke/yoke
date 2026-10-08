@@ -46,16 +46,11 @@ def _value(row: Any, key: str, index: int) -> Any:
 
 
 def _timestamp(value: Any) -> datetime | None:
-    text = str(value or "").strip()
-    if not text:
+    if value is None:
         return None
-    try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+    from yoke_contracts.timestamps import parse_instant
+
+    return parse_instant(value)
 
 
 def _percentile(values: list[int], fraction: float) -> int | None:

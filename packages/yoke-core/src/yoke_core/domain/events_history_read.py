@@ -15,6 +15,7 @@ carrying ``history`` selects this shape.
 from __future__ import annotations
 
 import base64
+from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -24,6 +25,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.timestamps import format_instant, parse_instant, temporal_wire
 from yoke_core.domain.function_response_refs import collect_item_ids
 from yoke_core.domain.handlers.event_presentation import event_envelope, present_event
 from yoke_core.domain.json_helper import dumps_compact, loads_text
@@ -125,12 +127,12 @@ def presentation_facts(
     return item_facts, actor_names
 
 
-def encode_cursor(created_at: str, event_id: int) -> str:
-    raw = dumps_compact({"created_at": created_at, "id": int(event_id)})
+def encode_cursor(created_at: str | datetime, event_id: int) -> str:
+    raw = dumps_compact({"created_at": format_instant(created_at), "id": int(event_id)})
     return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
 
 
-def decode_cursor(value: Optional[str]) -> Optional[Tuple[str, int]]:
+def decode_cursor(value: Optional[str]) -> Optional[Tuple[datetime, int]]:
     """Return the decoded keyset position, or raise a named refusal."""
     if value is None or value == "":
         return None
@@ -142,12 +144,13 @@ def decode_cursor(value: Optional[str]) -> Optional[Tuple[str, int]]:
             raise ValueError
         created_at = payload["created_at"]  # type: ignore[index]
         event_id = payload["id"]  # type: ignore[index]
-        if not isinstance(created_at, str) or not created_at:
+        if not isinstance(created_at, str) or created_at != format_instant(created_at):
             raise ValueError
-        return created_at, int(event_id)
+        return parse_instant(created_at), int(event_id)
     except (KeyError, TypeError, UnicodeError, ValueError):
         raise ValueError(
-            "history.cursor is invalid; clear it and reload the first page"
+            "history.cursor is invalid or predates the canonical instant contract; "
+            "clear it and reload the first page"
         ) from None
 
 
@@ -224,7 +227,7 @@ def read_event_history(
     ).fetchall()
     rows = [
         {
-            name: ("" if value is None else str(value))
+            name: ("" if value is None else str(temporal_wire(value)))
             for name, value in dict(raw).items()
         }
         for raw in raw_rows

@@ -1,29 +1,13 @@
-"""Relative-time parser for ``events list --since`` / ``--until``.
-
-Without parsing, ``2 hours ago`` sorts lexicographically before every
-ISO timestamp (``2026-...``) and the SQL ``created_at >= %s`` predicate
-matches every row. This helper canonicalizes ISO-8601 (passthrough) or
-``N units ago`` (resolved against ``now``) to an ISO UTC string. The
-``now`` keyword is injected by tests; production callers omit it.
-"""
+"""Qualified instant and elapsed relative bounds for indexed event reads."""
 
 from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
+from yoke_contracts.timestamps import as_utc, parse_instant
 
-_UNIT_SECONDS: dict[str, int] = {
-    "second": 1,
-    "minute": 60,
-    "hour": 3600,
-    "day": 86_400,
-    "week": 604_800,
-}
-
-
-# ``N (units) ago`` — units may be singular or plural and case-insensitive.
+_UNIT_SECONDS = {"second": 1, "minute": 60, "hour": 3600, "day": 86400, "week": 604800}
 _RELATIVE_RE = re.compile(
     r"^\s*(?P<amount>\d+)\s*"
     r"(?P<unit>second|minute|hour|day|week)s?\s+ago\s*$",
@@ -31,47 +15,29 @@ _RELATIVE_RE = re.compile(
 )
 
 
-# An ISO-8601 prefix is anything that begins with four digits (a year).
-# The helper does NOT validate full ISO syntax — SQLite's date functions
-# do the heavy lifting downstream — but the leading-year shape is
-# enough to disambiguate ISO from the ``N units ago`` form.
-_ISO_PREFIX_RE = re.compile(r"^\d{4}")
+def parse_since(value: str, *, now: datetime | None = None) -> datetime:
+    """Bind aware UTC bounds; days/weeks are elapsed 24-hour/seven-day windows.
 
-
-def parse_since(value: str, *, now: Optional[datetime] = None) -> str:
-    """Resolve a ``--since`` / ``--until`` value to an ISO-8601 UTC string.
-
-    Accepts:
-
-    * Any ISO-8601 timestamp (passed through verbatim — the helper does
-      not normalize trailing-Z vs ``+00:00``; the operator's literal
-      input round-trips into the SQL bind).
-    * ``N (second|minute|hour|day|week)[s] ago`` (case-insensitive,
-      singular or plural).
-
-    Raises ``ValueError`` with a clear message on any other input. The
-    fail-closed contract mirrors ``events_queries._build_where`` so
-    unknown flag values do not silently produce unfiltered results.
+    Absolute inputs require a qualified valid instant. An injected clock must
+    also be aware; neither path guesses a timezone or loses microseconds.
     """
     if value is None or value == "":
-        raise ValueError("events: --since value is required")
-    if _ISO_PREFIX_RE.match(value):
-        return value
-    match = _RELATIVE_RE.match(value)
-    if not match:
         raise ValueError(
-            f"events: unparseable --since value {value!r}"
+            "events: --since value is required; supply a qualified instant or elapsed relative range"
         )
-    amount = int(match.group("amount"))
-    unit = match.group("unit").lower()
-    delta = timedelta(seconds=amount * _UNIT_SECONDS[unit])
-    anchor = now if now is not None else datetime.now(timezone.utc)
-    if anchor.tzinfo is None:
-        anchor = anchor.replace(tzinfo=timezone.utc)
-    resolved = anchor - delta
-    # ISO-8601 with a trailing Z so the result string sorts correctly
-    # against the canonical Yoke event timestamps written elsewhere.
-    return resolved.strftime("%Y-%m-%dT%H:%M:%SZ")
+    match = _RELATIVE_RE.fullmatch(value)
+    if match:
+        anchor = as_utc(now if now is not None else datetime.now(timezone.utc))
+        delta = timedelta(
+            seconds=int(match.group("amount"))
+            * _UNIT_SECONDS[match.group("unit").lower()]
+        )
+        return anchor - delta
+    if not value[:1].isdigit():
+        raise ValueError(
+            f"events: unparseable --since value {value!r}; supply a qualified instant or N units ago"
+        )
+    return parse_instant(value)
 
 
 __all__ = ["parse_since"]
