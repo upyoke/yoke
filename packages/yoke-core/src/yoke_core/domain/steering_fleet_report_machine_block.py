@@ -22,10 +22,7 @@ from yoke_core.domain.steering_fleet_report_capacity import (
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 from yoke_core.domain.steering_fleet_report_native_models import native_model_lines
 from yoke_core.domain.steering_fleet_report_relay_health import relay_health_lines
-from yoke_core.domain.steering_fleet_report_render import (
-    LAUNCH_BALANCE_NOTE,
-    launchable_line,
-)
+from yoke_core.domain.steering_fleet_report_render import launchable_line
 
 
 def _distinct_machine_ids(reports: Sequence[FleetReport]) -> list[str]:
@@ -86,7 +83,7 @@ def _machine_plan_limits(
 
 
 def machine_shared_lines(reports: Sequence[FleetReport], *, now: str) -> list[str]:
-    """One block per machine_id: launchable pairs, capacity, note, plan limits."""
+    """One block per machine_id: launchable pairs, capacity, plan limits."""
     machine_ids = _distinct_machine_ids(reports)
     if not machine_ids:
         return [launchable_line(())]
@@ -105,8 +102,6 @@ def machine_shared_lines(reports: Sequence[FleetReport], *, now: str) -> list[st
         capacity = _machine_capacity(reports, machine_id)
         if capacity is not None:
             lines.append(f"  {capacity_line(capacity)}")
-        if ready:
-            lines.append(f"  {LAUNCH_BALANCE_NOTE}")
         conditions_by_relay = {
             entry.relay_id: entry
             for report in reports

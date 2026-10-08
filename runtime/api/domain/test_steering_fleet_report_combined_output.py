@@ -20,9 +20,14 @@ from yoke_core.domain.steering_fleet_report_compose import (
 from yoke_core.domain.steering_fleet_report_hook_digest import combined_hook_digest
 from yoke_core.domain.steering_fleet_report_inbox import UnackedInjectedMessage
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
-from yoke_core.domain.steering_fleet_report_render import (
-    LAUNCH_BALANCE_NOTE,
-    REPORT_PREAMBLE,
+from yoke_core.domain.session_launch_level_placement import LevelPlacement
+from yoke_core.domain.steering_fleet_report_levels import LEVELS_HEADING, LevelReadout
+from yoke_core.domain.steering_fleet_report_render import REPORT_PREAMBLE
+
+_READOUT = LevelReadout(
+    source="universe",
+    live_workers=(("codex-cli", 2),),
+    levels=(("🦉", LevelPlacement("SENIOR", "universe", (), None, None, "none")),),
 )
 
 
@@ -85,7 +90,7 @@ def test_two_scopes_on_one_machine_share_one_machine_block() -> None:
         _combined(ScopedFleetReport("alpha", left), ScopedFleetReport("beta", right))
     )
     assert body.count("launchable machine/surface pairs:") == 1
-    assert body.count(LAUNCH_BALANCE_NOTE) == 1
+    assert "allocate by headroom" not in body
     assert body.count(PLAN_LIMIT_HEADING) == 1
     assert REPORT_PREAMBLE not in body
     assert body.index("## alpha") < body.index("## beta")
@@ -93,7 +98,6 @@ def test_two_scopes_on_one_machine_share_one_machine_block() -> None:
     before_beta, after_beta = body.split("## beta", 1)
     assert "codex-cli 2" in before_beta
     assert "origin steering 2" in before_beta
-    assert LAUNCH_BALANCE_NOTE not in before_beta
     assert "codex-cli 5" in after_beta
     assert "origin operator 1" in after_beta
 
@@ -110,9 +114,22 @@ def test_two_machines_render_two_machine_blocks() -> None:
         )
     )
     assert body.count("launchable machine/surface pairs:") == 2
-    assert body.count(LAUNCH_BALANCE_NOTE) == 2
+    assert "allocate by headroom" not in body
     assert body.index("machine-a/codex-cli") < body.index("machine-b/codex-cli")
     assert body.index("## beta") < body.index("machine-a/codex-cli")
+
+
+def test_scopes_sharing_a_level_readout_render_it_once_after_machines() -> None:
+    from dataclasses import replace
+
+    left = replace(_report(1, NOW, launchable=(_ready("machine-a"),)), levels=_READOUT)
+    right = replace(_report(2, NOW, launchable=(_ready("machine-a"),)), levels=_READOUT)
+    body = combined_body(
+        _combined(ScopedFleetReport("alpha", left), ScopedFleetReport("beta", right))
+    )
+    assert body.count(f"{LEVELS_HEADING} (universe)") == 1
+    assert body.index("launchable machine/surface pairs:") < body.index(LEVELS_HEADING)
+    assert "live workers: codex-cli 2" in body
 
 
 def test_combined_fingerprint_is_the_per_scope_hashes_not_the_body() -> None:

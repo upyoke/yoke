@@ -50,36 +50,16 @@ def _authorization(
     request: FunctionCallRequest,
     project_id: int,
 ) -> LaunchAuthorization:
-    from yoke_core.domain.actor_permissions import (
-        PERM_ITEMS_WRITE,
-        PERM_PROJECT_ADMIN,
-        permission_decision,
-    )
     from yoke_core.domain.session_control_request_identity import (
         registered_request_session_id,
     )
+    from yoke_core.domain.session_launch_authorization import launch_authorization
 
-    actor_id = _actor_id(request)
-    operate = permission_decision(
+    return launch_authorization(
         conn,
-        actor_id=actor_id,
+        actor_id=_actor_id(request),
         project_id=project_id,
-        permission_key=PERM_ITEMS_WRITE,
-    ).allowed
-    administer = permission_decision(
-        conn,
-        actor_id=actor_id,
-        project_id=project_id,
-        permission_key=PERM_PROJECT_ADMIN,
-    ).allowed
-    return LaunchAuthorization(
-        actor_id=actor_id,
-        session_id=registered_request_session_id(
-            conn,
-            request.actor.session_id,
-        ),
-        can_operate_project=operate,
-        can_administer_project=administer,
+        session_id=registered_request_session_id(conn, request.actor.session_id),
     )
 
 

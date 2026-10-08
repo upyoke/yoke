@@ -127,6 +127,7 @@ ITEM_POSTURE_VALUES = frozenset(
         "approval_on_done",
         "deployment",
         "file_budget",
+        "level",
         "merge_candidate_review",
         "path_claims",
         "path_survey",

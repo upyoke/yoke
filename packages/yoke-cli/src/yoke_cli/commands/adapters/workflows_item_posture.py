@@ -62,6 +62,13 @@ Which form to use
       yoke workflows item-posture amend PREFIX-N --key deployment \\
         --clear --reason "delivery moved to the batch run"
 
+  An item's level override — shift (levels up, negative for down), min,
+  max, and a required reason; the names are the project's own levels:
+
+      yoke workflows item-posture amend PREFIX-N --key level \\
+        --value '{"max": "SENIOR", "reason": "well-specified change"}' \\
+        --reason "steering staffing default"
+
 What it refuses, and why
   * A key the item's pinned workflow does not allow. The refusal names the
     allowlist that definition actually carries.

@@ -50,9 +50,7 @@ TASK_WORKFLOW_DEFINITION = definition_fixture(
         ),
     ),
     entry_surfaces=("harness_skill", "cli", "web_form", "promotion"),
-    skill_bindings=(
-        skill_binding("dash", "idea", "done"),
-    ),
+    skill_bindings=(skill_binding("dash", "idea", "done"),),
     policies={
         "ownership": "exclusive_session_work_claim",
         "file_budget": WORKFLOW_FILE_BUDGET_OPTIONAL,
@@ -63,7 +61,7 @@ TASK_WORKFLOW_DEFINITION = definition_fixture(
         "qa": WORKFLOW_QA_OPTIONAL,
         "approvals": "none",
         "delivery": WORKFLOW_DELIVERY_MERGE_FREE,
-        "item_posture_allowlist": [],
+        "item_posture_allowlist": ["level"],
     },
     approval_defaults={},
 )

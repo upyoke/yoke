@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from yoke_core.domain.item_level_override import (
+    LEVEL_POSTURE_KEY,
+    LevelOverrideError,
+    validate_level_override,
+)
 from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_FILE_BUDGET_OPTIONAL,
     WORKFLOW_PATH_SURVEY_OPTIONAL,
@@ -74,13 +79,22 @@ def validate_item_posture(
     for key, value in requested.items():
         if key == "verification":
             normalized[key] = _verification(
-                conn, project_id=project_id, raw=value,
+                conn,
+                project_id=project_id,
+                raw=value,
             )
+            continue
+        if key == LEVEL_POSTURE_KEY:
+            try:
+                normalized[key] = validate_level_override(
+                    conn, project_id=project_id, raw=value
+                )
+            except LevelOverrideError as exc:
+                raise ItemPostureError(str(exc)) from exc
             continue
         if (
             key == "file_budget"
-            and definition["policies"]["file_budget"]
-            != WORKFLOW_FILE_BUDGET_OPTIONAL
+            and definition["policies"]["file_budget"] != WORKFLOW_FILE_BUDGET_OPTIONAL
         ):
             raise ItemPostureError(
                 "file_budget posture only tightens an optional workflow policy"
