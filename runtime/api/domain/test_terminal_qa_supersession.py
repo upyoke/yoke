@@ -198,12 +198,20 @@ def test_post_deploy_successor_requires_accepted_completion_member(test_db, acce
     item_id, run_id, successor = _source_member(
         test_db, workflow="dash", plan_source=False
     )
+    scope = dict(
+        test_db.execute(
+            "SELECT workflow_transition_id,execution_target_digest,target_env,host_baseline "
+            "FROM qa_requirements WHERE id=%s",
+            (successor,),
+        ).fetchone()
+    )
     old_requirement = int(
         insert_qa_requirement(
             test_db,
             item_id=item_id,
             qa_phase="post_deploy",
             superseded_by_requirement_id=successor,
+            **scope,
         )["id"]
     )
     insert_qa_run(
