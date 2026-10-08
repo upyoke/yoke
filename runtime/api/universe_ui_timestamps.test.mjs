@@ -1,9 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import * as standalone from "../../packages/yoke-contracts/src/yoke_contracts/timestamps.mjs";
+import { instantWireSql as standaloneSql } from "../../packages/yoke-contracts/src/yoke_contracts/time_sql.mjs";
 import { instantWireSql } from "../../packages/yoke-core/src/yoke_core/ui/static/time-sql.js";
 import {
   formatInstant, formatDatabaseInstant, instantMicros, instantFromDate,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/timestamps.js";
+
+test("standalone resources need no UI aliases or dependencies", () => {
+  assert.equal(standalone.formatInstant("2026-10-08T12:30:00.123456-04:00"),
+    "2026-10-08T16:30:00.123456Z");
+  assert.equal(standalone.instantMicros("1969-12-31T23:59:59.999999Z"), -1n);
+  assert.throws(() => standalone.formatInstant("2026-02-29T00:00:00Z"), /invalid_instant/);
+  assert.equal(standaloneSql("owned.created_at"), instantWireSql("owned.created_at"));
+});
 
 test("qualified offsets preserve identical microsecond bytes", () => {
   for (const input of [

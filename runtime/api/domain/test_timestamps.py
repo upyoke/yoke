@@ -3,6 +3,8 @@
 from datetime import datetime, timedelta, timezone
 import json
 import random
+from importlib.resources import files
+from pathlib import Path
 
 import pytest
 
@@ -15,6 +17,18 @@ from yoke_contracts.timestamps import (
     temporal_wire,
     utc_now,
 )
+
+
+@pytest.mark.parametrize(
+    "resource,emitted",
+    [("timestamps.mjs", "timestamps.js"), ("time_sql.mjs", "time-sql.js")],
+)
+def test_standalone_node_resources_are_the_same_compiled_contract(resource, emitted):
+    root = Path(__file__).resolve().parents[3]
+    runtime = root / "packages/yoke-core/src/yoke_core/ui/static" / emitted
+    assert (
+        files("yoke_contracts").joinpath(resource).read_bytes() == runtime.read_bytes()
+    )
 
 
 def test_generated_wire_roundtrips_preserve_instants_and_microseconds():

@@ -41,6 +41,16 @@ PostgreSQL's qualified text output. Both retain all six fractional digits.
 truthfully pads a browser Date's millisecond precision with three zeros.
 Neither database strings nor cursor keys travel through a fractional Date parse.
 
+Standalone Node consumers use `yoke_contracts/timestamps.mjs` from the
+`yoke-contracts` wheel. It contains the same emitted bytes as the browser helper,
+with no UI aliases or dependencies. Python packaging consumers read it with
+`importlib.resources.files("yoke_contracts").joinpath("timestamps.mjs")` and may
+copy those exact bytes into a Lambda StringAsset. The wheel also includes
+`time_sql.mjs`, identical to the emitted SQL projector. Consumers that cannot
+install Python packages may vendor the exact `yoke_contracts/timestamps.py`
+resource from that same wheel; retain its artifact identity instead of creating
+a separate parser or formatter.
+
 SQL JSON producers share `yoke_contracts.time_sql.instant_wire_sql(expression)`.
 It projects native timestamptz to the same fixed-six UTC wire form, preserving
 SQL NULL and the exact transaction clock. Native predicates keep their indexes;
@@ -57,6 +67,8 @@ directory, then commit its runtime and declaration output together:
 ```text
 node node_modules/typescript/bin/tsc --project contracts/tsconfig.json
 node node_modules/typescript/bin/tsc contracts/timestamps.ts contracts/time-sql.ts --strict --target ES2022 --module ESNext --outDir static
+cp static/timestamps.js ../../../../yoke-contracts/src/yoke_contracts/timestamps.mjs
+cp static/time-sql.js ../../../../yoke-contracts/src/yoke_contracts/time_sql.mjs
 ```
 
 Calendar days retain an explicit bucket timezone. Durations retain their units;
