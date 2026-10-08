@@ -90,8 +90,6 @@ def run(argv: List[str]) -> int:
     workflow_id = str((item.get("workflow") or {}).get("id") or "")
     status = str(item.get("status") or "")
     evidence_workflow = terminal_transition_is_evidence_gated(workflow_id)
-    # Evidence describes the landing, so record supplied summaries even when
-    # the terminal transition waits. Evidence-gated close-out requires both.
     close_out_gated = evidence_workflow and not args.skip_status
     record_evidence = evidence_workflow and bool(args.result and args.verification)
 
@@ -175,6 +173,7 @@ def run(argv: List[str]) -> int:
             item_id=item_id,
             session_id=str(args.session_id),
             lane=landed_lane,
+            item=item,
         )
         if recovery_error or recovered is None:
             return fail(f"{public_ref}: {recovery_error or 'claim recovery failed'}")
