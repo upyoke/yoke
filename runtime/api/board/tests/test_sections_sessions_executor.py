@@ -175,7 +175,7 @@ class TestExecutorDisplayRendering:
                 session_id="yokedir",
                 executor="claude-code",
                 executor_surface="claude-desktop",
-                execution_level="ALTMAN",
+                execution_level="SENIOR",
                 workspace="/tmp/yoke",
                 project_id=1,
                 ended_at="2026-05-19T20:30:00Z",
@@ -184,7 +184,7 @@ class TestExecutorDisplayRendering:
         assert "Recent Harness Sessions" in section
         assert "Project" in section
         assert "Level" in section
-        assert "👓 ALTMAN" in section
+        assert "\U0001f989 SENIOR" in section
         assert "🐂 yoke" in section
 
     def test_claim_scope_can_include_an_active_session_from_another_checkout(
