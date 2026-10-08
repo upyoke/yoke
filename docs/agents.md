@@ -184,13 +184,15 @@ without hardcoded assumptions about a project's test runner or layout.
 **Hooks:** The normal Bash-capable observe, policy, and SubagentStop hooks.
 
 Walks one exploratory mission whose sequence is chosen at run time. The main
-agent retains ownership of the item, Progress Log, operator channel, report,
+agent retains ownership of the item, Progress Log, human-request route, report,
 and final verdict; the walker returns ranked findings and unverified areas.
 Each case chooses either an informed subagent or a target-naive agent session.
 
 A walker turn is atomic. At a permission dialog, interactive sign-in, or
 approval, it returns `WALK_STATUS: HUMAN_GATE` with the exact needed action and
-resume state. The main agent asks the operator and dispatches a fresh walker.
+resume state, and does not send Fleet mail. The main agent records the handoff,
+asks a live covering steering seat or else the item's human owner, and
+dispatches a fresh walker. Acknowledgement is not sign-in proof.
 Routine screen perception is discarded; only deliberate proof of a finding is
 attached, within the runtime-supplied artifact limit. On macOS, commands
 requiring the window server or login keychain use the Terminal GUI-session

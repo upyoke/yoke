@@ -133,8 +133,12 @@ An `awaiting_agent_review` result is dispatch authority, not evidence of human
 review. A `subagent` dispatch uses its returned type, prompt, and immutable
 bundle. A `main_agent_mission` stays with the main agent, which sends each typed
 walker dispatch to an informed subagent or target-machine session, handles
-`HUMAN_GATE` through the Progress Log and operator channel, aggregates the
-report, and executes the exact `submit_command`. Submit `undetermined` only
+`HUMAN_GATE` by recording the action and resume state on the Progress Log and
+sending it to a live covering steering seat (`yoke say --steering`) or, when
+the receipt is `awaiting_seat` or no seat covers the item, to the human
+`items.owner` (`yoke say --actor`). The walker never sends Fleet mail.
+`--item` returns the answer to the current holder. Aggregate the
+report, and execute the exact `submit_command`. Submit `undetermined` only
 with attached evidence; it halts until the owner resolves the Inbox request.
 An unexecuted case records failed/`blocked_on_precondition` and does not ask a
 human to review missing evidence.
