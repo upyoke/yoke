@@ -217,8 +217,13 @@ learns the other's part from its own skill. The split is the whole rule:
   fail closed rather than trusting the pre-start answer. Creation does not ask the member
   question, because it mints itemless runs for `add-item`.
 - **The member owner owns its own item.** Its merge parked it at the flow's
-  release wait holding its work claim; the deployment wake re-enters it for its
-  QA stage and when its own item-scoped QA clears. A final member on a
+  release wait holding its work claim, and the close-out block names what the
+  item owes delivery and whether the owner's surface can be woken. On a
+  natively wakeable surface the deployment wake re-enters it for its QA stage
+  and when its own item-scoped QA clears; a surface whose wake authority is
+  operator (a desktop app) is never resumed by Yoke, so its operator or a
+  steering seat re-enters it. An item owing nothing closes on delivery with
+  no re-entry. A final member on a
   selected flow without run QA or run approval closes after its own final production QA is
   accepted or discharged by `post_deploy_no_obligation` or a waiver-backed
   item declaration, provided no run-bound blocking obligation remains, even
