@@ -1,12 +1,4 @@
-"""What the caller is told when the relay could not answer, and what counts.
-
-The old hint sent operators to check their env and credential. That advice
-was wrong for the failure that actually fires: the credential was valid and
-the env was right, the relay was simply unreachable for a moment. Saying so
-— and saying how many attempts went into that conclusion — is the difference
-between an operator who retries and an operator who starts editing config
-that was never broken.
-"""
+"""Shared evidence-based diagnosis and recovery for HTTPS failures."""
 
 from __future__ import annotations
 
@@ -16,6 +8,7 @@ from typing import Optional
 
 from yoke_cli.api_urls import FUNCTIONS_CALL_PATH, HEALTH_PATH, join_api_url
 from yoke_cli.transport import relay_telemetry
+from yoke_cli.transport.json_error_safety import safe_diagnostic_text
 from yoke_cli.transport.https_engine_handshake import (
     ServerHandshake,
     observe_server_version,
@@ -29,6 +22,7 @@ from yoke_cli.transport.https_response_policy import (
     safe_excerpt,
 )
 from yoke_cli.transport.https_retry_policy import (
+    certificate_validation_error,
     connection_refusal_is_conclusive,
     is_sandbox_denial,
 )
@@ -46,7 +40,8 @@ TRANSPORT_FAILED_CODE = relay_telemetry.TRANSPORT_FAILED_CODE
 UNREACHABLE_DETAIL = "could not reach the HTTPS function relay endpoint"
 
 _UNREACHABLE_HINT = (
-    "The relay did not answer; the env and credential are not implicated. "
+    "The relay did not answer; the cause is unknown. Check endpoint reachability "
+    "and DNS. For a transient failure, "
     "Retrying is the repair — a call that changes state may or may not have "
     "been applied already, and re-running it is safe because the same "
     "request_id replays a completed call instead of repeating it."
@@ -66,39 +61,47 @@ _CONCLUSIVE_HINT = (
 )
 
 
-# The OS refused the connect on policy. Retrying asks the same policy the
-# same question, and the env and credential really are not implicated — but
-# neither is the network, so the unreachable hint would send an operator
-# looking in the wrong place entirely.
 _SANDBOX_HINT = (
-    "The connection was denied by this machine's sandbox policy, not by the "
-    "network, so retrying will not help and the env and credential are not "
-    "implicated."
-)
-# A sandbox denies name resolution as well as connection, and a denied
-# lookup is indistinguishable from a host that is genuinely unreachable —
-# so this cannot be asserted, only raised as the first thing to check. It
-# appears solely under a harness that sandboxes commands, where "retrying is
-# the repair" is the one piece of advice that can never work.
-_SANDBOX_POSSIBLE_HINT = (
-    "The relay did not answer. This session runs under a harness that "
-    "sandboxes commands, and a sandbox denies name resolution exactly as it "
-    "denies connections, which looks identical to an unreachable relay — "
-    "check that first, because no number of retries changes it."
-)
-_REPLAY_SAFE = (
-    "If the sandbox already grants that reach, the relay was simply "
-    "unreachable and re-running is safe: the same request_id replays a "
-    "completed call instead of repeating it."
+    "The operating system denied permission to connect, so retrying will not help. "
+    "Check this machine's network access policy; if the harness sandbox denied "
+    "access, use its supported permission settings."
 )
 
 
-def _unreachable_hint() -> str:
-    """The unreachable hint, naming the sandbox where one is in play."""
-    recovery = sandbox_recovery()
-    if not recovery:
-        return _UNREACHABLE_HINT
-    return f"{_SANDBOX_POSSIBLE_HINT} {recovery} {_REPLAY_SAFE}"
+def certificate_diagnostic(
+    error: BaseException | None,
+    *,
+    sensitive_values: tuple[str, ...] = (),
+) -> tuple[str, str] | None:
+    """Report only the certificate facts the TLS verifier actually supplied."""
+    certificate = certificate_validation_error(error)
+    if certificate is None:
+        return None
+    reason = getattr(certificate, "verify_message", None) or str(certificate)
+    detail = safe_diagnostic_text(
+        f"certificate_validation_failed: {reason}", sensitive_values=sensitive_values
+    )
+    code = getattr(certificate, "verify_code", None)
+    if code == 10:
+        repair = "Renew the expired serving certificate and check the client clock."
+    elif code in (62, 64):
+        repair = "Correct the endpoint hostname or serve a certificate covering it."
+    elif code in (18, 19, 20, 21):
+        repair = (
+            "Repair the server certificate chain or configure the client's trusted "
+            "CA store with the intended certificate authority."
+        )
+    elif code == 9:
+        repair = "Check the client clock and the certificate's validity start time."
+    else:
+        repair = (
+            "Ask the endpoint operator to inspect the certificate and chain; "
+            "check the client clock, hostname and trusted CA store."
+        )
+    return (
+        detail,
+        f"{repair} Retrying unchanged will not help. Keep TLS verification enabled.",
+    )
 
 
 def http_error_response(
@@ -122,17 +125,20 @@ def http_error_response(
             False,
             str(read_error),
         )
-    except (OSError, http.client.HTTPException):
+    except (OSError, http.client.HTTPException) as exc:
         return (
             transport_error_response(
                 request,
                 api_url,
                 UNREACHABLE_DETAIL,
                 attempts=1,
+                error=exc,
                 sensitive_values=sensitive_values,
             ),
             False,
-            None,
+            "conclusive_connection_failure"
+            if connection_refusal_is_conclusive(api_url, exc)
+            else None,
         )
     try:
         return parse_typed_response(raw, sensitive_values=sensitive_values), True, None
@@ -171,16 +177,25 @@ def transport_error_response(
     different ways.
     """
     health_url = join_api_url(api_url, HEALTH_PATH)
+    certificate = certificate_diagnostic(error, sensitive_values=sensitive_values)
+    if certificate is not None:
+        detail = certificate[0]
     message = detail
     if attempts is not None and attempts > 1:
         message = f"{detail} after {attempts} attempts"
-    if is_sandbox_denial(error):
+    if certificate is not None:
+        hint = certificate[1]
+    elif is_sandbox_denial(error):
         recovery = sandbox_recovery()
-        hint = f"{_SANDBOX_HINT} {recovery}" if recovery else _SANDBOX_HINT
+        hint = (
+            f"{_SANDBOX_HINT} If the sandbox caused this denial: {recovery}"
+            if recovery
+            else _SANDBOX_HINT
+        )
     elif connection_refusal_is_conclusive(api_url, error):
         hint = _CONCLUSIVE_HINT
     else:
-        hint = _unreachable_hint() if attempts is not None else _MALFORMED_HINT
+        hint = _UNREACHABLE_HINT if attempts is not None else _MALFORMED_HINT
     return FunctionCallResponse(
         success=False,
         function=request.function,
@@ -246,6 +261,7 @@ def record_outcome(
 __all__ = [
     "TRANSPORT_FAILED_CODE",
     "UNREACHABLE_DETAIL",
+    "certificate_diagnostic",
     "http_error_response",
     "record_outcome",
     "transport_error_response",
