@@ -77,9 +77,11 @@ export async function drawPerformanceChart({ documentNode, host, result, signal,
       scale: "y", width: 2, dash: [5, 5], points: { show: false } }],
     scales: { x: { time: true, range: () => range }, y: { auto: true, distr: 4, asinh: 100, range: (_, min, max) => [0, Math.max(4000, max * 1.1)] }, wait: { auto: true } },
     axes: [{ stroke: color, space: 100, size: 60, grid: { show: false }, values: (_, ticks) => ticks.map(tickLabel) },
-      { stroke: color, grid: { stroke: color, width: .25 }, size: 65, space: 45, values: (_, ticks) => ticks.map(durationLabel) },
+      { stroke: color, grid: { stroke: color, width: .25 }, size: 65, space: 45,
+        splits: (_, __, min, max) => [0, 100, 1000, 2000, 10000, 100000, 1000000, 10000000].filter(value => value >= min && value <= max),
+        values: (_, ticks) => ticks.map(value => value == null ? "" : durationLabel(value)) },
       { scale: "wait", side: 1, size: 65, stroke: "#b27944", 
-        grid: { show: false }, values: (_, ticks) => ticks.map(durationLabel) }],
+        grid: { show: false }, values: (_, ticks) => ticks.map(value => value == null ? "" : durationLabel(value)) }],
     hooks: { setCursor: [hover] },
   }, data, host);
   const toggles = el(documentNode, "div", "performance-series");

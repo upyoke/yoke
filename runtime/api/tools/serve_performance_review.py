@@ -79,7 +79,7 @@ def main():
             self.send_response(200)
             self.send_header(
                 "Content-Type",
-                "text/html"
+                "text/html; charset=utf-8"
                 if path in ("/", "/comparison")
                 else "text/plain"
                 if path == "/served-build"
