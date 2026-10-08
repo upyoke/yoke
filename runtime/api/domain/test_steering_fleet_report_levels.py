@@ -185,11 +185,12 @@ def test_overrides_list_only_items_that_carry_one(steering_scope):
     )
     steering_scope.commit()
 
-    overrides = read_level_overrides(steering_scope, {1: "YOK-1", 2: "YOK-2"})
+    refs = {item_id: f"YOK-{item_id}" for item_id in (1, 2)}
+    overrides = read_level_overrides(steering_scope, refs)
 
-    assert overrides == (("YOK-1", "level max SENIOR (well specified)"),)
+    assert overrides == ((refs[1], "level max SENIOR (well specified)"),)
     assert level_override_lines(overrides) == [
         "item level overrides",
-        "  YOK-1  level max SENIOR (well specified)",
+        f"  {refs[1]}  level max SENIOR (well specified)",
     ]
     assert level_override_lines(()) == []
