@@ -13,7 +13,9 @@ from yoke_core.domain import db_backend, migration_fleet_preflight as fleet
 from yoke_core.domain import migration_fleet_preflight_transfer as transfer
 from yoke_core.domain import migration_rehearsal_copy_lock as admission
 from yoke_core.domain import postgres_cluster
-from yoke_core.tools import pg_testcluster
+from runtime.api.domain.test_migration_fleet_preflight_extension_restore import (
+    _server_bin_dir,
+)
 
 
 HISTORY = ("first", "second")
@@ -22,11 +24,15 @@ HISTORY = ("first", "second")
 @pytest.fixture(scope="module")
 def copy_cluster():
     """An isolated server pinned to the dump/restore client's binary build."""
+    bin_dir, searched = _server_bin_dir()
+    assert bin_dir is not None, (
+        f"copy lifetime proof requires initdb; searched {searched}"
+    )
     with tempfile.TemporaryDirectory(prefix="yoke-copy-lock-", dir="/tmp") as scratch:
         spec = postgres_cluster.ClusterSpec(
             Path(scratch),
             "copyfixture",
-            bin_dir=pg_testcluster._spec().bin_dir,
+            bin_dir=bin_dir,
             server_settings=(("fsync", "off"),),
             stop_mode="immediate",
         )
