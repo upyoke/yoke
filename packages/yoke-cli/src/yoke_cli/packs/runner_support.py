@@ -13,6 +13,7 @@ from typing import Any, Mapping
 from yoke_cli.commands._helpers import ensure_handlers_loaded
 from yoke_cli.config import existing_project_lookup
 from yoke_cli.packs.catalog_source import PackCatalog
+from yoke_cli.packs.contributions import contribution_markers
 from yoke_cli.packs.errors import PackClientError
 from yoke_cli.packs.receipt import assert_pack_targets_safe
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
@@ -121,6 +122,20 @@ def _validate_bundle(bundle: Mapping[str, Any]) -> None:
             raise PackClientError(f"Pack bundle content digest is invalid for {path!r}")
         if mode not in (0o644, 0o755):
             raise PackClientError(f"Pack bundle mode is invalid for {path!r}")
+        try:
+            markers = contribution_markers(entry)
+        except ValueError as exc:
+            raise PackClientError(
+                f"{exc}: repair Pack source boundaries for {path!r}, then preview again"
+            ) from exc
+        if (
+            markers is not None
+            and markers[0].split("YOKE PACK ", 1)[1].removesuffix(" -->")
+            != bundle["pack"]
+        ):
+            raise PackClientError(
+                f"pack_contribution_owner_mismatch: {path!r}; repair the source to name its Pack"
+            )
         material.append(
             {"path": path, "sha256": digest, "mode": mode, "encoding": encoding}
         )
@@ -186,6 +201,10 @@ def _project_entries(
         recorded = recorded_files.get(entry["path"], {})
         if isinstance(recorded, Mapping):
             row["path"] = str(recorded.get("path") or entry["path"])
+        if row["path"] != entry["path"] and contribution_markers(entry) is not None:
+            raise PackClientError(
+                "pack_contribution_target_moved: restore root AGENTS.md or .gitignore and its canonical receipt path before updating"
+            )
         mapped.append(row)
     return mapped
 

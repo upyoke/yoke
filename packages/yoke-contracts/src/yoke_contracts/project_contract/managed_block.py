@@ -39,19 +39,25 @@ def render_block(content: str) -> str:
     return f"{MANAGED_BLOCK_BEGIN}\n{MANAGED_BLOCK_NOTE}\n{body}\n{MANAGED_BLOCK_END}"
 
 
-def block_span(text: str) -> Optional[Tuple[int, int]]:
-    """Return (start, end) offsets of the managed block, or None if absent.
+def block_span(
+    text: str,
+    begin: str = MANAGED_BLOCK_BEGIN,
+    end_marker: str = MANAGED_BLOCK_END,
+) -> Optional[Tuple[int, int]]:
+    """Return block offsets, or None if absent, using exact sentinel strings.
 
     ``start`` is the offset of the BEGIN marker; ``end`` is just past the END
     marker, so ``text[start:end]`` is the whole marked region.
+    The defaults locate project-install doctrine. Explicit sentinels reuse
+    the same contract for bounded Pack contributions without sharing ownership.
     """
-    start = text.find(MANAGED_BLOCK_BEGIN)
+    start = text.find(begin)
     if start == -1:
         return None
-    end = text.find(MANAGED_BLOCK_END, start)
+    end = text.find(end_marker, start)
     if end == -1:
         return None
-    return start, end + len(MANAGED_BLOCK_END)
+    return start, end + len(end_marker)
 
 
 def extract_block_body(text: str) -> Optional[str]:

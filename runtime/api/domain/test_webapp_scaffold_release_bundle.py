@@ -45,9 +45,9 @@ def test_packaged_webapp_bundle_exposes_content_identity_release(
         },
     )
 
-    assert descriptor["latest_version"] == "1.1.2"
-    assert bundle["version"] == "1.1.2"
-    release = descriptor["versions"]["1.1.2"]
+    latest = descriptor["latest_version"]
+    assert bundle["version"] == latest
+    release = descriptor["versions"][latest]
     declared_sources = {row["source"] for row in release["files"]}
     release_root = canonical / release["source"]
     actual_sources = {
@@ -63,8 +63,17 @@ def test_packaged_webapp_bundle_exposes_content_identity_release(
     assert "app/tests/test_migration_adoption_atomicity.py" in paths
     assert "app/tests/test_migration_adoption_receipts.py" in paths
     assert "app/tests/test_migration_content_identity.py" in paths
+    assert "docs/packs/webapp-scaffold/application.md" in paths
+    assert "CLAUDE.md" not in paths
+    entries = {row["path"]: row for row in bundle["files"]}
+    assert entries["AGENTS.md"]["content"].startswith(
+        "<!-- BEGIN YOKE PACK webapp-scaffold -->"
+    )
+    assert entries[".gitignore"]["content"].startswith(
+        "# BEGIN YOKE PACK webapp-scaffold"
+    )
     settings = json.loads(
-        (packaged / "versions/1.1.2/settings-reference.json").read_text(
+        (packaged / f"versions/{latest}/settings-reference.json").read_text(
             encoding="utf-8"
         )
     )

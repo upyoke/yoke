@@ -14,7 +14,11 @@ def test_get_refuses_to_overwrite_an_existing_project_file(tmp_path: Path) -> No
 
     assert plan["creates"] == []
     assert plan["conflicts"] == [
-        {"path": "app.py", "reason": "existing_project_file"}
+        {
+            "path": "app.py",
+            "reason": "existing_project_file",
+            "recovery": "Move or reconcile the existing application file, then preview the Pack again.",
+        }
     ]
 
 
@@ -83,9 +87,7 @@ def test_update_reports_multiple_conflict_hunks_as_one_file_conflict(
             "mode_conflict": False,
         }
     ]
-    assert "<<<<<<<" not in (tmp_path / "customized.txt").read_text(
-        encoding="utf-8"
-    )
+    assert "<<<<<<<" not in (tmp_path / "customized.txt").read_text(encoding="utf-8")
 
 
 def test_update_keeps_a_file_removed_by_the_new_pack(tmp_path: Path) -> None:
