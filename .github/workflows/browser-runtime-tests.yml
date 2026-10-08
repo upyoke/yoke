@@ -114,4 +114,6 @@ jobs:
         env:
           YOKE_BROWSER_INTEGRATION: '1'
           YOKE_PG_DSN: host=localhost port=${{ job.services.postgres.ports[5432] }} user=yoke password=yoke dbname=postgres
-        run: uv run --frozen python3 -m yoke_core.tools.run_tests --local -- runtime/api/domain/test_browser_qa_color_scheme_integration.py
+        # CI owns this disposable checkout and locked environment, as in
+        # ci_shards.py; the local source wrapper requires a registered lane.
+        run: uv run --frozen python3 -m pytest -n auto runtime/api/domain/test_browser_qa_color_scheme_integration.py
