@@ -51,7 +51,7 @@ class TestSteerWorkerLifecycle:
         assert "Route one item through its pinned workflow" in text
         assert "Workers self-end after their DONE report" in text
         assert "Every new item gets a fresh session" in text
-        assert "Choose model, effort, and context per item at launch" in text
+        assert "Choose a level per item at launch" in text
         assert "yoke session-control launch create" in text
         assert "yoke session-control launch get" in text
         assert "yoke session-control launch reconcile" in text
@@ -59,8 +59,9 @@ class TestSteerWorkerLifecycle:
         assert "claude-cli" in text
         assert "codex-cli" in text
         assert "cursor-cli" in text
-        assert "Allocate by headroom, not by leveling counts" in text
-        # The seat chooses the surface; the launch plane chooses the machine.
+        # The seat names a level; the launch plane places its option and machine.
+        assert "Do not pick the machine or the surface" in text
+        assert "level_placement" in text
         assert "Do not pick the machine" in text
         assert "placement_reason" in text
         assert "machine_access_denied" in text

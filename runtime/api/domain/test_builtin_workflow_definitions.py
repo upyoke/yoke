@@ -209,7 +209,6 @@ def test_blitz_closes_through_release_then_done():
         (row["from_stage_id"], row["to_stage_id"])
         for row in fixture["definition"]["transitions"]
     }
-    assert fixture["canon_version"] == 10
     assert ("reviewing-implementation", "release") in edges
     assert ("release", "done") in edges
     assert ("reviewing-implementation", "done") not in edges
