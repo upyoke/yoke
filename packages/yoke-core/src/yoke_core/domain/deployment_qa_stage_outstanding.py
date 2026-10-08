@@ -16,6 +16,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
 from yoke_core.domain import deployment_run_item_qa_membership as item_qa
 
@@ -154,7 +155,7 @@ def _member_lines(
     conn: Any, *, run_id: str, stage: Mapping[str, Any], member: int | None
 ) -> tuple[list[str], list[str]]:
     """Driver-shaped wait lines and exemption notes, without writes."""
-    label = f"member {member}" if member is not None else "run"
+    label = f"member {render_item_ref(conn, member)}" if member is not None else "run"
     subject = deployment_qa_stage_subject(
         conn,
         run_id=run_id,

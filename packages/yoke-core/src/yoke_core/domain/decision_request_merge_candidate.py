@@ -17,6 +17,7 @@ from collections.abc import Mapping, Sequence
 import re
 from typing import Any, NoReturn
 
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.decision_request_contract import MERGE_CANDIDATE_REVIEW
 
@@ -60,8 +61,7 @@ def require_full_commit_sha(commit_sha: str) -> str:
     value = str(commit_sha or "").strip().lower()
     if not _FULL_SHA.fullmatch(value):
         _fail(
-            "requires a full 40-character lowercase hex commit id; got "
-            f"{commit_sha!r}"
+            f"requires a full 40-character lowercase hex commit id; got {commit_sha!r}"
         )
     return value
 
@@ -123,8 +123,7 @@ def pending_candidate_requests(conn: Any, item_id: int) -> list[dict[str, Any]]:
     ).fetchall()
     columns = ("id", "subject_key", "kind", "project_id", "org_id")
     return [
-        dict(row) if hasattr(row, "keys") else dict(zip(columns, row))
-        for row in rows
+        dict(row) if hasattr(row, "keys") else dict(zip(columns, row)) for row in rows
     ]
 
 
@@ -153,13 +152,16 @@ def subject_ended(
         (item_id,),
     ).fetchone()
     if row is None:
-        return True, f"item {item_id} no longer exists"
+        return True, f"item {render_item_ref(conn, item_id)} no longer exists"
     status = str(row[0] if not hasattr(row, "keys") else row["status"])
     runtime = load_item_workflow_runtime(conn, item_id)
     terminal = set(runtime.terminal_stage_ids) | set(ENGINE_TERMINAL_STAGE_IDS)
     if status in terminal:
-        return True, f"item {item_id} is at terminal stage {status!r}"
-    return False, f"item {item_id} is still at {status!r}"
+        return (
+            True,
+            f"item {render_item_ref(conn, item_id)} is at terminal stage {status!r}",
+        )
+    return False, f"item {render_item_ref(conn, item_id)} is still at {status!r}"
 
 
 __all__ = [

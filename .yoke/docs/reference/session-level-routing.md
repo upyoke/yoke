@@ -125,10 +125,37 @@ option with capacity, the level not defined by the project's override, or you
 not an operator there) is listed with its code and reason. The read also lists
 every project and what its override, if any, changes.
 
+A steering seat reads the same standing from its own fleet report: the
+**levels** block dry-runs a launch at every level the project reads, under the
+seat's own launch authorization, and names each option's machine, pools
+(left, headroom, reset), blocker, and where the next launch goes and why,
+beside the fleet-wide live workers per launch surface
+([steering fleet report](db-reference/steering-fleet-report.md)).
+
 The dashboard's **Settings → Levels** page, directly under Universe, shows
 this read: levels, options, capacity, each project's next launch per level,
 and project overrides with the override command. It is view only; edit levels
 with the commands above.
+
+## Item level override
+
+An item may carry its own override of the level its stage launches at, as the
+`level` key of its workflow posture:
+
+```text
+yoke workflows item-posture amend PREFIX-N --key level \
+  --value '{"max": "SENIOR", "reason": "well-specified change"}' \
+  --reason "steering staffing default"
+yoke workflows item-posture amend PREFIX-N --key level --clear --reason R
+```
+
+The value is `{shift, min, max, reason}`: `shift` moves the level up
+(positive) or down (negative) by that many levels, `min` and `max` name
+levels the result is clamped to, and `reason` is required. At least one of
+`shift`, `min`, or `max` is required; a non-integer or zero shift, an unknown
+key, a name the project's levels do not include, or `min` above `max` refuses
+by name. Every built-in workflow allows the key. The steering report lists
+each override beside its level block.
 
 ## Launching by level
 

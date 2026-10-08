@@ -111,7 +111,18 @@ def observation(row: dict[str, Any], now: datetime) -> dict[str, Any] | None:
             "watcher": "watcher invocation wall time",
         }.get(family),
         "breakdown": breakdown,
-        "unavailable_spans": ["queue", "auth", "database", "external_dependencies"],
+        "unavailable_spans": (
+            ["queue", "auth", "database", "external_dependencies"]
+            if family in ("function", "relay")
+            else []
+        ),
+        "span_coverage": (
+            "Only the handler timer is retained for this request; queue, auth, "
+            "database and external waits were not recorded in its event. "
+            "The handler duration cannot attribute its internal work."
+            if family in ("function", "relay")
+            else "Existing owner timings shown below; nested timings are not additive."
+        ),
     }
 
 

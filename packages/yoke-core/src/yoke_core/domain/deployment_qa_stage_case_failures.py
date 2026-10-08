@@ -13,6 +13,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_qa_case_failure_kinds import (
     CaseFailure,
@@ -251,7 +252,7 @@ def case_failures(
                     plan_case_key=str(recorded[0]["plan_case_key"] or ""),
                     kind=FAILURE_UNRUN,
                     detail=(
-                        f"member {member_item_id}: recorded requirement {named} "
+                        f"member {render_item_ref(conn, member_item_id)}: recorded requirement {named} "
                         "is out of scope under the current execution target "
                         f"{execution_target_digest}; its execution remains bound "
                         "to the target it was materialized against. Reuse that "

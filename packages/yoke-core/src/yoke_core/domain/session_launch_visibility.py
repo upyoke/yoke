@@ -34,7 +34,13 @@ CORRELATION_FAILURE_CODES = frozenset(
 # registered. Both are visible on the fleet report the moment they are
 # recorded, rather than only once the registration deadline passes.
 LAUNCH_EXECUTION_FAILURE_CODES = frozenset(
-    {"model_combo_unsupported", NATIVE_EXITED_UNREGISTERED_CODE}
+    {
+        "model_combo_unsupported",
+        NATIVE_EXITED_UNREGISTERED_CODE,
+        "native_capacity_unreadable",
+        "native_memory_headroom_low",
+        "native_swap_headroom_low",
+    }
 )
 
 

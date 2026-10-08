@@ -87,7 +87,6 @@ def test_preview_and_create_refuse_before_persisting_a_launch(
 ):
     conn = _connection()
     _wire_handler(monkeypatch, conn)
-    monkeypatch.setattr(handlers, "_fleet_policy", lambda *_args: False)
     selection = {
         "model": model,
         "reasoning_effort": effort,
@@ -110,7 +109,6 @@ def test_preview_and_create_refuse_before_persisting_a_launch(
 def test_preview_preserves_the_request_and_names_the_resolved_variant(monkeypatch):
     conn = _connection()
     _wire_handler(monkeypatch, conn)
-    monkeypatch.setattr(handlers, "_fleet_policy", lambda *_args: False)
     preview = handlers.handle_launch_preview(
         _request(
             "session_control.launch.preview",

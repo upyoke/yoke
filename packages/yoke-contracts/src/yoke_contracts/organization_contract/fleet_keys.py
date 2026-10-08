@@ -1,9 +1,7 @@
-"""Closed registry for organization-wide fleet policy.
+"""Closed registry for organization membership policy.
 
 The stored ``organizations.settings`` document contains only explicit
-overrides.  Missing leaves resolve to the defaults below, so changing a value
-does not require touching every machine and an unknown key can never silently
-become policy.
+overrides.  Missing leaves resolve to the defaults below, so an unknown key can never silently become organization policy.
 """
 
 from __future__ import annotations
@@ -25,77 +23,6 @@ FLEET_KEY_SPECS: dict[str, FleetKeySpec] = {
         False,
         bool,
         "Admit verified email under the organization's identity domain.",
-    ),
-    "fleet.wake_after_idle_seconds": FleetKeySpec(
-        60,
-        int,
-        "Seconds without hook, tool, or heartbeat activity before wake is eligible.",
-        1,
-    ),
-    "fleet.wake_ack_grace_seconds": FleetKeySpec(
-        300,
-        int,
-        "Seconds before a wake or injection missing acknowledgement is stalled.",
-        1,
-    ),
-    "fleet.stale_alive_probe_seconds": FleetKeySpec(
-        900,
-        int,
-        "Seconds a claim-holding session may stay stale, with its process not "
-        "proven dead, before it is sent a status probe.",
-        1,
-    ),
-    "fleet.message_expiry_hours": FleetKeySpec(
-        24,
-        int,
-        "Hours before an undelivered message recipient expires.",
-        1,
-    ),
-    "fleet.max_wake_attempts": FleetKeySpec(
-        3,
-        int,
-        "Maximum native wake attempts for one recipient.",
-        1,
-    ),
-    "fleet.max_body_bytes": FleetKeySpec(
-        16384,
-        int,
-        "Maximum UTF-8 bytes in a message or launch instruction.",
-        1,
-    ),
-    "fleet.broadcast_requires_confirmation": FleetKeySpec(
-        True,
-        bool,
-        "Require exact-recipient confirmation for universe broadcast.",
-    ),
-    "fleet.surface_fallback": FleetKeySpec(
-        False,
-        bool,
-        "Allow an explicitly requested fallback executor surface.",
-    ),
-    "fleet.launch_deadline_minutes": FleetKeySpec(
-        10,
-        int,
-        "Minutes allowed for a launched conversation to register, from relay pickup.",
-        1,
-    ),
-    "fleet.relay_poll_seconds": FleetKeySpec(
-        60,
-        int,
-        "Active relay polling interval in seconds.",
-        5,
-    ),
-    "fleet.relay_idle_after_minutes": FleetKeySpec(
-        60,
-        int,
-        "Minutes without live sessions or jobs before idle cadence.",
-        1,
-    ),
-    "fleet.relay_idle_poll_minutes": FleetKeySpec(
-        5,
-        int,
-        "Relay polling cadence while the machine is idle.",
-        1,
     ),
 }
 
@@ -191,7 +118,6 @@ def merge_fleet_settings(
     document: Mapping[str, Any],
     changes: Mapping[str, Any],
 ) -> tuple[dict[str, Any], list[str]]:
-    validate_fleet_settings(document)
     merged = _deep_copy(document)
     flattened = _flatten(changes)
     for path, value in flattened.items():

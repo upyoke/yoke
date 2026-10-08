@@ -1,4 +1,4 @@
-"""Pending worker mail is delivered before a backlog of new launches."""
+"""Pending worker mail leads a batch that also admits queued launches."""
 
 from __future__ import annotations
 
@@ -78,13 +78,15 @@ def test_parked_worker_receives_mail_before_new_launches(
         now_provider=lambda: NOW,
     )
 
-    assert len(outcome.jobs) == 1
+    assert len(outcome.jobs) == 1 + len(launches)
     wake = outcome.jobs[0]
     assert wake.job_kind == "wake" and wake.target_session_id == "target"
     assert wake.target_parked and wake.wake_mode is WakeMode.WAITING
-    assert (
-        conn.execute("SELECT COUNT(*) FROM session_launch_attempts").fetchone()[0] == 0
-    )
+    assert [job.job_kind for job in outcome.jobs[1:]] == ["launch"] * len(launches)
+    assert {job.job_id for job in outcome.jobs[1:]} == set(launches)
+    assert conn.execute("SELECT COUNT(*) FROM session_launch_attempts").fetchone()[
+        0
+    ] == len(launches)
     # No explicit wake request: the queued message alone caused this resume,
     # whose first hook delivers the original body to the same worker.
     monkeypatch.setattr(delivery, "utc_now", lambda: parse_timestamp(NOW))
@@ -118,13 +120,11 @@ def test_parked_worker_receives_mail_before_new_launches(
     ).fetchone()
     assert tuple(receipt) == ("injected", 1)
 
-    # Delivery drains its existing lease; new work can now be staffed.
+    # Every create is already leased, even before the wake report settles.
     following = claim_relay_job(
         conn,
         heartbeat,
         wait_seconds=0,
         now_provider=lambda: NOW,
     )
-    assert len(following.jobs) == 1
-    assert following.jobs[0].job_kind == "launch"
-    assert following.jobs[0].job_id in launches
+    assert following.jobs == ()

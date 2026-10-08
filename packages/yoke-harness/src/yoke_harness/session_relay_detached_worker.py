@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_harness.session_launch_admission import spawn_admitted_process
+
 import json
 import os
 from pathlib import Path
@@ -81,8 +83,9 @@ def run_detached_json_worker(
 ) -> T:
     """Return one bounded outcome while the detached child retains native pipes."""
     try:
-        process = process_factory(
+        process = spawn_admitted_process(
             [executable, "-m", module],
+            process_factory=process_factory,
             cwd=checkout,
             env=environment,
             stdin=subprocess.PIPE,

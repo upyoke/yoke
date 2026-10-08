@@ -70,7 +70,7 @@ def ordered_plan_requirements(
             params += (execution_target_digest,)
         subject = (
             f"deployment run {deployment_run_id!r} stage "
-            f"{deployment_stage!r} member {deployment_member_item_id!r}"
+            f"{deployment_stage!r} member {render_item_ref(conn, deployment_member_item_id) if deployment_member_item_id is not None else 'run'}"
         )
     cursor = conn.execute(
         "SELECT id AS requirement_id,plan_id,plan_case_key AS case_key,"

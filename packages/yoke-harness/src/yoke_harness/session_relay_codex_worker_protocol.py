@@ -172,3 +172,13 @@ __all__ = [
     "request_from_payload",
     "request_payload",
 ]
+
+
+def capacity_refusal_outcome(request, refusal):
+    """Carry a pre-spawn capacity refusal across the detached worker boundary."""
+    return CodexNativeOutcome(
+        "not_created" if request.job_kind == "launch" else "failed",
+        phase="spawn",
+        failure_code=refusal.code,
+        failure_detail=str(refusal),
+    )

@@ -10,18 +10,14 @@ from .session_launch_abandonment import settle_and_notify
 from .sessions_analytics import EVENT_HARNESS_SESSION_ENDED
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_lifecycle_registry import _get_session
-from .session_message_authorization import project_policy
 from .session_message_types import parse_timestamp, row_dict, timestamp, utc_now
 from .sessions_queries import _now_iso
 from .sessions_render_attribution import clear_current_item
 from .session_keepalive import session_keepalive_holds
 from .session_launch_pending_delivery import pending_launch_deliveries
 from .workflow_item_binding_lock import rollback_workflow_binding_write_errors
-from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
+from yoke_contracts.fleet_policy import WAKE_ACK_GRACE_SECONDS
 from yoke_core.domain.work_claim_target_sql import LIVENESS_BOUND_SQL
-
-
-_WAKE_ACK_GRACE_KEY = "fleet.wake_ack_grace_seconds"
 
 
 def _document_lock_count(conn: Any, session_id: str) -> int:
@@ -41,31 +37,8 @@ def _document_lock_count(conn: Any, session_id: str) -> int:
 
 
 def _wake_ack_grace_seconds(conn: Any, project_id: Any) -> int:
-    """Return the project's acknowledgement window, or the declared default.
-
-    A session-end hook runs on every universe, including one whose
-    organization policy this connection cannot resolve. Refusing to end the
-    session there would be as wrong as ending it too early, so the fallback
-    is the registry's own declared default rather than an invented number -
-    and the read runs inside a savepoint, because a failed statement would
-    otherwise poison the transaction the caller still has work to do in.
-    """
-    from yoke_core.domain import db_backend
-    from yoke_core.domain.db_optional_queries import rollback_savepoint
-
-    savepoint = "_yoke_wake_ack_grace_probe"
-    use_savepoint = db_backend.connection_is_postgres(conn)
-    try:
-        if use_savepoint:
-            conn.execute(f"SAVEPOINT {savepoint}")
-        grace = int(project_policy(conn, int(project_id)).wake_ack_grace_seconds)
-        if use_savepoint:
-            conn.execute(f"RELEASE SAVEPOINT {savepoint}")
-        return grace
-    except Exception:  # noqa: BLE001 -- session end must survive an unreadable policy
-        if use_savepoint:
-            rollback_savepoint(conn, savepoint)
-        return int(FLEET_KEY_SPECS[_WAKE_ACK_GRACE_KEY].default)
+    """Return the product acknowledgement grace period."""
+    return WAKE_ACK_GRACE_SECONDS
 
 
 def wake_deliveries_in_flight(

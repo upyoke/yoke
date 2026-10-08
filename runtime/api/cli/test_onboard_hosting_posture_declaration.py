@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from yoke_core.engines.doctor_tree_scan import GENERATED_TREE_NAMES
+from yoke_core.engines.doctor_tree_scan import iter_tree_files
 
 pytest.importorskip("textual")
 
@@ -217,12 +217,11 @@ def test_only_the_aws_answer_promises_a_credential() -> None:
 
 def _live_package_python(repo: Path) -> list[Path]:
     """Package sources only — leftover ``packages/*/build/lib`` is output."""
-    return [
-        candidate
-        for candidate in repo.glob("packages/**/*.py")
-        if "install_bundle_tree" not in candidate.parts
-        and not GENERATED_TREE_NAMES.intersection(candidate.parts)
-    ]
+    return list(
+        iter_tree_files(
+            repo / "packages", "*.py", prune_dir_names={"install_bundle_tree"}
+        )
+    )
 
 
 def test_the_posture_vocabulary_has_exactly_one_home() -> None:
@@ -245,6 +244,7 @@ def test_the_posture_vocabulary_has_exactly_one_home() -> None:
 
 def test_leftover_package_build_lib_is_not_a_second_posture_home(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     leftover = (
         tmp_path / "packages/yoke-contracts/build/lib/yoke_contracts/hosting_posture.py"
@@ -254,6 +254,15 @@ def test_leftover_package_build_lib_is_not_a_second_posture_home(
     live = tmp_path / "packages/yoke-contracts/src/yoke_contracts/other.py"
     live.parent.mkdir(parents=True)
     live.write_text("no-yoke-managed-host\n", encoding="utf-8")
+    import os
+
+    scandir = os.scandir
+
+    def source_only_scandir(path):
+        assert "build" not in Path(path).parts, "generated trees must be pruned"
+        return scandir(path)
+
+    monkeypatch.setattr(os, "scandir", source_only_scandir)
     found = [
         path.relative_to(tmp_path).as_posix() for path in _live_package_python(tmp_path)
     ]

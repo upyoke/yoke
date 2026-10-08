@@ -71,3 +71,5 @@ yoke items dependency list PREFIX-N
   coordinate or serialize instead
 
 Algorithm detail: [reference/charge-frontier.md](reference/charge-frontier.md).
+
+Ready cards show readiness and item context without a raw CLI command line.

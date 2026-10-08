@@ -11,7 +11,7 @@ from typing import Any, Callable, Mapping
 from yoke_cli.commands._helpers import ensure_handlers_loaded
 from yoke_cli.transport.dispatcher import call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
+from yoke_contracts.fleet_policy import RELAY_POLL_SECONDS
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_contracts.session_control.function_ids import (
     RELAY_CLAIM_FUNCTION_ID,
@@ -54,10 +54,7 @@ from yoke_harness.session_relay_schedule import (
 )
 
 
-_POLL_POLICY = FLEET_KEY_SPECS["fleet.relay_poll_seconds"]
-RELAY_DISPATCH_TIMEOUT_SECONDS = int(_POLL_POLICY.default) + int(
-    _POLL_POLICY.minimum or 0
-)
+RELAY_DISPATCH_TIMEOUT_SECONDS = RELAY_POLL_SECONDS + 5
 
 
 Dispatcher = Callable[..., Any]
@@ -165,7 +162,7 @@ def _poll(
     if refusal is not None:
         return ServeOnceOutcome(
             RELAY_NEWER_THAN_SERVER,
-            int(_POLL_POLICY.default),
+            RELAY_POLL_SECONDS,
             error_code=RELAY_NEWER_THAN_SERVER,
             error_detail=refusal.message,
             local_revision=refusal.local_revision,

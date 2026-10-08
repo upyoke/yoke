@@ -58,7 +58,7 @@ def _woken_recipient(conn, session_id: str, *, wake_age_s: int, state="pending")
     """Seed one message this session was woken for, waked ``wake_age_s`` ago.
 
     This fixture carries no organization policy, so the window under test is
-    the registry's declared ``fleet.wake_ack_grace_seconds`` default - which
+    the registry's declared the product acknowledgement grace period default - which
     is also the path a universe takes when its policy cannot be resolved.
     """
     from datetime import timedelta

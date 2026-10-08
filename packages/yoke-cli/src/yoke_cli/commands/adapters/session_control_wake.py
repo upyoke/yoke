@@ -64,7 +64,7 @@ def session_wake(args: List[str]) -> int:
             "A wake already moving refuses this one as `wake_in_flight`, "
             "naming the receipt and when to retry. A wake the plane was "
             "owed and never attempted is not moving: past the project's "
-            "`fleet.wake_ack_grace_seconds` this command cancels it as "
+            "the product acknowledgement grace period this command cancels it as "
             "superseded, reports it under RELEASED, and takes its own "
             "route decision — so a queued receipt nothing will deliver "
             "can no longer block every later wake for that session. A "

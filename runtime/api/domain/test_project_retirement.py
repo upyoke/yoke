@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
 from runtime.api.fixtures.file_test_db import init_test_db, apply_fixture_schema_ddl
 from runtime.api.fixtures.backlog import insert_item
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.handlers.projects_get import (
     handle_projects_get,
     handle_projects_list,
@@ -112,9 +114,17 @@ def test_retirement_does_not_remove_project_permissions(conn, monkeypatch):
 
 def test_open_item_refusal_uses_pinned_terminal_membership(conn):
     insert_item(
-        conn, id=300, workflow_id="dash", project="fixture", status="implementing"
+        conn,
+        id=300,
+        project_sequence=17,
+        workflow_id="dash",
+        project="fixture",
+        status="implementing",
     )
-    with pytest.raises(ProjectRetirementError, match="open item 300") as error:
+    item_ref = render_item_ref(conn, 300)
+    with pytest.raises(
+        ProjectRetirementError, match=re.escape(f"open item {item_ref}")
+    ) as error:
         retire(conn)
     assert error.value.code == "project_retirement_blocked"
     assert "then retry" in str(error.value)

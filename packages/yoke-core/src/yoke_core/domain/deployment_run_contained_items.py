@@ -17,6 +17,7 @@ from typing import Any, Callable, Mapping
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.delivery_landing_custody import merged_open_items
 from yoke_core.domain.deployment_run_bound_sources import (
     BOUND_SOURCES_FIELD,
@@ -163,7 +164,11 @@ def candidate_containment_basis(conn: Any, run_id: str) -> dict[str, Any]:
         item_ids = _visibility_item_ids(conn, project_id)
         merges = recorded_merge_shas_for_items(conn, item_ids)
         items = [
-            {"id": item_id, "merge_sha": merges[item_id][0]}
+            {
+                "id": item_id,
+                "public_ref": render_item_ref(conn, item_id),
+                "merge_sha": merges[item_id][0],
+            }
             for item_id in item_ids
             if merges.get(item_id)
         ]
@@ -220,7 +225,7 @@ def attest_candidate_containment(
             if verdict.state == UNDETERMINED:
                 raise CandidateContainmentRefusal(
                     "candidate_containment_undetermined",
-                    f"project {slug or project_id} item {item_id}: {verdict.reason}",
+                    f"project {slug or project_id} item {item.get('public_ref') or render_item_ref(None, item_id)}: {verdict.reason}",
                     verdict.recovery
                     or "Fetch both commits into the registered checkout, then "
                     "re-drive the run.",

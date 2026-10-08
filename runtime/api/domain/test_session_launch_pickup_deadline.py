@@ -1,8 +1,7 @@
 """A launch's deadline window starts when its relay picks it up.
 
-One machine drains its queue one native create at a time, so a launch
-created in a burst waits behind its siblings. That wait must not count
-against the window the launch was granted to spawn and register.
+A launch assigned between relay polls retains its full registration window
+once picked up, even when an earlier native has not reported yet.
 """
 
 from __future__ import annotations
@@ -61,11 +60,10 @@ def test_second_queued_launch_gets_its_full_window_from_pickup() -> None:
     conn = launch_connection()
     add_relay(conn, connected_until="2026-08-22T13:00:00Z")
     first = assigned_launch(conn, key="first")
-    second = assigned_launch(conn, key="second")
-    assert first.deadline_at == second.deadline_at == CREATE_DEADLINE
-
     (held,) = claim_next_launch(conn, _heartbeat(), now=NOW)
-    waiting = second if held.job_id == first.launch_id else first
+    assert held.job_id == first.launch_id
+    waiting = assigned_launch(conn, key="second")
+    assert first.deadline_at == waiting.deadline_at == CREATE_DEADLINE
 
     settle_launch_deadlines(conn, now=PAST_CREATE_DEADLINE)
     assert get_launch(conn, waiting.launch_id).state == "assigned"

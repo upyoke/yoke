@@ -34,11 +34,11 @@ function parsedValue(setting, control) {
     : Number(control.value);
 }
 
-export function renderOrganizationFleet(context, main) {
+export function renderOrganizationMembership(context, main) {
   const documentNode = context.document;
-  const panel = section(documentNode, "Fleet policy");
+  const panel = section(documentNode, "Membership");
   const body = panel.children[1];
-  body.textContent = "Loading organization fleet policy…";
+  body.textContent = "Loading organization membership policy…";
   main.appendChild(panel);
   const load = async () => {
     try {
@@ -47,12 +47,12 @@ export function renderOrganizationFleet(context, main) {
       );
       if (!context.isMounted()) return;
       body.replaceChildren();
-      const form = el(documentNode, "div", "organization-fleet-settings");
+      const form = el(documentNode, "div", "organization-membership-settings");
       const controls = new Map();
       for (const setting of result.settings || []) {
-        const field = el(documentNode, "label", "organization-fleet-setting");
-        const title = el(documentNode, "span", "organization-fleet-path", setting.path);
-        const meaning = el(documentNode, "span", "organization-fleet-meaning", setting.meaning);
+        const field = el(documentNode, "label", "organization-membership-setting");
+        const title = el(documentNode, "span", "organization-membership-path", setting.path);
+        const meaning = el(documentNode, "span", "organization-membership-meaning", setting.meaning);
         const control = editor(documentNode, setting);
         controls.set(setting.path, { setting, control });
         field.appendChild(title);
@@ -64,7 +64,7 @@ export function renderOrganizationFleet(context, main) {
         form.appendChild(field);
       }
       const status = statusRegion(documentNode);
-      const save = el(documentNode, "button", "item-button", "Save fleet policy");
+      const save = el(documentNode, "button", "item-button", "Save membership policy");
       save.type = "button";
       save.addEventListener("click", async () => {
         const assignments = {};
@@ -74,11 +74,11 @@ export function renderOrganizationFleet(context, main) {
         }
         status.hidden = false;
         if (!Object.keys(assignments).length) {
-          status.textContent = "Fleet policy is unchanged.";
+          status.textContent = "Membership is unchanged.";
           return;
         }
         save.disabled = true;
-        status.textContent = "Saving organization fleet policy…";
+        status.textContent = "Saving organization membership policy…";
         try {
           const saved = await sessionControlCall(
             context, "organizations.settings.merge", { assignments },
@@ -87,7 +87,7 @@ export function renderOrganizationFleet(context, main) {
           await load();
         } catch (error) {
           status.textContent = presentSessionControlFailure(
-            error, "Fleet policy could not be saved.",
+            error, "Membership could not be saved.",
           );
           save.disabled = false;
         }
@@ -97,7 +97,7 @@ export function renderOrganizationFleet(context, main) {
       body.appendChild(save);
     } catch (error) {
       renderSessionControlFailure(
-        body, error, "Fleet policy could not be loaded.",
+        body, error, "Membership could not be loaded.",
       );
     }
   };

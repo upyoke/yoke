@@ -1,4 +1,4 @@
-.universe-app-root .organization-fleet-setting {
+.universe-app-root .organization-membership-setting {
   display: grid;
   align-content: start;
   gap: 5px;
@@ -8,7 +8,7 @@
   border-radius: 8px;
 }
 
-.universe-app-root .organization-fleet-path {
+.universe-app-root .organization-membership-path {
   overflow-wrap: anywhere;
   color: var(--yoke-ink);
   font-family: var(--yoke-mono);
@@ -16,7 +16,7 @@
   font-weight: 700;
 }
 
-.universe-app-root .organization-fleet-meaning,
+.universe-app-root .organization-membership-meaning,
 .universe-app-root .session-setting-default {
   color: var(--yoke-muted);
   font-size: 11px;

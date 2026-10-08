@@ -31,11 +31,16 @@ from yoke_core.domain.lint_item_ref_construction import (
 # This module carries the shape it hunts for, as the docstring example that
 # explains it. Anything else added here has to justify itself in a comment.
 _ALLOWLIST: frozenset[str] = frozenset(
-    {"packages/yoke-core/src/yoke_core/domain/lint_item_ref_message_text.py"}
+    {
+        "packages/yoke-core/src/yoke_core/domain/lint_item_ref_message_text.py",
+        # Applied migration content is immutable ordered history. Its old
+        # refusal remains frozen; current operational messages are scanned.
+        "packages/yoke-core/src/yoke_core/domain/migrations/0053_retire_advance_skill.py",
+    }
 )
 
 
-# Prose naming an item, then an interpolation of something id-shaped. The
+# Prose naming an item/epic join key or any unrendered member value. The
 # third alternative is the storage key written out as itself: labelling the
 # number ``items.id`` does not stop a reader treating it as this item's
 # name, and the number names whichever item owns it as a sequence, so the
@@ -45,7 +50,7 @@ _ALLOWLIST: frozenset[str] = frozenset(
 # (``WHERE items.id = {p}``) puts an operator between the two and does not
 # match.
 _PROSE_ITEM_ID_RE = re.compile(
-    r"(?<![\w.])(?:[Ii]tem|[Ee]pic)s?[ \t]+\{([^{}]*)\}"
+    r"(?<![\w.-])(?:[Ii]tem|[Ee]pic|[Mm]ember)s?[ \t]+\{([^{}]*)\}"
     r"|--(?:item|epic)[ =]\{([^{}]*)\}"
     r"|items\.id[ \t]+\{([^{}]*)\}"
 )
@@ -59,6 +64,7 @@ _PROSE_ITEM_ID_RE = re.compile(
 # text names an item through the display renderer instead.
 _RENDERED_REF_TOKENS: Tuple[str, ...] = (
     "_ref",
+    ".deployment_member",
     "ref_",
     "public_ref",
     "render_item_ref",
@@ -119,8 +125,8 @@ def scan_message_text_item_ids(
     """Return every internal item id interpolated into message text.
 
     An f-string is the only shape that can carry one, so the scan reads
-    lines that open one and reports the id-shaped interpolations that
-    follow the word ``item`` or ``epic`` (or an ``--item`` / ``--epic``
+    lines that open one and reports unrendered interpolations that
+    follow the word ``item``, ``epic``, or ``member`` (or an ``--item`` / ``--epic``
     flag, which accepts public refs only).
     """
     root = repo_root.resolve()
@@ -148,7 +154,12 @@ def scan_message_text_item_ids(
                         match.group(1) or match.group(2) or match.group(3) or ""
                     )
                     lowered = expression.lower()
-                    if "id" not in lowered:
+                    # Existing item/epic checks target join-key expressions;
+                    # member prose also catches short names such as m/value.
+                    member_label = re.search(
+                        r"\bmembers?[ \t]+\{", match[0], re.IGNORECASE
+                    )
+                    if not member_label and "id" not in lowered:
                         continue
                     if any(token in lowered for token in _RENDERED_REF_TOKENS):
                         continue

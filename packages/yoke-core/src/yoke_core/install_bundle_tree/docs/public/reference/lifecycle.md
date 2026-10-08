@@ -235,7 +235,7 @@ repair happens while the claim is still held. Prefer that shape whenever a
 value must be right before an item freezes: gate the transition, do not
 reopen the record.
 
-A closed, verdict-less QA run stops blocking when its successor has completed passing evidence or a recorded discharge; post-deploy proof needs accepted completion-member copies. An unsettled successor is named in the refusal. Latest latest live runs and active plan executions still block; the old run stays unchanged. Within each requirement, only its newest execution counts for settlement and code identity; older attempts never block. Browser reviews use the capture itself, excluding detached agent verdict rows.
+Terminal settlement and code-identity checks count each requirement once, using its newest execution. Older attempts never block; browser reviews use the capture's verdict and identity, excluding detached agent verdict rows. A latest closed, verdict-less execution on a superseded requirement stops blocking only after its successor passes or is discharged; post-deploy proof needs accepted completion-member copies. Refusals name unsettled successors. Latest live executions and active plans still block, and history remains unchanged.
 
 Ad hoc write SQL against the authoritative DB is not an escape hatch here;
 it is banned by the governed-mutation contract.

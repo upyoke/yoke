@@ -1,12 +1,10 @@
-"""One launch per poll, native creates on a machine spaced apart, wakes serial."""
+"""Launch batches drain without waiting behind serial control work."""
 
 from __future__ import annotations
 
 from yoke_core.domain.session_relay import claim_relay_job, report_relay_job
 from yoke_core.domain.session_relay_expiry import settle_expired_relay_leases
-from yoke_core.domain.session_relay_launch_lease import spawn_hold_until
 from yoke_core.domain.session_relay_types import (
-    NATIVE_SPAWN_SPACING_SECONDS,
     RelayHeartbeat,
 )
 from runtime.api.domain.session_launch_test_support import (
@@ -76,91 +74,50 @@ def _hold_reason(conn, launch_id: str) -> str | None:
     ).fetchone()[0]
 
 
-def test_one_poll_leases_exactly_one_launch_from_a_burst() -> None:
+def test_one_poll_leases_the_assigned_burst_in_order() -> None:
     conn = _connection()
     queued = _queue(conn, 4)
-
     outcome = _claim(conn)
-
-    # Same-instant launches tie-break on launch id, so oldest-first is that order.
-    assert [job.job_id for job in outcome.jobs] == sorted(queued)[:1]
-    assert outcome.jobs[0].job_kind == "launch"
-    assert _hold_reason(conn, outcome.jobs[0].job_id) is None
+    assert [job.job_id for job in outcome.jobs] == sorted(queued)
+    assert all(job.job_kind == "launch" for job in outcome.jobs)
+    assert all(_hold_reason(conn, job.job_id) is None for job in outcome.jobs)
 
 
-def test_the_next_native_create_waits_out_the_spacing_window_and_says_why() -> None:
+def test_new_launches_do_not_wait_for_an_outstanding_native_report() -> None:
     conn = _connection()
-    first_id, second_id = sorted(_queue(conn, 2))
+    _queue(conn, 1)
     (first,) = _claim(conn).jobs
-    assert first.job_id == first_id
-    _report(conn, first, now="2026-08-22T12:00:05Z")
-
-    # Reported and drained, but the machine started a create five seconds ago.
-    held = _claim(conn, now="2026-08-22T12:00:10Z")
-    assert held.jobs == ()
-    reason = _hold_reason(conn, second_id)
-    assert reason is not None
-    assert f"less than {NATIVE_SPAWN_SPACING_SECONDS}s ago" in reason
-    assert "next create not before 2026-08-22T12:00:30Z" in reason
-    assert spawn_hold_until(
-        conn, machine_id=MACHINE_ID, now="2026-08-22T12:00:10Z"
-    ) == ("2026-08-22T12:00:30Z")
-
-    (second,) = _claim(conn, now="2026-08-22T12:00:30Z").jobs
-    assert second.job_id == second_id
-    assert _hold_reason(conn, second_id) is None
-    assert spawn_hold_until(
-        conn, machine_id=MACHINE_ID, now="2026-08-22T12:00:30Z"
-    ) == ("2026-08-22T12:01:00Z")
-
-
-def test_a_relay_mid_create_is_handed_nothing_until_it_reports() -> None:
-    conn = _connection()
-    _queue(conn, 2)
-    (first,) = _claim(conn).jobs
-
-    assert _claim(conn, now="2026-08-22T12:00:45Z").jobs == ()
+    assigned_launch(conn, key="later", machine_id=MACHINE_ID)
+    (second,) = _claim(conn, now="2026-08-22T12:00:01Z").jobs
+    assert second.job_id != first.job_id
+    batches = conn.execute(
+        "SELECT DISTINCT batch_id FROM session_launch_attempts"
+    ).fetchall()
+    assert len(batches) == 1
+    _report(conn, first, now="2026-08-22T12:00:02Z")
+    assert conn.execute(
+        "SELECT lease_id FROM session_relays WHERE relay_id=?", (RELAY_ID,)
+    ).fetchone()[0]
+    _report(conn, second, now="2026-08-22T12:00:03Z")
     assert (
         conn.execute(
-            "SELECT lease_id FROM session_relays WHERE relay_id=?",
-            (RELAY_ID,),
-        ).fetchone()[0]
-        is not None
-    )
-
-    _report(conn, first, now="2026-08-22T12:00:50Z")
-
-    assert (
-        conn.execute(
-            "SELECT lease_id FROM session_relays WHERE relay_id=?",
-            (RELAY_ID,),
+            "SELECT lease_id FROM session_relays WHERE relay_id=?", (RELAY_ID,)
         ).fetchone()[0]
         is None
     )
-    assert len(_claim(conn, now="2026-08-22T12:00:55Z").jobs) == 1
 
 
-def test_a_crash_after_lease_strands_only_the_leased_launch() -> None:
+def test_a_crash_after_lease_settles_every_launch_in_the_batch() -> None:
     conn = _connection()
-    _queue(conn, 2)
-    (first,) = _claim(conn).jobs
-
-    settled = settle_expired_relay_leases(conn, now="2026-08-22T12:30:00Z")
-
-    assert settled == 1
+    queued = _queue(conn, 2)
+    assert len(_claim(conn).jobs) == 2
+    assert settle_expired_relay_leases(conn, now="2026-08-22T12:30:00Z") == 2
     outcomes = dict(
         conn.execute(
             "SELECT launch_id,result_code FROM session_launch_attempts"
         ).fetchall()
     )
-    assert outcomes == {first.job_id: "relay_lease_expired"}
-    assert (
-        conn.execute(
-            "SELECT lease_id FROM session_relays WHERE relay_id=?",
-            (RELAY_ID,),
-        ).fetchone()[0]
-        is None
-    )
+    assert outcomes == {key: "relay_lease_expired" for key in queued}
 
 
 def test_the_claim_response_carries_no_stagger_field() -> None:
@@ -215,19 +172,29 @@ def test_wakes_stay_one_per_cycle_even_when_several_are_eligible() -> None:
     assert _claim(conn, now="2026-08-22T12:00:01Z").jobs == ()
 
 
-def test_an_eligible_wake_is_claimed_before_a_launch() -> None:
+def test_an_eligible_wake_does_not_starve_assigned_launches() -> None:
     conn = _connection()
-    _queue(conn, 1)
+    _queue(conn, 3)
     _add_waiting_recipient(conn, message_id="message-1", session_id="target-1")
-
     outcome = _claim(conn)
-
-    assert len(outcome.jobs) == 1
-    assert outcome.jobs[0].job_kind == "wake"
+    assert [job.job_kind for job in outcome.jobs] == [
+        "wake",
+        "launch",
+        "launch",
+        "launch",
+    ]
     assert outcome.jobs[0].target_session_id == "target-1"
-    assert (
-        conn.execute("SELECT COUNT(*) FROM session_launch_attempts").fetchone()[0] == 0
-    )
+
+
+def test_an_outstanding_wake_does_not_block_later_launches() -> None:
+    conn = _connection()
+    _add_waiting_recipient(conn, message_id="message-1", session_id="target-1")
+    assert _claim(conn).jobs[0].job_kind == "wake"
+    _queue(conn, 2)
+    assert [job.job_kind for job in _claim(conn, now="2026-08-22T12:00:01Z").jobs] == [
+        "launch",
+        "launch",
+    ]
 
 
 def test_a_relay_stays_eligible_for_the_whole_create_it_is_executing() -> None:

@@ -4,7 +4,7 @@ Open **Diagnostics → Performance**. Yoke Events uses the workbench's selected
 universe and its existing All/multiple-project selection. It never combines
 universes. Changing scope cancels previous reads and closes inspection.
 
-The default window is the last 24 hours, ending now. Choose a preset or edit
+The default window is the last 24 hours, ending now. Choose a preset, select Custom to focus the date fields, or edit
 From/To in local time; custom ranges use timezone-qualified UTC timestamps on
 the wire. Refresh advances preset windows. Invalid or reversed dates name the
 correction before querying. Hover a bucket for values, sample counts, and
@@ -13,9 +13,13 @@ Inspection ranks every matching observation by raw duration, with paginated
 results and filters for functions, tools, hooks, relay waits, and watchers.
 
 Ordinary function/tool latency and hook evaluator time use the left axis.
-Relay long-poll and watcher wall time use the explicitly labeled right axis.
+The left axis uses a compressed scale: linear near zero and logarithmic above
+100ms, so spikes remain visible without burying the target. Axis descriptions
+are horizontal below the chart, away from tick labels. Relay long-poll and
+watcher wall time use the right axis and start hidden; toggle them to compare.
 The dashed 2-second diagnostic target applies only to ordinary latency.
-Each series can be toggled independently. Isolated observations remain points;
+Each series can be toggled independently. The display requests about one bucket
+per seven pixels (20–160 buckets) to keep real 24-hour data readable. Isolated observations remain points;
 gaps stay gaps. Client hook wall time contains evaluator time: inspection shows
 both and the measured remainder, without adding overlapping durations.
 

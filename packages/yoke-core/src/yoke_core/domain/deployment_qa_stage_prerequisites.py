@@ -6,6 +6,7 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
 
 from yoke_core.domain.deployment_stage_receipts import (
@@ -248,7 +249,7 @@ def prior_stage_refusals(
                 ):
                     continue
                 refusals.append(
-                    f"stage {stage['name']!r} member {member!r} has "
+                    f"stage {stage['name']!r} member {render_item_ref(conn, member) if member is not None else 'run'} has "
                     f"{len(valid)} current acceptance records"
                     + (f" ({'; '.join(invalid_reasons)})" if invalid_reasons else "")
                 )
@@ -257,7 +258,7 @@ def prior_stage_refusals(
             waived_at = row["waived_at"] if hasattr(row, "keys") else row[1]
             if not waived_at and latest["verdict"] != "pass":
                 refusals.append(
-                    f"stage {stage['name']!r} member {member!r} is not accepted"
+                    f"stage {stage['name']!r} member {render_item_ref(conn, member) if member is not None else 'run'} is not accepted"
                 )
     return refusals
 

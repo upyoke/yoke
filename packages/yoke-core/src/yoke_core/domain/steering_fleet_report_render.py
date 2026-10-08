@@ -11,9 +11,10 @@ from yoke_core.domain.steering_fleet_report_test_machines import test_machine_li
 
 from yoke_core.domain.machine_registry import display_name
 from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
-from yoke_core.domain.steering_fleet_report_balance import (
-    LAUNCH_BALANCE_NOTE,
-    launch_balance_lines,
+from yoke_core.domain.steering_fleet_report_balance import launch_balance_lines
+from yoke_core.domain.steering_fleet_report_levels import (
+    level_override_lines,
+    level_readout_lines,
 )
 from yoke_core.domain.steering_fleet_report_capacity import SurfaceReadiness
 from yoke_core.domain.steering_fleet_report_deployment_runs import (
@@ -277,7 +278,8 @@ def scope_inner_body(report: FleetReport) -> str:
             "",
             *_scope_work_lines(report),
             *test_machine_lines(report.test_machines),
-            *launch_balance_lines(report, note=False),
+            *level_override_lines(report.level_overrides),
+            *launch_balance_lines(report, with_capacity=False),
         ]
     )
 
@@ -293,7 +295,9 @@ def report_body(report: FleetReport) -> str:
         *test_machine_lines(report.test_machines),
         launchable_line(report.launchable, machine_names=dict(report.machine_names)),
         *relay_health_lines(report.relay_health),
-        *launch_balance_lines(report, note=True),
+        *launch_balance_lines(report, with_capacity=True),
+        *level_readout_lines(report.levels, machine_names=dict(report.machine_names)),
+        *level_override_lines(report.level_overrides),
         *_plan_limits.plan_limit_lines(
             report.plan_limits,
             now=report.composed_at,
@@ -306,7 +310,6 @@ def report_body(report: FleetReport) -> str:
 
 
 __all__ = [
-    "LAUNCH_BALANCE_NOTE",
     "OVERDUE_MARK",
     "REPORT_BEGIN",
     "REPORT_END",

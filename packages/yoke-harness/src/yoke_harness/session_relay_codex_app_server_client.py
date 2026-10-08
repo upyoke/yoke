@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_harness.session_launch_admission import spawn_admitted_process
+
 import json
 import os
 from pathlib import Path
@@ -136,7 +138,7 @@ class _Client:
             tempfile.TemporaryFile() if capture_stderr else None
         )
         try:
-            self.process = subprocess.Popen(
+            self.process = spawn_admitted_process(
                 [resolved, "app-server", "--stdio"],
                 cwd=checkout,
                 env=strip_relay_owned_python_state(env),

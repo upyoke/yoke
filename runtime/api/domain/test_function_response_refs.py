@@ -53,3 +53,59 @@ def test_containment_protocol_does_not_become_public_item_rows(field):
         field: basis,
         "items": [{"public_ref": "APP-7"}],
     }
+
+
+def test_response_backstop_projects_nested_text_and_error_message(monkeypatch):
+    from contextlib import nullcontext
+    from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
+    from yoke_core.domain import db_helpers, function_response_refs as projection
+
+    refs = {3973: "PLAT-189", 99: "APP-7"}
+    calls = []
+    monkeypatch.setattr(db_helpers, "connect", lambda: nullcontext(object()))
+
+    def resolve(conn, ids):
+        calls.append(set(ids))
+        return refs
+
+    monkeypatch.setattr(projection, "render_item_refs", resolve)
+    response = FunctionCallResponse(
+        function="example",
+        version="v1",
+        success=False,
+        result={
+            "rows": [{"message": "member 3973: requirement #40353 failed"}],
+            "note": "deployment member 99 waits; item APP-7 stays public",
+        },
+        error=FunctionError(code="example", message="item 99 is blocked"),
+    )
+    public = projection.public_response(response)
+    assert calls == [{3973, 99}]
+    assert (
+        public.result["rows"][0]["message"]
+        == f"member {refs[3973]}: requirement #40353 failed"
+    )
+    assert (
+        public.result["note"]
+        == f"deployment member {refs[99]} waits; item APP-7 stays public"
+    )
+    assert public.error.message == f"item {refs[99]} is blocked"
+    assert public.error.code == "example"
+
+
+def test_response_backstop_hides_unresolved_names(monkeypatch):
+    from contextlib import nullcontext
+    from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
+    from yoke_core.domain import db_helpers, function_response_refs as projection
+
+    monkeypatch.setattr(db_helpers, "connect", lambda: nullcontext(object()))
+    monkeypatch.setattr(projection, "render_item_refs", lambda conn, ids: {})
+    response = FunctionCallResponse(
+        function="example",
+        version="v1",
+        success=False,
+        error=FunctionError(code="missing", message="item 99 is missing"),
+    )
+    public = projection.public_response(response)
+    assert "99" not in public.error.message
+    assert "unresolved" in public.error.message

@@ -60,6 +60,7 @@ AMEND_GUARDS: dict[str, Optional[Guard]] = {
     "approval_on_done": guard_approval,
     "deployment": None,
     "file_budget": None,
+    "level": None,
     "merge_candidate_review": guard_merge_candidate_review,
     "path_claims": guard_path_claims,
     "path_survey": None,

@@ -40,7 +40,7 @@ from yoke_core.domain.session_tool_call_projections import (
 )
 from yoke_core.domain.session_explicit_wake import explicit_stopped_wake_requested
 from yoke_core.domain.session_message_authorization import project_policy
-from yoke_core.domain.session_relay_policy import effective_relay_policy
+from yoke_core.domain.session_relay_policy import relay_policy
 from yoke_core.domain.steering_fleet_report_attempt_summary import last_attempts
 from yoke_core.domain.steering_fleet_report_delivery_states import (
     ATTEMPT_FAILED,
@@ -171,9 +171,7 @@ class _Group:
         self, *, result_code: str, evidence: Mapping[str, Any]
     ) -> None:
         """Record how the attempt failed and where its capture lives."""
-        reason = (
-            delivery_attempt_diagnostic(result_code, evidence) or self.diagnostic
-        )
+        reason = delivery_attempt_diagnostic(result_code, evidence) or self.diagnostic
         if self.failed_attempt_count > 1 and reason:
             reason = f"{reason} ×{self.failed_attempt_count}"
         self.diagnostic = reason
@@ -218,9 +216,7 @@ def undelivered_messages(
     grace = timedelta(
         seconds=int(project_policy(conn, int(project_id)).wake_ack_grace_seconds)
     )
-    sla = timedelta(
-        seconds=int(effective_relay_policy(conn, [int(project_id)]).poll_seconds)
-    )
+    sla = timedelta(seconds=int(relay_policy().poll_seconds))
     attempts = last_attempts(conn, project_id=project_id, marker=placeholder, now=now)
     open_call = open_tool_call_select(conn, session_alias="s")
     rows = conn.execute(

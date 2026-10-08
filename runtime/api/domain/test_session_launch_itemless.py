@@ -36,21 +36,12 @@ def _request(payload: dict) -> FunctionCallRequest:
     )
 
 
-def _fleet_policy(_conn, _project_id, path: str):
-    if path == "fleet.launch_deadline_minutes":
-        return 10
-    if path == "fleet.max_body_bytes":
-        return 65536
-    return False
-
-
 def _wire_create(monkeypatch, conn) -> None:
     monkeypatch.setattr(handlers, "_open", lambda: _NoCloseConnection(conn))
     monkeypatch.setattr(handlers, "_resolve_project", lambda _conn, _project: 10)
     monkeypatch.setattr(
         handlers, "launch_authorization", lambda *_a, **_k: authorization()
     )
-    monkeypatch.setattr(handlers, "_fleet_policy", _fleet_policy)
     monkeypatch.setattr("yoke_core.domain.session_launch_requests.utc_now", lambda: NOW)
     monkeypatch.setattr(
         "yoke_core.domain.session_launch_surface_selection.utc_now",

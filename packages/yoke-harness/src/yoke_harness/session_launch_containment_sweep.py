@@ -27,6 +27,8 @@ elapsed time. See ``docs/archive/decisions/resume-custody-reads-activity-not-age
 
 from __future__ import annotations
 
+from yoke_contracts.fleet_policy import LAUNCH_DEADLINE_MINUTES
+
 from dataclasses import dataclass
 import json
 import os
@@ -34,7 +36,6 @@ from pathlib import Path
 import signal
 import time
 
-from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_contracts.process_ancestry import process_start_time
 from yoke_contracts.session_control.resume import RESUME_INACTIVITY_SECONDS
 from yoke_harness.session_launch_containment import (
@@ -48,10 +49,7 @@ from yoke_harness.session_launch_handles import native_handle_path
 # A native is contained only after the launch could no longer register, plus
 # a margin so the sweep never races the deadline it is backing up.
 CONTAINMENT_GRACE_SECONDS = 120
-CONTAINMENT_TTL_SECONDS = (
-    int(FLEET_KEY_SPECS["fleet.launch_deadline_minutes"].default) * 60
-    + CONTAINMENT_GRACE_SECONDS
-)
+CONTAINMENT_TTL_SECONDS = LAUNCH_DEADLINE_MINUTES * 60 + CONTAINMENT_GRACE_SECONDS
 _TERMINATE_WAIT_SECONDS = 2.0
 
 

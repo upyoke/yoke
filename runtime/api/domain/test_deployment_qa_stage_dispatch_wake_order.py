@@ -11,6 +11,8 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import patch
 
+from yoke_contracts.public_ref import format_item_ref
+
 from yoke_core.domain import deployment_qa_stage_dispatch as dispatch
 from yoke_core.domain import deployment_qa_stage_gate as gate
 
@@ -19,6 +21,9 @@ RUN_ID = "run-20261007-024"
 STAGE = {"name": "item-qa", "scope": "item"}
 SETTLED_MEMBER = 101
 WAITING_MEMBER = 202
+PROJECT_SLUG = "sample"
+PUBLIC_PREFIX = "SAMPLE"
+MEMBER_SEQUENCES = {SETTLED_MEMBER: 11, WAITING_MEMBER: 12}
 
 
 class _Rows:
@@ -39,6 +44,13 @@ class _Conn:
         self.commits = 0
 
     def execute(self, sql: str, params: tuple = ()) -> _Rows:
+        if "JOIN projects" in sql:
+            return _Rows(
+                many=[
+                    (member, PROJECT_SLUG, PUBLIC_PREFIX, MEMBER_SEQUENCES[member])
+                    for member in params
+                ]
+            )
         if "FROM deployment_runs" in sql:
             return _Rows(one=(1, "persistent", "a" * 40))
         if "FROM deployment_run_items" in sql:
@@ -87,7 +99,11 @@ def test_owner_wakes_go_out_before_any_member_close_out() -> None:
         )
 
     assert code == -4
-    assert f"member {WAITING_MEMBER}" in message
+    member_ref = format_item_ref(
+        PROJECT_SLUG, PUBLIC_PREFIX, MEMBER_SEQUENCES[WAITING_MEMBER]
+    )
+    assert f"member {member_ref}" in message
+    assert f"member {WAITING_MEMBER}" not in message
     # The settled member sorts first, yet its close-out follows the wake.
     assert events == [("wake", WAITING_MEMBER), ("close", SETTLED_MEMBER)]
     assert conn.commits >= 2

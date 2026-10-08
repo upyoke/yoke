@@ -11,6 +11,7 @@ from runtime.api.domain.test_deployment_qa_stage_execution import (
     _plan,
     _seed_run,
 )
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
@@ -110,7 +111,9 @@ def test_same_method_member_stages_keep_distinct_requirements_and_executions(
     first = _begin(test_db, "run-repeated-stages", "member-qa-one", member)
     _complete_case(test_db, first)
     assert deployment_qa_stage_status(
-        test_db, run_id="run-repeated-stages", stage_name="member-qa-one",
+        test_db,
+        run_id="run-repeated-stages",
+        stage_name="member-qa-one",
         member_item_id=member,
     )["accepted"]
     test_db.execute(
@@ -123,12 +126,16 @@ def test_same_method_member_stages_keep_distinct_requirements_and_executions(
     assert first["roster"][0]["requirement_id"] != second["roster"][0]["requirement_id"]
     _complete_case(test_db, second)
     assert deployment_qa_stage_status(
-        test_db, run_id="run-repeated-stages", stage_name="member-qa-two",
+        test_db,
+        run_id="run-repeated-stages",
+        stage_name="member-qa-two",
         member_item_id=member,
     )["accepted"]
 
 
-def test_failed_done_member_blocks_run_qa_and_resume_even_with_continue(test_db) -> None:
+def test_failed_done_member_blocks_run_qa_and_resume_even_with_continue(
+    test_db,
+) -> None:
     plan_id = _plan(test_db, "member-failure-gate")
     stages = _stages(plan_id)
     members = (9721, 9722)
@@ -143,11 +150,15 @@ def test_failed_done_member_blocks_run_qa_and_resume_even_with_continue(test_db)
     _complete_failed(test_db, failed)
     _complete_case(test_db, passed)
     assert not deployment_qa_stage_status(
-        test_db, run_id="run-member-failure", stage_name="member-qa-one",
+        test_db,
+        run_id="run-member-failure",
+        stage_name="member-qa-one",
         member_item_id=members[0],
     )["accepted"]
     assert deployment_qa_stage_status(
-        test_db, run_id="run-member-failure", stage_name="member-qa-one",
+        test_db,
+        run_id="run-member-failure",
+        stage_name="member-qa-one",
         member_item_id=members[1],
     )["accepted"]
     refusals = prior_deployment_qa_refusals(
@@ -156,7 +167,9 @@ def test_failed_done_member_blocks_run_qa_and_resume_even_with_continue(test_db)
         stages=stages,
         start_stage="release-qa",
     )
-    assert any("member 9721" in refusal for refusal in refusals)
+    member_ref = render_item_ref(test_db, members[0])
+    assert any(f"member {member_ref}" in refusal for refusal in refusals)
+    assert all(f"member {members[0]}" not in refusal for refusal in refusals)
 
     test_db.execute(
         "UPDATE deployment_runs SET current_stage='release-qa' "
@@ -169,11 +182,14 @@ def test_failed_done_member_blocks_run_qa_and_resume_even_with_continue(test_db)
             deployment_run_id="run-member-failure",
             deployment_stage="release-qa",
         )
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM qa_requirements WHERE deployment_run_id=%s "
-        "AND deployment_stage='release-qa'",
-        ("run-member-failure",),
-    ).fetchone()[0] == 0
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM qa_requirements WHERE deployment_run_id=%s "
+            "AND deployment_stage='release-qa'",
+            ("run-member-failure",),
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_new_producer_attempt_invalidates_and_can_replace_prior_acceptance(
@@ -242,21 +258,27 @@ def test_new_producer_attempt_invalidates_and_can_replace_prior_acceptance(
         member_item_id=member,
     )["accepted"]
     assert first["id"] != second["id"]
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM qa_requirements WHERE deployment_run_id=%s "
-        "AND deployment_stage='member-qa-one' "
-        "AND qa_kind='deployment_stage_acceptance'",
-        (run_id,),
-    ).fetchone()[0] == 2
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM qa_requirements WHERE deployment_run_id=%s "
+            "AND deployment_stage='member-qa-one' "
+            "AND qa_kind='deployment_stage_acceptance'",
+            (run_id,),
+        ).fetchone()[0]
+        == 2
+    )
 
     test_db.execute(
         "UPDATE deployment_runs SET current_stage='member-qa-two' WHERE id=%s",
         (run_id,),
     )
     test_db.commit()
-    assert prior_deployment_qa_refusals(
-        test_db,
-        run_id=run_id,
-        stages=stages,
-        start_stage="member-qa-two",
-    ) == []
+    assert (
+        prior_deployment_qa_refusals(
+            test_db,
+            run_id=run_id,
+            stages=stages,
+            start_stage="member-qa-two",
+        )
+        == []
+    )
