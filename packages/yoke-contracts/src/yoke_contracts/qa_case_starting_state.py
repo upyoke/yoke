@@ -163,6 +163,23 @@ def chain_baselines(
     return fan_out
 
 
+def stored_fan_out(cases: Sequence[Mapping[str, Any]]) -> list[list[str | None]]:
+    """Each stored case's materialized baselines, read without validating.
+
+    The read-side twin of :func:`chain_baselines` for plans as they are
+    stored: a case with ``host_baselines`` fans out across them, an
+    ``inherit`` case follows its predecessor, and any other case is one row
+    with no baseline. ``host_baselines`` is the decoded list.
+    """
+    fan_out: list[list[str | None]] = []
+    previous: list[str | None] = [None]
+    for case in cases:
+        if case.get("starting_state") != INHERIT:
+            previous = list(case.get("host_baselines") or []) or [None]
+        fan_out.append(previous)
+    return fan_out
+
+
 def require_selected_chains(
     plan_cases: Sequence[Mapping[str, Any]],
     selected_keys: Sequence[str],
@@ -237,4 +254,5 @@ __all__ = [
     "require_materialized_starting_state",
     "require_selected_chains",
     "reset_baselines",
+    "stored_fan_out",
 ]

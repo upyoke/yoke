@@ -146,6 +146,7 @@ _SHAPES = (
             "projects-ci-workflow-resolves",
             "projects-config-alignment",
             "projects-without-flows",
+            "qa-plan-machine-starting-state",
             "qa-runs-mutated",
             "reflection-capture-persist-failed",
             "reflection-capture-unhandled",

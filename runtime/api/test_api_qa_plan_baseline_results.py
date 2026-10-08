@@ -132,3 +132,49 @@ def test_plan_detail_requires_every_case_baseline_proof_to_satisfy_union() -> No
         "satisfied": False,
         "counts": {"failed": 1, "passed": 2},
     }
+
+
+def test_plan_detail_reads_inheriting_case_proofs_on_its_chain_baselines() -> None:
+    machine = {
+        **CATALOG_CASES[0],
+        "method_id": "machine-state-check",
+        "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
+    }
+    with test_database() as conn:
+        insert_item(conn, id=43, title="Prove a chain", workflow_id="issue")
+        plan = create_plan(conn, project="yoke", slug="chain-proof")
+        replace_plan_cases(
+            conn,
+            plan_id=plan["id"],
+            cases=[
+                {
+                    **machine,
+                    "case_key": "open",
+                    "position": 1,
+                    "host_baselines": ["fresh-host", "shell-preconfigured"],
+                },
+                {
+                    **machine,
+                    "case_key": "follow",
+                    "position": 2,
+                    "starting_state": "inherit",
+                },
+            ],
+        )
+        set_project_default(
+            conn, plan_id=plan["id"], workflow_id="issue", transition_id="release"
+        )
+        materialize_for_item(conn, item_id=43, transition_id="release")
+        conn.commit()
+        follow = get_plan(conn, plan_id=plan["id"])["cases"][1]
+
+    assert (follow["starting_state"], follow["starting_state_reason"]) == (
+        "inherit",
+        None,
+    )
+    assert "last_result" not in follow
+    assert [proof["host_baseline"] for proof in follow["proofs"]] == [
+        "fresh-host",
+        "shell-preconfigured",
+    ]
+    assert all(proof["requirement_id"] is not None for proof in follow["proofs"])

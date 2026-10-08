@@ -106,9 +106,10 @@ Epic-task attachment remains operator-debug only, through
 
 A case that runs on a Test Machine (`host_control` methods such as
 `terminal-check`, and `exploratory-mission`) declares the machine state it
-starts from. Plan authoring (`yoke qa plan edit`, `yoke qa plan-cases
-replace`), `qa.requirement.add`, and every materialization refuse a case that
-declares none, naming the choices and the registered baselines:
+starts from. Authoring (`yoke qa plan edit`, `yoke qa plan-cases replace`),
+`qa.requirement.add`, and every materialization refuse a case that declares
+none, naming the choices and baselines; `HC-qa-plan-machine-starting-state`
+fails while a stored plan has one, and `yoke qa plan get` shows each choice:
 
 - `host_baselines: ["fresh-host"]` (or `shell-preconfigured`, or both): the
   runner resets to each named baseline; one requirement row per baseline.

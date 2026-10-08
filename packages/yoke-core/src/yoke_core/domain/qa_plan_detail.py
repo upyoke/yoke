@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from yoke_contracts.qa_case_starting_state import stored_fan_out
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.qa_catalog_reads import (
@@ -265,8 +266,12 @@ def get_plan(
     )
     cases = []
     proofs = []
-    for case in case_rows:
-        host_baselines = _decode(case["host_baselines"], [])
+    case_rows = [
+        {**case, "host_baselines": _decode(case["host_baselines"], [])}
+        for case in case_rows
+    ]
+    for case, fan_out in zip(case_rows, stored_fan_out(case_rows)):
+        host_baselines = case["host_baselines"]
         case_proofs = [
             _case_result(
                 conn,
@@ -275,7 +280,7 @@ def get_plan(
                 host_baseline,
                 deployment_run_id,
             )
-            for host_baseline in (host_baselines or [None])
+            for host_baseline in fan_out
         ]
         required_kinds = capability_kinds(
             case["required_capability_kinds"],
@@ -303,11 +308,13 @@ def get_plan(
                 None,
             ),
             "host_baselines": host_baselines,
+            "starting_state": case["starting_state"],
+            "starting_state_reason": case["starting_state_reason"],
             "entry_surface": case["entry_surface"],
             "required_completion": case["required_completion"],
             "proofs": case_proofs,
         }
-        if not host_baselines:
+        if fan_out == [None]:
             case_detail["last_result"] = case_proofs[0]
         cases.append(case_detail)
         proofs.extend(case_proofs)

@@ -136,6 +136,7 @@ from yoke_core.engines.doctor_hc_oneshot_migration import (  # noqa: F401
 )
 from yoke_core.engines.doctor_hc_path_integrity import hc_path_integrity  # noqa: F401
 from yoke_core.engines.doctor_hc_qa_runs import hc_qa_runs_mutated  # noqa: F401
+from yoke_core.engines.doctor_hc_qa_starting_state import hc_qa_plan_starting_state  # noqa: F401
 from yoke_core.engines.doctor_hc_pending_migrations import hc_pending_migrations  # noqa: F401
 from yoke_core.engines.doctor_hc_scratch_databases import (
     hc_administered_scratch_databases,
@@ -145,9 +146,7 @@ from yoke_core.engines.doctor_hc_project_migration_ledger import (  # noqa: F401
     hc_project_migration_ledger_contract,
 )
 from yoke_core.engines.doctor_hc_stop_hook_chain import hc_stop_hook_chain_end_deferred  # noqa: F401
-from yoke_core.engines.doctor_hc_retired_schema import (  # noqa: F401
-    hc_retired_schema_resurrection,
-)
+from yoke_core.engines.doctor_hc_retired_schema import hc_retired_schema_resurrection  # noqa: F401
 from yoke_core.engines.doctor_hc_db_catalog import (  # noqa: F401
     hc_synthetic_event_contamination,
 )
@@ -298,6 +297,7 @@ HEALTH_CHECKS: list[HealthCheck] = [
     HealthCheck("stop-hook-chain-end-deferred", "Stop-hook deferred chains aged past stale window", hc_stop_hook_chain_end_deferred),
     HealthCheck("retired-schema-resurrection", "Retired schema surfaces present on authoritative DB", hc_retired_schema_resurrection),
     HealthCheck("qa-runs-mutated", "qa_runs rows whose raw_result mixes failing verdict with resolution narrative", hc_qa_runs_mutated),
+    HealthCheck("qa-plan-machine-starting-state", "Stored QA plans whose machine-run cases cannot materialize", hc_qa_plan_starting_state),
     # Git / filesystem HCs
     HealthCheck("main-checkout", "Main repo branch checkout", hc_main_checkout),
     HealthCheck("worktree-health", "Worktree health", hc_worktree_health),
