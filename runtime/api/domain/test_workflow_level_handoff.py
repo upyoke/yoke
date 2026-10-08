@@ -172,3 +172,18 @@ def test_transition_result_emits_handoff_only_for_a_level_change(monkeypatch, ch
         assert outcome.result_payload["handoff"] == handoff
     else:
         assert "handoff" not in outcome.result_payload
+
+
+def test_unresolved_session_label_does_not_invent_a_level_change(monkeypatch):
+    from yoke_contracts.session_level import UNRESOLVED_EXECUTION_LEVEL
+
+    conn, _ref = context(monkeypatch)
+    conn.execute(
+        "UPDATE harness_sessions SET execution_level=?", (UNRESOLVED_EXECUTION_LEVEL,)
+    )
+    assert (
+        handoffs.level_handoff(
+            conn, item_id=41, session_id="predecessor", stage_id="release"
+        )
+        is None
+    )

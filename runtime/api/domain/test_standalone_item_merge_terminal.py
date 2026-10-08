@@ -57,7 +57,7 @@ def test_merge_stops_at_and_propagates_level_change_handoff(monkeypatch):
     monkeypatch.setattr(terminal, "call_dispatcher", dispatch)
     with capture_level_handoffs() as captured:
         result = terminal.transition_to_done(
-            item_id=7,
+            item_id="ITEM-7",
             source_status="reviewing-implementation",
             repo_root="/repo",
             lane=LANE,

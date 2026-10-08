@@ -8,6 +8,7 @@ from contextvars import ContextVar
 from typing import Any
 
 from yoke_contracts.api.function_call import FunctionWarning
+from yoke_contracts.session_level import level_is_unresolved
 from yoke_core.domain.project_identity import placeholder, render_item_ref
 from yoke_core.domain.workflow_stage_levels import item_stage_level
 from yoke_core.domain.work_claim_target_sql import scope_int_sql
@@ -50,7 +51,7 @@ def level_handoff(
         f"SELECT execution_level FROM harness_sessions WHERE session_id={p}",
         (session_id,),
     ).fetchone()
-    if row is None or not row[0]:
+    if row is None or level_is_unresolved(row[0]):
         return None
     resolved = item_stage_level(conn, item_id, stage_id=stage_id)
     if resolved is None or resolved["level"] == row[0]:

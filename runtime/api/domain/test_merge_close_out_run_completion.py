@@ -76,7 +76,11 @@ def test_recovered_merge_close_out_finishes_settling_run(
                 payload=payload,
             )
         )
-        return SimpleNamespace(success=outcome.primary_success, error=outcome.error)
+        return SimpleNamespace(
+            success=outcome.primary_success,
+            result=outcome.result_payload,
+            error=outcome.error,
+        )
 
     monkeypatch.setattr(standalone_item_merge_terminal, "call_dispatcher", dispatch)
     monkeypatch.setattr(

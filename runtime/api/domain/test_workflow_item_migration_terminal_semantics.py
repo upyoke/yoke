@@ -27,6 +27,9 @@ def _publish_release_terminal_version(conn) -> dict:
         stage for stage in definition["stages"] if stage["id"] != "done"
     ]
     definition["terminal_stage_ids"] = ["release"]
+    for stage in definition["stages"]:
+        if stage["id"] == "release":
+            stage.pop("level", None)
     definition["transitions"] = [
         edge for edge in definition["transitions"] if edge["to_stage_id"] != "done"
     ]
