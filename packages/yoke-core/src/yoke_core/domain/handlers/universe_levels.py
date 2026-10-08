@@ -11,7 +11,12 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_contracts.levels import LevelsError, levels_payload
+from yoke_contracts.level_proposals import (
+    published_capability_conflicts,
+    refuse_capability_conflicts,
+)
+from yoke_contracts.levels import LevelsError, levels_payload, parse_levels
+from yoke_contracts.model_reference_records import ModelReferenceError
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 GET_FUNCTION_ID = "universe.levels.get"
@@ -66,17 +71,30 @@ def handle_universe_levels_get(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def handle_universe_levels_set(request: FunctionCallRequest) -> HandlerOutcome:
-    """Validate and store the universe levels, replacing the prior definition."""
+    """Validate and store the universe levels, replacing the prior definition.
+
+    An option whose effort or context window its model's published catalog
+    values contradict is refused before anything is stored.
+    """
     try:
         parsed = UniverseLevelsSetRequest(**(request.payload or {}))
     except ValidationError as exc:
         return _failure("payload_invalid", safe_validation_message(exc))
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.handlers.identity_common import caller_actor_id
+    from yoke_core.domain.model_reference_store import revision_at
     from yoke_core.domain.universe_levels import write_universe_levels
 
     try:
         with connect() as conn:
+            try:
+                records = revision_at(conn)["records"]
+            except ModelReferenceError:
+                records = ()  # no catalog yet: every option is unverified
+            conflicts, _ = published_capability_conflicts(
+                parse_levels(parsed.levels), records
+            )
+            refuse_capability_conflicts(conflicts)
             levels = write_universe_levels(
                 conn, parsed.levels, actor_id=caller_actor_id(conn, request)
             )

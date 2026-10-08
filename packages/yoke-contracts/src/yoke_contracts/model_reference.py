@@ -3,8 +3,8 @@
 The control plane supplies the selected catalog revision to each reader.
 Lookup never raises. ``researched=False`` is the explicit not-researched
 marker — missing facts are not a discovery, launch, or usage gate.
-Researched ``proposed_tier`` is not operator routing; per-surface routing
-lives with the steering selection policy, not this reference.
+The catalog holds facts about models only; which level launches a model is
+decided by the execution levels (:mod:`yoke_contracts.levels`).
 
 Record shapes live in ``model_reference_records``; this module is the
 lookup and validation surface every caller reads. Validation is where the
@@ -20,14 +20,12 @@ from typing import Any, Iterable, Mapping, Optional
 from yoke_contracts.model_reference_records import (
     CONSUMPTION_FIELDS,
     PRICE_FIELDS,
-    PROPOSED_TIERS,
     ApiPrice,
     BenchmarkScore,
     ConsumptionWeight,
     ModelLookup,
     ModelRecord,
     ModelReferenceError,
-    ProposedTier,
     SubscriptionRule,
 )
 from yoke_contracts.session_model_facts import (
@@ -262,6 +260,31 @@ def _benchmark(raw: object) -> BenchmarkScore:
     )
 
 
+def _reasoning_efforts(value: object) -> tuple[str, ...]:
+    efforts = tuple(e.lower() for e in _tuple_of_str(value, "reasoning_efforts"))
+    unknown = sorted(set(efforts) - set(REASONING_EFFORT_VALUES))
+    if unknown:
+        raise ModelReferenceError(
+            "reasoning_efforts_invalid",
+            f"reasoning_efforts names {', '.join(unknown)}; published efforts "
+            f"are among {', '.join(REASONING_EFFORT_VALUES)}",
+        )
+    return efforts
+
+
+def _context_windows(value: object) -> tuple[int, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, (list, tuple)) or any(
+        isinstance(n, bool) or not isinstance(n, int) or n <= 0 for n in value
+    ):
+        raise ModelReferenceError(
+            "context_windows_invalid",
+            "context_window_tokens must be a list of positive token counts",
+        )
+    return tuple(sorted(set(value)))
+
+
 def validate_model_record(payload: Mapping[str, Any]) -> ModelRecord:
     """Rebuild one record from JSON. Named refusal, never a traceback."""
     model_id = str(payload.get("model_id") or "").strip()
@@ -270,12 +293,6 @@ def validate_model_record(payload: Mapping[str, Any]) -> ModelRecord:
         raise ModelReferenceError(
             "record_invalid",
             "model_id and provider are required; fill unknown leaves with null",
-        )
-    tier = payload.get("proposed_tier")
-    if tier is not None and tier not in PROPOSED_TIERS:
-        raise ModelReferenceError(
-            "tier_invalid",
-            f"proposed_tier must be one of {', '.join(PROPOSED_TIERS)} or null",
         )
     price_raw = payload.get("api_price")
     if price_raw is not None and not isinstance(price_raw, Mapping):
@@ -288,9 +305,8 @@ def validate_model_record(payload: Mapping[str, Any]) -> ModelRecord:
         display_name=_optional_str(payload.get("display_name")),
         aliases=_tuple_of_str(payload.get("aliases"), "aliases"),
         replacement_model_id=_optional_str(payload.get("replacement_model_id")),
-        proposed_tier=tier,  # type: ignore[arg-type]
-        tier_evidence=_optional_str(payload.get("tier_evidence")),
-        tier_provisional=bool(payload.get("tier_provisional", False)),
+        reasoning_efforts=_reasoning_efforts(payload.get("reasoning_efforts")),
+        context_window_tokens=_context_windows(payload.get("context_window_tokens")),
         operator_notes=_optional_str(payload.get("operator_notes")),
         api_price=None if price_raw is None else _api_price(price_raw),
         benchmarks=tuple(_benchmark(raw) for raw in payload.get("benchmarks") or ()),
@@ -309,8 +325,6 @@ __all__ = [
     "ModelLookup",
     "ModelRecord",
     "ModelReferenceError",
-    "PROPOSED_TIERS",
-    "ProposedTier",
     "SubscriptionRule",
     "lookup_api_price",
     "lookup_model_reference",

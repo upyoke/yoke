@@ -151,8 +151,9 @@ SKILLS: tuple[Skill, ...] = (
         "utility",
         "operator",
         False,
-        "publish model catalog revisions",
-        "lookup MODEL_ID | get | validate | diff | publish | revisions | restore",
+        "publish model catalog revisions and propose level changes",
+        "lookup MODEL_ID | get | validate | diff | publish | revisions | restore"
+        " | level-proposal",
     ),
     Skill(
         "onboard",

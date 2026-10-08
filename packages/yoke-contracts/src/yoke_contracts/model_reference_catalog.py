@@ -7,7 +7,11 @@ from datetime import date
 from typing import Any
 
 from yoke_contracts.model_reference import lookup_stem, validate_model_record
-from yoke_contracts.model_reference_records import ModelRecord, ModelReferenceError
+from yoke_contracts.model_reference_records import (
+    RETIRED_RECORD_KEYS,
+    ModelRecord,
+    ModelReferenceError,
+)
 
 
 def _date(value: str | None, field: str) -> None:
@@ -19,6 +23,18 @@ def _date(value: str | None, field: str) -> None:
         raise ModelReferenceError(
             "source_invalid", f"{field} must be an ISO date"
         ) from exc
+
+
+def refuse_retired_record_keys(payload: Mapping[str, Any]) -> None:
+    """Refuse a candidate record that still classifies the model for routing."""
+    retired = [key for key in RETIRED_RECORD_KEYS if key in payload]
+    if retired:
+        raise ModelReferenceError(
+            "tier_classification_retired",
+            f"{payload.get('model_id') or 'record'} carries {', '.join(retired)}; "
+            "the catalog holds facts about models only. Remove the key(s) and "
+            "propose level changes with `yoke models level-proposal`.",
+        )
 
 
 def validate_catalog(payload: object) -> tuple[ModelRecord, ...]:
@@ -103,4 +119,4 @@ def catalog_diff(
     }
 
 
-__all__ = ["catalog_diff", "validate_catalog"]
+__all__ = ["catalog_diff", "refuse_retired_record_keys", "validate_catalog"]

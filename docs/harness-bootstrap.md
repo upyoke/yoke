@@ -75,7 +75,7 @@ yoke_core.tools.render_skill_registry_inline --target-root CHECKOUT`.
 | `/yoke help` | utility | `operator` | follow skill decision gates | show command reference |
 | `/yoke idea [--dry-run] [--workflow issue\|epic\|blitz\|task] {title}` | utility | `idea` | follow skill decision gates | file a backlog item |
 | `/yoke implement {PREFIX-N} [--no-worktree] [--force] [--qa-bypass]` | stage | `implement` | autonomous execution | implement and review an item |
-| `/yoke models lookup MODEL_ID \| get \| validate \| diff \| publish \| revisions \| restore` | utility | `operator` | follow skill decision gates | publish model catalog revisions |
+| `/yoke models lookup MODEL_ID \| get \| validate \| diff \| publish \| revisions \| restore \| level-proposal` | utility | `operator` | follow skill decision gates | publish model catalog revisions and propose level changes |
 | `/yoke onboard [--project P] [--run-id RUN]` | orchestrator | `operator` | follow skill decision gates | make a wired project execution-ready |
 | `/yoke polish {PREFIX-N}` | stage | `polish` | autonomous execution | review and finish implementation |
 | `/yoke refine {PREFIX-N}` | stage | `refine` | follow skill decision gates | critique and improve item artifacts |

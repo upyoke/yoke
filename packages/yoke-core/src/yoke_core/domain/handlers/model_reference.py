@@ -16,6 +16,7 @@ from yoke_contracts.model_reference import (
     lookup_model_reference,
     validate_model_record,
 )
+from yoke_contracts.model_reference_catalog import refuse_retired_record_keys
 from yoke_core.domain.model_reference_store import revision_at, revision_get
 
 LOOKUP_FUNCTION_ID = "models.lookup.run"
@@ -154,6 +155,7 @@ def handle_models_validate(request: FunctionCallRequest) -> HandlerOutcome:
     except ValidationError as exc:
         return _payload_error(exc)
     try:
+        refuse_retired_record_keys(spec.record)
         record = validate_model_record(spec.record)
     except ModelReferenceError as exc:
         return HandlerOutcome(

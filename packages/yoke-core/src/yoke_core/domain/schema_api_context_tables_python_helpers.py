@@ -182,7 +182,8 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "`researched=False` is unknown, not a gate. `lookup_api_price` "
             "returns None when unknown. `model_reference_revisions` stores "
             "effective-dated sourced catalogs; publish via `yoke models publish`. "
-            "`proposed_tier` is not routing (`session_model_routing`). "
+            "Records hold model facts only; level changes are proposed with "
+            "`yoke models level-proposal` and stored by `yoke universe levels set`. "
             "Native availability is independent. CLI: `yoke models lookup MODEL_ID`. "
             "No `operator_preferences` field."
         ),

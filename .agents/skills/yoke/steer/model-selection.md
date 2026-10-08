@@ -58,11 +58,11 @@ that band is excluded — not an extra usable rank. A vendor flagship label,
 a larger version number, or being the best a harness offers is not evidence
 of a tier.
 
-Which models sit in each band today is the model catalog's answer, not this
-file's: read the revision with `yoke models get`, or one model's tier with
-`yoke models lookup <model-id>`. Naming them here duplicates a value the
-catalog owns, so the next reclassification would leave this prose teaching a
-tier the catalog has already moved.
+Which models sit in each band is the operator's routing below, not this
+file's and not the model catalog's: the catalog holds facts about models
+only — prices, published efforts and context windows, successors — read with
+`yoke models get` or `yoke models lookup <model-id>`. Naming routed models
+here would leave this prose teaching a route the operator has since moved.
 
 On this installation, `claude-cli` and `codex-cli` set `worker_tier` to
 `tier2`. Their new worker launches use the models named by the operator's
@@ -78,20 +78,19 @@ worker-tier override and keeps the Grok-first policy below.
 The operator's per-surface routing preference answers that, in
 `~/.yoke/config.json`. **The block below is a shape example only — every
 model id in it is a placeholder, not a current route.** The live routing
-default for a surface is printed by the same `--list-models` read above,
-and a model's live tier by `yoke models lookup <model-id>`; a catalog
-refresh does not rewrite operator routing or move already-started
+default for a surface is printed by the same `--list-models` read above; a
+catalog refresh does not rewrite operator routing or move already-started
 sessions:
 
 ```json
 "session_model_routing": {
   "<surface-id>": {
-    "tier1": "<a tier1 model id from the catalog>",
-    "tier2": "<a tier2 model id from the catalog>",
+    "tier1": "<the surface's tier1 model id>",
+    "tier2": "<the surface's tier2 model id>",
     "worker_tier": "tier2"
   },
   "<another-surface-id>": {
-    "tier2": "<a tier2 model id from the catalog>",
+    "tier2": "<the surface's tier2 model id>",
     "excluded": ["<a model id never to launch>"],
     "fallbacks": ["<a model id the preferred one may hand off to>"]
   }
@@ -99,9 +98,7 @@ sessions:
 ```
 
 Models named in the routing policy's `excluded` list are never launched.
-The catalog's `proposed_tier` is advisory and does not override a named
-operator route, so an operator may keep routing a model the catalog has
-since moved out of that tier. `fallbacks` are
+`fallbacks` are
 the only models a preferred model may hand off to, and only under the rule
 below. A surface with no entry keeps whatever per-surface default it already
 had — blank is a
@@ -137,8 +134,7 @@ the models previously observed and remains visibly stale.
 
 Cursor bills two included pools at once. `cursor-grok-*` and `composer-*`
 selections draw on **Cursor Models**; everything else draws on **Other
-Models**. Whatever the catalog's current tier for each Grok release, the
-approved routing keeps a Grok the ordinary Cursor worker — read which one
+Models**. The approved routing keeps a Grok the ordinary Cursor worker — read which one
 from the surface's `--list-models` default. Opus on Cursor is a fallback
 and nothing else.
 
@@ -178,20 +174,16 @@ Availability is observed natively, so a new flagship family appears the moment
 the surface publishes it — no research is required first, and missing research
 never gates a launch.
 
-- **Follow the vendor's own replacement metadata.** A model entry's
-  `replaced_by` names its successor. Adopt a successor into **tier1 only
-  when it is frontier-equivalent** to current Fable/Astra. Never infer a
-  rank from a name, a version number, a price, or "this harness's new
-  flagship."
-- **Re-evaluate the prior family.** A successor does not leave the old
-  model in tier1/tier2 just because a vendor still labels it flagship.
-- **Classify provisionally when research is behind.** A reliable provider
-  description is enough to place a new family under the standing global
-  tier policy until the researched reference catches up. Mark it as
-  provisional when you record the decision.
-- **Operator preference outranks a proposed tier.** The researched
-  reference proposes; the operator's `session_model_routing` decides.
-  That is still a per-launch judgment, not a blanket default.
+Placing a model is a level change, never a catalog classification. `/yoke
+models` researches the model's facts, publishes them, and proposes the level
+changes they imply with `yoke models level-proposal`: a superseded model's
+options are replaced in place by its successor, and an effort or context
+window the model does not publish is corrected. A model no level launches is
+reported as unplaced; the refresh author proposes where it belongs, judged
+against where today's options sit. Nothing changes a level until the operator
+approves the proposal, which is then stored with `yoke universe levels set`.
+Machine `session_model_routing` keys name models directly; change them only
+on operator instruction.
 
 ## Retry once, then restaff the same item
 
@@ -210,7 +202,7 @@ committed and uncommitted work, the failure evidence or misunderstanding, and
 the next concrete step. The successor reads it and the preserved lane before
 acting; it continues the item rather than repeating completed legs.
 
-Choose the next stronger catalog tier within the supported routing and quota
+Choose the next stronger routing tier within the supported routing and quota
 limits above. If the worker is already at tier 1, or no stronger authorized
 model is available, report that ceiling and the failure evidence to the
 operator for a decision; do not invent a higher tier or promote silently.

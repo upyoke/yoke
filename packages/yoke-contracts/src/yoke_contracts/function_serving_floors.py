@@ -31,6 +31,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "items.progress_log.get": "next-release",
     "merge_receipt.commits.attest": "next-release",
     "models.diff.run": "next-release",
+    "models.level_proposal.run": "next-release",
     "models.publish.run": "next-release",
     "models.restore.run": "next-release",
     "organizations.create": "next-release",

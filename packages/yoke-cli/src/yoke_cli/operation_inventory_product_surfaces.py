@@ -40,6 +40,7 @@ WRAPPED_ROWS = (
     _w("yoke models lookup", "models"),
     _w("yoke models validate", "models"),
     _w("yoke models diff", "models"),
+    _w("yoke models level-proposal", "models"),
     _w("yoke models publish", "models"),
     _w("yoke models revisions", "models"),
     _w("yoke models restore", "models"),

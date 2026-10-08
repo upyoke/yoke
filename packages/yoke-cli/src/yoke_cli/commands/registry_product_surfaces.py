@@ -11,6 +11,7 @@ from yoke_cli.commands.adapters import (
     item_worktrees,
     merge_review,
     models,
+    models_level_proposal,
     overview,
     qa_catalog,
     qa_catalog_defaults,
@@ -202,6 +203,10 @@ MODELS_SUBCOMMAND_REGISTRY = {
     ("models", "get"): ("models.get.run", models.models_get),
     ("models", "validate"): ("models.validate.run", models.models_validate),
     ("models", "diff"): ("models.diff.run", models.models_diff),
+    ("models", "level-proposal"): (
+        "models.level_proposal.run",
+        models_level_proposal.models_level_proposal,
+    ),
     ("models", "publish"): ("models.publish.run", models.models_publish),
     ("models", "revisions"): ("models.revisions.run", models.models_revisions),
     ("models", "restore"): ("models.restore.run", models.models_restore),

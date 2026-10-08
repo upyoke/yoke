@@ -1,8 +1,8 @@
 ---
 name: models
-description: Research, review, and publish effective-dated model catalog revisions.
+description: Research and publish effective-dated model catalog revisions, then propose the level changes they imply.
 # argument-hint is generated from yoke_contracts.skill_registry.
-argument-hint: "lookup MODEL_ID | get | validate | diff | publish | revisions | restore"
+argument-hint: "lookup MODEL_ID | get | validate | diff | publish | revisions | restore | level-proposal"
 ---
 
 # /yoke models
@@ -28,6 +28,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `models.diff.run` | global; complete `catalog` | `yoke models diff --stdin [--json]` |
 | `models.publish.run` | global; complete catalog, expected base, source note, effective time | `yoke models publish --stdin --expected-base REV --source-note TEXT [--effective-at UTC] [--json]` |
 | `models.revisions.run` | global | `yoke models revisions [--json]` |
+| `models.level_proposal.run` | global; optional authored `changes` | `yoke models level-proposal [--stdin] [--levels-only] [--json]` |
 | `models.restore.run` | global; source revision, expected base, source note, effective time | `yoke models restore REV --expected-base REV --source-note TEXT [--effective-at UTC] [--json]` |
 
 For an operator or agent, use the registered CLI above. Server-side Python
@@ -47,51 +48,55 @@ Missing research is not a discovery, launch, or usage gate.
 
 - Published whole-catalog revisions in `model_reference_revisions`. The bundled
   records bootstrap an empty installation only; refreshing does not edit them.
-- Reader contract: identity, proposed tier with evidence, API prices,
-  published subscription rules, optional benchmarks, source URLs, dates.
-- Refresh teaching: research official pages, validate, diff, then publish a
-  sourced revision through the registered DB command.
+- Reader contract: identity, successor (`replacement_model_id`), published
+  `reasoning_efforts` and `context_window_tokens`, API prices, published
+  subscription rules, optional benchmarks, source URLs, dates.
+- Refresh teaching: research official pages, validate, diff, publish a
+  sourced revision, then propose the level changes the new facts imply.
 
-Native selectable models and supported reasoning efforts come from each
-surface's live API observations, independently of this research catalog.
-Tier-to-model routing lives in machine `session_model_routing`, independently
-of catalog revisions. This skill does not change usage capture or routing.
-`proposed_tier` is a researched global classification, not an operator
-launch table. Optional `operator_notes` is annotation only. There is no
-`operator_preferences` field.
+The catalog holds facts about models only. Which model a worker launches is
+decided by the execution levels (`yoke universe levels get`), and nothing
+changes a level without operator approval. A record carrying the retired
+`proposed_tier`, `tier_evidence`, or `tier_provisional` keys is refused by
+name. Optional `operator_notes` is annotation only.
 
-## Global tier meaning
+## Proposing level changes
 
-Tiers measure capability relative to the **absolute frontier across
-providers**, not a vendor's own product ladder and not the best model a
-particular harness happens to offer.
+`yoke models level-proposal` reads the current catalog revision and the
+universe levels and returns every change it can extrapolate:
 
-- **tier1** — frontier-equivalent families and their successors only.
-- **tier2** — the band immediately below that frontier.
-- **excluded** — below the usable floor for new tier-based steering
-  selections, including superseded families. Not an extra usable rank.
-  An explicit operator route can still name one.
+- an option whose model the catalog supersedes is retired and its successor
+  added at the same position, carrying the option's surface, selector shape,
+  effort, and context window;
+- an option whose effort or context window the model's published values do
+  not include moves to the nearest published effort the surface accepts, or
+  to the model's default window.
 
-Never name which models sit in a band here: this skill republishes that
-value, so the next refresh would falsify its own prose. Read it instead —
-`yoke models get`, or `yoke models lookup <model-id>` for one.
+It also lists `unverified` options (model not researched, or no published
+efforts or windows) and `unplaced_models` (catalog models no level launches
+and nothing supersedes). Placing an unplaced model, moving an option between
+levels, or retiring one is the refresh author's judgment: extrapolate from
+where today's options sit and what is known about the new and old models,
+then pass the complete change list on `--stdin`, starting from the generated
+`changes` in `--json` output. Each change is one of:
 
-A vendor flagship label, a larger version number, a higher price, or a
-new harness selector is not evidence of global tier1. Re-evaluate older
-families on every refresh; do not accumulate them in tier1/tier2 because
-they were once flagship. Do not overwrite operator-approved
-classifications with generic flagship prose. Keep identities, exact
-native selectors, supported reasoning, price, and subscription data
-distinct from the classification. Do not fabricate benchmarks or change
-pricing as part of a classification correction.
+```json
+{"kind": "add", "level": "SENIOR", "option": {"surface": "...", "model": "...", "reasoning_effort": "...", "context_window_tokens": null}, "position": 0, "reason": "..."}
+{"kind": "move", "option": {"surface": "...", "model": "...", "reasoning_effort": "..."}, "to_level": "JUNIOR", "reason": "..."}
+{"kind": "retire", "option": {"surface": "...", "model": "...", "reasoning_effort": "..."}, "reason": "..."}
+{"kind": "change", "option": {"surface": "...", "model": "...", "reasoning_effort": "..."}, "reasoning_effort": "high", "context_window_tokens": null, "reason": "..."}
+```
 
-## Operator routing (annotation, not published facts)
+Any resulting option whose effort or context window its model's published
+values contradict is refused by name (`level_option_reasoning_effort_unpublished`,
+`level_option_context_window_tokens_unpublished`); `yoke universe levels set`
+refuses the same documents. Present the proposal to the operator. Only after
+approval, store it:
 
-Read [steer/model-selection.md](../steer/model-selection.md) for the approved
-work-kind, effort, worker-tier, and fallback policy. Operator policy belongs
-in `operator_notes` and machine `session_model_routing`, never in sourced
-prices, benchmarks, or `proposed_tier`. A catalog refresh does not change
-routing or an already-started session.
+```bash
+yoke models level-proposal --levels-only [--stdin < changes.json] > /tmp/levels.json
+yoke universe levels set --stdin < /tmp/levels.json
+```
 
 ## Dash entry
 
@@ -102,7 +107,8 @@ worktree. For a DB-only refresh, survey `--no-changes`; Dash prepare records
 its laneless skip. Keep the candidate JSON in a temp file and its lasting
 sources in catalog records and the publication note. Publish through the prod
 control plane after review, record the revision in the Progress Log, and use
-Dash close-out; a DB-only refresh needs no release. A claimed item uses its
+Dash close-out; a DB-only refresh needs no release. An approved level change
+is part of the same DB-only refresh. A claimed item uses its
 existing worktree and workflow.
 Read-only `lookup`, `get`, `validate`, `diff`, and `revisions` need no Dash.
 
@@ -112,10 +118,10 @@ Read-only `lookup`, `get`, `validate`, `diff`, and `revisions` need no Dash.
    docs). Do not assume API dollars equal subscription percentages.
    Distinguish published multipliers from estimates; leave unpublished
    conversion unknown.
-2. Classify against the global frontier meaning above. Do not infer
-   tier from release date, price, version, or "this harness's flagship"
-   alone. Re-evaluate prior families instead of retaining their old
-   rank. Sonnet stays excluded from ordinary steering selections.
+2. Record each model's published `reasoning_efforts` and
+   `context_window_tokens` from the provider's own model page, and set
+   `replacement_model_id` on a model the provider supersedes. Observe what
+   each surface can launch with `yoke relay probe-models --surface S`.
 3. Unknown leaves stay null or empty. Benchmarks stay empty until a
    named public result is attached. No composite quality score.
 4. Read `yoke models revisions --json`; start from its latest revision with
@@ -129,8 +135,8 @@ printf '%s' '{"model_id":"...","provider":"..."}' | yoke models validate --stdin
 yoke models diff --stdin --json < candidate.json
 ```
 
-5. Inspect the diff for adds, changes, removals, sources, dates, and proposed
-   tiers. Publish with the diff's `base_revision_id`. Choose a UTC effective
+5. Inspect the diff for adds, changes, removals, sources, dates, published
+   efforts and context windows, and successors. Publish with the diff's `base_revision_id`. Choose a UTC effective
    time now or in the future; past times are refused so old sessions never
    reprice. A later publication must use the latest scheduled revision as
    its base and cannot take effect before it. `--source-note` records research
@@ -146,3 +152,7 @@ yoke models revisions --json
    'reason'` publishes a new revision copied from REV; history is immutable.
    A scheduled future revision must be replaced at its effective time or later.
    No paid probes or automatic performance experiments.
+7. Run `yoke models level-proposal`, complete the change list as described
+   in "Proposing level changes", and present it to the operator. Store the
+   approved levels with `yoke universe levels set --stdin`, then record the
+   catalog revision and the level change in the Progress Log.

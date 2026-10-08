@@ -6,7 +6,11 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from typing import Any
 
-from yoke_contracts.model_reference_catalog import catalog_diff, validate_catalog
+from yoke_contracts.model_reference_catalog import (
+    catalog_diff,
+    refuse_retired_record_keys,
+    validate_catalog,
+)
 from yoke_contracts.model_reference_records import ModelRecord, ModelReferenceError
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.schema_init_apply import execute_schema_script
@@ -62,6 +66,10 @@ def _stamp(value: datetime) -> str:
 
 
 def _normalized_catalog(raw: object) -> tuple[tuple[ModelRecord, ...], str]:
+    """Validate a candidate catalog; stored history is read as written."""
+    for entry in raw if isinstance(raw, list) else ():
+        if isinstance(entry, dict):
+            refuse_retired_record_keys(entry)
     records = validate_catalog(raw)
     document = json_helper.dumps_pretty([record.to_dict() for record in records])
     return records, document
@@ -124,7 +132,8 @@ def revision_from_schedule(
         if revision["effective_at"] <= when:
             return revision
     raise ModelReferenceError(
-        "revision_missing", "No model catalog covers this time; publish a catalog revision"
+        "revision_missing",
+        "No model catalog covers this time; publish a catalog revision",
     )
 
 

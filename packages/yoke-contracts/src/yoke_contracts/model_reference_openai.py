@@ -25,11 +25,6 @@ OPENAI_RECORDS: tuple[ModelRecord, ...] = (
         model_id="gpt-6-astra",
         provider="openai",
         display_name="GPT-6 Astra",
-        proposed_tier="tier1",
-        tier_evidence=(
-            "Absolute-frontier Astra family. Operator-approved global tier1; "
-            "not inferred from OpenAI's flagship label or the Sol price gap."
-        ),
         api_price=ApiPrice(
             input_per_million_usd=10.0,
             output_per_million_usd=50.0,
@@ -59,12 +54,6 @@ OPENAI_RECORDS: tuple[ModelRecord, ...] = (
         model_id="gpt-6-sol",
         provider="openai",
         display_name="GPT-6 Sol",
-        proposed_tier="tier2",
-        tier_evidence=(
-            "Current Sol occupies the band immediately below the "
-            "Fable/Astra frontier. Its global tier is a capability judgment, "
-            "not a deduction from OpenAI's product ladder or lower price."
-        ),
         api_price=ApiPrice(
             input_per_million_usd=2.0,
             output_per_million_usd=10.0,
@@ -95,11 +84,6 @@ OPENAI_RECORDS: tuple[ModelRecord, ...] = (
         model_id="gpt-6-luna",
         provider="openai",
         display_name="GPT-6 Luna",
-        proposed_tier="excluded",
-        tier_evidence=(
-            "Efficient focused-work variant below the global tier2 band. "
-            "An OpenAI family successor is not automatically a steering rank."
-        ),
         api_price=ApiPrice(
             input_per_million_usd=0.10,
             output_per_million_usd=0.50,
@@ -130,11 +114,6 @@ OPENAI_RECORDS: tuple[ModelRecord, ...] = (
         model_id="gpt-5.6-sol",
         provider="openai",
         display_name="GPT-5.6 Sol",
-        proposed_tier="excluded",
-        tier_evidence=(
-            "Prior Sol release. GPT-6 Sol now occupies the current tier2 "
-            "band; the prior flagship label does not retain that rank."
-        ),
         api_price=cursor_other_price(
             input_usd=4.0,
             cache_read=0.4,
@@ -162,11 +141,6 @@ OPENAI_RECORDS: tuple[ModelRecord, ...] = (
         model_id="gpt-5.6-terra",
         provider="openai",
         display_name="GPT-5.6 Terra",
-        proposed_tier="excluded",
-        tier_evidence=(
-            "Below the approved tier2 band. A Codex mid-ladder label does not "
-            "keep a family in tier2 after Sol occupies that band."
-        ),
         api_price=cursor_other_price(
             input_usd=2.0,
             cache_read=0.2,
@@ -191,11 +165,6 @@ OPENAI_RECORDS: tuple[ModelRecord, ...] = (
         model_id="gpt-5.6-luna",
         provider="openai",
         display_name="GPT-5.6 Luna",
-        proposed_tier="excluded",
-        tier_evidence=(
-            "Smallest 5.6 variant, below the approved tier2 band. Bounded-work "
-            "marketing is not a usable steering rank."
-        ),
         api_price=cursor_other_price(
             input_usd=0.2,
             cache_read=0.02,
@@ -220,11 +189,6 @@ OPENAI_RECORDS: tuple[ModelRecord, ...] = (
         model_id="gpt-5.5",
         provider="openai",
         display_name="GPT-5.5",
-        proposed_tier="excluded",
-        tier_evidence=(
-            "Prior Codex flagship. Re-evaluated rather than accumulated in "
-            "tier1 because a vendor once called it flagship; Sol is current."
-        ),
         api_price=cursor_other_price(
             input_usd=5.0,
             cache_read=0.5,
@@ -239,11 +203,6 @@ OPENAI_RECORDS: tuple[ModelRecord, ...] = (
         model_id="gpt-5.4",
         provider="openai",
         display_name="GPT-5.4",
-        proposed_tier="excluded",
-        tier_evidence=(
-            "Older Codex family still listed. A prior flagship label is not "
-            "enough to remain in tier1 or tier2."
-        ),
         api_price=cursor_other_price(
             input_usd=2.5,
             cache_read=0.25,

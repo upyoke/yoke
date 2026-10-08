@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.handlers import model_level_proposal as _proposal
 from yoke_core.domain.handlers import model_reference as _models
 from yoke_core.domain.handlers import model_reference_publication as _publication
 
@@ -59,6 +60,21 @@ def register(registry) -> None:
         _publication.ModelsDiffResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.model_reference_publication",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
+        adapter_status="live",
+        claim_required_kind=None,
+        minimum_serving_version="next-release",
+    )
+    registry.register(
+        _proposal.FUNCTION_ID,
+        _proposal.handle_models_level_proposal,
+        _proposal.ModelsLevelProposalRequest,
+        _proposal.ModelsLevelProposalResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.model_level_proposal",
         target_kinds=["global"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],

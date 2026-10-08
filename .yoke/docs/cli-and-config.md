@@ -66,7 +66,10 @@ latest scheduled one. To recover, `yoke models restore REV --expected-base
 CURRENT --source-note 'reason'` copies an older complete catalog into a new
 revision. Research sources and check dates belong to the records, with a
 publication source note for the review trail. No source edit or release is
-needed for a normal refresh after this feature ships.
+needed for a normal refresh. Records hold facts only — prices, published
+`reasoning_efforts` and `context_window_tokens`, successors. `yoke models
+level-proposal` then proposes the level changes those facts imply; after
+operator approval, `yoke universe levels set` stores them.
 
 Session usage tokens remain stored in `harness_sessions.usage_totals`. Dollar
 cost is derived at read time from the catalog revision effective at that
@@ -138,10 +141,9 @@ will run it:
 **The block below is illustrative, not a current route.** Its model ids
 show the selector syntax each surface accepts — the `[1m]` context suffix,
 the `-high` effort suffix — and nothing about which models a machine
-routes to or which tier the catalog puts them in today. Read the live
-routing default for a surface with `--list-models`, and a model's live
-tier with `yoke models lookup <model-id>`. Refreshing sourced model tiers
-changes neither a configured selector nor an active session.
+routes to today. Read the live routing default for a surface with
+`--list-models`. A model catalog refresh changes neither a configured
+selector nor an active session.
 
 ```json
 {
@@ -169,11 +171,8 @@ Tiers are global capability relative to the absolute frontier, not a vendor
 ladder and not the best model a harness happens to offer. `tier1` is
 frontier-equivalent; `tier2` is the band immediately below it. Models under
 that band are `excluded` — not extra usable ranks. Which models sit in each
-band is the model catalog's answer, read with `yoke models get` or
-`yoke models lookup <model-id>`; naming them here would duplicate a value
-the catalog owns and go stale on its next revision. The researched tier is
-advisory: an explicit operator route can still name an excluded model. A
-`fallbacks` entry is reachable only when the preferred model's own billing
+band is the operator's choice in these keys; the model catalog holds facts
+about models only. A `fallbacks` entry is reachable only when the preferred model's own billing
 pool is confirmed empty. An unreadable meter, a low headroom reading, or
 room in a different pool is not confirmation, so a fallback never starts
 spending a separate
