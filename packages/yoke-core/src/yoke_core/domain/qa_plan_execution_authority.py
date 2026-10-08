@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain import db_backend
 
 
@@ -29,7 +30,7 @@ def lock_member_admission(conn: Any, run_id: str | None, member: int | None) -> 
         is None
     ):
         _fail(
-            f"QA member {member} is no longer attached to run {run_id!r}; "
+            f"QA member {render_item_ref(conn, member)} is no longer attached to run {run_id!r}; "
             "wait for its next release instead of starting this execution"
         )
 

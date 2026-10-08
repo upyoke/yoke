@@ -6,6 +6,8 @@ the complete result's item set once and removes those keys before returning it.
 
 from __future__ import annotations
 
+import re
+
 from typing import Any, Mapping
 
 from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
@@ -16,6 +18,44 @@ from yoke_contracts.public_item_contract import (
 )
 from yoke_contracts.item_identity_keys import wire_key_for_engine
 from yoke_core.domain.item_ref_render import ItemRefLookup, render_item_refs
+
+
+# Only numbers presented as item names are join keys. Requirement numbers,
+# run ids and existing PREFIX-N references retain their domain meaning.
+_ITEM_TEXT_RE = re.compile(
+    r"(?<![\w.-])(?:items\.id|(?:deployment[ \t]+)?(?:item|epic|member)s?)"
+    r"[ \t]+[\"']?(?P<item_id>[0-9]+)(?![\w-])",
+    re.IGNORECASE,
+)
+
+
+def _text_item_ids(node: Any) -> set[int]:
+    if isinstance(node, str):
+        return {int(match["item_id"]) for match in _ITEM_TEXT_RE.finditer(node)}
+    if isinstance(node, dict):
+        return set().union(*(_text_item_ids(value) for value in node.values()))
+    if isinstance(node, list):
+        return set().union(*(_text_item_ids(value) for value in node))
+    return set()
+
+
+def _public_text(node: Any, refs: ItemRefLookup) -> Any:
+    if isinstance(node, str):
+
+        def replace(match: re.Match[str]) -> str:
+            start, end = match.span("item_id")
+            return (
+                match[0][: start - match.start()]
+                + refs(match["item_id"])
+                + match[0][end - match.start() :]
+            )
+
+        return _ITEM_TEXT_RE.sub(replace, node)
+    if isinstance(node, dict):
+        return {key: _public_text(value, refs) for key, value in node.items()}
+    if isinstance(node, list):
+        return [_public_text(value, refs) for value in node]
+    return node
 
 
 def _integer(value: Any) -> int | None:
@@ -57,9 +97,12 @@ def public_result(node: Any, refs: Mapping[int, str]) -> Any:
 
 
 def public_response(response: FunctionCallResponse) -> FunctionCallResponse:
-    if response.result is None:
-        return response
-    ids = collect_item_ids(response.result)
+    error_message = response.error.message if response.error else ""
+    ids = (
+        collect_item_ids(response.result)
+        | _text_item_ids(response.result)
+        | _text_item_ids(error_message)
+    )
     refs: dict[int, str] = {}
     if ids:
         from yoke_core.domain.db_helpers import connect
@@ -79,4 +122,10 @@ def public_response(response: FunctionCallResponse) -> FunctionCallResponse:
                     ),
                 }
             )
-    return response.model_copy(update={"result": public_result(response.result, refs)})
+    lookup = ItemRefLookup(refs)
+    update = {"result": _public_text(public_result(response.result, refs), lookup)}
+    if response.error:
+        update["error"] = response.error.model_copy(
+            update={"message": _public_text(error_message, lookup)}
+        )
+    return response.model_copy(update=update)

@@ -24,6 +24,7 @@ import contextvars
 from contextlib import contextmanager
 from typing import Any, Iterator
 
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.schema_common import _table_exists
 
 _settling: contextvars.ContextVar[bool] = contextvars.ContextVar(
@@ -44,7 +45,8 @@ def settlement_in_progress() -> Iterator[None]:
 def settling_runs_for_item(conn: Any, *, item_id: int) -> list[str]:
     """Runs that are settling and carry this item as a final member."""
     if not all(
-        _table_exists(conn, name) for name in ("deployment_runs", "deployment_run_items")
+        _table_exists(conn, name)
+        for name in ("deployment_runs", "deployment_run_items")
     ):
         return []
     rows = conn.execute(
@@ -81,7 +83,7 @@ def replay_settling_runs_for_item(conn: Any, *, item_id: int) -> None:
                 pass
             print(
                 f"Deployment run {run_id} could not replay settlement after "
-                f"item {item_id} cleared: {exc}. Re-drive it under the "
+                f"item {render_item_ref(conn, item_id)} cleared: {exc}. Re-drive it under the "
                 f"project deploy lock with `yoke deployment-runs update "
                 f"{run_id} status succeeded`."
             )

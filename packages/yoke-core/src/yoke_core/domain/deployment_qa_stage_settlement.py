@@ -10,6 +10,8 @@ from __future__ import annotations
 import hashlib
 from typing import Any, Mapping
 
+from yoke_core.domain.project_identity import render_item_ref
+
 
 def settle_execution(conn: Any, execution: Mapping[str, Any]) -> dict[str, Any] | None:
     """Settle the active stage for one completed, target-bound execution."""
@@ -80,7 +82,9 @@ def settle_subject(
             conn, run_id=run_id, stage=stage, item_id=member, status=status
         )
         if handoff.startswith(("failed:", "unaddressed:")):
-            print(f"Run {run_id} stage {stage!r} member {member}: {handoff}")
+            print(
+                f"Run {run_id} stage {stage!r} member {render_item_ref(conn, member)}: {handoff}"
+            )
     completion_failure = ""
     if outcome in {"passed", "discharged"}:
         from yoke_core.domain.deployment_run_auto_completion import (

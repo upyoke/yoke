@@ -21,6 +21,7 @@ from runtime.api.steering_fleet_test_helpers import (
     seed_steering_scope,
 )
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.deployment_qa_stage_wake import stage_wait_idempotency_key
 from yoke_core.domain.deployment_run_completion_preconditions import (
     blocking_obligation_total,
@@ -115,13 +116,22 @@ def test_a_qa_stage_reports_the_gate_not_the_settled_requirement_count(test_db) 
     assert f"Nothing is outstanding; re-drive {RUN_ID}" not in body
     refusal = cases_not_selected_refusal()
     for member in NO_CASES_MEMBERS:
-        assert f"member {member}: {refusal}" in body
-    assert f"member {GATE_MEMBER}: no completed scoped QA execution exists" in body
-    assert f"member {GATE_MEMBER}: no concrete QA cases are materialized" in body
-    assert f"member {GATE_MEMBER} wake: woken 11:58Z, acknowledged" in body
+        assert f"member {render_item_ref(test_db, member)}: {refusal}" in body
+    assert (
+        f"member {render_item_ref(test_db, GATE_MEMBER)}: no completed scoped QA execution exists"
+        in body
+    )
+    assert (
+        f"member {render_item_ref(test_db, GATE_MEMBER)}: no concrete QA cases are materialized"
+        in body
+    )
+    assert (
+        f"member {render_item_ref(test_db, GATE_MEMBER)} wake: woken 11:58Z, acknowledged"
+        in body
+    )
     for member in NO_CASES_MEMBERS:
         assert (
-            f"member {member} wake: not woken: driver gone or stale; "
+            f"member {render_item_ref(test_db, member)} wake: not woken: driver gone or stale; "
             f"re-drive {RUN_ID} to send it"
         ) in body
     assert len(run.wake_lines) == len(MEMBERS)

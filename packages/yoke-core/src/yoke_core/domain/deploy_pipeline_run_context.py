@@ -115,12 +115,12 @@ def finalize_run_success(
     if delivered_to and member_items:
         from yoke_core.domain.deployment_item_stamp import stamp_item_field
 
-        for raw in member_items:
+        for item_ref in member_items:
             print(
-                f"Run {run_id}: stamping member {raw} deployed_to={delivered_to}",
+                f"Run {run_id}: stamping member {item_ref} deployed_to={delivered_to}",
                 flush=True,
             )
-            stamp_item_field(raw, "deployed_to", delivered_to)
+            stamp_item_field(item_ref, "deployed_to", delivered_to)
         print(f"Auto-set deployed_to={delivered_to} from flow {flow_id}")
     _update_run_succeeded(run_id, sd)
     _emit_run_event(

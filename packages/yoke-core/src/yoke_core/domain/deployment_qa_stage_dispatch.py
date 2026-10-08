@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
 from yoke_core.domain import deployment_run_item_qa_membership as item_qa
 
@@ -174,7 +175,11 @@ def materialize_and_gate_deployment_qa_stage(
             # the agent responsible for the subject is the one who can end
             # it — so wake them instead of failing the stage out from
             # under them.
-            label = f"member {member}" if member is not None else "run"
+            label = (
+                f"member {render_item_ref(conn, member)}"
+                if member is not None
+                else "run"
+            )
             waiting.append(f"{label}: {exc}")
             if project_id is not None:
                 _notify_stage_wait(
@@ -208,7 +213,9 @@ def materialize_and_gate_deployment_qa_stage(
             # already accepted on this pass still close out below.
             failure = str(exc)
             break
-        label = f"member {member}" if member is not None else "run"
+        label = (
+            f"member {render_item_ref(conn, member)}" if member is not None else "run"
+        )
         if project_id is not None:
             report_stage_result(
                 conn,

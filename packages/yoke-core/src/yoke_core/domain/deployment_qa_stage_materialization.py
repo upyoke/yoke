@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.deployment_run_project_sources import run_delivered_sha
 from yoke_core.domain.deployment_qa_frozen_plan_selection import (
     frozen_stage_plans,
@@ -251,7 +252,7 @@ def materialize_deployment_qa_stage(
                         execution_target=target,
                         subject=(
                             f"deployment run {deployment_run_id!r} stage "
-                            f"{deployment_stage!r} member {deployment_member_item_id!r}"
+                            f"{deployment_stage!r} member {render_item_ref(conn, deployment_member_item_id) if deployment_member_item_id is not None else 'run'}"
                         ),
                         conn=conn,
                     )

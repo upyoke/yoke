@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.db_helpers import iso8601_now
 
 
@@ -182,11 +183,17 @@ def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
             if item_status not in {"release", "done"} or not satisfied_delivery_member(
                 conn, item_id=item_id, run_id=run_id
             ):
-                return None, f"final member {item_id} still owes item delivery or QA"
+                return (
+                    None,
+                    f"final member {render_item_ref(conn, item_id)} still owes item delivery or QA",
+                )
         elif item_status != "done" and not owes_only_other_targets(
             conn, run_id=run_id, item_id=item_id
         ):
-            return None, f"final member {item_id} has not independently closed"
+            return (
+                None,
+                f"final member {render_item_ref(conn, item_id)} has not independently closed",
+            )
     return {
         "members": [int(_row_value(member, "item_id", 0)) for member in members],
         "delivered_to": str(

@@ -42,6 +42,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain import coordination_claims
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.deployment_qa_stage_wake import stage_wait_idempotency_key
 from yoke_core.domain.handlers import deployment_qa_stage_relay as relay
 from yoke_core.domain.work_claim_targets import (
@@ -142,9 +143,7 @@ def _seed(conn: Any, stages_json: str | None = None) -> None:
 def _request() -> FunctionCallRequest:
     return FunctionCallRequest(
         function=relay.DISPATCH_FUNCTION_ID,
-        actor=ActorContext(
-            actor_id=str(SESSION_ACTOR_ID), session_id=DRIVER_SESSION
-        ),
+        actor=ActorContext(actor_id=str(SESSION_ACTOR_ID), session_id=DRIVER_SESSION),
         target=TargetRef(kind="workflow_run", workflow_run_id=RUN_ID),
         payload={"stage_name": STAGE},
     )
@@ -223,9 +222,7 @@ def test_the_relay_refuses_a_stage_the_runs_own_flow_does_not_declare(
     _seed(test_db)
     request = FunctionCallRequest(
         function=relay.DISPATCH_FUNCTION_ID,
-        actor=ActorContext(
-            actor_id=str(SESSION_ACTOR_ID), session_id=DRIVER_SESSION
-        ),
+        actor=ActorContext(actor_id=str(SESSION_ACTOR_ID), session_id=DRIVER_SESSION),
         target=TargetRef(kind="workflow_run", workflow_run_id=RUN_ID),
         payload={"stage_name": "a-stage-nobody-declared"},
     )
@@ -243,9 +240,7 @@ def test_the_relay_refuses_without_the_deploy_lock(test_db: Any) -> None:
         test_db, make_deploy_serialization_target(PROJECT_YOKE, "yoke")
     )
     assert claim is not None
-    coordination_claims.release(
-        test_db, claim.id, "relay notice route test teardown"
-    )
+    coordination_claims.release(test_db, claim.id, "relay notice route test teardown")
     test_db.commit()
 
     outcome = relay.handle_deployment_qa_stage_dispatch(_request())
@@ -299,7 +294,10 @@ def test_a_stage_with_no_configured_cases_waits_and_wakes_the_item_agent(
     assert outcome.primary_success is True, outcome.error
     assert int(outcome.result_payload["code"]) == -4
     assert "no pinned cases" in outcome.result_payload["message"]
-    assert f"member {ITEM_ID}" in outcome.result_payload["message"]
+    assert (
+        f"member {render_item_ref(test_db, ITEM_ID)}"
+        in outcome.result_payload["message"]
+    )
     # The item's claim holder was woken to select or create the evidence.
     key = stage_wait_idempotency_key(RUN_ID, STAGE, ITEM_ID, "")
     assert _recipients(test_db, key) == [HOLDER_A]

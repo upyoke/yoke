@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 from typing import Any, Sequence
 
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain import item_merge_receipt_document as document
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.item_json_sections import upsert_json_section
@@ -47,8 +48,7 @@ def _full_shas(commits: Sequence[str]) -> list[str]:
 
 def _recorded_shas(entry: dict[str, Any]) -> set[str]:
     shas = {
-        str(entry.get(key) or "").strip().lower()
-        for key in ("commit_sha", "merge_sha")
+        str(entry.get(key) or "").strip().lower() for key in ("commit_sha", "merge_sha")
     }
     shas |= {str(sha).strip().lower() for sha in entry.get("contributed_commits") or []}
     shas |= {
@@ -60,7 +60,11 @@ def _recorded_shas(entry: dict[str, Any]) -> set[str]:
 
 
 def attest_commits(
-    conn: Any, *, item_id: int, commits: Sequence[str], reason: str,
+    conn: Any,
+    *,
+    item_id: int,
+    commits: Sequence[str],
+    reason: str,
 ) -> dict[str, Any]:
     """Record ``commits`` as ``item_id``'s on its newest landed receipt entry.
 
@@ -78,13 +82,14 @@ def attest_commits(
         )
     entries = document.read_entries(conn, int(item_id))
     landed = [
-        entry for entry in document.newest_first(entries)
+        entry
+        for entry in document.newest_first(entries)
         if str(entry.get("merge_sha") or "").strip()
     ]
     if not landed:
         raise CommitAttestationRefused(
             "no_landed_receipt",
-            f"item {item_id} has no merge receipt naming a landed merge, so "
+            f"item {render_item_ref(conn, item_id)} has no merge receipt naming a landed merge, so "
             "there is no landing to attest these commits to. Land the item "
             "through `yoke merge item`, or attest them to the item that did.",
         )

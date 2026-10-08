@@ -39,6 +39,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
 from yoke_core.domain.deployment_qa_stage_wake_state import member_wake_states
 from yoke_core.domain.deployment_run_completion_preconditions import redrive_recovery
@@ -235,7 +236,9 @@ def run_progress(
             if waiting
             else {}
         )
-        wake_lines = tuple(f"member {m} wake: {wakes[m]}" for m in waiting)
+        wake_lines = tuple(
+            f"member {render_item_ref(conn, m)} wake: {wakes[m]}" for m in waiting
+        )
         rows.append(
             DeploymentRunProgress(
                 run_id=run_id,

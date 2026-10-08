@@ -51,7 +51,7 @@ Every client sends `target.public_ref` as a complete `PREFIX-N` token.
 Payload identities use `public_ref`, `epic_public_ref`, or corresponding
 role-prefixed/plural ref fields. Bare numbers and internal keys are refused.
 The dispatcher resolves refs to integers only inside the serving engine.
-Responses project item joins to public refs; other record ids remain numeric.
+Responses project item joins and item-shaped text in nested result strings and error messages to public refs; unresolved items are named without their internal number. Other record ids, including QA requirements, retain their domain meaning. The CI real-tree message scan also rejects unrendered item, epic, and member interpolations; applied migration content remains immutable.
 JSON and human CLI output share this contract. Clients tolerate absent optional
 identity fields from an older serving build without ID lookup. Transport dispatch
 redacts secrets while preserving machine-consumed responses; identity display
