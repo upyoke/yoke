@@ -3,8 +3,38 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass
 from typing import Mapping
+
+
+class SetupTerminalError(RuntimeError):
+    """Setup cannot safely use the terminal it was given."""
+
+
+def require_foreground_terminal(stream=None) -> None:
+    """Check POSIX job ownership without reading or changing the terminal.
+
+    Windows consoles have no POSIX foreground process group; Textual's native
+    Windows driver owns their console lifecycle instead.
+    """
+    if os.name == "nt":
+        return
+    stream = sys.stdin if stream is None else stream
+    try:
+        foreground = os.tcgetpgrp(stream.fileno())
+    except (AttributeError, OSError, ValueError) as exc:
+        raise SetupTerminalError(
+            "setup_terminal_ownership_unavailable: cannot verify terminal ownership. "
+            "Run `yoke setup` in a foreground terminal, or use --non-interactive "
+            "with the required setup flags."
+        ) from exc
+    if foreground != os.getpgrp():
+        raise SetupTerminalError(
+            "setup_terminal_not_foreground: setup has no foreground terminal. "
+            "Bring this job to the foreground with `fg`, or run `yoke setup` "
+            "from the foreground shell without `&`. No preparation was started."
+        )
 
 
 @dataclass(frozen=True)

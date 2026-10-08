@@ -34,6 +34,21 @@ copy the exact value. A screen with both offers them in sequence; the footer
 names what the next press will take. **Ctrl-O** opens the screen's link in your
 browser on a local desktop.
 
+Setup first checks foreground terminal ownership on POSIX systems (macOS and
+Linux). A background launch refuses with `setup_terminal_not_foreground` before
+preparation: use `fg` or run `yoke setup` from the foreground shell without `&`.
+If ownership cannot be checked, `setup_terminal_ownership_unavailable` asks for
+a foreground terminal or `--non-interactive` with the required flags. Windows
+uses Textual's native console lifecycle; it has no POSIX foreground job group.
+Intentional noninteractive setup does not use these terminal checks.
+
+If another job takes the terminal during the wizard, setup restores terminal
+input and mouse modes and exits with `setup_terminal_ownership_lost`. Return to
+the foreground shell and run `yoke setup` again. Completed setup changes remain;
+the diagnostic does not imply rollback. If restoration fails, the diagnostic
+names the failure and asks you to run `stty sane` before retrying. Ordinary
+Ctrl-Z/`fg` suspension and the copy view below preserve your wizard state.
+
 Before opening the wizard, onboarding prepares its scratch and cache directories.
 On Linux it also runs the existing Python venv and browser runtime setup,
 including Linux library checks, regardless of whether a display is available.
