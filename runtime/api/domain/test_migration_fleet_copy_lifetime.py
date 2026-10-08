@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import multiprocessing
-import tempfile
-from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -13,34 +11,12 @@ from yoke_core.domain import db_backend, migration_fleet_preflight as fleet
 from yoke_core.domain import migration_fleet_preflight_transfer as transfer
 from yoke_core.domain import migration_rehearsal_copy_lock as admission
 from yoke_core.domain import postgres_cluster
-from runtime.api.domain.test_migration_fleet_preflight_extension_restore import (
-    _server_bin_dir,
+from runtime.api.domain.migration_copy_lifetime_support import (
+    copy_cluster as _copy_cluster,  # noqa: F401 -- registers copy_cluster
 )
 
 
 HISTORY = ("first", "second")
-
-
-@pytest.fixture(scope="module")
-def copy_cluster():
-    """An isolated server pinned to the dump/restore client's binary build."""
-    bin_dir, searched = _server_bin_dir()
-    assert bin_dir is not None, (
-        f"copy lifetime proof requires initdb; searched {searched}"
-    )
-    with tempfile.TemporaryDirectory(prefix="yoke-copy-lock-", dir="/tmp") as scratch:
-        spec = postgres_cluster.ClusterSpec(
-            Path(scratch),
-            "copyfixture",
-            bin_dir=bin_dir,
-            server_settings=(("fsync", "off"),),
-            stop_mode="immediate",
-        )
-        try:
-            assert postgres_cluster.ensure_started(spec) == 0
-            yield spec
-        finally:
-            postgres_cluster.destroy(spec)
 
 
 def _pending(conn, history):

@@ -114,7 +114,12 @@ def rehearse(
     source_environment: str,
     emit: Optional[Callable[[str], None]] = None,
 ) -> Verdict:
-    """Admit one copy through cleanup; check serving privileges on the live database."""
+    """Admit one copy through cleanup; read privileges on the live database.
+
+    A --no-owner restore normalizes ownership, so the copy cannot establish
+    whether the serving role can migrate its own tables. The owned body reads
+    that authority from the source before dumping it; the source is only read.
+    """
     try:
         with migration_rehearsal_copy_lock.copy_lock(
             spec, f"{REHEARSAL_PREFIX}{database}"
