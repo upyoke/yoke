@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import json
+from yoke_contracts.fleet_policy import WAKE_AFTER_IDLE_SECONDS
+
 from datetime import timedelta
 
 from yoke_core.domain.session_message_service import send_message
@@ -118,12 +119,8 @@ def test_candidates_carry_scheduler_authority_separately_from_liveness() -> None
     assert waiting["liveness"] == "ended"
 
 
-def test_waiting_retry_uses_the_project_idle_policy_as_cooldown() -> None:
+def test_waiting_retry_obeys_the_fixed_idle_cooldown() -> None:
     conn = message_connection()
-    conn.execute(
-        "UPDATE organizations SET settings=? WHERE id=1",
-        (json.dumps({"fleet": {"wake_after_idle_seconds": 180}}),),
-    )
     stamp_turn_posture(
         conn,
         session_id=NATIVE_WAKE_SESSION_ID,
@@ -144,10 +141,14 @@ def test_waiting_retry_uses_the_project_idle_policy_as_cooldown() -> None:
     conn.commit()
 
     assert (
-        wake_eligible_recipients(conn, now=NOW + timedelta(minutes=13, seconds=59))
+        wake_eligible_recipients(
+            conn, now=NOW + timedelta(minutes=11, seconds=WAKE_AFTER_IDLE_SECONDS - 1)
+        )
         == []
     )
-    retry = wake_eligible_recipients(conn, now=NOW + timedelta(minutes=14, seconds=1))
+    retry = wake_eligible_recipients(
+        conn, now=NOW + timedelta(minutes=11, seconds=WAKE_AFTER_IDLE_SECONDS + 1)
+    )
     assert [row["wake_mode"] for row in retry] == [WakeMode.WAITING]
 
 

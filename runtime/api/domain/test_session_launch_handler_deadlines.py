@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -116,7 +115,7 @@ def test_retry_mutation_settles_deadline_before_applying_retry(monkeypatch) -> N
     assert get_launch(conn, launch.launch_id).deadline_at == "2026-08-22T13:10:00Z"
 
 
-def test_create_reads_the_organization_surface_fallback_gate(monkeypatch) -> None:
+def test_create_refuses_surface_fallback_under_fixed_policy(monkeypatch) -> None:
     conn = launch_connection()
     conn.execute("ALTER TABLE projects ADD COLUMN org_id INTEGER DEFAULT 1")
     conn.execute(
@@ -145,23 +144,11 @@ def test_create_reads_the_organization_surface_fallback_gate(monkeypatch) -> Non
     }
 
     disabled = handlers.handle_launch_create(_request("session.launch.create", payload))
-    conn.execute(
-        "UPDATE organizations SET settings=? WHERE id=1",
-        (json.dumps({"fleet": {"surface_fallback": True}}),),
-    )
-    conn.commit()
-    enabled = handlers.handle_launch_create(
-        _request(
-            "session.launch.create",
-            {**payload, "idempotency_key": "policy-on"},
-        )
-    )
-
     assert disabled.primary_success is False
     assert disabled.error and disabled.error.code == "surface_fallback_disabled"
-    assert enabled.primary_success is True
-    assert enabled.result_payload["launch"]["requested_surface"] == "codex-vscode"
-    assert enabled.result_payload["launch"]["selected_surface"] == "codex-cli"
+    assert (
+        conn.execute("SELECT COUNT(*) FROM session_launch_attempts").fetchone()[0] == 0
+    )
 
 
 def test_preview_places_an_unpinned_launch_and_names_the_reason(
