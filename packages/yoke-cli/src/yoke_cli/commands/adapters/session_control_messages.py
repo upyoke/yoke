@@ -49,9 +49,7 @@ MESSAGE_SEND_USAGE = (
 MESSAGE_LIST_USAGE = (
     "yoke messages list [--state STATE] [--recipient-session S] [--limit N] [--json]"
 )
-MESSAGE_GET_USAGE = (
-    "yoke messages get MESSAGE-ID [field ...] [--full] [--json]"
-)
+MESSAGE_GET_USAGE = "yoke messages get MESSAGE-ID [field ...] [--full] [--json]"
 MESSAGE_ACKNOWLEDGE_USAGE = "yoke messages acknowledge MESSAGE-ID [--json]"
 MESSAGE_CANCEL_USAGE = "yoke messages cancel MESSAGE-ID [--json]"
 MESSAGE_WORKFLOW_HELP = FLEET_MESSAGE_WORKFLOW_HELP

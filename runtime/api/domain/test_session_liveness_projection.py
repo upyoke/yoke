@@ -40,7 +40,11 @@ def _row(**fields):
         ({"holds_work_claim": True}, "stale", "stale"),
         ({"mode": "parked"}, "stale", "stale"),
         ({"last_heartbeat": FRESH}, "active", "active"),
-        ({"mode": "parked", "holds_work_claim": True, "ended_at": QUIET}, "ended", "ended"),
+        (
+            {"mode": "parked", "holds_work_claim": True, "ended_at": QUIET},
+            "ended",
+            "ended",
+        ),
     ],
 )
 def test_display_liveness_overlays_waiting_on_activity(fields, display, routing):
@@ -57,7 +61,9 @@ def test_a_read_without_the_claim_fact_refuses_rather_than_calling_it_stale():
 
 
 def test_only_a_claim_free_quiet_session_is_a_reclaim_candidate():
-    assert stale_reclaim_candidate(QUIET, executor="claude-code", holds_work_claim=False)
+    assert stale_reclaim_candidate(
+        QUIET, executor="claude-code", holds_work_claim=False
+    )
     assert not stale_reclaim_candidate(
         QUIET, executor="claude-code", holds_work_claim=True
     )

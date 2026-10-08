@@ -22,7 +22,9 @@ from yoke_core.domain.sessions_render_reclaim import find_stale_sessions
 def _seed(test_db) -> None:
     quiet = iso(_LONG_AGO_MINUTES)
     _insert_session(test_db, "s-parked-holder", last_heartbeat=quiet, mode="parked")
-    _insert_session(test_db, "s-fresh-parked-holder", last_heartbeat=iso(), mode="parked")
+    _insert_session(
+        test_db, "s-fresh-parked-holder", last_heartbeat=iso(), mode="parked"
+    )
     _insert_session(test_db, "s-quiet-holder", last_heartbeat=quiet)
     _insert_session(test_db, "s-parked-claimless", last_heartbeat=quiet, mode="parked")
     _insert_session(test_db, "s-quiet-claimless", last_heartbeat=quiet)
@@ -65,9 +67,7 @@ def test_the_liveness_filter_and_open_roster_carry_waiting_sessions(test_db):
 def test_reclaimable_matches_what_the_reclaim_sweep_would_act_on(test_db):
     _seed(test_db)
 
-    reclaimable = {
-        row["session_id"] for row in list_sessions() if row["reclaimable"]
-    }
+    reclaimable = {row["session_id"] for row in list_sessions() if row["reclaimable"]}
     swept = {row["session_id"] for row in find_stale_sessions(test_db)}
 
     # Every claim holder is protected from the sweep, parked or not.

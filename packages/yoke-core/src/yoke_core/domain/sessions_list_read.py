@@ -143,10 +143,7 @@ def list_sessions(
         1 if normalized_session_id else max(1, min(int(limit), MAX_SESSIONS_LIST_LIMIT))
     )
     windowed = (
-        per_project
-        and not project
-        and not project_ids
-        and not normalized_session_id
+        per_project and not project and not project_ids and not normalized_session_id
     )
 
     conn = db_helpers.connect()
@@ -193,7 +190,8 @@ def list_sessions(
         rows = conn.execute(query, tuple(params)).fetchall()
         session_ids = [str(dict(raw)["session_id"]) for raw in rows]
         claims_by_session, roles_by_session = active_claims_by_session(
-            conn, session_ids=session_ids,
+            conn,
+            session_ids=session_ids,
         )
         return render_session_roster_rows(
             conn,
@@ -203,10 +201,12 @@ def list_sessions(
             roles_by_session=roles_by_session,
             item_holders=live_item_claim_holders(conn),
             holdings_by_session=session_holdings_by_session(
-                conn, session_ids=session_ids,
+                conn,
+                session_ids=session_ids,
             ),
             blitz_lanes_by_session=claimed_blitz_worktree_ids_by_session(
-                conn, session_ids=session_ids,
+                conn,
+                session_ids=session_ids,
             ),
         )
     finally:

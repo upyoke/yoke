@@ -239,7 +239,7 @@ test("work whose only claimant is gone waits, and says whose fault that is", asy
   stubFetch(t);
   const gone = {
     ...claimingSession(),
-    native_process: { state: "gone" },
+    liveness: "stale", native_process: { state: "gone" },
   };
   const { root, mounted } = await mountAt(
     "/frontier?project=1",

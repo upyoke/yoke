@@ -199,18 +199,15 @@ def steering_visibility(
     session_ids = _session_ids(rows)
     current = now or datetime.now(timezone.utc)
     scopes = _scope_rows(conn, _project_ids(rows), now=current)
-    claims = (
-        live_steering_claims(conn)
-        if _table_exists(conn, "work_claims")
-        else []
-    )
+    claims = live_steering_claims(conn) if _table_exists(conn, "work_claims") else []
     holders = {str(claim["session_id"]) for claim in claims}
     held_items = _held_item_ids(conn, session_ids)
     # Every covered worker's target names the document its held item is
     # linked to. Asking per row made the read one link query per session; the
     # page's items are known here, so the whole set resolves in one.
     document_links = item_document_links(
-        conn, (item_id for item_id, _project_id in held_items.values()),
+        conn,
+        (item_id for item_id, _project_id in held_items.values()),
     )
     projected = {
         session_id: {field: None for field in _OUTPUT_FIELDS}
@@ -240,11 +237,9 @@ def steering_visibility(
             claims=claims,
         )
         if seat is not None:
-            projected[session_id]["steering_group_session_id"] = str(
-                seat["session_id"]
-            )
-            projected[session_id]["steering_group_scope"] = (
-                _covering_group_scope(seat, scopes)
+            projected[session_id]["steering_group_session_id"] = str(seat["session_id"])
+            projected[session_id]["steering_group_scope"] = _covering_group_scope(
+                seat, scopes
             )
     return projected
 

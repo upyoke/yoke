@@ -103,7 +103,10 @@ def session_liveness(row: Mapping[str, Any], *, now: Optional[datetime] = None) 
             "session liveness needs the row's holds_work_claim fact: select "
             "holds_work_claim_sql(<alias>) AS holds_work_claim in the session read"
         )
-    if row[HOLDS_WORK_CLAIM_COLUMN] and str(row.get("mode") or "") == SESSION_MODE_PARKED:
+    if (
+        row[HOLDS_WORK_CLAIM_COLUMN]
+        and str(row.get("mode") or "") == SESSION_MODE_PARKED
+    ):
         return LIVENESS_WAITING
     return activity_liveness(row, now=now)
 

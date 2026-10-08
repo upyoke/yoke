@@ -15,7 +15,8 @@ const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, mil
 
 function row(sessionId, liveness = "ended") {
   return {
-    session_id: sessionId, liveness, project_id: 1, project: "yoke",
+    session_id: sessionId, liveness, reclaimable: liveness === "stale",
+    project_id: 1, project: "yoke",
     executor: "codex", executor_surface: "codex-cli", model: "gpt-5.6-sol",
     actor_id: 2, actor_kind: "human", actor_label: "Ben",
     machine_id: "machine-1", machine_name: "studio",
@@ -163,6 +164,24 @@ test("reclaim refreshes open rows without resetting loaded history", async (t) =
   assert.equal(requests.filter((request) => request.payload?.history).length, 1);
   assert.equal(requests.filter((request) => request.payload?.open).length, 2);
   assert.equal(button(root, "Load more").hidden, false);
+  mounted.unmount();
+});
+
+test("Reclaim stale counts only what the sweep would act on", async (t) => {
+  // A parked claim holder is waiting and a quiet claim holder is protected:
+  // both stay listed as open sessions, and neither is something to reclaim.
+  const { root, mounted } = await mountHistory(t, (request) => {
+    if (request.function === "sessions.list" && request.payload.open) {
+      return ok({ rows: [
+        { ...row("parked", "waiting"), mode: "parked" },
+        { ...row("holder", "stale"), reclaimable: false },
+      ] });
+    }
+    if (request.function === "sessions.list") return history([], 0, null);
+    throw new Error(`unexpected function ${request.function}`);
+  });
+  assert.deepEqual(cardIds(root).sort(), ["holder", "parked"]);
+  assert.equal(button(root, "Reclaim stale").disabled, true);
   mounted.unmount();
 });
 

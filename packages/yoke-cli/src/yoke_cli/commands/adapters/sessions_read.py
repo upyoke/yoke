@@ -45,7 +45,9 @@ def sessions_list(args: List[str]) -> int:
     )
     parser.add_argument("--project", default=None)
     parser.add_argument("--liveness", choices=LIVENESS_STATES, default=None)
-    parser.add_argument("--ended-cause", dest="ended_cause", choices=ENDED_CAUSES, default=None)
+    parser.add_argument(
+        "--ended-cause", dest="ended_cause", choices=ENDED_CAUSES, default=None
+    )
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument(
         "--session",
