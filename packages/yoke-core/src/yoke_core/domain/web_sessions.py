@@ -18,9 +18,11 @@ from __future__ import annotations
 import hashlib
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any
 
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_state import require_actor_active
 
@@ -61,11 +63,11 @@ class VerifiedWebSession:
 
 
 def _now_dt() -> datetime:
-    return datetime.now(timezone.utc)
+    return utc_now()
 
 
 def _fmt(moment: datetime) -> str:
-    return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return format_instant(moment)
 
 
 def _p(conn: Any) -> str:
@@ -90,7 +92,7 @@ def _prune_expired(conn: Any, *, now: datetime) -> None:
     try:
         conn.execute(
             f"DELETE FROM web_sessions WHERE expires_at <= {p}",
-            (_fmt(now),),
+            (instant_parameter(conn, now),),
         )
     except Exception:  # noqa: BLE001 - a housekeeping sweep never blocks a mint
         pass
@@ -109,7 +111,7 @@ def mint_web_session(
     raw = raw_token or generate_web_session_token()
     token_hash = hash_web_session_token(raw)
     now = _now_dt()
-    expires_at = _fmt(now + timedelta(seconds=int(ttl_s)))
+    expires_at = now + timedelta(seconds=int(ttl_s))
     p = _p(conn)
     # Opportunistic bound: sweep already-expired rows so the table does not
     # grow one dead row per browser sign-in for the life of the door. Cheap
@@ -120,14 +122,19 @@ def mint_web_session(
     row = conn.execute(
         "INSERT INTO web_sessions (token_hash, actor_id, created_at, expires_at) "
         f"VALUES ({p}, {p}, {p}, {p}) RETURNING id",
-        (token_hash, int(actor_id), _fmt(now), expires_at),
+        (
+            token_hash,
+            int(actor_id),
+            instant_parameter(conn, now),
+            instant_parameter(conn, expires_at),
+        ),
     ).fetchone()
     conn.commit()
     return CreatedWebSession(
         web_session_id=int(row[0]),
         actor_id=int(actor_id),
         raw_token=raw,
-        expires_at=expires_at,
+        expires_at=_fmt(expires_at),
     )
 
 
@@ -151,11 +158,12 @@ def verify_web_session(conn: Any, raw_token: str) -> VerifiedWebSession:
     require_actor_active(conn, int(actor_id))
     if revoked_at is not None:
         raise WebSessionRevoked("web session is revoked")
-    if str(expires_at) <= _fmt(_now_dt()):
+    now = _now_dt()
+    if parse_instant(expires_at) <= now:
         raise WebSessionExpired("web session is expired")
     conn.execute(
         f"UPDATE web_sessions SET last_used_at = {p} WHERE id = {p}",
-        (_fmt(_now_dt()), int(web_session_id)),
+        (instant_parameter(conn, now), int(web_session_id)),
     )
     conn.commit()
     return VerifiedWebSession(
@@ -176,7 +184,7 @@ def revoke_web_session(conn: Any, *, web_session_id: int) -> None:
     conn.execute(
         f"UPDATE web_sessions SET revoked_at = {p} "
         f"WHERE id = {p} AND revoked_at IS NULL",
-        (_fmt(_now_dt()), int(web_session_id)),
+        (instant_parameter(conn, _now_dt()), int(web_session_id)),
     )
     conn.commit()
 

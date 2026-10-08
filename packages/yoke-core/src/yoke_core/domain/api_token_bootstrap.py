@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+
 from typing import Any
 
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_permissions import (
     PROJECT_ROLES,
@@ -28,10 +30,6 @@ from yoke_core.domain.hosted_service_authority import (
 )
 from yoke_core.domain.org_schema import seed_default_org
 from yoke_core.domain.project_identity import resolve_project_id
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _required_name(value: str, *, field: str) -> str:
@@ -216,7 +214,12 @@ def bootstrap_hosted_service_token(
         "INSERT INTO actor_org_roles (actor_id, org_id, role_id, granted_at) "
         f"VALUES ({p}, {p}, {p}, {p}) "
         "ON CONFLICT(actor_id, org_id, role_id) DO NOTHING",
-        (actor_id, org_id, role_id_by_name(conn, ROLE_HOSTED_SERVICE), _now()),
+        (
+            actor_id,
+            org_id,
+            role_id_by_name(conn, ROLE_HOSTED_SERVICE),
+            instant_parameter(conn, utc_now()),
+        ),
     )
     conn.commit()
     project_grants, org_grants = _service_actor_authority(conn, actor_id)

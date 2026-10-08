@@ -81,8 +81,7 @@ def test_expired_session_is_refused(conn):
     actor_id = seed_human_actor(conn)
     created = mint_web_session(conn, actor_id=actor_id)
     conn.execute(
-        "UPDATE web_sessions SET expires_at = '2000-01-01T00:00:00Z' "
-        "WHERE id = %s",
+        "UPDATE web_sessions SET expires_at = '2000-01-01T00:00:00Z' WHERE id = %s",
         (created.web_session_id,),
     )
     conn.commit()
@@ -104,8 +103,7 @@ def test_mint_prunes_expired_rows(conn):
     actor_id = seed_human_actor(conn)
     stale = mint_web_session(conn, actor_id=actor_id)
     conn.execute(
-        "UPDATE web_sessions SET expires_at = '2000-01-01T00:00:00Z' "
-        "WHERE id = %s",
+        "UPDATE web_sessions SET expires_at = '2000-01-01T00:00:00Z' WHERE id = %s",
         (stale.web_session_id,),
     )
     conn.commit()
@@ -127,4 +125,4 @@ def test_ttl_must_be_positive_and_expiry_lands_in_future(conn):
         "SELECT created_at, expires_at FROM web_sessions WHERE id = %s",
         (created.web_session_id,),
     ).fetchone()
-    assert str(row[1]) > str(row[0])
+    assert row[1] > row[0]

@@ -109,3 +109,29 @@ def test_another_actor_cannot_retire_the_machine():
             conn, machine_id=MACHINE_ID, actor_id=2, now=NOW
         )
     assert excinfo.value.code == "machine_retire_forbidden"
+
+
+def test_sqlite_token_instants_are_canonical_and_optional_expiry_is_null(monkeypatch):
+    from yoke_contracts.timestamps import parse_instant
+    from yoke_core.domain import api_token_audit
+
+    moment = parse_instant("1969-12-31T18:29:59.123456-05:30")
+    monkeypatch.setattr(api_tokens, "_now", lambda: moment)
+    monkeypatch.setattr(api_token_audit, "utc_now", lambda: moment)
+    conn = _connection()
+    created = api_tokens.mint_token(conn, actor_id=1, name="canonical")
+    row = conn.execute(
+        "SELECT created_at,expires_at,last_used_at FROM api_tokens WHERE id=?",
+        (created.token_id,),
+    ).fetchone()
+    assert tuple(row) == ("1969-12-31T23:59:59.123456Z", None, None)
+    api_tokens.verify_token(conn, created.raw_token)
+    api_tokens.revoke_token(conn, token_id=created.token_id)
+    row = conn.execute(
+        "SELECT last_used_at,revoked_at FROM api_tokens WHERE id=?",
+        (created.token_id,),
+    ).fetchone()
+    assert tuple(row) == ("1969-12-31T23:59:59.123456Z",) * 2
+    assert {
+        row[0] for row in conn.execute("SELECT created_at FROM api_token_audit")
+    } == {"1969-12-31T23:59:59.123456Z"}

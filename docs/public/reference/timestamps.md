@@ -84,6 +84,12 @@ Turn-posture ordering and coordination-claim acquisition, heartbeat, release,
 and stale thresholds bind native instants. Claim records retain aware datetimes;
 public claim and wait evidence format fixed-six UTC strings and preserve null.
 Private-route qualification expiry preserves the opening instant's microseconds.
+API-token issuance, use, revocation and audit bind native instants. Optional
+expiry remains null; supplied expiry requires a qualified instant before insertion.
+Browser-session and one-time sign-in link deadlines retain microseconds and
+expire exactly at the deadline. Session cookie expiry responses use fixed-six UTC.
+Token hashes, opaque diagnostic strings and cookie lifetime seconds retain their
+existing contracts.
 Installed frontend events, signed attribution cookies and one-time handoffs
 use the same contract. Old numeric expiry payloads are refused and reminted.
 The collector validates and normalizes qualified event times before storage.
