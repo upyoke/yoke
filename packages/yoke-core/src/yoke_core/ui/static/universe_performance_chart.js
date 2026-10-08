@@ -32,6 +32,10 @@ export async function drawPerformanceChart({ documentNode, host, result, signal,
   const dateLabel = (stamp) => new Date(stamp * 1000).toLocaleString([], {
     month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
   });
+  const tickLabel = stamp => {
+    const date = new Date(stamp * 1000);
+    return `${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}\n${date.toLocaleDateString([], { month: "short", day: "numeric" })}`;
+  };
   function hover(plot) {
     const index = plot.cursor.idx;
     if (index === null || index === undefined) { tooltip.hidden = true; return; }
@@ -68,8 +72,8 @@ export async function drawPerformanceChart({ documentNode, host, result, signal,
     })), { label: "2s diagnostic target · ordinary latency only", stroke: color,
       scale: "y", width: 1, dash: [5, 5], points: { show: false } }],
     scales: { x: { time: true, range: () => range }, y: { auto: true }, wait: { auto: true } },
-    axes: [{ stroke: color, grid: { show: false }, values: (_, ticks) => ticks.map(dateLabel) },
-      { stroke: color, size: 60, label: "Ordinary latency", values: (_, ticks) => ticks.map(durationLabel) },
+    axes: [{ stroke: color, space: 100, size: 60, grid: { show: false }, values: (_, ticks) => ticks.map(tickLabel) },
+      { stroke: color, grid: { stroke: color, width: .25 }, size: 60, label: "Ordinary latency", values: (_, ticks) => ticks.map(durationLabel) },
       { scale: "wait", side: 1, size: 65, stroke: "#b27944", label: "Intentional wait wall time",
         grid: { show: false }, values: (_, ticks) => ticks.map(durationLabel) }],
     hooks: { setCursor: [hover] },
