@@ -13,8 +13,10 @@ Shared timestamp parsing stays here. Data comes from
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Mapping, Sequence
 
 from yoke_contracts.session_control.evidence import redacted_evidence_document
@@ -43,9 +45,8 @@ def marker(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def parse_stamp(raw: str) -> datetime:
-    parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+def parse_stamp(raw: datetime | str) -> datetime:
+    return parse_instant(raw)
 
 
 def age_seconds(stamp: str | None, now: str) -> int | None:

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import Any
 from uuid import uuid4
 
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_relay_storage import mark_relay_batch, marker
 from yoke_core.domain.session_relay_types import (
@@ -50,7 +53,7 @@ def claim_next_launch(
     conn: Any,
     heartbeat: RelayHeartbeat,
     *,
-    now: str,
+    now: datetime | str,
 ) -> tuple[RelayJob, ...]:
     """Lease every assigned launch; the machine checks capacity before each spawn."""
     candidates = _candidate_launch_ids(conn, heartbeat)
@@ -67,10 +70,16 @@ def claim_next_launch(
     ).fetchone()
     batch_id = (
         str(active[0])
-        if active and active[0] and str(active[1]) > now
+        if active and active[0] and parse_instant(active[1]) > parse_instant(now)
         else str(uuid4())
     )
-    expires_at = str(active[1]) if active and str(active[1] or "") > now else now
+    expires_at = (
+        parse_instant(active[1])
+        if active
+        and active[1] is not None
+        and parse_instant(active[1]) > parse_instant(now)
+        else parse_instant(now)
+    )
     jobs = []
     for launch_id in candidates:
         try:

@@ -10,6 +10,8 @@ preview with the placement evidence.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from dataclasses import replace
 from typing import Any
 
@@ -48,7 +50,7 @@ def preview_level_launch(
     *,
     auth: LaunchAuthorization,
     request: LaunchRequest,
-    now: str,
+    now: datetime | str,
     eligibility: LaunchEligibilityPort,
 ) -> tuple[LaunchRequest, LaunchPreview]:
     """Place ``request.level`` and preview the launch it chose.

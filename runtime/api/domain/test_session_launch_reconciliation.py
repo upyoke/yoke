@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import json
 
 import pytest
@@ -219,7 +221,11 @@ def test_repeat_reconciliation_repairs_a_legacy_attempt_once() -> None:
         "SELECT lease_id,lease_expires_at FROM session_relays WHERE relay_id=?",
         (RELAY_ID,),
     ).fetchone()
-    assert first.completed_at == second.completed_at == "2026-08-22T12:05:02Z"
+    assert (
+        first.completed_at
+        == second.completed_at
+        == parse_instant("2026-08-22T12:05:02Z")
+    )
     assert tuple(attempt) == ("2026-08-22T12:06:00Z", "not_created")
     assert tuple(relay) == ("newer-lease", "2026-08-22T12:10:00Z")
 

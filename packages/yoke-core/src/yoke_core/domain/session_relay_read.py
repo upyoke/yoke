@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant, temporal_wire
+
+from datetime import datetime
+
 import json
 from typing import Any
 
@@ -75,7 +79,7 @@ def list_visible_relays(
     project: str | None = None,
     state: str | None = None,
     limit: int = 100,
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> list[dict[str, Any]]:
     """Return safe relay facts for the machines this actor may see.
 
@@ -87,7 +91,7 @@ def list_visible_relays(
     """
     from yoke_core.domain.session_relay_storage import utc_now
 
-    current = now or utc_now()
+    current = utc_now() if now is None else parse_instant(now)
     visible = actor_visible_project_ids(conn, actor_id)
     requested_project = resolve_project_id(conn, project) if project else None
     if requested_project is not None and requested_project not in visible:
@@ -175,7 +179,7 @@ def list_visible_relays(
                 "last_seen_at": _value(row, "last_seen_at", 7),
                 "connected_until": connected_until,
                 "liveness": "connected"
-                if str(connected_until or "") >= current
+                if parse_instant(connected_until) >= current
                 else "silent",
                 "state": str(_value(row, "state", 9)),
                 "last_job_at": _value(row, "last_job_at", 10),
@@ -201,7 +205,7 @@ def list_visible_relays(
         )
         if len(result) >= limit:
             break
-    return result
+    return temporal_wire(result)
 
 
 __all__ = ["list_visible_relays"]

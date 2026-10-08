@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from yoke_contracts.timestamps import temporal_wire
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_core.domain import json_helper
 from yoke_core.domain.session_launch_types import LaunchRecord
@@ -76,7 +77,7 @@ def public_launch_record(launch: LaunchRecord) -> dict[str, Any]:
     result["result_evidence"] = _safe_result_evidence(launch.result_evidence)
     result["selection"] = "level" if launch.requested_level else "override"
     result["level_placement"] = _level_placement(launch.level_placement)
-    return result
+    return temporal_wire(result)
 
 
 def _level_placement(value: str | None) -> dict[str, Any] | None:
@@ -117,7 +118,7 @@ def compact_launch_record(
     """Project one launch as a list row, labelled with its project."""
     row = {field: getattr(launch, field) for field in _COMPACT_FIELDS}
     row["project"] = project
-    return row
+    return temporal_wire(row)
 
 
 def compact_launch_records(

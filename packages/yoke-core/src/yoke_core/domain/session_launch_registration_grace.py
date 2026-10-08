@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import Any
 
 from .session_keepalive import hold_session_keepalive
@@ -11,7 +13,9 @@ from .session_launch_store import parse_time
 LAUNCH_REGISTRATION_GRACE_REASON = "launch registration grace"
 
 
-def hold_launch_registration_grace(conn: Any, session_id: str, *, now: str) -> None:
+def hold_launch_registration_grace(
+    conn: Any, session_id: str, *, now: datetime | str
+) -> None:
     """Take the existing bounded lease inside the launch-binding transaction."""
     hold_session_keepalive(
         conn,

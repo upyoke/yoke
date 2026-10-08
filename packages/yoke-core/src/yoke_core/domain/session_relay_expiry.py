@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
+from yoke_core.domain.db_helpers import instant_parameter
+
+from datetime import datetime
+
 from typing import Any
 
 from yoke_core.domain.session_relay_evidence import (
@@ -17,7 +23,7 @@ _LEASE_EXPIRED_CODE = "relay_lease_expired"
 RELAY_EXPIRY_ADAPTER_REVISION = "session-relay-expiry-v1"
 
 
-def settle_expired_relay_leases(conn: Any, *, now: str) -> int:
+def settle_expired_relay_leases(conn: Any, *, now: datetime | str) -> int:
     """Close every job stranded by an expired batch without guessing outcomes."""
     from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
 
@@ -27,7 +33,7 @@ def settle_expired_relay_leases(conn: Any, *, now: str) -> int:
         "SELECT relay_id,lease_id FROM session_relays "
         f"WHERE lease_id IS NOT NULL AND lease_expires_at<={p} "
         "ORDER BY relay_id",
-        (now,),
+        (instant_parameter(conn, parse_instant(now)),),
     ).fetchall()
     changed = 0
     for relay_id, batch_id in rows:
@@ -42,7 +48,7 @@ def settle_expired_relay_leases(conn: Any, *, now: str) -> int:
     return changed
 
 
-def _settle_wake(conn: Any, batch_id: str, *, now: str) -> int:
+def _settle_wake(conn: Any, batch_id: str, *, now: datetime | str) -> int:
     """Close the single wake a batch marker owns, when it owns one."""
     p = marker(conn)
     wake = conn.execute(
@@ -63,7 +69,7 @@ def _settle_wake(conn: Any, batch_id: str, *, now: str) -> int:
         + p
         + f" WHERE attempt_id={p}",
         (
-            now,
+            instant_parameter(conn, parse_instant(now)),
             _LEASE_EXPIRED_CODE,
             RELAY_EXPIRY_ADAPTER_REVISION,
             redacted_evidence({"result_code": _LEASE_EXPIRED_CODE}),
@@ -73,7 +79,7 @@ def _settle_wake(conn: Any, batch_id: str, *, now: str) -> int:
     return 1
 
 
-def _settle_launches(conn: Any, batch_id: str, *, now: str) -> int:
+def _settle_launches(conn: Any, batch_id: str, *, now: datetime | str) -> int:
     """Reconcile every launch this batch leased but never reported."""
     from yoke_core.domain.session_launch_execution import expire_launch_attempt
     from yoke_core.domain.session_launch_native_progress import native_attempt_pending

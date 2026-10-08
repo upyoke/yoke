@@ -1,11 +1,8 @@
 """Choose which option of a level a launch runs, and on which machine.
 
-A launch that names a level, not a surface, is placed here. Every option of
-the level is weighed on every machine the caller may use that offers its
-surface and has lane capacity, against only the quota pools that option's
-model draws on (:mod:`session_launch_level_pools`). A Cursor option's
-fallback is weighed on a machine only where the option's own pool is
-confirmed empty there.
+Each level option is weighed on machines offering its surface and capacity,
+against its model's quota pools (:mod:`session_launch_level_pools`). Cursor
+fallback requires its own pool to be confirmed empty.
 
 The choice, in order:
 
@@ -24,6 +21,8 @@ never borrows another level's options: steering decides whether to relaunch.
 """
 
 from __future__ import annotations
+
+from datetime import datetime
 
 from dataclasses import asdict, dataclass, replace
 from typing import Any, Sequence
@@ -146,7 +145,7 @@ def _weigh(
     relay: EligibleRelay,
     limits: Sequence[Any],
     workers: dict[str, int],
-    now: str,
+    now: datetime | str,
     fallback: bool,
 ) -> LevelCandidate:
     pools = option_pools(
@@ -185,7 +184,7 @@ def _candidates(
     auth: LaunchAuthorization,
     project_id: int,
     machine_id: str | None,
-    now: str,
+    now: datetime | str,
     eligibility: LaunchEligibilityPort,
 ) -> list[LevelCandidate]:
     limits = load_plan_limits(conn, project_id=project_id, now=now)
@@ -301,7 +300,7 @@ def place_level(
     project_id: int,
     level: str,
     machine_id: str | None,
-    now: str,
+    now: datetime | str,
     eligibility: LaunchEligibilityPort,
 ) -> LevelPlacement:
     """Weigh every option of ``level`` and choose one, or say why none fits."""

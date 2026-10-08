@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import json
 from typing import Any
 
 from yoke_contracts.session_control.wake_delivery import (
     WAKE_DELIVERY_UNVERIFIED_RESULTS,
 )
+from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.timestamps import utc_now as utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.session_relay_heartbeat_validation import validate_heartbeat
 from yoke_core.domain.session_relay_types import (
@@ -21,15 +24,10 @@ def marker(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def utc_now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def shifted(timestamp: str, *, seconds: int = 0, minutes: int = 0) -> str:
-    parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-    return (parsed + timedelta(seconds=seconds, minutes=minutes)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+def shifted(
+    timestamp: datetime | str, *, seconds: int = 0, minutes: int = 0
+) -> datetime:
+    return parse_instant(timestamp) + timedelta(seconds=seconds, minutes=minutes)
 
 
 def heartbeat_relay(
@@ -38,8 +36,8 @@ def heartbeat_relay(
     *,
     state: str,
     next_poll_seconds: int,
-    now: str,
-) -> str:
+    now: datetime | str,
+) -> datetime:
     """Upsert public machine facts and return the server-owned liveness edge."""
     heartbeat = validate_heartbeat(heartbeat)
     p = marker(conn)
@@ -62,10 +60,9 @@ def heartbeat_relay(
     # take, which outlasts a poll interval. It owes a report by the batch
     # horizon, so it stays connected at least that long — otherwise it drops
     # out of the eligible roster mid-burst and new launches find no relay.
-    connected_until = max(
-        shifted(now, seconds=max(1, next_poll_seconds) * 2),
-        str(existing[2] or "") if existing is not None else "",
-    )
+    connected_until = shifted(now, seconds=max(1, next_poll_seconds) * 2)
+    if existing is not None and existing[2] is not None:
+        connected_until = max(connected_until, parse_instant(existing[2]))
     surfaces = json_helper.dumps_compact(dict(heartbeat.surface_versions))
     confirmed_absent = json_helper.dumps_compact(
         list(heartbeat.surface_confirmed_absent)
@@ -106,9 +103,9 @@ def heartbeat_relay(
             surfaces,
             confirmed_absent,
             projects,
-            now,
-            now,
-            connected_until,
+            instant_parameter(conn, parse_instant(now)),
+            instant_parameter(conn, parse_instant(now)),
+            instant_parameter(conn, parse_instant(connected_until)),
             state,
             plan_limits,
             capacity,
@@ -159,7 +156,7 @@ def machine_is_idle(
     *,
     machine_id: str,
     idle_after_minutes: int,
-    now: str,
+    now: datetime | str,
 ) -> bool:
     p = marker(conn)
     cutoff = shifted(now, minutes=-idle_after_minutes)
@@ -167,7 +164,7 @@ def machine_is_idle(
         "SELECT 1 FROM harness_sessions "
         f"WHERE machine_id={p} AND ended_at IS NULL "
         f"AND COALESCE(last_tool_call_at,offered_at)>={p} LIMIT 1",
-        (machine_id, cutoff),
+        (machine_id, instant_parameter(conn, parse_instant(cutoff))),
     ).fetchone()
     if session is not None:
         return False
@@ -175,7 +172,7 @@ def machine_is_idle(
         "SELECT 1 FROM session_relays "
         f"WHERE machine_id={p} AND last_job_at IS NOT NULL "
         f"AND last_job_at>={p} LIMIT 1",
-        (machine_id, cutoff),
+        (machine_id, instant_parameter(conn, parse_instant(cutoff))),
     ).fetchone()
     return recent_job is None
 
@@ -185,8 +182,8 @@ def mark_relay_batch(
     *,
     relay_id: str,
     batch_id: str,
-    expires_at: str,
-    now: str,
+    expires_at: datetime,
+    now: datetime | str,
 ) -> None:
     """Record that this relay owns one outstanding batch until ``expires_at``.
 
@@ -198,7 +195,12 @@ def mark_relay_batch(
     cursor = conn.execute(
         "UPDATE session_relays SET lease_id=" + p + ",lease_expires_at=" + p + ","
         "last_job_at=" + p + ",state='active' WHERE relay_id=" + p,
-        (batch_id, expires_at, now, relay_id),
+        (
+            batch_id,
+            instant_parameter(conn, parse_instant(expires_at)),
+            instant_parameter(conn, parse_instant(now)),
+            relay_id,
+        ),
     )
     if cursor.rowcount != 1:
         raise SessionRelayError(
@@ -253,19 +255,21 @@ def clear_relay_batch_when_drained(
     )
 
 
-def relay_has_live_batch(conn: Any, *, relay_id: str, now: str) -> bool:
+def relay_has_live_batch(conn: Any, *, relay_id: str, now: datetime | str) -> bool:
     p = marker(conn)
     return (
         conn.execute(
             "SELECT 1 FROM session_relays "
             f"WHERE relay_id={p} AND lease_id IS NOT NULL AND lease_expires_at>{p}",
-            (relay_id, now),
+            (relay_id, instant_parameter(conn, parse_instant(now))),
         ).fetchone()
         is not None
     )
 
 
-def relay_holds_batch(conn: Any, *, relay_id: str, batch_id: str, now: str) -> bool:
+def relay_holds_batch(
+    conn: Any, *, relay_id: str, batch_id: str, now: datetime | str
+) -> bool:
     """Report whether this exact batch is the one the relay still owns."""
     if not batch_id:
         return False
@@ -274,13 +278,13 @@ def relay_holds_batch(conn: Any, *, relay_id: str, batch_id: str, now: str) -> b
         conn.execute(
             "SELECT 1 FROM session_relays "
             f"WHERE relay_id={p} AND lease_id={p} AND lease_expires_at>{p}",
-            (relay_id, batch_id, now),
+            (relay_id, batch_id, instant_parameter(conn, parse_instant(now))),
         ).fetchone()
         is not None
     )
 
 
-def require_relay_batch(conn: Any, *, relay_id: str, now: str) -> None:
+def require_relay_batch(conn: Any, *, relay_id: str, now: datetime | str) -> None:
     """Refuse a report once the batch horizon has passed.
 
     Which job the report belongs to is settled by the attempt row's own lease
@@ -297,7 +301,7 @@ def require_relay_batch(conn: Any, *, relay_id: str, now: str) -> None:
         raise SessionRelayError(
             "relay_lease_mismatch", "relay does not hold an outstanding batch"
         )
-    if str(row[0] or "") <= now:
+    if parse_instant(row[0]) <= parse_instant(now):
         raise SessionRelayError(
             "relay_lease_expired", "relay batch expired before the report"
         )

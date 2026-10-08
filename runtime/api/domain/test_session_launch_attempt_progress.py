@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import json
 
 import pytest
@@ -213,7 +215,7 @@ def test_adapter_start_opens_registration_before_native_result() -> None:
     assert result["state"] == "awaiting_registration"
     assert result["result_code"] == "native_created"
     assert get_launch(conn, launch.launch_id).awaiting_registration_at == (
-        "2026-08-22T12:00:10Z"
+        parse_instant("2026-08-22T12:00:10Z")
     )
 
 
@@ -241,7 +243,7 @@ def test_live_slow_spawn_is_durable_and_retry_reattaches() -> None:
     deadline = observed.deadline_at
     assert observed.native_launch_pid == 4242
     assert observed.native_launch_phase == "spawn_alive"
-    assert observed.native_launch_observed_at == "2026-08-22T12:03:00Z"
+    assert observed.native_launch_observed_at == parse_instant("2026-08-22T12:03:00Z")
     assert observed.spawn_duration_ms == 180_000
 
     attached = retry_launch(

@@ -14,7 +14,7 @@ from yoke_core.domain.session_recovery_facts import SESSION_RECOVERY_COLUMNS
 from yoke_core.domain.work_claim_targets import make_steering_target
 
 
-NOW = "2026-08-22T12:00:00Z"
+NOW = "2026-08-22T12:00:00.000000Z"
 #: Where every fixture session runs. The real column is NOT NULL, so a
 #: session in this universe always has a directory to be resumed in.
 SESSION_WORKSPACE = "/checkouts/launch-project"
@@ -181,7 +181,7 @@ def add_relay(
     surface: str = "codex-cli",
     version: str = "0.148.0a15",
     last_seen_at: str = NOW,
-    connected_until: str = "2026-08-22T12:20:00Z",
+    connected_until: str = "2026-08-22T12:20:00.000000Z",
     projects: list[Any] | None = None,
     actor_id: int = 1,
     hostname: str = "relay-host",

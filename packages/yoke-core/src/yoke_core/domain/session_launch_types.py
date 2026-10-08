@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+
 from yoke_contracts.fleet_policy import LAUNCH_DEADLINE_MINUTES, MAX_BODY_BYTES
 
+from datetime import datetime
+from yoke_contracts.timestamps import temporal_wire
 from dataclasses import asdict, dataclass
 from typing import Any, Protocol
 
@@ -45,12 +48,12 @@ class EligibleRelay:
     machine_id: str
     surface: str
     version: str
-    last_seen_at: str
+    last_seen_at: datetime
     hostname: str = ""
     owner_actor_id: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return temporal_wire(asdict(self))
 
 
 @dataclass(frozen=True)
@@ -82,7 +85,7 @@ class MachineCandidate:
     selected: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return temporal_wire(asdict(self))
 
 
 @dataclass(frozen=True)
@@ -108,7 +111,7 @@ class LaunchEligibilityPort(Protocol):
         project_id: int,
         surface: str,
         machine_id: str | None,
-        now: str,
+        now: datetime | str,
     ) -> EligibilitySnapshot: ...
 
 
@@ -210,14 +213,14 @@ class LaunchRecord:
     assigned_machine_id: str | None
     native_session_id: str | None
     attestation_hash: str | None
-    attestation_consumed_at: str | None
+    attestation_consumed_at: datetime | None
     registered_session_id: str | None
-    deadline_at: str
-    created_at: str
-    assigned_at: str | None
-    launching_at: str | None
-    awaiting_registration_at: str | None
-    completed_at: str | None
+    deadline_at: datetime
+    created_at: datetime
+    assigned_at: datetime | None
+    launching_at: datetime | None
+    awaiting_registration_at: datetime | None
+    completed_at: datetime | None
     result_code: str | None
     result_evidence: str | None
     placement_reason: str | None = None
@@ -227,7 +230,7 @@ class LaunchRecord:
     origin: str = LAUNCH_ORIGIN_OPERATOR
     native_launch_pid: int | None = None
     native_launch_phase: str | None = None
-    native_launch_observed_at: str | None = None
+    native_launch_observed_at: datetime | None = None
     spawn_duration_ms: int | None = None
     #: Set while the launch waits in ``assigned`` for its machine's spawn
     #: spacing window; cleared the moment a relay leases it.
@@ -238,7 +241,7 @@ class LaunchRecord:
     level_placement: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return temporal_wire(asdict(self))
 
 
 @dataclass(frozen=True)
@@ -254,7 +257,7 @@ class LaunchClaim:
     attempt_id: str
     attempt_number: int
     lease_id: str
-    lease_expires_at: str
+    lease_expires_at: datetime
     bootstrap_prompt: str
     attestation: str
 

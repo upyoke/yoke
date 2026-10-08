@@ -17,6 +17,8 @@ never overwritten with requests.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import hmac
 from typing import Any, Mapping, Sequence
 
@@ -70,7 +72,7 @@ def late_registration_evidence(
     *,
     launch: LaunchRecord,
     session_id: str,
-    now: str,
+    now: datetime | str,
 ) -> str:
     """Say which session registered too late, and how far the launch got."""
     document = closure_evidence(

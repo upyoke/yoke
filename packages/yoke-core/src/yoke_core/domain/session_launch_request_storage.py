@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any
 
 from yoke_core.domain import json_helper
@@ -57,8 +60,8 @@ def insert_launch_request(
     auth: LaunchAuthorization,
     request: LaunchRequest,
     preview: LaunchPreview,
-    created_at: str,
-    deadline_at: str,
+    created_at: datetime,
+    deadline_at: datetime,
 ) -> bool:
     relay = preview.selected_relay
     assert relay is not None
@@ -112,9 +115,9 @@ def insert_launch_request(
         "assigned",
         relay.relay_id,
         relay.machine_id,
-        deadline_at,
-        created_at,
-        created_at,
+        instant_parameter(conn, parse_instant(deadline_at)),
+        instant_parameter(conn, parse_instant(created_at)),
+        instant_parameter(conn, parse_instant(created_at)),
         derived_launch_origin(
             conn,
             session_id=auth.session_id,

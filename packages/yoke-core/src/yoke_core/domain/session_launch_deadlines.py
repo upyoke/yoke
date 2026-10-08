@@ -12,6 +12,12 @@ connected yet never takes it.
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+
+from yoke_contracts.timestamps import parse_instant
+
+from datetime import datetime
+
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -76,11 +82,13 @@ LAUNCH_QUEUE_WAIT_SECONDS = MAX_LAUNCH_DEADLINE_SECONDS
 _QUEUE_WAIT_EXPIRY = "queue_wait_expiry"
 
 
-def _queued_since(launch: LaunchRecord) -> str:
+def _queued_since(launch: LaunchRecord) -> datetime:
     return launch.assigned_at or launch.created_at
 
 
-def queue_wait_exhausted(conn: Any, launch: LaunchRecord, *, now: str) -> str | None:
+def queue_wait_exhausted(
+    conn: Any, launch: LaunchRecord, *, now: datetime | str
+) -> str | None:
     """Name why a launch still waiting for pickup must close, else ``None``."""
     current = parse_time(now)
     if current >= parse_time(
@@ -96,7 +104,7 @@ def queue_wait_exhausted(conn: Any, launch: LaunchRecord, *, now: str) -> str | 
 
 
 def extend_launch_message_expiry(
-    conn: Any, *, message_id: str, expires_at: str
+    conn: Any, *, message_id: str, expires_at: datetime
 ) -> None:
     """Realign the instruction message TTL to the launch's live deadline.
 
@@ -109,11 +117,17 @@ def extend_launch_message_expiry(
     conn.execute(
         f"UPDATE session_messages SET expires_at={p} "
         f"WHERE message_id={p} AND expires_at < {p}",
-        (expires_at, message_id, expires_at),
+        (
+            instant_parameter(conn, parse_instant(expires_at)),
+            message_id,
+            instant_parameter(conn, parse_instant(expires_at)),
+        ),
     )
 
 
-def start_pickup_window(conn: Any, launch: LaunchRecord, *, now: str) -> str:
+def start_pickup_window(
+    conn: Any, launch: LaunchRecord, *, now: datetime | str
+) -> datetime:
     """Return the deadline a launch's spawn window runs to from this pickup.
 
     The window keeps the length it was requested with, measured from when the
@@ -142,7 +156,7 @@ def _expire_launching(
     launch: LaunchRecord,
     *,
     attempt: Any,
-    now: str,
+    now: datetime | str,
 ) -> LaunchRecord:
     """Mark a silent launch uncertain while saying what was observed.
 
@@ -193,7 +207,7 @@ def _expire_at_deadline(
     conn: Any,
     launch: LaunchRecord,
     *,
-    now: str,
+    now: datetime | str,
     closure_reason: str = "deadline_expiry",
 ) -> LaunchRecord:
     """Close a launch at its deadline, saying what the server last observed.
@@ -256,12 +270,12 @@ def _expire_at_deadline(
 def settle_launch_deadlines(
     conn: Any,
     *,
-    now: str | None = None,
+    now: datetime | str | None = None,
     launch_id: str | None = None,
     project_id: int | None = None,
 ) -> list[LaunchRecord]:
     """Close expired queues and surface uncertain expired native attempts."""
-    current = now or utc_now()
+    current = utc_now() if now is None else parse_instant(now)
     begin_mutation(conn)
     changed: list[LaunchRecord] = []
     try:
@@ -274,7 +288,7 @@ def settle_launch_deadlines(
             if launch.state == "launching":
                 row = open_attempt(conn, launch.launch_id)
                 lease_passed = bool(row) and parse_time(current) >= parse_time(
-                    add_seconds(str(value(row, "started_at", 3)), LAUNCH_LEASE_SECONDS)
+                    add_seconds(value(row, "started_at", 3), LAUNCH_LEASE_SECONDS)
                 )
                 if deadline_passed or (
                     lease_passed

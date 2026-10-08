@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+from typing import Any, Mapping
 
 from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 from yoke_contracts.session_control.wake_delivery import (
@@ -10,13 +13,15 @@ from yoke_contracts.session_control.wake_delivery import (
     WAKE_DELIVERY_UNVERIFIED_RESULTS,
     WAKE_REPORT_CODES,
 )
-from yoke_core.domain.session_broker_wake_fallback import direct_wake_waits_for_broker
 from yoke_core.domain.session_broker_wake_adoption import claim_broker_wake_job
 from yoke_core.domain.session_relay_evidence import (
     merge_redacted_evidence,
     redacted_evidence_document,
 )
-from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
+from yoke_core.domain.session_relay_wake_claim import (
+    claim_wake_attempt,
+    wake_candidates,
+)
 from yoke_core.domain.session_wake_deferral import restore_deferred_wake_budget
 from yoke_core.domain.session_model_columns import resume_model_selection
 from yoke_core.domain.session_native_process_observation import (
@@ -29,6 +34,8 @@ from yoke_core.domain.session_relay_storage import (
     require_relay_batch,
 )
 from yoke_core.domain.session_relay_types import (
+    LAUNCH_REPORT_CODES as LAUNCH_REPORT_CODES,
+    LAUNCH_PROGRESS_CODE as LAUNCH_PROGRESS_CODE,
     RelayHeartbeat,
     RelayJob,
     SessionRelayError,
@@ -41,41 +48,11 @@ from yoke_core.domain.session_relay_launch_progress import report_launch_progres
 from yoke_core.domain import session_relay_managed_presentation as managed_presentation
 
 
-LAUNCH_REPORT_CODES = frozenset({"native_created", "not_created", "outcome_unknown"})
-LAUNCH_PROGRESS_CODE = "progress"
-
-
-def _wake_candidates(
-    conn: Any,
-    heartbeat: RelayHeartbeat,
-    *,
-    now: str,
-) -> Sequence[Mapping[str, Any]]:
-    from yoke_core.domain.session_message_types import parse_timestamp
-    from yoke_core.domain.session_message_wake import wake_eligible_recipients
-
-    projects = tuple(sorted({int(value) for value in heartbeat.project_ids}))
-    if not projects:
-        return ()
-    return tuple(
-        row
-        for row in wake_eligible_recipients(conn, now=parse_timestamp(now))
-        if row.get("machine_id") == heartbeat.machine_id
-        and int(row["project_id"]) in projects
-        and not direct_wake_waits_for_broker(
-            conn,
-            message_id=str(row["message_id"]),
-            session_id=str(row["session_id"]),
-            now=now,
-        )
-    )[:25]
-
-
 def claim_wake_job(
     conn: Any,
     heartbeat: RelayHeartbeat,
     *,
-    now: str,
+    now: datetime | str,
     broker_only: bool = False,
     broker_lease_id: str | None = None,
     broker_session_id: str | None = None,
@@ -91,7 +68,7 @@ def claim_wake_job(
     selected: Mapping[str, Any] | None = None
     execution: tuple[str, str] = ("", "")
     qualification = None
-    for row in _wake_candidates(conn, heartbeat, now=now):
+    for row in wake_candidates(conn, heartbeat, now=now):
         authorized, qualification = authorize_wake_candidate(
             conn, row, heartbeat, route="direct"
         )
@@ -162,7 +139,7 @@ def report_wake_job(
     result_code: str,
     adapter_revision: str | None,
     evidence: Mapping[str, Any] | None,
-    now: str,
+    now: datetime | str,
 ) -> dict[str, Any]:
     if result_code not in WAKE_REPORT_CODES:
         raise SessionRelayError("result_invalid", "unknown wake relay result code")
@@ -212,7 +189,9 @@ def report_wake_job(
         + p
         + f" WHERE attempt_id={p} AND completed_at IS NULL",
         (
-            completed_at,
+            instant_parameter(
+                conn, None if completed_at is None else parse_instant(completed_at)
+            ),
             result_code,
             str(adapter_revision or "").strip()[:128] or None,
             merge_redacted_evidence(row[3], evidence),
@@ -232,7 +211,8 @@ def report_wake_job(
     if result_code in WAKE_DEFERRED_RESULTS:
         restore_deferred_wake_budget(
             conn,
-            message_id=str(row[4] or ""), session_id=str(row[5] or ""),
+            message_id=str(row[4] or ""),
+            session_id=str(row[5] or ""),
             now=now,
             running_native_pid=(evidence or {}).get("running_native_pid"),
         )
@@ -251,7 +231,7 @@ def report_launch_job(
     native_session_id: str | None,
     adapter_revision: str | None,
     evidence: Mapping[str, Any] | None,
-    now: str,
+    now: datetime | str,
 ) -> dict[str, Any]:
     if result_code == LAUNCH_PROGRESS_CODE:
         return report_launch_progress(

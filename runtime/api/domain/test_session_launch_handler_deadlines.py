@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -112,7 +114,9 @@ def test_retry_mutation_settles_deadline_before_applying_retry(monkeypatch) -> N
 
     assert retried.primary_success, retried.error
     assert retried.result_payload["launch"]["state"] == "assigned"
-    assert get_launch(conn, launch.launch_id).deadline_at == "2026-08-22T13:10:00Z"
+    assert get_launch(conn, launch.launch_id).deadline_at == parse_instant(
+        "2026-08-22T13:10:00Z"
+    )
 
 
 def test_create_refuses_surface_fallback_under_fixed_policy(monkeypatch) -> None:

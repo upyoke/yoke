@@ -13,6 +13,12 @@ not a roomy machine, and the reading says so rather than passing silently.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
+from yoke_core.domain.db_helpers import instant_parameter
+
+from datetime import datetime
+
 from dataclasses import asdict, dataclass
 import json
 from typing import Any, Iterable, Mapping
@@ -98,7 +104,7 @@ def _document(value: Any) -> dict[str, Any]:
         return {}
 
 
-def live_lane_count(conn: Any, *, machine_id: str, now: str) -> int:
+def live_lane_count(conn: Any, *, machine_id: str, now: datetime | str) -> int:
     """Sessions running on the machine plus launches still on their way there."""
     p = _marker(conn)
     sessions = conn.execute(
@@ -111,7 +117,11 @@ def live_lane_count(conn: Any, *, machine_id: str, now: str) -> int:
         "SELECT COUNT(*) FROM session_launches "
         f"WHERE assigned_machine_id = {p} AND state IN ({states}) "
         f"AND registered_session_id IS NULL AND deadline_at > {p}",
-        (machine_id, *IN_FLIGHT_LAUNCH_STATES, now),
+        (
+            machine_id,
+            *IN_FLIGHT_LAUNCH_STATES,
+            instant_parameter(conn, parse_instant(now)),
+        ),
     ).fetchone()[0]
     return int(sessions or 0) + int(launches or 0)
 
@@ -121,7 +131,7 @@ def machine_capacity(
     *,
     machine_id: str,
     capacity_document: Any,
-    now: str,
+    now: datetime | str,
 ) -> MachineCapacity:
     """Pair the relay's published reading with the lanes the plane can see."""
     reading = _document(capacity_document)

@@ -20,6 +20,8 @@ not place twice.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from dataclasses import asdict, dataclass
 from typing import Any, Sequence
 
@@ -56,7 +58,7 @@ def option_pools(
     machine_id: str,
     surface: str,
     model: str,
-    now: str,
+    now: datetime | str,
 ) -> tuple[PoolCheck, ...]:
     """Every published window on this machine and surface covering ``model``."""
     checks: list[PoolCheck] = []

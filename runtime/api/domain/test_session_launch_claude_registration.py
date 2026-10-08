@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import pytest
 
 from yoke_core.domain.session_launch_execution import (
@@ -74,7 +76,7 @@ def test_registration_preserves_the_reported_background_session() -> None:
     assert injection.session_id == actual_session_id
     assert bound.native_session_id == actual_session_id
     assert bound.registered_session_id == actual_session_id
-    assert bound.attestation_consumed_at == "2026-08-22T12:00:31Z"
+    assert bound.attestation_consumed_at == parse_instant("2026-08-22T12:00:31Z")
 
 
 def test_registration_refuses_a_claude_id_other_than_the_reported_native_id() -> None:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import json
 
 from yoke_contracts.session_control.launch_registration import (
@@ -82,7 +84,7 @@ def test_a_native_exit_without_registration_closes_the_launch_with_its_capture()
     # Closed now, rather than at a registration deadline ten minutes out.
     assert closed.state == "failed"
     assert closed.result_code == NATIVE_EXITED_UNREGISTERED_CODE
-    assert closed.completed_at == "2026-08-22T12:00:45Z"
+    assert closed.completed_at == parse_instant("2026-08-22T12:00:45Z")
     evidence = json.loads(closed.result_evidence)
     assert evidence["closure_reason"] == CLOSURE_REASON
     assert evidence["exit_code"] == 1

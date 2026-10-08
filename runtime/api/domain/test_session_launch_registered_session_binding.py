@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import json
 
 from yoke_core.domain.session_launch_execution import (
@@ -93,7 +95,7 @@ def test_native_report_binds_a_session_that_registered_before_correlation() -> N
     assert bound.state == "awaiting_registration"
     assert bound.native_session_id == bound.registered_session_id == "native-session"
     assert bound.result_code == "registration_bound"
-    assert bound.attestation_consumed_at == "2026-08-22T12:00:30Z"
+    assert bound.attestation_consumed_at == parse_instant("2026-08-22T12:00:30Z")
     assert tuple(_recipient(conn, launch.message_id)) == (
         "native-session",
         "pending",

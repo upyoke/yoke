@@ -1,12 +1,7 @@
 """Flip a launch whose worker ended without ever entering its mandate.
 
-A launch reaches ``succeeded`` the moment its instruction is model-visible,
-which is the right boundary for the launch plane: delivery is what the plane
-controls. It is the wrong boundary for the operator who launched a worker
-against a work item. A native that read its instruction, surveyed for nine
-minutes, claimed nothing, said nothing, and was then reaped as claim-free
-leaves a launch row reading ``succeeded`` while the item quietly returns to
-the frontier — the one shape where the record and the outcome disagree.
+A launch succeeds at model-visible delivery. A worker that never claims or
+reports can still leave that successful launch while its mandate is untouched.
 
 So the end of a launch-created session is also the last moment to check
 whether the worker ever participated. A work claim proves it entered the
@@ -28,6 +23,10 @@ worker that never began.
 """
 
 from __future__ import annotations
+
+from yoke_contracts.timestamps import parse_instant
+
+from datetime import datetime
 
 import json
 import logging
@@ -123,7 +122,7 @@ def settle_launch_native_death(
     session_id: str,
     evidence: Mapping[str, Any],
     *,
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> LaunchRecord | None:
     """Correct the launch of a worker whose native died before it ever worked.
 
@@ -132,7 +131,7 @@ def settle_launch_native_death(
     exactly the shape that left a launch reading ``succeeded`` while its item
     quietly returned to the frontier.
     """
-    current = now or utc_now()
+    current = utc_now() if now is None else parse_instant(now)
     begin_mutation(conn)
     try:
         launch = _launch_for_session(conn, session_id)
@@ -183,7 +182,7 @@ def settle_abandoned_launch(
     session_id: str,
     *,
     end_reason: str,
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> LaunchRecord | None:
     """Fail the launch of a worker that ended without ever taking its mandate.
 
@@ -192,7 +191,7 @@ def settle_abandoned_launch(
     Returns ``None`` whenever there is nothing to correct, which is the
     ordinary case for every session a launch did not create.
     """
-    current = now or utc_now()
+    current = utc_now() if now is None else parse_instant(now)
     begin_mutation(conn)
     try:
         launch = _launch_for_session(conn, session_id)

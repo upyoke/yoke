@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+
 from dataclasses import dataclass
 import json
 from typing import Any, Mapping
@@ -78,7 +83,7 @@ def load_plan_limits(
     conn: Any,
     *,
     project_id: int,
-    now: str,
+    now: datetime | str,
     registered_names: Mapping[str, str] | None = None,
 ) -> tuple[MachinePlanLimit, ...]:
     """Connected relays' cached readings for machines serving this project.
@@ -94,7 +99,7 @@ def load_plan_limits(
         "SELECT machine_id, hostname, project_checkouts, surface_plan_limits "
         f"FROM session_relays WHERE connected_until>={marker} "
         "ORDER BY hostname, machine_id",
-        (now,),
+        (instant_parameter(conn, parse_instant(now)),),
     ).fetchall()
     found: list[MachinePlanLimit] = []
     for row in rows:

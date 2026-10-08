@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
+from datetime import datetime
+
 from typing import Any
 
 from yoke_contracts.executor_labels import (
@@ -52,7 +56,7 @@ def _fallback_snapshot(
     project_id: int,
     requested_surface: str,
     machine_id: str | None,
-    now: str,
+    now: datetime | str,
     eligibility: LaunchEligibilityPort,
 ) -> EligibilitySnapshot:
     selected_by_machine: dict[str, EligibleRelay] = {}
@@ -95,7 +99,7 @@ def preview_launch(
     machine_id: str | None = None,
     allow_surface_fallback: bool = False,
     surface_fallback_enabled: bool = False,
-    now: str | None = None,
+    now: datetime | str | None = None,
     model: str | None = None,
     eligibility: LaunchEligibilityPort = derive_launch_eligibility,
 ) -> LaunchPreview:
@@ -107,7 +111,7 @@ def preview_launch(
     named model actually bills to.
     """
     ensure_operator(auth)
-    current = now or utc_now()
+    current = utc_now() if now is None else parse_instant(now)
     pin = resolve_launch_machine_pin(conn, machine_id)
     if pin.unresolved:
         return LaunchPreview(

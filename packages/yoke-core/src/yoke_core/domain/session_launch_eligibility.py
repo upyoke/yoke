@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import json
 from typing import Any, Sequence
 
@@ -9,6 +11,7 @@ from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
 )
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_launch_capacity import (
     MACHINE_AT_CAPACITY,
@@ -99,7 +102,7 @@ def derive_launch_eligibility(
     project_id: int,
     surface: str,
     machine_id: str | None,
-    now: str,
+    now: datetime | str,
     relay_rows: Sequence[Any] | None = None,
 ) -> EligibilitySnapshot:
     """Return one freshest eligible relay per machine.
@@ -117,9 +120,7 @@ def derive_launch_eligibility(
         rows = load_relay_eligibility_rows(conn, machine_id=machine_id)
     elif machine_id:
         rows = [
-            row
-            for row in relay_rows
-            if str(_value(row, "machine_id", 1)) == machine_id
+            row for row in relay_rows if str(_value(row, "machine_id", 1)) == machine_id
         ]
     else:
         rows = list(relay_rows)
@@ -133,8 +134,8 @@ def derive_launch_eligibility(
         considered.add(relay_machine)
         row_rejected = False
         state = str(_value(row, "state", 5))
-        connected_until = str(_value(row, "connected_until", 6))
-        if state not in {"active", "idle"} or connected_until < now:
+        connected_until = parse_instant(_value(row, "connected_until", 6))
+        if state not in {"active", "idle"} or connected_until < parse_instant(now):
             rejected.add("liveness_expired")
             row_rejected = True
         if not _serves_project(_value(row, "project_checkouts", 3), project_keys):
@@ -174,7 +175,7 @@ def derive_launch_eligibility(
             machine_id=relay_machine,
             surface=surface,
             version=offered,
-            last_seen_at=str(_value(row, "last_seen_at", 4)),
+            last_seen_at=parse_instant(_value(row, "last_seen_at", 4)),
             hostname=str(_value(row, "hostname", 8) or ""),
             owner_actor_id=owner_actor_id,
         )

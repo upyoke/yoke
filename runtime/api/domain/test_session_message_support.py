@@ -6,6 +6,7 @@ import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
+from yoke_contracts.timestamps import format_instant
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.domain.actor_permissions import (
     ROLE_ADMIN,
@@ -19,7 +20,7 @@ from yoke_core.domain.session_control_schema import create_session_control_table
 
 
 NOW = datetime(2026, 8, 22, 16, 0, tzinfo=timezone.utc)
-NOW_TEXT = "2026-08-22T16:00:00Z"
+NOW_TEXT = "2026-08-22T16:00:00.000000Z"
 IDLE_WAKE_SESSION_ID = "s3"
 NATIVE_WAKE_SESSION_ID = "s4"
 #: Where each fixture session actually runs. The paths are deliberately not
@@ -215,7 +216,7 @@ def stamp_activity(
     conn.execute(
         "UPDATE harness_sessions SET last_heartbeat=?,last_tool_call_at=? "
         "WHERE session_id=?",
-        (when.strftime("%Y-%m-%dT%H:%M:%SZ"), tool_call, session_id),
+        (format_instant(when), tool_call, session_id),
     )
     conn.commit()
 
@@ -242,7 +243,7 @@ def record_process_gone(
         "UPDATE harness_sessions SET native_process_gone_at=?,"
         "native_process_gone_evidence=? WHERE session_id=?",
         (
-            when.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            format_instant(when),
             json.dumps({"exit_code": exit_code}),
             session_id,
         ),

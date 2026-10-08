@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import pytest
 
 from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
@@ -195,7 +197,7 @@ def test_cancelled_native_create_reconciliation_binds_the_registered_session() -
     assert reconciled.native_session_id == "late-native-session"
     assert reconciled.registered_session_id == "late-native-session"
     assert reconciled.result_code == "registration_bound"
-    assert reconciled.attestation_consumed_at == "2026-08-22T12:00:22Z"
+    assert reconciled.attestation_consumed_at == parse_instant("2026-08-22T12:00:22Z")
     recipient = conn.execute(
         "SELECT session_id,state FROM session_message_recipients WHERE message_id=?",
         (launch.message_id,),
@@ -284,7 +286,7 @@ def test_retry_reopens_message_without_reactivating_an_old_recipient() -> None:
     assert tuple(reset[:4]) == (0, None, 0, None)
     assert reset[4] == "2026-08-22T12:11:03Z"
     assert reset[4] != retried.deadline_at
-    assert rebound.deadline_at == "2026-08-22T12:21:02Z"
+    assert rebound.deadline_at == parse_instant("2026-08-22T12:21:02Z")
 
 
 @pytest.mark.parametrize("terminal_state", ["failed", "expired", "outcome_unknown"])

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import Any, Mapping
 
 from yoke_contracts.session_control.launch_registration import (
@@ -29,7 +31,7 @@ def report_launch_progress(
     lease_id: str,
     adapter_revision: str | None,
     evidence: Mapping[str, Any] | None,
-    now: str,
+    now: datetime | str,
 ) -> dict[str, Any]:
     """Merge safe attempt facts and project native supervision state."""
     p = marker(conn)

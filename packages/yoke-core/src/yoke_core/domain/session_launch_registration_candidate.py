@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, Callable, Mapping
 
 from yoke_contracts.session_control.evidence import redacted_evidence_document
@@ -12,6 +12,8 @@ from yoke_contracts.session_control.launch_registration import (
     REGISTERED_BUT_UNBOUND_CODE,
     SPAWN_WORKSPACE_MISSING_CODE,
 )
+from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.session_launch_store import (
     begin_mutation,
@@ -45,22 +47,15 @@ def registration_binding_window(
     started_at: Any,
     deadline_at: Any,
     evidence: Mapping[str, object],
-) -> tuple[str, str] | None:
+) -> tuple[datetime, datetime] | None:
     bound_seconds = evidence.get("native_launch_bound_seconds")
     if not isinstance(bound_seconds, int) or isinstance(bound_seconds, bool):
         return None
     if bound_seconds <= 0:
         return None
-    try:
-        started = parse_time(str(started_at))
-        deadline = parse_time(str(deadline_at))
-    except (TypeError, ValueError):
-        return None
-    window_end = min(started + timedelta(seconds=bound_seconds), deadline)
-    return (
-        started.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        window_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
-    )
+    started = parse_instant(started_at)
+    deadline = parse_instant(deadline_at)
+    return started, min(started + timedelta(seconds=bound_seconds), deadline)
 
 
 def _latest_attempt(
@@ -88,7 +83,7 @@ def _registration_candidates(
     machine_id: str,
     workspace: str,
     native_session_id: str | None,
-    window: tuple[str, str],
+    window: tuple[datetime, datetime],
 ) -> list[str]:
     p = marker(conn)
     native_clause = f" AND s.session_id={p}" if native_session_id else ""
@@ -102,8 +97,8 @@ def _registration_candidates(
         surface,
         machine_id,
         workspace,
-        window[0],
-        window[1],
+        instant_parameter(conn, window[0]),
+        instant_parameter(conn, window[1]),
     ]
     if native_session_id:
         params.append(native_session_id)
@@ -132,7 +127,7 @@ def reserve_launch_registration_candidate(
     *,
     launch_id: str,
     lease_id: str,
-    now: str,
+    now: datetime | str,
 ) -> dict[str, Any]:
     """Atomically reserve the only registration matching a supervised launch."""
     begin_mutation(conn)
@@ -205,7 +200,7 @@ def reserve_launch_registration_candidate(
     return {
         "status": REGISTERED_BUT_UNBOUND_CODE,
         "session_id": session_id,
-        "binding_window_ends_at": window[1],
+        "binding_window_ends_at": format_instant(window[1]),
     }
 
 
@@ -256,11 +251,11 @@ def wait_for_launch_registration_candidate(
     *,
     launch_id: str,
     lease_id: str,
-    initial_now: str,
+    initial_now: datetime | str,
     wait_seconds: float = REGISTRATION_CANDIDATE_WAIT_SECONDS,
     clock: Callable[[], float] = time.monotonic,
     sleeper: Callable[[float], None] = time.sleep,
-    now_provider: Callable[[], str] = utc_now,
+    now_provider: Callable[[], datetime | str] = utc_now,
 ) -> dict[str, Any]:
     """Wait briefly for hook registration, committing between observations."""
     stop_at = clock() + max(0.0, float(wait_seconds))

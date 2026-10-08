@@ -6,6 +6,8 @@ once picked up, even when an earlier native has not reported yet.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import json
 
 import pytest
@@ -71,10 +73,10 @@ def test_second_queued_launch_gets_its_full_window_from_pickup() -> None:
     (job,) = claim_next_launch(conn, _heartbeat(), now=PAST_CREATE_DEADLINE)
 
     assert job.job_id == waiting.launch_id
-    assert job.deadline_at == "2026-08-22T12:25:00Z"
+    assert job.deadline_at == parse_instant("2026-08-22T12:25:00Z")
     launched = get_launch(conn, waiting.launch_id)
     assert launched.state == "launching"
-    assert launched.deadline_at == "2026-08-22T12:25:00Z"
+    assert launched.deadline_at == parse_instant("2026-08-22T12:25:00Z")
     assert _message_expiry(conn, waiting.message_id) == "2026-08-22T12:25:00Z"
 
 

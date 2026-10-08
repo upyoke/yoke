@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+
 import secrets
 from typing import Any
 from uuid import uuid4
@@ -74,7 +79,9 @@ def _complete_attempt(
         "adapter_revision = COALESCE({0}, adapter_revision), "
         "evidence = {0} WHERE attempt_id = {0}".format(p),
         (
-            completed_at,
+            instant_parameter(
+                conn, None if completed_at is None else parse_instant(completed_at)
+            ),
             native_session_id,
             result_code,
             adapter_revision,
@@ -90,7 +97,7 @@ def expire_launch_attempt(
     launch_id: str,
     lease_id: str,
     result_code: str,
-    now: str,
+    now: datetime | str,
 ) -> LaunchRecord:
     """Close an abandoned relay attempt without erasing its progress evidence."""
     begin_mutation(conn)
@@ -150,7 +157,7 @@ def claim_assigned_launch(
     relay_id: str,
     machine_id: str,
     batch_id: str | None = None,
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> LaunchClaim:
     """Lease one assigned launch and mint its single-use attestation secret.
 
@@ -158,7 +165,7 @@ def claim_assigned_launch(
     reader can tell an attempt the relay still owns from one it has moved on
     from. A launch leased outside a relay poll belongs to no batch.
     """
-    current = now or utc_now()
+    current = utc_now() if now is None else parse_instant(now)
     begin_mutation(conn)
     try:
         launch = get_launch(conn, launch_id, for_update=True)
@@ -192,7 +199,7 @@ def claim_assigned_launch(
                 lease_id,
                 batch_id,
                 attempt_number,
-                current,
+                instant_parameter(conn, parse_instant(current)),
             ),
         )
         launched = update_launch(
@@ -210,7 +217,7 @@ def claim_assigned_launch(
         lease_expires = min(
             parse_time(add_seconds(current, LAUNCH_LEASE_SECONDS)),
             parse_time(deadline),
-        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        )
         return LaunchClaim(
             launch=launched,
             attempt_id=attempt_id,
@@ -234,14 +241,14 @@ def report_launch_attempt(
     native_session_id: str | None = None,
     adapter_revision: str | None = None,
     evidence: dict[str, Any] | None = None,
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> LaunchRecord:
     """Persist the native-create boundary without guessing an uncertain outcome."""
     if result_code not in _REPORT_RESULTS:
         raise SessionLaunchError("result_invalid", "unknown launch attempt result")
     if result_code == "native_created" and not str(native_session_id or "").strip():
         result_code = "outcome_unknown"
-    current = now or utc_now()
+    current = utc_now() if now is None else parse_instant(now)
     begin_mutation(conn)
     try:
         launch = get_launch(conn, launch_id, for_update=True)

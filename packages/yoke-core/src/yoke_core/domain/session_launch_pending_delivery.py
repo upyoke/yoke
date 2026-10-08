@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import Any, Mapping, Sequence
 
 from yoke_contracts.session_control.launch_registration import (
@@ -18,6 +20,7 @@ from yoke_core.domain.session_launch_registration_candidate import (
     registration_binding_window,
     registration_evidence_document,
 )
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.session_launch_store import marker, parse_time, utc_now
 from yoke_core.domain.session_message_types import row_dict
 
@@ -54,8 +57,7 @@ def _schema_available(conn: Any) -> bool:
     # this schema carry the launch vocabulary", and a table answers all of
     # its own columns in a single catalog statement.
     return all(
-        _table_exists(conn, table)
-        and columns <= set(_get_columns(conn, table))
+        _table_exists(conn, table) and columns <= set(_get_columns(conn, table))
         for table, columns in required.items()
     )
 
@@ -109,7 +111,7 @@ def pending_launch_deliveries(
     conn: Any,
     session_ids: Sequence[str],
     *,
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Return launch-window holds for newly registered, still-unbound sessions."""
     targets = tuple(dict.fromkeys(str(one) for one in session_ids if str(one)))
@@ -119,7 +121,7 @@ def pending_launch_deliveries(
     if not sessions:
         return {}
     all_bindings = _bindings(conn)
-    current = parse_time(now or utc_now())
+    current = utc_now() if now is None else parse_instant(now)
     matches: dict[str, list[tuple[str, str]]] = {}
     for raw in _launches(conn):
         launch = row_dict(raw)
@@ -138,7 +140,7 @@ def pending_launch_deliveries(
             ):
                 continue
             matches.setdefault(session_id, []).append(
-                (str(launch["launch_id"]), window[1])
+                (str(launch["launch_id"]), format_instant(window[1]))
             )
     return {
         session_id: _pending_delivery_facts(rows)
@@ -150,10 +152,10 @@ def _session_matches_launch(
     session: Mapping[str, Any],
     launch: Mapping[str, Any],
     workspace: str,
-    window: tuple[str, str],
+    window: tuple[datetime, datetime],
 ) -> bool:
     native = str(launch.get("native_session_id") or "")
-    registered_at = str(session.get("registered_at") or "")
+    registered_at = parse_instant(session.get("registered_at"))
     return bool(
         (not native or native == str(session.get("session_id") or ""))
         and int(session.get("project_id") or 0) == int(launch.get("project_id") or -1)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import pytest
 
 from yoke_core.domain.session_launch_execution import (
@@ -120,7 +122,7 @@ def test_registered_session_binding_remains_deliverable_after_marker_expiry() ->
     assert progress["registration"] == {
         "status": "registered_but_unbound",
         "session_id": SESSION_ID,
-        "binding_window_ends_at": "2026-08-22T12:02:00Z",
+        "binding_window_ends_at": "2026-08-22T12:02:00.000000Z",
     }
     reserved = get_launch(conn, launch.launch_id)
     assert reserved.state == "launching"
@@ -171,7 +173,7 @@ def test_registered_session_binding_remains_deliverable_after_marker_expiry() ->
     assert injection.session_id == SESSION_ID
     assert injection.body == "Inspect the current work and report evidence."
     assert get_launch(conn, launch.launch_id).attestation_consumed_at == (
-        "2026-08-22T12:00:04Z"
+        parse_instant("2026-08-22T12:00:04Z")
     )
 
     complete_launch_injection(

@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
+from yoke_core.domain.db_helpers import instant_parameter
+
+from datetime import datetime
+
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 from uuid import uuid4
 
 from yoke_contracts.session_control.wake_instruction import (
@@ -12,7 +18,12 @@ from yoke_contracts.session_control.wake_instruction import (
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain.session_relay_evidence import redacted_evidence
 from yoke_core.domain.session_relay_storage import marker, shifted
-from yoke_core.domain.session_relay_types import WAKE_LEASE_SECONDS, WakeMode
+from yoke_core.domain.session_relay_types import (
+    WAKE_LEASE_SECONDS,
+    WakeMode,
+    RelayHeartbeat,
+)
+from yoke_core.domain.session_broker_wake_fallback import direct_wake_waits_for_broker
 from yoke_core.domain.session_turn_posture import TURN_POSTURES
 from yoke_core.domain.session_wake_meter import skip_exhausted_wake
 
@@ -21,7 +32,33 @@ from yoke_core.domain.session_wake_meter import skip_exhausted_wake
 class WakeAttemptClaim:
     attempt_id: str
     lease_id: str
-    lease_expires_at: str
+    lease_expires_at: datetime
+
+
+def wake_candidates(
+    conn: Any,
+    heartbeat: RelayHeartbeat,
+    *,
+    now: datetime | str,
+) -> Sequence[Mapping[str, Any]]:
+    from yoke_core.domain.session_message_types import parse_timestamp
+    from yoke_core.domain.session_message_wake import wake_eligible_recipients
+
+    projects = tuple(sorted({int(value) for value in heartbeat.project_ids}))
+    if not projects:
+        return ()
+    return tuple(
+        row
+        for row in wake_eligible_recipients(conn, now=parse_timestamp(now))
+        if row.get("machine_id") == heartbeat.machine_id
+        and int(row["project_id"]) in projects
+        and not direct_wake_waits_for_broker(
+            conn,
+            message_id=str(row["message_id"]),
+            session_id=str(row["session_id"]),
+            now=now,
+        )
+    )[:25]
 
 
 def _match(column: str, value: Any, placeholder: str) -> tuple[str, tuple[Any, ...]]:
@@ -34,7 +71,7 @@ def claim_wake_attempt(
     conn: Any,
     *,
     candidate: Mapping[str, Any],
-    now: str,
+    now: datetime | str,
 ) -> WakeAttemptClaim | None:
     """CAS one eligible receipt and open its native wake attempt.
 
@@ -88,7 +125,7 @@ def claim_wake_attempt(
     p = marker(conn)
     last_clause = "last_wake_at IS NULL"
     params: list[Any] = [
-        now,
+        instant_parameter(conn, parse_instant(now)),
         message_id,
         session_id,
         expected_state,
@@ -96,12 +133,14 @@ def claim_wake_attempt(
     ]
     if expected_last is not None:
         last_clause = f"last_wake_at={p}"
-        params.append(expected_last)
+        params.append(instant_parameter(conn, parse_instant(expected_last)))
     posture_at_clause = "hs.turn_posture_at IS NULL"
     posture_params: list[Any] = [expected_posture]
     if expected_posture_at is not None:
         posture_at_clause = f"hs.turn_posture_at={p}"
-        posture_params.append(expected_posture_at)
+        posture_params.append(
+            instant_parameter(conn, parse_instant(expected_posture_at))
+        )
     injection_clause = "injection_lease_id IS NULL"
     injection_params: list[Any] = []
     # An expired lease is a hook that started delivering and died, so it is
@@ -111,7 +150,9 @@ def claim_wake_attempt(
         wake_mode is WakeMode.IDLE_TIMEOUT or escalation
     ):
         injection_clause = f"injection_lease_id={p} AND injection_lease_expires_at<={p}"
-        injection_params.extend((expected_injection, now))
+        injection_params.extend(
+            (expected_injection, instant_parameter(conn, parse_instant(now)))
+        )
     recipient_clauses: list[str] = []
     recipient_params: list[Any] = []
     for column, key in (
@@ -121,7 +162,16 @@ def claim_wake_attempt(
         ("machine_id", "machine_id"),
         ("last_injected_at", "last_injected_at"),
     ):
-        clause, values = _match(column, candidate.get(key), p)
+        expected = candidate.get(key)
+        if expected is not None and key in {
+            "wake_after",
+            "last_injected_at",
+            "last_heartbeat",
+            "last_tool_call_at",
+            "ended_at",
+        }:
+            expected = instant_parameter(conn, parse_instant(expected))
+        clause, values = _match(column, expected, p)
         recipient_clauses.append(clause)
         recipient_params.extend(values)
     session_clauses: list[str] = []
@@ -131,7 +181,16 @@ def claim_wake_attempt(
         ("hs.last_tool_call_at", "last_tool_call_at"),
         ("hs.ended_at", "ended_at"),
     ):
-        clause, values = _match(column, candidate.get(key), p)
+        expected = candidate.get(key)
+        if expected is not None and key in {
+            "wake_after",
+            "last_injected_at",
+            "last_heartbeat",
+            "last_tool_call_at",
+            "ended_at",
+        }:
+            expected = instant_parameter(conn, parse_instant(expected))
+        clause, values = _match(column, expected, p)
         session_clauses.append(clause)
         session_params.extend(values)
     updated = conn.execute(
@@ -162,7 +221,7 @@ def claim_wake_attempt(
                 escalation or None,
                 *params,
                 *injection_params,
-                now,
+                instant_parameter(conn, parse_instant(now)),
                 *recipient_params,
                 *posture_params,
                 *session_params,
@@ -183,7 +242,7 @@ def claim_wake_attempt(
             session_id,
             "wake_relay",
             lease_id,
-            now,
+            instant_parameter(conn, parse_instant(now)),
             redacted_evidence(
                 {
                     "native_instruction_sha256": native_wake_instruction_sha256(
