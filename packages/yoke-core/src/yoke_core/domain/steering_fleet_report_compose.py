@@ -11,7 +11,6 @@ further refinement becomes another section rather than a new code path.
 from __future__ import annotations
 
 from dataclasses import dataclass
-import hashlib
 import json
 from typing import Any, Mapping
 
@@ -31,6 +30,15 @@ from yoke_core.domain.steering_fleet_report_levels import (
 )
 from yoke_core.domain.steering_fleet_report_machine_block import machine_shared_lines
 from yoke_core.domain.steering_fleet_report_projection import report_dict
+from yoke_core.domain.steering_fleet_report_fingerprint import (
+    digest,
+    project_payload,
+    seat_payload,
+)
+from yoke_core.domain.steering_fleet_report_project_rows import (
+    ProjectRows,
+    rows_per_section,
+)
 from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
 from yoke_core.domain.steering_fleet_report_unattended import (
     UnattendedLinkedItem,
@@ -113,17 +121,23 @@ class CombinedFleetReport:
         )
 
     def fingerprint(self) -> str:
-        material = [
-            (section.descriptor, section.report.fingerprint())
+        """Identity of what the digest shows: seat sections, each project once."""
+        reports = [section.report for section in self.sections]
+        material: list[Any] = [
+            (section.descriptor, seat_payload(section.report))
             for section in self.sections
         ]
+        material.extend(
+            (report.project_id, project_payload(rows))
+            for report, rows in zip(reports, rows_per_section(reports))
+            if rows != ProjectRows()
+        )
         material.append(
             ("unacked_injected", [row.message_id for row in self.unacked_injected])
         )
         if self.unattended:
             material.append(("unattended", [row.item_id for row in self.unattended]))
-        encoded = json.dumps(material, separators=(",", ":"))
-        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+        return digest(material)
 
 
 def compose_held_reports(
@@ -223,6 +237,7 @@ def combined_body(combined: CombinedFleetReport) -> str:
     comparing rendered text.
     """
     reports = tuple(section.report for section in combined.sections)
+    shared = rows_per_section(reports)
     parts = [
         REPORT_BEGIN,
         f"composed {combined.composed_at} · {len(combined.sections)} held scopes",
@@ -240,8 +255,10 @@ def combined_body(combined: CombinedFleetReport) -> str:
                 "",
             ]
         )
-    for section in combined.sections:
-        parts.extend([f"## {section.descriptor}", scope_inner_body(section.report), ""])
+    for section, rows in zip(combined.sections, shared):
+        parts.extend(
+            [f"## {section.descriptor}", scope_inner_body(section.report, rows), ""]
+        )
     parts.extend(machine_shared_lines(reports, now=combined.composed_at))
     parts.extend(_level_lines(reports))
     if parts[-1] != "":

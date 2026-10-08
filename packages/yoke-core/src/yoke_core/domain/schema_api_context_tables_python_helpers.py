@@ -195,8 +195,9 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "project_id=..., now=...). Wrong guess: read_deployment_runs "
             "does not exist. Scoped QA reports include no_obligation_lines "
             "for carried members exempt under their own completion flow, and "
-            "wake_lines naming whether each waiting item-QA member's owner "
-            "was woken (stage-wait notice or QA failure handoff)."
+            "member_lines: one line per waiting item-QA member with its "
+            "blocker count and whether its owner was woken (stage-wait notice "
+            "or QA failure handoff)."
         ),
     },
 }

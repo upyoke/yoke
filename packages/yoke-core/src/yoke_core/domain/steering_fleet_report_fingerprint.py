@@ -16,6 +16,12 @@ outstanding of how many, which requirements are red, and which of those
 are proven unpassable against the pin (or unproven). The watcher then
 fires exactly when one of those changes, and the age is read off the row
 once the seat is already looking.
+
+The material is exactly what the hook digest renders, nothing more. A
+section the digest does not show — live claims, launch balances, machine
+plan limits, native models — moving would otherwise mark the report changed
+and deliver a digest identical to the last one. Project-wide sections hash
+once per project, the same way they render once per project.
 """
 
 from __future__ import annotations
@@ -24,59 +30,31 @@ import hashlib
 import json
 from typing import TYPE_CHECKING, Any
 
-from yoke_core.domain.steering_fleet_report_balance import selection_fingerprint_rows
-from yoke_core.domain.steering_fleet_report_limits import fingerprint_material
-from yoke_core.domain.steering_fleet_report_native_models import (
-    fingerprint_material as native_model_fingerprint_material,
-)
+from yoke_core.domain.steering_fleet_report_project_rows import ProjectRows
 
 if TYPE_CHECKING:  # pragma: no cover - annotation only, no import cycle
     from yoke_core.domain.steering_fleet_report import FleetReport
 
 
-def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
-    """The age-blind material one report hashes to."""
+def _holder_rows(holders: Any) -> list[tuple[Any, ...]]:
+    return sorted(
+        (
+            holder.session_id,
+            holder.item_id,
+            holder.native_process_gone,
+            holder.hand_started,
+            holder.quiet_reason,
+        )
+        for holder in holders
+    )
+
+
+def seat_payload(report: "FleetReport") -> dict[str, Any]:
+    """The age-blind material of the sections one seat renders itself."""
     return {
         "available": sorted(entry.item_id for entry in report.available),
-        "holders": sorted(
-            (
-                holder.session_id,
-                holder.item_id,
-                holder.native_process_gone,
-                holder.hand_started,
-                holder.quiet_reason,
-            )
-            for holder in report.holders
-        ),
-        "idle": sorted((holder.session_id, holder.item_id) for holder in report.idle),
-        # Only settled deliveries count toward identity: an envelope the
-        # plane is still inside its window for passes through this section
-        # on every ordinary send, and hashing that would report the fleet as
-        # changed for mail that is about to arrive by itself.
-        "undelivered": sorted(
-            (entry.session_id, entry.delivery_state)
-            for entry in report.undelivered
-            if not entry.in_delivery
-        ),
-        "unregistered_launches": sorted(
-            (entry.launch_id, entry.native_launch_phase, entry.spawn_duration_ms)
-            for entry in report.unregistered_launches
-        ),
-        "abandoned_launches": sorted(
-            entry.launch_id for entry in report.abandoned_launches
-        ),
-        # Custody joins identity because a landing moving from "a release is
-        # delivering this" to "nothing holds it" is the finding this section
-        # exists to raise, and a fingerprint blind to it would leave the seat
-        # unwoken. The run id deliberately stays out: which release holds a
-        # landing changes every batch and is not itself a finding.
-        "landed_open": sorted(
-            (entry.item_id, entry.custody_state) for entry in report.landed_open
-        ),
-        "suspected_orphaned_waiters": sorted(
-            (holder.session_id, holder.item_id)
-            for holder in report.suspected_orphaned_waiters
-        ),
+        "idle": _holder_rows(report.idle),
+        "suspected_orphaned_waiters": _holder_rows(report.suspected_orphaned_waiters),
         "vendor_errors": sorted(
             (entry.session_id, entry.status, entry.attempts)
             for entry in report.vendor_errors
@@ -94,6 +72,41 @@ def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
             )
             for entry in report.landings
         ),
+        "dead_waits": sorted(
+            (entry.session_id, entry.answerer_session_id, entry.reason)
+            for entry in report.dead_waits
+        ),
+        "messages_awaiting_seat": report.messages_awaiting_seat,
+    }
+
+
+def project_payload(rows: ProjectRows) -> dict[str, Any]:
+    """The age-blind material of one project's project-wide sections."""
+    return {
+        # Only settled deliveries count toward identity: an envelope the
+        # plane is still inside its window for passes through this section
+        # on every ordinary send, and hashing that would report the fleet as
+        # changed for mail that is about to arrive by itself.
+        "undelivered": sorted(
+            (entry.session_id, entry.delivery_state)
+            for entry in rows.undelivered
+            if not entry.in_delivery
+        ),
+        "unregistered_launches": sorted(
+            (entry.launch_id, entry.native_launch_phase, entry.spawn_duration_ms)
+            for entry in rows.unregistered_launches
+        ),
+        "abandoned_launches": sorted(
+            entry.launch_id for entry in rows.abandoned_launches
+        ),
+        # Custody joins identity because a landing moving from "a release is
+        # delivering this" to "nothing holds it" is the finding this section
+        # exists to raise, and a fingerprint blind to it would leave the seat
+        # unwoken. The run id deliberately stays out: which release holds a
+        # landing changes every batch and is not itself a finding.
+        "landed_open": sorted(
+            (entry.item_id, entry.custody_state) for entry in rows.visible_landed()
+        ),
         "deployment_runs": sorted(
             (
                 entry.run_id,
@@ -102,7 +115,7 @@ def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
                 entry.total_blocking,
                 tuple(entry.unresolved),
                 tuple(entry.no_obligation_lines),
-                tuple(entry.wake_lines),
+                tuple(entry.member_lines),
                 tuple(sorted(red.requirement_id for red in entry.red)),
                 tuple(sorted(item.requirement_id for item in entry.pin_qa.unpassable)),
                 tuple(sorted(item.requirement_id for item in entry.pin_qa.unproven)),
@@ -115,47 +128,31 @@ def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
                     else None
                 ),
             )
-            for entry in report.deployment_runs
+            for entry in rows.deployment_runs
         ),
-        "dead_waits": sorted(
-            (entry.session_id, entry.answerer_session_id, entry.reason)
-            for entry in report.dead_waits
-        ),
-        "launch_balance": selection_fingerprint_rows(report.session_counts),
-        "launchable": sorted(
-            (row.machine_id, row.surface) for row in report.launchable
-        ),
-        "plan_limits": fingerprint_material(report.plan_limits),
-        "native_models": native_model_fingerprint_material(report.native_models),
-        "machine_capacity": sorted(
-            (c.machine_id, c.live_lanes, c.max_worker_lanes, c.at_capacity)
-            for c in report.machine_capacity
-        ),
-        "origin_counts": list(report.origin_counts),
-        "relay_health": sorted(
-            (
-                entry.relay_id,
-                entry.state,
-                entry.pending_reports,
-                entry.quarantine_count,
-                entry.error_code,
-                entry.failure_count,
-                entry.refusal_reason,
-                entry.local_revision,
-                entry.server_revision,
-            )
-            for entry in report.relay_health
-        ),
-        "messages_awaiting_seat": report.messages_awaiting_seat,
     }
+
+
+def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
+    """The age-blind material one report rendered on its own hashes to."""
+    return {**seat_payload(report), **project_payload(ProjectRows.of(report))}
+
+
+def digest(material: Any) -> str:
+    """Stable hex digest of JSON-encodable material."""
+    encoded = json.dumps(material, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def report_fingerprint(report: "FleetReport") -> str:
     """Stable hex digest of one report's content."""
-    encoded = json.dumps(
-        fingerprint_payload(report), sort_keys=True, separators=(",", ":")
-    )
-    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+    return digest(fingerprint_payload(report))
 
 
-__all__ = ["fingerprint_payload", "report_fingerprint"]
+__all__ = [
+    "digest",
+    "fingerprint_payload",
+    "project_payload",
+    "report_fingerprint",
+    "seat_payload",
+]

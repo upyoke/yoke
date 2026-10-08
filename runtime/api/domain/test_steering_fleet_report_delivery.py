@@ -11,6 +11,7 @@ from yoke_core.domain.steering_claims import acquire as acquire_steering
 from yoke_core.domain.strategy_docs_defaults import seed_default_docs
 from yoke_core.domain.steering_fleet_report_delivery import (
     confirm_steering_report_delivery,
+    record_report_delivery,
     steered_project_id,
     steering_report_candidate,
     steering_report_for_delivery,
@@ -217,7 +218,7 @@ def test_unchanged_actionable_content_does_not_repeat(steering_scope):
         steering_scope, session_id=STEERING_SESSION, now=NOW
     )
     assert first is not None
-    assert "available work" in first
+    assert "YOK-1" in first
     assert (
         steering_report_for_delivery(
             steering_scope,
@@ -292,3 +293,25 @@ def test_a_change_in_either_held_scope_reports_again(steering_scope):
     assert body is not None
     assert "## externalwebapp" in body
     assert "Quiet-scope change" in body
+
+
+def test_hook_and_watcher_share_one_delivery_record(steering_scope):
+    """A report the hook delivered is not shown again by the watcher."""
+    candidate = steering_report_candidate(
+        steering_scope, session_id=STEERING_SESSION, now=NOW
+    )
+    assert candidate is not None
+    assert confirm_steering_report_delivery(steering_scope, candidate) is True
+
+    def watcher(fingerprint: str) -> bool:
+        return record_report_delivery(
+            steering_scope,
+            session_id=STEERING_SESSION,
+            fingerprint=fingerprint,
+            now="2026-08-26T12:05:00Z",
+        )
+
+    assert watcher(candidate.fingerprint) is False
+    assert watcher("changed-content") is True
+    assert watcher("changed-content") is False
+    assert _last_report(steering_scope, STEERING_SESSION)[1] == "changed-content"

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from yoke_core.domain.steering_fleet_report_compose import CombinedFleetReport
 from yoke_core.domain.steering_fleet_report_inbox import unacked_section_lines
+from yoke_core.domain.steering_fleet_report_project_rows import rows_per_section
 from yoke_core.domain.steering_fleet_report_render import (
     REPORT_BEGIN,
     REPORT_END,
@@ -17,26 +18,12 @@ from yoke_core.domain.steering_fleet_report_render import (
 )
 
 
-#: The decisions the digest does not serve, named as decisions rather than
-#: as section headings. A reader weighs whether to pull by what they are
-#: about to decide, not by what a heading is called, and the launch
-#: allocation these sections carry is decided while composing a launch —
-#: nowhere near the report.
-WITHHELD_DECISIONS: tuple[str, ...] = (
-    "which machine and surface to launch on",
-    "how much plan headroom each surface has left",
-    "how many sessions each surface is already running",
-    "whether a relay is healthy enough to launch on",
-    "which model each surface is serving",
-)
-
+#: One line, because it rides every digest. What the digest withholds and
+#: what each section means are answered by the commands it names.
 DIGEST_PREAMBLE = (
-    "Hook digest of control-plane state: quiet detectors, available work, and "
-    "this session's unacked inbox. It does not answer "
-    + "; ".join(WITHHELD_DECISIONS)
-    + " — `yoke steering report get` answers those (covers every steering "
-    "claim this session holds; pass `--project P` only to filter to one "
-    "scope)."
+    "Hook digest — machines, surfaces, balances and live claims: "
+    "`yoke steering report get`; sections explained: "
+    "`yoke steering report get --help`."
 )
 
 
@@ -62,8 +49,9 @@ def combined_hook_digest(combined: CombinedFleetReport) -> str:
                 "",
             ]
         )
-    for section in combined.sections:
-        digest = scope_actionable_digest(section.report)
+    shared = rows_per_section([section.report for section in combined.sections])
+    for section, rows in zip(combined.sections, shared):
+        digest = scope_actionable_digest(section.report, rows)
         if not digest:
             continue
         parts.extend([f"## {section.descriptor}", digest, ""])

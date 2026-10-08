@@ -320,7 +320,9 @@ class _UnpublishedSource:
 class _ProviderRefusingWalk(CandidateContainment):
     def __init__(self, conn, project_id, *, candidate_lineage):
         super().__init__(
-            conn, project_id, candidate_lineage=candidate_lineage,
+            conn,
+            project_id,
+            candidate_lineage=candidate_lineage,
             source=_UnpublishedSource(),
         )
 

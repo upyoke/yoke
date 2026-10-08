@@ -142,29 +142,6 @@ def aggregate_session_counts(
     )
 
 
-def selection_fingerprint_rows(
-    counts: Iterable[SessionCount],
-) -> list[tuple[object, ...]]:
-    """Return deterministic requested-and-served selection identity rows."""
-    return sorted(
-        (
-            (
-                row.machine_id,
-                row.surface,
-                row.count,
-                row.requested_model,
-                row.requested_reasoning_effort,
-                row.requested_context_window_tokens,
-                row.model,
-                row.reasoning_effort,
-                row.context_window_tokens,
-            )
-            for row in counts
-        ),
-        key=lambda values: tuple((value is None, str(value)) for value in values),
-    )
-
-
 def launch_balance_lines(report: BalanceReport, *, with_capacity: bool) -> list[str]:
     totals: dict[tuple[str, str], int] = defaultdict(int)
     for row in report.session_counts:
@@ -210,7 +187,6 @@ __all__ = [
     "launch_balance_lines",
     "plan_meter_selection_cell",
     "plan_meter_selection_labels",
-    "selection_fingerprint_rows",
     "selection_labels",
     "session_selection_label",
 ]

@@ -41,12 +41,25 @@ def _scopes(report: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
     }
 
 
+#: Sections that render once per project, under its first held scope. Their
+#: rows are remembered under that scope only, so a row that leaves explains
+#: itself once rather than once per held seat.
+PROJECT_SECTIONS = frozenset({"deployment_runs", "landed_open"})
+
+
 def shown_rows(
     report: Mapping[str, Any], *, digest: bool
 ) -> dict[tuple[str, str, str, str], ShownRow]:
     """Retain identities actually displayed, excluding suppressed holder rows."""
     found = {}
+    first_scope: dict[Any, str] = {}
     for descriptor, scope in _scopes(report).items():
+        project = scope.get("project_id")
+        owner = first_scope.setdefault(project, descriptor)
+        listed_runs = {
+            run.get("run_id")
+            for run in list(scope.get("deployment_runs", ()))[:SECTION_LIMIT]
+        }
         landed = {row.get("item_id") for row in scope.get("landed_open", ())}
         sections = ROW_SECTIONS if digest else (*ROW_SECTIONS, "holders")
         named = {
@@ -65,8 +78,15 @@ def shown_rows(
                 rows = [row for row in rows if row.get("item_id") not in landed]
             if section == "holders":
                 rows = [row for row in rows if row.get("session_id") not in named]
+            if section == "landed_open":
+                # A landed item a listed run is delivering renders as that
+                # run's member, not as its own row.
+                rows = [
+                    row for row in rows if row.get("custody_run_id") not in listed_runs
+                ]
             if section not in ("in_flight", "stranded"):
                 rows = rows[:SECTION_LIMIT]
+            scope_key = owner if section in PROJECT_SECTIONS else descriptor
             for row in rows:
                 subject = str(
                     row.get("public_ref")
@@ -77,7 +97,7 @@ def shown_rows(
                 if not subject:
                     continue
                 entry = ShownRow(
-                    descriptor,
+                    scope_key,
                     section,
                     subject,
                     str(row.get("session_id") or row.get("holder_session_id") or ""),

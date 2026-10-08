@@ -76,6 +76,12 @@ def _report_interval_minutes(
 
 @dataclass
 class ReportState:
+    """What this watcher last checked and showed.
+
+    ``fingerprint`` decides delivery only against a serving build that does
+    not answer ``delivered``; otherwise the session's shared record decides.
+    """
+
     checked_at: datetime | None = None
     fingerprint: str = ""
     rows: dict[tuple[str, str, str, str], ShownRow] = field(default_factory=dict)
@@ -105,7 +111,8 @@ def append_steering_reports(
             report
             if report is not None
             else _response_result(
-                call(STEERING_REPORT_FUNCTION, {}), STEERING_REPORT_FUNCTION
+                call(STEERING_REPORT_FUNCTION, {"deliver": True}),
+                STEERING_REPORT_FUNCTION,
             )
         )
         fingerprint = str(result.get("fingerprint") or "").strip()
@@ -118,24 +125,30 @@ def append_steering_reports(
                 STEERING_REPORT_FUNCTION,
                 "held-scope response omitted fingerprint or body",
             )
+        delivered = result.get("delivered")
+        if delivered is None:
+            # A serving build without the shared delivery record: tell
+            # changes apart by this watcher's own last fingerprint.
+            delivered = state.fingerprint != fingerprint
         rows = shown_rows(result, digest=bool(result.get("digest")))
         removed = disappeared_lines(state.rows, rows, result, snapshot)
         state.checked_at = observed_at
-        if state.fingerprint != fingerprint or removed:
-            if removed:
-                explanation = "\n".join(["no longer listed:", *removed])
+        state.fingerprint = fingerprint
+        state.rows = rows
+        explanation = "\n".join(["no longer listed:", *removed]) if removed else ""
+        if delivered:
+            if explanation and payload.endswith(REPORT_END):
                 payload = (
                     payload.removesuffix(REPORT_END).rstrip()
-                    + "\n\n"
-                    + explanation
-                    + "\n"
-                    + REPORT_END
-                    if payload.endswith(REPORT_END)
-                    else payload + "\n" + explanation
+                    + f"\n\n{explanation}\n{REPORT_END}"
                 )
-            state.fingerprint = fingerprint
+            elif explanation:
+                payload += "\n" + explanation
             _write(stream, payload)
-            state.rows = rows
+        elif explanation:
+            # The session already holds this report (the hook delivered
+            # it); only the reasons rows left are new.
+            _write(stream, explanation)
     except FleetReadError as failure:
         _write(
             stream,

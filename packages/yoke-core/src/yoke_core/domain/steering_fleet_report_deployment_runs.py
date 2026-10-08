@@ -40,7 +40,10 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
+from yoke_core.domain.deployment_qa_stage_outstanding import (
+    QaStageOutstanding,
+    qa_stage_outstanding,
+)
 from yoke_core.domain.deployment_qa_stage_wake_state import member_wake_states
 from yoke_core.domain.deployment_run_completion_preconditions import redrive_recovery
 from yoke_core.domain.deployment_run_driver_attachment import (
@@ -123,8 +126,10 @@ class DeploymentRunProgress:
     #: "nobody started this" from "started, inside a long silent phase".
     driver_phase: str = ""
     no_obligation_lines: tuple[str, ...] = ()
-    #: One line per waiting item-QA member: was its owner woken.
-    wake_lines: tuple[str, ...] = ()
+    #: One line per waiting item-QA member: how many blockers it holds and
+    #: whether its owner was woken. The per-requirement detail stays on
+    #: ``yoke deployment-runs stages RUN``.
+    member_lines: tuple[str, ...] = ()
 
     @property
     def needs_action(self) -> bool:
@@ -173,6 +178,27 @@ def _answered(raw: Optional[dict[str, Any]], *, now: str) -> Optional[AnsweredDe
     )
 
 
+def _stage_lines(
+    conn: Any, qa: QaStageOutstanding, wakes: dict[int, str]
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Run-subject wait lines verbatim; one counted line per waiting member."""
+    run_lines: list[str] = []
+    member_lines: list[str] = []
+    offset = 0
+    for member, count in zip(qa.waiting_members, qa.blocker_counts):
+        chunk = qa.lines[offset : offset + count]
+        offset += count
+        if member is None:
+            run_lines.extend(chunk)
+            continue
+        line = f"member {render_item_ref(conn, member)}: {count} blocker{'' if count == 1 else 's'}"
+        if wake := wakes.get(member):
+            line += f" — {wake}"
+        member_lines.append(line)
+    run_lines.extend(qa.lines[offset:])
+    return tuple(run_lines), tuple(member_lines)
+
+
 def run_progress(
     conn: Any,
     *,
@@ -196,14 +222,13 @@ def run_progress(
             if run_id in facts.qa_stage_run_ids
             else None
         )
-        if qa is not None:
-            unresolved = qa.lines
-            outstanding = qa.waiting
-            total_blocking = qa.subjects
-        else:
+        if qa is None:
             unresolved = facts.unresolved.get(run_id, ())
             outstanding = len(unresolved)
             total_blocking = facts.totals.get(run_id, 0)
+        else:
+            outstanding = qa.waiting
+            total_blocking = qa.subjects
         entered = facts.entered_at.get(run_id, "")
         red = tuple(
             RedRequirement(
@@ -236,9 +261,9 @@ def run_progress(
             if waiting
             else {}
         )
-        wake_lines = tuple(
-            f"member {render_item_ref(conn, m)} wake: {wakes[m]}" for m in waiting
-        )
+        member_lines: tuple[str, ...] = ()
+        if qa is not None:
+            unresolved, member_lines = _stage_lines(conn, qa, wakes)
         rows.append(
             DeploymentRunProgress(
                 run_id=run_id,
@@ -258,7 +283,7 @@ def run_progress(
                     else PinQaDiagnosis()
                 ),
                 driver_phase=driver_phase,
-                wake_lines=wake_lines,
+                member_lines=member_lines,
             )
         )
     return tuple(rows)

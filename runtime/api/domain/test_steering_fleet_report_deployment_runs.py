@@ -96,7 +96,7 @@ def test_the_report_sentence_carries_the_stage_age_and_the_counts(fleet) -> None
     assert "1 of 1 outstanding, 1 red" in body
     assert "red: YOK-1 #901 fail" in body
     assert "Settle or waive each; the run finishes by itself" in body
-    assert f"read `yoke deployment-runs get {RUN_ID}` and re-drive {RUN_ID}" in body
+    assert f"read `yoke deployment-runs get {RUN_ID}`" in body
 
 
 def test_an_executing_run_with_nothing_outstanding_is_not_advised_to_re_drive(
