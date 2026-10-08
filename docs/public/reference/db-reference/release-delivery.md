@@ -189,7 +189,7 @@ run must satisfy its own admitted item cases and stage acceptance. A failing
 case on that current run still blocks done unless its same-target replacement
 passes and that stage is accepted.
 
-A closed verdict-less item attempt stops blocking terminal settlement when its Each requirement counts once, by its newest execution; older runs never block. Browser reviews use the capture verdict and code identity, so a detached agent row cannot mask it.
+A closed verdict-less item attempt stops blocking terminal settlement when its Within each requirement, only its newest execution counts for settlement and code identity; older attempts never block. Browser reviews use the capture itself, excluding detached agent verdict rows.
 successor has completed passing evidence or is discharged; post-deploy successors need accepted completion-member copies. An unsettled successor
 is named; latest live runs and active plan executions still block without rewriting history.
 

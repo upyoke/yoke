@@ -28,6 +28,8 @@ from __future__ import annotations
 import json
 from typing import Any, Sequence
 
+from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
@@ -134,7 +136,8 @@ def recorded_batch_blocks(conn: Any, item_id: int) -> tuple[dict[str, Any], ...]
 
 
 def recorded_batch_blocks_for_items(
-    conn: Any, item_ids: Sequence[int],
+    conn: Any,
+    item_ids: Sequence[int],
 ) -> dict[int, tuple[dict[str, Any], ...]]:
     """:func:`recorded_batch_blocks` for many items, in one read.
 
@@ -210,9 +213,7 @@ def _passing_blocking_heads(conn: Any, item_id: int) -> list[str]:
     placeholder = _placeholder(conn)
     rows = conn.execute(
         "SELECT r.raw_result FROM qa_requirements q LEFT JOIN qa_runs r ON r.id = ("
-        "SELECT latest.id FROM qa_runs latest "
-        "WHERE latest.qa_requirement_id = q.id "
-        "ORDER BY latest.id DESC LIMIT 1) "
+        f"{latest_execution_id_sql('q.id')}) "
         f"WHERE q.item_id = {placeholder} AND q.blocking_mode = 'blocking' "
         "AND q.waived_at IS NULL AND r.verdict = 'pass'",
         (int(item_id),),
