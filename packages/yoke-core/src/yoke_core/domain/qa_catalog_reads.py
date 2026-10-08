@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
+from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+
 import json
 from typing import Any, Optional
 
@@ -230,11 +233,9 @@ def _latest_requirement_outcome(conn: Any, plan_id: int) -> tuple:
         "COALESCE(r.completed_at, r.created_at, q.created_at) AS happened_at "
         "FROM qa_requirements q "
         "LEFT JOIN qa_runs r ON r.id=("
-        "SELECT rr.id FROM qa_runs rr "
-        "WHERE rr.qa_requirement_id=q.id "
-        "ORDER BY rr.created_at DESC, rr.id DESC LIMIT 1"
+        f"{latest_execution_id_sql('q.id')}"
         ") "
-        f"WHERE q.plan_id={marker} "
+        f"WHERE q.plan_id={marker} AND NOT {settled_obligation_sql(conn, 'q')} "
         "ORDER BY happened_at DESC, q.id DESC LIMIT 1",
         (plan_id,),
     )

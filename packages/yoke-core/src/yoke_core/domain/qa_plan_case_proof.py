@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
+from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+
 import json
 from typing import Any
 
@@ -56,11 +59,10 @@ def _case_result(
         "COALESCE(r.completed_at, r.created_at, q.created_at) AS happened_at "
         "FROM qa_requirements q "
         "LEFT JOIN qa_runs r ON r.id=("
-        "SELECT rr.id FROM qa_runs rr WHERE rr.qa_requirement_id=q.id "
-        "ORDER BY rr.created_at DESC, rr.id DESC LIMIT 1"
+        f"{latest_execution_id_sql('q.id')}"
         f") WHERE q.plan_id={marker} AND q.plan_case_key={marker} "
         f"AND COALESCE(q.host_baseline, '')={marker} "
-        "AND q.waived_at IS NULL "
+        f"AND NOT {settled_obligation_sql(conn, 'q')} "
         f"{deployment_filter} "
         "ORDER BY happened_at DESC, q.id DESC LIMIT 1",
         params,

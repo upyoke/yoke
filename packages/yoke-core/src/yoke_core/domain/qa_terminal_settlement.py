@@ -182,7 +182,7 @@ def blocking_requirement_issues(
 def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
     placeholder = _placeholder(conn)
     cursor = conn.execute(
-        "SELECT q.id, q.blocking_mode, q.waived_at, q.requirement_source, q.deployment_run_id, q.superseded_by_requirement_id, "
+        "SELECT q.id, q.blocking_mode, q.waived_at, q.requirement_source, q.deployment_run_id, q.superseded_by_requirement_id, q.replacement_requirement_id, "
         f"{requirement_retracted_at_select(conn, 'q')}, "
         "q.qa_phase, q.method_id, q.method_config, r.id AS run_id, "
         "r.verdict, r.verdict_reason, r.execution_status, r.case_outcome, r.completed_at, "

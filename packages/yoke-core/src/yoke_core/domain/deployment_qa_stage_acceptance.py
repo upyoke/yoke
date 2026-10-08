@@ -28,14 +28,12 @@ from yoke_core.domain.refusal_recovery import compose_refusal
 
 def latest_verdict(conn: Any, requirement_id: int) -> str:
     """The newest recorded verdict for one requirement (``""`` when none)."""
-    row = conn.execute(
-        "SELECT verdict FROM qa_runs WHERE qa_requirement_id=%s "
-        "ORDER BY created_at DESC,id DESC LIMIT 1",
-        (int(requirement_id),),
-    ).fetchone()
+    from yoke_core.domain.qa_latest_execution import latest_executions
+
+    row = latest_executions(conn, [requirement_id]).get(int(requirement_id))
     if row is None:
         return ""
-    return str(row["verdict"] if hasattr(row, "keys") else row[0] or "")
+    return str(row["verdict"] or "")
 
 
 def acceptance_waived(conn: Any, requirement_id: int) -> bool:

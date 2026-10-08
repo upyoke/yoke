@@ -106,16 +106,10 @@ _CASE_EVIDENCE_SQL = (
     "ORDER BY r.requirement_id,r.completed_at DESC,r.ordinal DESC"
 )
 
+
 #: Each case's accepted verdict and the run that carries it, for the whole
 #: case set at once. A subject's cases are known before any of them is
 #: graded, so this is one statement per subject rather than one per case.
-_LATEST_VERDICTS_SQL = (
-    "SELECT DISTINCT ON (qa_requirement_id) qa_requirement_id,id,verdict "
-    "FROM qa_runs WHERE qa_requirement_id IN ({placeholders}) "
-    "ORDER BY qa_requirement_id,created_at DESC,id DESC"
-)
-
-
 def _placeholders(values: tuple[int, ...]) -> str:
     return ",".join("%s" for _ in values)
 
@@ -126,11 +120,9 @@ def _latest_verdicts(
     """Each case's accepted run id and verdict, in one statement for the set."""
     if not requirement_ids:
         return {}
-    rows = query_rows(
-        conn,
-        _LATEST_VERDICTS_SQL.format(placeholders=_placeholders(requirement_ids)),
-        requirement_ids,
-    )
+    from yoke_core.domain.qa_latest_execution import latest_executions
+
+    rows = latest_executions(conn, requirement_ids).values()
     return {
         int(row["qa_requirement_id"]): (int(row["id"]), str(row["verdict"] or ""))
         for row in rows

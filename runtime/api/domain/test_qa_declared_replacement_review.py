@@ -73,7 +73,7 @@ def test_item_review_pass_supersedes_the_failed_item_case_in_its_commit() -> Non
                 conn, item_id=4621, transition_id="implemented"
             )
         ] == [corrected_id]
-        assert failed_id in _unsatisfied_ids(conn, 4621)
+        assert _unsatisfied_ids(conn, 4621) == {corrected_id}
 
         result = _review(conn, execution, corrected_id, "pass")
 
@@ -87,7 +87,7 @@ def test_item_review_pass_supersedes_the_failed_item_case_in_its_commit() -> Non
         assert failed_id not in _unsatisfied_ids(conn, 4621)
 
 
-def test_item_review_fail_keeps_the_failed_item_case_blocking() -> None:
+def test_item_review_fail_grades_only_the_corrected_case() -> None:
     with test_database() as conn:
         execution, corrected_id, failed_id = _item_case_with_failed_attempt(conn, 4622)
 
@@ -97,7 +97,7 @@ def test_item_review_fail_keeps_the_failed_item_case_blocking() -> None:
         row = requirement_row(conn, failed_id)
         assert row["superseded_by_requirement_id"] is None
         assert row["replacement_requirement_id"] == corrected_id
-        assert failed_id in _unsatisfied_ids(conn, 4622)
+        assert _unsatisfied_ids(conn, 4622) == {corrected_id}
 
 
 def _run_stage_execution(conn: Any, run_id: str, verdict: str) -> list[int]:

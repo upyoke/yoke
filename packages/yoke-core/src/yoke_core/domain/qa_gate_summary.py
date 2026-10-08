@@ -15,12 +15,13 @@ from typing import Any, Dict, Optional, Sequence
 
 from yoke_core.domain.db_helpers import connect, query_one, query_rows
 from yoke_core.domain.qa_constants import is_browser_method_requirement
+from yoke_core.domain.qa_latest_execution import latest_executions
 from yoke_core.domain.qa_gate_definitions import GateTarget
 from yoke_core.domain.qa_gate_helpers import _qa_tables_exist
 from yoke_core.domain.qa_gate_summary_text import _format_text
 from yoke_core.domain.qa_obligation_settlement import (
     requirement_retracted_at_select,
-    unretracted_requirement_sql,
+    settled_obligation_sql,
 )
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
@@ -117,7 +118,7 @@ def render_gate_summary(
         sql = (
             "SELECT id, qa_kind, method_id, qa_phase, blocking_mode, waived_at, "
             f"{requirement_retracted_at_select(conn)}, "
-            f"({unretracted_requirement_sql(conn)}) AS active "
+            f"(NOT {settled_obligation_sql(conn)}) AS active "
             f"FROM qa_requirements WHERE {where}"
         )
         if phase:
@@ -130,6 +131,7 @@ def render_gate_summary(
             summary["no_requirements"] = True
             return summary
 
+        current = latest_executions(conn, [int(row["id"]) for row in req_rows])
         for r in req_rows:
             req_id = int(r["id"])
             qa_kind = str(r["qa_kind"])
@@ -137,42 +139,23 @@ def render_gate_summary(
             blocking_mode = str(r["blocking_mode"])
             waived_at = r["waived_at"]
 
-            substrate_row = query_one(
-                conn,
-                """
-                SELECT qr.id, qr.verdict, qr.verdict_reason, qr.performed_by, qr.created_at
-                FROM qa_runs qr
-                WHERE qr.qa_requirement_id = %s
-                  AND qr.verdict = 'pass'
-                  AND qr.performed_by <> 'agent'
-                  AND EXISTS (
-                    SELECT 1 FROM qa_artifacts qa
-                    WHERE qa.qa_run_id = qr.id
-                  )
-                ORDER BY qr.created_at DESC, qr.id DESC LIMIT 1
-                """,
-                (req_id,),
+            latest_row = current.get(req_id)
+            pass_row = (
+                latest_row
+                if latest_row
+                and latest_row["verdict"] == "pass"
+                and latest_row["completed_at"]
+                else None
             )
-            pass_row = query_one(
-                conn,
-                """
-                SELECT id, verdict, verdict_reason, performed_by, created_at
-                FROM qa_runs
-                WHERE qa_requirement_id = %s
-                  AND verdict = 'pass'
-                ORDER BY created_at DESC, id DESC LIMIT 1
-                """,
-                (req_id,),
-            )
-            latest_row = query_one(
-                conn,
-                """
-                SELECT id, verdict, verdict_reason, performed_by, created_at
-                FROM qa_runs
-                WHERE qa_requirement_id = %s
-                ORDER BY created_at DESC, id DESC LIMIT 1
-                """,
-                (req_id,),
+            substrate_row = (
+                pass_row
+                if pass_row
+                and query_one(
+                    conn,
+                    "SELECT 1 FROM qa_artifacts WHERE qa_run_id=%s LIMIT 1",
+                    (pass_row["id"],),
+                )
+                else None
             )
             waiting = (
                 requirement_awaits_human_review(conn, req_id) if r["active"] else None
@@ -185,10 +168,7 @@ def render_gate_summary(
                 has_pass_run=has_current_passing_run(conn, req_id),
             )
 
-            if is_browser_method_requirement(method_id):
-                evidence = substrate_row or pass_row or latest_row
-            else:
-                evidence = pass_row or latest_row
+            evidence = latest_row
 
             summary["requirements"].append(
                 {

@@ -180,7 +180,7 @@ def _latest_browser_run(conn, requirement_id: int):
         ORDER BY created_at DESC, id DESC
         LIMIT 1
         """,
-        (requirement_id, requirement_id, requirement_id),
+        (requirement_id, requirement_id),
     )
 
 

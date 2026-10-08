@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.qa_latest_execution import latest_executions
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.approval_policy import ApprovalPolicy
 from yoke_core.domain.decision_requests import (
@@ -94,27 +95,20 @@ def requirement_awaits_human_review(
     )
     if str(blocking_mode) != "blocking" or waived_at:
         return None
-    latest = conn.execute(
-        "SELECT performed_by, verdict, verdict_reason FROM qa_runs "
-        f"WHERE qa_requirement_id = {p} ORDER BY created_at DESC, id DESC LIMIT 1",
-        (int(requirement_id),),
-    ).fetchone()
-    if latest is None:
+    latest = latest_executions(conn, [requirement_id]).get(int(requirement_id))
+    if latest is None or latest["verdict"] != "undetermined":
         return None
-    performed_by = latest["performed_by"] if hasattr(latest, "keys") else latest[0]
-    verdict = latest["verdict"] if hasattr(latest, "keys") else latest[1]
-    verdict_reason = latest["verdict_reason"] if hasattr(latest, "keys") else latest[2]
-    if str(verdict or "") != "undetermined" or not is_agent_verdict(
-        conn, int(requirement_id), performed_by
-    ):
-        return None
+    verdict_reason = latest["verdict_reason"]
     request = next(
         (
             row
             for row in list_subject_requests(
                 conn, "qa_requirement", str(int(requirement_id))
             )
-            if row["kind"] == "qa_needs_review" and row["status"] == "pending"
+            if row["kind"] == "qa_needs_review"
+            and row["status"] == "pending"
+            and int((row.get("subject_context") or {}).get("run_id") or 0)
+            == int(latest["id"])
         ),
         None,
     )
@@ -270,7 +264,6 @@ def apply_qa_review_resolution(
     reviewed_run_id: Optional[int] = None,
 ) -> None:
     """Apply the human decision to the canonical requirement evidence."""
-    requirement = requirement_facts(conn, requirement_id)
     stamp = resolved_at or iso8601_now()
     p = _p(conn)
     if action == "waive":
@@ -289,9 +282,7 @@ def apply_qa_review_resolution(
     verdict = "pass" if action == "approve" else "fail"
     from yoke_core.domain.qa_requirement_pass_currency import (
         executable_method_config,
-        recorded_execution_target_digest,
         recorded_method_config,
-        stamp_executed_method_config,
     )
 
     evidence = None
@@ -317,22 +308,17 @@ def apply_qa_review_resolution(
         raise ValueError(
             "human review approve requires the reviewed capture's recorded method_config. Recapture the live case, then resolve that review."
         )
-    from yoke_core.domain.qa_run_verdict_record import insert_qa_run
+    if run_id <= 0 or capture is None:
+        raise ValueError(
+            "qa_review_capture_missing: resolve a request bound to an actual capture"
+        )
+    from yoke_core.domain.qa_run_verdict_record import update_qa_run
 
-    insert_qa_run(
+    update_qa_run(
         conn,
-        qa_requirement_id=int(requirement_id),
-        performed_by="human_review",
-        qa_kind=str(requirement["qa_kind"]),
-        verdict=verdict,
-        raw_result=stamp_executed_method_config(
-            note,
-            recorded,
-            execution_target_digest=recorded_execution_target_digest(evidence) or None,
-        ),
-        started_at=stamp,
-        completed_at=stamp,
-        created_at=stamp,
+        run_id,
+        {"verdict": verdict, "verdict_reason": note or ""},
+        default_completed_at=stamp,
     )
 
 

@@ -43,7 +43,6 @@ from yoke_core.domain.qa_requirement_pass_currency import (
 #: definition, whatever else the two rows disagree about.
 DEFINITION_COLUMNS: tuple[str, ...] = (
     "method_id",
-    "method_name",
     "runner_id",
     "verdict_path",
     "instructions",
@@ -52,7 +51,6 @@ DEFINITION_COLUMNS: tuple[str, ...] = (
     "required_completion",
     "host_baseline",
     "starting_state",
-    "starting_state_reason",
     "suite_id",
     "success_policy",
     "capability_requirements",

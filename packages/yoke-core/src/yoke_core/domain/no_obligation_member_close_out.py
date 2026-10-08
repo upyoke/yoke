@@ -21,6 +21,7 @@ from yoke_core.domain.qa_obligation_settlement import (
     settled_obligation_sql,
     unretracted_requirement_sql,
 )
+from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -81,7 +82,8 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
         "AND r.qa_phase='post_deploy' AND r.blocking_mode='blocking' "
         f"AND NOT {settled_obligation_sql(conn, 'r')} "
         "AND NOT EXISTS (SELECT 1 FROM qa_runs qr "
-        "WHERE qr.qa_requirement_id=r.id AND qr.verdict='pass')",
+        f"WHERE qr.id=({latest_execution_id_sql('r.id')}) "
+        "AND qr.verdict='pass' AND qr.completed_at IS NOT NULL)",
         (str(run_id), int(item_id)),
     )
     return int(unresolved or 0) == 0

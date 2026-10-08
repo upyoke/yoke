@@ -161,7 +161,7 @@ def recorded_batch_blocks_for_items(
         "AS run_rank "
         "FROM qa_runs r JOIN qa_requirements q ON q.id = r.qa_requirement_id "
         f"WHERE q.item_id IN ({id_marks}) AND r.performed_by = 'ci_run' "
-        "AND r.verdict = 'pass'"
+        f"AND r.id=({latest_execution_id_sql('q.id')}) AND r.verdict='pass' AND r.completed_at IS NOT NULL"
         f") ranked WHERE run_rank <= {_CI_RUN_LOOKBACK} "
         "ORDER BY item_id, run_rank",
         tuple(ids),
@@ -199,7 +199,7 @@ def _passing_ci_raw_results(conn: Any, item_id: int) -> list[Any]:
         "SELECT r.raw_result FROM qa_runs r "
         "JOIN qa_requirements q ON q.id = r.qa_requirement_id "
         f"WHERE q.item_id = {placeholder} AND r.performed_by = 'ci_run' "
-        "AND r.verdict = 'pass' ORDER BY r.id DESC "
+        f"AND r.id=({latest_execution_id_sql('q.id')}) AND r.verdict='pass' AND r.completed_at IS NOT NULL ORDER BY r.id DESC "
         f"LIMIT {_CI_RUN_LOOKBACK}",
         (int(item_id),),
     ).fetchall()

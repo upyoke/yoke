@@ -39,7 +39,7 @@ QA_RUNS_VERDICT_IMMUTABLE_TRIGGER_SQL = (
     "BEGIN\n"
     "  SELECT RAISE(ABORT,\n"
     "    'qa_runs.verdict, verdict_reason, and raw_result are immutable once verdict is set; "
-    "record a new run via qa run-add');\n"
+    "final verdicts require a new actual attempt; provisional undetermined requires its resolved decision request');\n"
     "END"
 )
 
@@ -55,8 +55,22 @@ BEGIN
        NEW.verdict IS DISTINCT FROM OLD.verdict
        OR NEW.verdict_reason IS DISTINCT FROM OLD.verdict_reason
        OR NEW.raw_result IS DISTINCT FROM OLD.raw_result
+     ) AND NOT (
+       OLD.verdict = 'undetermined' AND NEW.verdict IN ('pass','fail')
+       AND NEW.raw_result IS NOT DISTINCT FROM OLD.raw_result
+       AND NEW.started_at IS NOT DISTINCT FROM OLD.started_at
+       AND EXISTS (
+         SELECT 1 FROM decision_requests request
+         WHERE request.kind='qa_needs_review' AND request.status='resolved'
+           AND request.subject_type='qa_requirement'
+           AND request.subject_key=OLD.qa_requirement_id::text
+           AND (request.subject_context::jsonb->>'run_id')=OLD.id::text
+           AND request.resolution_actor_id IS NOT NULL AND request.resolved_at IS NOT NULL
+           AND request.resolution_action=CASE NEW.verdict WHEN 'pass' THEN 'approve' ELSE 'reject' END
+           AND NEW.verdict_reason IS NOT DISTINCT FROM COALESCE(request.resolution_note,'')
+       )
      ) THEN
-    RAISE EXCEPTION 'qa_runs.verdict, verdict_reason, and raw_result are immutable once verdict is set; record a new run via qa run-add';
+    RAISE EXCEPTION 'qa_runs.verdict, verdict_reason, and raw_result are immutable once verdict is set; final verdicts require a new actual attempt; provisional undetermined requires its resolved decision request';
   END IF;
   RETURN NEW;
 END;
