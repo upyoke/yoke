@@ -26,6 +26,7 @@ from typing import Any, Callable, Optional, Sequence
 
 from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_core.domain import close_out_control_plane_authority as close_out
+from yoke_core.domain.release_wait_facts import awaiting_delivery_lines
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.standalone_item_merge_evidence import CLOSED_OUT_STATUS
 
@@ -79,40 +80,6 @@ def _headline(public_ref: str, kind: str, status: str) -> str:
             f"{status or 'its release wait'}"
         )
     return f"{public_ref} not closed"
-
-
-def _awaiting_delivery_lines(record: Mapping[str, Any], public_ref: str) -> list[str]:
-    """What the owner of a release wait holds, and what re-enters it.
-
-    The close-out already keeps the claim and parks the session here; this
-    says so out loud because the worker reading it has been told everywhere
-    else to report and end. An unconfirmed park is named rather than
-    softened: a wait should be recorded for wake and recovery routing.
-
-    ``delivery_pending`` leads when the close-out knows which delivery is
-    outstanding, so a re-entry that found the deploy still unfinished says
-    which run it is waiting on instead of reading as a bare "not closed".
-    """
-    block = record.get("release_wait")
-    block = block if isinstance(block, Mapping) else {}
-    parked = str(block.get("parked") or "")
-    pending = str(record.get("delivery_pending") or "")
-    lines = [
-        *([f"waiting on: {pending}"] if pending else []),
-        "work claim and lane: retained through delivery — do not release, "
-        "do not end this session",
-        f"session parked: {parked or 'not attempted'}"
-        + (f" — {block['park_reason']}" if block.get("park_reason") else ""),
-        f"re-enter on the deployment wake: yoke merge item {public_ref} "
-        "--result ... --verification ...",
-    ]
-    if parked and not parked.startswith(("yes", "skipped")):
-        lines.append(
-            "park unconfirmed: stamp it yourself with `yoke sessions touch "
-            f'--mode parked --reason "{block.get("park_reason", "")}"` — '
-            "declare the wait so wake and recovery routing can find it"
-        )
-    return lines
 
 
 def _evidence_line(recorded: bool, *, from_record: bool) -> str:
@@ -202,7 +169,7 @@ def outcome_lines(
             "after the landing notice to close the item out"
         )
     if kind == AWAITING_DELIVERY:
-        lines.extend(_awaiting_delivery_lines(record, ref))
+        lines.extend(awaiting_delivery_lines(record, ref))
     if record.get("publication_message"):
         lines.append(str(record["publication_message"]))
     recorded = record.get("evidence_recorded")

@@ -96,11 +96,13 @@ def test_the_registered_touch_really_parks_the_owner(conn, tmp_path, monkeypatch
     envelope: dict = {}
 
     park.retain_for_delivery(
-        envelope, item_id="YOK-7", public_ref="ITEM-7", session_id=SESSION
+        envelope, item={}, item_id="YOK-7", public_ref="ITEM-7", session_id=SESSION
     )
 
     assert envelope["release_wait"]["parked"] == "yes"
     assert _stored_mode(conn) == (SESSION_MODE_PARKED, park_reason("ITEM-7"))
+    # The real touch returns the stored row the wake fact is read from.
+    assert "kind" in envelope["release_wait"]["wake"]
 
 
 def test_a_non_owner_leaves_the_stored_mode_alone(conn, tmp_path, monkeypatch):
@@ -114,7 +116,7 @@ def test_a_non_owner_leaves_the_stored_mode_alone(conn, tmp_path, monkeypatch):
     envelope: dict = {}
 
     park.retain_for_delivery(
-        envelope, item_id="YOK-7", public_ref="ITEM-7", session_id=SESSION
+        envelope, item={}, item_id="YOK-7", public_ref="ITEM-7", session_id=SESSION
     )
 
     assert envelope["release_wait"]["parked"].startswith("skipped:")

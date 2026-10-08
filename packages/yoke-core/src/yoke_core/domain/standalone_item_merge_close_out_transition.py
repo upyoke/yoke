@@ -128,7 +128,9 @@ def run_terminal_transition(
         # finished is a lost race, not a failure: the landing is complete
         # and the refusal's re-acquire hint would re-open a terminal item.
         recorded = evidence.recorded_landing_envelope(
-            item_id, public_ref=public_ref, branch=branch,
+            item_id,
+            public_ref=public_ref,
+            branch=branch,
         )
         if recorded is not None:
             record_terminal_lane_close_out(
@@ -179,6 +181,7 @@ def run_terminal_transition(
     announce("release wait")
     retain_for_delivery(
         envelope,
+        item=item,
         item_id=item_id,
         public_ref=public_ref,
         session_id=session_id,

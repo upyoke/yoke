@@ -37,8 +37,12 @@ owes, and the envelope says which one happened -- read `status` and the
     -- the steering seat batches deliveries. Report what landed, say you are
     waiting on delivery, and stop deliberately.
 
-At the release wait, the deployment wake re-enters the owner to run item QA
-or recover a close-out that could not finish automatically. If it asks for
+The outcome block names what the item owes delivery and whether this session
+can be woken. An item owing nothing closes on delivery with no re-entry. On a
+natively wakeable surface the deployment wake re-enters the owner to run item
+QA or recover a close-out that could not finish automatically; a surface whose
+wake authority is operator (a desktop app) is never resumed by Yoke, so its
+operator or a steering seat re-enters it. If it asks for
 item QA, credit it with the stage-scoped form -- a stage credits only the
 requirements bound to its own name, and an item-scoped stage needs the member
 too, so the run-wide form is refused rather than recording a pass the stage

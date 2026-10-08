@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from yoke_core.domain.public_item_target import public_item_target
 
+from collections.abc import Mapping
 from typing import Any
 
 from yoke_contracts.api.function_call import TargetRef
@@ -39,6 +40,14 @@ from yoke_core.domain.release_wait_ownership import (
     park_reason,
 )
 from yoke_core.domain.merge_review_readiness import pinned_workflow_for_item
+from yoke_core.domain.release_wait_facts import (
+    OWES_NOTHING,
+    OWES_QA,
+    OWES_UNREAD,
+    delivery_obligation,
+    session_wake,
+    stage_recipe,
+)
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.session_mode import SESSION_MODE_PARKED
 from yoke_core.domain.workflow_behavior import delivery_redirect_stage
@@ -82,7 +91,11 @@ def retain_if_waiting(
     if not at_release_wait(item, status):
         return
     retain_for_delivery(
-        envelope, item_id=item_id, public_ref=public_ref, session_id=session_id
+        envelope,
+        item=item,
+        item_id=item_id,
+        public_ref=public_ref,
+        session_id=session_id,
     )
 
 
@@ -105,6 +118,7 @@ def _held_by(dispatch: Any, item_id: int, session_id: str) -> bool:
 def retain_for_delivery(
     envelope: dict[str, Any],
     *,
+    item: Mapping[str, Any],
     item_id: int,
     public_ref: str,
     session_id: str,
@@ -112,10 +126,12 @@ def retain_for_delivery(
     """Park the merging session on its own item's declared delivery wait.
 
     Mutates ``envelope`` in place with a ``release_wait`` block naming what
-    the caller now holds and what re-enters it. The park is only stamped for
-    a session that actually still holds the item's claim: an operator
-    closing out somebody else's item is not the owner of this wait and must
-    not be parked on it.
+    the caller now holds, what the item owes delivery, and whether this
+    session can be woken (:mod:`release_wait_facts`); the touch that parks
+    the session returns the registered surface that wake fact is read from.
+    The park is only stamped for a session that actually still holds the
+    item's claim: an operator closing out somebody else's item is not the
+    owner of this wait and must not be parked on it.
 
     Nothing here can fail the merge. The branch is already on the base
     branch and the item is already at its release wait by the time this
@@ -123,14 +139,18 @@ def retain_for_delivery(
     leaves the retention teaching to the outcome the caller prints.
     """
     reason = park_reason(public_ref)
+    try:
+        with connected_control_plane():
+            obligation = delivery_obligation(item)
+    except Exception as exc:  # noqa: BLE001 - reporting never fails a merge
+        obligation = {"kind": OWES_UNREAD, "detail": str(exc)}
     block: dict[str, Any] = {
         "work_claim": "retained",
         "park_reason": reason,
         "session_mode": "",
-        "next_step": (
-            f"yoke merge item {public_ref} --result ... --verification ... "
-            "— re-run when the deployment wake says the delivery cleared"
-        ),
+        "obligation": obligation,
+        "wake": session_wake(None),
+        "next_step": _next_step(obligation, public_ref),
     }
     envelope["release_wait"] = block
     try:
@@ -164,6 +184,22 @@ def retain_for_delivery(
         return
     block["parked"] = "yes"
     block["session_mode"] = SESSION_MODE_PARKED
+    result = getattr(response, "result", None)
+    block["wake"] = session_wake(
+        result.get("session") if isinstance(result, Mapping) else None
+    )
+
+
+def _next_step(obligation: Mapping[str, Any], public_ref: str) -> str:
+    """The one re-entry this item's obligation actually asks for."""
+    if obligation.get("kind") == OWES_NOTHING:
+        return "none — delivery closes the item itself"
+    if obligation.get("kind") == OWES_QA:
+        return f"when the stage opens: {stage_recipe(obligation, public_ref)}"
+    return (
+        f"yoke merge item {public_ref} --result ... --verification ... "
+        "— re-run when a wake names the delivery as cleared"
+    )
 
 
 __all__ = ["at_release_wait", "retain_for_delivery", "retain_if_waiting"]

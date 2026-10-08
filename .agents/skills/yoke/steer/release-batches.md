@@ -96,8 +96,10 @@ For red member QA, `yoke deployment-runs remove-item RUN ITEM --reason R` lets a
 **A member's item QA is that member's own, not yours.** A QA stage is credited
 only by requirements bound to its own stage name — an item-scoped one by ones
 bound to the member too — so a run-wide pass you issue records nothing the
-stage counts. The deployment wake re-enters each parked owner for its stage,
-and the owner runs its own:
+stage counts. The deployment wake re-enters each parked owner on a natively
+wakeable surface for its stage; an owner whose surface's wake authority is
+operator (a desktop app) is never resumed by Yoke, so ask its operator to
+re-enter it. The owner runs its own:
 
 ```text
 yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage STAGE --member PREFIX-N --project {_project}

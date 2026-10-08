@@ -73,8 +73,10 @@ multi-machine form: a single host pin cannot satisfy conflicting constraints.
 Who runs it, and what follows
 -----------------------------
 The item owner parked at its release wait runs its own stage when the
-deployment wake asks for it, then finishes with `yoke merge item PREFIX-N
---result ... --verification ...`. The steering seat drives the run and never
+deployment wake asks for it (an operator-woken desktop owner is re-entered by
+its operator or a steering seat instead), then checks whether the item reached
+done. A delivery wake names `yoke merge item PREFIX-N --result ...
+--verification ...` only for a close-out delivery could not finish. The steering seat drives the run and never
 substitutes a run-wide pass for a member's stage. See `yoke merge item --help`
 for the close-out and `yoke deployment-runs --help` for the run itself.
 

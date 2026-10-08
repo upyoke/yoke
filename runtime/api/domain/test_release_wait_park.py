@@ -37,14 +37,17 @@ def _wire(monkeypatch, dispatch) -> list[tuple[str, dict]]:
     return []
 
 
-def _dispatch(calls, *, holder_session, touch_success=True, touch_error=""):
+def _dispatch(calls, *, holder_session, touch_success=True, touch_error="", surface=""):
     def dispatch(*, function_id, target=None, payload=None, **_kw):
         calls.append((function_id, dict(payload or {})))
         if function_id == HOLDER_FUNCTION:
             holder = {"session_id": holder_session} if holder_session else None
             return SimpleNamespace(success=True, result={"holder": holder}, error=None)
         error = None if touch_success else SimpleNamespace(message=touch_error)
-        return SimpleNamespace(success=touch_success, result={}, error=error)
+        session = {"executor_surface": surface} if surface else {}
+        return SimpleNamespace(
+            success=touch_success, result={"session": session}, error=error
+        )
 
     return dispatch
 
@@ -53,7 +56,7 @@ def _retain(monkeypatch, dispatch) -> dict:
     envelope: dict = {}
     _wire(monkeypatch, dispatch)
     park.retain_for_delivery(
-        envelope, item_id="YOK-7", public_ref="ITEM-7", session_id=SESSION
+        envelope, item={}, item_id="YOK-7", public_ref="ITEM-7", session_id=SESSION
     )
     return envelope["release_wait"]
 
@@ -124,7 +127,7 @@ def test_a_run_with_no_session_identity_says_so(monkeypatch) -> None:
     _wire(monkeypatch, _dispatch([], holder_session=SESSION))
     monkeypatch.setattr(park, "resolve_ambient_session_id", lambda: None)
     park.retain_for_delivery(
-        envelope, item_id="YOK-7", public_ref="ITEM-7", session_id=""
+        envelope, item={}, item_id="YOK-7", public_ref="ITEM-7", session_id=""
     )
 
     assert envelope["release_wait"]["parked"] == (
@@ -139,7 +142,7 @@ def test_an_empty_flag_falls_back_to_ambient_identity(monkeypatch) -> None:
     monkeypatch.setattr(park, "resolve_ambient_session_id", lambda: SESSION)
     envelope: dict = {}
     park.retain_for_delivery(
-        envelope, item_id="YOK-7", public_ref="ITEM-7", session_id=""
+        envelope, item={}, item_id="YOK-7", public_ref="ITEM-7", session_id=""
     )
 
     assert envelope["release_wait"]["parked"] == "yes"
@@ -148,3 +151,21 @@ def test_an_empty_flag_falls_back_to_ambient_identity(monkeypatch) -> None:
         TOUCH_FUNCTION,
         {"mode": SESSION_MODE_PARKED, "reason": park_reason("ITEM-7")},
     )
+
+
+def test_the_parked_session_records_its_own_wakeability(monkeypatch) -> None:
+    """The touch returns the parked row, so its surface's wake route is read
+    from the session that will wait rather than assumed for every owner."""
+    block = _retain(
+        monkeypatch,
+        _dispatch([], holder_session=SESSION, surface="claude-desktop"),
+    )
+
+    assert block["wake"] == {"kind": "operator", "surface": "claude-desktop"}
+
+
+def test_an_unread_obligation_keeps_the_merge_re_entry(monkeypatch) -> None:
+    block = _retain(monkeypatch, _dispatch([], holder_session=SESSION))
+
+    assert block["obligation"]["kind"] == "unread"
+    assert "yoke merge item ITEM-7" in block["next_step"]

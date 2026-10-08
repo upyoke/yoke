@@ -128,7 +128,9 @@ def test_composed_mandate_keeps_a_release_wait_owner_holding_its_item() -> None:
     assert "completed merge that is NOT a finished item" in teaching
     assert "keeps your work claim and parks your session" in teaching
     assert "Do NOT release the claim and do NOT end your session" in teaching
-    assert "deployment wake re-enters you" in teaching
+    assert "deployment wake re-enters you, on a natively wakeable" in teaching
+    assert "wake authority is operator (a desktop app) is never woken" in teaching
+    assert "When it owes nothing, delivery closes the item itself" in teaching
     assert "no run QA or run approval closes" in teaching
     assert (
         "accepted or explicitly discharged by `post_deploy_no_obligation`" in teaching

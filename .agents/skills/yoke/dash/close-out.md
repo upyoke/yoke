@@ -35,7 +35,16 @@ stamp it yourself so wake and recovery routing can find the delivery wait:
 yoke sessions touch --mode parked --reason "awaiting ITEM delivery: deployment run, then post-deploy validation and the done close-out"
 ```
 
-The deployment wake re-enters you: a QA stage that needs your evidence, a
+The outcome block derives what follows from two facts it read: what the item
+owes delivery (`owes delivery:` — an item-scoped QA stage with its requirement
+ids and the exact `--stage ... --member ...` run that stage credits, or
+nothing of its own) and whether this session can be woken (`wake:`, from the
+surface's session-control wake route). Report both. An item that owes nothing
+closes on delivery with no re-entry: say so and stop. A surface whose wake
+authority is operator (a desktop app) is never resumed by Yoke: say that the
+operator or a steering seat must re-enter this session when the stage opens.
+
+On a natively wakeable surface the deployment wake re-enters you: a QA stage that needs your evidence, a
 verdict on one you supplied, the notice that your own item-scoped QA is
 accepted (the run may still be executing; other members' outstanding item QA
 does not block you), or the notice that your run succeeded and the
