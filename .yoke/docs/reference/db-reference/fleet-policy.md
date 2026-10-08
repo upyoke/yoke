@@ -19,4 +19,4 @@ The launch record names `native_memory_headroom_low`,
 `native_swap_headroom_low`, or `native_capacity_unreadable` when no native was
 started. Free memory or swap headroom by stopping unused processes, then retry
 the launch. Restore the OS capacity probe before retrying an unreadable
-reading. Existing lane and worker caps still apply to placement.
+reading. Placement also respects configured machine capacity.
