@@ -10,10 +10,18 @@ Liveness is derived server-side so no consumer re-encodes TTL numbers:
 * ``ended`` — ``ended_at`` or ``terminated_at`` is set. A kill is gone the
   same way an ordinary end is gone; what separates them is the ``ended_cause``
   facet below, not a liveness state of its own.
-* ``stale`` — not ended, and the latest activity timestamp is older than the
-  executor-aware TTL from
-  :func:`yoke_core.domain.session_staleness.activity_is_stale`.
-* ``active`` — not ended and the activity timestamp is fresh.
+* ``waiting`` — not ended, parked (a declared quiet reason) and holding an
+  active work claim, whatever its age: it went quiet on purpose and resumes
+  on the next prompt, from its transcript when its process has exited.
+* ``stale`` — not ended, not waiting, and the latest activity timestamp is
+  older than the executor-aware TTL.
+* ``active`` — not ended, not waiting, and the activity timestamp is fresh.
+
+One classifier, :func:`yoke_core.domain.session_staleness.session_liveness`,
+decides all four for every surface. ``reclaimable`` is a separate per-row
+answer — whether the stale reclaim sweep would act on the session — from
+:func:`yoke_core.domain.session_staleness.stale_reclaim_candidate`, the
+predicate the sweep itself uses.
 
 Probe sessions never appear at all: a harness startup process that
 registered, did nothing and ended is excluded by the shared predicate in
@@ -35,6 +43,8 @@ from yoke_contracts.session_control.liveness import (
     LIVENESS_ENDED,
     LIVENESS_STALE,
     LIVENESS_STATES,
+    LIVENESS_WAITING,
+    LIVE_LIVENESS_STATES,
     ended_session_sql,
     live_session_sql,
 )
@@ -84,11 +94,11 @@ def list_sessions(
     the home-project binding is. A released claim or an ended session
     never adds visibility this way. ``liveness`` filters to one of
     :data:`LIVENESS_STATES`; the ended/not-ended half of that split
-    prunes in SQL, while the active/stale split classifies within the
+    prunes in SQL, while the active/waiting/stale split classifies within the
     ``limit`` window (the TTL is executor-aware, so it cannot live in
     the WHERE clause).
 
-    ``open`` keeps the complete live set (active and stale) in SQL before
+    ``open`` keeps the complete live set (active, waiting and stale) in SQL before
     any per-project window, so ended rows cannot crowd holders out of Ready.
 
     ``ended_cause`` narrows within the ended population to one of
@@ -133,10 +143,7 @@ def list_sessions(
         1 if normalized_session_id else max(1, min(int(limit), MAX_SESSIONS_LIST_LIMIT))
     )
     windowed = (
-        per_project
-        and not project
-        and not project_ids
-        and not normalized_session_id
+        per_project and not project and not project_ids and not normalized_session_id
     )
 
     conn = db_helpers.connect()
@@ -168,7 +175,7 @@ def list_sessions(
         clauses.append(not_probe_session_sql("s"))
         if liveness == LIVENESS_ENDED or ended_cause is not None:
             clauses.append(ended_session_sql("s"))
-        elif open or liveness in (LIVENESS_ACTIVE, LIVENESS_STALE):
+        elif open or liveness in LIVE_LIVENESS_STATES:
             clauses.append(live_session_sql("s"))
         if ended_cause == ENDED_CAUSE_KILLED:
             clauses.append("s.terminated_at IS NOT NULL")
@@ -183,7 +190,8 @@ def list_sessions(
         rows = conn.execute(query, tuple(params)).fetchall()
         session_ids = [str(dict(raw)["session_id"]) for raw in rows]
         claims_by_session, roles_by_session = active_claims_by_session(
-            conn, session_ids=session_ids,
+            conn,
+            session_ids=session_ids,
         )
         return render_session_roster_rows(
             conn,
@@ -193,10 +201,12 @@ def list_sessions(
             roles_by_session=roles_by_session,
             item_holders=live_item_claim_holders(conn),
             holdings_by_session=session_holdings_by_session(
-                conn, session_ids=session_ids,
+                conn,
+                session_ids=session_ids,
             ),
             blitz_lanes_by_session=claimed_blitz_worktree_ids_by_session(
-                conn, session_ids=session_ids,
+                conn,
+                session_ids=session_ids,
             ),
         )
     finally:
@@ -210,6 +220,8 @@ __all__ = [
     "LIVENESS_ENDED",
     "LIVENESS_STALE",
     "LIVENESS_STATES",
+    "LIVENESS_WAITING",
+    "LIVE_LIVENESS_STATES",
     "MAX_SESSIONS_LIST_LIMIT",
     "PER_PROJECT_SESSIONS_LIST_CAP",
     "SESSION_LIST_FIELDS",

@@ -39,9 +39,14 @@ def find_stale_sessions(
     conn: Any,
     stale_threshold_minutes: int = DEFAULT_STALE_THRESHOLD_MINUTES,
 ) -> List[Dict[str, Any]]:
-    """Identify sessions whose canonical activity is older than the threshold."""
+    """Identify the sessions the stale reclaim sweep would act on.
+
+    The predicate is :func:`session_staleness.stale_reclaim_candidate`, the
+    same one the roster's ``reclaimable`` flag reads, so the Sessions page
+    count and this list agree: an active work claim protects its holder.
+    """
     from .session_reclaim_activity import latest_activity
-    from .session_staleness import activity_is_stale
+    from .session_staleness import stale_reclaim_candidate
     from .session_cleanup_holdings import active_work_claim_sessions
 
     rows = conn.execute(
@@ -51,12 +56,11 @@ def find_stale_sessions(
     protected = active_work_claim_sessions(conn)
     for r in rows:
         d = _row_to_dict(r)
-        if str(d.get("session_id") or "") in protected:
-            continue
-        activity_at = latest_activity(conn, str(d.get("session_id") or ""))
-        if not activity_is_stale(
-            activity_at,
+        session_id = str(d.get("session_id") or "")
+        if not stale_reclaim_candidate(
+            latest_activity(conn, session_id),
             executor=d.get("executor"),
+            holds_work_claim=session_id in protected,
             base_ttl_minutes=stale_threshold_minutes,
         ):
             continue

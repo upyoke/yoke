@@ -27,6 +27,7 @@ from yoke_core.domain.steering_scope_membership import (
     item_document_links,
 )
 
+
 def _iso(minutes_ago: int = 0) -> str:
     stamp = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
     return stamp.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -68,6 +69,7 @@ def _roster_row(session_id: str, *, project_id: int, actor_id: int, item_id: int
         "executor_surface": "claude-cli",
         "execution_lane": "primary",
         "mode": "wait",
+        "holds_work_claim": True,
         "last_heartbeat": _iso(),
         "last_tool_call_at": _iso(),
     }
@@ -226,7 +228,9 @@ class TestItemCompletionFlows:
         from runtime.api.fixtures.backlog import insert_item
 
         for item_id in (511, 512, 513, 514):
-            insert_item(test_db, id=item_id, title=f"flow {item_id}", deployment_flow="f")
+            insert_item(
+                test_db, id=item_id, title=f"flow {item_id}", deployment_flow="f"
+            )
         test_db.commit()
         counting = CountingConnection(test_db)
 

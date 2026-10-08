@@ -62,8 +62,10 @@
 .universe-app-root .fdv-graph-layout.has-detail{grid-template-columns:minmax(0,1fr) 330px}
 .universe-app-root .fdv-graph-layout:not(.has-detail)>.fdv-graph-detail{display:none}
 /* Wide graphs scroll sideways inside the canvas; height always grows with
-   the page, so there is never a scroll inside the page's own scroll. */
-.universe-app-root .fdv-graph-canvas{position:relative;overflow-x:auto;overflow-y:hidden;padding:4px 4px 12px;border:1px solid var(--yoke-border);border-radius:var(--yoke-radius,10px);background:var(--yoke-bg)}
+   the page, so there is never a scroll inside the page's own scroll. The
+   canvas draws no box of its own: the band's separators already frame it,
+   and only the cards inside carry borders. */
+.universe-app-root .fdv-graph-canvas{position:relative;overflow-x:auto;overflow-y:hidden;padding:4px 4px 12px;background:var(--yoke-bg)}
 .universe-app-root .fdv-graph-grid{position:relative;display:grid;grid-template-columns:repeat(var(--fdv-cols),minmax(170px,240px));column-gap:44px;padding:12px 40px 12px 12px}
 .universe-app-root .fdv-graph-col{display:flex;flex-direction:column;gap:10px;min-width:0}
 .universe-app-root .fdv-graph-col-head{padding:4px 0 8px;font:700 10px/1.2 var(--yoke-font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--yoke-muted);background:var(--yoke-bg)}

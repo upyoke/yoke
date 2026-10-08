@@ -19,7 +19,7 @@ from typing import Any, Iterable, Mapping
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists, _table_exists
-from yoke_core.domain.session_message_routing import session_liveness
+from yoke_core.domain.session_staleness import session_liveness
 from yoke_core.domain.sessions_holdings_claim_facts import steered_document_slugs
 from yoke_core.domain.steering_scope_coverage import covering_seat, live_steering_claims
 from yoke_core.domain.steering_scope_membership import (
@@ -67,11 +67,17 @@ def _scope_rows(
         return {}
     marker = _marker(conn)
     project_id = scope_int_sql(conn, "claim.scope", "project_id")
+    # A roster schema without the posture column has no parked holder, so the
+    # seat reads active or stale there; the claim fact holds by construction.
+    mode_select = (
+        "holder.mode," if _column_exists(conn, "harness_sessions", "mode") else ""
+    )
     rows = conn.execute(
         "SELECT claim.id AS claim_id,claim.session_id,claim.claimed_at,"
         "project.id AS project_id,project.slug AS project,"
         "holder.last_heartbeat,holder.last_tool_call_at,holder.ended_at,"
-        "holder.terminated_at,holder.executor "
+        f"holder.terminated_at,holder.executor,{mode_select}"
+        "TRUE AS holds_work_claim "
         "FROM work_claims claim "
         f"JOIN projects project ON project.id={project_id} "
         "JOIN harness_sessions holder ON holder.session_id=claim.session_id "
@@ -198,18 +204,15 @@ def steering_visibility(
     session_ids = _session_ids(rows)
     current = now or datetime.now(timezone.utc)
     scopes = _scope_rows(conn, _project_ids(rows), now=current)
-    claims = (
-        live_steering_claims(conn)
-        if _table_exists(conn, "work_claims")
-        else []
-    )
+    claims = live_steering_claims(conn) if _table_exists(conn, "work_claims") else []
     holders = {str(claim["session_id"]) for claim in claims}
     held_items = _held_item_ids(conn, session_ids)
     # Every covered worker's target names the document its held item is
     # linked to. Asking per row made the read one link query per session; the
     # page's items are known here, so the whole set resolves in one.
     document_links = item_document_links(
-        conn, (item_id for item_id, _project_id in held_items.values()),
+        conn,
+        (item_id for item_id, _project_id in held_items.values()),
     )
     projected = {
         session_id: {field: None for field in _OUTPUT_FIELDS}
@@ -239,11 +242,9 @@ def steering_visibility(
             claims=claims,
         )
         if seat is not None:
-            projected[session_id]["steering_group_session_id"] = str(
-                seat["session_id"]
-            )
-            projected[session_id]["steering_group_scope"] = (
-                _covering_group_scope(seat, scopes)
+            projected[session_id]["steering_group_session_id"] = str(seat["session_id"])
+            projected[session_id]["steering_group_scope"] = _covering_group_scope(
+                seat, scopes
             )
     return projected
 

@@ -20,7 +20,8 @@ from runtime.api.test_sessions import _register
 from yoke_contracts.session_control.liveness import LIVENESS_ENDED, LIVENESS_STATES
 from yoke_core.domain.session_message_delivery import lease_for_hook
 from yoke_core.domain.session_message_liveness import applied_liveness
-from yoke_core.domain.session_message_routing import messageability, session_liveness
+from yoke_core.domain.session_message_routing import messageability
+from yoke_core.domain.session_staleness import activity_liveness
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.sessions import SessionError, end_session
@@ -97,7 +98,7 @@ def test_killed_session_is_non_messageable_and_non_wakeable() -> None:
     row = dict(
         conn.execute("SELECT * FROM harness_sessions WHERE session_id='s1'").fetchone()
     )
-    liveness = session_liveness(row, now=NOW + timedelta(days=1))
+    liveness = activity_liveness(row, now=NOW + timedelta(days=1))
     assert liveness == LIVENESS_ENDED
     assert messageability(row, liveness=liveness) == {
         "messageable": False,

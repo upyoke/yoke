@@ -38,7 +38,7 @@ SAY_USAGE = (
     "yoke say (--preview | --stdin) "
     "(--steering | --steering-scope JSON | --actor ACTOR | --item ITEM | "
     "--epic-task ITEM:N | --process P | --project P | --session S | "
-    "--universe) [--liveness active|stale|ended|all] "
+    "--universe) [--liveness active|waiting|stale|ended|all] "
     "[recipient filters] [--json]"
 )
 MESSAGE_PREVIEW_USAGE = "yoke session-control message preview [selector] [--json]"
@@ -49,9 +49,7 @@ MESSAGE_SEND_USAGE = (
 MESSAGE_LIST_USAGE = (
     "yoke messages list [--state STATE] [--recipient-session S] [--limit N] [--json]"
 )
-MESSAGE_GET_USAGE = (
-    "yoke messages get MESSAGE-ID [field ...] [--full] [--json]"
-)
+MESSAGE_GET_USAGE = "yoke messages get MESSAGE-ID [field ...] [--full] [--json]"
 MESSAGE_ACKNOWLEDGE_USAGE = "yoke messages acknowledge MESSAGE-ID [--json]"
 MESSAGE_CANCEL_USAGE = "yoke messages cancel MESSAGE-ID [--json]"
 MESSAGE_WORKFLOW_HELP = FLEET_MESSAGE_WORKFLOW_HELP

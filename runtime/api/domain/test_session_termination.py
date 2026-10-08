@@ -13,7 +13,7 @@ from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_contracts.session_control.liveness import LIVENESS_ENDED, LIVENESS_STATES
 from yoke_core.domain.handlers.session_termination import handle_session_terminate
 from yoke_core.domain.session_control_schema import create_session_control_tables
-from yoke_core.domain.session_message_routing import session_liveness
+from yoke_core.domain.session_staleness import session_liveness
 from yoke_core.domain.session_termination import terminate_session
 from yoke_core.domain.sessions import SessionError, claim_work
 from yoke_core.domain.sessions_list_read import list_sessions

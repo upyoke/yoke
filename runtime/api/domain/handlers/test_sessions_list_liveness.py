@@ -1,6 +1,7 @@
 """Derived session liveness and the ended-cause facet.
 
-Liveness has three states; how an ended session got there is a separate
+Liveness has four states (the parked-holder ``waiting`` state has its own
+file); how an ended session got there is a separate
 facet, so a killed session reads ``ended`` with ``ended_cause='killed'``
 rather than as a liveness value of its own.
 """

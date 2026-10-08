@@ -1,4 +1,5 @@
 import { magnifier } from "./universe_search_overlay.js";
+import { sessionIsLive } from "./universe_session_diagnostics.js";
 import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 
@@ -25,7 +26,6 @@ function includes(value, query) {
 }
 
 const DEFAULT_STATE = "active";
-const ACTIVE_LIVENESS = new Set([DEFAULT_STATE, "stale"]);
 
 function setOptions(documentNode, control, defaultLabel, values) {
   setOptionEntries(documentNode, control, defaultLabel, values.map(
@@ -46,7 +46,7 @@ function setOptionEntries(documentNode, control, defaultLabel, entries) {
 function matchesState(liveness, selected) {
   const value = String(liveness || "").toLowerCase();
   if (!selected) return true;
-  if (selected === DEFAULT_STATE) return ACTIVE_LIVENESS.has(value);
+  if (selected === DEFAULT_STATE) return sessionIsLive({ liveness: value });
   return selected === "ended" && value === "ended";
 }
 

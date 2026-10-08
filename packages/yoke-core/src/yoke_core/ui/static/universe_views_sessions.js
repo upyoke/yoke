@@ -235,8 +235,10 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
     loadMore.textContent = historyError
       ? (loader.historyLoaded() ? "Retry load more" : "Retry history")
       : "Load more";
+    // The server's own reclaim predicate: a parked or claim-holding session is
+    // never counted, because the sweep will not act on it.
     const staleCount = (loader?.openRows() || []).filter(
-      (row) => row.liveness === "stale",
+      (row) => row.reclaimable === true,
     ).length;
     reclaim.disabled = staleCount === 0;
     reclaimHost.tooltip.set(staleCount

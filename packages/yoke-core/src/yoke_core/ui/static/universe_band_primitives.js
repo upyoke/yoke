@@ -3,6 +3,7 @@
 // remembers which disclosures the operator closed when a held read
 // repaints or the route is mounted again.
 
+import { sessionIsLive } from "./universe_session_diagnostics.js";
 import { steeringProjectIds } from "./universe_sessions_steering.js";
 import { el } from "./universe_view_support.js";
 
@@ -116,13 +117,11 @@ export function rowsInBandScope(rows, scope, projects) {
   ));
 }
 
-// The Active band shows every live-or-stale session in scope. Ready has to
+// The Active band shows every live session in scope. Ready has to
 // agree with that exact set — an item one of those sessions holds is already
 // in flight — so both bands read the roster through this one predicate.
 export function sessionsShownInActive(rows, scope, projects) {
-  return rowsInBandScope(rows, scope, projects).filter((row) => (
-    ["active", "stale"].includes(String(row.liveness || "").toLowerCase())
-  ));
+  return rowsInBandScope(rows, scope, projects).filter(sessionIsLive);
 }
 
 // The item references those sessions hold live work claims on.

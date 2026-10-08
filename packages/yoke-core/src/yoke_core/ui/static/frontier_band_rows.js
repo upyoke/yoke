@@ -3,7 +3,7 @@
 // one of Waiting, Ready, Active, Release and Done.
 //
 // Which band a card sits in and who is holding it are separate facts. Every
-// card whose item a qualifying session holds carries that session's chip,
+// card whose item a live session holds carries that session's chip,
 // whichever band it landed in — a merged item parked at its release wait is
 // still that session's, and the card says so.
 //
@@ -15,18 +15,20 @@
 // Active is the band that has to be earned. Lifecycle status alone does not
 // put an item here — an item whose status says implementing while nothing
 // holds it is not being worked on, it is stopped — so membership is a live
-// work claim held by a session the roster still calls live and whose process
-// this machine has not seen die. Work held by an owner that is gone moves to
-// Waiting and says so, which is the honest reading of the same facts.
+// work claim held by a session that is not an abandoned holder. A parked
+// holder is waiting, not abandoned, even after its process exits: the next
+// message resumes it from its transcript. Work held only by an abandoned
+// owner — stale and its process gone — moves to Waiting and says so, and its
+// card still carries that owner's chip.
 
 import {
   claimantsByItemRef,
   claimedItemRefs,
   isQualifyingClaimant,
 } from "./universe_item_claimant.js";
+import { sessionIsLive } from "./universe_session_diagnostics.js";
 
 const RELEASE_STATE = "release";
-const LIVE_SESSION_STATES = new Set(["active", "stale"]);
 
 export function reference(row) {
   return String(row.public_ref || "");
@@ -88,16 +90,17 @@ export function waitingReason(row, blockedRows = []) {
   };
 }
 
-// Work whose only claimant is a session that is no longer answering. The
-// claim is real and still held, so the item is not free to pick up; what has
-// stopped is the session, and the card says that rather than showing the item
-// as actively in flight.
+// Work whose only claimant is an abandoned holder: not parked, its process
+// gone, and quiet past its activity window. The claim is real and still held,
+// so the item is not free to pick up; what has stopped is the session, and
+// the card says that rather than showing the item as actively in flight.
 const UNAVAILABLE_OWNER = {
   rank: 3,
   flag: {
     label: "Owner unavailable",
-    text: "Held by a work claim whose session is no longer answering. "
-      + "Release the claim or terminate the session to free this item.",
+    text: "Held by a work claim whose session is abandoned: not parked, its "
+      + "process gone, and quiet past its activity window. Release the claim "
+      + "or terminate the session to free this item.",
     tone: "owner-unavailable",
   },
 };
@@ -113,12 +116,6 @@ export function finishedAt(row) {
 // definition, so the band never re-derives them from a status list.
 function recentlyDone(row) {
   return Boolean(row.finished) && Boolean(finishedAt(row));
-}
-
-function liveSessions(rows) {
-  return rows.filter((row) => (
-    LIVE_SESSION_STATES.has(String(row.liveness || "").toLowerCase())
-  ));
 }
 
 // The stage strip for an item, when the session holding it has published one.
@@ -150,9 +147,12 @@ export function frontierBandRows({ items, readyRows, blockedRows, sessionRows })
     if (!blockedByRef.has(ref)) blockedByRef.set(ref, []);
     blockedByRef.get(ref).push(row);
   }
-  const sessions = liveSessions(sessionRows);
+  const sessions = sessionRows.filter(sessionIsLive);
   const qualifying = sessions.filter(isQualifyingClaimant);
-  const claimants = claimantsByItemRef(qualifying);
+  const workedOn = claimantsByItemRef(qualifying);
+  // Every live holder's chip, abandoned or not: a card always names who holds
+  // its item, whichever band it landed in.
+  const claimants = claimantsByItemRef(sessions);
   const heldByAnyLiveSession = new Set(sessions.flatMap(claimedItemRefs));
 
   const releasing = items
@@ -166,7 +166,7 @@ export function frontierBandRows({ items, readyRows, blockedRows, sessionRows })
   // item somebody is actively unblocking belongs where the work is, with
   // its reason still on the card.
   const active = live
-    .filter((row) => !enabled(row.frozen) && claimants.has(reference(row)))
+    .filter((row) => !enabled(row.frozen) && workedOn.has(reference(row)))
     .sort(newestFirst("updated_at"))
     .map((row) => ({ row, reason: waitingReason(row, blockedByRef.get(reference(row))) }));
   const activeRefs = new Set(active.map(({ row }) => reference(row)));

@@ -62,7 +62,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
         },
       },
       {
-        session_id: "v8c2qa", liveness: reclaimed ? "ended" : "stale",
+        session_id: "v8c2qa", liveness: reclaimed ? "ended" : "stale", reclaimable: !reclaimed,
         execution_lane: "DARIUS", mode: "wait",
         executor: "codex", model: "gpt-5.6-sol",
         executor_mark: "X", executor_class_name: "h-codex",

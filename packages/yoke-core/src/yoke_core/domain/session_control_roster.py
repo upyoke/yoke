@@ -27,6 +27,8 @@ from yoke_core.domain.session_item_stage_states import (
 )
 from yoke_core.domain.sessions_steering_visibility import steering_visibility
 from yoke_core.domain.session_message_routing import messageability
+from yoke_contracts.session_control.liveness import LIVENESS_WAITING
+from yoke_core.domain.session_staleness import activity_liveness
 from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
     surface_versions_for,
@@ -212,7 +214,11 @@ def _project_row(
     machine_id = str(merged.get("machine_id") or "")
     routes = connected_relays.get(machine_id, ())
     relay_connected = bool(machine_id and routes)
+    # Wake routing keys on activity: a waiting row is parked on its claim, and
+    # whether its hooks still run is answered by its activity alone.
     liveness = str(row.get("liveness") or "ended")
+    if liveness == LIVENESS_WAITING:
+        liveness = activity_liveness(merged)
     versions = surface_versions_for(routes, project_id=merged.get("project_id"))
     routing = messageability(
         merged,

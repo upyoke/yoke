@@ -8,7 +8,7 @@ import pytest
 
 from yoke_contracts.session_model_facts import SessionModelFacts
 from runtime.api.test_sessions import _p, _register
-from yoke_core.domain.session_message_routing import session_liveness
+from yoke_core.domain.session_staleness import activity_liveness
 from yoke_core.domain.session_reclaim_activity import latest_activity
 from yoke_core.domain.sessions import SessionError, end_session, heartbeat
 
@@ -74,7 +74,7 @@ class TestProbeDoesNotStampLiveness:
         _backdate_heartbeat(conn, "stale-idle")
         age_before = latest_activity(conn, "stale-idle")
         now = datetime.now(timezone.utc)
-        liveness_before = session_liveness(
+        liveness_before = activity_liveness(
             {
                 "last_heartbeat": _STALE_AT,
                 "last_tool_call_at": None,
@@ -87,7 +87,7 @@ class TestProbeDoesNotStampLiveness:
         _register(conn, session_id="stale-idle")
         after = _row(conn, "stale-idle")
         age_after = latest_activity(conn, "stale-idle")
-        liveness_after = session_liveness(
+        liveness_after = activity_liveness(
             {
                 "last_heartbeat": after["last_heartbeat"],
                 "last_tool_call_at": after["last_tool_call_at"],

@@ -15,7 +15,6 @@ from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
     surface_version_supported,
 )
-from yoke_core.domain.session_staleness import activity_is_stale
 from yoke_core.domain.session_message_types import parse_timestamp
 
 
@@ -35,21 +34,6 @@ def latest_observed_activity(row: dict[str, Any]) -> datetime | None:
     ]
     present = [value for value in candidates if value is not None]
     return max(present) if present else None
-
-
-def session_liveness(row: dict[str, Any], *, now: datetime) -> str:
-    # A killed session is ended like any other gone session; the kill is a
-    # cause of death, not a state of its own. Every refusal below still reads
-    # terminated_at directly, so folding the presentation changes no mechanic.
-    if row.get("terminated_at") or row.get("ended_at"):
-        return "ended"
-    raw_activity = max(
-        str(row.get("last_heartbeat") or ""),
-        str(row.get("last_tool_call_at") or ""),
-    )
-    if activity_is_stale(raw_activity, executor=row.get("executor"), now=now):
-        return "stale"
-    return "active"
 
 
 _WAKE_OPERATION_BY_LIVENESS = {
@@ -172,5 +156,4 @@ __all__ = [
     "latest_hook_activity",
     "latest_observed_activity",
     "messageability",
-    "session_liveness",
 ]

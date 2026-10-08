@@ -131,7 +131,7 @@ def test_preview_names_the_applied_liveness_filter() -> None:
         )
 
         assert default["applied_liveness"] == ["active"]
-        assert widened["applied_liveness"] == ["active", "stale", "ended"]
+        assert widened["applied_liveness"] == ["active", "waiting", "stale", "ended"]
     finally:
         conn.close()
 
@@ -143,7 +143,7 @@ def test_an_exact_anchor_preview_names_every_state() -> None:
             conn, actor_id=10, selector=selector(session_ids=["s1"]), now=NOW
         )
 
-        assert preview["applied_liveness"] == ["active", "stale", "ended"]
+        assert preview["applied_liveness"] == ["active", "waiting", "stale", "ended"]
     finally:
         conn.close()
 

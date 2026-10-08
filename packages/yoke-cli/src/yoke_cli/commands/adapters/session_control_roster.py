@@ -20,12 +20,15 @@ from yoke_contracts.session_control.liveness import ENDED_CAUSES, LIVENESS_STATE
 
 SESSION_ROSTER_USAGE = (
     "yoke sessions list [--project P] "
-    "[--liveness active|stale|ended] [--ended-cause killed|wound_down] "
+    "[--liveness active|waiting|stale|ended] [--ended-cause killed|wound_down] "
     "[--limit N] [--session S] [--json]"
 )
 SESSION_ROSTER_HELP = """Find registered top-level sessions and their delivery readiness.
 
-Liveness has three states: active, stale, ended. A session killed with
+Liveness has four states: active, waiting, stale, ended. A parked session
+that still holds a work claim is waiting — quiet on purpose, resumed by the
+next message — never stale; stale is a quiet session nothing accounts for.
+A session killed with
 `yoke sessions terminate` is ended like any other gone session — the kill is
 a cause of death, not a fourth state — and stays findable through
 `--ended-cause killed`, which also reports the termination reason.

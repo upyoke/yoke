@@ -46,11 +46,26 @@ blue; Blocked remains visible beside it. Blocked alone colors that segment
 red. Completed and upcoming segments retain their normal colors. A parked or
 idle session does not, by itself, mark its item Frozen or Blocked.
 
-The roster opens on **Active**, which includes both active sessions and stale
+Every session has one liveness: `active`, `waiting`, `stale`, or `ended`. A
+parked session that still holds a work claim is `waiting` — quiet on purpose
+for a deploy, a landing, or a migration slot, and resumed by the next message
+(from its transcript when its process has exited) — and is never reported
+`stale`, however long it has been quiet. `stale` is a quiet session nothing
+accounts for. The Sessions page, the Frontier, and `yoke sessions list` all
+read this one classification.
+
+The roster opens on **Active**, which includes active, waiting, and stale
 sessions. Stale sessions remain visible as light-red cards with a red `stale`
 pill. **All** includes ended sessions too, while **Ended** shows only
-ended sessions. **Reclaim stale** counts stale rows in the loaded scope and
-reloads the roster after cleanup, so reclaimed rows leave Active immediately.
+ended sessions. **Reclaim stale** counts only the sessions the reclaim sweep
+would act on — quiet past their TTL and holding no work claim — and reloads
+the roster after cleanup, so reclaimed rows leave Active immediately.
+
+On the **Frontier**, every claimed item's card carries its holding session's
+chip — surface, park state, and quiet reason — whichever band it lands in.
+**Owner unavailable**, with its advice to release the claim or terminate the
+session, appears only for an abandoned holder: not parked, its process gone,
+and quiet past its activity window.
 
 Every session card offers **Message**, including ended sessions. An idle or
 parked session whose wake belongs to the operator shows **Queued — delivered
