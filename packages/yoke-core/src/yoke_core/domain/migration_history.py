@@ -190,19 +190,50 @@ def _entries(directory: Path, *, strict_names: bool) -> Tuple[MigrationEntry, ..
     return tuple(entries)
 
 
+#: Module-level names that would claim to reorder the history. The sequence
+#: number is the only order, so an entry assigning one of these is refused.
+ORDERING_OVERRIDE_NAMES = frozenset(
+    {"PRECEDES", "FOLLOWS", "RUN_BEFORE", "RUN_AFTER", "DEPENDS_ON"}
+)
+
+
+def require_sequence_order_only(name: str, source: bytes) -> None:
+    """Refuse an entry whose source declares an ordering override.
+
+    Read with ``ast``, never by importing, because ordering a history must
+    not execute any entry.
+    """
+    try:
+        tree = ast.parse(source, filename=f"{name}.py")
+    except SyntaxError:
+        return  # Import reports the syntax error with its own context.
+    for node in tree.body:
+        targets = getattr(node, "targets", None) or [getattr(node, "target", None)]
+        for target in targets:
+            if isinstance(target, ast.Name) and target.id in ORDERING_OVERRIDE_NAMES:
+                raise HistoryError(
+                    f"migration_ordering_override: {name} declares {target.id}, "
+                    "but the sequence number is the only migration order — an "
+                    "entry runs after every lower-numbered entry, wherever it "
+                    f"applies. Remove {target.id}. Work an earlier-numbered "
+                    "entry needs before it can apply belongs in that entry's "
+                    "own refusal and recovery, never in a later entry."
+                )
+
+
 def ordered_entries(directory: Path) -> Tuple[MigrationEntry, ...]:
     """Return every entry in *directory* in the order they apply.
 
-    That is sequence-prefix order, except that an entry declaring
-    ``PRECEDES`` runs immediately before the earlier-numbered entries it names
-    (see ``migration_history_order``). Gaps in the sequence are fine — numbers
-    order the history, they do not count it. Duplicates are rejected: two
-    entries claiming one number have no defined order, which is the collision
-    that matters when two work items author migrations in parallel.
+    That is sequence-prefix order and nothing else. Gaps in the sequence are
+    fine — numbers order the history, they do not count it. Duplicates are
+    rejected: two entries claiming one number have no defined order, which is
+    the collision that matters when two work items author migrations in
+    parallel. An entry declaring an ordering override is refused.
     """
-    from yoke_core.domain.migration_history_order import apply_declared_precedence
-
-    return apply_declared_precedence(_entries(directory, strict_names=True))
+    entries = _entries(directory, strict_names=True)
+    for entry in entries:
+        require_sequence_order_only(entry.name, entry.path.read_bytes())
+    return entries
 
 
 def ordinal_entries(directory: Path) -> Tuple[MigrationEntry, ...]:
@@ -264,6 +295,8 @@ def load_migration_module(
     if ENTRY_NAME_PATTERN.fullmatch(path.stem):
         ordinal_entries(path.parent)
     content = path.read_bytes() if source_bytes is None else source_bytes
+    if ENTRY_NAME_PATTERN.fullmatch(path.stem):
+        require_sequence_order_only(path.stem, content)
     if check_psycopg_sql:
         validate_psycopg_migration_sql(
             path.parent,
@@ -299,10 +332,12 @@ __all__ = [
     "ENTRY_NAME_PATTERN",
     "HistoryError",
     "MigrationEntry",
+    "ORDERING_OVERRIDE_NAMES",
     "history_dir",
     "load_migration_module",
     "ordinal_entries",
     "ordered_entries",
+    "require_sequence_order_only",
     "resolve_migration_path",
     "validate_psycopg_migration_sql",
 ]
