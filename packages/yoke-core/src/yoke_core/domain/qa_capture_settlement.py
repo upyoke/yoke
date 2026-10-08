@@ -7,7 +7,11 @@ from typing import Any, Mapping
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.qa_constants import case_outcome_for_verdict
 from yoke_core.domain.qa_plan_execution_store import marker
-from yoke_core.domain.qa_run_verdict_record import insert_qa_run, update_qa_run
+from yoke_core.domain.qa_run_verdict_record import (
+    QaRunWrite,
+    insert_qa_run,
+    update_qa_run,
+)
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -26,7 +30,7 @@ def stamp_reviewed_capture(
     verdict: str,
     rationale: str,
     created_at: str,
-) -> None:
+) -> QaRunWrite:
     """Copy the reviewed verdict onto the capture without changing its shape.
 
     Browser-evidence gates match an agent-reviewed capture on
@@ -34,7 +38,17 @@ def stamp_reviewed_capture(
     linked passing review row. The first stamp is allowed; a replay no-ops
     because the immutability trigger only fires once a verdict exists.
     """
-    update_qa_run(
+    p = marker(conn)
+    capture = conn.execute(
+        f"SELECT qa_requirement_id FROM qa_runs WHERE id={p}",
+        (int(case["capture_run_id"]),),
+    ).fetchone()
+    if capture is None or int(capture[0]) != int(case["requirement_id"]):
+        raise ValueError(
+            "qa_review_capture_mismatch: capture does not belong to the reviewed "
+            "requirement; rebuild the review bundle from the actual execution"
+        )
+    return update_qa_run(
         conn,
         int(case["capture_run_id"]),
         {"verdict": verdict, "verdict_reason": rationale},

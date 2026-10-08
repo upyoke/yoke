@@ -272,7 +272,7 @@ def test_agent_verdict_is_per_case_and_only_undetermined_escalates(
     request_count: int,
 ) -> None:
     with test_database() as conn:
-        execution, requirement_id, _capture_run_id = _review_execution(
+        execution, requirement_id, capture_run_id = _review_execution(
             conn,
             4510 + request_count + (1 if verdict == "fail" else 0),
         )
@@ -299,11 +299,12 @@ def test_agent_verdict_is_per_case_and_only_undetermined_escalates(
             "FROM qa_runs WHERE id=%s",
             (result["verdicts"][0]["review_run_id"],),
         ).fetchone()
-        assert (run["performed_by"], run["verdict"]) == ("agent", verdict)
+        assert result["verdicts"][0]["review_run_id"] == capture_run_id
+        assert (run["performed_by"], run["verdict"]) == ("host_control", verdict)
         assert (
             run["verdict_reason"] == f"Recorded {verdict} from the supplied evidence."
         )
-        assert "rationale" in json.loads(run["raw_result"])
+        assert "evidence" in json.loads(run["raw_result"])
         plan_id = int(
             conn.execute(
                 "SELECT plan_id FROM qa_requirements WHERE id=%s",

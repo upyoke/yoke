@@ -132,6 +132,20 @@ def _review_state(
     capture_run_id = raw.get("capture_run_id") if isinstance(raw, dict) else None
     agent_verdict = run["verdict"] if performed_by == "agent" else None
     agent_run_id = int(run["run_id"]) if performed_by == "agent" else None
+    reviewed = None
+    if run["run_id"] is not None and _table_exists(conn, "qa_plan_review_verdicts"):
+        marker = _placeholder(conn)
+        reviewed = query_one(
+            conn,
+            "SELECT capture_run_id,verdict,rationale FROM qa_plan_review_verdicts "
+            f"WHERE requirement_id={marker} AND capture_run_id={marker}",
+            (requirement_id, int(run["run_id"])),
+        )
+        if reviewed is not None:
+            capture_run_id = int(reviewed["capture_run_id"])
+            agent_run_id = capture_run_id
+            agent_verdict = reviewed["verdict"]
+            rationale = reviewed["rationale"]
     if performed_by == "human_review" and run["run_id"] is not None:
         overridden = qa_overridden_verdict_run(
             conn,
@@ -145,9 +159,7 @@ def _review_state(
             agent_verdict = overridden["verdict"]
             rationale = overridden["verdict_reason"]
     request = None
-    if performed_by in {"agent", "human_review"} and _table_exists(
-        conn, "decision_requests"
-    ):
+    if agent_run_id is not None and _table_exists(conn, "decision_requests"):
         marker = _placeholder(conn)
         request_row = query_one(
             conn,
@@ -176,15 +188,17 @@ def _review_state(
                 "resolution_note": request_row["resolution_note"],
                 "resolved_at": request_row["resolved_at"],
             }
-    if performed_by == "human_review":
+    if performed_by == "human_review" or (
+        request is not None and request["status"] == "resolved"
+    ):
         state = "human_review_resolved"
-    elif performed_by == "agent" and run["verdict"] == "undetermined":
+    elif agent_run_id is not None and agent_verdict == "undetermined":
         state = (
             "human_review_requested"
             if request is not None and request["status"] == "pending"
             else "agent_undetermined"
         )
-    elif performed_by == "agent":
+    elif agent_run_id is not None:
         state = "agent_reviewed"
     elif run["case_outcome"] == "needs_review" or run["execution_status"] == "captured":
         state = "awaiting_agent_review"
@@ -198,7 +212,11 @@ def _review_state(
             else None
         ),
         "review_runner": (
-            performed_by if performed_by in {"agent", "human_review"} else None
+            "human_review"
+            if state == "human_review_resolved"
+            else "agent"
+            if agent_run_id is not None
+            else None
         ),
         "agent_verdict": agent_verdict,
         "rationale": rationale,
