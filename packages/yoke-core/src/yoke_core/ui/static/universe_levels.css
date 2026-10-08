@@ -5,8 +5,9 @@
    than a phone, so rows become labelled blocks only below 600px. */
 
 .universe-app-root .levels { display: grid; gap: 18px; margin-bottom: 24px; }
+/* The panel title takes the free width, so "View only" ends the header row. */
+.universe-app-root .levels-panel > .panel-header > h2 { flex: 1; }
 .universe-app-root .levels-view-only {
-  margin-left: auto;
   font-size: 11px;
   color: var(--yoke-muted);
 }
@@ -37,9 +38,9 @@
   font: 600 11px/1 var(--yoke-font-mono);
 }
 .universe-app-root .level-glyph { font-size: 21px; line-height: 1; }
-.universe-app-root .level-name { letter-spacing: 0.04em; font-size: 14px; }
+/* The name takes the free width, so the option count ends the head row. */
+.universe-app-root .level-name { flex: 1; letter-spacing: 0.04em; font-size: 14px; }
 .universe-app-root .level-count {
-  margin-left: auto;
   font-size: 12px;
   color: var(--yoke-muted);
 }
