@@ -91,7 +91,7 @@ def test_reference_teaching_retains_its_settled_corrections() -> None:
     assert "Grok 4.6 is tier 1" not in joined
     assert "bounded-work default" not in joined
     assert "do not exclude" not in joined.lower()
-    assert "claude-sonnet-5" not in joined.split("session_model_routing", 1)[-1]
+    assert "claude-sonnet-5" not in joined
 
 
 def test_claude_cache_write_fields_split_five_minute_and_one_hour() -> None:

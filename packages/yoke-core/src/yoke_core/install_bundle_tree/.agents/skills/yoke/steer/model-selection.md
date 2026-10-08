@@ -95,8 +95,9 @@ Availability is observed natively, so a new model appears the moment the
 surface publishes it; missing research never gates a launch. A new model
 reaches a level only when the operator approves a change to the levels:
 `yoke models level-proposal` proposes it, and `yoke universe levels set`
-stores the approved document. `/yoke models` reviews the researched catalog;
-a catalog tier is advisory and never moves a level option by itself.
+stores the approved document. `/yoke models` reviews the researched catalog
+(`yoke models get`, or one model with `yoke models lookup <model-id>`); the
+catalog holds facts about models and never moves a level option by itself.
 
 ## Retry once, then restaff the same item
 

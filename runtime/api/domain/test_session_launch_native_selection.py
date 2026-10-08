@@ -33,15 +33,9 @@ VERSION = "2026.08.25"
 MODEL = "cursor-grok-4.6-high"
 
 
-def _connection(*, preferred_models=None, preferred_efforts=None):
+def _connection():
     conn = launch_connection()
-    add_relay(
-        conn,
-        surface=SURFACE,
-        version=VERSION,
-        preferred_models=preferred_models,
-        preferred_reasoning_efforts=preferred_efforts,
-    )
+    add_relay(conn, surface=SURFACE, version=VERSION)
     _observe(conn)
     return conn
 
@@ -189,23 +183,3 @@ def test_cursor_model_refusal_suggests_the_published_prefix():
         _create(conn, model="grok-4.6-high")
     assert raised.value.code == "cursor_model_unsupported"
     assert "did you mean 'cursor-grok-4.6-high'?" in str(raised.value)
-
-
-def test_configured_knobs_cannot_bypass_native_validation():
-    conn = _connection(
-        preferred_models={SURFACE: "cursor-grok-4.6[context=1m]"},
-        preferred_efforts={SURFACE: "high"},
-    )
-    with pytest.raises(SessionLaunchError) as raised:
-        _create(conn)
-    assert raised.value.code == "cursor_context_window_unsupported"
-
-
-def test_parameterized_preference_resolves_to_an_advertised_context_variant():
-    conn = _connection(
-        preferred_models={SURFACE: "claude-opus-4-8[context=1m,effort=high]"},
-    )
-    launch = _create(conn)
-    assert launch.requested_context_window_tokens is None
-    assert launch.resolved_model == "claude-opus-4-8-high"
-    assert launch.resolved_context_window_tokens == 1_000_000

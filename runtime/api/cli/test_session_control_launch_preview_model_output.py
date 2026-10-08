@@ -60,7 +60,7 @@ def test_effort_without_model_is_still_a_requested_selection() -> None:
     assert "at session registration" in rendered
 
 
-def test_launch_preview_names_the_machine_that_decided_an_unasked_model() -> None:
+def test_launch_preview_names_where_each_carried_knob_came_from() -> None:
     output = io.StringIO()
 
     write_launch_result(
@@ -71,13 +71,9 @@ def test_launch_preview_names_the_machine_that_decided_an_unasked_model() -> Non
             "model": "gpt-5.6-sol",
             "reasoning_effort": "xhigh",
             "context_window_tokens": 1_000_000,
-            "model_source": "machine-roomy preferred_session_models.codex-cli",
-            "reasoning_effort_source": (
-                "machine-roomy preferred_session_reasoning_efforts.codex-cli"
-            ),
-            "context_window_source": (
-                "machine-roomy preferred_session_models.codex-cli"
-            ),
+            "model_source": "level SENIOR option",
+            "reasoning_effort_source": "level SENIOR option",
+            "context_window_source": "vendor default",
             "selected_surface": "codex-cli",
             "launchable": True,
             "eligible_relays": [],
@@ -102,10 +98,10 @@ def test_launch_preview_names_the_machine_that_decided_an_unasked_model() -> Non
     rendered = output.getvalue()
     assert "Model this launch would carry" in rendered
     assert "gpt-5.6-sol" in rendered
-    assert "machine-roomy preferred_session_models.codex-cli" in rendered
+    assert "level SENIOR option" in rendered
     assert "Effort this launch would carry" in rendered
     assert "xhigh" in rendered
-    assert "machine-roomy preferred_session_reasoning_efforts.codex-cli" in rendered
+    assert "vendor default" in rendered
     assert "Context tokens this launch would carry" in rendered
     assert "1000000" in rendered
     assert "at session registration" in rendered
@@ -183,73 +179,121 @@ def test_an_unreadable_pool_names_its_reason_instead_of_a_number() -> None:
     assert "Cursor Models: unreadable" in rendered
 
 
-def test_preview_names_headroom_on_the_surfaces_not_requested() -> None:
-    """The surface is an input, so the act is where an alternative is learned."""
+_PLACEMENT = {
+    "level": "SENIOR",
+    "levels_source": "universe",
+    "rule": "most_headroom",
+    "reason": "most headroom: claude-cli claude-opus-5-5 high on m1 at 80%",
+    "chosen": {"label": "claude-cli claude-opus-5-5 high on m1"},
+    "candidates": [
+        {
+            "label": "claude-cli claude-opus-5-5 high on m1",
+            "pools": [
+                {
+                    "window": "weekly \u00b7 Opus",
+                    "remaining_percent": 60.0,
+                    "headroom_percent": 80.0,
+                }
+            ],
+            "headroom_percent": 80.0,
+            "live_workers": 1,
+            "blocked": None,
+            "chosen": True,
+        },
+        {
+            "label": "codex-cli gpt-6-sol high on m1",
+            "pools": [],
+            "headroom_percent": None,
+            "live_workers": 0,
+            "blocked": "weekly pool exhausted (resets unknown)",
+            "chosen": False,
+        },
+    ],
+}
+
+
+def test_a_level_preview_names_the_level_its_choice_and_every_option() -> None:
     output = io.StringIO()
 
     write_launch_preview(
         {
             "outcome": "assigned",
-            "requested_surface": "cursor-cli",
-            "selected_surface": "cursor-cli",
+            "requested_surface": "claude-cli",
+            "selected_surface": "claude-cli",
             "launchable": True,
             "eligible_relays": [],
-            "unrequested_surface_headroom": [
-                {
-                    "machine_id": "m1",
-                    "surface": "claude-cli",
-                    "headroom_percent": 125.0,
-                    "headroom_window": "weekly plan",
-                },
-            ],
+            "level_placement": _PLACEMENT,
         },
         output,
     )
 
     rendered = output.getvalue()
-    assert "Headroom on other surfaces" in rendered
-    assert "claude-cli" in rendered
-    assert "125%" in rendered
-    assert "weekly plan" in rendered
+    assert "SENIOR (universe)" in rendered
+    assert "Level option" in rendered
+    assert "Level choice" in rendered
+    assert "most headroom" in rendered
+    assert "LEVEL OPTIONS WEIGHED" in rendered
+    assert "codex-cli gpt-6-sol high on m1" in rendered
+    assert "pool exhausted" in rendered
+    assert "Headroom on other surfaces" not in rendered
 
 
-def test_create_receipt_carries_the_readings_from_its_own_placement() -> None:
-    """A composer may never run preview, so the receipt has to carry it too."""
+def test_a_level_preview_with_no_capacity_says_so() -> None:
+    output = io.StringIO()
+
+    write_launch_preview(
+        {
+            "outcome": "level_no_capacity",
+            "launchable": False,
+            "eligible_relays": [],
+            "level_placement": {**_PLACEMENT, "chosen": None, "rule": None},
+        },
+        output,
+    )
+
+    assert "none had capacity" in output.getvalue()
+
+
+def test_a_level_launch_record_shows_its_selection_and_placement() -> None:
     output = io.StringIO()
 
     write_launch_result(
         {
             "launch": {
                 "launch_id": "launch-1",
-                "requested_surface": "cursor-cli",
-                "selected_surface": "cursor-cli",
-            },
-            "preview": {
-                "unrequested_surface_headroom": [
-                    {
-                        "machine_id": "m1",
-                        "surface": "claude-cli",
-                        "headroom_percent": 125.0,
-                        "headroom_window": "weekly plan",
-                    },
-                ],
-            },
+                "selection": "level",
+                "requested_level": "SENIOR",
+                "level_placement": _PLACEMENT,
+                "requested_surface": "claude-cli",
+                "selected_surface": "claude-cli",
+            }
         },
         output,
     )
 
     rendered = output.getvalue()
-    assert "Headroom on other surfaces" in rendered
-    assert "claude-cli 125% (weekly plan)" in rendered
+    assert "Selection" in rendered
+    assert "level" in rendered
+    assert "SENIOR (universe)" in rendered
+    assert "LEVEL OPTIONS WEIGHED" in rendered
 
 
-def test_a_stored_launch_read_does_not_restate_a_stale_reading() -> None:
-    """A read minutes later has no placement of its own to report."""
+def test_an_override_launch_record_shows_no_level_rows() -> None:
     output = io.StringIO()
 
     write_launch_result(
-        {"launch": {"launch_id": "launch-1", "requested_surface": "cursor-cli"}},
+        {
+            "launch": {
+                "launch_id": "launch-1",
+                "selection": "override",
+                "level_placement": None,
+                "requested_surface": "cursor-cli",
+            }
+        },
         output,
     )
 
-    assert "Headroom on other surfaces" not in output.getvalue()
+    rendered = output.getvalue()
+    assert "override" in rendered
+    assert "Level option" not in rendered
+    assert "LEVEL OPTIONS WEIGHED" not in rendered

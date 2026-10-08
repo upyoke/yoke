@@ -44,8 +44,6 @@ def _heartbeat(surface: str) -> RelayHeartbeat:
         relay_version="0.1.1",
         surface_versions={surface: SURFACE_IDENTITIES[surface][1]},
         project_ids=(1,),
-        preferred_session_models={surface: "gpt-6-astra"},
-        preferred_session_reasoning_efforts={surface: "max"},
     )
 
 

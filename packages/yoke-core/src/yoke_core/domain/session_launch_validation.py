@@ -49,6 +49,8 @@ def validate_launch_request(
     A level launch arrives with no surface, because placement chooses it, so
     the surface-bound checks wait until the chosen option fills it in.
     """
+    if request.level:
+        request = replace(request, level=request.level.strip().upper())
     if not request.executor_surface.strip():
         if not request.level:
             raise SessionLaunchError(

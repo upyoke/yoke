@@ -75,7 +75,7 @@ def _dispatch_over_https(
         relay or _relay_returning(_not_registered, server_version),
     )
     monkeypatch.setattr(
-        yoke_dispatcher, "local_handshake_version", lambda: client_version
+        function_version_skew, "local_handshake_version", lambda: client_version
     )
     return yoke_dispatcher.call_dispatcher(
         function_id=function_id,

@@ -115,10 +115,10 @@ because one surface refused.
 
 **Do not pick the machine or the surface.** A level launch is placed for
 you: every option of the level is weighed on every machine this actor may use,
-against only the quota pools that option's model draws on. Allocate by
-headroom, not by leveling counts — placement keeps one worker on every
-surface above 100% headroom so each harness stays exercised, then sends the
-rest to the option with the most headroom. `placement_reason` names the
+against only the quota pools that option's model draws on.
+Allocate by headroom, not by leveling counts: placement keeps one worker on
+every surface above 100% headroom so each harness stays exercised, then sends
+the rest to the option with the most headroom. `placement_reason` names the
 winner and why; `level_placement` carries every option, machine, and pool it
 read. Both land on the launch row. Pass `--machine` only to narrow placement,
 and `--surface` only for an operator override. There is no per-surface
