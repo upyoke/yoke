@@ -120,6 +120,28 @@ comes from the attachment, and the execution target from environment
 resolution or from the target a run already froze. Those differ on healthy
 rows and are drift in neither direction.
 
+## Stored plans converge with the case contract
+
+The links above compare a row with its plan. The plan itself can also fall
+behind: authoring validates the case contract on every write, but a plan stored
+before the contract last tightened only fails when its QA runs. The machine
+starting-state contract is the standing example — a machine-run case stored
+before declarations existed refuses to materialize, naming the plan, the case,
+and the edit that fixes it.
+
+`HC-qa-plan-machine-starting-state` closes that gap from the other end. It reads
+every live plan with a machine-run case through the same derivation the writers
+use and fails, naming each plan and its refusal, while any of them cannot
+materialize. A change that tightens the contract therefore converges the stored
+plans in every universe in the same release, through the registered authoring
+surfaces, before the check goes green.
+
+Converge a stored plan with `yoke qa plan edit PLAN_SLUG --project P`, or read it
+with `yoke qa plan get PLAN --project P --full --json` and write the corrected
+array back with `yoke qa plan-cases replace`. The read carries each case's
+`starting_state` and `starting_state_reason`, so that round trip keeps every
+declaration it does not change.
+
 ## The link one level down
 
 This page covers plan case → requirement row. The next link — requirement row →

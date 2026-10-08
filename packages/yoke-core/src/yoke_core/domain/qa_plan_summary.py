@@ -30,6 +30,8 @@ _CASE_FIELDS = (
     "runner_id",
     "required_capability_kinds",
     "host_baselines",
+    "starting_state",
+    "starting_state_reason",
     "entry_surface",
     "required_completion",
 )

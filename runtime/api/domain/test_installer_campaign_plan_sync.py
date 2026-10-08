@@ -69,3 +69,17 @@ def test_invalid_snapshot_teaches_recovery_without_traceback(tmp_path, capsys):
     error = capsys.readouterr().err
     assert "installer_campaign_plan_snapshot_invalid" in error
     assert "yoke qa plan get" in error
+
+
+def test_comparison_reads_a_stored_baseline_state_as_the_source_declares_it():
+    plan = _plan()
+    for case in plan["cases"]:
+        if case["host_baselines"]:
+            case["starting_state"] = "baseline"
+    _, report = compare_plan(plan)
+    assert report["differences"] == []
+    plan["cases"][0]["starting_state"] = "as_is"
+    _, report = compare_plan(plan)
+    assert report["differences"] == [
+        {"case_key": plan["cases"][0]["case_key"], "fields": ["starting_state"]}
+    ]

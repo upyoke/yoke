@@ -13,6 +13,7 @@ from yoke_contracts.qa_case_starting_state import (
     require_materialized_starting_state,
     require_selected_chains,
     reset_baselines,
+    stored_fan_out,
 )
 
 
@@ -173,3 +174,22 @@ def test_a_materialized_case_must_carry_a_consistent_declaration() -> None:
             require_materialized_starting_state(row(state, baseline))
         assert expected in str(refusal.value)
         assert "requirement 7" in str(refusal.value)
+
+
+def test_stored_fan_out_follows_chains_without_validating() -> None:
+    cases = [
+        _case("open", baselines=("fresh-host", "shell-preconfigured")),
+        _case("follow", state="inherit"),
+        _case("found", state="as_is", reason="lab"),
+        _case("after-found", state="inherit"),
+        _case("undeclared"),
+        _case("plain", runner="worktree_run"),
+    ]
+    assert stored_fan_out(cases) == [
+        ["fresh-host", "shell-preconfigured"],
+        ["fresh-host", "shell-preconfigured"],
+        [None],
+        [None],
+        [None],
+        [None],
+    ]

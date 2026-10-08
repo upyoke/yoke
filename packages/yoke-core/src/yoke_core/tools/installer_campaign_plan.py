@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any, Sequence
 
+from yoke_contracts.qa_case_starting_state import BASELINE
 from yoke_core.domain.installer_campaign_execution_target import (
     installer_campaign_cases_for_target,
 )
@@ -30,6 +31,18 @@ _CASE_DEFAULTS: dict[str, Any] = {
 }
 
 
+def _authored(case: dict[str, Any], field: str) -> Any:
+    """One authored field, with a stored baseline case's normalized state.
+
+    Authoring stores a case that names ``host_baselines`` as
+    ``starting_state: "baseline"``; the source leaves it implied.
+    """
+    value = case.get(field, _CASE_DEFAULTS[field])
+    if field == "starting_state" and value is None and case.get("host_baselines"):
+        return BASELINE
+    return value
+
+
 def compare_plan(plan: dict[str, Any]) -> tuple[list[dict], dict]:
     """Compare authored fields, excluding row identity and historical proof."""
     cases = installer_campaign_cases_for_target(plan["execution_target"])
@@ -49,8 +62,8 @@ def compare_plan(plan: dict[str, Any]) -> tuple[list[dict], dict]:
             continue
         fields = [
             field
-            for field, default in _CASE_DEFAULTS.items()
-            if installed[key].get(field, default) != generated[key].get(field, default)
+            for field in _CASE_DEFAULTS
+            if _authored(installed[key], field) != _authored(generated[key], field)
         ]
         if fields:
             differences.append({"case_key": key, "fields": fields})
