@@ -8,9 +8,9 @@ recorded at start, so callers ask here instead of deciding per project which
 column to read.
 
 What a run *delivered* for a project can differ from what it pinned: a
-promotion that materializes a version pin onto a bound project's trunk ships
-that release output, so the bound project's target serves the output commit,
-not the bound one. Served-identity questions ask
+hosted promotion reports its exact served commit in a verified immutable
+attempt receipt, including no-ops. Generic callers retain the recorded
+output or bound-source answer. Served-identity questions ask
 :func:`delivered_source_sha`; containment and checkout questions keep asking
 for the pin.
 """

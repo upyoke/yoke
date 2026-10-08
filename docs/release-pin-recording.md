@@ -117,7 +117,10 @@ duplicating output commits or overwriting older provenance. An older attempt
 cannot replace a newer recorded attempt. Parallel environments never consult
 moving branch HEAD for their delivered identity.
 
-The additive producer lands before the consumer. During a Yoke self-release,
+The additive producer lands before the consumer. Finish historical hosted
+QA that predates attempt artifacts before installing the strict reader;
+those runs cannot reconstruct artifacts their promotions never published.
+During a Yoke self-release,
 the bridge allows bounded reader readiness for its parallel Stage sibling
 while production installs the reader. Bookkeeping failure remains an
 annotation after delivery; hosted QA refuses missing delivered identity.
