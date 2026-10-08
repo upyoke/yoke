@@ -1,41 +1,15 @@
 """Prove the pending history applies to the databases that are behind.
 
-Rehearsing an entry against a current database proves nothing about the
-installs that need it, because a current database has nothing pending. The
-universes an entry exists for are exactly the ones behind it, and the only
-way to learn whether it still applies to them is to run it against one.
+Copy every relevant live database, including ones behind the current history,
+onto the local embedded cluster. Ordinary rehearsal executes the actual boot
+sequence, schema then ordered history, before dropping the copy. Live sources
+are only read. A diagnostic plan can instead inspect the faithful copy without
+applying history; that result never proves boot convergence.
 
-Against a *copy* of one: the entries here are the real ones, and a rehearsal
-that could damage its own subject would be a worse outage than the one it
-prevents. Each database is dumped, restored onto the local embedded cluster,
-converged exactly as a booting container converges it, and dropped. The live
-database is only ever read.
-
-The converge is the whole sequence — schema first, then history — because
-the schema step is what an entry actually meets. An entry authored a year ago
-runs against every constraint added since, and only the real ordering shows
-whether it survives them.
-
-**What a copy can and cannot prove.** It proves schema and data: that the
-entries apply to these rows in this shape. It proves nothing about anything
-``pg_restore`` normalizes, and it normalizes ownership and privileges — every
-object in a ``--no-owner`` restore belongs to whoever restored it. So a copy
-cannot answer whether the *serving role* is permitted to converge its own
-tables, and that question has its own failure mode: a table created by another
-role can never afterwards gain a column, which fails a boot rather than a
-migration. Ownership is therefore read from the live database, before the
-rehearsal, in :func:`_live_ownership_verdict`. Anything else a copy silently
-normalizes belongs there too.
-
-Extension versions were the other such normalization, and this one is
-repairable rather than only readable: a dump names its extensions without
-versions, so the restore used to install the rehearsal cluster's defaults. The
-source's versions are now read before the copy and staged into the fresh
-database before the restore — including any schema the extension lives in,
-which the restore is then told to skip creating. A cluster that cannot install
-a source version refuses before anything is dumped. Details, and why a wrong
-version can fail the restore outright, are in
-:mod:`yoke_core.domain.migration_fleet_preflight_extensions`.
+A --no-owner copy cannot prove live serving-role privileges; ownership is
+checked against the live source before copying. Source extension versions
+are pinned before restore, refusing unsupported versions rather than silently
+changing the subject. See migration_fleet_preflight_extensions for fidelity.
 """
 
 from __future__ import annotations
@@ -97,6 +71,8 @@ class RehearsalPlan:
     #: out of that proof (tests that only exercise dump/ownership paths).
     load_module: Callable[[str], Any] | None = None
     post_converge_validator: Callable[[Any, str], str | None] | None = None
+    copy_observer: Callable[[str, Path], None] | None = None
+    resource_guard: Callable[[], None] | None = None
 
 
 @contextmanager
@@ -216,6 +192,8 @@ def rehearse(
     copy_name = f"{REHEARSAL_PREFIX}{database}"
     dump = work_dir / f"{database}.dump"
     work_dir.mkdir(parents=True, exist_ok=True)
+    if plan.copy_observer:
+        plan.copy_observer("start", dump)
 
     try:
         migration_fleet_preflight_transfer.dump_database(
@@ -224,7 +202,10 @@ def rehearse(
             dump,
             source_environment=source_environment,
             emit=_database_emit(emit, database),
+            resource_guard=plan.resource_guard,
         )
+        if plan.copy_observer:
+            plan.copy_observer("dumped", dump)
     except Exception as exc:  # noqa: BLE001 — a verdict, not a crash
         return Verdict(database, False, f"could not copy: {exc}")
 
@@ -239,16 +220,27 @@ def rehearse(
             list_path=work_dir / f"{database}.restore-list",
         )
         migration_fleet_preflight_transfer.restore_copy(
-            spec, copy_name, dump, use_list=use_list,
+            spec,
+            copy_name,
+            dump,
+            use_list=use_list,
+            resource_guard=plan.resource_guard,
         )
+        if plan.copy_observer:
+            plan.copy_observer("restored", dump)
         return _converge_copy(spec, database, copy_name, dump, plan)
     finally:
-        migration_fleet_preflight_transfer.drop_copy(spec, copy_name)
-        dump.unlink(missing_ok=True)
+        try:
+            if plan.copy_observer:
+                plan.copy_observer("cleanup", dump)
+        finally:
+            migration_fleet_preflight_transfer.drop_copy(spec, copy_name)
+            dump.unlink(missing_ok=True)
 
 
 def _database_emit(
-    emit: Optional[Callable[[str], None]], database: str,
+    emit: Optional[Callable[[str], None]],
+    database: str,
 ) -> Optional[Callable[[str], None]]:
     """Prefix a copy-progress line with the database it belongs to."""
     if emit is None:
@@ -286,8 +278,11 @@ def _converge_copy(
             AppliedInvariantReport()
             if plan.load_module is None
             else verify_applied_history_invariants(
-                conn, applied, history=plan.history,
-                load_module=plan.load_module, redact=copy_dsn,
+                conn,
+                applied,
+                history=plan.history,
+                load_module=plan.load_module,
+                redact=copy_dsn,
             )
         )
         failure = report.failure
@@ -298,9 +293,12 @@ def _converge_copy(
         else:
             conn.commit()
         return Verdict(
-            database, failure is None,
+            database,
+            failure is None,
             "converged" if failure is None else failure,
-            pending, applied, skipped_invariants=report.skipped,
+            pending,
+            applied,
+            skipped_invariants=report.skipped,
         )
     finally:
         conn.close()
@@ -342,6 +340,10 @@ def rehearse_fleet(
 
 
 __all__ = [
-    "REHEARSAL_PREFIX", "RehearsalPlan", "Verdict", "format_fleet_summary",
-    "rehearse", "rehearse_fleet",
+    "REHEARSAL_PREFIX",
+    "RehearsalPlan",
+    "Verdict",
+    "format_fleet_summary",
+    "rehearse",
+    "rehearse_fleet",
 ]

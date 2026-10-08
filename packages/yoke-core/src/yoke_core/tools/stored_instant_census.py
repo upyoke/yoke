@@ -1,7 +1,8 @@
 """Read-only, secret-free catalog and format census of classified DB instants.
 
-Every database read uses the registered CLI. This tool never connects to a
-database, applies history, repairs a value, or logs credentials or row content.
+Live reads use the registered CLI. Restored-copy inspection receives a read
+callback from the governed rehearsal. Neither path repairs values or logs
+credentials or row content.
 """
 
 from __future__ import annotations
@@ -12,14 +13,15 @@ import json
 from pathlib import Path
 import subprocess
 import sys
-from typing import Any
+from typing import Any, Callable
 
 from yoke_core.domain.stored_instant_columns import STORED_INSTANT_COLUMNS
 
 
 _QUALIFIED = (
-    r"^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}"
-    r"(\.[0-9]{1,6})?([Zz]|[+-][0-9]{2}:[0-9]{2})$"
+    r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])[Tt]"
+    r"([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]"
+    r"(\.[0-9]{1,6})?([Zz]|[+-]([01][0-9]|2[0-3]):[0-5][0-9])$"
 )
 
 
@@ -74,16 +76,20 @@ def table_query(table: str, columns: list[dict[str, Any]]) -> str:
     return f"SELECT {', '.join(projections)} FROM {_identifier(table)}"
 
 
-def census(environment: str, output: Path) -> int:
+def run_census(
+    read: Callable[[str], dict[str, Any]],
+    label: str,
+    output: Path,
+) -> int:
     report: dict[str, Any] = {
-        "environment": environment,
+        "environment": label,
         "complete": False,
         "columns": [],
         "missing": [],
         "unclassified": [],
     }
     try:
-        catalog = _read(environment, catalog_query())["rows"][0][0]
+        catalog = read(catalog_query())["rows"][0][0]
         if isinstance(catalog, str):
             catalog = json.loads(catalog)
         by_key = {(column["table"], column["column"]): column for column in catalog}
@@ -111,7 +117,7 @@ def census(environment: str, output: Path) -> int:
             ):
                 report["unclassified"].append(column)
         for table, columns in sorted(by_table.items()):
-            result = _read(environment, table_query(table, columns))
+            result = read(table_query(table, columns))
             values = dict(zip(result["columns"], result["rows"][0]))
             for index, column in enumerate(columns):
                 report["columns"].append(
@@ -139,6 +145,10 @@ def census(environment: str, output: Path) -> int:
         return 1
     finally:
         output.write_text(json.dumps(report, indent=2) + "\n")
+
+
+def census(environment: str, output: Path) -> int:
+    return run_census(lambda query: _read(environment, query), environment, output)
 
 
 def main() -> int:

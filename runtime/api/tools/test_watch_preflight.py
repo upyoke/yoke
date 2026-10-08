@@ -20,6 +20,8 @@ from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
         ("engine artifact: wheel yoke_core.whl sha256:abc", LineClass.PROGRESS),
         ("COPY/CONVERGE yoke_alpha: starting rehearsal", LineClass.PROGRESS),
         ("converging yoke_alpha", LineClass.PROGRESS),
+        ("instant-copy stage=restored measurements={}", LineClass.PROGRESS),
+        ("instant-census table=events columns=1 rows=12", LineClass.PROGRESS),
         ("PASS yoke_alpha: 0007_x -> converged", LineClass.PROGRESS),
         ("FAIL yoke_beta: could not copy: pg_dump failed", LineClass.URGENT),
         ("1 passed, 1 failed", LineClass.SUMMARY),

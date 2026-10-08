@@ -77,6 +77,23 @@ model's never covers a sibling model that shares an entry name. A receipt
 claims the whole declared fleet, so naming databases is a diagnostic run and
 `--record-receipt` refuses it.
 
+For a read-only census of the restored source, reuse that same copy path:
+
+```text
+yoke watch preflight -- --project P [--model M] <environment> [db ...] --instant-census-output DIR --copy-budget-gib N --minimum-free-gib N
+```
+
+This diagnostic mode does not apply history, converge schema or exercise
+release-driver writes. It inspects a read-only copy transaction, retains
+aggregate instant counts and archive/database sizes with phase timings before
+cleanup, and cannot record a release receipt. Counts include blanks, missing
+columns, unclassified candidate columns, invalid calendars and unknown offsets;
+collection success does not authorize conversion. Original row bodies are not
+logged. The explicit disk budget also counts concurrent filesystem consumption,
+and the free-space floor remains required throughout each guarded transfer.
+Put retained output on the copy filesystem. Inspect all refusals before retrying
+or authoring a repair; this mode supplies no timezone or nullability decisions.
+
 ## Release gate
 
 Before a deployment run dispatches a GitHub workflow for a project that

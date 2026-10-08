@@ -49,6 +49,7 @@ PREFLIGHT_PROGRESS_RE = re.compile(
     r"(^PASS\b|^scratch databases skipped\b|^fleet roster:"
     r"|^\s*(?:member|not a member)\s"
     r"|^engine artifact:|^environment:|^rehearsal cluster:"
+    r"|^instant-(?:copy|census)\b|^diagnostic instant census:"
     r"|^\s*(?:copy(?:ing)?|converg(?:e|ing))\b)",
     re.IGNORECASE,
 )
@@ -98,6 +99,13 @@ durable state rather than telemetry that can expire.
 Ordinary pre-release rehearsal uses the source tree (no ``--engine-wheel``).
 The release wheel does not exist until after tag allocation.
 ``--engine-wheel`` pins an already-built artifact when you have one.
+
+For read-only restored-source instant inspection, add
+``--instant-census-output DIR --copy-budget-gib N --minimum-free-gib N``.
+This skips history/convergence and release-driver writes, retains aggregate
+counts/timing/sizes before cleanup, and refuses ``--record-receipt``.
+Keep the output and disposable copies on the same filesystem; a budget or
+free-space refusal stops its transfer and cleans up the disposable copy.
 
 examples:
   yoke watch preflight -- --project yoke stage --record-receipt \\
