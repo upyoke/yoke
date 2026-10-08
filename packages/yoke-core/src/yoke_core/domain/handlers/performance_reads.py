@@ -16,7 +16,11 @@ from yoke_core.domain.actor_permissions import PermissionDenied
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain import db_backend
 from yoke_core.domain.performance_metrics import MAX_POINTS, aggregate
-from yoke_core.domain.performance_query import details, read_observations
+from yoke_core.domain.performance_query import (
+    MAX_OBSERVATIONS,
+    details,
+    read_observations,
+)
 
 
 class PerformanceRequest(BaseModel):
@@ -29,7 +33,7 @@ class PerformanceRequest(BaseModel):
 
 class PerformanceDetailRequest(PerformanceRequest):
     family: Literal["function", "tool", "hook", "relay", "watcher"] | None = None
-    offset: int = Field(default=0, ge=0, le=250000)
+    offset: int = Field(default=0, ge=0, le=MAX_OBSERVATIONS)
     limit: int = Field(default=50, ge=1, le=100)
 
 

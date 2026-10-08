@@ -15,6 +15,7 @@
 .performance-series { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
 .performance-series button { border-left: 3px solid var(--series-color, #8795e8); }
 .performance-series button[aria-pressed="false"] { opacity: .45; }
+.performance-target { flex-basis: 100%; color: var(--yoke-muted); }
 .performance-inspector { font-family: var(--yoke-font-sans); color: var(--yoke-ink, #202633); background: var(--yoke-bg, #fff); border: 1px solid var(--yoke-border, #dfe3eb); border-radius: 10px; padding: 22px; width: min(850px, calc(100vw - 28px)); max-height: 85vh; overflow: auto; }
 .performance-inspector::backdrop { background: #11182780; }
 .performance-close { float: right; }

@@ -1,5 +1,7 @@
 import { el } from "./universe_view_support.js";
 
+export const ORDINARY_TARGET_MS = 2000;
+const targetLabel = `${ORDINARY_TARGET_MS / 1000}s diagnostic target · ordinary latency only`;
 export const SERIES = [
   ["function", "avg_ms", "Function avg", "#5468dc"],
   ["function", "p95_ms", "Function p95", "#8c9af0"],
@@ -15,7 +17,7 @@ export const durationLabel = (value) => value === null || value === undefined
 
 export function chartData(result) {
   return [result.buckets.map(b => b.start), ...SERIES.map(([family, metric]) =>
-    result.buckets.map(b => b.metrics[family][metric])), result.buckets.map(() => 2000)];
+    result.buckets.map(b => b.metrics[family][metric])), result.buckets.map(() => ORDINARY_TARGET_MS)];
 }
 
 export async function drawPerformanceChart({ documentNode, host, result, signal, inspect }) {
@@ -69,7 +71,7 @@ export async function drawPerformanceChart({ documentNode, host, result, signal,
            ((values[n - 1] ?? null) === null && (values[n + 1] ?? null) === null)) ? [n] : []);
       }, size: 4, width: 1 },
       dash: metric === "p95_ms" && !scale ? [3, 2] : [],
-    })), { label: "2s diagnostic target · ordinary latency only", stroke: color,
+    })), { label: targetLabel, stroke: color,
       scale: "y", width: 1, dash: [5, 5], points: { show: false } }],
     scales: { x: { time: true, range: () => range }, y: { auto: true }, wait: { auto: true } },
     axes: [{ stroke: color, space: 100, size: 60, grid: { show: false }, values: (_, ticks) => ticks.map(tickLabel) },
@@ -91,6 +93,7 @@ export async function drawPerformanceChart({ documentNode, host, result, signal,
     });
     toggles.appendChild(button);
   });
+  toggles.appendChild(el(documentNode, "small", "performance-target", targetLabel));
   host.after(toggles);
   host.tabIndex = 0;
   host.setAttribute("role", "group");
