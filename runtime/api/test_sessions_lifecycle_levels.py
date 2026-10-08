@@ -25,9 +25,8 @@ from runtime.api.fixtures.level_store import (
     store_project_levels,
     store_universe_levels,
 )
+from runtime.api.sessions_api_test_support import session_test_db  # noqa: F401
 from runtime.api.test_sessions import _p, _register, conn  # noqa: F401
-
-pytest_plugins = ("runtime.api.sessions_api_test_support",)
 
 _PROJECT_ID = 1
 _OPUS = "claude-opus-5-5"
@@ -170,7 +169,7 @@ class TestInProcessRegistrationStampsLevel:
 
 class TestRegisterRouteStampsLevel:
     @pytest.fixture(autouse=True)
-    def _client(self, session_test_db):
+    def _client(self, session_test_db):  # noqa: F811
         self.client = TestClient(app)
         self.client.headers.update(session_test_db["auth_headers"])
         self.db_path = session_test_db["db_path"]
