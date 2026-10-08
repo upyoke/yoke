@@ -13,7 +13,7 @@ _RUN_SELECT = (
     "COALESCE(verdict_reason,''), "
     "COALESCE(CAST(score AS TEXT),''), COALESCE(CAST(confidence AS TEXT),''), "
     "COALESCE(raw_result,''), COALESCE(CAST(duration_ms AS TEXT),''), "
-    "COALESCE(started_at,''), COALESCE(completed_at,''), created_at"
+    "started_at, completed_at, created_at"
 )
 
 

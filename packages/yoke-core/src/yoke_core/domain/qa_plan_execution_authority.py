@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import as_utc, parse_instant, utc_now
 from typing import Any, Mapping
 
 from yoke_core.domain.project_identity import render_item_ref
@@ -48,18 +50,15 @@ def plan_execution_is_stale(
 ) -> bool:
     """Report whether an execution has stopped reporting progress.
 
-    An unparseable or missing heartbeat counts as stale: a row that cannot
-    say when it last progressed cannot claim it still is.
+    A missing heartbeat counts as stale. Supplied invalid evidence refuses
+    rather than authorizing abandonment by guessing its timezone.
     """
-    observed = now or datetime.now(timezone.utc)
-    try:
-        parsed = datetime.fromisoformat(
-            str(execution.get("heartbeat_at")).replace("Z", "+00:00")
-        )
-    except ValueError:
+    observed = as_utc(now) if now is not None else utc_now()
+    value = execution.get("heartbeat_at")
+    if value is None:
         return True
-    elapsed = (observed - parsed.astimezone(timezone.utc)).total_seconds()
-    return elapsed > PLAN_EXECUTION_STALE_SECONDS
+    elapsed = observed - parse_instant(value)
+    return elapsed > timedelta(seconds=PLAN_EXECUTION_STALE_SECONDS)
 
 
 def owning_session_is_parked(conn: Any, execution: Mapping[str, Any]) -> bool:

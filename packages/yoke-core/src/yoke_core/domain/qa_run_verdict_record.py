@@ -16,6 +16,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any
 
 from yoke_core.domain.qa_plan_execution_store import marker
@@ -64,8 +68,22 @@ def _discharge_on_pass(
     return discharge_declared_replacements(conn, [int(requirement_id)])
 
 
+def _clock_columns(conn: Any, columns: Mapping[str, Any]) -> dict[str, Any]:
+    """Normalize declared run clocks before locks or writes; other data is opaque."""
+    result = dict(columns)
+    for name in ("started_at", "completed_at", "created_at"):
+        if name in result:
+            value = result[name]
+            instant = (
+                None if value is None and name != "created_at" else parse_instant(value)
+            )
+            result[name] = instant_parameter(conn, instant)
+    return result
+
+
 def insert_qa_run(conn: Any, **columns: Any) -> QaRunWrite:
     """Insert one run on the caller's transaction; a pass discharges its replacements."""
+    columns = _clock_columns(conn, columns)
     lock_requirement_scope(conn, int(columns["qa_requirement_id"]))
     p = marker(conn)
     names = list(columns)
@@ -89,13 +107,18 @@ def update_qa_run(
     columns: Mapping[str, Any],
     *,
     unjudged_only: bool = False,
-    default_completed_at: str | None = None,
+    default_completed_at: datetime | str | None = None,
 ) -> QaRunWrite:
     """Update one run on the caller's transaction; a pass discharges its replacements.
 
     ``unjudged_only`` leaves a run that already carries a verdict untouched;
     ``default_completed_at`` fills ``completed_at`` only where it is empty.
     """
+    columns = _clock_columns(conn, columns)
+    if default_completed_at is not None:
+        default_completed_at = instant_parameter(
+            conn, parse_instant(default_completed_at)
+        )
     p = marker(conn)
     subject = conn.execute(
         f"SELECT qa_requirement_id FROM qa_runs WHERE id={p}", (int(run_id),)

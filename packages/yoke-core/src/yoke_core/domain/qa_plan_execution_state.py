@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.qa_plan_execution_authority import (
     PLAN_EXECUTION_STALE_SECONDS,
     require_plan_execution_abandon_authority,
@@ -80,17 +81,23 @@ def advance_plan_execution(
         raise QaPlanExecutionStateError("QA plan execution is not active")
     require_execution_target(execution)
 
-    now = iso8601_now()
+    now = utc_now()
     conn.execute(
         "INSERT INTO qa_plan_execution_results("
         "execution_id,ordinal,requirement_id,result_json,completed_at"
         f") VALUES ({', '.join([placeholder] * 5)})",
-        (str(execution["id"]), ordinal, requirement_id, encoded, now),
+        (
+            str(execution["id"]),
+            ordinal,
+            requirement_id,
+            encoded,
+            instant_parameter(conn, now),
+        ),
     )
     conn.execute(
         "UPDATE qa_plan_executions SET cursor_ordinal="
         f"{placeholder},heartbeat_at={placeholder} WHERE id={placeholder}",
-        (ordinal + 1, now, str(execution["id"])),
+        (ordinal + 1, instant_parameter(conn, now), str(execution["id"])),
     )
     execution["cursor_ordinal"] = ordinal + 1
     execution["heartbeat_at"] = now

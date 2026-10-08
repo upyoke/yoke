@@ -7,7 +7,8 @@ from typing import Any
 from uuid import uuid4
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.qa_plan_execution_authority import (
     lock_member_admission,
     plan_execution_is_abandoned,
@@ -226,7 +227,7 @@ def begin_plan_execution(
             )
 
     execution_id = str(uuid4())
-    now = iso8601_now()
+    now = utc_now()
     placeholder = marker(conn)
     try:
         conn.execute(
@@ -254,8 +255,8 @@ def begin_plan_execution(
                 continues_execution_id,
                 0,
                 "active",
-                now,
-                now,
+                instant_parameter(conn, now),
+                instant_parameter(conn, now),
             ),
         )
     except db_backend.integrity_error_types(conn) as exc:

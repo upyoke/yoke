@@ -116,6 +116,15 @@ start-bound authority use strict instant parsing and exact elapsed units; only
 null is absent. Harness health windows compare native clocks and format the
 selected last-seen instant. Debug capture expiry requires a qualified instant
 and closes at its exact deadline.
+Durable QA run writes normalize owned clock columns before locks or mutations;
+review completion fills only a missing endpoint and preserves capture start and
+raw evidence bytes. Ordered QA execution creation, heartbeat and result endpoints
+bind native clocks. Staleness preserves the exact thirty-minute boundary and
+refuses malformed supplied evidence. Host FIFO compares queue instants and keeps
+execution allocation ties; mutable queue timestamps require governed conversion.
+Pipe diagnostics format native clocks at presentation, without timestamp
+empty-string SQL predicates. New result JSON uses shared temporal encoding;
+opaque strings and finalized historical roster/digest bytes remain unchanged.
 The universe fingerprint formats its organization creation instant canonically,
 so a database session timezone cannot change identity. Earlier recorded actor
 bindings that name another timestamp representation refuse the identity match;

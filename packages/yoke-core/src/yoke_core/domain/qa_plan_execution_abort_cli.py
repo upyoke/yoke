@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-import json
+from yoke_core.domain.json_helper import dumps_compact
 import sys
 from typing import List, Optional
 
@@ -68,7 +68,7 @@ def run(args: List[str]) -> int:
     }
     if result.get("standalone_plan_id") is not None:
         receipt["standalone_plan_id"] = result["standalone_plan_id"]
-    print(json.dumps(receipt, sort_keys=True))
+    print(dumps_compact(receipt))
     return 0
 
 
