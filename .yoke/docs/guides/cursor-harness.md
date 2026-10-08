@@ -2,7 +2,7 @@
 
 This file is the Cursor-facing entry point for Yoke. It references the shared bootstrap contract and lists the safe command surface for Cursor sessions.
 
-For the full project rules, read `AGENTS.md` — the harness-neutral shared doctrine file. Cursor loads `AGENTS.md` natively (including nested per-directory `AGENTS.md`), so everything there applies to Cursor sessions unless noted otherwise below. In this repo `CLAUDE.md` is a symlink to `AGENTS.md`; in a managed project they are separate real files, so content outside the managed markers must be added to each shell or the other harnesses never see it.
+For the full project rules, read `AGENTS.md` — the harness-neutral shared doctrine file. Cursor loads `AGENTS.md` natively (including nested per-directory `AGENTS.md`), so everything there applies to Cursor sessions unless noted otherwise below. Yoke writes shared doctrine only to `AGENTS.md`. Project-specific harness content stays outside the managed block or in the harness’s native configuration. See [native discovery](../reference/harness-discovery.md) for version floors and loading checks.
 
 Each standing rule in `AGENTS.md` names a deep home under `.yoke/docs/reference/agent-rules/` carrying the reasoning, recovery paths, and worked failure modes behind it; `AGENTS.md` lists which file covers which operation. Read the one that governs an operation before performing it, and read an operation's own `--help` for its variants and flags.
 
@@ -16,7 +16,7 @@ Cursor loads `AGENTS.md` automatically. The session-start hook (wired in `.curso
 
 ### Repo-local skill discovery
 
-Yoke skills live canonically in `.agents/skills/yoke/`. Cursor discovers that tree natively (measured on Cursor IDE 3.14+ and cursor-agent 2026.07+), so no `.cursor/skills` mirror is required for ordinary Yoke work. Skills surface in the `/` menu and via description-based invocation; `.claude/skills/yoke` remains the Claude discovery copy and is not authoritative.
+Yoke skills live canonically in `.agents/skills/yoke/`. Cursor discovers that tree natively (measured on Cursor IDE 3.14+ and cursor-agent 2026.07+), so no `.cursor/skills` mirror is required for ordinary Yoke work. Skills surface in the `/` menu and via description-based invocation; `.claude/skills/yoke` is Claude’s required native discovery link to the same source; it contains no regular copies.
 
 ## Surfaces
 

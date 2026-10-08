@@ -87,11 +87,14 @@ def uninstall(
     )
     project_worktrees_ignore.report(root, apply=False)
     commit_paths = uninstall_commit.prepare(root, manifest, config_path)
+    file_records = skill_discovery.prune_records(
+        root, dict(manifest.get("files") or {})
+    )
     discovery_removed = skill_discovery.remove(
         root, manifest.get("skill_discovery_links")
     )
     removed, skipped, absent, warnings = files_layer.remove_manifest_files(
-        root, dict(manifest.get("files") or {})
+        root, file_records
     )
     # Contract files: remove only installer-created files still byte-equal
     # to their seeded content; edited ones are preserved with a warning and

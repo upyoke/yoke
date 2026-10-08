@@ -14,6 +14,7 @@ class HarnessCliManifest:
     harness_id: str
     surface_id: str
     executable: str
+    minimum_engine_version: str = "0.0.0"
     version_args: tuple[str, ...] = ("--version",)
     bundled_candidates: tuple[str, ...] = ()
 
@@ -31,25 +32,24 @@ class HarnessCliManifest:
                     if self.harness_id == "claude-code"
                     else ".agents/skills/yoke"
                 ),
-                "minimum_engine_version": (
-                    CLAUDE_AGENTS_MINIMUM_VERSION
-                    if self.harness_id == "claude-code"
-                    else None
-                ),
+                "minimum_engine_version": self.minimum_engine_version,
                 "recovery_doc": ".yoke/docs/reference/harness-discovery.md",
             },
         }
 
 
 HARNESS_CLI_MANIFESTS = (
-    HarnessCliManifest("claude-code", "claude-cli", "claude"),
+    HarnessCliManifest(
+        "claude-code", "claude-cli", "claude", CLAUDE_AGENTS_MINIMUM_VERSION
+    ),
     HarnessCliManifest(
         "codex",
         "codex-cli",
         "codex",
+        "0.161.0",
         bundled_candidates=("/Applications/ChatGPT.app/Contents/Resources/codex",),
     ),
-    HarnessCliManifest("cursor", "cursor-cli", "cursor-agent"),
+    HarnessCliManifest("cursor", "cursor-cli", "cursor-agent", "2026.10.01"),
 )
 
 if tuple(manifest.harness_id for manifest in HARNESS_CLI_MANIFESTS) != (

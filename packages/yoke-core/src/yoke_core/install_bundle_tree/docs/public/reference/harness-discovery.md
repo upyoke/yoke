@@ -7,8 +7,8 @@ metadata at discovery and its body when invoked.
 
 | Harness family and supported surfaces | Instructions | Skills |
 | --- | --- | --- |
-| Codex CLI, desktop, editor | Root and nested `AGENTS.md` | Native `.agents/skills`; no `.codex/skills` copy |
-| Cursor CLI, desktop | Root and nested `AGENTS.md` | Native `.agents/skills`; no `.cursor/skills` copy |
+| Codex CLI, desktop, editor (engine >=0.161.0) | Root and nested `AGENTS.md` | Native `.agents/skills`; no `.codex/skills` copy |
+| Cursor Agent CLI (>=2026.10.01), IDE (>=3.14) | Root and nested `AGENTS.md` | Native `.agents/skills`; no `.cursor/skills` copy |
 | Claude Code CLI, desktop Code, editor | Native `AGENTS.md` on embedded engine >=2.1.281, with the built-in plugin enabled | Required `.claude/skills/yoke` symlink to `../../.agents/skills/yoke` |
 
 The supported surface versions remain declared in each product harness
@@ -91,3 +91,8 @@ Official sources checked 2026-10-08:
 - [Cursor skill directories](https://cursor.com/docs/skills)
 - [Claude native AGENTS and configuration](https://code.claude.com/docs/en/memory)
 - [Claude skill directories](https://code.claude.com/docs/en/skills)
+
+Codex and Cursor Agent floors name the native releases verified for this layout;
+older engines receive `instruction_runtime_unsupported`. The installer probes
+installed CLIs. Desktop users must verify their embedded engine separately;
+the outer app version does not prove its discovery capabilities.

@@ -190,3 +190,64 @@ def test_user_owned_canonical_instruction_symlink_is_preserved(tmp_path):
     assert instructions.retirement_plan(tmp_path, {}) == {}
     instructions.assert_claude_loading(tmp_path, {}, settings={})
     assert (tmp_path / "CLAUDE.md").is_symlink()
+
+
+def test_retirement_preserves_crlf_user_content(tmp_path):
+    block = render_block("shared rules")
+    path = tmp_path / "CODEX.md"
+    original = (
+        "User preface\r\n" + block.replace("\n", "\r\n") + "\r\nUser tail\r\n"
+    ).encode()
+    path.write_bytes(original)
+    prior = {"managed_markdown": {"CODEX.md": {"block_sha": sha256_text(block)}}}
+    instructions.apply_retirement(
+        tmp_path, instructions.retirement_plan(tmp_path, prior)
+    )
+    assert path.read_bytes() == b"User preface\r\n\r\nUser tail\r\n"
+
+
+def test_codex_override_refuses_before_project_mutation(tmp_path, monkeypatch):
+    override = _skill(tmp_path, "AGENTS.override.md", "User override\n")
+    with pytest.raises(ProjectInstallError, match="AGENTS.override.md suppresses"):
+        instructions.preflight(tmp_path, {})
+    assert override.read_text() == "User override\n"
+
+
+def test_full_refresh_reconciles_owned_legacy_copies_and_shells(tmp_path, monkeypatch):
+    import json
+    from yoke_cli.project_install.bundle_apply import apply_bundle
+    from yoke_core.domain.project_install_test_helpers import make_bundle
+
+    monkeypatch.setattr(instructions.shutil, "which", lambda _: None)
+    bundle = make_bundle()
+    apply_bundle(tmp_path, bundle, source="disposable-consumer")
+    manifest_path = tmp_path / ".yoke/install-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    (tmp_path / ".claude/skills/yoke").unlink()
+    for prefix in (".claude", ".codex", ".cursor"):
+        rel = prefix + "/skills/yoke/onboard/SKILL.md"
+        copy = _skill(tmp_path, rel, "old owned skill\n")
+        manifest["files"][rel] = sha256_text(copy.read_text())
+    block = render_block("old owned doctrine")
+    shell = _skill(tmp_path, "CODEX.md", "User-specific preface\n" + block)
+    manifest["managed_markdown"] = {
+        "CODEX.md": {"block_sha": sha256_text(block), "file_created": False}
+    }
+    manifest_path.write_text(json.dumps(manifest))
+    first = apply_bundle(
+        tmp_path, bundle, operation="refresh", source="disposable-consumer"
+    )
+    assert len(first["files_pruned"]) == 3
+    assert shell.read_text() == "User-specific preface\n"
+    assert (tmp_path / ".claude/skills/yoke").is_symlink()
+    assert not (tmp_path / ".codex/skills/yoke/onboard/SKILL.md").exists()
+    assert not (tmp_path / ".cursor/skills/yoke/onboard/SKILL.md").exists()
+    second = apply_bundle(
+        tmp_path, bundle, operation="refresh", source="disposable-consumer"
+    )
+    assert (
+        second["files_written"]
+        == second["files_pruned"]
+        == second["skill_discovery_written"]
+        == []
+    )

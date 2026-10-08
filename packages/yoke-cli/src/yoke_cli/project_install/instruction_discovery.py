@@ -17,7 +17,9 @@ from yoke_cli.project_install.files import (
     sha256_text,
 )
 from yoke_contracts.project_contract.managed_block import block_span
-from yoke_contracts.harness_cli_manifest import CLAUDE_AGENTS_MINIMUM_VERSION
+from yoke_contracts.harness_cli_manifest import (
+    HARNESS_CLI_MANIFESTS,
+)
 
 RETIRED_INSTRUCTION_PATHS = ("CLAUDE.md", "CODEX.md", "CURSOR.md")
 
@@ -154,30 +156,47 @@ def preflight(root: Path, prior: dict[str, Any]) -> dict[str, str | None]:
             "AGENTS.md outside the Yoke block, then move the override outside "
             "native instruction discovery and rerun refresh."
         )
-    executable = shutil.which("claude")
-    if executable is None:
+    for manifest in HARNESS_CLI_MANIFESTS:
+        executable = shutil.which(manifest.executable)
+        if executable is None:
+            continue
+        try:
+            probe = subprocess.run(
+                [executable, *manifest.version_args],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+            match = re.search(r"\b(\d+)\.(\d+)\.(\d+)\b", probe.stdout)
+            observed = (
+                tuple(map(int, match.groups()))
+                if match and probe.returncode == 0
+                else ()
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            observed = ()
+        required = tuple(map(int, manifest.minimum_engine_version.split(".")))
+        if observed < required:
+            raise ProjectInstallError(
+                f"instruction_runtime_unsupported: {manifest.executable} must be "
+                f">={manifest.minimum_engine_version}; upgrade the native CLI or "
+                "embedded desktop engine, start a new session, and rerun refresh"
+            )
+    if shutil.which("claude") is None:
         return plans
-    try:
-        probe = subprocess.run(
-            [executable, "--version"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            check=False,
-        )
-        match = re.search(r"\b(\d+)\.(\d+)\.(\d+)\b", probe.stdout)
-        observed = (
-            tuple(map(int, match.groups())) if match and probe.returncode == 0 else ()
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        observed = ()
-    if observed < tuple(map(int, CLAUDE_AGENTS_MINIMUM_VERSION.split("."))):
-        raise ProjectInstallError(
-            f"instruction_runtime_unsupported: Claude Code must be >={CLAUDE_AGENTS_MINIMUM_VERSION}; "
-            "run claude update, start a new session, and rerun project refresh"
-        )
     config_dir = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
     settings = _settings(config_dir / "settings.json")
+    # Native plugin enablement and exclusions may come from project/local
+    # settings; instructionFiles itself is ignored at those scopes by Claude.
+    for rel in (".claude/settings.json", ".claude/settings.local.json"):
+        scoped = _settings(root / rel)
+        settings["enabledPlugins"] = {
+            **(settings.get("enabledPlugins") or {}),
+            **(scoped.get("enabledPlugins") or {}),
+        }
+        if "claudeMdExcludes" in scoped:
+            settings["claudeMdExcludes"] = scoped["claudeMdExcludes"]
     # Managed policy overrides user settings. Platform paths are Claude's
     # documented native managed settings locations, never project config.
     managed_path = (
