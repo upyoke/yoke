@@ -71,12 +71,9 @@ def holder_is_alive(session_id: str) -> bool:
         return False
 
 
-def blocking_message(session_id: str, branch: str, epic_id: str) -> str:
-    epic_info = f" (epic: {epic_id})" if epic_id else ""
-    return (
-        f"Merge lock held by session {session_id} "
-        f"on branch '{branch}'{epic_info}"
-    )
+def blocking_message(session_id: str, branch: str, epic_ref: str) -> str:
+    epic_info = f" (epic: {epic_ref})" if epic_ref else ""
+    return f"Merge lock held by session {session_id} on branch '{branch}'{epic_info}"
 
 
 def evaluate(
@@ -105,7 +102,7 @@ def evaluate(
         blocked_by = blocking_message(
             session_id,
             str(row.get("branch") or ""),
-            str(row.get("epic_id") or ""),
+            str(row.get("epic_public_ref") or ""),
         )
     return ContentionVerdict(blocked_by, tuple(stale_ids))
 
