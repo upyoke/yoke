@@ -19,8 +19,8 @@ def _stub_binding(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         watch_pytest._source_pythonpath,
-        "import_origin_refusal",
-        lambda *args, **kwargs: None,
+        "verified_source_environment",
+        lambda _root, env: (dict(env), None),
     )
     monkeypatch.setattr(
         watch_pytest._watch_runner,

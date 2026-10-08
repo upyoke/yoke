@@ -58,6 +58,11 @@ from yoke_core.tools._pytest_parallel import (
     isolate_from_administering_machine_config,
     split_no_parallel,
 )
+from yoke_core.domain.source_python_environment import SourceEnvironmentRefusal
+from yoke_core.tools.watch_pytest_project_python import (
+    selection_footer as _selection_footer,
+    selection_progress_banner as _selection_banner,
+)
 from yoke_core.tools import _watch_pytest_wall_clock
 
 # Re-exported so callers keep one import site for the classifier.
@@ -106,18 +111,6 @@ def _impacted_tree() -> Path:
     from yoke_core.tools.watch_pytest_project_python import impacted_tree
 
     return impacted_tree()
-
-
-def _selection_footer(selection, collected_items: int | None) -> str:
-    from yoke_core.tools.watch_pytest_project_python import selection_footer
-
-    return selection_footer(selection, collected_items)
-
-
-def _selection_banner(selection) -> str:
-    from yoke_core.tools.watch_pytest_project_python import selection_progress_banner
-
-    return selection_progress_banner(selection)
 
 
 def _route(ns, pytest_args: Sequence[str], run_root: Path):
@@ -256,16 +249,13 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             schema_authority.environment_without_administering_selection()
         ),
     )
-    pytest_env = _source_pythonpath.with_source_pythonpath(pytest_env, source_root)
     # Already judged above; the child's startup check inherits that answer.
     pytest_env = _tree_binding_startup.with_binding_evaluated(pytest_env)
-    if _source_pythonpath.is_yoke_shaped_tree(source_root):
-        import_refusal = _source_pythonpath.import_origin_refusal(
-            source_root,
-            env=pytest_env,
-        )
-        if import_refusal is not None:
-            return refuse(f"watch_pytest IMPORT-BINDING REFUSAL: {import_refusal}", 3)
+    pytest_env, import_refusal = _source_pythonpath.verified_source_environment(
+        source_root, pytest_env
+    )
+    if import_refusal is not None:
+        return refuse(f"watch_pytest IMPORT-BINDING REFUSAL: {import_refusal}", 3)
 
     if ns.print_streaming_pair:
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
@@ -326,8 +316,12 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
                 lines.append(zero_collection)
             return "\n".join(lines) or None
 
+        try:
+            command = _pytest_argv(pytest_args, cwd=run_root)
+        except SourceEnvironmentRefusal as exc:
+            return refuse(f"watch_pytest: {exc}", 3)
         exit_code = _watch_runner.run_watcher(
-            argv=_pytest_argv(pytest_args, cwd=run_root),
+            argv=command,
             classifier=selection_classifier,
             raw_capture=raw_path,
             progress_capture=progress_path,

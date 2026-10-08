@@ -44,6 +44,13 @@ def _select_administering_connection(
 
 
 def _bind_current_source_lane(monkeypatch: pytest.MonkeyPatch) -> Path:
+    from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
+
+    monkeypatch.setattr(
+        source_dev_run.source_python_environment,
+        "load_declaration",
+        lambda **_kwargs: TestEnvironmentDeclaration(project="fixture"),
+    )
     root = _source_pythonpath.repo_root(Path(__file__))
     monkeypatch.setattr(
         source_dev_run,

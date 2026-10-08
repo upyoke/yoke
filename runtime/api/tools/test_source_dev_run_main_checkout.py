@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import pytest
 from types import SimpleNamespace
 from unittest import mock
 
@@ -162,7 +163,7 @@ def test_fallback_is_visible_and_audited_before_the_child(
     monkeypatch.setattr(
         source_dev_run._source_pythonpath,
         "import_origins",
-        lambda _root, env: ({"yoke_core": str(tmp_path / "yoke_core")}, None),
+        lambda _root, env, python: ({"yoke_core": str(tmp_path / "yoke_core")}, None),
     )
 
     def _record(**kwargs):
@@ -246,7 +247,7 @@ def test_fallback_refuses_to_run_without_audit_evidence(monkeypatch, tmp_path):
     monkeypatch.setattr(
         source_dev_run._source_pythonpath,
         "import_origins",
-        lambda _root, env: ({"yoke_core": str(tmp_path / "yoke_core")}, None),
+        lambda _root, env, python: ({"yoke_core": str(tmp_path / "yoke_core")}, None),
     )
     monkeypatch.setattr(
         source_dev_run,
@@ -258,3 +259,15 @@ def test_fallback_refuses_to_run_without_audit_evidence(monkeypatch, tmp_path):
 
     assert source_dev_run.run(["python3", scanner]) == 1
     child.assert_not_called()
+
+
+@pytest.fixture(autouse=True)
+def isolated_environment_probe(monkeypatch):
+    import sys
+    from yoke_core.domain.source_python_environment import SourcePythonEnvironment
+
+    monkeypatch.setattr(
+        source_dev_run.source_python_environment,
+        "resolve",
+        lambda root, env: SourcePythonEnvironment(sys.executable, dict(env), {}),
+    )
