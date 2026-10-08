@@ -8,12 +8,24 @@ permissions:
 
 env:
   BROWSER_RUNTIME_DIR: packages/yoke-harness/src/yoke_harness/browser_runtime
+  PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright-cache
 
 jobs:
   browser-runtime:
-    timeout-minutes: 5
+    timeout-minutes: 10
     name: browser-runtime
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: yoke
+          POSTGRES_PASSWORD: yoke
+          POSTGRES_DB: postgres
+        ports: [5432/tcp]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -28,6 +40,10 @@ jobs:
           if git diff --quiet "$base_sha" HEAD -- "$BROWSER_RUNTIME_DIR" \
             packages/yoke-harness/src/yoke_harness/browser_apparmor.py \
             packages/yoke-harness/src/yoke_harness/system_privileges.py \
+            packages/yoke-contracts/src/yoke_contracts/browser_qa_contract.py \
+            packages/yoke-core/src/yoke_core/domain/browser_qa* \
+            packages/yoke-core/src/yoke_core/domain/browser_client_owned_page.py \
+            runtime/api/domain/test_browser_qa_color_scheme* \
             .github/workflows/browser-runtime-tests.yml; then
             echo "should_run=false" >> "$GITHUB_OUTPUT"
             echo "Browser runtime unchanged; skipping Node suite."
@@ -80,3 +96,22 @@ jobs:
         if: steps.change_scope.outputs.should_run == 'true'
         working-directory: ${{ env.BROWSER_RUNTIME_DIR }}
         run: npm test
+
+      - name: Set up Python for Browser case integration
+        if: steps.change_scope.outputs.should_run == 'true'
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.13'
+
+      - name: Install Browser case integration dependencies
+        if: steps.change_scope.outputs.should_run == 'true'
+        run: |
+          python3 -m pip install uv
+          uv sync --all-packages --all-groups --locked
+
+      - name: Run registered Browser case integration
+        if: steps.change_scope.outputs.should_run == 'true'
+        env:
+          YOKE_BROWSER_INTEGRATION: '1'
+          YOKE_PG_DSN: host=localhost port=${{ job.services.postgres.ports[5432] }} user=yoke password=yoke dbname=postgres
+        run: uv run --frozen python3 -m yoke_core.tools.run_tests --local -- runtime/api/domain/test_browser_qa_color_scheme_integration.py

@@ -233,6 +233,21 @@ def case_viewport(method_config: Any) -> Any:
     return size
 
 
+def case_color_scheme(method_config: Any) -> Any:
+    """Return a declared light/dark preference, None, or a named violation."""
+    if not isinstance(method_config, dict) or "color_scheme" not in method_config:
+        return None
+    declared = method_config["color_scheme"]
+    if isinstance(declared, str) and declared in ("light", "dark"):
+        return declared
+    return BrowserMethodContractViolation(
+        "case_color_scheme_invalid",
+        "case_color_scheme_invalid: method_config.color_scheme must be "
+        "'light' or 'dark'; correct the value or omit the key to use the "
+        "ordinary browser preference",
+    )
+
+
 def is_browser_assertion(step: Any) -> bool:
     """Return whether a validated step contributes to an automatic verdict."""
     return isinstance(step, dict) and step.get("action") == "assert"
@@ -251,5 +266,6 @@ __all__ = [
     "browser_cleanup_contract_violation",
     "defined_keys_for_action",
     "case_viewport",
+    "case_color_scheme",
     "is_browser_assertion",
 ]

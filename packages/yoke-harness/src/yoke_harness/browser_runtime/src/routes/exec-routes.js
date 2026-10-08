@@ -17,6 +17,7 @@
  */
 
 const { executeStep } = require('../step-runner');
+const { observeColorScheme } = require('../page-color-scheme');
 
 /**
  * @param {import('express').Application} app
@@ -24,12 +25,12 @@ const { executeStep } = require('../step-runner');
  */
 function registerExecRoutes(app, browserManager) {
   // POST /api/exec/page
-  // Request body: { viewport: { width, height }, pageId?: string }
-  // Response: { success: true, data: { pageId, viewport, opened } }
+  // Request body: { viewport: { width, height }, pageId?: string, colorScheme?: light|dark }
+  // Response: { success: true, data: { pageId, viewport, opened, color_scheme } }
   app.post('/api/exec/page', async (req, res) => {
     try {
-      const { viewport, pageId } = req.body || {};
-      const result = await browserManager.openOwnedPage(viewport, pageId);
+      const { viewport, pageId, colorScheme } = req.body || {};
+      const result = await browserManager.openOwnedPage(viewport, pageId, colorScheme);
       res.json({ success: true, data: result });
     } catch (err) {
       res.status(400).json({ success: false, error: err.message });
@@ -91,7 +92,9 @@ function registerExecRoutes(app, browserManager) {
       const options = { baseUrl };
       if (outputDir) options.outputDir = outputDir;
 
+      await observeColorScheme(page);
       const result = await executeStep(page, step, options);
+      result.color_scheme = await observeColorScheme(page);
 
       res.json({
         success: true,
@@ -101,6 +104,7 @@ function registerExecRoutes(app, browserManager) {
       res.status(500).json({
         success: false,
         error: err.message,
+        data: { color_scheme: err.color_scheme },
       });
     }
   });

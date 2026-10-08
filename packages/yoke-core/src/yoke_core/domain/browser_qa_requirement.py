@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
-import json
 import os
 from typing import Any, Dict, List, Optional
 
 from yoke_contracts.browser_qa_contract import (
     BROWSER_CHECK_METHOD,
     BROWSER_INSPECTION_METHOD,
-    BrowserMethodContractViolation,
-    browser_cleanup_contract_violation,
-    browser_method_contract_violation,
-    case_viewport,
     is_browser_assertion,
 )
 from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain.browser_qa_assertion_evidence import CaseAssertions
+from yoke_core.domain.browser_qa_case_config import (
+    case_settings,
+    parse_case_config,
+    record_color_scheme_observation,
+)
 from yoke_core.domain.browser_qa_failure_capture import failed_step_from_response
 from yoke_core.domain.browser_qa_cleanup import run_cleanup
 from yoke_core.domain.browser_qa_results import RequirementOutcome, RunResult
@@ -42,6 +42,7 @@ def _process_requirement(
     from yoke_core.domain import browser_qa as _bqa
 
     sign_in = dict(sign_in)
+    scheme_evidence: Dict[str, Any] = {}
 
     def _payload(**extra: Any) -> str:
         return _bqa._build_run_payload(
@@ -50,6 +51,7 @@ def _process_requirement(
             code_identity=code_identity,
             freshness_validated=freshness_validated,
             sign_in=sign_in,
+            color_scheme=dict(scheme_evidence),
             **extra,
         )
 
@@ -64,26 +66,13 @@ def _process_requirement(
     }.get(method_id, INVALID_BROWSER_METHOD_LABEL)
     _bqa._log(f"Processing requirement {req_id} ({method_label})...")
 
-    steps = []
-    method_config: Dict[str, Any] = {}
-    if method_config_raw:
-        try:
-            method_config = json.loads(method_config_raw)
-            steps = method_config.get("steps", [])
-        except json.JSONDecodeError:
-            pass
+    method_config = parse_case_config(method_config_raw)
+    steps = method_config.get("steps", [])
 
-    viewport = case_viewport(method_config)
-    violation = (
-        browser_method_contract_violation(str(method_id or ""), steps)
-        if steps
-        else None
+    viewport, scheme, cleanup_steps, violation = case_settings(
+        method_id, method_config, steps
     )
-    cleanup_steps = method_config.get("cleanup_steps", [])
-    if violation is None and "cleanup_steps" in method_config:
-        violation = browser_cleanup_contract_violation(cleanup_steps)
-    if violation is None and isinstance(viewport, BrowserMethodContractViolation):
-        violation = viewport
+    scheme_evidence.update(requested=method_config.get("color_scheme"), observed=None)
     if not steps or violation is not None:
         error_code = violation.code if violation else "missing_steps"
         note = violation.message if violation else "method_config has no 'steps'"
@@ -128,7 +117,11 @@ def _process_requirement(
     page_id = ""
     page_open_error = ""
     try:
-        page_id = _bqa.open_owned_page(viewport)
+        page_id = (
+            _bqa.open_owned_page(viewport, color_scheme=scheme)
+            if scheme is not None
+            else _bqa.open_owned_page(viewport)
+        )
     except RuntimeError as exc:
         page_open_error = str(exc)
         steps = []
@@ -185,6 +178,13 @@ def _process_requirement(
             break
 
         data = response.get("data", response)
+        scheme_error = record_color_scheme_observation(
+            scheme_evidence, data.get("color_scheme")
+        )
+        if scheme_error:
+            _mark_capture_failed(f"step_{step_idx}:{scheme_error};")
+            step_failure = True
+            break
         wall = _sign_in.observe_authentication_wall(sign_in, response, data)
         failed = failed_step_from_response(
             response,
@@ -240,6 +240,7 @@ def _process_requirement(
             viewport=data.get("viewport") if isinstance(data, dict) else None,
             observed_url=str(data.get("url") or "") if isinstance(data, dict) else "",
             actor=actor,
+            color_scheme=scheme_evidence,
         )
         run_artifacts.extend(step_artifacts.paths)
         run_artifact_ids.extend(step_artifacts.artifact_ids)

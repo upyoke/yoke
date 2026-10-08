@@ -149,6 +149,14 @@ def validate_method_config(
             config["ci_workflow"] = workflow.strip()
             _normalize_candidate_inputs(config)
     elif config_contract_id in {"browser-check", "browser-inspection"}:
+        from yoke_contracts.browser_qa_contract import (
+            BrowserMethodContractViolation,
+            case_color_scheme,
+        )
+
+        scheme = case_color_scheme(config)
+        if isinstance(scheme, BrowserMethodContractViolation):
+            raise QaMethodConfigError(scheme.message)
         steps = config.get("steps")
         if not isinstance(steps, list) or not steps:
             raise QaMethodConfigError(

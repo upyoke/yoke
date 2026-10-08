@@ -206,6 +206,12 @@ sweeps are the CI-outage fallback.
 
 ## Browser QA
 
+Browser cases can select `method_config.color_scheme: "light"` or `"dark"`.
+Each case owns its preference; omission keeps the ordinary browser behavior.
+Requested and observed media preference travel with run and screenshot evidence.
+Missing/mismatched observations fail; [Browser configuration](reference/browser-scenarios.md#method-configuration)
+explains recovery. Separate cases inspect both modes, with normal visual review.
+
 Browser methods use the packaged browser runtime. Scenario schemas live under
 reference. See [reference/qa-platform.md](reference/qa-platform.md) and
 [reference/browser-scenarios.md](reference/browser-scenarios.md).

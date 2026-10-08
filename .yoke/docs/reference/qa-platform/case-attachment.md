@@ -4,7 +4,7 @@ A `qa_requirements` row attaches to exactly one subject: an item, an epic
 task, or a deployment run (optionally narrowed to one stage inside that run,
 and one member item inside that stage). The polymorphic constraint enforcing
 that shape lives in [qa-platform.md](../qa-platform.md); this page covers who
-may author each shape, and what the shared reads return for it.
+may author each shape, and what the shared reads return for it. Browser case `method_config.color_scheme` selects `light` or `dark`; [configuration and observed evidence](../browser-scenarios.md#method-configuration) describe its page scope and failure rules.
 
 ## Authoring
 
