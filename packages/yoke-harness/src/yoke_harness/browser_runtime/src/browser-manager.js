@@ -23,6 +23,7 @@
 const crypto = require('crypto');
 const { chromium } = require('playwright');
 const { launchOptions } = require('./browser-executable');
+const { applyColorScheme, validateColorScheme } = require('./page-color-scheme');
 
 /**
  * @param {Object} options
@@ -103,13 +104,15 @@ function createBrowserManager(options = {}) {
    * @param {string} [pageId] - A name the owner reuses across calls.
    * @returns {Promise<{pageId: string, viewport: {width: number, height: number}, opened: boolean}>}
    */
-  async function openOwnedPage(viewport, pageId) {
+  async function openOwnedPage(viewport, pageId, colorScheme) {
     if (!context) {
       throw new Error('Browser not launched. Call launch() first.');
     }
+    validateColorScheme(colorScheme);
     const existing = pageId ? ownedPages.get(pageId) : null;
     if (existing && !existing.isClosed()) {
-      return { pageId, viewport: existing.viewportSize(), opened: false };
+      const color_scheme = await applyColorScheme(existing, colorScheme);
+      return { pageId, viewport: existing.viewportSize(), opened: false, color_scheme };
     }
     const { width, height } = viewport || {};
     if (!Number.isFinite(width) || !Number.isFinite(height)) {
@@ -119,10 +122,17 @@ function createBrowserManager(options = {}) {
       );
     }
     const page = await context.newPage();
-    await page.setViewportSize({ width, height });
+    let color_scheme;
+    try {
+      await page.setViewportSize({ width, height });
+      color_scheme = await applyColorScheme(page, colorScheme);
+    } catch (err) {
+      await page.close().catch(() => {});
+      throw err;
+    }
     const id = pageId || crypto.randomUUID();
     ownedPages.set(id, page);
-    return { pageId: id, viewport: page.viewportSize(), opened: true };
+    return { pageId: id, viewport: page.viewportSize(), opened: true, color_scheme };
   }
 
   /**

@@ -57,6 +57,9 @@ def test_browser_runtime_workflow_gates_every_expensive_step_on_its_tree() -> No
         "Install Chromium",
         "Provision Chromium sandbox",
         "Run browser-runtime tests",
+        "Set up Python for Browser case integration",
+        "Install Browser case integration dependencies",
+        "Run registered Browser case integration",
     }
 
 

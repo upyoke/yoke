@@ -275,6 +275,7 @@ Each materialized requirement carries a `method_config` snapshot. Correct a live
   "instructions": "Open the dashboard and verify its ready state.",
   "expected_outcome": "The dashboard is visible and ready.",
   "method_config": {
+    "color_scheme": "light",
     "steps": [
       {"action": "navigate", "route": "/dashboard"},
       {"action": "assert", "target": "[data-ready=true]", "check": "visible"},
@@ -285,6 +286,12 @@ Each materialized requirement carries a `method_config` snapshot. Correct a live
 ```
 
 Execute one materialized case at a time:
+
+Browser cases may declare `color_scheme: "light"` or `"dark"` for their owned
+page. Runs and captures record requested and observed media preference; a
+missing or mismatched observation fails. Omission keeps the ordinary preference.
+Use separate cases for both modes; visual judgment still assesses the product.
+See [Browser method configuration](browser-scenarios.md#method-configuration).
 
 ```text
 yoke qa case run \

@@ -50,6 +50,7 @@ def record_step_artifacts(
     observed_url: str,
     vacuous_absences: Optional[List[Dict[str, Any]]] = None,
     actor: Optional[ActorContext] = None,
+    color_scheme: Optional[Dict[str, Any]] = None,
 ) -> StepArtifacts:
     """Submit each capture of one step durably and describe the outcome."""
     from yoke_core.domain import browser_qa as _bqa
@@ -79,18 +80,21 @@ def record_step_artifacts(
             observed_url=observed_url,
             vacuous_absences=vacuous_absences,
         )
+        if color_scheme is not None:
+            metadata["color_scheme"] = dict(color_scheme)
         try:
             artifact_id = _bqa._record_artifact_file(
-                run_id, requirement_id, str(artifact_path), "image/png",
-                "screenshot", json.dumps(metadata), actor=actor,
+                run_id,
+                requirement_id,
+                str(artifact_path),
+                "image/png",
+                "screenshot",
+                json.dumps(metadata),
+                actor=actor,
             )
         except _bqa.QaArtifactWriteError as exc:
-            _bqa._log(
-                f"  Step {step_index}: FAILED -- durable artifact storage: {exc}"
-            )
-            outcome.failures += (
-                f"step_{step_index}:artifact_storage_failed:{exc};"
-            )
+            _bqa._log(f"  Step {step_index}: FAILED -- durable artifact storage: {exc}")
+            outcome.failures += f"step_{step_index}:artifact_storage_failed:{exc};"
             continue
         if artifact_id:
             # Capture scratch remains available for in-session inspection;
