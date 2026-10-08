@@ -151,6 +151,9 @@ def _unwrapped_errno(error: BaseException | None) -> int | None:
     if isinstance(candidate, urllib.error.URLError):
         reason = candidate.reason
         candidate = reason if isinstance(reason, BaseException) else candidate
+    # SSL error numbers belong to OpenSSL, not the OS errno namespace.
+    if isinstance(candidate, ssl.SSLError):
+        return None
     return getattr(candidate, "errno", None)
 
 

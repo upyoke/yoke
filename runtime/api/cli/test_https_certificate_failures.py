@@ -26,6 +26,7 @@ from yoke_cli.transport.bounded_json_http import (
 )
 from yoke_cli.transport.https_retry_policy import (
     CONNECTION_ATTEMPTS,
+    is_sandbox_denial,
     should_retry_connection,
 )
 
@@ -90,6 +91,7 @@ def test_certificate_failure_stops_and_preserves_reason(
     if code is None:
         assert "expired" not in response.error.recovery_hint
     assert should_retry_connection(0, CONNECTION.api_url, failure) is False
+    assert is_sandbox_denial(failure) is False
 
 
 @pytest.mark.parametrize("wrapped", [False, True])
@@ -148,6 +150,7 @@ def test_certificate_diagnostic_redacts_all_relay_secrets(monkeypatch, wrapped):
         (PermissionError(errno.EPERM, "denied"), 1),
         (PermissionError(errno.EACCES, "denied"), 1),
         (ConnectionResetError("reset"), CONNECTION_ATTEMPTS),
+        (ssl.SSLError(ssl.SSL_ERROR_SSL, "TLS protocol failure"), CONNECTION_ATTEMPTS),
         (
             socket.gaierror(socket.EAI_NONAME, "unknown DNS failure"),
             CONNECTION_ATTEMPTS,
