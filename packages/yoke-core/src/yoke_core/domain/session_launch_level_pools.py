@@ -12,10 +12,10 @@ An option is blocked only by an affirmative zero: a readable window covering
 its model with no quota left. An unreadable meter, or no meter at all, is
 unknown capacity, and unknown is never exhaustion.
 
-Live workers are counted per machine and surface across every project, plus
-launches already placed there that have not registered yet, because the
-quota pool belongs to the machine's account rather than to one project and a
-launch in flight is a worker the spread rule must not place twice.
+Live workers are counted per surface across every project, plus launches
+already placed there that have not registered yet, because the spread rule
+keeps a worker on every surface and a launch in flight is a worker it must
+not place twice.
 """
 
 from __future__ import annotations
@@ -93,31 +93,28 @@ def exhausted_pool(pools: Sequence[PoolCheck]) -> PoolCheck | None:
     return next((pool for pool in pools if pool.exhausted), None)
 
 
-def live_workers(conn: Any) -> dict[tuple[str, str], int]:
-    """Live workers per ``(machine, surface)``, launches in flight included."""
+def live_workers(conn: Any) -> dict[str, int]:
+    """Live workers per surface, launches in flight included."""
     p = marker(conn)
-    counts: dict[tuple[str, str], int] = {}
+    counts: dict[str, int] = {}
     sessions = conn.execute(
-        "SELECT machine_id AS machine, executor_surface AS surface, COUNT(*) AS n "
-        "FROM harness_sessions "
+        "SELECT executor_surface AS surface, COUNT(*) AS n FROM harness_sessions "
         "WHERE ended_at IS NULL AND terminated_at IS NULL "
         f"AND {not_probe_session_sql('harness_sessions')} "
-        "AND COALESCE(machine_id, '') <> '' "
         "AND COALESCE(executor_surface, '') <> '' "
-        "GROUP BY machine_id, executor_surface"
+        "GROUP BY executor_surface"
     ).fetchall()
     holes = ",".join(p for _ in _IN_FLIGHT_LAUNCH_STATES)
     launches = conn.execute(
-        "SELECT assigned_machine_id AS machine, selected_surface AS surface, "
-        "COUNT(*) AS n "
+        "SELECT selected_surface AS surface, COUNT(*) AS n "
         "FROM session_launches "
         f"WHERE state IN ({holes}) AND registered_session_id IS NULL "
-        "AND COALESCE(assigned_machine_id, '') <> '' "
-        "GROUP BY assigned_machine_id, selected_surface",
+        "AND COALESCE(selected_surface, '') <> '' "
+        "GROUP BY selected_surface",
         _IN_FLIGHT_LAUNCH_STATES,
     ).fetchall()
     for row in [*sessions, *launches]:
-        key = (str(row["machine"]), str(row["surface"]))
+        key = str(row["surface"])
         counts[key] = counts.get(key, 0) + int(row["n"])
     return counts
 

@@ -140,7 +140,7 @@ the rolling 5-hour window, the weekly all-models window, and the weekly
 window scoped to its own family; a Cursor model draws on Cursor Models or on
 Other Models; Codex meters the whole account weekly. Then:
 
-1. **Spread.** An option on a machine and surface with no live worker (or
+1. **Spread.** An option on a surface with no live worker (or
    launch in flight) and more than 100% headroom wins first, so quota that
    cannot run out before its reset is put to work.
 2. **Most headroom.** Otherwise the option with the most headroom on its

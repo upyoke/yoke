@@ -153,7 +153,7 @@ def test_an_idle_surface_above_full_headroom_is_spread_to_first(monkeypatch) -> 
     conn = level_connection(CLAUDE_OPUS, CODEX_SOL)
     add_surface(conn, "m1", "claude-cli", [weekly(60.0)])
     add_surface(conn, "m2", "codex-cli", [weekly(95.0)])
-    pin_live_workers(monkeypatch, {("m2", "codex-cli"): 1})
+    pin_live_workers(monkeypatch, {"codex-cli": 1})
 
     placement = _place(conn)
 
@@ -168,7 +168,7 @@ def test_a_surface_with_a_live_worker_gets_no_spread_priority(monkeypatch) -> No
     add_surface(conn, "m1", "claude-cli", [weekly(75.0)])
     add_surface(conn, "m2", "codex-cli", [weekly(45.0)])
 
-    pin_live_workers(monkeypatch, {("m1", "claude-cli"): 2})
+    pin_live_workers(monkeypatch, {"claude-cli": 2})
 
     placement = _place(conn)
 

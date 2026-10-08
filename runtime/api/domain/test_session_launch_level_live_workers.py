@@ -67,6 +67,8 @@ def test_live_sessions_and_unregistered_launches_both_count(test_db) -> None:
 
     counts = live_workers(conn)
 
-    assert counts[("machine-1", "codex-cli")] == 2
-    assert counts[("machine-1", "claude-cli")] == 1
-    assert counts[("machine-2", "claude-cli")] == 2
+    # Counted per surface across machines: one live claude-cli session plus
+    # two claude-cli launches in flight; the registered and failed launches
+    # and the ended and terminated sessions do not count.
+    assert counts["codex-cli"] == 2
+    assert counts["claude-cli"] == 3

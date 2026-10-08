@@ -121,8 +121,8 @@ def add_surface(
     )
 
 
-def pin_live_workers(monkeypatch, workers: dict[tuple[str, str], int]) -> None:
-    """Fix the live-worker count per (machine, surface) placement reads.
+def pin_live_workers(monkeypatch, workers: dict[str, int]) -> None:
+    """Fix the live-worker count per surface that placement reads.
 
     The real count reads session rows through a Postgres-only probe filter;
     these tests decide placement, so they state the counts directly.

@@ -9,16 +9,18 @@ confirmed empty there.
 
 The choice, in order:
 
-1. **Spread.** A candidate on a machine and surface with no live worker and
-   more than 100% headroom wins first, so idle quota that cannot run out
-   before its reset is put to work rather than left behind.
+1. **Spread.** A candidate on a surface with no live worker and more than
+   100% headroom wins first, so idle quota that cannot run out before its
+   reset is put to work rather than left behind.
 2. **Most headroom.** Otherwise the candidate with the most binding headroom
    wins; a candidate whose pools publish no readable meter ranks below every
    readable one.
 3. **Order.** The level's option order, then machine id, break ties.
 
 When no option can launch anywhere, the launch is refused with every option
-and the pool or eligibility rule that blocked it. A level never borrows
+and the pool or eligibility rule that blocked it. The Levels page's capacity
+read (:mod:`universe_level_capacity`) applies the same rule universe-wide;
+this module applies it to the machines one caller may launch on. A level never borrows
 another level's options: steering decides whether to relaunch elsewhere.
 """
 
@@ -48,12 +50,11 @@ from yoke_core.domain.session_launch_types import (
     SessionLaunchError,
 )
 from yoke_core.domain.steering_fleet_report_limits import load_plan_limits
+from yoke_core.domain.universe_level_capacity import SPREAD_HEADROOM_PERCENT
 from yoke_core.domain.universe_levels import effective_levels
 
 LEVEL_NO_CAPACITY = "level_no_capacity"
 LEVEL_UNKNOWN = "level_unknown"
-#: Headroom above this cannot run out before the window resets.
-SPREAD_HEADROOM_PERCENT = 100.0
 RULE_SPREAD = "spread"
 RULE_HEADROOM = "most_headroom"
 
@@ -144,7 +145,7 @@ def _weigh(
     index: int,
     relay: EligibleRelay,
     limits: Sequence[Any],
-    workers: dict[tuple[str, str], int],
+    workers: dict[str, int],
     now: str,
     fallback: bool,
 ) -> LevelCandidate:
@@ -168,7 +169,7 @@ def _weigh(
         pools=pools,
         headroom_percent=binding.headroom_percent if binding else None,
         headroom_window=binding.window if binding else None,
-        live_workers=workers.get((relay.machine_id, option.surface), 0),
+        live_workers=workers.get(option.surface, 0),
         blocked=(
             f"{empty.window} pool exhausted (resets {empty.resets_at or 'unknown'})"
             if empty
@@ -274,8 +275,8 @@ def _reason(chosen: LevelCandidate, rule: str, open_: list[LevelCandidate]) -> s
         return f"only option with capacity: {chosen.label}, headroom {headroom}{window}"
     if rule == RULE_SPREAD:
         return (
-            f"spread rule: no live worker on {chosen.surface} on "
-            f"{chosen.machine_id} and headroom {headroom}{window} above "
+            f"spread rule: no live worker on {chosen.surface} and headroom "
+            f"{headroom}{window} above "
             f"{int(SPREAD_HEADROOM_PERCENT)}%; chose {chosen.label}"
         )
     return f"most headroom: {chosen.label} at {headroom}{window}"
