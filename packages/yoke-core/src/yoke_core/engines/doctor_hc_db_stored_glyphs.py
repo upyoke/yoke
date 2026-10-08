@@ -12,9 +12,10 @@ that corrects it.
 Scope:
 
 * ``projects.emoji`` — corrected with ``yoke projects update``.
-* ``level_metadata.<LEVEL>.glyph`` in each project's ``session-routing``
-  capability settings — corrected with
-  ``yoke projects capability-settings merge``.
+* ``levels[N].glyph`` in the universe levels (``universe_settings``) —
+  corrected with ``yoke universe levels set --stdin`` — and in each project's
+  ``session-routing`` levels override — corrected with
+  ``yoke projects capability-settings set``.
 * ``stages[].glyph`` in every stored workflow version — corrected by
   publishing a version whose stage carries a contract-safe glyph through the
   workflow's own source (the code-owned fixture for a built-in, the owning
@@ -71,35 +72,54 @@ def project_emoji_violations(conn) -> list[str]:
     return violations
 
 
+def _levels_glyph_violations(levels: Any, where: str, correction: str) -> list[str]:
+    violations: list[str] = []
+    if not isinstance(levels, list):
+        return violations
+    for index, level in enumerate(levels):
+        if not isinstance(level, dict) or "glyph" not in level:
+            continue
+        reason = glyph_contract_error(level["glyph"])
+        if reason is None:
+            continue
+        violations.append(
+            f"levels[{index}].glyph ({level.get('name')}) in {where} "
+            f"({level['glyph']!r}) {reason}. Correct with: {correction}"
+        )
+    return violations
+
+
 def level_glyph_violations(conn) -> list[str]:
-    """Report each ``session-routing`` level glyph the contract refuses."""
+    """Report each universe or project-override level glyph the contract refuses."""
+    violations: list[str] = []
+    if _table_exists(conn, "universe_settings"):
+        for row in query_rows(
+            conn, "SELECT value FROM universe_settings WHERE key = 'levels'"
+        ):
+            violations += _levels_glyph_violations(
+                _load_json(row["value"]),
+                "the universe levels",
+                "yoke universe levels get --json, correct the glyph, then "
+                "yoke universe levels set --stdin",
+            )
+    if not _table_exists(conn, "project_capabilities"):
+        return violations
     rows = query_rows(
         conn,
         "SELECT p.slug, c.settings FROM project_capabilities c "
         "JOIN projects p ON p.id = c.project_id "
         "WHERE c.type = 'session-routing' ORDER BY p.id",
     )
-    violations: list[str] = []
     for row in rows:
         settings = _load_json(row["settings"])
-        metadata = (
-            settings.get("level_metadata") if isinstance(settings, dict) else None
+        slug = shlex.quote(str(row["slug"]))
+        violations += _levels_glyph_violations(
+            settings.get("levels") if isinstance(settings, dict) else None,
+            f"project {row['slug']} session-routing levels override",
+            f"yoke projects capability-settings set --project {slug} "
+            "--cap-type session-routing --settings-json '{\"levels\": [...]}' "
+            "--base AS_READ_JSON",
         )
-        if not isinstance(metadata, dict):
-            continue
-        for level, entry in sorted(metadata.items()):
-            if not isinstance(entry, dict) or "glyph" not in entry:
-                continue
-            reason = glyph_contract_error(entry["glyph"])
-            if reason is None:
-                continue
-            violations.append(
-                f"level_metadata.{level}.glyph in project {row['slug']} "
-                f"session-routing settings ({entry['glyph']!r}) {reason}. "
-                "Correct with: yoke projects capability-settings merge "
-                f"--project {shlex.quote(str(row['slug']))} --cap-type "
-                f"session-routing --set level_metadata.{level}.glyph=<glyph>"
-            )
     return violations
 
 
@@ -151,8 +171,7 @@ def stored_glyph_violations(conn) -> list[str]:
     violations: list[str] = []
     if _table_exists(conn, "projects"):
         violations += project_emoji_violations(conn)
-        if _table_exists(conn, "project_capabilities"):
-            violations += level_glyph_violations(conn)
+        violations += level_glyph_violations(conn)
     if _table_exists(conn, "workflow_versions") and _table_exists(conn, "workflows"):
         violations += workflow_stage_glyph_violations(conn)
     return violations

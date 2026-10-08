@@ -49,12 +49,23 @@ def _run(conn):
     return result
 
 
+def _levels(glyph: str) -> list:
+    return [{"name": "RESEARCH", "glyph": glyph, "options": []}]
+
+
 def _seed_level_glyph(conn, glyph: str) -> None:
-    settings = {"level_metadata": {"RESEARCH": {"label": "RESEARCH", "glyph": glyph}}}
     conn.execute(
         "INSERT INTO project_capabilities (project_id, type, settings, created_at) "
         "VALUES (1, 'session-routing', %s, '2026-10-08T00:00:00Z')",
-        (json.dumps(settings),),
+        (json.dumps({"levels": _levels(glyph)}),),
+    )
+
+
+def _seed_universe_level_glyph(conn, glyph: str) -> None:
+    conn.execute(
+        "INSERT INTO universe_settings (key, value, updated_at) "
+        "VALUES ('levels', %s, '2026-10-08T00:00:00Z')",
+        (json.dumps(_levels(glyph)),),
     )
 
 
@@ -77,6 +88,7 @@ def _seed_workflow_stage_glyph(conn, glyph: str) -> None:
 
 def test_a_clean_universe_passes(conn) -> None:
     _seed_level_glyph(conn, "\U0001f52c")
+    _seed_universe_level_glyph(conn, "\U0001f680")
     result = _run(conn)
     assert result.result == "PASS", result.detail
 
@@ -84,21 +96,24 @@ def test_a_clean_universe_passes(conn) -> None:
 def test_each_stored_violation_fails_with_its_location_and_correction(conn) -> None:
     conn.execute("UPDATE projects SET emoji = %s WHERE slug = 'yoke'", (_UNSAFE,))
     _seed_level_glyph(conn, "⚠")
+    _seed_universe_level_glyph(conn, "⚠")
     _seed_workflow_stage_glyph(conn, "▫")
 
     result = _run(conn)
 
     assert result.result == "FAIL"
-    assert "3 stored glyph(s)" in result.detail
+    assert "4 stored glyph(s)" in result.detail
     assert "projects.emoji for project yoke" in result.detail
     assert (
         "yoke projects update --slug yoke --name Yoke --emoji <glyph>" in result.detail
     )
-    assert "level_metadata.RESEARCH.glyph in project yoke" in result.detail
     assert (
-        "--cap-type session-routing --set level_metadata.RESEARCH.glyph=<glyph>"
+        "levels[0].glyph (RESEARCH) in project yoke session-routing levels override"
         in result.detail
     )
+    assert "--cap-type session-routing --settings-json" in result.detail
+    assert "levels[0].glyph (RESEARCH) in the universe levels" in result.detail
+    assert "yoke universe levels set --stdin" in result.detail
     assert "workflow dash v999 stages[0].glyph" in result.detail
     assert "yoke workflows canon-update apply dash" in result.detail
     assert "U+FE0F" in result.detail

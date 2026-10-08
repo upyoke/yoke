@@ -219,9 +219,7 @@ def parse_levels(raw: Any, *, field: str = LEVELS_KEY) -> tuple[Level, ...]:
                 field=f"{level_field}.name",
             )
         try:
-            glyph = validate_glyph(
-                mapping.get("glyph"), field=f"{level_field}.glyph"
-            )
+            glyph = validate_glyph(mapping.get("glyph"), field=f"{level_field}.glyph")
         except GlyphContractError as exc:
             raise LevelsError(
                 "level_glyph_unsafe", str(exc), field=f"{level_field}.glyph"
