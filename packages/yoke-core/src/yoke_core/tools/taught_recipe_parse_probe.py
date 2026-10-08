@@ -27,6 +27,7 @@ from typing import Iterator, List, Optional, Sequence, Tuple
 
 from yoke_cli.commands.registry import resolve
 from yoke_contracts.items_projection import ALLOWED_GET_FIELDS, unknown_field_message
+from yoke_core.tools.taught_recipe_semantic_probe import probe_recipe
 
 
 # A shell operator ends the yoke invocation; everything past it belongs to
@@ -250,6 +251,9 @@ def parse_probe(recipe: str) -> Tuple[bool, Optional[str], Optional[str]]:
     calls, so a rejected argument shape lands as ordinary
     ``stale_argument_shape`` drift beside the resolution findings.
     """
+    semantic = probe_recipe(recipe, normalize)
+    if semantic.status == "invalid":
+        return False, None, semantic.detail
     verdict: Tuple[bool, Optional[str], Optional[str]] = (True, None, None)
     for numeric in (False, True):
         command_argv = _tokens(normalize(recipe, numeric=numeric))
@@ -266,7 +270,15 @@ def parse_probe(recipe: str) -> Tuple[bool, Optional[str], Optional[str]]:
             command_argv = repaired
             function_id, detail = _usage_error(command_argv)
         if detail is None:
-            return True, function_id, None
+            return (
+                True,
+                function_id,
+                (
+                    f"semantic_unverifiable: {semantic.detail}"
+                    if semantic.status == "unverifiable"
+                    else None
+                ),
+            )
         verdict = (False, function_id, detail)
     return verdict
 

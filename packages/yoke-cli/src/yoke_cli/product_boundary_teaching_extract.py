@@ -93,7 +93,7 @@ def _recipes_from_text(text: str) -> Iterable[tuple[int, str, bool]]:
     for match in _FENCED_RE.finditer(text):
         fenced_ranges.append((match.start(), match.end()))
         block_start_line = text[: match.start(1)].count("\n") + 1
-        for relative_line, line in _join_continuations(match.group(1)):
+        for relative_line, line in _quoted_recipe_lines(match.group(1)):
             recipe = _command_from_line(line)
             if recipe:
                 key = (block_start_line + relative_line - 1, recipe)
@@ -124,6 +124,25 @@ def _join_continuations(block: str) -> list[tuple[int, str]]:
         out.append((line_no_offset, current))
         i += 1
     return out
+
+
+def _quoted_recipe_lines(block: str) -> Iterable[tuple[int, str]]:
+    """Keep literal multiline JSON arguments intact with their source line."""
+    pending = ""
+    start = 0
+    for line_number, line in _join_continuations(block):
+        if not pending:
+            start = line_number
+        current = pending + " " + line if pending else line
+        try:
+            shlex.split(current)
+        except ValueError:
+            pending = current
+            continue
+        yield start, current
+        pending = ""
+    if pending:
+        yield start, pending
 
 
 def _command_from_line(line: str) -> str | None:

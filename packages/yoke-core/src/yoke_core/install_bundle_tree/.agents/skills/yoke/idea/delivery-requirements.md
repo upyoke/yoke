@@ -130,7 +130,7 @@ yoke qa requirement add --item PREFIX-N \
   --requirement-source explicit \
   --instructions "Capture the requested running surface on ENV." \
   --expected-outcome "The screenshot shows the requested behavior on ENV." \
-  --method-config '{"steps":[{"action":"navigate","route":"/ROUTE"},{"action":"screenshot","capture":true,"name":"intake"}]}' \
+  --method-config '{"steps":[{"action":"navigate","route":"/ROUTE"},{"action":"screenshot","capture":true,"label":"intake"}]}' \
   --workflow-transition release
 ```
 
