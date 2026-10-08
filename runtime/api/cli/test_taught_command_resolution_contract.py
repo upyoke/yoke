@@ -8,7 +8,9 @@ field note.
 
 The audit resolves each spelling; ``taught_recipe_parse_probe``
 substitutes documentation placeholders and asks the resolved adapter's
-parser about the rest, without ever running the adapter.
+parser about the rest, stopping before dispatch. Literal browser steps and
+marked mission capabilities also pass their pure product contracts; dynamic
+configuration remains explicitly unverifiable.
 """
 
 from __future__ import annotations

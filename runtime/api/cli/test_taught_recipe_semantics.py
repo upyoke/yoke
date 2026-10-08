@@ -99,6 +99,17 @@ def test_malformed_literal_json_is_rejected(no_dispatch):
     )
 
 
+def test_dynamic_policy_does_not_hide_invalid_literal_steps(no_dispatch):
+    recipe = _recipe(
+        {"steps": [{"action": "screenshot", "capture": True, "name": "intake"}]}
+    )
+    recipe = recipe.replace(
+        "--method-config", "--success-policy '$POLICY' --method-config"
+    )
+    assert not parse_probe(recipe)[0]
+    assert "step_key_unrecognized" in parse_probe(recipe)[2]
+
+
 def test_multiline_literal_keeps_original_keys(tmp_path, no_dispatch):
     recipe = _recipe(
         {"steps": [{"action": "screenshot", "capture": True, "name": "bad"}]}

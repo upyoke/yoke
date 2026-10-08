@@ -9,8 +9,10 @@ longer carries hides.
 
 This module is the ``SmokeRunner`` that closes that half. It substitutes
 each placeholder with a concrete stand-in and asks the resolved adapter's
-argument parser whether it accepts the literal. Only the parser's verdict
-is read, and the probe unwinds the moment that verdict exists: a
+argument parser whether it accepts the literal. Original literal browser
+steps also pass the pure runtime schema before placeholder substitution.
+Dynamic payloads remain explicitly unverifiable. The probe unwinds as soon
+as the parser's verdict exists: a
 registered command can install a Pack, sync a snapshot, or open a
 database, and a check that reads documentation has no business doing any
 of those.

@@ -58,17 +58,14 @@ def probe_recipe(recipe: str, normalize: Callable[[str], str]) -> SemanticProbe:
         elif token.startswith(("--method-config=", "--success-policy=")):
             payloads.append(token.split("=", 1)[1])
     checked = False
+    unverified = None
     for raw in payloads:
         if re.fullmatch(r"\{[^{}\":]+\}", raw):
-            return SemanticProbe(
-                "unverifiable",
-                "documentation placeholder; supply a literal payload for semantic validation",
-            )
+            unverified = "documentation placeholder; supply a literal payload for semantic validation"
+            continue
         if not raw.startswith(("{", "[")):
-            return SemanticProbe(
-                "unverifiable",
-                "dynamic or policy payload; requires live authoring validation",
-            )
+            unverified = "dynamic or policy payload; requires live authoring validation"
+            continue
         try:
             value = json.loads(raw)
         except ValueError as exc:
@@ -94,6 +91,8 @@ def probe_recipe(recipe: str, normalize: Callable[[str], str]) -> SemanticProbe:
                     "invalid", f"{violation.code}: {violation.message}"
                 )
         checked = True
+    if unverified:
+        return SemanticProbe("unverifiable", unverified)
     if checked:
         return SemanticProbe(
             "validated",
