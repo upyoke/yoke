@@ -177,6 +177,10 @@ def test_mouse_reporting_stays_on_in_every_terminal(monkeypatch, term_program) -
     calls: list[dict] = []
     monkeypatch.setenv("TERM_PROGRAM", term_program)
     monkeypatch.setattr(
+        "yoke_cli.config.onboard_terminal_driver.require_foreground_terminal",
+        lambda *_: None,
+    )
+    monkeypatch.setattr(
         OnboardWizardApp,
         "_hydrate_stored_credentials",
         lambda *_args: None,
