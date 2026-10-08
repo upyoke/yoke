@@ -41,9 +41,8 @@ from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.handlers.qa import _error, _p
 from yoke_core.domain.handlers.qa_requirement_insert import (
-    INSERT_SQL,
     RequirementSubject,
-    insert_params,
+    execute_insert,
 )
 from yoke_core.domain.handlers.qa_requirement_method_validation import (
     validate_method_requirement,
@@ -278,10 +277,7 @@ def handle_deployment_run_requirement_add(
                 refused,
                 jsonpath="$.payload.deployment_stage",
             )
-        cur = conn.execute(
-            INSERT_SQL.format(p=_p(conn)),
-            insert_params(subject, row, iso8601_now()),
-        )
+        cur = execute_insert(conn, subject, row, iso8601_now())
         inserted_id = int(cur.fetchone()[0])
         conn.commit()
         emit_qa_requirement_event(

@@ -10,11 +10,11 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_requirement_snapshot_format import (
     CASE_FIELDS,
     PLAN_CASE_COLUMNS,
-    converged_select,
     PLAN_FIELDS,
     REQUIREMENT_FIELDS,
     semantic_row,
 )
+from yoke_core.domain.qa_converging_columns import converged_select
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.qa_plan_attachment_reads import (
     live_item_attachment_sql,

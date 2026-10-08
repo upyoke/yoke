@@ -207,10 +207,13 @@ def materialize_admitted_requirement(
         target_digest(target),
         now,
     )
+    from yoke_core.domain.qa_converging_columns import converged_values
+
+    stored = converged_values(conn, "qa_requirements", dict(zip(columns, values)))
     created = conn.execute(
-        f"INSERT INTO qa_requirements({','.join(columns)}) VALUES "
-        f"({','.join('%s' for _ in columns)}) RETURNING id",
-        values,
+        f"INSERT INTO qa_requirements({','.join(stored)}) VALUES "
+        f"({','.join('%s' for _ in stored)}) RETURNING id",
+        tuple(stored.values()),
     ).fetchone()
     return int(created["id"] if hasattr(created, "keys") else created[0]), True
 

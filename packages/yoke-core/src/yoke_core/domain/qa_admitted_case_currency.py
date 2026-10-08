@@ -27,6 +27,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from yoke_core.domain.qa_converging_columns import converged_select
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.deployment_qa_admission_materialization import (
     admitted_source_requirement_id,
@@ -206,7 +207,7 @@ def definition_snapshot(row: Any) -> dict[str, str]:
 
 
 def _definition_row(conn: Any, requirement_id: int) -> Any:
-    columns = ",".join(DEFINITION_COLUMNS)
+    columns = converged_select(conn, "qa_requirements", DEFINITION_COLUMNS)
     return query_one(
         conn,
         f"SELECT id,plan_case_key,{columns} FROM qa_requirements "

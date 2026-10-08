@@ -33,11 +33,10 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
 )
-from yoke_core.domain.handlers.qa import _error, _p
+from yoke_core.domain.handlers.qa import _error
 from yoke_core.domain.handlers.qa_requirement_insert import (
-    INSERT_SQL,
     RequirementSubject,
-    insert_params,
+    execute_insert,
 )
 from yoke_core.domain.post_deploy_verification_answer import (
     DECLARATION_QA_KIND,
@@ -155,11 +154,8 @@ def handle_qa_post_deploy_declare_none(
             "instructions": body.reason,
             "workflow_transition_id": transition_id,
         }
-        cur = conn.execute(
-            INSERT_SQL.format(p=_p(conn)),
-            insert_params(
-                RequirementSubject.for_item(int(item_id)), row, iso8601_now()
-            ),
+        cur = execute_insert(
+            conn, RequirementSubject.for_item(int(item_id)), row, iso8601_now()
         )
         requirement_id = int(cur.fetchone()[0])
         conn.commit()

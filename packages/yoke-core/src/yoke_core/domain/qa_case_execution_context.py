@@ -6,6 +6,8 @@ import json
 from typing import Any
 
 from yoke_contracts.qa_case_starting_state import is_machine_runner
+from yoke_core.domain.qa_converging_columns import STARTING_STATE_COLUMNS as _SS
+from yoke_core.domain.qa_converging_columns import converged_select
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.deployment_run_project_sources import run_source_sha
@@ -85,7 +87,7 @@ def get_case_execution_context(
         "q.plan_id, q.target_env, "
         "q.plan_case_key, q.method_id, q.qa_kind, q.instructions, "
         "q.expected_outcome, q.method_config, q.host_baseline, "
-        "q.starting_state, q.starting_state_reason, "
+        f"{converged_select(conn, 'qa_requirements', _SS, 'q')}, "
         "q.workflow_transition_id, q.entry_surface, "
         "q.required_completion, q.method_name, q.runner_id, "
         "q.capability_requirements, q.verdict_path, "

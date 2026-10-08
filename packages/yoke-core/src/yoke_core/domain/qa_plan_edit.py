@@ -6,6 +6,10 @@ import json
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_core.domain.qa_converging_columns import (
+    STARTING_STATE_COLUMNS,
+    converged_select,
+)
 from yoke_core.domain.qa_plan_case_store import insert_plan_cases
 from yoke_core.domain.qa_plan_management import (
     QaPlanError,
@@ -60,8 +64,9 @@ def _current_cases(conn: Any, plan_id: int) -> list[dict[str, Any]]:
             conn,
             "SELECT case_key, position, method_id, instructions, "
             "expected_outcome, method_config, success_policy_id, "
-            "success_policy_params, host_baselines, starting_state, "
-            "starting_state_reason, entry_surface, "
+            "success_policy_params, host_baselines, "
+            f"{converged_select(conn, 'qa_plan_cases', STARTING_STATE_COLUMNS)}, "
+            "entry_surface, "
             f"required_completion FROM qa_plan_cases WHERE plan_id={marker} "
             "ORDER BY position",
             (plan_id,),

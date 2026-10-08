@@ -32,14 +32,13 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-from yoke_core.domain.handlers.qa import _error, _p
+from yoke_core.domain.handlers.qa import _error
 from yoke_core.domain.handlers.qa_requirement_deployment_run_create import (
     handle_deployment_run_requirement_add,
 )
 from yoke_core.domain.handlers.qa_requirement_insert import (
-    INSERT_SQL,
     RequirementSubject,
-    insert_params,
+    execute_insert,
 )
 from yoke_core.domain.handlers.qa_requirement_row_validation import validate_row
 from yoke_core.domain.handlers.qa_requirement_method_validation import (
@@ -146,7 +145,6 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
         )
         if invalid is not None:
             return invalid
-        p = _p(conn)
         from yoke_core.domain.qa_environment_execution_target import (
             bind_item_named_target,
         )
@@ -154,9 +152,8 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
         refused = bind_item_named_target(conn, item_id=int(item_id), row=row)
         if refused:
             return _error("payload_invalid", refused, jsonpath="$.payload.target_env")
-        cur = conn.execute(
-            INSERT_SQL.format(p=p),
-            insert_params(RequirementSubject.for_item(item_id), row, iso8601_now()),
+        cur = execute_insert(
+            conn, RequirementSubject.for_item(item_id), row, iso8601_now()
         )
         inserted_id = int(cur.fetchone()[0])
         conn.commit()
@@ -256,7 +253,6 @@ def handle_qa_requirement_add_batch(
     try:
         try:
             lock_item_workflow_bindings(conn, (int(item_id),))
-            p = _p(conn)
             now_iso = iso8601_now()
             from yoke_core.domain.qa_environment_execution_target import (
                 bind_item_named_target,
@@ -288,9 +284,8 @@ def handle_qa_requirement_add_batch(
                         refused,
                         jsonpath=f"$.payload.rows[{len(inserted_ids)}].target_env",
                     )
-                cur = conn.execute(
-                    INSERT_SQL.format(p=p),
-                    insert_params(RequirementSubject.for_item(item_id), row, now_iso),
+                cur = execute_insert(
+                    conn, RequirementSubject.for_item(item_id), row, now_iso
                 )
                 inserted_ids.append(int(cur.fetchone()[0]))
             conn.commit()

@@ -24,7 +24,7 @@ from yoke_core.domain.db_helpers import (
     query_rows,
 )
 from yoke_core.domain.qa_constants import (
-    _REQ_SELECT,
+    requirement_select,
     _pipe_row,
 )
 from yoke_core.domain.qa_events import emit_qa_requirement_event
@@ -63,7 +63,8 @@ def cmd_requirement_list(
 
         rows = query_rows(
             conn,
-            f"SELECT {_REQ_SELECT} FROM qa_requirements WHERE {where} ORDER BY id",
+            f"SELECT {requirement_select(conn)} FROM qa_requirements "
+            f"WHERE {where} ORDER BY id",
             tuple(params),
         )
     finally:
@@ -95,7 +96,9 @@ def cmd_requirement_get(
     conn = connect(path=db_path)
     try:
         row = query_one(
-            conn, f"SELECT {_REQ_SELECT} FROM qa_requirements WHERE id = %s", (req_id,)
+            conn,
+            f"SELECT {requirement_select(conn)} FROM qa_requirements WHERE id = %s",
+            (req_id,),
         )
     finally:
         conn.close()
