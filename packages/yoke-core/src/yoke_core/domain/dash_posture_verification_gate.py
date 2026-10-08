@@ -18,11 +18,13 @@ from yoke_core.domain.deployment_qa_source_obligation import (
     source_obligation_consumed,
 )
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
-from yoke_core.domain.qa_obligation_settlement import obligation_settled
+from yoke_core.domain.qa_obligation_settlement import (
+    effective_requirement,
+    obligation_settled,
+)
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.qa_requirement_replacement import replacement_note
 from yoke_core.domain.qa_requirement_source_retirement import is_source_retirement
-from yoke_core.domain.qa_requirement_supersession import same_scope
 from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
@@ -51,44 +53,35 @@ def _requirement_consumed(
     from yoke_core.domain.qa_latest_execution import latest_executions
     from yoke_core.domain.qa_simulation_triage import current_simulation_triage
 
-    seen = set()
-    while obligation_settled(row):
+    if obligation_settled(row):
         if (
             row.get("waived_at")
             or row.get("retracted_at")
             or row.get("triage_discharge")
         ):
             return True
-        replacement_id = int(
-            row.get("replacement_requirement_id")
-            or row.get("superseded_by_requirement_id")
-            or 0
-        )
         if is_source_retirement(row):
+            replacement_id = int(
+                row.get("replacement_requirement_id")
+                or row.get("superseded_by_requirement_id")
+                or 0
+            )
             return not pre_merge and source_obligation_consumed(
                 conn, item_id=int(item_id), source_requirement_id=replacement_id
             )
-        if replacement_id in seen or not replacement_id:
-            return False
-        seen.add(replacement_id)
-        replacement = conn.execute(
-            f"SELECT * FROM qa_requirements WHERE id={_p(conn)}", (replacement_id,)
-        ).fetchone()
-        if (
-            not replacement
-            or same_scope(dict(row), dict(replacement))
-            or replacement["blocking_mode"] != "blocking"
-        ):
-            return False
-        row = dict(replacement)
+        row = effective_requirement(conn, int(row["id"]))
         row["triage_discharge"] = (
-            current_simulation_triage(conn, replacement_id)
+            current_simulation_triage(conn, int(row["id"]))
             if row.get("qa_kind") == "simulation"
             else None
         )
-        row["passed"] = passed = has_current_passing_run(conn, replacement_id)
-        if not obligation_settled(row) and candidate_shas:
-            latest = latest_executions(conn, [replacement_id]).get(replacement_id)
+        if obligation_settled(row):
+            return True
+        row["passed"] = passed = has_current_passing_run(conn, int(row["id"]))
+        from yoke_core.domain.qa_subject_proof import requires_code_identity
+
+        if candidate_shas and requires_code_identity(row):
+            latest = latest_executions(conn, [int(row["id"])]).get(int(row["id"]))
             if (
                 not latest
                 or recorded_head_sha(latest["raw_result"]) not in candidate_shas

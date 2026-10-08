@@ -71,6 +71,8 @@ admitted copy or the source obligation from which it came.
 
 Proof must describe the same selected attempt and subject. Code proof records
 the observed build identity; an expected release SHA is not an observation.
+Browser capture time never substitutes for observed identity. A build may
+prove an accepted landing through verified repository containment.
 Terminal settlement checks code/build SHA only for a code subject. Frozen
 Machine/mission runners prove the same actual capture through the admitted
 case result, baseline, host lease and contract; a direct Machine case uses its

@@ -114,8 +114,53 @@ def obligation_settled(row: Mapping[str, Any]) -> bool:
     )
 
 
+def effective_requirement(conn: Any, requirement_id: int) -> dict[str, Any]:
+    """Follow the durable correction graph to its final same-scope obligation."""
+    from yoke_core.domain.db_helpers import query_one
+    from yoke_core.domain.qa_plan_execution_store import marker
+    from yoke_core.domain.qa_requirement_supersession import same_scope
+
+    seen: set[int] = set()
+    previous = None
+    while True:
+        if requirement_id in seen:
+            raise ValueError(
+                "replacement_graph_invalid: correction cycle; restore an acyclic same-scope chain through registered correction surfaces"
+            )
+        seen.add(requirement_id)
+        stored = query_one(
+            conn,
+            f"SELECT * FROM qa_requirements WHERE id={marker(conn)}",
+            (requirement_id,),
+        )
+        if stored is None:
+            raise ValueError(
+                "replacement_graph_invalid: missing successor; restore the named requirement through the control-plane operator"
+            )
+        row = dict(stored)
+        if previous is not None and (
+            same_scope(previous, row) or row.get("blocking_mode") != "blocking"
+        ):
+            raise ValueError(
+                "replacement_graph_invalid: successor changes obligation scope; restore the original scope through registered correction surfaces"
+            )
+        edges = {
+            int(row[key])
+            for key in ("replacement_requirement_id", "superseded_by_requirement_id")
+            if row.get(key)
+        }
+        if len(edges) > 1:
+            raise ValueError(
+                "replacement_graph_invalid: conflicting successor links; reconcile their durable correction audit with the control-plane operator"
+            )
+        if not edges:
+            return row
+        previous, requirement_id = row, edges.pop()
+
+
 __all__ = [
     "SETTLED_OBLIGATION_SQL",
+    "effective_requirement",
     "item_supersession_open_sql",
     "item_supersession_settled",
     "unanswered_attempt_sql",

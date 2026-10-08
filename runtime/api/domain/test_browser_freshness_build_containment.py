@@ -198,3 +198,17 @@ def test_a_build_no_source_can_place_refuses_with_that_reason(
     # Re-running the case would record the same revision forever, so the
     # refusal names the source that could not answer instead.
     assert "could not be determined" in stale[0][4]
+
+
+@pytest.mark.parametrize("observed_sha", [None, "b" * 40])
+def test_capture_time_never_substitutes_for_observed_build(observed_sha):
+    from yoke_core.domain.qa_browser_freshness_check import _run_covers_latest_code
+
+    row = {
+        "created_at": "2026-10-01T00:00:00Z",
+        "raw_result": json.dumps({"code_identity": {"sha": observed_sha}}),
+    }
+    verdict, _ = _run_covers_latest_code(
+        row, LatestCodeRef(sha="a" * 40, timestamp="2026-09-01T00:00:00Z")
+    )
+    assert verdict is False

@@ -217,3 +217,41 @@ def test_prod_rebinds_a_requirement_to_stage(test_db, monkeypatch) -> None:
     ).fetchone()
     assert stored["target_env"] == "stage"
     assert stored["execution_target_digest"]
+
+
+def test_source_retirement_cannot_borrow_a_replaced_cases_old_pass(test_db):
+    from runtime.api.fixtures.backlog import insert_qa_run
+    from yoke_core.domain.qa_requirement_replacement import declare_existing_replacement
+
+    item_id = 2374
+    _insert_dash(test_db, item_id=item_id, status="release")
+    source_id, copy_id, run_case_id = deliver_with_failing_admitted_copy(
+        test_db, item_id=item_id, run_id="run-current-source-proof", corrected=True
+    )
+    supersede_requirement(
+        test_db,
+        requirement_id=copy_id,
+        superseded_by_requirement_id=run_case_id,
+        rationale="the corrected capture answered the admitted copy",
+        source="agent",
+    )
+    insert_qa_run(
+        test_db,
+        qa_requirement_id=run_case_id,
+        verdict="fail",
+        started_at="2026-10-09T00:00:00Z",
+    )
+    final_id = _corrected_item_requirement(test_db, source_id=run_case_id)
+    declare_existing_replacement(
+        test_db, failed_id=run_case_id, replacement_id=final_id
+    )
+    corrected_source = _corrected_item_requirement(test_db, source_id=source_id)
+    with pytest.raises(QaSupersessionError, match="post_deploy item source"):
+        _retire(test_db, source_id=source_id, corrected_id=corrected_source)
+    assert (
+        test_db.execute(
+            "SELECT superseded_by_requirement_id FROM qa_requirements WHERE id=%s",
+            (source_id,),
+        ).fetchone()[0]
+        is None
+    )

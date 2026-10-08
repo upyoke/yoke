@@ -61,9 +61,14 @@ def test_terminal_transition_refuses_pending_run_despite_bypass_flags(test_db):
     )
     test_db.execute(
         "INSERT INTO qa_runs "
-        "(qa_requirement_id, performed_by, qa_kind, raw_result, created_at) "
-        "VALUES (%s, 'worktree_run', 'command', %s, %s)",
-        (requirement_id, '{"timed_out": true}', "2026-01-01T00:00:00Z"),
+        "(qa_requirement_id, performed_by, qa_kind, raw_result, started_at, created_at) "
+        "VALUES (%s, 'worktree_run', 'command', %s, %s, %s)",
+        (
+            requirement_id,
+            '{"timed_out": true}',
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z",
+        ),
     )
     test_db.commit()
 
@@ -167,7 +172,7 @@ def test_terminal_transition_names_pending_human_review(test_db, monkeypatch):
         ("project owner",),
     )
     monkeypatch.setattr(
-        "yoke_core.domain.qa_terminal_settlement.requirement_awaits_human_review",
+        "yoke_core.domain.qa_terminal_records.requirement_awaits_human_review",
         lambda *_args: waiting,
     )
     result = _terminal_result(test_db)
