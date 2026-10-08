@@ -1,7 +1,10 @@
 """Correlated workflow dispatch that never rejoins a run with no verdict.
 
-A correlated dispatch replays a request id it has already seen, so a
-second invocation on the same commit rejoins the run the first one
+A correlated dispatch binds the caller's request id to a digest of the
+effective dispatch arguments, using the shared argument builder and canonical
+payload serializer. Corrected producer inputs on the same consumer commit
+therefore dispatch a fresh run; equivalent input ordering keeps the identity.
+A second invocation of the same dispatch rejoins the run the first one
 started instead of paying for a duplicate. That is right while the run is
 in flight or has reached a verdict. It is wrong once that run concluded
 without one — its jobs never started, or it was cancelled or timed out:
@@ -78,8 +81,18 @@ def dispatch_correlated(
         decode_trigger_result,
     )
     from yoke_core.domain.deploy_pipeline_reporting import _github_actions
+    from yoke_core.domain.yoke_function_dispatch_events import serialize_payload
 
-    key = request_id
+    dispatch_args = _trigger_args(
+        repo,
+        workflow,
+        branch,
+        dict(inputs or {}),
+        correlation_input=WORKFLOW_DISPATCH_CORRELATION_INPUT,
+    )
+    _, digest = serialize_payload({"project": project, "dispatch": dispatch_args})
+    bound_request_id = f"{request_id}:dispatch:{digest}"
+    key = bound_request_id
     for _hop in range(REPLAY_CHAIN_LIMIT + 1):
         args = _trigger_args(
             repo,
@@ -107,7 +120,7 @@ def dispatch_correlated(
             "re-dispatching a fresh run on the same commit",
             flush=True,
         )
-        key = redispatch_request_id(request_id, run_id)
+        key = redispatch_request_id(bound_request_id, run_id)
     raise RedispatchChainExhausted(
         f"ci_redispatch_chain_exhausted: request {request_id} on {repo} already "
         f"has {REPLAY_CHAIN_LIMIT} runs that concluded with no verdict; open "
