@@ -29,8 +29,8 @@ def test_launch_authorization_keeps_only_registered_request_session(
         lambda *_args, **_kwargs: SimpleNamespace(allowed=True),
     )
 
-    service = session_launch._authorization(conn, _request("doorman-ui"), 10)
-    harness = session_launch._authorization(conn, _request("caller"), 10)
+    service = session_launch.launch_authorization(conn, _request("doorman-ui"), 10)
+    harness = session_launch.launch_authorization(conn, _request("caller"), 10)
 
     assert service.session_id is None
     assert harness.session_id == "caller"

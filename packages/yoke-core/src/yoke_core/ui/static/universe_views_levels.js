@@ -1,8 +1,9 @@
 // Settings → Levels: the universe's launch levels, read-only. Each level shows
 // its ordered options, the quota pools each option's model draws on, whether
-// it can launch now, and where the next launch at that level goes. Every fact
-// and every reason is composed by `universe.level_capacity.get`; this module
-// renders and never decides. Levels are edited from a harness through the
+// it can launch now, and, per project, where your next launch at that level
+// goes — previewed by the launcher's own placement. Every fact and every
+// reason is composed by `universe.level_capacity.get`; this module renders and
+// never decides. Levels are edited from a harness through the
 // CLI, and a project override only through its session-routing capability.
 
 import {
@@ -71,9 +72,26 @@ function levelHead(documentNode, level, index) {
   return head;
 }
 
+function nextLaunchLine(documentNode, entry) {
+  const line = el(documentNode, "div", "level-next");
+  line.appendChild(documentNode.createTextNode(`Next launch in ${entry.project} → `));
+  if (!entry.launchable) {
+    line.appendChild(pill(documentNode, "crit", "Refused"));
+    line.appendChild(documentNode.createTextNode(` ${entry.code}: ${entry.reason}`));
+    return line;
+  }
+  line.appendChild(text(
+    documentNode, "b", null, `${entry.surface} · ${entry.display_name}`,
+  ));
+  const fallback = entry.fallback ? ", fallback" : "";
+  line.appendChild(documentNode.createTextNode(
+    ` (option ${entry.option_index + 1}${fallback}) on ${entry.machine_id}: ${entry.reason}`,
+  ));
+  return line;
+}
+
 function capacitySummary(documentNode, level) {
-  const next = level.next_launch;
-  if (!next) {
+  if (level.launchable_surfaces.length === 0) {
     const box = el(documentNode, "div", "level-surfaces level-exhausted");
     box.appendChild(pill(documentNode, "crit", "No capacity"));
     const list = el(documentNode, "ul");
@@ -94,15 +112,14 @@ function capacitySummary(documentNode, level) {
   for (const surface of level.launchable_surfaces) {
     box.appendChild(pill(documentNode, "good", surface));
   }
-  const line = el(documentNode, "div", "level-next");
-  line.appendChild(documentNode.createTextNode("Next launch → "));
-  line.appendChild(text(
-    documentNode, "b", null, `${next.surface} · ${next.display_name}`,
-  ));
-  line.appendChild(documentNode.createTextNode(
-    ` (option ${next.option_index + 1}): ${next.reason}`,
-  ));
-  box.appendChild(line);
+  return box;
+}
+
+function nextLaunches(documentNode, level) {
+  const box = el(documentNode, "div", "level-surfaces");
+  for (const entry of level.next_launches) {
+    box.appendChild(nextLaunchLine(documentNode, entry));
+  }
   return box;
 }
 
@@ -131,7 +148,7 @@ function modelCell(documentNode, option) {
   return td;
 }
 
-function nowCell(documentNode, option, isNext) {
+function nowCell(documentNode, option) {
   const td = cell(documentNode, "Now", "level-now");
   const now = option.now;
   if (now.state === "blocked") {
@@ -141,9 +158,7 @@ function nowCell(documentNode, option, isNext) {
     }
     return td;
   }
-  td.appendChild(pill(
-    documentNode, isNext ? "run" : "good", isNext ? "Next launch" : "Can launch",
-  ));
+  td.appendChild(pill(documentNode, "good", "Can launch"));
   if (now.via) td.appendChild(small(documentNode, `via ${now.via}`));
   const pool = now.binding_pool;
   const headroom = small(documentNode, "", "level-headroom");
@@ -160,7 +175,7 @@ function nowCell(documentNode, option, isNext) {
   return td;
 }
 
-function optionRow(documentNode, option, index, isNext) {
+function optionRow(documentNode, option, index) {
   const row = el(documentNode, "tr");
   const rank = cell(documentNode, "Order", "level-rank");
   rank.textContent = String(index + 1);
@@ -184,7 +199,7 @@ function optionRow(documentNode, option, index, isNext) {
     pools.appendChild(text(documentNode, "span", null, pool.label));
   }
   row.appendChild(pools);
-  row.appendChild(nowCell(documentNode, option, isNext));
+  row.appendChild(nowCell(documentNode, option));
   return row;
 }
 
@@ -200,9 +215,7 @@ function optionsTable(documentNode, level) {
   table.appendChild(head);
   const body = el(documentNode, "tbody");
   level.options.forEach((option, index) => {
-    body.appendChild(optionRow(
-      documentNode, option, index, level.next_launch?.option_index === index,
-    ));
+    body.appendChild(optionRow(documentNode, option, index));
   });
   table.appendChild(body);
   wrap.appendChild(table);
@@ -215,6 +228,7 @@ function levelBlock(documentNode, level, index) {
   block.setAttribute("data-level", level.name);
   block.appendChild(levelHead(documentNode, level, index));
   block.appendChild(capacitySummary(documentNode, level));
+  block.appendChild(nextLaunches(documentNode, level));
   block.appendChild(optionsTable(documentNode, level));
   return block;
 }

@@ -33,7 +33,7 @@ def _wire(monkeypatch, conn) -> None:
     monkeypatch.setattr(handlers, "_open", lambda: _NoCloseConnection(conn))
     monkeypatch.setattr(
         handlers,
-        "_authorization",
+        "launch_authorization",
         lambda _conn, _request, _project_id: authorization(operator=True),
     )
 

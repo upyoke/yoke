@@ -81,18 +81,25 @@ def handle_universe_levels_get(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def handle_universe_levels_capacity_get(request: FunctionCallRequest) -> HandlerOutcome:
-    """Return what each level can launch now, and which projects override."""
+    """Return what each level can launch now, where the caller's next launch
+    at each level goes per project, and which projects override."""
     try:
         UniverseLevelsGetRequest(**(request.payload or {}))
     except ValidationError as exc:
         return _failure("payload_invalid", safe_validation_message(exc))
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.handlers.session_launch import launch_authorization
     from yoke_core.domain.universe_level_capacity_read import read_level_capacity
     from yoke_core.domain.universe_levels import UniverseLevelsError
 
     try:
         with connect() as conn:
-            result = read_level_capacity(conn)
+            result = read_level_capacity(
+                conn,
+                authorize=lambda project_id: launch_authorization(
+                    conn, request, project_id
+                ),
+            )
     except LevelsError as exc:
         return _failure(
             exc.code,

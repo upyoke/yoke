@@ -87,7 +87,7 @@ def _wire(monkeypatch, conn, *, operator: bool = True) -> None:
     monkeypatch.setattr(handlers, "_resolve_project", lambda _conn, _project: 10)
     monkeypatch.setattr(
         handlers,
-        "_authorization",
+        "launch_authorization",
         lambda _conn, _request, _project_id: authorization(operator=operator),
     )
 

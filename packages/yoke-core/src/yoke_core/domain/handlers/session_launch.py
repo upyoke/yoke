@@ -45,11 +45,12 @@ def _actor_id(request: FunctionCallRequest) -> int:
     return int(raw)
 
 
-def _authorization(
+def launch_authorization(
     conn: Any,
     request: FunctionCallRequest,
     project_id: int,
 ) -> LaunchAuthorization:
+    """The caller's launch authority in one project, as every launch reads it."""
     from yoke_core.domain.actor_permissions import (
         PERM_ITEMS_WRITE,
         PERM_PROJECT_ADMIN,
@@ -130,7 +131,7 @@ def handle_launch_preview(request: FunctionCallRequest) -> HandlerOutcome:
     conn = _open()
     try:
         project_id = _resolve_project(conn, parsed.project)
-        auth = _authorization(conn, request, project_id)
+        auth = launch_authorization(conn, request, project_id)
         if parsed.level:
             payload = level_preview_payload(
                 conn, auth=auth, project_id=project_id, level=parsed.level
@@ -166,7 +167,7 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
             int(_fleet_policy(conn, project_id, "fleet.launch_deadline_minutes")) * 60
         )
         max_body_bytes = int(_fleet_policy(conn, project_id, "fleet.max_body_bytes"))
-        auth = _authorization(conn, request, project_id)
+        auth = launch_authorization(conn, request, project_id)
         outcome = create_launch(
             conn,
             auth=auth,
@@ -202,7 +203,7 @@ def _launch_and_auth(conn: Any, request: FunctionCallRequest, launch_id: str):
 
     settle_launch_deadlines(conn, launch_id=launch_id)
     launch = get_launch(conn, launch_id)
-    return launch, _authorization(conn, request, launch.project_id)
+    return launch, launch_authorization(conn, request, launch.project_id)
 
 
 def handle_launch_get(request: FunctionCallRequest) -> HandlerOutcome:
@@ -235,7 +236,7 @@ def handle_launch_list(request: FunctionCallRequest) -> HandlerOutcome:
     conn = _open()
     try:
         project_id = _resolve_project(conn, parsed.project)
-        auth = _authorization(conn, request, project_id)
+        auth = launch_authorization(conn, request, project_id)
         if not auth.can_operate_project:
             raise SessionLaunchError("permission_denied", "project operator required")
         settle_launch_deadlines(conn, project_id=project_id)
@@ -326,4 +327,5 @@ __all__ = [
     "handle_launch_preview",
     "handle_launch_reconcile",
     "handle_launch_retry",
+    "launch_authorization",
 ]

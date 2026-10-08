@@ -101,6 +101,29 @@ def _blocker_text(blocker: Mapping[str, Any]) -> str:
     return f"{blocker.get('label')} 0% left"
 
 
+def _write_next_launches(entries: Any, stdout: TextIO) -> None:
+    if entries is None:
+        stdout.write(
+            "  next launch: not reported; the serving build predates launch "
+            "previews on this read. Recovery: preview one with `yoke "
+            "session-control launch preview --project P --level L`\n"
+        )
+        return
+    for entry in entries:
+        where = f"  next launch in {entry.get('project')} -> "
+        if not entry.get("launchable"):
+            stdout.write(
+                f"{where}refused ({entry.get('code')}): {entry.get('reason')}\n"
+            )
+            continue
+        fallback = ", fallback" if entry.get("fallback") else ""
+        stdout.write(
+            f"{where}{entry.get('surface')} {entry.get('model')} "
+            f"(option {int(entry.get('option_index', 0)) + 1}{fallback}) on "
+            f"{entry.get('machine_id')}: {entry.get('reason')}\n"
+        )
+
+
 def write_capacity(result: Mapping[str, Any], stdout: TextIO) -> None:
     """Print each level's launch standing, then the project overrides."""
     workers = result.get("live_workers") or {}
@@ -112,14 +135,9 @@ def write_capacity(result: Mapping[str, Any], stdout: TextIO) -> None:
     )
     for level in result.get("levels") or []:
         stdout.write(f"{level.get('glyph') or ' '} {level.get('name')}\n")
-        nxt = level.get("next_launch")
-        if nxt:
-            stdout.write(
-                f"  next launch -> {nxt.get('surface')} {nxt.get('model')} "
-                f"(option {int(nxt.get('option_index', 0)) + 1}): {nxt.get('reason')}\n"
-            )
-        else:
-            stdout.write("  NO CAPACITY: a launch at this level refuses\n")
+        if not level.get("launchable_surfaces"):
+            stdout.write("  NO CAPACITY: no option can launch on any machine\n")
+        _write_next_launches(level.get("next_launches"), stdout)
         for index, option in enumerate(level.get("options") or [], start=1):
             now = option.get("now") or {}
             if now.get("state") == "blocked":
@@ -155,10 +173,10 @@ def universe_levels_capacity(args: List[str]) -> int:
         description=(
             "Read each universe level's launch standing: per option the quota "
             "pools its model draws on, whether it can launch now or which pool "
-            "or machine gap blocks it, and where the next launch at the level "
-            "goes (spread rule, then most headroom; option order breaks ties). "
-            "Also lists projects whose session-routing capability overrides "
-            "the levels."
+            "or machine gap blocks it, and, per project, where your next "
+            "launch at the level goes — previewed by the launcher's own level "
+            "placement, so it is the answer a launch would get. Also lists "
+            "projects whose session-routing capability overrides the levels."
         ),
     )
     add_session_arg(parser)
