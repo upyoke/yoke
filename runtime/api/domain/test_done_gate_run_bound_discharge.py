@@ -160,4 +160,6 @@ def test_forced_invalid_replacement_cannot_settle_run_bound_failure(
     )
     test_db.commit()
     succeed_run(test_db, run_id)
-    assert broken_id in _blocked(test_db, item_id)
+    assert (corrected_id if invalid_replacement == "failed" else broken_id) in _blocked(
+        test_db, item_id
+    )

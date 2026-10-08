@@ -12,6 +12,8 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any, Iterable, Optional
 
+from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
+
 
 def item_filter(
     marker: str,
@@ -122,8 +124,7 @@ ACTIVITY_SOURCE = (
     f"JOIN projects pr ON pr.id={PROJECT_OF_REQUIREMENT} "
     "LEFT JOIN qa_methods m ON m.id=q.method_id "
     "LEFT JOIN qa_runs r ON r.id=("
-    "SELECT rr.id FROM qa_runs rr WHERE rr.qa_requirement_id=q.id "
-    "ORDER BY rr.created_at DESC, rr.id DESC LIMIT 1)"
+    f"{latest_execution_id_sql('q.id')})"
 )
 
 #: Which item a row belongs to. An item-attached requirement names its item;

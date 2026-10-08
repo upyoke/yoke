@@ -13,9 +13,6 @@ Pydantic boundary models and ``REGISTRATIONS`` live in the sibling
 :mod:`items_structured_field_models` module to keep this file under
 the 350-line authored-file budget.
 
-Future-concept absorption target: when the execution journal
-lands, ``items.structured_field.*`` calls become journal-emit +
-domain-helper pairs and these handlers merge into the journal hot path.
 """
 
 from __future__ import annotations
@@ -109,6 +106,8 @@ def _read_field(item_id: int, field: str) -> str:
 def _classify_write_error(error: str) -> str:
     """Map an :func:`execute_structured_write` error string to an error code."""
     lowered = (error or "").lower()
+    if lowered.startswith("section_authority_reserved:"):
+        return "section_authority_reserved"
     if "invalid structured field" in lowered:
         return "invalid_field"
     if "refusing to overwrite non-empty" in lowered:

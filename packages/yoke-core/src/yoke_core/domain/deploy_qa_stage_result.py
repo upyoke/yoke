@@ -86,7 +86,7 @@ def cmd_record_stage_result(
                         qa_phase="post_deploy",
                         blocking_mode="blocking",
                         requirement_source="flow_derived",
-                        success_policy="Workflow completes with conclusion=success",
+                        success_policy="all-pass",
                     )
             except SystemExit as exc:
                 raise RuntimeError(

@@ -100,10 +100,9 @@ def qa_review_artifact_context(
 ) -> dict[str, Any]:
     """Return the artifact projection for one requirement's reviewed run.
 
-    Resolves through :func:`qa_evidence_run_id` so a ``human_review`` verdict,
-    or any run whose own capture was recorded under a different run id,
-    reports the artifacts that actually back the reviewed verdict instead of
-    an empty set queried straight off the reviewed run's own id.
+    Resolves through :func:`qa_evidence_run_id`: a durable historical review
+    association may name its capture, otherwise the named actual run owns
+    its own artifacts. Labels and adjacent attempts cannot supply proof.
 
     ``expected_project_id``, when given, must match the requirement's own
     resolved project (:func:`requirement_facts`, the same resolution the

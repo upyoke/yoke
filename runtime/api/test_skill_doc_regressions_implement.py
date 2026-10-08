@@ -111,9 +111,7 @@ class TestSkillDiscovery:
         assert "/yoke polish PREFIX-N" in router_text
 
     def test_codex_bootstrap_lists_refine_polish_and_usher(self):
-        codex = REPO / "CODEX.md"
-        if not codex.is_file():
-            pytest.skip("CODEX.md not present in this checkout")
+        codex = REPO / "docs/public/guides/codex-harness.md"
         text = _read(codex)
         assert "refine" in text
         assert "polish" in text

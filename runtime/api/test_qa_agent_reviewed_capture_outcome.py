@@ -66,6 +66,15 @@ def _link_passing_review(conn, *, requirement_id: int, capture_run_id: int):
         "VALUES (%s, %s, %s, %s, 'pass', 'read the capture', %s)",
         (bundle_id, requirement_id, capture_run_id, int(review_run_id), NOW),
     )
+    from yoke_core.domain.qa_capture_settlement import stamp_reviewed_capture
+
+    stamp_reviewed_capture(
+        conn,
+        {"requirement_id": requirement_id, "capture_run_id": capture_run_id},
+        verdict="pass",
+        rationale="read the capture",
+        created_at=NOW,
+    )
     conn.commit()
 
 

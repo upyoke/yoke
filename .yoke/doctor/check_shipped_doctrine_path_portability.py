@@ -2,7 +2,7 @@
 
 ``yoke project install`` ships two kinds of surface into every managed project
 verbatim: the managed block of each repo-root doctrine file (the shared
-doctrine plus the per-harness shells), and the Claude session rules tree. A
+canonical AGENTS.md doctrine), and the Claude session rules tree. A
 repo path named inside any of them only means something to its reader if the
 install bundle puts a file there. Citing a Yoke source path the bundle does not
 ship — a ``docs/archive/`` decision record, a harness-build reference under
@@ -41,10 +41,8 @@ from yoke_core.domain.install_bundle import (
     CLAUDE_AGENTS_SOURCE,
     CLAUDE_RULES_DEST,
     CLAUDE_RULES_SOURCE,
-    CLAUDE_SKILLS_DEST,
     CODEX_AGENTS_DEST,
     CODEX_AGENTS_SOURCE,
-    CODEX_SKILLS_DEST,
     CURSOR_AGENTS_DEST,
     CURSOR_AGENTS_SOURCE,
     DOCS_DEST,
@@ -53,6 +51,7 @@ from yoke_core.domain.install_bundle import (
     is_bundle_junk_path,
 )
 from yoke_core.domain.install_bundle_managed import INSTALL_BUNDLE_SOURCE_FILES
+from yoke_contracts.project_contract.installed_layer import CLAUDE_SKILLS_DEST
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
@@ -68,7 +67,6 @@ _HC_DESC = "Shipped doctrine cites only paths a managed project has"
 _INSTALL_DESTINATIONS: Tuple[Tuple[str, str], ...] = (
     (CANONICAL_SKILLS_DEST, SKILLS_SOURCE),
     (CLAUDE_SKILLS_DEST, SKILLS_SOURCE),
-    (CODEX_SKILLS_DEST, SKILLS_SOURCE),
     (CLAUDE_AGENTS_DEST, CLAUDE_AGENTS_SOURCE),
     (CODEX_AGENTS_DEST, CODEX_AGENTS_SOURCE),
     (CURSOR_AGENTS_DEST, CURSOR_AGENTS_SOURCE),
@@ -96,8 +94,7 @@ def _exact_installed_paths() -> Set[str]:
 
     # The display name only fills scaffold prose; the path set is invariant.
     paths = {
-        entry["path"]
-        for entry in project_contract.bundle_contract_files("Project")
+        entry["path"] for entry in project_contract.bundle_contract_files("Project")
     }
     # Created in the target project by `yoke pack install`, not by the bundle.
     paths.add(PACK_RECEIPT_REL)
@@ -107,8 +104,6 @@ def _exact_installed_paths() -> Set[str]:
     # a managed install, so an installed project does have them.
     paths.update(CURSOR_CONFIG_RELS)
     paths.update(INSTALL_BUNDLE_SOURCE_FILES)
-    # The doctrine block installs into AGENTS.md and its auto-load twin.
-    paths.add("CLAUDE.md")
     for manifest in (CLAUDE_MANIFEST, CODEX_MANIFEST, CURSOR_MANIFEST):
         config = manifest.get("worktree_hook_enablement", {}).get("config_path")
         if config:
@@ -131,10 +126,12 @@ def _shipped_surfaces(root: Path) -> List[Tuple[str, str]]:
         for path in sorted(
             p for p in rules.rglob("*") if p.is_file() and not is_bundle_junk_path(p)
         ):
-            surfaces.append((
-                f"{CLAUDE_RULES_DEST}/{path.relative_to(rules).as_posix()}",
-                path.read_text(encoding="utf-8", errors="replace"),
-            ))
+            surfaces.append(
+                (
+                    f"{CLAUDE_RULES_DEST}/{path.relative_to(rules).as_posix()}",
+                    path.read_text(encoding="utf-8", errors="replace"),
+                )
+            )
     return surfaces
 
 
@@ -163,7 +160,9 @@ def _looks_like_repo_path(word: str) -> bool:
     return True
 
 
-def _verdict(path: str, root: Path, tracked: Set[str], installed: Set[str]) -> Optional[str]:
+def _verdict(
+    path: str, root: Path, tracked: Set[str], installed: Set[str]
+) -> Optional[str]:
     """Reason this citation fails a managed project's reader, or ``None``."""
     for dest, source_dir in _INSTALL_DESTINATIONS:
         if path == dest:
@@ -172,7 +171,7 @@ def _verdict(path: str, root: Path, tracked: Set[str], installed: Set[str]) -> O
         prefix = f"{dest}/"
         if not path.startswith(prefix):
             continue
-        source = f"{source_dir}/{path[len(prefix):]}"
+        source = f"{source_dir}/{path[len(prefix) :]}"
         if (root / source).is_file():
             return None
         return f"installs from {source}, which does not exist in this tree"
@@ -184,12 +183,16 @@ def _verdict(path: str, root: Path, tracked: Set[str], installed: Set[str]) -> O
 
 
 def hc_shipped_doctrine_path_portability(
-    conn, args: DoctorArgs, rec: RecordCollector,
+    conn,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     repo_root = _resolve_repo_root()
     if not repo_root:
         rec.record(
-            _HC_NAME, _HC_DESC, "PASS",
+            _HC_NAME,
+            _HC_DESC,
+            "PASS",
             "repo root not resolvable (git rev-parse failed); "
             "shipped-doctrine path scan skipped",
         )
@@ -199,7 +202,9 @@ def hc_shipped_doctrine_path_portability(
     surfaces = _shipped_surfaces(root)
     if not surfaces:
         rec.record(
-            _HC_NAME, _HC_DESC, "PASS",
+            _HC_NAME,
+            _HC_DESC,
+            "PASS",
             "no managed doctrine block or session rules in this checkout; "
             "nothing ships from here",
         )
@@ -208,7 +213,9 @@ def hc_shipped_doctrine_path_portability(
     listed = run_git(["ls-files"], repo_root=root)
     if listed.returncode != 0:
         rec.record(
-            _HC_NAME, _HC_DESC, "FAIL",
+            _HC_NAME,
+            _HC_DESC,
+            "FAIL",
             f"could not list tracked files: {listed.stderr.strip()}",
         )
         return
@@ -231,7 +238,9 @@ def hc_shipped_doctrine_path_portability(
         rec.record(_HC_NAME, _HC_DESC, "FAIL", "\n".join(detail))
         return
     rec.record(
-        _HC_NAME, _HC_DESC, "PASS",
+        _HC_NAME,
+        _HC_DESC,
+        "PASS",
         f"every repo path cited across {len(surfaces)} shipped surface(s) "
         "resolves in an installed project",
     )

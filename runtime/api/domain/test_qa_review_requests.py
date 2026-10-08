@@ -111,10 +111,7 @@ def test_undetermined_review_request_resolves_to_human_verdict(test_db):
         "WHERE qa_requirement_id=%s ORDER BY id",
         (requirement_id,),
     ).fetchall()
-    assert [(row[0], row[1]) for row in verdicts] == [
-        ("agent", "undetermined"),
-        ("human_review", "pass"),
-    ]
+    assert [(row[0], row[1]) for row in verdicts] == [("agent", "pass")]
     assert requirement_awaits_human_review(test_db, int(requirement_id)) is None
 
     empty_run_id = test_db.execute(
@@ -194,9 +191,8 @@ def test_all_mode_review_holds_the_qa_verdict_until_every_box_decides(test_db):
     assert finished["resolution_action"] == "approve"
     assert (
         test_db.execute(
-            "SELECT verdict FROM qa_runs "
-            "WHERE qa_requirement_id=%s AND performed_by='human_review'",
-            (requirement_id,),
+            "SELECT verdict FROM qa_runs WHERE id=%s",
+            (seeded["run_id"],),
         ).fetchone()[0]
         == "pass"
     )

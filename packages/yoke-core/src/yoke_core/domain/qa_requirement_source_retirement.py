@@ -75,29 +75,22 @@ def is_source_retirement(broken: Mapping[str, Any]) -> bool:
     )
 
 
-def _latest_verdict(conn: Any, requirement_id: int) -> str:
-    row = query_one(
-        conn,
-        "SELECT verdict FROM qa_runs WHERE qa_requirement_id=%s "
-        "ORDER BY created_at DESC,id DESC LIMIT 1",
-        (int(requirement_id),),
-    )
-    return str(row["verdict"] or "") if row is not None else ""
-
-
 def passing_run_replacement(conn: Any, source: Mapping[str, Any]) -> int | None:
     """The passing run case that superseded an admitted copy of *source*."""
+    from yoke_core.domain.qa_obligation_settlement import effective_requirement
+    from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
+
     identity, params = admitted_requirement_identity_clause(source)
     copies = query_rows(
         conn,
-        "SELECT superseded_by_requirement_id FROM qa_requirements "
+        "SELECT id,superseded_by_requirement_id FROM qa_requirements "
         f"WHERE deployment_run_id IS NOT NULL AND deployment_member_item_id=%s "
         f"AND superseded_by_requirement_id IS NOT NULL AND {identity} ORDER BY id",
         (int(source["item_id"]), *params),
     )
     for copy in copies:
-        replacement_id = int(copy["superseded_by_requirement_id"])
-        if _latest_verdict(conn, replacement_id) == "pass":
+        replacement_id = int(effective_requirement(conn, int(copy["id"]))["id"])
+        if has_current_passing_run(conn, replacement_id):
             return replacement_id
     return None
 

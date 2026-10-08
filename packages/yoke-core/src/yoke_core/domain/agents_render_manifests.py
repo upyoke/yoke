@@ -16,7 +16,10 @@ from yoke_contracts.cursor_hook_command_bytes import (
     CURSOR_HOOK_COMMAND_BYTE_REASON,
     CURSOR_HOOK_COMMAND_FORBIDDEN_SEQUENCES,
 )
-from yoke_contracts.harness_cli_manifest import harness_cli_manifest
+from yoke_contracts.harness_cli_manifest import (
+    CLAUDE_AGENTS_MINIMUM_VERSION,
+    harness_cli_manifest,
+)
 from yoke_contracts.harness_command_workdir import command_workdir_source
 from yoke_contracts.harness_turn_record_capability import (
     turn_record_capability_for_harness,
@@ -69,8 +72,8 @@ CLAUDE_MANIFEST: dict = {
     "harness_id": _CLAUDE_CLI.harness_id,
     "cli": _CLAUDE_CLI.to_json(),
     "runtime_minimums": {
-        "wrapper_only": "any claude-code build with bash tool support",
-        "hook_enhanced": "any claude-code build (PreToolUse/PostToolUse hooks are stable)",
+        "wrapper_only": f"claude-code >= {CLAUDE_AGENTS_MINIMUM_VERSION} with native AGENTS.md enabled",
+        "hook_enhanced": f"claude-code >= {CLAUDE_AGENTS_MINIMUM_VERSION} with native AGENTS.md enabled",
         "tested_locally": "claude-code with Opus 4.7",
     },
     "bootstrap": {
@@ -134,7 +137,7 @@ CODEX_MANIFEST: dict = {
     "harness_id": _CODEX_CLI.harness_id,
     "cli": _CODEX_CLI.to_json(),
     "runtime_minimums": {
-        "wrapper_only": "any codex build with bash tool support",
+        "wrapper_only": f"codex >= {harness_cli_manifest('codex').minimum_engine_version} with native project discovery",
         "hook_enhanced": "codex >= 0.128.0-alpha.1 with hooks enabled",
         "tested_locally": "0.128.0-alpha.1",
     },
@@ -204,7 +207,7 @@ CURSOR_MANIFEST: dict = {
     "harness_id": _CURSOR_CLI.harness_id,
     "cli": _CURSOR_CLI.to_json(),
     "runtime_minimums": {
-        "wrapper_only": "any cursor build with agent terminal support",
+        "wrapper_only": f"cursor-agent >= {harness_cli_manifest('cursor').minimum_engine_version} with native project discovery",
         "hook_enhanced": (
             "cursor-agent >= 2026.07.23 / Cursor IDE >= 3.14 (hooks.json v1)"
         ),

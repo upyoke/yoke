@@ -17,6 +17,27 @@ from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.schema_common import _table_exists
 
 SECTION_SOURCE = "direct-workflow"
+SIMULATION_TRIAGE_SECTION = "Simulation Triage"
+
+
+def section_write_refusal(section: str) -> str | None:
+    """Reserve the discharge namespace for the authenticated PROCEED owner."""
+    normalized = section.strip().lstrip("#").strip()
+    if normalized == SIMULATION_TRIAGE_SECTION or normalized.startswith(
+        SIMULATION_TRIAGE_SECTION + " "
+    ):
+        return (
+            "section_authority_reserved: Simulation Triage receipts belong to "
+            "conduct.epic.proceed_triage_handoff; hold the epic claim and submit "
+            "the current bounded PROCEED report with its filed follow-ups"
+        )
+    return None
+
+
+def require_editable_section(section: str) -> None:
+    refusal = section_write_refusal(section)
+    if refusal:
+        raise ValueError(refusal)
 
 
 def _placeholder(conn: Any) -> str:

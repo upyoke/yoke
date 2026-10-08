@@ -75,7 +75,7 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
         row = query_one(
             conn,
             f"SELECT qa_kind, method_id, verdict_path, blocking_mode, waived_at, item_id, "
-            f"method_config FROM qa_requirements WHERE id = {p}",
+            f"method_config, runner_id FROM qa_requirements WHERE id = {p}",
             (int(req_id),),
         )
         if row is None:
@@ -111,6 +111,7 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
             head_sha=payload.get("head_sha"),
             item_id=row["item_id"],
             conn=conn,
+            requirement=dict(row),
         )
         if bind_error:
             return _error(

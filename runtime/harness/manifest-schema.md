@@ -46,6 +46,14 @@ again.
 | `executable` | string | Command name the vendor installs (for example, `cursor-agent`). |
 | `version_args` | list[string] | Arguments used by the bounded version probe. |
 | `bundled_candidates` | list[string] | Optional absolute executable paths inside a vendor application bundle. Empty when no supported bundled command exists. |
+| `project_discovery` | object | Canonical instruction file, skill source, required native skill entry, minimum embedded engine version (nullable), and installed recovery document. Instruction-file discovery is independent of skill discovery. |
+
+`project_discovery` applies to every surface in the family: Codex and Cursor
+load `AGENTS.md` and `.agents/skills/yoke` natively. Claude requires an embedded
+Code engine >=2.1.281 with its built-in AGENTS plugin enabled and instruction
+configuration allowing AGENTS. Its `.claude/skills/yoke` discovery entry links
+to the canonical tree. Install preflight refuses suppressed instructions and
+ambiguous legacy ownership; see `.yoke/docs/reference/harness-discovery.md`.
 
 Installer PATH repair reads this manifest registry, resolves each installed
 command from the ambient installer PATH or a declared bundle candidate, and

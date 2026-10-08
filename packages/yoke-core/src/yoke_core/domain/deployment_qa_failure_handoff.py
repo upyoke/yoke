@@ -78,12 +78,12 @@ def notify_member_qa_failure(
         conn, item_id=item_id, project_id=project_id
     )
     placeholders = ",".join("%s" for _ in requirement_ids)
-    verdicts = conn.execute(
-        "SELECT qa_requirement_id,MAX(id) FROM qa_runs "
-        f"WHERE qa_requirement_id IN ({placeholders}) GROUP BY qa_requirement_id",
-        requirement_ids,
-    ).fetchall()
-    latest_by_requirement = {int(row[0]): int(row[1]) for row in verdicts}
+    from yoke_core.domain.qa_latest_execution import latest_executions
+
+    latest_by_requirement = {
+        rid: int(attempt["id"])
+        for rid, attempt in latest_executions(conn, requirement_ids).items()
+    }
     if recipient:
         # The execution records own the verdict producer; performed_by names
         # a runner, not the session that already received its result.

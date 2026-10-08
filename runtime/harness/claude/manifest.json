@@ -7,11 +7,18 @@
     "version_args": [
       "--version"
     ],
-    "bundled_candidates": []
+    "bundled_candidates": [],
+    "project_discovery": {
+      "instruction_file": "AGENTS.md",
+      "skill_source": ".agents/skills/yoke",
+      "native_skill_entry": ".claude/skills/yoke",
+      "minimum_engine_version": "2.1.281",
+      "recovery_doc": ".yoke/docs/reference/harness-discovery.md"
+    }
   },
   "runtime_minimums": {
-    "wrapper_only": "any claude-code build with bash tool support",
-    "hook_enhanced": "any claude-code build (PreToolUse/PostToolUse hooks are stable)",
+    "wrapper_only": "claude-code >= 2.1.281 with native AGENTS.md enabled",
+    "hook_enhanced": "claude-code >= 2.1.281 with native AGENTS.md enabled",
     "tested_locally": "claude-code with Opus 4.7"
   },
   "bootstrap": {

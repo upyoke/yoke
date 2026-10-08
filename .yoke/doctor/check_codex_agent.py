@@ -12,7 +12,7 @@
   PASS-with-note when the native ``.codex/agents/`` surface is not yet
   provisioned.
 * ``HC-codex-subagent-surface-truth`` — ``OPERATOR_COMMANDS``, both
-  manifests, and the operator-facing docs (``CODEX.md``, ``docs/agents.md``)
+  manifests, and the operator-facing docs (``docs/public/guides/codex-harness.md``, ``docs/agents.md``)
   agree on which Yoke commands Codex supports — specifically the
   ``/yoke conduct`` claim is consistently dual-harness.
 """
@@ -36,7 +36,7 @@ _CANONICAL_AGENTS_DIR = Path("runtime/agents")
 _CODEX_AGENTS_DIR = Path(".codex/agents")
 _CLAUDE_MANIFEST = Path("runtime/harness/claude/manifest.json")
 _CODEX_MANIFEST = Path("runtime/harness/codex/manifest.json")
-_CODEX_DOC = Path("CODEX.md")
+_CODEX_DOC = Path("docs/public/guides/codex-harness.md")
 _AGENTS_DOC = Path("docs/agents.md")
 
 # Canonical agents for which Codex adapter parity is meaningful.

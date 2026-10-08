@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
+from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+
 import json
 from typing import Any
 
@@ -10,9 +13,9 @@ from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.qa_catalog_reads import _outcome
 from yoke_core.domain.qa_execution_proof import (
     qa_evidence_run_id,
-    qa_overridden_verdict_run,
 )
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.sql_json import json_get
 
 
 def _placeholder(conn: Any) -> str:
@@ -56,11 +59,10 @@ def _case_result(
         "COALESCE(r.completed_at, r.created_at, q.created_at) AS happened_at "
         "FROM qa_requirements q "
         "LEFT JOIN qa_runs r ON r.id=("
-        "SELECT rr.id FROM qa_runs rr WHERE rr.qa_requirement_id=q.id "
-        "ORDER BY rr.created_at DESC, rr.id DESC LIMIT 1"
+        f"{latest_execution_id_sql('q.id')}"
         f") WHERE q.plan_id={marker} AND q.plan_case_key={marker} "
         f"AND COALESCE(q.host_baseline, '')={marker} "
-        "AND q.waived_at IS NULL "
+        f"AND NOT {settled_obligation_sql(conn, 'q')} "
         f"{deployment_filter} "
         "ORDER BY happened_at DESC, q.id DESC LIMIT 1",
         params,
@@ -132,22 +134,22 @@ def _review_state(
     capture_run_id = raw.get("capture_run_id") if isinstance(raw, dict) else None
     agent_verdict = run["verdict"] if performed_by == "agent" else None
     agent_run_id = int(run["run_id"]) if performed_by == "agent" else None
-    if performed_by == "human_review" and run["run_id"] is not None:
-        overridden = qa_overridden_verdict_run(
+    reviewed = None
+    if run["run_id"] is not None and _table_exists(conn, "qa_plan_review_verdicts"):
+        marker = _placeholder(conn)
+        reviewed = query_one(
             conn,
-            requirement_id=requirement_id,
-            before_run_id=int(run["run_id"]),
+            "SELECT capture_run_id,verdict,rationale FROM qa_plan_review_verdicts "
+            f"WHERE requirement_id={marker} AND capture_run_id={marker}",
+            (requirement_id, int(run["run_id"])),
         )
-        if overridden is not None:
-            agent_run_id = int(overridden["id"])
-            overridden_raw = _decode(overridden["raw_result"], {})
-            capture_run_id = overridden_raw.get("capture_run_id")
-            agent_verdict = overridden["verdict"]
-            rationale = overridden["verdict_reason"]
+        if reviewed is not None:
+            capture_run_id = int(reviewed["capture_run_id"])
+            agent_run_id = capture_run_id
+            agent_verdict = reviewed["verdict"]
+            rationale = reviewed["rationale"]
     request = None
-    if performed_by in {"agent", "human_review"} and _table_exists(
-        conn, "decision_requests"
-    ):
+    if agent_run_id is not None and _table_exists(conn, "decision_requests"):
         marker = _placeholder(conn)
         request_row = query_one(
             conn,
@@ -155,8 +157,10 @@ def _review_state(
             "resolution_note,resolved_at "
             "FROM decision_requests "
             "WHERE kind='qa_needs_review' AND subject_type='qa_requirement' "
-            f"AND subject_key={marker} ORDER BY created_at DESC,id DESC LIMIT 1",
-            (str(requirement_id),),
+            f"AND subject_key={marker} "
+            f"AND CAST({json_get('subject_context', '$.run_id')} AS TEXT)={marker} "
+            "ORDER BY created_at DESC,id DESC LIMIT 1",
+            (str(requirement_id), str(agent_run_id)),
         )
         context = (
             _decode(request_row["subject_context"], {})
@@ -176,15 +180,17 @@ def _review_state(
                 "resolution_note": request_row["resolution_note"],
                 "resolved_at": request_row["resolved_at"],
             }
-    if performed_by == "human_review":
+    if performed_by == "human_review" or (
+        request is not None and request["status"] == "resolved"
+    ):
         state = "human_review_resolved"
-    elif performed_by == "agent" and run["verdict"] == "undetermined":
+    elif agent_run_id is not None and agent_verdict == "undetermined":
         state = (
             "human_review_requested"
             if request is not None and request["status"] == "pending"
             else "agent_undetermined"
         )
-    elif performed_by == "agent":
+    elif agent_run_id is not None:
         state = "agent_reviewed"
     elif run["case_outcome"] == "needs_review" or run["execution_status"] == "captured":
         state = "awaiting_agent_review"
@@ -198,7 +204,11 @@ def _review_state(
             else None
         ),
         "review_runner": (
-            performed_by if performed_by in {"agent", "human_review"} else None
+            "human_review"
+            if state == "human_review_resolved"
+            else "agent"
+            if agent_run_id is not None
+            else None
         ),
         "agent_verdict": agent_verdict,
         "rationale": rationale,

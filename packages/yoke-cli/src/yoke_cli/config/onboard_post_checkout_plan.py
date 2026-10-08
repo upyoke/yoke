@@ -55,7 +55,7 @@ def post_checkout_steps(
     * ``project-install-agent-rules`` / ``project-install-tool-permissions`` /
       ``project-install-harness-hooks`` / ``project-install-git-hooks`` — the
       same scaffold install (and refresh) writes the Yoke rules blocks into
-      ``AGENTS.md`` / ``CLAUDE.md`` / ``CODEX.md`` / ``CURSOR.md``, unions the
+      canonical ``AGENTS.md``, unions the
       managed tool-permission regions into ``.claude/settings.json`` and
       ``.cursor/cli.json`` / ``.cursor/sandbox.json``, merges harness hooks into
       ``.claude/settings.json`` / ``.codex/hooks.json`` / ``.cursor/hooks.json``,

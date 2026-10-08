@@ -29,6 +29,8 @@ import json
 from typing import Any, Sequence
 
 from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
+from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists, _table_exists
@@ -161,7 +163,7 @@ def recorded_batch_blocks_for_items(
         "AS run_rank "
         "FROM qa_runs r JOIN qa_requirements q ON q.id = r.qa_requirement_id "
         f"WHERE q.item_id IN ({id_marks}) AND r.performed_by = 'ci_run' "
-        "AND r.verdict = 'pass'"
+        f"AND r.id=({latest_execution_id_sql('q.id')}) AND r.verdict='pass' AND r.completed_at IS NOT NULL"
         f") ranked WHERE run_rank <= {_CI_RUN_LOOKBACK} "
         "ORDER BY item_id, run_rank",
         tuple(ids),
@@ -199,7 +201,7 @@ def _passing_ci_raw_results(conn: Any, item_id: int) -> list[Any]:
         "SELECT r.raw_result FROM qa_runs r "
         "JOIN qa_requirements q ON q.id = r.qa_requirement_id "
         f"WHERE q.item_id = {placeholder} AND r.performed_by = 'ci_run' "
-        "AND r.verdict = 'pass' ORDER BY r.id DESC "
+        f"AND r.id=({latest_execution_id_sql('q.id')}) AND r.verdict='pass' AND r.completed_at IS NOT NULL ORDER BY r.id DESC "
         f"LIMIT {_CI_RUN_LOOKBACK}",
         (int(item_id),),
     ).fetchall()
@@ -212,15 +214,17 @@ def _passing_blocking_heads(conn: Any, item_id: int) -> list[str]:
         return []
     placeholder = _placeholder(conn)
     rows = conn.execute(
-        "SELECT r.raw_result FROM qa_requirements q LEFT JOIN qa_runs r ON r.id = ("
+        "SELECT q.id, r.raw_result FROM qa_requirements q LEFT JOIN qa_runs r ON r.id = ("
         f"{latest_execution_id_sql('q.id')}) "
         f"WHERE q.item_id = {placeholder} AND q.blocking_mode = 'blocking' "
-        "AND q.waived_at IS NULL AND r.verdict = 'pass'",
+        f"AND NOT {settled_obligation_sql(conn, 'q')} AND r.verdict = 'pass'",
         (int(item_id),),
     ).fetchall()
     return [
         sha
-        for sha in (recorded_head_sha(_row_value(row, "raw_result", 0)) for row in rows)
+        for row in rows
+        if has_current_passing_run(conn, int(_row_value(row, "id", 0)))
+        for sha in [recorded_head_sha(_row_value(row, "raw_result", 1))]
         if sha
     ]
 

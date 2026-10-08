@@ -1,9 +1,8 @@
-# Yoke -- Cursor Harness Guide
-<!-- BEGIN YOKE MANAGED BLOCK -->
-<!-- Managed by `yoke project install`. Everything between the BEGIN and END markers is overwritten on refresh — do not edit it here. Your own content outside the markers is always preserved. -->
+# Cursor harness operations
+
 This file is the Cursor-facing entry point for Yoke. It references the shared bootstrap contract and lists the safe command surface for Cursor sessions.
 
-For the full project rules, read `AGENTS.md` — the harness-neutral shared doctrine file. Cursor loads `AGENTS.md` natively (including nested per-directory `AGENTS.md`), so everything there applies to Cursor sessions unless noted otherwise below. In this repo `CLAUDE.md` is a symlink to `AGENTS.md`; in a managed project they are separate real files, so content outside the managed markers must be added to each shell or the other harnesses never see it.
+For the full project rules, read `AGENTS.md` — the harness-neutral shared doctrine file. Cursor loads `AGENTS.md` natively (including nested per-directory `AGENTS.md`), so everything there applies to Cursor sessions unless noted otherwise below. Yoke writes shared doctrine only to `AGENTS.md`. Project-specific harness content stays outside the managed block or in the harness’s native configuration. See [native discovery](../reference/harness-discovery.md) for version floors and loading checks.
 
 Each standing rule in `AGENTS.md` names a deep home under `.yoke/docs/reference/agent-rules/` carrying the reasoning, recovery paths, and worked failure modes behind it; `AGENTS.md` lists which file covers which operation. Read the one that governs an operation before performing it, and read an operation's own `--help` for its variants and flags.
 
@@ -17,7 +16,7 @@ Cursor loads `AGENTS.md` automatically. The session-start hook (wired in `.curso
 
 ### Repo-local skill discovery
 
-Yoke skills live canonically in `.agents/skills/yoke/`. Cursor discovers that tree natively (measured on Cursor IDE 3.14+ and cursor-agent 2026.07+), so no `.cursor/skills` mirror is required for ordinary Yoke work. Skills surface in the `/` menu and via description-based invocation; `.claude/skills/yoke` remains the Claude discovery copy and is not authoritative.
+Yoke skills live canonically in `.agents/skills/yoke/`. Cursor discovers that tree natively (measured on Cursor IDE 3.14+ and cursor-agent 2026.07+), so no `.cursor/skills` mirror is required for ordinary Yoke work. Skills surface in the `/` menu and via description-based invocation; `.claude/skills/yoke` is Claude’s required native discovery link to the same source; it contains no regular copies.
 
 ## Surfaces
 
@@ -85,20 +84,4 @@ Both files are regular files, never symlinks (Cursor refuses project config path
 
 ## Lifecycle & Routing
 
-The canonical lifecycle guide is [.yoke/docs/reference/lifecycle.md](.yoke/docs/reference/lifecycle.md). For a live item, read `yoke workflows item get PREFIX-N` then `yoke workflows version get WORKFLOW VERSION`; the pinned definition is the source of truth for which executor owns the current stage. Frontier computation lives in [.yoke/docs/reference/charge-frontier.md](.yoke/docs/reference/charge-frontier.md). Yoke core derives Cursor's supported-path set server-side from the shared registry plus any limitations declared in the Cursor manifest; the adapter does not self-report capabilities.
-
-<!-- END YOKE MANAGED BLOCK -->
-
-# Yoke Repo Internals (Cursor)
-<!-- Not shipped to managed projects — specific to the yoke source repo. The managed block above is the project-agnostic Cursor shell `yoke project install` ships; the harness-build references below are yoke-source-dev material. -->
-
-## Harness contract references (yoke source dev)
-
-These describe how Yoke's harness adapters are built, measured, and compared.
-They live in `docs/`, which the install bundle does not ship, so they stay out
-of the managed block above:
-
-- [Cursor Harness Integration Assessment](docs/harness-cursor-assessment.md) -- measured substrate mapping for Cursor
-- [Harness Bootstrap Contract](docs/harness-bootstrap.md) -- neutral startup expectations
-- [Harness Adapter Template](docs/harness-adapter-template.md) -- five-part adapter template
-- [Hook Parity Map](docs/hook-parity-map.md) -- hook classification across harnesses
+The canonical lifecycle guide is [.yoke/docs/reference/lifecycle.md](../reference/lifecycle.md). For a live item, read `yoke workflows item get PREFIX-N` then `yoke workflows version get WORKFLOW VERSION`; the pinned definition is the source of truth for which executor owns the current stage. Frontier computation lives in [.yoke/docs/reference/charge-frontier.md](../reference/charge-frontier.md). Yoke core derives Cursor's supported-path set server-side from the shared registry plus any limitations declared in the Cursor manifest; the adapter does not self-report capabilities.

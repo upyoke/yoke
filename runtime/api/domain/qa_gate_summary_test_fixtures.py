@@ -37,6 +37,8 @@ CREATE TABLE qa_requirements (
     requirement_source TEXT DEFAULT 'explicit',
     success_policy TEXT,
     waived_at TEXT,
+    superseded_by_requirement_id INTEGER,
+    replacement_requirement_id INTEGER,
     created_at TEXT
 );
 CREATE TABLE qa_runs (
@@ -49,6 +51,7 @@ CREATE TABLE qa_runs (
     execution_status TEXT,
     case_outcome TEXT,
     raw_result TEXT,
+    started_at TEXT,
     completed_at TEXT,
     created_at TEXT
 );
@@ -169,8 +172,17 @@ def add_requirement(
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (item_id, epic_id, task_num, qa_kind, method_id, qa_phase,
-             blocking_mode, waived_at, "2026-05-07T00:00:00Z"),
+            (
+                item_id,
+                epic_id,
+                task_num,
+                qa_kind,
+                method_id,
+                qa_phase,
+                blocking_mode,
+                waived_at,
+                "2026-05-07T00:00:00Z",
+            ),
         )
         rid = int(cursor.fetchone()[0])
         conn.commit()
@@ -194,11 +206,20 @@ def add_run(
         cursor = conn.execute(
             """
             INSERT INTO qa_runs
-              (qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s)
+              (qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, started_at, completed_at, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (req_id, performed_by, qa_kind, verdict, verdict_reason, created_at),
+            (
+                req_id,
+                performed_by,
+                qa_kind,
+                verdict,
+                verdict_reason,
+                created_at,
+                created_at if verdict else None,
+                created_at,
+            ),
         )
         rid = int(cursor.fetchone()[0])
         conn.commit()
@@ -213,7 +234,7 @@ def add_artifact(db_path: str, run_id: int) -> None:
         conn.execute(
             "INSERT INTO qa_artifacts (qa_run_id, artifact_type, artifact_handle) "
             "VALUES (%s, 'screenshot', "
-            "'{\"backend\":\"local\",\"path\":\"qa-artifacts/p/1/1/test.png\"}')",
+            '\'{"backend":"local","path":"qa-artifacts/p/1/1/test.png"}\')',
             (run_id,),
         )
         conn.commit()

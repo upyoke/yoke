@@ -102,9 +102,9 @@ def _record_verdict(
 ) -> None:
     conn.execute(
         "INSERT INTO qa_runs"
-        "(qa_requirement_id,performed_by,qa_kind,verdict,created_at,completed_at) "
-        "VALUES (%s,'agent','browser',%s,%s,%s)",
-        (requirement_id, verdict, at, at),
+        "(qa_requirement_id,performed_by,qa_kind,verdict,started_at,created_at,completed_at) "
+        "VALUES (%s,'agent','browser',%s,%s,%s,%s)",
+        (requirement_id, verdict, at, at, at),
     )
 
 

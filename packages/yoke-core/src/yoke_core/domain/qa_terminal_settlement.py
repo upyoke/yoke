@@ -7,24 +7,23 @@ from dataclasses import dataclass
 from typing import Any, Sequence
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
-from yoke_core.domain.deployment_qa_source_obligation import source_obligation_consumed
+from yoke_core.domain.qa_latest_execution import latest_executions
 from yoke_core.domain.qa_merging_identity import (
     accepted_merging_shas,
-    recorded_head_sha,
 )
 from yoke_core.domain.qa_obligation_settlement import (
     item_supersession_settled,
-    requirement_retracted_at_select,
-    unretracted_requirement_sql,
+    settled_obligation_sql,
 )
 from yoke_core.domain.qa_terminal_requirement_errors import (
     _recovery_instruction,
     requirement_issue_errors,
 )
 from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
-from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
-from yoke_core.domain.qa_terminal_records import unsettled_supersession_runs
+from yoke_core.domain.qa_terminal_records import (
+    _blocking_requirement_rows,
+    live_qa_leases,
+)
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -81,6 +80,13 @@ def _issue_for_requirement(
     accepted_shas: Sequence[str],
 ) -> BlockingRequirementIssue | None:
     requirement_id = str(requirement.get("id") or "<unknown>")
+    if error := requirement.get("replacement_graph_error"):
+        return BlockingRequirementIssue(
+            requirement_id,
+            "replacement-graph-invalid",
+            error,
+            "Reconcile the durable correction chain through registered correction surfaces",
+        )
     review = requirement.get("human_review")
     if review:
         return BlockingRequirementIssue(
@@ -124,6 +130,19 @@ def _issue_for_requirement(
             f"latest run #{run_id} concluded {actual!r}{reason_text}, not completed success",
             recovery,
         )
+    if requirement.get("current_passing_proof") is False:
+        return BlockingRequirementIssue(
+            requirement_id,
+            "stale-proof",
+            f"passing run #{run_id} does not prove the frozen configuration and target",
+            recovery,
+        )
+    if requirement.get("requires_code_identity") is False:
+        if issue := requirement.get("subject_proof_error"):
+            return BlockingRequirementIssue(
+                requirement_id, "subject-unproven", issue, recovery
+            )
+        return None
     run_sha = str(requirement.get("recorded_head_sha") or "").strip()
     if run_sha not in set(accepted_shas) or not run_sha:
         return BlockingRequirementIssue(
@@ -179,34 +198,6 @@ def blocking_requirement_issues(
     ]
 
 
-def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
-    placeholder = _placeholder(conn)
-    cursor = conn.execute(
-        "SELECT q.id, q.blocking_mode, q.waived_at, q.requirement_source, q.deployment_run_id, q.superseded_by_requirement_id, "
-        f"{requirement_retracted_at_select(conn, 'q')}, "
-        "q.qa_phase, q.method_id, q.method_config, r.id AS run_id, "
-        "r.verdict, r.verdict_reason, r.execution_status, r.case_outcome, r.completed_at, "
-        "r.raw_result FROM qa_requirements q LEFT JOIN qa_runs r ON r.id = ("
-        f"{latest_execution_id_sql('q.id')}) "
-        f"WHERE q.item_id = {placeholder} ORDER BY q.id",
-        (int(item_id),),
-    )
-    columns = [str(column[0]) for column in cursor.description]
-    rows = [
-        dict(row) if hasattr(row, "keys") else dict(zip(columns, row))
-        for row in cursor.fetchall()
-    ]
-    for row in rows:
-        if row["qa_phase"] == "post_deploy" and not row["deployment_run_id"]:
-            row["post_deploy_consumed"] = source_obligation_consumed(
-                conn, item_id=item_id, source_requirement_id=int(row["id"])
-            )
-        row["recorded_head_sha"] = recorded_head_sha(row.pop("raw_result", None))
-        waiting = requirement_awaits_human_review(conn, int(row["id"]))
-        row["human_review"] = waiting.as_dict() if waiting else None
-    return rows
-
-
 def _workflow_requires_terminal_qa(workflow: Any, target_status: str) -> bool:
     return any(
         str(gate.get("id") or "") == "qa_verification"
@@ -219,37 +210,38 @@ def find_unsettled_records(conn: Any, *, item_id: int) -> list[UnsettledQaRecord
     if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
         return []
     placeholder = _placeholder(conn)
-    run_rows = conn.execute(
-        "SELECT r.id, r.qa_requirement_id, r.execution_status, r.raw_result, "
-        "r.completed_at, q.superseded_by_requirement_id, r.case_outcome "
-        "FROM qa_runs r JOIN qa_requirements q ON q.id = r.qa_requirement_id "
-        f"WHERE q.item_id = {placeholder} AND q.waived_at IS NULL "
-        f"AND {unretracted_requirement_sql(conn, 'q')} "
-        f"AND r.id = ({latest_execution_id_sql('q.id')}) "
-        "AND r.verdict IS NULL ORDER BY r.id",
+    requirements = conn.execute(
+        f"SELECT q.id FROM qa_requirements q WHERE q.item_id={placeholder} "
+        f"AND NOT {settled_obligation_sql(conn, 'q')}",
         (int(item_id),),
     ).fetchall()
+    attempts = latest_executions(conn, [int(row[0]) for row in requirements])
+    run_rows = [row for row in attempts.values() if row["verdict"] is None]
     unsettled = [
         UnsettledQaRecord(
             kind="run",
             record_id=str(_row_value(row, "id", 0)),
             detail=(
                 f"requirement {_row_value(row, 'qa_requirement_id', 1)} latest execution: "
-                f"{_run_detail(row)}{successor_detail}"
+                f"{_run_detail(row)}"
             ),
         )
-        for row, successor_detail in unsettled_supersession_runs(
-            conn, item_id, run_rows
-        )
+        for row in run_rows
     ]
+    unsettled.extend(
+        UnsettledQaRecord(
+            "host lease", str(lease_id), f"{owner} still owns a live host"
+        )
+        for lease_id, owner in live_qa_leases(conn, item_id)
+    )
     if not _table_exists(conn, "qa_plan_executions"):
         return unsettled
     execution_rows = conn.execute(
         "SELECT id, state FROM qa_plan_executions "
-        f"WHERE item_id = {placeholder} "
+        f"WHERE (item_id = {placeholder} OR deployment_member_item_id = {placeholder}) "
         f"AND state IN ({LIVE_PLAN_EXECUTION_SQL}) "
         "ORDER BY created_at, id",
-        (int(item_id),),
+        (int(item_id), int(item_id)),
     ).fetchall()
     unsettled.extend(
         UnsettledQaRecord(

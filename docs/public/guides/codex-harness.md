@@ -1,9 +1,8 @@
-# Yoke -- Codex Harness Guide
-<!-- BEGIN YOKE MANAGED BLOCK -->
-<!-- Managed by `yoke project install`. Everything between the BEGIN and END markers is overwritten on refresh — do not edit it here. Your own content outside the markers is always preserved. -->
+# Codex harness operations
+
 This file is the Codex-facing entry point for Yoke. It references the shared bootstrap contract and lists the narrow safe command surface for Codex sessions.
 
-For the full project rules, read `AGENTS.md` — the harness-neutral shared doctrine file, and the one Codex loads. `CLAUDE.md` carries the same Yoke-managed block for Claude, which reads that file and does not fall back to `AGENTS.md`. In this repo the two are one file behind a symlink; in a managed project they are two real files, so anything written outside the managed markers has to be added to both or one harness never sees it. Everything in `AGENTS.md` applies to Codex sessions unless noted otherwise below.
+Shared project rules load from the canonical `AGENTS.md`. This guide explains Codex-specific operations; it is an ordinary reference, not an additional auto-loaded instruction file.
 
 Each standing rule in `AGENTS.md` names a deep home under `.yoke/docs/reference/agent-rules/` carrying the reasoning, recovery paths, and worked failure modes behind it; `AGENTS.md` lists which file covers which operation. Read the one that governs an operation before performing it, and read an operation's own `--help` for its variants and flags.
 
@@ -11,11 +10,11 @@ The `## Simplify — three-axis doctrine` section in `AGENTS.md` defines the sha
 
 ## Bootstrap
 
-Codex loads its Yoke orientation automatically from the auto-loaded rules files (`AGENTS.md` shared doctrine + this `CODEX.md` shell) plus the session-start hook, which injects the same orientation and the generated `main_agent` packet block other supported harness sessions receive. That gives Codex's main session the same compact `core` + `claims` schema/API spine the Bash-capable subagents see. Substrate capability truth (hooks, env / session identity, cwd binding, adapter render format, supported commands, parity limits) is documented separately as the `harness_contract` manifest, which the Codex adapter carries alongside this shell. `harness_contract` is the manifest layer; `main_agent` and `*_agent` are the LLM-facing packet layer — the two never overlap.
+Codex loads its Yoke orientation automatically from the canonical auto-loaded `AGENTS.md` plus the session-start hook, which injects the same orientation and the generated `main_agent` packet block other supported harness sessions receive. That gives Codex's main session the same compact `core` + `claims` schema/API spine the Bash-capable subagents see. Substrate capability truth (hooks, env / session identity, cwd binding, adapter render format, supported commands, parity limits) is documented separately as the `harness_contract` manifest, which the Codex adapter carries alongside this shell. `harness_contract` is the manifest layer; `main_agent` and `*_agent` are the LLM-facing packet layer — the two never overlap.
 
 ### Repo-local skill discovery
 
-Yoke skills live canonically in the hidden directory `.agents/skills/yoke/`. Codex treats that repo-local `.agents/skills` tree as a native skill source, so no `.codex/skills` mirror or plugin install is required for ordinary Yoke work. Codex progressive disclosure loads each skill's frontmatter first and reads the full `SKILL.md` only when the skill is invoked. `.claude/skills/yoke` is a discovery copy — a symlink in this repo, a real byte-identical copy in a managed project, since installs cannot rely on symlink support — and must not be treated as the authoritative location; Codex reads the same `SKILL.md` frontmatter Claude reads, so Yoke keeps no duplicate `.codex/skills` tree or per-skill Codex metadata sidecars.
+Yoke skills live canonically in the hidden directory `.agents/skills/yoke/`. Codex treats that repo-local `.agents/skills` tree as a native skill source, so no `.codex/skills` mirror or plugin install is required for ordinary Yoke work. Codex progressive disclosure loads each skill's frontmatter first and reads the full `SKILL.md` only when the skill is invoked. Claude requires `.claude/skills/yoke`, a native discovery symlink to the canonical tree in both source and installed projects. Codex and Cursor discover `.agents/skills` directly. No regular discovery copies are installed; native symlink support is required. See [native discovery](../reference/harness-discovery.md).
 
 ## Approval and sandbox posture
 
@@ -154,7 +153,7 @@ The opening hook records these as session identity. Yoke core derives supported 
 
 ## Yoke function-call surface
 
-Yoke control-plane writes (item structured fields, sections, epic-task amendment, DB-claim amendment, claim mutation, QA writes) route through the Yoke function-call surface. Agents call typed function ids (`items.structured_field.replace`, `items.structured_field.append_addendum`, `items.progress_log.append`, `workflow_item.epic_task.body_replace`, `db_claim.amend`, `claims.work.acquire`, etc.); the CLI adapters (`yoke items structured-field replace`, `yoke items structured-field append-addendum`, `yoke items section upsert`, `yoke workflow-item epic-task body-replace`, `yoke db-claim amend`, `yoke claims work acquire`, etc.) construct the matching `FunctionCallRequest` and dispatch through the same registry. See [`.yoke/docs/reference/db-reference/functions.md`](.yoke/docs/reference/db-reference/functions.md) for the envelope, the per-family reference, and the `YokeFunctionCalled` / `DispatcherIdempotencyReplay` / `DispatcherDownstreamDegraded` dispatcher-event schemas.
+Yoke control-plane writes (item structured fields, sections, epic-task amendment, DB-claim amendment, claim mutation, QA writes) route through the Yoke function-call surface. Agents call typed function ids (`items.structured_field.replace`, `items.structured_field.append_addendum`, `items.progress_log.append`, `workflow_item.epic_task.body_replace`, `db_claim.amend`, `claims.work.acquire`, etc.); the CLI adapters (`yoke items structured-field replace`, `yoke items structured-field append-addendum`, `yoke items section upsert`, `yoke workflow-item epic-task body-replace`, `yoke db-claim amend`, `yoke claims work acquire`, etc.) construct the matching `FunctionCallRequest` and dispatch through the same registry. See [`.yoke/docs/reference/db-reference/functions.md`](../reference/db-reference/functions.md) for the envelope, the per-family reference, and the `YokeFunctionCalled` / `DispatcherIdempotencyReplay` / `DispatcherDownstreamDegraded` dispatcher-event schemas.
 
 External tooling (git, pytest, package managers, `rg` / `grep`) stays command-shaped under the permanent-boundary classification. Yoke-owned control-plane reads, writes, and checks are function-shaped.
 
@@ -172,7 +171,7 @@ Codex hooks (when available) are optional enhancements that improve ergonomics a
 ## Lifecycle & Routing
 
 The canonical lifecycle guide is
-[.yoke/docs/reference/lifecycle.md](.yoke/docs/reference/lifecycle.md). It explains how immutable
+[.yoke/docs/reference/lifecycle.md](../reference/lifecycle.md). It explains how immutable
 workflow versions own stages, transitions, target-stage gates, policies, and
 registered runner bindings. For a live item, read
 `yoke workflows item get PREFIX-N` and then
@@ -180,64 +179,9 @@ registered runner bindings. For a live item, read
 guide or a workflow-name branch, is the source of truth for which executor
 owns the current stage.
 
-Frontier computation lives in [.yoke/docs/reference/charge-frontier.md](.yoke/docs/reference/charge-frontier.md). Yoke core derives Codex's supported-path set server-side from the shared registry plus any manifest limitations; the adapter does not self-report capabilities via `YOKE_SUPPORTED_PATHS`.
+Frontier computation lives in [.yoke/docs/reference/charge-frontier.md](../reference/charge-frontier.md). Yoke core derives Codex's supported-path set server-side from the shared registry plus any manifest limitations; the adapter does not self-report capabilities via `YOKE_SUPPORTED_PATHS`.
 
 ## Related docs
 
-- [Lifecycle & Command Boundaries](.yoke/docs/reference/lifecycle.md) -- canonical human lifecycle guide
-- [Charge Frontier](.yoke/docs/reference/charge-frontier.md) -- frontier computation and status-to-adapter map
-<!-- END YOKE MANAGED BLOCK -->
-
-# Yoke Repo Internals (Codex)
-<!-- Not shipped to managed projects — specific to the yoke source repo. The managed block above is the project-agnostic Codex shell `yoke project install` ships; the wrappers and source paths below are yoke-source-dev plumbing. -->
-
-## Harness contract references (yoke source dev)
-
-These describe how Yoke's harness adapters are built and compared. They live in
-`docs/`, which the install bundle does not ship, so they stay out of the managed
-block above:
-
-- [Harness Bootstrap Contract](docs/harness-bootstrap.md) -- neutral startup expectations; §2 lists the full Tier 1 operator surface
-- [Harness Adapter Template](docs/harness-adapter-template.md) -- five-part adapter template
-- [Hook Parity Map](docs/hook-parity-map.md) -- tier-by-tier hook classification across harnesses, including the Codex `PostToolUseFailure` gap
-
-## Bootstrap render (yoke source dev)
-
-Hooks inject orientation at session start. To print the full bootstrap
-without relying on hook injection:
-
-```sh
-python3 -m yoke_core.hooks.bootstrap render-full --spec runtime/harness/bootstrap-spec.json --root .
-```
-
-That loads `CODEX.md` as the Codex-specific shell, the neutral startup reads
-defined by `runtime/harness/bootstrap-spec.json`, the shared prompt doctrine
-and startup command output required by the [Harness Bootstrap
-Contract](docs/harness-bootstrap.md), and the generated `main_agent` packet
-block injected by `yoke_core.domain.main_agent_packet`.
-
-Codex Desktop opens this repo directly:
-
-```sh
-codex app .
-```
-
-Session identity comes from the hook pack: `.codex/hooks.json` sets
-`YOKE_EXECUTOR` and `YOKE_PROVIDER` on every hook invocation, and the model
-and entrypoint resolve from the Codex runtime. Nothing needs to be exported
-into the shell by hand.
-
-## Skill resolver (yoke source dev)
-
-Thin wrappers, docs, and non-native tooling that need to enumerate or resolve Yoke skills use the Yoke-owned resolver on the bootstrap path:
-
-```sh
-python3 -m yoke_core.hooks.bootstrap skill-list --root "$YOKE_ROOT"
-python3 -m yoke_core.hooks.bootstrap skill-path <skill-name> --root "$YOKE_ROOT"
-```
-
-The resolver always returns the canonical `.agents/skills/yoke/.../SKILL.md` path and never falls back to home-directory guesses like `~/.agents` or `~/.codex/skills`.
-
-## Hook pack & manifest (source layout)
-
-Yoke keeps the canonical Codex hook pack at `runtime/harness/codex/hooks.json`, surfaced to Codex via `.codex/hooks.json`; current Codex builds inject the session-start bootstrap automatically. The Codex capability manifest is at `runtime/harness/codex/manifest.json` — it declares adapter identity, runtime affordances, telemetry posture, and explicit limitations, and does not copy the shared Yoke command/path list. Conduct renders the shared agent bodies into Codex custom agents at `runtime/harness/codex/agents/yoke-*.toml`, surfaced at `.codex/agents/yoke-*.toml` from the canonical bodies under `runtime/agents/`. Adapter directory convention: [Harness README](runtime/harness/README.md).
+- [Lifecycle & Command Boundaries](../reference/lifecycle.md) -- canonical human lifecycle guide
+- [Charge Frontier](../reference/charge-frontier.md) -- frontier computation and status-to-adapter map

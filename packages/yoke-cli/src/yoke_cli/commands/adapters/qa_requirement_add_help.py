@@ -48,7 +48,7 @@ Worked examples:
     --method-id browser-inspection --qa-phase verification \\
     --instructions "Open the login route and capture its ready state." \\
     --expected-outcome "The login form is aligned and usable." \\
-    --method-config '{"steps":[{"action":"navigate","route":"/login"},
+    --method-config '{"color_scheme":"dark","steps":[{"action":"navigate","route":"/login"},
       {"action":"screenshot","capture":true,"label":"login"}]}' \\
     --workflow-transition reviewed-implementation
 
@@ -61,6 +61,15 @@ Worked examples:
       {"action":"screenshot","capture":true,"label":"home"}]}'
 
 Flag matrix:
+
+Browser method_config.color_scheme optionally selects light or dark for this
+case's owned page before navigation, fixed across steps/navigation/reload.
+Omit it for the ordinary browser preference; use separate cases for both modes.
+Run and screenshot metadata keep requested and observed prefers-color-scheme.
+Invalid values, failed emulation, missing observations and mismatches refuse
+by name: correct the setting or repair the daemon and rerun. Media preference
+proves browser input; normal assertions/visual judgment still judge the app.
+Full configuration: reference/browser-scenarios.md, Method configuration.
 
   flag                        required  default    value shape
   --item                      one-of    —          PREFIX-N

@@ -85,7 +85,7 @@ JSON_NESTED_SCHEMAS: dict[tuple[str, str], dict] = {
         "topic": "qa",
         "validator": "yoke_core.domain.qa_requirement_ops",
         "fields": [
-            ("kind", "'all_pass'|'any_pass'|'majority_pass'", "'all_pass'"),
+            ("kind", "'all_pass'", "'all_pass'"),
             ("threshold", "int|null", "null"),
         ],
     },

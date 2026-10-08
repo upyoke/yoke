@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.install_bundle import (
+    BUNDLE_SCHEMA,
+    SKILL_DISCOVERY_LINKS,
+)
+
 import hashlib
 from typing import Any
 
@@ -18,26 +23,33 @@ def install_bundle(project: dict[str, Any]) -> dict[str, Any]:
         f"{strategy_body}"
     )
     return {
-        "bundle_schema": 1,
+        "bundle_schema": BUNDLE_SCHEMA,
+        "skill_discovery_links": dict(SKILL_DISCOVERY_LINKS),
         "yoke_version": "9.9.9",
         "project_id": project["id"],
         "project_slug": project["slug"],
         "default_branch": str(project.get("default_branch") or "main"),
-        "files": [{
-            "path": ".codex/skills/yoke/onboard/SKILL.md",
-            "content": "# onboard\n",
-        }],
-        "project_contract_files": [{
-            "path": ".yoke/lint-config",
-            "content": "lint_main_commit=deny\n",
-            "install_policy": "seed_if_missing",
-            "category": "project_policy",
-        }],
-        "strategy_files": [{
-            "path": ".yoke/strategy/MISSION.md",
-            "content": strategy,
-            "install_policy": "db_render",
-        }],
+        "files": [
+            {
+                "path": ".agents/skills/yoke/onboard/SKILL.md",
+                "content": "# onboard\n",
+            }
+        ],
+        "project_contract_files": [
+            {
+                "path": ".yoke/lint-config",
+                "content": "lint_main_commit=deny\n",
+                "install_policy": "seed_if_missing",
+                "category": "project_policy",
+            }
+        ],
+        "strategy_files": [
+            {
+                "path": ".yoke/strategy/MISSION.md",
+                "content": strategy,
+                "install_policy": "db_render",
+            }
+        ],
         "hooks": {},
     }
 

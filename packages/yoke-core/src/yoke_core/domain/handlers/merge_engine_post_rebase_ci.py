@@ -30,6 +30,14 @@ from yoke_core.domain.qa_command_plans import (
 )
 from yoke_core.domain.qa_method_config_validation import validate_method_config
 from yoke_core.domain.qa_run_verdict_record import insert_qa_run
+from yoke_core.domain.qa_requirement_pass_currency import (
+    canonical_method_config,
+    stamp_executed_method_config,
+)
+from yoke_core.domain.qa_obligation_settlement import (
+    unanswered_attempt_sql,
+    unretracted_requirement_sql,
+)
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
@@ -110,7 +118,9 @@ def _ensure_merge_gate_ci_requirement(
         conn,
         "SELECT id, method_config FROM qa_requirements "
         f"WHERE item_id={marker} AND runner_id='ci_run' "
-        "AND waived_at IS NULL ORDER BY id ASC",
+        f"AND waived_at IS NULL AND {unretracted_requirement_sql(conn)} "
+        f"AND {unanswered_attempt_sql(conn)} AND deployment_run_id IS NULL "
+        "AND COALESCE(execution_target_digest,'')='' ORDER BY id ASC",
         (int(item_id),),
     )
     for row in rows:
@@ -122,7 +132,8 @@ def _ensure_merge_gate_ci_requirement(
             validate_method_config("command-ci", stored_config)
         except ValueError:
             continue
-        return int(row["id"])
+        if canonical_method_config(stored_config) == canonical_method_config(config):
+            return int(row["id"])
 
     now = iso8601_now()
     cur = conn.execute(
@@ -210,7 +221,7 @@ def handle_record_post_rebase_ci_run(request: FunctionCallRequest) -> HandlerOut
             )
             req = query_one(
                 conn,
-                f"SELECT qa_kind FROM qa_requirements WHERE id={_marker(conn)}",
+                f"SELECT qa_kind,method_config FROM qa_requirements WHERE id={_marker(conn)}",
                 (requirement_id,),
             )
             if req is None:
@@ -224,7 +235,9 @@ def handle_record_post_rebase_ci_run(request: FunctionCallRequest) -> HandlerOut
                 qa_kind=qa_kind,
                 verdict=body.verdict,
                 case_outcome=case_outcome_for_verdict(body.verdict),
-                raw_result=body.raw_result,
+                raw_result=stamp_executed_method_config(
+                    body.raw_result, req["method_config"]
+                ),
                 duration_ms=body.duration_ms,
                 started_at=now,
                 completed_at=now,

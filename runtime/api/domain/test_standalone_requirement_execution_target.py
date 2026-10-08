@@ -228,8 +228,7 @@ def test_update_then_begin_uses_persisted_snapshot() -> None:
             ),
         )
         conn.execute(
-            "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, "
-            "verdict, raw_result, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
+            "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at,started_at,completed_at) VALUES (%s, %s, %s, %s, %s, %s,%s,%s)",
             (
                 int(requirement["id"]),
                 "browser_substrate",
@@ -237,10 +236,12 @@ def test_update_then_begin_uses_persisted_snapshot() -> None:
                 "pass",
                 "legacy capture",
                 "2026-09-17T00:00:00Z",
+                "2026-09-17T00:00:00Z",
+                "2026-09-17T00:00:00Z",
             ),
         )
         conn.commit()
-        assert has_current_passing_run(conn, int(requirement["id"]))
+        assert not has_current_passing_run(conn, int(requirement["id"]))
         result = apply_requirement_update(
             conn, int(requirement["id"]), "target_env", "local"
         )
@@ -312,13 +313,12 @@ def test_approving_pending_review_keeps_capture_script_not_live() -> None:
             (req_id,),
         ).fetchone()["execution_target_digest"]
         capture_id = conn.execute(
-            "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, "
-            "verdict, verdict_reason, raw_result, created_at) VALUES "
-            "(%s, 'browser_substrate', 'method_case', 'undetermined', "
-            "'needs human review of the capture', %s, %s) RETURNING id",
+            "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, raw_result, created_at,started_at,completed_at) VALUES (%s, 'browser_substrate', 'method_case', 'undetermined', 'needs human review of the capture', %s, %s,%s,%s) RETURNING id",
             (
                 req_id,
                 stamp_executed_method_config("{}", old, execution_target_digest=digest),
+                "2026-09-17T00:00:00Z",
+                "2026-09-17T00:00:00Z",
                 "2026-09-17T00:00:00Z",
             ),
         ).fetchone()["id"]
@@ -334,9 +334,8 @@ def test_approving_pending_review_keeps_capture_script_not_live() -> None:
             reviewed_run_id=int(capture_id),
         )
         human = conn.execute(
-            "SELECT raw_result FROM qa_runs WHERE qa_requirement_id=%s "
-            "AND performed_by='human_review'",
-            (req_id,),
+            "SELECT raw_result FROM qa_runs WHERE qa_requirement_id=%s AND id=%s",
+            (req_id, capture_id),
         ).fetchone()
         assert recorded_method_config(human["raw_result"]) == old
         assert not has_current_passing_run(conn, req_id)

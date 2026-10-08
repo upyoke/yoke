@@ -286,8 +286,10 @@ def test_strict_promotes_missing_app_credentials_to_critical_fail(
     assert "control-plane App issuer" in out
 
 
-def test_accepts_legacy_claude_md_compat_path(tmp_path, monkeypatch, capsys):
-    """Legacy CLAUDE.md (compat symlink) satisfies the doctrine-file check."""
+def test_requires_canonical_agents_with_legacy_claude_present(
+    tmp_path, monkeypatch, capsys
+):
+    """A harness-specific file cannot substitute for shared project rules."""
     _seed_repo(tmp_path)
     # Replace the seeded AGENTS.md with a CLAUDE.md-only legacy layout.
     (tmp_path / "AGENTS.md").unlink()
@@ -308,7 +310,7 @@ def test_accepts_legacy_claude_md_compat_path(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("yoke_core.domain.check_prerequisites.shutil.which", fake_which)
     monkeypatch.setattr("yoke_core.domain.check_prerequisites.subprocess.run", fake_run)
 
-    assert run_checks(tmp_path) == 0
+    assert run_checks(tmp_path) == 1
     out = capsys.readouterr().out
     assert "AGENTS.md rules" in out
 

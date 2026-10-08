@@ -15,6 +15,7 @@ from typing import Any, Dict, List
 from yoke_cli.config import project_worktrees_ignore
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import uninstall_commit
+from yoke_cli.project_install import skill_discovery
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import hooks as hooks_layer
 from yoke_cli.project_install import managed_markdown as managed_markdown_layer
@@ -86,8 +87,14 @@ def uninstall(
     )
     project_worktrees_ignore.report(root, apply=False)
     commit_paths = uninstall_commit.prepare(root, manifest, config_path)
-    removed, skipped, absent, warnings = files_layer.remove_manifest_files(
+    file_records = skill_discovery.prune_records(
         root, dict(manifest.get("files") or {})
+    )
+    discovery_removed = skill_discovery.remove(
+        root, manifest.get("skill_discovery_links")
+    )
+    removed, skipped, absent, warnings = files_layer.remove_manifest_files(
+        root, file_records
     )
     # Contract files: remove only installer-created files still byte-equal
     # to their seeded content; edited ones are preserved with a warning and
@@ -160,6 +167,7 @@ def uninstall(
         MODE_KEY: MODE_COPY,
         "repo_root": str(root),
         "files_removed": removed,
+        "skill_discovery_removed": discovery_removed,
         "files_skipped_modified": skipped,
         "files_already_absent": absent,
         "contract_files_removed": contract_removed,

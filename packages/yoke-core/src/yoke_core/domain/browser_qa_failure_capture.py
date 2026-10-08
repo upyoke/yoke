@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain.browser_qa_step_artifacts import record_step_artifacts
+from yoke_core.domain.browser_qa_case_config import record_color_scheme_observation
 from yoke_core.domain.browser_qa_sign_in_evidence import (
     AUTHENTICATION_WALL_LABEL,
     authorize_recovery,
@@ -43,6 +44,7 @@ def capture_failed_assertion_page(
     route: str,
     actor: Optional[ActorContext] = None,
     label: str = "step_failure",
+    color_scheme: Optional[str] = None,
 ) -> Tuple[str, List[str], List[int], bool]:
     """Capture the page under a failed step.
 
@@ -90,6 +92,18 @@ def capture_failed_assertion_page(
             False,
         )
 
+    scheme_evidence = {"requested": color_scheme, "observed": None}
+    scheme_error = record_color_scheme_observation(
+        scheme_evidence, data.get("color_scheme")
+    )
+    if scheme_error:
+        return (
+            f"{assertion_error}assertion_failure_capture:{scheme_error};",
+            [],
+            [],
+            False,
+        )
+
     artifacts_raw = list(data.get("artifacts") or []) if isinstance(data, dict) else []
     if not artifacts_raw:
         screenshot = (
@@ -119,6 +133,7 @@ def capture_failed_assertion_page(
         viewport=data.get("viewport") if isinstance(data, dict) else None,
         observed_url=str(data.get("url") or "") if isinstance(data, dict) else "",
         actor=actor,
+        color_scheme=scheme_evidence,
     )
     if recorded.failures:
         return (
@@ -145,6 +160,7 @@ def apply_failed_step(
     route: str,
     actor: Optional[ActorContext] = None,
     authentication_wall: bool = False,
+    color_scheme: Optional[str] = None,
 ) -> Tuple[str, List[str], List[int], bool]:
     """Record a failed step and capture its page when available.
 
@@ -170,6 +186,7 @@ def apply_failed_step(
         route=route,
         actor=actor,
         label=label,
+        color_scheme=color_scheme,
     )
     return errors, paths, ids, not capture_ok
 
@@ -201,6 +218,7 @@ def failed_step_from_response(
     route: str,
     actor: Optional[ActorContext] = None,
     project: str = "",
+    color_scheme: Optional[str] = None,
 ) -> Optional[FailedStep]:
     """Return a ``FailedStep`` when the daemon said the step failed."""
     from yoke_core.domain import browser_qa as _bqa
@@ -242,6 +260,7 @@ def failed_step_from_response(
         route=route,
         actor=actor,
         authentication_wall=unauthorized,
+        color_scheme=color_scheme,
     )
     return FailedStep(
         errors=errors,

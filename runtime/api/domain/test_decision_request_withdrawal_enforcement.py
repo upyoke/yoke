@@ -301,7 +301,7 @@ def test_qa_withdraw_requires_conclusive_or_waived_requirement(conn) -> None:
             reason="older evidence failed",
         )
 
-    conn.execute("INSERT INTO qa_runs VALUES (71, 7, 'pass', 'passed')")
+    conn.execute("INSERT INTO qa_runs VALUES (70, 7, 'pass', 'passed')")
     assert (
         withdraw_decision_request(
             conn,

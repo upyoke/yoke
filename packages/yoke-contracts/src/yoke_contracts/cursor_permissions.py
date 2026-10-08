@@ -53,7 +53,7 @@ CURSOR_CLI_ALLOW: Tuple[str, ...] = (
 
 # Everything not named by the resolved origins stays blocked. This is the
 # tighter fallback posture; the recommended zero-prompt posture lives in
-# Cursor's own settings and is documented in CURSOR.md.
+# Cursor's own settings and is documented in the Cursor harness reference guide.
 NETWORK_POLICY_DEFAULT = "deny"
 
 # Cursor's cli.json schema requires ``permissions.deny`` to be present as an

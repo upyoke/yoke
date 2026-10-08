@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from yoke_cli.project_install import files as files_layer
+from yoke_cli.project_install import skill_discovery
 from yoke_cli.project_install.files import ProjectInstallError
 from yoke_cli.project_install.preflight import preflight_apply
 
@@ -20,7 +21,10 @@ def preview_report(
     preserved_files: dict[str, str],
 ) -> dict[str, Any]:
     preflight = preflight_apply(
-        root, bundle, prior_manifest, preserved_files,
+        root,
+        bundle,
+        prior_manifest,
+        preserved_files,
     )
     bundle_files = bundle["files"]
     files_layer.assert_safe_bundle_paths(entry["path"] for entry in bundle_files)
@@ -42,7 +46,9 @@ def preview_report(
             would_write.append(entry["path"])
     would_prune: list[str] = []
     would_preserve: list[str] = []
-    old_files = dict(prior_manifest.get("files") or {})
+    old_files = skill_discovery.prune_records(
+        root, dict(prior_manifest.get("files") or {})
+    )
     keep_paths = set(new_hashes) | set(preserved_files)
     for rel in sorted(set(old_files) - keep_paths):
         target = root / rel
@@ -52,23 +58,16 @@ def preview_report(
             current = target.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             current = None
-        if (
-            current is not None
-            and files_layer.sha256_text(current) == old_files[rel]
-        ):
+        if current is not None and files_layer.sha256_text(current) == old_files[rel]:
             would_prune.append(rel)
         else:
             would_preserve.append(rel)
     hook_plans = preflight["hook_plans"]
     hooks_would_add = {
-        rel: plan["added"]
-        for rel, plan in hook_plans.items()
-        if plan["added"]
+        rel: plan["added"] for rel, plan in hook_plans.items() if plan["added"]
     }
     hooks_would_remove = {
-        rel: plan["removed"]
-        for rel, plan in hook_plans.items()
-        if plan["removed"]
+        rel: plan["removed"] for rel, plan in hook_plans.items() if plan["removed"]
     }
     settings_would_create = sorted(
         rel for rel, plan in hook_plans.items() if plan["created"]
@@ -98,22 +97,22 @@ def preview_report(
         "server_state_writes": False,
         "manifest_source": manifest_source,
         "prior_contract_records_discarded": list(
-            prior_manifest.get(
-                files_layer.DISCARDED_PRIOR_CONTRACT_RECORDS_KEY
-            ) or []
+            prior_manifest.get(files_layer.DISCARDED_PRIOR_CONTRACT_RECORDS_KEY) or []
         ),
         "prior_strategy_records_discarded": list(
-            prior_manifest.get(
-                files_layer.DISCARDED_PRIOR_STRATEGY_RECORDS_KEY
-            ) or []
+            prior_manifest.get(files_layer.DISCARDED_PRIOR_STRATEGY_RECORDS_KEY) or []
         ),
+        "skill_discovery_would_create": [
+            rel
+            for rel in skill_discovery.SKILL_DISCOVERY_LINKS
+            if not (root / rel).is_symlink()
+        ],
+        "instruction_paths_would_retire": list(preflight["instruction_retirement"]),
         "files_would_write": would_write,
         "files_would_prune": would_prune,
         "files_would_preserve_modified": would_preserve,
         "files_preserved_unrendered": sorted(preserved_files),
-        "files_unchanged": (
-            len(new_hashes) - len(would_write) + len(preserved_files)
-        ),
+        "files_unchanged": (len(new_hashes) - len(would_write) + len(preserved_files)),
         "hooks_would_add": hooks_would_add,
         "hooks_would_remove": hooks_would_remove,
         "settings_files_would_create": settings_would_create,

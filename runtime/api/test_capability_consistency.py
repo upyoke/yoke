@@ -6,9 +6,9 @@ explicit substrate limitations. This module locks the agreement so that:
 
 1. The shared registry declares the registered operator entrypoints used by
    current immutable workflow-version skill bindings.
-2. ``CODEX.md`` lists the same entrypoints and downstream paths in its
+2. ``docs/public/guides/codex-harness.md`` lists the same entrypoints and downstream paths in its
    operator-facing tables.
-3. ``CODEX.md``, ``docs/OVERVIEW.md``, and ``docs/harness-bootstrap.md``
+3. ``docs/public/guides/codex-harness.md``, ``docs/OVERVIEW.md``, and ``docs/harness-bootstrap.md``
    never claim that the registered ``/yoke implement`` entrypoint is
    unsupported by the harness.
 4. Harness-shared bootstrap doctrine treats ``/yoke implement YOK-N`` as an
@@ -80,7 +80,7 @@ def codex_manifest() -> dict:
 
 @pytest.fixture(scope="module")
 def codex_md() -> str:
-    return _read(REPO / "CODEX.md")
+    return _read(REPO / "docs/public/guides/codex-harness.md")
 
 
 @pytest.fixture(scope="module")
@@ -136,7 +136,7 @@ class TestSharedRegistryAdvertisesImplement:
 
 
 class TestCodexMdMatchesRegistry:
-    """``CODEX.md`` must render registry truth, not stale capability
+    """``docs/public/guides/codex-harness.md`` must render registry truth, not stale capability
     prose. The user-facing supported-entrypoints table must list every
     shared entrypoint, and the supported-downstream-paths table must
     list every shared path."""
@@ -149,10 +149,12 @@ class TestCodexMdMatchesRegistry:
             codex_md,
             re.DOTALL,
         )
-        assert match, "CODEX.md missing '### Supported entrypoints' section"
+        assert match, (
+            "docs/public/guides/codex-harness.md missing '### Supported entrypoints' section"
+        )
         section = match.group(1)
         assert "/yoke implement" in section, (
-            "CODEX.md supported entrypoints table must list /yoke implement"
+            "docs/public/guides/codex-harness.md supported entrypoints table must list /yoke implement"
         )
 
     def test_supported_downstream_paths_table_lists_implement(self, codex_md):
@@ -161,12 +163,14 @@ class TestCodexMdMatchesRegistry:
             codex_md,
             re.DOTALL,
         )
-        assert match, "CODEX.md missing '### Supported downstream paths' section"
+        assert match, (
+            "docs/public/guides/codex-harness.md missing '### Supported downstream paths' section"
+        )
         section = match.group(1)
         # Pull the table lines that look like ``| `name` | … |``.
         rows = re.findall(r"^\|\s*`([^`]+)`\s*\|", section, re.MULTILINE)
         assert "implement" in rows, (
-            "CODEX.md supported downstream paths table must list 'implement' "
+            "docs/public/guides/codex-harness.md supported downstream paths table must list 'implement' "
             f"(got rows: {rows})"
         )
 
@@ -179,11 +183,13 @@ class TestCodexMdMatchesRegistry:
             codex_md,
             re.DOTALL,
         )
-        assert match, "CODEX.md missing '### Limitations' section"
+        assert match, (
+            "docs/public/guides/codex-harness.md missing '### Limitations' section"
+        )
         section = match.group(1)
         limitation_bullets = re.findall(r"^- `(/yoke \S+)`", section, re.MULTILINE)
         assert "/yoke implement" not in limitation_bullets, (
-            f"CODEX.md still lists /yoke implement as a structural limitation "
+            f"docs/public/guides/codex-harness.md still lists /yoke implement as a structural limitation "
             f"(bullets found: {limitation_bullets})"
         )
 
@@ -194,11 +200,15 @@ class TestCodexMdMatchesRegistry:
         assert not re.search(
             r"not yet supported in Codex[^\n]*implement",
             codex_md,
-        ), "CODEX.md still claims /yoke implement is not yet supported"
+        ), (
+            "docs/public/guides/codex-harness.md still claims /yoke implement is not yet supported"
+        )
         assert not re.search(
             r"implement[^\n]*not yet supported in Codex",
             codex_md,
-        ), "CODEX.md still claims /yoke implement is not yet supported"
+        ), (
+            "docs/public/guides/codex-harness.md still claims /yoke implement is not yet supported"
+        )
 
 
 class TestOverviewMatchesRegistry:

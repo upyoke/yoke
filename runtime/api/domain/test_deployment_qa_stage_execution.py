@@ -43,7 +43,9 @@ def _environment(conn: Any) -> None:
     )
 
 
-def _plan(conn: Any, slug: str = "release-smoke") -> int:
+def _plan(
+    conn: Any, slug: str = "release-smoke", *, target_envs: list[str] | None = None
+) -> int:
     plan = create_plan(
         conn,
         project="yoke",
@@ -62,6 +64,7 @@ def _plan(conn: Any, slug: str = "release-smoke") -> int:
                 "instructions": "run the frozen smoke command",
                 "expected_outcome": "the command passes",
                 "method_config": {"command": "true"},
+                "target_envs": target_envs or [],
             }
         ],
     )
@@ -187,12 +190,22 @@ def _seed_run(
 def _complete_case(conn: Any, execution: dict[str, Any]) -> int:
     requirement_id = int(execution["roster"][0]["requirement_id"])
     now = "2026-09-14T00:02:00Z"
+    from yoke_core.domain.qa_requirement_pass_currency import (
+        stamp_executed_method_config,
+    )
+
+    requirement = conn.execute(
+        "SELECT method_config FROM qa_requirements WHERE id=%s", (requirement_id,)
+    ).fetchone()
+    raw = stamp_executed_method_config(
+        "scoped case passed", requirement[0], conn=conn, requirement_id=requirement_id
+    )
     run_id = int(
         conn.execute(
-        "INSERT INTO qa_runs("
-        "qa_requirement_id,performed_by,qa_kind,verdict,started_at,completed_at,created_at"
-        ") VALUES (%s,'worktree_run','plan_case','pass',%s,%s,%s) RETURNING id",
-        (requirement_id, now, now, now),
+            "INSERT INTO qa_runs("
+            "qa_requirement_id,performed_by,qa_kind,verdict,raw_result,started_at,completed_at,created_at"
+            ") VALUES (%s,'worktree_run','plan_case','pass',%s,%s,%s,%s) RETURNING id",
+            (requirement_id, raw, now, now, now),
         ).fetchone()[0]
     )
     conn.execute(

@@ -114,8 +114,8 @@ def test_project_install_product_wheel_uses_https_bundle_with_inert_engine(
         server.bundle = _bundle(
             files=[
                 {
-                    "path": ".codex/skills/yoke/idea/SKILL.md",
-                    "content": "# idea codex\n",
+                    "path": ".agents/skills/yoke/onboard/SKILL.md",
+                    "content": "# onboard\n",
                 }
             ]
         )
@@ -135,8 +135,8 @@ def test_project_install_product_wheel_uses_https_bundle_with_inert_engine(
             timeout=90,
         )
         assert sorted(json.loads(refresh.stdout)["files_pruned"]) == [
+            ".agents/skills/yoke/idea/SKILL.md",
             ".claude/agents/yoke-engineer.md",
-            ".claude/skills/yoke/idea/SKILL.md",
         ]
         assert not (checkout / ".claude/skills/yoke/idea/SKILL.md").exists()
         assert (checkout / ".yoke/lint-config").read_text(
@@ -188,7 +188,7 @@ def test_project_install_product_wheel_uses_https_bundle_with_inert_engine(
         assert request["payload"] == {"project": "7", "field": "default_branch"}
         assert payload["commit"]
         assert not _run(["git", "status", "--porcelain"], cwd=checkout).stdout.strip()
-        assert payload["files_removed"] == [".codex/skills/yoke/idea/SKILL.md"]
+        assert payload["files_removed"] == [".agents/skills/yoke/onboard/SKILL.md"]
         assert payload["contract_files_preserved_modified"] == [".yoke/lint-config"]
         assert payload["strategy_files_preserved"] == [".yoke/strategy/MISSION.md"]
         assert payload["git_hooks_removed"] == [

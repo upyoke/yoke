@@ -147,7 +147,7 @@ looked at and names what it found. Decide with `--existing-yoke-layer`:
 The layer is `.yoke/`, the Yoke skill trees under `.agents/`, `.claude/`,
 `.codex/`, and `.cursor/`, the `yoke-` agent adapters, `.claude/rules/`, the
 `.yoke-operating-layer.json` receipt, the managed block inside `AGENTS.md` /
-`CLAUDE.md` / `CODEX.md` / `CURSOR.md`, and the Yoke hook entries merged into
+legacy harness instruction files (ownership-checked retirement), and the Yoke hook entries merged into
 the harness settings files. Removal takes exactly those: your own agents,
 your own text outside the managed block, and your other hook and settings
 entries stay. A repository with no layer needs no decision.
@@ -311,7 +311,7 @@ yoke project refresh ~/work/demo --config ~/.yoke/config.json
 
 `yoke project install` fetches the active env's install bundle and writes:
 
-- `.claude/skills/yoke/` and `.codex/skills/yoke/`
+- `.agents/skills/yoke/` and its required Claude discovery symlink
 - `.claude/agents/` and `.codex/agents/`
 - `.claude/settings.json` and `.codex/hooks.json` hook entries
 - git hook shims

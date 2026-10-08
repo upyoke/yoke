@@ -81,6 +81,9 @@ def _add_plan_case(
             )
             """
         )
+        from runtime.api.fixtures.qa_attempt_history import ensure_qa_attempt_history
+
+        ensure_qa_attempt_history(conn)
         conn.execute(
             "INSERT INTO qa_requirements "
             "(id, deployment_run_id, qa_kind, qa_phase, blocking_mode, "
@@ -96,8 +99,8 @@ def _add_plan_case(
         )
         if verdict is not None:
             conn.execute(
-                "INSERT INTO qa_runs (id, qa_requirement_id, verdict) "
-                "VALUES (%s, %s, %s)",
+                "INSERT INTO qa_runs (id, qa_requirement_id, verdict, started_at, completed_at) "
+                "VALUES (%s, %s, %s, '2026-09-09T00:00:00Z', '2026-09-09T00:00:01Z')",
                 (requirement_id, requirement_id, verdict),
             )
         conn.commit()

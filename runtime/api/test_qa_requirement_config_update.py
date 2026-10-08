@@ -8,13 +8,8 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import qa
-from yoke_core.domain.qa_plan_execution_store import canonical
 from yoke_core.domain.qa_requirement_pass_currency import (
-    METHOD_CONFIG_FIELD,
     METHOD_CONFIG_REVISION_KEY,
-    PRESERVED_JSON_FIELD,
-    attach_method_config_snapshot,
-    bind_correction_identity,
     has_current_passing_run,
     recorded_method_config,
 )
@@ -68,14 +63,15 @@ def _seed_browser_requirement(db_path: str, *, steps: list[dict]) -> int:
 def _insert_unstamped_pass(db_path: str, req_id: int) -> tuple[int, str | None]:
     conn = connect_test_db(db_path)
     cur = conn.execute(
-        "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, verdict, "
-        "raw_result, created_at) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+        "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at,started_at,completed_at) VALUES (%s, %s, %s, %s, %s, %s,%s,%s) RETURNING id",
         (
             req_id,
             "browser_substrate",
             "plan_case",
             "pass",
             "legacy capture evidence",
+            _NOW,
+            _NOW,
             _NOW,
         ),
     )
@@ -96,38 +92,11 @@ def _connect_has_pass(db_path: str, req_id: int) -> bool:
         conn.close()
 
 
-class TestAttachMethodConfigSnapshot:
-    def test_preserves_non_object_json_array(self) -> None:
-        attached = json.loads(
-            attach_method_config_snapshot("[1,2]", {"steps": _OLD_STEPS})
-        )
-        assert attached[PRESERVED_JSON_FIELD] == [1, 2]
-        assert attached[METHOD_CONFIG_FIELD]["steps"][0]["action"] == "navigate"
-
-    def test_keeps_existing_start_snapshot(self) -> None:
-        first = attach_method_config_snapshot("{}", {"steps": _OLD_STEPS})
-        second = attach_method_config_snapshot(first, {"steps": _NEW_STEPS})
-        recorded = recorded_method_config(second)
-        assert recorded is not None
-        assert recorded["steps"][1]["action"] == "assert"
-
-    def test_bind_keeps_marker_through_empty_config(self) -> None:
-        marked = bind_correction_identity(
-            {"steps": _OLD_STEPS}, canonical({"steps": _NEW_STEPS})
-        )
-        empty = json.loads(bind_correction_identity(marked, canonical({})))
-        restored = json.loads(
-            bind_correction_identity(empty, canonical({"steps": _NEW_STEPS}))
-        )
-        assert empty[METHOD_CONFIG_REVISION_KEY] is True
-        assert restored[METHOD_CONFIG_REVISION_KEY] is True
-
-
 class TestMethodConfigUpdate:
-    def test_legacy_unstamped_pass_still_satisfies(self, db_path: str) -> None:
+    def test_unstamped_pass_cannot_prove_executable_config(self, db_path: str) -> None:
         req_id = _seed_browser_requirement(db_path, steps=_OLD_STEPS)
         _insert_unstamped_pass(db_path, req_id)
-        assert _connect_has_pass(db_path, req_id)
+        assert not _connect_has_pass(db_path, req_id)
 
     def test_update_keeps_historical_run_and_rejects_stale_green(
         self, db_path: str
@@ -149,8 +118,7 @@ class TestMethodConfigUpdate:
             "SELECT verdict, raw_result FROM qa_runs WHERE id = %s", (run_id,)
         ).fetchone()
         extra = conn.execute(
-            "SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id = %s "
-            "AND id <> %s",
+            "SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id = %s AND id <> %s",
             (req_id, run_id),
         ).fetchone()[0]
         passed = has_current_passing_run(conn, req_id)
@@ -275,9 +243,13 @@ class TestMethodConfigUpdate:
         # A determinate verdict is what closes the window: the case has now
         # answered, so its snapshot is the acceptance record.
         conn.execute(
-            "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,"
-            "created_at) VALUES (%s,'worktree_run','plan_case','fail',%s)",
-            (req_id, "2026-04-20T00:00:00Z"),
+            "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,created_at,started_at,completed_at) VALUES (%s,'worktree_run','plan_case','fail',%s,%s,%s)",
+            (
+                req_id,
+                "2026-04-20T00:00:00Z",
+                "2026-04-20T00:00:00Z",
+                "2026-04-20T00:00:00Z",
+            ),
         )
         before = conn.execute(
             "SELECT method_config FROM qa_requirements WHERE id = %s", (req_id,)
@@ -302,6 +274,7 @@ class TestMethodConfigUpdate:
         conn.close()
         assert after == before
         assert marker_count == 1
+
     def test_non_method_requirement_cannot_take_method_config(
         self, db_path: str
     ) -> None:
@@ -321,7 +294,9 @@ class TestMethodConfigUpdate:
             )
         assert exc.value.code == 2
 
-    def test_same_config_keeps_unstamped_pass(self, db_path: str) -> None:
+    def test_same_config_keeps_history_without_borrowing_missing_proof(
+        self, db_path: str
+    ) -> None:
         req_id = _seed_browser_requirement(db_path, steps=_OLD_STEPS)
         _insert_unstamped_pass(db_path, req_id)
         qa.cmd_requirement_update(
@@ -337,7 +312,7 @@ class TestMethodConfigUpdate:
         passed = has_current_passing_run(conn, req_id)
         conn.close()
         assert count == 1
-        assert passed is True
+        assert passed is False
 
     def test_cli_help_names_method_config(
         self, capsys: pytest.CaptureFixture[str]

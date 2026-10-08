@@ -9,6 +9,11 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.project_contract.install_bundle import (
+    BUNDLE_SCHEMA,
+    SKILL_DISCOVERY_LINKS,
+)
+
 from yoke_core.domain.project_contract import (
     CATEGORY_PROJECT_POLICY,
     SEED_IF_MISSING,
@@ -25,16 +30,8 @@ CODEX_PRE_CMD = (
 )
 
 DEFAULT_FILES = [
-    {"path": ".claude/skills/yoke/SKILL.md", "content": "# yoke\n"},
-    {"path": ".codex/skills/yoke/SKILL.md", "content": "# yoke\n"},
-    {
-        "path": ".claude/skills/yoke/onboard/SKILL.md",
-        "content": "# onboard\n",
-    },
-    {
-        "path": ".codex/skills/yoke/onboard/SKILL.md",
-        "content": "# onboard\n",
-    },
+    {"path": ".agents/skills/yoke/SKILL.md", "content": "# yoke\n"},
+    {"path": ".agents/skills/yoke/onboard/SKILL.md", "content": "# onboard\n"},
 ]
 
 # Sentinels: build a bundle WITHOUT the project_contract_files /
@@ -53,7 +50,9 @@ def contract_entry(path: str, content: str) -> Dict[str, str]:
 
 
 def strategy_entry(
-    slug: str, body: str, updated_at: str = "2026-06-10T00:00:00Z",
+    slug: str,
+    body: str,
+    updated_at: str = "2026-06-10T00:00:00Z",
 ) -> Dict[str, str]:
     """One db-render strategy bundle entry with a real CAS header."""
     return {
@@ -94,7 +93,7 @@ def codex_hooks() -> Dict[str, Any]:
 def make_bundle(
     files: Optional[List[Dict[str, str]]] = None,
     *,
-    bundle_schema: int = 1,
+    bundle_schema: int = BUNDLE_SCHEMA,
     claude: Optional[Dict[str, Any]] = None,
     codex: Optional[Dict[str, Any]] = None,
     contract: Any = None,
@@ -104,6 +103,7 @@ def make_bundle(
     drop the matching key entirely (pre-feature server shapes)."""
     bundle = {
         "bundle_schema": bundle_schema,
+        "skill_discovery_links": dict(SKILL_DISCOVERY_LINKS),
         "yoke_version": "9.9.9",
         "project_id": 7,
         "project_slug": "demo",

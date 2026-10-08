@@ -46,6 +46,9 @@ CREATE TABLE qa_requirements (
     method_id TEXT,
     verdict_path TEXT,
     waived_at TEXT,
+    superseded_by_requirement_id INTEGER,
+    replacement_requirement_id INTEGER,
+    retracted_at TEXT,
     created_at TEXT
 );
 CREATE TABLE qa_runs (
@@ -58,6 +61,7 @@ CREATE TABLE qa_runs (
     execution_status TEXT,
     case_outcome TEXT,
     raw_result TEXT,
+    started_at TEXT,
     completed_at TEXT,
     created_at TEXT
 );
@@ -135,8 +139,8 @@ def add_run(
     timestamp = created_at or "2026-04-20T00:00:00Z"
     cur = conn.execute(
         "INSERT INTO qa_runs (qa_requirement_id, verdict, performed_by, "
-        "execution_status, case_outcome, raw_result, completed_at, created_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        "execution_status, case_outcome, raw_result, started_at, completed_at, created_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
         (
             requirement_id,
             verdict,
@@ -144,6 +148,7 @@ def add_run(
             execution_status,
             case_outcome,
             raw_result,
+            timestamp,
             timestamp,
             timestamp,
         ),
@@ -203,6 +208,15 @@ def link_agent_review(
         "bundle_id,requirement_id,capture_run_id,review_run_id,verdict"
         ") VALUES ('bundle-1',%s,%s,%s,'pass')",
         (requirement_id, capture_run_id, review_run_id),
+    )
+    from yoke_core.domain.qa_capture_settlement import stamp_reviewed_capture
+
+    stamp_reviewed_capture(
+        conn,
+        {"requirement_id": requirement_id, "capture_run_id": capture_run_id},
+        verdict="pass",
+        rationale="Read the actual capture",
+        created_at="2026-04-20T00:00:00Z",
     )
     conn.commit()
     conn.close()

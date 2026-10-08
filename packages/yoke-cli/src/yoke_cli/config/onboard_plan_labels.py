@@ -133,7 +133,7 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
         return "Refresh the Yoke project scaffold (.yoke/)"
     if action == "project-install-agent-rules":
         return (
-            "Add Yoke's rules to AGENTS.md, CLAUDE.md, CODEX.md, and CURSOR.md "
+            "Add Yoke's shared rules to canonical AGENTS.md "
             "(keeps any existing content)"
         )
     if action == "project-install-tool-permissions":

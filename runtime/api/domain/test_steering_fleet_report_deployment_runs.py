@@ -49,9 +49,9 @@ def _seed_requirement(conn, *, requirement_id: int, member_item_id: int | None) 
 def _record_verdict(conn, *, requirement_id: int, verdict: str) -> None:
     conn.execute(
         "INSERT INTO qa_runs"
-        "(qa_requirement_id,performed_by,qa_kind,verdict,created_at,completed_at) "
-        "VALUES (%s,'agent','browser',%s,%s,%s)",
-        (requirement_id, verdict, STAGE_STARTED, STAGE_STARTED),
+        "(qa_requirement_id,performed_by,qa_kind,verdict,started_at,created_at,completed_at) "
+        "VALUES (%s,'agent','browser',%s,%s,%s,%s)",
+        (requirement_id, verdict, STAGE_STARTED, STAGE_STARTED, STAGE_STARTED),
     )
 
 

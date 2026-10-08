@@ -20,7 +20,10 @@ import yoke_cli
 import yoke_contracts
 
 from yoke_contracts.install_binding import source_checkout_root
-from yoke_contracts.project_contract.install_bundle import BUNDLE_SCHEMA
+from yoke_contracts.project_contract.install_bundle import (
+    BUNDLE_SCHEMA,
+    SKILL_DISCOVERY_LINKS,
+)
 from yoke_contracts.project_contract.installed_layer import (
     INSTALLED_LAYER_RECEIPT_REL,
     installed_layer_receipt_entry,
@@ -116,6 +119,7 @@ def build_source_bundle(
             "hooks": hooks,
             "managed": managed,
             "managed_git_hooks": managed_git_hooks,
+            "skill_discovery_links": SKILL_DISCOVERY_LINKS,
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -134,6 +138,7 @@ def build_source_bundle(
         "project_id": int(project_id),
         "project_slug": project_slug,
         "files": files,
+        "skill_discovery_links": dict(SKILL_DISCOVERY_LINKS),
         # These surfaces require project DB state. A source refresh preserves
         # the receiving checkout's project-owned contract and strategy views.
         "project_contract_files": [],

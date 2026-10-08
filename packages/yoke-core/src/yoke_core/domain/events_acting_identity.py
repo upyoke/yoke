@@ -27,6 +27,7 @@ ACTING_IDENTITY_EVENT_NAMES = frozenset(
         "ItemStatusChanged",
         "QARunCaptured",
         "QARunCompleted",
+        "QaSimulationTriaged",
     }
 )
 

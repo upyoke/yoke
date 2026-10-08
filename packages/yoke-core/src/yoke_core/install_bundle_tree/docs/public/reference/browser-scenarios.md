@@ -36,10 +36,23 @@ step. For example, a dedicated actor round trip can include
 `"cleanup_steps": [{"action": "click", "target": "#disable-actor"}]`.
 Choose steps that restore a safe state from the page left by a failure.
 
+Optional `color_scheme` is exactly `"light"` or `"dark"`; omit it for the
+ordinary browser preference. It applies before navigation to this case's owned
+page only, stays fixed across navigation/reload/steps, and never changes the
+profile, OS, another page, or a following case. Use separate cases for both modes.
+A resumed page must declare the same setting; otherwise close it and restart.
+The daemon observes actual `prefers-color-scheme` before and after steps. Run and
+screenshot metadata carry `color_scheme: {requested, observed}`. Invalid values,
+emulation errors, missing observations and mismatches fail explicitly; repair
+the named boundary and rerun. Older daemons missing observations cannot credit
+a declared mode. Media preference proves browser input; assertions and visual
+review still judge whether the application honors it. It creates no visual pass.
+
 ```json
 {
   "base_url": "https://example.test",
   "viewport": {"width": 1440, "height": 900},
+  "color_scheme": "dark",
   "steps": [
     {
       "action": "navigate",

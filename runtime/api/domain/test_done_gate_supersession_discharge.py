@@ -146,7 +146,7 @@ def test_supersession_naming_a_case_that_did_not_pass_does_not_satisfy_done(
             rationale="the replacement never proved anything",
             source="operator",
         )
-    assert "not pass" in str(refusal.value)
+    assert "recorded verdict: fail" in str(refusal.value)
 
     # A link written past that refusal still cannot carry the failure
     # through: the replacement is graded on its own evidence in the same

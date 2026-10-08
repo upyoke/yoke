@@ -38,12 +38,9 @@ def _bundle() -> dict:
     bundle["managed_markdown"] = {
         "blocks": {
             "doctrine": "# Yoke doctrine\n\nWorktree discipline etc.",
-            "codex_shell": "# Codex shell\n\nSee AGENTS.md.",
         },
         "targets": [
             {"path": "AGENTS.md", "block": "doctrine"},
-            {"path": "CLAUDE.md", "block": "doctrine"},
-            {"path": "CODEX.md", "block": "codex_shell"},
         ],
     }
     bundle["claude_settings_permissions"] = {
@@ -56,10 +53,9 @@ def _bundle() -> dict:
 def test_install_creates_rules_and_permissions(repo) -> None:
     report = apply_bundle(repo, _bundle(), source="test")
 
-    for rel in ("AGENTS.md", "CLAUDE.md", "CODEX.md"):
+    for rel in ("AGENTS.md",):
         assert MANAGED_BLOCK_BEGIN in (repo / rel).read_text(encoding="utf-8")
     assert "Yoke doctrine" in (repo / "AGENTS.md").read_text(encoding="utf-8")
-    assert "Codex shell" in (repo / "CODEX.md").read_text(encoding="utf-8")
 
     settings = _settings(repo)
     assert "Monitor" in settings["permissions"]["allow"]
@@ -67,7 +63,7 @@ def test_install_creates_rules_and_permissions(repo) -> None:
     assert "hooks" in settings  # hook subtree co-managed, untouched
 
     man = _manifest(repo)
-    assert set(man["managed_markdown"]) == {"AGENTS.md", "CLAUDE.md", "CODEX.md"}
+    assert set(man["managed_markdown"]) == {"AGENTS.md"}
     assert man["managed_markdown"]["AGENTS.md"]["file_created"] is True
     assert "Monitor" in man["settings_permissions"]["added_allow"]
 
@@ -100,7 +96,7 @@ def test_preexisting_file_preserved_and_uninstall(repo) -> None:
     after = (repo / "AGENTS.md").read_text(encoding="utf-8")
     assert "keep me" in after
     assert MANAGED_BLOCK_BEGIN not in after
-    # CLAUDE.md / CODEX.md were installer-created -> removed
+    # Redundant instruction shells are never created
     assert not (repo / "CLAUDE.md").exists()
     assert not (repo / "CODEX.md").exists()
 

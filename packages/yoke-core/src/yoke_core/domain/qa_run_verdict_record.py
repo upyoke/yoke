@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from yoke_core.domain.qa_plan_execution_store import marker
+from yoke_core.domain.qa_requirement_scope import lock_requirement_scope
 
 PASS_VERDICT = "pass"
 
@@ -34,9 +35,27 @@ class QaRunWrite:
 
 
 def _discharge_on_pass(
-    conn: Any, requirement_id: int, verdict: Any
+    conn: Any, requirement_id: int, run_id: int, verdict: Any
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     if verdict != PASS_VERDICT:
+        return []
+    from yoke_core.domain.schema_common import _column_exists
+
+    if not _column_exists(conn, "qa_requirements", "replacement_requirement_id"):
+        return []
+    if (
+        conn.execute(
+            "SELECT id FROM qa_requirements WHERE replacement_requirement_id=%s "
+            "AND superseded_by_requirement_id IS NULL LIMIT 1",
+            (int(requirement_id),),
+        ).fetchone()
+        is None
+    ):
+        return []
+    from yoke_core.domain.qa_latest_execution import latest_executions
+
+    current = latest_executions(conn, [requirement_id]).get(requirement_id)
+    if current is None or int(current["id"]) != run_id:
         return []
     from yoke_core.domain.qa_requirement_replacement import (
         discharge_declared_replacements,
@@ -47,6 +66,7 @@ def _discharge_on_pass(
 
 def insert_qa_run(conn: Any, **columns: Any) -> QaRunWrite:
     """Insert one run on the caller's transaction; a pass discharges its replacements."""
+    lock_requirement_scope(conn, int(columns["qa_requirement_id"]))
     p = marker(conn)
     names = list(columns)
     row = conn.execute(
@@ -58,7 +78,7 @@ def insert_qa_run(conn: Any, **columns: Any) -> QaRunWrite:
     return QaRunWrite(
         run_id,
         _discharge_on_pass(
-            conn, int(columns["qa_requirement_id"]), columns.get("verdict")
+            conn, int(columns["qa_requirement_id"]), run_id, columns.get("verdict")
         ),
     )
 
@@ -77,6 +97,11 @@ def update_qa_run(
     ``default_completed_at`` fills ``completed_at`` only where it is empty.
     """
     p = marker(conn)
+    subject = conn.execute(
+        f"SELECT qa_requirement_id FROM qa_runs WHERE id={p}", (int(run_id),)
+    ).fetchone()
+    if subject is not None:
+        lock_requirement_scope(conn, int(subject[0]))
     assignments = [f"{name}={p}" for name in columns]
     params: list[Any] = list(columns.values())
     if default_completed_at is not None:
@@ -98,7 +123,8 @@ def update_qa_run(
         else requirement[0]
     )
     return QaRunWrite(
-        int(run_id), _discharge_on_pass(conn, int(requirement_id), PASS_VERDICT)
+        int(run_id),
+        _discharge_on_pass(conn, int(requirement_id), int(run_id), PASS_VERDICT),
     )
 
 

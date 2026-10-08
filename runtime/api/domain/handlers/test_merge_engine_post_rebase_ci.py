@@ -85,6 +85,24 @@ def test_record_creates_ci_requirement_and_covering_pass(db):
     ci.RecordPostRebaseCiRunResponse(**outcome.result_payload)
     run_id = outcome.result_payload["qa_run_id"]
     requirement_id = outcome.result_payload["requirement_id"]
+    from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
+
+    conn = connect_test_db(db)
+    try:
+        recorded = json.loads(
+            conn.execute(
+                "SELECT raw_result FROM qa_runs WHERE id=%s", (run_id,)
+            ).fetchone()[0]
+        )
+        assert recorded["method_config"] == {
+            "command": "python3 verify_tree.py",
+            "ci_workflow": "ci.yml",
+            "registered_scope": "full",
+        }
+        assert recorded["verification_tree"]["head_sha"] == head_sha
+        assert has_current_passing_run(conn, requirement_id)
+    finally:
+        conn.close()
 
     covering = ops.handle_post_rebase_requirement(
         _item_envelope("merge.tests.post_rebase_requirement", item_id=item_id)
@@ -178,9 +196,11 @@ def test_flow_derived_requirement_resolves_complete_project_ci_config(db):
             payload={
                 "scope": "full",
                 "verdict": "pass",
-                "raw_result": json.dumps({
-                    "verification_tree": {"head_sha": "b" * 40},
-                }),
+                "raw_result": json.dumps(
+                    {
+                        "verification_tree": {"head_sha": "b" * 40},
+                    }
+                ),
             },
         )
     )
@@ -214,12 +234,66 @@ def test_flow_derived_requirement_refuses_incomplete_ci_config(db):
             payload={
                 "scope": "full",
                 "verdict": "pass",
-                "raw_result": json.dumps({
-                    "verification_tree": {"head_sha": "c" * 40},
-                }),
+                "raw_result": json.dumps(
+                    {
+                        "verification_tree": {"head_sha": "c" * 40},
+                    }
+                ),
             },
         )
     )
 
     assert outcome.primary_success is False
     assert "method_config.command" in outcome.error.message
+
+
+def test_same_scope_different_config_does_not_borrow_corrected_requirement(db):
+    conn = connect_test_db(db)
+    item_id = 9504
+    insert_item(conn, id=item_id, source=str(seed_human_actor(conn)))
+    original = {
+        "scope": "full",
+        "command": "python3 verify_tree.py",
+        "workflow": "ci.yml",
+        "verdict": "pass",
+        "raw_result": json.dumps({"verification_tree": {"head_sha": "d" * 40}}),
+    }
+    first = ci.handle_record_post_rebase_ci_run(
+        _item_envelope(
+            "merge.tests.record_post_rebase_ci_run", item_id=item_id, payload=original
+        )
+    )
+    assert first.primary_success, first.error
+    corrected_config = {
+        "command": "python3 verify_other_behavior.py",
+        "ci_workflow": "ci.yml",
+        "registered_scope": "full",
+        "_corrected": True,
+    }
+    conn.execute(
+        "UPDATE qa_requirements SET method_config=%s WHERE id=%s",
+        (json.dumps(corrected_config), first.result_payload["requirement_id"]),
+    )
+    conn.commit()
+    second = ci.handle_record_post_rebase_ci_run(
+        _item_envelope(
+            "merge.tests.record_post_rebase_ci_run", item_id=item_id, payload=original
+        )
+    )
+    assert second.primary_success, second.error
+    assert (
+        second.result_payload["requirement_id"]
+        != first.result_payload["requirement_id"]
+    )
+    retained = json.loads(
+        conn.execute(
+            "SELECT raw_result FROM qa_runs WHERE id=%s",
+            (first.result_payload["qa_run_id"],),
+        ).fetchone()[0]
+    )
+    assert retained["method_config"]["command"] == original["command"]
+    from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
+
+    assert not has_current_passing_run(conn, first.result_payload["requirement_id"])
+    assert has_current_passing_run(conn, second.result_payload["requirement_id"])
+    conn.close()

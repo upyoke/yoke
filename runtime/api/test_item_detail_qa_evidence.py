@@ -1,11 +1,4 @@
-"""Item-detail QA evidence must follow a review verdict to its capture run.
-
-A review run rarely captures its own screenshots — it records a verdict
-against an earlier immutable capture run and embeds that run's id in its own
-``raw_result``. These regression-guard the read model that once stopped at
-the review run's bare ``run_id`` and reported "no artifacts attached" even
-though the capture run it reviewed owned real evidence.
-"""
+"""Item detail selects actual captures and retains durable judgment audit."""
 
 from yoke_core.domain import item_detail_read
 from runtime.api.item_page_reads_test_support import _connection
@@ -30,6 +23,7 @@ def test_detail_qa_resolves_agent_review_evidence_to_capture_run(monkeypatch):
         "raw_result) VALUES (101, 5, 'agent', 'pass', "
         "'{\"capture_run_id\": 100}')"
     )
+    conn.execute("INSERT INTO qa_plan_review_verdicts VALUES (5, 100, 101)")
     conn.commit()
     monkeypatch.setattr(item_detail_read.db_helpers, "connect", lambda: conn)
 
@@ -37,14 +31,14 @@ def test_detail_qa_resolves_agent_review_evidence_to_capture_run(monkeypatch):
     rows = {row["requirement_source"]: row for row in item["qa_requirements"]}
     row = rows["installed-cli-guidance"]
 
-    assert row["run_id"] == 101
+    assert row["run_id"] == 100
     assert [artifact["artifact_type"] for artifact in row["artifacts"]] == (
         ["terminal_screenshot"]
     )
     assert "performed_by" not in row
 
 
-def test_detail_qa_resolves_human_review_evidence_through_prior_agent_run(
+def test_detail_qa_resolves_human_decision_on_exact_capture(
     monkeypatch,
 ):
     conn = _connection()
@@ -65,10 +59,9 @@ def test_detail_qa_resolves_human_review_evidence_through_prior_agent_run(
         "raw_result) VALUES (103, 6, 'agent', 'undetermined', "
         "'{\"capture_run_id\": 102}')"
     )
-    conn.execute(
-        "INSERT INTO qa_runs (id, qa_requirement_id, performed_by, verdict, "
-        "raw_result) VALUES (104, 6, 'human_review', 'pass', '{}')"
-    )
+    conn.execute("INSERT INTO qa_plan_review_verdicts VALUES (6, 102, 103)")
+    # Human resolution finalizes this exact capture; it adds no actual attempt.
+    conn.execute("UPDATE qa_runs SET verdict='pass' WHERE id=102")
     conn.commit()
     monkeypatch.setattr(item_detail_read.db_helpers, "connect", lambda: conn)
 
@@ -76,13 +69,13 @@ def test_detail_qa_resolves_human_review_evidence_through_prior_agent_run(
     rows = {row["requirement_source"]: row for row in item["qa_requirements"]}
     row = rows["operator-clarity-review"]
 
-    assert row["run_id"] == 104
+    assert row["run_id"] == 102
     assert [artifact["artifact_type"] for artifact in row["artifacts"]] == (
         ["screenshot"]
     )
 
 
-def test_detail_qa_resolves_human_review_evidence_to_self_capturing_agent_run(
+def test_detail_qa_keeps_self_capturing_agent_attempt(
     monkeypatch,
 ):
     conn = _connection()
@@ -98,10 +91,7 @@ def test_detail_qa_resolves_human_review_evidence_to_self_capturing_agent_run(
         "raw_result) VALUES (105, 7, 'agent', 'undetermined', '{}')"
     )
     conn.execute("INSERT INTO qa_artifacts VALUES (202, 105, 'terminal_screenshot')")
-    conn.execute(
-        "INSERT INTO qa_runs (id, qa_requirement_id, performed_by, verdict, "
-        "raw_result) VALUES (106, 7, 'human_review', 'pass', '{}')"
-    )
+    conn.execute("UPDATE qa_runs SET verdict='pass' WHERE id=105")
     conn.commit()
     monkeypatch.setattr(item_detail_read.db_helpers, "connect", lambda: conn)
 
@@ -109,10 +99,7 @@ def test_detail_qa_resolves_human_review_evidence_to_self_capturing_agent_run(
     rows = {row["requirement_source"]: row for row in item["qa_requirements"]}
     row = rows["agent-mission-review"]
 
-    # The agent run captured its own evidence directly (no capture_run_id of
-    # its own), so the human_review that overrode it must resolve back to
-    # the agent run rather than to its own (empty) artifact set.
-    assert row["run_id"] == 106
+    assert row["run_id"] == 105
     assert [artifact["artifact_type"] for artifact in row["artifacts"]] == (
         ["terminal_screenshot"]
     )

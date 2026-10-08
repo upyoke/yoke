@@ -33,6 +33,7 @@ EVENT_NAMES = frozenset(
         "ItemStatusChanged",
         "QARunCaptured",
         "QARunCompleted",
+        "QaSimulationTriaged",
     }
 )
 

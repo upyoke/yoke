@@ -93,7 +93,7 @@ def _materialize_item(conn, *, item_id: int) -> dict:
 def _record_verdict(conn, requirement_id: int, verdict: str) -> None:
     conn.execute(
         "INSERT INTO qa_runs(qa_requirement_id, performed_by, qa_kind, verdict, "
-        "created_at) VALUES (%s,'agent','plan_case',%s,'2026-09-20T00:00:00Z')",
+        "started_at,completed_at,created_at) VALUES (%s,'agent','plan_case',%s,'2026-09-20T00:00:00Z','2026-09-20T00:00:01Z','2026-09-20T00:00:00Z')",
         (int(requirement_id), verdict),
     )
     conn.commit()
@@ -201,9 +201,7 @@ def test_retracted_requirements_leave_waiver_and_supersession_listings(
 ) -> None:
     item_id = 9852
     _seed_item(test_db, item_id=item_id)
-    plan_id = _attach_post_deploy(
-        test_db, item_id=item_id, slug="retract-not-a-waiver"
-    )
+    plan_id = _attach_post_deploy(test_db, item_id=item_id, slug="retract-not-a-waiver")
     created = _materialize_item(test_db, item_id=item_id)["created_requirement_ids"]
     requirement_id = int(created[0])
     test_db.execute(

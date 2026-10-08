@@ -1,37 +1,8 @@
-"""Python owner for ``item_sections`` CRUD.
+"""Item-section CRUD behind registered item mutations.
 
-Implements the ``sections`` domain (``upsert``, ``get``, ``list``, ``delete``),
-invoked via ``python3 -m yoke_core.cli.db_router sections`` or
-directly as ``python3 -m yoke_core.domain.sections``.
-
-Preserved surface contract:
-
-``upsert``
-    Writes/updates a row in ``item_sections`` via
-    ``ON CONFLICT(item_id, section_name)``. Triggers a body re-render for the
-    parent item and emits a structured ``SectionUpserted`` event. Maintains
-    the stable stdout ("Upserted section: {name} for item {id}", then "Body
-    regenerated for item {id}") and stderr ("Error: body regeneration
-    failed…") lines for downstream callers that inspect command output.
-
-``get``
-    Returns the raw ``content`` column verbatim. Missing rows print nothing;
-    present rows print ``content`` followed by a trailing newline to match
-    the shell's ``sqlite3`` output.
-
-``list``
-    Prints one pipe-delimited line per row:
-    ``name|ordering|created_at|updated_at``, ordered by
-    ``COALESCE(ordering, unset-sentinel), section_name``.
-
-``delete``
-    Deletes the row, triggers body re-render, emits a ``SectionDeleted``
-    event. Output mirrors the shell: "Deleted section: {name} for item
-    {id}" followed by the re-render success/failure line.
-
-The renderer and event emitter are injectable so tests can stub them
-without touching the real pipelines. The rest of the module uses
-``yoke_core.domain.db_helpers`` for connection management.
+Writes regenerate the rendered body, retain source attribution, and emit
+best-effort mutation telemetry. Authority-owned JSON records remain under
+their dedicated workflow owner rather than generic section mutations.
 """
 
 from __future__ import annotations
@@ -40,6 +11,7 @@ import sys
 from io import StringIO
 from typing import Callable, List, Optional, TextIO, Tuple
 
+from yoke_core.domain.item_json_sections import require_editable_section
 from yoke_core.domain import db_backend
 from yoke_core.domain import db_helpers
 from yoke_core.domain.db_helpers import BUSY_TIMEOUT_MS
@@ -54,6 +26,7 @@ _render_fn: RendererFn = _default_render_item
 _emit_event_fn: EmitEventFn = _default_emit_event
 SECTION_SYNC_GITHUB_TIMEOUT_SECONDS = 5.0
 SECTION_SYNC_GITHUB_MAX_ATTEMPTS = 1
+
 
 def _placeholder(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -102,7 +75,10 @@ def _rerender_body(
     except Exception:
         rc = 1
     if rc == 0:
-        print("Body regenerated for item {}".format(_public_item_ref(item_id, db_path)), file=out)
+        print(
+            "Body regenerated for item {}".format(_public_item_ref(item_id, db_path)),
+            file=out,
+        )
         return True
     print(
         "Error: body regeneration failed for item {} after section {}; "
@@ -202,6 +178,7 @@ def upsert_section(
     existing value is preserved on update (matches the shell's two-branch
     upsert).
     """
+    require_editable_section(section_name)
     conn = db_helpers.connect(db_path, busy_timeout_ms=BUSY_TIMEOUT_MS)
     try:
         p = _placeholder(conn)
@@ -220,8 +197,16 @@ def upsert_section(
                     source = excluded.source,
                     updated_at = {p}
                 """,
-                (item_id, section_name, content, ordering, source,
-                 now_iso, now_iso, now_iso),
+                (
+                    item_id,
+                    section_name,
+                    content,
+                    ordering,
+                    source,
+                    now_iso,
+                    now_iso,
+                    now_iso,
+                ),
             )
         else:
             conn.execute(
@@ -236,12 +221,12 @@ def upsert_section(
                     ordering = COALESCE(excluded.ordering, item_sections.ordering),
                     updated_at = {p}
                 """,
-                (item_id, section_name, content, ordering,
-                 now_iso, now_iso, now_iso),
+                (item_id, section_name, content, ordering, now_iso, now_iso, now_iso),
             )
         # Section writes (incl. Progress Log appends, which route through
         # this upsert) are real item activity (R1 board-activity semantics).
         from yoke_core.domain.item_activity import touch_item_activity
+
         touch_item_activity(conn, item_id=item_id)
         conn.commit()
     finally:
@@ -312,6 +297,7 @@ def delete_section(
     *,
     db_path: Optional[str] = None,
 ) -> None:
+    require_editable_section(section_name)
     conn = db_helpers.connect(db_path, busy_timeout_ms=BUSY_TIMEOUT_MS)
     try:
         p = _placeholder(conn)

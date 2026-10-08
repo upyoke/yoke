@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Optional, Sequence
 
 from yoke_core.domain.qa_constants import (
@@ -14,8 +15,7 @@ def _format_values(values: Sequence[str]) -> str:
 
 
 REQUIREMENT_SOURCE_HELP = (
-    "Requirement source. Valid values: "
-    f"{_format_values(VALID_REQUIREMENT_SOURCES)}."
+    f"Requirement source. Valid values: {_format_values(VALID_REQUIREMENT_SOURCES)}."
 )
 
 QA_KIND_HELP = (
@@ -24,8 +24,8 @@ QA_KIND_HELP = (
 )
 
 SUCCESS_POLICY_HELP = (
-    "Optional aggregate requirement policy. Method-backed cases use their "
-    "method_config snapshot instead."
+    "All-pass requirement policy. Grade only the current actual attempt; "
+    "method_config may measure that attempt against a threshold."
 )
 
 
@@ -35,7 +35,33 @@ def validate_success_policy(
     *,
     label: str = "",
 ) -> list[str]:
-    """Retain the generic add-path hook without method-specific authoring."""
+    """Reject policies that authorize from historical attempts or voting."""
+    if not success_policy or success_policy == "all-pass":
+        return []
+    prefix = f"{label}: " if label else ""
+    try:
+        policy = (
+            json.loads(success_policy)
+            if isinstance(success_policy, str)
+            else success_policy
+        )
+        if not isinstance(policy, dict):
+            raise ValueError("policy must be an object")
+        if (
+            policy.get("id", "all-pass") != "all-pass"
+            or policy.get("kind", "all_pass") != "all_pass"
+        ):
+            raise ValueError("only all-pass aggregation is supported")
+        if any(key in policy for key in ("min_runs", "min_pass_rate")) or policy.get(
+            "type"
+        ) in ("statistical", "agent_judgment"):
+            raise ValueError(
+                "historical attempts cannot vote or rescue a current result"
+            )
+    except (TypeError, ValueError) as exc:
+        return [
+            f"{prefix}qa_success_policy_invalid: {exc}. Use all-pass; configure measured thresholds on the single executing method."
+        ]
     return []
 
 

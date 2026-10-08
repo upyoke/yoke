@@ -198,7 +198,8 @@ def test_fixture_residue_is_detected() -> None:
             encoding="utf-8",
         )
         findings = _scan_patterns_in_paths(
-            [fixture_file], repo_root=fixture_root,
+            [fixture_file],
+            repo_root=fixture_root,
         )
         assert findings, (
             "Recipe-residue scanner failed to detect a deliberately-"
@@ -229,9 +230,7 @@ def test_scan_paths_cover_required_surfaces() -> None:
         for p in paths
     }
     # AGENTS.md is the canonical top-level rules surface that must be
-    # covered. CLAUDE.md and CODEX.md may be symlinks to AGENTS.md (Yoke
-    # ships CLAUDE.md as a symlink today); we only require the canonical
-    # AGENTS.md to be in scope.
+    # covered. Harness-specific references now live in docs/public/guides.
     assert "AGENTS.md" in rels, (
         "Recipe-residue scan must include AGENTS.md; the live-rules "
         "surface is where false-teacher recipes most commonly survive."
@@ -250,8 +249,9 @@ def test_scan_paths_cover_required_surfaces() -> None:
     )
     # At least one generated harness agent surface must be present.
     has_generated = any(
-        r.startswith(("runtime/harness/claude/agents/",
-                      "runtime/harness/codex/agents/"))
+        r.startswith(
+            ("runtime/harness/claude/agents/", "runtime/harness/codex/agents/")
+        )
         for r in rels
     )
     assert has_generated, (

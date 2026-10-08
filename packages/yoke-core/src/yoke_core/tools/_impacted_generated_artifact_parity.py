@@ -24,6 +24,7 @@ GENERATED_ARTIFACT_PARITY_TESTS = (
     "runtime/api/domain/test_install_bundle_tree_sync.py",
     "runtime/api/engines/test_doctor_hc_install_bundle_drift.py",
     "runtime/api/domain/test_startup_delivery_budget.py",
+    "runtime/api/domain/test_startup_rules_headroom.py",
 )
 
 __all__ = ["GENERATED_ARTIFACT_PARITY_TESTS"]

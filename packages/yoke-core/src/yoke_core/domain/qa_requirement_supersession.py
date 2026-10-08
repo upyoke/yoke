@@ -68,7 +68,7 @@ def _requirement(conn: Any, requirement_id: int, *, label: str) -> dict[str, Any
         conn,
         "SELECT id,item_id,epic_id,task_num,plan_id,"
         "deployment_run_id,deployment_stage,deployment_member_item_id,"
-        "execution_target_digest,blocking_mode,plan_case_key,method_id,"
+        "execution_target_digest,target_env,host_baseline,blocking_mode,plan_case_key,method_id,"
         "qa_kind,qa_phase,workflow_transition_id,replacement_requirement_id,"
         f"waived_at,superseded_by_requirement_id,{requirement_retracted_at_select(conn)} "
         "FROM qa_requirements WHERE id=%s",
@@ -84,6 +84,8 @@ _RUN_SCOPE = (
     ("deployment_stage", "deployment stage"),
     ("deployment_member_item_id", "deployment member"),
     ("execution_target_digest", "execution target"),
+    ("target_env", "target environment"),
+    ("host_baseline", "host baseline"),
 )
 _ITEM_SCOPE = (
     ("deployment_run_id", "deployment run"),
@@ -93,7 +95,15 @@ _ITEM_SCOPE = (
     ("workflow_transition_id", "workflow transition"),
     ("qa_phase", "QA phase"),
     ("execution_target_digest", "execution target"),
+    ("target_env", "target environment"),
+    ("host_baseline", "host baseline"),
 )
+
+
+def requirement_scope(row: dict[str, Any]) -> tuple[str, ...]:
+    """Canonical obligation scope, shared by comparison and mutation locking."""
+    fields = _RUN_SCOPE if row.get("deployment_run_id") else _ITEM_SCOPE
+    return tuple(str(row.get(column) or "") for column, _label in fields)
 
 
 def same_scope(broken: dict[str, Any], corrected: dict[str, Any]) -> list[str]:
@@ -109,15 +119,10 @@ def same_scope(broken: dict[str, Any], corrected: dict[str, Any]) -> list[str]:
 
 
 def latest_verdict(conn: Any, requirement_id: int) -> str:
-    row = query_one(
-        conn,
-        "SELECT verdict FROM qa_runs WHERE qa_requirement_id=%s "
-        "ORDER BY created_at DESC,id DESC LIMIT 1",
-        (int(requirement_id),),
-    )
-    if row is None:
-        return ""
-    return str(row["verdict"] or "")
+    from yoke_core.domain.qa_latest_execution import latest_executions
+
+    row = latest_executions(conn, [requirement_id]).get(int(requirement_id))
+    return str(row["verdict"] or "") if row is not None else ""
 
 
 def record_supersession(
@@ -154,6 +159,10 @@ def record_supersession(
             "corrected case that actually passed"
         )
 
+    from yoke_core.domain.qa_requirement_scope import lock_requirement_scope
+    from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
+
+    lock_requirement_scope(conn, requirement_id)
     broken = _requirement(conn, requirement_id, label="superseded")
     corrected = _requirement(conn, superseded_by_requirement_id, label="superseding")
 
@@ -192,10 +201,11 @@ def record_supersession(
                 SOURCE_RETIREMENT_REFUSAL.format(source_id=int(requirement_id))
             )
         run_answer = {"run_replacement_requirement_id": answer_id}
-    elif (verdict := latest_verdict(conn, int(superseded_by_requirement_id))) != "pass":
+    elif not has_current_passing_run(conn, int(superseded_by_requirement_id)):
+        verdict = latest_verdict(conn, int(superseded_by_requirement_id))
         raise QaSupersessionError(
-            f"requirement {superseded_by_requirement_id} latest verdict is "
-            f"{verdict or 'missing'}, not pass. Run the corrected case to a "
+            f"requirement {superseded_by_requirement_id} has no completed current "
+            f"configuration-and-target-qualified pass (recorded verdict: {verdict or 'missing'}). Run the corrected case to a "
             "recorded pass with evidence, then record the supersession: "
             f"yoke qa case run --requirement-id {superseded_by_requirement_id}"
         )

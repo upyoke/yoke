@@ -16,6 +16,7 @@ from typing import Any, Optional
 from uuid import uuid4
 
 from yoke_core.domain.db_helpers import iso8601_now, query_one
+from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
 from yoke_core.domain.qa_constants import (
     AGENT_VERDICT_PATH,
     BROWSER_INSPECTION_METHOD_ID,
@@ -53,7 +54,7 @@ AGENT_IS_NOT_A_BROWSER_CAPTURE_RUNNER = (
 #: would bind to cannot drift apart.
 _REVIEWABLE_CAPTURE_SQL = (
     "SELECT id, verdict FROM qa_runs "
-    "WHERE qa_requirement_id={p} AND performed_by='browser_substrate' "
+    "WHERE qa_requirement_id={p} AND id=({latest}) AND performed_by='browser_substrate' "
     "AND execution_status='captured' "
     "AND case_outcome IN ({p}, 'passed') AND completed_at IS NOT NULL "
     "ORDER BY id DESC LIMIT 1"
@@ -64,7 +65,9 @@ def _reviewable_capture(conn: Any, requirement_id: int) -> Any:
     placeholder = marker(conn)
     return query_one(
         conn,
-        _REVIEWABLE_CAPTURE_SQL.format(p=placeholder),
+        _REVIEWABLE_CAPTURE_SQL.format(
+            p=placeholder, latest=latest_execution_id_sql(str(int(requirement_id)))
+        ),
         (int(requirement_id), NEEDS_REVIEW_OUTCOME),
     )
 
@@ -205,7 +208,7 @@ def attach_agent_review_to_capture(
 
     stamp_reviewed_capture(
         conn,
-        {"capture_run_id": int(capture["id"])},
+        {"capture_run_id": int(capture["id"]), "requirement_id": int(requirement_id)},
         verdict=verdict,
         rationale=rationale or "captured inspection reviewed",
         created_at=now,

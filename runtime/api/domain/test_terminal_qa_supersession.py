@@ -88,9 +88,15 @@ def test_unsettled_successor_is_named_at_done(test_db, verdict):
 
     result = _terminal_result(test_db)
 
-    assert result["error_code"] == "GATE_QA_TERMINAL_SETTLEMENT"
-    assert f"successor requirement {successor} is unsettled" in result["error"]
-    assert "yoke qa requirement waive --help" in result["error"]
+    assert result["error_code"] == (
+        "GATE_QA_TERMINAL_SETTLEMENT" if verdict is None else "GATE_QA_TERMINAL_VERDICT"
+    )
+    assert str(successor) in result["error"]
+    assert (
+        "pending verdict" in result["error"]
+        if verdict is None
+        else f"Requirement #{successor}" in result["error"]
+    )
 
 
 def test_successor_pass_without_completion_still_blocks(test_db):
@@ -99,8 +105,7 @@ def test_successor_pass_without_completion_still_blocks(test_db):
     _seed_old_run(test_db, successor)
 
     assert (
-        f"successor requirement {successor} is unsettled"
-        in _terminal_result(test_db)["error"]
+        f"Requirement #{successor} [incomplete]" in _terminal_result(test_db)["error"]
     )
 
 
@@ -114,7 +119,9 @@ def test_successor_pass_without_completion_still_blocks(test_db):
         ("capture_failed", None, None),
     ],
 )
-def test_live_superseded_run_still_blocks(test_db, status, completed_at, case_outcome):
+def test_unfinished_superseded_attempt_remains_history(
+    test_db, status, completed_at, case_outcome
+):
     insert_item(test_db, id=10, status="release")
     successor = _seed_successor(test_db)
     _, old_run = _seed_old_run(
@@ -127,8 +134,13 @@ def test_live_superseded_run_still_blocks(test_db, status, completed_at, case_ou
 
     result = _terminal_result(test_db)
 
-    assert result["error_code"] == "GATE_QA_TERMINAL_SETTLEMENT"
-    assert f"run #{old_run}" in result["error"]
+    assert result == {"success": True}
+    assert (
+        test_db.execute(
+            "SELECT verdict FROM qa_runs WHERE id=%s", (old_run,)
+        ).fetchone()[0]
+        is None
+    )
 
 
 def test_live_plan_execution_still_blocks_with_settled_successor(test_db):
@@ -176,7 +188,7 @@ def test_successor_with_a_new_live_attempt_still_blocks(test_db):
     insert_qa_run(test_db, qa_requirement_id=successor, verdict=None)
 
     assert (
-        f"successor requirement {successor} is unsettled"
+        f"requirement {successor} latest execution"
         in _terminal_result(test_db)["error"]
     )
 
@@ -186,12 +198,20 @@ def test_post_deploy_successor_requires_accepted_completion_member(test_db, acce
     item_id, run_id, successor = _source_member(
         test_db, workflow="dash", plan_source=False
     )
+    scope = dict(
+        test_db.execute(
+            "SELECT workflow_transition_id,execution_target_digest,target_env,host_baseline "
+            "FROM qa_requirements WHERE id=%s",
+            (successor,),
+        ).fetchone()
+    )
     old_requirement = int(
         insert_qa_requirement(
             test_db,
             item_id=item_id,
             qa_phase="post_deploy",
             superseded_by_requirement_id=successor,
+            **scope,
         )["id"]
     )
     insert_qa_run(
@@ -224,5 +244,5 @@ def test_post_deploy_successor_requires_accepted_completion_member(test_db, acce
     if accepted:
         assert result is None
     else:
-        assert result["error_code"] == "GATE_QA_TERMINAL_SETTLEMENT"
-        assert f"successor requirement {successor} is unsettled" in result["error"]
+        assert result["error_code"] == "GATE_QA_TERMINAL_VERDICT"
+        assert f"Requirement #{successor} [post-deploy-unaccepted]" in result["error"]

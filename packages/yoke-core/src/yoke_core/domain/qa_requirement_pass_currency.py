@@ -203,17 +203,20 @@ def _live_execution_target_digest(conn: Any, requirement_id: int) -> str:
 
 def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
     """True when a pass still proves the live method_config and target."""
-    from yoke_core.domain.db_helpers import query_one, query_rows
+    from yoke_core.domain.db_helpers import query_one
+    from yoke_core.domain.qa_latest_execution import latest_executions
 
     marker = _marker(conn)
+    run = latest_executions(conn, [requirement_id]).get(int(requirement_id))
+    if (
+        run is None
+        or run["verdict"] != "pass"
+        or not run["completed_at"]
+        or run.get("case_outcome") in {"running", "waiting"}
+    ):
+        return False
     if not _column_exists(conn, "qa_requirements", "method_config"):
-        found = query_one(
-            conn,
-            "SELECT 1 AS ok FROM qa_runs "
-            f"WHERE qa_requirement_id={marker} AND verdict='pass' LIMIT 1",
-            (int(requirement_id),),
-        )
-        return found is not None
+        return True
     digest_sql = ""
     rebind_sql = ""
     if _column_exists(conn, "qa_requirements", EXECUTION_TARGET_DIGEST_FIELD):
@@ -235,26 +238,13 @@ def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
         rebound_from = str(row["rebound_from_digest"] or "")
         if str(row["rebound_at"] or "") and rebound_from:
             proving_digests.add(rebound_from)
-    runs = query_rows(
-        conn,
-        "SELECT verdict, raw_result FROM qa_runs "
-        f"WHERE qa_requirement_id={marker} ORDER BY id",
-        (int(requirement_id),),
-    )
-    for run in runs:
-        if str(run["verdict"] or "") != "pass":
-            continue
-        recorded_digest = recorded_execution_target_digest(run["raw_result"])
-        if live_digest and recorded_digest not in proving_digests:
-            continue
-        recorded = recorded_method_config(run["raw_result"])
-        if recorded is not None:
-            if canonical_method_config(recorded) == current:
-                return True
-            continue
-        if not corrected:
-            return True
-    return False
+    recorded_digest = recorded_execution_target_digest(run["raw_result"])
+    if live_digest and recorded_digest not in proving_digests:
+        return False
+    recorded = recorded_method_config(run["raw_result"])
+    if recorded is not None:
+        return canonical_method_config(recorded) == current
+    return not corrected and not executable_method_config(row["method_config"])
 
 
 __all__ = [

@@ -52,13 +52,41 @@ def test_detached_review_does_not_mask_latest_capture_identity(test_db):
         completed_at="2026-01-01T00:00:01Z",
         raw_result=json.dumps({"code_identity": {"sha": sha}}),
     )
-    insert_qa_run(
+    review = insert_qa_run(
         test_db,
         qa_requirement_id=requirement["id"],
         performed_by="agent",
         verdict="pass",
         raw_result="{}",
     )
+    test_db.execute(
+        "INSERT INTO qa_plan_executions(id,item_id,transition_id,session_id,roster_digest,roster_json,"
+        "state,created_at,heartbeat_at) VALUES(%s,%s,'done','review-owner','digest','[]',"
+        "'completed',%s,%s)",
+        (
+            "historical-execution",
+            item["id"],
+            "2026-01-01T00:00:02Z",
+            "2026-01-01T00:00:02Z",
+        ),
+    )
+    test_db.execute(
+        "INSERT INTO qa_plan_review_bundles(id,execution_id,roster_digest,state,bundle_digest,"
+        "bundle_json,created_at) VALUES(%s,%s,'digest','completed',%s,'{}',%s)",
+        ("historical-review", "historical-execution", "digest", "2026-01-01T00:00:02Z"),
+    )
+    test_db.execute(
+        "INSERT INTO qa_plan_review_verdicts(bundle_id,requirement_id,capture_run_id,"
+        "review_run_id,verdict,rationale,created_at) VALUES(%s,%s,%s,%s,'pass','Observed',%s)",
+        (
+            "historical-review",
+            requirement["id"],
+            capture["id"],
+            review["id"],
+            "2026-01-01T00:00:02Z",
+        ),
+    )
+    test_db.commit()
     assert find_unsettled_records(test_db, item_id=item["id"]) == []
     rows = _blocking_requirement_rows(test_db, item["id"])
     assert rows[0]["run_id"] == capture["id"]
@@ -117,3 +145,40 @@ def test_undetermined_requirement_issue_preserves_reason():
     assert len(issues) == 1
     assert issues[0].state == "incomplete"
     assert "checkout confirmation" in issues[0].detail
+
+
+def test_new_attempt_does_not_release_older_attempts_live_host(test_db):
+    from runtime.api.fixtures.session_holdings import insert_lease
+    from yoke_core.domain.qa_terminal_records import live_qa_leases
+
+    item = insert_item(test_db, status="release")
+    requirement = insert_qa_requirement(test_db, item_id=item["id"])
+    insert_lease(test_db, session_id="qa-owner", lease_key="QA_HOST:terminal-host")
+    lease_id = test_db.execute(
+        "SELECT id FROM work_claims WHERE session_id='qa-owner'"
+    ).fetchone()[0]
+    old = insert_qa_run(
+        test_db,
+        qa_requirement_id=requirement["id"],
+        verdict=None,
+        raw_result=json.dumps(
+            {
+                "evidence": {
+                    "host_control_submission": {
+                        "lease_id": lease_id,
+                        "contract_digest": "submitted-contract",
+                    }
+                }
+            }
+        ),
+    )
+    insert_qa_run(test_db, qa_requirement_id=requirement["id"], verdict="pass")
+    assert live_qa_leases(test_db, item["id"]) == [(lease_id, f"attempt {old['id']}")]
+    records = find_unsettled_records(test_db, item_id=item["id"])
+    assert [(r.kind, r.record_id) for r in records] == [("host lease", str(lease_id))]
+    test_db.execute(
+        "UPDATE work_claims SET released_at=%s,release_reason='completed' WHERE id=%s",
+        ("2026-10-01T00:00:01Z", lease_id),
+    )
+    test_db.commit()
+    assert find_unsettled_records(test_db, item_id=item["id"]) == []

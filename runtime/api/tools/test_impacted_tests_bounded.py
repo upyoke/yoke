@@ -1,9 +1,7 @@
 """Bounded selection and the fallback telemetry that explains widening.
 
-Split from the main selection tests so each file stays within the
-authored-file line limit. Two behaviors live here: declining to widen
-when a later gate will run the full suite anyway, and recording *why* a
-widening happened in a shape that can be grouped across many runs.
+Decline widening when a later gate covers the full suite, and record why
+selection widened in a shape that can be grouped across runs.
 """
 
 from __future__ import annotations
@@ -70,17 +68,29 @@ def test_bounded_test_tooling_change_does_not_reexpand_through_importers(
     assert "runtime/api/test_watch_consumer.py" not in bounded.files
 
 
-def test_bounded_near_total_reachability_defers_instead_of_expanding(
-    tmp_path: Path,
-) -> None:
+def _near_total_repo(tmp_path: Path) -> Path:
+    """Keep synthetic reachability near-total as the contract floor grows."""
     root = _tiny_repo(tmp_path)
+    unrelated = sum(
+        impacted_tests.is_test_file(path) for path in build_import_index(root).module_of
+    )
+    count = impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE
+    while not impacted_tests.is_effectively_full(count, count + unrelated):
+        count += 1
     _write(root, "runtime/api/foundation.py", "VALUE = 1\n")
-    for number in range(impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE):
+    for number in range(count):
         _write(
             root,
             f"runtime/api/test_foundation_{number}.py",
             "from runtime.api import foundation\n",
         )
+    return root
+
+
+def test_bounded_near_total_reachability_defers_instead_of_expanding(
+    tmp_path: Path,
+) -> None:
+    root = _near_total_repo(tmp_path)
 
     index = build_import_index(root)
     plain = select(["runtime/api/foundation.py"], index)
@@ -95,14 +105,7 @@ def test_bounded_near_total_reachability_defers_instead_of_expanding(
 def test_bounded_trigger_defers_a_near_total_computable_remainder(
     tmp_path: Path,
 ) -> None:
-    root = _tiny_repo(tmp_path)
-    _write(root, "runtime/api/foundation.py", "VALUE = 1\n")
-    for number in range(impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE):
-        _write(
-            root,
-            f"runtime/api/test_foundation_{number}.py",
-            "from runtime.api import foundation\n",
-        )
+    root = _near_total_repo(tmp_path)
 
     bounded = select(
         ["docs/lifecycle.md", "runtime/api/foundation.py"],

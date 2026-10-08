@@ -8,8 +8,7 @@ from yoke_cli.config import onboard_report
 from yoke_cli.config import onboard_wizard_steps as steps
 
 AGENT_RULES_LINE = (
-    "Add Yoke's rules to AGENTS.md, CLAUDE.md, CODEX.md, and CURSOR.md "
-    "(keeps any existing content)"
+    "Add Yoke's shared rules to canonical AGENTS.md (keeps any existing content)"
 )
 TOOL_PERMISSIONS_LINE = (
     "Allow Yoke's tools in .claude/settings.json and "
@@ -20,9 +19,7 @@ HARNESS_HOOKS_LINE = (
     "Install harness hooks in .claude/settings.json, "
     ".codex/hooks.json, and .cursor/hooks.json"
 )
-GIT_HOOKS_LINE = (
-    "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)"
-)
+GIT_HOOKS_LINE = "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)"
 CURSOR_USER_LIFECYCLE_LINE = (
     "Install Cursor stop/sessionEnd backstop in ~/.cursor/hooks.json "
     "(survives a deleted project folder)"

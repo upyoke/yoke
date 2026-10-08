@@ -189,6 +189,9 @@ def dt_db(tmp_path, monkeypatch):
             "(2, 'externalwebapp', 'ExternalWebapp', 'org/externalwebapp', "
             "'EXT', 'main', '2026-01-01T00:00:00Z')"
         )
+        from runtime.api.fixtures.qa_attempt_history import ensure_qa_attempt_history
+
+        ensure_qa_attempt_history(conn)
         conn.commit()
 
         monkeypatch.setenv("YOKE_SCRIPTS_DIR", str(scripts_dir))

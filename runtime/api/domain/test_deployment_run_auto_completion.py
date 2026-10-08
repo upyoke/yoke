@@ -26,7 +26,18 @@ def _run_status(conn: Any, run_id: str) -> str:
 def _held_lock(monkeypatch) -> None:
     from yoke_core.domain import coordination_claims
 
-    monkeypatch.setattr(coordination_claims, "active_claim", lambda *_args: object())
+    from yoke_core.domain.coordination_claim_record import CoordinationClaim
+
+    monkeypatch.setattr(
+        coordination_claims,
+        "active_claim",
+        lambda _conn, target: CoordinationClaim(
+            id=1,
+            target=target,
+            session_id="deployment-driver",
+            claimed_at="2026-10-01T00:00:00Z",
+        ),
+    )
 
 
 def test_independent_members_finish_run_after_both_close(

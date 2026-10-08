@@ -166,7 +166,7 @@ def _qa_review_ended(
     conclusive = conn.execute(
         "SELECT 1 FROM qa_runs "
         f"WHERE qa_requirement_id = {_p(conn)} "
-        f"AND id >= {_p(conn)} "
+        f"AND id = {_p(conn)} "
         f"AND ({' OR '.join(clauses)}) LIMIT 1",
         (requirement_id, int(run_text)),
     ).fetchone()

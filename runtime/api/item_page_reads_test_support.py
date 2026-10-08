@@ -142,9 +142,15 @@ def _connection() -> sqlite3.Connection:
           execution_status TEXT,
           completed_at TEXT,
           created_at TEXT,
+          started_at TEXT DEFAULT '2026-07-26T10:30:00Z',
           case_outcome TEXT,
           capture_degraded_reason TEXT,
           raw_result TEXT
+        );
+        CREATE TABLE qa_plan_review_verdicts (
+          requirement_id INTEGER,
+          capture_run_id INTEGER,
+          review_run_id INTEGER
         );
         CREATE TABLE qa_plans (
           id INTEGER PRIMARY KEY,

@@ -16,6 +16,7 @@ from yoke_cli.project_install import (
     settings_status_line as settings_status_line_layer,
 )
 from yoke_cli.project_install import strategy as strategy_layer
+from yoke_cli.project_install import instruction_discovery, skill_discovery
 from yoke_contracts.cursor_permissions import CURSOR_CONFIG_RELS
 
 
@@ -28,6 +29,9 @@ def preflight_apply(
     """Validate every predictable apply failure without touching the repo."""
     if old_manifest:
         files_layer.validate_manifest(old_manifest, source="prior install manifest")
+    skill_discovery.validate_links(bundle.get("skill_discovery_links"))
+    skill_discovery.preflight(repo_root, old_manifest)
+    instruction_retirement = instruction_discovery.preflight(repo_root, old_manifest)
     files_layer.validate_manifest(
         {"manifest_schema": files_layer.MANIFEST_SCHEMA, "files": preserved_files},
         source="preserved manifest files",
@@ -42,8 +46,10 @@ def preflight_apply(
 
     managed_markdown = bundle.get("managed_markdown")
     managed_markdown_targets = (
-        [entry["path"]
-         for entry in managed_markdown_layer.resolve_targets(managed_markdown)]
+        [
+            entry["path"]
+            for entry in managed_markdown_layer.resolve_targets(managed_markdown)
+        ]
         if managed_markdown
         else []
     )
@@ -58,7 +64,9 @@ def preflight_apply(
         ".gitignore",
     ]
     files_layer.assert_file_targets_plannable(
-        repo_root, write_targets, context="project install apply",
+        repo_root,
+        write_targets,
+        context="project install apply",
     )
     prior_targets = [
         *dict(old_manifest.get("files", {})),
@@ -67,7 +75,9 @@ def preflight_apply(
         *dict(old_manifest.get("git_hook_hashes", {})),
     ]
     files_layer.assert_resolved_targets_within(
-        repo_root, prior_targets, context="prior manifest mutation",
+        repo_root,
+        prior_targets,
+        context="prior manifest mutation",
     )
 
     created_settings = set(old_manifest.get("created_settings_files", []))
@@ -76,7 +86,10 @@ def preflight_apply(
         for rel, records in dict(old_manifest.get("hook_entries", {})).items()
     }
     hook_plans = hooks_layer.preflight_hooks_settings(
-        repo_root, bundle["hooks"], prior_hooks, created_settings,
+        repo_root,
+        bundle["hooks"],
+        prior_hooks,
+        created_settings,
     )
     git_hook_specs = git_hooks_layer.git_hook_specs_from_bundle(bundle)
     owned_git_hook_hashes = (
@@ -85,21 +98,26 @@ def preflight_apply(
         else None
     )
     git_hook_preview = git_hooks_layer.preview_git_hooks(
-        repo_root, git_hook_specs, owned_git_hook_hashes,
+        repo_root,
+        git_hook_specs,
+        owned_git_hook_hashes,
     )
     managed_markdown_preview = managed_markdown_layer.preview_managed_markdown(
-        repo_root, managed_markdown,
+        repo_root,
+        managed_markdown,
     )
     settings_permissions_preview = (
         settings_permissions_layer.preview_settings_permissions(
-            repo_root, bundle.get("claude_settings_permissions"),
+            repo_root,
+            bundle.get("claude_settings_permissions"),
         )
     )
-    cursor_permissions_preview = (
-        cursor_permissions_layer.preview_cursor_permissions(repo_root)
+    cursor_permissions_preview = cursor_permissions_layer.preview_cursor_permissions(
+        repo_root
     )
     worktrees_ignore = project_worktrees_ignore.report(repo_root, apply=False)
     return {
+        "instruction_retirement": instruction_retirement,
         "hook_plans": hook_plans,
         "git_hook_specs": git_hook_specs,
         "git_hook_preview": git_hook_preview,

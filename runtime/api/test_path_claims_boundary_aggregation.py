@@ -17,111 +17,11 @@ from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from yoke_core.domain import path_claims_gate_boundary as _gate
 
 
-def _git(repo: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", "-C", str(repo), *args],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return proc.stdout.strip()
-
-
-class StubResult:
-    """One per-claim verdict, so the tests exercise aggregation only."""
-
-    def __init__(
-        self, claim_id, declared_paths, touched_paths, undeclared_paths, status,
-    ):
-        self.claim_id = claim_id
-        self.integration_target = "main"
-        self.declared_paths = declared_paths
-        self.touched_paths = touched_paths
-        self.uncommitted_paths = []
-        self.undeclared_paths = undeclared_paths
-        self.undeclared_target_ids = []
-        self.diagnostics = "stub"
-        self.status = status
-
-
-def _repo_with_worktree(tmp_path: Path) -> Path:
-    """A real git repo on ``main`` plus the item's worktree directory.
-
-    These tests stub the per-claim check, but the gate still resolves
-    which rung of the integration ladder it may diff against before
-    running any check — so the fixture needs a trunk that resolves.
-    """
-    repo_root = tmp_path / "repo"
-    (repo_root / ".worktrees" / "YOK-9").mkdir(parents=True)
-    _git(repo_root, "init", "-q", "--initial-branch=main")
-    (repo_root / "README.md").write_text("# repo\n")
-    _git(repo_root, "add", "README.md")
-    _git(repo_root, "-c", "user.name=t", "-c", "user.email=t@x",
-         "commit", "-q", "-m", "initial")
-    return repo_root
-
-
-def _make_branch_apply_schema(repo_root: Path):
-    """Zero-arg ``apply_schema`` seeding the minimal aggregation-gate tables.
-
-    Builds ``items`` + ``projects`` + ``path_claims`` against the
-    backend-resolved DB and seeds item 9 / project ``demo`` / two active
-    claims, so the gate (which re-resolves its own backend connection from
-    ``db_path``) reads the same rows on SQLite and Postgres.
-    """
-
-    def _apply() -> None:
-        from yoke_core.domain import db_backend
-
-        conn = db_backend.connect()
-        try:
-            conn.execute(
-                "CREATE TABLE items ("
-                "id INTEGER PRIMARY KEY, project_id INTEGER)"
-            )
-            conn.execute(
-                "CREATE TABLE item_worktrees ("
-                "id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL, "
-                "branch TEXT NOT NULL, path TEXT, lane_role TEXT NOT NULL, "
-                "state TEXT NOT NULL, created_at TEXT NOT NULL, "
-                "updated_at TEXT NOT NULL, released_at TEXT)"
-            )
-            conn.execute(
-                "CREATE TABLE projects ("
-                "id INTEGER PRIMARY KEY, slug TEXT UNIQUE)"
-            )
-            conn.execute(
-                "CREATE TABLE path_claims ("
-                "id INTEGER PRIMARY KEY, owner_kind TEXT, "
-                "owner_item_id INTEGER, state TEXT, "
-                "integration_target TEXT)"
-            )
-            conn.execute(
-                "INSERT INTO projects (id, slug) VALUES (3, 'demo')",
-            )
-            register_machine_checkout(repo_root.parent / "machine-config", repo_root, 3)
-            conn.execute("INSERT INTO items VALUES (9, 3)")
-            conn.execute(
-                "INSERT INTO item_worktrees VALUES "
-                "(1, 9, 'YOK-9', %s, 'implementation', 'active', "
-                "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', NULL)",
-                (str(repo_root / ".worktrees" / "YOK-9"),),
-            )
-            conn.execute(
-                "INSERT INTO path_claims "
-                "(id, owner_kind, owner_item_id, state, integration_target) "
-                "VALUES (1, 'item', 9, 'active', 'main')"
-            )
-            conn.execute(
-                "INSERT INTO path_claims "
-                "(id, owner_kind, owner_item_id, state, integration_target) "
-                "VALUES (2, 'item', 9, 'active', 'main')"
-            )
-            conn.commit()
-        finally:
-            conn.close()
-
-    return _apply
+from runtime.api.path_claims_aggregation_test_support import (
+    StubResult,
+    _repo_with_worktree,
+    _make_branch_apply_schema,
+)
 
 
 class TestAggregationBranching:
@@ -135,11 +35,17 @@ class TestAggregationBranching:
         # Two claims: A declares foo.py, B declares bar.py; both touched.
         results = {
             1: StubResult(
-                1, ["foo.py"], ["foo.py", "bar.py"], ["bar.py"],
+                1,
+                ["foo.py"],
+                ["foo.py", "bar.py"],
+                ["bar.py"],
                 _pb.BoundaryCheckStatus.CONFLICT,
             ),
             2: StubResult(
-                2, ["bar.py"], ["foo.py", "bar.py"], ["foo.py"],
+                2,
+                ["bar.py"],
+                ["foo.py", "bar.py"],
+                ["foo.py"],
                 _pb.BoundaryCheckStatus.CONFLICT,
             ),
         }
@@ -170,12 +76,16 @@ class TestAggregationBranching:
 
         results = {
             1: StubResult(
-                1, ["foo.py"], ["foo.py", "bar.py", "rogue.py"],
+                1,
+                ["foo.py"],
+                ["foo.py", "bar.py", "rogue.py"],
                 ["bar.py", "rogue.py"],
                 _pb.BoundaryCheckStatus.CONFLICT,
             ),
             2: StubResult(
-                2, ["bar.py"], ["foo.py", "bar.py", "rogue.py"],
+                2,
+                ["bar.py"],
+                ["foo.py", "bar.py", "rogue.py"],
                 ["foo.py", "rogue.py"],
                 _pb.BoundaryCheckStatus.CONFLICT,
             ),
@@ -215,7 +125,10 @@ class TestAggregationGitignoreFilter:
         }
         proc = subprocess.run(
             ["git", "-C", str(repo), *args],
-            capture_output=True, text=True, check=True, env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+            env=env,
         )
         return proc.stdout
 
@@ -270,6 +183,11 @@ class TestAggregationGitignoreFilter:
             conn = db_backend.connect()
             try:
                 create_core_tables(conn)
+                from runtime.api.fixtures.qa_attempt_history import (
+                    ensure_qa_attempt_history,
+                )
+
+                ensure_qa_attempt_history(conn)
                 converge_builtin_workflows(conn)
                 _create_events_table(conn)
                 create_path_registry_tables(conn)
@@ -284,9 +202,7 @@ class TestAggregationGitignoreFilter:
                     "(id, slug, name, default_branch, "
                     "public_item_prefix, created_at) "
                     "VALUES (3, 'demo', 'Demo', 'main', 'DMO', %s)",
-                    (
-                        "2026-05-01T00:00:00Z",
-                    ),
+                    ("2026-05-01T00:00:00Z",),
                 )
                 register_machine_checkout(
                     project_root.parent / "machine-config",
@@ -321,17 +237,18 @@ class TestAggregationGitignoreFilter:
                 )
                 conn.commit()
                 register(
-                    conn, actor_id=actor_id, integration_target="main",
-                    target_ids=[1], item_id=701,
+                    conn,
+                    actor_id=actor_id,
+                    integration_target="main",
+                    target_ids=[1],
+                    item_id=701,
                 )
             finally:
                 conn.close()
 
         return _apply
 
-    def test_gate_accepts_when_only_undeclared_paths_are_gitignored(
-        self, tmp_path
-    ):
+    def test_gate_accepts_when_only_undeclared_paths_are_gitignored(self, tmp_path):
         wt_root, apply_schema = self._seed_repo_and_db(tmp_path)
         (wt_root / "src").mkdir(exist_ok=True)
         (wt_root / "src" / "foo.py").write_text("print('x')\n")

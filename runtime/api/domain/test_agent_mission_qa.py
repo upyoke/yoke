@@ -294,7 +294,7 @@ def test_mission_parks_resumes_and_persists_the_main_report(
     assert get_claim(test_db, lease_id).is_active is False
     final = test_db.execute(
         "SELECT verdict,verdict_reason FROM qa_runs "
-        "WHERE qa_requirement_id=%s AND performed_by='agent'",
+        "WHERE qa_requirement_id=%s AND performed_by='agent_mission'",
         (requirement_id,),
     ).fetchone()
     assert tuple(final) == ("pass", rationale)
