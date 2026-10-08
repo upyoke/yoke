@@ -1,6 +1,6 @@
 """Bounded PROCEED adjudication on an actual retained simulation attempt.
 
-The existing event ledger retains this discharge audit. It is separate from
+The item retains this discharge audit in its existing structured records. It is separate from
 QA pass and waiver, and becomes inapplicable when a newer attempt is recorded.
 """
 
@@ -11,7 +11,9 @@ import json
 import re
 from typing import Any
 
-from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
+from yoke_core.domain.item_json_sections import read_json_section, upsert_json_section
+from yoke_core.domain.events_acting_identity import resolve_acting_event_identity
 from yoke_core.domain.qa_latest_execution import (
     latest_execution_id_sql,
     latest_executions,
@@ -21,55 +23,62 @@ from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.sql_json import json_get
 
 TRIAGE_EVENT = "QaSimulationTriaged"
+TRIAGE_SECTION = "Simulation Triage"
 
 
 def triage_discharge_sql(conn: Any, alias: str = "") -> str:
-    """Only an authenticated audit for the selected actual report discharges it."""
-    if not _table_exists(conn, "events"):
+    """The durable item-owned receipt discharges only its selected report."""
+    if not _table_exists(conn, "item_sections"):
         return "FALSE"
     q = alias or "qa_requirements"
-    requirement = json_get("triage.envelope", "$.context.detail.requirement_id")
-    run = json_get("triage.envelope", "$.context.detail.run_id")
-    kind = json_get("triage.envelope", "$.context.detail.discharge_kind")
+    current = latest_execution_id_sql(q + ".id")
+    kind = json_get("triage.content", "$.discharge_kind")
+    actor = json_get("triage.content", "$.actor_id")
+    run = json_get("triage.content", "$.run_id")
+    requirement = json_get("triage.content", "$.requirement_id")
     return (
         f"({q}.qa_kind='simulation' AND {q}.deployment_run_id IS NULL AND EXISTS("
-        "SELECT 1 FROM events triage WHERE "
-        f"triage.event_name='{TRIAGE_EVENT}' AND triage.event_type='qa_lifecycle' "
-        "AND triage.source_type='system' AND triage.actor_id IS NOT NULL "
-        f"AND triage.item_id=CAST({q}.item_id AS TEXT) "
+        "SELECT 1 FROM item_sections triage WHERE "
+        f"triage.item_id={q}.item_id AND triage.section_name='{TRIAGE_SECTION} ' "
+        f"|| CAST({q}.id AS TEXT) || ':' || CAST(({current}) AS TEXT) "
+        f"AND {actor} IS NOT NULL AND {kind}='simulation_triage' "
         f"AND CAST({requirement} AS TEXT)=CAST({q}.id AS TEXT) "
-        f"AND {kind}='simulation_triage' "
-        f"AND CAST({run} AS TEXT)=CAST(({latest_execution_id_sql(q + '.id')}) AS TEXT)))"
+        f"AND CAST({run} AS TEXT)=CAST(({current}) AS TEXT)))"
     )
 
 
 def current_simulation_triage(conn: Any, requirement_id: int) -> dict[str, Any] | None:
-    """Return the separate discharge receipt, never a fabricated passing run."""
+    """Return durable discharge proof independently of event retention."""
     attempt = latest_executions(conn, [requirement_id]).get(requirement_id)
-    if attempt is None:
+    if attempt is None or attempt["verdict"] != "fail" or not attempt["completed_at"]:
         return None
-    row = query_one(
+    requirement = query_one(
         conn,
-        f"SELECT triage.event_id,triage.actor_id,triage.envelope FROM qa_requirements q "
-        "JOIN events triage ON triage.event_name=%s "
-        f"AND CAST({json_get('triage.envelope', '$.context.detail.requirement_id')} AS TEXT)=CAST(q.id AS TEXT) "
-        f"AND CAST({json_get('triage.envelope', '$.context.detail.run_id')} AS TEXT)=%s "
-        f"WHERE q.id=%s AND {triage_discharge_sql(conn, 'q')} "
-        "AND triage.actor_id IS NOT NULL ORDER BY triage.id DESC LIMIT 1",
-        (TRIAGE_EVENT, str(attempt["id"]), requirement_id),
+        "SELECT item_id,qa_kind,deployment_run_id FROM qa_requirements WHERE id=%s",
+        (requirement_id,),
     )
-    if row is None:
+    if (
+        requirement is None
+        or requirement["qa_kind"] != "simulation"
+        or requirement["deployment_run_id"]
+    ):
         return None
-    envelope = (
-        json.loads(row["envelope"])
-        if isinstance(row["envelope"], str)
-        else row["envelope"]
+    receipt = read_json_section(
+        conn,
+        item_id=int(requirement["item_id"]),
+        section=f"{TRIAGE_SECTION} {requirement_id}:{attempt['id']}",
     )
-    return {
-        **envelope["context"]["detail"],
-        "event_id": row["event_id"],
-        "actor_id": row["actor_id"],
-    }
+    if (
+        not receipt
+        or not receipt.get("actor_id")
+        or receipt.get("requirement_id") != requirement_id
+        or receipt.get("run_id") != attempt["id"]
+        or receipt.get("discharge_kind") != "simulation_triage"
+        or receipt.get("report_digest")
+        != hashlib.sha256(str(attempt["raw_result"]).encode()).hexdigest()
+    ):
+        return None
+    return receipt
 
 
 def _report_fields(attempt: dict[str, Any]) -> tuple[str, int]:
@@ -158,7 +167,17 @@ def record_simulation_triage(
         return prior
     from yoke_core.domain.qa_events import emit_qa_requirement_event
 
+    identity = resolve_acting_event_identity(TRIAGE_EVENT, conn=conn)
+    if identity is None or identity.actor_id is None:
+        raise ValueError(
+            "simulation_triage_actor_missing: bind the acting session to its authorized actor before PROCEED"
+        )
     detail = {
+        "requirement_id": requirement_id,
+        "actor_id": identity.actor_id,
+        "session_id": identity.session_id,
+        "rationale": reason,
+        "recorded_at": iso8601_now(),
         "run_id": int(attempt["id"]),
         "capture_run_id": int(attempt["id"]),
         "discharge_kind": "simulation_triage",
@@ -168,6 +187,19 @@ def record_simulation_triage(
             str(attempt["raw_result"]).encode()
         ).hexdigest(),
     }
+    upsert_json_section(
+        conn,
+        item_id=epic_id,
+        section=f"{TRIAGE_SECTION} {requirement_id}:{attempt['id']}",
+        payload=detail,
+        ordering=245,
+    )
+    receipt = current_simulation_triage(conn, requirement_id)
+    if receipt is None:
+        raise ValueError(
+            "simulation_triage_audit_unavailable: durable item receipt was not recorded; no handoff"
+        )
+    conn.commit()
     emit_qa_requirement_event(
         conn,
         db_path=None,
@@ -178,12 +210,5 @@ def record_simulation_triage(
         rationale=reason,
         source="agent",
         extra_detail=detail,
-        transactional=True,
     )
-    receipt = current_simulation_triage(conn, requirement_id)
-    if receipt is None:
-        raise ValueError(
-            "simulation_triage_audit_unavailable: authenticated durable discharge was not recorded; no handoff"
-        )
-    conn.commit()
     return receipt

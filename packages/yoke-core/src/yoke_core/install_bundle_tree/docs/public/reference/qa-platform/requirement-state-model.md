@@ -106,9 +106,10 @@ does not count attempts. See [success policy](success-policy-schema.md).
 Integration simulation retains failed reports and all earlier attempts. The
 existing PROCEED operation may record a distinct triage discharge only when
 the selected report explicitly recommends PROCEED, has no CRITICAL gaps, and
-its required follow-up refs exist in the same project. The existing event
-ledger records the exact attempt/capture, report digest, accountable actor,
-rationale and filed refs. This extends the existing adjudication audit instead
+its required follow-up refs exist in the same project. The existing item
+structured records retain the exact attempt/capture, report digest, accountable
+actor, rationale and filed refs. Events remain disposable telemetry. This
+extends the existing adjudication audit instead
 of introducing a new table or approval framework. It does not manufacture a
 pass or change the failed report. A newer actual attempt invalidates that
 discharge, and summaries expose triage separately from pass and waiver.

@@ -182,3 +182,23 @@ def test_conflicting_triage_replay_and_unknown_followup_refuse():
                     session_id="simulation-owner",
                 )
         assert current_simulation_triage(conn, requirement_id) == receipt
+
+
+def test_discharge_survives_missing_telemetry():
+    with test_database() as conn:
+        item_id, requirement_id, _attempt, ref, actor = _seed(conn)
+        with (
+            acting_event_identity(session_id="simulation-owner", actor_id=actor),
+            patch(
+                "yoke_core.domain.qa_events.emit_qa_requirement_event",
+                return_value=None,
+            ),
+        ):
+            receipt = _record(conn, item_id, [ref])
+        conn.execute("DELETE FROM events WHERE event_name='QaSimulationTriaged'")
+        conn.commit()
+        assert current_simulation_triage(conn, requirement_id) == receipt
+        assert conn.execute(
+            f"SELECT {settled_obligation_sql(conn, 'q')} FROM qa_requirements q WHERE id=%s",
+            (requirement_id,),
+        ).fetchone()[0]
