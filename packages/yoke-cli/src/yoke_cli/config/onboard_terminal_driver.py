@@ -51,10 +51,16 @@ def run_wizard_app(app) -> None:
 
         active = False
         ownership_check = None
+        ownership_signal = False
 
         def ownership_lost(self, signum=None, *_):
             nonlocal lost, restore_error
             if lost:
+                return
+            if signum is not None and self.active:
+                # A signal can interrupt a write holding Textual's queue lock.
+                # The existing timer performs cleanup outside that call stack.
+                self.ownership_signal = True
                 return
             lost = True
             # A signal may interrupt a copy handoff's blocking input, so restore
@@ -79,6 +85,9 @@ def run_wizard_app(app) -> None:
 
         def check_ownership(self):
             if not self.active or lost:
+                return
+            if self.ownership_signal:
+                self.ownership_lost()
                 return
             try:
                 foreground = os.tcgetpgrp(self.fileno)
@@ -134,7 +143,7 @@ def run_wizard_app(app) -> None:
                 return  # ownership was refused before application mode
             # POSIX permits restoring our saved attributes while SIGTTOU is
             # locally blocked, even after another process group owns the tty.
-            with _blocked({signal.SIGTTOU}):
+            with _blocked(job_signals):
                 if self._mouse_pixels:
                     self.write("\x1b[?1016l")
                 super().stop_application_mode()

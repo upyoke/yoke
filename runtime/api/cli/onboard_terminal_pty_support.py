@@ -81,7 +81,7 @@ def run_pty(scenario: str, tmp_path: Path) -> tuple[str, dict]:
         os.close(slave)
 
 
-def _wizard(scenario: str, ready: int, config: Path):
+def _wizard(scenario: str, ready: int, config: Path, continue_read: int):
     from textual.app import App
     from textual.widgets import Static
 
@@ -102,7 +102,14 @@ def _wizard(scenario: str, ready: int, config: Path):
             pass
 
         def on_mount(self):
-            os.write(ready, b"ready")
+            if scenario == "loss-read":
+                # Deliver SIGTTIN while a normal terminal write owns the
+                # queue lock: signal cleanup must never enqueue recursively.
+                with self._driver._writer_thread._queue.mutex:
+                    os.write(ready, b"ready")
+                    os.read(continue_read, 1)
+            else:
+                os.write(ready, b"ready")
             if scenario in {"copy", "copy-loss"}:
                 onboard_clipboard.remote_session = lambda: True
                 self._set_copy_targets([CopyTarget("approval code", "DEMO-CODE")])
@@ -134,13 +141,13 @@ def _wizard(scenario: str, ready: int, config: Path):
     )
 
 
-def _worker(scenario: str, ready: int, config: Path) -> int:
+def _worker(scenario: str, ready: int, config: Path, continue_read: int) -> int:
     from yoke_cli.commands.adapters import onboard_interactive as adapter
 
     adapter.onboard_machine_setup.prepare = lambda *_: config.write_text("prepared")
     adapter.finish_pending_source_install = lambda *_: None
     adapter.onboard_wizard.run_wizard = lambda *_a, **_k: _wizard(
-        scenario, ready, config
+        scenario, ready, config, continue_read
     )
     parsed = SimpleNamespace(
         config_path=str(config),
@@ -191,9 +198,9 @@ def _controller(slave: int, scenario: str, evidence: Path) -> None:
         os.read(start_read, 1)
         import faulthandler
 
-        faulthandler.dump_traceback_later(16)
+        faulthandler.dump_traceback_later(6)
         try:
-            rc = _worker(scenario, ready_write, config)
+            rc = _worker(scenario, ready_write, config, start_read)
         except BaseException:
             import traceback
 
@@ -229,6 +236,7 @@ def _controller(slave: int, scenario: str, evidence: Path) -> None:
             os.tcsetpgrp(slave, os.getpgrp())
             if scenario == "loss-read":
                 os.kill(worker, signal.SIGTTIN)
+                os.write(start_write, b"x")
         deadline = time.monotonic() + 8
         while time.monotonic() < deadline:
             pid, observed = os.waitpid(worker, os.WNOHANG | os.WUNTRACED)
