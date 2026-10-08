@@ -19,11 +19,11 @@ The built-in method has these immutable properties:
 | `runner_id` | `agent_mission` |
 | `verdict_path` | `agent` |
 | `concurrency_mode` | `serial` |
-| required capabilities | `browser-control`, `macos-examplehine` |
+| required capabilities | `browser-control`, <!-- qa:test-machine-capability -->`test-machine` |
 | case config | `{"executor":"informed_subagent"}` or `{"executor":"naive_target_session"}` |
 
 Capability declarations are provisioning authority, and the two kinds above
-resolve differently. `macos-examplehine` is a project registration: materialization
+resolve differently. <!-- qa:test-machine-capability -->`test-machine` is a project registration: materialization
 resolves it against the project capability rows, and admission refuses a
 mission whose project has registered no Test Machine. `browser-control` needs no project
 capability row, because this method's own runner is declared to supply it on
@@ -51,7 +51,7 @@ Write one case with broad instructions and an observable good outcome:
 
 Omit `machine` when any registered host can run the mission. When present, it
 is validated during plan authoring and becomes the case's durable
-`macos-examplehine:<name>` capability constraint. Execution also reads the pin from
+<!-- qa:test-machine-capability -->`test-machine:<name>` capability constraint. Execution also reads the pin from
 `method_config` for direct requirements and their admitted deployment copies;
 omitting `--machine` preserves that pin, and a conflicting run pin is refused.
 
