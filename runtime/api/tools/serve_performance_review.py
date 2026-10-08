@@ -5,6 +5,7 @@ receipt from events.performance.aggregate; optional detail receipts retain only
 rows in the inspected bucket. It publishes the same source-identity contract as
 the workbench. The prototype directory is a separately checked-out reference.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -46,11 +47,17 @@ def main():
     parser.add_argument("--prototype-root", type=Path, required=True)
     parser.add_argument("--port", type=int, default=18843)
     args = parser.parse_args()
-    receipts = {"/aggregate": args.aggregate.read_bytes(), "/detail": args.detail.read_bytes()}
+    receipts = {
+        "/aggregate": args.aggregate.read_bytes(),
+        "/detail": args.detail.read_bytes(),
+    }
     for value in receipts.values():
         if not json.loads(value).get("success"):
-            parser.error("performance_review_read_failed: supply successful authorized receipts")
+            parser.error(
+                "performance_review_read_failed: supply successful authorized receipts"
+            )
     import yoke_core
+
     static = Path(yoke_core.__file__).parent / "ui" / "static"
 
     class Handler(SimpleHTTPRequestHandler):
@@ -64,13 +71,20 @@ def main():
             elif path == "/":
                 content = PAGE.encode()
             elif path == "/comparison":
-                content = b"""<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'>
+                content = """<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'>
 <style>body{margin:0;font:14px system-ui}section{display:flex;gap:8px}article{width:50%;min-width:0}iframe{width:100%;height:1000px;border:0}h2{font-size:16px;margin:10px}</style>
-<section><article><h2>Approved prototype</h2><iframe src='/yoke-web-prototype.html#cost-performance'></iframe></article><article><h2>Candidate · production snapshot</h2><iframe src='/'></iframe></article></section>"""
+<section><article><h2>Approved prototype</h2><iframe src='/yoke-web-prototype.html#cost-performance'></iframe></article><article><h2>Candidate · production snapshot</h2><iframe src='/'></iframe></article></section>""".encode()
             else:
                 return super().do_GET()
             self.send_response(200)
-            self.send_header("Content-Type", "text/html" if path in ("/", "/comparison") else "text/plain" if path == "/served-build" else "application/json")
+            self.send_header(
+                "Content-Type",
+                "text/html"
+                if path in ("/", "/comparison")
+                else "text/plain"
+                if path == "/served-build"
+                else "application/json",
+            )
             self.send_header("Content-Length", str(len(content)))
             self.end_headers()
             self.wfile.write(content)
@@ -78,14 +92,21 @@ def main():
         def translate_path(self, path):
             path = urlsplit(path).path
             root = static if path.startswith("/static/") else args.prototype_root
-            relative = path.removeprefix("/static/") if path.startswith("/static/") else path.lstrip("/")
+            relative = (
+                path.removeprefix("/static/")
+                if path.startswith("/static/")
+                else path.lstrip("/")
+            )
             target = (root / relative).resolve()
             if not target.is_relative_to(root.resolve()):
                 return str(root / "missing")
             return str(target)
 
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-    print(f"Production snapshot component review: http://127.0.0.1:{args.port}/", flush=True)
+    print(
+        f"Production snapshot component review: http://127.0.0.1:{args.port}/",
+        flush=True,
+    )
     server.serve_forever()
 
 
