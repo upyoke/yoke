@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Sequence
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
 from yoke_core.domain.deployment_qa_source_obligation import source_obligation_consumed
 from yoke_core.domain.qa_merging_identity import (
     accepted_merging_shas,
@@ -186,9 +187,7 @@ def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         "q.qa_phase, q.method_id, q.method_config, r.id AS run_id, "
         "r.verdict, r.verdict_reason, r.execution_status, r.case_outcome, r.completed_at, "
         "r.raw_result FROM qa_requirements q LEFT JOIN qa_runs r ON r.id = ("
-        "SELECT latest.id FROM qa_runs latest "
-        "WHERE latest.qa_requirement_id = q.id "
-        "ORDER BY latest.id DESC LIMIT 1) "
+        f"{latest_execution_id_sql('q.id')}) "
         f"WHERE q.item_id = {placeholder} ORDER BY q.id",
         (int(item_id),),
     )
@@ -216,7 +215,7 @@ def _workflow_requires_terminal_qa(workflow: Any, target_status: str) -> bool:
 
 
 def find_unsettled_records(conn: Any, *, item_id: int) -> list[UnsettledQaRecord]:
-    """Return active item QA records that a terminal transition would freeze."""
+    """Return unsettled latest executions and active item QA plans."""
     if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
         return []
     placeholder = _placeholder(conn)
@@ -226,6 +225,7 @@ def find_unsettled_records(conn: Any, *, item_id: int) -> list[UnsettledQaRecord
         "FROM qa_runs r JOIN qa_requirements q ON q.id = r.qa_requirement_id "
         f"WHERE q.item_id = {placeholder} AND q.waived_at IS NULL "
         f"AND {unretracted_requirement_sql(conn, 'q')} "
+        f"AND r.id = ({latest_execution_id_sql('q.id')}) "
         "AND r.verdict IS NULL ORDER BY r.id",
         (int(item_id),),
     ).fetchall()
@@ -234,7 +234,7 @@ def find_unsettled_records(conn: Any, *, item_id: int) -> list[UnsettledQaRecord
             kind="run",
             record_id=str(_row_value(row, "id", 0)),
             detail=(
-                f"requirement {_row_value(row, 'qa_requirement_id', 1)}: "
+                f"requirement {_row_value(row, 'qa_requirement_id', 1)} latest execution: "
                 f"{_run_detail(row)}{successor_detail}"
             ),
         )
@@ -278,7 +278,7 @@ def settlement_errors(
         f"Error: Cannot transition {render_item_ref(conn, item_id)} "
         f"to {target_status!r} -- "
         f"{len(records)} QA record(s) are unsettled.",
-        "  Terminal QA records are immutable; finish or abort the execution, "
+        "  Only each requirement's latest execution counts; finish or abort it, "
         "record a verdict, or waive the requirement while its item claim is held.",
     ]
     errors.extend(
