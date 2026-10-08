@@ -16,6 +16,9 @@ from yoke_core.domain.function_authz_types import (
 
 
 PRODUCT_AUTHZ_BY_ID = {
+    # Handler authorizes every selected project before reading observations.
+    "events.performance.aggregate": AuthzSpec(ACTOR_SESSION, None),
+    "events.performance.detail": AuthzSpec(ACTOR_SESSION, None),
     # The researched catalog is universe-wide; publication changes the
     # prices every project uses for sessions starting at its effective time.
     "models.publish.run": AuthzSpec(ORG, PERM_ORG_ADMIN),

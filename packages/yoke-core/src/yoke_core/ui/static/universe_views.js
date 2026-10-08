@@ -17,6 +17,7 @@ import {
 } from "./universe_views_delivery_inventory.js";
 import { renderDoctorView } from "./universe_views_doctor.js";
 import { renderEventsView } from "./universe_views_events.js";
+import { renderPerformanceView } from "./universe_views_performance.js";
 import { renderGithubView } from "./universe_views_github.js";
 import { renderInboxView } from "./universe_views_inbox.js";
 import { renderRunDetailView } from "./universe_views_run_detail.js";
@@ -144,6 +145,7 @@ export const VIEW_RENDERERS = {
   messages: renderSessionMessagesView,
   launches: renderSessionLaunchesView,
   events: renderEventsView,
+  performance: renderPerformanceView,
   doctor: renderDoctorView,
   ouroboros: renderOuroborosView,
 };

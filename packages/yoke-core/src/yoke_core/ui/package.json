@@ -2,5 +2,8 @@
   "type": "module",
   "devDependencies": {
     "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "uplot": "1.6.32"
   }
 }

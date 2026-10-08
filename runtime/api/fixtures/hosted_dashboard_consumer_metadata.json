@@ -1,0 +1,8 @@
+{
+  "consumer_repository": "upyoke/platform",
+  "consumer_commit": "7afd956fd07fe1dd7727d5c36ff53717cbc923d7",
+  "consumer_path": "webapp/src/lib/hosted-dashboard-paths.ts",
+  "consumer_sha256": "e107ba180bb41fde841bfde03b1a240d55eeb13b45a505207a8a2a459fc364c0",
+  "assets_are_build_materialized": true,
+  "materializer_path": "webapp/scripts/materialize_universe.py"
+}

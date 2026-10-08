@@ -189,6 +189,10 @@ export const NAV = [
     group: GROUP_DIAGNOSTICS,
   },
   {
+    id: "performance", label: "Performance", scope: SCOPE_MULTI,
+    group: GROUP_DIAGNOSTICS,
+  },
+  {
     id: "doctor", label: "Doctor", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
   },
