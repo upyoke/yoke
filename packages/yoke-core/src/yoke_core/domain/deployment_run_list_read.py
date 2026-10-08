@@ -213,7 +213,7 @@ def present_deployment_runs(
         result.append(
             {
                 **{
-                    key: format_instant(value)
+                    key: (format_instant(value) if value is not None else None)
                     if key in RUN_INSTANT_FIELDS
                     else ("" if value is None else value)
                     for key, value in row.items()

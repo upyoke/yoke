@@ -16,6 +16,7 @@ def test_editor_tokens_compare_instants_and_keep_microsecond_cas(
     test_db, monkeypatch, zone
 ):
     from runtime.api.qa_plan_edit_test_support import _edit, _plan, _updated_at
+    from yoke_core.domain.qa_catalog_reads import get_method
 
     test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
     before = parse_instant("1969-12-31T23:59:59.999999Z")
@@ -26,6 +27,9 @@ def test_editor_tokens_compare_instants_and_keep_microsecond_cas(
     detail = get_plan(test_db, plan_id=plan["id"])
     assert detail["created_at"] == detail["updated_at"] == format_instant(before)
     assert detail["retired_at"] is None
+    method = get_method(test_db, method_id="command", project="yoke")
+    related = next(row for row in method["plans"] if row["id"] == plan["id"])
+    assert related["outcome_summary"]["last_at"] is None
     equivalent = "1969-12-31T18:59:59.999999-05:00"
     unchanged = _edit(test_db, plan, base_updated_at=equivalent)
     assert unchanged["unchanged"] and unchanged["updated_at"] == detail["updated_at"]

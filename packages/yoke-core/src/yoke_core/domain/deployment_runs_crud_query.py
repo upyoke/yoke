@@ -76,7 +76,7 @@ def cmd_get(
                     conn, f"SELECT {field} FROM deployment_runs WHERE id=%s", (run_id,)
                 )
             return (
-                (format_instant(val) or "")
+                (format_instant(val) if val is not None else "")
                 if field in RUN_INSTANT_FIELDS
                 else str(val or "")
             )

@@ -45,11 +45,11 @@ CREATE TABLE qa_requirements (
     success_policy TEXT,
     method_id TEXT,
     verdict_path TEXT,
-    waived_at TEXT,
+    waived_at TIMESTAMPTZ,
     superseded_by_requirement_id INTEGER,
     replacement_requirement_id INTEGER,
-    retracted_at TEXT,
-    created_at TEXT
+    retracted_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ
 );
 CREATE TABLE qa_runs (
     id INTEGER PRIMARY KEY,
@@ -61,9 +61,9 @@ CREATE TABLE qa_runs (
     execution_status TEXT,
     case_outcome TEXT,
     raw_result TEXT,
-    started_at TEXT,
-    completed_at TEXT,
-    created_at TEXT
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ
 );
 CREATE TABLE qa_artifacts (
     id INTEGER PRIMARY KEY,

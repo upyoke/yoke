@@ -42,10 +42,10 @@ def _row_value(row: Any, key: str, position: int) -> Any:
 
 
 def _settling_column(conn: Any) -> str:
-    """Select the settlement marker, or empty on an unconverged plane."""
+    """Select the native settlement marker, or null before convergence."""
     if _column_exists(conn, "deployment_runs", "settling_at"):
-        return "COALESCE(dr.settling_at, '') AS settling_at"
-    return "'' AS settling_at"
+        return "dr.settling_at"
+    return "NULL AS settling_at"
 
 
 def _bound_sources_column(conn: Any) -> str:
@@ -110,8 +110,8 @@ def completion_runs(
         ):
             continue
         status = str(_row_value(row, "status", 1) or "")
-        settling = status == "executing" and bool(
-            str(_row_value(row, "settling_at", 8) or "")
+        settling = (
+            status == "executing" and _row_value(row, "settling_at", 8) is not None
         )
         if settling:
             status = "succeeded"

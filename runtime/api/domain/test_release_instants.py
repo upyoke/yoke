@@ -73,9 +73,7 @@ def test_combined_release_candidates_keep_native_order_and_null_last(test_db, zo
 
 
 @pytest.mark.parametrize("delta", [-1, 0, 1])
-def test_merge_freeze_cutoff_is_exact_before_ancestry(
-    test_db, delta
-):
+def test_merge_freeze_cutoff_is_exact_before_ancestry(test_db, delta):
     from runtime.api.fixtures.backlog_inserts import insert_item
 
     freeze = parse_instant("1969-12-31T23:59:59.999999Z")
@@ -124,3 +122,32 @@ def test_pipe_boundary_formats_native_clocks_and_preserves_opaque_strings():
 def test_invalid_release_clock_cannot_sort_as_missing(bad):
     with pytest.raises(InvalidInstant, match="invalid_instant"):
         completion_order({"completed_at": bad})
+
+
+def test_native_run_projection_preserves_nullable_clocks():
+    from runtime.api.domain.test_deployment_run_list_read import _RunRows
+    from yoke_core.domain.deployment_run_list_read import present_deployment_runs
+
+    instant = parse_instant("1969-12-31T23:59:59.999999Z")
+    [view] = present_deployment_runs(
+        _RunRows(),
+        [
+            {
+                "id": "run-clock-view",
+                "status": "succeeded",
+                "stages": "[]",
+                "created_at": instant,
+                "completed_at": None,
+                "composition_frozen_at": None,
+                "started_at": None,
+            }
+        ],
+        actor_id=None,
+        visible_project_ids=None,
+        include_carried_work=False,
+    )
+    assert view["created_at"] == format_instant(instant)
+    assert all(
+        view[key] is None
+        for key in ["completed_at", "composition_frozen_at", "started_at"]
+    )

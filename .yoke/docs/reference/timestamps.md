@@ -195,3 +195,8 @@ The deployment-run pipe boundary prints canonical native clocks and blank nulls;
 the structured run view emits canonical clocks and null, while opaque strings
 retain their existing representation. Overview completion windows bind the
 exact native 24-hour cutoff, including microseconds.
+
+The strict instant formatter requires a supplied instant. A nullable view field
+preserves null before formatting; absence cannot be passed through the parser
+or formatter as if it named a clock. Settlement authority reads a native marker
+and tests nullness, including before its additive column has converged.

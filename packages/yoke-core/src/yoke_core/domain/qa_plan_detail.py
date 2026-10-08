@@ -147,7 +147,9 @@ def get_plan(
         "success_policy_params": _decode(row["success_policy_params"], {}),
         "created_at": format_instant(row["created_at"]),
         "updated_at": format_instant(row["updated_at"]),
-        "retired_at": format_instant(row["retired_at"]),
+        "retired_at": format_instant(row["retired_at"])
+        if row["retired_at"] is not None
+        else None,
         "deployment_run_id": deployment_run_id,
         "target_environment": row["target_environment"],
         "execution_target": execution_target,

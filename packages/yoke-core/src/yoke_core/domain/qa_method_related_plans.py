@@ -224,8 +224,9 @@ def read_method_related_plans(
         result.append(plan)
     ordered = _ordered_plans(result)
     for plan in ordered:
-        plan["outcome_summary"]["last_at"] = format_instant(
-            plan["outcome_summary"]["last_at"]
+        stamp = plan["outcome_summary"]["last_at"]
+        plan["outcome_summary"]["last_at"] = (
+            format_instant(stamp) if stamp is not None else None
         )
     return ordered
 
