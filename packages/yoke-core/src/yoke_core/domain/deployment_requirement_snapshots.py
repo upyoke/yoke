@@ -9,6 +9,8 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_requirement_snapshot_format import (
     CASE_FIELDS,
+    PLAN_CASE_COLUMNS,
+    converged_select,
     PLAN_FIELDS,
     REQUIREMENT_FIELDS,
     semantic_row,
@@ -125,12 +127,9 @@ def _plan_snapshot(
     requested = [str(value) for value in (case_keys or ())]
     if any(not value for value in requested) or len(requested) != len(set(requested)):
         raise ValueError(f"QA plan {plan_id} case_keys must be unique non-empty names")
+    case_columns = converged_select(conn, "qa_plan_cases", PLAN_CASE_COLUMNS, "c")
     cursor = conn.execute(
-        "SELECT c.id,c.plan_id,c.case_key,c.position,c.method_id,c.instructions,"
-        "c.expected_outcome,c.method_config,c.success_policy_id,"
-        "c.success_policy_params,c.host_baselines,c.starting_state,"
-        "c.starting_state_reason,c.entry_surface,"
-        "c.required_completion,m.name AS method_name,m.runner_id,"
+        f"SELECT {case_columns},m.name AS method_name,m.runner_id,"
         "m.required_capability_kinds,m.verdict_path,m.config_contract_id "
         "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
         f"WHERE c.plan_id={marker} ORDER BY c.position,c.id",
@@ -195,7 +194,8 @@ def _requirement_snapshot(
     marker = _p(conn)
     lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
     cursor = conn.execute(
-        f"SELECT {','.join(REQUIREMENT_FIELDS)},waived_at,"
+        f"SELECT {converged_select(conn, 'qa_requirements', REQUIREMENT_FIELDS)},"
+        "waived_at,"
         f"{requirement_retracted_at_select(conn)} "
         f"FROM qa_requirements WHERE id={marker}{lock}",
         (int(requirement_id),),
