@@ -28,7 +28,7 @@ from yoke_core.domain.steering_fleet_report_vendor_errors import (
 
 
 STOPPED_SESSION = "stopped-worker"
-STOPPED_AT = "2026-08-26T11:40:00Z"
+STOPPED_AT = "2026-08-26T11:40:00.000000Z"
 LIVE_ERROR = (
     "unexpected status 404 Not Found: Unknown error, url: "
     "https://chatgpt.com/backend-api/codex/responses"
