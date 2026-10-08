@@ -21,6 +21,15 @@ import pytest
 from yoke_core.domain.check_prerequisites import run_checks
 
 
+@pytest.fixture(autouse=True)
+def _checkout_maps_to_a_project(monkeypatch):
+    """The seeded checkout is registered to project 1 unless a test says otherwise."""
+    monkeypatch.setattr(
+        "yoke_core.domain.check_prerequisites.default_project_for_directory",
+        lambda directory: "1",
+    )
+
+
 # Built by string concatenation so literal greps for these tokens
 # report zero hits anywhere in the live tree, including this test file
 # itself.
@@ -149,7 +158,10 @@ def test_messaging_emits_no_brew_install_gh(tmp_path, monkeypatch, capsys):
 
 
 def test_github_auth_only_resolver_pass_emits_canonical_label(
-    tmp_path, monkeypatch, capsys, _patch_shutil_no_gh,
+    tmp_path,
+    monkeypatch,
+    capsys,
+    _patch_shutil_no_gh,
 ):
     """When the GitHub App resolver succeeds, the table emits the migrated label."""
     _seed_minimal_repo(tmp_path)
@@ -174,7 +186,10 @@ def test_github_auth_only_resolver_pass_emits_canonical_label(
 
 
 def test_github_auth_resolver_failure_warns_without_host_gh_messaging(
-    tmp_path, monkeypatch, capsys, _patch_shutil_no_gh,
+    tmp_path,
+    monkeypatch,
+    capsys,
+    _patch_shutil_no_gh,
 ):
     """Resolver failure WARNs (non-strict) with the canonical repair hint."""
     _seed_minimal_repo(tmp_path)
@@ -197,7 +212,10 @@ def test_github_auth_resolver_failure_warns_without_host_gh_messaging(
 
 
 def test_github_auth_resolver_failure_strict_fails_critical(
-    tmp_path, monkeypatch, capsys, _patch_shutil_no_gh,
+    tmp_path,
+    monkeypatch,
+    capsys,
+    _patch_shutil_no_gh,
 ):
     """--strict promotes resolver WARN to FAIL without rehydrating host gh teaching."""
     _seed_minimal_repo(tmp_path)

@@ -16,7 +16,11 @@ import os
 from unittest import mock
 
 import pytest
-
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_contracts.board.art import ArtConfig
 from yoke_contracts.board.config import BoardConfig
 from yoke_core.board.renderer import render_board_from_payload
@@ -24,12 +28,8 @@ from yoke_core.domain import events as events_module
 from yoke_core.domain import yoke_function_dispatch as dispatch_module
 from yoke_core.domain.handlers import orchestration
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
 from yoke_core.domain.yoke_function_registry import reset_registry_for_tests
+
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.file_test_db import connect_test_db
 
@@ -131,20 +131,34 @@ def test_handler_ignores_unknown_config_field(populated_db):
 
 def test_handler_vision_count_shapes_zen_plan(populated_db):
     """The vision count feeds zen zone width, which is a SQL parameter —
-    payloads recorded with different counts carry different plans."""
+    payloads recorded with different counts carry different plans. The
+    vision belongs to the checkout's own project, named by its settings
+    project id."""
+    from yoke_contracts.board.config import config_from_values
+
     config_values = {"timeline_widget": "always"}
 
     def entries_for(count: int):
-        outcome = orchestration.handle_board_data_get(
-            _request(
-                {
-                    "scope": "all",
-                    "config_values": config_values,
-                    "zen_vision_count": count,
-                }
+        with (
+            mock.patch(
+                "yoke_core.domain.board_policy_read.resolve_board_config",
+                return_value=config_from_values(config_values),
+            ),
+            mock.patch(
+                "yoke_core.domain.board_policy_read.resolve_board_scope",
+                return_value="all",
+            ),
+        ):
+            outcome = orchestration.handle_board_data_get(
+                _request(
+                    {
+                        "settings_project_id": 1,
+                        "zen_vision_count": count,
+                    }
+                )
             )
-        )
         assert outcome.primary_success
+        assert outcome.result_payload["vision_project"] == "yoke"
         return outcome.result_payload["entries"]
 
     def zen_position_params(entries):
@@ -220,10 +234,10 @@ class TestBoardDataOverHttpBoundary:
     @pytest.fixture(autouse=True)
     def _suite(self, populated_db):
         from fastapi.testclient import TestClient
+        from yoke_core.api.main import app
 
         from runtime.api.auth_test_helpers import mint_api_auth_context
         from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-        from yoke_core.api.main import app
 
         with mock.patch.dict(os.environ, {"YOKE_DB": populated_db}, clear=False):
             reset_registry_for_tests()

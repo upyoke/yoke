@@ -33,7 +33,10 @@ fresh execution. A scheme-only or scalar declared-fact change is in.
 Live identity is the environment the case actually ran against, not the
 environment that shares the plan project's name. A plan's project and its
 `target_environment_id` can belong to different projects — a yoke plan
-targeting hosted `Yoke API`/`prod` is the normal shape. Rebind therefore
+targeting hosted `Yoke API`/`prod` is the normal shape. The owning project
+shares such an environment by declaring `qa.hosted_runtime=true` and
+`qa.hosted_runtime_consumer=<plan project slug>` on its `Yoke API` site, in the
+same organization; no project name is fixed in code. Rebind therefore
 resolves, in order, a stored `environment.id`, the plan's
 `target_environment_id`, then `site.name` plus `environment.name`. It
 does not resolve `(project.id, environment.name)`: that name repeats

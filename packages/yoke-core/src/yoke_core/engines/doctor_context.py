@@ -62,16 +62,20 @@ def resolve_runtime(declared: Optional[str] = None) -> str:
     return RUNTIME_HOSTED
 
 
-def resolve_self_project(conn) -> Optional[str]:
+def resolve_self_project(conn, names: Optional[frozenset] = None) -> Optional[str]:
     """The project that owns this Yoke installation, by checkout evidence.
 
     The self project is whichever mapped project's checkout *is* the Yoke
     source tree. Reading it from the checkout binding rather than a literal
     slug keeps a renamed self project resolvable, and returns ``None`` on a
-    runner that holds no checkout at all.
+    runner that holds no checkout at all. The slug is preferred over the
+    numeric id when the ``projects`` table could answer it. Pass *names*
+    when the caller already holds :func:`self_project_names`.
     """
-    names = self_project_names(conn)
-    return next(iter(sorted(names)), None) if names else None
+    if names is None:
+        names = self_project_names(conn)
+    slugs = sorted(name for name in names if not str(name).isdigit())
+    return (slugs or sorted(names) or [None])[0]
 
 
 def self_project_names(conn) -> frozenset:

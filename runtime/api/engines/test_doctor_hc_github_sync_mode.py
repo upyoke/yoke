@@ -14,6 +14,8 @@ these tests add it explicitly.
 
 from __future__ import annotations
 
+import pytest
+
 from unittest.mock import patch
 
 from runtime.api.engines._doctor_hc_git_test_helpers import (
@@ -30,6 +32,15 @@ from yoke_core.engines.doctor import (
 
 
 MODE_NOTE = "github_sync_mode=disabled"
+
+
+@pytest.fixture(autouse=True)
+def _self_project_is_yoke(monkeypatch):
+    """The installation's self project is ``yoke`` in these fixtures."""
+    monkeypatch.setattr(
+        "yoke_core.engines.doctor_hc_worktrees_gh_repo.self_project_names",
+        lambda conn: frozenset({"1", "yoke"}),
+    )
 
 
 def test_auth_unavailable_checks_name_the_selected_project(monkeypatch):

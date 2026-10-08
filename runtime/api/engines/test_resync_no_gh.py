@@ -131,7 +131,7 @@ class TestMainFailsClosedWithoutGh:
     legacy ``Note: gh CLI not available. Skipping ...`` print is gone.
     """
 
-    def test_detect_no_github_auth_returns_exit_2(self, monkeypatch, tmp_path):
+    def test_detect_no_github_auth_returns_exit_1(self, monkeypatch, tmp_path):
         _mask_path(monkeypatch)
         with init_test_db(tmp_path, apply_schema=_apply_empty_resync_schema):
             yoke_root = str(tmp_path)
@@ -148,7 +148,7 @@ class TestMainFailsClosedWithoutGh:
                 mock.patch("sys.stderr", StringIO()),
             ):
                 rc = resync_mod.main(["--detect-only", "--project", "yoke"])
-        assert rc == 2
+        assert rc == 1
 
     def test_no_legacy_skip_print_on_no_github_auth(
         self, monkeypatch, tmp_path, capsys

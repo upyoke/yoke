@@ -279,7 +279,7 @@ A pre-dispatch quality gate that blocks epic dispatch when unresolved CRITICAL p
 Project context is loaded by multiple commands, not just conduct.
 
 1. **Issue implementation entry** uses `implement/implementing/project-context.md` before the text-sensitive audit and file discovery. Reads project-wide always-included docs + topic list from `context_routing`, matches topics against title/spec/AC text, and emits a `Project Context Summary` with concrete implementation/test/doc surfaces.
-2. **Conduct dispatch** appends a project-specific context bundle to Engineer/Tester prompts for non-yoke project items via `dispatch-context.md` step `5f-project`.
+2. **Conduct dispatch** appends a project-specific context bundle to Engineer/Tester prompts for every project-owned item via `dispatch-context.md` step `5f-project`.
 3. Missing files warn and continue; broad exploration is fallback only when project docs already map the area.
 
 **Tester-specific injection:** Conduct still includes `Project Test Commands` and `Ephemeral URL` in the Tester dispatch context.

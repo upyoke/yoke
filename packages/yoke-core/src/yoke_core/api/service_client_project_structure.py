@@ -16,7 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 from yoke_core.domain import project_structure as ps
 
@@ -92,9 +92,10 @@ def cmd_project_structure_seed(argv: Sequence[str]) -> int:
         prog="service-client project-structure-seed",
     )
     parser.add_argument("project_id")
+    parser.add_argument("--recipe", required=True)
     args = parser.parse_args(list(argv))
     try:
-        result = ps.cmd_seed(args.project_id)
+        result = ps.cmd_seed(args.project_id, args.recipe)
     except (ps.ValidationError, ps.UsageError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1

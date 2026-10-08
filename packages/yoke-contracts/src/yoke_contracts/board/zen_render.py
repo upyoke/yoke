@@ -8,7 +8,7 @@ data from :mod:`zen_data` and labels/vision from :mod:`zen_labels`.
 
 from __future__ import annotations
 
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from yoke_contracts.board.config import BoardConfig
 from yoke_contracts.board.board_db import BoardDBLike
@@ -29,16 +29,17 @@ from yoke_contracts.board.zen_labels import (
 
 # -- rendering character constants --------------------------------------------
 
-_DASH = "━"     # ━  BOX DRAWINGS HEAVY HORIZONTAL
-_DOT = "●"      # ●  BLACK CIRCLE
+_DASH = "━"  # ━  BOX DRAWINGS HEAVY HORIZONTAL
+_DOT = "●"  # ●  BLACK CIRCLE
 _PRESENT = " \U0001f538 "  # 🔸  with surrounding spaces
-_DASHED = "╌"   # ╌  BOX DRAWINGS LIGHT DOUBLE DASH HORIZONTAL
-_DOTTED = "┄"   # ┄  BOX DRAWINGS LIGHT TRIPLE DASH HORIZONTAL
+_DASHED = "╌"  # ╌  BOX DRAWINGS LIGHT DOUBLE DASH HORIZONTAL
+_DOTTED = "┄"  # ┄  BOX DRAWINGS LIGHT TRIPLE DASH HORIZONTAL
 _MIDDLE_DOT = "·"  # ·
 _TILDE = "~"
 
 
 # -- public entry point --------------------------------------------------------
+
 
 def render_zen_widget(
     db: BoardDBLike,
@@ -48,6 +49,7 @@ def render_zen_widget(
     pipeline_count: int,
     backlog_count: int,
     vision_entries: List[Tuple[str, str]] = (),
+    vision_project: Optional[str] = None,
 ) -> List[str]:
     """Return timeline widget lines, or ``[]`` when hidden.
 
@@ -71,6 +73,10 @@ def render_zen_widget(
         the zone layout, which feeds the timeline-position SQL, is fully
         determined by the caller's inputs on both the record and replay
         sides of the board data layer.
+    vision_project:
+        Slug of the project whose VISION produced *vision_entries* — the
+        project the caller's checkout maps to. Only that project's timeline
+        carries the vision zone; ``None`` renders no vision.
     """
     if not _zen_check_visibility(
         config.timeline_widget, active_count, pipeline_count, backlog_count
@@ -96,23 +102,27 @@ def render_zen_widget(
         if not first:
             lines.append("")
         first = False
-        # Vision applies only to the "yoke" project
-        if pid == "yoke":
-            project_lines = _zen_render_project(
-                db, pid, emoji, _WIDTH, vision_entries, vision_count,
-                label_days, df_cap_pct, extra_stops, min_labels,
-            )
-        else:
-            project_lines = _zen_render_project(
-                db, pid, emoji, _WIDTH, [], 0,
-                label_days, df_cap_pct, extra_stops, min_labels,
-            )
+        # Vision belongs to the project whose checkout rendered it.
+        owns_vision = vision_project is not None and pid == vision_project
+        project_lines = _zen_render_project(
+            db,
+            pid,
+            emoji,
+            _WIDTH,
+            vision_entries if owns_vision else [],
+            vision_count if owns_vision else 0,
+            label_days,
+            df_cap_pct,
+            extra_stops,
+            min_labels,
+        )
         lines.extend(project_lines)
 
     return lines
 
 
 # -- rendering helpers ---------------------------------------------------------
+
 
 def _pad(n: int, char: str) -> str:
     """Return *n* copies of *char*."""
@@ -153,6 +163,7 @@ def _render_future_zone(width: int, char: str, has_dot: bool) -> str:
 
 
 # -- per-project rendering ----------------------------------------------------
+
 
 def _zen_render_project(
     db: BoardDBLike,
@@ -196,14 +207,24 @@ def _zen_render_project(
 
     # LINE 1: emoji + pathway
     line1 = _render_pathway(
-        emoji, past_width, future_width, has_queued,
-        vision_entries, vision_count, positions,
+        emoji,
+        past_width,
+        future_width,
+        has_queued,
+        vision_entries,
+        vision_count,
+        positions,
     )
 
     # LINE 2: feature labels
     line2 = _render_labels(
-        labels, past_width, future_width, has_queued,
-        queued, vision_entries, vision_count,
+        labels,
+        past_width,
+        future_width,
+        has_queued,
+        queued,
+        vision_entries,
+        vision_count,
     )
 
     return [line1, line2]

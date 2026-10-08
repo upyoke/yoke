@@ -64,12 +64,14 @@ class RecordingBoardDB:
         value = self._inner.scalar(sql, params)
         if key not in self._recorded:
             self._recorded.add(key)
-            self._entries.append({
-                "kind": "scalar",
-                "sql": sql,
-                "params": _encode_params(params),
-                "value": _encode_value(value),
-            })
+            self._entries.append(
+                {
+                    "kind": "scalar",
+                    "sql": sql,
+                    "params": _encode_params(params),
+                    "value": _encode_value(value),
+                }
+            )
         return value
 
     def _record(self, kind: str, sql: str, params, run) -> List[Tuple]:
@@ -77,12 +79,14 @@ class RecordingBoardDB:
         rows = run(sql, params)
         if key not in self._recorded:
             self._recorded.add(key)
-            self._entries.append({
-                "kind": kind,
-                "sql": sql,
-                "params": _encode_params(params),
-                "rows": [[_encode_value(v) for v in row] for row in rows],
-            })
+            self._entries.append(
+                {
+                    "kind": kind,
+                    "sql": sql,
+                    "params": _encode_params(params),
+                    "rows": [[_encode_value(v) for v in row] for row in rows],
+                }
+            )
         return rows
 
     def encoded_entries(self) -> List[Dict[str, Any]]:
@@ -101,6 +105,7 @@ def collect_board_data(
     config: Any,
     repo_root: Optional[str] = None,
     vision_entries: Iterable[Tuple[str, str]] = (),
+    vision_project: Optional[str] = None,
     visible_project_ids: Optional[Iterable[int]] = None,
 ) -> Dict[str, Any]:
     """Execute the board's full query plan and return the recorded payload.
@@ -109,7 +114,9 @@ def collect_board_data(
     discarded; only the recorded seam reads matter. ``config``,
     ``repo_root`` and ``vision_entries`` must be the CLIENT's values
     (shipped in the ``board.data.get`` payload) because they shape which
-    queries run and with which parameters. Art config and seed shape
+    queries run and with which parameters. ``vision_project`` names the
+    project the client's checkout maps to — the owner of its VISION — and
+    travels in the payload so replay draws the same zone. Art config and seed shape
     only the discarded text, so collection always uses an empty art
     config and no seed.
     """
@@ -119,7 +126,8 @@ def collect_board_data(
 
     recorder = RecordingBoardDB(db)
     normalized_visible = (
-        None if visible_project_ids is None
+        None
+        if visible_project_ids is None
         else tuple(sorted({int(project_id) for project_id in visible_project_ids}))
     )
     with scoped_project_visibility(normalized_visible):
@@ -131,6 +139,7 @@ def collect_board_data(
             None,
             repo_root,
             list(vision_entries),
+            vision_project=vision_project,
         )
     from yoke_contracts.engine_version import installed_engine_version
 
@@ -146,6 +155,9 @@ def collect_board_data(
     }
     if normalized_visible is not None:
         payload["visible_project_ids"] = list(normalized_visible)
+    # Always present, so a client can tell "no owner" from a server that
+    # predates vision ownership.
+    payload["vision_project"] = vision_project or None
     return payload
 
 

@@ -42,14 +42,17 @@ def _manifest_gate(ok: bool = True) -> CliManifestGateResult:
 
 class TestHealthCheckDispatch:
     def test_explicit_url_skips_env_resolution(self):
-        with mock.patch.object(
-            deploy_health_check._step_runners,
-            "exec_health_check",
-            return_value=0,
-        ) as health, mock.patch.object(
-            deploy_health_check,
-            "verify_deployed_cli_manifest",
-        ) as manifest:
+        with (
+            mock.patch.object(
+                deploy_health_check._step_runners,
+                "exec_health_check",
+                return_value=0,
+            ) as health,
+            mock.patch.object(
+                deploy_health_check,
+                "verify_deployed_cli_manifest",
+            ) as manifest,
+        ):
             rc, _ = _dispatch(_stage("health-check", url="https://x/health"))
         assert rc == 0
         health.assert_called_once_with("https://x/health")
@@ -59,27 +62,33 @@ class TestHealthCheckDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
-        fake_env.deploy_namespace = "yoke"
-        with mock.patch(
-            "yoke_core.domain.deploy_environment_settings."
-            "resolve_deploy_environment",
-            return_value=fake_env,
-        ), mock.patch(
-            "yoke_core.domain.deploy_core_container_image."
-            "resolve_image_tag",
-            return_value="abc123def456",
-        ) as resolve, mock.patch.object(
-            deploy_health_check._step_runners,
-            "exec_health_check",
-            return_value=0,
-        ) as health, mock.patch.object(
-            deploy_health_check,
-            "verify_deployed_cli_manifest",
-            return_value=_manifest_gate(),
-        ) as manifest:
+        fake_env.serving_connection = "prod"
+        with (
+            mock.patch(
+                "yoke_core.domain.deploy_environment_settings."
+                "resolve_deploy_environment",
+                return_value=fake_env,
+            ),
+            mock.patch(
+                "yoke_core.domain.deploy_core_container_image.resolve_image_tag",
+                return_value="abc123def456",
+            ) as resolve,
+            mock.patch.object(
+                deploy_health_check._step_runners,
+                "exec_health_check",
+                return_value=0,
+            ) as health,
+            mock.patch.object(
+                deploy_health_check,
+                "verify_deployed_cli_manifest",
+                return_value=_manifest_gate(),
+            ) as manifest,
+        ):
             rc, _ = _dispatch(
-                _stage("health-check"), project="platform",
-                product_repo_path="/product", member_items=[],
+                _stage("health-check"),
+                project="platform",
+                product_repo_path="/product",
+                member_items=[],
             )
         assert rc == 0
         args, kwargs = health.call_args
@@ -103,25 +112,31 @@ class TestHealthCheckDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
-        fake_env.deploy_namespace = "yoke"
+        fake_env.serving_connection = "prod"
         lineage = "b" * 40
-        with mock.patch(
-            "yoke_core.domain.deploy_environment_settings."
-            "resolve_deploy_environment",
-            return_value=fake_env,
-        ), mock.patch(
-            "yoke_core.domain.deploy_core_container_image.resolve_image_tag",
-        ) as resolve, mock.patch.object(
-            deploy_health_check._step_runners,
-            "exec_health_check",
-            return_value=0,
-        ) as health, mock.patch.object(
-            deploy_health_check,
-            "verify_deployed_cli_manifest",
-            return_value=_manifest_gate(),
+        with (
+            mock.patch(
+                "yoke_core.domain.deploy_environment_settings."
+                "resolve_deploy_environment",
+                return_value=fake_env,
+            ),
+            mock.patch(
+                "yoke_core.domain.deploy_core_container_image.resolve_image_tag",
+            ) as resolve,
+            mock.patch.object(
+                deploy_health_check._step_runners,
+                "exec_health_check",
+                return_value=0,
+            ) as health,
+            mock.patch.object(
+                deploy_health_check,
+                "verify_deployed_cli_manifest",
+                return_value=_manifest_gate(),
+            ),
         ):
             rc, verified_build = _dispatch(
-                _stage("health-check"), release_lineage=lineage,
+                _stage("health-check"),
+                release_lineage=lineage,
             )
         assert rc == 0
         assert health.call_args.kwargs["expected_build"] == lineage[:12]
@@ -132,22 +147,27 @@ class TestHealthCheckDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
-        fake_env.deploy_namespace = "yoke"
-        with mock.patch(
-            "yoke_core.domain.deploy_environment_settings."
-            "resolve_deploy_environment",
-            return_value=fake_env,
-        ), mock.patch(
-            "yoke_core.domain.deploy_core_container_image.resolve_image_tag",
-            return_value="abc123def456",
-        ) as resolve, mock.patch.object(
-            deploy_health_check._step_runners,
-            "exec_health_check",
-            return_value=0,
-        ) as health, mock.patch.object(
-            deploy_health_check,
-            "verify_deployed_cli_manifest",
-            return_value=_manifest_gate(),
+        fake_env.serving_connection = "prod"
+        with (
+            mock.patch(
+                "yoke_core.domain.deploy_environment_settings."
+                "resolve_deploy_environment",
+                return_value=fake_env,
+            ),
+            mock.patch(
+                "yoke_core.domain.deploy_core_container_image.resolve_image_tag",
+                return_value="abc123def456",
+            ) as resolve,
+            mock.patch.object(
+                deploy_health_check._step_runners,
+                "exec_health_check",
+                return_value=0,
+            ) as health,
+            mock.patch.object(
+                deploy_health_check,
+                "verify_deployed_cli_manifest",
+                return_value=_manifest_gate(),
+            ),
         ):
             rc, _ = _dispatch(_stage("health-check"), release_lineage="")
         assert rc == 0
@@ -158,23 +178,27 @@ class TestHealthCheckDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
-        fake_env.deploy_namespace = "yoke"
-        with mock.patch(
-            "yoke_core.domain.deploy_environment_settings."
-            "resolve_deploy_environment",
-            return_value=fake_env,
-        ), mock.patch(
-            "yoke_core.domain.deploy_core_container_image."
-            "resolve_image_tag",
-            return_value="abc123def456",
-        ), mock.patch.object(
-            deploy_health_check._step_runners,
-            "exec_health_check",
-            return_value=0,
-        ), mock.patch.object(
-            deploy_health_check,
-            "verify_deployed_cli_manifest",
-            return_value=_manifest_gate(False),
+        fake_env.serving_connection = "prod"
+        with (
+            mock.patch(
+                "yoke_core.domain.deploy_environment_settings."
+                "resolve_deploy_environment",
+                return_value=fake_env,
+            ),
+            mock.patch(
+                "yoke_core.domain.deploy_core_container_image.resolve_image_tag",
+                return_value="abc123def456",
+            ),
+            mock.patch.object(
+                deploy_health_check._step_runners,
+                "exec_health_check",
+                return_value=0,
+            ),
+            mock.patch.object(
+                deploy_health_check,
+                "verify_deployed_cli_manifest",
+                return_value=_manifest_gate(False),
+            ),
         ):
             rc, _ = _dispatch(_stage("health-check"))
         assert rc == 1
@@ -183,20 +207,24 @@ class TestHealthCheckDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
-        fake_env.deploy_namespace = "externalwebapp"
-        with mock.patch(
-            "yoke_core.domain.deploy_environment_settings."
-            "resolve_deploy_environment",
-            return_value=fake_env,
-        ), mock.patch.object(
-            deploy_health_check._step_runners,
-            "exec_health_check",
-            return_value=0,
-        ) as health, mock.patch.object(
-            deploy_health_check,
-            "verify_deployed_cli_manifest",
-            return_value=_manifest_gate(),
-        ) as manifest:
+        fake_env.serving_connection = ""
+        with (
+            mock.patch(
+                "yoke_core.domain.deploy_environment_settings."
+                "resolve_deploy_environment",
+                return_value=fake_env,
+            ),
+            mock.patch.object(
+                deploy_health_check._step_runners,
+                "exec_health_check",
+                return_value=0,
+            ) as health,
+            mock.patch.object(
+                deploy_health_check,
+                "verify_deployed_cli_manifest",
+                return_value=_manifest_gate(),
+            ) as manifest,
+        ):
             rc, _ = _dispatch(_stage("health-check"), project_repo_path="")
         assert rc == 0
         assert health.call_args.kwargs["expected_build"] == ""
@@ -206,18 +234,23 @@ class TestHealthCheckDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "stage"
-        with mock.patch(
-            "yoke_core.domain.deploy_environment_settings."
-            "resolve_deploy_environment",
-            return_value=fake_env,
-        ), mock.patch.object(
-            deploy_health_check._step_runners,
-            "exec_health_check",
-            return_value=0,
-        ) as health, mock.patch.object(
-            deploy_health_check,
-            "verify_deployed_cli_manifest",
-            return_value=_manifest_gate(),
+        fake_env.serving_connection = "stage"
+        with (
+            mock.patch(
+                "yoke_core.domain.deploy_environment_settings."
+                "resolve_deploy_environment",
+                return_value=fake_env,
+            ),
+            mock.patch.object(
+                deploy_health_check._step_runners,
+                "exec_health_check",
+                return_value=0,
+            ) as health,
+            mock.patch.object(
+                deploy_health_check,
+                "verify_deployed_cli_manifest",
+                return_value=_manifest_gate(),
+            ),
         ):
             rc, _ = _dispatch(
                 _stage("health-check"),
@@ -233,22 +266,27 @@ class TestHealthCheckDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
-        with mock.patch(
-            "yoke_core.domain.deploy_environment_settings."
-            "resolve_deploy_environment",
-            return_value=fake_env,
-        ), mock.patch(
-            "yoke_core.domain.deploy_core_container_image."
-            "resolve_image_tag",
-            side_effect=RuntimeError("no repo"),
-        ), mock.patch.object(
-            deploy_health_check._step_runners,
-            "exec_health_check",
-            return_value=0,
-        ) as health, mock.patch.object(
-            deploy_health_check,
-            "verify_deployed_cli_manifest",
-            return_value=_manifest_gate(),
+        fake_env.serving_connection = "prod"
+        with (
+            mock.patch(
+                "yoke_core.domain.deploy_environment_settings."
+                "resolve_deploy_environment",
+                return_value=fake_env,
+            ),
+            mock.patch(
+                "yoke_core.domain.deploy_core_container_image.resolve_image_tag",
+                side_effect=RuntimeError("no repo"),
+            ),
+            mock.patch.object(
+                deploy_health_check._step_runners,
+                "exec_health_check",
+                return_value=0,
+            ) as health,
+            mock.patch.object(
+                deploy_health_check,
+                "verify_deployed_cli_manifest",
+                return_value=_manifest_gate(),
+            ),
         ):
             rc, _ = _dispatch(_stage("health-check"))
         assert rc == 0
@@ -258,22 +296,27 @@ class TestHealthCheckDispatch:
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
-        with mock.patch(
-            "yoke_core.domain.deploy_environment_settings."
-            "resolve_deploy_environment",
-            return_value=fake_env,
-        ), mock.patch(
-            "yoke_core.domain.deploy_core_container_image."
-            "resolve_image_tag",
-            return_value="abc123def456",
-        ), mock.patch.object(
-            deploy_health_check._step_runners,
-            "exec_health_check",
-            return_value=1,
-        ), mock.patch.object(
-            deploy_health_check,
-            "verify_deployed_cli_manifest",
-        ) as manifest:
+        fake_env.serving_connection = ""
+        with (
+            mock.patch(
+                "yoke_core.domain.deploy_environment_settings."
+                "resolve_deploy_environment",
+                return_value=fake_env,
+            ),
+            mock.patch(
+                "yoke_core.domain.deploy_core_container_image.resolve_image_tag",
+                return_value="abc123def456",
+            ),
+            mock.patch.object(
+                deploy_health_check._step_runners,
+                "exec_health_check",
+                return_value=1,
+            ),
+            mock.patch.object(
+                deploy_health_check,
+                "verify_deployed_cli_manifest",
+            ) as manifest,
+        ):
             rc, _ = _dispatch(_stage("health-check"))
         assert rc == 1
         manifest.assert_not_called()

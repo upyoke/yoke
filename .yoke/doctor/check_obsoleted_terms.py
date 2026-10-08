@@ -64,6 +64,13 @@ from yoke_project_checks._obsoleted_terms_catalog import (  # noqa: F401
     _PER_PATTERN_PATH_ALLOWLIST,
 )
 
+from yoke_project_checks._obsoleted_terms_prefilter import (  # noqa: E402,F401
+    _required_candidate,
+    _required_literal_prefix,
+    _whole_text_gate,
+    required_test,
+)
+
 _SELF_PATH = Path(__file__).resolve()
 # The catalogue spells every retired name out as a literal, so it is as
 # self-referential as the scanner and carries the same exemption.
@@ -125,100 +132,6 @@ def _read_scan_files(repo_root: Path):
     yield from bounded_read_map(_read_scan_file, _iter_scan_paths(repo_root))
 
 
-def _required_literal_prefix(pattern: re.Pattern) -> str:
-    """Conservatively recognize a mandatory literal at the pattern's start.
-
-    Unknown syntax yields no filter. Top-level alternatives and verbose mode
-    cannot establish one common prefix here. Optional repetition drops its
-    preceding literal so the filter cannot discard a valid shorter match.
-    """
-    source = pattern.pattern
-    if (
-        pattern.flags & re.VERBOSE
-        or "(?#" in source
-        or re.search(r"\(\?[aiLmsu-]*x", source)
-        or re.search(r"\[\^?\]", source)
-    ):
-        return ""
-    depth = 0
-    in_class = escaped = False
-    for char in source:
-        if escaped:
-            escaped = False
-        elif char == "\\":
-            escaped = True
-        elif in_class:
-            in_class = char != "]"
-        elif char == "[":
-            in_class = True
-        elif char == "(":
-            depth += 1
-        elif char == ")":
-            depth -= 1
-        elif char == "|" and depth == 0:
-            return ""
-    source = re.sub(r"^\(\?[aiLmsux]+\)", "", source)
-    source = source.removeprefix(r"\b").removeprefix("^")
-    literal = []
-    index = 0
-    while index < len(source):
-        char = source[index]
-        if char in "*?{":
-            if literal:
-                literal.pop()
-            break
-        if char in ".+[]()^$|":
-            break
-        if char == "\\":
-            index += 1
-            if index == len(source) or source[index] not in r".\-_/(){}[]+*?^$|#":
-                break
-            char = source[index]
-        literal.append(char)
-        index += 1
-    return "".join(literal)
-
-
-def _required_candidate(pattern):
-    """A leading literal or a complete choice of literal words is mandatory."""
-    prefix = _required_literal_prefix(pattern)
-    if prefix:
-        required = re.escape(prefix)
-        source = re.sub(r"^\(\?[aiLmsux]+\)", "", pattern.pattern)
-        source = source.removeprefix(r"\b").removeprefix("^")
-        marker = source.find(r"\s+")
-        if marker >= 0 and source[:marker] in {prefix, required}:
-            try:
-                tail = re.compile(source[marker + 3 :], pattern.flags)
-            except re.error:
-                tail = None
-            suffix = _required_literal_prefix(tail) if tail is not None else ""
-            if suffix:
-                required += r"\s+" + re.escape(suffix)
-        return re.compile(required, pattern.flags)
-    source = re.sub(r"^\(\?[aiLmsux]+\)", "", pattern.pattern)
-    leading = source.removeprefix(r"\b").removeprefix("^")
-    removable = re.match(
-        r"^(?:[A-Za-z`_]\?|\[[A-Za-z]+\]|\(\?:[A-Za-z\\+ ]+\)\?)", leading
-    )
-    if removable:
-        try:
-            tail = re.compile(leading[removable.end() :], pattern.flags)
-        except re.error:
-            tail = None
-        suffix = _required_literal_prefix(tail) if tail is not None else ""
-        if suffix:
-            return re.compile(re.escape(suffix), pattern.flags)
-    choice = re.fullmatch(r"\\b\(([A-Za-z0-9_|]+)\)\\b", source)
-    if choice:
-        words = choice.group(1).split("|")
-        if all(words):
-            return re.compile(
-                "(?:" + "|".join(map(re.escape, words)) + ")", pattern.flags
-            )
-    return None
-
-
 def scan_repo(repo_root: Path) -> list[str]:
     """Return ``path:line: text`` strings where an obsoleted term matched.
 
@@ -235,12 +148,13 @@ def scan_repo(repo_root: Path) -> list[str]:
     compiled = []
     for source in OBSOLETED_TERM_PATTERNS:
         pattern = re.compile(source)
-        required = _required_candidate(pattern)
+        required = required_test(_required_candidate(pattern))
         compiled.append(
             (
                 source,
                 pattern,
                 required,
+                _whole_text_gate(source),
                 needs_slash_normalization(source),
                 OBSOLETED_TERM_LABELS.get(source, source),
                 _PER_PATTERN_PATH_ALLOWLIST.get(source, ()),
@@ -268,18 +182,26 @@ def scan_repo(repo_root: Path) -> list[str]:
             pattern_src,
             compiled_pattern,
             required,
+            gate,
             normalize,
             label,
             allow,
         ) in compiled:
             if _path_in_allowlist(rel_str, allow):
                 continue
-            if required is not None and not required.search(text):
+            if required is not None and not required(text):
                 if not normalize:
                     continue
                 if normalized_text is None:
                     normalized_text = text.replace("/", ".")
-                if not required.search(normalized_text):
+                if not required(normalized_text):
+                    continue
+            if gate is not None and not gate.search(text):
+                if not normalize:
+                    continue
+                if normalized_text is None:
+                    normalized_text = text.replace("/", ".")
+                if not gate.search(normalized_text):
                     continue
             for i, line in enumerate(lines, start=1):
                 if compiled_pattern.search(line):

@@ -20,8 +20,10 @@ TOOL_NAME = "yoke board rebuild"
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace(
-        "+00:00", "Z"
+    return (
+        datetime.now(timezone.utc)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
     )
 
 
@@ -55,7 +57,7 @@ def _board_project(repo_root: Path, conn: Any | None = None) -> str:
             except Exception:
                 pass
         return str(project_id)
-    return "yoke"
+    return ""
 
 
 def _event_id_from_result(result: object) -> str | None:

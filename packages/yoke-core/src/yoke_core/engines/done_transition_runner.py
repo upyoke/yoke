@@ -41,27 +41,18 @@ def run(
 ) -> int:
     """Execute the done-transition state machine; return its exit code."""
     mw = _parent()
-    TransitionResult = mw.TransitionResult
-    _resolve_repo_root = mw._resolve_repo_root
     _resolve_project_context = mw._resolve_project_context
     _query_item_field = mw._query_item_field
-    _get_base_branch = mw._get_base_branch
     _check_simulation_gate = mw._check_simulation_gate
     _check_merge_guard = mw._check_merge_guard
-    _check_empty_branch = mw._check_empty_branch
-    _check_recovery = mw._check_recovery
     _handle_resume_from_step6 = mw._handle_resume_from_step6
     _handle_already_done = mw._handle_already_done
     _pre_merge_commit = mw._pre_merge_commit
     _check_deployment_redirect = mw._check_deployment_redirect
-    _do_merge = mw._do_merge
     _run_git = mw._run_git
-    _connect = mw._connect
     _cleanup_stale_branches = mw._cleanup_stale_branches
     _verify_cwd_after_merge = mw._verify_cwd_after_merge
-    _schema_gate = mw._schema_gate
     _check_deployment_flow_guard = mw._check_deployment_flow_guard
-    _populate_merged_at = mw._populate_merged_at
     _update_status_to_done = mw._update_status_to_done
     _cascade_epic_tasks_to_done = mw._cascade_epic_tasks_to_done
     _finalize_done_local_side_effects = mw._finalize_done_local_side_effects
@@ -69,13 +60,13 @@ def run(
     from yoke_core.domain.public_item_target import public_item_target
 
     item_ref = public_item_target(item_id).public_ref
-    result = TransitionResult(item=item_ref)
+    result = mw.TransitionResult(item=item_ref)
     result_file = os.path.join(
         os.environ.get("TMPDIR", "/tmp"),
         f"done-transition-result.{item_ref}.json",
     )
 
-    repo_root = _resolve_repo_root()
+    repo_root = mw._resolve_repo_root()
     if not repo_root:
         return result.fail(result_file, 2, "1")
     os.chdir(repo_root)
@@ -110,14 +101,14 @@ def run(
     project_repo, project_default_branch = _resolve_project_context(
         item_id, item_project, repo_root
     )
-    if item_project != "yoke":
+    if item_project:
         print(f"Project: {item_project} (repo: {project_repo})")
 
     deploy_flow = _query_item_field(public_ref, "deployment_flow")
     if deploy_flow in ("null", ""):
         deploy_flow = ""
 
-    base_branch = _get_base_branch(project_default_branch, project_repo)
+    base_branch = mw._get_base_branch(project_default_branch, project_repo)
 
     if requires_plan_simulation(workflow):
         sim_exit = _check_simulation_gate(
@@ -135,7 +126,7 @@ def run(
     result.add_step("2b")
 
     if not branch_already_merged:
-        empty_exit = _check_empty_branch(
+        empty_exit = mw._check_empty_branch(
             lane_branch,
             project_repo,
             base_branch,
@@ -147,7 +138,7 @@ def run(
             return result.fail(result_file, empty_exit, "2c-empty-branch")
     result.add_step("2c")
 
-    already_done, resume_from_step6 = _check_recovery(old_status, lane_branch)
+    already_done, resume_from_step6 = mw._check_recovery(old_status, lane_branch)
 
     if already_done:
         return _handle_already_done(
@@ -191,7 +182,7 @@ def run(
     lane_branch_exists = bool(lane_branch)
     if not resume_from_step6:
         if lane_branch and not branch_already_merged:
-            merge_exit, merge_output, _ = _do_merge(
+            merge_exit, merge_output, _ = mw._do_merge(
                 item_id,
                 lane_branch,
                 base_branch,
@@ -232,7 +223,7 @@ def run(
                 item_id,
                 project_repo=project_repo,
                 run_git=_run_git,
-                connect=_connect,
+                connect=mw._connect,
             )
 
     result.add_step("4")
@@ -261,7 +252,7 @@ def run(
         return result.fail(result_file, 2)
     result.add_step("5")
 
-    _schema_gate(merge_ran=merge_ran, project_repo=project_repo)
+    mw._schema_gate(merge_ran=merge_ran, project_repo=project_repo)
     result.add_step("5a")
 
     from yoke_core.domain.workflow_behavior import delivery_redirect_stage
@@ -292,7 +283,7 @@ def run(
         return result.fail(result_file, 7, "5c-preconditions")
     result.add_step("5c")
     print("\n=== Step 6: Update status to done ===")
-    _populate_merged_at(public_ref)
+    mw._populate_merged_at(public_ref)
 
     success = _update_status_to_done(item_id, skip_qa, public_ref=public_ref)
     if not success:

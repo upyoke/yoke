@@ -85,6 +85,7 @@ def render_board(
     with measure_phase(phase_recorder, "db_connect"):
         db = BoardDB(db_token)
     with db:
+        vision_project = _checkout_project_slug(db, repo_root)
         with measure_phase(phase_recorder, "collect_board_data"):
             payload = collect_board_data(
                 db,
@@ -92,6 +93,7 @@ def render_board(
                 config=config,
                 repo_root=repo_root,
                 vision_entries=vision_entries,
+                vision_project=vision_project,
             )
     return render_board_from_payload(
         payload,
@@ -103,3 +105,18 @@ def render_board(
         vision_entries=vision_entries,
         phase_recorder=phase_recorder,
     )
+
+
+def _checkout_project_slug(db: BoardDB, repo_root: Optional[str]) -> Optional[str]:
+    """Slug of the project *repo_root* maps to — the owner of its VISION."""
+    if not repo_root:
+        return None
+    from pathlib import Path
+
+    from yoke_core.domain import machine_config
+
+    project_id = machine_config.project_id(Path(repo_root))
+    if project_id is None:
+        return None
+    slug = db.scalar("SELECT slug FROM projects WHERE id = %s", (int(project_id),))
+    return str(slug) if slug else None

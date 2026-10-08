@@ -211,9 +211,9 @@ class TestMainCLI:
             "project": "externalwebapp",
         }
 
-    def test_detect_no_github_auth_fails_closed(self, test_db):
-        """When the Yoke GitHub App auth is not configured, the engine fail-closes
-        with exit 2 + repair hint (Yoke is the control plane -- the
+    def test_detect_no_github_auth_exits_nonzero(self, test_db):
+        """A project whose GitHub App auth is not configured is reported
+        unavailable with its repair hint and the run exits non-zero (the
         legacy SKIP-on-no-gh path has been retired).
         """
         from yoke_core.domain.project_github_auth import MissingCapability
@@ -234,10 +234,10 @@ class TestMainCLI:
         ):
             rc = main(["--detect-only", "--project", "yoke"])
 
-        assert rc == 2
+        assert rc == 1
 
-    def test_detect_no_github_auth_doctor_format_fails_closed(self, test_db):
-        """Same fail-closed semantics under --doctor-format."""
+    def test_detect_no_github_auth_doctor_format_exits_nonzero(self, test_db):
+        """Same unavailable-project semantics under --doctor-format."""
         from yoke_core.domain.project_github_auth import MissingCapability
 
         db_dir = os.path.dirname(test_db)
@@ -256,7 +256,7 @@ class TestMainCLI:
         ):
             rc = main(["--detect-only", "--doctor-format", "--project", "yoke"])
 
-        assert rc == 2
+        assert rc == 1
 
     def test_detect_with_drifts_returns_1(self, populated_db):
         """Detect mode returns 1 when drifts are found."""

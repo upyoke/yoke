@@ -89,14 +89,14 @@ def _resolve_project_context(
     """Resolve project checkout and default branch.
 
     The checkout mapping and default-branch reads route through the
-    transport-aware relay so a non-yoke project's context resolves over an
+    transport-aware relay so every project's context resolves over an
     https control plane; the machine-local checkout mapping itself stays
     local. Project context is best-effort — a failed read leaves the main
     checkout and an empty default branch.
     """
     project_repo = repo_root
     default_branch = ""
-    if item_project and item_project != "yoke":
+    if item_project:
         try:
             from yoke_core.domain.project_checkout_locations import (
                 checkout_for_project_slug,

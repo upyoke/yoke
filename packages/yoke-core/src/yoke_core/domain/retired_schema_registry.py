@@ -42,6 +42,9 @@ _REGISTRY_REL_PATH = (
 )
 
 
+CONTROL_PLANE_OWNER = "control-plane"  # ``project`` of the install's own schema
+
+
 class RetiredSchemaRegistryError(Exception):
     """Raised when the registry file is malformed."""
 
@@ -80,9 +83,7 @@ def _parse_payload(payload: object, source: str) -> List[RetiredSurface]:
     if surfaces_raw is None:
         return []
     if not isinstance(surfaces_raw, list):
-        raise RetiredSchemaRegistryError(
-            f"{source}: 'surfaces' must be a list"
-        )
+        raise RetiredSchemaRegistryError(f"{source}: 'surfaces' must be a list")
 
     out: List[RetiredSurface] = []
     for idx, entry in enumerate(surfaces_raw):
@@ -159,9 +160,7 @@ def load_registry(
         try:
             payload = yaml.safe_load(text)
         except yaml.YAMLError as exc:
-            raise RetiredSchemaRegistryError(
-                f"{path}: invalid YAML: {exc}"
-            ) from exc
+            raise RetiredSchemaRegistryError(f"{path}: invalid YAML: {exc}") from exc
         records = _parse_payload(payload, source=str(path))
         _REGISTRY_CACHE[key] = records
         return records
@@ -229,11 +228,7 @@ def list_all_retired_columns(
     *, repo_root: Optional[Path] = None
 ) -> List[RetiredSurface]:
     """Return every registered (project, table, column) entry."""
-    return [
-        record
-        for record in load_registry(repo_root)
-        if record.column is not None
-    ]
+    return [record for record in load_registry(repo_root) if record.column is not None]
 
 
 def retired_column_key(record: RetiredSurface) -> Tuple[str, str, str]:

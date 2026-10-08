@@ -1,4 +1,11 @@
-"""Canonical hosted-runtime identity shared by Yoke and its Platform host."""
+"""Canonical hosted-runtime identity shared by a runtime host and its consumer.
+
+A project may run QA against an environment another project owns only through
+the hosted-runtime bridge: the environment sits on the canonical runtime site
+of a project in the same organization, declares ``qa.hosted_runtime``, and
+names the consuming project in ``qa.hosted_runtime_consumer``. The host
+declares the consumer; no project name is fixed in code.
+"""
 
 from __future__ import annotations
 
@@ -7,13 +14,13 @@ from typing import Any, Mapping
 from yoke_core.domain import db_backend
 from yoke_core.domain.environment_declared_facts import (
     decode_settings,
+    declared_text,
     is_hosted_runtime,
 )
 
 
 CANONICAL_RUNTIME_SITE_NAME = "Yoke API"
-CONSUMER_PROJECT_SLUG = "yoke"
-HOST_PROJECT_SLUG = "platform"
+QA_HOSTED_RUNTIME_CONSUMER_PATH = "qa.hosted_runtime_consumer"
 
 
 def _p(conn: Any) -> str:
@@ -28,20 +35,21 @@ def _row_dict(cursor: Any, row: Any) -> dict[str, Any]:
 
 
 def _shared_runtime_allowed(row: Mapping[str, Any]) -> bool:
+    """Whether *row* is a hosted runtime that declares the plan project its consumer."""
+    settings = decode_settings(row.get("settings"))
     return (
-        str(row["plan_project_slug"]) == CONSUMER_PROJECT_SLUG
-        and str(row["owner_project_slug"]) == HOST_PROJECT_SLUG
-        and int(row["plan_org_id"]) == int(row["owner_org_id"])
+        int(row["plan_org_id"]) == int(row["owner_org_id"])
         and str(row["site_name"]) == CANONICAL_RUNTIME_SITE_NAME
+        and is_hosted_runtime(settings)
+        and declared_text(settings, QA_HOSTED_RUNTIME_CONSUMER_PATH)
+        == str(row["plan_project_slug"])
     )
 
 
 def _environment_allowed(row: Mapping[str, Any]) -> bool:
     if int(row["plan_project_id"]) == int(row["owner_project_id"]):
         return True
-    return _shared_runtime_allowed(row) and is_hosted_runtime(
-        decode_settings(row.get("settings"))
-    )
+    return _shared_runtime_allowed(row)
 
 
 def require_plan_environment_access(
@@ -71,7 +79,12 @@ def require_plan_environment_access(
     if not _environment_allowed(result):
         raise ValueError(
             f"environment {result['environment_name']!r} is not authorized for "
-            f"plan project {plan_project_id}"
+            f"plan project {plan_project_id}. Recovery: target an environment "
+            "the plan project owns, or have the owning project share it from "
+            f"its {CANONICAL_RUNTIME_SITE_NAME!r} site by declaring "
+            "qa.hosted_runtime=true and "
+            f"{QA_HOSTED_RUNTIME_CONSUMER_PATH}={result['plan_project_slug']} "
+            "(`yoke projects environment-settings merge`)"
         )
     return result
 
@@ -141,7 +154,8 @@ def resolve_plan_environment_reference(
     """
     reference = str(environment or "").strip()
     rows = eligible_plan_environment_rows(
-        conn, plan_project_id=int(plan_project_id),
+        conn,
+        plan_project_id=int(plan_project_id),
     )
     rendered = _rendered_candidates(rows)
     if reference.isdigit():
@@ -170,43 +184,10 @@ def resolve_plan_environment_reference(
     )
 
 
-def require_runtime_site_owner(
-    conn: Any,
-    *,
-    plan_project_id: int,
-) -> int | None:
-    """Return the canonical site's allowed owner, or None when it is absent."""
-    marker = _p(conn)
-    cursor = conn.execute(
-        "SELECT plan.id AS plan_project_id,plan.slug AS plan_project_slug,"
-        "plan.org_id AS plan_org_id,owner.id AS owner_project_id,"
-        "owner.slug AS owner_project_slug,owner.org_id AS owner_org_id,"
-        "s.name AS site_name FROM projects plan "
-        "LEFT JOIN projects owner ON owner.slug='platform' "
-        "AND owner.org_id=plan.org_id "
-        f"LEFT JOIN sites s ON s.project_id=owner.id AND s.name={marker} "
-        f"WHERE plan.id={marker}",
-        (CANONICAL_RUNTIME_SITE_NAME, int(plan_project_id)),
-    )
-    row = cursor.fetchone()
-    if row is None:
-        raise ValueError(f"plan project {plan_project_id} is unavailable")
-    result = _row_dict(cursor, row)
-    if result["site_name"] is None:
-        return None
-    owner_id = int(result["owner_project_id"])
-    if owner_id == int(plan_project_id) or _shared_runtime_allowed(result):
-        return owner_id
-    raise ValueError(
-        f"hosted QA site {CANONICAL_RUNTIME_SITE_NAME!r} is owned by "
-        f"unauthorized project {owner_id}"
-    )
-
-
 __all__ = [
     "CANONICAL_RUNTIME_SITE_NAME",
+    "QA_HOSTED_RUNTIME_CONSUMER_PATH",
     "eligible_plan_environment_rows",
     "resolve_plan_environment_reference",
     "require_plan_environment_access",
-    "require_runtime_site_owner",
 ]

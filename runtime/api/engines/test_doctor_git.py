@@ -271,13 +271,15 @@ class TestHcCrossProjectCommits:
     @patch("yoke_core.engines.doctor_report._run")
     def test_no_cross_project_passes(self, mock_run):
         conn = _make_conn()
-        # No non-yoke done items
-        rec = _run_hc(hc_cross_project_commits, conn)
+        _seed_project(conn, "yoke")
+        # No done items owned by another project
+        rec = _run_hc(hc_cross_project_commits, conn, project="yoke")
         assert rec.results[0].result == "PASS"
 
     @patch("yoke_core.engines.doctor_report._run")
     def test_contaminated_commit_warns(self, mock_run):
         conn = _make_conn()
+        _seed_project(conn, "yoke")
         _seed_project(conn, "externalwebapp")
         _insert_item(
             conn,
@@ -293,7 +295,7 @@ class TestHcCrossProjectCommits:
             # git diff-tree for that commit
             _make_completed(stdout="src/main.py\nyoke/backlog/042.md\n"),
         ]
-        rec = _run_hc(hc_cross_project_commits, conn)
+        rec = _run_hc(hc_cross_project_commits, conn, project="yoke")
         assert rec.results[0].result == "WARN"
         from yoke_core.domain.project_identity import render_item_ref
 
@@ -303,6 +305,7 @@ class TestHcCrossProjectCommits:
     @patch("yoke_core.engines.doctor_report._run")
     def test_bookkeeping_only_passes(self, mock_run):
         conn = _make_conn()
+        _seed_project(conn, "yoke")
         _seed_project(conn, "externalwebapp")
         _insert_item(
             conn,
@@ -318,5 +321,10 @@ class TestHcCrossProjectCommits:
             # git diff-tree: only bookkeeping files
             _make_completed(stdout="ouroboros/simulation-YOK-42.md\n"),
         ]
-        rec = _run_hc(hc_cross_project_commits, conn)
+        rec = _run_hc(hc_cross_project_commits, conn, project="yoke")
         assert rec.results[0].result == "PASS"
+
+    def test_without_target_project_is_not_applicable(self):
+        rec = _run_hc(hc_cross_project_commits)
+        assert rec.results[0].result == "N/A"
+        assert "--project" in rec.results[0].detail

@@ -151,7 +151,7 @@ def _build_sentinel_envelope(
         "severity": "WARN",
         "session_id": session_id,
         "service": "cli",
-        "project": "yoke",
+        "project": None,
         "item_id": None,
         "task_num": None,
         "agent": None,

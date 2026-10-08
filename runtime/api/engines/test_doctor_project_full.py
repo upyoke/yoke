@@ -1,5 +1,6 @@
 """Tests for project-state doctor health checks (lookup, repo, worktrees,
-deploy-flows, health, vps-reachable).
+deploy-flows, health). VPS reachability lives in
+``test_doctor_project_vps_reachable.py``.
 
 Canonical-resolver fixtures for GitHub auth live in
 ``test_doctor_project_full_canonical_auth.py``. Substrate and
@@ -20,9 +21,9 @@ from yoke_core.engines.doctor import (
     hc_project_health,
     hc_project_lookup,
     hc_project_repo_exists,
-    hc_project_vps_reachable,
     hc_project_worktrees,
 )
+
 from runtime.api.fixtures.machine_config_test import (
     clear_machine_checkout,
     register_machine_checkout,
@@ -36,7 +37,8 @@ def _make_conn() -> Any:
 
     name = pg_testdb.create_test_database()
     conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name,
+        pg_testdb.connect_test_database(name),
+        name,
     )
     apply_fixture_ddl(
         conn,
@@ -62,7 +64,7 @@ def _make_conn() -> Any:
             project_id INTEGER,
             stages TEXT
         );
-        """
+        """,
     )
     return conn
 
@@ -107,7 +109,14 @@ def _seed_capability(
 
 
 def _args(**overrides) -> DoctorArgs:
-    defaults = dict(file=None, fix=False, only=None, quick=False, project="externalwebapp", db_path=None)
+    defaults = dict(
+        file=None,
+        fix=False,
+        only=None,
+        quick=False,
+        project="externalwebapp",
+        db_path=None,
+    )
     defaults.update(overrides)
     return DoctorArgs(**defaults)
 
@@ -291,55 +300,13 @@ class TestProjectHealth:
             rec = _run_hc(hc_project_health, conn)
         assert rec.results[0].result == "WARN"
 
-    def test_skipped_for_yoke_intentional(self):
-        """Yoke has no health-endpoint capability; Yoke-skip preserved
-        with inline rationale comment in the HC source."""
-        from yoke_core.engines import doctor_hc_worktrees_gh_project as mod
-        import inspect
-        src = inspect.getsource(mod.hc_project_health)
-        assert "intentionally skipped" in src
-        rec = _run_hc(hc_project_health, project="yoke")
-        assert rec.results == []  # no record produced
-
-
-class TestProjectVpsReachable:
-    def test_warns_when_host_missing(self):
-        conn = _make_conn()
-        _seed_capability(conn, "externalwebapp", "vps-ssh", json.dumps({"user": "ubuntu"}))
-        rec = _run_hc(hc_project_vps_reachable, conn)
-        assert rec.results[0].result == "WARN"
-
-    def test_passes_when_ssh_succeeds(self):
-        conn = _make_conn()
-        _seed_capability(
-            conn,
-            "externalwebapp",
-            "vps-ssh",
-            json.dumps({"host": "example.com"}),
+    def test_applicability_is_declared_not_branched_on_a_slug(self):
+        """The installation's own project is excluded by declaration."""
+        from yoke_core.engines.doctor_applicability import PROJECT_SCOPE_EXTERNAL
+        from yoke_core.engines.doctor_applicability_declarations import (
+            applicability_for,
         )
-        with patch("yoke_core.engines.doctor_report._run") as run:
-            run.return_value = type("CP", (), {"returncode": 0})()
-            rec = _run_hc(hc_project_vps_reachable, conn)
-        assert rec.results[0].result == "PASS"
 
-    def test_warns_when_ssh_fails(self):
-        conn = _make_conn()
-        _seed_capability(
-            conn,
-            "externalwebapp",
-            "vps-ssh",
-            json.dumps({"host": "example.com"}),
-        )
-        with patch("yoke_core.engines.doctor_report._run") as run:
-            run.return_value = type("CP", (), {"returncode": 1})()
-            rec = _run_hc(hc_project_vps_reachable, conn)
-        assert rec.results[0].result == "WARN"
-
-    def test_skipped_for_yoke_intentional(self):
-        """Yoke has no VPS; Yoke-skip preserved with inline rationale."""
-        from yoke_core.engines import doctor_hc_worktrees_gh_project as mod
-        import inspect
-        src = inspect.getsource(mod.hc_project_vps_reachable)
-        assert "intentionally skipped" in src
-        rec = _run_hc(hc_project_vps_reachable, project="yoke")
-        assert rec.results == []  # no record produced
+        shape = applicability_for("project-health")
+        assert shape.project_scope == PROJECT_SCOPE_EXTERNAL
+        assert shape.required_capabilities == ("health-endpoint",)

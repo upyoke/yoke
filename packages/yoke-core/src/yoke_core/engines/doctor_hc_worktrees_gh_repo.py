@@ -4,8 +4,9 @@ Sibling of ``doctor_hc_worktrees_gh`` carrying ``hc_wrong_repo_issues``
 and its private migration helper. GitHub auth + repo resolution flows
 through the canonical
 :func:`yoke_core.domain.project_github_auth.resolve_project_github_auth`
-surface; the Yoke source repo is resolved dynamically rather than
-hard-coded. REST helpers live in
+surface. The source repository is the one bound to the project that owns
+this installation (:func:`yoke_core.engines.doctor_context.resolve_self_project`),
+never a literal project slug. REST helpers live in
 :mod:`yoke_core.engines.doctor_hc_worktrees_gh_repo_rest`.
 
 HC functions: HC-wrong-repo-issues
@@ -37,6 +38,7 @@ from yoke_core.domain.projects_github_sync_mode import (
 )
 import yoke_core.engines.doctor_hc_worktrees as _wt
 import yoke_core.engines.doctor_report as _base
+from yoke_core.engines.doctor_context import resolve_self_project, self_project_names
 from yoke_core.engines.doctor_hc_gh_skip import (
     GH_APP_AUTH_UNAVAILABLE_SKIP_REASON,
     GH_PROJECT_NOT_SELECTED_REASON,
@@ -80,6 +82,19 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     if not _base._table_exists(conn, "projects"):
         rec.record("HC-wrong-repo-issues", "Wrong-repo GitHub issues", "PASS", "")
         return
+    self_names = self_project_names(conn)
+    self_project = resolve_self_project(conn, self_names)
+    if self_project is None:
+        rec.record(
+            "HC-wrong-repo-issues",
+            "Wrong-repo GitHub issues",
+            "N/A",
+            "compares issue bindings against the repository of the project that "
+            "owns this installation; this runner has no self project. Recovery: "
+            "run from a registered source checkout "
+            "(`yoke project register <checkout> --project-id <id>`).",
+        )
+        return
     permissions = (
         GITHUB_ISSUES_WRITE_PERMISSION_LEVELS
         if args.fix
@@ -87,7 +102,7 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     )
     try:
         source_auth = resolve_project_github_auth(
-            "yoke",
+            self_project,
             db_path=args.db_path,
             conn=conn,
             required_permissions=permissions,
@@ -97,8 +112,8 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             "HC-wrong-repo-issues",
             "Wrong-repo GitHub issues",
             "FAIL",
-            f"Cannot resolve Yoke GitHub auth: {err}\n"
-            f"Repair: {repair_command_hint(err, 'yoke')}",
+            f"Cannot resolve {self_project} GitHub auth: {err}\n"
+            f"Repair: {repair_command_hint(err, self_project)}",
         )
         return
 
@@ -139,7 +154,7 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         try:
             auth = (
                 source_auth
-                if project == "yoke"
+                if project in self_names
                 else resolve_project_github_auth(
                     project,
                     db_path=args.db_path,

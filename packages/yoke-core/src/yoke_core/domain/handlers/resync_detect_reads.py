@@ -195,7 +195,7 @@ def _read_task_rows(conn: Any, project: str) -> List[List[Any]]:
         else:
             rows = conn.execute(
                 "SELECT et.epic_id, et.task_num, et.title, et.github_issue, "
-                "'yoke' as project "
+                "'' as project "
                 "FROM epic_tasks et "
                 "ORDER BY et.epic_id, et.task_num"
             ).fetchall()

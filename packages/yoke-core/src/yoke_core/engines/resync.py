@@ -111,7 +111,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     except (FileNotFoundError, RuntimeError):
         yoke_root = ""
 
-    # Yoke reads fail closed; other project failures become unavailable states.
+    # Per-project read failures become unavailable states; other auth failures fail closed.
     try:
         linkage_kwargs = {"project": project} if project else {}
         paired, local_orphans, gh_orphans, gh_by_project = stage1_linkage(

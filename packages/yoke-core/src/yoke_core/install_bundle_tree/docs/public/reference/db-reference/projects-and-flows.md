@@ -125,11 +125,11 @@ Project Structure has no placeholder or named-only family slots. The `family-lis
 ```sh
 python3 -m yoke_core.cli.db_router project-structure get <project-id> [--family F]
 python3 -m yoke_core.cli.db_router project-structure patch <project-id> --stdin
-python3 -m yoke_core.cli.db_router project-structure seed <project-id>
+python3 -m yoke_core.cli.db_router project-structure seed <project-id> --recipe yoke-source
 python3 -m yoke_core.cli.db_router project-structure family-list
 ```
 
-The same commands are available through the service-client CLI as `project-structure-get`, `project-structure-patch`, and `project-structure-seed`. The write surface takes a single imperative op list with `ops`; see `yoke_core.domain.project_structure` for the full contract.
+The same commands are available through the service-client CLI as `project-structure-get`, `project-structure-patch`, and `project-structure-seed`. `seed` applies a named recipe — `yoke-source` describes a checkout of the Yoke source tree — to any project. The write surface takes a single imperative op list with `ops`; see `yoke_core.domain.project_structure` for the full contract.
 
 ## Table: sites
 

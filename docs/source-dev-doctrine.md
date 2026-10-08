@@ -25,6 +25,19 @@ Repo-relative paths:
 - Browser: packaged under `packages/yoke-harness/src/yoke_harness/browser_runtime/`, materialized to `~/.yoke/browser-runtime/` (`yoke_harness.browser_*` / `yoke_core.domain.browser_*`). Harness adapters: `runtime/harness/{harness-id}/`; Codex via `.codex/hooks.json` and `codex app <repo>`.
 - Machine config `~/.yoke/config.json`; the machine id it carries is registered in the control-plane `machines` row that every relay poll, launch, plan-limit and surface-policy row names, and whose `access` document decides which actors may spend that machine's capacity (`yoke machine list|show|register|settings`, [`docs/machine-registry.md`](machine-registry.md)); project surfaces `.yoke/`; docs `docs/`; design specs in `items.design_spec`. Hook sources: `runtime/harness/claude/settings.json` materialized at `.claude/settings.json`, plus `runtime/harness/codex/hooks.json` through the `.codex` link.
 
+## Product code never branches on a project name
+
+Product code runs for every install, so it reads the declared fact a project
+name would stand in for: a capability or environment setting, the
+installation's self project, or a property of the checkout.
+`HC-project-name-literal` scans for the registered project names in
+comparisons, project keywords, constants, dict entries, project-named calls
+and returns, SQL parameters, and SQL slug tests. A legitimate remaining site
+carries a named allowance in
+`yoke_core.domain.lint_project_name_literal_allowances`; a site whose
+replacement is in flight is listed as pending and reported as WARN; an
+allowance that no longer matches fails the check.
+
 ## Source-dev doctrine
 
 ### Direct database authority for source development and operators

@@ -51,7 +51,10 @@ def handle_project_snapshot_sync(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     if (request.payload or {}).get("operation") in {
-        "begin", "append", "finalize", "abort",
+        "begin",
+        "append",
+        "finalize",
+        "abort",
     }:
         return _handle_chunk_sync(request)
     try:
@@ -96,9 +99,7 @@ def handle_project_snapshot_sync(
 
 def _handle_chunk_sync(request: FunctionCallRequest) -> HandlerOutcome:
     try:
-        payload = ProjectSnapshotChunkSyncRequest.model_validate(
-            request.payload or {}
-        )
+        payload = ProjectSnapshotChunkSyncRequest.model_validate(request.payload or {})
     except ValidationError as exc:
         return HandlerOutcome(
             primary_success=False,
@@ -216,7 +217,9 @@ def _sync(project_ref: str, payload: PathSnapshotSyncPayload) -> Dict[str, Any]:
         for snapshot in payload.snapshots:
             warnings.extend(snapshot.warnings)
             result = materialize_snapshot_payload(
-                conn, project_id=project_id, payload=snapshot,
+                conn,
+                project_id=project_id,
+                payload=snapshot,
             )
             lane_head_recorded = False
             if snapshot.ref == "HEAD" and payload.repo_root:
@@ -224,24 +227,31 @@ def _sync(project_ref: str, payload: PathSnapshotSyncPayload) -> Dict[str, Any]:
                     record_head_for_checkout,
                 )
 
-                lane_head_recorded = record_head_for_checkout(
-                    conn,
-                    project_id=project_id,
-                    checkout_path=payload.repo_root,
-                    commit_sha=snapshot.commit_sha,
-                ) is not None
+                lane_head_recorded = (
+                    record_head_for_checkout(
+                        conn,
+                        project_id=project_id,
+                        checkout_path=payload.repo_root,
+                        commit_sha=snapshot.commit_sha,
+                    )
+                    is not None
+                )
                 conn.commit()
-            rows.append({
-                "status": result.status,
-                "snapshot_id": result.snapshot_id,
-                "ref": result.ref,
-                "commit_sha": result.commit_sha,
-                "entry_count": result.entry_count,
-                "symlink_count": result.symlink_count,
-                "lane_head_recorded": lane_head_recorded,
-            })
+            rows.append(
+                {
+                    "status": result.status,
+                    "snapshot_id": result.snapshot_id,
+                    "ref": result.ref,
+                    "commit_sha": result.commit_sha,
+                    "entry_count": result.entry_count,
+                    "symlink_count": result.symlink_count,
+                    "lane_head_recorded": lane_head_recorded,
+                }
+            )
         architecture_refresh = _refresh_architecture_context(
-            conn, project_id, rows,
+            conn,
+            project_id,
+            rows,
         )
         render_relationship_refresh = _refresh_render_relationship_context(
             conn,
@@ -261,7 +271,9 @@ def _sync(project_ref: str, payload: PathSnapshotSyncPayload) -> Dict[str, Any]:
 
 
 def _refresh_architecture_context(
-    conn: Any, project_id: int, rows: List[Dict[str, Any]],
+    conn: Any,
+    project_id: int,
+    rows: List[Dict[str, Any]],
 ) -> Optional[Dict[str, Any]]:
     """Converge map-derived classifications after a HEAD snapshot lands.
 
@@ -270,7 +282,8 @@ def _refresh_architecture_context(
     skip silently; the synced commit is the provenance token.
     """
     head = next(
-        (row for row in rows if row.get("ref") == "HEAD"), None,
+        (row for row in rows if row.get("ref") == "HEAD"),
+        None,
     )
     if head is None:
         return None
@@ -279,7 +292,8 @@ def _refresh_architecture_context(
     )
 
     seed = seed_architecture_path_context(
-        conn, project_id,
+        conn,
+        project_id,
         recorded_event_id=f"snapshot:{head.get('commit_sha') or 'HEAD'}",
     )
     if not seed.declared:
@@ -300,14 +314,16 @@ def _refresh_render_relationship_context(
     rows: List[Dict[str, Any]],
     warnings: List[str],
 ) -> Optional[Dict[str, Any]]:
-    """Refresh Yoke's generated-file provenance after a HEAD snapshot."""
+    """Refresh the project's generated-file provenance after a HEAD snapshot.
+
+    Relationships derive from the project's own tracked paths, so a project
+    with no generated outputs records none.
+    """
     if not any(row.get("ref") == "HEAD" for row in rows):
         return None
     from yoke_core.domain.project_identity import resolve_project_slug
 
     project_slug = resolve_project_slug(conn, project_id)
-    if project_slug != "yoke":
-        return None
     try:
         from yoke_core.domain.agents_render_path_context import (
             record_render_relationships,

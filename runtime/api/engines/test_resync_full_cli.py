@@ -27,10 +27,10 @@ class TestMainCLI:
             rc = main(["--unknown"])
         assert rc == 1
 
-    def test_detect_no_github_auth_fails_closed(self, test_db):
-        """When the Yoke GitHub App auth is not configured, the engine fail-closes
-        at the boundary with exit 2 + a repair hint -- the old
-        SKIP-on-no-gh path has been retired.
+    def test_detect_no_github_auth_exits_nonzero(self, test_db):
+        """A project whose GitHub App auth is not configured is reported
+        unavailable with its repair hint and the run exits non-zero -- the
+        old SKIP-on-no-gh path has been retired.
         """
         from yoke_core.domain.project_github_auth import MissingCapability
 
@@ -51,9 +51,8 @@ class TestMainCLI:
             mock.patch("sys.stderr", StringIO()),
         ):
             rc = main(["--detect-only", "--project", "yoke"])
-        # Boundary translates the typed error to exit 2 (Yoke is the
-        # control plane -- no SKIP path).
-        assert rc == 2
+        # Every project is treated alike: unavailable, never skipped.
+        assert rc == 1
 
     def test_detect_with_local_orphans_returns_1(self, populated_db):
         """Detect mode returns 1 when local orphans found."""

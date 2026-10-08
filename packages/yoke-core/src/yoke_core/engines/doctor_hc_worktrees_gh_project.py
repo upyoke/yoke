@@ -230,9 +230,6 @@ def hc_project_deploy_flows(conn, args: DoctorArgs, rec: RecordCollector) -> Non
 
 def hc_project_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-project-health: Production health check endpoint."""
-    if args.project == "yoke":
-        # Yoke has no health-endpoint capability; intentionally skipped.
-        return
     if not _base._table_exists(conn, "project_capabilities"):
         return
 

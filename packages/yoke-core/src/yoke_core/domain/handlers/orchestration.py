@@ -79,7 +79,8 @@ def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
         return HandlerOutcome(
             primary_success=False,
             error=FunctionError(
-                code="payload_invalid", message=f"payload invalid: {exc}",
+                code="payload_invalid",
+                message=f"payload invalid: {exc}",
                 jsonpath="$.payload",
             ),
         )
@@ -90,7 +91,10 @@ def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
             conn.commit()
         finally:
             conn.close()
+    vision_project = None
     if payload.settings_project_id is not None:
+        from yoke_core.domain.project_identity import resolve_project_slug
+
         conn = connect()
         try:
             config = resolve_board_config(conn, payload.settings_project_id)
@@ -98,6 +102,9 @@ def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 payload.settings_project_id,
                 explicit=payload.scope or None,
+            )
+            vision_project = resolve_project_slug(
+                conn, int(payload.settings_project_id)
             )
         finally:
             conn.close()
@@ -114,6 +121,7 @@ def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
                 config=config,
                 repo_root=payload.repo_root_token,
                 vision_entries=vision_entries,
+                vision_project=vision_project,
                 visible_project_ids=visible_project_ids,
             )
     except BoardDataError as exc:
@@ -127,7 +135,9 @@ def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
     return HandlerOutcome(result_payload=data, primary_success=True)
 
 
-def _visible_project_ids_from_options(options: Dict[str, Any] | None) -> List[int] | None:
+def _visible_project_ids_from_options(
+    options: Dict[str, Any] | None,
+) -> List[int] | None:
     raw = (options or {}).get("visible_project_ids")
     if raw is None:
         return None
@@ -187,10 +197,14 @@ def handle_board_rebuild(request: FunctionCallRequest) -> HandlerOutcome:
         return HandlerOutcome(
             primary_success=True,
             result_payload={
-                "board_path": "", "status": "skipped-no-checkout",
+                "board_path": "",
+                "status": "skipped-no-checkout",
                 "changed": False,
                 "message": "no local checkout; board is a client-local view",
-                "targets": [], "sha256": "", "line_count": 0, "exit_code": 0,
+                "targets": [],
+                "sha256": "",
+                "line_count": 0,
+                "exit_code": 0,
             },
         )
     result = rebuild(
@@ -205,8 +219,10 @@ def handle_board_rebuild(request: FunctionCallRequest) -> HandlerOutcome:
             rb_outcome.REBUILT if result == 0 else rb_outcome.FAILED,
             int(result),
         )
-    board_path = Path(result.board_path) if result.board_path else (
-        resolve_board_path(repo_root, output_name)
+    board_path = (
+        Path(result.board_path)
+        if result.board_path
+        else (resolve_board_path(repo_root, output_name))
     )
     sha = ""
     line_count = 0
@@ -217,8 +233,7 @@ def handle_board_rebuild(request: FunctionCallRequest) -> HandlerOutcome:
             0 if content.endswith("\n") or not content else 1
         )
     error_message = (
-        f"rebuild_board exited with {result.exit_code} "
-        f"status={result.status}"
+        f"rebuild_board exited with {result.exit_code} status={result.status}"
     )
     if result.message:
         error_message = f"{error_message}: {result.message}"
@@ -244,7 +259,9 @@ def handle_board_rebuild(request: FunctionCallRequest) -> HandlerOutcome:
         },
         primary_success=(result.exit_code == 0),
         error=(
-            None if result.exit_code == 0 else FunctionError(
+            None
+            if result.exit_code == 0
+            else FunctionError(
                 code="downstream_failure",
                 message=error_message,
             )
@@ -253,6 +270,10 @@ def handle_board_rebuild(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 __all__ = [
-    "BoardDataGetRequest", "BoardDataGetResponse", "handle_board_data_get",
-    "BoardRebuildRequest", "BoardRebuildResponse", "handle_board_rebuild",
+    "BoardDataGetRequest",
+    "BoardDataGetResponse",
+    "handle_board_data_get",
+    "BoardRebuildRequest",
+    "BoardRebuildResponse",
+    "handle_board_rebuild",
 ]

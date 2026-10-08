@@ -24,7 +24,8 @@
 # Schema:
 #   surfaces:
 #     - module: <migration_module_name>
-#       project: <project_slug>
+#       project: <project_slug, or control-plane for the install's own
+#                 control-plane schema>
 #       model: <migration_model_name>
 #       table: <table_name>
 #       column: <column_name>  # omit for table-level retirement
@@ -32,42 +33,42 @@
 #
 surfaces:
   - module: events_actor_identity
-    project: yoke
+    project: control-plane
     model: primary
     table: events
     column: user_id
     decision_record: docs/archive/decisions/events-actor-identity.md
   - module: deploy_defaults_cutover
-    project: yoke
+    project: control-plane
     model: primary
     table: projects
     column: default_deployment_flow
     decision_record: docs/archive/decisions/deploy_defaults_cutover.md
   - module: events_envelope_backup_drop
-    project: yoke
+    project: control-plane
     model: primary
     table: events_envelope_backup
     decision_record: docs/archive/decisions/events_envelope_backup_drop.md
   - module: path_claims_typed_owner_cleanup
-    project: yoke
+    project: control-plane
     model: primary
     table: path_claims
     column: actor_id
     decision_record: docs/archive/decisions/path-claims-typed-owner-cleanup.md
   - module: path_claims_typed_owner_cleanup
-    project: yoke
+    project: control-plane
     model: primary
     table: path_claims
     column: session_id
     decision_record: docs/archive/decisions/path-claims-typed-owner-cleanup.md
   - module: path_claims_typed_owner_cleanup
-    project: yoke
+    project: control-plane
     model: primary
     table: path_claims
     column: item_id
     decision_record: docs/archive/decisions/path-claims-typed-owner-cleanup.md
   - module: path_claims_typed_owner_cleanup
-    project: yoke
+    project: control-plane
     model: primary
     table: path_claims
     column: work_claim_id

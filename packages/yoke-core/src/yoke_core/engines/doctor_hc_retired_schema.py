@@ -13,12 +13,12 @@ The target is resolved by the migration-model database declaration:
 * ``postgres`` — the authority is Yoke's connected control-plane DB.
   Presence is probed through the backend-aware ``schema_common`` catalog
   helpers (``information_schema`` on Postgres), i.e. the same connection
-  doctor already holds. This is the live shape for Yoke's ``primary``
-  model.
+  doctor already holds. Surfaces owned by ``control-plane`` — the
+  install's own control-plane schema — always resolve here.
 * ``sqlite_file`` — an external project SQLite file or archived import
-  artifact. Presence is probed by opening that file directly. Yoke itself
-  never uses this branch; ``project='yoke'`` with ``sqlite_file`` and root
-  ``data/yoke.db`` paths fail closed as unresolvable.
+  artifact. Presence is probed by opening that file directly. A declaration
+  resolving to the retired root ``data/yoke.db`` path fails closed as
+  unresolvable, whichever project declares it.
 
 Emits WARN with concrete drift details so the operator can:
 
@@ -44,6 +44,7 @@ import sqlite3
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.retired_schema_registry import (
+    CONTROL_PLANE_OWNER,
     RetiredSchemaRegistryError,
     RetiredSurface,
     load_registry,
@@ -87,9 +88,7 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _resolve_authority(
-    conn, project: str, model: str
-) -> Optional[_Authority]:
+def _resolve_authority(conn, project: str, model: str) -> Optional[_Authority]:
     """Resolve the authoritative-DB binding for (project, model).
 
     Reads ``project_capabilities.settings`` for the ``migration_model``
@@ -103,8 +102,11 @@ def _resolve_authority(
 
     Returns ``None`` when any step fails or the kind is unsupported — the
     HC surfaces a per-surface skip with the reason rather than treating a
-    resolution miss as drift.
+    resolution miss as drift. The :data:`CONTROL_PLANE_OWNER` names the
+    install's own control-plane schema, whose authority is the connected DB.
     """
+    if project == CONTROL_PLANE_OWNER:
+        return _Authority(kind="postgres")
     try:
         p = _p(conn)
         project_id = resolve_project_id(conn, project)
@@ -131,8 +133,6 @@ def _resolve_authority(
         return _Authority(kind="postgres")
 
     if kind == "sqlite_file":
-        if project == "yoke":
-            return None
         location = auth.get("location") or {}
         rel = location.get("path")
         if not isinstance(rel, str) or not rel.strip():
@@ -259,8 +259,7 @@ def hc_retired_schema_resurrection(
             present = _control_plane_surface_present(conn, record)
             if present is None:
                 skips.append(
-                    f"- {surface_label}: "
-                    f"control-plane catalog probe failed — skipped"
+                    f"- {surface_label}: control-plane catalog probe failed — skipped"
                 )
                 continue
         else:  # sqlite_file
@@ -279,8 +278,7 @@ def hc_retired_schema_resurrection(
                 )
             if present is None:
                 skips.append(
-                    f"- {surface_label}: "
-                    f"schema probe failed on {db_path} — skipped"
+                    f"- {surface_label}: schema probe failed on {db_path} — skipped"
                 )
                 continue
 
@@ -292,9 +290,7 @@ def hc_retired_schema_resurrection(
 
     detail_lines: List[str] = []
     if findings:
-        detail_lines.append(
-            "Retired schema surfaces still exposed on schema target:"
-        )
+        detail_lines.append("Retired schema surfaces still exposed on schema target:")
         detail_lines.extend(findings)
         detail_lines.append("")
         detail_lines.append(

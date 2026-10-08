@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from yoke_contracts.project_defaults import default_project_for_directory
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     repair_command_hint,
@@ -85,7 +86,7 @@ def _git_common_dir(repo_root: Path) -> Path:
     if not first_line.lower().startswith(prefix):
         return dot_git
 
-    git_dir_text = first_line[len(prefix):].strip()
+    git_dir_text = first_line[len(prefix) :].strip()
     git_dir = Path(git_dir_text)
     if not git_dir.is_absolute():
         git_dir = repo_root.joinpath(git_dir).resolve()
@@ -106,23 +107,31 @@ def run_checks(repo_root: Path, *, strict: bool = False) -> int:
     results: list[tuple[str, str]] = []
     auth_repair_hint: Optional[str] = None
 
-    # Resolve project GitHub auth: PASS when Yoke's repo binding can produce a
-    # bearer token, WARN with concrete repair text on resolver failures.
-    # ``--strict`` upgrades WARN to FAIL so CI trips on the same gap.
+    # Resolve the checkout's project GitHub auth: PASS when its repo binding
+    # can produce a bearer token, WARN with concrete repair text on resolver
+    # failures. ``--strict`` upgrades WARN to FAIL so CI trips on the same gap.
     github_authed = False
-    try:
-        resolve_project_github_auth("yoke")
-        github_authed = True
-    except ProjectGithubAuthError as exc:
+    project = default_project_for_directory(repo_root) or ""
+    if not project:
         auth_repair_hint = (
-            f"project 'yoke' github auth not resolvable: {exc}. "
-            f"Repair: {repair_command_hint(exc, 'yoke')}"
+            f"{repo_root} is not a registered project checkout, so no GitHub "
+            "binding applies. Repair: yoke project register "
+            f"{repo_root} --project-id <id>"
         )
-    except Exception as exc:
-        auth_repair_hint = (
-            "project 'yoke' github auth not resolvable: "
-            f"{type(exc).__name__}: {exc}"
-        )
+    else:
+        try:
+            resolve_project_github_auth(project)
+            github_authed = True
+        except ProjectGithubAuthError as exc:
+            auth_repair_hint = (
+                f"project {project} github auth not resolvable: {exc}. "
+                f"Repair: {repair_command_hint(exc, project)}"
+            )
+        except Exception as exc:
+            auth_repair_hint = (
+                f"project {project} github auth not resolvable: "
+                f"{type(exc).__name__}: {exc}"
+            )
     if github_authed:
         _add_result(results, "Project GitHub App auth configured", "✅")
     elif strict:
@@ -139,7 +148,10 @@ def run_checks(repo_root: Path, *, strict: bool = False) -> int:
     _add_result(results, "Directory structure", "✅" if dirs_ok else "❌")
     critical_fail = critical_fail or not dirs_ok
 
-    agents_ok = all((repo_root / ".claude" / "agents" / f"{agent}.md").is_file() for agent in AGENT_FILES)
+    agents_ok = all(
+        (repo_root / ".claude" / "agents" / f"{agent}.md").is_file()
+        for agent in AGENT_FILES
+    )
     _add_result(results, "Agent files in .claude/agents/", "✅" if agents_ok else "❌")
     critical_fail = critical_fail or not agents_ok
 
@@ -154,7 +166,9 @@ def run_checks(repo_root: Path, *, strict: bool = False) -> int:
     )
     critical_fail = critical_fail or not canonical_agents_ok
 
-    entrypoints_ok = all((repo_root / rel_path).is_file() for rel_path in ENTRYPOINT_CHECKS)
+    entrypoints_ok = all(
+        (repo_root / rel_path).is_file() for rel_path in ENTRYPOINT_CHECKS
+    )
     _add_result(results, "Python entrypoints present", "✅" if entrypoints_ok else "❌")
     critical_fail = critical_fail or not entrypoints_ok
 
@@ -168,7 +182,9 @@ def run_checks(repo_root: Path, *, strict: bool = False) -> int:
     critical_fail = critical_fail or not pre_commit_ok
 
     settings = repo_root / ".claude" / "settings.json"
-    settings_ok = settings.is_file() and all(rule in settings.read_text() for rule in PERMISSION_RULES)
+    settings_ok = settings.is_file() and all(
+        rule in settings.read_text() for rule in PERMISSION_RULES
+    )
     _add_result(results, "Permission rules configured", "✅" if settings_ok else "❌")
     critical_fail = critical_fail or not settings_ok
 

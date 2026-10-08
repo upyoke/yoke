@@ -220,7 +220,7 @@ class TestSweep:
         assert len(rows) == 1
         assert rows[0]["project_id"] == 2
 
-    def test_sentinel_project_id_falls_back_for_unregistered_session(self, conn):
+    def test_sentinel_for_unregistered_session_indexes_as_global(self, conn):
         _seed_events(conn)
         _insert_open_call(conn, session_id="sess-U", tool_use_id="tu-u1")
         sweep_orphaned_tool_calls(
@@ -228,7 +228,7 @@ class TestSweep:
         )
         rows = _sentinels(conn, "sess-U")
         assert len(rows) == 1
-        assert rows[0]["project_id"] == 1
+        assert rows[0]["project_id"] is None
 
     def test_sweep_is_idempotent(self, conn):
         _seed_events(conn)

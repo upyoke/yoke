@@ -7,8 +7,10 @@ to execute. The real list readers and all real UI views read this stored work.
 """
 
 import json
+from pathlib import Path
 
 from runtime.api.tools.serve_workbench_for_review import prepare_review_database
+from yoke_contracts.project_defaults import default_project_for_directory
 from yoke_core.domain.db_helpers import connect
 from yoke_core.ui.served_universe_connection import serving_connection
 
@@ -49,11 +51,20 @@ def main() -> None:
             }
         ],
     }
+    checkout_project = default_project_for_directory(Path.cwd())
+    if checkout_project is None:
+        raise SystemExit(
+            "outside_commit_review_project_unmapped: run from a registered "
+            "project checkout (`yoke project register <checkout> --project-id <id>`)"
+        )
     with connect() as conn:
-        project = conn.execute("SELECT id FROM projects WHERE slug='yoke'").fetchone()
+        project = conn.execute(
+            "SELECT id FROM projects WHERE id=%s", (int(checkout_project),)
+        ).fetchone()
         if project is None:
             raise SystemExit(
-                "outside_commit_review_project_missing: seed the review universe's yoke project first"
+                f"outside_commit_review_project_missing: seed project {checkout_project} "
+                "in the review universe first"
             )
         project_id = int(project[0])
         conn.execute(

@@ -47,6 +47,10 @@ class TestEngineArguments:
         )
         monkeypatch.setattr(prep, "_find_worktree", lambda *_a: str(tmp_path))
         monkeypatch.setattr(
+            "yoke_core.domain.project_checkout_locations.checkout_for_project_slug",
+            lambda slug: tmp_path,
+        )
+        monkeypatch.setattr(
             prep,
             "call_dispatcher",
             lambda **kwargs: FunctionCallResponse(

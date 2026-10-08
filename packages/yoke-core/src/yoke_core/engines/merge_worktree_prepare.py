@@ -137,7 +137,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
 
     # Project-aware repo root resolution. Item/project reads and the
     # machine-local checkout mapping route through the transport-aware relay
-    # so a non-yoke project's checkout + default branch resolve over an https
+    # so every project's checkout + default branch resolve over an https
     # control plane; the checkout mapping itself stays machine-local.
     if ctx.item_id:
         try:
@@ -151,7 +151,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
                 item = (detail.result or {}).get("item") or {}
                 slug = (item.get("project") or {}).get("slug")
                 ctx.public_ref = str(item.get("public_ref") or "") or None
-            if slug and slug != "yoke":
+            if slug:
                 from yoke_core.domain.project_checkout_locations import (
                     checkout_for_project_slug,
                 )
@@ -163,7 +163,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
                         f"project '{ctx.project}' has no machine-local checkout mapping"
                     )
                 ctx.repo_root = str(checkout)
-                # Resolve default branch for non-yoke projects
+                # Resolve the project's default branch
                 if not args.target or args.target == "main":
                     branch_resp = call_dispatcher(
                         function_id="projects.get",
@@ -175,7 +175,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
                         if value:
                             args.target = value
             else:
-                ctx.project = slug or None
+                ctx.project = None
         except Exception as exc:
             if args.item_id is not None:
                 raise RuntimeError(
