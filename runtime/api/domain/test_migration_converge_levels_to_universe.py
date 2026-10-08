@@ -15,7 +15,7 @@ from yoke_core.domain.session_routing_validation import (
 )
 
 MIGRATION = importlib.import_module(
-    "yoke_core.domain.migrations.0062_converge_levels_to_universe"
+    "yoke_core.domain.migrations.0063_converge_levels_to_universe"
 )
 
 # The copy every project carried before levels became universe settings.
