@@ -95,25 +95,27 @@ def settle_subject(
         if attempt.completed:
             return status
         completion_failure = attempt.failure
-        if (
-            member is not None
-            and not completion_failure
-            and members_still_owing(conn, run_id=run_id, stage=stage)
-        ):
-            # One member's acceptance is not the stage's. The steerer is told
-            # when the stage settles, goes red, or its continuation fails;
-            # a member passing while others still owe is fleet-report state,
-            # not a message that needs an acknowledgement.
-            return status
+        if member is not None:
+            owing = members_still_owing(conn, run_id=run_id, stage=stage)
+            if owing is None:
+                completion_failure = completion_failure or (
+                    "qa_stage_outstanding_unavailable: cannot determine remaining "
+                    "stage subjects; read the run and retry its QA settlement"
+                )
+            elif owing and not completion_failure:
+                # One member passing is report state; notify only when the
+                # stage settles, goes red, or its continuation cannot finish.
+                return status
     from yoke_core.domain.deployment_run_driver_notice import push_run_scoped_notice
     from yoke_core.domain.project_identity import resolve_project
 
     project = resolve_project(conn, int(status_project_id(conn, run_id)))
+    notice_facts = (status.get("reasons") or (), completion_failure)
     key = (
         f"deployment-qa-continuation:{run_id}:{stage}:"
         f"{member if member is not None else 'run'}:"
         f"{status.get('target_digest') or ''}:{outcome}:"
-        f"{hashlib.sha256(repr(status.get('reasons') or ()).encode()).hexdigest()[:12]}"
+        f"{hashlib.sha256(repr(notice_facts).encode()).hexdigest()[:12]}"
     )
     delivery = push_run_scoped_notice(
         conn,
@@ -180,9 +182,13 @@ def continuation_message(
         else ""
     )
     return (
-        f"Deployment run {run_id} QA stage {stage!r} settled {outcome} "
-        f"against its frozen target. {recovery}"
-        f"{'Remaining blockers: ' + blockers + '. ' if blockers else ''}"
+        f"Deployment run {run_id} QA stage {stage!r}: "
+        + (
+            recovery
+            if completion_failure
+            else f"settled {outcome} against its frozen target. "
+        )
+        + f"{'Remaining blockers: ' + blockers + '. ' if blockers else ''}"
         "Continue this same run through "
         f"its pinned deploy-lock runner:\n{recipe}\n"
         "Read the run and its live driver attachment first. If that driver "

@@ -41,10 +41,30 @@ def _scopes(report: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
     }
 
 
-#: Sections that render once per project, under its first held scope. Their
-#: rows are remembered under that scope only, so a row that leaves explains
-#: itself once rather than once per held seat.
+#: Project rows keep a stable descriptor identity even when actionable-first
+#: rendering reorders seats. Merge before applying the displayed section cap.
 PROJECT_SECTIONS = frozenset({"deployment_runs", "landed_open"})
+
+
+def _project_scopes(scopes: Mapping[str, Mapping[str, Any]]):
+    grouped: dict[Any, list[str]] = {}
+    for descriptor, scope in scopes.items():
+        grouped.setdefault(scope.get("project_id", descriptor), []).append(descriptor)
+    owners = {}
+    merged = {}
+    for descriptors in grouped.values():
+        owner = min(descriptors)
+        owners.update(dict.fromkeys(descriptors, owner))
+        fields = dict(scopes[owner])
+        for section in PROJECT_SECTIONS:
+            rows = {}
+            for descriptor in descriptors:
+                for row in scopes[descriptor].get(section, ()):
+                    rows.setdefault(row.get("run_id") or row.get("public_ref"), row)
+            if any(section in scopes[descriptor] for descriptor in descriptors):
+                fields[section] = list(rows.values())
+        merged[owner] = fields
+    return owners, merged
 
 
 def shown_rows(
@@ -52,13 +72,14 @@ def shown_rows(
 ) -> dict[tuple[str, str, str, str], ShownRow]:
     """Retain identities actually displayed, excluding suppressed holder rows."""
     found = {}
-    first_scope: dict[Any, str] = {}
-    for descriptor, scope in _scopes(report).items():
-        project = scope.get("project_id")
-        owner = first_scope.setdefault(project, descriptor)
+    scopes = _scopes(report)
+    owners, projects = _project_scopes(scopes)
+    for descriptor, scope in scopes.items():
+        owner = owners[descriptor]
+        project_scope = projects[owner]
         listed_runs = {
             run.get("run_id")
-            for run in list(scope.get("deployment_runs", ()))[:SECTION_LIMIT]
+            for run in list(project_scope.get("deployment_runs", ()))[:SECTION_LIMIT]
         }
         landed = {row.get("item_id") for row in scope.get("landed_open", ())}
         sections = ROW_SECTIONS if digest else (*ROW_SECTIONS, "holders")
@@ -73,7 +94,10 @@ def shown_rows(
             for row in scope.get(section, ())
         }
         for section in sections:
-            rows = list(scope.get(section, ()))
+            if section in PROJECT_SECTIONS and descriptor != owner:
+                continue
+            source = project_scope if section in PROJECT_SECTIONS else scope
+            rows = list(source.get(section, ()))
             if section in ("idle", "suspected_orphaned_waiters", "holders"):
                 rows = [row for row in rows if row.get("item_id") not in landed]
             if section == "holders":
@@ -197,10 +221,11 @@ def disappeared_lines(
 ) -> list[str]:
     """One explanation per removed row; the caller then replaces its memory."""
     scopes = _scopes(report)
+    _, projects = _project_scopes(scopes)
     lines = []
     for key in sorted(previous.keys() - current.keys()):
         row = previous[key]
-        scope = scopes.get(row.scope)
+        scope = (projects if row.section in PROJECT_SECTIONS else scopes).get(row.scope)
         reason = (
             "scope no longer held" if scope is None else _reason(row, scope, snapshot)
         )

@@ -212,8 +212,13 @@ def record_report_delivery(
     The fleet watcher's half of the shared record. True means this caller is
     the first to deliver this content and should show it; False means the
     session already received it, from the hook or an earlier watcher pass.
-    Compare-and-set on the fingerprint, so a hook and a watcher racing on
-    the same content cannot both win.
+    Compare-and-set suppresses a later watcher once delivery is recorded.
+    A narrow race remains: a hook can render its provisional candidate before
+    either writer records it, while a watcher records and prints that same
+    content before hook settlement. The interval CAS then rejects the hook's
+    stamp, but cannot retract its rendered reply. This can duplicate one report;
+    the shared fingerprint suppresses subsequent deliveries. Different-content
+    candidates can similarly race; this record is not a rendering lock.
     """
     marker = _p(conn)
     cursor = conn.execute(

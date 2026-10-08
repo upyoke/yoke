@@ -324,5 +324,10 @@ def test_member_pass_notifies_only_on_settlement_or_a_stuck_continuation(
     )
     settle_subject(mock.Mock(), run_id="run-m", stage="item-qa", member=42)
     assert bool(calls) is notified
-    if failure:
-        assert failure in calls[0]["body_for_route"]("driver")
+    if notified:
+        message = calls[0]["body_for_route"]("driver")
+        if failure:
+            assert failure in message
+        if owing is None:
+            assert "qa_stage_outstanding_unavailable" in message
+            assert "settled passed" not in message
