@@ -61,6 +61,18 @@ item after a wake and re-park if it remains at release wait. Re-run this exact
 command with `--result` and `--verification` only when a delivery recovery
 wake asks for it. Never poll GitHub or the run instead of the wake.
 
+No-change routes
+----------------
+`--no-changes` records a verified no-change result only for a lane that
+already exists. A Dash that never created a worktree does not merge and has
+no Git landing to recover. Record the finding with `yoke direct-workflow
+dash evidence ITEM --result ... --verification ... --no-changes`, then
+advance that item's pinned workflow by its unique forward edge with
+`yoke lifecycle transition`. This command names that route and does not
+guess a stage or transition. An absent worktree alone does not attest
+no_changes. A missing or ambiguous forward edge stays a named refusal
+(`workflow_next_stage_ambiguous`).
+
 Queue landing
 -------------
 A relay-launched session always arms the landing and returns
@@ -97,7 +109,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--verification-status", **status_argument_kwargs())
     boolean_options = (
-        ("--no-changes", "Record a verified no-change result."),
+        (
+            "--no-changes",
+            "Record a verified no-change result for a lane that already "
+            "exists. A Dash with no worktree uses `yoke direct-workflow "
+            "dash evidence --no-changes` and its pinned workflow's unique "
+            "lifecycle edge; this flag does not attest no_changes.",
+        ),
         (
             "--skip-status",
             "Merge without changing lifecycle status. Admission still "

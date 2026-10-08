@@ -16,6 +16,10 @@ from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
 
 _MISSING_CLAIM = "no live work claim on this item"
+_UNRECOVERED_LANE = (
+    "no active worktree lane and no landing the base branch "
+    "contains; merge source cannot be recovered"
+)
 _HOLDER_FUNCTION = "claims.work.holder_get"
 _WORK_CLAIM_LOOKUP: ContextVar[Optional[Mapping[str, Any]]] = ContextVar(
     "standalone_merge_work_claim_lookup",
@@ -161,6 +165,85 @@ def claim_is_missing(error: str) -> bool:
     return error.startswith(_MISSING_CLAIM)
 
 
+def missing_lane_refusal(item_id: Any, item: Optional[Mapping[str, Any]]) -> str:
+    """Name the laneless route when evidence proves it; otherwise the gap."""
+    if not isinstance(item, Mapping):
+        return _UNRECOVERED_LANE
+    workflow_id = str((item.get("workflow") or {}).get("id") or "")
+    from yoke_core.domain.standalone_item_merge_lane import active_lanes
+
+    if workflow_id != "dash" or active_lanes(dict(item)):
+        return _UNRECOVERED_LANE
+    try:
+        from yoke_core.domain.standalone_item_merge_evidence import recorded
+
+        row = recorded(item_id)
+        no_changes = row.get("no_changes") if isinstance(row, dict) else False
+    except Exception as exc:  # noqa: BLE001 - an unread record must not attest
+        return (
+            "no active worktree lane; persisted Execution Evidence could "
+            f"not be read ({exc}). An absent worktree does not attest "
+            "no_changes and is not a Git landing to recover. Re-run "
+            "`yoke merge item` once that read succeeds."
+        )
+    from yoke_core.domain.dash_execution import proved_laneless_no_change
+
+    if not proved_laneless_no_change(
+        workflow_id=workflow_id,
+        no_changes=no_changes,
+        active_worktree_present=False,
+    ):
+        return _UNRECOVERED_LANE
+    return _laneless_route(dict(item))
+
+
+def _laneless_route(item: Mapping[str, Any]) -> str:
+    from yoke_core.domain.merge_review_readiness import pinned_workflow_for_item
+    from yoke_core.domain.workflow_declared_transitions import (
+        declared_next_stage_ids,
+    )
+
+    public_ref = str(item.get("public_ref") or item.get("id") or "")
+    status = str(item.get("status") or "")
+    base = (
+        "laneless no-change close-out: persisted Execution Evidence "
+        "records no_changes and this Dash has no active worktree, so "
+        "there is no Git landing to recover"
+    )
+    workflow, error = pinned_workflow_for_item(dict(item))
+    if workflow is None:
+        return (
+            f"{base}. The pinned workflow could not be read ({error}). "
+            "workflow_next_stage_ambiguous: this merge does not guess a "
+            "stage or transition. Resolve the workflow read, then advance "
+            "the unique forward edge with `yoke lifecycle transition`."
+        )
+    targets = tuple(
+        stage_id
+        for stage_id in declared_next_stage_ids(workflow, status)
+        if workflow.is_forward_transition(status, stage_id)
+    )
+    named = f"{workflow.workflow_id}@{workflow.version}"
+    if len(targets) != 1:
+        listed = ", ".join(targets) or "none"
+        return (
+            f"{base}. workflow_next_stage_ambiguous: {named} at "
+            f"{status!r} declares {len(targets)} forward edges ({listed}). "
+            "Repair or select the declared route. This merge does not "
+            "guess a stage or transition."
+        )
+    target = targets[0]
+    return (
+        f"{base}. Advance {named} from {status!r} to {target!r} with "
+        f"`yoke lifecycle transition {public_ref} --from {status} --to "
+        f'{target} --reason "Laneless attestation recorded; advancing '
+        'the declared stage"`. This merge does not transition. Evidence, '
+        "QA, approval, claim, and delivery gates still apply on that "
+        "transition. `yoke merge item --no-changes` is only for a lane "
+        "that already exists."
+    )
+
+
 def branch_needs_receipt(repo_root: str, branch: str) -> bool:
     """Whether close-out must reconstruct the pruned lane from its receipt."""
     return not git.branch_exists(repo_root, branch)
@@ -171,6 +254,7 @@ def reacquire_landed_claim(
     item_id: int,
     session_id: str,
     lane: Optional[LandedLane],
+    item: Optional[Mapping[str, Any]] = None,
 ) -> tuple[Optional[LandedLane], str]:
     """Reclaim close-out authority, but only for a landing already proven.
 
@@ -183,10 +267,7 @@ def reacquire_landed_claim(
         diagnosis = claim_error(item_id, session_id)
         if diagnosis:
             return None, diagnosis
-        return None, (
-            "no active worktree lane and no landing the base branch "
-            "contains; merge source cannot be recovered"
-        )
+        return None, missing_lane_refusal(item_id, item)
     caller = _session_id(session_id)
     if not caller:
         return None, "ambient session identity is unavailable"
@@ -255,6 +336,7 @@ __all__ = [
     "branch_needs_receipt",
     "claim_error",
     "claim_is_missing",
+    "missing_lane_refusal",
     "reacquire_landed_claim",
     "record_resolved_item",
     "restore_close_out_claim",

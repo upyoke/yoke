@@ -181,6 +181,10 @@ def test_evidence_only_item_without_a_landing_gets_the_direct_diagnosis(
         "claim_error",
         lambda *_a, **_k: initial_claim_error,
     )
+    monkeypatch.setattr(
+        "yoke_core.domain.standalone_item_merge_evidence.recorded",
+        lambda *_a, **_k: None,
+    )
 
     exit_code = merge_cli.run(
         [
@@ -196,6 +200,9 @@ def test_evidence_only_item_without_a_landing_gets_the_direct_diagnosis(
     error = capsys.readouterr().err
     assert expected in error
     assert "no durable merge receipt" not in error
+    if not initial_claim_error:
+        assert "merge source cannot be recovered" in error
+        assert "laneless no-change close-out" not in error
 
 
 def test_restore_reacquires_when_the_claim_is_gone(monkeypatch) -> None:
@@ -271,3 +278,51 @@ def test_restore_treats_an_already_done_item_as_closed_out(monkeypatch) -> None:
 
     assert error == ""
     assert item is original
+
+
+def test_persisted_no_changes_names_the_unique_lifecycle_edge(monkeypatch) -> None:
+    from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+
+    runtime = builtin_workflow_runtime("dash")
+    monkeypatch.setattr(recovery, "claim_error", lambda *_a, **_k: "")
+    monkeypatch.setattr(
+        "yoke_core.domain.merge_review_readiness.pinned_workflow_for_item",
+        lambda *_a, **_k: (runtime, ""),
+    )
+    dash = {
+        "id": 7,
+        "public_ref": "ITEM-1",
+        "status": "reviewing-implementation",
+        "workflow": {"id": "dash", "version": runtime.version},
+        "worktrees": [],
+    }
+
+    def refuse(item, evidence):
+        monkeypatch.setattr(
+            "yoke_core.domain.standalone_item_merge_evidence.recorded",
+            lambda *_a, **_k: evidence,
+        )
+        _lane, error = recovery.reacquire_landed_claim(
+            item_id="ITEM-1",
+            session_id="session-1",
+            lane=None,
+            item=item,
+        )
+        return error
+
+    proved = refuse(dash, {"no_changes": True})
+    assert "laneless no-change close-out" in proved
+    assert "--from reviewing-implementation --to release" in proved
+    assert "does not transition" in proved
+    assert "merge source cannot be recovered" not in proved
+
+    assert "merge source cannot be recovered" in refuse(dash, None)
+    other = {**dash, "workflow": {"id": "task", "version": 1}}
+    assert "merge source cannot be recovered" in refuse(other, {"no_changes": True})
+    laned = {**dash, "worktrees": [{"state": "active", "branch": "ITEM-1"}]}
+    assert "merge source cannot be recovered" in refuse(laned, {"no_changes": True})
+
+    ambiguous = refuse({**dash, "status": "done"}, {"no_changes": True})
+    assert "workflow_next_stage_ambiguous" in ambiguous
+    assert "--to " not in ambiguous
+    assert "does not guess" in ambiguous
