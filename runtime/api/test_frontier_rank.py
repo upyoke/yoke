@@ -7,6 +7,13 @@ classes operate on hand-built FrontierItem instances and do not touch the DB.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
+import pytest
+
+from yoke_contracts.timestamps import InvalidInstant
+from yoke_core.domain.scheduler_types import ScheduledStep, NextStep
+
 import os
 import sys
 
@@ -31,16 +38,21 @@ class TestRankFrontier:
 
     def _item(self, **kw) -> FrontierItem:
         defaults = dict(
-            item_id=1, title="Test", status="planned",
-            priority="medium", project="yoke", workflow_id="epic",
-            workflow_version_id=1, workflow_version=1,
-            adapter=AdapterCategory.CONDUCT, created_at="2026-01-01T00:00:00Z",
+            item_id=1,
+            title="Test",
+            status="planned",
+            priority="medium",
+            project="yoke",
+            workflow_id="epic",
+            workflow_version_id=1,
+            workflow_version=1,
+            adapter=AdapterCategory.CONDUCT,
+            created_at="2026-01-01T00:00:00Z",
         )
         defaults.update(kw)
         defaults.setdefault(
             "stage_index",
-            builtin_workflow_runtime("epic").stage_index(defaults["status"])
-            or 0,
+            builtin_workflow_runtime("epic").stage_index(defaults["status"]) or 0,
         )
         return FrontierItem(**defaults)
 
@@ -71,7 +83,9 @@ class TestRankFrontier:
         """
         items = [
             self._item(item_id=1, status="idea", adapter=AdapterCategory.SHEPHERD),
-            self._item(item_id=2, status="implementing", adapter=AdapterCategory.CONDUCT),
+            self._item(
+                item_id=2, status="implementing", adapter=AdapterCategory.CONDUCT
+            ),
             self._item(item_id=3, status="implemented", adapter=AdapterCategory.USHER),
         ]
         ranked = rank_frontier(items)
@@ -158,29 +172,46 @@ class TestRankingDeterminism:
 
     def _item(self, **kw) -> FrontierItem:
         defaults = dict(
-            item_id=1, title="Test", status="planned",
-            priority="medium", project="yoke", workflow_id="epic",
-            workflow_version_id=1, workflow_version=1,
-            adapter=AdapterCategory.CONDUCT, created_at="2026-01-01T00:00:00Z",
+            item_id=1,
+            title="Test",
+            status="planned",
+            priority="medium",
+            project="yoke",
+            workflow_id="epic",
+            workflow_version_id=1,
+            workflow_version=1,
+            adapter=AdapterCategory.CONDUCT,
+            created_at="2026-01-01T00:00:00Z",
         )
         defaults.update(kw)
         defaults.setdefault(
             "stage_index",
-            builtin_workflow_runtime("epic").stage_index(defaults["status"])
-            or 0,
+            builtin_workflow_runtime("epic").stage_index(defaults["status"]) or 0,
         )
         return FrontierItem(**defaults)
 
     def test_ten_repeated_runs_identical(self):
         """10 repeated calls produce identical ordering every time."""
         items = [
-            self._item(item_id=i, priority=p, unblocks_count=u,
-                        created_at=f"2026-01-{i:02d}T00:00:00Z")
-            for i, (p, u) in enumerate([
-                ("high", 3), ("high", 1), ("medium", 5),
-                ("low", 0), ("medium", 2), ("high", 0),
-                ("low", 10), ("medium", 0),
-            ], start=1)
+            self._item(
+                item_id=i,
+                priority=p,
+                unblocks_count=u,
+                created_at=f"2026-01-{i:02d}T00:00:00Z",
+            )
+            for i, (p, u) in enumerate(
+                [
+                    ("high", 3),
+                    ("high", 1),
+                    ("medium", 5),
+                    ("low", 0),
+                    ("medium", 2),
+                    ("high", 0),
+                    ("low", 10),
+                    ("medium", 0),
+                ],
+                start=1,
+            )
         ]
         first_result = [i.item_id for i in rank_frontier(items)]
         for _ in range(9):
@@ -201,14 +232,25 @@ class TestRankingDeterminism:
     def test_shuffled_input_same_output(self):
         """Different orderings of the same items produce same ranked output."""
         import random
+
         rng = random.Random(42)  # Deterministic seed for reproducibility
         items = [
-            self._item(item_id=i, priority=p,
-                        unblocks_count=u, created_at=f"2026-{m:02d}-01T00:00:00Z")
-            for i, (p, u, m) in enumerate([
-                ("high", 1, 1), ("medium", 3, 2), ("low", 0, 3),
-                ("high", 0, 4), ("medium", 2, 5),
-            ], start=1)
+            self._item(
+                item_id=i,
+                priority=p,
+                unblocks_count=u,
+                created_at=f"2026-{m:02d}-01T00:00:00Z",
+            )
+            for i, (p, u, m) in enumerate(
+                [
+                    ("high", 1, 1),
+                    ("medium", 3, 2),
+                    ("low", 0, 3),
+                    ("high", 0, 4),
+                    ("medium", 2, 5),
+                ],
+                start=1,
+            )
         ]
         expected = [i.item_id for i in rank_frontier(items)]
         for _ in range(20):
@@ -216,3 +258,43 @@ class TestRankingDeterminism:
             rng.shuffle(shuffled)
             result = [i.item_id for i in rank_frontier(shuffled)]
             assert result == expected
+
+
+def test_frontier_rank_compares_native_microseconds_and_offset_equivalence():
+    build = TestRankFrontier()._item
+    first = build(item_id=1, created_at="2060-10-08T05:45:00.123456+05:45")
+    equal = build(item_id=2, created_at="2060-10-08T00:00:00.123456Z")
+    later = build(item_id=3, created_at="2060-10-08T00:00:00.123457Z")
+    assert first.created_at == datetime(
+        2060, 10, 8, 0, 0, 0, 123456, tzinfo=timezone.utc
+    )
+    assert isinstance(first.created_at, datetime)
+    assert rank_frontier([later, first, equal]) == [first, equal, later]
+    assert rank_frontier([later, equal, first]) == [equal, first, later]
+    missing = build(item_id=4, created_at=None)
+    assert rank_frontier([missing, later, first]) == [first, later, missing]
+
+
+def test_scheduled_creation_clock_keeps_native_microseconds():
+    step = ScheduledStep(
+        item_id=1,
+        workflow_id="dash",
+        workflow_version_id=1,
+        workflow_version=1,
+        status="implementing",
+        title="Clock",
+        priority="medium",
+        next_step=NextStep.DASH,
+        created_at="2060-10-08T05:45:00.123456+05:45",
+    )
+    assert step.created_at == datetime(
+        2060, 10, 8, 0, 0, 0, 123456, tzinfo=timezone.utc
+    )
+
+
+@pytest.mark.parametrize(
+    "clock", ["", "2060-10-08", "2060-10-08T00:00:00", datetime(2060, 10, 8)]
+)
+def test_frontier_creation_clock_requires_an_explicit_instant(clock):
+    with pytest.raises(InvalidInstant):
+        TestRankFrontier()._item(created_at=clock)

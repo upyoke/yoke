@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
 from enum import Enum
 from typing import Any, List
 
@@ -50,7 +53,11 @@ class FrontierItem:
     blocker_details: List[dict[str, Any]] = field(default_factory=list)
     unblocks_count: int = 0
     downstream_depth: int = 0
-    created_at: str = ""
+    created_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        if self.created_at is not None:
+            self.created_at = parse_instant(self.created_at)
 
 
 @dataclass

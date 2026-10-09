@@ -23,6 +23,14 @@ def rank_frontier(items: Sequence[FrontierItem]) -> List[FrontierItem]:
         depth = -item.downstream_depth
         unblocks = -item.unblocks_count
         lifecycle = -item.stage_index
-        return (nearly_done, pri, depth, unblocks, lifecycle, item.created_at)
+        return (
+            nearly_done,
+            pri,
+            depth,
+            unblocks,
+            lifecycle,
+            item.created_at is None,
+            item.created_at,
+        )
 
     return sorted(items, key=sort_key)
