@@ -45,7 +45,9 @@ from yoke_cli.commands.adapters.workflows_item_posture import (
 from yoke_cli.commands.adapters.workflows_canon_help import (
     USAGE_BY_FUNCTION_ID as canon_usage,
 )
-from yoke_cli.commands.adapters.workflows_publication import WORKFLOWS_VERSION_PUBLISH_USAGE
+from yoke_cli.commands.adapters.workflows_publication import (
+    WORKFLOWS_VERSION_PUBLISH_USAGE,
+)
 from yoke_cli.commands.adapters.workflows_versions import (
     WORKFLOWS_CURRENT_SET_USAGE,
     WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE,
