@@ -30,6 +30,7 @@ import os
 import re
 import tempfile
 from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now, format_instant
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
 
@@ -151,7 +152,7 @@ def export_universe(
             selected_org = str(identity["org"])
             dest = resolve_export_destination(out, selected_org)
             emit(f"  [universe-export] dumping org {selected_org!r} universe -> {dest}")
-            frozen_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            frozen_at = format_instant(utc_now())
             snapshot_id = str(conn.execute("SELECT pg_export_snapshot()").fetchone()[0])
             before = authority_receipt(conn)
             staged_dump = _staged_dump_path(dest)

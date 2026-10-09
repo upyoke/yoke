@@ -8,7 +8,7 @@ All public receipts omit connection strings and credentials.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now, format_instant
 from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -40,6 +40,7 @@ _DATABASE_FAILURE = (
 
 def _translate_database_errors(operation: Callable[..., dict[str, Any]]):
     """Keep psycopg and its diagnostics behind the source-dev boundary."""
+
     @wraps(operation)
     def wrapped(*args: object, **kwargs: object) -> dict[str, Any]:
         try:
@@ -50,6 +51,7 @@ def _translate_database_errors(operation: Callable[..., dict[str, Any]]):
             if isinstance(exc, PsycopgError):
                 raise SourceAuthorityCutoverError(_DATABASE_FAILURE) from exc
             raise
+
     return wrapped
 
 
@@ -83,7 +85,9 @@ def resolve_prod_admin_dsn() -> str:
 
 @_translate_database_errors
 def begin(
-    *, service_stop_receipt: str, credential_file: str | Path,
+    *,
+    service_stop_receipt: str,
+    credential_file: str | Path,
     dsn: Optional[str] = None,
 ) -> dict[str, Any]:
     """Rotate the shared credential, install the fence, drain, and prove."""
@@ -95,7 +99,8 @@ def begin(
     existing = Path(credential_file).expanduser()
     if existing.exists() or existing.is_symlink():
         bundle = _load_bundle(
-            credential_file, original_dsn=original_dsn,
+            credential_file,
+            original_dsn=original_dsn,
             service_stop_receipt=stop_receipt,
         )
         resumed = _connection_or_none(bundle.cutover_dsn)
@@ -103,7 +108,9 @@ def begin(
             try:
                 _validate_bundle_authority(resumed, bundle)
                 return _complete_begin(
-                    resumed, bundle=bundle, resumed_after_commit=True,
+                    resumed,
+                    bundle=bundle,
+                    resumed_after_commit=True,
                 )
             finally:
                 resumed.close()
@@ -125,9 +132,11 @@ def begin(
             service_stop_receipt=stop_receipt,
             original_rolcanlogin=rolcanlogin,
         )
-        frozen_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        frozen_at = format_instant(utc_now())
         connect_fence.install_connect_fence(
-            conn, frozen_at=frozen_at, service_stop_receipt=stop_receipt,
+            conn,
+            frozen_at=frozen_at,
+            service_stop_receipt=stop_receipt,
         )
         role_credentials.rotate_role_password(conn, bundle)
         # Password cutoff and CONNECT policy become visible in one commit.
@@ -143,7 +152,9 @@ def begin(
     try:
         _validate_bundle_authority(cutover, bundle)
         return _complete_begin(
-            cutover, bundle=bundle, resumed_after_commit=False,
+            cutover,
+            bundle=bundle,
+            resumed_after_commit=False,
         )
     finally:
         cutover.close()
@@ -151,7 +162,9 @@ def begin(
 
 @_translate_database_errors
 def status(
-    *, credential_file: str | Path, dsn: Optional[str] = None,
+    *,
+    credential_file: str | Path,
+    dsn: Optional[str] = None,
 ) -> dict[str, Any]:
     """Return source state after canonical machine authority has switched."""
     bundle = _load_bundle(credential_file, original_dsn=dsn)
@@ -181,7 +194,9 @@ def status(
 
 @_translate_database_errors
 def abort(
-    *, credential_file: str | Path, dsn: Optional[str] = None,
+    *,
+    credential_file: str | Path,
+    dsn: Optional[str] = None,
 ) -> dict[str, Any]:
     from yoke_core.domain.source_authority_cutover_lifecycle import abort as impl
 
@@ -190,20 +205,25 @@ def abort(
 
 @_translate_database_errors
 def retire(
-    *, credential_file: str | Path, retirement_receipt: str,
+    *,
+    credential_file: str | Path,
+    retirement_receipt: str,
     dsn: Optional[str] = None,
 ) -> dict[str, Any]:
     from yoke_core.domain.source_authority_cutover_lifecycle import retire as impl
 
     return impl(
-        credential_file=credential_file, retirement_receipt=retirement_receipt,
+        credential_file=credential_file,
+        retirement_receipt=retirement_receipt,
         dsn=dsn,
     )
 
 
 @_translate_database_errors
 def export_quiesced(
-    *, out: str | Path, credential_file: str | Path,
+    *,
+    out: str | Path,
+    credential_file: str | Path,
     dsn: Optional[str] = None,
 ) -> dict[str, Any]:
     """Export prod through the bundle's rotated cutover authority."""
@@ -215,7 +235,9 @@ def export_quiesced(
 
 
 def _complete_begin(
-    conn: object, *, bundle: source_credentials.SourceCredentialBundle,
+    conn: object,
+    *,
+    bundle: source_credentials.SourceCredentialBundle,
     resumed_after_commit: bool,
 ) -> dict[str, Any]:
     _validate_bundle_authority(conn, bundle)
@@ -229,12 +251,15 @@ def _complete_begin(
             "source watermarks changed while establishing quiescence"
         )
     return {
-        "operation": "begin", "quiesced": True,
+        "operation": "begin",
+        "quiesced": True,
         "database": _database_identity(conn),
         "terminated_connections": fence["terminated_other_sessions"],
-        "stable_watermarks": True, "frozen_at": state["frozen_at"],
+        "stable_watermarks": True,
+        "frozen_at": state["frozen_at"],
         "service_stop_receipt": state["service_stop_receipt"],
-        "zero_writable_app_sessions": True, "admin_fence": fence,
+        "zero_writable_app_sessions": True,
+        "admin_fence": fence,
         "credential_fence": {
             "old_credential_rejected": True,
             "cutover_credential_active": True,
@@ -247,7 +272,13 @@ def _complete_begin(
 
 
 __all__ = [
-    "SourceAuthorityCutoverError", "abort", "authority_receipt", "begin",
-    "export_quiesced", "freeze_intent", "resolve_prod_admin_dsn", "retire",
+    "SourceAuthorityCutoverError",
+    "abort",
+    "authority_receipt",
+    "begin",
+    "export_quiesced",
+    "freeze_intent",
+    "resolve_prod_admin_dsn",
+    "retire",
     "status",
 ]

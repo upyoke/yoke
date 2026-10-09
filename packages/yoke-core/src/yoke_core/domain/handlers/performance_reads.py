@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now, format_instant
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -80,7 +81,7 @@ def _read(request: FunctionCallRequest, detail: bool) -> HandlerOutcome:
                 observations, start.timestamp(), end.timestamp(), value.points
             )
             result.update(
-                queried_at=datetime.now(timezone.utc).isoformat(),
+                queried_at=format_instant(utc_now()),
                 coverage=(
                     "Delivered retained observations only; gaps and older history are unknown. "
                     "Last observation is not proof of collector health. Unattributed observations "

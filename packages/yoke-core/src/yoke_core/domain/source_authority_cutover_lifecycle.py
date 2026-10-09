@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now, format_instant
 from pathlib import Path
 from typing import Any, Optional
 
@@ -23,7 +23,9 @@ from yoke_core.domain.source_authority_receipts import authority_receipt
 
 
 def abort(
-    *, credential_file: str | Path, dsn: Optional[str] = None,
+    *,
+    credential_file: str | Path,
+    dsn: Optional[str] = None,
 ) -> dict[str, Any]:
     """Abort migration and atomically restore credential plus CONNECT policy."""
     bundle = load_bundle(credential_file, original_dsn=dsn)
@@ -49,9 +51,7 @@ def abort(
             )
         try:
             identity = database_identity(restored)
-            current_role = str(
-                restored.execute("SELECT current_user").fetchone()[0]
-            )
+            current_role = str(restored.execute("SELECT current_user").fetchone()[0])
             if (
                 identity["database"] != bundle.database
                 or identity["database_oid"] != bundle.database_oid
@@ -65,10 +65,13 @@ def abort(
             restored.close()
         source_credentials.delete_bundle(bundle)
         return {
-            "operation": "abort", "quiesced": False, "recovered": True,
+            "operation": "abort",
+            "quiesced": False,
+            "recovered": True,
             "cutover_connection_rejection": (
                 "not-used-as-evidence"
-                if cutover_probe_inconclusive else "authentication-sqlstate"
+                if cutover_probe_inconclusive
+                else "authentication-sqlstate"
             ),
         }
     try:
@@ -90,40 +93,45 @@ def abort(
     proof.close()
     source_credentials.delete_bundle(bundle)
     return {
-        "operation": "abort", "quiesced": False, "database": database,
-        "admin_fence": restored, "authority": before,
+        "operation": "abort",
+        "quiesced": False,
+        "database": database,
+        "admin_fence": restored,
+        "authority": before,
         "original_credential_recovered": True,
     }
 
 
 def retire(
-    *, credential_file: str | Path, retirement_receipt: str,
+    *,
+    credential_file: str | Path,
+    retirement_receipt: str,
     dsn: Optional[str] = None,
 ) -> dict[str, Any]:
     """Permanently disable the source login while preserving fence evidence."""
     receipt = validated_receipt(retirement_receipt, label="retirement receipt")
     bundle = load_bundle(credential_file, original_dsn=dsn)
     original_dsn = bundle.original_dsn
-    chosen_retired_at = (
-        bundle.retired_at
-        or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    )
+    chosen_retired_at = bundle.retired_at or format_instant(utc_now())
     try:
         bundle = source_credentials.prepare_retirement(
-            bundle, retirement_receipt=receipt,
+            bundle,
+            retirement_receipt=receipt,
             retired_at=chosen_retired_at,
         )
     except source_credentials.SourceCredentialError as exc:
         raise SourceAuthorityCutoverError(str(exc)) from exc
     if bundle.retirement_phase == "transaction_started":
         conn = retirement_connection_or_none(
-            bundle.cutover_dsn, role=bundle.admin_role,
+            bundle.cutover_dsn,
+            role=bundle.admin_role,
         )
     else:
         conn = connection_or_none(bundle.cutover_dsn)
     if conn is None:
         original = retirement_connection_or_none(
-            original_dsn, role=bundle.admin_role,
+            original_dsn,
+            role=bundle.admin_role,
         )
         if original is not None:
             original.close()
@@ -137,30 +145,34 @@ def retire(
             )
         source_credentials.delete_bundle(bundle)
         return {
-            "operation": "retire", "quiesced": True, "retired": True,
+            "operation": "retire",
+            "quiesced": True,
+            "retired": True,
             "retired_at": bundle.retired_at,
             "retirement_receipt": bundle.retirement_receipt,
-            "login_disabled": True, "password_cleared": True,
+            "login_disabled": True,
+            "password_cleared": True,
             "recovered_after_commit": True,
         }
     try:
         validate_bundle_authority(conn, bundle)
         try:
-            bundle = source_credentials.mark_retirement_transaction_started(
-                bundle
-            )
+            bundle = source_credentials.mark_retirement_transaction_started(bundle)
         except source_credentials.SourceCredentialError as exc:
             raise SourceAuthorityCutoverError(str(exc)) from exc
         database = database_identity(conn)
         before = authority_receipt(conn)
         mark_source_retired(
-            conn, retired_at=chosen_retired_at, retirement_receipt=receipt,
+            conn,
+            retired_at=chosen_retired_at,
+            retirement_receipt=receipt,
         )
         role_credentials.retire_role_credential(conn, bundle)
         conn.commit()
         state = connect_fence.fence_state(conn)
         if (
-            state is None or state["retired_at"] != chosen_retired_at
+            state is None
+            or state["retired_at"] != chosen_retired_at
             or state["retirement_receipt"] != receipt
         ):
             raise SourceAuthorityCutoverError(
@@ -168,14 +180,18 @@ def retire(
             )
         try:
             retirement_proof = role_credentials.prove_role_retired(
-                conn, bundle,
+                conn,
+                bundle,
             )
         except source_credentials.SourceCredentialError as exc:
             raise SourceAuthorityCutoverError(str(exc)) from exc
         source_credentials.delete_bundle(bundle)
         return {
-            "operation": "retire", "quiesced": True, "retired": True,
-            "database": database, "retired_at": chosen_retired_at,
+            "operation": "retire",
+            "quiesced": True,
+            "retired": True,
+            "database": database,
+            "retired_at": chosen_retired_at,
             "retirement_receipt": receipt,
             "login_disabled": retirement_proof["login_disabled"],
             "password_cleared": retirement_proof["password_cleared"],

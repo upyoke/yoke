@@ -56,3 +56,9 @@ the exact cutoff survives while a row one microsecond earlier expires.
 Pending dispatch custody never expires. Lint and hook completion lookups bind
 native window bounds. Hourly hook/tool reports format bucket instants as
 fixed-six UTC while durations and coverage remain numeric facts.
+
+Local and self-host universe import authority/credential writes bind native
+clocks. New archive freeze and source-authority receipts format fixed-six UTC;
+archive contents and existing receipt bytes retain their custody. Resume notices,
+path override envelopes and capacity/performance report clocks use the shared
+formatter at their owned JSON boundary. Opaque identifiers remain unchanged.

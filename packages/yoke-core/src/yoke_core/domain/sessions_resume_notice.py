@@ -14,18 +14,14 @@ flow stays under the authored-file budget.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now, format_instant, temporal_wire
 from typing import Any, Dict, List, Optional
 
 from .schema_common import _get_columns as _schema_get_columns
 
 
 def _now_iso() -> str:
-    return (
-        datetime.now(timezone.utc)
-        .isoformat(timespec="microseconds")
-        .replace("+00:00", "Z")
-    )
+    return format_instant(utc_now())
 
 
 def _column_present(conn: Any) -> bool:
@@ -61,7 +57,7 @@ def write_pending_resume_notice(
     }
     conn.execute(
         "UPDATE harness_sessions SET pending_resume_notice = %s WHERE session_id = %s",
-        (json.dumps(notice, separators=(",", ":")), session_id),
+        (json.dumps(temporal_wire(notice), separators=(",", ":")), session_id),
     )
     if commit:
         conn.commit()
