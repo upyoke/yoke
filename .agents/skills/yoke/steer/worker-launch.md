@@ -31,7 +31,13 @@ yoke session-control launch create \
   --json
 ```
 
-For one launch, add `--level {_level}` to override the effective stage level.
+**Judge the leg before every item launch:** well-specified mechanical
+edits, small bug fixes, docs, routine cleanup → `--level JUNIOR`; trivial,
+fully specified → `--level INTERN`; definition or implementation of real
+design work → the stage level (omit `--level`); very complex → `--level
+PRINCIPAL`. Depth: [`model-selection.md`](model-selection.md).
+Add the judged `--level {_level}` to both preview and create; it overrides the
+effective stage level for this launch only.
 An exact operator selection adds `--surface {_surface}
 --model {_model} --reasoning-effort {_effort} [--context-window {_context}]`
 and names that selection in the idempotency key.

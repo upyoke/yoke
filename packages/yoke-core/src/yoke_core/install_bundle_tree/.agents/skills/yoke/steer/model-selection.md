@@ -1,9 +1,10 @@
 # /yoke steer — choosing a level for a launch
 
 `session_control.launch.create` defaults to the item's live effective stage
-level, and Yoke chooses the option and machine. Use `--level` only for a
-deliberate one-launch override. This file is how the steering seat decides
-an item's override. It applies to **new launches only** — a running session keeps
+level, and Yoke chooses the option and machine. Judge the current leg before
+every item launch and pass `--level` whenever that judgment differs from the
+stage level. This file is how the steering seat decides the level and an
+item's override. It applies to **new launches only** — a running session keeps
 the selection it started with, and changing a worker's level means launching
 a replacement, never editing a live one.
 
@@ -15,7 +16,7 @@ level that started it.
 | The current leg is | Level |
 |---|---|
 | Definition (idea, refine, shepherd), implementation, pre-merge review/polish — the default | `SENIOR` |
-| Well-specified mechanical edits, documentation, routine cleanup | `JUNIOR` |
+| Well-specified mechanical edits, small bug fixes, documentation, routine cleanup | `JUNIOR` |
 | Trivial, fully specified changes | `INTERN` |
 | Genuinely very complex debugging or architectural decisions | `PRINCIPAL` |
 
