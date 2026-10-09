@@ -24,7 +24,6 @@ from yoke_core.domain.epic_task_sync_github_label_setup import (
     prepare_required_labels,
 )
 from yoke_core.domain.epic_task_sync_github_orchestrator_setup import (
-    record_created_task_history,
     finalize_sync,
     load_task_rows,
     preflight_sync,
@@ -307,8 +306,6 @@ def sync_epic_tasks(
                     (int(lane["id"]), epic_name, int(db_tnum)),
                 )
             conn.commit()
-
-            record_created_task_history(conn, epic_name, int(db_tnum))
 
         return finalize_sync(
             dry_run=dry_run,

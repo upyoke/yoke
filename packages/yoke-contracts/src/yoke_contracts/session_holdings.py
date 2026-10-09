@@ -8,7 +8,9 @@ their latest release and count, and callers supply the previous-row budget.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
 from typing import Any, Iterable, Mapping
 
 
@@ -55,29 +57,15 @@ def steering_hold_window_key(
     project_id: Any,
     claimed_at: Any,
     released_at: Any,
-) -> tuple[str, str, str]:
+) -> tuple[str, datetime | None, datetime | None]:
     """Identify one project's steering hold window across board reads."""
-    return (str(project_id), str(claimed_at or ""), str(released_at or ""))
+    return (str(project_id), _timestamp(claimed_at), _timestamp(released_at))
 
 
 def _timestamp(value: Any) -> datetime | None:
     if value is None:
         return None
-    stamp = (
-        value
-        if isinstance(value, datetime)
-        else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    )
-    if stamp.tzinfo is None:
-        return stamp.replace(tzinfo=timezone.utc)
-    return stamp.astimezone(timezone.utc)
-
-
-def _release_timestamp(value: Any) -> datetime | None:
-    try:
-        return _timestamp(value)
-    except (TypeError, ValueError):
-        return None
+    return parse_instant(value)
 
 
 def pair_steering_document_slugs(
@@ -135,8 +123,8 @@ def _merge_target_entry(retained: dict[str, Any], incoming: Mapping[str, Any]) -
         retained["occurrence_count"] = int(retained.get("occurrence_count") or 1) + int(
             incoming.get("occurrence_count") or 1
         )
-    retained_release = _release_timestamp(retained.get("released_at"))
-    incoming_release = _release_timestamp(incoming.get("released_at"))
+    retained_release = _timestamp(retained.get("released_at"))
+    incoming_release = _timestamp(incoming.get("released_at"))
     if incoming_release and (
         retained_release is None or incoming_release > retained_release
     ):
@@ -158,7 +146,8 @@ def group_session_holdings(
     """Partition and bound one session's holding observations.
 
     Each observation must carry a stable ``target_key`` and a ``released_at``
-    value.  ``released_at is None`` means the target is currently held. The
+    value. Nullable historical clocks use an explicit ``currently_held=False``
+    observation; otherwise ``released_at is None`` means currently held. The
     first row for a target is the display row retained within its partition,
     enriched with the latest release and repeated-claim count. A current row
     always removes the same target from previous history, regardless of input
@@ -186,7 +175,11 @@ def group_session_holdings(
                 "authority target before grouping"
             )
         entry["target_key"] = target_key
-        if entry.get("released_at") is None:
+        entry["released_at"] = _timestamp(entry.get("released_at"))
+        held = entry.pop("currently_held", entry["released_at"] is None)
+        if not isinstance(held, bool) or (held and entry["released_at"] is not None):
+            raise ValueError("holding state conflicts with its release clock")
+        if held:
             retained = current.setdefault(target_key, entry)
             if retained is not entry:
                 _merge_target_entry(retained, entry)
@@ -201,9 +194,7 @@ def group_session_holdings(
         key=lambda entry: entry.get("target_kind") != "steering",
     )
     shown_previous = (
-        previous_rows
-        if previous_limit is None
-        else previous_rows[:previous_limit]
+        previous_rows if previous_limit is None else previous_rows[:previous_limit]
     )
     return {
         "current": list(current.values()),

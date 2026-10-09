@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from typing import Any, TextIO
 
-from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import instant_parameter, utc_now
-
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
 )
@@ -116,26 +113,3 @@ def finalize_sync(
         summary += f", {len(failed_tasks)} failed (tasks {', '.join(failed_tasks)})"
     print(summary, file=stdout)
     return 1 if failed_tasks else 0
-
-
-def record_created_task_history(conn: Any, epic_name: str, task_num: int) -> None:
-    """Record a newly synchronized task with a native creation fact."""
-    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    try:
-        conn.execute(
-            "INSERT INTO epic_task_history "
-            "(epic_id, task_num, from_status, to_status, note, created_at) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p})",
-            (
-                epic_name,
-                task_num,
-                "none",
-                "pending",
-                "Created via sync",
-                instant_parameter(conn, utc_now()),
-            ),
-        )
-        conn.commit()
-    except db_backend.operational_error_types(conn):
-        conn.rollback()
-        # Some minimal fixtures intentionally omit the optional history table.

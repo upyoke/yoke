@@ -150,12 +150,12 @@ def _coordination_observations(
                     "owner_kind": "item",
                     "owner_item_id": item_id,
                     "owner_public_ref": owner_facts.get("public_ref"),
+                    "currently_held": held,
                     "released_at": (
                         None
                         if held
                         else claim.get("released_at")
                         or item_releases.get((session_id, item_id))
-                        or "released"
                     ),
                 }
             )
@@ -204,7 +204,8 @@ def _path_observations(
                 "target_key": key,
                 "target": target,
                 "path_count": 0,
-                "released_at": None if held else released or "released",
+                "released_at": None if held else released,
+                "currently_held": held,
             },
         )
         entry["path_count"] = int(entry["path_count"]) + count

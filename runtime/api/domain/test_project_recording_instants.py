@@ -14,7 +14,7 @@ from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain import project_snapshot_chunk_uploads as staging
 from yoke_core.domain import projects_capabilities_settings as settings
 from yoke_core.domain import projects_pulumi_state_migration_rows as pulumi
-from yoke_core.domain import epic_task_sync_github_orchestrator_setup as task_history
+from yoke_core.domain import item_status_transitions as task_history
 
 MOMENT = parse_instant("1969-12-31T05:44:59.123456+05:45")
 ZONES = ["UTC", "America/New_York", "Asia/Kathmandu"]
@@ -68,7 +68,7 @@ def test_capability_creation_and_idempotent_pulumi_rows_keep_native_clock(
 
 
 @pytest.mark.parametrize("zone", ZONES)
-def test_task_creation_history_uses_native_fact(test_db, monkeypatch, zone):
+def test_canonical_task_transition_history_uses_native_fact(test_db, monkeypatch, zone):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
     monkeypatch.setattr(task_history, "utc_now", lambda: MOMENT)
     item = test_db.execute("SELECT COALESCE(MAX(id),0)+1 FROM items").fetchone()[0]
@@ -82,13 +82,20 @@ def test_task_creation_history_uses_native_fact(test_db, monkeypatch, zone):
         title="Clock recording",
         status="planned",
     )
-    task_history.record_created_task_history(test_db, str(item), 1)
+    assert task_history.record_task_transition(
+        test_db,
+        epic_id=item,
+        task_num=1,
+        from_status="planned",
+        to_status="implementing",
+        source="native-clock-proof",
+    )
     row = test_db.execute(
-        "SELECT created_at,note FROM epic_task_history WHERE epic_id=%s AND task_num=1",
+        "SELECT created_at,source FROM item_status_transitions WHERE item_id=%s AND task_num=1",
         (item,),
     ).fetchone()
     _native(row[0])
-    assert row[1] == "Created via sync"
+    assert row[1] == "native-clock-proof"
 
 
 def test_naive_capability_creation_clock_refuses_before_insert(test_db, monkeypatch):

@@ -18,17 +18,23 @@ from contextlib import contextmanager
 import fcntl
 import os
 import re
-import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from pathlib import Path
 from typing import Iterator, Optional, Union
 
 from yoke_contracts.payload_session_fold import is_hook_replay
+from yoke_contracts.timestamps import (
+    InvalidInstant,
+    format_instant,
+    parse_instant,
+    utc_now,
+)
 
 
 REMOUNT_EXPECT_DIR_NAME = "remount-expect"
 REMOUNT_EXPECT_TTL_S = 300
+_CLOCK_FIELDS = ("expires_at", "holder_activity_at", "written_at", "candidate_seen_at")
 REMOUNT_ABSENT = "absent"
 REMOUNT_OBSERVING = "observing"
 REMOUNT_CONTINUITY = "continuity"
@@ -101,16 +107,14 @@ def _read_live(path: Path) -> Optional[dict]:
         return None
     if not isinstance(record, dict):
         return None
-    expires_at = record.get("expires_at")
-    if not isinstance(expires_at, str) or not expires_at:
-        return None
     try:
-        expires = datetime.fromisoformat(expires_at)
-    except ValueError:
+        record["expires_at"] = parse_instant(record.get("expires_at"))
+        for key in _CLOCK_FIELDS[1:]:
+            if key in record and record[key] is not None:
+                record[key] = parse_instant(record[key])
+    except InvalidInstant:
         return None
-    if expires.tzinfo is None:
-        expires = expires.replace(tzinfo=timezone.utc)
-    if expires.timestamp() < time.time():
+    if record["expires_at"] < utc_now():
         try:
             path.unlink(missing_ok=True)
         except OSError:
@@ -122,7 +126,11 @@ def _read_live(path: Path) -> Optional[dict]:
 def _write_record(path: Path, record: dict) -> bool:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps(record, sort_keys=True)
+        wire = dict(record)
+        for key in _CLOCK_FIELDS:
+            if key in wire and wire[key] is not None:
+                wire[key] = format_instant(wire[key])
+        payload = json.dumps(wire, sort_keys=True)
         tmp = path.with_name(f".{path.name}.tmp.{os.getpid()}")
         tmp.write_text(payload + "\n", encoding="utf-8")
         os.replace(tmp, path)
@@ -154,20 +162,23 @@ def write_remount_expect(
     with _exclusive_receipt(path) as locked:
         if not locked:
             return False
-        now = datetime.now(timezone.utc)
+        now = utc_now()
         expires = now + timedelta(seconds=REMOUNT_EXPECT_TTL_S)
-        existing = _read_live(path) or {}
+        existing = _read_live(path)
+        if existing is None and path.exists():
+            return False
+        existing = existing or {}
         same_conversation = existing.get("holder_conversation_id") == conversation_id
         prior_sequence = existing.get("holder_hook_sequence", 0)
         if not isinstance(prior_sequence, int) or not same_conversation:
             prior_sequence = 0
         record = {
-            "expires_at": expires.isoformat(),
-            "holder_activity_at": now.isoformat(),
+            "expires_at": expires,
+            "holder_activity_at": now,
             "holder_conversation_id": conversation_id,
             "holder_hook_sequence": prior_sequence + 1,
             "holder_session_id": holder_session_id,
-            "written_at": now.isoformat(),
+            "written_at": now,
         }
         if same_conversation:
             for key in (
@@ -230,7 +241,7 @@ def _observe_locked(
     record = _read_live(path)
     if record is None:
         return RemountDecision(
-            REMOUNT_ABSENT,
+            REMOUNT_REFUSED if path.exists() else REMOUNT_ABSENT,
             holder_session_id,
             "",
             arriving_conversation_id,
@@ -254,7 +265,7 @@ def _observe_locked(
             {
                 "candidate_conversation_id": arriving_conversation_id,
                 "candidate_observed_sequence": sequence,
-                "candidate_seen_at": datetime.now(timezone.utc).isoformat(),
+                "candidate_seen_at": utc_now(),
             }
         )
         outcome = REMOUNT_OBSERVING if _write_record(path, record) else REMOUNT_REFUSED
