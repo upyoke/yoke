@@ -1,9 +1,11 @@
 """Render how a level launch chose its option: level, winner, every pool read.
 
 The one line a reader needs is the level, the option that won, and why;
-the table under it is the evidence -- each option weighed on each machine,
-the quota pools its model draws on, the live workers already there, and the
-rule or pool that blocked it.
+the table under it is the evidence -- each option weighed on each machine
+(named as registered; the server composes the label), the quota pools its
+model draws on with when each resets, the live workers already there, and
+the rule or pool that blocked it. A server that predates ``resets_utc``
+omits it, and the pool prints without a reset.
 """
 
 from __future__ import annotations
@@ -33,21 +35,25 @@ def level_rows(placement: Any) -> list[tuple[str, Any]]:
     ]
 
 
+def _pool(pool: Mapping[str, Any]) -> str:
+    text = (
+        f"{pool.get('window')} {_percent(pool.get('remaining_percent'))} left, "
+        f"headroom {_percent(pool.get('headroom_percent'))}"
+    )
+    resets = pool.get("resets_utc")
+    return f"{text}, resets {resets} UTC" if resets else text
+
+
 def _pools_cell(row: Mapping[str, Any]) -> str:
     pools = row.get("pools") or []
     if not pools:
         return "no meter covers this model"
-    return "; ".join(
-        f"{pool.get('window')} {_percent(pool.get('remaining_percent'))} left, "
-        f"headroom {_percent(pool.get('headroom_percent'))}"
-        for pool in pools
-        if isinstance(pool, Mapping)
-    )
+    return "; ".join(_pool(pool) for pool in pools if isinstance(pool, Mapping))
 
 
 _COLUMNS: tuple[Column, ...] = (
-    ("OPTION", lambda row: row.get("label"), 48),
-    ("POOLS CHECKED", _pools_cell, 60),
+    ("OPTION", lambda row: row.get("label"), None),
+    ("POOLS CHECKED", _pools_cell, None),
     ("HEADROOM", lambda row: _percent(row.get("headroom_percent")), 10),
     ("LIVE", lambda row: row.get("live_workers"), 5),
     ("BLOCKED", lambda row: row.get("blocked") or "", 48),
