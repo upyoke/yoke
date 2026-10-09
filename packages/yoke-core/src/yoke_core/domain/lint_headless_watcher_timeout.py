@@ -131,11 +131,12 @@ def _format_reason(timeout_ms: Optional[int], suppression_seen: bool, mode: str)
         "BLOCKED: headless in-turn watcher Bash is missing the documented "
         f"timeout: {IN_TURN_WATCHER_TIMEOUT_MS}.\n\n"
         f"{observed}\n\n"
-        f"Repair: set timeout: {IN_TURN_WATCHER_TIMEOUT_MS} on this Bash tool "
-        "call (milliseconds). This is not a blanket Bash rule — interactive "
-        "sessions and non-watcher commands are unchanged.\n\n"
-        "If the command still outlives that ceiling, continue the same "
-        "backgrounded call until it exits. Do not Stop. Do not relaunch. "
+        f"Repair: set timeout: {IN_TURN_WATCHER_TIMEOUT_MS} (milliseconds) "
+        "on this headless watcher Bash call, not a blanket Bash rule. "
+        "Interactive sessions and other "
+        "commands are unchanged.\n\n"
+        "If it outlives that ceiling, continue the same backgrounded call "
+        "until it exits. Do not Stop. Do not relaunch. "
         "Existing Stop evidence cannot hold after that PostToolUse completion."
     )
     if mode == "warn":

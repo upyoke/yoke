@@ -27,9 +27,8 @@ from typing import Any
 
 #: How a terminal caller reaches a function that requires a session.
 TERMINAL_SUPPORTED_PATH = (
-    "Run the same command from a Yoke harness session — start a supported "
-    "harness (claude, codex, or cursor) in this project and run it there, "
-    "so the session the operation is recorded against exists."
+    "Run the same command from a Yoke harness session (claude, codex or cursor) "
+    "started in this project."
 )
 
 
@@ -48,17 +47,13 @@ def format_session_missing(
     )
     if not harness_family:
         return opening + (
-            "This process is not running under a harness, and this "
-            "operation is one that requires a session — a claim-holding or "
-            "session-scoped write, unlike the terminal operations "
-            f"onboarding runs. {TERMINAL_SUPPORTED_PATH}"
+            f"This process is not running under a harness; this write requires "
+            f"a session. {TERMINAL_SUPPORTED_PATH}"
         )
     return opening + (
-        "This is a Yoke infrastructure gap (session registration or "
-        "process-anchor resolution failed), not something to work around "
-        "— file a field-note if you can, otherwise report it to the "
-        "operator. Operator-debug only: an explicit session id "
-        "(--session-id) overrides ambient resolution."
+        "Yoke infrastructure gap: registration or process-anchor resolution "
+        "failed. File a field-note, or report it to the operator if unavailable. "
+        "Only operator-debug --session-id may override ambient resolution."
     )
 
 

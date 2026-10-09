@@ -38,20 +38,16 @@ def zero_recipients_detail(selector: RecipientSelector) -> str:
     if selector.session_ids:
         return (
             "no session matches the session id(s) "
-            f"{_listed(selector.session_ids)}. A session id is matched whole "
-            "and exactly; a shortened, padded, or hand-assembled one either "
-            "misses or lands on a different session that shares its leading "
-            "characters. Address the worker by its work instead — "
-            "`yoke say --item PREFIX-N --stdin` reaches the one holder of a "
-            "live claim — or take a whole id from `yoke sessions list "
-            "--liveness active`."
+            f"{_listed(selector.session_ids)}. IDs match whole and exactly; "
+            "shortened, padded, or hand-assembled IDs can reach the wrong session. "
+            "Read a whole id from `yoke sessions list --liveness active`, "
+            "or address the live claim with `yoke say --item PREFIX-N --stdin`."
         )
     if selector.public_refs:
         return (
             f"no session holds a live work claim on {_listed(selector.public_refs)}, "
-            "so the item addresses nobody right now. Confirm the holder with "
-            "`yoke claims work holder-get PREFIX-N`; an unclaimed item has no "
-            "worker to reach, and a just-released one is between segments."
+            "so it addresses nobody. Confirm the holder with "
+            "`yoke claims work holder-get PREFIX-N`."
         )
     if selector.epic_tasks:
         return (
@@ -64,10 +60,9 @@ def zero_recipients_detail(selector: RecipientSelector) -> str:
     # The selector model requires an anchor, and the four above are the
     # addressed ones, so what is left is a roster audience.
     return (
-        "the roster audience resolved to zero sessions. Recipient filters "
-        "intersect the anchor, and --project and --universe resolve against "
-        "active sessions unless --liveness widens them; check "
-        "`yoke sessions list --liveness active` and drop a filter."
+        "the roster audience resolved to zero sessions. Filters intersect; "
+        "--project/--universe default to active unless --liveness widens them. "
+        "Check `yoke sessions list --liveness active`, then adjust filters."
     )
 
 

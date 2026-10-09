@@ -91,6 +91,12 @@ from yoke_core.engines.doctor_registry import (  # noqa: F401
 )
 
 
+_SCOPE_RECOVERY = (
+    "requires an explicit scope flag. Run `yoke watch doctor -- --quick` "
+    "(no GitHub calls); --full includes GitHub checks, --only <slugs> selects checks."
+)
+
+
 def run_checks(args: DoctorArgs) -> int:
     """Run all applicable health checks and return exit code (0 or 1)."""
     from yoke_core.domain.control_plane_transport import local_connection_or_none
@@ -99,14 +105,8 @@ def run_checks(args: DoctorArgs) -> int:
     if conn is None:
         print(
             "doctor engine entrypoint needs a local-postgres control plane; "
-            "this connection has none.\n"
-            "Use the product surface instead:\n"
-            "  yoke watch doctor -- --quick\n"
-            "(or --full / --only). The wrapper runs `yoke doctor run`, which "
-            "relays control-plane checks, runs source-tree checks on this "
-            "machine when a checkout is present, and streams the same "
-            "per-check lines on either transport — do not switch "
-            "environments to recover.",
+            "this connection has none. No checks ran. Use `yoke watch doctor "
+            "-- --quick` on this connection; do not switch environments.",
             file=sys.stderr,
         )
         return 1
@@ -218,14 +218,7 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> Optional[DoctorArgs]:
     # / --only must be specified; --list-checks already returned above.
     only_value = parsed.only or parsed.check_alias
     if not (parsed.quick or parsed.full or only_value):
-        parser.error(
-            "doctor requires an explicit scope flag. Pick one:\n"
-            "  --quick        skip GitHub-dependent HCs (recommended for "
-            "automated polish/verify; no gh calls)\n"
-            "  --full         run every HC including GitHub-dependent ones "
-            "(burns gh quota; for operator-invoked /yoke doctor)\n"
-            "  --only <slugs> run only the named HC(s)"
-        )
+        parser.error(f"doctor {_SCOPE_RECOVERY}")
     try:
         project = default_project(Path.cwd()) if not parsed.project else parsed.project
     except ValueError as exc:
@@ -262,12 +255,7 @@ def run_json(argv: Optional[Sequence[str]] = None) -> int:
         return 0
     only_value = parsed.only or parsed.check_alias
     if not (parsed.quick or parsed.full or only_value):
-        parser.error(
-            "doctor --json requires an explicit scope flag. Pick one:\n"
-            "  --quick        skip GitHub-dependent HCs\n"
-            "  --full         run every HC including GitHub-dependent ones\n"
-            "  --only <slugs> run only the named HC(s)"
-        )
+        parser.error(f"doctor --json {_SCOPE_RECOVERY}")
 
     try:
         project = parsed.project or default_project(Path.cwd())

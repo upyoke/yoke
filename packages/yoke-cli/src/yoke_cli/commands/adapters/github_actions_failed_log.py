@@ -169,11 +169,10 @@ def _emit_with_full_logs(response: Any, *, json_mode: bool) -> int:
         if not json_mode:
             print(result.get("output") or "")
         print(
-            "error: full_log_capture_unsupported: the control plane serving "
-            "github_actions.failed_log predates complete-log capture (its "
-            "response names no log_download_url). The report above is "
-            "current; complete logs need a control plane on a Yoke release "
-            "carrying --full. Until then open each failed job's GitHub URL.",
+            "error: full_log_capture_unsupported: this control plane returned "
+            "no log_download_url. The report is current; complete capture "
+            "requires a Yoke release carrying --full. Until upgraded, open "
+            "each failed job's GitHub URL.",
             file=sys.stderr,
         )
         return 1

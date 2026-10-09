@@ -100,10 +100,9 @@ def omission_advisory(condensed: list[str]) -> str:
     the whole envelope rather than telling anyone to run this one again.
     """
     return (
-        f"receipt: {', '.join(condensed)} restates stored state this command "
-        "did not change on request, so it printed as a size marker. This "
-        "command has already run — add --json to an invocation when you want "
-        "the whole envelope, rather than repeating this one."
+        f"receipt: {', '.join(condensed)} printed as size markers for unchanged "
+        "stored state. This command has already run; request --json on the "
+        "original invocation for the whole envelope, never repeat the write."
     )
 
 
