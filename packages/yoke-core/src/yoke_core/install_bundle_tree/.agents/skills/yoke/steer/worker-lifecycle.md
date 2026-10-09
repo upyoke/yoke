@@ -75,7 +75,7 @@ Steering-launched sessions use `claude-cli`, `codex-cli`, or
 `cursor-cli`. Desktop surfaces only when the operator directs it or a
 named exception scenario requires it.
 
-Preview every launch by level. Level options name CLI surfaces, so a level
+Preview every launch at the level judged under rule 7. Level options name CLI surfaces, so a level
 launch never lands on the desktop surface a steering session commonly runs
 on. An operator override that names `--surface` must name a CLI surface,
 never the calling session's own.
@@ -220,12 +220,17 @@ new `session_control.launch.create`.
 
 ## 7. Use the effective stage level at launch
 
-Use the live stage level with its item override; the level's options carry
-the model, effort, and context. `workflows.item.get` returns the effective
-`level` for mandatory preview; omit `--level` on item-bound create. An explicit
-`--level` overrides that one launch. Which level each leg asks for, what counts as a confirmed empty
-Cursor pool, adopting a new model, and why a resume keeps its selection is
-[`model-selection.md`](model-selection.md). Read it before naming a level.
+**Judge the leg before every item launch:** well-specified mechanical
+edits, small bug fixes, docs, routine cleanup → `--level JUNIOR`; trivial,
+fully specified → `--level INTERN`; definition or implementation of real
+design work → the stage level (omit `--level`); very complex → `--level
+PRINCIPAL`. Depth: [`model-selection.md`](model-selection.md).
+
+The stage level with its item override is what `workflows.item.get` returns as
+`level`; an explicit `--level` overrides that one launch. The level's options
+carry the model, effort, and context. What counts as a confirmed empty Cursor
+pool, adopting a new model, and why a resume keeps its selection is
+[`model-selection.md`](model-selection.md).
 Set the item's level override when you staff it (same file). The mechanics
 of an operator override are here.
 

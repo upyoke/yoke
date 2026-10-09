@@ -114,13 +114,26 @@ class TestSteerWorkerLifecycle:
 
     def test_launch_preview_is_mandatory_and_names_surface_refusals(self):
         text = _words(_worker_rules())
-        assert "Preview every launch by level" in text
+        assert "Preview every launch at the level judged under rule 7" in text
         assert "never the calling session's own" in text
         assert "level_no_capacity" in text
         assert "unsupported_surface" in text
         assert "A refusal names the surface, not the item" in text
         assert "launchable=true" in text
         assert "Do not create until preview returns" in text
+
+    def test_level_judgment_is_inline_at_every_launch_point(self):
+        rule = "Judge the leg before every item launch"
+        lifecycle = _words(_read(_STEER_DIR / "worker-lifecycle.md"))
+        launch = _words(_read(_STEER_DIR / "worker-launch.md"))
+        reference = _words(_read(_STEER_DIR / "function-reference.md"))
+        for text in (lifecycle, launch, reference):
+            assert rule in text
+            assert "`--level JUNIOR`" in text
+            assert "`--level INTERN`" in text
+            assert "omit `--level`" in text
+            assert "PRINCIPAL" in text
+            assert "model-selection.md" in text
 
 
 class TestSteerRestaff:
