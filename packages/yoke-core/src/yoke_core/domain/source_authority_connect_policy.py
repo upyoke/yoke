@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Any
 
 from psycopg import sql
+
+from yoke_contracts.timestamps import format_instant, parse_instant
 
 
 FENCE_POLICY_SCHEMA = "yoke.source-connect-fence/v1"
@@ -27,7 +30,8 @@ def connect_policy(conn: object) -> dict[str, Any]:
     ).fetchone()
     entries = [
         {
-            "grantee": str(entry[0]), "grantor": str(entry[1]),
+            "grantee": str(entry[0]),
+            "grantor": str(entry[1]),
             "is_grantable": bool(entry[2]),
         }
         for entry in conn.execute(
@@ -44,8 +48,10 @@ def connect_policy(conn: object) -> dict[str, Any]:
     ]
     return {
         "schema": FENCE_POLICY_SCHEMA,
-        "database": str(row[0]), "database_oid": int(row[1]),
-        "owner_role": str(row[2]), "admin_role": str(row[3]),
+        "database": str(row[0]),
+        "database_oid": int(row[1]),
+        "owner_role": str(row[2]),
+        "admin_role": str(row[3]),
         "datacl_was_null": bool(row[4]),
         "datacl_text": None if row[5] is None else str(row[5]),
         "connect_entries": entries,
@@ -56,8 +62,10 @@ def login_role_access(conn: object, *, admin_role: str) -> list[dict[str, Any]]:
     """Enumerate effective CONNECT and owner-membership for every login role."""
     return [
         {
-            "role": str(row[0]), "superuser": bool(row[1]),
-            "effective_connect": bool(row[2]), "inherits_admin": bool(row[3]),
+            "role": str(row[0]),
+            "superuser": bool(row[1]),
+            "effective_connect": bool(row[2]),
+            "inherits_admin": bool(row[3]),
         }
         for row in conn.execute(
             "SELECT r.rolname, r.rolsuper, "
@@ -89,29 +97,36 @@ def fence_state(conn: object) -> dict[str, Any] | None:
     exists = conn.execute("SELECT to_regclass(%s)", (qualified,)).fetchone()[0]
     if exists is None:
         return None
-    row = conn.execute(sql.SQL(
-        "SELECT policy, frozen_at, service_stop_receipt, "
-        "retired_at, retirement_receipt FROM {}.{} "
-        "WHERE singleton"
-    ).format(
-        sql.Identifier(FENCE_STATE_SCHEMA), sql.Identifier(FENCE_STATE_TABLE),
-    )).fetchone()
+    row = conn.execute(
+        sql.SQL(
+            "SELECT policy, frozen_at, service_stop_receipt, "
+            "retired_at, retirement_receipt FROM {}.{} "
+            "WHERE singleton"
+        ).format(
+            sql.Identifier(FENCE_STATE_SCHEMA),
+            sql.Identifier(FENCE_STATE_TABLE),
+        )
+    ).fetchone()
     if row is None:
         raise SourceConnectFenceError("durable CONNECT fence state row is missing")
     policy = row[0] if isinstance(row[0], dict) else json.loads(str(row[0]))
     return {
         "policy": policy,
-        "frozen_at": str(row[1]),
+        "frozen_at": format_instant(row[1]),
         "service_stop_receipt": str(row[2]),
-        "retired_at": None if row[3] is None else str(row[3]),
+        "retired_at": None if row[3] is None else format_instant(row[3]),
         "retirement_receipt": None if row[4] is None else str(row[4]),
     }
 
 
 def create_fence_state(
-    conn: object, *, original: dict[str, Any], frozen_at: str,
+    conn: object,
+    *,
+    original: dict[str, Any],
+    frozen_at: str | datetime,
     service_stop_receipt: str,
 ) -> None:
+    frozen_at = parse_instant(frozen_at)
     existing = conn.execute(
         "SELECT owner.rolname FROM pg_namespace n "
         "JOIN pg_roles owner ON owner.oid=n.nspowner WHERE n.nspname=%s",
@@ -122,79 +137,120 @@ def create_fence_state(
             "source fence control schema already exists without valid state"
         )
     admin_role = str(original["admin_role"])
-    conn.execute(sql.SQL("CREATE SCHEMA {} AUTHORIZATION {}").format(
-        sql.Identifier(FENCE_STATE_SCHEMA), sql.Identifier(admin_role),
-    ))
-    conn.execute(sql.SQL("REVOKE ALL ON SCHEMA {} FROM PUBLIC").format(
-        sql.Identifier(FENCE_STATE_SCHEMA),
-    ))
-    conn.execute(sql.SQL(
-        "CREATE TABLE {}.{} ("
-        "singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton), "
-        "policy jsonb NOT NULL, frozen_at text NOT NULL, "
-        "service_stop_receipt text NOT NULL, retired_at text, "
-        "retirement_receipt text)"
-    ).format(
-        sql.Identifier(FENCE_STATE_SCHEMA), sql.Identifier(FENCE_STATE_TABLE),
-    ))
-    conn.execute(sql.SQL("REVOKE ALL ON {}.{} FROM PUBLIC").format(
-        sql.Identifier(FENCE_STATE_SCHEMA), sql.Identifier(FENCE_STATE_TABLE),
-    ))
-    conn.execute(sql.SQL(
-        "INSERT INTO {}.{} "
-        "(singleton, policy, frozen_at, service_stop_receipt) "
-        "VALUES (true, %s::jsonb, %s, %s)"
-    ).format(
-        sql.Identifier(FENCE_STATE_SCHEMA), sql.Identifier(FENCE_STATE_TABLE),
-    ), (
-        json.dumps(original, sort_keys=True, separators=(",", ":")),
-        frozen_at, service_stop_receipt,
-    ))
+    conn.execute(
+        sql.SQL("CREATE SCHEMA {} AUTHORIZATION {}").format(
+            sql.Identifier(FENCE_STATE_SCHEMA),
+            sql.Identifier(admin_role),
+        )
+    )
+    conn.execute(
+        sql.SQL("REVOKE ALL ON SCHEMA {} FROM PUBLIC").format(
+            sql.Identifier(FENCE_STATE_SCHEMA),
+        )
+    )
+    conn.execute(
+        sql.SQL(
+            "CREATE TABLE {}.{} ("
+            "singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton), "
+            "policy jsonb NOT NULL, frozen_at timestamptz NOT NULL, "
+            "service_stop_receipt text NOT NULL, retired_at timestamptz, "
+            "retirement_receipt text)"
+        ).format(
+            sql.Identifier(FENCE_STATE_SCHEMA),
+            sql.Identifier(FENCE_STATE_TABLE),
+        )
+    )
+    conn.execute(
+        sql.SQL("REVOKE ALL ON {}.{} FROM PUBLIC").format(
+            sql.Identifier(FENCE_STATE_SCHEMA),
+            sql.Identifier(FENCE_STATE_TABLE),
+        )
+    )
+    conn.execute(
+        sql.SQL(
+            "INSERT INTO {}.{} "
+            "(singleton, policy, frozen_at, service_stop_receipt) "
+            "VALUES (true, %s::jsonb, %s, %s)"
+        ).format(
+            sql.Identifier(FENCE_STATE_SCHEMA),
+            sql.Identifier(FENCE_STATE_TABLE),
+        ),
+        (
+            json.dumps(original, sort_keys=True, separators=(",", ":")),
+            frozen_at,
+            service_stop_receipt,
+        ),
+    )
 
 
 def drop_fence_state(conn: object) -> None:
-    conn.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(
-        sql.Identifier(FENCE_STATE_SCHEMA),
-    ))
+    conn.execute(
+        sql.SQL("DROP SCHEMA {} CASCADE").format(
+            sql.Identifier(FENCE_STATE_SCHEMA),
+        )
+    )
 
 
 def mark_source_retired(
-    conn: object, *, retired_at: str, retirement_receipt: str,
+    conn: object,
+    *,
+    retired_at: str | datetime,
+    retirement_receipt: str,
 ) -> None:
-    conn.execute(sql.SQL(
-        "UPDATE {}.{} SET retired_at=%s, retirement_receipt=%s "
-        "WHERE singleton AND retired_at IS NULL"
-    ).format(
-        sql.Identifier(FENCE_STATE_SCHEMA), sql.Identifier(FENCE_STATE_TABLE),
-    ), (retired_at, retirement_receipt))
+    retired_at = parse_instant(retired_at)
+    conn.execute(
+        sql.SQL(
+            "UPDATE {}.{} SET retired_at=%s, retirement_receipt=%s "
+            "WHERE singleton AND retired_at IS NULL"
+        ).format(
+            sql.Identifier(FENCE_STATE_SCHEMA),
+            sql.Identifier(FENCE_STATE_TABLE),
+        ),
+        (retired_at, retirement_receipt),
+    )
 
 
 def clear_connect_grants(conn: object, database: str) -> None:
-    conn.execute(sql.SQL("REVOKE CONNECT ON DATABASE {} FROM PUBLIC").format(
-        sql.Identifier(database),
-    ))
+    conn.execute(
+        sql.SQL("REVOKE CONNECT ON DATABASE {} FROM PUBLIC").format(
+            sql.Identifier(database),
+        )
+    )
     roles = conn.execute("SELECT rolname FROM pg_roles ORDER BY rolname").fetchall()
     for role in roles:
-        conn.execute(sql.SQL("REVOKE CONNECT ON DATABASE {} FROM {}").format(
-            sql.Identifier(database), sql.Identifier(str(role[0])),
-        ))
+        conn.execute(
+            sql.SQL("REVOKE CONNECT ON DATABASE {} FROM {}").format(
+                sql.Identifier(database),
+                sql.Identifier(str(role[0])),
+            )
+        )
 
 
 def grant_connect(
-    conn: object, *, database: str, grantee: str, grantable: bool,
+    conn: object,
+    *,
+    database: str,
+    grantee: str,
+    grantable: bool,
 ) -> None:
     recipient = sql.SQL("PUBLIC") if grantee == "PUBLIC" else sql.Identifier(grantee)
     suffix = sql.SQL(" WITH GRANT OPTION") if grantable else sql.SQL("")
-    conn.execute(sql.SQL("GRANT CONNECT ON DATABASE {} TO {}{}").format(
-        sql.Identifier(database), recipient, suffix,
-    ))
+    conn.execute(
+        sql.SQL("GRANT CONNECT ON DATABASE {} TO {}{}").format(
+            sql.Identifier(database),
+            recipient,
+            suffix,
+        )
+    )
 
 
 def decode_policy(raw: Any) -> dict[str, Any]:
     try:
         policy = raw if isinstance(raw, dict) else json.loads(str(raw))
     except (TypeError, ValueError) as exc:
-        raise SourceConnectFenceError("stored CONNECT policy is not valid JSON") from exc
+        raise SourceConnectFenceError(
+            "stored CONNECT policy is not valid JSON"
+        ) from exc
     if not isinstance(policy, dict) or policy.get("schema") != FENCE_POLICY_SCHEMA:
         raise SourceConnectFenceError("stored CONNECT policy schema is unsupported")
     return policy

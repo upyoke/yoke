@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime
 from typing import Any
 
 from psycopg import errors
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.source_authority_connect_policy import (
     FENCE_POLICY_SCHEMA,
     FENCE_STATE_SCHEMA,
@@ -27,9 +29,13 @@ PROVIDER_SUPERUSER_BYPASS_ROLES = frozenset({"rdsadmin"})
 
 
 def install_connect_fence(
-    conn: object, *, frozen_at: str, service_stop_receipt: str,
+    conn: object,
+    *,
+    frozen_at: str | datetime,
+    service_stop_receipt: str,
 ) -> dict[str, Any]:
     """Install an owner-only CONNECT fence inside the caller's transaction."""
+    frozen_at = parse_instant(frozen_at)
     if fence_state(conn) is not None:
         raise SourceConnectFenceError("source authority is already quiesced")
     original = connect_policy(conn)
@@ -39,11 +45,13 @@ def install_connect_fence(
         raise SourceConnectFenceError(
             "source fence requires current admin to own the database"
         )
-    unsupported_grantors = sorted({
-        str(entry["grantor"])
-        for entry in original["connect_entries"]
-        if entry["grantor"] != admin_role
-    })
+    unsupported_grantors = sorted(
+        {
+            str(entry["grantor"])
+            for entry in original["connect_entries"]
+            if entry["grantor"] != admin_role
+        }
+    )
     if unsupported_grantors:
         raise SourceConnectFenceError(
             "source CONNECT policy has grantors the database owner cannot "
@@ -60,12 +68,17 @@ def install_connect_fence(
 
     database = str(original["database"])
     _create_fence_state(
-        conn, original=original, frozen_at=frozen_at,
+        conn,
+        original=original,
+        frozen_at=frozen_at,
         service_stop_receipt=service_stop_receipt,
     )
     _clear_connect_grants(conn, database)
     _grant_connect(
-        conn, database=database, grantee=admin_role, grantable=True,
+        conn,
+        database=database,
+        grantee=admin_role,
+        grantable=True,
     )
     access = login_role_access(conn, admin_role=admin_role)
     _validate_privileged_role_shape(access, admin_role=admin_role)
@@ -196,7 +209,9 @@ def restore_connect_fence(conn: object) -> dict[str, Any]:
     _clear_connect_grants(conn, database)
     for entry in original["connect_entries"]:
         _grant_connect(
-            conn, database=database, grantee=str(entry["grantee"]),
+            conn,
+            database=database,
+            grantee=str(entry["grantee"]),
             grantable=bool(entry["is_grantable"]),
         )
     restored = connect_policy(conn)
@@ -241,9 +256,7 @@ def terminate_unauthorized_sessions(conn: object, *, admin_role: str) -> int:
     return terminated
 
 
-def unauthorized_sessions(
-    conn: object, *, admin_role: str,
-) -> list[dict[str, Any]]:
+def unauthorized_sessions(conn: object, *, admin_role: str) -> list[dict[str, Any]]:
     # PostgreSQL caches statistics views for the current transaction.  Drain
     # proof must observe backend termination, not the pre-termination snapshot.
     conn.execute("SELECT pg_stat_clear_snapshot()")
@@ -262,7 +275,10 @@ def unauthorized_sessions(
 
 
 def _wait_for_session_drain(
-    conn: object, *, admin_role: str, timeout_seconds: float = 5.0,
+    conn: object,
+    *,
+    admin_role: str,
+    timeout_seconds: float = 5.0,
 ) -> list[dict[str, Any]]:
     deadline = time.monotonic() + timeout_seconds
     while True:
@@ -275,10 +291,13 @@ def _wait_for_session_drain(
 
 
 def _ordinary_bypass_roles(
-    access: list[dict[str, Any]], *, admin_role: str,
+    access: list[dict[str, Any]],
+    *,
+    admin_role: str,
 ) -> list[str]:
     return [
-        str(entry["role"]) for entry in access
+        str(entry["role"])
+        for entry in access
         if entry["role"] != admin_role
         and not entry["superuser"]
         and entry["effective_connect"]
@@ -290,13 +309,16 @@ def _superuser_roles(access: list[dict[str, Any]]) -> list[str]:
 
 
 def _validate_privileged_role_shape(
-    access: list[dict[str, Any]], *, admin_role: str,
+    access: list[dict[str, Any]],
+    *,
+    admin_role: str,
 ) -> None:
     superusers = set(_superuser_roles(access))
     unexpected_superusers = sorted(superusers - PROVIDER_SUPERUSER_BYPASS_ROLES)
     allowed_members = {admin_role} | PROVIDER_SUPERUSER_BYPASS_ROLES
     unexpected_members = sorted(
-        str(entry["role"]) for entry in access
+        str(entry["role"])
+        for entry in access
         if entry["inherits_admin"] and entry["role"] not in allowed_members
     )
     if unexpected_superusers or unexpected_members:
@@ -308,11 +330,19 @@ def _validate_privileged_role_shape(
 
 
 __all__ = [
-    "FENCE_POLICY_SCHEMA", "FENCE_STATE_SCHEMA", "FENCE_STATE_TABLE",
+    "FENCE_POLICY_SCHEMA",
+    "FENCE_STATE_SCHEMA",
+    "FENCE_STATE_TABLE",
     "PROVIDER_SUPERUSER_BYPASS_ROLES",
-    "SourceConnectFenceError", "admin_memberships", "connect_fence_status", "connect_policy",
-    "fence_state", "install_connect_fence", "login_role_access",
+    "SourceConnectFenceError",
+    "admin_memberships",
+    "connect_fence_status",
+    "connect_policy",
+    "fence_state",
+    "install_connect_fence",
+    "login_role_access",
     "drain_and_prove_connect_fence",
     "restore_connect_fence",
-    "terminate_unauthorized_sessions", "unauthorized_sessions",
+    "terminate_unauthorized_sessions",
+    "unauthorized_sessions",
 ]

@@ -346,3 +346,5 @@ editor labels.
 New source-authority receipt metadata uses fixed-six UTC/null; freeze watermarks
 compare native instants before hashing. Existing receipt files, frozen fixture
 IDs and PostgreSQL physical row checksums retain their exact evidence bytes.
+Private CONNECT-fence birth declares native freeze/retirement clocks, validates
+provided instants before SQL and formats only receipt metadata.
