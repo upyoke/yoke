@@ -1,228 +1,87 @@
-# Materialize
+# Feed — update and materialize
 
-Execute the decision from the Decide stage by updating stale frontier items, then creating new backlog items or recording sharpening recommendations. This is the only feed stage that mutates backlog items directly.
+Only this phase writes item content. Skip to Reconcile with empty
+`_updated_items`, `_materialized_items`, `_sharpen_recommendations` only when
+updates are empty, decision is leave/refresh, AND materialize/sharpen arrays empty.
 
-## Skip Conditions
+## A. Update stale fields first
 
-Skip this phase entirely and produce empty outputs if ALL of these are true:
-
-- `_items_to_update` is empty
-- `_decision` is `leave_in_sml` or `refresh_only`
-- `_items_to_materialize` is empty AND `_items_to_sharpen` is empty
-
-When skipping, produce:
-```
-_updated_items = []
-_materialized_items = []
-_sharpen_recommendations = []
-```
-
-Then proceed directly to the Reconcile stage.
-
-## Branch A: Update Stale Frontier Items
-
-For each item in `_items_to_update`, update the affected structured fields before creating any new work.
-
-### 3A.1 Write Matching Structured Fields
-
-For each update entry, dispatch the
-`items.structured_field.replace` function call (envelope in
-[`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md))
-with `target = {kind: "item", public_ref: "PREFIX-N"}` and
-`payload = {field: "<spec|design_spec|technical_plan|worktree_plan>",
-content: "<updated field content>", source: "feed"}`.
+Acquire each affected item's work claim before writes; coordinate another
+live holder rather than borrowing its claim. Prefer the matching structured field:
+`items.structured_field.replace` with item public_ref target and
+`{field, content, source: "feed"}`; exact envelope:
+[Idea's field authority](../idea/body-and-sync-functions.md).
 Operator/debug adapter:
 `printf '%s\n' "<updated field content>" | yoke items structured-field replace PREFIX-N --field <field> --source feed --stdin`
-(`items structured-field replace` dispatches through
-`items.structured_field.replace`).
+(`items.structured_field.replace`).
 
-Rules:
-- Prefer the matching structured field (`spec`, `design_spec`,
-  `technical_plan`, `worktree_plan`) — `body` is a virtual rendered
-  projection and not directly writable.
-- If acceptance criteria changed, fold that change into the appropriate
-  structured field instead of leaving it as a note elsewhere.
-- If scope shifted because landed work subsumed or invalidated part of
-  the work item, state that explicitly in the updated field content.
+Body is virtual. Fold changed ACs into their owning field; explicitly state
+subsumed/invalidated scope. Read effective generated-children posture before
+using graph fields; none prohibits worktree_plan/shepherd_caveats/shepherd_log.
+If scope was absorbed, do NOT auto-cancel it inside feed; recommend cancellation
+with absorbed-by evidence, skipping writes only when cancellation is truthful.
+Read back each updated field, then `_updated_items.append` public ref/title,
+fields_updated, reason, recommend_cancel and applicable cancellation_reason.
+Release the temporary item claim when its mutations/verification finish.
 
-### 3A.2 Cancellation Recommendations
+## B. Materialize new work
 
-If an item is no longer needed because landed work absorbed its scope:
-- do NOT auto-cancel it inside feed
-- record a clear cancellation recommendation with the absorbed-by evidence
-- only skip field writes when cancellation is the truthful next action
+### 3A.1 Dedup
 
-### 3A.3 Verify And Record
-
-After each update:
-- re-read the updated field with `items get` to confirm the write landed
-- record the result:
-
-```
-_updated_items.append({
- yok_id: "PREFIX-N",
- title: "<title>",
- fields_updated: ["spec", "technical_plan"],
- reason: "<what landed and why this work item changed>",
- recommend_cancel: true|false,
- cancellation_reason: "<why>" # only when applicable
-})
-```
-
-## Branch B: Materialize New Items (`_decision = "materialize_new"`)
-
-For each item in `_items_to_materialize`, execute the following steps in order.
-
-### 3A.1 Dedup Check
-
-Before creating any item, search the existing backlog for potential duplicates:
-
-```bash
-yoke db read --format lines "SELECT id, title, status FROM items WHERE project_id = ${_project_id} AND title LIKE '%keyword%' AND status NOT IN ('done','cancelled')"
-```
-
-Replace `%keyword%` with 2-3 distinctive words from the proposed title. Check multiple keyword variants to cast a reasonable net.
-
-**If a likely duplicate exists** (same scope, overlapping intent, non-terminal status):
-- Do NOT create the item
-- Record it as skipped:
- ```
- { yok_id: "SKIPPED", title: "<proposed title>", sml_source: "<source>",
- skip_reason: "Duplicate of PREFIX-N: <existing title>" }
- ```
-- Continue to the next item
-
-**If no duplicate found**, proceed to creation.
+Use registered `yoke items search "<distinctive keywords>" --project <project>`
+with 2–3 distinctive keyword variants; compare non-terminal intent/scope.
+Duplicate: record SKIPPED/title/sml_source/skip_reason naming the existing ref,
+then continue.
 
 ### 3A.2 Resolve The Filing Contract
 
-Resolve the target project and workflow before finalizing a candidate's title
-or body context. An entry a session can execute directly from one instruction
-uses `dash`, whatever its size; an entry needing agreed acceptance criteria or
-a generated task graph uses the eligible workflow selected by `/yoke idea`
-policy (`issue` or `epic`). Keep
-those values as `_project` and `_workflow`, then call the registered
-`workflow.execution_instruction.resolve` read:
+Resolve project and workflow before final title/body context.
+Instruction-led work is Dash regardless of size; agreed ACs/generated task
+graphs use eligible Issue/Epic policy. The laneless merge-free floor is Task.
 
-```bash
-yoke workflow execution-instruction resolve \
- --workflow "${_workflow}" --project "${_project}" --full
+Registered `workflow.execution_instruction.resolve`:
+
+```sh
+yoke workflow execution-instruction resolve --workflow <workflow> --project <project> --full
 ```
 
-Apply every returned instruction while finalizing the title, instruction,
-strategic provenance, and body context. Do not defer this read until the
-post-create receipt.
+Apply every returned instruction to title, instruction, provenance and body
+BEFORE final authoring/creation, rather than relying on the create receipt.
 
 ### 3A.3 Create via `/yoke idea`
 
-Feed MUST create items through the existing `/yoke idea` pipeline to preserve dedup search, GitHub sync, body generation, and AC normalization. For each item:
+For agreed AC/spec/generated graph, invoke `/yoke idea --workflow ${_workflow}`
+inline by reading/following its SKILL.md in this agent. Supply strategic
+body_context, pull-forward justification and mandatory provenance:
 
-Invoke `/yoke idea` inline with the item title. When the idea skill prompts for body context, provide:
-
-1. **Strategic context** from `body_context` in the materialization spec
-2. **Strategic Provenance** section (mandatory):
- ```markdown
- ## Strategic Provenance
- - **SML Source:** {sml_source} (e.g., "MASTER-PLAN.md, deployment frontier")
- - **Materialized by:** /yoke feed
- - **Rationale:** {rationale from decide phase}
- ```
-3. **Pull-forward justification**: Why this item is ready to be materialized now (from the decide phase rationale)
-
-The `/yoke idea` pipeline handles:
-- Title validation (the project's `title_max_length`)
-- Metadata inference (project, workflow, priority)
-- Duplicate detection (secondary check beyond our 3A.1 check)
-- GitHub issue creation and sync
-- Body generation with AC normalization
-
-**Instruction-led work files as a Dash, not an Issue.** Before invoking
-`/yoke idea`, classify the materialization entry by execution shape, not by
-size — a large change stated as one instruction is still a Dash:
-
-- The outcome is one coherent change a single session can state as an
-  instruction — no acceptance criteria to agree on, no generated task graph —
-  **and** the strategic context fits in that instruction:
-  file it with the Dash filing adapter instead, so the item carries the
-  instruction as its complete scope:
-
-  ```bash
-  yoke dash "<title>" "<instruction, including the strategic provenance above>" --execution-instructions-considered --json
-  ```
-
-  This files without executing. The item lands at `idea` with `workflow=dash`
-  and reaches a `/yoke charge` session as `next_step=dash`.
-- When that concrete instruction is laneless and merge-free, file the floor
-  alternative instead: `yoke task "<title>" "<instruction>"
-  --execution-instructions-considered --json`. Task has no optional
-  verification, path-claim, approval, or deployment posture; use Dash if any
-  of those or a git lane is required.
-- Anything needing a spec, agreed acceptance criteria, or a generated task
-  graph across parallel lanes: invoke `/yoke idea --workflow ${_workflow}`
-  with the workflow already resolved above.
-
-Record Dash- and Task-filed items in `_materialized_items` like idea-filed ones.
-
-### 3A.4 Record Created Item
-
-After each successful creation, record the result:
-
-```
-_materialized_items.append({
- yok_id: "PREFIX-N", // the ID assigned by idea pipeline
- title: "<item title>",
- sml_source: "<which SML file/section this came from>"
-})
+```markdown
+## Strategic Provenance
+- **SML Source:** <strategy file/section>
+- **Materialized by:** /yoke feed
+- **Rationale:** <why ready now>
 ```
 
-If the idea pipeline rejects the item (e.g., detected as duplicate during its own dedup), record as skipped with the rejection reason.
+Idea owns title_max_length, inference, secondary dedup, GH sync and AC normalization.
+For one coherent instruction carrying all strategic context, file instead:
 
-### 3A.5 Pacing
-
-Create items one at a time, not in batch. After each creation:
-- Verify the item exists in the backlog
-- Confirm the strategic provenance section is in the body
-- Then proceed to the next item
-
-Prefer fewer, sharper work items over many vague ones. If the decide phase produced more than 5 items to materialize, pause after the first 3 and reassess whether the remaining items are truly ready for materialization or should stay in the SML.
-
-## Branch C: Sharpen Frontier (`_decision = "sharpen_frontier"`)
-
-For each item in `_items_to_sharpen`, record a specific recommendation. This branch does NOT invoke `/yoke refine` directly -- it produces structured recommendations for the operator to act on.
-
-### 3B.1 Build Recommendations
-
-For each item in `_items_to_sharpen`:
-
-```
-_sharpen_recommendations.append({
- item_id: "PREFIX-N",
- action: "<split|refine|add_spec|add_ac>", // from decide phase
- recommendation: "<specific, actionable description of what needs to change>",
- rationale: "<why this item needs sharpening before new work is added>"
-})
+```sh
+yoke dash "<title>" "<instruction including strategic provenance>" --execution-instructions-considered --json
+yoke task "<title>" "<instruction including strategic provenance>" --execution-instructions-considered --json
 ```
 
-The recommendation must be specific enough that an operator can act on it without re-analyzing the SML:
-- For `split`: Identify the distinct scopes and suggest specific sub-item titles
-- For `refine`: Identify what is vague or conditional and what concrete information is needed
-- For `add_spec`: Note that the item lacks a spec and describe what the spec should cover
-- For `add_ac`: Note that acceptance criteria are missing or unmeasurable and suggest concrete ACs
+Choose one adapter. Dash files without execution at idea/next_step=dash.
+Task is only laneless/merge-free, with no optional verification/path-claim/
+approval/deployment posture; use Dash when any of those or a git lane is needed.
 
-### 3B.2 No Direct Mutations
+Record each creation in `_materialized_items` (public ref/title/sml_source);
+record duplicate/rejection as SKIPPED with reason. Verify existence and provenance
+before the next item. One at a time; if >5 candidates, pause after first 3 and
+reassess whether remaining work is ready or belongs in the SML.
 
-This branch does NOT:
-- Create new items when `_no_new_items` suppressed splitting/materialization
-- Create new items for split recommendations unless the operator is in full feed mode and the decision explicitly calls for that work
-- Modify existing items
-- Invoke `/yoke refine` or `/yoke shepherd`
+## C. Sharpen recommendations
 
-It only produces `_sharpen_recommendations` for the summary phase to present to the operator.
-
-## Context Produced
-
-After this phase, the following outputs are available for subsequent phases:
-
-- **`_updated_items`**: List of updated or cancellation-recommended frontier items with fields changed and reasons
-- **`_materialized_items`**: List of `{ yok_id, title, sml_source }` for each created item (may include SKIPPED entries with `skip_reason`)
-- **`_sharpen_recommendations`**: List of `{ item_id, action, recommendation, rationale }` for each item needing sharpening
+Record public ref/action/recommendation/rationale. Split names distinct scopes
+and titles; refine names missing concrete information; add_spec names needed
+content; add_ac proposes measurable ACs. This branch recommends rather than
+mutating existing items or invoking Refine/Shepherd. No-new suppresses all
+creates/splits; full mode permits creates only when explicitly decided.
