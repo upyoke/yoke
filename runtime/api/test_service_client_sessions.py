@@ -96,7 +96,7 @@ class TestSessionBeginLevel:
             ("claude-code", ("--requested-model", f"{_OPUS}[1m]"), "SENIOR"),
             (
                 "claude-code",
-                ("--model", "claude-haiku-4-5", "--reasoning-effort", "max"),
+                ("--model", "claude-haiku-5-5", "--reasoning-effort", "max"),
                 "INTERN",
             ),
             ("claude-code", ("--model", "claude-unlisted"), UNRESOLVED_EXECUTION_LEVEL),

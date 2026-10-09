@@ -43,7 +43,7 @@ def _evaluate(meters, offered=OFFERED):
             default_levels(),
             meters=meters,
             offered=offered,
-            display=lambda model: {"claude-haiku-4-5": "Claude Haiku 4.5"}.get(
+            display=lambda model: {"claude-haiku-5-5": "Claude Haiku 5.5"}.get(
                 model, model
             ),
         )
@@ -71,7 +71,7 @@ def test_options_read_only_the_pools_their_model_draws_on():
     intern = levels["INTERN"]
     assert intern["launchable_surfaces"] == ["claude-cli", "codex-cli"]
     assert "next_launch" not in intern
-    assert intern["options"][0]["display_name"] == "Claude Haiku 4.5"
+    assert intern["options"][0]["display_name"] == "Claude Haiku 5.5"
     junior = levels["JUNIOR"]
     cursor = junior["options"][0]
     assert [pool["label"] for pool in cursor["pools"]] == ["Cursor Models"]
