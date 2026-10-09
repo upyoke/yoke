@@ -9,7 +9,7 @@ Usage:
     --override-point creation|amend|revalidation_conflict
     --integration-target main
     --actor-id N
-    --actor-reason "<non-empty operator-authored reason>"
+    --actor-reason "<non-empty collision justification>"
     [--blocking-claim-id M]
     [--blocking-path-targets ID,ID,...]
     [--conflict-reason upstream_delete|hostile_upstream_touch|claim_overlap|continuity_unknown]
