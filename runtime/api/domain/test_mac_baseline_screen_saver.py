@@ -1,5 +1,6 @@
 """The captured current-host screen saver preference stays disabled after restore."""
 
+import json
 import shlex
 import subprocess
 from types import SimpleNamespace
@@ -64,6 +65,12 @@ def test_capture_seals_screen_saver_check_and_reset_replays_it(
         upload_remote_text = None
 
         def run_command(self, argv, **kwargs):
+            if len(argv) > 3 and argv[3] == "cleanup":
+                return SimpleNamespace(
+                    returncode=0,
+                    stdout=json.dumps({"ok": True, "freed_bytes": 0}),
+                    stderr="",
+                )
             code = 0
             if argv[2] == program:
                 contexts.append((state["reset"], kwargs["required_session_context"]))

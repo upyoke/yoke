@@ -215,6 +215,8 @@ def test_an_unreadable_credential_recovers_by_recapture_not_by_host_repair() -> 
 
 
 class _Control:
+    home = "/Users/tester"
+
     def __init__(self, *, restored: HostActionResult, proven: HostActionResult):
         self._restored = restored
         self._proven = proven
@@ -222,6 +224,11 @@ class _Control:
 
     def reset_installer_test_host(self) -> HostActionResult:
         return self._restored
+
+    def run_command(self, argv, **kwargs):
+        return SimpleNamespace(
+            returncode=0, stdout=json.dumps({"ok": True, "freed_bytes": 0}), stderr=""
+        )
 
     def prove_user_equivalent(self) -> HostActionResult:
         self.proved += 1

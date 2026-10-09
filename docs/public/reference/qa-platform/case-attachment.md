@@ -112,7 +112,7 @@ none, naming the choices and baselines; `HC-qa-plan-machine-starting-state`
 fails while a stored plan has one, and `yoke qa plan get` shows each choice:
 
 - `host_baselines: ["fresh-host"]` (or `shell-preconfigured`, or both): the
-  runner resets to each named baseline; one requirement row per baseline.
+  runner resets to each named baseline; one requirement row per baseline. [Temporary cleanup](../test-machine-desktop.md) preserves baseline/home/live scratch and reports freed space.
 - `"starting_state": "inherit"`: start on the machine exactly as the case
   directly before it in the plan left it, at the same baseline position. The
   first case cannot inherit, nor can a case follow or be a mission.

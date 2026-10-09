@@ -42,11 +42,18 @@ def run_host_operation(
     """Parse the operator's arguments and run one operation end to end."""
     parser = argparse.ArgumentParser(prog=prog)
     parser.epilog = (
-        "An awaiting Machine QA mission's holder automatically uses its retained "
-        "host lease. Submit and abort keep that lease for mission close-out. "
+        "An awaiting Machine QA mission's holder uses its retained host lease "
+        "for non-reset operations. Reset/verify refuse test_machine_cleanup_live_lease; "
+        "finish or abort the owning mission first. Submit and abort keep borrowed leases for mission close-out. "
         "Foreign holders refuse; ask the mission holder or wait for it to finish. "
         "Calls outside a mission acquire and release their own exclusive lease."
     )
+    if operation in {"reset", "verify"}:
+        parser.description = (
+            "Restore the declared baseline and clear owned Yoke/harness temporary artifacts. "
+            "Preserve the golden, browser-profile baseline, restored home and live mission scratch. "
+            "The receipt reports temp_cleanup.freed_bytes; cleanup failures refuse with recovery."
+        )
     if operation == "screenshot":
         parser.description = (
             "Capture the actual desktop as a validated PNG under the machine lease. "

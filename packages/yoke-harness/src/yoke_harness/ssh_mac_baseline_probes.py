@@ -315,10 +315,17 @@ def reach_user_equivalent_baseline(control: Any) -> HostActionResult:
     restored = control.reset_installer_test_host()
     if not restored.ok:
         return restored
+    from yoke_harness.test_machine_temp_state import clear_baseline_temp_state
+
+    cleaned = clear_baseline_temp_state(control)
+    if not cleaned.ok:
+        return HostActionResult(
+            False, {**restored.evidence, **cleaned.evidence}, cleaned.error_code
+        )
     proven = control.prove_user_equivalent()
     return HostActionResult(
         proven.ok,
-        {**restored.evidence, "user_equivalence": proven.evidence},
+        {**restored.evidence, **cleaned.evidence, "user_equivalence": proven.evidence},
         proven.error_code,
     )
 

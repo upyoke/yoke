@@ -1,5 +1,19 @@
 # Viewing a Test Machine desktop
 
+Baseline reset and verification clear test-account-owned Yoke, Playwright,
+Chromium and pip run artifacts from system and OS user temporary locations.
+The golden directory and its sidecars, browser-profile baseline and restored
+home remain protected. Receipts record `temp_cleanup.freed_bytes` and removed
+entries. Reset/verify refuse `test_machine_cleanup_live_lease` while a mission
+owns the host: finish or abort that mission first. Run
+`yoke test-machine reset --project P --machine NAME`; read its `--help`.
+
+Mission preparation requires at least 1 GiB free on the home and temporary
+filesystems before package setup or scratch creation. A
+`test_machine_disk_space_low` refusal records the observed space and minimum;
+finish or abort the owning mission, reset the host, and expand its disk if
+reset cannot recover that space before retrying QA.
+
 The named machine's `desktop_password` secret is its administrator password,
 used for desktop access and macOS/Linux administrator commands. Run one setup
 command with `yoke test-machine exec --project P --machine NAME --admin -- COMMAND ARGS...`.

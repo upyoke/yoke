@@ -294,3 +294,15 @@ def test_nonmission_same_holder_still_requires_exclusive_admission(
     assert aborted.primary_success, aborted.error
     assert aborted.result_payload["released"] is True
     assert not get_claim(test_db, contract["lease_id"]).is_active
+
+
+@pytest.mark.parametrize("operation", ["reset", "verify"])
+def test_live_mission_refuses_destructive_baseline_operations(mission, operation):
+    conn, contract, control, _ = mission
+    before = control.full_reset_calls
+    refused = begin(operation)
+    assert not refused.primary_success
+    assert "test_machine_cleanup_live_lease" in refused.error.message
+    assert "finish or abort" in refused.error.message
+    assert control.full_reset_calls == before
+    assert get_claim(conn, contract["lease_id"]).is_active

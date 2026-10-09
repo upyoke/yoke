@@ -67,8 +67,8 @@ Every machine-run case declares the state it starts from, and authoring and
 materialization refuse one that does not. A mission names `host_baselines`
 (`fresh-host` or `shell-preconfigured`), or sets `"starting_state":"as_is"`
 with a `starting_state_reason` to walk the machine as found — that mission must
-also tell its walker to leave the home untouched. A mission cannot `inherit`:
-it is walked after the plan's other cases, so no case runs right before it.
+also tell its walker to leave the home untouched. A mission cannot `inherit`: it is walked after the plan's other cases, so no case runs right before it.
+Baseline cleanup preserves live scratch and requires 1 GiB free before mission staging; [temporary-state and disk recovery](test-machine-desktop.md) names receipts and live-lease refusals.
 
 Do not turn likely landmarks into steps. The worked Machine QA Pack case
 `installer-exploration` deliberately replaces the territory of the ten-case
