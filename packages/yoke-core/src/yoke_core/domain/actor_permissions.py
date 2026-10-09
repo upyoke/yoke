@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.actor_permission_exports import ACTOR_PERMISSION_EXPORTS
 from yoke_core.domain.hosted_service_authority import (
     PERM_HOSTED_SERVICE_DELIVER,
@@ -207,10 +208,6 @@ class PermissionDecision:
     org_id: int | None = None
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
@@ -223,14 +220,14 @@ def seed_roles_and_permissions(conn: Any) -> None:
             "INSERT INTO roles (name, description, created_at) "
             f"VALUES ({p}, {p}, {p}) "
             "ON CONFLICT(name) DO UPDATE SET description = EXCLUDED.description",
-            (name, description, _now()),
+            (name, description, instant_parameter(conn, utc_now())),
         )
     for key, description in PERMISSION_DESCRIPTIONS.items():
         conn.execute(
             "INSERT INTO permissions (key, description, created_at) "
             f"VALUES ({p}, {p}, {p}) "
             "ON CONFLICT(key) DO UPDATE SET description = EXCLUDED.description",
-            (key, description, _now()),
+            (key, description, instant_parameter(conn, utc_now())),
         )
     for role_name, permission_keys in ROLE_PERMISSION_KEYS.items():
         role_id = role_id_by_name(conn, role_name)
@@ -249,7 +246,7 @@ def seed_roles_and_permissions(conn: Any) -> None:
                 "INSERT INTO role_permissions (role_id, permission_id, created_at) "
                 f"VALUES ({p}, {p}, {p}) "
                 "ON CONFLICT(role_id, permission_id) DO NOTHING",
-                (role_id, permission_id, _now()),
+                (role_id, permission_id, instant_parameter(conn, utc_now())),
             )
     conn.commit()
 

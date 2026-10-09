@@ -301,7 +301,9 @@ Invites retain native creation and acceptance instants; list projections format
 those declared fields as fixed-six UTC/null. Organization seed, external identity
 link and release-note writes use the shared native SQL adapter. Release-note
 pipe output formats only its creation clock; its default version remains a UTC
-calendar date.
+calendar date. Role and permission seeding also binds native creation clocks.
+GitHub binding and installation payloads format only verification/sync clocks
+as fixed-six UTC/null, preserving opaque repository and account identities.
 
 Release build metadata validates its supplied clock before replacing output,
 and emits fixed-six UTC. Relay installation/failure receipts and API JSON logs

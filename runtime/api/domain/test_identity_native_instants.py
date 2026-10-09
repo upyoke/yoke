@@ -65,3 +65,24 @@ def test_release_note_pipe_projection_has_canonical_clock(test_db, monkeypatch):
     assert release_notes.cmd_list(test_db, "2026-10-09", "yoke").endswith(
         "|1969-12-31T23:59:59.123456Z"
     )
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_permission_seed_clocks_are_native(test_db, monkeypatch, zone):
+    from yoke_core.domain import actor_permissions
+
+    monkeypatch.setattr(actor_permissions, "utc_now", lambda: STAMP)
+    test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
+    for table in (
+        "actor_org_roles",
+        "actor_project_roles",
+        "role_permissions",
+        "roles",
+        "permissions",
+    ):
+        test_db.execute(f"DELETE FROM {table}")
+    actor_permissions.seed_roles_and_permissions(test_db)
+    for table in ("roles", "permissions", "role_permissions"):
+        clocks = test_db.execute(f"SELECT created_at FROM {table}").fetchall()
+        assert clocks
+        assert all(row[0] == STAMP for row in clocks)
