@@ -297,50 +297,5 @@ landing attribution compares native timedeltas at the inclusive ten-minute
 boundary. Missing or invalid external Git clock facts cannot infer ownership;
 malformed internal landing clocks refuse rather than assuming a timezone.
 
-Invites retain native creation and acceptance instants; list projections format
-those declared fields as fixed-six UTC/null. Organization seed, external identity
-link and release-note writes use the shared native SQL adapter. Release-note
-pipe output formats only its creation clock; its default version remains a UTC
-calendar date. Role and permission seeding also binds native creation clocks.
-GitHub binding and installation payloads format only verification/sync clocks
-as fixed-six UTC/null, preserving opaque repository and account identities.
-
-Release build metadata validates its supplied clock before replacing output,
-and emits fixed-six UTC. Relay installation/failure receipts and API JSON logs
-share the canonical formatter. Board timing retains native wall instants and
-formats its declared event clocks before emission; durations remain monotonic.
-
-Landing history and reconstructed Git facts retain native instants; their
-payloads format only the declared landing clock. Queue observations outrank Git
-committer clocks, with microseconds preserved. Unknown queue observations are
-null; supplied malformed clocks refuse before recording. Additive GitHub binding
-convergence declares the same native last-sync clock type as fresh birth.
-
-Item mutation preparation retains aware instants. Item SQL writers derive their
-clock-field ownership from the finite stored roster and bind through the native
-adapter; nullable declared clocks stay null and malformed supplied clocks refuse
-before the item write. Bulk updates retain their transaction and binding guards.
-
-Strategy document, revision, archive and checkpoint writes bind native instants.
-CAS compares qualified instants rather than display strings, preserving distinct
-microseconds across database timezones. List/detail/revision JSON, generated
-headers, ingest reports and checkpoint CLI output format their declared clocks
-as fixed-six UTC/null; revision content bytes and content digests stay unchanged.
-Board command JSON formats its native timing clocks at the output boundary.
-
-Actor birth, approval preparation, universe-setting and migration-audit writes
-retain native clocks. Session drift/rework and presentation ordering compare
-aware instants; naive external presentation observations are rejected. Shepherd
-pipe output formats native instants; its verdict date remains a UTC date label.
-
-Path claim, amendment, target planning/materialization and snapshot writes bind
-native clocks. Claim-age and Pack freshness reads preserve native microseconds;
-malformed internal clock facts refuse instead of assuming a timezone.
-
-Org and project role grants bind native clocks. Strategy section CAS, cached
-render headers and staleness checks compare instants. Board calendar buckets
-project native instants to UTC dates; age windows use aware timestamps.
-
-Hook envelopes and new Progress Log entries format six fractional digits;
-event SQL binds native clocks. Recent-session attribution compares aware
-instants at its exact 30-minute boundary, including microseconds.
+Owned writer and projection details are maintained in
+[timestamp owners](timestamp-owners.md).

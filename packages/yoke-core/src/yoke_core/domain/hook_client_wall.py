@@ -14,7 +14,8 @@ connection pool down for thirty-five minutes on 2026-09-04.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Iterable
 
 from yoke_contracts.hook_evaluator_protocol import HOOK_CLIENT_TIMING_ID_FIELD
@@ -32,13 +33,11 @@ def _value(row: Any, key: str, index: int) -> Any:
 def _matching_event(conn: Any, event_id: str) -> Any | None:
     """Return the dispatch row for *event_id*, or ``None`` without scanning."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    cutoff = (datetime.now(timezone.utc) - PENDING_DELIVERY_WINDOW).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    cutoff = utc_now() - PENDING_DELIVERY_WINDOW
     row = conn.execute(
         "SELECT id, duration_ms, envelope, session_id, actor_id, project_id FROM events "
         f"WHERE client_timing_id={marker} AND created_at >= {marker} LIMIT 1",
-        (event_id, cutoff),
+        (event_id, instant_parameter(conn, cutoff)),
     ).fetchone()
     if row is None:
         return None

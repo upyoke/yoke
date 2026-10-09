@@ -17,7 +17,9 @@ from __future__ import annotations
 
 import os
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Optional
 
 from yoke_core.domain import db_backend, db_helpers
@@ -63,7 +65,7 @@ def _recent_bash_commands(
     db_path: str,
     session_id: str,
     lookback_seconds: int = RECENT_EVENT_LOOKBACK_SECONDS,
-) -> list[tuple[str, str, str]]:
+) -> list[tuple[str, datetime | None, str]]:
     """Return ``(tool_use_id, completed_at, command)`` for recent Bash calls.
 
     Pulls completed ``session_tool_calls`` rows for ``tool_name='Bash'``
@@ -79,9 +81,7 @@ def _recent_bash_commands(
         conn = db_helpers.connect(db_path or None)
     except db_backend.operational_error_types() + (RuntimeError,):
         return []
-    cutoff = (
-        datetime.now(timezone.utc) - timedelta(seconds=int(lookback_seconds))
-    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    cutoff = utc_now() - timedelta(seconds=int(lookback_seconds))
     try:
         rows = conn.execute(
             "SELECT tool_use_id, completed_at, command_summary "
@@ -89,22 +89,22 @@ def _recent_bash_commands(
             "AND tool_name='Bash' AND completed_at IS NOT NULL "
             "AND completed_at > %s "
             "ORDER BY completed_at DESC LIMIT 100",
-            (session_id, cutoff),
+            (session_id, instant_parameter(conn, cutoff)),
         ).fetchall()
     except db_backend.operational_error_types(conn=conn):
         return []
     finally:
         conn.close()
-    out: list[tuple[str, str, str]] = []
+    out: list[tuple[str, datetime | None, str]] = []
     for tool_use_id, completed_at, command in rows:
         if not isinstance(command, str) or not command:
             continue
-        out.append((tool_use_id or "", completed_at or "", command))
+        out.append((tool_use_id or "", completed_at, command))
     return out
 
 
 def _count_prior_peeks_in_window(
-    recent: list[tuple[str, str, str]],
+    recent: list[tuple[str, datetime | None, str]],
     capture_file: str,
     current_tool_use_id: str,
     window_turns: int = PEEK_WINDOW_TURNS,
@@ -131,7 +131,7 @@ def _count_prior_peeks_in_window(
 
 
 def _capture_registered_in_session(
-    recent: list[tuple[str, str, str]], capture_file: str
+    recent: list[tuple[str, datetime | None, str]], capture_file: str
 ) -> bool:
     """True if a recent session command registered *capture_file* as a capture.
 
@@ -229,9 +229,7 @@ def evaluate_payload(payload: dict) -> Optional[tuple[str, str, dict]]:
             or payload.get("message_id")
             or ""
         )
-        recent = (
-            _recent_bash_commands("", session_id) if _db_available() else []
-        )
+        recent = _recent_bash_commands("", session_id) if _db_available() else []
 
         # Pointer-file carve-out: a command-substitution read of a file
         # no session command owns as a capture is content consumption,
