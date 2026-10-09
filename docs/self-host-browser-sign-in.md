@@ -31,6 +31,14 @@ reachable even when the machine's token needs replacing.
 Providers can be anything that speaks OpenID Connect with discovery:
 Okta, Keycloak, Microsoft Entra ID, Google Workspace, and others.
 
+**Signing out.** Profile → **Sign out** posts to `POST /v1/auth/sign-out`,
+which revokes the browser's session and clears its analytics attribution
+cookie. Either sign-in path links that browser's analytics visitor id to the
+signed-in actor; clearing the cookie at sign-out starts the next person on a
+shared browser under a fresh visitor id
+([visitor links](public/events-doctor-ouroboros.md#visitor-links)). Sign-out
+is same-origin only and refuses with `cross_origin_refused` otherwise.
+
 **What protects the cookie.** The session cookie is `HttpOnly` and
 `SameSite=Lax`, so browsers do not attach it to cross-site writes. Every
 cookie-authorized call must also be same-origin: a present `Origin` must
