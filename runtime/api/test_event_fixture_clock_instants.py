@@ -14,19 +14,37 @@ ENVELOPE = json.dumps({"context": {"clock_looking_value": OPAQUE}})
 
 
 @pytest.mark.parametrize("zone", ["UTC", "America/Los_Angeles", "Asia/Kathmandu"])
-def test_real_fixture_and_command_writers_keep_native_clocks(test_db, zone):
+def test_real_fixture_and_command_writers_keep_native_clocks(
+    test_db, monkeypatch, zone
+):
     from runtime.api import events_crud_full_test_helpers as full
     from runtime.api import events_crud_test_fixtures as basic
 
-    test_db.execute("SELECT set_config('TimeZone', %s, true)", (zone,))
+    from yoke_core.domain import events_writes
+
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    real_connect = events_writes.connect
+    command_zones = []
+
+    def command_connection(*args, **kwargs):
+        conn = real_connect(*args, **kwargs)
+        conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+        conn.commit()
+        command_zones.append(conn.execute("SHOW TimeZone").fetchone()[0])
+        return conn
+
+    monkeypatch.setattr(events_writes, "connect", command_connection)
     row = full._insert_event_direct(
         test_db, event_id="fixture-clock", created_at=NOW, envelope=ENVELOPE
     )
+    assert test_db.execute("SHOW TimeZone").fetchone()[0] == zone
     assert isinstance(row["created_at"], datetime) and row["created_at"] == NOW
     assert row["created_at"].microsecond == 123456 and row["envelope"] == ENVELOPE
     basic._insert_event(
         None, event_id="command-clock", created_at=NOW, envelope=ENVELOPE
     )
+    assert command_zones and all(actual == zone for actual in command_zones)
+    assert test_db.execute("SHOW TimeZone").fetchone()[0] == zone
     row = test_db.execute(
         "SELECT created_at, envelope FROM events WHERE event_id='command-clock'"
     ).fetchone()

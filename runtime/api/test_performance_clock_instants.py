@@ -20,7 +20,7 @@ def test_real_event_range_groups_native_microseconds_and_half_open_edges(test_db
     from yoke_core.domain.performance_metrics import aggregate
     from yoke_core.domain.performance_query import read_observations
 
-    test_db.execute("SELECT set_config('TimeZone', %s, true)", (zone,))
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
     auth = mint_api_auth_context(test_db)
     clocks = [
         START - timedelta(microseconds=1),
@@ -39,6 +39,7 @@ def test_real_event_range_groups_native_microseconds_and_half_open_edges(test_db
             duration_ms=index,
             created_at=clock,
         )
+    assert test_db.execute("SHOW TimeZone").fetchone()[0] == zone
     values = read_observations(test_db, auth.actor_id, [auth.project_id], START, END)
     assert {v["event_id"] for v in values} == {
         f"performance-edge-{i}" for i in range(1, 5)
