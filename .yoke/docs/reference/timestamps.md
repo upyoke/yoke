@@ -41,7 +41,11 @@ using existing owner facts, preserving other document fields. Unknown optional
 usage observations become JSON null. Repairs use compare-and-set predicates; a
 concurrent writer refuses instead of losing newer facts. All document repairs
 are prepared before any type change. The owned progress view is reconstructed
-inside the same transaction; unowned dependents or custom view metadata refuse
+inside the same transaction; stored relay plan/model observations, plan reset
+clocks, capacity observations and health failure/quarantine/refusal clocks follow
+finite owned paths. Optional unknowns become null; invalid supplied history uses
+the relay observation owner fact. Model retirement calendar labels and opaque
+fields retain their meaning. Unowned dependents or custom view metadata refuse
 before any view is dropped. No immutable or signed document is rewritten.
 The serving catalog probe also checks declared native instant types: matching
 column names with TEXT or timestamp-without-zone storage cannot prove that a

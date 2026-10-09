@@ -237,6 +237,11 @@ def prepare_document_updates(conn: Any) -> list[DocumentUpdate]:
                 "subject_context",
                 dumps_compact(doc),
             )
+    from yoke_core.domain.migrations._native_relay_instant_documents import (
+        prepare_relay_document_updates,
+    )
+
+    updates.extend(prepare_relay_document_updates(conn))
     return updates
 
 
