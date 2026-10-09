@@ -7,6 +7,8 @@ import sys
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant, format_instant
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from runtime.api.api_items_test_helpers import (
@@ -40,7 +42,8 @@ class TestConfigureCapability:
         assert data["type"] == "github"
         assert data["config"]["token"] == "ghs_test_token_value"
         assert "id" in data
-        assert "created_at" in data
+        assert data["created_at"] == format_instant(parse_instant(data["created_at"]))
+        assert data["verified_at"] is None
 
     def test_update_capability_upsert(self, client, test_db):
         # Create first

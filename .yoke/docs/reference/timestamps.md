@@ -290,3 +290,9 @@ the inclusive live-window cutoff without truncation. Their mutable JSON column
 and refusal diagnostics format only declared clocks; raw capture paths remain
 opaque. Malformed clocks refuse before custody reads or writes. QA wake notices
 retain native sent clocks; their UTC hour/minute label is presentation only.
+
+Item capability configuration binds a native creation instant and formats its
+owned creation/verification response fields as fixed-six UTC/null. Carried-work
+landing attribution compares native timedeltas at the inclusive ten-minute
+boundary. Missing or invalid external Git clock facts cannot infer ownership;
+malformed internal landing clocks refuse rather than assuming a timezone.

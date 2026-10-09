@@ -16,7 +16,7 @@ _SCHEMA_DDL = (
     + f"""
 CREATE TABLE project_capabilities (
     id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, type TEXT NOT NULL,
-    settings TEXT DEFAULT '{{}}', verified_at TEXT, created_at TEXT NOT NULL,
+    settings TEXT DEFAULT '{{}}', verified_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL,
     UNIQUE(project_id, type)
 );
 CREATE TABLE strategy_docs (

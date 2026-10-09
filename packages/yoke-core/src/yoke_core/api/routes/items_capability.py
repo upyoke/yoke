@@ -7,12 +7,13 @@ project associated with the item, upserting into ``project_capabilities``.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 
+from yoke_contracts.timestamps import format_instant, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.capability_prerequisites import (
     CapabilityPrerequisiteError,
@@ -78,7 +79,7 @@ def configure_capability(
                 ),
             )
         config_json = json.dumps(req.config)
-        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        now = instant_parameter(conn, utc_now())
 
         existing = conn.execute(
             f"SELECT id FROM project_capabilities WHERE project_id = {p} AND type = {p}",
@@ -137,8 +138,10 @@ def configure_capability(
             project=cap["project"],
             type=cap["type"],
             config=json.loads(cap.get("settings") or "{}"),
-            verified_at=cap.get("verified_at"),
-            created_at=cap["created_at"],
+            verified_at=format_instant(cap["verified_at"])
+            if cap.get("verified_at") is not None
+            else None,
+            created_at=format_instant(cap["created_at"]),
         )
 
         status_code = 201 if is_new else 200
