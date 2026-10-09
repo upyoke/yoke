@@ -12,7 +12,7 @@ from typing import Any
 
 from psycopg import conninfo
 
-from yoke_contracts.timestamps import format_instant
+from yoke_contracts.timestamps import format_instant, parse_instant
 
 from yoke_core.domain import source_authority_credential_file as credential_file
 from yoke_core.domain.source_authority_credential_file import SourceCredentialError
@@ -33,8 +33,12 @@ class SourceCredentialBundle:
     cutover_dsn: str
     original_rolcanlogin: bool
     retirement_receipt: str | None
-    retired_at: str | None
+    retired_at: datetime | None
     retirement_phase: str | None
+
+    def __post_init__(self) -> None:
+        if self.retired_at is not None:
+            object.__setattr__(self, "retired_at", parse_instant(self.retired_at))
 
 
 def prepare_or_load(
@@ -184,7 +188,7 @@ def prepare_retirement(
     retired_at: str | datetime,
 ) -> SourceCredentialBundle:
     """Fsync an idempotent retirement intent before disabling both logins."""
-    retired_at = format_instant(retired_at)
+    retired_at = parse_instant(retired_at)
     current = load_bound(bundle.path, original_dsn=bundle.original_dsn)
     if current.retirement_receipt is not None or current.retired_at is not None:
         if current.retirement_receipt != retirement_receipt or not current.retired_at:
@@ -197,7 +201,7 @@ def prepare_retirement(
     payload = _payload(current)
     payload["retirement"] = {
         "retirement_receipt": retirement_receipt,
-        "retired_at": retired_at,
+        "retired_at": format_instant(retired_at),
         "phase": "intent",
     }
     credential_file.replace_atomic_owner_only(current.path, payload)
@@ -252,7 +256,7 @@ def _decode(path: Path, payload: Any) -> SourceCredentialBundle:
                 else None
             ),
             retired_at=(
-                format_instant(payload["retirement"]["retired_at"])
+                parse_instant(payload["retirement"]["retired_at"])
                 if "retirement" in payload
                 else None
             ),
@@ -315,7 +319,7 @@ def _payload(bundle: SourceCredentialBundle) -> dict[str, Any]:
     if bundle.retirement_receipt is not None:
         payload["retirement"] = {
             "retirement_receipt": bundle.retirement_receipt,
-            "retired_at": bundle.retired_at,
+            "retired_at": format_instant(bundle.retired_at),
             "phase": bundle.retirement_phase,
         }
     return payload

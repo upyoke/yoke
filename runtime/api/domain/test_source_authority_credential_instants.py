@@ -26,12 +26,12 @@ def test_new_retirement_intent_formats_clock_and_retry_keeps_exact_file(
         bundle, retirement_receipt="opaque", retired_at=clock
     )
     original = bundle.path.read_bytes()
-    assert prepared.retired_at == WIRE
+    assert prepared.retired_at == CLOCK
     assert json.loads(original)["retirement"]["retired_at"] == WIRE
     repeated = credentials.prepare_retirement(
         bundle, retirement_receipt="opaque", retired_at=OFFSET
     )
-    assert repeated.retired_at == WIRE
+    assert repeated.retired_at == CLOCK
     assert bundle.path.read_bytes() == original
 
 
@@ -59,7 +59,7 @@ def test_qualified_existing_retirement_file_is_read_without_byte_rewrite(tmp_pat
     bundle.path.write_text(json.dumps(payload))
     original = bundle.path.read_bytes()
     loaded = credentials.load_bound(bundle.path)
-    assert loaded.retired_at == WIRE
+    assert loaded.retired_at == CLOCK
     assert bundle.path.read_bytes() == original
 
 
@@ -99,3 +99,15 @@ def test_archive_diagnostic_formats_clock_without_changing_frozen_intent(
 def test_archive_diagnostic_refuses_clock_before_filesystem_access(clock):
     with pytest.raises(InvalidInstant):
         archive._archive_receipt(None, None, {"freeze_intent": {"frozen_at": clock}})
+
+
+@pytest.mark.parametrize("clock", BAD[1:])
+def test_retirement_bundle_constructor_refuses_unqualified_clock(tmp_path, clock):
+    from dataclasses import replace
+
+    bundle = _bundle(tmp_path)
+    before = bundle.path.read_bytes()
+    assert bundle.retired_at is None
+    with pytest.raises(InvalidInstant):
+        replace(bundle, retired_at=clock)
+    assert bundle.path.read_bytes() == before

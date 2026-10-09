@@ -5,6 +5,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import pytest
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import source_authority_credentials as credentials
 
 
@@ -150,7 +151,7 @@ def test_retirement_intent_is_fsynced_and_reused_before_database_commit(
         retired_at="2099-01-01T00:00:00Z",
     )
 
-    assert repeated.retired_at == "2026-07-14T12:00:00.000000Z"
+    assert repeated.retired_at == parse_instant("2026-07-14T12:00:00Z")
     assert repeated.retirement_receipt == "retirement-gates-green"
     assert repeated.retirement_phase == "intent"
     with pytest.raises(credentials.SourceCredentialError, match="another"):

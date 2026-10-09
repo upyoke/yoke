@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import utc_now, format_instant
+from yoke_contracts.timestamps import utc_now, format_instant, parse_instant
 from pathlib import Path
 from typing import Any, Optional
 
@@ -112,7 +112,7 @@ def retire(
     receipt = validated_receipt(retirement_receipt, label="retirement receipt")
     bundle = load_bundle(credential_file, original_dsn=dsn)
     original_dsn = bundle.original_dsn
-    chosen_retired_at = bundle.retired_at or format_instant(utc_now())
+    chosen_retired_at = bundle.retired_at or utc_now()
     try:
         bundle = source_credentials.prepare_retirement(
             bundle,
@@ -148,7 +148,7 @@ def retire(
             "operation": "retire",
             "quiesced": True,
             "retired": True,
-            "retired_at": bundle.retired_at,
+            "retired_at": format_instant(bundle.retired_at),
             "retirement_receipt": bundle.retirement_receipt,
             "login_disabled": True,
             "password_cleared": True,
@@ -172,7 +172,8 @@ def retire(
         state = connect_fence.fence_state(conn)
         if (
             state is None
-            or state["retired_at"] != chosen_retired_at
+            or state["retired_at"] is None
+            or parse_instant(state["retired_at"]) != chosen_retired_at
             or state["retirement_receipt"] != receipt
         ):
             raise SourceAuthorityCutoverError(
@@ -191,7 +192,7 @@ def retire(
             "quiesced": True,
             "retired": True,
             "database": database,
-            "retired_at": chosen_retired_at,
+            "retired_at": format_instant(chosen_retired_at),
             "retirement_receipt": receipt,
             "login_disabled": retirement_proof["login_disabled"],
             "password_cleared": retirement_proof["password_cleared"],
