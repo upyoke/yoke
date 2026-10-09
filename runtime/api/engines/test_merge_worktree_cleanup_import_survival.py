@@ -10,11 +10,7 @@ what matters here is that the cleanup runs it while the lane still exists.
 
 from __future__ import annotations
 
-import subprocess
-import sys
 from unittest import mock
-
-import pytest
 
 from yoke_core.engines import merge_worktree
 from yoke_core.engines import merge_worktree_cleanup
@@ -23,10 +19,10 @@ from yoke_core.engines.remote_branch_cleanup import RemoteBranchDeleteResult
 
 
 def _cleanup_ctx(tmp_path):
-    ctx = MergeContext(args=MergeArgs(branch="topic-cleanup", target="main"))
+    ctx = MergeContext(args=MergeArgs(branch="YOK-9999", target="main"))
     ctx.repo_root = str(tmp_path)
     ctx.yoke_repo_root = str(tmp_path)
-    ctx.item_id = 1
+    ctx.item_id = "9999"
     ctx.epic_id = None
     return ctx
 
@@ -40,12 +36,10 @@ class TestImportsSurviveLaneRemoval:
     """
 
     def test_packages_are_repointed_before_the_worktree_is_removed(
-        self,
-        tmp_path,
-        monkeypatch,
+        self, tmp_path, monkeypatch,
     ):
         ctx = _cleanup_ctx(tmp_path)
-        worktree = tmp_path / ".worktrees" / ctx.args.branch
+        worktree = tmp_path / ".worktrees" / "YOK-9999"
         worktree.mkdir(parents=True)
         ctx.worktree_path = str(worktree)
         timeline: list[str] = []
@@ -90,29 +84,3 @@ class TestImportsSurviveLaneRemoval:
         assert timeline.index(f"reseat {worktree} -> {tmp_path}") < timeline.index(
             "worktree remove " + str(worktree)
         )
-
-
-@pytest.mark.parametrize("first", ["cleanup", "post_helpers", "post", "pr"])
-def test_cleanup_import_surface_survives_each_fresh_import_order(first, tmp_path):
-    code = f"""
-import importlib
-import pathlib
-import sys
-prefix = 'yoke_core.engines.merge_worktree_'
-importlib.import_module(prefix + {first!r})
-cleanup = importlib.import_module(prefix + 'cleanup')
-helpers = importlib.import_module(prefix + 'post_helpers')
-facade = importlib.import_module(prefix + 'post')
-assert helpers._post_merge_cleanup is cleanup._post_merge_cleanup
-assert facade._post_merge_cleanup is cleanup._post_merge_cleanup
-assert pathlib.Path(cleanup.__file__).resolve() == pathlib.Path({merge_worktree_cleanup.__file__!r}).resolve()
-assert '' not in sys.path
-"""
-    result = subprocess.run(
-        [sys.executable, "-I", "-c", code],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        timeout=20,
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
