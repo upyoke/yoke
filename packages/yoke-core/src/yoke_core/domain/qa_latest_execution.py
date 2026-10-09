@@ -72,6 +72,11 @@ def latest_executions(
         + f") AND {actual_execution_sql('run')}",
         ids,
     )
+    return select_latest_executions(rows)
+
+
+def select_latest_executions(rows: Iterable[Any]) -> dict[int, dict[str, Any]]:
+    """Apply the native start/id kernel to actual attempts from one snapshot."""
     selected: dict[int, dict[str, Any]] = {}
     for row in rows:
         run = dict(row)
@@ -81,3 +86,32 @@ def latest_executions(
         if prior is None or key > (execution_start(prior), int(prior["id"])):
             selected[requirement_id] = run
     return selected
+
+
+def current_first_run_history(
+    rows: Iterable[Any], requirement_id: int | None
+) -> list[Any]:
+    """Put the native-selected attempt first without discarding audit history.
+
+    Requirement-filtered run lists feed case detail. Detached judgments stay
+    readable as history but cannot become the current answer. Unfiltered
+    listings retain their existing order and do not grade unrelated cases.
+    """
+    history = list(rows)
+    if requirement_id is None or not history:
+        return history
+    current = select_latest_executions(
+        row for row in history if row["actual_execution"]
+    ).get(int(requirement_id))
+    if current is None:
+        raise ValueError(
+            f"qa_execution_order_ambiguous: requirement {requirement_id} has only "
+            "judgment audit rows; inspect and correct authoritative capture "
+            "associations through the control-plane operator before grading"
+        )
+    current_id = current["id"]
+    return sorted(
+        history,
+        key=lambda row: (row["id"] == current_id, int(row["id"])),
+        reverse=True,
+    )

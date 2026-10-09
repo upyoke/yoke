@@ -28,8 +28,8 @@ function capturedContext() {
     if (request.function === "qa.requirement.get") return ok({ requirement });
     if (request.function === "items.detail.get") return ok({ item });
     if (request.function === "qa.run.list") return ok({ rows: [
-      { id: 11, verdict: "fail" },
       { id: row.run_id, execution_status: "captured", created_at: row.happened_at },
+      { id: 11, verdict: "fail" },
     ] });
     if (request.function === "qa.activity.list") return ok({ rows: [row],
       summary: { total: 1, counts: { captured: 1 } } });
@@ -54,6 +54,7 @@ test("QA activity case route reads its newest recorded run without a plan", asyn
   const { context, requirement } = capturedContext();
   const main = context.document.createElement("main");
   await renderQaCaseDetail(context, main, "acme", requirement.id);
+  assert.equal(byClass(main, "qa-outcome")[0].textContent, "captured");
   assert.match(visibleText(main), /captured/);
   assert.match(visibleText(main), /Earlier executions/);
   assert.doesNotMatch(visibleText(main), /never run|No materialized case activity/);
