@@ -90,6 +90,12 @@ def begin_operation_execution(
             select_any=False,
             **shape,
         )
+    if shape.get("baselines"):
+        raise MachineQaProtocolError(
+            "test_machine_cleanup_live_lease: reset/verify would clear temporary "
+            "state owned by a live mission; finish or abort the owning mission "
+            "before resetting or verifying this host"
+        )
     lease, candidate = _validate_lease_owner(
         conn,
         project=project,

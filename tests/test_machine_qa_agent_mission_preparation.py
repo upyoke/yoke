@@ -15,6 +15,10 @@ from yoke_harness.qa_host_package_fixture import restore_host_packages
 
 @pytest.fixture
 def mission(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.domain.agent_mission_preparation.require_mission_disk_space",
+        lambda control: {"ok": True},
+    )
     contract = SimpleNamespace(
         baselines=["fresh-host"],
         continues_execution_id=None,

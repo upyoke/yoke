@@ -186,6 +186,9 @@ class FakeHostControl(FakeOperatorOperations):
         """Model the host filesystem well enough for scratch staging."""
         command = list(argv)
         self.commands.append(command)
+        if len(command) > 3 and command[3] in {"cleanup", "disk"}:
+            receipt = json.dumps(dict(ok=True, freed_bytes=0, free_bytes=2**30))
+            return subprocess.CompletedProcess(command, 0, receipt, "")
         returncode = 0
         if command[:2] == ["/bin/mkdir", "-p"]:
             self.existing_paths.add(command[-1])
