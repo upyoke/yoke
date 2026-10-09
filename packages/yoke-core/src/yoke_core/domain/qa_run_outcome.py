@@ -21,9 +21,9 @@ def qa_run_outcome(row: Any) -> str:
         return "no_obligation"
     if _row_value(row, "waived_at"):
         return "waived"
-    case_outcome = str(_row_value(row, "case_outcome") or "").strip()
-    if case_outcome:
-        return case_outcome.replace(" ", "_")
+    case_outcome = str(_row_value(row, "case_outcome") or "").strip().replace(" ", "_")
+    if case_outcome and case_outcome != "needs_review":
+        return case_outcome
     verdict = str(_row_value(row, "verdict") or "").strip().lower()
     if verdict == "pass":
         return "passed"
@@ -31,6 +31,10 @@ def qa_run_outcome(row: Any) -> str:
         return "failed"
     if verdict in {"undetermined", "needs review", "needs_review"}:
         return "needs_review"
+    # Capture status is retained evidence; a judgment of that same attempt
+    # answers readiness without rewriting its original capture payload.
+    if case_outcome:
+        return case_outcome
     execution_status = str(_row_value(row, "execution_status") or "").strip().lower()
     if execution_status in {
         "queued",
