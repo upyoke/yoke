@@ -19,7 +19,10 @@ Two write rules keep the stored figure honest:
 
 from __future__ import annotations
 
+import json
 from typing import Any
+
+from yoke_contracts.timestamps import format_instant
 
 from yoke_contracts.session_usage_facts import (
     usage_document,
@@ -36,8 +39,6 @@ def _marker(conn: Any) -> str:
 
 
 def _payload(payload_json: str) -> dict[str, Any]:
-    import json
-
     try:
         parsed = json.loads(payload_json) if payload_json else {}
     except (TypeError, ValueError):
@@ -57,7 +58,14 @@ def observed_usage_document(payload_json: str, executor: str) -> str:
     payload = _payload(payload_json)
     carried = payload.get(USAGE_COLUMN)
     if isinstance(carried, str) and carried.strip():
-        return carried
+        usage = usage_from_document(carried)
+        if usage is None:
+            return ""
+        document = json.loads(carried)
+        document["observed_at"] = (
+            format_instant(usage.observed_at) if usage.observed_at is not None else None
+        )
+        return json.dumps(document)
     if not executor:
         return ""
     try:

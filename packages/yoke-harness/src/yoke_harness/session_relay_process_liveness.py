@@ -32,16 +32,14 @@ A record whose process is gone is spent once the control plane accounts for
 it: ended here, ended earlier, or never reachable. A claim-holding session
 is spared instead, and reports again once its claims release.
 
-A launch handle names the launch that started the native as well as the
-session, so the report carries the launch id and the last line the native
-said. That is what lets the control plane correct a launch still reading
-``succeeded`` for a worker that died before it ever worked, in the same poll
-that observed the death rather than whenever someone next notices.
+The report carries the launch id and the native's last line, so a launch
+whose worker died before registration can settle on proven process death.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from yoke_contracts.timestamps import format_instant
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping
 
@@ -269,8 +267,8 @@ def native_account(launch_id: str, *, state_dir: Path | None) -> dict[str, Any]:
     account: dict[str, Any] = {"native_diagnostic_ref": reference}
     if capture.exit_code is not None:
         account["exit_code"] = capture.exit_code
-    if capture.exit_at:
-        account["native_exit_at"] = capture.exit_at
+    if capture.exit_at is not None:
+        account["native_exit_at"] = format_instant(capture.exit_at)
     tail = capture.tail
     if tail:
         account["native_stderr_tail"] = tail

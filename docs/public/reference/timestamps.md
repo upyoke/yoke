@@ -241,3 +241,13 @@ Model observations, plan-window resets and relay failure/quarantine/refusal
 clocks format only as declared instant fields. Missing observations are null;
 model tokens, retirement dates, report bodies and preserved payload digests stay
 opaque. Quarantine validates a supplied clock before moving its payload.
+
+Native captures parse only their declared exit and last-output headers as aware
+instants; new headers and exit evidence use fixed-six UTC, preserving the raw
+native streams. Missing headers remain unknown; malformed supplied headers make
+an envelope unreadable, without a file-modification-time substitute. Supervisors
+retain aware wall clocks, and silence subtracts exact native instants.
+Session usage and machine capacity retain native observation clocks internally
+and format only their declared wire fields. Missing usage observations are null.
+Carried usage storage canonicalizes its observation while preserving unrelated
+JSON facts; malformed clocks refuse before SQL or capacity probes.

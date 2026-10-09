@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 
+from yoke_contracts import timestamps
 from yoke_core.domain.session_presentation_observation import (
     record_session_presentation,
 )
@@ -96,3 +97,18 @@ def test_persistence_writes_only_material_ordered_transitions():
     assert not record_session_presentation(
         conn, session_id=SESSION_ID, payload_json=json.dumps(stale)
     )
+
+
+def test_observer_formats_its_declared_clock_without_exporting_vendor_state(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        timestamps,
+        "utc_now",
+        lambda: timestamps.parse_instant("1969-12-31T18:59:59.123456-05:00"),
+    )
+    _state_file(tmp_path, {"sessionId": SESSION_ID, "createdAt": "vendor-date"})
+    observed = observe_claude_presentation("claude", {"session_id": SESSION_ID})
+    assert observed["presentation_observed_at"] == "1969-12-31T23:59:59.123456Z"
+    assert "createdAt" not in observed

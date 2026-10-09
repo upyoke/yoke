@@ -151,8 +151,8 @@ def test_default_spawn_settles_usage_across_custody_and_relay_directories(
     # What a second settlement must not change is what was measured, and
     # comparing the rendered documents asserted the clock as well — one
     # settlement pair straddling a second boundary failed the whole shard.
-    assert replace(usage, observed_at="") == replace(
-        before_second_settlement, observed_at=""
+    assert replace(usage, observed_at=None) == replace(
+        before_second_settlement, observed_at=None
     )
     entry = usage.models[0]
     assert (entry.input, entry.cached_input, entry.cache_write, entry.output) == (

@@ -33,6 +33,9 @@ figure that is right.
 
 from __future__ import annotations
 
+from datetime import datetime
+from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
+
 import json
 from dataclasses import dataclass, replace
 from typing import Any, Mapping, Optional, Sequence
@@ -96,13 +99,17 @@ class SessionUsage:
 
     status: str = USAGE_UNAVAILABLE
     reason: str = ""
-    observed_at: str = ""
+    observed_at: datetime | None = None
     source: str = ""
     models: tuple[ModelUsage, ...] = ()
     #: Why an estimate priced from these tokens is less certain than the
     #: tokens themselves — an unattributable model, a partial model
     #: history. Never a statement about the counts.
     cost_caveat: str = ""
+
+    def __post_init__(self) -> None:
+        if self.observed_at is not None:
+            object.__setattr__(self, "observed_at", parse_instant(self.observed_at))
 
     def billable_tokens(self) -> int:
         return sum(entry.billable_tokens() for entry in self.models)
@@ -190,7 +197,9 @@ def usage_document(usage: SessionUsage) -> str:
         {
             "status": usage.status,
             "reason": usage.reason,
-            "observed_at": usage.observed_at,
+            "observed_at": format_instant(usage.observed_at)
+            if usage.observed_at is not None
+            else None,
             "source": usage.source,
             "cost_caveat": usage.cost_caveat,
             "models": [
@@ -225,10 +234,15 @@ def usage_from_document(document: Any) -> Optional[SessionUsage]:
         for entry in (raw_models if isinstance(raw_models, list) else ())
         if isinstance(entry, Mapping) and str(entry.get("model") or "").strip()
     )
+    try:
+        raw_clock = block.get("observed_at")
+        observed_at = parse_instant(raw_clock) if raw_clock is not None else None
+    except InvalidInstant:
+        return None
     return SessionUsage(
         status=status,
         reason=str(block.get("reason") or ""),
-        observed_at=str(block.get("observed_at") or ""),
+        observed_at=observed_at,
         source=str(block.get("source") or ""),
         models=models,
         cost_caveat=str(block.get("cost_caveat") or ""),

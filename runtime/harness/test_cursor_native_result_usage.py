@@ -69,7 +69,7 @@ def _capture(stdout: str, *, state: str = STATE_EXITED, exit_code: int | None = 
 def _measured(document: str):
     usage = usage_from_document(document)
     assert usage is not None
-    return replace(usage, observed_at="")
+    return replace(usage, observed_at=None)
 
 
 def _result_line(*, request_id: str, output_tokens: int = 30) -> str:

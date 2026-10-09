@@ -165,3 +165,21 @@ def test_a_local_payload_without_a_reading_takes_one_from_the_artifact(
     document = observed_usage_document(payload, "claude-code")
 
     assert json.loads(document)["models"][0]["input"] == 7
+
+
+def test_carried_usage_clock_is_canonical_without_losing_unrelated_facts(conn):
+    carried = json.loads(_reading(7))
+    carried.update(
+        {
+            "observed_at": "1969-12-31T18:59:59.123456-05:00",
+            "vendor_metadata": {"date": "2026-09-03", "request_id": "opaque"},
+        }
+    )
+    payload = _payload(json.dumps(carried))
+    assert record_session_usage(conn, session_id="session-1", payload_json=payload)
+    stored = json.loads(_stored(conn))
+    assert stored == {**carried, "observed_at": "1969-12-31T23:59:59.123456Z"}
+    carried["observed_at"] = stored["observed_at"]
+    assert not record_session_usage(
+        conn, session_id="session-1", payload_json=_payload(json.dumps(carried))
+    )
