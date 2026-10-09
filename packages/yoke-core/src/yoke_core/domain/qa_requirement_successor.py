@@ -83,31 +83,95 @@ def validate_successor(
         )
 
 
-def authorize_reconciliation(conn: Any, request: Any, requirement_id: int) -> None:
-    """Use existing verified operator/steering authority for graph repair."""
+def authorize_reconciliation(
+    conn: Any, request: Any, requirement_id: int
+) -> dict[str, Any]:
+    """Resolve verified operator authority or the live seat covering this subject."""
     from yoke_core.domain.function_target_row_project import (
         resolve_qa_requirement_project,
     )
-    from yoke_core.domain.session_operator_authority import (
-        require_operator_or_steering_authority,
-    )
-    from yoke_core.domain.sessions_analytics import SessionError
+    from yoke_core.domain.steering_scope_coverage import covering_claims
+    from yoke_core.domain.steering_scope_membership import item_coverage_target
 
     project = resolve_qa_requirement_project(conn, requirement_id)
     if project is None:
         raise QaSuccessorError(
             "replacement_reconciliation_project_missing: inspect the requirement subject before retrying"
         )
-    try:
-        require_operator_or_steering_authority(
+    session_id = str(request.actor.session_id or "")
+    caller = query_one(
+        conn,
+        "SELECT actor_id,mode,ended_at,terminated_at FROM harness_sessions WHERE session_id=%s",
+        (session_id,),
+    )
+    if (
+        caller is not None
+        and caller["ended_at"] is None
+        and caller["terminated_at"] is None
+        and caller["actor_id"] is not None
+        and int(caller["actor_id"]) == int(request.actor.actor_id)
+    ):
+        if caller["mode"] == "operator":
+            return {"authority": "operator", "session_id": session_id}
+        subject = query_one(
             conn,
-            actor_id=int(request.actor.actor_id),
-            caller_session_id=str(request.actor.session_id or ""),
-            project_id=project[0],
-            action="QA successor reconciliation",
-            error_code="QA_RECONCILIATION_AUTHORITY_REQUIRED",
+            "SELECT COALESCE(deployment_member_item_id,item_id,epic_id) AS item_id "
+            "FROM qa_requirements WHERE id=%s",
+            (requirement_id,),
         )
-    except SessionError as exc:
-        raise QaSuccessorError(
-            f"{exc.code}: {exc}; ask the project operator or steering holder to reconcile the links"
-        ) from exc
+        target = item_coverage_target(
+            conn, project_id=project[0], item_id=subject["item_id"]
+        )
+        for seat in covering_claims(conn, target):
+            if str(seat["session_id"]) == session_id:
+                return {
+                    "authority": "steering",
+                    "session_id": session_id,
+                    "claim_id": seat["claim_id"],
+                    "scope": seat["scope"],
+                }
+    raise QaSuccessorError(
+        "QA_RECONCILIATION_AUTHORITY_REQUIRED: QA repair requires a live actor-owned "
+        "operator session or steering seat covering the requirement; ask that operator "
+        "or covering steering holder to run the repair with --source operator. "
+        "The item's work claim alone does not authorize this repair."
+    )
+
+
+def notify_repair(conn: Any, request: Any, result: dict[str, Any]) -> dict[str, str]:
+    """Queue the durable repair outcome to its item holder through existing routing."""
+    from yoke_core.domain.deployment_run_driver_notice import push_member_notice
+    from yoke_core.domain.function_target_row_project import resolve_item_project
+
+    subject = query_one(
+        conn,
+        "SELECT COALESCE(deployment_member_item_id,item_id,epic_id) AS item_id "
+        "FROM qa_requirements WHERE id=%s",
+        (result["requirement_id"],),
+    )
+    item_id = subject["item_id"]
+    if item_id is None:
+        return {
+            "delivery": "not_applicable",
+            "recovery": "No item holder for this requirement.",
+        }
+    project = resolve_item_project(conn, int(item_id))
+    body = (
+        f"Operator QA repair by session {request.actor.session_id}: requirement "
+        f"{result['requirement_id']} now points to {result['superseded_by_requirement_id']}. "
+        "Your work claim is retained. Inspect the requirement and resume its existing gate."
+    )
+    delivery = push_member_notice(
+        conn,
+        item_id=int(item_id),
+        project_id=project[0],
+        body_for_route=lambda route: body,
+        idempotency_key=f"qa-repair:{request.request_id}",
+    )
+    conn.commit()
+    return {
+        "delivery": delivery or "unaddressed",
+        "recovery": ""
+        if delivery
+        else "No live holder or covering seat; inspect the requirement before resuming its gate.",
+    }

@@ -155,8 +155,14 @@ yoke qa requirement supersede --requirement-id OLD --superseded-by-requirement-i
 ```
 
 Inspect the chain and name its unique terminal before running this command.
-The repair requires the ordinary same-scope passing proof and QA subject claim,
-checks verified operator or steering authority, retains the prior rationale and
-supersession time, and appends the actor, previous links and repair rationale.
+Operator-sourced reconciliation requires ordinary same-scope passing proof and a
+live actor-owned operator session or steering seat covering the requirement.
+That authority is sufficient without the item's work claim; the claim alone is
+insufficient. Coverage uses the item's live strategy-document membership.
+The repair retains prior rationale and supersession time, appends the actor,
+seat claim and scope, previous links and repair rationale, and notifies the item
+holder through existing routing while retaining its claim. The receipt reports
+notice delivery and recovery if notification fails. Supersession without reconciliation
+keeps its ordinary QA subject claim policy.
 Ambiguous branches refuse before writing; ask the operator to resolve the
 intended obligation instead of guessing a successor.

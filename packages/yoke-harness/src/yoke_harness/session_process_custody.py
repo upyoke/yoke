@@ -31,7 +31,8 @@ def group_members(group: int) -> dict[str, str]:
                 continue
             try:
                 fields = (entry / "stat").read_text().rsplit(")", 1)[1].split()
-            except FileNotFoundError:
+            except (FileNotFoundError, ProcessLookupError):
+                # A task may exit between enumeration and reading its stat.
                 continue
             if int(fields[2]) == group and fields[0] != "Z":
                 members[entry.name] = "linux:" + fields[19]
