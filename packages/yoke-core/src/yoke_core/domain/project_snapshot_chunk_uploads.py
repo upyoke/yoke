@@ -10,6 +10,7 @@ from yoke_contracts.path_snapshot import (
 )
 from yoke_contracts.path_snapshot_chunks import PathSnapshotChunkSyncPayload
 from yoke_core.domain import db_backend, json_helper
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 SyncSnapshotPayload = Callable[[str, PathSnapshotSyncPayload], Dict[str, Any]]
 
@@ -71,7 +72,9 @@ def _begin_chunk_upload(
     lane_head_recorded = _record_lane_head(conn, project_id, payload)
     _delete_chunk_upload_rows(conn, payload.upload_id)
     existing_snapshot_id = find_existing_snapshot_id(
-        conn, project_id=project_id, commit_sha=payload.snapshot.commit_sha,
+        conn,
+        project_id=project_id,
+        commit_sha=payload.snapshot.commit_sha,
     )
     if existing_snapshot_id is not None:
         conn.commit()
@@ -79,14 +82,16 @@ def _begin_chunk_upload(
             "status": "reused",
             "upload_id": payload.upload_id,
             "snapshot_id": existing_snapshot_id,
-            "snapshots": [{
-                "status": "reused",
-                "snapshot_id": existing_snapshot_id,
-                "ref": payload.snapshot.ref,
-                "commit_sha": payload.snapshot.commit_sha,
-                "entry_count": 0,
-                "symlink_count": 0,
-            }],
+            "snapshots": [
+                {
+                    "status": "reused",
+                    "snapshot_id": existing_snapshot_id,
+                    "ref": payload.snapshot.ref,
+                    "commit_sha": payload.snapshot.commit_sha,
+                    "entry_count": 0,
+                    "symlink_count": 0,
+                }
+            ],
             "warnings": list(payload.snapshot.warnings),
             "expected_file_count": payload.snapshot.file_count,
             "expected_chunk_count": payload.snapshot.chunk_count,
@@ -107,11 +112,10 @@ def _begin_chunk_upload(
             payload.snapshot.file_count,
             payload.snapshot.chunk_count,
             json_helper.dumps_compact(payload.snapshot.warnings),
-            json_helper.dumps_compact([
-                fact.model_dump(mode="json")
-                for fact in payload.snapshot.symlinks
-            ]),
-            _now_iso(),
+            json_helper.dumps_compact(
+                [fact.model_dump(mode="json") for fact in payload.snapshot.symlinks]
+            ),
+            instant_parameter(conn, utc_now()),
         ),
     )
     conn.commit()
@@ -171,9 +175,9 @@ def _append_chunk_upload(
             f"0..{expected_chunk_count - 1}"
         )
     p = _p(conn)
-    files_json = json_helper.dumps_compact([
-        entry.model_dump(mode="json") for entry in payload.files
-    ])
+    files_json = json_helper.dumps_compact(
+        [entry.model_dump(mode="json") for entry in payload.files]
+    )
     conn.execute(
         "INSERT INTO path_snapshot_sync_upload_chunks "
         f"(upload_id, chunk_index, files_json) VALUES ({p}, {p}, {p}) "
@@ -197,9 +201,7 @@ def _finalize_chunk_upload(
 ) -> Dict[str, Any]:
     upload = _load_upload(conn, upload_id)
     if upload is None:
-        raise ChunkUploadMissingError(
-            f"snapshot chunk upload {upload_id!r} not found"
-        )
+        raise ChunkUploadMissingError(f"snapshot chunk upload {upload_id!r} not found")
     chunks = _load_chunks(conn, upload_id)
     expected_chunk_count = int(_row_get(upload, "expected_chunk_count", 6))
     if len(chunks) != expected_chunk_count:
@@ -224,11 +226,14 @@ def _finalize_chunk_upload(
         warnings=warnings if isinstance(warnings, list) else [],
     )
     project_ref = str(_row_get(upload, "project_ref", 1))
-    result = sync_payload(project_ref, PathSnapshotSyncPayload(
-        project_id=project_ref,
-        repo_root=_row_get(upload, "repo_root", 2),
-        snapshots=[payload],
-    ))
+    result = sync_payload(
+        project_ref,
+        PathSnapshotSyncPayload(
+            project_id=project_ref,
+            repo_root=_row_get(upload, "repo_root", 2),
+            snapshots=[payload],
+        ),
+    )
     _delete_chunk_upload_rows(conn, upload_id)
     conn.commit()
     return {
@@ -308,12 +313,6 @@ def _row_get(row: Any, key: str, index: int) -> Any:
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _now_iso() -> str:
-    from yoke_core.domain.db_helpers import iso8601_now
-
-    return iso8601_now()
 
 
 __all__ = ["ChunkUploadMissingError", "sync_chunk"]

@@ -11,8 +11,7 @@ import hashlib
 import json
 from typing import Any, Mapping, Optional, Sequence
 
-from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect, iso8601_now
+from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.projects_pulumi_state_migration_marker import (
     canonical_json as _canonical_json,
@@ -22,7 +21,13 @@ from yoke_core.domain.projects_pulumi_state_migration_marker import (
     set_marker,
 )
 
-CAPABILITY_TYPE = "pulumi-state"
+from yoke_core.domain.pulumi_state_capability import CAPABILITY_TYPE
+from yoke_core.domain.projects_pulumi_state_migration_rows import (
+    _locked_site_row,
+    _ensure_capability_row,
+    _locked_capability_row,
+)
+
 SOURCE_PATH = "sites.settings.pulumi.stack_state"
 DESTINATION_PATH = "project_capabilities.settings.stack_state"
 MARKER_PATH = "project_capabilities.settings.migration_receipts"
@@ -34,12 +39,14 @@ SENSITIVE_PATHS = (
 )
 _ENTRY_KEYS = frozenset({"secrets_provider", "encrypted_key"})
 
+
 class PulumiStateMigrationError(RuntimeError):
     """Typed, secret-free refusal from the state migration workhorse."""
 
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
+
 
 def migrate_pulumi_state(
     *,
@@ -73,9 +80,7 @@ def migrate_pulumi_state(
         capability_row = _locked_capability_row(conn, ident.id)
         assert capability_row is not None
         site_settings = _object_from_json(site_row[1], SOURCE_PATH)
-        capability_settings = _object_from_json(
-            capability_row[0], DESTINATION_PATH
-        )
+        capability_settings = _object_from_json(capability_row[0], DESTINATION_PATH)
 
         source_state = _source_stack_state(site_settings)
         destination_state = _destination_stack_state(capability_settings)
@@ -85,10 +90,9 @@ def migrate_pulumi_state(
         )
 
         if source_entries is None:
-            if (
-                marker_matches(capability_settings, site, requested)
-                and _destination_has_exact_entries(destination_entries, requested)
-            ):
+            if marker_matches(
+                capability_settings, site, requested
+            ) and _destination_has_exact_entries(destination_entries, requested):
                 mode = "already_applied"
                 changed_paths: list[str] = []
             else:
@@ -182,6 +186,7 @@ def migrate_pulumi_state(
         if owns_conn:
             conn.close()
 
+
 def _normalize_stack_names(stack_names: Sequence[str]) -> tuple[str, ...]:
     names = tuple(str(name or "").strip() for name in stack_names)
     if not names or any(not name for name in names):
@@ -193,33 +198,6 @@ def _normalize_stack_names(stack_names: Sequence[str]) -> tuple[str, ...]:
             "validation_error", "stack names must be unique"
         )
     return tuple(sorted(names))
-
-def _locked_site_row(conn: Any, project_id: int, site: str) -> Any:
-    suffix = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
-    return conn.execute(
-        "SELECT id, COALESCE(settings, '{}') FROM sites "
-        f"WHERE project_id=%s AND name=%s{suffix}",
-        (project_id, site),
-    ).fetchone()
-
-
-def _ensure_capability_row(conn: Any, project_id: int) -> bool:
-    cursor = conn.execute(
-        "INSERT INTO project_capabilities "
-        "(project_id, type, settings, created_at) VALUES (%s, %s, %s, %s) "
-        "ON CONFLICT(project_id, type) DO NOTHING",
-        (project_id, CAPABILITY_TYPE, "{}", iso8601_now()),
-    )
-    return cursor.rowcount == 1
-
-
-def _locked_capability_row(conn: Any, project_id: int) -> Any:
-    suffix = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
-    return conn.execute(
-        "SELECT COALESCE(settings, '{}') FROM project_capabilities "
-        f"WHERE project_id=%s AND type=%s{suffix}",
-        (project_id, CAPABILITY_TYPE),
-    ).fetchone()
 
 
 def _object_from_json(raw: Any, path: str) -> dict[str, Any]:
@@ -270,9 +248,7 @@ def _validated_entries(
     if state is None:
         return None
     if not isinstance(state, Mapping):
-        raise PulumiStateMigrationError(
-            "validation_error", f"{path} must be an object"
-        )
+        raise PulumiStateMigrationError("validation_error", f"{path} must be an object")
     names = set(selected) if selected is not None else set(state)
     result: dict[str, dict[str, str]] = {}
     for name in sorted(names & set(state)):
@@ -326,9 +302,7 @@ def _verify_applied(
     destination = _destination_stack_state(
         _object_from_json(capability_row[0], DESTINATION_PATH)
     )
-    validated = _validated_entries(
-        destination, DESTINATION_PATH, selected=requested
-    )
+    validated = _validated_entries(destination, DESTINATION_PATH, selected=requested)
     settings = _object_from_json(capability_row[0], DESTINATION_PATH)
     if (
         source is not None
@@ -338,6 +312,7 @@ def _verify_applied(
         raise PulumiStateMigrationError(
             "verification_failed", "Pulumi state migration verification failed"
         )
+
 
 __all__ = [
     "CAPABILITY_TYPE",
