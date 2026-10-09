@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import os
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -37,6 +36,7 @@ from yoke_cli.board.rebuild_resolve import (
     resolve_main_repo_root,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.timestamps import iso8601_now
 from yoke_contracts.board.art import parse_art_config
 from yoke_contracts.board.phase_timer import PhaseRecorder, measure_phase
 from yoke_contracts.board.renderer import render_board_from_payload
@@ -52,7 +52,7 @@ class BoardDataFetchError(RuntimeError):
 
 
 def _timestamp() -> str:
-    return datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S %Z")
+    return iso8601_now()
 
 
 def _parse_seed() -> Optional[int]:
@@ -78,8 +78,7 @@ def fetch_board_data(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not response.success:
         error = response.error
         detail = (
-            f"{error.code}: {error.message}" if error is not None
-            else "unknown error"
+            f"{error.code}: {error.message}" if error is not None else "unknown error"
         )
         raise BoardDataFetchError(f"board.data.get failed - {detail}")
     return dict(response.result or {})

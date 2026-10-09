@@ -343,8 +343,8 @@ Strategy headers emit fixed-six UTC identities; parsing rejects invalid clocks a
 relocation compares canonical identities before file inspection, preserving matching file bytes, body hashes and
 editor labels.
 
-New source-authority receipts format clock metadata as fixed-six UTC/null and compare
-native freeze watermarks before hashing. Private CONNECT-fence birth uses native
-freeze/retirement columns and validates clocks before SQL. Credential retirement
-files and archive diagnostics format clocks at their boundaries. Existing receipt
-files, frozen fixture IDs and PostgreSQL physical row checksums retain their bytes.
+Source-authority receipts format metadata as fixed-six UTC/null and compare native freeze
+watermarks before hashing. Private CONNECT-fence birth uses native freeze/retirement columns;
+clocks validate before SQL. Credential files and archive diagnostics format owned clocks.
+Existing receipt files, frozen fixture IDs and physical PostgreSQL row checksums retain bytes.
+Generated board last-synced markers use fixed-six UTC in both CLI and engine paths.
