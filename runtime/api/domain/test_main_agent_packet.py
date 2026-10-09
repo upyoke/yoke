@@ -87,7 +87,7 @@ def test_render_main_agent_block_does_not_inline_the_packet_body() -> None:
     """
 
     block = render_main_agent_block()
-    packet = schema_api_context.render_role_packet("main_agent")
+    packet = schema_api_context.render_topic_packet("core")
     schema_lines = [
         line
         for line in packet.splitlines()

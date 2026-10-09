@@ -109,6 +109,11 @@ def _seed_pinned_item(
 
 
 def _wire_create(monkeypatch, conn) -> None:
+    # This fixture tests launch admission; instruction delivery has its own suite.
+    monkeypatch.setattr(
+        "yoke_core.domain.workflow_execution_instructions.resolve_for_item",
+        lambda *_a, **_k: [],
+    )
     monkeypatch.setattr(handlers, "_open", lambda: _NoCloseConnection(conn))
     monkeypatch.setattr(handlers, "_resolve_project", lambda _conn, _project: 10)
     monkeypatch.setattr(

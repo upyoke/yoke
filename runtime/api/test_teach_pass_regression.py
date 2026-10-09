@@ -22,7 +22,10 @@ from yoke_core.domain.path_claim_target_resolver import ClaimContext
 from yoke_core.domain.yok_n_parser import parse_item_id
 from yoke_core.domain.schema_api_context_render import PACKET_DETAIL_FULL
 
-_RENDERED_BODY: str = sac.render_role_packet("main_agent", detail=PACKET_DETAIL_FULL)
+_RENDERED_BODY: str = "\n".join(
+    sac.render_topic_packet(topic, detail=PACKET_DETAIL_FULL)
+    for topic in sac.seed.ROLE_TOPICS["main_agent"]
+)
 _REPO = Path(__file__).resolve().parents[2]
 
 
@@ -113,7 +116,6 @@ _CLI_ANCHORS_REQUIRED = (
     "backlog-cli",
     "lifecycle.transition",
     'yoke db read "SELECT 1"',
-    "source-dev/operator-debug `db_router query` fallback",
 )
 
 
@@ -122,20 +124,12 @@ def test_cli_anchor_present(body: str, anchor: str) -> None:
     assert anchor in body, f"CLI cheat sheet must teach anchor {anchor!r}."
 
 
-_FUNCTION_CALL_ANCHORS = (
-    "FunctionCallRequest",
-    "FunctionCallResponse",
-    "yoke_contracts.api.function_call",
-    "yoke_core.domain.yoke_function_dispatch",
-    "session_id",
-    "preconditions",
-    "options",
-)
-
-
-def test_function_call_stanza_names_canonical_models(body: str) -> None:
-    for anchor in _FUNCTION_CALL_ANCHORS:
-        assert anchor in body, f"function-call surface stanza must name {anchor!r}."
+def test_function_call_stanza_names_registered_writes_and_cli(body: str) -> None:
+    assert "Registered writes" in body
+    for function in sac.seed.AGENT_WRITE_FUNCTION_IDS:
+        assert f"`{function}`" in body
+    assert "CLI grammar" in body
+    assert "yoke_core.domain.yoke_function_dispatch" not in body
 
 
 _JSON_NESTED_COLUMNS_REQUIRED = (
@@ -197,7 +191,7 @@ def test_worktree_unresolved_denial_embeds_preflight_command() -> None:
     assert "path-claims widen" not in narrative
 
 
-def test_path_claim_register_overlap_denial_embeds_coordination_decision() -> None:
+def test_path_claim_register_overlap_denial_routes_runtime_to_refine() -> None:
     # No connection here, so nothing can resolve a reference; the denial
     # says that plainly rather than assembling one from the internal id.
     body_text = compose_overlap_denial(
@@ -210,9 +204,11 @@ def test_path_claim_register_overlap_denial_embeds_coordination_decision() -> No
     assert "BLOCKED: path-claim register overlap on item " in body_text
     assert "unresolved item ref" in body_text
     assert "123" not in body_text
-    assert "yoke claims path coordination-decision-build " in body_text
-    assert "--conflicting-claim " in body_text
-    assert "--paths" in body_text
+    assert (
+        "Recovery: /yoke refine <unresolved item ref: no control-plane read>"
+        in body_text
+    )
+    assert "coordination-decision-build" not in body_text
 
 
 # Pure confabulations + the obsoleted ``--claim-state`` form. Must be

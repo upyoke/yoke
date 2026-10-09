@@ -42,7 +42,7 @@ from yoke_contracts.startup_context_budget import (
 )
 from yoke_core.domain import startup_delivery_budget as delivery
 from yoke_core.domain.agents_render_conditional import HARNESS_IDS
-from yoke_core.domain.schema_api_context import render_role_packet
+from yoke_core.domain.schema_api_context import render_role_packet, render_topic_packet
 from yoke_core.domain.schema_api_context_render import (
     PACKET_DETAIL_COMPACT,
     PACKET_DETAIL_FULL,
@@ -65,9 +65,7 @@ def report() -> dict:
 def test_every_harness_gets_every_channel(report: dict) -> None:
     seen = {(row["harness_id"], row["channel"]) for row in report["channels"]}
     assert seen == {
-        (harness, channel)
-        for harness in HARNESS_IDS
-        for channel in STARTUP_CHANNELS
+        (harness, channel) for harness in HARNESS_IDS for channel in STARTUP_CHANNELS
     }
 
 
@@ -147,13 +145,13 @@ def test_orientation_block_is_the_inline_contributor(report: dict) -> None:
             ]
 
 
-def test_compact_packet_is_a_strict_subset_of_full() -> None:
+def test_compact_topic_is_a_strict_subset_of_full() -> None:
     for role in ("main_agent", "engineer_agent"):
-        compact = render_role_packet(role, detail=PACKET_DETAIL_COMPACT)
-        full = render_role_packet(role, detail=PACKET_DETAIL_FULL)
+        compact = render_topic_packet("core", role=role, detail=PACKET_DETAIL_COMPACT)
+        full = render_topic_packet("core", role=role, detail=PACKET_DETAIL_FULL)
         assert len(compact.encode("utf-8")) < len(full.encode("utf-8"))
         for line in compact.splitlines():
-            if line.strip() and not line.startswith("_Compact depth."):
+            if line.strip() and not line.startswith("_Schema and operation depth:"):
                 assert line in full, line
 
 
@@ -163,14 +161,16 @@ def test_compact_packet_names_the_command_for_its_own_notes() -> None:
     assert "yoke packets render --role main_agent --topic core" in compact
 
 
-def test_compact_packet_keeps_every_table_and_column() -> None:
-    """Compact drops the notes, never the names an agent could confabulate."""
+def test_compact_topic_keeps_catalog_and_role_discovers_it() -> None:
+    """Role composition points at depth; explicit topics retain the catalog."""
     from yoke_core.domain import schema_api_context_seed as seed
 
     compact = render_role_packet("main_agent", detail=PACKET_DETAIL_COMPACT)
     for topic in seed.ROLE_TOPICS["main_agent"]:
+        assert f"--topic {topic} --detail full" in compact
+        depth = render_topic_packet(topic, detail=PACKET_DETAIL_COMPACT)
         for table in seed.TOPIC_TABLES[topic]:
-            assert f"`{table}`" in compact, table
+            assert f"`{table}`" in depth, table
 
 
 def test_unknown_detail_is_refused_by_name() -> None:
@@ -271,9 +271,7 @@ def test_delivery_cli_route_and_client_local_scope_are_registered() -> None:
     from yoke_core.domain.function_authz_scope_client_local import CLIENT_LOCAL_BY_ID
     from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
 
-    function_id, adapter = SUBCOMMAND_REGISTRY[
-        ("packets", "startup-delivery", "get")
-    ]
+    function_id, adapter = SUBCOMMAND_REGISTRY[("packets", "startup-delivery", "get")]
     assert function_id == "packets.startup_delivery.get"
     assert callable(adapter)
     assert "packets.startup_delivery.get" in CLIENT_LOCAL_BY_ID

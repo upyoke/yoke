@@ -118,7 +118,7 @@ def test_startup_packet_points_at_the_help_that_carries_the_recipe() -> None:
     from yoke_core.domain.main_agent_packet import render_main_agent_block
 
     block = render_main_agent_block()
-    assert "narrow reads" in block
+    assert "yoke packets render --role main_agent --topic T" in block
     assert "`--help`" in block
     assert arr.FOOTER not in block
 
