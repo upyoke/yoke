@@ -11,10 +11,10 @@ session's. Idempotency + zero-effect also covered.
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timezone
 from unittest import mock
 
 from runtime.api.fixtures import pg_testdb
+from yoke_contracts.timestamps import utc_now
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.domain import claims_work_release_session_scoped as mod
 from yoke_core.domain.work_claim_targets import (
@@ -29,17 +29,17 @@ CREATE TABLE harness_sessions (
     model TEXT, execution_level TEXT NOT NULL DEFAULT 'primary',
     reasoning_effort TEXT DEFAULT NULL, context_window_tokens INTEGER DEFAULT NULL, requested_model TEXT DEFAULT NULL, requested_reasoning_effort TEXT DEFAULT NULL, requested_context_window_tokens INTEGER DEFAULT NULL,
     workspace TEXT NOT NULL DEFAULT '', mode TEXT NOT NULL DEFAULT 'wait',
-    offered_at TEXT NOT NULL, last_heartbeat TEXT NOT NULL,
-    ended_at TEXT,
-    current_item_id TEXT, current_item_set_at TEXT,
+    offered_at TIMESTAMPTZ NOT NULL, last_heartbeat TIMESTAMPTZ NOT NULL,
+    ended_at TIMESTAMPTZ,
+    current_item_id TEXT, current_item_set_at TIMESTAMPTZ,
     recent_item_id TEXT, recent_item_status TEXT,
-    recent_item_recorded_at TEXT, actor_id INTEGER
+    recent_item_recorded_at TIMESTAMPTZ, actor_id INTEGER
 );
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY, session_id TEXT NOT NULL, target_kind TEXT NOT NULL,
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
-    claimed_at TEXT NOT NULL, last_heartbeat TEXT NOT NULL, released_at TEXT,
+    claimed_at TIMESTAMPTZ NOT NULL, last_heartbeat TIMESTAMPTZ NOT NULL, released_at TIMESTAMPTZ,
     release_reason TEXT CHECK(release_reason IS NULL OR release_reason IN
         ('completed','released','reclaimed','handed_off','expired','session_ended'))
 );
@@ -47,17 +47,9 @@ CREATE TABLE items (id INTEGER PRIMARY KEY, status TEXT);
 CREATE TABLE events (
     id INTEGER PRIMARY KEY, event_name TEXT NOT NULL, session_id TEXT,
     item_id TEXT, task_num INTEGER, context TEXT,
-    created_at TEXT NOT NULL DEFAULT (now()::text)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 """
-
-
-def _now() -> str:
-    return (
-        datetime.now(timezone.utc)
-        .isoformat(timespec="microseconds")
-        .replace("+00:00", "Z")
-    )
 
 
 def _build_conn():
@@ -73,7 +65,7 @@ def _insert_session(conn, session_id):
         "INSERT INTO harness_sessions (session_id, executor, provider, model, workspace, "
         "offered_at, last_heartbeat) "
         "VALUES (%s, 'claude-code', 'anthropic', 'm', '/tmp', %s, %s)",
-        (session_id, _now(), _now()),
+        (session_id, utc_now(), utc_now()),
     )
     conn.commit()
 
@@ -91,9 +83,9 @@ def _insert_item_claim(conn, session_id, item_id, *, released=False):
         (
             session_id,
             make_item_target(item_id).scope_json(),
-            _now(),
-            _now(),
-            _now() if released else None,
+            utc_now(),
+            utc_now(),
+            utc_now() if released else None,
             "released" if released else None,
         ),
     )
@@ -107,7 +99,12 @@ def _insert_qa_claim(conn, session_id):
         "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, "
         "claimed_at, last_heartbeat) VALUES (%s, 'qa_admission', %s, "
         "'exclusive', %s, %s) RETURNING id",
-        (session_id, make_qa_admission_target("test-mac").scope_json(), _now(), _now()),
+        (
+            session_id,
+            make_qa_admission_target("test-mac").scope_json(),
+            utc_now(),
+            utc_now(),
+        ),
     )
     claim_id = int(cur.fetchone()[0])
     conn.commit()
