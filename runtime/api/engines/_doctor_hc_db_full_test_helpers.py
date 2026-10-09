@@ -48,10 +48,10 @@ def _add_ephemeral_environments_table(conn):
             port_web INTEGER,
             url TEXT,
             status TEXT NOT NULL DEFAULT 'pending',
-            started_at TEXT,
-            stopped_at TEXT,
+            started_at TIMESTAMPTZ,
+            stopped_at TIMESTAMPTZ,
             health_check_url TEXT,
-            created_at TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL,
             UNIQUE(project_id, branch)
         );
         """,
@@ -71,7 +71,7 @@ def _add_deployment_preview_environments_table(conn):
             status TEXT NOT NULL DEFAULT 'available',
             env_type TEXT NOT NULL DEFAULT 'adhoc',
             url TEXT,
-            created_at TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL,
             UNIQUE(project_id, env_name)
         );
         """,

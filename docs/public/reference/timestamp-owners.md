@@ -75,7 +75,7 @@ formatter. Artifact filename dates remain labels. Current observation birth
 fixtures declare native clocks; historical conversion fixtures retain TEXT. PostgreSQL project/planning, parity, path, constrained-audit and structured-write
 mini-DDL follows this native
 contract; episode clocks parse before SQL and capability fixtures bind aware
-clocks. Shared browser fixtures retain native deployment clocks.
+clocks. Browser, Doctor control-plane, done-transition, resync and merge-audit fixtures retain native clocks; retired SQLite probe subjects retain their declared schema.
 
 Path-claim CLI JSON and body renderers format owned instants; worktree lane
 responses normalize declared clocks before model validation. Doctor receipts bind

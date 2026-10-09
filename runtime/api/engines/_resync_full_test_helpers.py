@@ -42,8 +42,8 @@ def _apply_resync_full_schema() -> None:
                 github_issue TEXT,
                 project_id INTEGER DEFAULT 1,
                 project_sequence INTEGER,
-                created_at TEXT,
-                updated_at TEXT
+                created_at TIMESTAMPTZ,
+                updated_at TIMESTAMPTZ
             )
         """)
         conn.execute("""
@@ -63,7 +63,7 @@ def _apply_resync_full_schema() -> None:
                 slug TEXT UNIQUE,
                 name TEXT,
                 default_branch TEXT,
-                created_at TEXT,
+                created_at TIMESTAMPTZ,
                 github_repo TEXT,
                 public_item_prefix TEXT DEFAULT 'YOK',
                 github_sync_mode TEXT NOT NULL DEFAULT 'disabled'
@@ -78,7 +78,7 @@ def _apply_resync_full_schema() -> None:
                 item_id TEXT,
                 client_timing_id TEXT,
                 envelope TEXT,
-                created_at TEXT,
+                created_at TIMESTAMPTZ,
                 source_type TEXT,
                 session_id TEXT DEFAULT '',
                 severity TEXT DEFAULT 'INFO',

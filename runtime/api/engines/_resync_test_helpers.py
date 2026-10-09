@@ -44,7 +44,7 @@ def _apply_resync_schema() -> None:
                 item_id TEXT,
                 client_timing_id TEXT,
                 envelope TEXT,
-                created_at TEXT,
+                created_at TIMESTAMPTZ,
                 source_type TEXT
             )
         """)
@@ -83,14 +83,14 @@ def populated_db(test_db):
         (id, title, status, priority, workflow_id, workflow_version_id, source, spec, frozen,
          github_issue, project_id, project_sequence, created_at, updated_at)
         VALUES (42, 'Test item', 'implementing', 'high', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'manual',
-                'Item body', 0, '#100', 1, 42, '2026-01-01', '2026-01-01')
+                'Item body', 0, '#100', 1, 42, '2026-01-01T00:00:00.123456Z', '2026-01-01T00:00:00.123456Z')
     """)
     conn.execute("""
         INSERT INTO items
         (id, title, status, priority, workflow_id, workflow_version_id, source, spec, frozen,
          github_issue, project_id, project_sequence, created_at, updated_at)
         VALUES (43, 'Done item', 'done', 'medium', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'auto',
-                'Done body', 0, '#101', 1, 43, '2026-01-01', '2026-01-01')
+                'Done body', 0, '#101', 1, 43, '2026-01-01T00:00:00.123456Z', '2026-01-01T00:00:00.123456Z')
     """)
     conn.execute("""
         INSERT INTO items
@@ -98,7 +98,7 @@ def populated_db(test_db):
          github_issue, project_id, project_sequence, created_at, updated_at)
         VALUES (1246, 'Epic parent', 'implementing', 'high', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'),
                 'manual', 'Epic body', 0, '#102', 1, 1246,
-                '2026-01-01', '2026-01-01')
+                '2026-01-01T00:00:00.123456Z', '2026-01-01T00:00:00.123456Z')
     """)
     conn.execute("""
         INSERT INTO epic_tasks (epic_id, task_num, title, status, body, github_issue)

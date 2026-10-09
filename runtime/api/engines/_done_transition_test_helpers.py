@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 
 
@@ -43,7 +45,7 @@ def dt_db(tmp_path, monkeypatch):
             github_repo TEXT,
             public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
             default_branch TEXT DEFAULT 'main',
-            created_at TEXT NOT NULL DEFAULT ''
+            created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
@@ -55,7 +57,7 @@ def dt_db(tmp_path, monkeypatch):
             deployment_flow TEXT,
             deploy_stage TEXT,
             deployed_to TEXT,
-            merged_at TEXT,
+            merged_at TIMESTAMPTZ,
             frozen INTEGER DEFAULT 0
         );
         CREATE TABLE item_worktrees (
@@ -65,9 +67,9 @@ def dt_db(tmp_path, monkeypatch):
             path TEXT,
             lane_role TEXT NOT NULL,
             state TEXT NOT NULL DEFAULT 'active',
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            released_at TEXT
+            created_at TIMESTAMPTZ NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL,
+            released_at TIMESTAMPTZ
         );
         CREATE TABLE epic_tasks (
             epic_id TEXT,
@@ -82,7 +84,7 @@ def dt_db(tmp_path, monkeypatch):
             flow TEXT,
             status TEXT,
             current_stage TEXT,
-            created_at TEXT,
+            created_at TIMESTAMPTZ,
             release_lineage TEXT,
             target_environment_id INTEGER
         );
@@ -102,7 +104,7 @@ def dt_db(tmp_path, monkeypatch):
             event_name TEXT,
             event_type TEXT,
             source_type TEXT,
-            created_at TEXT,
+            created_at TIMESTAMPTZ,
             client_timing_id TEXT,
             envelope TEXT
         );
@@ -113,7 +115,7 @@ def dt_db(tmp_path, monkeypatch):
             qa_phase TEXT,
             deployment_run_id TEXT,
             blocking_mode TEXT DEFAULT 'blocking',
-            waived_at TEXT,
+            waived_at TIMESTAMPTZ,
             requirement_source TEXT,
             plan_case_key TEXT,
             deployment_member_item_id INTEGER
@@ -124,7 +126,7 @@ def dt_db(tmp_path, monkeypatch):
             performed_by TEXT,
             verdict TEXT,
             verdict_reason TEXT,
-            created_at TEXT
+            created_at TIMESTAMPTZ
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY,
@@ -132,16 +134,16 @@ def dt_db(tmp_path, monkeypatch):
             target_kind TEXT,
             scope TEXT NOT NULL,
             claim_type TEXT,
-            claimed_at TEXT,
-            last_heartbeat TEXT,
-            released_at TEXT,
+            claimed_at TIMESTAMPTZ,
+            last_heartbeat TIMESTAMPTZ,
+            released_at TIMESTAMPTZ,
             release_reason TEXT
         );
         CREATE TABLE ephemeral_environments (
             id INTEGER PRIMARY KEY,
             item TEXT,
             status TEXT,
-            stopped_at TEXT
+            stopped_at TIMESTAMPTZ
         );
         CREATE TABLE release_entries (
             id INTEGER PRIMARY KEY,
@@ -150,7 +152,7 @@ def dt_db(tmp_path, monkeypatch):
             title TEXT,
             version TEXT,
             project_id INTEGER NOT NULL,
-            created_at TEXT,
+            created_at TIMESTAMPTZ,
             UNIQUE(item_id, version, project_id)
         );
         CREATE TABLE shepherd_verdicts (
@@ -161,7 +163,7 @@ def dt_db(tmp_path, monkeypatch):
             verdict TEXT NOT NULL,
             caveats TEXT,
             attempt INTEGER DEFAULT 1,
-            created_at TEXT
+            created_at TIMESTAMPTZ
         );
         CREATE TABLE environments (id INTEGER PRIMARY KEY, name TEXT);
         CREATE TABLE deployment_flows (
@@ -252,8 +254,8 @@ def _insert_item(db_path, item_id, **kwargs):
                 item_id,
                 worktree,
                 "integration" if workflow_id == "epic" else "implementation",
-                "2026-01-01T00:00:00Z",
-                "2026-01-01T00:00:00Z",
+                parse_instant("2026-01-01T00:00:00.123456Z"),
+                parse_instant("2026-01-01T00:00:00.123456Z"),
             ),
         )
     conn.commit()

@@ -20,6 +20,8 @@ import json
 from pathlib import Path
 from typing import Iterator
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 
@@ -28,7 +30,9 @@ def _project_id(project: str) -> int:
     return {"yoke": 1, "externalwebapp": 2}.get(project, 99)
 
 
-def _make_control_conn(tmp_path: Path, auth_db: Path, *, project: str = "externalwebapp"):
+def _make_control_conn(
+    tmp_path: Path, auth_db: Path, *, project: str = "externalwebapp"
+):
     """Control-plane DB declaring an external ``sqlite_file`` model.
 
     Mints a disposable Postgres database dropped when the connection
@@ -47,7 +51,7 @@ def _make_control_conn(tmp_path: Path, auth_db: Path, *, project: str = "externa
             slug TEXT UNIQUE,
             name TEXT,
             public_item_prefix TEXT DEFAULT 'YOK',
-            created_at TEXT
+            created_at TIMESTAMPTZ
         );
         CREATE TABLE project_capabilities (
             id INTEGER PRIMARY KEY,
@@ -55,9 +59,9 @@ def _make_control_conn(tmp_path: Path, auth_db: Path, *, project: str = "externa
             type TEXT,
             config TEXT,
             settings TEXT,
-            created_at TEXT
+            created_at TIMESTAMPTZ
         );
-        """
+        """,
     )
     # Write the model so authoritative_db.location.path resolves under this
     # machine's mapped checkout for the project.
@@ -72,7 +76,7 @@ def _make_control_conn(tmp_path: Path, auth_db: Path, *, project: str = "externa
             project,
             project.capitalize(),
             "YOK",
-            "2026-04-24T00:00:00Z",
+            parse_instant("2026-04-24T00:00:00.123456Z"),
         ),
     )
     settings = json.dumps(
@@ -92,8 +96,13 @@ def _make_control_conn(tmp_path: Path, auth_db: Path, *, project: str = "externa
         "INSERT INTO project_capabilities "
         "(project_id, type, config, settings, created_at) "
         "VALUES (%s, %s, %s, %s, %s)",
-        (_project_id(project), "migration_model", settings, settings,
-         "2026-04-24T00:00:00Z"),
+        (
+            _project_id(project),
+            "migration_model",
+            settings,
+            settings,
+            parse_instant("2026-04-24T00:00:00.123456Z"),
+        ),
     )
     conn.commit()
     return pg_testdb.drop_database_on_close(conn, name)
@@ -122,7 +131,7 @@ def _make_pg_control_conn(tmp_path: Path) -> Iterator[object]:
                     slug TEXT UNIQUE,
                     name TEXT,
                     public_item_prefix TEXT DEFAULT 'YOK',
-                    created_at TEXT
+                    created_at TIMESTAMPTZ
                 );
                 CREATE TABLE project_capabilities (
                     id INTEGER PRIMARY KEY,
@@ -130,7 +139,7 @@ def _make_pg_control_conn(tmp_path: Path) -> Iterator[object]:
                     type TEXT,
                     config TEXT,
                     settings TEXT,
-                    created_at TEXT
+                    created_at TIMESTAMPTZ
                 );
                 """,
             )
@@ -143,7 +152,7 @@ def _make_pg_control_conn(tmp_path: Path) -> Iterator[object]:
                     "yoke",
                     "Yoke",
                     "YOK",
-                    "2026-04-24T00:00:00Z",
+                    parse_instant("2026-04-24T00:00:00.123456Z"),
                 ),
             )
             settings = json.dumps(
@@ -168,7 +177,7 @@ def _make_pg_control_conn(tmp_path: Path) -> Iterator[object]:
                     "migration_model",
                     settings,
                     settings,
-                    "2026-04-24T00:00:00Z",
+                    parse_instant("2026-04-24T00:00:00.123456Z"),
                 ),
             )
             conn.commit()
