@@ -148,8 +148,6 @@ def test_projection_refuses_stale_digest_and_identity_collision(
 
     with pytest.raises(
         DeploymentRunProjectionCollision,
-        DeploymentRunProjectionError,
-        normalize_snapshot,
         match="destination snapshot digest",
     ):
         project_snapshot(
@@ -159,8 +157,6 @@ def test_projection_refuses_stale_digest_and_identity_collision(
         )
     with pytest.raises(
         DeploymentRunProjectionCollision,
-        DeploymentRunProjectionError,
-        normalize_snapshot,
         match="release_lineage",
     ):
         project_snapshot(
