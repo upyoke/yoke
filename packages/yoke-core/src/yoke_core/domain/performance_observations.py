@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 from typing import Any
 
-from yoke_contracts.timestamps import format_instant
+from yoke_contracts.timestamps import as_utc
 
 from yoke_core.domain.hook_overhead import _duration, _timestamp
 from yoke_core.domain.hook_overhead_tool import _classify_call
@@ -40,6 +40,7 @@ def event_context(envelope: Any) -> dict[str, Any]:
 
 
 def observation(row: dict[str, Any], now: datetime) -> dict[str, Any] | None:
+    now = as_utc(now)
     observed = _timestamp(row.get("created_at"))
     if observed is None:
         return None
@@ -92,8 +93,7 @@ def observation(row: dict[str, Any], now: datetime) -> dict[str, Any] | None:
         breakdown["handler_ms"] = duration
     return {
         "event_id": str(row["event_id"]),
-        "observed_at": format_instant(observed),
-        "timestamp": observed.timestamp(),
+        "observed_at": observed,
         "family": family,
         "duration_ms": duration,
         "timing_status": status,

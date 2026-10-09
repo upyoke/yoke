@@ -26,6 +26,7 @@ main{background:white;border:1px solid #dfe3eb;border-radius:10px;max-width:1300
 <main></main><footer id="source"></footer>
 <script type="module">
 import {renderPerformanceView} from '/static/universe_views_performance.js';
+import {instantMicros} from '/static/timestamps.js';
 const aggregate=await (await fetch('/aggregate')).json();
 const detail=await (await fetch('/detail')).json();
 const sha=await (await fetch('/served-build')).text();
@@ -33,7 +34,8 @@ document.querySelector('#source').textContent=`Production snapshot · ${aggregat
 const client={call:async request=>{
  if(request.function==='events.performance.aggregate')return {envelope:aggregate};
  const p=request.payload;
- const rows=detail.result.rows.filter(r=>Date.parse(r.observed_at)>=Date.parse(p.since)&&Date.parse(r.observed_at)<Date.parse(p.until)&&(!p.family||r.family===p.family));
+ const start=instantMicros(p.since), end=instantMicros(p.until);
+ const rows=detail.result.rows.filter(r=>instantMicros(r.observed_at)>=start&&instantMicros(r.observed_at)<end&&(!p.family||r.family===p.family));
  return {envelope:{success:true,result:{...detail.result,rows,total:rows.length,next_offset:null,sampling:'captured longest 50 observations; bucket-filtered review snapshot'}}};
 }};
 renderPerformanceView({document,client,signal:new AbortController().signal},document.querySelector('main'),'all');

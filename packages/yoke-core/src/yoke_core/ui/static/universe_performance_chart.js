@@ -1,3 +1,4 @@
+import { instantMicros } from "./timestamps.js";
 import { el } from "./universe_view_support.js";
 
 export const ORDINARY_TARGET_MS = 2000;
@@ -17,8 +18,12 @@ export const SERIES = [
 export const durationLabel = (value) => value === null || value === undefined
   ? "Unknown" : value >= 1000 ? `${(value / 1000).toFixed(2)}s` : `${Math.round(value)}ms`;
 
+// uPlot requires numeric Unix seconds for display coordinates. Keep the
+// canonical source clocks on each bucket for exact detail requests.
+const plotSeconds = value => Number(instantMicros(value)) / 1000000;
+
 export function chartData(result) {
-  return [result.buckets.map(b => b.start), ...SERIES.map(([family, metric]) =>
+  return [result.buckets.map(b => plotSeconds(b.start)), ...SERIES.map(([family, metric]) =>
     result.buckets.map(b => b.metrics[family][metric])), result.buckets.map(() => ORDINARY_TARGET_MS)];
 }
 
@@ -32,8 +37,8 @@ export async function drawPerformanceChart({ documentNode, host, result, signal,
   host.appendChild(tooltip);
   let picked = 0;
   const range = result.buckets.length
-    ? [result.buckets[0].start, result.buckets.at(-1).end] : [0, 1];
-  const dateLabel = (stamp) => new Date(stamp * 1000).toLocaleString([], {
+    ? [plotSeconds(result.buckets[0].start), plotSeconds(result.buckets.at(-1).end)] : [0, 1];
+  const dateLabel = (stamp) => new Date(stamp).toLocaleString([], {
     month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
   });
   const tickLabel = stamp => {

@@ -68,6 +68,11 @@ yoke events performance aggregate --since 2026-10-08T00:00:00Z --until 2026-10-0
 yoke events performance detail --since 2026-10-08T00:00:00Z --until 2026-10-08T00:05:00Z --family tool --limit 50
 ```
 
+The range is half-open: From is included and To is excluded. Range inputs
+must be timezone-qualified RFC3339 instants; numeric epochs and calendar-only
+values refuse. Bucket endpoints, observation time and query time use fixed-six
+UTC RFC3339 strings. Inspection preserves the bucket's exact microseconds.
+
 Read each command's `--help` for paging and bounds. Time, event-name and project
 predicates use existing indexed columns. The aggregate reads only timing/context
 keys and command summaries, never stored responses or ledger results. The range

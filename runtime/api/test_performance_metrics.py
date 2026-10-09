@@ -35,8 +35,8 @@ def test_weighted_average_and_true_bucket_percentile_not_average_of_percentiles(
         observation(row(event_id=str(i), duration_ms=ms), NOW)
         for i, ms in enumerate([0] * 99 + [10000])
     ]
-    start = values[0]["timestamp"]
-    result = aggregate(values, start, start + 60, 20)
+    start = values[0]["observed_at"]
+    result = aggregate(values, start, start + timedelta(seconds=60), 20)
     metric = result["buckets"][0]["metrics"]["function"]
     assert metric["count"] == metric["timed_count"] == 100
     assert metric["avg_ms"] == 100
@@ -47,8 +47,8 @@ def test_weighted_average_and_true_bucket_percentile_not_average_of_percentiles(
 def test_nulls_sparse_history_and_zero_preserve_meaning_and_point_budget():
     value = observation(row(duration_ms=None), NOW)
     zero = observation(row(duration_ms=0), NOW)
-    start = value["timestamp"]
-    result = aggregate([value, zero], start, start + 30 * 86400, 100)
+    start = value["observed_at"]
+    result = aggregate([value, zero], start, start + timedelta(days=30), 100)
     assert len(result["buckets"]) <= 100
     metric = result["buckets"][0]["metrics"]["function"]
     assert (metric["count"], metric["timed_count"], metric["unknown_count"]) == (

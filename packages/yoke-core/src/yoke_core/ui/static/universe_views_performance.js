@@ -1,3 +1,4 @@
+import { instantFromDate } from "./timestamps.js";
 import { callFunction, el } from "./universe_view_support.js";
 import { drawPerformanceChart } from "./universe_performance_chart.js";
 import { inspectBucket } from "./universe_performance_inspector.js";
@@ -13,7 +14,7 @@ export function validateRange(from, to) {
   if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start >= end) {
     throw new Error("performance_range_invalid: From must be a valid time before To.");
   }
-  return { since: start.toISOString(), until: end.toISOString() };
+  return { since: instantFromDate(start), until: instantFromDate(end) };
 }
 
 export function renderPerformanceView(context, main, scope) {

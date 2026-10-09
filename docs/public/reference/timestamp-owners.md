@@ -283,3 +283,11 @@ Bound-release and persistent-release fixture callers parse their deterministic
 project seed clocks before invoking the native project SQL owner. Shared
 cross-project release clocks stay native through site/environment seeding;
 consumer authorization and bound-pin diagnoses keep their existing semantics.
+
+Performance range ingress strictly parses qualified instants before model
+coercion. Observations, latest selection and half-open bucket boundaries stay
+native, with exact timedelta rounding. Aggregate/detail responses format native
+clocks once. The chart's external uPlot coordinate adapter uses numeric seconds
+for display while inspection preserves the original canonical endpoints;
+calendar controls use the shared Date-to-instant wire adapter. The captured
+Performance review page filters endpoints with exact kernel microseconds.
