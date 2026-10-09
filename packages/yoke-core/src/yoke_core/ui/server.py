@@ -197,16 +197,26 @@ def create_ui_app(token: str, *, port: int = DEFAULT_UI_PORT):
 
     @app.middleware("http")
     async def session_token_gate(request, call_next):
+        from starlette.concurrency import run_in_threadpool
+
         from yoke_core.api.frontend_events_config import COLLECTOR_PATHS
 
         # /served-build is the commit this process serves. Browser QA reads
         # it with the run's own session or with none, before that cookie
         # exists. Every other route stays behind the per-run token.
-        if request.url.path in COLLECTOR_PATHS or request.url.path == SERVED_BUILD_PATH:
-            return await call_next(request)
         candidate = (
             request.query_params.get("token") or request.cookies.get(cookie_name) or ""
         )
+        if request.url.path in COLLECTOR_PATHS:
+            # Collection stays open, but a browser the per-run token admits
+            # is the local operator, so its page views carry that actor.
+            if token_matches(candidate, token):
+                request.state.viewer_actor_id = await run_in_threadpool(
+                    _local_operator_actor_id
+                )
+            return await call_next(request)
+        if request.url.path == SERVED_BUILD_PATH:
+            return await call_next(request)
         if not token_matches(candidate, token):
             return JSONResponse(
                 {

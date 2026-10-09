@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from runtime.api.fixtures import pg_testdb
 from yoke_core.api import app_factory, frontend_events_config
+from yoke_core.api.observability_otel import environment_name
 from yoke_core.api.routes import frontend_events
 from yoke_core.domain import db_helpers, events_writes
 from yoke_core.domain.auth_schema import create_auth_tables
@@ -70,6 +71,8 @@ def event():
         "event_time": "2026-01-01T00:00:00Z",
         "session_id": str(uuid4()),
         "source_type": "frontend",
+        "service": "web",
+        "project": "yoke",
         "page_url": ORIGIN + "/items?token=door-secret&utm_source=email#private",
         "referrer": "https://search.test/?token=private",
         "actor_id": 999999,
@@ -91,13 +94,18 @@ def test_anonymous_sink_sanitizes_deduplicates_and_stamps_its_own_identity(
         assert response.json() == {"accepted": 1}
     with database() as conn:
         rows = conn.execute(
-            "SELECT actor_id, project_id, org_id, envelope FROM events WHERE event_id=%s",
+            "SELECT actor_id, project_id, org_id, envelope, service, environment "
+            "FROM events WHERE event_id=%s",
             (payload["event_id"],),
         ).fetchall()
         assert len(rows) == 1
-        actor_id, project_id, org_id, raw = rows[0]
+        actor_id, project_id, org_id, raw, service, environment = rows[0]
         assert actor_id is None and project_id is None and org_id != "forged"
+        assert service == "web"
+        assert environment == environment_name()
         stored = json.loads(raw) if isinstance(raw, str) else raw
+        assert stored["project"] == "yoke"
+        assert stored["environment"] == environment
         assert stored["page_url"] == ORIGIN + "/items?utm_source=email"
         assert "private" not in stored["referrer"]
         assert stored["actor_id"] is None
@@ -169,6 +177,8 @@ def test_anonymous_route_cannot_write_backend_events_or_malformed_envelopes(clie
         {"page_url": {}},
         {"page_path": []},
         {"event_id": "not-a-uuid"},
+        {"service": None},
+        {"project": ""},
     ):
         response = client.post(
             "/api/events", json={"events": [{**event(), **changed}]}, headers=admitted
@@ -343,3 +353,20 @@ def test_local_collector_has_no_bearer_requirement_and_keeps_http_cookie(
         ).status_code
         == 200
     )
+    monkeypatch.setattr(server, "_local_operator_actor_id", lambda: 4242)
+    local.cookies.set(server.session_cookie_name(8689), "door")
+    operator_view = {**event(), "page_url": "http://127.0.0.1:8689/items"}
+    assert (
+        local.post(
+            "/api/events", json={"events": [operator_view]}, headers=admitted
+        ).status_code
+        == 200
+    )
+    with database() as conn:
+        stamped = dict(
+            conn.execute(
+                "SELECT event_id, actor_id FROM events WHERE event_id IN (%s, %s)",
+                (payload["event_id"], operator_view["event_id"]),
+            ).fetchall()
+        )
+    assert stamped == {payload["event_id"]: None, operator_view["event_id"]: 4242}

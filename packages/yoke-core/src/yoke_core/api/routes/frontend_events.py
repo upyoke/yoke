@@ -1,4 +1,10 @@
-"""Anonymous frontend analytics: exact origin/key, shared rate budget, named refusals."""
+"""Frontend analytics: exact origin/key, shared rate budget, named refusals.
+
+Page views are anonymous unless the request carries the viewer's credential
+(bearer or web session); then the row carries that actor. Anonymous views
+carry only the browser's visitor id, which ties them to an actor at query
+time once that browser signs in (:mod:`yoke_core.domain.actor_visitor_links`).
+"""
 
 import json
 import logging
@@ -21,6 +27,7 @@ from yoke_core.api.frontend_events_config import (
     cookie_output,
 )
 from yoke_core.api.http_auth import authenticate_request
+from yoke_core.api.observability_otel import environment_name
 from yoke_core.api.web_session_auth import authenticate_web_session
 from yoke_core.domain import db_helpers
 from yoke_core.domain.frontend_events_storage import (
@@ -119,6 +126,8 @@ def validated_events(body, request):
                 "event_type",
                 "event_time",
                 "session_id",
+                "service",
+                "project",
             )
         ):
             raise ValueError(
@@ -152,6 +161,17 @@ def validated_events(body, request):
             event["page_path"] = sanitize_path(event["page_path"])
         event["is_bot"] = is_bot(request.headers.get("user-agent", ""))
     return events
+
+
+def viewer_actor_id(request, auth):
+    """The signed-in viewer: a credential, else the serving host's own viewer.
+
+    A host that admits its browser by other means (the Local view's per-run
+    token) names that viewer in ``request.state.viewer_actor_id``.
+    """
+    if auth:
+        return auth.actor_id
+    return getattr(request.state, "viewer_actor_id", None)
 
 
 def diagnosed(error):
@@ -197,7 +217,8 @@ async def collect(request: Request):
             write_frontend_events,
             events,
             org_id=admitted,
-            actor_id=auth.actor_id if auth else None,
+            environment=environment_name(),
+            actor_id=viewer_actor_id(request, auth),
         )
         return JSONResponse({"accepted": len(events)})
     except ValueError as error:

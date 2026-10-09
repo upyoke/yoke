@@ -57,10 +57,19 @@ def admit_client(conn, *, org_id, client, now=None):
     return RATE_WINDOW_SECONDS - (now - window) if count > RATE_REQUESTS else 0
 
 
-def write_frontend_events(events, *, org_id, actor_id=None):
-    """Use the existing event gateway; retries dedupe on the browser event UUID."""
+def write_frontend_events(events, *, org_id, environment, actor_id=None):
+    """Use the existing event gateway; retries dedupe on the browser event UUID.
+
+    The emitter's own ``service`` and ``project`` names are kept as sent;
+    the serving universe supplies the organization, environment and actor.
+    """
     for event in events:
-        envelope = {**event, "org_id": str(org_id), "actor_id": actor_id, "project": ""}
+        envelope = {
+            **event,
+            "org_id": str(org_id),
+            "actor_id": actor_id,
+            "environment": environment,
+        }
         envelope["session_id"] = "browser:" + event["session_id"]
         context = event.get("context")
         if isinstance(context, dict):
@@ -71,7 +80,8 @@ def write_frontend_events(events, *, org_id, actor_id=None):
                 }
             envelope["context"] = context
         # Frontend context is telemetry only. No browser value selects a project,
-        # work item, actor, organization, or operational severity.
+        # work item, actor, organization, or operational severity: the envelope
+        # keeps the emitter's project name, but the row indexes as global.
         for key in (
             "project_id",
             "item_id",
@@ -92,7 +102,8 @@ def write_frontend_events(events, *, org_id, actor_id=None):
             event_outcome=event.get("event_outcome"),
             org_id=str(org_id),
             actor_id=actor_id,
-            service="workbench",
+            environment=environment,
+            service=event["service"],
             envelope=json.dumps(envelope, separators=(",", ":")),
             created_at=event["event_time"],
             skip_severity=True,
