@@ -46,7 +46,7 @@ _EVENTS_TABLE = """
         hook_event_name TEXT,
         client_timing_id TEXT,
         envelope TEXT,
-        created_at TEXT NOT NULL
+        created_at TIMESTAMPTZ NOT NULL
     );
 """
 

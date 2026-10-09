@@ -80,15 +80,15 @@ def seed_s3_configuration(conn, *, bucket: str) -> None:
     conn.execute(
         "CREATE TABLE IF NOT EXISTS sites ("
         "id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, name TEXT NOT NULL,"
-        "description TEXT, created_at TEXT NOT NULL, settings TEXT DEFAULT '{}')"
+        "description TEXT, created_at TIMESTAMPTZ NOT NULL, settings TEXT DEFAULT '{}')"
     )
     conn.execute(
         "CREATE TABLE IF NOT EXISTS environments ("
         "id INTEGER PRIMARY KEY, site INTEGER NOT NULL, project_id INTEGER NOT NULL,"
         "name TEXT NOT NULL,"
         "url TEXT, deploy_method TEXT, deploy_command TEXT,"
-        "health_check_url TEXT, config_notes TEXT, last_deployed_at TEXT,"
-        "created_at TEXT NOT NULL, settings TEXT DEFAULT '{}')"
+        "health_check_url TEXT, config_notes TEXT, last_deployed_at TIMESTAMPTZ,"
+        "created_at TIMESTAMPTZ NOT NULL, settings TEXT DEFAULT '{}')"
     )
     conn.execute(
         "INSERT INTO sites (id, project_id, name, created_at) "

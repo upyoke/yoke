@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import pytest
 
 from runtime.api.sessions_api_stale_test_helpers import (
@@ -29,7 +31,7 @@ CREATE TABLE IF NOT EXISTS strategy_doc_claims (
     id INTEGER PRIMARY KEY,
     owner_kind TEXT NOT NULL,
     owner_session_id TEXT,
-    released_at TEXT
+    released_at TIMESTAMPTZ
 );
 """
 
@@ -41,7 +43,7 @@ def _holding_schema(conn):
     conn.commit()
 
 
-def _age_session(conn, session_id: str, minutes: int) -> str:
+def _age_session(conn, session_id: str, minutes: int) -> datetime:
     old = _ago_minutes(minutes)
     conn.execute(
         "UPDATE harness_sessions SET offered_at=%s, last_heartbeat=%s "

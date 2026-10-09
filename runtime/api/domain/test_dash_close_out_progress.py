@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.dash_execution import record_dash_evidence
 from yoke_core.domain.progress_log import PROGRESS_LOG_SECTION
@@ -16,7 +18,7 @@ def _ensure_item_sections(test_db) -> None:
         "item_id INTEGER NOT NULL REFERENCES items(id), "
         "section_name TEXT NOT NULL, content TEXT NOT NULL, "
         "ordering INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL, "
-        "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, "
+        "created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL, "
         "PRIMARY KEY(item_id, section_name))"
     )
     test_db.commit()
@@ -45,10 +47,7 @@ def test_close_out_appends_landing_outcome_after_escalation(test_db):
         workflow_id="dash",
         status="reviewing-implementation",
     )
-    prior = (
-        "## 2026-08-13T12:00:00Z entry — Escalated\n"
-        "Waiting for operator input.\n"
-    )
+    prior = "## 2026-08-13T12:00:00Z entry — Escalated\nWaiting for operator input.\n"
     test_db.execute(
         "INSERT INTO item_sections "
         "(item_id, section_name, content, ordering, source, created_at, updated_at) "
@@ -57,8 +56,8 @@ def test_close_out_appends_landing_outcome_after_escalation(test_db):
             2144,
             PROGRESS_LOG_SECTION,
             prior,
-            "2026-08-13T12:00:00Z",
-            "2026-08-13T12:00:00Z",
+            parse_instant("2026-08-13T12:00:00Z"),
+            parse_instant("2026-08-13T12:00:00Z"),
         ),
     )
     test_db.commit()
@@ -68,8 +67,7 @@ def test_close_out_appends_landing_outcome_after_escalation(test_db):
     test_db.commit()
 
     content = test_db.execute(
-        "SELECT content FROM item_sections "
-        "WHERE item_id = %s AND section_name = %s",
+        "SELECT content FROM item_sections WHERE item_id = %s AND section_name = %s",
         (2144, PROGRESS_LOG_SECTION),
     ).fetchone()[0]
     assert content.startswith(prior)
@@ -86,8 +84,7 @@ def test_close_out_retry_does_not_duplicate_landing_entry(test_db):
     _record_close_out(test_db)
 
     content = test_db.execute(
-        "SELECT content FROM item_sections "
-        "WHERE item_id = %s AND section_name = %s",
+        "SELECT content FROM item_sections WHERE item_id = %s AND section_name = %s",
         (2144, PROGRESS_LOG_SECTION),
     ).fetchone()[0]
     assert content.count(f"Merge SHA: `{MERGE_SHA}`") == 1

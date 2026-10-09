@@ -17,7 +17,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from runtime.api.domain._path_snapshots_test_helpers import path_snapshot_db
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.handlers import project_snapshot_sync as sync_handler
 from yoke_core.domain.handlers import project_structure as ps_handler
 
@@ -39,14 +39,19 @@ def _request(function: str, payload: dict) -> FunctionCallRequest:
 
 def _sync_head(files: list[dict]) -> None:
     outcome = sync_handler.handle_project_snapshot_sync(
-        _request("project.snapshot.sync", {
-            "project_id": "demo",
-            "snapshots": [{
-                "ref": "HEAD",
-                "commit_sha": "a" * 40,
-                "files": files,
-            }],
-        })
+        _request(
+            "project.snapshot.sync",
+            {
+                "project_id": "demo",
+                "snapshots": [
+                    {
+                        "ref": "HEAD",
+                        "commit_sha": "a" * 40,
+                        "files": files,
+                    }
+                ],
+            },
+        )
     )
     assert outcome.primary_success is True, outcome.error
     return outcome
@@ -60,7 +65,7 @@ def _ensure_project_structure_table(conn) -> None:
         "attachment_kind TEXT NOT NULL DEFAULT '', "
         "attachment_value TEXT NOT NULL DEFAULT '', "
         "entry_key TEXT NOT NULL DEFAULT '', payload TEXT, "
-        "created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"
+        "created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL)"
     )
 
 
@@ -87,7 +92,7 @@ def _declare_model(conn) -> None:
         "(project_id, family, attachment_kind, attachment_value, "
         "entry_key, payload, created_at, updated_at) "
         "VALUES (3, 'architecture_model', '', 'project', '', %s, %s, %s)",
-        (json.dumps(payload), iso8601_now(), iso8601_now()),
+        (json.dumps(payload), utc_now(), utc_now()),
     )
     conn.commit()
 
@@ -104,8 +109,14 @@ def test_health_reports_undeclared_map(tmp_path) -> None:
 def test_sync_skips_refresh_without_a_map(tmp_path) -> None:
     with path_snapshot_db(tmp_path, _repo(tmp_path)):
         outcome = _sync_head(
-            [{"path": "src/app.py", "line_count": 3, "language": "python",
-              "module_name": "src.app"}],
+            [
+                {
+                    "path": "src/app.py",
+                    "line_count": 3,
+                    "language": "python",
+                    "module_name": "src.app",
+                }
+            ],
         )
         assert outcome.result_payload["architecture_refresh"] is None
 
@@ -113,12 +124,22 @@ def test_sync_skips_refresh_without_a_map(tmp_path) -> None:
 def test_sync_refreshes_labels_and_health_reflects_them(tmp_path) -> None:
     with path_snapshot_db(tmp_path, _repo(tmp_path)) as conn:
         _declare_model(conn)
-        outcome = _sync_head([
-            {"path": "src/app.py", "line_count": 3, "language": "python",
-             "module_name": "src.app"},
-            {"path": "scripts/loose.py", "line_count": 3,
-             "language": "python", "module_name": "scripts.loose"},
-        ])
+        outcome = _sync_head(
+            [
+                {
+                    "path": "src/app.py",
+                    "line_count": 3,
+                    "language": "python",
+                    "module_name": "src.app",
+                },
+                {
+                    "path": "scripts/loose.py",
+                    "line_count": 3,
+                    "language": "python",
+                    "module_name": "scripts.loose",
+                },
+            ]
+        )
         refresh = outcome.result_payload["architecture_refresh"]
         assert refresh == {
             "layer_rows": 1,
@@ -141,8 +162,14 @@ def test_sync_refreshes_labels_and_health_reflects_them(tmp_path) -> None:
 def test_draft_proposes_from_the_synced_tree(tmp_path) -> None:
     with path_snapshot_db(tmp_path, _repo(tmp_path)):
         _sync_head(
-            [{"path": "src/app/api_routes.py", "line_count": 3,
-              "language": "python", "module_name": "src.app.api_routes"}],
+            [
+                {
+                    "path": "src/app/api_routes.py",
+                    "line_count": 3,
+                    "language": "python",
+                    "module_name": "src.app.api_routes",
+                }
+            ],
         )
         outcome = ps_handler.handle_architecture_draft_get(
             _request("project_structure.architecture_draft.get", {})

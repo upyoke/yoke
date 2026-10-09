@@ -15,6 +15,8 @@ The retire and apply variants of the regression both need:
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import json
 import os
 from pathlib import Path
@@ -47,8 +49,8 @@ CREATE TABLE IF NOT EXISTS project_capabilities (
     type TEXT NOT NULL,
     
     settings TEXT DEFAULT '{}',
-    verified_at TEXT,
-    created_at TEXT NOT NULL,
+    verified_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL,
     UNIQUE(project_id, type)
 );
 
@@ -67,7 +69,7 @@ CREATE TABLE IF NOT EXISTS migration_audit (
     failure_reason TEXT,
     exception_reason TEXT,
     source_fingerprint TEXT,
-    rehearsed_at TEXT,
+    rehearsed_at TIMESTAMPTZ,
     lease_id INTEGER,
     test_copy_path TEXT,
     baseline_verify_result TEXT,
@@ -75,8 +77,8 @@ CREATE TABLE IF NOT EXISTS migration_audit (
     session_id TEXT,
     model_name TEXT,
     project_id INTEGER,
-    started_at TEXT,
-    completed_at TEXT,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
     duration_ms INTEGER
 );
 """
@@ -104,14 +106,14 @@ def regression_db(tmp_db: str, tmp_path: Path):  # noqa: F811
             "ON CONFLICT(id) DO UPDATE SET "
             "slug=excluded.slug, name=excluded.name, "
             "public_item_prefix=excluded.public_item_prefix",
-            (1, "yoke", "Yoke", "YOK", "2026-04-23T00:00:00Z"),
+            (1, "yoke", "Yoke", "YOK", parse_instant("2026-04-23T00:00:00Z")),
         )
         seed_json = json.dumps(governed_postgres_test_seed(), sort_keys=True)
         conn.execute(
             "INSERT INTO project_capabilities "
             "(project_id, type, settings, created_at) "
             "VALUES (%s, %s, %s, %s)",
-            (1, "migration_model", seed_json, "2026-04-23T00:00:00Z"),
+            (1, "migration_model", seed_json, parse_instant("2026-04-23T00:00:00Z")),
         )
         # Seed Yoke's flow with the migration_apply stage so the joint
         # gate's flow cross-reference resolves cleanly when callers move
@@ -135,7 +137,7 @@ def regression_db(tmp_db: str, tmp_path: Path):  # noqa: F811
                 stages_json,
                 "halt",
                 None,
-                "2026-04-23T00:00:00Z",
+                parse_instant("2026-04-23T00:00:00Z"),
             ),
         )
         conn.commit()
@@ -176,7 +178,7 @@ def _seed_governed_item(
             "VALUES (%s, 'ac_verification', 'verification', 'blocking', "
             "        'seeded_default', 'satisfied-by-test', %s) "
             "RETURNING id",
-            (item_id, "2026-04-23T00:00:00Z"),
+            (item_id, parse_instant("2026-04-23T00:00:00Z")),
         )
         req_id = cur.fetchone()[0]
         conn.execute(
@@ -186,9 +188,9 @@ def _seed_governed_item(
             "VALUES (%s, 'pytest', 'ac_verification', 'pass', %s, %s, %s)",
             (
                 req_id,
-                "2026-04-23T00:00:00Z",
-                "2026-04-23T00:00:01Z",
-                "2026-04-23T00:00:00Z",
+                parse_instant("2026-04-23T00:00:00Z"),
+                parse_instant("2026-04-23T00:00:01Z"),
+                parse_instant("2026-04-23T00:00:00Z"),
             ),
         )
         conn.commit()

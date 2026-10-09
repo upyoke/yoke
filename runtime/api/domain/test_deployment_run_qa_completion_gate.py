@@ -9,6 +9,8 @@ case touches a live run.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import pytest
 
 from yoke_core.domain import deployment_runs as dr
@@ -64,7 +66,7 @@ def _add_plan_case(
                 qa_kind TEXT NOT NULL,
                 qa_phase TEXT NOT NULL,
                 blocking_mode TEXT NOT NULL DEFAULT 'blocking',
-                waived_at TEXT,
+                waived_at TIMESTAMPTZ,
                 superseded_by_requirement_id INTEGER
             )
             """
@@ -77,7 +79,7 @@ def _add_plan_case(
                 performed_by TEXT NOT NULL DEFAULT 'agent',
                 verdict TEXT,
                 verdict_reason TEXT,
-                created_at TEXT NOT NULL DEFAULT ''
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
             """
         )
@@ -93,7 +95,7 @@ def _add_plan_case(
                 requirement_id,
                 run_id,
                 blocking_mode,
-                "2026-09-09T00:00:00Z" if waived else None,
+                parse_instant("2026-09-09T00:00:00.123456Z") if waived else None,
                 superseded_by,
             ),
         )

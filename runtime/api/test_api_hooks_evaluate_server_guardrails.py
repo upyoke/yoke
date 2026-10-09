@@ -35,7 +35,7 @@ def _seed_recent_claim_denial_state(
 ) -> None:
     from yoke_core.domain import db_helpers
 
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = datetime.now(timezone.utc)
     conn = db_helpers.connect()
     try:
         # The guard resolves the command's public ref, so the item exists
@@ -48,8 +48,8 @@ def _seed_recent_claim_denial_state(
                 session_id TEXT NOT NULL,
                 tool_use_id TEXT NOT NULL,
                 tool_name TEXT,
-                started_at TEXT NOT NULL,
-                completed_at TEXT,
+                started_at TIMESTAMPTZ NOT NULL,
+                completed_at TIMESTAMPTZ,
                 outcome TEXT,
                 command_summary TEXT
             )
