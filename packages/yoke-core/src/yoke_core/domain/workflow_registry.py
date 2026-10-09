@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
-from yoke_core.domain import db_backend
+from yoke_core.domain.workflow_publication import publish_workflow_version
 from yoke_core.domain.builtin_workflow_canon import recognize
 from yoke_core.domain.workflow_canon_reporting import (
     version_provenance,
@@ -32,7 +32,6 @@ from yoke_core.domain.workflow_registry_rows import (
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_registry_sql import (
     marker as _marker,
-    row_dict as _row_dict,
     rows_dict as _rows_dict,
 )
 from yoke_core.domain.workflow_registry_versions import (
@@ -49,6 +48,7 @@ def _insert_version(
     definition: Mapping[str, Any],
     published_by_actor_id: Optional[int],
     derived_from_canon_version: Optional[int] = None,
+    published_reason: Optional[str] = None,
 ) -> dict:
     validate_workflow_definition(definition)
     now = iso8601_now()
@@ -59,8 +59,8 @@ def _insert_version(
         "INSERT INTO workflow_versions "
         "(workflow_id, version, definition_schema_version, definition_json, "
         "definition_digest, published_at, published_by_actor_id, immutable_at, "
-        "derived_from_canon_version) "
-        f"VALUES ({', '.join(marker for _ in range(9))})",
+        "derived_from_canon_version, published_reason) "
+        f"VALUES ({', '.join(marker for _ in range(10))})",
         (
             workflow_id,
             version,
@@ -71,6 +71,7 @@ def _insert_version(
             published_by_actor_id,
             now,
             derived_from_canon_version,
+            published_reason,
         ),
     )
     row = _version_row(conn, workflow_id, version)
@@ -97,9 +98,7 @@ def _current_definition(conn: Any, workflow_id: str) -> tuple[dict, dict]:
         raise WorkflowRegistryError(f"unknown workflow {workflow_id!r}")
     current_id = workflow.get("current_version_id")
     if current_id is None:
-        raise WorkflowRegistryError(
-            f"workflow {workflow_id!r} has no current version"
-        )
+        raise WorkflowRegistryError(f"workflow {workflow_id!r} has no current version")
     version = _version_by_id(conn, int(current_id))
     if version is None or version["workflow_id"] != workflow_id:
         raise WorkflowRegistryError(
@@ -137,72 +136,6 @@ def _baseline_for_edit_of(current: Mapping[str, Any]) -> Optional[int]:
         return generation.canon_version
     baseline = current.get("derived_from_canon_version")
     return None if baseline is None else int(baseline)
-
-
-def publish_workflow_version(
-    conn: Any,
-    *,
-    workflow_id: str,
-    definition: Mapping[str, Any],
-    published_by_actor_id: Optional[int] = None,
-    expected_current_version: Optional[int] = None,
-) -> dict:
-    """Validate, append, and select a new immutable workflow version."""
-    marker = _marker(conn)
-    if db_backend.connection_is_postgres(conn):
-        conn.execute(
-            f"SELECT id FROM workflows WHERE id = {marker} FOR UPDATE",
-            (workflow_id,),
-        ).fetchone()
-    workflow, current = _current_definition(conn, workflow_id)
-    if workflow["status"] != "active":
-        raise WorkflowRegistryError(f"workflow {workflow_id!r} is disabled")
-    if (
-        expected_current_version is not None
-        and int(current["version"]) != int(expected_current_version)
-    ):
-        raise WorkflowRegistryError(
-            f"workflow {workflow_id!r} current version changed from "
-            f"{expected_current_version} to {current['version']}; refresh first"
-        )
-    previous = _decode_definition(current["definition_json"])
-    validate_workflow_definition(definition, previous=previous)
-    cursor = conn.execute(
-        "SELECT COALESCE(MAX(version), 0) AS maximum "
-        f"FROM workflow_versions WHERE workflow_id = {marker}",
-        (workflow_id,),
-    )
-    row = _row_dict(cursor, cursor.fetchone())
-    next_version = int(row["maximum"]) + 1
-    if definition_digest(definition) == current["definition_digest"]:
-        raise WorkflowRegistryError(
-            "new workflow version must change the definition"
-        )
-    published = _insert_version(
-        conn,
-        workflow_id=workflow_id,
-        version=next_version,
-        definition=definition,
-        published_by_actor_id=published_by_actor_id,
-        derived_from_canon_version=_baseline_for_edit_of(current),
-    )
-    # Publishing here stops this workflow following the published canon, because
-    # from now on taking a new generation is a merge against local work rather
-    # than a move onto it, and nothing may make that call unattended. The stale
-    # adoption notice clears with it: it described a move this edit supersedes.
-    conn.execute(
-        f"UPDATE workflows SET current_version_id = {marker}, "
-        f"canon_follow = 'manual', canon_adopted_from_version = NULL, "
-        f"updated_at = {marker} WHERE id = {marker}",
-        (int(published["id"]), iso8601_now(), workflow_id),
-    )
-    conn.commit()
-    return {
-        "workflow_id": workflow_id,
-        "version": next_version,
-        "version_id": int(published["id"]),
-        "definition_digest": published["definition_digest"],
-    }
 
 
 def _pinned_item_counts(conn: Any) -> Optional[dict[int, int]]:
@@ -251,42 +184,45 @@ def list_current_workflows(conn: Any) -> list[dict]:
     pinned_by_version = _pinned_item_counts(conn)
     versions_by_workflow: dict[str, list[dict]] = {}
     for version_row in version_rows:
-        versions_by_workflow.setdefault(
-            str(version_row["workflow_id"]), []
-        ).append({
-            "id": int(version_row["id"]),
-            "version": int(version_row["version"]),
-            "definition_digest": version_row["definition_digest"],
-            "published_at": version_row["published_at"],
-            "published_by_actor_id": version_row["published_by_actor_id"],
-            "immutable_at": version_row["immutable_at"],
-            "provenance": version_provenance(version_row),
-            "pinned_item_count": (
-                None if pinned_by_version is None
-                else pinned_by_version.get(int(version_row["id"]), 0)
-            ),
-        })
+        versions_by_workflow.setdefault(str(version_row["workflow_id"]), []).append(
+            {
+                "id": int(version_row["id"]),
+                "version": int(version_row["version"]),
+                "definition_digest": version_row["definition_digest"],
+                "published_at": version_row["published_at"],
+                "published_by_actor_id": version_row["published_by_actor_id"],
+                "immutable_at": version_row["immutable_at"],
+                "provenance": version_provenance(version_row),
+                "pinned_item_count": (
+                    None
+                    if pinned_by_version is None
+                    else pinned_by_version.get(int(version_row["id"]), 0)
+                ),
+            }
+        )
     result: list[dict] = []
     for row in rows:
-        result.append({
-            "id": row["id"],
-            "name": row["name"],
-            "description": row["description"],
-            "source": row["source"],
-            "status": row["status"],
-            "current_version": int(row["version"]),
-            "current_version_id": int(row["current_version_id"]),
-            "definition_schema_version": int(
-                row["definition_schema_version"]
-            ),
-            "definition_digest": row["definition_digest"],
-            "published_at": row["published_at"],
-            "published_by_actor_id": row["published_by_actor_id"],
-            "immutable_at": row["immutable_at"],
-            "definition": _decode_definition(row["definition_json"]),
-            "versions": versions_by_workflow.get(str(row["id"]), []),
-            "canon_status": workflow_canon_status({**row, "workflow_id": row["id"]}),
-        })
+        result.append(
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "description": row["description"],
+                "source": row["source"],
+                "status": row["status"],
+                "current_version": int(row["version"]),
+                "current_version_id": int(row["current_version_id"]),
+                "definition_schema_version": int(row["definition_schema_version"]),
+                "definition_digest": row["definition_digest"],
+                "published_at": row["published_at"],
+                "published_by_actor_id": row["published_by_actor_id"],
+                "immutable_at": row["immutable_at"],
+                "definition": _decode_definition(row["definition_json"]),
+                "versions": versions_by_workflow.get(str(row["id"]), []),
+                "canon_status": workflow_canon_status(
+                    {**row, "workflow_id": row["id"]}
+                ),
+            }
+        )
     return result
 
 

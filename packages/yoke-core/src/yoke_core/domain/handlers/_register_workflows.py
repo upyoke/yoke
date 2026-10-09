@@ -14,6 +14,28 @@ from yoke_core.domain.handlers import workflows_item_posture as _wip
 
 
 def register(registry) -> None:
+    from yoke_core.domain.handlers import workflows_publication as publication
+
+    registry.register(
+        "workflows.version.publish",
+        publication.handle_workflows_version_publish,
+        publication.WorkflowVersionPublishRequest,
+        publication.WorkflowVersionPublishResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.workflows_publication",
+        target_kinds=["global"],
+        side_effects=["workflows_version_publish"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[
+            "immutable_version_publish",
+            "expected_current_version",
+            "new_items_only",
+        ],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+        minimum_serving_version="next-release",
+    )
     registry.register(
         "workflows.definition.get",
         _wd.handle_workflows_definition_get,

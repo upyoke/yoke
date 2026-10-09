@@ -26,10 +26,12 @@ from yoke_cli.commands.adapters import (
     workflow_mechanics,
     workflows_canon_help,
     workflows_read,
+    workflows_publication,
 )
 
 
 USAGE_BY_FUNCTION_ID = {
+    "workflows.version.publish": workflows_publication.WORKFLOWS_VERSION_PUBLISH_USAGE,
     **projects_retirement.USAGE_BY_FUNCTION_ID,
     "items.progress_log.get": "yoke items progress-log get PREFIX-N [--json]",
     "item_landings.list": item_landings.ITEM_LANDINGS_LIST_USAGE,

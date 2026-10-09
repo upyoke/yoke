@@ -6,6 +6,12 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 )
 
 WORKFLOW_ADAPTERS = [
+    AdapterEntry(
+        function_id="workflows.version.publish",
+        cli_invocation="yoke workflows version publish WORKFLOW --definition-file F --reason TEXT "
+        "[--expected-current-version N] [--keep-current] [--session-id S] [--json]",
+        notes="Publishes a full immutable definition; append-only preserves the default and canon-follow.",
+    ),
     read_entry(
         function_id="workflows.definition.get",
         cli_invocation=(
