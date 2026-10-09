@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
+
 import json
 import os
 import tempfile
@@ -10,6 +13,8 @@ import pytest
 
 from yoke_contracts.machine_config import schema as machine_config_contract
 from yoke_core.domain.work_claim_targets import make_item_target
+
+_FIXTURE_INSTANT = parse_instant("2026-01-01T00:00:00.123456Z")
 
 
 SESSION_A = "sess-a"
@@ -41,8 +46,8 @@ def conn():
             id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL,
             branch TEXT NOT NULL, path TEXT, lane_role TEXT NOT NULL,
             state TEXT NOT NULL DEFAULT 'active',
-            created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-            released_at TEXT
+            created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL,
+            released_at TIMESTAMPTZ
         );
         CREATE TABLE epic_tasks (
             epic_id INTEGER NOT NULL, task_num INTEGER NOT NULL,
@@ -50,7 +55,7 @@ def conn():
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT,
-            scope TEXT, released_at TEXT
+            scope TEXT, released_at TIMESTAMPTZ
         );
         CREATE TABLE harness_sessions (
             session_id TEXT PRIMARY KEY, current_item_id INTEGER
@@ -164,8 +169,8 @@ def _seed_item(conn, item_id: int, branch: str | None, project: str = "yoke") ->
                 item_id,
                 branch,
                 lane_path,
-                "2026-01-01T00:00:00Z",
-                "2026-01-01T00:00:00Z",
+                _FIXTURE_INSTANT,
+                _FIXTURE_INSTANT,
             ),
         )
     conn.commit()

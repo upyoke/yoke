@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
+
 import os
 import subprocess
 import sys
@@ -12,6 +15,8 @@ from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.work_claim_targets import make_item_target
+
+_FIXTURE_INSTANT = parse_instant("2026-01-01T00:00:00.123456Z")
 
 
 SESSION_REGRESSION = "test-sess-yok-1784"
@@ -29,7 +34,7 @@ CREATE TABLE item_worktrees (
     id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL,
     branch TEXT NOT NULL, path TEXT, lane_role TEXT NOT NULL,
     state TEXT NOT NULL DEFAULT 'active',
-    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, released_at TEXT
+    created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL, released_at TIMESTAMPTZ
 );
 CREATE TABLE epic_tasks (
     epic_id INTEGER NOT NULL, task_num INTEGER NOT NULL,
@@ -37,7 +42,7 @@ CREATE TABLE epic_tasks (
 );
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT,
-    scope TEXT, released_at TEXT
+    scope TEXT, released_at TIMESTAMPTZ
 );
 """
 
@@ -114,8 +119,8 @@ def seed_worktree_claim_rows(
         (
             1784,
             branch,
-            "2026-01-01T00:00:00Z",
-            "2026-01-01T00:00:00Z",
+            _FIXTURE_INSTANT,
+            _FIXTURE_INSTANT,
         ),
     )
     connection.execute(

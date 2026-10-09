@@ -20,13 +20,13 @@ CREATE TABLE items (
     status TEXT NOT NULL DEFAULT 'idea',
     priority TEXT NOT NULL DEFAULT 'medium',
     project_id INTEGER NOT NULL DEFAULT 1,
-    project_sequence INTEGER NOT NULL, merged_at TEXT
+    project_sequence INTEGER NOT NULL, merged_at TIMESTAMPTZ
 );
 CREATE TABLE item_worktrees (
     id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL,
     branch TEXT NOT NULL, path TEXT, lane_role TEXT NOT NULL,
-    state TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL, released_at TEXT
+    state TEXT NOT NULL DEFAULT 'active', created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL, released_at TIMESTAMPTZ
 );
 CREATE TABLE workflow_versions (
     id INTEGER PRIMARY KEY, workflow_id TEXT NOT NULL,
