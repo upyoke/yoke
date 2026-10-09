@@ -151,8 +151,11 @@ QA_RUN_LIST_USAGE = (
 )
 
 _RUN_LIST_HELP_DEEP = """\
-List qa_runs rows, newest id last. Omit --requirement-id to list every
-run (operator-debug breadth; agent calls filter by requirement).
+With --requirement-id, list the current execution first, selected by aware
+start instant and then id. Retain all other rows as id-descending audit
+history. Missing or invalid execution starts refuse as qa_execution_order_ambiguous.
+Omit the filter to list every run in id-ascending order (operator-debug
+breadth; agent calls filter by requirement).
 
   yoke qa run list --requirement-id 5731
 
