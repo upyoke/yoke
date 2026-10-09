@@ -74,9 +74,9 @@ def free_memory_bytes() -> int | None:
     if sys.platform == "darwin":
         try:
             result = subprocess.run(
-                ["vm_stat"], capture_output=True, text=True, timeout=2
+                ["/usr/bin/vm_stat"], capture_output=True, text=True, timeout=2
             )
-        except (FileNotFoundError, subprocess.TimeoutExpired, TypeError):
+        except (OSError, subprocess.TimeoutExpired, TypeError):
             # TypeError surfaces when a test fixture monkeypatches
             # subprocess.run with a narrower signature; unknowable, not broken.
             return None

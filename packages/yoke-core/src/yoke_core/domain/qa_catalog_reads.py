@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
-from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+from yoke_core.domain.qa_obligation_settlement import (
+    unanswered_attempt_sql,
+    unretracted_requirement_sql,
+)
 
 import json
 from typing import Any, Optional
@@ -235,7 +238,8 @@ def _latest_requirement_outcome(conn: Any, plan_id: int) -> tuple:
         "LEFT JOIN qa_runs r ON r.id=("
         f"{latest_execution_id_sql('q.id')}"
         ") "
-        f"WHERE q.plan_id={marker} AND NOT {settled_obligation_sql(conn, 'q')} "
+        f"WHERE q.plan_id={marker} AND {unretracted_requirement_sql(conn, 'q')} "
+        f"AND {unanswered_attempt_sql(conn, 'q')} "
         "ORDER BY happened_at DESC, q.id DESC LIMIT 1",
         (plan_id,),
     )

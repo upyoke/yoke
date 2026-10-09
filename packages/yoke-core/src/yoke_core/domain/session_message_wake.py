@@ -80,8 +80,7 @@ def _native_wake_route_available(
     # has to read terminated_at or qualification would reopen the kill.
     if row.get("terminated_at"):
         return False
-    # Operator-wake surfaces are never resumed here: that forks the
-    # desktop transcript the person is reading.
+    # Resuming an operator-wake surface would fork its desktop transcript.
     if not native_wake_supported(str(row.get("executor_surface") or "")):
         return False
     from yoke_core.domain.session_surface_policy import live_mark
@@ -225,12 +224,16 @@ def wake_eligible_recipients(
                 now=current,
                 grace_seconds=policy.wake_ack_grace_seconds,
             )
+            # Activity can age during a live call; its return still runs a
+            # hook. Ended sessions and verified orphaned calls can recover.
+            if (
+                not explicit_wake
+                and liveness != "ended"
+                and turn_in_flight(row) is not None
+            ):
+                continue
             escalation = ""
             if not explicit_wake and liveness == "active":
-                # A live open call will deliver on its return; an orphaned
-                # one left by a verified exit cannot.
-                if turn_in_flight(row) is not None:
-                    continue
                 # An active session is served by its own hooks — unless the
                 # envelope proves that route stopped running, or the session
                 # declared a wait its harness has no way to end, in which

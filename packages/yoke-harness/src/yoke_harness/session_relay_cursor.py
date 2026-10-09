@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Protocol
 
+from yoke_harness.session_launch_admission import NativeCapacityRefusal
+
 from yoke_harness.session_relay_cursor_evidence import (
     CURSOR_CLI_SURFACE,
     cursor_evidence,
@@ -204,6 +206,8 @@ def build_cursor_adapter(
             )
             try:
                 native = subprocess_port.new_session(request)
+            except NativeCapacityRefusal:
+                raise
             except Exception:
                 return _result(
                     "outcome_unknown",
@@ -232,6 +236,8 @@ def build_cursor_adapter(
         )
         try:
             return _wake_result(subprocess_port.resume_chat(request))
+        except NativeCapacityRefusal:
+            raise
         except Exception:
             return _result("outcome_unknown")
 
