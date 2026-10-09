@@ -190,3 +190,41 @@ def test_historical_conversion_is_idempotent_and_preserves_exact_attribution(
     assert historical[0]["run_id"] == run_id
     assert historical[0]["precision"] == "historical"
     assert _deployed(test_db)
+
+
+def test_cross_project_attribution_uses_the_bound_candidate(test_db, monkeypatch):
+    from yoke_core.domain.completed_item_delivery import record_completed_run_delivery
+
+    _isolate_status_effects(monkeypatch)
+    run_id = "bound-completion"
+    _seed_final_run(test_db, run_id, shared_qa=False)
+    _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
+    test_db.execute(
+        "INSERT INTO projects(id,slug,name,public_item_prefix,org_id,created_at) "
+        "SELECT 902,'bound-consumer','Bound consumer','BND',org_id,created_at FROM projects WHERE id=1"
+    )
+    test_db.execute("INSERT INTO sites(id,project_id,name) VALUES (902,902,'bound')")
+    test_db.execute(
+        "INSERT INTO environments(site,project_id,name) VALUES (902,902,'prod')"
+    )
+    test_db.execute("UPDATE items SET project_id=902 WHERE id=%s", (MEMBER_A,))
+    candidate = "c" * 40
+    test_db.execute(
+        "UPDATE deployment_runs SET status='succeeded',bound_sources=%s WHERE id=%s",
+        (
+            json.dumps(
+                {
+                    "schema": 1,
+                    "projects": [{"project_id": 902, "commit_sha": candidate}],
+                }
+            ),
+            run_id,
+        ),
+    )
+    record_completed_run_delivery(test_db, run_id=run_id)
+    entry = completed_deliveries(test_db, [MEMBER_A])[MEMBER_A][0]
+    assert entry["project_id"] == 902
+    assert entry["run_project_id"] == 1
+    assert entry["member_item_id"] == MEMBER_A
+    assert entry["candidate"] == candidate
+    assert _deployed(test_db)
