@@ -67,6 +67,18 @@ def test_independent_completion_stays_deployed_after_sibling_failure(
         blocking_status="done",
         workflow=load_item_workflow_runtime(test_db, MEMBER_A),
     ).satisfied
+    from yoke_core.domain.gate_satisfier_stamp import _upsert
+
+    assert _upsert(
+        test_db,
+        item_id=MEMBER_A,
+        obligation="delivery_evidence",
+        rung_id="independent_member_delivered",
+        target_status="done",
+        detail="Repeated preflight",
+        facts={"state": "discharged"},
+    )
+    assert _deployed(test_db)
 
 
 def test_shared_gate_and_accepted_qa_do_not_publish_completion(test_db, monkeypatch):

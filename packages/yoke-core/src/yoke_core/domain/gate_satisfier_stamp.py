@@ -203,8 +203,9 @@ def _upsert(
     )
 
     if obligation == OBLIGATION_DELIVERY_EVIDENCE:
+        lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
         row = conn.execute(
-            f"SELECT facts FROM item_gate_satisfactions WHERE item_id={p} AND obligation={p}",
+            f"SELECT facts FROM item_gate_satisfactions WHERE item_id={p} AND obligation={p}{lock}",
             (item_id, obligation),
         ).fetchone()
         if row:
