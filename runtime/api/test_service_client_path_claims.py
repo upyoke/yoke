@@ -1,8 +1,8 @@
 """Service-client surface coverage for path-claim commands.
 
 Focused on the override contract: ``path-claim-override`` distinguishes
-``HOOK_CONTEXT`` rejection (``YOKE_HOOK_EVENT`` set) from
-``EMPTY_ACTOR_REASON`` rejection (whitespace-only reason). Each
+``HOOK_CONTEXT_REJECTED`` rejection (``YOKE_HOOK_EVENT`` set) from
+``ACTOR_REASON_REQUIRED`` rejection (whitespace-only reason). Each
 rejection class returns a non-zero exit and a different error code
 on stdout so the surface is grep-able.
 
@@ -24,6 +24,10 @@ from pathlib import Path
 import pytest
 
 from runtime.api.fixtures.backlog import seed_test_canonical_actors
+from runtime.api.domain.steering_claim_test_support import (
+    seed_session,
+    acquire_steering,
+)
 from runtime.api.fixtures.file_test_db import (
     apply_fixture_schema_ddl,
     connect_test_db,
@@ -85,6 +89,9 @@ def path_claims_db(tmp_path, monkeypatch):
                 "'2026-05-01T00:00:00Z')"
             )
             conn.commit()
+            seed_session(conn, "override-steering", 1)
+            acquire_steering(conn, "override-steering", 1)
+            monkeypatch.setenv("YOKE_SESSION_ID", "override-steering")
         finally:
             conn.close()
         yield db_path
@@ -121,7 +128,7 @@ class TestOverrideRejectionDistinct:
         assert rc != 0
         payload = json.loads(output)
         assert payload["success"] is False
-        assert payload["code"] == "EMPTY_ACTOR_REASON"
+        assert payload["code"] == "ACTOR_REASON_REQUIRED"
 
     def test_hook_context_returns_distinct_error_code(
         self,
@@ -144,7 +151,7 @@ class TestOverrideRejectionDistinct:
         assert rc != 0
         payload = json.loads(output)
         assert payload["success"] is False
-        assert payload["code"] == "HOOK_CONTEXT"
+        assert payload["code"] == "HOOK_CONTEXT_REJECTED"
 
     def test_two_rejection_codes_are_distinct(
         self,
@@ -180,7 +187,7 @@ class TestOverrideRejectionDistinct:
         code1 = json.loads(out1)["code"]
         code2 = json.loads(out2)["code"]
         assert code1 != code2
-        assert {code1, code2} == {"EMPTY_ACTOR_REASON", "HOOK_CONTEXT"}
+        assert {code1, code2} == {"ACTOR_REASON_REQUIRED", "HOOK_CONTEXT_REJECTED"}
 
     def test_creation_against_unresolved_claim_refuses_steering_authority(
         self,

@@ -22,9 +22,13 @@ OVERRIDE_POLICY_SOURCE_PATHS = frozenset(
     {
         "AGENTS.md",
         "docs/public/reference/agent-rules/verification.md",
+        "docs/public/reference/agent-rules/lanes-and-claims.md",
     }
 )
-OVERRIDE_POLICY_TESTS = ("runtime/api/test_verification_failure_ownership_policy.py",)
+OVERRIDE_POLICY_TESTS = (
+    "runtime/api/test_verification_failure_ownership_policy.py",
+    "runtime/api/test_path_claim_scope_teaching.py",
+)
 
 PATH_CLAIM_CONTRACTS = (
     (
