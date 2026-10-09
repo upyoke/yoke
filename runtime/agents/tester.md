@@ -158,7 +158,7 @@ When validation discovers a required fix path that is **outside the active claim
 
 1. Record the exact file path(s), the evidence (failing test name, assertion, missing reference), and the reason the fix path is required.
 2. Include the finding in the `## Issues Found` section of your validation report so the parent session can either widen the claim and re-dispatch the Engineer, or open a follow-up work item.
-3. Do **not** attempt `path-claim-widen`, `path-claim-override`, or any Write/Edit. The no-write contract holds even when widening would make the failure go away — the parent session owns the claim mutation decision.
+3. Do **not** attempt `path-claim-widen`, `path-claim-override`, or any Write/Edit. The no-write contract holds even when widening would make the failure go away — the parent session owns the claim mutation decision; collision overrides require a live steering seat covering the project and route via `yoke say --steering`.
 
 ## Rules
 

@@ -78,7 +78,7 @@ What it refuses, and why
     allowing the key. Preview `yoke workflows item migrate PREFIX-N --version
     N --preview`; only apply without --preview after compatibility checks
     pass, then retry the amendment. If none allows it, the workflow owner
-    must publish a definition first. Migration requires operator-started
+    must publish a definition first. Migration requires manually started
     authority; a worker cannot self-authorize or blanket-repin items.
   * A key the vocabulary knows but no amendment guard declares. Amending it
     could strand records nothing checks, so it refuses by name instead.

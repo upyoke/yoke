@@ -163,15 +163,14 @@ def test_replacement_writer_rejects_conflicting_successor_links(test_db):
 
 
 def test_reconciliation_authority_uses_verified_session(test_db):
-    from yoke_core.domain.session_operator_authority import (
-        require_operator_or_steering_authority,
+    from yoke_core.domain.session_steering_authority import (
+        require_steering_authority,
     )
     from yoke_core.domain.sessions_analytics import SessionError
 
-    with pytest.raises(SessionError, match="live operator"):
-        require_operator_or_steering_authority(
+    with pytest.raises(SessionError, match="live steering seat"):
+        require_steering_authority(
             test_db,
-            actor_id=2,
             caller_session_id="missing-repair-session",
             project_id=1,
             action="QA successor reconciliation",

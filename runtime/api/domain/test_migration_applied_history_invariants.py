@@ -57,9 +57,7 @@ def test_retired_standing_invariant_names_its_skip_and_reason(
         object(),
         (name,),
         history=(name,),
-        load_module=lambda _name: SimpleNamespace(
-            invariants=wrong_standing_invariant
-        ),
+        load_module=lambda _name: SimpleNamespace(invariants=wrong_standing_invariant),
     )
 
     assert report.failure is None
@@ -78,9 +76,10 @@ def test_fleet_summary_names_skipped_standing_invariants_beside_pass_fail() -> N
 
     assert summary.splitlines()[0] == "2 passed, 1 failed, 1 skipped"
     assert skipped_standing_invariant_line(name, reason) in summary.splitlines()
-    assert format_fleet_summary(
-        (SimpleNamespace(passed=True, skipped_invariants=()),)
-    ) == "1 passed, 0 failed, 0 skipped"
+    assert (
+        format_fleet_summary((SimpleNamespace(passed=True, skipped_invariants=()),))
+        == "1 passed, 0 failed, 0 skipped"
+    )
 
 
 def test_empty_database_converges_full_history_and_live_invariants(
@@ -121,12 +120,10 @@ def test_empty_database_converges_full_history_and_live_invariants(
             redact=dsn,
         )
         assert first.failure is None
-        assert "0035_clear_unproven_onboard_activation_latch" in dict(
-            first.skipped
-        )
+        assert "0035_clear_unproven_onboard_activation_latch" in dict(first.skipped)
 
         # A session whose provider attested a model but whose ask was never
-        # recorded is the normal shape of an operator-started session, and
+        # recorded is the normal shape of an manually started session, and
         # live builds write it constantly. Re-proving the applied history
         # against a database carrying one must stay green: an entry's
         # invariants are a claim about the schema, not about the rows.

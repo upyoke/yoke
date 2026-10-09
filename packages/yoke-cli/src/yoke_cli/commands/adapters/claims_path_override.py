@@ -1,4 +1,4 @@
-"""``yoke claims path override`` — operator collision-approval surface."""
+"""``yoke claims path override`` — steering collision-approval surface."""
 
 from __future__ import annotations
 

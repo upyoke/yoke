@@ -234,7 +234,7 @@ def register(registry) -> None:
             "live_binding_compatibility",
         ],
         adapter_status="live",
-        claim_required_kind="operator_override",
+        claim_required_kind="steering",
     )
     registry.register(
         "workflows.item_posture.amend",

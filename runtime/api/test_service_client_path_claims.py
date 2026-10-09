@@ -1,8 +1,8 @@
 """Service-client surface coverage for path-claim commands.
 
 Focused on the override contract: ``path-claim-override`` distinguishes
-``HOOK_CONTEXT`` rejection (``YOKE_HOOK_EVENT`` set) from
-``EMPTY_ACTOR_REASON`` rejection (whitespace-only reason). Each
+``HOOK_CONTEXT_REJECTED`` rejection (``YOKE_HOOK_EVENT`` set) from
+``ACTOR_REASON_REQUIRED`` rejection (whitespace-only reason). Each
 rejection class returns a non-zero exit and a different error code
 on stdout so the surface is grep-able.
 
@@ -24,10 +24,19 @@ from pathlib import Path
 import pytest
 
 from runtime.api.fixtures.backlog import seed_test_canonical_actors
+from runtime.api.domain.steering_claim_test_support import (
+    seed_session,
+    acquire_steering,
+)
 from runtime.api.fixtures.file_test_db import (
     apply_fixture_schema_ddl,
     connect_test_db,
     init_test_db,
+)
+from yoke_core.domain.actor_permissions import (
+    ROLE_ADMIN,
+    grant_actor_project_role,
+    seed_roles_and_permissions,
 )
 from yoke_core.api.service_client_path_claims import (
     PATH_CLAIMS_COMMANDS,
@@ -85,6 +94,13 @@ def path_claims_db(tmp_path, monkeypatch):
                 "'2026-05-01T00:00:00Z')"
             )
             conn.commit()
+            seed_roles_and_permissions(conn)
+            grant_actor_project_role(
+                conn, actor_id=2, project_id=1, role_name=ROLE_ADMIN
+            )
+            seed_session(conn, "override-steering", 1)
+            acquire_steering(conn, "override-steering", 1)
+            monkeypatch.setenv("YOKE_SESSION_ID", "override-steering")
         finally:
             conn.close()
         yield db_path
@@ -109,84 +125,115 @@ class TestOverrideRejectionDistinct:
         rc, output = _capture(
             cmd_path_claim_override,
             "1",
-            "--override-point", "creation",
-            "--integration-target", "main",
-            "--actor-id", "1",
-            "--actor-reason", "   \t\n   ",
+            "--override-point",
+            "creation",
+            "--integration-target",
+            "main",
+            "--actor-id",
+            "1",
+            "--actor-reason",
+            "   \t\n   ",
         )
         assert rc != 0
         payload = json.loads(output)
         assert payload["success"] is False
-        assert payload["code"] == "EMPTY_ACTOR_REASON"
+        assert payload["code"] == "ACTOR_REASON_REQUIRED"
 
     def test_hook_context_returns_distinct_error_code(
-        self, path_claims_db, monkeypatch,
+        self,
+        path_claims_db,
+        monkeypatch,
     ):
         monkeypatch.setenv("YOKE_HOOK_EVENT", "PreToolUse")
         rc, output = _capture(
             cmd_path_claim_override,
             "1",
-            "--override-point", "creation",
-            "--integration-target", "main",
-            "--actor-id", "1",
-            "--actor-reason", "real operator reason",
+            "--override-point",
+            "creation",
+            "--integration-target",
+            "main",
+            "--actor-id",
+            "1",
+            "--actor-reason",
+            "real operator reason",
         )
         assert rc != 0
         payload = json.loads(output)
         assert payload["success"] is False
-        assert payload["code"] == "HOOK_CONTEXT"
+        assert payload["code"] == "HOOK_CONTEXT_REJECTED"
 
     def test_two_rejection_codes_are_distinct(
-        self, path_claims_db, monkeypatch,
+        self,
+        path_claims_db,
+        monkeypatch,
     ):
         """The error codes must NOT collide."""
         rc1, out1 = _capture(
             cmd_path_claim_override,
             "1",
-            "--override-point", "creation",
-            "--integration-target", "main",
-            "--actor-id", "1",
-            "--actor-reason", "  ",
+            "--override-point",
+            "creation",
+            "--integration-target",
+            "main",
+            "--actor-id",
+            "1",
+            "--actor-reason",
+            "  ",
         )
         monkeypatch.setenv("YOKE_HOOK_EVENT", "PreToolUse")
         rc2, out2 = _capture(
             cmd_path_claim_override,
             "1",
-            "--override-point", "creation",
-            "--integration-target", "main",
-            "--actor-id", "1",
-            "--actor-reason", "real reason",
+            "--override-point",
+            "creation",
+            "--integration-target",
+            "main",
+            "--actor-id",
+            "1",
+            "--actor-reason",
+            "real reason",
         )
         code1 = json.loads(out1)["code"]
         code2 = json.loads(out2)["code"]
         assert code1 != code2
-        assert {code1, code2} == {"EMPTY_ACTOR_REASON", "HOOK_CONTEXT"}
+        assert {code1, code2} == {"ACTOR_REASON_REQUIRED", "HOOK_CONTEXT_REJECTED"}
 
-    def test_creation_against_missing_claim_returns_claim_not_found(
-        self, path_claims_db,
+    def test_creation_against_unresolved_claim_refuses_project_authority(
+        self,
+        path_claims_db,
     ):
         rc, output = _capture(
             cmd_path_claim_override,
             "999999",
-            "--override-point", "creation",
-            "--integration-target", "main",
-            "--actor-id", "1",
-            "--actor-reason", "valid reason",
+            "--override-point",
+            "creation",
+            "--integration-target",
+            "main",
+            "--actor-id",
+            "1",
+            "--actor-reason",
+            "valid reason",
         )
         assert rc != 0
         payload = json.loads(output)
-        assert payload["code"] == "CLAIM_NOT_FOUND"
+        assert payload["code"] == "PERMISSION_DENIED"
+        assert "could not resolve a target project" in payload["message"]
 
     def test_successful_override_returns_success_payload(
-        self, path_claims_db,
+        self,
+        path_claims_db,
     ):
         rc, output = _capture(
             cmd_path_claim_override,
             "1",
-            "--override-point", "creation",
-            "--integration-target", "main",
-            "--actor-id", "1",
-            "--actor-reason", "operator approved past blocker",
+            "--override-point",
+            "creation",
+            "--integration-target",
+            "main",
+            "--actor-id",
+            "1",
+            "--actor-reason",
+            "operator approved past blocker",
         )
         assert rc == 0
         payload = json.loads(output)
@@ -240,9 +287,12 @@ class TestWidenItemRoutesThroughServiceClient:
     def test_widen_with_unknown_item_returns_usage_error(self, path_claims_db):
         rc, output = _capture(
             cmd_path_claim_widen,
-            "--item", "YOK-999999",
-            "--paths", "src/foo.py",
-            "--reason", "no claim exists",
+            "--item",
+            "YOK-999999",
+            "--paths",
+            "src/foo.py",
+            "--reason",
+            "no claim exists",
         )
         assert rc == 2
         payload = json.loads(output)
@@ -252,8 +302,10 @@ class TestWidenItemRoutesThroughServiceClient:
     def test_widen_neither_arg_returns_usage_error(self, path_claims_db):
         rc, output = _capture(
             cmd_path_claim_widen,
-            "--paths", "src/foo.py",
-            "--reason", "no target",
+            "--paths",
+            "src/foo.py",
+            "--reason",
+            "no target",
         )
         assert rc == 2
         payload = json.loads(output)

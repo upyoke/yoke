@@ -37,12 +37,12 @@ def disallowed_posture_message(
         f"{runtime.workflow_id}@{runtime.version} does not allow posture key {key!r}",
         evaluated=f"Allowed on this item: {sorted(runtime.policies['item_posture_allowlist'])}. "
         "Deploying new workflow versions does not change this item's immutable pin",
-        recovery=f"Ask the control-plane operator to inspect `yoke workflows version list {runtime.workflow_id}` "
+        recovery=f"Ask the covering steering holder to inspect `yoke workflows version list {runtime.workflow_id}` "
         f"and select a version allowing {key!r}, then preview `yoke workflows item migrate {ref} "
         "--version N --preview`. Only apply that migration without --preview after "
         "its compatibility checks pass, then retry the amendment. If no suitable "
         "version is published, the workflow owner must publish one first. "
-        "Migration requires operator-started authority; a worker cannot self-authorize",
+        "Migration requires a live steering seat covering the target project or document; route via yoke say --steering",
     )
 
 

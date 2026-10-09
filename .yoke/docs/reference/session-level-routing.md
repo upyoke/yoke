@@ -162,7 +162,7 @@ pin may refuse the amendment. Read `yoke workflows item get PREFIX-N` for
 its actual allowlist. The control-plane operator must select a compatible
 published version and preview `yoke workflows item migrate PREFIX-N
 --version N --preview` before applying the migration and retrying the
-amendment. This requires operator-started authority; workers cannot
+amendment. This requires a live steering seat covering the target project or document; workers cannot
 self-authorize it. `yoke workflows item-posture amend --help` carries the
 recovery decision tree. Publishing a definition never blanket-repins items.
 
@@ -217,7 +217,7 @@ staffing, not an operator execution instruction or a workflow skill binding.
 A create with no selector uses the item's live effective stage level, and
 Yoke chooses the option and machine. An explicit `--level` overrides one
 launch. A missing stage level without an explicit selector refuses as
-`stage_level_missing`, naming `--level` or the operator-only workflow migration
+`stage_level_missing`, naming `--level` or the steering-seat workflow migration
 preview/apply prerequisite for an existing old pin. Select a compatible
 published version; new versions never move existing pins automatically.
 `HC-workflow-stage-level-pins` fails naming every non-terminal item pinned to a

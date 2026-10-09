@@ -167,7 +167,7 @@ def test_whitespace_reason_is_rejected(
 def test_registration_requires_operator_override() -> None:
     registration = handler.REGISTRATIONS[0]
     assert registration["function_id"] == "lifecycle.repair_status.execute"
-    assert registration["claim_required_kind"] == "operator_override"
+    assert registration["claim_required_kind"] == "steering"
     assert "operator_reason_required" in registration["guardrails"]
 
 
@@ -180,7 +180,7 @@ def test_registration_and_cli_inventory_are_complete() -> None:
         __init_register__.register_all_handlers()
         entry = yoke_function_registry.lookup("lifecycle.repair_status.execute")
         assert entry is not None
-        assert entry.claim_required_kind == "operator_override"
+        assert entry.claim_required_kind == "steering"
     finally:
         yoke_function_registry.reset_registry_for_tests()
 

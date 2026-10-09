@@ -288,3 +288,27 @@ def test_checkpoint_optional_item_uses_only_public_selectors(selector):
         payload = _CAPTURED_REQUESTS[-1].payload
         assert "item_id" not in payload
         assert payload.get("public_ref") == selector
+
+
+@pytest.mark.parametrize(
+    "command,args",
+    [
+        ("touch", []),
+        (
+            "begin",
+            [
+                "--executor",
+                "codex",
+                "--provider",
+                "openai",
+                "--requested-model",
+                "test-model",
+                "--workspace",
+                "/tmp/test-workspace",
+            ],
+        ),
+    ],
+)
+def test_obsolete_authority_mode_is_rejected_before_dispatch(command, args):
+    assert _run("sessions", command, *args, "--mode", "operator") == 2
+    assert not _CAPTURED_REQUESTS

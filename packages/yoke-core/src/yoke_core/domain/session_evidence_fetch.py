@@ -97,7 +97,7 @@ def request_evidence_fetch(
     now: str,
 ) -> dict[str, Any]:
     """Record one bounded read for the machine that owns the target session."""
-    from yoke_core.domain.session_operator_authority import session_control_target
+    from yoke_core.domain.session_steering_authority import session_control_target
 
     target = session_control_target(conn, session_id)
     machine_id = str(target.get("machine_id") or "")

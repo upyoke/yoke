@@ -21,7 +21,7 @@ Public surface:
 
 The six values the dispatcher accepts for ``claim_required_kind`` are
 ``None``, ``"item"``, ``"epic"``, ``"qa_subject"``, ``"self_only"``,
-``"operator_override"``.
+``"steering"``.
 Any other string raises :class:`RegistryValidationError` at import time.
 """
 
@@ -49,7 +49,7 @@ _CLAIM_REQUIRED_KIND_VALUES: Tuple[Optional[str], ...] = (
     "epic",
     "qa_subject",
     "self_only",
-    "operator_override",
+    "steering",
 )
 
 

@@ -59,7 +59,7 @@ class TestNoDescopeForActivePathClaims:
             "wait for the holder to release",
             "coordinate with the holder",
             "ask the holder to narrow or cancel",
-            "operator override",
+            "steering override",
             "last resort",
         ):
             assert phrase in text, (

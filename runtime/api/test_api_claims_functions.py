@@ -93,7 +93,7 @@ class TestClaimsHandlersRegistration(_ClaimsHandlerSuite):
             "claims.path.widen": "item",
             "claims.path.release": "item",
             "claims.path.amend": "item",
-            "claims.path.override": "operator_override",
+            "claims.path.override": "steering",
             "claims.coordination_claim.operator_release": None,
             "db_claim.amend": "item",
         }

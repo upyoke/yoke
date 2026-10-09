@@ -37,7 +37,7 @@ workflow version does not change an existing item's pin. If `level` is
 absent, ask the control-plane operator to select a compatible published
 version and preview `yoke workflows item migrate PREFIX-N --version N
 --preview`; apply only after the compatibility checks pass. Migration
-requires operator-started authority. Record that prerequisite for this
+requires a live steering seat covering the target project or document. Record that prerequisite for this
 item and continue staffing other eligible items; never silently omit the
 override or blanket-repin the backlog. `yoke workflows item-posture amend
 --help` carries the recovery decision tree.

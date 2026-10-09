@@ -20,7 +20,6 @@ SESSION_MODES: FrozenSet[str] = SKILL_SESSION_MODES | frozenset(
         SESSION_MODE_PARKED,
         "busy",
         "escalate",
-        "operator",
         "resume",
     )
 )

@@ -163,7 +163,7 @@ Tracks active harness sessions and their registered identity. Sessions with `end
 **Stale-session thresholds (canonical reference).** The reclaim windows are config-tunable, not code literals. The sweep first selects an occupancy tier:
 
 - `session_stale_ttl_minutes` (default `20`) — the short tier for a session with no active work claim, no session-owned strategy-document claim, and no session-owned coordination lease. One base applies on every harness; transient stop signals attempt only a non-destructive empty-session end.
-- `session_stale_ttl_with_holdings_minutes` (default `1440`) — the minimum tier for session-owned strategy-document locks. Active work claims have no inactivity bound. `yoke sessions terminate SESSION-ID --reason R` is the authorized operator route to release a stranded holder. It refuses a session a wake is resuming as `TERMINATION_RESUME_IN_FLIGHT` — a `wake_relay` attempt started at or after the recorded native exit that is still open or resumed a process not yet reported exited, within the resume-custody quiet window — because a headless worker's process exits between turns and a message resumes it; `--allow-resume-in-flight` overrides for a deliberate restaff or evidence it cannot resume. Logical stop and physical exit are separate: one bounded TERM/KILL attempt (2-second TERM grace, then up to 2 seconds to verify exit; Claude job-stop command timeout 20 seconds) retains custody on missing/denied/unverified results. Inspect custody and permissions, then repeat the explicit termination command to retry a failed physical reap; pending and verified successful requests are idempotent, with prior failed evidence retained in the existing reap row.
+- `session_stale_ttl_with_holdings_minutes` (default `1440`) — the minimum tier for session-owned strategy-document locks. Active work claims have no inactivity bound. `yoke sessions terminate SESSION-ID --reason R` requires a live steering seat covering the target project to release a stranded holder; acquire it with `yoke claims steering acquire --project P --reason TEXT` or route via `yoke say --steering`. It refuses a session a wake is resuming as `TERMINATION_RESUME_IN_FLIGHT` — a `wake_relay` attempt started at or after the recorded native exit that is still open or resumed a process not yet reported exited, within the resume-custody quiet window — because a headless worker's process exits between turns and a message resumes it; `--allow-resume-in-flight` overrides for a deliberate restaff or evidence it cannot resume. Logical stop and physical exit are separate: one bounded TERM/KILL attempt (2-second TERM grace, then up to 2 seconds to verify exit; Claude job-stop command timeout 20 seconds) retains custody on missing/denied/unverified results. Inspect custody and permissions, then repeat the explicit termination command to retry a failed physical reap; pending and verified successful requests are idempotent, with prior failed evidence retained in the existing reap row.
 Resolver: `yoke_core.domain.sessions_analytics_core` owns both source thresholds. The sessions-card stale-eligible time is absent while an active work claim protects its holder.
 
 **Long commands and sparse tool boundaries.** Registered Command cases and watcher-backed suites refresh the owning session and claims while the child runs. The persisted work claim protects a silent or crashed holder until explicit release or terminal action.
@@ -176,7 +176,7 @@ model TEXT NOT NULL -- model identifier (e.g., claude-opus-4-7)
 execution_level TEXT NOT NULL DEFAULT 'primary' -- session grouping identity stamped by session-routing settings
 capabilities TEXT DEFAULT '[]' -- JSON array of capability tags
 workspace TEXT NOT NULL -- absolute path to working directory
-mode TEXT DEFAULT 'wait' -- session mode (charge, feed, strategize, wait)
+mode TEXT DEFAULT 'wait' -- session mode (charge, feed, strategize, wait); scheduling posture only, never authority
 offered_at TEXT NOT NULL -- ISO 8601 when session was registered
 last_heartbeat TEXT NOT NULL -- ISO 8601 of last heartbeat
 native_process_gone_at TEXT -- when the death was first seen, not when last reported
@@ -290,7 +290,7 @@ claim-free end check all skip them, because the migration, the remote
 suite, and the deployment pipeline keep running after the session that
 started them goes quiet. Recovery is the audited human operator release,
 never an automatic reclaim. `route_qualification` is liveness-bound like
-the backlog kinds — a grant is only valid while its operator session
+the backlog kinds — a grant is only valid while its steering session
 lives — so the sweep reclaims it normally.
 
 Each claim is addressed by one operator key: `LIVE_DB_MIGRATION:<model>`,
