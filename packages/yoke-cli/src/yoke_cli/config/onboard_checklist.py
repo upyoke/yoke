@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import iso8601_now as _now_iso
+
 import json
 import re
 from datetime import datetime, timezone
@@ -319,12 +321,6 @@ def _normalize_run_id(run_id: str) -> str:
 
 def _new_run_id() -> str:
     return f"run-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}-{uuid4().hex[:8]}"
-
-
-def _now_iso() -> str:
-    return (
-        datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-    )
 
 
 __all__ = [

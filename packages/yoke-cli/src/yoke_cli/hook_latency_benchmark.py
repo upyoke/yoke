@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 import uuid
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
 from typing import Any, Callable, Mapping, Sequence
 
 from yoke_contracts.hook_evaluator_protocol import HOOK_CALL_IDENTITY_FIELD
@@ -119,7 +119,7 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
             "rows", []
         )
     )
-    started_at = datetime.now(timezone.utc)
+    started_at = parse_instant(utc_now())
     samples = []
     client_revisions: set[str] = set()
     server_revisions: set[str] = set()
@@ -166,7 +166,7 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
                 **{field: None for field in PHASE_HOOK_EVENTS},
             }
         )
-    ended_at = datetime.now(timezone.utc)
+    ended_at = parse_instant(utc_now())
     # Bounded twice over: to this session's dispatch rows inside this run's
     # own window, and then to the sample identities the join recognizes. The
     # predecessor read the latest 2N rows of the whole session and required
@@ -186,7 +186,7 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
             "--session",
             str(identity.get("session_id")),
             "--since",
-            started_at.isoformat(),
+            format_instant(started_at),
             "--limit",
             str(dispatch_limit),
         ),
@@ -246,8 +246,8 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
         if len(server_revisions) <= 1
         else "mixed",
         "time_window": {
-            "started_at": started_at.isoformat(),
-            "ended_at": ended_at.isoformat(),
+            "started_at": format_instant(started_at),
+            "ended_at": format_instant(ended_at),
         },
         "run_count": sample_count,
         "command": SAMPLE_COMMAND[0],

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant, iso8601_now as _now_iso
+
 from yoke_contracts.machine_config.directories import create_private_directory
 
 import os
@@ -205,7 +207,10 @@ class ApplyReportWriter:
         step["status"] = status
         now = _now_iso()
         if status == STATUS_RUNNING:
-            step["started_at"] = step.get("started_at") or now
+            prior_start = step.get("started_at")
+            step["started_at"] = (
+                now if prior_start is None else format_instant(prior_start)
+            )
         if status in (STATUS_DONE, STATUS_SKIPPED, STATUS_FAILED):
             step["finished_at"] = now
         self.payload["updated_at"] = now
@@ -244,15 +249,6 @@ def _new_run_id() -> str:
     )
 
 
-def _now_iso() -> str:
-    return (
-        datetime.now(timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
-
-
 def _merge_resume_steps(
     steps: list[dict[str, Any]],
     resume_payload: Mapping[str, Any],
@@ -269,8 +265,9 @@ def _merge_resume_steps(
         if old.get("status") not in (STATUS_DONE, STATUS_SKIPPED):
             continue
         step["status"] = old.get("status")
-        step["started_at"] = old.get("started_at")
-        step["finished_at"] = old.get("finished_at")
+        for clock in ("started_at", "finished_at"):
+            value = old.get(clock)
+            step[clock] = None if value is None else format_instant(value)
     return steps
 
 

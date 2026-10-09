@@ -23,6 +23,8 @@ never written into event streams or logs. ``--json`` carries it under
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import InvalidInstant
+
 import argparse
 import json
 import sys
@@ -93,7 +95,7 @@ def ui_status(
         return 2
     try:
         report = daemon.status()
-    except UiDaemonError as exc:
+    except (UiDaemonError, InvalidInstant) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     if parsed.json_mode:
@@ -139,7 +141,13 @@ def ui_up(args: List[str]) -> int:
                 host = server.resolve_ui_host(parsed.host)
                 port = server.resolve_ui_port(parsed.port, host=host)
                 report = daemon.up(host=host, port=port, env=env_name)
-    except (UniverseUiError, UiDaemonError, UiLaunchdError, RuntimeError) as exc:
+    except (
+        UniverseUiError,
+        UiDaemonError,
+        UiLaunchdError,
+        RuntimeError,
+        InvalidInstant,
+    ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
@@ -191,7 +199,7 @@ def ui_down(args: List[str]) -> int:
         return 2
     try:
         report = daemon.down()
-    except (UiDaemonError, UiLaunchdError) as exc:
+    except (UiDaemonError, UiLaunchdError, InvalidInstant) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     if parsed.json_mode:

@@ -16,10 +16,16 @@ never reaches the daemon record, and never reaches a log.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import (
+    InvalidInstant,
+    iso8601_now as _now_iso,
+    parse_instant,
+)
+
 from yoke_contracts.machine_config.directories import create_private_directory
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 import json
 import os
 from pathlib import Path
@@ -54,8 +60,11 @@ class UiDaemonRecord:
     host: str
     port: int
     env: str
-    started_at: str
+    started_at: datetime
     supervised: bool
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "started_at", parse_instant(self.started_at))
 
 
 def state_dir() -> Path:
@@ -112,9 +121,11 @@ def read_record() -> Optional[UiDaemonRecord]:
             host=str(document.get("host") or ""),
             port=int(document.get("port") or 0),
             env=str(document.get("env") or ""),
-            started_at=str(document.get("started_at") or ""),
+            started_at=document.get("started_at"),
             supervised=bool(document.get("supervised")),
         )
+    except InvalidInstant:
+        raise
     except (TypeError, ValueError):
         return None
 
@@ -183,11 +194,6 @@ def log_tail() -> str:
     except OSError:
         return ""
     return "\n".join(lines[-LOG_TAIL_LINES:])
-
-
-def _now_iso() -> str:
-    stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    return stamp.replace("+00:00", "Z")
 
 
 def _write_private(path: Path, content: str) -> None:

@@ -306,3 +306,11 @@ fixed-six UTC clocks through the pinned Node kernel shipped inside the harness
 resource bundle. Date's measured milliseconds are padded with trailing zeros;
 no sub-millisecond precision is invented. Opaque screenshot filename suffixes
 remain identifiers, and browser display-age calculations remain display owners.
+
+Onboarding lock, report and checklist files, local-core state and UI daemon
+records generate fixed-six UTC clocks with the shared formatter. UI daemon
+records retain native instants after file ingress and format their status JSON.
+Resumed report clocks accept field-permitted null and validate provided clocks
+before rewriting the report; historical source reports and opaque text stay
+unchanged. Hook-latency measurement uses native run-window clocks, formats only
+the events-query argument and report fields, and keeps elapsed timing monotonic.

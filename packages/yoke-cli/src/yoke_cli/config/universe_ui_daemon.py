@@ -18,6 +18,8 @@ in :mod:`yoke_cli.config.universe_ui_launchd`.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 import os
 from pathlib import Path
 import signal
@@ -70,12 +72,14 @@ def status() -> Dict[str, Any]:
         "host": record.host,
         "port": record.port,
         "env": record.env,
-        "started_at": record.started_at,
+        "started_at": format_instant(record.started_at),
         "serving": port_accepting(record.host, record.port),
         "supervised_by_launchd": record.supervised,
         "state_dir": str(state_dir()),
         "private_url": private_url(
-            record.host, record.port, stable_session_token(),
+            record.host,
+            record.port,
+            stable_session_token(),
         ),
     }
 
@@ -143,7 +147,11 @@ def retract_serving_identity() -> None:
 
 
 def _start_supervisor(
-    *, host: str, port: int, env: str, log: Path,
+    *,
+    host: str,
+    port: int,
+    env: str,
+    log: Path,
 ) -> Tuple[bool, str]:
     """Bring the serving child up, and report who is supervising it.
 

@@ -7,7 +7,7 @@ from yoke_contracts.machine_config.directories import create_private_directory
 import json
 import os
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import iso8601_now
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -119,7 +119,7 @@ def read_env_file(machine_home: str | Path | None = None) -> dict[str, str]:
 
 
 def now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    return iso8601_now()
 
 
 __all__ = [
