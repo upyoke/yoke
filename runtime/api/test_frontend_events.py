@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.api import app_factory
+from yoke_core.api import app_factory, frontend_events_config
 from yoke_core.api.routes import frontend_events
 from yoke_core.domain import db_helpers, events_writes
 from yoke_core.domain.auth_schema import create_auth_tables
@@ -199,6 +199,43 @@ def test_attribution_captures_without_consent_into_signed_httponly_cookie(client
         "/api/events/attribution", json={"url": ORIGIN}, headers=admitted
     )
     assert invalid.json()["error"] == "attribution_input_invalid"
+
+
+@pytest.mark.parametrize(
+    "host, owner",
+    [
+        ("app.upyoke.com", "upyoke.com"),
+        ("app.stage.upyoke.com", "upyoke.com"),
+        ("yoke.acme.co.uk", "acme.co.uk"),
+        ("127.0.0.1", "127.0.0.1"),
+        ("::1", "::1"),
+        ("localhost", "localhost"),
+    ],
+)
+def test_site_domain_is_the_serving_hosts_registrable_domain(host, owner):
+    assert frontend_events_config.site_domain(host) == owner
+
+
+def test_own_apex_and_sign_in_returns_keep_the_search_touch(client):
+    admitted = headers(client)
+
+    def capture(referrer):
+        response = client.post(
+            "/api/events/attribution",
+            json={"url": ORIGIN + "/items", "referrer": referrer},
+            headers=admitted,
+        )
+        assert response.status_code == 200
+        return response.json()
+
+    search = capture("https://www.google.com/search")
+    assert search["last_touch"]["acquisition_channel"] == "organic_search"
+    for hop in (
+        "https://example.test/pricing",
+        "https://accounts.google.com/",
+        "https://accounts.youtube.com/",
+    ):
+        assert capture(hop) == search
 
 
 def test_local_collector_has_no_bearer_requirement_and_keeps_http_cookie(

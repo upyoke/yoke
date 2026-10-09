@@ -1,6 +1,6 @@
 # Marketing attribution
 
-The executable reference is [Structured Events Pack 4.0.0](../../packs/structured-events/versions/4.0.0/files/events/README.md).
+The executable reference is [Structured Events Pack 4.1.0](../../packs/structured-events/versions/4.1.0/files/events/README.md).
 Python and TypeScript share attribution_rules.json. Install the whole bundle;
 this standard does not maintain another implementation.
 
@@ -13,9 +13,24 @@ utm_source, utm_medium, utm_campaign, utm_term, utm_content, utm_id,
 utm_source_platform, gclid, fbclid, msclkid, li_fat_id, referrer_domain,
 acquisition_channel and captured_at. First touch never changes. Last touch
 updates on external-referrer or campaign/click-id visits; direct/internal visits
-preserve it. Configure the owned registrable site domain so sibling subdomains
-are internal. Exact/dot-boundary suffix matching prevents netflix.com from
-matching x.com. Regional search domains include google.co.uk.
+preserve it. Configure the owned registrable site domain (example.com, not
+app.example.com) so the apex and sibling subdomains are internal. Exact/dot-boundary
+suffix matching prevents netflix.com from matching x.com. Regional search domains
+include google.co.uk.
+
+Sign-in hops are internal: after an identity-provider round trip the first
+page's referrer is the provider (accounts.google.com, accounts.youtube.com),
+not an acquisition. excluded_referrer_domains in attribution_rules.json lists
+those hosts; a referrer matching it or the site domain records
+referrer_domain null, never replaces last touch, and makes a first visit
+direct. Never list a host that also sends real visitors. Older rows that
+recorded referrer_domain accounts.google.com or accounts.youtube.com are
+sign-in returns; read them as direct.
+
+The Yoke workbench derives its site domain from the serving host's registrable
+domain on the Public Suffix List: app.upyoke.com and app.stage.upyoke.com use
+upyoke.com, a self-hosted yoke.acme.co.uk uses acme.co.uk, and an IP or
+localhost is its own site. No setting is needed in any mode.
 
 Click IDs override manual/referrer classification: gclid and msclkid map to
 paid_search; fbclid and li_fat_id map to paid_social, even without UTMs.
