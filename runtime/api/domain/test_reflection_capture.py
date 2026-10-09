@@ -11,9 +11,13 @@ Regression coverage for the Conduct reflection-capture path:
 Persistence-layer tests (persist_entries dedup + error paths) live in the
 sibling test_reflection_capture_persist.py.
 """
+
 from __future__ import annotations
 
 import textwrap
+
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
 
 from yoke_core.domain.reflection_capture import (
     capture_reflections,
@@ -98,6 +102,7 @@ EMPTY_BODY_ENTRY = textwrap.dedent("""\
 # Parsing tests
 # ---------------------------------------------------------------------------
 
+
 class TestParseReflectionBlocks:
     def test_engineer_block_extracts_two_entries(self):
         entries, errors = parse_reflection_blocks(ENGINEER_BLOCK)
@@ -106,8 +111,8 @@ class TestParseReflectionBlocks:
 
     def test_preserves_timestamp(self):
         entries, _ = parse_reflection_blocks(ENGINEER_BLOCK)
-        assert entries[0].timestamp == "2026-04-12T10:30:00Z"
-        assert entries[1].timestamp == "2026-04-12T10:31:00Z"
+        assert entries[0].timestamp == parse_instant("2026-04-12T10:30:00Z")
+        assert entries[1].timestamp == parse_instant("2026-04-12T10:31:00Z")
 
     def test_preserves_agent(self):
         entries, _ = parse_reflection_blocks(ENGINEER_BLOCK)
@@ -196,7 +201,8 @@ class TestParseReflectionBlocks:
         """)
         entries, _ = parse_reflection_blocks(block)
         assert entries[0].timestamp  # not empty
-        assert "T" in entries[0].timestamp  # ISO format
+        assert isinstance(entries[0].timestamp, datetime)
+        assert entries[0].timestamp.utcoffset() is not None
 
 
 # ---------------------------------------------------------------------------

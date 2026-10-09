@@ -94,7 +94,7 @@ relayed lock payloads and temporary-environment pipe output format declared
 clocks. Manual environment clock updates validate qualified instants before
 binding. Task-status writes bind a native wall clock.
 
-New reflection fallback clocks, YAML update clocks, command event envelopes,
+Reflection fallback clocks remain native in parsed records; YAML update clocks, command event envelopes,
 adoption evidence and fleet-rehearsal receipts use fixed-six UTC. Database
 read diagnostics format native datetimes while calendar dates retain date ISO.
 Board item classification keeps nullable native update facts and sorts done
@@ -325,3 +325,8 @@ the shared microsecond instant kernel. Equal-offset instants retain stable
 arrival/bucket ties; temporal order preserves the producer clock exactly.
 Machine evidence adapts filesystem nanoseconds once into native UTC instants,
 sorts natively, and formats six fractional digits only in its JSON listing.
+
+Reflection records parse supplied instants at their ingress and retain native
+UTC clocks through persistence. Missing parser clocks generate aware instants
+without intermediate text; malformed provided clocks refuse, and explicit
+clocks do not evaluate an unused default. Captured body and context stay opaque.

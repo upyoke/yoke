@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from yoke_contracts.timestamps import format_instant, utc_now
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant, utc_now
 from typing import List, Optional
 
 from yoke_core.domain.reflection_capture_segments import _split_by_header
@@ -22,11 +23,14 @@ CANONICAL_REFLECTION_CATEGORIES = (
 class ReflectionEntry:
     """One parsed reflection entry; defined here so orchestrator + CLI import without cycles."""
 
-    timestamp: str
+    timestamp: datetime
     agent: str
     context: str
     category: str
     body: str
+
+    def __post_init__(self):
+        self.timestamp = parse_instant(self.timestamp)
 
 
 _SHAPE_A_ENTRY_RE = re.compile(
@@ -73,8 +77,8 @@ _TYPED_FIELD_RE = re.compile(
 )
 
 
-def _now_iso() -> str:
-    return format_instant(utc_now())
+def _now_instant() -> datetime:
+    return parse_instant(utc_now())
 
 
 def _normalize_category(raw: str) -> str:
@@ -124,7 +128,7 @@ def _make_entry(
 ) -> ReflectionEntry:
     f = fields or {}
     return ReflectionEntry(
-        timestamp=f.get("timestamp", _now_iso()),
+        timestamp=f["timestamp"] if "timestamp" in f else _now_instant(),
         agent=f.get("agent", default_agent),
         context=f.get("context", ""),
         category=_normalize_category(category),

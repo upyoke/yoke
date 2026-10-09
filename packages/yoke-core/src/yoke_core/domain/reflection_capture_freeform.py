@@ -19,7 +19,8 @@ Two responsibilities, both rehomed here to keep
 from __future__ import annotations
 
 import re
-from yoke_contracts.timestamps import format_instant, utc_now
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant, utc_now
 from typing import List, Optional
 
 from yoke_core.domain.reflection_capture_shape_parsers import ReflectionEntry
@@ -40,8 +41,8 @@ _MARKDOWN_HEADER_RE = re.compile(r"^#{1,3}\s+(.+?)\s*$", re.MULTILINE)
 _BOLD_HEADER_LINE_RE = re.compile(r"^\*\*([^*]+?):\*\*\s*$", re.MULTILINE)
 
 
-def _now_iso() -> str:
-    return format_instant(utc_now())
+def _now_instant() -> datetime:
+    return parse_instant(utc_now())
 
 
 def _normalize_category(raw: str) -> str:
@@ -68,7 +69,7 @@ def _parse_freeform_segment(seg: str, default_agent: str) -> Optional[Reflection
         if not body or not category:
             return None
         return ReflectionEntry(
-            timestamp=_now_iso(),
+            timestamp=_now_instant(),
             agent=default_agent,
             context="",
             category=category,
@@ -86,7 +87,7 @@ def _parse_freeform_segment(seg: str, default_agent: str) -> Optional[Reflection
             return None
         category = _normalize_category(upper_head.group(1))
         return ReflectionEntry(
-            timestamp=_now_iso(),
+            timestamp=_now_instant(),
             agent=default_agent,
             context="",
             category=category,
@@ -168,7 +169,7 @@ def try_shape_markdown_freeform(
         return None
     return [
         ReflectionEntry(
-            timestamp=_now_iso(),
+            timestamp=_now_instant(),
             agent=default_agent,
             context="",
             category=cat,
@@ -188,7 +189,7 @@ def try_shape_bold_header_freeform(
         return None
     return [
         ReflectionEntry(
-            timestamp=_now_iso(),
+            timestamp=_now_instant(),
             agent=default_agent,
             context="",
             category=cat,
@@ -217,7 +218,7 @@ def try_shape_generic_freeform(
         return None
     return [
         ReflectionEntry(
-            timestamp=_now_iso(),
+            timestamp=_now_instant(),
             agent=default_agent,
             context="",
             category="freeform",
