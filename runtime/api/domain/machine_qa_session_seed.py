@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 
 def seed_qa_session(
@@ -27,6 +28,7 @@ def seed_qa_session(
     from yoke_core.domain import db_backend
 
     if db_backend.connection_is_postgres(conn):
+        seeded_at = instant_parameter(conn, parse_instant("2026-08-01T00:00:00Z"))
         for session_id in session_ids:
             conn.execute(
                 "INSERT INTO harness_sessions "
@@ -38,8 +40,8 @@ def seed_qa_session(
                 (
                     session_id,
                     f"/tmp/{session_id}",
-                    "2026-08-01T00:00:00Z",
-                    "2026-08-01T00:00:00Z",
+                    seeded_at,
+                    seeded_at,
                     actor_id,
                 ),
             )
@@ -49,7 +51,7 @@ def seed_qa_session(
                 "INSERT OR IGNORE INTO harness_sessions"
                 "(session_id,actor_id,executor,last_heartbeat) "
                 "VALUES(?,?,'codex',?)",
-                (session_id, actor_id, iso8601_now()),
+                (session_id, actor_id, instant_parameter(conn, utc_now())),
             )
     if messageable:
         from yoke_contracts.session_control.capabilities import capability_for_surface

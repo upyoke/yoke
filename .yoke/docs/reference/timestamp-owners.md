@@ -211,3 +211,8 @@ selects SQL parameters for items, worktrees, generated tasks, events, deployment
 runs and QA records; explicit SQLite formats at binding. Null optional clocks
 and opaque body/result evidence retain their meaning. Empty or malformed clock
 inputs refuse instead of defaulting to the current time.
+
+Project, session, process/work/path claim and strategy execution seed helpers
+bind native SQL clock facts. Deterministic strategy and machine-QA seed clocks
+are parsed once at their declared owners; release/end absence remains null.
+Minimal explicit SQLite machine fixtures format through the shared SQL adapter.

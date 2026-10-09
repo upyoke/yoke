@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.work_claim_targets import (
     make_deploy_serialization_target,
     make_migration_serialization_target,
@@ -23,7 +23,7 @@ def seed_project(conn: Any, project_id: int, slug: str) -> None:
     conn.execute(
         "INSERT INTO projects (id, slug, name, created_at) "
         "VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO NOTHING",
-        (project_id, slug, slug.title(), iso8601_now()),
+        (project_id, slug, slug.title(), instant_parameter(conn, utc_now())),
     )
     conn.commit()
 
@@ -49,7 +49,7 @@ def seed_session(
     *,
     ended: bool = False,
 ) -> None:
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     conn.execute(
         "INSERT INTO harness_sessions "
         "(session_id, executor, provider, model, execution_level, workspace, "

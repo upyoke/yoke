@@ -13,7 +13,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
 )
@@ -56,7 +56,7 @@ def seed_blitz_item(conn, item_id: int, sequence: int) -> None:
     version = conn.execute(
         "SELECT current_version_id FROM workflows WHERE id = 'blitz'"
     ).fetchone()
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     conn.execute(
         "INSERT INTO items "
         "(id, title, status, priority, created_at, updated_at, source, "
@@ -69,7 +69,7 @@ def seed_blitz_item(conn, item_id: int, sequence: int) -> None:
 
 
 def seed_session_claim(conn, item_id: int, session_id: str) -> None:
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     conn.execute(
         "INSERT INTO harness_sessions "
         "(session_id, executor, provider, model, workspace, project_id, "
@@ -88,7 +88,7 @@ def seed_session_claim(conn, item_id: int, session_id: str) -> None:
 
 def seed_session(conn, session_id: str) -> None:
     """Register one harness session with no work claim of its own."""
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     conn.execute(
         "INSERT INTO harness_sessions "
         "(session_id, executor, provider, model, workspace, project_id, "
@@ -106,7 +106,7 @@ def link_blitz_document(conn, item_id: int, slug: str) -> None:
         "INSERT INTO item_strategy_docs "
         "(item_id, project_id, strategy_doc_slug, linked_at) "
         "VALUES (%s, 1, %s, %s)",
-        (item_id, slug, iso8601_now()),
+        (item_id, slug, instant_parameter(conn, utc_now())),
     )
     conn.commit()
 
@@ -164,7 +164,7 @@ def handoff_item_claim(
     before: str,
     after: str,
 ) -> None:
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     target = make_item_target(item_id)
     conn.execute(
         "UPDATE work_claims SET released_at = %s, release_reason = 'handed_off' "

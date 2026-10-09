@@ -21,7 +21,7 @@ from runtime.api.fixtures.backlog_inserts import (
     insert_item,
     insert_item_worktree,
 )
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.work_claim_targets import (
     make_epic_task_target,
     make_item_target,
@@ -104,7 +104,7 @@ def seed_epic_task(
 
 
 def seed_item_claim(conn: Any, session_id: str, item_id: int) -> None:
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     conn.execute(
         "INSERT INTO work_claims "
         "(session_id, target_kind, scope, claimed_at, last_heartbeat) "
@@ -120,7 +120,7 @@ def seed_epic_task_claim(
     epic_id: int,
     task_num: int,
 ) -> None:
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     conn.execute(
         "INSERT INTO work_claims "
         "(session_id, target_kind, scope, "
