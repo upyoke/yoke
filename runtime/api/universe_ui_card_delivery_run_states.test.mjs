@@ -186,5 +186,6 @@ for (const status of ["failed", "cancelled"]) {
     }]));
     assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "✓ deployed · item completed");
     assert.equal(byClass(box, "item-deployment-run")[0].textContent, "run-earlier");
+    assert.equal(byClass(box, "item-deployment-wait").length, 0);
   });
 }

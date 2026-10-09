@@ -177,7 +177,7 @@ function environmentRow(documentNode, environment, outcome, run, row) {
     link.href = deploymentRunHref(run.project_id ?? row.project_id ?? null, run.id || run.run_id);
     card.appendChild(link);
     card.appendChild(el(documentNode, "small", "item-deployment-relation", run.delivery_relation));
-    if (outcome.finished && run.delivery_relation === "member"
+    if (outcome.finished && run.status && run.delivery_relation === "member"
         && !TERMINAL_RUN_STATES.has(String(run.status || ""))) {
       card.appendChild(el(documentNode, "small", "item-deployment-wait", runWait(run)));
     }
