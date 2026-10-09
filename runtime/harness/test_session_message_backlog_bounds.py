@@ -183,7 +183,7 @@ def test_a_backlog_is_not_truncated_by_a_message_count() -> None:
 
 def test_a_lease_too_large_for_the_ceiling_ships_only_what_fits() -> None:
     conn = message_connection()
-    message_ids = _send(conn, 10, body="y" * 400)
+    message_ids = _send(conn, 10, body="y" * 800)
 
     with pytest.MonkeyPatch.context() as monkeypatch:
         rendered = _hook(conn, monkeypatch)

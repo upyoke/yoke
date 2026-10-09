@@ -7,9 +7,6 @@ import io
 from yoke_cli.commands.adapters.session_control_human_output import (
     write_message_result,
 )
-from yoke_contracts.session_control.terminal_report import (
-    COLLAPSED_DIFFERING_BODY_NOTICE,
-)
 from yoke_core.domain.session_item_scope import session_claim_for_item
 from yoke_core.domain.session_message_terminal import reporting_episode_marker
 from runtime.api.domain.test_session_message_support import (
@@ -169,7 +166,9 @@ def test_the_send_summary_names_a_collapse_that_discarded_the_body() -> None:
     rendered = io.StringIO()
     write_message_result(retry, rendered)
 
-    assert COLLAPSED_DIFFERING_BODY_NOTICE in rendered.getvalue()
+    assert "Collapsed into an earlier message; body NOT delivered" in rendered.getvalue()
+    assert "track: yoke messages get" in rendered.getvalue()
+    assert len(rendered.getvalue()) <= 200
 
 
 def test_the_send_summary_stays_quiet_when_nothing_was_discarded() -> None:
@@ -180,7 +179,7 @@ def test_the_send_summary_stays_quiet_when_nothing_was_discarded() -> None:
     rendered = io.StringIO()
     write_message_result(sent, rendered)
 
-    assert COLLAPSED_DIFFERING_BODY_NOTICE not in rendered.getvalue()
+    assert "Collapsed into an earlier message" not in rendered.getvalue()
 
 
 def test_a_wake_with_no_message_still_opens_a_leg() -> None:
