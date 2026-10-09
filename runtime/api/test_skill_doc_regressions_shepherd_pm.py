@@ -136,28 +136,24 @@ class TestPMAgentBodyTeachesFileBackedContract:
     def test_pm_body_names_input_file_contract(self) -> None:
         body = self._agent_body("product-manager")
         assert "Input File Contract" in body
-        # Helper-resolved shape: the agent body must name the
-        # ``yoke scratch dispatch-inputs`` resolver subcommand (the
-        # registered ``scratch.dispatch_inputs`` function id surfaced
-        # through the unified CLI) so the override flows through one
-        # path.
-        assert "yoke scratch dispatch-inputs" in body
-        assert "machine-config `temp_root`" in body
+        # Parent-dispatch tests above cover scratch resolution. The role's
+        # action is the first Read of its absolute inherited-content path.
+        assert "absolute input-spec path as your first action" in " ".join(body.split())
+        assert "Missing/empty/unreadable/bad-encoding input" in body
         assert "MUST Read" in body
         lowered = body.lower()
         assert "do not rely on any inline copy" in lowered or "never trust an inline copy" in lowered
-        assert "stop from that premise" in body
+        assert "stop from that premise" in " ".join(body.split())
 
     def test_pd_body_names_input_file_contract(self) -> None:
         body = self._agent_body("product-designer")
         assert "Input File Contract" in body
-        # Helper-resolved shape (see PM test above for the rationale).
-        assert "yoke scratch dispatch-inputs" in body
-        assert "machine-config `temp_root`" in body
+        assert "absolute input-spec path as your first action" in " ".join(body.split())
+        assert "Missing/empty/unreadable/bad-encoding input" in body
         assert "MUST Read" in body
         lowered = body.lower()
         assert "do not rely on any inline copy" in lowered or "never trust an inline copy" in lowered
-        assert "stop from that premise" in body
+        assert "stop from that premise" in " ".join(body.split())
 
 
 class TestLargeSpecPreservationByConstruction:
