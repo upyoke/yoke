@@ -166,7 +166,12 @@ def oversized_event():
         (b"{", "application/json", 400, "json_invalid"),
         (b'{"events": []}', "application/json", 400, "events_invalid"),
         (lambda: {"events": [event()] * 51}, "application/json", 400, "events_invalid"),
-        (lambda: {"events": [oversized_event()]}, "application/json", 413, "event_too_large"),
+        (
+            lambda: {"events": [oversized_event()]},
+            "application/json",
+            413,
+            "event_too_large",
+        ),
         (b" " * 524_289, "application/json", 413, "payload_too_large"),
     ],
 )
@@ -183,7 +188,9 @@ def test_collector_names_each_input_refusal(client, body, content_type, status, 
 
 
 def test_collector_refuses_plain_http_for_remote_hosts(database):
-    remote = TestClient(app_factory.create_app(), base_url="http://workbench.example.test")
+    remote = TestClient(
+        app_factory.create_app(), base_url="http://workbench.example.test"
+    )
     response = remote.post("/api/events", json={"events": [event()]})
     assert response.status_code == 400
     assert response.json()["error"] == "collector_https_required"
