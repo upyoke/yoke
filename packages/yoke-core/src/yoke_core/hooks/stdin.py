@@ -148,14 +148,14 @@ def _stamp_first_user_prompt(session_id: str) -> None:
     try:
         from yoke_core.domain import db_backend
         from yoke_core.domain.control_plane_transport import local_connection_or_none
-        from yoke_core.domain.session_message_types import timestamp, utc_now
+        from yoke_core.domain.session_message_types import utc_now
         from yoke_core.domain.session_recovery_facts import stamp_first_user_prompt
 
         conn = local_connection_or_none(db_backend.connect)
         if conn is None:
             return
         try:
-            stamp_first_user_prompt(conn, session_id, timestamp(utc_now()))
+            stamp_first_user_prompt(conn, session_id, utc_now())
             conn.commit()
         finally:
             conn.close()

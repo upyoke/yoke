@@ -173,11 +173,16 @@ def record_native_process_gone(
     crash with some older native's clean exit, which a declared wait then
     reads as accounted for.
     """
+    arrival = parse_timestamp(observed_at)
     evidence = _decoded_evidence(evidence)
     stored_at, stored_evidence = _stored_observation(conn, session_id)
     identity = _process_identity(evidence)
     exited_at = parse_timestamp(evidence.get(NATIVE_EXIT_AT_KEY))
-    death = as_utc(exited_at or observed_at or utc_now())
+    death = as_utc(
+        exited_at
+        if exited_at is not None
+        else (arrival if arrival is not None else utc_now())
+    )
     if any(identity) and _process_identity(stored_evidence) == identity:
         stamp = death if exited_at is not None else (stored_at or death)
     elif stored_at and death < stored_at:

@@ -247,7 +247,7 @@ def test_idempotency_key_returns_the_same_explicit_wake_receipt() -> None:
     assert repeated["deduplicated"] is True
     assert repeated_in_grace["deduplicated"] is True
     assert repeated_in_grace["wake_attempt_count"] == 1
-    assert repeated_in_grace["last_wake_at"] == "2026-08-22T16:00:01Z"
+    assert repeated_in_grace["last_wake_at"] == "2026-08-22T16:00:01.000000Z"
     assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 1
     assert (
         conn.execute("SELECT COUNT(*) FROM session_message_attempts").fetchone()[0] == 1

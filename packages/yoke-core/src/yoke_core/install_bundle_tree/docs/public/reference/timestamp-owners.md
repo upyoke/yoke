@@ -247,3 +247,10 @@ The classified scalar roster now covers 265 columns across 125 tables; stored
 mutable document clocks remain separately owned finite fields. Disposable
 SQLite broker seeds write canonical clocks so native-claim snapshot comparisons
 exercise the current boundary rather than historical whole-second seed text.
+
+Denial completion and first-prompt hook callers pass native generated clocks to
+their existing durable writers. PostgreSQL bindings retain microseconds and the
+existing once-only/no-activity-bump rules; malformed generators leave durable
+rows unchanged through the existing best-effort hook path. Process-report
+arrival uses strict None-only ingress before reading observations, while public
+process evidence formats its declared clocks and retains opaque identity text.

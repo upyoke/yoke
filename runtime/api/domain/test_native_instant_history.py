@@ -87,7 +87,7 @@ def blank():
 
 
 def test_history_freezes_complete_roster_and_serving_floor():
-    assert len(history.COLUMNS) == len(set(history.COLUMNS)) == 264
+    assert len(history.COLUMNS) == len(set(history.COLUMNS)) == 265
     assert len({table for table, _ in history.COLUMNS}) == 125
     assert set(history.COLUMNS) == set(STORED_INSTANT_COLUMNS)
     assert history.MINIMUM_SERVING_VERSION == "next-release"
