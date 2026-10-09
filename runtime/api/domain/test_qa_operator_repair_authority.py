@@ -31,6 +31,8 @@ MEMBER = 9811
 def repair_world(test_db):
     old, middle, final = chain(test_db)
     inconsistent(test_db, old, final)
+    test_db.execute("UPDATE items SET status='release' WHERE id=%s", (MEMBER,))
+    test_db.commit()
     seed_session(test_db, RECORDER, 1)
     seed_session(test_db, WORKER, 1)
     claim = claim_work(test_db, session_id=WORKER, item_id=str(MEMBER))
