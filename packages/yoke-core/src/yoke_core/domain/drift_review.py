@@ -33,6 +33,9 @@ classifier and full ``assess_post_delivery_drift`` entry point live in
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant, format_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import db_backend
@@ -87,17 +90,27 @@ class DriftReviewResult:
 
     classification: str
     summary: str
-    checkpoint_start: str
-    reviewed_through: str
+    checkpoint_start: datetime | None
+    reviewed_through: datetime | None
     delivered_items: List[str]
+
+    def __post_init__(self) -> None:
+        for field in ("checkpoint_start", "reviewed_through"):
+            value = getattr(self, field)
+            if value is not None:
+                object.__setattr__(self, field, parse_instant(value))
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to a plain dict for frontier and steering reads."""
         return {
             "classification": self.classification,
             "summary": self.summary,
-            "checkpoint_start": self.checkpoint_start,
-            "reviewed_through": self.reviewed_through,
+            "checkpoint_start": format_instant(self.checkpoint_start)
+            if self.checkpoint_start is not None
+            else None,
+            "reviewed_through": format_instant(self.reviewed_through)
+            if self.reviewed_through is not None
+            else None,
             "delivered_items": list(self.delivered_items),
         }
 
@@ -132,7 +145,7 @@ def _get_checkpoint_start(
 def _get_delivered_items(
     conn: Any,
     project: str,
-    checkpoint_start: Optional[str],
+    checkpoint_start: datetime | str | None,
 ) -> List[Dict[str, Any]]:
     """Query items delivered since the checkpoint.
 
@@ -144,7 +157,7 @@ def _get_delivered_items(
     if checkpoint_start is None:
         # No checkpoint -- treat all merged items as the delta.
         # Use a generous floor so the first review is bounded.
-        checkpoint_start = "1970-01-01T00:00:00Z"
+        checkpoint_start = parse_instant("1970-01-01T00:00:00Z")
 
     items: List[Dict[str, Any]] = []
     seen_ids: set[int] = set()
@@ -156,7 +169,7 @@ def _get_delivered_items(
         rows = conn.execute(
             "SELECT id, title, priority, merged_at FROM items"
             f" WHERE project_id = {p} AND merged_at IS NOT NULL AND merged_at > {p}",
-            (project_id, checkpoint_start),
+            (project_id, instant_parameter(conn, parse_instant(checkpoint_start))),
         ).fetchall()
         for r in rows:
             seen_ids.add(r[0])
@@ -185,7 +198,7 @@ def _get_delivered_items(
             f"   AND t.to_status IN ('release', 'done')"
             f"   AND t.project_id = {p}"
             f"   AND t.created_at > {p}",
-            (project_id, checkpoint_start),
+            (project_id, instant_parameter(conn, parse_instant(checkpoint_start))),
         ).fetchall()
         for r in rows:
             item_id = r[0]

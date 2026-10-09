@@ -15,7 +15,8 @@ answer, and no raw SQL is embedded in a polling loop.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -42,17 +43,8 @@ class FleetReadError(RuntimeError):
 
 
 def parse_timestamp(value: Any) -> datetime | None:
-    """Parse a control-plane timestamp into an aware UTC datetime."""
-    if not isinstance(value, str) or not value.strip():
-        return None
-    text = value.strip().replace("Z", "+00:00")
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+    """Keep native control-plane clocks; malformed supplied values refuse."""
+    return parse_instant(value) if value is not None else None
 
 
 @dataclass(frozen=True)

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_contracts.timestamps import parse_instant, format_instant
+
 from yoke_contracts.project_contract.strategy_doc_fields import (
     StrategyDocFieldError,
     body_without_fields,
@@ -139,6 +142,7 @@ def list_doc_revisions(
         previous_content = (
             str(revisions[index + 1]["content"]) if index + 1 < len(revisions) else None
         )
+        revision["created_at"] = format_instant(revision["created_at"])
         revision["line_count"] = len(content.splitlines())
         revision["operation_label"] = _operation_label(
             str(revision["source_operation"])
@@ -173,6 +177,7 @@ def get_doc_revision(
         raise StrategyDocRevisionMissingError(
             f"strategy doc {slug!r} has no revision {revision}"
         )
+    row["created_at"] = format_instant(row["created_at"])
     return row
 
 
@@ -230,7 +235,7 @@ def restore_doc_revision(
 ) -> dict[str, Any]:
     """Restore old content by appending a new immutable revision."""
     current = get_doc(conn, project_id, slug)
-    if current["updated_at"] != str(base_updated_at):
+    if parse_instant(current["updated_at"]) != parse_instant(base_updated_at):
         raise StrategyDocConflictError(replace_conflict_teaching(slug))
     snapshot = get_doc_revision(conn, project_id, slug, revision)
     content = str(snapshot["content"])
@@ -257,11 +262,11 @@ def restore_doc_revision(
         f"AND updated_at = {marker}",
         (
             content,
-            updated_at,
+            instant_parameter(conn, updated_at),
             actor_id,
             int(project_id),
             slug,
-            str(base_updated_at),
+            instant_parameter(conn, parse_instant(base_updated_at)),
         ),
     )
     if cursor.rowcount == 0:
@@ -281,7 +286,7 @@ def restore_doc_revision(
         "slug": slug,
         "restored_revision": int(revision),
         "revision": new_revision,
-        "updated_at": updated_at,
+        "updated_at": format_instant(updated_at),
         "bytes": len(content.encode("utf-8")),
     }
 

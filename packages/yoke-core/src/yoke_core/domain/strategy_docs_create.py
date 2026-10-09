@@ -8,6 +8,9 @@ and lets callers re-render the corpus afterward.
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_contracts.timestamps import format_instant
+
 from typing import Any, Dict, Optional
 
 from yoke_contracts.project_contract.strategy_doc_fields import (
@@ -62,7 +65,7 @@ def create_doc(
         f"INSERT INTO {STRATEGY_DOCS_TABLE} "
         "(project_id, slug, content, updated_at, updated_by_actor_id) "
         "VALUES (%s, %s, %s, %s, %s)",
-        (project_id, slug, content, updated_at, actor_id),
+        (project_id, slug, content, instant_parameter(conn, updated_at), actor_id),
     )
     record_doc_revision(
         conn,
@@ -78,7 +81,7 @@ def create_doc(
         "slug": slug,
         "replaced_body_fields": replaced,
         "new_bytes": _byte_len(content),
-        "updated_at": updated_at,
+        "updated_at": format_instant(updated_at),
     }
 
 

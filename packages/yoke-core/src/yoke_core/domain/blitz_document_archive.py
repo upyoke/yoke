@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -49,7 +51,11 @@ def _archive_without_commit(
         f"SET archived_at = {marker} "
         f"WHERE project_id = {marker} AND slug = {marker} "
         "AND archived_at IS NULL",
-        (strategy_docs.next_updated_at(), int(project_id), slug),
+        (
+            instant_parameter(conn, strategy_docs.next_updated_at()),
+            int(project_id),
+            slug,
+        ),
     )
     return int(cursor.rowcount or 0) > 0
 

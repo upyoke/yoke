@@ -12,6 +12,9 @@ this module imports them rather than reimplementing.
 
 from __future__ import annotations
 
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
+
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain.drift_review import (
@@ -33,7 +36,7 @@ def _classify_drift(
     conn: Any,
     project: str,
     delivered_items: List[Dict[str, Any]],
-    checkpoint_start: Optional[str],
+    checkpoint_start: datetime | str | None,
 ) -> DriftReviewResult:
     """Run the bounded read-only drift-review classifier.
 
@@ -74,7 +77,9 @@ def _classify_drift(
     has_sml_impact = False
     has_frontier_impact = False
     item_ids: List[str] = []
-    latest_delivered = checkpoint_start or ""
+    latest_delivered = (
+        parse_instant(checkpoint_start) if checkpoint_start is not None else None
+    )
 
     # The delta spans every item delivered since the checkpoint, so its refs
     # resolve in one read rather than one per delivered item.
@@ -83,8 +88,11 @@ def _classify_drift(
     for item in delivered_items:
         item_ids.append(public_ref(item["id"]))
         title_lower = (item.get("title") or "").lower()
-        delivered_at = item.get("delivered_at", "")
-        if delivered_at and delivered_at > latest_delivered:
+        delivered_at = item.get("delivered_at")
+        delivered_at = parse_instant(delivered_at) if delivered_at is not None else None
+        if delivered_at is not None and (
+            latest_delivered is None or delivered_at > latest_delivered
+        ):
             latest_delivered = delivered_at
 
         for kw in sml_keywords:
@@ -118,7 +126,7 @@ def _classify_drift(
     return DriftReviewResult(
         classification=classification,
         summary=summary,
-        checkpoint_start=checkpoint_start or "",
+        checkpoint_start=checkpoint_start,
         reviewed_through=latest_delivered,
         delivered_items=item_ids,
     )
@@ -136,14 +144,14 @@ def _normalize_project_scope(project_scope) -> List[str]:
     return [str(project) for project in project_scope] if project_scope else []
 
 
-def _combined_checkpoint_start(checkpoints: List[Optional[str]]) -> Optional[str]:
+def _combined_checkpoint_start(checkpoints: List[datetime | None]) -> datetime | None:
     """Return the earliest real checkpoint represented in a scoped review."""
     if any(checkpoint is None for checkpoint in checkpoints):
         return None
     concrete = [checkpoint for checkpoint in checkpoints if checkpoint]
     if not concrete:
         return None
-    return min(concrete)
+    return min(parse_instant(value) for value in concrete)
 
 
 def assess_post_delivery_drift(
@@ -166,7 +174,7 @@ def assess_post_delivery_drift(
     (the caller must escalate).
     """
     scope = _normalize_project_scope(project_scope)
-    checkpoints: List[Optional[str]] = []
+    checkpoints: List[datetime | None] = []
     delivered: List[Dict[str, Any]] = []
     for project in scope:
         checkpoint = _get_checkpoint_start(conn, project)

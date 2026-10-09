@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_contracts.timestamps import format_instant
+
 from yoke_contracts.project_contract.strategy_doc_fields import (
     field_name,
     normalize_fields,
@@ -117,7 +120,7 @@ def append_strategy_coordination(
         f"SET content = {marker}, updated_at = {marker}, "
         f"updated_by_actor_id = {marker} "
         f"WHERE project_id = {marker} AND slug = {marker}",
-        (content, updated_at, actor_id, int(project_id), slug),
+        (content, instant_parameter(conn, updated_at), actor_id, int(project_id), slug),
     )
     revision = record_doc_revision(
         conn,
@@ -134,7 +137,7 @@ def append_strategy_coordination(
         "slug": slug,
         "section": clean_section,
         "revision": revision,
-        "updated_at": updated_at,
+        "updated_at": format_instant(updated_at),
         "bytes": len(content.encode("utf-8")),
     }
 

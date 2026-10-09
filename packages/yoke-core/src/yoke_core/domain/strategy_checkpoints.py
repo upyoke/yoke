@@ -18,7 +18,9 @@ CLI (used by the strategize skill's finalize/refresh phases)::
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now, parse_instant, format_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Iterable, Optional
 
 from yoke_core.domain import db_backend
@@ -50,8 +52,8 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _now_iso() -> datetime:
+    return utc_now()
 
 
 def ensure_schema(conn: Any) -> None:
@@ -103,7 +105,7 @@ def record_checkpoint(conn: Any, *, project: Any, kind: str) -> bool:
         conn.execute(
             "INSERT INTO strategy_checkpoints (project_id, kind, created_at) "
             f"VALUES ({p}, {p}, {p})",
-            (project_id, kind, _now_iso()),
+            (project_id, kind, instant_parameter(conn, _now_iso())),
         )
         conn.execute("RELEASE SAVEPOINT strategy_checkpoint")
         return True
@@ -126,8 +128,8 @@ def record_checkpoints(conn: Any, *, projects: Iterable[Any], kind: str) -> int:
     )
 
 
-def latest_checkpoint_at(conn: Any, project: Any) -> Optional[str]:
-    """Return the ISO timestamp of the latest checkpoint for *project*."""
+def latest_checkpoint_at(conn: Any, project: Any) -> Optional[datetime]:
+    """Return the native instant of the latest checkpoint for *project*."""
     project_id = _resolve_project_id(conn, project)
     if project_id is None:
         return None
@@ -143,7 +145,7 @@ def latest_checkpoint_at(conn: Any, project: Any) -> Optional[str]:
         except Exception:
             pass
         return None
-    return row[0] if row is not None and row[0] else None
+    return parse_instant(row[0]) if row is not None and row[0] is not None else None
 
 
 def main(argv: Optional[list] = None) -> int:
@@ -189,7 +191,7 @@ def main(argv: Optional[list] = None) -> int:
             return 0
         latest = latest_checkpoint_at(conn, project)
         if latest:
-            print(latest)
+            print(format_instant(latest))
         return 0
     finally:
         conn.close()

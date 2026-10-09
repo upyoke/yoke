@@ -19,6 +19,10 @@ starts at its first real edit.
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
+
 from typing import Any, Optional
 
 from yoke_core.domain.strategy_docs_header import content_sha256
@@ -78,7 +82,7 @@ def record_doc_revision(
     source_operation: str,
     actor_id: Optional[int],
     session_id: Optional[str] = None,
-    created_at: str,
+    created_at: datetime | str,
 ) -> int:
     """Append one revision row inside the caller's open transaction.
 
@@ -115,7 +119,7 @@ def record_doc_revision(
             source_operation,
             actor_id,
             session_id,
-            created_at,
+            instant_parameter(conn, parse_instant(created_at)),
         ),
     )
     return revision

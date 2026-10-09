@@ -320,3 +320,10 @@ Item mutation preparation retains aware instants. Item SQL writers derive their
 clock-field ownership from the finite stored roster and bind through the native
 adapter; nullable declared clocks stay null and malformed supplied clocks refuse
 before the item write. Bulk updates retain their transaction and binding guards.
+
+Strategy document, revision, archive and checkpoint writes bind native instants.
+CAS compares qualified instants rather than display strings, preserving distinct
+microseconds across database timezones. List/detail/revision JSON, generated
+headers, ingest reports and checkpoint CLI output format their declared clocks
+as fixed-six UTC/null; revision content bytes and content digests stay unchanged.
+Board command JSON formats its native timing clocks at the output boundary.

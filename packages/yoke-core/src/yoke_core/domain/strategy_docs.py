@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now, parse_instant, format_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -46,17 +48,9 @@ class StrategyDocConflictError(RuntimeError):
     """Raised when a CAS write's base ``updated_at`` no longer matches."""
 
 
-def next_updated_at() -> str:
-    """Microsecond-precision UTC stamp for strategy-doc writes.
-
-    ``updated_at`` is the compare-and-swap token for replace and ingest;
-    at the canonical second resolution two writes landing inside the
-    same second would re-mint an identical token and the CAS could not
-    tell the second writer's base was stale. Fractional seconds keep the token unique per
-    write while staying ISO-8601 sortable next to second-precision
-    rows seeded by the migration.
-    """
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+def next_updated_at() -> datetime:
+    """Mint a native microsecond clock for the strategy document CAS token."""
+    return utc_now()
 
 
 def _byte_len(content: str) -> int:
@@ -125,12 +119,8 @@ def missing_doc_teaching(conn: Any, project_id: int, slug: str) -> str:
 def get_doc(conn: Any, project_id: int, slug: str) -> Dict[str, Any]:
     """Return ``{slug, content, updated_at, updated_by_actor_id, archived_at}``.
 
-    ``updated_by_actor_id`` is the int id of the last editor (or ``None``);
-    the render path resolves it to a display label. ``archived_at`` is the
-    nullable archive timestamp (``None`` = active). Raises
-    :class:`UnknownStrategyDocError` for an invalid slug shape and
-    :class:`StrategyDocMissingError` (teaching the project's actual corpus)
-    when the project has no row for the slug.
+    Editor ids remain native; declared clock fields are fixed-six UTC/null.
+    Invalid slugs and absent rows raise the named strategy-document errors.
     """
     _require_valid_slug(slug)
     row = conn.execute(
@@ -146,9 +136,9 @@ def get_doc(conn: Any, project_id: int, slug: str) -> Dict[str, Any]:
     return {
         "slug": str(row["slug"]),
         "content": str(row["content"]),
-        "updated_at": str(row["updated_at"]),
+        "updated_at": format_instant(row["updated_at"]),
         "updated_by_actor_id": int(actor) if actor is not None else None,
-        "archived_at": str(archived_at) if archived_at is not None else None,
+        "archived_at": format_instant(archived_at) if archived_at is not None else None,
     }
 
 
@@ -208,7 +198,9 @@ def replace_doc(
     old = get_doc(conn, project_id, slug)
     old_bytes = _byte_len(old["content"])
     new_bytes = _byte_len(content)
-    if content == old["content"] and str(base_updated_at) == old["updated_at"]:
+    if content == old["content"] and parse_instant(base_updated_at) == parse_instant(
+        old["updated_at"]
+    ):
         # Only a fresh identical write is a no-op; stale bases still hit CAS.
         return {
             "slug": slug,
@@ -228,7 +220,14 @@ def replace_doc(
         f"UPDATE {STRATEGY_DOCS_TABLE} "
         "SET content = %s, updated_at = %s, updated_by_actor_id = %s "
         "WHERE project_id = %s AND slug = %s AND updated_at = %s",
-        (content, updated_at, actor_id, project_id, slug, str(base_updated_at)),
+        (
+            content,
+            instant_parameter(conn, updated_at),
+            actor_id,
+            project_id,
+            slug,
+            instant_parameter(conn, parse_instant(base_updated_at)),
+        ),
     )
     if cur.rowcount == 0:
         raise StrategyDocConflictError(replace_conflict_teaching(slug))
@@ -247,7 +246,7 @@ def replace_doc(
         "slug": slug,
         "old_bytes": old_bytes,
         "new_bytes": new_bytes,
-        "updated_at": updated_at,
+        "updated_at": format_instant(updated_at),
     }
 
 
@@ -286,13 +285,15 @@ def set_doc_archived(
     conn.execute(
         f"UPDATE {STRATEGY_DOCS_TABLE} SET archived_at = %s "
         "WHERE project_id = %s AND slug = %s",
-        (new_archived_at, project_id, slug),
+        (instant_parameter(conn, new_archived_at), project_id, slug),
     )
     conn.commit()
     return {
         "slug": slug,
         "archived": archived,
-        "archived_at": new_archived_at,
+        "archived_at": format_instant(new_archived_at)
+        if new_archived_at is not None
+        else None,
         "changed": True,
     }
 
@@ -312,12 +313,8 @@ def render_docs(
     the CLI writes it. Returns the per-slug ``"written"``/``"unchanged"``
     report.
 
-    ``slugs`` narrows the render to a subset (the ingest write-back path
-    re-renders exactly the docs it wrote); ``None`` renders the
-    project's full corpus or fails — rendering a partial set would
-    silently drop docs from the view. A project with zero rows raises
-    :class:`StrategyDocMissingError` teaching the seed-defaults cold
-    start.
+    ``slugs`` selects a subset; ``None`` renders the full corpus.
+    An empty corpus raises ``StrategyDocMissingError`` with seed guidance.
     """
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.strategy_docs_render import (

@@ -10,6 +10,8 @@ meaning exactly what they meant.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.item_landings import (
     ItemLanding,
@@ -102,7 +104,7 @@ def test_the_items_newest_landing_columns_still_name_the_second_landing(test_db)
     ).fetchone()
 
     assert newest.merge_sha == SECOND_MERGE
-    assert str(row[0]) == "2026-09-19T22:15:00Z"
+    assert row[0] == parse_instant("2026-09-19T22:15:00Z")
     assert str(row[1]) == "1202"
 
 
@@ -235,4 +237,3 @@ def test_a_reconstructed_origin_survives_a_read(test_db):
 
     assert rows[0].origin == ORIGIN_RECONSTRUCTED
     assert rows[0].payload()["origin"] == ORIGIN_RECONSTRUCTED
-

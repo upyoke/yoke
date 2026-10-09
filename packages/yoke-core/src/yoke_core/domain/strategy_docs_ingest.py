@@ -25,6 +25,9 @@ handler works identically in-process and on a server with no checkout.
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_contracts.timestamps import parse_instant, format_instant
+
 from yoke_contracts.project_contract.strategy_doc_fields import normalize_fields
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -69,7 +72,7 @@ class IngestDocPlan:
 
     @property
     def stale_base(self) -> bool:
-        return self.base_updated_at != self.db_updated_at
+        return parse_instant(self.base_updated_at) != parse_instant(self.db_updated_at)
 
 
 def conflict_teaching(slugs: Sequence[str], target_root: Path) -> str:
@@ -182,6 +185,9 @@ def _doc_report(plan: IngestDocPlan, status: str, **extra: Any) -> Dict[str, Any
         "new_lines": plan.new_lines,
         "line_delta": plan.new_lines - plan.old_lines,
     }
+    for field in ("base_updated_at", "db_updated_at", "updated_at"):
+        if field in extra and extra[field] is not None:
+            extra[field] = format_instant(extra[field])
     report.update(extra)
     return report
 
@@ -253,11 +259,11 @@ def execute_ingest(
             "WHERE project_id = %s AND slug = %s AND updated_at = %s",
             (
                 plan.file_body,
-                new_updated_at,
+                instant_parameter(conn, new_updated_at),
                 actor_id,
                 project_id,
                 plan.slug,
-                plan.base_updated_at,
+                instant_parameter(conn, parse_instant(plan.base_updated_at)),
             ),
         )
         if cur.rowcount == 0:
@@ -284,7 +290,7 @@ def execute_ingest(
             _doc_report(
                 plan,
                 "written",
-                updated_at=new_updated_at,
+                updated_at=format_instant(new_updated_at),
                 old_bytes=plan.old_bytes,
                 new_bytes=plan.new_bytes,
             )
