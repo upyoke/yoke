@@ -177,6 +177,11 @@ def insert_requirement(
     if row is None:
         return None
     requirement_id = int(row["id"] if isinstance(row, dict) else row[0])
+    from yoke_core.domain.qa_post_deploy_no_obligation_retirement import (
+        retract_no_obligation_for_requirement,
+    )
+
+    retract_no_obligation_for_requirement(conn, item_id=item_id, requirement=definition)
     # The snapshot rides a transaction its caller commits — the lifecycle
     # preflight materializes with commit=False so the rows land with the
     # transition. Transactional emission keeps the creation event on that

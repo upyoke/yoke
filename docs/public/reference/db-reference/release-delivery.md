@@ -158,6 +158,10 @@ missing was a wake: the only deployment wake was run-scoped and
 addressed to the driver, so a member whose own item-scoped QA was
 accepted sat at its release wait until the whole run finished.
 
+Only blocking aggregate requirements demand evidence-linked verdicts. Adding a
+blocking post-deploy requirement retracts the item's prior no-obligation
+declaration, retaining its reason and retraction history; non-blocking and
+pre-deploy requirements leave that declaration live.
 When an item-scoped stage subject becomes accepted or is discharged by an
 explicit `post_deploy_no_obligation` or a waiver-backed item declaration,
 with no outstanding run-bound blocking obligation, and

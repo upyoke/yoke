@@ -103,6 +103,13 @@ def cmd_requirement_add_batch(
                 ),
             )
             inserted_ids.append(int(cur.fetchone()[0]))
+            from yoke_core.domain.qa_post_deploy_no_obligation_retirement import (
+                retract_no_obligation_for_requirement,
+            )
+
+            retract_no_obligation_for_requirement(
+                conn, item_id=row.get("item_id"), requirement=row
+            )
 
         from yoke_core.domain.item_activity import touch_item_activity
 

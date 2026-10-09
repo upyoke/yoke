@@ -76,12 +76,14 @@ def _release_wait(conn: Any, item_id: int) -> tuple[str, str]:
 def _existing_fact(conn: Any, item_id: int) -> Optional[dict]:
     """This item's recorded no-obligation fact, so a repeat is not a second row."""
     from yoke_core.domain.db_helpers import query_one
+    from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
 
     return query_one(
         conn,
         "SELECT id,instructions,workflow_transition_id FROM qa_requirements "
         "WHERE item_id=%s AND qa_phase=%s AND qa_kind=%s "
         "AND deployment_run_id IS NULL AND waived_at IS NULL "
+        f"AND {unretracted_requirement_sql(conn)} "
         "ORDER BY id LIMIT 1",
         (int(item_id), DEPLOYMENT_ATTACHMENT_PHASE, NO_OBLIGATION_QA_KIND),
     )
