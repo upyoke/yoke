@@ -72,7 +72,25 @@ SESSION_HOLDINGS_TESTS = (
     "runtime/api/domain/test_sessions_list_holdings.py",
     "runtime/api/domain/handlers/test_sessions_list_steering_scope.py",
 )
+DESKTOP_LEASE_ACCESS_SOURCE_PATHS = frozenset(
+    {
+        "packages/yoke-core/src/yoke_core/domain/handlers/machine_desktop_access.py",
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/test_machine_desktop.py",
+    }
+)
+# Desktop assistance acts alongside a retained session lease, whose relay
+# liveness and record retention are operational companions of that contract.
+DESKTOP_LEASE_ACCESS_TESTS = (
+    "runtime/harness/test_session_relay_liveness_batches.py",
+    "runtime/harness/test_session_relay_process_liveness.py",
+    "runtime/api/domain/test_machine_desktop_operator_access.py",
+)
 _SESSION_CONTROL_CONTRACTS = (
+    (
+        "desktop_lease_access_contract",
+        DESKTOP_LEASE_ACCESS_SOURCE_PATHS,
+        DESKTOP_LEASE_ACCESS_TESTS,
+    ),
     (
         "session_holdings_contract",
         SESSION_HOLDINGS_SOURCE_PATHS,
@@ -114,6 +132,8 @@ def session_control_contract_selection(changed: Sequence[str]) -> ContractSelect
 
 
 __all__ = [
+    "DESKTOP_LEASE_ACCESS_SOURCE_PATHS",
+    "DESKTOP_LEASE_ACCESS_TESTS",
     "PRIVATE_SESSION_ROUTE_SOURCE_PATHS",
     "PRIVATE_SESSION_ROUTE_TESTS",
     "SESSION_MODEL_SELECTION_SOURCE_PATHS",

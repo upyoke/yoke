@@ -37,6 +37,9 @@ def test_machine_desktop_access(args: list[str]) -> int:
             "For SSH forwarding the control socket is PASSWORD_FILE.ssh; close it with "
             "ssh -S PASSWORD_FILE.ssh -O exit SSH_USER@SSH_HOST after connecting. "
             "Remove the private password copy after use."
+            " A human operator in a plain terminal can assist an actively leased desktop without "
+            "taking or releasing its lease. Harness sessions must own the lease. The output names "
+            "the assisting operator and lease; authorization is audited in the holder's session history."
         ),
     )
     parser.add_argument("--project", required=True)
@@ -63,7 +66,21 @@ def test_machine_desktop_access(args: list[str]) -> int:
     from yoke_harness.desktop_access import DesktopAccessError, open_desktop_access
 
     try:
-        print(json.dumps(open_desktop_access(**response.result, view=parsed.view)))
+        route = dict(response.result)
+        operator_access = route.pop("operator_access", None)
+        if operator_access:
+            print(
+                f"Desktop access authorized for {operator_access['actor_name']} "
+                f"(actor {operator_access['actor_id']}) alongside lease "
+                f"{operator_access['lease_id']}; lease unchanged.",
+                file=sys.stderr,
+            )
+            if operator_access.get("audit_recovery"):
+                print(operator_access["audit_recovery"], file=sys.stderr)
+        result = open_desktop_access(**route, view=parsed.view)
+        if operator_access:
+            result["operator_access"] = operator_access
+        print(json.dumps(result))
     except (DesktopAccessError, MachineCapabilitySecretError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
