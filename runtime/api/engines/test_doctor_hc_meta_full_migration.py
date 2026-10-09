@@ -19,7 +19,7 @@ from yoke_core.engines.doctor import (
 )
 
 from runtime.api.engines._doctor_hc_meta_full_test_helpers import (
-    _NOW_ISO,
+    _NOW_INSTANT,
     _ensure_migration_audit_table,
     _make_conn,
     _p,
@@ -35,9 +35,7 @@ class TestOneshotMigrationCoverage:
     @staticmethod
     def _with_governance_columns(conn: Any) -> None:
         conn.execute("ALTER TABLE items ADD COLUMN db_mutation_profile TEXT")
-        conn.execute(
-            "ALTER TABLE items ADD COLUMN db_compatibility_attestation TEXT"
-        )
+        conn.execute("ALTER TABLE items ADD COLUMN db_compatibility_attestation TEXT")
 
     def _insert_item(
         self,
@@ -54,8 +52,8 @@ class TestOneshotMigrationCoverage:
             "T",
             workflow_id="issue",
             status=status,
-            created_at=_NOW_ISO,
-            updated_at=_NOW_ISO,
+            created_at=_NOW_INSTANT,
+            updated_at=_NOW_INSTANT,
             db_mutation_profile=profile,
             db_compatibility_attestation=attestation,
         )
@@ -234,7 +232,7 @@ class TestOneshotMigrationCoverage:
             "description, tables_declared, expected_deltas, pre_row_counts, "
             "backup_path, state, started_at, exception_reason) VALUES "
             f"({p}, {p}, '', '[]', '{{}}', '{{}}', {p}, 'completed', {p}, {p})",
-            (row_id, name, backup_path, _NOW_ISO, exception_reason),
+            (row_id, name, backup_path, _NOW_INSTANT, exception_reason),
         )
 
     def test_warn_on_noncanonical_audit_backup_path(self, tmp_path):
@@ -248,9 +246,7 @@ class TestOneshotMigrationCoverage:
             conn,
             row_id=99,
             name="legacy_cutover",
-            backup_path=(
-                "/tmp/data/yoke.db.legacy_cutover.20260424T153510Z.bak"
-            ),
+            backup_path=("/tmp/data/yoke.db.legacy_cutover.20260424T153510Z.bak"),
         )
         with patch(
             "yoke_core.engines.doctor_report._resolve_repo_root",

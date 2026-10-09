@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import os
 import subprocess
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import as_utc, utc_now
 
 from yoke_core.engines.doctor import DoctorArgs, RecordCollector
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
@@ -32,19 +34,15 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-_NOW_ISO = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+_NOW_INSTANT = as_utc(utc_now())
 
 
-def _iso_days_ago(days: int) -> str:
-    return (datetime.now(timezone.utc) - timedelta(days=days)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+def _instant_days_ago(days: int) -> datetime:
+    return as_utc(utc_now()) - timedelta(days=days)
 
 
-def _iso_minutes_ago(minutes: int) -> str:
-    return (datetime.now(timezone.utc) - timedelta(minutes=minutes)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+def _instant_minutes_ago(minutes: int) -> datetime:
+    return as_utc(utc_now()) - timedelta(minutes=minutes)
 
 
 _MAKE_CONN_DDL = """
@@ -55,13 +53,13 @@ _MAKE_CONN_DDL = """
             frozen INTEGER,
             blocked INTEGER DEFAULT 0, blocked_reason TEXT,
             github_issue TEXT, deployed_to TEXT,
-            merged_at TEXT, created_at TEXT, updated_at TEXT, source TEXT,
+            merged_at TIMESTAMPTZ, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ, source TEXT,
             project_id INTEGER DEFAULT 1, project_sequence INTEGER,
             deployment_flow TEXT, deploy_stage TEXT,
             spec TEXT, design_spec TEXT, technical_plan TEXT,
             worktree_plan TEXT, shepherd_log TEXT, shepherd_caveats TEXT,
             test_results TEXT, deploy_log TEXT,
-            spec_updated_at TEXT, spec_updated_by TEXT,
+            spec_updated_at TIMESTAMPTZ, spec_updated_by TEXT,
             resolution TEXT, resolution_ref TEXT, resolution_comment TEXT
         );
         CREATE TABLE item_worktrees (
@@ -71,9 +69,9 @@ _MAKE_CONN_DDL = """
             path TEXT,
             lane_role TEXT NOT NULL,
             state TEXT NOT NULL DEFAULT 'active',
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            released_at TEXT
+            created_at TIMESTAMPTZ NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL,
+            released_at TIMESTAMPTZ
         );
         CREATE TABLE epic_tasks (
             id INTEGER PRIMARY KEY,
@@ -82,46 +80,46 @@ _MAKE_CONN_DDL = """
             status TEXT, dispatch_attempts INTEGER, body TEXT,
             github_issue TEXT,
             max_attempts INTEGER, agent_id TEXT,
-            last_heartbeat TEXT
+            last_heartbeat TIMESTAMPTZ
         );
         CREATE TABLE shepherd_verdicts (
             id INTEGER PRIMARY KEY,
             public_ref TEXT, transition TEXT, worker TEXT, verdict TEXT,
-            caveats TEXT, attempt INTEGER, created_at TEXT
+            caveats TEXT, attempt INTEGER, created_at TIMESTAMPTZ
         );
         CREATE TABLE deployment_flows (
             id TEXT PRIMARY KEY, project_id INTEGER, name TEXT, description TEXT,
-            stages TEXT, on_failure TEXT, created_at TEXT,
+            stages TEXT, on_failure TEXT, created_at TIMESTAMPTZ,
             target_env TEXT, done_description TEXT
         );
         CREATE TABLE deployment_runs (
             id TEXT PRIMARY KEY, project_id INTEGER, flow TEXT, target_env TEXT,
             release_lineage TEXT, status TEXT, current_stage TEXT,
-            created_at TEXT, started_at TEXT, completed_at TEXT, created_by TEXT
+            created_at TIMESTAMPTZ, started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ, created_by TEXT
         );
         CREATE TABLE deployment_run_items (
-            run_id TEXT, item_id INTEGER, added_at TEXT,
+            run_id TEXT, item_id INTEGER, added_at TIMESTAMPTZ,
             PRIMARY KEY (run_id, item_id)
         );
         CREATE TABLE projects (
             id INTEGER PRIMARY KEY, slug TEXT UNIQUE, name TEXT,
-            default_branch TEXT, created_at TEXT,
+            default_branch TEXT, created_at TIMESTAMPTZ,
             emoji TEXT, github_repo TEXT, public_item_prefix TEXT DEFAULT 'YOK'
         );
         INSERT INTO projects (id, slug, name, default_branch, created_at, github_repo, public_item_prefix)
-        VALUES (1, 'yoke', 'Yoke', 'main', '2026-01-01T00:00:00Z', 'upyoke/yoke', 'YOK');
+        VALUES (1, 'yoke', 'Yoke', 'main', '2026-01-01T00:00:00.000000Z', 'upyoke/yoke', 'YOK');
         INSERT INTO projects (id, slug, name, default_branch, created_at, github_repo, public_item_prefix)
-        VALUES (2, 'externalwebapp', 'ExternalWebapp', 'main', '2026-01-01T00:00:00Z', 'example-org/externalwebapp', 'EXT');
+        VALUES (2, 'externalwebapp', 'ExternalWebapp', 'main', '2026-01-01T00:00:00.000000Z', 'example-org/externalwebapp', 'EXT');
         CREATE TABLE project_capabilities (
             id INTEGER PRIMARY KEY, project_id INTEGER, type TEXT, config TEXT,
-            verified_at TEXT, created_at TEXT, settings TEXT
+            verified_at TIMESTAMPTZ, created_at TIMESTAMPTZ, settings TEXT
         );
         CREATE TABLE ephemeral_environments (
             id INTEGER PRIMARY KEY, project_id INTEGER, branch TEXT, item TEXT,
             workflow_run_id TEXT, github_ref TEXT, port_api INTEGER,
-            port_web INTEGER, url TEXT, status TEXT, started_at TEXT,
-            stopped_at TEXT, health_check_url TEXT, deployed_sha TEXT,
-            created_at TEXT
+            port_web INTEGER, url TEXT, status TEXT, started_at TIMESTAMPTZ,
+            stopped_at TIMESTAMPTZ, health_check_url TEXT, deployed_sha TEXT,
+            created_at TIMESTAMPTZ
         );
         CREATE TABLE qa_requirements (
             id INTEGER PRIMARY KEY, item_id INTEGER, epic_id INTEGER,
@@ -129,15 +127,15 @@ _MAKE_CONN_DDL = """
             qa_phase TEXT, target_env TEXT, blocking_mode TEXT,
             requirement_source TEXT, success_policy TEXT,
             capability_requirements TEXT, suite_id TEXT,
-            waived_at TEXT, waiver_rationale TEXT, created_at TEXT,
+            waived_at TIMESTAMPTZ, waiver_rationale TEXT, created_at TIMESTAMPTZ,
             waiver_source TEXT
         );
         CREATE TABLE qa_runs (
             id INTEGER PRIMARY KEY, qa_requirement_id INTEGER,
             performed_by TEXT, qa_kind TEXT, verdict TEXT,
             score REAL, confidence REAL, raw_result TEXT,
-            duration_ms INTEGER, started_at TEXT, completed_at TEXT,
-            created_at TEXT
+            duration_ms INTEGER, started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ
         );
         CREATE TABLE events (
             id INTEGER PRIMARY KEY, event_id TEXT, source_type TEXT,
@@ -146,7 +144,7 @@ _MAKE_CONN_DDL = """
             actor_id INTEGER, environment TEXT, service TEXT, project_id INTEGER,
             item_id TEXT, task_num INTEGER, agent TEXT, tool_name TEXT,
             duration_ms INTEGER, exit_code INTEGER, trace_id TEXT,
-            anomaly_flags TEXT, client_timing_id TEXT, envelope TEXT, created_at TEXT
+            anomaly_flags TEXT, client_timing_id TEXT, envelope TEXT, created_at TIMESTAMPTZ
         );
         CREATE TABLE event_registry (
             event_name TEXT PRIMARY KEY, event_kind TEXT, event_type TEXT,
@@ -154,15 +152,15 @@ _MAKE_CONN_DDL = """
             severity_default TEXT, added_in TEXT, status TEXT
         );
         CREATE TABLE ouroboros_entries (
-            id INTEGER PRIMARY KEY, timestamp TEXT, agent TEXT,
+            id INTEGER PRIMARY KEY, timestamp TIMESTAMPTZ, agent TEXT,
             context TEXT, category TEXT, body TEXT,
-            reviewed_at TEXT, archived_at TEXT, created_at TEXT,
+            reviewed_at TIMESTAMPTZ, archived_at TIMESTAMPTZ, created_at TIMESTAMPTZ,
             project_id INTEGER
         );
         CREATE TABLE item_dependencies (
             id INTEGER PRIMARY KEY, dependent_item_id INTEGER, blocking_item_id INTEGER,
             gate_point TEXT, satisfaction TEXT, source TEXT, session_id INTEGER,
-            rationale TEXT, evidence_json TEXT, created_at TEXT
+            rationale TEXT, evidence_json TEXT, created_at TIMESTAMPTZ
         );
         CREATE TABLE sites (
             id TEXT PRIMARY KEY, project_id INTEGER, name TEXT, settings TEXT
@@ -275,7 +273,7 @@ def _ensure_migration_audit_table(conn) -> None:
             failure_reason TEXT,
             exception_reason TEXT,
             source_fingerprint TEXT,
-            rehearsed_at TEXT,
+            rehearsed_at TIMESTAMPTZ,
             lease_id INTEGER,
             test_copy_path TEXT,
             baseline_verify_result TEXT,
@@ -283,8 +281,8 @@ def _ensure_migration_audit_table(conn) -> None:
             session_id TEXT,
             model_name TEXT,
             project_id TEXT,
-            started_at TEXT NOT NULL,
-            completed_at TEXT,
+            started_at TIMESTAMPTZ NOT NULL,
+            completed_at TIMESTAMPTZ,
             duration_ms INTEGER
         )
     """)

@@ -296,3 +296,8 @@ Attribution fixtures generate native freshness clocks, strictly parse supplied
 current/recent item instants and bind deterministic item clocks natively.
 Absent attribution clocks remain null; explicit SQLite bindings format canonical
 fixed-six UTC while item/session identifiers retain opaque values.
+
+Full Doctor fixtures declare their finite stored-instant columns natively,
+including both audit schema owners, without tightening nullable slim states.
+Shared current/day/minute clocks stay aware and preserve microseconds; actual
+health-check callers use those native values directly.

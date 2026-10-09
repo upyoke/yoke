@@ -18,9 +18,9 @@ from yoke_core.engines.doctor import (
 )
 
 from runtime.api.engines._doctor_hc_meta_full_test_helpers import (
-    _NOW_ISO,
+    _NOW_INSTANT,
     _ensure_migration_audit_table,
-    _iso_days_ago,
+    _instant_days_ago,
     _make_conn,
     _p,
     _result,
@@ -42,7 +42,7 @@ class TestEventsSyntheticContamination:
             "created_at) VALUES "
             "(1, 'e-1', 'ItemStatusChanged', 'item_status_change', "
             f" 'lifecycle', 'system', 'session-a', 'cli', NULL, {p})",
-            (_NOW_ISO,),
+            (_NOW_INSTANT,),
         )
         conn.execute(
             "INSERT INTO events (id, event_id, event_name, event_type, "
@@ -51,7 +51,7 @@ class TestEventsSyntheticContamination:
             "(2, 'e-2', 'ItemStatusChanged', 'item_status_change', "
             " 'lifecycle', 'system', 'lifetime-activity-backfill', "
             f" 'backfill-lifetime-activity', 'historical_backfill', {p})",
-            (_NOW_ISO,),
+            (_NOW_INSTANT,),
         )
         rec = _run_hc(hc_events_synthetic_contamination, conn)
         assert _result(rec).result == "PASS"
@@ -64,7 +64,7 @@ class TestEventsSyntheticContamination:
             "event_kind, source_type, session_id, service, created_at) "
             "VALUES (1, 'legacy-1', 'ActivityBackfilled', "
             f"'activity_backfill', 'lifecycle', 'system', 'old', 'old', {p})",
-            (_NOW_ISO,),
+            (_NOW_INSTANT,),
         )
         rec = _run_hc(hc_events_synthetic_contamination, conn)
         res = _result(rec)
@@ -81,7 +81,7 @@ class TestEventsSyntheticContamination:
             "(1, 'e-1', 'ItemStatusChanged', 'item_status_change', "
             " 'lifecycle', 'system', 'lifetime-activity-backfill', "
             f" 'backfill-lifetime-activity', NULL, {p})",
-            (_NOW_ISO,),
+            (_NOW_INSTANT,),
         )
         rec = _run_hc(hc_events_synthetic_contamination, conn)
         res = _result(rec)
@@ -96,7 +96,7 @@ class TestEventsSyntheticContamination:
             "event_kind, source_type, session_id, service, created_at) "
             "VALUES (1, 'e-1', 'T', 'T', 'T', 'system', 'pytest-xyz', "
             f"'cli', {p})",
-            (_NOW_ISO,),
+            (_NOW_INSTANT,),
         )
         rec = _run_hc(hc_events_synthetic_contamination, conn)
         res = _result(rec)
@@ -116,7 +116,7 @@ class TestEventsHistoricalCoverageCollapse:
             "event_kind, source_type, session_id, service, created_at) "
             "VALUES (1, 'e-1', 'ItemStatusChanged', 'isc', 'lifecycle', "
             f"'system', 's', 'cli', {p})",
-            (_NOW_ISO,),
+            (_NOW_INSTANT,),
         )
         rec = _run_hc(hc_events_historical_coverage_collapse, conn)
         assert _result(rec).result == "PASS"
@@ -133,7 +133,7 @@ class TestEventsHistoricalCoverageCollapse:
                     "event_kind, source_type, session_id, service, "
                     f"created_at) VALUES ({p}, 'ItemStatusChanged', 'isc', "
                     f"'lifecycle', 'system', 's', 'cli', {p})",
-                    (f"e-{week_offset}-{row_in_week}", _iso_days_ago(day_offset)),
+                    (f"e-{week_offset}-{row_in_week}", _instant_days_ago(day_offset)),
                 )
         rec = _run_hc(hc_events_historical_coverage_collapse, conn)
         assert _result(rec).result == "PASS"
@@ -151,7 +151,7 @@ class TestEventsHistoricalCoverageCollapse:
                     "event_kind, source_type, session_id, service, "
                     f"created_at) VALUES ({p}, 'ItemStatusChanged', 'isc', "
                     f"'lifecycle', 'system', 's', 'cli', {p})",
-                    (f"e-{week_offset}-{row_in_week}", _iso_days_ago(day_offset)),
+                    (f"e-{week_offset}-{row_in_week}", _instant_days_ago(day_offset)),
                 )
         # Sparse 12th week
         conn.execute(
@@ -159,7 +159,7 @@ class TestEventsHistoricalCoverageCollapse:
             "event_kind, source_type, session_id, service, created_at) "
             "VALUES ('sparse-1', 'ItemStatusChanged', 'isc', 'lifecycle', "
             f"'system', 's', 'cli', {p})",
-            (_iso_days_ago(82),),
+            (_instant_days_ago(82),),
         )
         rec = _run_hc(hc_events_historical_coverage_collapse, conn)
         res = _result(rec)
@@ -182,7 +182,7 @@ class TestEventsHistoricalCoverageCollapse:
                 "'isc', 'lifecycle', 'system', "
                 "'lifetime-activity-backfill', 'backfill-lifetime-activity',"
                 f" 'historical_backfill', {p})",
-                (f"bf-{week_offset}", _iso_days_ago(week_offset * 7)),
+                (f"bf-{week_offset}", _instant_days_ago(week_offset * 7)),
             )
         rec = _run_hc(hc_events_historical_coverage_collapse, conn)
         res = _result(rec)
@@ -204,15 +204,13 @@ class TestEventsDestructiveMaintenanceAudit:
         _ensure_migration_audit_table(conn)
         p = _p(conn)
         # Alarm + matching audit row within ±1h.
-        envelope = json.dumps(
-            {"context": {"detail": {"command": "events prune"}}}
-        )
+        envelope = json.dumps({"context": {"detail": {"command": "events prune"}}})
         conn.execute(
             "INSERT INTO events (event_id, event_name, event_type, "
             "event_kind, source_type, session_id, service, envelope, "
             "created_at) VALUES ('alarm-1', 'DataLossDetected', 'db_alarm', "
             f"'system', 'hook', 's', 'cli', {p}, {p})",
-            (envelope, _NOW_ISO),
+            (envelope, _NOW_INSTANT),
         )
         conn.execute(
             "INSERT INTO migration_audit (migration_name, description, "
@@ -221,7 +219,7 @@ class TestEventsDestructiveMaintenanceAudit:
             "('events-prune', 'retention prune', '[\"events\"]', "
             "'{\"events\": -100}', '{\"events\": 500}', '', 'completed', "
             f"'Retention-only exception, bounded by severity/age.', {p})",
-            (_NOW_ISO,),
+            (_NOW_INSTANT,),
         )
         rec = _run_hc(hc_events_destructive_maintenance_audit, conn)
         assert _result(rec).result == "PASS"
@@ -238,7 +236,7 @@ class TestEventsDestructiveMaintenanceAudit:
             "event_kind, source_type, session_id, service, envelope, "
             "created_at) VALUES ('alarm-1', 'DataLossDetected', 'db_alarm', "
             f"'system', 'hook', 's', 'cli', {p}, {p})",
-            (envelope, _NOW_ISO),
+            (envelope, _NOW_INSTANT),
         )
         rec = _run_hc(hc_events_destructive_maintenance_audit, conn)
         res = _result(rec)
@@ -258,7 +256,7 @@ class TestEventsDestructiveMaintenanceAudit:
             "('events-prune', 'retention', '[\"events\"]', "
             "'{\"events\": -10}', '{\"events\": 100}', '', 'completed', "
             f"'', {p})",
-            (_NOW_ISO,),
+            (_NOW_INSTANT,),
         )
         rec = _run_hc(hc_events_destructive_maintenance_audit, conn)
         res = _result(rec)
