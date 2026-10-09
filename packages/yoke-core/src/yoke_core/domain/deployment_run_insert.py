@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from typing import Any
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_core.domain.schema_common import _column_exists
 
@@ -17,12 +20,13 @@ def insert_run(
     target_environment_id: int | None,
     release_lineage: str | None,
     created_by: str,
-    created_at: str,
+    created_at: datetime | str,
     artifact_identity: str | None,
     create_idempotency_key: str | None = None,
     create_request: str | None = None,
 ) -> Any:
     """Insert through both legacy and additively converged run schemas."""
+    stamp = parse_instant(created_at)
     columns = [
         "id",
         "project_id",
@@ -41,7 +45,7 @@ def insert_run(
         target_environment_id or None,
         release_lineage or None,
         created_by,
-        created_at,
+        instant_parameter(conn, stamp),
     ]
     has_artifact_identity = _column_exists(conn, "deployment_runs", "artifact_identity")
     if artifact_identity and not has_artifact_identity:

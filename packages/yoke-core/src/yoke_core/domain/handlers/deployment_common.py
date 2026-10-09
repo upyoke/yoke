@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant, format_instant
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, field_serializer
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -192,13 +194,22 @@ class DeploymentRunApproveResponse(BaseModel):
     project: str
     approved_stage: str
     next_stage: str
-    approved_at: str
+    approved_at: datetime
     approver_actor_id: Optional[str] = None
     approver_session_id: Optional[str] = None
     note: Optional[str] = None
     member_item_ids: List[int]
     event_id: Optional[str] = None
     drive_recipe: Optional[str] = None
+
+    @field_validator("approved_at", mode="before")
+    @classmethod
+    def native_approval_clock(cls, value):
+        return parse_instant(value)
+
+    @field_serializer("approved_at", when_used="json")
+    def approval_clock_wire(self, value):
+        return format_instant(value)
 
 
 class DeploymentStageApprovalEvaluateRequest(BaseModel):

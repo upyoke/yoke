@@ -156,11 +156,11 @@ def handle_driver_for_capture(request: FunctionCallRequest) -> HandlerOutcome:
     capture = str((request.payload or {}).get("progress_capture") or "").strip()
     if not capture:
         return error("payload_invalid", "progress_capture is required")
-    from yoke_core.domain.db_helpers import connect, iso8601_now
+    from yoke_core.domain.db_helpers import connect, utc_now
 
     with connect() as conn:
         found = live_attachment_for_capture(
-            conn, progress_capture=capture, now=iso8601_now()
+            conn, progress_capture=capture, now=utc_now()
         )
     return HandlerOutcome(
         result_payload={"driver": None if found is None else found.as_dict()},

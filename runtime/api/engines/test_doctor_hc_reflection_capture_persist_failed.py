@@ -180,7 +180,18 @@ def test_native_event_lookback_keeps_exact_microsecond_cutoff(monkeypatch, zone)
         ]:
             conn.execute(
                 "INSERT INTO events(event_name,payload,created_at) VALUES(%s,%s,%s)",
-                ("ReflectionCapturePersistFailed", "{}", created),
+                (
+                    "ReflectionCapturePersistFailed",
+                    json.dumps(
+                        {
+                            "agent": "tester",
+                            "category": "friction",
+                            "body_excerpt": "clock boundary",
+                            "exception_type": "OperationalError",
+                        }
+                    ),
+                    created,
+                ),
             )
         conn.commit()
         entries = owner._persist_failed_entries_24h(conn)
