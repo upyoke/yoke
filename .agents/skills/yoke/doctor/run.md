@@ -1,148 +1,74 @@
-# /yoke doctor — run the roster and write the report
+# Doctor — Claim, Run and Release
 
-## 0. Session Claim
+## 0. Exclusive process authority
 
-Stamp the session mode so the board's active-session row reflects the live phase (default `wait` misrepresents an active doctor). Use the registered session wrapper:
-
-```bash
-yoke sessions touch \
- --mode doctor
+```sh
+yoke sessions touch --mode doctor
+yoke claims work acquire --process DOCTOR --project {project} --reason doctor_run --json
 ```
 
-Register an exclusive work claim to prevent concurrent doctor sessions and
-retain the returned `claim_id` for the release invariant:
+Retain `claim_id`. On `claim_conflict`, stop before running the engine or
+producing a report: another Doctor owns the process; wait for it or end that
+holder first.
 
-```bash
-yoke claims work acquire --process DOCTOR --project {project} \
-  --reason doctor_run --json
-```
+Every post-acquisition exit releases the DOCTOR claim, including read-only
+and failing runs. An early stop uses:
 
-If the response carries `error.code="claim_conflict"` (another session
-holds the process key), print:
-
-> Another session is already running `/yoke doctor`. Only one doctor session can run at a time. Wait for it to finish or end the other session first.
-
-Then **stop immediately.** Do not run the doctor engine or produce any output.
-
-**Release invariant:** Once the `DOCTOR` claim is acquired, every remaining exit path MUST release it. If you need to stop before the normal completion path, call:
-
-```bash
+```sh
 yoke claims work release --claim-id {claim_id} --reason doctor_stop --json
 ```
 
-Do not leave the `DOCTOR` claim active after any post-claim stop.
+## 1. Execute one explicit scope
 
-1. **Run the health check engine:**
+```sh
+yoke watch doctor -- --full --project {project} [--file {path}] [--fix]
+```
 
- One shape on every machine: `yoke watch doctor`. It wraps the
- transport-keyed `yoke doctor run`, so there is no connection to inspect
- and no branch to pick. A relayed control plane chunks the run into
- bounded server requests and composes the source-tree HCs from this
- machine's checkout; a local-Postgres connection runs the whole roster
- in process. Either way the wrapper preserves the raw report and streams
- the same per-check progress lines, which is what AGENTS.md `## Command
- Output — Hard Rule` requires of a run this long.
+Operator-invoked Doctor uses `--full`, including GitHub reconciliation.
+Automated verification may use `--quick` when those checks do not matter;
+`--only <slug[,slug...]>` selects named checks. Scope is mandatory; no flag
+exits 2. Project comes from the explicit argument, YOKE_PROJECT or checkout
+binding; without one, `project_required` names `--project P` and accessible
+projects. There is no seeded-self fallback.
 
- Pass bare doctor args after `--`:
- - **`--full`** for operator-invoked `/yoke doctor` — runs every HC including
-   GitHub-dependent ones. This is the right scope when the operator wants a
-   full system check; expect ~10-20 `gh` subprocess calls per run.
- - **`--quick`** when the caller doesn't need the GitHub reconciliation HCs
-   (the polish/verify path uses this; never uses gh quota). Use only when
-   you're certain the gh-dependent drift doesn't matter for this run.
- - **`--only <slug[,slug...]>`** to narrow to specific HCs.
- - If a project was specified (first positional arg), pass `--project {project}`
- - If no project was specified, use `YOKE_PROJECT` or the caller checkout binding. With neither, refuse as `project_required`, teach `--project P`, and list accessible projects over the caller connection.
- - If `--file {path}` was specified, pass `--file {path}`
- - If `--fix` was specified, pass `--fix`
- - Otherwise, the engine uses its default path (`ouroboros/health/health-{YYYYMMDD}.md`)
+The watcher owns capture/progress and preserves exit status. HTTPS composes
+bounded server checks with local source checks; local Postgres runs in process.
+Continue a yielded handle to exit. Keep the exit code and full report.
 
- For `/yoke doctor` the canonical scope is `--full`:
+## 2. Display and repair
 
- ```bash
- yoke watch doctor -- --full --project {project} [--file {path}] [--fix]
- ```
+Show summary, failures, warnings, passes and N/A with reasons/count.
+Without `--fix`, proceed to release. Read [notes.md](notes.md) before repair;
+a long-stale installation needs a read-only pass and acceptable mutation-volume
+confirmation before bulk `--fix`.
 
- The run prints the Ouroboros Health Report on either transport, and
- `--file` also writes it to that path. Only claim a report file when
- `--file` was passed.
+The engine repairs bidirectional GitHub drift (orphan reconciliation, titles,
+bodies, labels, state and frozen/blocked/task drift), wrong-repo issues when
+the project's verified binding moved, and orphaned scratch files/directories.
+GitHub work uses verified App authority and internal resync.
 
- Without a scope flag the run exits 2 with a teachable error naming the
- three options. This is intentional: every caller must make an explicit
- GitHub-quota choice — automated verification paths use `--quick`,
- operator-invoked health checks use `--full`. The wrapper preserves the
- underlying exit code so this branching still works.
+Stale remote branch deletion first proves no active cleanup authority,
+refreshes exact branch/target refs, checks ancestry and uses leased deletion.
+Ambiguous or concurrently changed refs remain for retry. Local worktree/branch
+warnings require proof of cleanliness and ancestry to the intended base;
+`git branch -d` checks current HEAD, not an arbitrary intended base.
 
- Capture both the exit code and the full stdout output (the Ouroboros Health Report).
+One external follow-on remains for missing-worktree reference warnings:
 
-2. **Display the health report:**
+```sh
+git worktree prune
+```
 
- Show the full report output to the user. The report includes:
- - Summary line (N passed, N warnings, N failures)
- - Failures section (if any)
- - Warnings section (if any)
- - Passed section
+Report all other issues for human review or the normal work-item pipeline.
+After `--fix`, re-run the same command/scope and show the updated summary.
 
-3. **Handle `--fix` flag (auto-repair):**
+## 3. Release before final output
 
- **If `--fix` was NOT specified:** Skip auto-repair and continue to step 5 so the `DOCTOR` claim is released before final output.
+```sh
+yoke claims work release --claim-id {claim_id} --reason doctor_complete --json
+```
 
- **If `--fix` was specified:** Most repair happens **inside** the selected
- engine — the Step 1 command already applied fixes. The engine handles:
-
-- **Bidirectional GitHub sync** (orphan reconciliation; title, body, label, state, and frozen drift) via internal delegation to the resync engine in doctor format. Pushes local truth to GitHub and creates/closes/migrates issues as needed.
- - **Stale remote branches** of done or cancelled items, after proving the
-   owning item has no active cleanup authority, refreshing the exact branch and
-   target refs, proving ancestry, and using a leased delete. Ambiguous or
-   concurrently updated refs are preserved for a later retry.
- - **Stale local worktree/branch warnings** are reported with remediation text, but manual cleanup must still prove the worktree is clean and the branch tip is an ancestor of the intended base; `git branch -d` checks the current checkout's `HEAD`, not an arbitrary stage/main base.
- - **Wrong-repo GitHub issues** (migrates issues between repos when the project's `github_repo` capability has moved).
- - **Orphaned temp files / scratch directories** (`rebuild-board.*`, `sync-to-github.*`).
-
- The agent applies one narrow follow-on fix that the engine does not handle directly:
-
- **Stale worktree references** (HC-worktree-health warnings about missing worktrees) — `git worktree prune` is a retained external boundary (git porcelain) and stays as a Bash call:
-
- ```bash
- git worktree prune
- ```
-
- **All other warnings/failures:** Report only. These require human review, code changes, or the normal issue/work item pipeline. Display a note:
- ```
- The following issues require manual attention:
- {list non-fixable issues from the report}
- ```
-
-4. **If `--fix` was applied, re-run the doctor engine:**
-
- After applying fixes, re-run the same transport-selected command from Step 1
- with the same scope to verify the fixes took effect. Display the updated
- summary.
-
-5. **Release DOCTOR Claim:**
-
- Release the exclusive work claim so the session can end naturally or be reused.
-
- ```bash
- yoke claims work release --claim-id {claim_id} \
-   --reason doctor_complete --json
- ```
-
- **Important:** This MUST run regardless of whether `--fix` was applied or whether there were failures. Read-only doctor runs without `--fix` still come here before final output. A release failure is logged via the response envelope but does not block the report.
-
-6. **Final output:**
-
- Display the report. When `--file {path}` was passed, name where it
- was written:
- ```
- Ouroboros health report saved to: {path}
- ```
-
- Without `--file` there is no report file — display the report the run
- printed; do not invent a filesystem path.
-
- If there were failures that could not be auto-fixed:
- ```
- {N} issues remain. File work items via /yoke idea and fix through the normal pipeline.
- ```
-
+Always attempt release; log a release refusal from its envelope without
+suppressing the report. Display the report, and name a saved file only when
+`--file` was supplied. Remaining issues go through `/yoke idea` and the normal
+pipeline.
