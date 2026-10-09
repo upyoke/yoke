@@ -186,7 +186,7 @@ async function annotatedScreenshot(page, refMap, options = {}) {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  // AC-5: Inject badges, capture, then remove
+  // Inject badges, capture, then remove
   await injectBadges(page, refMap);
   try {
     await page.screenshot({ path: outputPath, fullPage: false });
@@ -200,7 +200,7 @@ async function annotatedScreenshot(page, refMap, options = {}) {
     imagePath: outputPath,
     refs: refMap,
     url: page.url(),
-    timestamp: new Date().toISOString(),
+    timestamp: (await import('./timestamps.mjs')).instantFromDate(new Date()),
     viewport: { width: vp.width, height: vp.height },
   };
 }
@@ -235,7 +235,7 @@ async function plainScreenshot(page, options = {}) {
   return {
     imagePath: outputPath,
     url: page.url(),
-    timestamp: new Date().toISOString(),
+    timestamp: (await import('./timestamps.mjs')).instantFromDate(new Date()),
     viewport: { width: vp.width, height: vp.height },
   };
 }

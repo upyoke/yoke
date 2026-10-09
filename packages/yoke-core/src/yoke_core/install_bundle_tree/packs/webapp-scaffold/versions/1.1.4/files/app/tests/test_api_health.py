@@ -265,6 +265,9 @@ def test_pending_apply_creates_a_verified_restore_point_and_noop_does_not(
             migration_runner.module_sha256(history[0]),
         ),
     )
+    migration_runner.ensure_schema_version(
+        conn, history, commit=False, repair_adoption_guards=True
+    )
     conn.commit()
     conn.close()
     real_connect = db_utils.sqlite3.connect

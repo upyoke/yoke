@@ -300,3 +300,9 @@ malformed internal landing clocks refuse rather than assuming a timezone.
 
 Owned writer and projection details are maintained in
 [timestamp owners](timestamp-owners.md).
+
+Browser snapshot and screenshot JSON and daemon state files produce canonical
+fixed-six UTC clocks through the pinned Node kernel shipped inside the harness
+resource bundle. Date's measured milliseconds are padded with trailing zeros;
+no sub-millisecond precision is invented. Opaque screenshot filename suffixes
+remain identifiers, and browser display-age calculations remain display owners.

@@ -216,6 +216,8 @@ def ensure_schema_version(
     columns = {
         row[1] for row in conn.execute("PRAGMA table_info(schema_version)").fetchall()
     }
+    if "applied_at" not in columns:
+        conn.execute("ALTER TABLE schema_version ADD COLUMN applied_at TEXT")
     if "migration_name" not in columns:
         conn.execute("ALTER TABLE schema_version ADD COLUMN migration_name TEXT")
     if "minimum_serving_version" not in columns:

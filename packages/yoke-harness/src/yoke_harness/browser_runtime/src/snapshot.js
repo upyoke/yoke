@@ -275,7 +275,7 @@ async function accessibilitySnapshot(page) {
     tree,
     refs,
     url: page.url(),
-    timestamp: new Date().toISOString(),
+    timestamp: (await import('./timestamps.mjs')).instantFromDate(new Date()),
   };
 }
 

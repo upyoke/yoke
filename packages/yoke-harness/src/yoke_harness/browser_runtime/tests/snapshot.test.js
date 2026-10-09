@@ -98,6 +98,7 @@ async function testOutputJsonShape() {
   assert(typeof result.refs === 'object' && result.refs !== null, 'refs is an object');
   assert(typeof result.url === 'string', 'url is a string');
   assert(typeof result.timestamp === 'string', 'timestamp is a string');
+    assert(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(result.timestamp), 'owned clock is fixed-six UTC');
   // timestamp should be ISO format
   assert(!isNaN(Date.parse(result.timestamp)), 'timestamp is valid ISO date');
   const main = result.tree.find(node => node.role === 'main');

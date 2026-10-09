@@ -274,7 +274,8 @@ def test_named_sequence_mismatch_blocks_readiness(tmp_path) -> None:
     conn = sqlite3.connect(database)
     conn.execute("DROP TRIGGER migration_membership_guard_update")
     conn.execute(
-        "UPDATE schema_version SET version=2 WHERE migration_name=?", (entry.name,)
+        "UPDATE schema_version SET version=-version WHERE migration_name=?",
+        (entry.name,),
     )
     migration_runner.ensure_schema_version(
         conn,
@@ -291,7 +292,11 @@ def test_named_sequence_mismatch_blocks_readiness(tmp_path) -> None:
     assert state["content_identity_ready"] is False
     assert state["pending"] == [entry.name]
     assert state["sequence_mismatches"] == [
-        {"name": entry.name, "recorded_sequence": 2, "expected_sequence": 1}
+        {
+            "name": entry.name,
+            "recorded_sequence": -entry.sequence,
+            "expected_sequence": 1,
+        }
     ]
 
 

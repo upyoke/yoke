@@ -127,6 +127,7 @@ function handleStaleState(stateFile) {
 // ---------------------------------------------------------------------------
 
 async function main() {
+  const { instantFromDate } = await import('./timestamps.mjs');
   const args = parseArgs(process.argv);
 
   // Handle state left by a previous process.
@@ -213,7 +214,7 @@ async function main() {
       token,
       endpoint,
       browserType: 'chromium',
-      startedAt: new Date().toISOString(),
+      startedAt: instantFromDate(new Date()),
       health: 'healthy',
       port,
       profileDir: args.profileDir,
