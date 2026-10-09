@@ -171,9 +171,7 @@ def cmd_requirement_add(
                 bind_item_named_target,
             )
 
-            refused = bind_item_named_target(
-                conn, item_id=int(owner_id), row=row
-            )
+            refused = bind_item_named_target(conn, item_id=int(owner_id), row=row)
             if refused:
                 print(f"Error: {refused}", file=sys.stderr)
                 sys.exit(2)
@@ -212,6 +210,11 @@ def cmd_requirement_add(
         )
 
         persist_requirement_target_snapshot(conn, inserted_id, row)
+        from yoke_core.domain.qa_post_deploy_no_obligation_retirement import (
+            retract_no_obligation_for_requirement,
+        )
+
+        retract_no_obligation_for_requirement(conn, item_id=item_id, requirement=row)
         # QA requirement writes are real item activity.
         _qa_target = item_id if item_id is not None else epic_id
         if _qa_target is not None:
