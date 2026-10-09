@@ -60,10 +60,30 @@ def test_linux_cursor_unreadable_credentials_are_named_stale(linux_home, raw):
     assert reading["windows"][0]["reason"] == "stale_credential"
 
 
-def test_linux_claude_uses_file_credentials_without_keychain(monkeypatch, linux_home):
+def _claude_version(monkeypatch, verdict="ok", version="2.3.4"):
+    probed = []
+
+    def probe(surface, command):
+        probed.append((surface, command))
+        return SimpleNamespace(
+            verdict=verdict,
+            version=version,
+            error=None if verdict == "ok" else "executable 'claude' was not found",
+        )
+
+    monkeypatch.setattr(limits, "probe_cli_surface", probe)
+    return probed
+
+
+def _claude_file_credentials(linux_home):
     path = linux_home / ".claude/.credentials.json"
     path.parent.mkdir()
     path.write_text(json.dumps({"claudeAiOauth": {"accessToken": "fixture-token"}}))
+
+
+def test_linux_claude_uses_file_credentials_without_keychain(monkeypatch, linux_home):
+    _claude_file_credentials(linux_home)
+    _claude_version(monkeypatch)
     calls = []
 
     def http(url, **kwargs):
@@ -75,6 +95,43 @@ def test_linux_claude_uses_file_credentials_without_keychain(monkeypatch, linux_
     assert calls == ["Bearer fixture-token"]
     assert reading["windows"][0]["remaining_percent"] == 75
     assert "fixture-token" not in repr(reading)
+
+
+def test_claude_usage_check_identifies_as_installed_claude_code(
+    monkeypatch, linux_home
+):
+    _claude_file_credentials(linux_home)
+    probed = _claude_version(monkeypatch, version="2.3.4")
+    sent = []
+
+    def http(url, **kwargs):
+        sent.append(kwargs["headers"])
+        return {"limits": [{"kind": "session", "percent": 25}]}
+
+    monkeypatch.setattr(limits, "plan_limit_http_json", http)
+    limits.probe_claude_cli(observed_at=NOW)
+    assert probed == [("claude-cli", limits.CLI_SURFACE_PROBES["claude-cli"])]
+    assert sent == [
+        {
+            "Authorization": "Bearer fixture-token",
+            "User-Agent": "claude-code/2.3.4",
+            "anthropic-beta": "oauth-2025-04-20",
+        }
+    ]
+
+
+def test_claude_unreadable_version_is_named_and_skips_usage_check(
+    monkeypatch, linux_home
+):
+    _claude_file_credentials(linux_home)
+    _claude_version(monkeypatch, verdict="missing", version=None)
+
+    def http(url, **kwargs):
+        pytest.fail("an unidentified usage check must not be sent")
+
+    monkeypatch.setattr(limits, "plan_limit_http_json", http)
+    reading = limits.probe_claude_cli(observed_at=NOW)
+    assert reading["windows"][0]["reason"] == "claude_version_unreadable_missing"
 
 
 def test_macos_cursor_keeps_keychain_source(monkeypatch):

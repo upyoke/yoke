@@ -32,7 +32,11 @@ from yoke_harness.session_relay_plan_limit_http import (
     plan_limit_http_json,
 )
 from yoke_harness.session_relay_schedule import relay_state_dir
-from yoke_harness.session_relay_surface_probes import resolve_native_cli
+from yoke_harness.session_relay_surface_probes import (
+    CLI_SURFACE_PROBES,
+    probe_cli_surface,
+    resolve_native_cli,
+)
 
 
 PLAN_LIMIT_CACHE_FILE_NAME = "plan-limits.json"
@@ -42,6 +46,10 @@ PLAN_LIMIT_CACHE_FILE_NAME = "plan-limits.json"
 # the rest of the refresh interval.
 PLAN_LIMIT_CACHE_SCHEMA_VERSION = 3
 _CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
+# The usage endpoint rate-limits callers that do not identify as Claude Code
+# far more strictly than the CLI itself; without these headers the 4-minute
+# refresh earns a persistent http_429.
+_CLAUDE_OAUTH_BETA = "oauth-2025-04-20"
 _CURSOR_RPC = "https://api2.cursor.sh/aiserver.v1.DashboardService/"
 
 _failures = FailureReporter()
@@ -134,8 +142,27 @@ def probe_claude_cli(*, observed_at: str) -> dict[str, Any]:
         return unknown_reading(
             "claude-cli", "stale_credential", observed_at=observed_at
         )
+    # Read on every refresh, so the 4-minute plan-limit cache bounds the cost
+    # and an upgraded CLI is identified by its new version on the next probe.
+    version = probe_cli_surface("claude-cli", CLI_SURFACE_PROBES["claude-cli"])
+    if version.verdict != "ok" or not version.version:
+        _failures.failed(
+            "claude-cli plan-limit probe",
+            f"claude --version {version.verdict}: {version.error}; "
+            "reinstall or repair Claude Code so `claude --version` prints its version",
+        )
+        return unknown_reading(
+            "claude-cli",
+            f"claude_version_unreadable_{version.verdict}",
+            observed_at=observed_at,
+        )
     usage = plan_limit_http_json(
-        _CLAUDE_USAGE_URL, headers={"Authorization": f"Bearer {token}"}
+        _CLAUDE_USAGE_URL,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "User-Agent": f"claude-code/{version.version}",
+            "anthropic-beta": _CLAUDE_OAUTH_BETA,
+        },
     )
     if isinstance(usage, str):
         return unknown_reading("claude-cli", usage, observed_at=observed_at)
