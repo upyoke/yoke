@@ -218,6 +218,7 @@ jobs:
             --token-stdin >/dev/null
 
       - name: Dispatch and await Platform pin promotion and release
+        id: promotion
         env:
           PRODUCT_REF: ${{ steps.release.outputs.tag }}
           RELEASE_MODE: ${{ inputs.release_mode }}
@@ -268,6 +269,7 @@ jobs:
             sleep 5
           done
           test -n "$platform_run_id"
+          echo "run_id=$platform_run_id" >> "$GITHUB_OUTPUT"
           echo "Platform release run: https://github.com/upyoke/platform/actions/runs/$platform_run_id"
           yoke github-actions wait-run \
             upyoke/platform "$platform_run_id" \
@@ -303,31 +305,27 @@ jobs:
             --api-url "$YOKE_API_BASE" \
             --token-stdin >/dev/null
 
-      # Promotion pushed the pin materialization onto the consumer's bound
-      # branch, so this release produced a commit no backlog item authored.
-      # Recording it against this run is what lets the NEXT release attribute
-      # it instead of refusing it as unattributed carried work. The commit is
-      # resolved server-side from the branch this run already bound, so no
-      # repository ref is named here; every refusal is its own named reason,
-      # including the one that says the promotion pushed nothing.
-      #
-      # This step cannot fail the release, deliberately. It runs after
-      # promotion has already shipped, so failing here would mark a release
-      # that genuinely delivered as failed and invite a re-run of a completed
-      # production deploy — far worse than the bookkeeping gap it would be
-      # reporting. And that gap is not silent: the next release's composition
-      # check refuses by name and prints the recovery command. So a failure
-      # surfaces as a run annotation somebody reads, and the step exits 0.
+      # Read the immutable receipt from this exact successful promotion run.
+      # Bookkeeping failure retains the shipped result and teaches receipt
+      # recovery; QA refuses missing delivered identity before giving credit.
       - name: Record the pin commit this release produced
         env:
           DEPLOYMENT_RUN_ID: ${{ inputs.deployment_run_id }}
+          PROMOTION_RUN_ID: ${{ steps.promotion.outputs.run_id }}
+          TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+          PRODUCT_SHA: ${{ inputs.product_sha }}
+          CONSUMER_SHA: ${{ inputs.consumer_sha }}
+          PRODUCT_REF: ${{ steps.release.outputs.tag }}
         run: |
           output="$RUNNER_TEMP/release-output-record.txt"
-          if yoke deployment-runs release-output record "$DEPLOYMENT_RUN_ID" \
+          if python3 -m runtime.api.tools.record_hosted_promotion \
+            --deployment-run-id "$DEPLOYMENT_RUN_ID" \
+            --promotion-run-id "$PROMOTION_RUN_ID" \
+            --environment "$TARGET_ENVIRONMENT" --product-sha "$PRODUCT_SHA" \
+            --consumer-sha "$CONSUMER_SHA" --version "${PRODUCT_REF#v}" \
             --project platform >"$output" 2>&1; then
             cat "$output"
           else
             cat "$output" >&2
-            recovery="yoke deployment-runs release-output record $DEPLOYMENT_RUN_ID --project platform --commit <the pin commit this promotion pushed>"
-            echo "::error title=release_output_unrecorded::This release shipped and is not failed by this. Its pin commit went unattributed, so the next release will refuse it as unattributed carried work until someone runs: $recovery"
+            echo "::error title=release_output_unrecorded::This promotion shipped. Recover its exact receipt using the named command above; QA cannot credit a missing promotion identity. Do not repeat deployment."
           fi

@@ -135,12 +135,14 @@ def _job_logs_url(repo: str, job_id: int | str) -> str:
     return f"{github_api_base()}/repos/{repo}/actions/jobs/{job_id}/logs"
 
 
-def _fetch_with_retry(url: str, *, token: str) -> bytes:
+def _fetch_with_retry(url: str, *, token: str, limit_bytes: int | None = None) -> bytes:
     """Read one log body, retrying 429 / 5xx / network errors.
 
     Retries follow the shared backoff schedule inside one operation
     deadline; any other failure raises its typed error at once.
     """
+    if limit_bytes is None:
+        limit_bytes = GITHUB_ACTIONS_JOB_LOG_LIMIT_BYTES
     headers = _headers(token)
     operation_deadline = deadline_after(_FETCH_TIMEOUT_SECONDS)
     last_exc: Optional[RestTransportError] = None
@@ -154,7 +156,7 @@ def _fetch_with_retry(url: str, *, token: str) -> bytes:
                 url,
                 headers=headers,
                 token=token,
-                response_limit_bytes=GITHUB_ACTIONS_JOB_LOG_LIMIT_BYTES,
+                response_limit_bytes=limit_bytes,
                 deadline=operation_deadline,
             )
         except GitHubRestOperationDeadlineError as exc:

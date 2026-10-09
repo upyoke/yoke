@@ -97,3 +97,34 @@ The gate does not reuse CI from an older commit merely because selected files
 or a derived tree appear equivalent. Pin files and locks select what the build
 ships, while commit identity binds the attestation, so identical-tree reuse
 would reopen the source mismatch the gate prevents.
+
+## Exact delivered identity
+
+After success, Platform publishes `promotion-receipt-RUN_ID-RUN_ATTEMPT`,
+containing `promotion-receipt.json` with the deployed environment and exact
+`pin.outputs.platform_sha`. The bridge reads it through the existing scoped
+`github-actions wait-run --receipt-artifact-prefix promotion-receipt` path.
+The artifact digest, run attempt, repository, dispatch correlation, product
+SHA, environment, final consumer proof and candidate ancestry are verified
+before `deployment_runs.release_output.record` stores the receipt. Its CLI
+requires `--commit SHA --promotion-receipt-file PATH` for this hosted path.
+
+A no-op records the actual served SHA with `pin_pushed=false` and adds no
+produced commit. A failed promotion publishes no success receipt. Retrying
+failed jobs may inherit a successful pin job's outputs; the current attempt
+gets its own immutable artifact, and recording is idempotent without
+duplicating output commits or overwriting older provenance. An older attempt
+cannot replace a newer recorded attempt. Parallel environments never consult
+moving branch HEAD for their delivered identity.
+
+The additive producer lands before the consumer. Finish historical hosted
+QA that predates attempt artifacts before installing the strict reader;
+those runs cannot reconstruct artifacts their promotions never published.
+During a Yoke self-release,
+the bridge allows bounded reader readiness for its parallel Stage sibling
+while production installs the reader. Bookkeeping failure remains an
+annotation after delivery; hosted QA refuses missing delivered identity.
+Preserve the exact run and receipt, repair the named reader or source-access
+refusal, and rerun receipt recording. Do not redispatch an already shipped
+promotion. General-purpose release-output callers keep their existing
+behavior.

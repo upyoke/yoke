@@ -301,7 +301,7 @@ yoke qa case run \
   --expected-sha <commit>
 ```
 
-A case attached to a deployment run needs neither flag: it is judged against the commit that run delivered for the case's own project (for a member carried from a bound project, that project's recorded release output, else its bound commit), and refuses by name when the run delivered none, when a different commit is named for it, or when the environment cannot prove what it serves.
+A case attached to a deployment run needs neither flag: it is judged against the commit that run delivered for the case's own project (for a hosted bound project, its verified promotion attempt SHA, including no-ops; for other bindings, the last recorded release output, else the bound commit), and refuses by name when hosted promotion identity is missing or mismatched, when the run delivered none, when a different commit is named for it, or when the environment cannot prove what it serves.
 
 `yoke qa browser setup`, `status`, `screenshot`, and `step` are machine-substrate utilities; diagnostic capture creates no parallel verdict. Saved browser profiles use the [per-OS baseline procedures](qa-platform/browser-profile-baseline.md).
 

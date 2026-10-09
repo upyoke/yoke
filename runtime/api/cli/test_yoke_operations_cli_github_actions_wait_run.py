@@ -17,6 +17,24 @@ from yoke_contracts.api.function_call import FunctionCallResponse
 _CALLS: List[Dict[str, Any]] = []
 
 
+def test_opt_in_receipt_reader_refuses_old_serving_response():
+    rc, _, out, _ = _run_wait(
+        "github-actions",
+        "wait-run",
+        "o/r",
+        "123",
+        "--project",
+        "yoke",
+        "--receipt-artifact-prefix",
+        "promotion-receipt",
+        "--json",
+        states=[("success", "success")],
+    )
+    assert rc == 1
+    assert "workflow_receipt_reader_unavailable" in out
+    assert _CALLS[0]["payload"]["receipt_artifact_prefix"] == "promotion-receipt"
+
+
 @pytest.fixture(autouse=True)
 def _reset_calls() -> None:
     _CALLS.clear()
@@ -50,12 +68,16 @@ def _run_wait(*argv: str, states: List[tuple[str, str]], clock=None):
         return _response(kwargs["function_id"], state, message=message)
 
     with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
-        with patch.object(wait_mod, "call_dispatcher", side_effect=stub_call_dispatcher), \
-                patch.object(wait_mod, "ensure_handlers_loaded"), \
-                patch.object(wait_mod, "now", lambda: next(ticks)), \
-                patch.object(wait_mod, "sleep", sleeps.append):
-            with redirect_stdout(io.StringIO()) as out, \
-                    redirect_stderr(io.StringIO()) as err:
+        with (
+            patch.object(wait_mod, "call_dispatcher", side_effect=stub_call_dispatcher),
+            patch.object(wait_mod, "ensure_handlers_loaded"),
+            patch.object(wait_mod, "now", lambda: next(ticks)),
+            patch.object(wait_mod, "sleep", sleeps.append),
+        ):
+            with (
+                redirect_stdout(io.StringIO()) as out,
+                redirect_stderr(io.StringIO()) as err,
+            ):
                 rc = cli_main(list(argv))
     return rc, sleeps, out.getvalue(), err.getvalue()
 
@@ -70,10 +92,17 @@ def test_registry_maps_wait_run_to_single_shot_read() -> None:
 
 def test_wait_run_dispatches_single_shot_reads_until_success() -> None:
     rc, sleeps, out, _err = _run_wait(
-        "github-actions", "wait-run", "o/r", "123",
-        "--project", "yoke",
-        states=[("waiting", "waiting"), ("running", "in_progress"),
-                ("success", "success")],
+        "github-actions",
+        "wait-run",
+        "o/r",
+        "123",
+        "--project",
+        "yoke",
+        states=[
+            ("waiting", "waiting"),
+            ("running", "in_progress"),
+            ("success", "success"),
+        ],
         clock=[0, 10, 20],
     )
     assert rc == 0
@@ -93,21 +122,30 @@ def test_wait_run_dispatches_single_shot_reads_until_success() -> None:
 
 def test_wait_run_failure_preserves_exit_code_and_names_run_url() -> None:
     rc, sleeps, out, _err = _run_wait(
-        "github-actions", "wait-run", "o/r", "123",
-        "--project", "yoke",
+        "github-actions",
+        "wait-run",
+        "o/r",
+        "123",
+        "--project",
+        "yoke",
         states=[("failed", "failed:failure")],
     )
     assert rc == 1
     assert sleeps == []
-    assert out.strip() == (
-        "failed:failure|https://github.com/o/r/actions/runs/123"
-    )
+    assert out.strip() == ("failed:failure|https://github.com/o/r/actions/runs/123")
 
 
 def test_wait_run_timeout_returns_three_and_json_state() -> None:
     rc, sleeps, out, _err = _run_wait(
-        "github-actions", "wait-run", "o/r", "123",
-        "--timeout", "600", "--json", "--project", "yoke",
+        "github-actions",
+        "wait-run",
+        "o/r",
+        "123",
+        "--timeout",
+        "600",
+        "--json",
+        "--project",
+        "yoke",
         states=[("running", "in_progress"), ("running", "in_progress")],
         clock=[0, 601],
     )
@@ -118,16 +156,18 @@ def test_wait_run_timeout_returns_three_and_json_state() -> None:
 
 
 def test_wait_run_dispatch_error_remains_pending_until_success() -> None:
-    responses = iter([
-        FunctionCallResponse(
-            success=False,
-            function="github_actions.wait_run",
-            version="v1",
-            request_id="test-request",
-            error={"code": "https_transport_failed", "message": "boom"},
-        ),
-        _response("github_actions.wait_run", "success", message="success"),
-    ])
+    responses = iter(
+        [
+            FunctionCallResponse(
+                success=False,
+                function="github_actions.wait_run",
+                version="v1",
+                request_id="test-request",
+                error={"code": "https_transport_failed", "message": "boom"},
+            ),
+            _response("github_actions.wait_run", "success", message="success"),
+        ]
+    )
     sleeps: List[float] = []
     ticks = iter([0, 1])
 
@@ -136,16 +176,26 @@ def test_wait_run_dispatch_error_remains_pending_until_success() -> None:
         return next(responses)
 
     with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
-        with patch.object(wait_mod, "call_dispatcher", side_effect=stub_call_dispatcher), \
-                patch.object(wait_mod, "ensure_handlers_loaded"), \
-                patch.object(wait_mod, "now", lambda: next(ticks)), \
-                patch.object(wait_mod, "sleep", sleeps.append):
-            with redirect_stdout(io.StringIO()) as out, \
-                    redirect_stderr(io.StringIO()) as err:
-                rc = cli_main([
-                    "github-actions", "wait-run", "o/r", "123",
-                    "--project", "yoke",
-                ])
+        with (
+            patch.object(wait_mod, "call_dispatcher", side_effect=stub_call_dispatcher),
+            patch.object(wait_mod, "ensure_handlers_loaded"),
+            patch.object(wait_mod, "now", lambda: next(ticks)),
+            patch.object(wait_mod, "sleep", sleeps.append),
+        ):
+            with (
+                redirect_stdout(io.StringIO()) as out,
+                redirect_stderr(io.StringIO()) as err,
+            ):
+                rc = cli_main(
+                    [
+                        "github-actions",
+                        "wait-run",
+                        "o/r",
+                        "123",
+                        "--project",
+                        "yoke",
+                    ]
+                )
     assert rc == 0
     assert len(_CALLS) == 2
     assert sleeps == [wait_mod.RUN_WAIT_POLL_INTERVAL_SEC]
@@ -165,17 +215,28 @@ def test_wait_run_unreadable_past_budget_exits_pending() -> None:
     )
     ticks = iter([0, 601])
 
-    with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}), \
-            patch.object(wait_mod, "call_dispatcher", return_value=response), \
-            patch.object(wait_mod, "ensure_handlers_loaded"), \
-            patch.object(wait_mod, "now", side_effect=lambda: next(ticks)), \
-            patch.object(wait_mod, "sleep", side_effect=sleeps.append), \
-            redirect_stdout(io.StringIO()) as out, \
-            redirect_stderr(io.StringIO()) as err:
-        rc = cli_main([
-            "github-actions", "wait-run", "o/r", "123",
-            "--timeout", "600", "--json", "--project", "yoke",
-        ])
+    with (
+        patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}),
+        patch.object(wait_mod, "call_dispatcher", return_value=response),
+        patch.object(wait_mod, "ensure_handlers_loaded"),
+        patch.object(wait_mod, "now", side_effect=lambda: next(ticks)),
+        patch.object(wait_mod, "sleep", side_effect=sleeps.append),
+        redirect_stdout(io.StringIO()) as out,
+        redirect_stderr(io.StringIO()) as err,
+    ):
+        rc = cli_main(
+            [
+                "github-actions",
+                "wait-run",
+                "o/r",
+                "123",
+                "--timeout",
+                "600",
+                "--json",
+                "--project",
+                "yoke",
+            ]
+        )
 
     assert rc == 3
     assert '"success": true' in out.getvalue()
@@ -186,8 +247,12 @@ def test_wait_run_unreadable_past_budget_exits_pending() -> None:
 
 def test_wait_run_repo_without_slash_returns_usage_error() -> None:
     rc, _sleeps, _out, _err = _run_wait(
-        "github-actions", "wait-run", "no-slash", "123",
-        "--project", "yoke",
+        "github-actions",
+        "wait-run",
+        "no-slash",
+        "123",
+        "--project",
+        "yoke",
         states=[("success", "success")],
     )
     assert rc == 2

@@ -33,9 +33,11 @@ A case attached to a deployment run takes that expectation from the run
 instead, and the arguments are unnecessary: the run records the commit it
 delivered for the case's own project, and that is what its evidence is judged
 against. A member carried from a bound project is judged against that
-project's build — the release output the run recorded for it (such as a
-materialized version pin), or the commit it bound when it produced none —
-never the carrying run's own lineage. Naming a
+project's build, never the carrying run's own lineage. Hosted bridge runs
+require the verified promotion attempt's exact deployed SHA, including
+no-ops; missing identity refuses before QA credit. Other bindings use the
+last recorded release output, or the bound commit when none was produced.
+Naming a
 different commit for such a case refuses (`deployment_source_contradicted`)
 rather than choosing one, and a run pinned to no commit refuses too
 (`deployment_source_unpinned`) — there would be nothing for the environment's
