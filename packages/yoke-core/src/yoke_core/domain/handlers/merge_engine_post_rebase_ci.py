@@ -16,13 +16,15 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
+from yoke_contracts.timestamps import utc_now
+
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
 )
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
+from yoke_core.domain.db_helpers import instant_parameter, query_one, query_rows
 from yoke_core.domain.qa_command_plan_registration import declared_ci_workflow
 from yoke_core.domain.qa_events import emit_qa_requirement_event
 from yoke_core.domain.qa_command_plans import (
@@ -135,7 +137,7 @@ def _ensure_merge_gate_ci_requirement(
         if canonical_method_config(stored_config) == canonical_method_config(config):
             return int(row["id"])
 
-    now = iso8601_now()
+    now = utc_now()
     cur = conn.execute(
         "INSERT INTO qa_requirements ("
         "item_id, qa_kind, qa_phase, blocking_mode, requirement_source, "
@@ -154,7 +156,7 @@ def _ensure_merge_gate_ci_requirement(
             (f"Merge-gate CI verification of the integrated candidate tree ({scope})."),
             "CI workflow concludes successfully for the candidate head.",
             json.dumps(config, sort_keys=True),
-            now,
+            instant_parameter(conn, now),
         ),
     )
     row = cur.fetchone()
@@ -227,7 +229,7 @@ def handle_record_post_rebase_ci_run(request: FunctionCallRequest) -> HandlerOut
             if req is None:
                 raise LookupError(f"requirement {requirement_id} disappeared")
             qa_kind = str(req["qa_kind"])
-            now = iso8601_now()
+            now = utc_now()
             run_id = insert_qa_run(
                 conn,
                 qa_requirement_id=requirement_id,

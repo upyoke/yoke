@@ -8,9 +8,11 @@ side without pulling in mutators.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
-from yoke_core.domain.db_helpers import query_rows
+from yoke_contracts.timestamps import utc_now
+
+from yoke_core.domain.db_helpers import instant_parameter, query_rows
 
 from yoke_core.hooks.sessions_focus import _format_row
 
@@ -34,9 +36,7 @@ def cmd_stale(conn, threshold_minutes: int = 60) -> str:
     - no active (unreleased) work claims
     - no tool-call activity (``last_tool_call_at``) within the window
     """
-    cutoff = (
-        datetime.now(timezone.utc) - timedelta(minutes=threshold_minutes)
-    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    cutoff = utc_now() - timedelta(minutes=threshold_minutes)
     rows = query_rows(
         conn,
         "SELECT hs.session_id, hs.executor, hs.mode, hs.last_heartbeat "
@@ -49,6 +49,6 @@ def cmd_stale(conn, threshold_minutes: int = 60) -> str:
         ") "
         "AND (hs.last_tool_call_at IS NULL OR hs.last_tool_call_at < %s) "
         "ORDER BY hs.last_heartbeat ASC",
-        (cutoff, cutoff),
+        (instant_parameter(conn, cutoff), instant_parameter(conn, cutoff)),
     )
     return "\n".join(_format_row(row) for row in rows)

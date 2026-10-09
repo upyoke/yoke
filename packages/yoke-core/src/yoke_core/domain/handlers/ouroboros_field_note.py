@@ -41,7 +41,8 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 from yoke_core.domain import events as _events
-from yoke_core.domain.db_helpers import connect, iso8601_now
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.ouroboros_entries import cmd_insert_entry
 from yoke_core.domain.ouroboros_entry_corrections import (
     CorrectionTargetError,
@@ -128,7 +129,7 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
         return _bad_request(f"payload invalid: {exc}")
 
     evidence_preview = payload.evidence[:EVIDENCE_PREVIEW_CHARS]
-    timestamp = iso8601_now()
+    timestamp = utc_now()
     category = f"{CATEGORY_PREFIX}{payload.kind}"
     session_id = request.actor.session_id
 

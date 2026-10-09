@@ -6,6 +6,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
+from yoke_contracts.timestamps import utc_now
+
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -84,7 +86,7 @@ def handle_actor_role_set(request: FunctionCallRequest) -> HandlerOutcome:
                 actor_id=actor_id,
                 role=role.strip(),
                 caller_actor_id=int(raw_caller),
-                now=db_helpers.iso8601_now(),
+                now=utc_now(),
             )
         except ActorRoleRefused as exc:
             return _refuse(exc.code, str(exc))
