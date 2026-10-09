@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.approval_policy import parse_approval_policy
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.deployment_qa_acceptance_record import (
     record_acceptance as _record_acceptance,
 )
@@ -73,7 +73,7 @@ def _acceptance_requirement(
     run_id = str(subject["id"])
     stage_name = str(subject["stage"]["name"])
     member = subject.get("member_item_id")
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     created = conn.execute(
         "INSERT INTO qa_requirements("
         "deployment_run_id,deployment_stage,deployment_member_item_id,"

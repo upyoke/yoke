@@ -1,5 +1,10 @@
 """Stage changes stamp an atomic clock; re-entry never resets stage age."""
 
+from datetime import timedelta
+
+import pytest
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.domain.test_steering_fleet_report_deployment_run_facts import _seed_run
 from runtime.api.domain.test_deployment_run_auto_completion import _held_lock
 from runtime.api.domain.test_deployment_run_member_removal import (
@@ -13,8 +18,8 @@ from yoke_core.domain import deployment_run_stage_entry as clock
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_update, cmd_remove_item
 from yoke_core.domain.flow_init import converge_flow_catalog
 
-ENTERED = "2026-08-26T11:59:00Z"
-LATER = "2026-08-26T12:05:00Z"
+ENTERED = parse_instant("2026-08-26T11:59:00Z")
+LATER = parse_instant("2026-08-26T12:05:00Z")
 
 
 def _row(conn, run_id):
@@ -31,14 +36,14 @@ def test_stage_update_stamps_entry_and_repeated_update_preserves_it(
     run_id = "run-stamped-stage"
     _seed_run(conn, run_id=run_id, entered_at=None)
     conn.commit()
-    monkeypatch.setattr(clock, "iso8601_now", lambda: ENTERED)
+    monkeypatch.setattr(clock, "utc_now", lambda: ENTERED)
 
     assert cmd_update(run_id, "current_stage", "complete") is None
     row = _row(conn, run_id)
     assert row["current_stage"] == "complete"
     assert row["current_stage_entered_at"] == ENTERED
 
-    monkeypatch.setattr(clock, "iso8601_now", lambda: LATER)
+    monkeypatch.setattr(clock, "utc_now", lambda: LATER)
     assert cmd_update(run_id, "current_stage", "complete") is None
     assert _row(conn, run_id)["current_stage_entered_at"] == ENTERED
     assert cmd_update(run_id, "current_stage", "repair") is None
@@ -48,7 +53,7 @@ def test_stage_update_stamps_entry_and_repeated_update_preserves_it(
 def test_automatic_completion_stamps_complete(test_db, monkeypatch):
     _red_member(test_db)
     _held_lock(monkeypatch)
-    monkeypatch.setattr(clock, "iso8601_now", lambda: ENTERED)
+    monkeypatch.setattr(clock, "utc_now", lambda: ENTERED)
 
     cmd_remove_item(RUN, ITEM, reason=REASON)
 
@@ -79,7 +84,7 @@ def test_execution_guard_does_not_reopen_a_terminal_stage_clock(test_db, monkeyp
     run_id = "run-terminal-stage"
     _seed_run(conn, run_id=run_id, status="succeeded", entered_at=ENTERED)
     conn.commit()
-    monkeypatch.setattr(clock, "iso8601_now", lambda: LATER)
+    monkeypatch.setattr(clock, "utc_now", lambda: LATER)
 
     clock.set_current_stage(conn, run_id, "complete", only_executing=True)
     conn.commit()
@@ -140,3 +145,24 @@ def test_snapshot_stage_repair_does_not_keep_the_previous_stage_age(test_db):
     row = _row(test_db, RUN_ID)
     assert row["current_stage"] == "complete"
     assert row["current_stage_entered_at"] is None
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_stage_entry_keeps_microseconds_and_only_changes_with_the_stage(
+    test_db, monkeypatch, zone
+):
+    conn = seed_steering_scope(test_db)
+    conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    run_id = "run-native-stage"
+    _seed_run(conn, run_id=run_id, entered_at=None)
+    stamp = parse_instant("1969-12-31T23:59:59.999999Z")
+    monkeypatch.setattr(clock, "utc_now", lambda: stamp)
+    clock.set_current_stage(conn, run_id, "complete")
+    assert _row(conn, run_id)["current_stage_entered_at"] == stamp
+    stamp += timedelta(microseconds=1)
+    clock.set_current_stage(conn, run_id, "complete")
+    assert _row(conn, run_id)["current_stage_entered_at"] == stamp - timedelta(
+        microseconds=1
+    )
+    clock.set_current_stage(conn, run_id, "repair")
+    assert _row(conn, run_id)["current_stage_entered_at"] == stamp

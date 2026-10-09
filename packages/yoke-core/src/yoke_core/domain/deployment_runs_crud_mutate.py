@@ -7,7 +7,7 @@ from yoke_core.domain.deployment_start_timing import timed_call
 from collections.abc import Iterable
 from typing import Any, Mapping, Optional
 
-from yoke_core.domain.db_helpers import connect, iso8601_now
+from yoke_core.domain.db_helpers import connect, instant_parameter, utc_now
 from yoke_core.domain import deployment_run_lineage_rebind as lineage_rebind
 from yoke_core.domain import (
     deployment_run_completion_preconditions as completion_preconditions,
@@ -192,7 +192,7 @@ def cmd_update(
                 def stamp():
                     conn.execute(
                         "UPDATE deployment_runs SET status=%s, started_at=%s WHERE id=%s",
-                        (value, iso8601_now(), run_id),
+                        (value, instant_parameter(conn, utc_now()), run_id),
                     )
                     conn.commit()
 
@@ -220,10 +220,10 @@ def cmd_update(
                         refusal = settle_members(conn, run_id)
                     if refusal:
                         return refusal
-                completed_at = iso8601_now()
+                completed_at = utc_now()
                 conn.execute(
                     "UPDATE deployment_runs SET status=%s, completed_at=%s WHERE id=%s",
-                    (value, completed_at, run_id),
+                    (value, instant_parameter(conn, completed_at), run_id),
                 )
                 from yoke_core.domain.deployment_run_carried_work import (
                     record_carried_work,

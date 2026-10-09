@@ -36,7 +36,7 @@ from __future__ import annotations
 import io
 from typing import Any, Optional
 
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 #: Why a member that could itself close is still open. Reported instead of a
 #: blocker of its own, so nobody repairs a member that has nothing wrong.
@@ -53,7 +53,7 @@ def mark_settling(conn: Any, run_id: str) -> None:
     conn.execute(
         "UPDATE deployment_runs SET settling_at=COALESCE(settling_at, %s) "
         "WHERE id=%s AND status='executing'",
-        (iso8601_now(), run_id),
+        (instant_parameter(conn, utc_now()), run_id),
     )
     conn.commit()
 

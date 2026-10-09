@@ -10,7 +10,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_stage_receipt_schema import (
     DEPLOYMENT_STAGE_RECEIPTS_SQL,
 )
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 
 RECEIPT_STATUSES = frozenset({"pending", "ready", "failed", "cancelled"})
@@ -133,7 +133,7 @@ def allocate_deployment_stage_receipt(
                 correlation_id,
                 target_kind,
                 executor,
-                iso8601_now(),
+                instant_parameter(conn, utc_now()),
             ),
         )
         created = _row(cursor, cursor.fetchone())
@@ -240,7 +240,7 @@ def complete_deployment_stage_receipt(
                 "deployment run is no longer executing; a cancelled or replaced "
                 "run cannot accept a late stage-receipt completion"
             )
-        completed_at = iso8601_now()
+        completed_at = instant_parameter(conn, utc_now())
         conn.execute(
             "UPDATE deployment_stage_receipts SET status=%s,target_name=%s,"
             "observed_url=%s,observed_release_lineage=%s,"
