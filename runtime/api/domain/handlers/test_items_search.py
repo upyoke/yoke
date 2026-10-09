@@ -14,6 +14,21 @@ from yoke_core.domain.handlers import items_search
 
 
 class TestItemsSearch:
+    def test_default_limit_keeps_statuses_and_reports_all_matches(self, test_db):
+        for item_id in range(1, 61):
+            insert_item(test_db, id=item_id, title=f"bounded match {item_id}", status="done" if item_id % 2 else "implementing")
+        test_db.commit()
+        outcome = items_search.handle_items_search(request_for("items.search.run", {"keywords": "bounded match"}))
+        assert outcome.primary_success
+        assert outcome.result_payload["total_count"] == 60
+        rows = outcome.result_payload["matches"]
+        assert len(rows) == 20
+        assert rows[0]["id"] == f"YOK-{60}"
+        assert {row["status"] for row in rows} == {"done", "implementing"}
+        expanded = items_search.handle_items_search(request_for("items.search.run", {"keywords": "bounded match", "limit": 60}))
+        assert len(expanded.result_payload["matches"]) == 60
+        assert expanded.result_payload["total_count"] == 60
+
     def test_matches_title_and_structured_fields(self, test_db):
         insert_item(
             test_db, id=1, title="Wibble feature", spec="nothing here",

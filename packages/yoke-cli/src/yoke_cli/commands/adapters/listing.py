@@ -23,6 +23,7 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.items_projection import DEFAULT_SEARCH_LIMIT
 
 
 __all__ = [
@@ -112,8 +113,22 @@ def items_list(args: List[str]) -> int:
 
 
 ITEMS_SEARCH_USAGE = (
-    "yoke items search KEYWORDS [--project P|all] [--session-id S] [--json]"
+    "yoke items search KEYWORDS [--project P|all] [--limit N] [--session-id S] [--json]"
 )
+
+
+def _write_search(response, stdout, stderr) -> None:
+    if not response.success:
+        return
+    result = response.result or {}
+    matches = result.get("matches") or []
+    print("id\tstatus\ttitle", file=stdout)
+    for row in matches:
+        title = str(row.get("title") or "").replace("\n", " ").replace("\t", " ")
+        print(f"{row.get('id', '')}\t{row.get('status', '')}\t{title}", file=stdout)
+    remaining = int(result.get("total_count") or len(matches)) - len(matches)
+    if remaining > 0:
+        print(f"{remaining} more; add --limit N", file=stdout)
 
 
 def items_search(args: List[str]) -> int:
@@ -125,6 +140,7 @@ def items_search(args: List[str]) -> int:
         help="Keyword phrase matched against title/spec/design/plan.",
     )
     add_project_arg(parser)
+    parser.add_argument("--limit", type=int, help=f"Maximum matches (default {DEFAULT_SEARCH_LIMIT}; 1..1000).")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_SEARCH_USAGE)
@@ -133,6 +149,8 @@ def items_search(args: List[str]) -> int:
     if not parsed.keywords.strip():
         return usage_error("KEYWORDS must be non-empty")
     payload: Dict[str, Any] = {"keywords": parsed.keywords}
+    if parsed.limit is not None:
+        payload["limit"] = parsed.limit
     # Default scope to the checkout's project (cwd -> machine-config map),
     # mirroring items list; `--project all` searches every project.
     if (parsed.project or "").strip().lower() != "all":
@@ -145,4 +163,5 @@ def items_search(args: List[str]) -> int:
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
+        human_writer=_write_search,
     )

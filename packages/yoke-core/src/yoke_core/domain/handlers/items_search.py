@@ -13,9 +13,8 @@ lookup), and ``internal_id`` carries the numeric key for programmatic
 consumers. ``public_ref`` is deliberately not duplicated here — ``id``
 is the ref; consumers wanting the alias can read ``id``.
 
-The read is uncapped unless the caller passes a ``limit``; a surface that
-renders a short result list should pass its own cap so a broad keyword does
-not ship the whole backlog. Carries ``claim_required_kind=None`` (a read).
+The read defaults to a bounded result with the total matching count.
+Explicit limits select more rows. Carries ``claim_required_kind=None``.
 """
 
 from __future__ import annotations
@@ -30,6 +29,7 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_contracts.public_ref import format_item_ref, parse_public_item_ref
+from yoke_contracts.items_projection import DEFAULT_SEARCH_LIMIT
 from yoke_core.domain.handlers.items_project_scope import (
     actor_visible_scope,
     ambiguous_project_error,
@@ -41,19 +41,18 @@ class ItemsSearchRequest(BaseModel):
     keywords: str
     project: Optional[str] = None
     limit: Optional[int] = Field(
-        default=None,
+        default=DEFAULT_SEARCH_LIMIT,
         ge=1,
         le=1000,
         description=(
-            "Cap on returned matches, newest first. Omit for every match — "
-            "callers that render a short result list should pass their cap "
-            "so a broad keyword does not ship the whole backlog."
+            f"Cap on returned matches, newest first (default {DEFAULT_SEARCH_LIMIT})."
         ),
     )
 
 
 class ItemsSearchResponse(BaseModel):
     matches: List[Dict[str, Any]]
+    total_count: int
 
 
 def handle_items_search(request: FunctionCallRequest) -> HandlerOutcome:
@@ -70,6 +69,8 @@ def handle_items_search(request: FunctionCallRequest) -> HandlerOutcome:
         )
 
     limit = payload.get("limit")
+    if limit is None:
+        limit = DEFAULT_SEARCH_LIMIT
     if limit is not None:
         try:
             limit = int(limit)
@@ -89,6 +90,7 @@ def handle_items_search(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.project_identity import AmbiguousProjectRefError
 
     conn = connect()
+    total_count = 0
     try:
         scoped = actor_visible_scope(conn, request)
         explicit_project = payload.get("project") or None
@@ -104,7 +106,7 @@ def handle_items_search(request: FunctionCallRequest) -> HandlerOutcome:
             if explicit_project is not None and project_id is None:
                 matches = []
             else:
-                matches = _search_items(
+                matches, total_count = _search_items(
                     conn,
                     str(keywords),
                     project_id=project_id,
@@ -114,7 +116,7 @@ def handle_items_search(request: FunctionCallRequest) -> HandlerOutcome:
     finally:
         conn.close()
     return HandlerOutcome(
-        result_payload={"matches": matches},
+        result_payload={"matches": matches, "total_count": total_count},
         primary_success=True,
     )
 
@@ -126,7 +128,7 @@ def _search_items(
     project_id: Optional[int],
     visible_project_ids: Optional[set[int]],
     limit: Optional[int] = None,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], int]:
     """Match items by keyword across their authored text, and — when the query
     reads as an item reference — by that reference.
 
@@ -139,7 +141,7 @@ def _search_items(
     recent work rather than the oldest.
     """
     if visible_project_ids is not None and not visible_project_ids:
-        return []
+        return [], 0
     pattern = f"%{keywords.lower()}%"
     match_clauses = [
         "(LOWER(i.title) LIKE %s OR LOWER(i.spec) LIKE %s "
@@ -176,14 +178,15 @@ def _search_items(
         order = f"ORDER BY CASE WHEN {ranked} THEN 0 ELSE 1 END, i.id DESC"
     sql = (
         "SELECT i.id, i.title, i.status, i.project_sequence, "
-        "p.id AS project_id, p.slug AS project, p.public_item_prefix "
+        "p.id AS project_id, p.slug AS project, p.public_item_prefix, "
+        "COUNT(*) OVER() AS total_count "
         f"FROM items i JOIN projects p ON p.id = i.project_id {where} {order}"
     )
     if limit is not None:
         sql += " LIMIT %s"
         params.append(int(limit))
     rows = conn.execute(sql, tuple(params)).fetchall()
-    return [
+    matches = [
         {
             "id": format_item_ref(
                 row["project"],
@@ -198,6 +201,7 @@ def _search_items(
         }
         for row in rows
     ]
+    return matches, int(rows[0]["total_count"]) if rows else 0
 
 
 __all__ = [

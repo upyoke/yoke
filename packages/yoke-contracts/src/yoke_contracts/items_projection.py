@@ -17,6 +17,8 @@ from __future__ import annotations
 from difflib import get_close_matches
 from typing import Iterable, Sequence
 
+DEFAULT_SEARCH_LIMIT = 20
+
 # Canonical column order for pipe-delimited row output.
 # "body" is a virtual field rendered on demand.
 CANONICAL_COLUMNS: tuple[str, ...] = (
@@ -155,6 +157,7 @@ __all__ = [
     "ALLOWED_GET_FIELDS",
     "CANONICAL_COLUMNS",
     "DEFAULT_GET_FIELDS",
+    "DEFAULT_SEARCH_LIMIT",
     "STRUCTURED_FIELDS",
     "render_field_catalog",
     "unknown_field_message",
