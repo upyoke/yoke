@@ -46,3 +46,13 @@ def test_whole_text_gate_finds_every_line_match() -> None:
     assert gate is not None
     assert gate.search("first\nset widget_rules here\nlast\n")
     assert not gate.search("first\nwidget_rulesx\n")
+
+
+@pytest.mark.parametrize("source", [r"items[^\n]*WHERE", r"[^^$]+", r"[]^$]+", r"[\]$^]+", r"\^literal\$"])
+def test_literal_anchor_characters_keep_the_whole_file_gate(source):
+    assert _whole_text_gate(source) is not None
+
+
+@pytest.mark.parametrize("source", [r"[^x]^foo", r"[]^]+$", r"[\]](?=foo)", r"[x]\Afoo", r"(?# [)^foo]", r"(?x) foo $ # bar"])
+def test_line_context_after_a_class_or_comment_keeps_the_line_scan(source):
+    assert _whole_text_gate(source) is None
