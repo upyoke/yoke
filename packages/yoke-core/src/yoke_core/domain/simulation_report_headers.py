@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, cast
+
+from yoke_contracts.public_ref import parse_public_item_ref
 
 SimulationVerdict = Literal["CLEAN", "GAPS FOUND"]
 
@@ -34,7 +36,8 @@ def parse_simulation_headers(
     if len(lines) < 2 or not lines[1].startswith("EPIC: "):
         refuse("simulation_identity_missing")
     identity = lines[1].removeprefix("EPIC: ")
-    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*-[1-9][0-9]*", identity):
+    prefix, sequence = parse_public_item_ref(identity)
+    if prefix is None or sequence is None or sequence < 1:
         refuse("simulation_identity_mismatch")
     if public_ref is not None and identity != public_ref:
         refuse("simulation_identity_mismatch")
@@ -56,7 +59,7 @@ def parse_simulation_headers(
             refuse("simulation_verdict_invalid")
         if line.startswith("EPIC:") and line != f"EPIC: {identity}":
             refuse("simulation_identity_mismatch")
-    return verdict
+    return cast(SimulationVerdict, verdict)
 
 
 @dataclass(frozen=True)
