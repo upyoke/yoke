@@ -29,7 +29,7 @@ from yoke_core.domain.steering_fleet_plan_capacity import (
     plan_limit_lines,
 )
 
-_NOW = "2026-09-01T13:20:00Z"
+_NOW = "2026-09-01T13:20:00.000000Z"
 _REASON_CLASSES = (
     ("stale_credential", CREDENTIAL_GUIDANCE),
     ("codex_auth_missing_tokens", CREDENTIAL_GUIDANCE),
@@ -119,7 +119,7 @@ def test_a_readable_window_carries_no_guidance() -> None:
                         scope="all",
                         meter="session",
                         remaining_percent=89.0,
-                        resets_at="2026-09-01T15:00:00Z",
+                        resets_at="2026-09-01T15:00:00.000000Z",
                     )
                 ],
             }
@@ -147,14 +147,16 @@ def test_the_machines_roster_serves_guidance_with_each_unreadable_window() -> No
             "launch.271",
             json.dumps({"claude-cli": "2.1"}),
             json.dumps([1]),
-            "2026-08-22T12:00:00Z",
-            "2026-08-22T12:01:00Z",
-            "2026-08-22T12:03:00Z",
+            "2026-08-22T12:00:00.000000Z",
+            "2026-08-22T12:01:00.000000Z",
+            "2026-08-22T12:03:00.000000Z",
             "active",
             json.dumps(
                 {
                     "claude-cli": unknown_reading(
-                        "claude-cli", "http_429", observed_at="2026-08-22T12:01:00Z"
+                        "claude-cli",
+                        "http_429",
+                        observed_at="2026-08-22T12:01:00.000000Z",
                     )
                 }
             ),
@@ -162,7 +164,7 @@ def test_the_machines_roster_serves_guidance_with_each_unreadable_window() -> No
     )
     conn.commit()
 
-    (relay,) = list_visible_relays(conn, actor_id=10, now="2026-08-22T12:02:00Z")
+    (relay,) = list_visible_relays(conn, actor_id=10, now="2026-08-22T12:02:00.000000Z")
 
     (window,) = relay["plan_limits"]["claude-cli"]["windows"]
     assert window["reason"] == "http_429"

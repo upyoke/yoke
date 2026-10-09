@@ -112,7 +112,7 @@ def test_list_models_names_the_models_a_surface_actually_published(
                 "codex-cli",
                 [native_model("gpt-6-astra")],
                 source="codex app-server model/list",
-                observed_at="2026-09-07T14:00:00Z",
+                observed_at="2026-09-07T14:00:00.000000Z",
             )
         },
     )

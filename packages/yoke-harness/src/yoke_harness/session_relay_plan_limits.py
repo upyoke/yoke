@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from yoke_contracts.machine_config.directories import create_private_directory
-
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime
+
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+from yoke_harness.session_relay_probe_cache import read_probe_cache, write_probe_cache
+from yoke_contracts.timestamps import iso8601_now as _now_iso
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
-import time
 from typing import Any, Callable, Mapping, Sequence
 
 from yoke_contracts.session_control.plan_limit_parsers import (
@@ -40,15 +41,11 @@ PLAN_LIMIT_CACHE_FILE_NAME = "plan-limits.json"
 # different shape is discarded rather than reported, so an upgraded relay
 # publishes real windows on its first poll instead of unreadable ones for
 # the rest of the refresh interval.
-PLAN_LIMIT_CACHE_SCHEMA_VERSION = 3
+PLAN_LIMIT_CACHE_SCHEMA_VERSION = 4
 _CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 _CURSOR_RPC = "https://api2.cursor.sh/aiserver.v1.DashboardService/"
 
 _failures = FailureReporter()
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _cache_path(state_dir: Path | None) -> Path:
@@ -56,38 +53,11 @@ def _cache_path(state_dir: Path | None) -> Path:
 
 
 def _read_cache(state_dir: Path | None) -> dict[str, Any]:
-    empty: dict[str, Any] = {
-        "schema_version": PLAN_LIMIT_CACHE_SCHEMA_VERSION,
-        "probed_at": 0.0,
-        "surfaces": {},
-    }
-    try:
-        payload = json.loads(_cache_path(state_dir).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, TypeError, ValueError):
-        return empty
-    if not isinstance(payload, dict):
-        return empty
-    if payload.get("schema_version") != PLAN_LIMIT_CACHE_SCHEMA_VERSION:
-        return empty
-    surfaces = payload.get("surfaces")
-    try:
-        probed_at = float(payload.get("probed_at") or 0)
-    except (TypeError, ValueError):
-        probed_at = 0.0
-    return {
-        "schema_version": PLAN_LIMIT_CACHE_SCHEMA_VERSION,
-        "probed_at": probed_at,
-        "surfaces": dict(surfaces) if isinstance(surfaces, Mapping) else {},
-    }
+    return read_probe_cache(_cache_path(state_dir), PLAN_LIMIT_CACHE_SCHEMA_VERSION)
 
 
 def _write_cache(document: Mapping[str, Any], state_dir: Path | None) -> None:
-    path = _cache_path(state_dir)
-    create_private_directory(path.parent)
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(document, sort_keys=True), encoding="utf-8")
-    temporary.chmod(0o600)
-    temporary.replace(path)
+    write_probe_cache(_cache_path(state_dir), document)
 
 
 def _keychain_password(service: str) -> str | None:
@@ -233,22 +203,23 @@ def observe_plan_limits(
     surfaces: Sequence[str],
     *,
     state_dir: Path | None = None,
-    now: float | None = None,
+    now: datetime | str | None = None,
     clock: Callable[[], str] = _now_iso,
 ) -> dict[str, dict[str, Any]]:
     """Return cached readings, refreshing connected CLI surfaces every 4 minutes."""
-    current = time.time() if now is None else now
+    current = utc_now() if now is None else parse_instant(now)
     wanted = tuple(
         surface for surface in CLI_PLAN_LIMIT_SURFACES if surface in set(surfaces)
     )
     document = _read_cache(state_dir)
     cached = sanitize_plan_limits(document.get("surfaces"))
-    fresh = (
-        current - float(document.get("probed_at") or 0)
-    ) < PLAN_LIMIT_REFRESH_SECONDS
+    probed_at = document["probed_at"]
+    fresh = probed_at is not None and (
+        0 <= (current - probed_at).total_seconds() < PLAN_LIMIT_REFRESH_SECONDS
+    )
     if fresh and all(surface in cached for surface in wanted):
         return {surface: cached[surface] for surface in wanted}
-    observed_at = clock()
+    observed_at = format_instant(clock())
     readings: dict[str, dict[str, Any]] = {}
     if wanted:
         with ThreadPoolExecutor(max_workers=len(wanted)) as pool:

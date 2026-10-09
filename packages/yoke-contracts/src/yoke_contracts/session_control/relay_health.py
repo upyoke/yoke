@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_contracts.timestamps import format_instant
+
 
 MAX_RELAY_QUARANTINE_FACTS = 20
 RELAY_NEWER_THAN_SERVER = "relay_newer_than_server"
@@ -30,8 +32,12 @@ def _failure(value: object) -> dict[str, Any]:
     result = {
         "error_code": _text(value.get("error_code")),
         "failure_count": _count(value.get("failure_count")),
-        "first_failed_at": _text(value.get("first_failed_at"), limit=32),
-        "last_failed_at": _text(value.get("last_failed_at"), limit=32),
+        "first_failed_at": format_instant(value["first_failed_at"])
+        if value.get("first_failed_at") is not None
+        else None,
+        "last_failed_at": format_instant(value["last_failed_at"])
+        if value.get("last_failed_at") is not None
+        else None,
     }
     return result if result["error_code"] else {}
 
@@ -54,7 +60,9 @@ def _quarantines(value: object) -> list[dict[str, Any]]:
                 "job_kind": _text(entry.get("job_kind"), limit=16),
                 "error_code": _text(entry.get("error_code")),
                 "attempts": _count(entry.get("attempts")),
-                "quarantined_at": _text(entry.get("quarantined_at"), limit=32),
+                "quarantined_at": format_instant(entry["quarantined_at"])
+                if entry.get("quarantined_at") is not None
+                else None,
             }
         )
     return result
@@ -74,7 +82,9 @@ def _run_refusal(value: object) -> dict[str, Any]:
         "local_revision": local_revision,
         "server_revision": server_revision,
         "ahead_by": _count(value.get("ahead_by")),
-        "observed_at": _text(value.get("observed_at"), limit=32),
+        "observed_at": format_instant(value["observed_at"])
+        if value.get("observed_at") is not None
+        else None,
         "recovery": RELAY_NEWER_THAN_SERVER_RECOVERY,
     }
     pinned_release = _text(value.get("pinned_release"))

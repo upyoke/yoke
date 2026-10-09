@@ -114,7 +114,7 @@ def create_decision_request(
     """Create once per open typed subject; repeated gate attempts reuse it."""
     stamp = parse_instant(created_at) if created_at is not None else utc_now()
     stored_stamp = instant_parameter(conn, stamp)
-    context = validate_subject_context(kind, subject_context)
+    context = dict(subject_context or {})
     if kind == MACHINE_APPROVAL:
         context = machine_context_wire(context)
     if kind not in DECISION_KINDS:
@@ -165,7 +165,7 @@ def create_decision_request(
             subject_type,
             subject_key,
             json.dumps(
-                context,
+                validate_subject_context(kind, context),
                 separators=(",", ":"),
             ),
             project_id,

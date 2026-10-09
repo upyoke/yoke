@@ -232,3 +232,12 @@ Machine-authorization lifecycle delivery rejects unqualified and numeric clocks
 before coercion. Its declared expiry, occurrence and end-context clocks serialize
 as fixed-six UTC/null; other context strings remain opaque. Expiry checks compare
 native instants inclusively, preserving microseconds and offset equivalence.
+
+Relay model and plan-limit probe caches use native aware clocks internally and
+canonical UTC/null probe clocks in their versioned JSON files. Obsolete numeric
+cache shapes are discarded and reprobed; a future cache cannot prove freshness.
+Elapsed cadence includes the lower boundary and excludes its exact expiry.
+Model observations, plan-window resets and relay failure/quarantine/refusal
+clocks format only as declared instant fields. Missing observations are null;
+model tokens, retirement dates, report bodies and preserved payload digests stay
+opaque. Quarantine validates a supplied clock before moving its payload.

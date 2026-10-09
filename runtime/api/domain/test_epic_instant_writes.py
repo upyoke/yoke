@@ -124,6 +124,16 @@ def test_dispatch_progress_cascade_and_sections_keep_native_microseconds(
     )
 
     class Borrowed:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, _exc, _traceback):
+            if exc_type is None:
+                test_db.commit()
+            else:
+                test_db.rollback()
+            return False
+
         def __getattr__(self, name):
             return getattr(test_db, name)
 

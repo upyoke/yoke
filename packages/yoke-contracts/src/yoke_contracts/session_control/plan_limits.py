@@ -19,6 +19,8 @@ labelled unreadable row instead of a blank one.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+
+from yoke_contracts.timestamps import format_instant
 from typing import Any, Mapping, Sequence
 
 CLI_PLAN_LIMIT_SURFACES = ("claude-cli", "codex-cli", "cursor-cli")
@@ -69,9 +71,7 @@ _STRING_MAX = 128
 
 
 def iso_from_epoch_seconds(seconds: float) -> str:
-    return datetime.fromtimestamp(float(seconds), timezone.utc).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    return format_instant(datetime.fromtimestamp(float(seconds), timezone.utc))
 
 
 def iso_from_epoch_ms(value: object) -> str | None:
@@ -105,7 +105,7 @@ def plan_limit_window(
         "scope": scope,
         "meter": meter,
         "remaining_percent": remaining_percent,
-        "resets_at": resets_at,
+        "resets_at": format_instant(resets_at) if resets_at is not None else None,
         "status": "ok",
         "reason": None,
     }
@@ -133,7 +133,7 @@ def surface_reading(
     return {
         "surface": surface,
         "plan_tier": plan_tier,
-        "observed_at": observed_at,
+        "observed_at": format_instant(observed_at) if observed_at is not None else None,
         "windows": [dict(window) for window in windows],
     }
 
@@ -192,7 +192,9 @@ def _sanitize_window(raw: Mapping[str, Any]) -> dict[str, Any]:
         "scope": _clip(raw.get("scope")) or ALL_MODELS_SCOPE,
         "meter": _clip(raw.get("meter")) or "unknown",
         "remaining_percent": remaining_percent,
-        "resets_at": _clip(raw.get("resets_at")),
+        "resets_at": format_instant(raw["resets_at"])
+        if raw.get("resets_at") is not None
+        else None,
         "status": status,
         "reason": _clip(raw.get("reason")),
     }
@@ -231,7 +233,9 @@ def sanitize_plan_limits(raw: Mapping[str, Any] | None) -> dict[str, dict[str, A
         entry = {
             "surface": surface,
             "plan_tier": _clip(row.get("plan_tier")),
-            "observed_at": _clip(row.get("observed_at")) or "",
+            "observed_at": format_instant(row["observed_at"])
+            if row.get("observed_at") is not None
+            else None,
             "windows": _sanitize_windows(row.get("windows")),
         }
         cleaned[surface] = {key: entry[key] for key in _READING_KEYS}

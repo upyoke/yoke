@@ -23,6 +23,8 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
 
+from yoke_contracts.timestamps import format_instant
+
 #: Every surface a relay can report. Desktop and editor surfaces are listed
 #: so their availability is answered explicitly rather than inferred from the
 #: CLI that happens to share their vendor: shipping a CLI proves nothing
@@ -123,7 +125,7 @@ def models_reading(
         "status": "ok",
         "reason": TRUNCATED_REASON if len(models) > len(kept) else None,
         "source": source,
-        "observed_at": observed_at,
+        "observed_at": format_instant(observed_at) if observed_at is not None else None,
         "models": kept,
     }
 
@@ -134,7 +136,7 @@ def empty_reading(
     reason: str,
     *,
     source: str = "",
-    observed_at: str = "",
+    observed_at: str | None = None,
 ) -> dict[str, Any]:
     """A reading that names why it carries no models."""
     return {
@@ -142,7 +144,7 @@ def empty_reading(
         "status": status if status in NATIVE_MODEL_STATUSES else "unknown",
         "reason": reason,
         "source": source,
-        "observed_at": observed_at,
+        "observed_at": format_instant(observed_at) if observed_at is not None else None,
         "models": [],
     }
 
@@ -166,7 +168,9 @@ def stale_reading(
         "status": "stale",
         "reason": reason,
         "source": str((previous or {}).get("source") or ""),
-        "observed_at": str((previous or {}).get("observed_at") or ""),
+        "observed_at": format_instant(previous["observed_at"])
+        if previous.get("observed_at") is not None
+        else None,
         "models": [dict(model) for model in models if isinstance(model, Mapping)],
     }
 
@@ -222,7 +226,9 @@ def sanitize_native_models(raw: Mapping[str, Any] | None) -> dict[str, dict[str,
             "status": status,
             "reason": _clip(row.get("reason")),
             "source": _clip(row.get("source")) or "",
-            "observed_at": _clip(row.get("observed_at")) or "",
+            "observed_at": format_instant(row["observed_at"])
+            if row.get("observed_at") is not None
+            else None,
             "models": models,
         }
     return cleaned
