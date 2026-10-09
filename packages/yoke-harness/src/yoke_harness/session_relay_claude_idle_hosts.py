@@ -1,10 +1,7 @@
 """Reclaim the Claude background hosts that ended sessions leave behind.
 
-Every Claude session launched on this machine runs inside a ``claude
-bg-spare`` process the Claude daemon handed it. When the Yoke session ends,
-nothing tells the daemon: the background job stays open and idle, so its
-process — around half a gigabyte resident — outlives the work by days. Ten
-such hosts once held 2.1 GB on a machine with 44 MB free.
+Claude daemon background hosts can outlive the Yoke sessions they ran.
+The relay reclaims eligible idle hosts using the daemon job and session records.
 
 Two rules, both Claude-specific because the daemon, its job registry, and
 the spare pool are Claude Code runtime facts with no Codex or Cursor
@@ -35,6 +32,7 @@ working.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 import logging
 import os
 import signal
@@ -48,6 +46,7 @@ from yoke_contracts.process_ancestry import (
     ps_lines,
 )
 from yoke_contracts.session_control.function_ids import RELAY_IDLE_HOSTS_FUNCTION_ID
+from yoke_contracts.timestamps import InvalidInstant, parse_instant, utc_now
 from yoke_harness.claude_runtime_records import (
     claude_job_state,
     claude_session_record,
@@ -148,13 +147,14 @@ def process_inventory() -> dict[int, HostProcess]:
 def plan_idle_hosts(
     processes: Mapping[int, HostProcess],
     *,
-    now: float,
+    now: datetime,
     session_record_of: Callable[
         [int], Mapping[str, Any] | None
     ] = claude_session_record,
     job_state_of: Callable[[str], Mapping[str, Any] | None] = claude_job_state,
 ) -> tuple[IdleHost, ...]:
     """Name every spare that is idle and provably one session's used host."""
+    current = parse_instant(now)
     spares = [
         entry
         for entry in processes.values()
@@ -182,11 +182,12 @@ def plan_idle_hosts(
         job = job_state_of(job_id) if job_id else None
         if job is None or job.get("tempo") == CLAUDE_JOB_ACTIVE_TEMPO:
             continue
-        updated = job.get("updated_epoch")
-        if not isinstance(updated, (int, float)):
+        try:
+            updated = parse_instant(job.get("updated_at"))
+        except InvalidInstant:
             continue
-        idle_seconds = int(now - updated)
-        if idle_seconds < IDLE_HOST_THRESHOLD_SECONDS:
+        idle = current - updated
+        if idle < timedelta(seconds=IDLE_HOST_THRESHOLD_SECONDS):
             continue
         state = str(job.get("state") or "")
         hosts.append(
@@ -196,8 +197,13 @@ def plan_idle_hosts(
                 job_id=job_id,
                 job_state=state,
                 start_epoch=spare.start_epoch,
-                age_seconds=int(now - spare.start_epoch),
-                idle_seconds=idle_seconds,
+                age_seconds=int(
+                    (
+                        current
+                        - datetime.fromtimestamp(spare.start_epoch, timezone.utc)
+                    ).total_seconds()
+                ),
+                idle_seconds=int(idle.total_seconds()),
                 rss_kb=spare.rss_kb,
                 exited=state == CLAUDE_JOB_EXITED_STATE,
             )
@@ -264,7 +270,7 @@ def reclaim_idle_claude_hosts(
     inventory: Any,
     *,
     processes: Mapping[int, HostProcess] | None = None,
-    now: float | None = None,
+    now: datetime | None = None,
     session_record_of: Callable[
         [int], Mapping[str, Any] | None
     ] = claude_session_record,
@@ -280,9 +286,10 @@ def reclaim_idle_claude_hosts(
     has ended; those are stopped through Claude's own stop path and reported
     on a second call so the evidence lands the same cycle it was produced.
     """
+    current = parse_instant(utc_now() if now is None else now)
     hosts = plan_idle_hosts(
         processes if processes is not None else process_inventory(),
-        now=time.time() if now is None else now,
+        now=current,
         session_record_of=session_record_of,
         job_state_of=job_state_of,
     )

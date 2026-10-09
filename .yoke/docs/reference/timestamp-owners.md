@@ -191,3 +191,10 @@ audit writer surfaces use one finite parameter owner; native update clocks keep
 nullable absence and reject malformed values before mutation. New verification
 command outcomes and console projections format their declared clocks as
 fixed-six UTC. Current migration capability/audit fixtures declare native types.
+
+Claude job-record reads parse only their declared updatedAt clock as a native
+aware instant. Missing clocks stay unknown; malformed clocks refuse the bounded
+read without changing foreign bytes. Idle eligibility compares native timedeltas
+at microsecond precision before reporting integer durations. OS process-start
+and foreign session-start NumericDate protocols retain their process identity
+role; live-session and newest-spare protections remain in place.

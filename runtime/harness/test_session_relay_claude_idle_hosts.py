@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import subprocess
@@ -13,6 +14,7 @@ from yoke_contracts.process_ancestry import (
     process_start_time,
 )
 from yoke_contracts.session_control.function_ids import RELAY_IDLE_HOSTS_FUNCTION_ID
+from yoke_contracts.timestamps import parse_instant
 from yoke_harness import session_relay_claude_idle_hosts as idle_hosts
 from yoke_harness.claude_runtime_records import (
     claude_job_state,
@@ -32,10 +34,11 @@ from yoke_harness.session_relay_claude_idle_hosts import (
 )
 
 
-NOW = 1_800_000_000.0
-OLD = NOW - 7 * 24 * 3600
-STALE = NOW - IDLE_HOST_THRESHOLD_SECONDS - 60
-FRESH = NOW - 30
+PROCESS_NOW = 1_800_000_000.0
+NOW = datetime.fromtimestamp(PROCESS_NOW, timezone.utc)
+OLD = PROCESS_NOW - 7 * 24 * 3600
+STALE = NOW - timedelta(seconds=IDLE_HOST_THRESHOLD_SECONDS + 60)
+FRESH = NOW - timedelta(seconds=30)
 SPARE = CLAUDE_BACKGROUND_SPARE_PROCESS_NAME
 
 
@@ -77,7 +80,7 @@ def _record(session_id: str, *, started=OLD + 60, kind="bg"):
 
 
 def _job(state: str, *, updated=STALE, tempo="idle"):
-    return {"state": state, "tempo": tempo, "updated_epoch": updated}
+    return {"state": state, "tempo": tempo, "updated_at": updated}
 
 
 def _fixture():
@@ -86,7 +89,7 @@ def _fixture():
         101: _process(101),  # exited job, idle: signalled
         102: _process(102),  # busy: has a child
         103: _process(103, ppid=102, name="zsh"),
-        104: _process(104, start=NOW - 5),  # newest spare: the warm pool
+        104: _process(104, start=PROCESS_NOW - 5),  # newest spare: the warm pool
         105: _process(105),  # job moved recently
         106: _process(106),  # no session record: never claimed
         107: _process(107),  # mid-turn
@@ -98,7 +101,7 @@ def _fixture():
     records = {
         101: _record("a0000101-0000-4000-8000-000000000101"),
         102: _record("a0000102-0000-4000-8000-000000000102"),
-        104: _record("a0000104-0000-4000-8000-000000000104", started=NOW - 2),
+        104: _record("a0000104-0000-4000-8000-000000000104", started=PROCESS_NOW - 2),
         105: _record("a0000105-0000-4000-8000-000000000105"),
         107: _record("a0000107-0000-4000-8000-000000000107"),
         108: _record("a0000108-0000-4000-8000-000000000108", started=OLD + 60),
@@ -126,7 +129,7 @@ def test_plan_names_only_idle_used_hosts_and_keeps_the_newest_spare() -> None:
     )
     assert [(host.pid, host.exited) for host in hosts] == [(101, True), (109, False)]
     signalled = hosts[0]
-    assert signalled.age_seconds == int(NOW - OLD)
+    assert signalled.age_seconds == int(PROCESS_NOW - OLD)
     assert signalled.idle_seconds == IDLE_HOST_THRESHOLD_SECONDS + 60
     assert signalled.rss_kb == 500_000
     assert signalled.job_state == "stopped"
@@ -301,6 +304,6 @@ def test_claude_records_are_read_bounded_and_normalised(tmp_path: Path) -> None:
     assert claude_session_record(999, tmp_path) is None
     state = claude_job_state(session_id[:8], tmp_path)
     assert state["state"] == "done" and state["tempo"] == "idle"
-    assert int(state["updated_epoch"]) == 1788466080
+    assert state["updated_at"] == parse_instant("2026-09-03T20:08:00.176Z")
     assert claude_job_state("../jobs", tmp_path) is None
     assert claude_job_state("missing0", tmp_path) is None

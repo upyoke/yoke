@@ -16,12 +16,13 @@ crash on a file another program owns.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 import json
 import os
 from pathlib import Path
 import stat
 from typing import Any
+
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
 
 
 CLAUDE_CONFIG_DIR_ENV = "CLAUDE_CONFIG_DIR"
@@ -91,15 +92,6 @@ def job_state_path(job_id: str, root: Path | None = None) -> Path:
     return base / CLAUDE_JOBS_DIR_NAME / job_id / CLAUDE_JOB_STATE_FILE_NAME
 
 
-def _iso_epoch(value: Any) -> float | None:
-    if not isinstance(value, str) or not value:
-        return None
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
-    except ValueError:
-        return None
-
-
 def claude_job_state(job_id: str, root: Path | None = None) -> dict[str, Any] | None:
     """Return the daemon's view of one job: state, tempo, and when it last moved."""
     if not job_id or "/" in job_id or job_id.startswith("."):
@@ -107,10 +99,15 @@ def claude_job_state(job_id: str, root: Path | None = None) -> dict[str, Any] | 
     state = bounded_json_record(job_state_path(job_id, root))
     if state is None:
         return None
+    updated = state.get("updatedAt")
+    try:
+        updated = parse_instant(updated) if updated is not None else None
+    except InvalidInstant:
+        return None
     return {
         "state": str(state.get("state") or ""),
         "tempo": str(state.get("tempo") or ""),
-        "updated_epoch": _iso_epoch(state.get("updatedAt")),
+        "updated_at": updated,
     }
 
 
