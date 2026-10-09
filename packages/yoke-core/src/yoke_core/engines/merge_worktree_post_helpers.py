@@ -1,7 +1,7 @@
 """Post-merge helper functions for the merge-worktree engine.
 
 Contains:
-  - Post-merge verification and cleanup  (_post_merge_cleanup)
+  - Working-directory evacuation         (_chdir_out_of_doomed_worktree)
   - Schema refresh                       (_schema_refresh)
   - Target branch enforcement            (_ensure_target_branch)
 
@@ -10,6 +10,8 @@ re-exported here for callers using the legacy import path.
 
 These are private helpers; callers should import from
 ``merge_worktree_post`` which preserves the public import surface.
+The cleanup routine lives in ``merge_worktree_cleanup`` and imports these
+helpers; this module keeps that dependency one-way.
 """
 
 from __future__ import annotations
@@ -113,6 +115,3 @@ def _ensure_target_branch(ctx: MergeContext) -> None:
                 err=True,
             )
             _run_git(["checkout", ctx.args.target], cwd=ctx.repo_root, capture=True)
-
-
-from yoke_core.engines.merge_worktree_cleanup import _post_merge_cleanup  # noqa: E402,F401

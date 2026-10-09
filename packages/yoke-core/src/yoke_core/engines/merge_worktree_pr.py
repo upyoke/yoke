@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.engines.merge_worktree_prepare import MergeContext
-from yoke_core.engines.merge_worktree_post_helpers import _post_merge_cleanup
+from yoke_core.engines.merge_worktree_cleanup import _post_merge_cleanup
 from yoke_core.engines.merge_worktree_pr_discovery import find_existing_pr
 from yoke_core.engines.merge_worktree_pr_rest import create_pr
 from yoke_core.engines.merge_worktree_pr_merge import (
@@ -23,12 +23,8 @@ from yoke_core.domain.item_test_results_classify import evaluate_ci_substitute
 
 def _parent():
     from yoke_core.engines import merge_worktree as _mw
+
     return _mw
-
-
-
-
-
 
 
 def do_pr_merge(ctx: MergeContext) -> int:
@@ -51,13 +47,16 @@ def do_pr_merge(ctx: MergeContext) -> int:
     _print = mw._print
     _run_git = mw._run_git
     _emit_merge_event = mw._emit_merge_event
-    _fail_merge_subprocess = mw._fail_merge_subprocess  # still used for branch-push failure
+    _fail_merge_subprocess = (
+        mw._fail_merge_subprocess
+    )  # still used for branch-push failure
     _fail_merge_rest = mw._fail_merge_rest
 
     # No-op detection: nothing to merge if branch has no unique commits.
     unique = _run_git(
         ["log", f"origin/{ctx.args.target}..{ctx.args.branch}", "--oneline"],
-        cwd=ctx.repo_root, capture=True,
+        cwd=ctx.repo_root,
+        capture=True,
     )
     unique_count = (
         len(unique.stdout.strip().splitlines()) if unique.stdout.strip() else 0
@@ -71,7 +70,8 @@ def do_pr_merge(ctx: MergeContext) -> int:
     _print(f"Pushing {ctx.args.branch}...")
     push_branch = _run_git(
         ["push", "-u", "origin", ctx.args.branch, "--force-with-lease"],
-        cwd=ctx.worktree_path, capture=True,
+        cwd=ctx.worktree_path,
+        capture=True,
     )
     if push_branch.returncode != 0:
         return _fail_merge_subprocess(
@@ -249,7 +249,8 @@ def do_pr_merge(ctx: MergeContext) -> int:
             )
             _print(
                 "Merge refused: no required CI checks gated this PR and "
-                "items.test_results is " + reason_phrase
+                "items.test_results is "
+                + reason_phrase
                 + ". Run `/yoke polish` to capture a fresh passing pytest "
                 "verdict bound to the current head, or configure required CI "
                 "checks on the target repo.",
@@ -314,7 +315,9 @@ def do_pr_merge(ctx: MergeContext) -> int:
             "pr_url": pr_url,
         },
     )
-    merge_outcome = run_pr_merge_with_retry_guard(pr_num, pr_url, ctx, _emit_merge_event)
+    merge_outcome = run_pr_merge_with_retry_guard(
+        pr_num, pr_url, ctx, _emit_merge_event
+    )
     if not merge_outcome.success:
         return _fail_merge_rest(
             "pr-merge",
