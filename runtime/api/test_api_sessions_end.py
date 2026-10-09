@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.api.main import app
 from runtime.api.sessions_api_test_support import fresh_now
@@ -50,7 +51,7 @@ class TestSessionEndEndpoint:
             "required_path": "polish",
         }
         conn = connect_test_db(self.db_info["db_path"])
-        now = fresh_now()
+        now = instant_parameter(conn, fresh_now())
         p = _p(conn)
         conn.execute(
             f"""INSERT INTO harness_sessions

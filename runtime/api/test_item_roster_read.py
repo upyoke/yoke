@@ -8,7 +8,7 @@ import pytest
 
 from runtime.api.conftest import insert_item
 from runtime.api.item_roster_test_support import (
-    iso_minutes_ago as _iso,
+    instant_minutes_ago as _instant,
     public_refs as _refs,
     read_roster as _roster,
     seed_ladder as _seed_ladder,
@@ -79,7 +79,7 @@ def test_paging_is_stable_across_offset_qualified_instants(test_db):
         id=781,
         title="negative offset",
         status="implementing",
-        created_at=_iso(30),
+        created_at=_instant(30),
         updated_at="1969-12-31T18:59:59.999998-05:00",
     )
     insert_item(
@@ -87,7 +87,7 @@ def test_paging_is_stable_across_offset_qualified_instants(test_db):
         id=782,
         title="positive offset",
         status="implementing",
-        created_at=_iso(40),
+        created_at=_instant(40),
         updated_at="1970-01-01T05:29:59.999999+05:30",
     )
     insert_item(
@@ -95,8 +95,8 @@ def test_paging_is_stable_across_offset_qualified_instants(test_db):
         id=783,
         title="canonical",
         status="implementing",
-        created_at=_iso(50),
-        updated_at=_iso(20),
+        created_at=_instant(50),
+        updated_at=_instant(20),
     )
     test_db.commit()
 
@@ -124,8 +124,8 @@ def test_search_reaches_history_beyond_the_loaded_page(test_db):
         id=899,
         title="a distinctive needle title",
         status="done",
-        created_at=_iso(9000),
-        updated_at=_iso(9000),
+        created_at=_instant(9000),
+        updated_at=_instant(9000),
     )
     test_db.commit()
     # The needle is the oldest row, so a first page of 1 cannot contain it.
@@ -145,8 +145,8 @@ def test_search_matches_public_ref_and_owner_label(test_db):
         title="owned row",
         status="implementing",
         owner=str(actor_id),
-        created_at=_iso(10),
-        updated_at=_iso(10),
+        created_at=_instant(10),
+        updated_at=_instant(10),
     )
     test_db.commit()
     by_owner = _roster(page_size=50, search="marguerite")
@@ -165,16 +165,16 @@ def test_filters_run_before_the_page_and_stay_complete(test_db):
         id=910,
         title="planned row",
         status="planned",
-        created_at=_iso(10),
-        updated_at=_iso(10),
+        created_at=_instant(10),
+        updated_at=_instant(10),
     )
     insert_item(
         test_db,
         id=911,
         title="implementing row",
         status="implementing",
-        created_at=_iso(11),
-        updated_at=_iso(11),
+        created_at=_instant(11),
+        updated_at=_instant(11),
     )
     test_db.commit()
     outcome = _roster(page_size=1, status="planned")

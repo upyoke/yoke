@@ -7,16 +7,17 @@ rows and dispatch the same read, so the seeding and dispatch live here once.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import parse_instant, utc_now
 
 from runtime.api.conftest import insert_item
 from runtime.api.domain.handlers.items_read_test_support import request_for
 from yoke_core.domain.handlers import item_page_reads
 
 
-def iso_minutes_ago(minutes: int) -> str:
-    stamp = datetime.now(timezone.utc) - timedelta(minutes=minutes)
-    return stamp.strftime("%Y-%m-%dT%H:%M:%SZ")
+def instant_minutes_ago(minutes: int) -> datetime:
+    return parse_instant(utc_now()) - timedelta(minutes=minutes)
 
 
 def read_roster(actor_id="op", **payload):
@@ -38,14 +39,14 @@ def seed_ladder(test_db, count: int, *, first_id: int = 700) -> None:
             id=first_id + offset,
             title=f"ladder item {offset}",
             status="implementing",
-            created_at=iso_minutes_ago(600),
-            updated_at=iso_minutes_ago(500 - offset),
+            created_at=instant_minutes_ago(600),
+            updated_at=instant_minutes_ago(500 - offset),
         )
     test_db.commit()
 
 
 __all__ = [
-    "iso_minutes_ago",
+    "instant_minutes_ago",
     "public_refs",
     "read_roster",
     "seed_ladder",

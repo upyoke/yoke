@@ -14,21 +14,21 @@ from runtime.api.domain.handlers.test_sessions_list_handler import (
     _insert_session,
 )
 from runtime.api.fixtures.backlog import insert_item
-from runtime.api.fixtures.session_holdings import insert_item_claim, iso
+from runtime.api.fixtures.session_holdings import insert_item_claim, instant_ago
 from yoke_core.domain.sessions_list_read import list_sessions
 from yoke_core.domain.sessions_render_reclaim import find_stale_sessions
 
 
 def _seed(test_db) -> None:
-    quiet = iso(_LONG_AGO_MINUTES)
+    quiet = instant_ago(_LONG_AGO_MINUTES)
     _insert_session(test_db, "s-parked-holder", last_heartbeat=quiet, mode="parked")
     _insert_session(
-        test_db, "s-fresh-parked-holder", last_heartbeat=iso(), mode="parked"
+        test_db, "s-fresh-parked-holder", last_heartbeat=instant_ago(), mode="parked"
     )
     _insert_session(test_db, "s-quiet-holder", last_heartbeat=quiet)
     _insert_session(test_db, "s-parked-claimless", last_heartbeat=quiet, mode="parked")
     _insert_session(test_db, "s-quiet-claimless", last_heartbeat=quiet)
-    _insert_session(test_db, "s-active", last_heartbeat=iso())
+    _insert_session(test_db, "s-active", last_heartbeat=instant_ago())
     for item_id in (81, 82, 83):
         insert_item(test_db, id=item_id, title=f"held item {item_id}")
     test_db.commit()

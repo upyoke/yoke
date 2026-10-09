@@ -13,31 +13,13 @@ from runtime.api.fixtures.session_holdings import (
     insert_item_claim,
     insert_lease,
     insert_session,
+    insert_session_path_claim,
     insert_steering_claim,
-    iso,
+    instant_ago,
 )
 from yoke_contracts.session_holdings import steering_holding_key
 from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.sessions_list_read import list_sessions
-
-
-def _insert_session_path_claim(conn, session_id: str, *, released_at=None) -> None:
-    actor_id = int(
-        conn.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0]
-    )
-    conn.execute(
-        "INSERT INTO path_claims (state,mode,owner_kind,owner_session_id,"
-        "registered_by_actor_id,integration_target,registered_at,released_at) "
-        "VALUES (%s,'exclusive','session',%s,%s,'main',%s,%s)",
-        (
-            "released" if released_at else "active",
-            session_id,
-            actor_id,
-            iso(),
-            released_at,
-        ),
-    )
-    conn.commit()
 
 
 def test_session_row_carries_empty_holdings_when_none_are_held(test_db):
@@ -67,7 +49,7 @@ def test_current_coordination_holds_project_onto_the_holding_session(test_db):
         session_id="s-holder",
         lease_key="QA_HOST:released",
         owner_session_id="s-holder",
-        released_at=iso(5),
+        released_at=instant_ago(5),
     )
     insert_lease(
         test_db,
@@ -196,19 +178,19 @@ def test_previous_steering_holding_pairs_only_overlapping_released_doc(test_db):
     test_db.execute(
         "UPDATE work_claims SET claimed_at=%s,released_at=%s "
         "WHERE session_id='s-previous-steering' AND target_kind='steering'",
-        (iso(30), iso(5)),
+        (instant_ago(30), instant_ago(5)),
     )
     test_db.execute(
         "UPDATE strategy_doc_claims SET registered_at=%s,released_at=%s "
         "WHERE owner_session_id='s-previous-steering' "
         "AND strategy_doc_slug='CURRENT-PLAN'",
-        (iso(29), iso(4)),
+        (instant_ago(29), instant_ago(4)),
     )
     test_db.execute(
         "UPDATE strategy_doc_claims SET registered_at=%s,released_at=%s "
         "WHERE owner_session_id='s-previous-steering' "
         "AND strategy_doc_slug='MISSION'",
-        (iso(50), iso(40)),
+        (instant_ago(50), instant_ago(40)),
     )
     test_db.commit()
 
@@ -248,10 +230,10 @@ def test_holdings_keep_current_target_out_of_previous_history(test_db):
     insert_item(test_db, id=91, title="current item")
     insert_item(test_db, id=92, title="previous item")
     insert_session(test_db, "s-history", current_item_id="91")
-    insert_item_claim(test_db, "s-history", 91, released_at=iso(20))
-    latest_release = iso(10)
+    insert_item_claim(test_db, "s-history", 91, released_at=instant_ago(20))
+    latest_release = instant_ago(10)
     insert_item_claim(test_db, "s-history", 92, released_at=latest_release)
-    insert_item_claim(test_db, "s-history", 92, released_at=iso(15))
+    insert_item_claim(test_db, "s-history", 92, released_at=instant_ago(15))
     insert_item_claim(test_db, "s-history", 91)
 
     holdings = list_sessions()[0]["holdings"]
@@ -276,18 +258,18 @@ def test_item_paths_merge_into_the_same_current_item_target(test_db):
         "INSERT INTO path_claims (state,mode,owner_kind,owner_item_id,"
         "registered_by_actor_id,integration_target,registered_at) "
         "VALUES ('active','exclusive','item',93,%s,'main',%s) RETURNING id",
-        (actor_id, iso()),
+        (actor_id, instant_ago()),
     ).fetchone()[0]
     target_id = test_db.execute(
         "INSERT INTO path_targets "
         "(project_id,kind,path_string,generation,created_at) "
         "VALUES (1,'file','packages',1,%s) RETURNING id",
-        (iso(),),
+        (instant_ago(),),
     ).fetchone()[0]
     test_db.execute(
         "INSERT INTO path_claim_targets (claim_id,target_id,declared_at) "
         "VALUES (%s,%s,%s)",
-        (path_claim, target_id, iso()),
+        (path_claim, target_id, instant_ago()),
     )
     test_db.commit()
 
@@ -302,7 +284,7 @@ def test_holdings_send_every_distinct_previous_row(test_db):
     insert_session(test_db, "s-many")
     for item_id in range(101, 107):
         insert_item(test_db, id=item_id, title=f"previous {item_id}")
-        insert_item_claim(test_db, "s-many", item_id, released_at=iso(item_id))
+        insert_item_claim(test_db, "s-many", item_id, released_at=instant_ago(item_id))
 
     holdings = list_sessions()[0]["holdings"]
 
@@ -323,8 +305,8 @@ def test_holdings_mark_a_session_that_steers(test_db):
 
 def test_holdings_cover_released_files_documents_and_coordination(test_db):
     insert_session(test_db, "s-all")
-    released = iso(5)
-    _insert_session_path_claim(test_db, "s-all", released_at=released)
+    released = instant_ago(5)
+    insert_session_path_claim(test_db, "s-all", released_at=released)
     insert_document_lock(test_db, "s-all", 1, "MISSION")
     test_db.execute(
         "UPDATE strategy_doc_claims SET released_at=%s "

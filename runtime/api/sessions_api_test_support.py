@@ -9,10 +9,13 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 from unittest.mock import patch
 
 import pytest
+
+from yoke_contracts.timestamps import parse_instant, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -27,9 +30,9 @@ from runtime.api.test_dependency_schema import (
 from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
 
 
-def fresh_now() -> str:
+def fresh_now() -> datetime:
     """Return a fresh wall-clock timestamp to keep session heartbeats non-stale."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    return parse_instant(utc_now())
 
 
 ACTIVE_SESSIONS_SCHEMA = """
@@ -49,19 +52,19 @@ CREATE TABLE harness_sessions (
     workspace TEXT NOT NULL,
     project_id INTEGER NOT NULL REFERENCES projects(id),
     mode TEXT DEFAULT 'wait',
-    offered_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    ended_at TEXT,
+    offered_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    ended_at TIMESTAMPTZ,
     offer_envelope TEXT,
     current_item_id TEXT DEFAULT NULL,
-    current_item_set_at TEXT DEFAULT NULL,
+    current_item_set_at TIMESTAMPTZ DEFAULT NULL,
     recent_item_id TEXT DEFAULT NULL,
     recent_item_status TEXT DEFAULT NULL,
-    recent_item_recorded_at TEXT DEFAULT NULL,
+    recent_item_recorded_at TIMESTAMPTZ DEFAULT NULL,
     actor_id INTEGER DEFAULT NULL,
-    last_tool_call_at TEXT DEFAULT NULL,
+    last_tool_call_at TIMESTAMPTZ DEFAULT NULL,
     tool_call_count INTEGER NOT NULL DEFAULT 0,
-    episode_started_at TEXT DEFAULT NULL,
+    episode_started_at TIMESTAMPTZ DEFAULT NULL,
     pending_resume_notice TEXT DEFAULT NULL
 );
 """
@@ -73,9 +76,9 @@ CREATE TABLE work_claims (
     target_kind TEXT NOT NULL CHECK({TARGET_KIND_CHECK_SQL}),
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
-    claimed_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    released_at TEXT,
+    claimed_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    released_at TIMESTAMPTZ,
     release_reason TEXT CHECK(release_reason IS NULL OR release_reason IN ('completed','released','reclaimed','handed_off','expired','session_ended')),
     reason TEXT,
     reason_intent TEXT,
@@ -95,7 +98,7 @@ CREATE TABLE actors (status TEXT NOT NULL DEFAULT 'active',
     kind TEXT NOT NULL DEFAULT 'system',
     system_component TEXT,
     name TEXT NOT NULL DEFAULT '',
-    created_at TEXT
+    created_at TIMESTAMPTZ
 );
 """
 
@@ -128,7 +131,7 @@ CREATE TABLE events (
     hook_event_name TEXT,
     client_timing_id TEXT,
     envelope TEXT,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 """
 
@@ -161,33 +164,40 @@ def _apply_session_schema() -> None:
         converge_builtin_workflows(conn)
         create_level_store_tables(conn)
 
+        created = parse_instant("2026-03-01T00:00:00Z")
+        created_parameter = instant_parameter(conn, created)
+
         # Seed items: one runnable issue, one done (terminal), one blocked
         conn.execute(
             """INSERT INTO items
                (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                 created_at, updated_at, source, frozen)
                VALUES (10, 'Runnable task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'high', 1, 10,
-                       '2026-03-01T00:00:00Z', '2026-03-02T00:00:00Z', 'user', 0)"""
+                       %s, %s, 'user', 0)""",
+            (created_parameter, instant_parameter(conn, created + timedelta(days=1))),
         )
         conn.execute(
             """INSERT INTO items
                (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                 created_at, updated_at, source, frozen)
                VALUES (11, 'Done task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'medium', 1, 11,
-                       '2026-03-01T00:00:00Z', '2026-03-03T00:00:00Z', 'user', 0)"""
+                       %s, %s, 'user', 0)""",
+            (created_parameter, instant_parameter(conn, created + timedelta(days=2))),
         )
         conn.execute(
             """INSERT INTO items
                (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                 created_at, updated_at, source, frozen)
                VALUES (12, 'Blocked task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low', 1, 12,
-                       '2026-03-01T00:00:00Z', '2026-03-04T00:00:00Z', 'user', 0)"""
+                       %s, %s, 'user', 0)""",
+            (created_parameter, instant_parameter(conn, created + timedelta(days=3))),
         )
         # Hard-block: child is blocked by parent (which is not terminal)
         conn.execute(
             """INSERT INTO item_dependencies
                (dependent_item_id, blocking_item_id, gate_point, satisfaction, source, rationale, created_at)
-               VALUES (12, 10, 'activation', 'status:done', 'shepherd', 'YOK-12 depends on YOK-10', '2026-03-01T00:00:00Z')"""
+               VALUES (12, 10, 'activation', 'status:done', 'shepherd', 'Blocked task depends on runnable task', %s)""",
+            (created_parameter,),
         )
         from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 

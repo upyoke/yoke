@@ -3,12 +3,15 @@ claims they hold.
 
 Shared by the holdings-projection tests and the per-claim-facts tests,
 which seed the same rows and would otherwise each carry their own copy.
-Public names because two modules read them.
+Public names are shared by roster, claim lifecycle and QA suites.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import parse_instant, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_core.domain.work_claim_targets import (
     make_item_target,
@@ -18,9 +21,12 @@ from yoke_core.domain.work_claim_targets import (
 )
 
 
-def iso(minutes_ago: int = 0) -> str:
-    stamp = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
-    return stamp.strftime("%Y-%m-%dT%H:%M:%SZ")
+def instant_ago(minutes_ago: int = 0) -> datetime:
+    return parse_instant(utc_now()) - timedelta(minutes=minutes_ago)
+
+
+def _optional_parameter(conn, value: str | datetime | None):
+    return None if value is None else instant_parameter(conn, parse_instant(value))
 
 
 def insert_session(
@@ -28,7 +34,7 @@ def insert_session(
     session_id: str,
     *,
     current_item_id: str | None = None,
-    ended_at: str | None = None,
+    ended_at: str | datetime | None = None,
 ) -> None:
     """Seed one harness session, optionally already ended.
 
@@ -36,7 +42,8 @@ def insert_session(
     actually holding an item need one to prove a leftover claim does not
     count as a holder.
     """
-    now = iso()
+    ended = _optional_parameter(conn, ended_at)
+    now = instant_parameter(conn, instant_ago())
     conn.execute(
         "INSERT INTO harness_sessions ("
         "session_id, executor, provider, model, execution_level, workspace, "
@@ -55,7 +62,7 @@ def insert_session(
             now,
             now,
             current_item_id,
-            ended_at,
+            ended,
         ),
     )
     conn.commit()
@@ -66,8 +73,10 @@ def insert_item_claim(
     session_id: str,
     item_id: int,
     *,
-    released_at: str | None = None,
+    released_at: str | datetime | None = None,
 ) -> None:
+    released = _optional_parameter(conn, released_at)
+    now = instant_parameter(conn, instant_ago())
     conn.execute(
         "INSERT INTO work_claims ("
         "session_id, target_kind, scope, claimed_at, last_heartbeat, reason, "
@@ -76,11 +85,11 @@ def insert_item_claim(
         (
             session_id,
             make_item_target(item_id).scope_json(),
-            iso(),
-            iso(),
+            now,
+            now,
             "implementation",
-            released_at,
-            "completed" if released_at else None,
+            released,
+            "completed" if released is not None else None,
         ),
     )
     conn.commit()
@@ -92,9 +101,10 @@ def insert_steering_claim(
     *,
     project_id: int = 1,
     document: str | None = None,
-    released_at: str | None = None,
+    released_at: str | datetime | None = None,
 ) -> int:
-    now = iso()
+    released = _optional_parameter(conn, released_at)
+    now = instant_parameter(conn, instant_ago())
     row = conn.execute(
         "INSERT INTO work_claims ("
         "session_id, target_kind, scope, claimed_at, last_heartbeat, reason, "
@@ -106,8 +116,8 @@ def insert_steering_claim(
             now,
             now,
             "strategy review",
-            released_at,
-            "released" if released_at else None,
+            released,
+            "released" if released is not None else None,
         ),
     ).fetchone()
     conn.commit()
@@ -127,17 +137,18 @@ def insert_document_lock(
     ``strategy_doc_claims`` carries a foreign key onto ``strategy_docs``,
     so a lock cannot exist without the document it locks.
     """
+    now = instant_parameter(conn, instant_ago())
     conn.execute(
         "INSERT INTO strategy_docs (project_id, slug, updated_at) "
         "VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
-        (project_id, slug, iso()),
+        (project_id, slug, now),
     )
     conn.execute(
         "INSERT INTO strategy_doc_claims ("
         "project_id, strategy_doc_slug, owner_kind, owner_session_id, "
         "registered_at, steering_claim_id"
         ") VALUES (%s, %s, 'session', %s, %s, %s)",
-        (project_id, slug, session_id, iso(), steering_claim_id),
+        (project_id, slug, session_id, now, steering_claim_id),
     )
     conn.commit()
 
@@ -150,13 +161,15 @@ def insert_lease(
     owner_kind: str = "session",
     owner_session_id: str | None = None,
     owner_item_id: int | None = None,
-    released_at: str | None = None,
+    released_at: str | datetime | None = None,
 ) -> None:
     """Seed one shared-operation coordination claim by its operator key.
 
     The key decides the kind: migration territory is always item-owned,
     a physical host is always session-held.
     """
+    released = _optional_parameter(conn, released_at)
+    now = instant_parameter(conn, instant_ago())
     del owner_kind, owner_session_id
     prefix, resource = lease_key.split(":", 1)
     if prefix == "LIVE_DB_MIGRATION":
@@ -172,10 +185,33 @@ def insert_lease(
             session_id,
             target.kind,
             target.scope_json(),
-            iso(),
-            iso(),
-            released_at,
-            "completed" if released_at else None,
+            now,
+            now,
+            released,
+            "completed" if released is not None else None,
+        ),
+    )
+    conn.commit()
+
+
+def insert_session_path_claim(
+    conn, session_id: str, *, released_at: str | datetime | None = None
+) -> None:
+    released = _optional_parameter(conn, released_at)
+    now = instant_parameter(conn, instant_ago())
+    actor_id = int(
+        conn.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0]
+    )
+    conn.execute(
+        "INSERT INTO path_claims (state,mode,owner_kind,owner_session_id,"
+        "registered_by_actor_id,integration_target,registered_at,released_at) "
+        "VALUES (%s,'exclusive','session',%s,%s,'main',%s,%s)",
+        (
+            "released" if released is not None else "active",
+            session_id,
+            actor_id,
+            now,
+            released,
         ),
     )
     conn.commit()
@@ -186,6 +222,7 @@ __all__ = [
     "insert_item_claim",
     "insert_lease",
     "insert_session",
+    "insert_session_path_claim",
     "insert_steering_claim",
-    "iso",
+    "instant_ago",
 ]

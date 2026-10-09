@@ -20,15 +20,13 @@ from runtime.api.fixtures.backlog import insert_item
 from runtime.api.fixtures.session_holdings import (
     insert_item_claim,
     insert_session,
-    iso,
+    instant_ago,
 )
 from yoke_core.domain.sessions_list_read import list_sessions
 
 
 def _row(session_id: str) -> dict:
-    return next(
-        row for row in list_sessions() if row["session_id"] == session_id
-    )
+    return next(row for row in list_sessions() if row["session_id"] == session_id)
 
 
 def test_holder_names_the_live_session_claiming_the_focused_item(test_db):
@@ -58,7 +56,7 @@ def test_unclaimed_focused_item_reports_no_holder(test_db):
 
 def test_a_claim_left_by_an_ended_session_holds_nothing(test_db):
     insert_session(test_db, "s-filer", current_item_id="72")
-    insert_session(test_db, "s-gone", current_item_id="72", ended_at=iso(30))
+    insert_session(test_db, "s-gone", current_item_id="72", ended_at=instant_ago(30))
     insert_item(test_db, id=72, title="claimed by a session that is gone")
     test_db.commit()
     insert_item_claim(test_db, "s-gone", 72)
@@ -71,7 +69,7 @@ def test_a_released_claim_stops_naming_its_holder(test_db):
     insert_session(test_db, "s-worker", current_item_id="73")
     insert_item(test_db, id=73, title="claimed then released")
     test_db.commit()
-    insert_item_claim(test_db, "s-worker", 73, released_at=iso(5))
+    insert_item_claim(test_db, "s-worker", 73, released_at=instant_ago(5))
 
     assert _row("s-filer")["current_item_held_by_other_session_id"] is None
 
@@ -130,7 +128,7 @@ def test_every_surface_of_the_roster_names_the_same_holder(test_db):
     insert_item(test_db, id=82, title="worked and handed back")
     test_db.commit()
     insert_item_claim(test_db, "s-worker", 80)
-    insert_item_claim(test_db, "s-done", 82, released_at=iso(5))
+    insert_item_claim(test_db, "s-done", 82, released_at=instant_ago(5))
 
     by_claims, by_holdings, by_fields = _holder_per_item(list_sessions())
 

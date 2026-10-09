@@ -17,10 +17,13 @@ connection shape as runtime code.
 from __future__ import annotations
 
 import textwrap
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
 from typing import Optional
 
 import pytest
+
+from yoke_contracts.timestamps import parse_instant, utc_now
 
 from yoke_core.engines.doctor import (
     CheckResult,
@@ -40,11 +43,9 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _iso_offset(**kwargs) -> str:
-    """Return a UTC timestamp offset from now."""
-    return (datetime.now(timezone.utc) + timedelta(**kwargs)).strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
+def _instant_offset(**kwargs) -> datetime:
+    """Return a native UTC instant offset from now."""
+    return parse_instant(utc_now()) + timedelta(**kwargs)
 
 
 # Intentional minimal items table — see ``test_schema_fixture_derivation``
@@ -62,7 +63,7 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
             project_sequence INTEGER,
             github_issue TEXT,
             deployed_to TEXT,
-            updated_at TEXT,
+            updated_at TIMESTAMPTZ,
             spec TEXT,
             deployment_flow TEXT,
             blocked INTEGER DEFAULT 0,
@@ -76,9 +77,9 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
             path TEXT,
             lane_role TEXT NOT NULL,
             state TEXT NOT NULL DEFAULT 'active',
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            released_at TEXT
+            created_at TIMESTAMPTZ NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL,
+            released_at TIMESTAMPTZ
         );
 
         CREATE TABLE epic_tasks (
@@ -86,7 +87,7 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
             task_num INTEGER,
             title TEXT,
             status TEXT,
-            last_heartbeat TEXT,
+            last_heartbeat TIMESTAMPTZ,
             dispatch_attempts INTEGER DEFAULT 0,
             PRIMARY KEY (epic_id, task_num)
         );
@@ -117,9 +118,9 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
             project_id INTEGER,
             status TEXT,
             current_stage TEXT,
-            started_at TEXT,
-            created_at TEXT,
-            completed_at TEXT,
+            started_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ,
+            completed_at TIMESTAMPTZ,
             created_by TEXT
         );
 
@@ -154,8 +155,8 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
             qa_phase TEXT,
             success_policy TEXT,
             deployment_run_id TEXT,
-            waived_at TEXT,
-            created_at TEXT
+            waived_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ
         );
 
         CREATE TABLE qa_runs (
@@ -180,7 +181,7 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
             item_id TEXT,
             client_timing_id TEXT,
             envelope TEXT,
-            created_at TEXT
+            created_at TIMESTAMPTZ
         );
 
         CREATE TABLE item_status_transitions (
@@ -193,7 +194,7 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
             session_id TEXT,
             actor_id INTEGER,
             project_id INTEGER,
-            created_at TEXT NOT NULL DEFAULT '2026-01-01T00:00:00Z'
+            created_at TIMESTAMPTZ NOT NULL DEFAULT '2026-01-01T00:00:00.000000Z'
         );
 
         CREATE TABLE ephemeral_environments (
@@ -209,7 +210,7 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
             slug TEXT UNIQUE,
             name TEXT,
             default_branch TEXT,
-            created_at TEXT,
+            created_at TIMESTAMPTZ,
             github_repo TEXT,
             public_item_prefix TEXT DEFAULT 'YOK'
         );
@@ -218,20 +219,20 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
              github_repo, public_item_prefix)
         VALUES
             (1, 'yoke', 'Yoke', 'main',
-             '2026-01-01T00:00:00Z', 'upyoke/yoke', 'YOK');
+             '2026-01-01T00:00:00.000000Z', 'upyoke/yoke', 'YOK');
         INSERT INTO projects
             (id, slug, name, default_branch, created_at,
              github_repo, public_item_prefix)
         VALUES
             (2, 'externalwebapp', 'ExternalWebapp', 'main',
-             '2026-01-01T00:00:00Z', 'example-org/externalwebapp', 'EXT');
+             '2026-01-01T00:00:00.000000Z', 'example-org/externalwebapp', 'EXT');
 
         CREATE TABLE project_capabilities (
             id INTEGER PRIMARY KEY,
             project_id INTEGER,
             type TEXT,
             settings TEXT,
-            created_at TEXT
+            created_at TIMESTAMPTZ
         );
     """)
 

@@ -254,3 +254,11 @@ existing once-only/no-activity-bump rules; malformed generators leave durable
 rows unchanged through the existing best-effort hook path. Process-report
 arrival uses strict None-only ingress before reading observations, while public
 process evidence formats its declared clocks and retains opaque identity text.
+
+Session-holdings, lifecycle API, paged-item roster and minimal Doctor database
+fixtures generate native aware clocks without truncating microseconds. The
+holdings SQL owner strictly parses supplied release/end clocks and preserves
+null absence; its explicit SQLite boundary formats fixed-six UTC. Minimal
+session and Doctor schemas declare native instant columns while preserving the
+slim Doctor fixtures' existing nullable constraints. Consumer assertions format
+only public projections, retaining native SQL ordering and cutoff inputs.
