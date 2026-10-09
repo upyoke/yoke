@@ -27,7 +27,7 @@ DEFAULT_LEVELS: tuple[Mapping[str, Any], ...] = (
         "name": "INTERN",
         "glyph": "\U0001f423",
         "options": [
-            _option("claude-cli", "claude-haiku-4-5", "max"),
+            _option("claude-cli", "claude-haiku-5-5", "max"),
             _option("codex-cli", "gpt-6-luna", "max"),
         ],
     },

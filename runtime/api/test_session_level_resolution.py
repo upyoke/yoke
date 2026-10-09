@@ -33,7 +33,7 @@ from runtime.api.fixtures.level_store import levels_doc, option
 _SHIPPED_MATCHES = [
     ("claude-code", "claude-opus-5-5", "medium", "SENIOR"),
     ("claude-desktop", "claude-opus-5-5", "medium", "SENIOR"),
-    ("claude", "claude-haiku-4-5", "max", "INTERN"),
+    ("claude", "claude-haiku-5-5", "max", "INTERN"),
     ("codex", "gpt-6-luna", "max", "INTERN"),
     ("codex-desktop", "gpt-6.1-sol", "medium", "SENIOR"),
 ]

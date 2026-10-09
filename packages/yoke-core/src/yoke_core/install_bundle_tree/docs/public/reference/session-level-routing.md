@@ -17,7 +17,7 @@ level first:
 
 | Level | Surface | Model or selector | Effort | Context |
 |---|---|---|---|---|
-| INTERN 🐣 | claude-cli | `claude-haiku-4-5` | max | default |
+| INTERN 🐣 | claude-cli | `claude-haiku-5-5` | max | default |
 | | codex-cli | `gpt-6-luna` | max | default |
 | JUNIOR 🐥 | cursor-cli | `grok-4.7-high`; when its pool is exhausted, `claude-opus-5-5-medium` | high / medium | default |
 | | codex-cli | `gpt-5.6-terra` | xhigh | default |
