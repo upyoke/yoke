@@ -241,7 +241,7 @@ Wake receipt and probe expiry, deferred-wake backoff and steering-recipient
 cancellation bind native SQL instants. Stale-alive probing selects its latest
 activity as a native instant and retains the strict threshold. Native turn-end
 reports carry native posture/record clocks, formatting only declared observation
-JSON clocks; absent observation clocks stay null. Wake refusal facts and new
+JSON clocks; absent stored observation clocks stay null. Codex rollout readers parse qualified foreign observation clocks into native instants and skip missing or invalid clocks; the relay report owner emits fixed-six UTC without rewriting rollout bytes or vendor evidence. Wake refusal facts and new
 steering digests format their declared clocks while retaining opaque bodies.
 
 Recipient wake_after is an instant deadline, declared TIMESTAMPTZ at birth and

@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
+from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.session_control.function_ids import RELAY_TURN_END_FUNCTION_ID
 from yoke_harness.session_relay_codex_turn_record import error_terminal_turn
 from yoke_harness.session_relay_native_turn_end import (
@@ -73,7 +77,7 @@ def test_a_turn_that_ended_on_a_vendor_error_is_reported(tmp_path):
 
     assert observed is not None
     assert observed.session_id == SESSION_ID
-    assert observed.observed_at == OBSERVED_AT
+    assert observed.observed_at == parse_instant(OBSERVED_AT)
     assert observed.evidence["codex_error_info"] == "server_overloaded"
     assert observed.evidence["turn_id"] == TURN_ID
 
@@ -159,7 +163,7 @@ def test_an_ended_turn_is_reported_with_its_record_evidence(monkeypatch, tmp_pat
     assert call["function_id"] == RELAY_TURN_END_FUNCTION_ID
     reported = call["payload"]["turn_ends"][0]
     assert reported["session_id"] == SESSION_ID
-    assert reported["observed_at"] == OBSERVED_AT
+    assert reported["observed_at"] == "2026-08-31T13:09:08.050000Z"
     assert reported["evidence"]["record"] == "codex_rollout_tail"
 
 
@@ -193,7 +197,7 @@ def test_vendor_error_survives_killed_tool_settlement(tmp_path):
         _settled_item(),
         _settled_item(),
     )
-    assert _read(tmp_path).observed_at == OBSERVED_AT
+    assert _read(tmp_path).observed_at == parse_instant(OBSERVED_AT)
 
 
 def test_a_later_turn_invalidates_the_previous_error(tmp_path):
@@ -222,4 +226,71 @@ def test_a_new_clean_turn_supersedes_an_older_vendor_error(tmp_path):
         _task_complete(None),
         _settled_item(),
     )
+    assert _read(tmp_path) is None
+
+
+@pytest.mark.parametrize(
+    "clock",
+    [
+        "2026-08-31T18:54:08.123456+05:45",
+        "2026-08-31T06:09:08.123456-07:00",
+        "2026-08-31T13:09:08.123456Z",
+    ],
+)
+def test_rollout_clock_is_native_until_the_report_boundary(
+    clock, tmp_path, monkeypatch
+):
+    error = {
+        "message": "opaque 2026-08-31T18:54:08+05:45",
+        "codex_error_info": "vendor_code",
+    }
+    event = {**_task_complete(error), "timestamp": clock}
+    path = _rollout(tmp_path, event)
+    original_bytes = path.read_bytes()
+    observed = _read(tmp_path)
+    assert observed.observed_at == datetime(
+        2026, 8, 31, 13, 9, 8, 123456, tzinfo=timezone.utc
+    )
+    assert isinstance(observed.observed_at, datetime)
+    dispatcher = _Recorder()
+    probes = [{"session_id": SESSION_ID, "executor_surface": "codex-cli"}]
+    assert _report(dispatcher, probes, monkeypatch, observed) == (SESSION_ID,)
+    reported = dispatcher.calls[0]["payload"]["turn_ends"][0]
+    assert reported["observed_at"] == "2026-08-31T13:09:08.123456Z"
+    assert reported["evidence"]["error_message"] == error["message"]
+    assert reported["evidence"]["codex_error_info"] == error["codex_error_info"]
+    assert path.read_bytes() == original_bytes
+
+
+@pytest.mark.parametrize(
+    "clock",
+    [
+        None,
+        "",
+        "garbage",
+        "2026-08-31",
+        "2026-08-31T13:09:08",
+        "2026-08-31T13:09:08-00:00",
+        "2026-08-31T13:09:08.1234567Z",
+        0,
+        {},
+    ],
+)
+def test_an_unqualified_rollout_clock_cannot_report_a_turn_end(
+    clock, tmp_path, monkeypatch
+):
+    event = {**_task_complete({"message": "vendor error"}), "timestamp": clock}
+    _rollout(tmp_path, event)
+    observed = _read(tmp_path)
+    assert observed is None
+    dispatcher = _Recorder()
+    probes = [{"session_id": SESSION_ID, "executor_surface": "codex-cli"}]
+    assert _report(dispatcher, probes, monkeypatch, observed) == ()
+    assert dispatcher.calls == []
+
+
+def test_a_missing_rollout_clock_cannot_report_a_turn_end(tmp_path):
+    event = _task_complete({"message": "vendor error"})
+    del event["timestamp"]
+    _rollout(tmp_path, event)
     assert _read(tmp_path) is None

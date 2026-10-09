@@ -25,10 +25,12 @@ that holds every session this machine has ever run.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_harness.hooks.identity_codex_runtime import codex_transcript_candidates
 
 
@@ -42,7 +44,7 @@ class ObservedTurnEnd:
     """One session's native record that its turn ended on an error."""
 
     session_id: str
-    observed_at: str
+    observed_at: datetime
     evidence: dict[str, Any]
 
 
@@ -111,9 +113,14 @@ def error_terminal_turn(
     error = payload.get("error")
     if not isinstance(error, Mapping):
         return None
+    try:
+        observed_at = parse_instant(event.get("timestamp"))
+    except InvalidInstant:
+        # An unreadable clock cannot order this end against a newer turn.
+        return None
     return ObservedTurnEnd(
         session_id=session_id,
-        observed_at=str(event.get("timestamp") or ""),
+        observed_at=observed_at,
         evidence={
             "record": "codex_rollout_tail",
             "turn_id": str(payload.get("turn_id") or ""),

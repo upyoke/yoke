@@ -30,6 +30,7 @@ from yoke_contracts.harness_turn_record_capability import (
 )
 from yoke_contracts.session_control.function_ids import RELAY_TURN_END_FUNCTION_ID
 from yoke_contracts.session_control.native_turn_end import RelayTurnEndProbe
+from yoke_contracts.timestamps import format_instant
 from yoke_harness.session_relay_codex_turn_record import (
     ObservedTurnEnd,
     error_terminal_turn,
@@ -122,7 +123,7 @@ def report_native_turn_ends(
             "turn_ends": [
                 {
                     "session_id": entry.session_id,
-                    "observed_at": entry.observed_at,
+                    "observed_at": format_instant(entry.observed_at),
                     "evidence": entry.evidence,
                 }
                 for entry in observed
