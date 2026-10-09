@@ -23,6 +23,13 @@ def _epic_target(parsed) -> TargetRef:
 
 def _write_body(response, stdout, stderr) -> None:
     stdout.write(f"{(response.result or {}).get('body', '')}\n")
+    for head in (response.result or {}).get("head_dispatch", []):
+        holder = head.get("holder_session_id")
+        suffix = f"; holder {holder}" if holder else ""
+        stdout.write(
+            f"head task {head.get('task_num')}: {head['decision']} — "
+            f"{head['reason']}{suffix}\n"
+        )
 
 
 def _write_message(response, stdout, stderr) -> None:
@@ -49,7 +56,7 @@ EPIC_DISPATCH_CHAIN_GET_USAGE = (
 def epic_dispatch_chain_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-dispatch-chain get",
-        description="Read one pipe-delimited epic_dispatch_chains row.",
+        description="Read one pipe row and its in-flight head's resume diagnostic; task acquire is the final gate.",
     )
     parser.add_argument("--epic", required=True)
     parser.add_argument("--worktree", required=True)
@@ -76,7 +83,7 @@ EPIC_DISPATCH_CHAIN_LIST_USAGE = (
 def epic_dispatch_chain_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflow-item epic-dispatch-chain list",
-        description="List pipe-delimited dispatch-chain rows for an epic.",
+        description="List pipe rows and in-flight head resume diagnostics; task acquire is the final gate.",
     )
     parser.add_argument("--epic", required=True)
     add_session_arg(parser)

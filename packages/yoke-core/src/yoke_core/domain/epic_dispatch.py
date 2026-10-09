@@ -32,6 +32,7 @@ def dispatch_chain_upsert(
     from yoke_core.domain.epic_task_scope import (
         finalize_generated_task_scopes,
     )
+
     finalize_generated_task_scopes(conn, int(epic_id))
     worktree_path = data.get("worktree_path", "")
     queue = data.get("queue", [])
@@ -137,6 +138,7 @@ def dispatch_chain_refresh_for_activation(
     ``last_updated`` (now) in a single transaction.
     """
     from yoke_core.domain.epic_task_scope import task_scope_issues
+
     scope_issues = task_scope_issues(conn, int(epic_id))
     if scope_issues:
         raise ValueError(
@@ -177,6 +179,22 @@ def dispatch_chain_refresh_for_activation(
     )
 
 
+def parse_dispatch_queue(raw_queue) -> List[str]:
+    """Read the chain's JSON array, JSON string, or comma-separated queue."""
+    if not raw_queue:
+        return []
+    if isinstance(raw_queue, list):
+        return [str(x) for x in raw_queue]
+    try:
+        parsed = json.loads(raw_queue)
+    except (json.JSONDecodeError, ValueError):
+        parsed = raw_queue
+    if isinstance(parsed, list):
+        return [str(x) for x in parsed]
+    source = parsed if isinstance(parsed, str) else raw_queue
+    return [x.strip() for x in source.split(",") if x.strip()]
+
+
 def dispatch_chain_advance(conn, epic_id: str, worktree: str) -> str:
     """Advance to next task in dispatch chain.
 
@@ -207,19 +225,7 @@ def dispatch_chain_advance(conn, epic_id: str, worktree: str) -> str:
     if cur_index < 0:
         raise ValueError(f"invalid current_index '{cur_index}'")
 
-    # Parse queue: try JSON array first, fall back to CSV
-    queue: List[str] = []
-    if raw_queue:
-        try:
-            parsed = json.loads(raw_queue)
-            if isinstance(parsed, list):
-                queue = [str(x) for x in parsed]
-            elif isinstance(parsed, str):
-                queue = [x.strip() for x in parsed.split(",") if x.strip()]
-            else:
-                queue = [x.strip() for x in raw_queue.split(",") if x.strip()]
-        except (json.JSONDecodeError, ValueError):
-            queue = [x.strip() for x in raw_queue.split(",") if x.strip()]
+    queue = parse_dispatch_queue(raw_queue)
 
     next_index = cur_index + 1
     if next_index >= len(queue):
