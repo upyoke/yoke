@@ -20,7 +20,10 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from urllib.parse import quote, unquote
+
+from yoke_contracts.timestamps import InvalidInstant, format_instant
 
 HEADER_MARKER = "<!-- YOKE:STRATEGY-DOC "
 
@@ -79,7 +82,7 @@ def header_notice(slug: str) -> str:
 
 def build_header_line(
     slug: str,
-    updated_at: str,
+    updated_at: str | datetime,
     content: str,
     *,
     updated_by: str | None = None,
@@ -96,7 +99,7 @@ def build_header_line(
     by = f"updated_by={quote(updated_by, safe='')} " if updated_by else ""
     return (
         f"<!-- YOKE:STRATEGY-DOC slug={slug} "
-        f"updated_at={updated_at} "
+        f"updated_at={format_instant(updated_at)} "
         f"{by}"
         f"content_sha256={content_sha256(content)} "
         f"{header_notice(slug)} -->"
@@ -105,7 +108,7 @@ def build_header_line(
 
 def render_file_text(
     slug: str,
-    updated_at: str,
+    updated_at: str | datetime,
     content: str,
     *,
     updated_by: str | None = None,
@@ -159,9 +162,16 @@ def parse_file_text(file_text: str) -> StrategyDocHeader:
             "slug=... updated_at=... content_sha256=<64 hex> notice -->)",
             kind="mangled",
         )
+    try:
+        updated_at = format_instant(match.group("updated_at"))
+    except InvalidInstant as exc:
+        raise StrategyHeaderError(
+            "YOKE:STRATEGY-DOC updated_at must identify a qualified instant",
+            kind="mangled",
+        ) from exc
     return StrategyDocHeader(
         slug=match.group("slug"),
-        updated_at=match.group("updated_at"),
+        updated_at=updated_at,
         content_sha256=match.group("sha"),
         body=body,
         updated_by=(

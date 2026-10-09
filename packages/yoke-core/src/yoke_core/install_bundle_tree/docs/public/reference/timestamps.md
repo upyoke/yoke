@@ -324,8 +324,8 @@ Conversation mappings and process-anchor files publish fixed-six UTC clocks
 through the shared kernel; OS process-start identity text stays opaque. Current
 routed-session fixtures bind native clocks and adapt only at SQLite ownership.
 
-QA daily summaries keep public UTC day labels as dates and bind their half-open
-window as native UTC midnight instants, independent of the SQL session timezone.
+QA daily summaries keep UTC day labels as dates; half-open windows bind native
+UTC midnight instants independently of the SQL session timezone.
 
 Notice, messaging, settlement, signing, export-name and fleet polling owners
 validate supplied clocks before reads or actions; only null selects the shared
@@ -341,8 +341,10 @@ event context, new triage receipts and stale-browser diagnostics format their
 owned clock fields. Terminal settlement parses its optional completion instant.
 Existing frozen snapshots, retained triage receipts, reports and digests stay opaque.
 
-Merge receipt ordering compares present instants without inventing missing clocks.
-Steering reply cutoffs stay native; Doctor and pricing clock fields format at output.
+Merge receipts order present instants; steering reply cutoffs stay native. Doctor,
+pricing and hook report metadata format clocks as fixed-six UTC/null. Report
+confirmation validates before connecting and binds native interval clocks.
 
-Hook report leases format clock metadata as fixed-six UTC/null; confirmation
-parses it before connecting and binds native clocks to the interval claim.
+Strategy headers emit fixed-six UTC identities; parsing rejects invalid clocks
+as mangled headers. Archive relocation compares canonical identities before file
+inspection, preserving matching file bytes, body hashes and editor labels.

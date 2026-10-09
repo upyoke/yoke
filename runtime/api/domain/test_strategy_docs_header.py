@@ -21,7 +21,7 @@ class TestBuild:
         assert line.startswith(hdr.HEADER_MARKER)
         assert line.endswith(" -->")
         assert "slug=MISSION" in line
-        assert "updated_at=2026-06-10T00:00:00Z" in line
+        assert "updated_at=2026-06-10T00:00:00.000000Z" in line
         assert f"content_sha256={hdr.content_sha256('body' + chr(10))}" in line
 
     def test_notice_names_db_authority_and_ingest(self) -> None:
@@ -40,12 +40,17 @@ class TestBuild:
     )
     def test_updated_by_renders_and_round_trips(self, updated_by: str) -> None:
         line = hdr.build_header_line(
-            "MISSION", "2026-06-10T00:00:00Z", "body\n", updated_by=updated_by,
+            "MISSION",
+            "2026-06-10T00:00:00Z",
+            "body\n",
+            updated_by=updated_by,
         )
         assert "\n" not in line
         parsed = hdr.parse_file_text(
             hdr.render_file_text(
-                "MISSION", "2026-06-10T00:00:00Z", "body\n",
+                "MISSION",
+                "2026-06-10T00:00:00Z",
+                "body\n",
                 updated_by=updated_by,
             )
         )
@@ -61,10 +66,16 @@ class TestBuild:
 
     def test_updated_by_is_byte_idempotent(self) -> None:
         a = hdr.render_file_text(
-            "VISION", "2026-06-10T00:00:00Z", "c\n", updated_by="ben",
+            "VISION",
+            "2026-06-10T00:00:00Z",
+            "c\n",
+            updated_by="ben",
         )
         b = hdr.render_file_text(
-            "VISION", "2026-06-10T00:00:00Z", "c\n", updated_by="ben",
+            "VISION",
+            "2026-06-10T00:00:00Z",
+            "c\n",
+            updated_by="ben",
         )
         assert a == b
 
@@ -93,7 +104,7 @@ class TestRoundTrip:
         rendered = hdr.render_file_text("WISPS", "2026-06-11T09:00:00Z", content)
         parsed = hdr.parse_file_text(rendered)
         assert parsed.slug == "WISPS"
-        assert parsed.updated_at == "2026-06-11T09:00:00Z"
+        assert parsed.updated_at == "2026-06-11T09:00:00.000000Z"
         assert parsed.body == content
         assert hdr.content_sha256(parsed.body) == parsed.content_sha256
 
@@ -110,28 +121,41 @@ class TestRoundTrip:
 class TestStripRenderHeaderIfPresent:
     def test_plain_content_is_unchanged(self) -> None:
         body = "# Mission\n\nplain body\n"
-        assert hdr.strip_render_header_if_present(
-            body, expected_slug="MISSION",
-        ) == body
+        assert (
+            hdr.strip_render_header_if_present(
+                body,
+                expected_slug="MISSION",
+            )
+            == body
+        )
 
     def test_rendered_content_returns_body(self) -> None:
         body = "# Mission\n\nedited body\n"
         rendered = hdr.render_file_text(
-            "MISSION", "2026-06-10T00:00:00Z", body,
+            "MISSION",
+            "2026-06-10T00:00:00Z",
+            body,
         )
 
-        assert hdr.strip_render_header_if_present(
-            rendered, expected_slug="MISSION",
-        ) == body
+        assert (
+            hdr.strip_render_header_if_present(
+                rendered,
+                expected_slug="MISSION",
+            )
+            == body
+        )
 
     def test_wrong_slug_header_is_refused(self) -> None:
         rendered = hdr.render_file_text(
-            "VISION", "2026-06-10T00:00:00Z", "# Vision\n",
+            "VISION",
+            "2026-06-10T00:00:00Z",
+            "# Vision\n",
         )
 
         with pytest.raises(hdr.StrategyHeaderError) as exc:
             hdr.strip_render_header_if_present(
-                rendered, expected_slug="MISSION",
+                rendered,
+                expected_slug="MISSION",
             )
 
         assert exc.value.kind == "slug_mismatch"
@@ -156,9 +180,9 @@ class TestParseFailures:
         assert exc.value.kind == "mangled"
 
     def test_mangled_header_truncated_line(self) -> None:
-        truncated = hdr.build_header_line(
-            "PAD", "2026-06-10T00:00:00Z", "body\n"
-        )[:-4]  # drop the closing ' -->'
+        truncated = hdr.build_header_line("PAD", "2026-06-10T00:00:00Z", "body\n")[
+            :-4
+        ]  # drop the closing ' -->'
         with pytest.raises(hdr.StrategyHeaderError) as exc:
             hdr.parse_file_text(truncated + "\nbody\n")
         assert exc.value.kind == "mangled"
