@@ -107,74 +107,115 @@ For query performance, the following fields are promoted from `context` to root-
 
 ### /api/events Endpoint Contract
 
-Any project implementing the frontend emitter template needs a backend endpoint to receive events. The canonical contract:
+The frontend emitter template posts to a collector at `/api/events`. Two
+implementations serve the same contract: the engine collector
+(`packages/yoke-core/src/yoke_core/api/routes/frontend_events.py`, served by
+every Yoke API and workbench) and the Pack reference collector
+(`createCollector` in the structured-events Pack's `events/api-route.ts`). The
+contract is the HTTP status plus the `error` name; `recovery` text is advice
+and differs between the two implementations. Limits come from
+`attribution_rules.json` `limits`. The [Pack collector
+contract](../packs/structured-events/versions/4.1.0/files/events/README.md)
+covers consuming-project wiring, delivery retries and attribution.
+
+**GET /api/events/config** returns `{"publishableKey": "..."}` with
+`Cache-Control: no-store`.
 
 **POST /api/events**
+
+Request headers: `Origin` exactly equal to the serving origin (engine) or one
+of the configured `allowedOrigins` (Pack); `X-Events-Key` equal to the
+publishable key; `Content-Type: application/json`. No bearer token is required.
 
 Request body:
 ```json
 {
- "events": [
- {
- "event_id": "uuid-v4",
- "event_name": "PageViewed",
- "event_kind": "analytics",
- "event_type": "page_view",
- "event_time": "2026-03-12T14:30:00.000Z",
- "event_outcome": "completed",
- "severity": "INFO",
- "source_type": "frontend",
- "duration_ms": null,
- "session_id": "client-session-uuid",
- "org_id": "org-uuid-or-null",
- "context": {}
- }
- ]
+  "events": [
+    {
+      "event_id": "uuid",
+      "event_name": "PageViewed",
+      "event_kind": "analytics",
+      "event_type": "page_view",
+      "event_time": "2026-03-12T14:30:00.000Z",
+      "source_type": "frontend",
+      "session_id": "client-session-uuid",
+      "page_url": "https://app.example.com/items",
+      "referrer": null,
+      "context": {}
+    }
+  ]
 }
 ```
 
-Validation rules:
-- `events` array: required, max 50 events per batch
-- `event_id`: required, UUID v4 format, used for deduplication (`ON CONFLICT DO NOTHING`)
-- `event_name`: required, non-empty string, max 100 characters
-- `event_kind`: required, must be one of: `analytics`, `system`, `audit`, `security`, `metric`, `lifecycle`, `workflow`
-- `event_time`: required, ISO 8601 UTC
-- `source_type`: required, must be one of: `agent`, `backend`, `frontend`, `system`, `script`, `hook`, `skill`
-- `severity`: optional, defaults to `INFO`
-- `context`: optional, max 64KB total envelope size, max 2KB per context field
-- `session_id`: required, non-empty string
+Admission rules (both collectors):
+- `events`: an array of 1..50 envelopes (`limits.batch_size`).
+- `event_id`, `event_name`, `event_kind`, `event_type`, `event_time`,
+  `session_id`: required non-empty strings. The engine also requires
+  `event_id` to parse as a UUID; `event_time` must parse as an ISO 8601
+  timestamp.
+- `source_type` must be `frontend` and `event_kind` must be `analytics`;
+  this route never admits backend, audit or security events.
+- `page_url` and `referrer`: string or `null`; both are sanitized server-side
+  (secrets and fragments stripped).
+- Each envelope at most 64 KB serialized (`limits.envelope_bytes`); the whole
+  request at most 512 KB (`limits.request_bytes`).
+- Identity is stamped server-side: client `org_id` and `actor_id` are ignored.
+  The engine stamps the collector org and, when a web-session cookie (or a
+  verified `Authorization` bearer) is present, its actor; otherwise the event
+  is anonymous.
+- Dedupe is silent: a repeated `event_id` is dropped by the sink
+  (`ON CONFLICT (event_id) DO NOTHING`) and still counts as accepted.
 
-Success response (200):
+The 100-character `event_name` limit and the 2 KB per-context-field limit are
+emitter-side shrinking rules, not collector refusals.
+
+Success response (200), where `accepted` is the number of envelopes submitted:
 ```json
-{
- "accepted": 1,
- "duplicates": 0
-}
+{"accepted": 1}
 ```
 
-Error responses:
-- 400: Validation error -- `{"error": "validation_error", "message": "...", "field": "..."}`
-- 401: Authentication required -- `{"error": "unauthorized"}`
-- 413: Payload too large -- `{"error": "payload_too_large", "max_bytes": 65536}`
-- 429: Rate limited -- `{"error": "rate_limited", "retry_after_ms": 1000}`
+Refusals share one shape, `{"error": "<name>", "recovery": "<next step>"}`:
 
-Anonymous frontend analytics use a publishable X-Events-Key, exact Origin
-allowlist and shared rate limit; no bearer token is required. Backend/audit/
-security ingestion retains authenticated authorization. The [Pack collector
-contract](../packs/structured-events/versions/4.1.0/files/events/README.md) names
-refusals, recovery and server-side identity stamping. Frontend emission and
-attribution capture run from first load with no consent state, so collect only
-non-personal data. Every frontend event attaches attribution when capture
-succeeds. Required signup facts belong to
-the durable account/actor owner, never only to events.
+| Status | `error` | Cause |
+|---|---|---|
+| 400 | `collector_https_required` | Engine only: a non-loopback collector served over plain HTTP. |
+| 403 | `origin_not_allowed` | `Origin` missing or not the allowed origin. |
+| 401 | `publishable_key_invalid` | `X-Events-Key` missing or wrong. |
+| 429 | `rate_limited` | Client exceeded the shared rate budget. `Retry-After` carries whole seconds (engine: the rest of its 60-second window). Retry the same event ids. |
+| 400 | `content_type_invalid` | Body is not `application/json`. |
+| 413 | `payload_too_large` | Request exceeds 512 KB. |
+| 400 | `json_invalid` | Body is not valid JSON. |
+| 400 | `events_invalid` | `events` missing, empty, or longer than 50. |
+| 400 | `envelope_invalid` | An envelope fails the admission rules above. |
+| 413 | `event_too_large` | One envelope exceeds 64 KB. |
+| 503 | `collector_unavailable` | Rate limiter or event sink failed; nothing was accepted. Retry the same event ids. |
+| 405 | `method_not_allowed` | Pack collector only: a method other than POST. |
+
+On the engine collector, a request that carries an `Authorization` header which
+fails verification is refused with the engine auth envelope instead:
+401, `WWW-Authenticate: Bearer`, body
+`{"success": false, "error": {"code": "...", "message": "..."}}`.
+
+Yoke defines no authenticated HTTP ingestion route for backend, audit or
+security events. Those events are written in-process through `emit_event` and
+registered functions (see [Python Implementation
+Templates](structured-logging-standard/python-templates.md)); a consuming
+project that exposes its own authenticated ingestion owns that contract.
+
+Frontend emission and attribution capture run from first load with no consent
+state, so collect only non-personal data. Every frontend event attaches
+attribution when capture succeeds. Required signup facts belong to the durable
+account/actor owner, never only to events.
 
 ### Envelope Size Limits
 
-| Limit | Value |
-|---|---|
-| Total envelope | 64 KB |
-| Single context field | 2 KB |
-| Stacktrace field | 4 KB (truncated from tail) |
+| Limit | Value | Enforced by |
+|---|---|---|
+| Request body | 512 KB | Collector (`payload_too_large`) |
+| Events per request | 50 | Collector (`events_invalid`) |
+| Total envelope | 64 KB | Collector (`event_too_large`) |
+| Single context field | 2 KB | Emitter (shrunk before send) |
+| Stacktrace field | 4 KB (truncated from tail) | Emitter |
 
 ### Consideration: exit_code and tool_name Placement
 
