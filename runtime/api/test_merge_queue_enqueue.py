@@ -1,5 +1,7 @@
 """Queue admission exits after its durable handoff unless waiting is explicit."""
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.merge_queue_landing_test_helpers import (
     ARMED,
     CHECKOUT,
@@ -36,7 +38,7 @@ def test_enqueue_records_marker_and_exits_before_poll_or_close_out(monkeypatch):
 
     assert outcome.ok
     assert outcome.landing_pending
-    assert outcome.enqueued_at == "2026-08-27T18:00:00Z"
+    assert outcome.enqueued_at == parse_instant("2026-08-27T18:00:00Z")
     assert outcome.commit_sha
     assert "in the merge queue" in announced[0]
     assert "landing_pending=true" in announced[0]

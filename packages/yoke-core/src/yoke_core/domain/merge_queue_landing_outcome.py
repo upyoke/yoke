@@ -13,6 +13,9 @@ from __future__ import annotations
 from yoke_core.domain.public_item_target import public_item_target
 
 from dataclasses import dataclass, field
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
 from typing import Any, Callable, Optional
 
 from yoke_core.domain import standalone_item_merge_git as git
@@ -35,9 +38,13 @@ class QueueLandingOutcome:
     batch: Optional[BatchReceipt] = None
     already_merged: bool = False
     landing_pending: bool = False
-    enqueued_at: str = ""
+    enqueued_at: datetime | None = None
     error: str = ""
     warnings: tuple[str, ...] = field(default=())
+
+    def __post_init__(self) -> None:
+        if self.enqueued_at is not None:
+            object.__setattr__(self, "enqueued_at", parse_instant(self.enqueued_at))
 
 
 def fail_landing(

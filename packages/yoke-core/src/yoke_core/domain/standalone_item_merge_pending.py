@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from yoke_contracts.timestamps import format_instant
+
 
 def clear_after_close_out(item_id: int, item: dict[str, Any]) -> str:
     """Clear a present marker; old control-plane item shapes are a no-op."""
@@ -36,7 +38,9 @@ def envelope(
         "landing_pending": True,
         "pr_number": outcome.pr_num,
         "commit_sha": outcome.commit_sha,
-        "enqueued_at": outcome.enqueued_at,
+        "enqueued_at": None
+        if outcome.enqueued_at is None
+        else format_instant(outcome.enqueued_at),
         "evidence_recorded": False,
         "warnings": list(outcome.warnings),
     }

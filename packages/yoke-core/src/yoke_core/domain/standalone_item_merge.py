@@ -24,7 +24,6 @@ from yoke_contracts.timestamps import format_instant, utc_now
 
 from yoke_core.domain.public_item_target import public_item_target
 
-from dataclasses import dataclass, field
 from typing import Optional, Sequence
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
@@ -33,31 +32,12 @@ from yoke_core.domain.merge_github_authority import classify_merge_authority
 from yoke_core.domain import standalone_item_merge_post_push as post_push
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.standalone_item_merge_engine import run as _run_merge_engine
+from yoke_core.domain.standalone_item_merge_outcome import StandaloneMergeOutcome
 
 # Exit code for a merge the engine refused because another session holds the
 # merge lock. Mirrors the engine's own retryable class so callers can
 # distinguish "try again later" from "this merge is wrong".
 RECOVERABLE_MERGE_LOCK_EXIT_CODE = 6
-
-
-@dataclass(frozen=True)
-class StandaloneMergeOutcome:
-    """What one standalone merge attempt produced."""
-
-    ok: bool
-    exit_code: int
-    already_merged: bool
-    commit_sha: str = ""
-    merge_sha: str = ""
-    touched_files: tuple[str, ...] = ()
-    pushed: bool = False
-    landing_pending: bool = False
-    pr_num: str = ""
-    enqueued_at: str = ""
-    error: str = ""
-    output: str = ""
-    publication_message: str = ""
-    warnings: tuple[str, ...] = field(default=())
 
 
 def stamp_merged_at(
