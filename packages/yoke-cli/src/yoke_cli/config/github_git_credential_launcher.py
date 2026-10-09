@@ -16,6 +16,7 @@ BUNDLE_POINTER_NAME = "_yoke_github_helper_current"
 BUNDLE_HELPER_NAME = "_yoke_github_git_credential_helper.py"
 BUNDLE_ORIGIN_NAME = "_yoke_github_origin.py"
 BUNDLE_API_URLS_NAME = "_yoke_api_urls.py"
+BUNDLE_TIMESTAMPS_NAME = "_yoke_timestamps.py"
 BUNDLE_TOKEN_CONTRACT_NAME = "_yoke_github_app_tokens.py"
 BUNDLE_RESPONSE_SAFETY_NAME = "_yoke_github_response_safety.py"
 BUNDLE_OAUTH_TRANSPORT_NAME = "_yoke_github_oauth_transport.py"
@@ -28,6 +29,7 @@ BUNDLE_STORE_NAME = "_yoke_github_git_credential_store.py"
 BUNDLE_MODULE_NAMES = (
     BUNDLE_ORIGIN_NAME,
     BUNDLE_API_URLS_NAME,
+    BUNDLE_TIMESTAMPS_NAME,
     BUNDLE_TOKEN_CONTRACT_NAME,
     BUNDLE_RESPONSE_SAFETY_NAME,
     BUNDLE_OAUTH_TRANSPORT_NAME,

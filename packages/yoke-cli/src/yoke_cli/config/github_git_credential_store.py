@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime
 from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping
@@ -145,7 +145,11 @@ def access_token_from_config(
         )
     except github_origin.GitHubApiOriginError as exc:
         raise GitHubCredentialStoreError(str(exc)) from exc
-    selected_now = _ensure_utc(now or datetime.now(timezone.utc))
+    selected_now = (
+        credential_document.clock_contract.utc_now()
+        if now is None
+        else _ensure_utc(now)
+    )
     with _locked(path):
         current = read_credential_document(path)
         refresh_expires_at = _parse_timestamp(

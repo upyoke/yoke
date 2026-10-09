@@ -15,6 +15,7 @@ import pytest
 from yoke_cli.config import github_user_tokens, machine_config
 from yoke_cli.config import github_git_credential_store as credential_store
 from yoke_contracts import github_app_tokens as token_contract
+from yoke_contracts.timestamps import format_instant
 
 from .github_user_token_test_support import (
     NOW,
@@ -24,7 +25,8 @@ from .github_user_token_test_support import (
 
 
 def test_stored_access_token_is_served_without_rotating_the_authorization(
-    tmp_path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path))
     config_path, credential_path = configured_credential(
@@ -48,7 +50,8 @@ def test_stored_access_token_is_served_without_rotating_the_authorization(
 
 
 def test_access_token_inside_the_refresh_margin_is_renewed(
-    tmp_path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path))
     margin = token_contract.GITHUB_APP_USER_ACCESS_TOKEN_REFRESH_MARGIN_SECONDS
@@ -59,12 +62,14 @@ def test_access_token_inside_the_refresh_margin_is_renewed(
     token = github_user_tokens.access_token_from_machine_config(
         config_path=config_path,
         now=NOW,
-        opener=lambda request, timeout: FakeResponse({
-            "access_token": "new-access",
-            "expires_in": 28800,
-            "refresh_token": "new-refresh",
-            "refresh_token_expires_in": 15552000,
-        }),
+        opener=lambda request, timeout: FakeResponse(
+            {
+                "access_token": "new-access",
+                "expires_in": 28800,
+                "refresh_token": "new-refresh",
+                "refresh_token_expires_in": 15552000,
+            }
+        ),
     )
 
     assert token.access_token == "new-access"
@@ -72,7 +77,8 @@ def test_access_token_inside_the_refresh_margin_is_renewed(
 
 
 def test_renewed_access_token_is_persisted_beside_the_refresh_token(
-    tmp_path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path))
     config_path, credential_path = configured_credential(
@@ -82,13 +88,15 @@ def test_renewed_access_token_is_persisted_beside_the_refresh_token(
 
     def fake_urlopen(request, timeout):
         seen["body"] = urllib.parse.parse_qs(request.data.decode("utf-8"))
-        return FakeResponse({
-            "access_token": "new-access",
-            "expires_in": 28800,
-            "refresh_token": "new-refresh",
-            "refresh_token_expires_in": 15552000,
-            "token_type": "bearer",
-        })
+        return FakeResponse(
+            {
+                "access_token": "new-access",
+                "expires_in": 28800,
+                "refresh_token": "new-refresh",
+                "refresh_token_expires_in": 15552000,
+                "token_type": "bearer",
+            }
+        )
 
     token = github_user_tokens.access_token_from_machine_config(
         config_path=config_path, now=NOW, opener=fake_urlopen
@@ -120,7 +128,8 @@ def test_renewed_access_token_is_persisted_beside_the_refresh_token(
 
 
 def test_concurrent_callers_share_one_token_instead_of_revoking_each_other(
-    tmp_path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The race this cache exists to close.
 
@@ -137,16 +146,16 @@ def test_concurrent_callers_share_one_token_instead_of_revoking_each_other(
 
     def fake_urlopen(request, timeout):
         submitted_refresh_tokens.append(
-            urllib.parse.parse_qs(request.data.decode("utf-8"))[
-                "refresh_token"
-            ][0]
+            urllib.parse.parse_qs(request.data.decode("utf-8"))["refresh_token"][0]
         )
-        return FakeResponse({
-            "access_token": "new-access",
-            "expires_in": 28800,
-            "refresh_token": "new-refresh",
-            "refresh_token_expires_in": 15552000,
-        })
+        return FakeResponse(
+            {
+                "access_token": "new-access",
+                "expires_in": 28800,
+                "refresh_token": "new-refresh",
+                "refresh_token_expires_in": 15552000,
+            }
+        )
 
     def get_token():
         return github_user_tokens.access_token_from_machine_config(
@@ -158,13 +167,15 @@ def test_concurrent_callers_share_one_token_instead_of_revoking_each_other(
 
     assert submitted_refresh_tokens == ["old-refresh"]
     assert [token.access_token for token in tokens] == [
-        "new-access", "new-access",
+        "new-access",
+        "new-access",
     ]
     assert sorted(token.cached for token in tokens) == [False, True]
 
 
 def test_claiming_a_config_owner_does_not_evict_the_cached_token(
-    tmp_path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """An ownership write is not a cache eviction.
 
@@ -181,9 +192,9 @@ def test_claiming_a_config_owner_does_not_evict_the_cached_token(
 
     stored = json.loads(credential_path.read_text(encoding="utf-8"))
     assert stored["cached_access"]["access_token"] == "stored-access"
-    assert stored["cached_access"]["expires_at"] == (
+    assert stored["cached_access"]["expires_at"] == format_instant(
         NOW + timedelta(hours=1)
-    ).isoformat()
+    )
     assert stored["config_owners"] == [str(Path(config_path).resolve())]
 
 
@@ -199,9 +210,9 @@ def test_the_first_token_from_the_device_flow_is_stored_for_reuse() -> None:
     )
 
     assert document["cached_access"]["access_token"] == "first-access"
-    assert document["cached_access"]["expires_at"] == (
+    assert document["cached_access"]["expires_at"] == format_instant(
         NOW + timedelta(hours=8)
-    ).isoformat()
+    )
 
 
 # The exact key names a build shipped before this cache existed refuses at the
@@ -210,7 +221,8 @@ KEYS_AN_OLDER_BUILD_REFUSES = ("access_token", "expires_at", "scope", "token_typ
 
 
 def test_the_document_stays_readable_by_a_build_without_the_cache(
-    tmp_path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A machine runs many Yoke processes, and they upgrade at different times.
 
@@ -228,12 +240,14 @@ def test_the_document_stays_readable_by_a_build_without_the_cache(
     github_user_tokens.access_token_from_machine_config(
         config_path=config_path,
         now=NOW,
-        opener=lambda request, timeout: FakeResponse({
-            "access_token": "new-access",
-            "expires_in": 28800,
-            "refresh_token": "new-refresh",
-            "refresh_token_expires_in": 15552000,
-        }),
+        opener=lambda request, timeout: FakeResponse(
+            {
+                "access_token": "new-access",
+                "expires_in": 28800,
+                "refresh_token": "new-refresh",
+                "refresh_token_expires_in": 15552000,
+            }
+        ),
     )
 
     stored = json.loads(credential_path.read_text(encoding="utf-8"))

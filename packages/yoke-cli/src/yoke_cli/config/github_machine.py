@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime
+
+from yoke_contracts.timestamps import temporal_wire
 import json
 from pathlib import Path
 import time
@@ -25,6 +27,7 @@ from yoke_cli.config import github_machine_state as state
 from yoke_cli.config import github_user_tokens
 from yoke_cli.config import machine_config, writer
 from yoke_contracts.machine_config import schema as contract
+
 
 class GitHubMachineError(RuntimeError):
     """The machine GitHub App connection cannot be used."""
@@ -79,16 +82,14 @@ def connect(
         replace_profile=replace_profile,
         error_type=GitHubMachineError,
     )
-    _cleanup_removed, prior_cleanup_failures = (
-        state.cleanup_quarantined_credentials(config_path)
+    _cleanup_removed, prior_cleanup_failures = state.cleanup_quarantined_credentials(
+        config_path
     )
     progress: list[dict[str, Any]] = []
 
     def record(event: Mapping[str, Any]) -> None:
         public_event = dict(event)
-        progress.append(
-            github_machine_access.report_safe_progress_event(public_event)
-        )
+        progress.append(github_machine_access.report_safe_progress_event(public_event))
         if notify is not None:
             notify(public_event)
 
@@ -115,8 +116,11 @@ def connect(
         device_kwargs["monotonic"] = monotonic
     try:
         device = github_device_flow.authorize(
-            client_id=metadata["client_id"], web_url=metadata["web_url"],
-            opener=device_opener, browser_open=browser_open, notify=record,
+            client_id=metadata["client_id"],
+            web_url=metadata["web_url"],
+            opener=device_opener,
+            browser_open=browser_open,
+            notify=record,
             **device_kwargs,
         )
     except github_device_flow.GitHubDeviceFlowError as exc:
@@ -128,7 +132,9 @@ def connect(
     )
     try:
         github_user_tokens.store_initial_token(
-            credential_path, device.token_response, now=now,
+            credential_path,
+            device.token_response,
+            now=now,
             device_flow_completed=True,
             config_path=machine_config.config_path(config_path),
         )
@@ -155,10 +161,12 @@ def connect(
             expected_app_id=metadata["app_id"],
             expected_app_slug=metadata["app_slug"],
         )
-        authorization.update({
-            "github_user_id": snapshot["user"]["id"],
-            "login": snapshot["user"]["login"],
-        })
+        authorization.update(
+            {
+                "github_user_id": snapshot["user"]["id"],
+                "login": snapshot["user"]["login"],
+            }
+        )
     except github_app_user_api.GitHubAppUserApiError as exc:
         discovery_error = exc
     if existing and discovery_error is not None:
@@ -183,7 +191,8 @@ def connect(
     )
     try:
         write_result = writer.set_github(
-            github, expected_credential_ref=expected_credential_ref,
+            github,
+            expected_credential_ref=expected_credential_ref,
             expected_profile_identity=state.profile_identity(existing),
             path=config_path,
         )
@@ -192,7 +201,8 @@ def connect(
             current = state.existing_config(config_path)
             if state.credential_ref(current) != str(credential_path):
                 _cleanup_new_credential(
-                    credential_path, config_path=config_path,
+                    credential_path,
+                    config_path=config_path,
                 )
         except (OSError, ValueError) as cleanup_exc:
             raise GitHubMachineError(
@@ -207,39 +217,48 @@ def connect(
     cleanup = write_result.get("credential_cleanup") or {}
     if cleanup.get("pending"):
         cleanup_issue = reports.issue(
-            "warning", "github_previous_credential_not_removed",
+            "warning",
+            "github_previous_credential_not_removed",
             "The previous local GitHub App credential is pending safe deletion",
             "Run `yoke github disconnect` again to retry safe cleanup.",
         )
     report = state.connected_report(
-        config_path=config_path, github=github, progress=progress,
-        checked=True, discovery_error=discovery_error,
+        config_path=config_path,
+        github=github,
+        progress=progress,
+        checked=True,
+        discovery_error=discovery_error,
     )
     report["operation"] = "github.connect"
     helper_reattach = github_repo_helper_reconnect.reattach(config_path)
     report["repo_helpers_reattached"] = helper_reattach["reattached"]
     report["repo_helpers_removed"] = helper_reattach["removed"]
     if helper_reattach["failed"]:
-        report["issues"].append(reports.issue(
-            "warning", "github_repo_helper_reattach_pending",
-            f"{helper_reattach['failed']} registered GitHub checkout helper "
-            "chain(s) need repair after saving the connection",
-            "Re-run project onboarding for that checkout after repairing its Git remote/helper config.",
-        ))
+        report["issues"].append(
+            reports.issue(
+                "warning",
+                "github_repo_helper_reattach_pending",
+                f"{helper_reattach['failed']} registered GitHub checkout helper "
+                "chain(s) need repair after saving the connection",
+                "Re-run project onboarding for that checkout after repairing its Git remote/helper config.",
+            )
+        )
     if cleanup_issue:
         report["issues"].append(cleanup_issue)
     if prior_cleanup_failures:
-        report["issues"].append(reports.issue(
-            "warning",
-            "github_credential_cleanup_pending",
-            "An earlier quarantined GitHub App credential is still pending deletion",
-            "Run `yoke github disconnect` again after repairing local permissions.",
-        ))
-    if snapshot is not None and (
-        not snapshot["installations"] or add_installation
-    ):
+        report["issues"].append(
+            reports.issue(
+                "warning",
+                "github_credential_cleanup_pending",
+                "An earlier quarantined GitHub App credential is still pending deletion",
+                "Run `yoke github disconnect` again after repairing local permissions.",
+            )
+        )
+    if snapshot is not None and (not snapshot["installations"] or add_installation):
         _open_install_page(
-            report, browser_open=browser_open, notify=record,
+            report,
+            browser_open=browser_open,
+            notify=record,
             pending=not snapshot["installations"],
         )
         report["progress"] = progress
@@ -293,7 +312,7 @@ def _cleanup_new_credential(
 
 
 def dumps_json(report: Mapping[str, Any]) -> str:
-    return json.dumps(report, indent=2, sort_keys=True) + "\n"
+    return json.dumps(temporal_wire(report), indent=2, sort_keys=True) + "\n"
 
 
 render_human = reports.render_human
@@ -305,8 +324,11 @@ _discover_access_with_unauthorized_retry = (
 
 
 def _open_install_page(
-    report: dict[str, Any], *, browser_open: Callable[[str], Any] | None,
-    notify: Callable[[Mapping[str, Any]], None] | None, pending: bool,
+    report: dict[str, Any],
+    *,
+    browser_open: Callable[[str], Any] | None,
+    notify: Callable[[Mapping[str, Any]], None] | None,
+    pending: bool,
 ) -> None:
     github_machine_access.open_install_page(
         report,
@@ -318,6 +340,10 @@ def _open_install_page(
 
 
 __all__ = [
-    "GitHubMachineError", "connect", "disconnect", "dumps_json",
-    "render_human", "status",
+    "GitHubMachineError",
+    "connect",
+    "disconnect",
+    "dumps_json",
+    "render_human",
+    "status",
 ]

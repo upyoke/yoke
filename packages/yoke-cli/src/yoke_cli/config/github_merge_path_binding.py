@@ -12,6 +12,9 @@ connection here and describe a failed read with the same verdicts.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+
+from yoke_contracts.timestamps import format_instant
 from typing import Any, Mapping
 
 from yoke_cli.config import github_app_public_profile
@@ -155,7 +158,7 @@ def user_authorization_binding(
 
 def git_access_token_binding(
     *,
-    expires_at: str | None,
+    expires_at: datetime | str | None,
     stale: bool,
 ) -> dict[str, str]:
     """Describe the stored access token a git command would actually carry.
@@ -172,6 +175,7 @@ def git_access_token_binding(
             "no access token is stored yet; the next git command mints one",
             "",
         )
+    expires_at = format_instant(expires_at)
     if stale:
         return _binding(
             VERDICT_UNPROVEN,
