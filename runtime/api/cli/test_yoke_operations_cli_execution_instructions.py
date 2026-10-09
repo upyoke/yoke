@@ -221,7 +221,9 @@ def test_item_reads_deliver_operator_prose_once(fields):
     with patch.object(items, "dispatch_and_emit", side_effect=dispatch):
         assert items.items_get(["EX-1", *fields]) == 0
     rendered = output.getvalue()
-    assert rendered.count(prose.rstrip()) == 1
+    assert rendered.count(prose.rstrip()) == (0 if fields else 1)
+    if fields:
+        assert rendered.splitlines()[0] == "Execution instructions 4 apply; full text: `yoke items get EX-1 --json`."
     assert len(rendered) <= len(prose) + 750
     assert instruction["content"] == prose
     if not fields:
@@ -261,6 +263,27 @@ def test_json_item_read_retains_the_complete_instruction_envelope(monkeypatch, c
     assert main(["items", "get", "EX-1", "--json"]) == 0
     envelope = json.loads(capsys.readouterr().out)
     assert envelope["result"]["execution_instructions"] == [instruction]
+
+
+@pytest.mark.parametrize("function,args", [
+    ("items_section_get", ["EX-1", "--section", "Progress Log"]),
+    ("items_progress_log_get", ["EX-1"]),
+])
+def test_section_and_log_reads_name_rules_without_repeating_prose(monkeypatch, function, args):
+    from yoke_cli.commands.adapters import items_section
+
+    output = io.StringIO()
+    def dispatch(**kwargs):
+        kwargs["human_writer"](SimpleNamespace(success=True, result={
+            "execution_instructions": [{"id": 4, "content": "Required operator rule"}],
+            "content": "Checkpoint",
+        }), output, io.StringIO())
+        return 0
+    monkeypatch.setattr(items_section, "dispatch_and_emit", dispatch)
+    assert getattr(items_section, function)(args) == 0
+    assert output.getvalue() == (
+        "Execution instructions 4 apply; full text: `yoke items get EX-1 --json`.\nCheckpoint\n"
+    )
 
 
 def test_default_item_output_size_excludes_empty_fields():

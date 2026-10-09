@@ -19,6 +19,7 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_cli.commands.adapters.workflow_execution_instructions import (
     render_execution_instruction_block,
+    render_item_instruction_summary,
 )
 from yoke_cli.commands.adapters.lifecycle_transition import (
     LIFECYCLE_TRANSITION_USAGE,
@@ -96,10 +97,11 @@ def items_get(args: List[str]) -> int:
         if not response.success:
             return None
         result = response.result or {}
+        rules = result.get("execution_instructions") or []
         stdout.write(
-            render_execution_instruction_block(
-                result.get("execution_instructions") or []
-            )
+            render_item_instruction_summary(rules, parsed.item)
+            if requested_fields or parsed.section is not None
+            else render_execution_instruction_block(rules)
         )
         if parsed.section is not None:
             if not result.get("section_found"):

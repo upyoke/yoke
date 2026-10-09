@@ -167,11 +167,20 @@ def compose_item_launch_instructions(
             "composed launches require item",
         )
     entrypoint, remaining_legs = _route_for_item(conn, public_ref, project_id)
-    return compose_single_item_mandate(
+    from yoke_core.domain.workflow_execution_instructions import resolve_for_item
+
+    item_id = resolve_item_ref_or_none(conn, public_ref, project=project_id)
+    instructions = resolve_for_item(conn, int(item_id))
+    instruction_text = "\n\n".join(str(row["content"]) for row in instructions)
+    mandate = compose_single_item_mandate(
         public_ref=public_ref,
         entrypoint=entrypoint,
         remaining_legs=remaining_legs,
         extras=parsed.instructions,
+    )
+    return (
+        f"Operator execution instructions (obey these):\n{instruction_text}\n\n{mandate}"
+        if instruction_text else mandate
     )
 
 

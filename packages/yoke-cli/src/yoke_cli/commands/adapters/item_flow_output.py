@@ -4,6 +4,14 @@ from typing import Any
 from yoke_contracts.read_detail import excerpt
 
 
+def render_item_instruction_summary(instructions: list[dict[str, Any]], item: str) -> str:
+    """Name applicable rules and the existing read that prints their full text."""
+    if not instructions:
+        return ""
+    names = ", ".join(str(rule.get("id") or "operator rule") for rule in instructions)
+    return f"Execution instructions {names} apply; full text: `yoke items get {item} --json`.\n"
+
+
 def compact_item_result(result: dict[str, Any], item: str) -> dict[str, Any]:
     """Omit empty human fields and describe instructions already delivered as prose."""
     projected = dict(result)

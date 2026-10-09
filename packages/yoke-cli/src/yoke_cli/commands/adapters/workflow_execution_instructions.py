@@ -20,6 +20,7 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.read_detail import DETAIL_FULL
+from yoke_cli.commands.adapters.item_flow_output import render_item_instruction_summary
 
 EXECUTION_INSTRUCTION_BLOCK_HEADER = (
     "# Workflow Execution Instructions (operator-authored — obey these)"
@@ -330,14 +331,16 @@ def write_transition_instructions(response, stdout, stderr) -> None:
     print(json.dumps(result, sort_keys=True), file=stdout)
 
 
-def write_item_content(response, stdout, stderr) -> None:
+def write_item_content(response, stdout, stderr, *, item: str | None = None) -> None:
     """Render read instructions before a section or Progress Log."""
     del stderr
     if not response.success:
         return
     result = response.result or {}
     stdout.write(
-        render_execution_instruction_block(result.get("execution_instructions") or [])
+        render_item_instruction_summary(
+            result.get("execution_instructions") or [], item or str(result.get("public_ref") or "ITEM"),
+        )
     )
     text = str(result.get("content") or "")
     stdout.write(text)

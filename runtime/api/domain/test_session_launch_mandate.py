@@ -27,6 +27,14 @@ from yoke_core.domain.session_launch_types import SessionLaunchError
 
 def _stub_route(monkeypatch) -> None:
     monkeypatch.setattr(
+        "yoke_core.domain.session_launch_mandate.resolve_item_ref_or_none",
+        lambda *_args, **_kwargs: 12,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.workflow_execution_instructions.resolve_for_item",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
         "yoke_core.domain.session_launch_mandate._route_for_item",
         lambda *_args, **_kwargs: (
             "/yoke dash YOK-12",
@@ -42,6 +50,22 @@ def _mandate(*, extras: str = "") -> str:
         remaining_legs="the Dash leg to its merge/evidence close",
         extras=extras,
     )
+
+
+def test_composed_launch_delivers_full_item_instructions(monkeypatch):
+    _stub_route(monkeypatch)
+    monkeypatch.setattr(
+        "yoke_core.domain.workflow_execution_instructions.resolve_for_item",
+        lambda conn, item_id: [{"id": 7, "content": "Required operator instruction"}],
+    )
+    parsed = LaunchCreateRequest(
+        project="yoke", executor_surface="cursor-cli", item="YOK-12",
+        compose_mandate=True, instructions="", idempotency_key="instruction-launch",
+    )
+    body = compose_item_launch_instructions(SimpleNamespace(), parsed, 1)
+    assert body.startswith("Operator execution instructions (obey these):\nRequired operator instruction")
+    assert body.count("Required operator instruction") == 1
+    assert "acquire the YOK-12 work claim" in body
 
 
 def test_composed_mandate_names_item_entrypoint_and_the_routed_legs() -> None:
