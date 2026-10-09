@@ -1,5 +1,5 @@
 // Generated from the installed structured-events Pack; run build_frontend_events.
-import { sanitizeUrl, isBot } from './events_attribution.js';
+import { sanitizePath, sanitizeUrl, isBot } from './events_attribution.js';
 
 let sessionId                = null;
 let started                = null;
@@ -16,7 +16,7 @@ export function getOrgProps(orgId         )                          {
 }
 export function getPageProps()                          {
   return {
-    page_url: sanitizeUrl(window.location.href), page_path: window.location.pathname,
+    page_url: sanitizeUrl(window.location.href), page_path: sanitizePath(window.location.pathname),
     page_title: document.title, referrer: sanitizeUrl(document.referrer),
   };
 }

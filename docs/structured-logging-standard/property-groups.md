@@ -88,10 +88,10 @@ Frontend-specific fields for page/view events.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `page_url` | TEXT | Yes (for page events) | URL with sensitive query parameters, userinfo and fragment stripped. |
-| `page_path` | TEXT | Yes (for page events) | URL path without query string or domain. |
+| `page_url` | TEXT | Yes (for page events) | URL with sensitive query parameters (including `user_code`), userinfo and fragment stripped, and sensitive path segments masked. |
+| `page_path` | TEXT | Yes (for page events) | URL path without query string or domain; `/machine-approval/<code>` is stored as `/machine-approval/redacted`. A new page view is emitted only when this path changes. |
 | `page_title` | TEXT | No | Document title. |
-| `referrer` | TEXT | No | Full referrer URL (from `document.referrer`). |
+| `referrer` | TEXT | No | Referrer URL (from `document.referrer`), sanitized like `page_url`. |
 
 ### device_props
 

@@ -3,7 +3,7 @@ import { sanitizePath, sanitizeUrl, isBot } from './events_attribution.ts';
 let sessionId: string | null = null;
 let started: string | null = null;
 export function getSystemProps(): Record<string, unknown> {
-  return { project: 'yoke', service: 'web' };
+  return { project: '{{project_name}}', service: 'web' };
 }
 export function getSessionProps(): Record<string, unknown> {
   if (!sessionId) { sessionId = crypto.randomUUID(); started = new Date().toISOString(); }

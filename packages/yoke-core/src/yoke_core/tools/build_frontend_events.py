@@ -39,7 +39,7 @@ def outputs(root):
     target = root / "packages/yoke-core/src/yoke_core"
     if not (source / "events_capture.ts").is_file():
         raise ValueError(
-            "events_pack_not_installed: install structured-events 4.1.0 with yoke packs update, then rebuild"
+            "events_pack_not_installed: install structured-events 4.2.0 with yoke packs update, then rebuild"
         )
     result = {}
     for name in BROWSER_MODULES:

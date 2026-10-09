@@ -115,7 +115,7 @@ every Yoke API and workbench) and the Pack reference collector
 contract is the HTTP status plus the `error` name; `recovery` text is advice
 and differs between the two implementations. Limits come from
 `attribution_rules.json` `limits`. The [Pack collector
-contract](../packs/structured-events/versions/4.1.0/files/events/README.md)
+contract](../packs/structured-events/versions/4.2.0/files/events/README.md)
 covers consuming-project wiring, delivery retries and attribution.
 
 **GET /api/events/config** returns `{"publishableKey": "..."}` with
@@ -155,8 +155,11 @@ Admission rules (both collectors):
   timestamp.
 - `source_type` must be `frontend` and `event_kind` must be `analytics`;
   this route never admits backend, audit or security events.
-- `page_url` and `referrer`: string or `null`; both are sanitized server-side
-  (secrets and fragments stripped).
+- `page_url`, `referrer` and `page_path`: string or `null`; all three are
+  sanitized server-side from the same `attribution_rules.json` the browser
+  uses. Sensitive query keys (such as `token` and the device-login
+  `user_code`), userinfo and fragments are stripped, and
+  `/machine-approval/<code>` is stored as `/machine-approval/redacted`.
 - Each envelope at most 64 KB serialized (`limits.envelope_bytes`); the whole
   request at most 512 KB (`limits.request_bytes`).
 - Identity is stamped server-side: client `org_id` and `actor_id` are ignored.
@@ -204,8 +207,10 @@ project that exposes its own authenticated ingestion owns that contract.
 
 Frontend emission and attribution capture run from first load with no consent
 state, so collect only non-personal data. Every frontend event attaches
-attribution when capture succeeds. Required signup facts belong to the durable
-account/actor owner, never only to events.
+attribution when capture succeeds. `PageViewed` follows the path: a single-page
+app emits one view per path change, and a query-only or fragment-only change
+(filters, the app's own URL rewrites) emits none. Required signup facts belong
+to the durable account/actor owner, never only to events.
 
 ### Envelope Size Limits
 

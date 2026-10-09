@@ -85,11 +85,23 @@ export function updateAttribution(existing                        , touch       
   };
 }
 
+/** Masks the path segment that follows a sensitive parent such as /machine-approval/<code>. */
+export function sanitizePath(path        )         {
+  const parts = path.split('/');
+  for (let i = 1; i < parts.length; i++) {
+    if (parts[i] && rules.sensitive_path_parents.includes(parts[i - 1].toLowerCase())) {
+      parts[i] = rules.redacted_path_segment;
+    }
+  }
+  return parts.join('/');
+}
+
 export function sanitizeUrl(value        )                {
   try {
     const url = new URL(value);
     if (!['https:', 'http:'].includes(url.protocol)) return null;
     url.username = ''; url.password = ''; url.hash = '';
+    url.pathname = sanitizePath(url.pathname);
     for (const key of [...url.searchParams.keys()]) {
       if (rules.sensitive_query_keys.includes(key.toLowerCase())) url.searchParams.delete(key);
     }

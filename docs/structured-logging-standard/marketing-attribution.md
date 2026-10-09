@@ -1,6 +1,6 @@
 # Marketing attribution
 
-The executable reference is [Structured Events Pack 4.1.0](../../packs/structured-events/versions/4.1.0/files/events/README.md).
+The executable reference is [Structured Events Pack 4.2.0](../../packs/structured-events/versions/4.2.0/files/events/README.md).
 Python and TypeScript share attribution_rules.json. Install the whole bundle;
 this standard does not maintain another implementation.
 
