@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timedelta
-from yoke_contracts.timestamps import utc_now, format_instant
+from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any
 
@@ -147,7 +147,7 @@ def tool_latency_rows(hours: int) -> list[dict[str, Any]]:
     """
     now = utc_now()
     cutoff = now - timedelta(hours=hours)
-    grouped: dict[tuple[str, str, str], dict[str, Any]] = defaultdict(
+    grouped: dict[tuple[datetime, str, str], dict[str, Any]] = defaultdict(
         lambda: {
             "total": 0,
             "durations": [],
@@ -166,7 +166,7 @@ def tool_latency_rows(hours: int) -> list[dict[str, Any]]:
         observed = _timestamp(_value(row, "created_at", 2))
         if observed is None:
             continue
-        hour_key = format_instant(observed.replace(minute=0, second=0, microsecond=0))
+        hour = observed.replace(minute=0, second=0, microsecond=0)
         envelope = _value(row, "envelope", 1)
         harness = str(_value(row, "executor", 4) or "").strip() or _executor(envelope)
         surface = str(_value(row, "executor_surface", 5) or "").strip()
@@ -183,7 +183,7 @@ def tool_latency_rows(hours: int) -> list[dict[str, Any]]:
             tool_use_id=tool_use_id,
         )
         for scope, group_harness in (("global", "all"), ("harness", harness)):
-            bucket = grouped[(hour_key, scope, group_harness)]
+            bucket = grouped[(hour, scope, group_harness)]
             bucket["total"] += 1
             if kind == "timed" and duration is not None:
                 bucket["durations"].append(duration)

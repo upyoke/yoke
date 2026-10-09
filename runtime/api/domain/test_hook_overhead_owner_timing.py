@@ -61,8 +61,8 @@ def _open_closed_call(
             session_id,
             tool_use_id,
             tool_name,
-            _stamp(started_at or completed_at),
-            _stamp(completed_at),
+            started_at or completed_at,
+            completed_at,
         ),
     )
     conn.commit()
