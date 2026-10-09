@@ -9,6 +9,7 @@ from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
+    FunctionCallResponse,
     TargetRef,
 )
 from yoke_core.domain import db_helpers
@@ -91,11 +92,21 @@ def test_holder_list_filters_by_session_id(monkeypatch) -> None:
             "session_id": "held-a",
             "target_kind": "item",
             "scope": {"item_id": 10},
-            "claimed_at": "2026-01-02T00:00:00.123456Z",
+            "claimed_at": parse_instant("2026-01-02T00:00:00.123456Z"),
             "last_heartbeat": None,
             "lane_worktrees": [],
         }
     ]
+
+    wire = FunctionCallResponse(
+        function="claims.work.holder_list",
+        version="v1",
+        request_id="clock-proof",
+        success=True,
+        result=outcome.result_payload,
+    ).model_dump(mode="json")["result"]["holders"][0]
+    assert wire["claimed_at"] == "2026-01-02T00:00:00.123456Z"
+    assert wire["last_heartbeat"] is None
 
 
 def _seeded_lane_db():
