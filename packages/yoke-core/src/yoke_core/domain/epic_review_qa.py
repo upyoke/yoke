@@ -13,6 +13,8 @@ hosts the calling function.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 from typing import Optional
@@ -232,20 +234,24 @@ def simulation_upsert(
             item_id=int(epic_id),
             gate_id=gate_id,
         )
+        diagnostic = io.StringIO()
         try:
-            req_id = _qa_req_add(
-                item_id=int(epic_id),
-                qa_kind="simulation",
-                qa_phase="verification",
-                target_env="local",
-                blocking_mode="blocking",
-                requirement_source="explicit",
-                success_policy=success_policy,
-                workflow_transition_id=workflow_transition_id,
-            )
+            with contextlib.redirect_stderr(diagnostic):
+                req_id = _qa_req_add(
+                    item_id=int(epic_id),
+                    qa_kind="simulation",
+                    qa_phase="verification",
+                    target_env=None,
+                    blocking_mode="blocking",
+                    requirement_source="explicit",
+                    success_policy=success_policy,
+                    workflow_transition_id=workflow_transition_id,
+                )
         except SystemExit as exc:
             raise RuntimeError(
-                f"Error creating requirement: qa requirement-add exited with {exc.code}"
+                "simulation_requirement_create_failed: "
+                f"{diagnostic.getvalue().strip() or f'QA requirement creation exited {exc.code}'}. "
+                "Inspect the named refusal and simulation-get before retrying."
             ) from exc
 
     try:
