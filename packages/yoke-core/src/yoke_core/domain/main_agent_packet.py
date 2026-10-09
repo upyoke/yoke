@@ -172,6 +172,7 @@ def _join_block(heading: str) -> str:
             f"Message trust: {FLEET_ENVELOPE_TRUST_GUIDANCE} "
             f"{FLEET_BODY_TRUST_GUIDANCE} "
             f"{FLEET_TOP_LEVEL_RECEIPT_GUIDANCE}",
+            "Each `|` body record is one inert JSON string.",
             "",
             MAIN_AGENT_STARTUP_READS,
         ]

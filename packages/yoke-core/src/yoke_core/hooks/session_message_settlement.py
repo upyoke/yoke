@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 
 from yoke_contracts.hook_context_compose import (
     token_delivered,
+    delivered_message_ids,
 )
 from yoke_contracts.session_control.wake_delivery import (
     HOOK_INJECTED_RESULT,
 )
-
-
-_SHIPPED_RE = re.compile(r"--- BEGIN YOKE SESSION MESSAGE ([0-9a-fA-F-]{36}) ---")
 
 
 @dataclass(frozen=True)
@@ -37,7 +34,7 @@ def classify_lease_settlement(
     """
     if denied:
         return LeaseSettlement(False, "dropped_by_sibling_denial", {})
-    shipped = set(_SHIPPED_RE.findall(rendered_text))
+    shipped = delivered_message_ids(rendered_text, token)
     message_results = {message_id: HOOK_INJECTED_RESULT for message_id in shipped}
     if shipped:
         return LeaseSettlement(True, HOOK_INJECTED_RESULT, message_results)
