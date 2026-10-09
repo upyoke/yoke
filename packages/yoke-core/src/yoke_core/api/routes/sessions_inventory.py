@@ -11,6 +11,8 @@ from typing import Optional
 
 from fastapi import Query
 from fastapi.responses import JSONResponse
+
+from yoke_contracts.timestamps import temporal_wire
 from fastapi.routing import APIRouter
 
 from yoke_core.domain.sessions import (
@@ -25,6 +27,7 @@ router = APIRouter()
 
 def _main_api():
     import yoke_core.api.main as main
+
     return main
 
 
@@ -38,8 +41,16 @@ def api_list_sessions(
     _main = _main_api()
     conn = _main.get_db_readonly()
     try:
-        harness_sessions = list_harness_sessions(conn, lane=lane, mode=mode, workspace=workspace)
-        return JSONResponse(status_code=200, content={"sessions": harness_sessions, "count": len(harness_sessions)})
+        harness_sessions = list_harness_sessions(
+            conn, lane=lane, mode=mode, workspace=workspace
+        )
+        return JSONResponse(
+            status_code=200,
+            content={
+                "sessions": temporal_wire(harness_sessions),
+                "count": len(harness_sessions),
+            },
+        )
     finally:
         conn.close()
 
@@ -51,7 +62,10 @@ def api_list_session_claims(session_id: str) -> JSONResponse:
     conn = _main.get_db_readonly()
     try:
         claims = list_claims_for_session(conn, session_id, active_only=True)
-        return JSONResponse(status_code=200, content={"claims": claims, "count": len(claims)})
+        return JSONResponse(
+            status_code=200,
+            content={"claims": temporal_wire(claims), "count": len(claims)},
+        )
     finally:
         conn.close()
 
@@ -65,11 +79,12 @@ def api_get_claim_by_work_unit(
     conn = _main.get_db_readonly()
     try:
         claim = get_claim_for_work_unit(
-            conn, item_id=item_id,
+            conn,
+            item_id=item_id,
         )
         if claim is None:
             return JSONResponse(status_code=200, content={"claim": None})
-        return JSONResponse(status_code=200, content={"claim": claim})
+        return JSONResponse(status_code=200, content={"claim": temporal_wire(claim)})
     finally:
         conn.close()
 
@@ -83,7 +98,10 @@ def api_list_stale_sessions(
     conn = _main.get_db_readonly()
     try:
         stale = find_stale_sessions(conn, stale_threshold_minutes=threshold_minutes)
-        return JSONResponse(status_code=200, content={"sessions": stale, "count": len(stale)})
+        return JSONResponse(
+            status_code=200,
+            content={"sessions": temporal_wire(stale), "count": len(stale)},
+        )
     finally:
         conn.close()
 

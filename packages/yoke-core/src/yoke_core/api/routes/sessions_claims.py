@@ -9,6 +9,8 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi.responses import JSONResponse
+
+from yoke_contracts.timestamps import temporal_wire
 from fastapi.routing import APIRouter
 from pydantic import BaseModel
 
@@ -26,6 +28,7 @@ router = APIRouter()
 
 def _main_api():
     import yoke_core.api.main as main
+
     return main
 
 
@@ -60,7 +63,7 @@ def api_claim_work(session_id: str, req: ClaimWorkRequest) -> JSONResponse:
             item_id=req.item_id,
             claim_type=req.claim_type,
         )
-        return JSONResponse(status_code=201, content=result)
+        return JSONResponse(status_code=201, content=temporal_wire(result))
     except SessionError as e:
         if e.code == "NOT_FOUND":
             status = 404
@@ -84,7 +87,7 @@ def api_release_claim(claim_id: int, req: ReleaseClaimRequest) -> JSONResponse:
     conn = _main.get_db_readwrite()
     try:
         result = release_claim(conn, claim_id, reason=req.reason)
-        return JSONResponse(status_code=200, content=result)
+        return JSONResponse(status_code=200, content=temporal_wire(result))
     except SessionError as e:
         status = 404 if e.code == "NOT_FOUND" else 409
         return _main._error_response(status, e.code, e.message)
@@ -119,7 +122,7 @@ def api_handoff_claim(claim_id: int, req: HandoffClaimRequest) -> JSONResponse:
     conn = _main.get_db_readwrite()
     try:
         result = handoff_claim(conn, claim_id, req.target_session_id)
-        return JSONResponse(status_code=201, content=result)
+        return JSONResponse(status_code=201, content=temporal_wire(result))
     except SessionError as e:
         if e.code == "NOT_FOUND":
             status = 404

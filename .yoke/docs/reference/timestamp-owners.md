@@ -262,3 +262,10 @@ null absence; its explicit SQLite boundary formats fixed-six UTC. Minimal
 session and Doctor schemas declare native instant columns while preserving the
 slim Doctor fixtures' existing nullable constraints. Consumer assertions format
 only public projections, retaining native SQL ordering and cutoff inputs.
+
+Session lifecycle, claim and inventory HTTP routes apply the shared native-only
+wire adapter to domain results at JSONResponse construction. Native session
+and claim facts remain unchanged internally; owned output clocks become
+fixed-six UTC, null clocks remain null, and opaque envelope strings and keys
+retain their exact values. Native minimal fixtures exercise the actual API
+registration/end routes rather than masking this boundary with text columns.
