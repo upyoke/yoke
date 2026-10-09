@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { formatInstant } from "../../packages/yoke-core/src/yoke_core/ui/static/timestamps.js";
 
 import {
   renderMarkdown,
@@ -62,7 +63,7 @@ test("relative timestamps expose absolute context and toggle in place", () => {
   assert.equal(time.textContent, "5m");
   assert.equal(time.attributes.get("role"), "button");
   assert.equal(time.attributes.get("aria-pressed"), "false");
-  assert.equal(time.attributes.get("datetime"), value);
+  assert.equal(time.attributes.get("datetime"), formatInstant(value));
   assert.equal(time.attributes.get("data-ms"), String(new Date(value).getTime()));
   assert.ok(time.title);
 
@@ -75,6 +76,20 @@ test("relative timestamps expose absolute context and toggle in place", () => {
   key.key = "Enter";
   time.dispatchEvent(key);
   assert.equal(time.textContent, time.title);
+});
+
+test("time element retains exact qualified microseconds and absence", () => {
+  const documentNode = new FakeDocument();
+  const now = Date.parse("2026-10-09T15:00:00Z");
+  const value = "2026-10-09T20:00:00.123456+05:00";
+  const time = relativeTime(documentNode, value, now);
+  assert.equal(time.attributes.get("datetime"), "2026-10-09T15:00:00.123456Z");
+  const missing = relativeTime(documentNode, null, now);
+  assert.equal(missing.attributes.has("datetime"), false);
+  assert.equal(missing.attributes.has("data-ms"), false);
+  for (const bad of ["", "2026-10-09", "2026-10-09T15:00:00", 123, "2026-10-09T15:00:00-00:00"]) {
+    assert.throws(() => relativeTime(documentNode, bad, now), /invalid_instant/);
+  }
 });
 
 test("relative timestamps preserve custom instant wording across toggles", () => {

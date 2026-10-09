@@ -272,6 +272,11 @@ test("the hosted visual fixture serves distinct immutable version definitions", 
 
 test("the hosted visual fixture attributes locally published versions", async () => {
   const client = hostedFrameWorkflowClient();
+  const historical = await client.call({
+    function: "workflows.version.get",
+    payload: { workflow_id: "dash", version: 2 },
+  });
+  const historicalBytes = JSON.stringify(historical);
   const published = await client.call({
     function: "workflows.policy_defaults.publish",
     payload: {
@@ -287,6 +292,15 @@ test("the hosted visual fixture attributes locally published versions", async ()
     payload: { workflow_id: "dash", version: 3 },
   });
   assert.equal(version.envelope.result.published_by_actor_id, 1);
+  assert.match(version.envelope.result.published_at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/);
+  const preserved = await client.call({
+    function: "workflows.version.get",
+    payload: { workflow_id: "dash", version: 2 },
+  });
+  // Publication changes the current flag, preserving the historical definition.
+  historical.envelope.result.current = false;
+  assert.equal(JSON.stringify(preserved), JSON.stringify(historical));
+  assert.notEqual(historicalBytes, JSON.stringify(preserved));
   assert.equal(
     version.envelope.result.definition.policies.path_claims,
     "required",

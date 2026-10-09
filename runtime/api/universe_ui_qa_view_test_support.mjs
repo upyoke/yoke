@@ -1,4 +1,5 @@
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
+import { instantFromDate } from "../../packages/yoke-core/src/yoke_core/ui/static/timestamps.js";
 import {
   FakeDocument,
   response,
@@ -75,7 +76,7 @@ function qaClient() {
               evidence_count: 4,
               proof_summary: "4 screenshots",
               capture_degraded_reason: null,
-              happened_at: new Date(activityNow).toISOString(),
+              happened_at: instantFromDate(new Date(activityNow)),
             },
             {
               requirement_id: 33,
@@ -92,9 +93,9 @@ function qaClient() {
               proof_summary:
                 "text capture + reason — image capture blocked on the host",
               capture_degraded_reason: "image capture blocked on the host",
-              happened_at: new Date(
+              happened_at: instantFromDate(new Date(
                 activityNow - 60 * 60 * 1000,
-              ).toISOString(),
+              )),
             },
             {
               requirement_id: 35,
@@ -110,9 +111,9 @@ function qaClient() {
               evidence_count: 3,
               proof_summary: "step transcript · 2 screenshots",
               capture_degraded_reason: null,
-              happened_at: new Date(
+              happened_at: instantFromDate(new Date(
                 activityNow - 21 * 60 * 1000,
-              ).toISOString(),
+              )),
             },
             {
               requirement_id: 36,
@@ -128,9 +129,9 @@ function qaClient() {
               evidence_count: 1,
               proof_summary: "exit 0 · output tail",
               capture_degraded_reason: null,
-              happened_at: new Date(
+              happened_at: instantFromDate(new Date(
                 activityNow - 2 * 60 * 60 * 1000,
-              ).toISOString(),
+              )),
             },
             {
               requirement_id: 37,
@@ -146,9 +147,9 @@ function qaClient() {
               evidence_count: 1,
               proof_summary: "assertions · trace",
               capture_degraded_reason: null,
-              happened_at: new Date(
+              happened_at: instantFromDate(new Date(
                 activityNow - 3 * 60 * 60 * 1000,
-              ).toISOString(),
+              )),
             },
             {
               requirement_id: 34,
@@ -167,9 +168,9 @@ function qaClient() {
                 "the case never ran",
               capture_degraded_reason: null,
               precondition_reason: "capability went error",
-              happened_at: new Date(
+              happened_at: instantFromDate(new Date(
                 activityNow - 4 * 60 * 60 * 1000,
-              ).toISOString(),
+              )),
             },
           ],
         });

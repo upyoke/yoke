@@ -1,3 +1,5 @@
+import { instantFromDate } from "./timestamps.js";
+
 export function createHostedFrameWorkflowClient(workflows, gates) {
   const ok = (result) => ({
     status: 200,
@@ -52,7 +54,7 @@ export function createHostedFrameWorkflowClient(workflows, gates) {
         if (current) {
           const version =
             Math.max(...current.versions.map((row) => Number(row.version))) + 1;
-          const publishedAt = new Date().toISOString();
+          const publishedAt = instantFromDate(new Date());
           const definition = structuredClone(current.definition);
           const defaultKey = [
             "file_budget_default",

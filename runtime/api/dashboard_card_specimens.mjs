@@ -9,7 +9,8 @@ export const cardSpecimenSource = (assets) => `
   import { machineCard } from "${assets}universe_machines_panel.js";
   import { workItemCard, shippingRunCard } from "${assets}universe_work_cards.js";
   import { strategyDocumentCard } from "${assets}universe_strategy_cards.js";
-  const minutesAgo = (count) => new Date(Date.now() - count * 60000).toISOString();
+  import { instantFromDate } from "${assets}timestamps.js";
+  const minutesAgo = (count) => instantFromDate(new Date(Date.now() - count * 60000));
   // A steered worker carries the session card's widest rows at once:
   // identity, model facts, the steering scope chip, the latest-message badge.
   const steeredSession = (index) => ({

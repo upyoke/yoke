@@ -314,3 +314,8 @@ Resumed report clocks accept field-permitted null and validate provided clocks
 before rewriting the report; historical source reports and opaque text stay
 unchanged. Hook-latency measurement uses native run-window clocks, formats only
 the events-query argument and report fields, and keeps elapsed timing monotonic.
+
+UI time elements publish qualified source instants with all six fractional
+digits; null publishes no machine clock. Display ages and refresh counters
+remain measured in milliseconds. Hosted-frame, QA/workbench and card specimen
+fixtures reuse the shared Date producer without changing historical versions.

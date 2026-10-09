@@ -1,3 +1,5 @@
+import { formatInstant } from "./timestamps.js";
+
 // The dashboard's one "how long ago" convention: minute granularity rolling
 // over to hours past an hour and days past 48 hours. Every "X ago" display
 // on the card (age, idle recency, claim held, QA result age, …) reuses this
@@ -59,6 +61,7 @@ export function displayTimeZoneValue() {
 }
 
 function absoluteTime(value) {
+  if (value == null) return "";
   const timestamp = new Date(value);
   if (Number.isNaN(timestamp.getTime())) return String(value || "");
   const options = { dateStyle: "medium", timeStyle: "short" };
@@ -77,7 +80,8 @@ export function relativeTime(
   { instantText = "now", relativeAgeFn = relativeAge } = {},
 ) {
   const time = documentNode.createElement("time");
-  const timestamp = new Date(value).getTime();
+  const canonical = value == null ? null : formatInstant(value);
+  const timestamp = canonical === null ? Number.NaN : Date.parse(canonical);
   const relativeText = (referenceTime = Date.now()) => {
     const age = relativeAgeFn(value, referenceTime);
     return age === "now" ? instantText : age;
@@ -96,7 +100,7 @@ export function relativeTime(
   time.setAttribute("aria-pressed", "false");
   time.setAttribute("aria-label", absolute || relative);
   if (!Number.isNaN(timestamp)) {
-    time.setAttribute("datetime", new Date(timestamp).toISOString());
+    time.setAttribute("datetime", canonical);
     time.setAttribute("data-ms", String(timestamp));
   }
   const toggle = () => {
