@@ -8,6 +8,7 @@ operator or the harness already wrote, and skip a harness that is not here.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from yoke_contracts.harness_folder_trust import (
@@ -77,9 +78,12 @@ def test_granting_twice_changes_nothing(tmp_path: Path):
         CHECKOUT, claude_state=claude, codex_config=codex, cursor_file=cursor
     )
     before = (claude.read_text(), codex.read_text(), cursor.read_text())
-    assert grant_folder_trust(
-        CHECKOUT, claude_state=claude, codex_config=codex, cursor_file=cursor
-    ) == []
+    assert (
+        grant_folder_trust(
+            CHECKOUT, claude_state=claude, codex_config=codex, cursor_file=cursor
+        )
+        == []
+    )
     assert (claude.read_text(), codex.read_text(), cursor.read_text()) == before
 
 
@@ -87,12 +91,15 @@ def test_an_absent_harness_is_skipped_not_created(tmp_path: Path):
     missing_claude = tmp_path / "nothing" / ".claude.json"
     missing_codex = tmp_path / "nothing" / "config.toml"
     missing_cursor = tmp_path / "nothing" / "projects" / "x" / CURSOR_TRUST_FILENAME
-    assert grant_folder_trust(
-        CHECKOUT,
-        claude_state=missing_claude,
-        codex_config=missing_codex,
-        cursor_file=missing_cursor,
-    ) == []
+    assert (
+        grant_folder_trust(
+            CHECKOUT,
+            claude_state=missing_claude,
+            codex_config=missing_codex,
+            cursor_file=missing_cursor,
+        )
+        == []
+    )
     assert not missing_claude.exists()
     assert not missing_codex.exists()
     assert not missing_cursor.exists()
@@ -116,3 +123,22 @@ def test_claude_keeps_every_unrelated_project_and_key(tmp_path: Path):
     assert payload["someTopLevelSetting"] == 7
     assert payload[CLAUDE_PROJECTS_KEY]["/other"] == {"allowedTools": ["x"]}
     assert payload[CLAUDE_PROJECTS_KEY][CHECKOUT][CLAUDE_TRUST_KEY] is True
+
+
+def test_cursor_grant_preserves_native_microseconds(tmp_path: Path, monkeypatch):
+    frozen = datetime(
+        2026, 10, 9, 23, 45, 12, 123456, tzinfo=timezone(timedelta(hours=5, minutes=45))
+    )
+    monkeypatch.setattr(
+        "yoke_contracts.harness_folder_trust_grant.utc_now", lambda: frozen
+    )
+    cursor = _cursor(tmp_path)
+    grant_folder_trust(
+        CHECKOUT,
+        claude_state=tmp_path / "absent-claude",
+        codex_config=tmp_path / "absent-codex",
+        cursor_file=cursor,
+    )
+    payload = json.loads(cursor.read_text())
+    assert payload["trustedAt"] == "2026-10-09T18:00:12.123456Z"
+    assert payload["workspacePath"] == CHECKOUT
