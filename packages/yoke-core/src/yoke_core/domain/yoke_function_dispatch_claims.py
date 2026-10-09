@@ -78,14 +78,17 @@ def steering_seat_for_request(entry: RegistryEntry, request: FunctionCallRequest
         if project is None:
             return None, "<unresolved>"
         item_id = request.target.item_id or request.target.epic_id
-        if item_id is None and request.payload.get("path_claim_id") is not None:
+        path_claim_id = request.target.path_claim_id or request.payload.get(
+            "path_claim_id"
+        )
+        if path_claim_id is not None:
             from yoke_core.domain.yoke_function_dispatch_claims_resolve import (
                 _placeholder,
             )
 
             row = conn.execute(
                 f"SELECT owner_item_id FROM path_claims WHERE id={_placeholder(conn)}",
-                (int(request.payload["path_claim_id"]),),
+                (int(path_claim_id),),
             ).fetchone()
             item_id = row[0] if row is not None else None
         target = item_coverage_target(conn, project_id=project[0], item_id=item_id)

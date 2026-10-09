@@ -118,3 +118,54 @@ def test_mode_convergence_is_idempotent_and_preserves_claims():
     )
     assert require_steering_authority(conn, caller_session_id="s1", project_id=1)
     assert "operator" not in SESSION_MODES
+
+
+@pytest.mark.parametrize("claim_in_target", [True, False])
+@pytest.mark.parametrize("covered_owner", [True, False])
+def test_path_override_uses_persisted_owner_instead_of_conflicting_item_hint(
+    claim_in_target, covered_owner
+):
+    from contextlib import nullcontext
+    from yoke_core.domain.yoke_function_dispatch_claims import steering_seat_for_request
+
+    conn = message_connection()
+    seat(conn, document="AREA-PLAN")
+    conn.execute(
+        "INSERT INTO item_strategy_docs VALUES (101,1,'AREA-PLAN','2026-01-01')"
+    )
+    conn.execute(
+        "CREATE TABLE path_claims(id INTEGER,owner_kind TEXT,owner_item_id INTEGER)"
+    )
+    owner, hint = (101, 201) if covered_owner else (201, 101)
+    conn.execute("INSERT INTO path_claims VALUES (1,'item',?)", (owner,))
+    register_all_handlers()
+    req = FunctionCallRequest(
+        function="claims.path.override",
+        actor={"session_id": "s1"},
+        target={
+            "kind": "item",
+            "item_id": hint,
+            **({"path_claim_id": 1} if claim_in_target else {}),
+        },
+        payload={} if claim_in_target else {"path_claim_id": 1},
+    )
+    with patch("yoke_core.domain.db_helpers.connect", return_value=nullcontext(conn)):
+        found, project = steering_seat_for_request(lookup(req.function), req)
+    assert bool(found) is covered_owner
+    assert project == ("alpha" if covered_owner else "beta")
+
+
+@pytest.mark.parametrize("action", ["Surface disable", "Surface enable"])
+def test_surface_policy_mutations_require_live_project_coverage(action):
+    from yoke_core.domain.handlers.session_surface_policy import _authorize
+
+    conn = message_connection()
+    seat(conn)
+    req = FunctionCallRequest(
+        function="session_control.surface_policy.disable",
+        actor={"session_id": "s1"},
+        target={"kind": "global"},
+    )
+    _authorize(conn, req, "alpha", action)
+    with pytest.raises(SessionError, match="requires a live steering seat"):
+        _authorize(conn, req, "beta", action)

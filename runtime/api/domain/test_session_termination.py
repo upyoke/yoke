@@ -17,6 +17,7 @@ from yoke_core.domain.session_staleness import session_liveness
 from yoke_core.domain.session_termination import terminate_session
 from yoke_core.domain.sessions import SessionError, claim_work
 from yoke_core.domain.sessions_list_read import list_sessions
+from yoke_core.domain.steering_claims import acquire as acquire_steering
 from yoke_core.domain.work_claim_targets import make_steering_target
 
 
@@ -58,7 +59,9 @@ def _register_operator_and_target(conn, *, target="worker") -> None:
         actor_id=41,
         mode="wait",
     )
-    claim_work(conn, session_id="operator", target=make_steering_target(1))
+    acquire_steering(
+        conn, session_id="operator", project_id=1, reason="terminate session"
+    )
     _register(
         conn,
         session_id=target,

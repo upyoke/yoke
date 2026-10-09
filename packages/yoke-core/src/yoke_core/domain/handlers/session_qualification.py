@@ -1,4 +1,4 @@
-"""Operator-only opening of one stage private-route qualification grant."""
+"""Steering-authorized opening of one stage private-route qualification grant."""
 
 from __future__ import annotations
 
@@ -40,8 +40,8 @@ def handle_qualification_open(request: FunctionCallRequest) -> HandlerOutcome:
     session_id = str(request.actor.session_id or "").strip()
     if not raw_actor.isdigit() or not session_id:
         return _failure(
-            "operator_identity_required",
-            "a verified operator actor and session are required",
+            "session_identity_required",
+            "a verified actor and session are required",
         )
     from yoke_core.domain.actor_permissions import (
         PERM_PROJECT_ADMIN,
@@ -63,8 +63,8 @@ def handle_qualification_open(request: FunctionCallRequest) -> HandlerOutcome:
         actor_id = int(raw_actor)
         if registered_request_session_id(conn, session_id) is None:
             return _failure(
-                "operator_session_unregistered",
-                "qualification requires a registered operator session",
+                "session_unregistered",
+                "qualification requires a registered session",
             )
         if not permission_decision(
             conn,

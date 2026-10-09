@@ -207,7 +207,11 @@
   color: var(--yoke-good);
 }
 
-
+.universe-app-root .session-operator {
+  min-width: 0;
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
 
 .universe-app-root .session-id {
   overflow: hidden;

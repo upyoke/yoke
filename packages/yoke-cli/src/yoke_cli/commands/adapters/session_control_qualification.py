@@ -1,4 +1,4 @@
-"""CLI adapter for an operator-opened stage private-route proof."""
+"""CLI adapter for an steering-authorized stage private-route proof."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ def session_qualification_open(args: List[str]) -> int:
     if is_subagent_execution():
         return usage_error(
             "in-process subagents cannot open Fleet qualification grants; "
-            "return to the top-level operator session"
+            "return to the top-level session holding the covering steering seat"
         )
     return dispatch_and_emit(
         function_id="session_control.qualification.open",

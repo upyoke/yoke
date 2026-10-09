@@ -67,7 +67,6 @@ def test_repair_without_item_claim_records_authority_and_notifies_holder(
     repair_world, authority
 ):
     conn, old, final, claim = repair_world
-    seat = None
     document = None
     if authority == "document":
         document = "AREA-PLAN"
@@ -99,11 +98,8 @@ def test_repair_without_item_claim_records_authority_and_notifies_holder(
         == final
     )
     assert f"session={RECORDER}" in row["supersession_rationale"]
-    if seat:
-        assert f"'claim_id': {seat['id']}" in row["supersession_rationale"]
-        assert "'scope':" in row["supersession_rationale"]
-    else:
-        assert "'authority': 'operator'" in row["supersession_rationale"]
+    assert f"'claim_id': {seat['id']}" in row["supersession_rationale"]
+    assert "'scope':" in row["supersession_rationale"]
     assert notice.call_args.kwargs["item_id"] == MEMBER
     assert RECORDER in notice.call_args.kwargs["body_for_route"]("holder")
     assert outcome.result_payload["repair_notice"]["delivery"] == "undelivered"
@@ -122,7 +118,6 @@ def test_repair_without_item_claim_records_authority_and_notifies_holder(
         "ended",
         "terminated",
         "other_document",
-        "wrong_actor",
     ],
 )
 def test_unauthorized_repair_refuses_even_with_item_claim(repair_world, authority):
@@ -149,12 +144,11 @@ def test_unauthorized_repair_refuses_even_with_item_claim(repair_world, authorit
             )
         conn.commit()
     req = request(old, final, session=session)
-    if authority == "wrong_actor":
-        req.actor.actor_id = "3"
     before = requirement_row(conn, old)
     refusal = gate(req)
     assert refusal.error.code == "QA_RECONCILIATION_AUTHORITY_REQUIRED"
-    assert "ask that operator" in refusal.error.message
+    assert "requires a live steering seat" in refusal.error.message
+    assert "yoke say --steering" in refusal.error.message
     assert not handle_qa_requirement_supersede(req).primary_success
     assert requirement_row(conn, old) == before
 

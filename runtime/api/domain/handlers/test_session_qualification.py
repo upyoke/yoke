@@ -65,10 +65,9 @@ def _connection():
         project_id=1,
         role_name=ROLE_ADMIN,
     )
-    from yoke_core.domain.sessions_lifecycle_claim import claim_work
-    from yoke_core.domain.work_claim_targets import make_steering_target
+    from runtime.api.domain.test_session_message_support import seed_steering_seat
 
-    claim_work(conn, session_id="s1", target=make_steering_target(1))
+    seed_steering_seat(conn, session_id="s1", project_id=1)
     conn.commit()
     return conn
 
@@ -175,11 +174,10 @@ def test_handler_refuses_wrong_project_actor_and_unregistered_session(
 
     assert hidden.error and hidden.error.code == "permission_denied"
     assert (
-        missing_actor.error and missing_actor.error.code == "operator_identity_required"
+        missing_actor.error and missing_actor.error.code == "session_identity_required"
     )
     assert (
-        unknown_session.error
-        and unknown_session.error.code == "operator_session_unregistered"
+        unknown_session.error and unknown_session.error.code == "session_unregistered"
     )
     assert (
         conn.execute(
