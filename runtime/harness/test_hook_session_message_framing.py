@@ -107,7 +107,7 @@ def test_short_body_delivery_has_bounded_fixed_wrapper() -> None:
             sender_actor_label="Operator",
         ),),
     ))
-    assert len(rendered) <= 1320
+    assert len(rendered) - len(body) <= 1120
     assert json.loads(_body_lines(rendered)[0]) == body
     assert rendered.count(token) == 2
 
