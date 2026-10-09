@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.domain.ci_workflow_declaration_reconcile import (
@@ -35,7 +37,7 @@ def _conn() -> Any:
         " project_id INTEGER NOT NULL, "
         " type TEXT NOT NULL, "
         " settings TEXT, "
-        " verified_at TEXT, "
+        " verified_at TIMESTAMPTZ, "
         " PRIMARY KEY(project_id, type)"
         ");",
     )
@@ -60,7 +62,7 @@ def _seed(conn, *, workflow_file: str, verified_at: str | None = None) -> None:
     )
 
 
-def _verified_at(conn) -> str | None:
+def _verified_at(conn) -> datetime | None:
     row = conn.execute(
         "SELECT verified_at FROM project_capabilities "
         "WHERE project_id = 7 AND type = %s",
@@ -103,7 +105,7 @@ def test_present_file_stamps_verified_at(tmp_path, monkeypatch):
     assert results[0]["status"] == STATUS_RESOLVED
     stamp = _verified_at(conn)
     assert stamp
-    assert "T" in stamp
+    assert isinstance(stamp, datetime)
 
 
 def test_no_checkout_leaves_unverified(monkeypatch):
@@ -149,3 +151,33 @@ def test_missing_result_names_repo(tmp_path, monkeypatch, github_repo):
 
     assert results[0]["github_repo"] == github_repo
     assert results[0]["status"] == STATUS_MISSING
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_reconciliation_stores_exact_native_verification_clock(
+    tmp_path, monkeypatch, zone
+):
+    from yoke_core.domain import ci_workflow_declaration_reconcile as owner
+
+    stamp = parse_instant("1969-12-31T23:59:59.123456Z")
+    workflow = tmp_path / ".github" / "workflows" / "ci.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text("name: ci\n")
+    with _conn() as conn:
+        conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+        _seed(conn, workflow_file="ci.yml")
+        monkeypatch.setattr(owner, "utc_now", lambda: stamp)
+        monkeypatch.setattr(
+            owner, "checkout_for_project_id", lambda *args, **kw: tmp_path
+        )
+        assert (
+            owner.reconcile_ci_workflow_declarations(conn)[0]["status"]
+            == STATUS_RESOLVED
+        )
+        assert _verified_at(conn) == stamp
+        workflow.unlink()
+        assert (
+            owner.reconcile_ci_workflow_declarations(conn)[0]["status"]
+            == STATUS_MISSING
+        )
+        assert _verified_at(conn) is None

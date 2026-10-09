@@ -99,3 +99,64 @@ def test_strategy_checkpoint_keeps_native_anchor(test_db, monkeypatch, zone):
     strategy_checkpoints.ensure_schema(test_db)
     assert strategy_checkpoints.record_checkpoint(test_db, project=1, kind="strategize")
     assert strategy_checkpoints.latest_checkpoint_at(test_db, 1) == STAMP
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_document_claim_release_retains_native_fact_and_formats_event(
+    test_db, monkeypatch, zone
+):
+    from runtime.api.domain.strategy_execution_test_support import (
+        seed_session,
+        seed_strategy_doc,
+    )
+    from yoke_contracts.api.function_call import (
+        ActorContext,
+        FunctionCallRequest,
+        TargetRef,
+    )
+    from yoke_contracts.timestamps import temporal_wire
+    from yoke_core.domain import strategy_doc_session_claims as owner
+    from yoke_core.domain.handlers import strategy_doc_surfaces as event_owner
+
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    seed_strategy_doc(test_db, "NATIVE-CLAIM", "# Native claim\n")
+    seed_session(test_db, "native-claim-holder")
+    monkeypatch.setattr(owner, "utc_now", lambda: STAMP)
+    claim = owner.acquire_session_doc_claim(
+        test_db,
+        project_id=1,
+        slug="NATIVE-CLAIM",
+        session_id="native-claim-holder",
+        actor_id=1,
+    )
+    assert claim["registered_at"] == STAMP
+    later = STAMP + timedelta(microseconds=1)
+    monkeypatch.setattr(owner, "utc_now", lambda: later)
+    released = owner.release_session_doc_claim(
+        test_db,
+        project_id=1,
+        slug="NATIVE-CLAIM",
+        session_id="native-claim-holder",
+        actor_id=1,
+        reason="finished",
+    )
+    assert released["released_at"] == later
+    raw = test_db.execute(
+        "SELECT registered_at,released_at FROM strategy_doc_claims WHERE id=%s",
+        (claim["id"],),
+    ).fetchone()
+    assert tuple(raw) == (STAMP, later)
+    calls = []
+    monkeypatch.setattr(
+        event_owner._events, "emit_event", lambda *args, **kw: calls.append(kw)
+    )
+    request = FunctionCallRequest(
+        function="strategy.claim.release",
+        actor=ActorContext(session_id="native-claim-holder"),
+        target=TargetRef(kind="global"),
+        payload={},
+    )
+    event_owner._emit(event_owner.CLAIM_RELEASED_EVENT, request, "yoke", released)
+    assert calls[0]["context"] == temporal_wire(released)
+    assert calls[0]["context"]["released_at"] == "1969-12-31T23:59:59.123457Z"
+    assert released["released_at"] == later

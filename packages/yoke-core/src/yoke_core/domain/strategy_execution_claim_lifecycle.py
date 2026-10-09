@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.strategy_execution_state import (
     StrategyDocClaimAuthorizationError,
@@ -56,7 +56,7 @@ def acquire_strategy_doc_claim(
         raise StrategyExecutionLinkError(
             f"Blitz {render_item_ref(conn, item_id)} has no execution document"
         )
-    registered_at = iso8601_now()
+    registered_at = utc_now()
     inserted = _row(
         conn.execute(
             "INSERT INTO strategy_doc_claims "
@@ -72,7 +72,7 @@ def acquire_strategy_doc_claim(
                 int(item_id),
                 actor_id,
                 session_id,
-                registered_at,
+                instant_parameter(conn, registered_at),
             ),
         )
     )
@@ -197,7 +197,7 @@ def release_strategy_doc_claim(
             raise StrategyDocClaimAuthorizationError(
                 "normal release requires the session holding the item claim"
             )
-    released_at = iso8601_now()
+    released_at = utc_now()
     marker = _marker(conn)
     cursor = conn.execute(
         "UPDATE strategy_doc_claims "
@@ -208,7 +208,7 @@ def release_strategy_doc_claim(
         (
             actor_id,
             session_id,
-            released_at,
+            instant_parameter(conn, released_at),
             "break_glass" if break_glass else "normal",
             str(reason or "lifecycle release"),
             int(claim["id"]),

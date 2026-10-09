@@ -9,7 +9,7 @@ from yoke_core.domain.builtin_workflow_canon import (
     canon_generations,
     recognize,
 )
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.workflow_definition_codec import (
     WorkflowRegistryError,
     decode_definition,
@@ -35,10 +35,7 @@ def _holds_newest_canon(target: Any) -> bool:
     if not generations:
         return False
     held = recognize(workflow_id, str(target["definition_digest"]))
-    return (
-        held is not None
-        and held.canon_version == generations[-1].canon_version
-    )
+    return held is not None and held.canon_version == generations[-1].canon_version
 
 
 def set_current_workflow_version(
@@ -59,18 +56,13 @@ def set_current_workflow_version(
     if workflow is None:
         raise WorkflowRegistryError(f"unknown workflow {workflow_id!r}")
     current_id = workflow.get("current_version_id")
-    current = (
-        version_by_id(conn, int(current_id))
-        if current_id is not None
-        else None
-    )
+    current = version_by_id(conn, int(current_id)) if current_id is not None else None
     if current is None or current["workflow_id"] != workflow_id:
         raise WorkflowRegistryError(
             f"workflow {workflow_id!r} has an invalid current version"
         )
-    if (
-        expected_current_version is not None
-        and int(current["version"]) != int(expected_current_version)
+    if expected_current_version is not None and int(current["version"]) != int(
+        expected_current_version
     ):
         raise WorkflowRegistryError(
             f"workflow {workflow_id!r} current version changed from "
@@ -78,9 +70,7 @@ def set_current_workflow_version(
         )
     target = version_row(conn, workflow_id, version)
     if target is None:
-        raise WorkflowRegistryError(
-            f"unknown workflow version {workflow_id}@{version}"
-        )
+        raise WorkflowRegistryError(f"unknown workflow version {workflow_id}@{version}")
     # Selecting anything but the newest published generation stops this
     # workflow following it. Otherwise the next boot would move it straight
     # back and a rollback would last only until the next restart. Following is
@@ -88,14 +78,12 @@ def set_current_workflow_version(
     # switched off is their call, not a side effect of picking a version. The
     # adoption notice clears either way, because it described a move this
     # selection supersedes.
-    stop_following = (
-        "" if _holds_newest_canon(target) else "canon_follow = 'manual', "
-    )
+    stop_following = "" if _holds_newest_canon(target) else "canon_follow = 'manual', "
     conn.execute(
         f"UPDATE workflows SET current_version_id = {bind}, {stop_following}"
         f"canon_adopted_from_version = NULL, updated_at = {bind} "
         f"WHERE id = {bind}",
-        (int(target["id"]), iso8601_now(), workflow_id),
+        (int(target["id"]), instant_parameter(conn, utc_now()), workflow_id),
     )
     conn.commit()
     return {
@@ -117,9 +105,7 @@ def get_workflow_version(
         raise WorkflowRegistryError(f"unknown workflow {workflow_id!r}")
     row = version_row(conn, workflow_id, version)
     if row is None:
-        raise WorkflowRegistryError(
-            f"unknown workflow version {workflow_id}@{version}"
-        )
+        raise WorkflowRegistryError(f"unknown workflow version {workflow_id}@{version}")
     return {
         "workflow_id": workflow_id,
         "version": int(row["version"]),

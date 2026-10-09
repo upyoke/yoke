@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from yoke_contracts.timestamps import temporal_wire
+
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -303,7 +305,7 @@ def _emit(
         severity="WARN" if name == CLAIM_BREAK_GLASS_EVENT else "INFO",
         outcome="completed",
         project=project_slug,
-        context=context,
+        context=temporal_wire(context),
     )
 
 
