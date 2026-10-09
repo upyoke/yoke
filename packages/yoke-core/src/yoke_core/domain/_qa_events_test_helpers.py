@@ -8,30 +8,28 @@ Each split test module defines its own ``conn`` fixture (a thin wrapper
 around :data:`QA_REQUIREMENTS_SCHEMA`) and imports the row helpers and
 captured-event helpers from here.
 
-Classification — pure-unit-test :memory: fixture, NOT a Yoke-authority
-model. The ``test_qa_events_*`` suites exercise pure row->envelope logic
-(``resolve_requirement_event_target`` works on plain dicts; ``emit_qa_*_event``
-always runs with ``events.emit_event`` monkeypatched, so nothing is persisted
-to a real ``events`` table). The temporary tables below are just row factories.
-They deliberately avoid ``qa.cmd_init`` because the schema is intentionally
-permissive: ``QA_REQUIREMENTS_SCHEMA`` omits the production ``qa_requirements``
-target CHECK constraint so the suite can cover edge-case rows the real schema
-forbids (e.g. ``test_resolve_target_epic_no_task_num`` inserts an ``epic_id``
-row with NULL ``task_num``). Routing this through the real schema would reject
-those rows. This fixture does not model Yoke persistence authority.
+The temporary tables use the active Postgres test connection with native
+instant columns. They are permissive row factories: the requirement target
+CHECK constraint is deliberately omitted so the suite can cover rows the
+production schema forbids, such as an epic requirement without a task number.
+Event emission is monkeypatched to capture envelopes rather than persist rows.
 """
 
 from __future__ import annotations
 
 from typing import List
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
 # ---------------------------------------------------------------------------
-# In-memory DB schema
+# Permissive temporary row schema
 # ---------------------------------------------------------------------------
+
+_FIXTURE_INSTANT = parse_instant("2026-01-01T00:00:00.123456Z")
 
 QA_REQUIREMENTS_SCHEMA = """
 CREATE TEMP TABLE qa_requirements (
@@ -45,15 +43,15 @@ CREATE TEMP TABLE qa_requirements (
     blocking_mode TEXT NOT NULL DEFAULT 'blocking',
     requirement_source TEXT DEFAULT 'explicit',
     success_policy TEXT,
-    waived_at TEXT,
-    created_at TEXT
+    waived_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ
 );
 CREATE TEMP TABLE events (
     id INTEGER PRIMARY KEY,
     event_name TEXT,
     event_type TEXT,
     source_type TEXT,
-    created_at TEXT,
+    created_at TIMESTAMPTZ,
     envelope TEXT
 );
 """
@@ -71,11 +69,12 @@ def make_conn():
 # Row insertion helpers
 # ---------------------------------------------------------------------------
 
+
 def insert_item_requirement(conn, *, req_id=1, item_id=42):
     conn.execute(
         "INSERT INTO qa_requirements (id, item_id, qa_kind, qa_phase, created_at) "
         "VALUES (%s, %s, %s, %s, %s)",
-        (req_id, item_id, "implementation_review", "verification", "2026-01-01T00:00:00Z"),
+        (req_id, item_id, "implementation_review", "verification", _FIXTURE_INSTANT),
     )
     conn.commit()
 
@@ -84,7 +83,14 @@ def insert_epic_requirement(conn, *, req_id=2, epic_id=100, task_num=3):
     conn.execute(
         "INSERT INTO qa_requirements (id, epic_id, task_num, qa_kind, qa_phase, created_at) "
         "VALUES (%s, %s, %s, %s, %s, %s)",
-        (req_id, epic_id, task_num, "implementation_review", "verification", "2026-01-01T00:00:00Z"),
+        (
+            req_id,
+            epic_id,
+            task_num,
+            "implementation_review",
+            "verification",
+            _FIXTURE_INSTANT,
+        ),
     )
     conn.commit()
 
@@ -93,7 +99,7 @@ def insert_deployment_requirement(conn, *, req_id=3, run_id="run-abc-001"):
     conn.execute(
         "INSERT INTO qa_requirements (id, deployment_run_id, qa_kind, qa_phase, created_at) "
         "VALUES (%s, %s, %s, %s, %s)",
-        (req_id, run_id, "smoke", "post_deploy", "2026-01-01T00:00:00Z"),
+        (req_id, run_id, "smoke", "post_deploy", _FIXTURE_INSTANT),
     )
     conn.commit()
 
@@ -108,6 +114,7 @@ def fetch_row(conn, req_id):
 # ---------------------------------------------------------------------------
 # Captured-event helpers
 # ---------------------------------------------------------------------------
+
 
 class Captured:
     """Mimics emit_event by recording call kwargs into a list."""
