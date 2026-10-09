@@ -53,7 +53,7 @@ const until = async condition => {
   }
 };
 
-test("workbench collects one initial view and one per URL navigation with no consent step", async () => {
+test("workbench collects one initial view and one per path change with no consent step", async () => {
   const originalPush = history.pushState;
   const originalReplace = history.replaceState;
   const cleanup = mountWorkbenchTelemetry(browser);
@@ -64,13 +64,15 @@ test("workbench collects one initial view and one per URL navigation with no con
   assert.equal(events[0].event_type, "page_view");
   assert.equal(events[0].referrer, null);
   history.pushState({}, "", "/sessions");
+  // Query-only rewrites (filters, ?selection=all) are not new pages.
   history.replaceState({}, "", "/sessions?tab=active");
+  history.replaceState({}, "", "/sessions?selection=all");
   location = new URL("https://workbench.example/items");
   browser.dispatchEvent(new Event("popstate"));
   history.replaceState({ stateOnly: true }, "", location.href);
-  await until(async () => { await flushEvents(); return events.length === 4; });
-  assert.deepEqual(events.map(e => e.page_path), ["/items", "/sessions", "/sessions", "/items"]);
-  assert.equal(new Set(events.map(e => e.event_id)).size, 4);
+  await until(async () => { await flushEvents(); return events.length === 3; });
+  assert.deepEqual(events.map(e => e.page_path), ["/items", "/sessions", "/items"]);
+  assert.equal(new Set(events.map(e => e.event_id)).size, 3);
   assert.equal(events[1].referrer, events[0].page_url);
   assert.ok(events.every(e => !e.page_url.includes("token")));
   cleanup();
@@ -78,7 +80,7 @@ test("workbench collects one initial view and one per URL navigation with no con
   assert.equal(history.replaceState, originalReplace);
   history.pushState({}, "", "/strategy");
   await flushEvents();
-  assert.equal(events.length, 4);
+  assert.equal(events.length, 3);
 });
 
 test("unavailable configuration names the recovery and leaves the workbench mounted", async () => {
