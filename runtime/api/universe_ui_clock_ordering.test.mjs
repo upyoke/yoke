@@ -77,7 +77,7 @@ test("released holding groups select microseconds, retain equal-offset ties and 
 
 import { renderQaPlans } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_view_plans.js";
 import { renderQaMethodDetail } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_view_method_detail.js";
-import { FakeDocument, byClass } from "./universe_ui_dom_test_support.mjs";
+import { FakeDocument, byClass, allNodes } from "./universe_ui_dom_test_support.mjs";
 
 async function renderedPlanOrder(detail, clocks) {
   const rows = clocks.map(([slug, last_at], index) => ({
@@ -146,4 +146,27 @@ test("session staleness is inclusive only after the exact eligible instant", () 
   assert.equal(sessionHealthState({ ...row,
     stale_eligible_at: "2060-10-08T00:00:00.000000Z" }, now).state, "possibly stale");
   assert.equal(sessionHealthState({ ...row, liveness: "stale" }, now).state, "stale");
+});
+
+
+import { progressPanel } from "../../packages/yoke-core/src/yoke_core/ui/static/item_view_shell.js";
+
+for (const heading of ["2060-10-08", "2060-10-08T00:00:00", "2060-10-08 00:00:00Z", "not a clock"]) {
+  test(`historical progress heading stays readable without inventing an instant: ${heading}`, () => {
+    const content = `## ${heading} entry — archived\n\nOpaque 2060-10-08T09:00:00+09:00 body.`;
+    const item = { progress_log: { content } };
+    const panel = progressPanel(new FakeDocument(), item);
+    assert.equal(byClass(panel, "item-progress-heading")[0].children[0].textContent, heading);
+    assert.equal(allNodes(panel).filter((node) => node.tagName === "TIME").length, 0);
+    assert.equal(item.progress_log.content, content);
+  });
+}
+
+test("qualified progress heading carries canonical microseconds only in its time attribute", () => {
+  const content = `## ${equal} entry — observed\n\n${opaque}`;
+  const item = { progress_log: { content } };
+  const panel = progressPanel(new FakeDocument(), item);
+  const time = allNodes(panel).find((node) => node.tagName === "TIME");
+  assert.equal(time.getAttribute("datetime"), first);
+  assert.equal(item.progress_log.content, content);
 });
