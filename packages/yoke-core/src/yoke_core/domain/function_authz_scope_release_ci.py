@@ -56,6 +56,14 @@ RELEASE_CI_AUTHZ_BY_ID = {
         PROJECT,
         PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
     ),
+    # The bridge re-reads the consumer branch it is about to promote, so a
+    # proof taken before that branch moved is followed rather than shipped
+    # stale. The answer is a head commit and its ancestry — what a run read
+    # of that branch already reveals — so it rides the run-read permission.
+    "github.branch.head": AuthzSpec(
+        PROJECT,
+        PERM_GITHUB_ACTIONS_RUN_READ,
+    ),
     "github_actions.workflow.find_run": AuthzSpec(
         PROJECT,
         PERM_GITHUB_ACTIONS_RUN_READ,
