@@ -16,6 +16,8 @@ from typing import Any
 
 from psycopg import sql
 
+from yoke_contracts.timestamps import format_instant
+
 from yoke_core.domain.schema_fingerprint import fingerprint_portable_postgres_schema
 from yoke_core.domain.source_authority_overlay_receipts import (
     batched_server_cursor_rows,
@@ -27,22 +29,39 @@ from yoke_core.domain.source_authority_overlay_receipts import (
 
 NORMALIZATION_SCHEMA = "yoke.portable-authority/v2"
 EXCLUDED_TABLE_OWNERSHIP = {
-    "destination_convergence": frozenset({
-        "actor_external_identities", "actor_invites",
-        "actor_org_roles", "actor_project_roles", "actors",
-        "api_token_audit", "api_tokens", "web_sessions",
-    }),
+    "destination_convergence": frozenset(
+        {
+            "actor_external_identities",
+            "actor_invites",
+            "actor_org_roles",
+            "actor_project_roles",
+            "actors",
+            "api_token_audit",
+            "api_tokens",
+            "web_sessions",
+        }
+    ),
     "destination_rebind": frozenset({"organizations"}),
-    "destination_overlay": frozenset({
-        "github_app_installations", "project_github_repo_bindings",
-    }),
-    "separate_receipt_plane": frozenset({
-        "capability_secrets", "project_capabilities",
-    }),
-    "retired_nonportable": frozenset({
-        "harness_sessions", "merge_locks",
-        "session_tool_calls", "work_claims",
-    }),
+    "destination_overlay": frozenset(
+        {
+            "github_app_installations",
+            "project_github_repo_bindings",
+        }
+    ),
+    "separate_receipt_plane": frozenset(
+        {
+            "capability_secrets",
+            "project_capabilities",
+        }
+    ),
+    "retired_nonportable": frozenset(
+        {
+            "harness_sessions",
+            "merge_locks",
+            "session_tool_calls",
+            "work_claims",
+        }
+    ),
     # Telemetry rows still travel inside the archive and are still covered
     # by the schema fingerprint and the archive's exact byte checksum. They
     # are kept out of the AUTHORITY comparison because they are disposable:
@@ -51,13 +70,13 @@ EXCLUDED_TABLE_OWNERSHIP = {
     # a universe nothing had actually altered.
     "disposable_telemetry": frozenset({"events"}),
 }
-NORMALIZED_EXCLUDED_TABLES = frozenset().union(
-    *EXCLUDED_TABLE_OWNERSHIP.values()
-)
+NORMALIZED_EXCLUDED_TABLES = frozenset().union(*EXCLUDED_TABLE_OWNERSHIP.values())
 
 
 def authority_receipt(
-    conn: object, *, include_content_digests: bool = False,
+    conn: object,
+    *,
+    include_content_digests: bool = False,
 ) -> dict[str, Any]:
     """Return bounded metadata or one streaming full-content receipt."""
     tables = _base_tables(conn)
@@ -65,14 +84,18 @@ def authority_receipt(
     portable_tables = [table for table in tables if table not in excluded_tables]
     table_rows = {
         table: _table_receipt(
-            conn, table, include_content_digest=include_content_digests,
+            conn,
+            table,
+            include_content_digest=include_content_digests,
         )
         for table in portable_tables
     }
     strategies = _strategy_receipts(conn) if "strategy_docs" in tables else []
     sequences = _sequence_receipts(conn, excluded_tables=set(excluded_tables))
-    catalog_text = "\n".join(portable_tables) + "\n--sequences--\n" + "\n".join(
-        entry["name"] for entry in sequences
+    catalog_text = (
+        "\n".join(portable_tables)
+        + "\n--sequences--\n"
+        + "\n".join(entry["name"] for entry in sequences)
     )
     database_catalog_text = "\n".join(tables)
     body: dict[str, Any] = {
@@ -97,12 +120,10 @@ def authority_receipt(
         "content_digests_included": include_content_digests,
     }
     body["project_capabilities"] = (
-        project_capabilities_receipt(conn)
-        if "project_capabilities" in tables else None
+        project_capabilities_receipt(conn) if "project_capabilities" in tables else None
     )
     body["capability_secrets"] = (
-        capability_secrets_receipt(conn)
-        if "capability_secrets" in tables else None
+        capability_secrets_receipt(conn) if "capability_secrets" in tables else None
     )
     digest_body = dict(body)
     if body["capability_secrets"] is not None:
@@ -110,7 +131,8 @@ def authority_receipt(
         # the canonical restored-empty plane while the populated source plane
         # remains adjacent audit evidence for overlay coverage.
         digest_body["capability_secrets"] = filter_typed_receipt(
-            body["capability_secrets"], frozenset(),
+            body["capability_secrets"],
+            frozenset(),
         )
     body["receipt_digest"] = _sha256_text(
         json.dumps(digest_body, sort_keys=True, separators=(",", ":"))
@@ -130,7 +152,10 @@ def _base_tables(conn: object) -> list[str]:
 
 
 def _table_receipt(
-    conn: object, table: str, *, include_content_digest: bool,
+    conn: object,
+    table: str,
+    *,
+    include_content_digest: bool,
 ) -> dict[str, Any]:
     columns = [
         str(row[0])
@@ -147,18 +172,23 @@ def _table_receipt(
     for name in ("id", "updated_at"):
         if name in columns:
             projections.append(
-                sql.SQL("MAX({})::text").format(sql.Identifier(name))
+                sql.SQL("MAX({})::text" if name == "id" else "MAX({})").format(
+                    sql.Identifier(name)
+                )
             )
             names.append(f"max_{name}")
     values = conn.execute(
         sql.SQL("SELECT {} FROM {}").format(
-            sql.SQL(", ").join(projections), identifier,
+            sql.SQL(", ").join(projections),
+            identifier,
         )
     ).fetchone()
     receipt: dict[str, Any] = {
         name: (int(value) if name == "count" else value)
         for name, value in zip(names, values)
     }
+    if receipt.get("max_updated_at") is not None:
+        receipt["max_updated_at"] = format_instant(receipt["max_updated_at"])
     if include_content_digest:
         receipt["digest"] = streaming_table_digest(conn, table)
     return receipt
@@ -177,7 +207,10 @@ def streaming_table_digest(conn: object, table: str) -> str:
     aggregate = 0
     modulus = 1 << 256
     for row in batched_server_cursor_rows(
-        conn, f"source_cutover_{table[:40]}", query, batch_size=1000,
+        conn,
+        f"source_cutover_{table[:40]}",
+        query,
+        batch_size=1000,
     ):
         row_digest = hashlib.sha256(str(row[0]).encode("utf-8")).digest()
         aggregate = (aggregate + int.from_bytes(row_digest, "big")) % modulus
@@ -193,7 +226,7 @@ def _strategy_receipts(conn: object) -> list[dict[str, Any]]:
         {
             "project_id": int(row[0]),
             "slug": str(row[1]),
-            "updated_at": str(row[2]),
+            "updated_at": format_instant(row[2]),
             "content_sha256": _sha256_text(str(row[3])),
         }
         for row in rows
@@ -201,7 +234,9 @@ def _strategy_receipts(conn: object) -> list[dict[str, Any]]:
 
 
 def _sequence_receipts(
-    conn: object, *, excluded_tables: set[str],
+    conn: object,
+    *,
+    excluded_tables: set[str],
 ) -> list[dict[str, Any]]:
     owned = [
         (str(row[0]), None if row[1] is None else str(row[1]))
@@ -221,9 +256,7 @@ def _sequence_receipts(
         if owner_table in excluded_tables:
             continue
         row = conn.execute(
-            sql.SQL("SELECT last_value, is_called FROM {}").format(
-                sql.Identifier(name)
-            )
+            sql.SQL("SELECT last_value, is_called FROM {}").format(sql.Identifier(name))
         ).fetchone()
         receipts.append(
             {

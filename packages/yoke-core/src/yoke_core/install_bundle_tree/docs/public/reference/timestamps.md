@@ -307,44 +307,42 @@ resource bundle. Date's measured milliseconds are padded with trailing zeros;
 no sub-millisecond precision is invented. Opaque screenshot filename suffixes
 remain identifiers, and browser display-age calculations remain display owners.
 
-Onboarding lock, report and checklist files, local-core state and UI daemon
-records generate fixed-six UTC clocks with the shared formatter. UI daemon
-records retain native instants after file ingress and format their status JSON.
-Resumed report clocks accept field-permitted null and validate provided clocks
-before rewriting the report; historical source reports and opaque text stay
-unchanged. Hook-latency measurement uses native run-window clocks, formats only
-the events-query argument and report fields, and keeps elapsed timing monotonic.
+Onboarding lock, report and checklist files, local-core state and UI daemon records generate fixed-six UTC clocks
+with the shared formatter. UI daemon records retain native instants after file ingress and format their status JSON.
+Resumed report clocks accept field-permitted null and validate provided clocks before rewriting the report;
+historical source reports and opaque text stay unchanged. Hook-latency measurement uses native run-window clocks,
+formats only the events-query argument and report fields, and keeps elapsed timing monotonic.
 
-UI time elements publish qualified source instants with all six fractional
-digits; null publishes no machine clock. Display ages and refresh counters
-remain measured in milliseconds. Hosted-frame, QA/workbench and card specimen
+UI time elements publish qualified source instants with all six fractional digits; null publishes no machine clock.
+Display ages and refresh counters remain measured in milliseconds. Hosted-frame, QA/workbench and card specimen
 fixtures reuse the shared Date producer without changing historical versions.
 
-Conversation mappings and process-anchor files publish fixed-six UTC clocks
-through the shared kernel; OS process-start identity text stays opaque. Current
-routed-session fixtures bind native clocks and adapt only at SQLite ownership.
+Conversation mappings and process-anchor files publish fixed-six UTC clocks through the shared kernel; OS
+process-start identity text stays opaque. Current routed-session fixtures bind native clocks and adapt only at
+SQLite ownership.
 
-QA daily summaries keep UTC day labels as dates; half-open windows bind native
-UTC midnight instants independently of the SQL session timezone.
+QA daily summaries keep UTC day labels as dates; half-open windows bind native UTC midnight instants independently
+of the SQL session timezone.
 
-Notice, messaging, settlement, signing, export-name and fleet polling owners
-validate supplied clocks before reads or actions; only null selects the shared
-clock. Qualified offsets normalize without losing microseconds. Captured hook
-endpoints retain their timing owner. Scheduler fixtures declare native columns.
-QA wakes, parked ordering, hook context and event relative bounds reuse this clock.
+Notice, messaging, settlement, signing, export-name and fleet polling owners validate supplied clocks before reads
+or actions; only null selects the shared clock. Qualified offsets normalize without losing microseconds. Captured
+hook endpoints retain their timing owner. Scheduler fixtures declare native columns. QA wakes, parked ordering, hook
+context and event relative bounds reuse this clock.
 
-Surface-policy, approval, task-binding, workflow inventory and composition
-replies format declared clocks as fixed-six UTC/null. Approval missing its
-required clock refuses with named recovery. Session identity/release readers
-keep native instants; steering ties compare instants before claim ids. Chain
-event context, new triage receipts and stale-browser diagnostics format their
-owned clock fields. Terminal settlement parses its optional completion instant.
-Existing frozen snapshots, retained triage receipts, reports and digests stay opaque.
+Surface-policy, approval, task-binding, workflow inventory and composition replies format declared clocks as
+fixed-six UTC/null. Approval missing its required clock refuses with named recovery. Session identity/release
+readers keep native instants; steering ties compare instants before claim ids. Chain event context, new triage
+receipts and stale-browser diagnostics format their owned clock fields. Terminal settlement parses its optional
+completion instant. Existing frozen snapshots, retained triage receipts, reports and digests stay opaque.
 
-Merge receipts order present instants; steering reply cutoffs stay native. Doctor,
-pricing and hook report metadata format clocks as fixed-six UTC/null. Report
-confirmation validates before connecting and binds native interval clocks.
+Merge receipts order present instants; steering reply cutoffs stay native. Doctor, pricing and hook report metadata
+format clocks as fixed-six UTC/null. Report confirmation validates before connecting and binds native interval
+clocks.
 
-Strategy headers emit fixed-six UTC identities; parsing rejects invalid clocks
-as mangled headers. Archive relocation compares canonical identities before file
-inspection, preserving matching file bytes, body hashes and editor labels.
+Strategy headers emit fixed-six UTC identities; parsing rejects invalid clocks as mangled headers. Archive
+relocation compares canonical identities before file inspection, preserving matching file bytes, body hashes and
+editor labels.
+
+New source-authority receipt metadata uses fixed-six UTC/null; freeze watermarks
+compare native instants before hashing. Existing receipt files, frozen fixture
+IDs and PostgreSQL physical row checksums retain their exact evidence bytes.
