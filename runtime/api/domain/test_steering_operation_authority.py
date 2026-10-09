@@ -138,6 +138,7 @@ def test_path_override_uses_persisted_owner_instead_of_conflicting_item_hint(
     )
     owner, hint = (101, 201) if covered_owner else (201, 101)
     conn.execute("INSERT INTO path_claims VALUES (1,'item',?)", (owner,))
+    conn.execute("INSERT INTO path_claims VALUES (2,'item',?)", (hint,))
     register_all_handlers()
     req = FunctionCallRequest(
         function="claims.path.override",
@@ -145,9 +146,9 @@ def test_path_override_uses_persisted_owner_instead_of_conflicting_item_hint(
         target={
             "kind": "item",
             "item_id": hint,
-            **({"path_claim_id": 1} if claim_in_target else {}),
+            **({"path_claim_id": 2} if claim_in_target else {}),
         },
-        payload={} if claim_in_target else {"path_claim_id": 1},
+        payload={"path_claim_id": 1},
     )
     with patch("yoke_core.domain.db_helpers.connect", return_value=nullcontext(conn)):
         found, project = steering_seat_for_request(lookup(req.function), req)

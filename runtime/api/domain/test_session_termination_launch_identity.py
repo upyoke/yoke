@@ -41,10 +41,9 @@ def _termination_schema(conn, monkeypatch):
 
 def _register_pair(conn) -> None:
     _register(conn, session_id="operator", actor_id=41, mode="wait")
-    from yoke_core.domain.sessions_lifecycle_claim import claim_work
-    from yoke_core.domain.work_claim_targets import make_steering_target
+    from yoke_core.domain.steering_claims import acquire
 
-    claim_work(conn, session_id="operator", target=make_steering_target(1))
+    acquire(conn, session_id="operator", project_id=1, reason="terminate session")
     _register(conn, session_id=WORKER, actor_id=42, machine_id=MACHINE_ID)
 
 

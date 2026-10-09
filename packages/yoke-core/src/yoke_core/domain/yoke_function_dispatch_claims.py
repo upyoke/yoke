@@ -78,8 +78,8 @@ def steering_seat_for_request(entry: RegistryEntry, request: FunctionCallRequest
         if project is None:
             return None, "<unresolved>"
         item_id = request.target.item_id or request.target.epic_id
-        path_claim_id = request.target.path_claim_id or request.payload.get(
-            "path_claim_id"
+        path_claim_id = (
+            request.payload.get("path_claim_id") or request.target.path_claim_id
         )
         if path_claim_id is not None:
             from yoke_core.domain.yoke_function_dispatch_claims_resolve import (

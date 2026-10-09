@@ -193,7 +193,7 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind="item",
     )
-    # claims.path.override — operator-only
+    # claims.path.override — covering steering seat required
     registry.register(
         "claims.path.override",
         _cp.handle_override,
