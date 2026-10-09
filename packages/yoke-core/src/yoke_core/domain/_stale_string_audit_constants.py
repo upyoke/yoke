@@ -64,6 +64,7 @@ GENERIC_QUOTED_STRINGS = {
     ".git",  # Repository suffix and domain substring, not display wording.
     "Write",  # Generic tool/action verb.
     "AND",  # Generic logical conjunction, not retired display wording.
+    "command not found",  # Active shell failure diagnostic.
     "defaults",
     "default",
     "unknown",
