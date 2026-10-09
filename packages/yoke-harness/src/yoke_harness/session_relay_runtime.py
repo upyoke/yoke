@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, cast
 
 from yoke_cli.config import machine_config
+from yoke_contracts.timestamps import format_instant
 from yoke_contracts.session_control.private_route_qualification import (
     PrivateRouteQualificationGrant,
 )
@@ -237,7 +238,9 @@ def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
         presentation=(str(job["presentation"]) if job.get("presentation") else None),
         session_name=(str(job["session_name"]) if job.get("session_name") else None),
         launch_deadline_at=(
-            str(job["deadline_at"]) if job.get("deadline_at") else None
+            format_instant(job["deadline_at"])
+            if job.get("deadline_at") is not None
+            else None
         ),
         target_liveness=(
             str(job["target_liveness"]) if job.get("target_liveness") else None
