@@ -99,7 +99,7 @@ When you hit a recipe gap or notice a minor bug best held as a supporting record
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 
-## Ouroboros reflection
+## Ouroboros — End-of-Session Reflection
 
 Before the final response, read
 `.claude/agents/references/_shared/ouroboros-reflection-contract.md` and run its
@@ -109,5 +109,5 @@ preventable problems (`problem`), better processes (`process-improvement`),
 transformative capabilities (`game-changing-idea`), and concrete upstream/
 downstream improvements (`cross-agent-critique`). Use exact categories and
 include every useful observation. Optional `field_note_kind:
-failed|new|unclear|observation` is captured by the parent Agent-tool hook as
+failed|new|unclear|observation` is captured by the parent Agent-tool hook (`yoke_core.domain.reflection_capture_hook`) as
 one `ouroboros.field_note.append` per recognized marker.

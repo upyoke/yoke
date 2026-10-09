@@ -156,7 +156,7 @@ Never use direct database clients, modify state, create commits, or write files.
 
 <!-- YOKE:FIELD-NOTE -->
 
-## Ouroboros reflection
+## Ouroboros — End-of-Session Reflection
 
 Before completing the final response, read
 `runtime/agents/_shared/ouroboros-reflection-contract.md` and run its

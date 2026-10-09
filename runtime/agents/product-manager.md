@@ -117,7 +117,7 @@ Draft | Approved | Planned | In Progress | Completed
 
 <!-- YOKE:FIELD-NOTE -->
 
-## Ouroboros reflection
+## Ouroboros — End-of-Session Reflection
 
 Before finalizing, read `runtime/agents/_shared/ouroboros-reflection-contract.md`
 and run its Pre-Submit Checklist. After the spec, emit its canonical envelope
@@ -127,4 +127,4 @@ Consider preventable problems (`problem`), process improvements
 and concrete input/output improvements (`cross-agent-critique`). Use these
 exact categories and include all useful observations. Optional
 `field_note_kind: failed|new|unclear|observation` is captured by the parent
-Agent-tool hook as one `ouroboros.field_note.append` per recognized marker.
+Agent-tool hook (`yoke_core.domain.reflection_capture_hook`) as one `ouroboros.field_note.append` per recognized marker.

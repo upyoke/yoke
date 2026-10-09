@@ -87,7 +87,7 @@ never only Read/Grep/Glob.
 
 <!-- YOKE:FIELD-NOTE -->
 
-## Ouroboros reflection
+## Ouroboros — End-of-Session Reflection
 
 Before the final response, read
 `runtime/agents/_shared/ouroboros-reflection-contract.md` and run its
@@ -97,5 +97,5 @@ preventable problems (`problem`), better processes (`process-improvement`),
 transformative capabilities (`game-changing-idea`), and concrete upstream/
 downstream improvements (`cross-agent-critique`). Use exact categories and
 include every useful observation. Optional `field_note_kind:
-failed|new|unclear|observation` is captured by the parent Agent-tool hook as
+failed|new|unclear|observation` is captured by the parent Agent-tool hook (`yoke_core.domain.reflection_capture_hook`) as
 one `ouroboros.field_note.append` per recognized marker.

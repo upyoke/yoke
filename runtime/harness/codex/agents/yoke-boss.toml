@@ -214,7 +214,7 @@ When you hit a recipe gap or notice a minor bug best held as a supporting record
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 
-## Ouroboros reflection
+## Ouroboros — End-of-Session Reflection
 
 Before completing the final response, read
 `.claude/agents/references/_shared/ouroboros-reflection-contract.md` and run its
