@@ -57,9 +57,9 @@ def claims_path_required_gate(args: List[str]) -> int:
 def claims_path_activation_run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke claims path activation-run",
-        description=CLAIMS_PATH_ACTIVATION_RUN_USAGE,
+        description="Activate planned claims using integration heads resolved from this machine’s registered checkout. Incomplete activation exits non-zero with recovery instructions; no claims is a successful no-op.",
     )
-    parser.add_argument("--item", required=True, help="YOK-N or N.")
+    parser.add_argument("--item", required=True, help="Item public ref (PREFIX-N).")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CLAIMS_PATH_ACTIVATION_RUN_USAGE)
@@ -70,13 +70,19 @@ def claims_path_activation_run(args: List[str]) -> int:
         integration_target=None,
         session_id=parsed.session_id,
     )
-    return dispatch_and_emit(
-        function_id="claims.path.activation_run",
-        target=item_target("item", parsed.item, parsed.project),
-        payload={},
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
+    from yoke_core.domain.path_claim_activation_client import run_activation
+
+    ensure_handlers_loaded()
+    actor = build_actor(session_id=parsed.session_id)
+
+    def dispatch(**kwargs):
+        return call_dispatcher(actor=actor, **kwargs)
+
+    response = run_activation(
+        item_target("item", parsed.item, parsed.project),
+        dispatch=dispatch,
     )
+    return emit_response(response, json_mode=parsed.json_mode)
 
 
 def claims_path_boundary_prove(args: List[str]) -> int:
