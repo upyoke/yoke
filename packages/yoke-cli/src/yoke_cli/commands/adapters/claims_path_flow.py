@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import sys
 from pathlib import Path
@@ -70,7 +71,9 @@ def claims_path_activation_run(args: List[str]) -> int:
         integration_target=None,
         session_id=parsed.session_id,
     )
-    from yoke_core.domain.path_claim_activation_client import run_activation
+    activation = importlib.import_module(
+        "yoke_core.domain.path_claim_activation_client"
+    )
 
     ensure_handlers_loaded()
     actor = build_actor(session_id=parsed.session_id)
@@ -78,7 +81,7 @@ def claims_path_activation_run(args: List[str]) -> int:
     def dispatch(**kwargs):
         return call_dispatcher(actor=actor, **kwargs)
 
-    response = run_activation(
+    response = activation.run_activation(
         item_target("item", parsed.item, parsed.project),
         dispatch=dispatch,
     )
