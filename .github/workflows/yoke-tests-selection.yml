@@ -59,6 +59,8 @@ concurrency:
 env:
   # This repository explicitly selects its project; runners have no machine binding.
   YOKE_PROJECT: yoke
+  # AWS public mirror of the official image. Anonymous pulls can still be rate-limited.
+  POSTGRES_IMAGE: public.ecr.aws/docker/library/postgres:16
 
 permissions:
   contents: read
@@ -183,9 +185,16 @@ jobs:
           git config --global init.defaultBranch main
 
       - name: Start Postgres (durability off, dynamic host port)
+        # Pull retries: public ECR throttles anonymous pulls per IP when shards start together.
         run: |
           socket_dir="$(mktemp -d /tmp/yoke-ci-pg.XXXXXX)"
           echo "YOKE_PG_SOCKET_DIR=${socket_dir}" >> "$GITHUB_ENV"
+          for attempt in 1 2 3 4 5; do
+            # artifact-fetch-allow: public ECR throttles anonymous pulls per IP; five jittered attempts precede use
+            docker pull "$POSTGRES_IMAGE" && break
+            [ "$attempt" -eq 5 ] && exit 1
+            sleep $((5 + RANDOM % 26))
+          done
           docker run -d \
             --name "$PG_CONTAINER" \
             -v "${socket_dir}:/var/run/postgresql" \
@@ -193,7 +202,7 @@ jobs:
             -e POSTGRES_PASSWORD=yoke \
             -e POSTGRES_DB=postgres \
             -p 5432 \
-            postgres:16 \
+            "$POSTGRES_IMAGE" \
             -c fsync=off \
             -c synchronous_commit=off \
             -c full_page_writes=off \
