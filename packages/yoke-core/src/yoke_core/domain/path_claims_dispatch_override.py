@@ -35,7 +35,7 @@ def _parse_int_list(raw: str) -> List[int]:
 
 
 def _relay_override(args: argparse.Namespace) -> int:
-    """https fallback: relay through ``claims.path.override``."""
+    """Use the registered ``claims.path.override`` authority on every transport."""
     from yoke_contracts.api.function_call import ActorContext, TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
         call_dispatcher,

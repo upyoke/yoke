@@ -29,7 +29,7 @@ def test_project_rules_define_current_item_verification_ownership():
     assert "not a waiver" in text
     assert "Use dependency and claim reconciliation before override" in text
     assert "Do not use `path-claim-override` for a planned future claim" in text
-    assert "explicit operator approval" in text
+    assert "requires a live steering seat covering the project" in text
 
 
 def test_lifecycle_verification_surfaces_reference_global_policy():
