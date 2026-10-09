@@ -177,10 +177,10 @@ def test_agent_supersession_keeps_ordinary_claim_policy(repair_world):
     )
 
 
-def test_operator_supersession_without_reconcile_uses_same_authority(repair_world):
+def test_ordinary_operator_supersession_keeps_its_claim_policy(repair_world):
     conn, old, final, _ = repair_world
     acquire(conn, session_id=RECORDER, project_id=1, reason="repair QA")
-    assert gate(request(old, final, reconcile=False)) is None
+    assert gate(request(old, final, reconcile=False)).error.code == "claim_required"
 
 
 def test_notice_failure_reports_durable_repair_and_recovery(repair_world):

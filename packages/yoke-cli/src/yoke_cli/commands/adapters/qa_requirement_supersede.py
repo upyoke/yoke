@@ -68,7 +68,7 @@ _EPILOG = (
     "requirement. Divergent terminals, cycles, missing rows or incompatible "
     "scopes refuse before writing. The repair preserves intermediate rows, "
     "captures and prior rationale, and appends the verified actor, seat claim, "
-    "scope and reason. Operator-sourced supersession requires a live operator "
+    "scope and reason. Operator-sourced reconciliation requires a live operator "
     "session or steering seat covering the requirement, without the item claim. "
     "The item claim alone is insufficient. The holder is notified and retains "
     "its claim; the receipt reports notice delivery and any recovery."

@@ -86,7 +86,7 @@ def handle_qa_requirement_supersede(
                         "payload_invalid",
                         "Reconciliation requires --source operator and cannot declare a pending replacement",
                     )
-            if body.source == "operator":
+            if body.reconcile:
                 authority = authorize_reconciliation(conn, request, int(req_id))
                 body.rationale = (
                     f"actor={request.actor.actor_id} session={request.actor.session_id} "
@@ -140,7 +140,7 @@ def handle_qa_requirement_supersede(
                 source=body.source,
                 reconcile=body.reconcile,
             )
-            if body.source == "operator":
+            if body.reconcile:
                 try:
                     result["repair_notice"] = notify_repair(conn, request, result)
                 except Exception as exc:  # repair is already committed

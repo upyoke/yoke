@@ -132,6 +132,7 @@ def qa_subject_claim_verdict(
     if (
         request.function == "qa.requirement.supersede"
         and payload.get("source") == "operator"
+        and payload.get("reconcile") is True
         and target.qa_requirement_id is not None
     ):
         from yoke_core.domain.db_helpers import connect
