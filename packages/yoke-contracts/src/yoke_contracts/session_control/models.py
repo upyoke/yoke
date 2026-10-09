@@ -113,8 +113,10 @@ class MessageListRequest(BaseModel):
     detail: ReadDetail = Field(
         default=DETAIL_SUMMARY,
         description=(
-            "summary serves one compact row per message; full serves every "
-            "body and recipient receipt, for callers that render them."
+            "summary serves one compact row per message, with a compact "
+            "receipt (session_id, state, injection_count, created_at) per "
+            "session recipient; full serves every body and full recipient "
+            "record, for callers that render them."
         ),
     )
 
