@@ -62,3 +62,8 @@ clocks. New archive freeze and source-authority receipts format fixed-six UTC;
 archive contents and existing receipt bytes retain their custody. Resume notices,
 path override envelopes and capacity/performance report clocks use the shared
 formatter at their owned JSON boundary. Opaque identifiers remain unchanged.
+
+The pending resume notice is mutable state. Permanent conversion repairs only
+its required `reactivated_at` clock using existing episode, heartbeat or offered
+facts. Released claim target descriptors, counts and opaque fields remain intact;
+missing valid owner evidence refuses before any scalar conversion.

@@ -163,6 +163,22 @@ def prepare_document_updates(conn: Any) -> list[DocumentUpdate]:
                 "usage_totals",
                 json.dumps(doc),
             )
+    facts = ("episode_started_at", "last_heartbeat", "offered_at")
+    for row in _rows(
+        conn, "harness_sessions", "session_id", "pending_resume_notice", facts
+    ):
+        doc = _document(row[1], "harness_sessions", row[0])
+        after = _clock(conn, doc.get("reactivated_at"), tuple(row[2:]))
+        if doc.get("reactivated_at") != after:
+            doc["reactivated_at"] = after
+            _add(
+                updates,
+                "harness_sessions",
+                "session_id",
+                row,
+                "pending_resume_notice",
+                dumps_compact(doc),
+            )
     facts = ("started_at", "created_at", "current_stage_entered_at")
     for row in _rows(conn, "deployment_runs", "id", "driver_attachment", facts):
         doc = _document(row[1], "deployment_runs", row[0])

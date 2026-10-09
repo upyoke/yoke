@@ -36,7 +36,8 @@ caller retains the restore point, transaction, serving floor and receipts;
 append-only UPDATE/DELETE guards remain enabled during type conversion.
 Permanent history freezes all 264 columns across 125 tables. Excess historical
 fraction digits are dropped at microseconds. Its finite mutable-document policy
-repairs only declared usage, episode, driver, QA-wait and machine-decision clocks
+repairs only declared usage, episode, resume-notice, driver, QA-wait and
+machine-decision clocks
 using existing owner facts, preserving other document fields. Unknown optional
 usage observations become JSON null. Repairs use compare-and-set predicates; a
 concurrent writer refuses instead of losing newer facts. All document repairs

@@ -17,6 +17,67 @@ history = importlib.import_module(
 STAMP = "2026-10-08T16:30:00.123456Z"
 
 
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize(
+    "supplied",
+    ["2026-10-08T22:00:00.123456+05:30", "2026-10-08 16:30:00.1234569", "broken"],
+)
+def test_resume_notice_repair_preserves_descriptors_counts_and_opaque_fields(
+    blank, zone, supplied
+):
+    conn = blank
+    _owners(conn)
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN pending_resume_notice text")
+    conn.execute("SELECT set_config('TimeZone',%s,true)", (zone,))
+    descriptor = {"target_kind": "process", "scope": {"opaque": "2026-10-08T16:30:00Z"}}
+    notice = {
+        "reactivated_at": supplied,
+        "released_claims": [descriptor],
+        "reacquired_count": 3,
+        "conflict_count": 1,
+        "opaque": 9007199254740993,
+    }
+    conn.execute(
+        "INSERT INTO harness_sessions (session_id,last_heartbeat,pending_resume_notice) VALUES (%s,%s,%s)",
+        ("resume", STAMP, json.dumps(notice)),
+    )
+    history.apply(conn)
+    history.invariants(conn)
+    stored = conn.execute(
+        "SELECT pending_resume_notice FROM harness_sessions WHERE session_id='resume'"
+    ).fetchone()[0]
+    assert json.loads(stored) == dict(notice, reactivated_at=STAMP)
+    assert documents.prepare_document_updates(conn) == []
+    history.apply(conn)
+    assert (
+        conn.execute(
+            "SELECT pending_resume_notice FROM harness_sessions WHERE session_id='resume'"
+        ).fetchone()[0]
+        == stored
+    )
+
+
+def test_resume_notice_without_valid_clock_or_owner_fact_refuses_before_conversion(
+    blank,
+):
+    conn = blank
+    _owners(conn)
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN pending_resume_notice text")
+    conn.execute(
+        "INSERT INTO harness_sessions (session_id,pending_resume_notice) VALUES (%s,%s)",
+        ("resume", json.dumps({"reactivated_at": "broken", "released_claims": []})),
+    )
+    with pytest.raises(RuntimeError, match="instant_document_owner_fact_unavailable"):
+        history.apply(conn)
+    assert (
+        conn.execute(
+            "SELECT data_type FROM information_schema.columns WHERE table_schema='public' "
+            "AND table_name='harness_sessions' AND column_name='last_heartbeat'"
+        ).fetchone()[0]
+        == "text"
+    )
+
+
 @pytest.fixture
 def blank():
     from runtime.api.fixtures.native_instant_database import blank_database
