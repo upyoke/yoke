@@ -22,7 +22,7 @@ from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 from yoke_core.domain.steering_fleet_report_render import report_body
 
 
-_NOW = "2026-09-01T13:20:00Z"
+_NOW = "2026-09-01T13:20:00.000000Z"
 _CURSOR_METER = "planUsage.autoPercentUsed"
 _OTHER_METER = "planUsage.apiPercentUsed"
 
@@ -91,14 +91,14 @@ def test_report_renders_cursor_pools_as_distinct_meter_rows(test_db) -> None:
                     "cursor-cli": {
                         "surface": "cursor-cli",
                         "plan_tier": "Ultra",
-                        "observed_at": "2026-09-01T13:19:00Z",
+                        "observed_at": "2026-09-01T13:19:00.000000Z",
                         "windows": [
                             {
                                 "window_kind": "monthly",
                                 "scope": CURSOR_MODELS_SCOPE,
                                 "meter": _CURSOR_METER,
                                 "remaining_percent": 0.0,
-                                "resets_at": "2026-09-07T01:00:00Z",
+                                "resets_at": "2026-09-07T01:00:00.000000Z",
                                 "status": "ok",
                                 "reason": None,
                             },
@@ -107,7 +107,7 @@ def test_report_renders_cursor_pools_as_distinct_meter_rows(test_db) -> None:
                                 "scope": CURSOR_OTHER_MODELS_SCOPE,
                                 "meter": _OTHER_METER,
                                 "remaining_percent": 89.9,
-                                "resets_at": "2026-09-07T01:00:00Z",
+                                "resets_at": "2026-09-07T01:00:00.000000Z",
                                 "status": "ok",
                                 "reason": None,
                             },

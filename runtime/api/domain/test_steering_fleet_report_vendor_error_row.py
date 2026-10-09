@@ -34,11 +34,11 @@ def _stopped(**overrides) -> VendorErrorSession:
         "public_ref": "YOK-41",
         "signature_id": "client_refused",
         "error_message": LIVE_ERROR,
-        "observed_at": "2026-09-03T15:03:29Z",
+        "observed_at": "2026-09-03T15:03:29.000000Z",
         "stopped_seconds": 720,
         "status": "waiting_backoff",
         "reason": "the provider refused this client build",
-        "due_at": "2026-09-03T15:08:29Z",
+        "due_at": "2026-09-03T15:08:29.000000Z",
         "attempts": 1,
         "budget": 3,
         "executor_surface": "codex-cli",
@@ -142,9 +142,9 @@ def test_the_projection_carries_every_fact_the_line_renders():
     assert entry["public_ref"] == "YOK-41"
     assert entry["signature_id"] == "client_refused"
     assert entry["error_message"] == LIVE_ERROR
-    assert entry["observed_at"] == "2026-09-03T15:03:29Z"
+    assert entry["observed_at"] == "2026-09-03T15:03:29.000000Z"
     assert entry["status"] == "waiting_backoff"
-    assert entry["due_at"] == "2026-09-03T15:08:29Z"
+    assert entry["due_at"] == "2026-09-03T15:08:29.000000Z"
     assert entry["attempts"] == 1
     assert entry["budget"] == 3
     assert entry["executor_version"] == "0.151.0-alpha.7.2"

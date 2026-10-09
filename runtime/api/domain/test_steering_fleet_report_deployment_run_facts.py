@@ -23,8 +23,8 @@ from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_render import report_body
 
 
-STARTED = "2026-08-26T08:00:00Z"
-OLDER = "2026-08-26T07:00:00Z"
+STARTED = "2026-08-26T08:00:00.000000Z"
+OLDER = "2026-08-26T07:00:00.000000Z"
 STAGE_QA = "item-qa"
 STAGE_RELEASE = "hosted-release"
 
@@ -122,7 +122,7 @@ def _resolve_decision(
 
 
 STAGE_BUILD = "hosted-build"
-ENTERED_QA = "2026-08-26T11:50:00Z"
+ENTERED_QA = "2026-08-26T11:50:00.000000Z"
 
 
 def _seed_flow(conn, *, flow_id: str = "prod-release") -> None:

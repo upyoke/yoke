@@ -41,7 +41,7 @@ def test_claim_binds_heartbeat_to_dispatcher_verified_actor(monkeypatch) -> None
             relay_id=heartbeat.relay_id,
             machine_id=heartbeat.machine_id,
             state="active",
-            connected_until="2026-08-22T12:05:00Z",
+            connected_until="2026-08-22T12:05:00.000000Z",
             next_poll_seconds=60,
         )
 
@@ -96,7 +96,7 @@ def test_broker_claim_forwards_exact_lease_and_verified_session(monkeypatch) -> 
             relay_id=heartbeat.relay_id,
             machine_id=heartbeat.machine_id,
             state="active",
-            connected_until="2026-08-22T12:05:00Z",
+            connected_until="2026-08-22T12:05:00.000000Z",
             next_poll_seconds=60,
         )
 
@@ -203,19 +203,19 @@ def test_list_projects_only_public_relay_facts_visible_to_actor(monkeypatch) -> 
             "launch.271",
             json.dumps({"codex-desktop": "26.814"}),
             json.dumps([1, 2]),
-            "2026-08-22T12:00:00Z",
-            "2026-08-22T12:01:00Z",
-            "2026-08-22T12:03:00Z",
+            "2026-08-22T12:00:00.000000Z",
+            "2026-08-22T12:01:00.000000Z",
+            "2026-08-22T12:03:00.000000Z",
             "active",
             "secret-lease",
-            "2026-08-22T12:02:00Z",
+            "2026-08-22T12:02:00.000000Z",
         ),
     )
     plan_limits = {
         "codex-cli": {
             "plan_tier": "pro",
             "accessToken": "must-not-project",
-            "observed_at": "2026-08-22T12:01:00Z",
+            "observed_at": "2026-08-22T12:01:00.000000Z",
             "windows": [
                 {
                     "status": "ok",
@@ -223,7 +223,7 @@ def test_list_projects_only_public_relay_facts_visible_to_actor(monkeypatch) -> 
                     "scope": "all",
                     "meter": "primary",
                     "remaining_percent": 80,
-                    "resets_at": "2026-08-22T14:00:00Z",
+                    "resets_at": "2026-08-22T14:00:00.000000Z",
                     "accessToken": "must-not-project",
                 }
             ],
@@ -236,7 +236,7 @@ def test_list_projects_only_public_relay_facts_visible_to_actor(monkeypatch) -> 
         "core_count": 8,
         "max_worker_lanes": 6,
         "cap_source": "max_worker_lanes",
-        "observed_at": "2026-08-22T12:01:00Z",
+        "observed_at": "2026-08-22T12:01:00.000000Z",
         "secret": "must-not-project",
     }
     conn.execute(
@@ -263,7 +263,7 @@ def test_list_projects_only_public_relay_facts_visible_to_actor(monkeypatch) -> 
         "scope": "all",
         "meter": "primary",
         "remaining_percent": 80.0,
-        "resets_at": "2026-08-22T14:00:00Z",
+        "resets_at": "2026-08-22T14:00:00.000000Z",
         "status": "ok",
         "reason": None,
     }

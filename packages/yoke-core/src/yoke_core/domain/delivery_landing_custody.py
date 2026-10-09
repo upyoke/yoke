@@ -9,6 +9,10 @@ delivery. Unanswerable containment stays UNDETERMINED and admits nothing.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
+from datetime import datetime
+
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
@@ -138,14 +142,14 @@ def merged_open_items(conn: Any, project_id: int) -> tuple[dict[str, Any], ...]:
     return tuple(dict(row) for row in rows)
 
 
-def landed_at(record: Mapping[str, Any]) -> str:
-    """The earliest recorded landing stamp on one item row, or ``""``."""
+def landed_at(record: Mapping[str, Any]) -> datetime | None:
+    """The earliest native landing instant on one item row, or null."""
     present = [
-        str(record.get(column) or "")
+        parse_instant(record[column])
         for column in LANDING_STAMP_COLUMNS
-        if record.get(column)
+        if record.get(column) is not None
     ]
-    return min(present) if present else ""
+    return min(present) if present else None
 
 
 def _member_runs(

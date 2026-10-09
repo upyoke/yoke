@@ -8,6 +8,10 @@ what says whether a worker can be started and where the load already sits.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
+from yoke_core.domain.db_helpers import instant_parameter
+
 from dataclasses import dataclass
 import json
 from typing import Any
@@ -112,7 +116,7 @@ def machine_capacities(
         "SELECT machine_id, project_checkouts, machine_capacity FROM session_relays "
         f"WHERE connected_until >= {p} AND state IN ('active','idle') "
         "ORDER BY last_seen_at DESC, machine_id",
-        (now,),
+        (instant_parameter(conn, parse_instant(now)),),
     ).fetchall()
     found: dict[str, MachineCapacity] = {}
     for row in rows:

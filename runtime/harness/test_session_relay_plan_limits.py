@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from pathlib import Path
 
 from runtime.harness.session_relay_clock_test_support import at
@@ -297,13 +299,15 @@ def test_a_cache_written_by_another_shape_is_discarded_not_reported(
         return unknown_reading(surface, "stale_credential", observed_at=observed_at)
 
     monkeypatch.setattr(limits, "_probe_one", _fake)
-    limits._write_cache(
-        {
-            "schema_version": limits.PLAN_LIMIT_CACHE_SCHEMA_VERSION - 1,
-            "probed_at": 1_000.0,
-            "surfaces": {"claude-cli": {"status": "ok", "remaining_percent": 50}},
-        },
-        tmp_path,
+    # A historical cache is fixture data, not a write through the current codec.
+    limits._cache_path(tmp_path).write_text(
+        json.dumps(
+            {
+                "schema_version": limits.PLAN_LIMIT_CACHE_SCHEMA_VERSION - 1,
+                "probed_at": 1_000.0,
+                "surfaces": {"claude-cli": {"status": "ok", "remaining_percent": 50}},
+            }
+        )
     )
 
     readings = limits.observe_plan_limits(

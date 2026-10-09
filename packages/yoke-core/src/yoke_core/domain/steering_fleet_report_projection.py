@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.timestamps import temporal_wire
+
 from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
 from yoke_core.domain.steering_fleet_report_balance import session_selection_label
 from yoke_core.domain.steering_fleet_report_available import FrontierEntry
@@ -215,103 +217,108 @@ def _vendor_error_dict(entry: VendorErrorSession) -> dict[str, Any]:
 def report_dict(report: FleetReport) -> dict[str, Any]:
     """The machine-readable projection of one report."""
     now = report.composed_at
-    return {
-        "project_id": report.project_id,
-        "composed_at": now,
-        "staffing_after_seconds": report.staffing_after_seconds,
-        "idle_after_seconds": report.idle_after_seconds,
-        "actionable": report.actionable,
-        "fingerprint": report.fingerprint(),
-        "available": [_entry_dict(entry, now) for entry in report.available],
-        "waited_too_long": [
-            _entry_dict(entry, now) for entry in report.waited_too_long()
-        ],
-        "holders": [_holder_dict(holder) for holder in report.holders],
-        "idle": [_holder_dict(holder) for holder in report.idle],
-        "undelivered": [_undelivered_dict(entry) for entry in report.undelivered],
-        "undelivered_needing_action": [
-            _undelivered_dict(entry) for entry in report.undelivered_needing_action()
-        ],
-        "unregistered_launches": [
-            _launch_dict(entry) for entry in report.unregistered_launches
-        ],
-        "abandoned_launches": [
-            {
-                "launch_id": entry.launch_id,
-                "surface": entry.surface,
-                "machine_id": entry.machine_id,
-                "session_id": entry.session_id,
-                "closed_seconds": entry.closed_seconds,
-                "closure_reason": entry.closure_reason,
-                "native_stderr_tail": entry.native_stderr_tail,
-                "native_diagnostic_ref": entry.native_diagnostic_ref,
-                "exit_code": entry.exit_code,
-            }
-            for entry in report.abandoned_launches
-        ],
-        "landed_open": [
-            _landed_dict(entry, idle_after_seconds=report.idle_after_seconds)
-            for entry in report.landed_open
-        ],
-        "suspected_orphaned_waiters": [
-            _holder_dict(holder) for holder in report.suspected_orphaned_waiters
-        ],
-        "in_flight": _in_flight.in_flight_dicts(report.in_flight),
-        "landings": [entry.to_dict() for entry in report.landings],
-        "landings_needing_action": [
-            entry.to_dict() for entry in report.landings_needing_action()
-        ],
-        "dead_waits": [_dead_wait_dict(entry) for entry in report.dead_waits],
-        "deployment_runs": [_run_dict(entry) for entry in report.deployment_runs],
-        "deployment_runs_needing_action": [
-            _run_dict(entry) for entry in report.runs_needing_action()
-        ],
-        "vendor_errors": [_vendor_error_dict(entry) for entry in report.vendor_errors],
-        "stranded": stranded_dicts(report.stranded),
-        "launchable": [
-            {"machine_id": ready.machine_id, "surface": ready.surface}
-            for ready in report.launchable
-        ],
-        "session_counts": [
-            {
-                **row.__dict__,
-                "selection_display": session_selection_label(row),
-            }
-            for row in report.session_counts
-        ],
-        "plan_limits": _plan_limits.plan_limit_dicts(
-            report.plan_limits,
-            now=report.composed_at,
-            session_counts=report.session_counts,
-        ),
-        "machine_capacity": [entry.to_dict() for entry in report.machine_capacity],
-        "levels": report.levels.to_dict() if report.levels else None,
-        "level_overrides": [
-            {"public_ref": ref, "override": text}
-            for ref, text in report.level_overrides
-        ],
-        "origin_counts": list(report.origin_counts),
-        "relay_health": [
-            {
-                "relay_id": entry.relay_id,
-                "machine_id": entry.machine_id,
-                "hostname": entry.hostname,
-                "state": entry.state,
-                "pending_reports": entry.pending_reports,
-                "quarantine_count": entry.quarantine_count,
-                "error_code": entry.error_code,
-                "failure_count": entry.failure_count,
-                "first_failed_at": entry.first_failed_at,
-                "last_failed_at": entry.last_failed_at,
-                "refusal_reason": entry.refusal_reason,
-                "local_revision": entry.local_revision,
-                "server_revision": entry.server_revision,
-                "recovery": entry.recovery,
-            }
-            for entry in report.relay_health
-        ],
-        "messages_awaiting_seat": report.messages_awaiting_seat,
-    }
+    return temporal_wire(
+        {
+            "project_id": report.project_id,
+            "composed_at": now,
+            "staffing_after_seconds": report.staffing_after_seconds,
+            "idle_after_seconds": report.idle_after_seconds,
+            "actionable": report.actionable,
+            "fingerprint": report.fingerprint(),
+            "available": [_entry_dict(entry, now) for entry in report.available],
+            "waited_too_long": [
+                _entry_dict(entry, now) for entry in report.waited_too_long()
+            ],
+            "holders": [_holder_dict(holder) for holder in report.holders],
+            "idle": [_holder_dict(holder) for holder in report.idle],
+            "undelivered": [_undelivered_dict(entry) for entry in report.undelivered],
+            "undelivered_needing_action": [
+                _undelivered_dict(entry)
+                for entry in report.undelivered_needing_action()
+            ],
+            "unregistered_launches": [
+                _launch_dict(entry) for entry in report.unregistered_launches
+            ],
+            "abandoned_launches": [
+                {
+                    "launch_id": entry.launch_id,
+                    "surface": entry.surface,
+                    "machine_id": entry.machine_id,
+                    "session_id": entry.session_id,
+                    "closed_seconds": entry.closed_seconds,
+                    "closure_reason": entry.closure_reason,
+                    "native_stderr_tail": entry.native_stderr_tail,
+                    "native_diagnostic_ref": entry.native_diagnostic_ref,
+                    "exit_code": entry.exit_code,
+                }
+                for entry in report.abandoned_launches
+            ],
+            "landed_open": [
+                _landed_dict(entry, idle_after_seconds=report.idle_after_seconds)
+                for entry in report.landed_open
+            ],
+            "suspected_orphaned_waiters": [
+                _holder_dict(holder) for holder in report.suspected_orphaned_waiters
+            ],
+            "in_flight": _in_flight.in_flight_dicts(report.in_flight),
+            "landings": [entry.to_dict() for entry in report.landings],
+            "landings_needing_action": [
+                entry.to_dict() for entry in report.landings_needing_action()
+            ],
+            "dead_waits": [_dead_wait_dict(entry) for entry in report.dead_waits],
+            "deployment_runs": [_run_dict(entry) for entry in report.deployment_runs],
+            "deployment_runs_needing_action": [
+                _run_dict(entry) for entry in report.runs_needing_action()
+            ],
+            "vendor_errors": [
+                _vendor_error_dict(entry) for entry in report.vendor_errors
+            ],
+            "stranded": stranded_dicts(report.stranded),
+            "launchable": [
+                {"machine_id": ready.machine_id, "surface": ready.surface}
+                for ready in report.launchable
+            ],
+            "session_counts": [
+                {
+                    **row.__dict__,
+                    "selection_display": session_selection_label(row),
+                }
+                for row in report.session_counts
+            ],
+            "plan_limits": _plan_limits.plan_limit_dicts(
+                report.plan_limits,
+                now=report.composed_at,
+                session_counts=report.session_counts,
+            ),
+            "machine_capacity": [entry.to_dict() for entry in report.machine_capacity],
+            "levels": report.levels.to_dict() if report.levels else None,
+            "level_overrides": [
+                {"public_ref": ref, "override": text}
+                for ref, text in report.level_overrides
+            ],
+            "origin_counts": list(report.origin_counts),
+            "relay_health": [
+                {
+                    "relay_id": entry.relay_id,
+                    "machine_id": entry.machine_id,
+                    "hostname": entry.hostname,
+                    "state": entry.state,
+                    "pending_reports": entry.pending_reports,
+                    "quarantine_count": entry.quarantine_count,
+                    "error_code": entry.error_code,
+                    "failure_count": entry.failure_count,
+                    "first_failed_at": entry.first_failed_at,
+                    "last_failed_at": entry.last_failed_at,
+                    "refusal_reason": entry.refusal_reason,
+                    "local_revision": entry.local_revision,
+                    "server_revision": entry.server_revision,
+                    "recovery": entry.recovery,
+                }
+                for entry in report.relay_health
+            ],
+            "messages_awaiting_seat": report.messages_awaiting_seat,
+        }
+    )
 
 
 __all__ = ["report_dict"]

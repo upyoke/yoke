@@ -10,8 +10,13 @@ relaunches and never substitutes a model; those stay the operator's call.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant, parse_instant
+
+from yoke_core.domain.db_helpers import instant_parameter
+
 import json
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Mapping
 
 from yoke_contracts.session_control.native_models import (
@@ -59,7 +64,7 @@ class StrandedSession:
     kind: str
     meter: str
     remaining_percent: float | None
-    resets_at: str
+    resets_at: datetime | None
     reason: str
     recovery: str
 
@@ -123,7 +128,11 @@ def _still_registering(conn: Any, session_ids: list[str], *, now: str) -> set[st
         "SELECT registered_session_id FROM session_launches "
         f"WHERE registered_session_id IN ({id_holes}) "
         f"AND state IN ({state_holes}) AND deadline_at>={placeholder}",
-        (*session_ids, *_REGISTERING_STATES, now),
+        (
+            *session_ids,
+            *_REGISTERING_STATES,
+            instant_parameter(conn, parse_instant(now)),
+        ),
     ).fetchall()
     return {str(dict(row)["registered_session_id"]) for row in rows}
 
@@ -134,7 +143,7 @@ def _native_models(conn: Any, *, machine_id: str, now: str) -> Mapping[str, Any]
         "SELECT surface_native_models FROM session_relays "
         f"WHERE machine_id={placeholder} AND connected_until>={placeholder} "
         "ORDER BY last_seen_at DESC, relay_id DESC",
-        (machine_id, now),
+        (machine_id, instant_parameter(conn, parse_instant(now))),
     ).fetchone()
     if row is None:
         return {}
@@ -167,7 +176,9 @@ def _reason(
 ) -> tuple[str, str]:
     if kind == KIND_METER_EXHAUSTED and wall is not None:
         quota = f"{int(round(wall.remaining_percent))}%"
-        reset = wall.resets_at or "unknown"
+        reset = (
+            format_instant(wall.resets_at) if wall.resets_at is not None else "unknown"
+        )
         return (
             f"meter {wall.meter} ({wall.window}) {quota} remaining, resets {reset}",
             RECOVERY,
@@ -249,7 +260,7 @@ def stranded_sessions(
                 kind=kind,
                 meter=wall.meter if wall is not None else "",
                 remaining_percent=wall.remaining_percent if wall is not None else None,
-                resets_at=(wall.resets_at or "") if wall is not None else "",
+                resets_at=wall.resets_at if wall is not None else None,
                 reason=reason,
                 recovery=recovery,
             )
@@ -298,7 +309,9 @@ def stranded_dicts(rows: tuple[StrandedSession, ...]) -> list[dict[str, Any]]:
             "kind": entry.kind,
             "meter": entry.meter or None,
             "remaining_percent": entry.remaining_percent,
-            "resets_at": entry.resets_at or None,
+            "resets_at": format_instant(entry.resets_at)
+            if entry.resets_at is not None
+            else None,
             "reason": entry.reason,
             "recovery": entry.recovery,
             "seat_owed": entry.seat_owed,

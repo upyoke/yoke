@@ -43,7 +43,7 @@ MERGE_WAIT = (
     "cd /repo/.worktrees/YOK-1 && yoke --env prod watch merge "
     "merge-item -- YOK-1 --wait --result done"
 )
-CALL_STARTED = "2026-08-26T11:40:00Z"
+CALL_STARTED = "2026-08-26T11:40:00.000000Z"
 
 
 def _send(conn, message_id, *, sender, to, at, body=A_QUESTION, state="pending"):

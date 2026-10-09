@@ -25,7 +25,7 @@ from yoke_core.domain.steering_fleet_report_compose import (
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 
 
-NOW = "2026-08-29T12:00:00Z"
+NOW = "2026-08-29T12:00:00.000000Z"
 
 
 def _report(
@@ -64,7 +64,7 @@ def _idle(project_id: int) -> ClaimHolder:
         public_ref=f"X-{project_id}",
         mode="wait",
         parked=False,
-        last_activity_at="2026-08-29T11:00:00Z",
+        last_activity_at="2026-08-29T11:00:00.000000Z",
         idle_seconds=3600,
     )
 

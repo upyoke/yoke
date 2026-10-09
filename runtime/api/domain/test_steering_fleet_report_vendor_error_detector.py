@@ -10,6 +10,8 @@ fleet produces nothing.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import json
 
 import pytest
@@ -99,7 +101,7 @@ def test_a_stopped_worker_is_named_with_the_item_it_is_holding(fleet):
     assert row.item_id == 1
     assert row.signature_id == "client_refused"
     assert row.error_message == LIVE_ERROR
-    assert row.observed_at == STOPPED_AT
+    assert row.observed_at == parse_instant(STOPPED_AT)
     assert row.stopped_seconds == 20 * 60
     assert row.seat_owed is False
 
@@ -127,7 +129,7 @@ def test_a_worker_that_has_since_run_a_tool_is_no_longer_stopped(fleet):
     _observe(fleet, STOPPED_SESSION)
     fleet.execute(
         "UPDATE harness_sessions SET last_tool_call_at=%s WHERE session_id=%s",
-        ("2026-08-26T11:50:00Z", STOPPED_SESSION),
+        ("2026-08-26T11:50:00.000000Z", STOPPED_SESSION),
     )
     fleet.commit()
 

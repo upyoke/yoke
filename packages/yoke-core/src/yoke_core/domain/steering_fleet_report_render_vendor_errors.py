@@ -10,6 +10,8 @@ including the rows where nobody is coming.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from yoke_core.domain.steering_fleet_report import FleetReport
 from yoke_core.domain.steering_fleet_report_render_text import (
     SECTION_LIMIT,
@@ -38,9 +40,7 @@ def _next_actor(entry: VendorErrorSession) -> str:
     if entry.status == "due":
         return f"relay resumes it this poll (attempt {attempt} of {entry.budget})"
     if entry.status == "waiting_backoff":
-        return (
-            f"relay resumes it at {entry.due_at} (attempt {attempt} of {entry.budget})"
-        )
+        return f"relay resumes it at {format_instant(entry.due_at) if entry.due_at is not None else 'unknown'} (attempt {attempt} of {entry.budget})"
     if entry.status == "turn_in_flight":
         return "working now, inside an unreturned tool call — no resume"
     if entry.status == "budget_spent":

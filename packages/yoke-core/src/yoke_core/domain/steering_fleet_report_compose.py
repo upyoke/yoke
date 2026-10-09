@@ -10,6 +10,10 @@ further refinement becomes another section rather than a new code path.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
+from datetime import datetime
+
 from dataclasses import dataclass
 import json
 from typing import Any, Mapping
@@ -109,7 +113,7 @@ class ScopedFleetReport:
 class CombinedFleetReport:
     """Every held scope, actionable sections first, then by descriptor."""
 
-    composed_at: str
+    composed_at: datetime
     sections: tuple[ScopedFleetReport, ...]
     unacked_injected: tuple[UnackedInjectedMessage, ...] = ()
     unattended: tuple[UnattendedLinkedItem, ...] = ()
@@ -154,6 +158,7 @@ def compose_held_reports(
     and one read of each repository's merge queue. The request object is
     created here and dropped with the reply.
     """
+    now = parse_instant(now)
     reads = FleetReportReads()
     sections: list[ScopedFleetReport] = []
     for claim in list_session_claims(conn, session_id=session_id, active_only=True):

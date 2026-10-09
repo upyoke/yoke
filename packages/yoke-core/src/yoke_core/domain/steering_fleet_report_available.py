@@ -11,6 +11,10 @@ runs from that launch, not from when the item became pickable.
 
 from __future__ import annotations
 
+from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
+
+from datetime import datetime
+
 from dataclasses import dataclass
 from typing import Any, Sequence
 
@@ -33,11 +37,11 @@ class FrontierEntry:
     title: str
     next_step: str
     rank: int
-    pickable_since: str
+    pickable_since: datetime | None
     was_owned: bool
     launch_id: str = ""
     launch_state: str = ""
-    launched_at: str = ""
+    launched_at: datetime | None = None
 
     def waiting_seconds(self, now: str) -> int:
         return age_seconds(self.launched_at or self.pickable_since, now) or 0
@@ -51,7 +55,7 @@ def _assignment_ref(session_name: str) -> str:
 
 def _staffing_launches(
     conn: Any, project_id: int
-) -> dict[str, tuple[str, str, str]]:
+) -> dict[str, tuple[str, str, datetime | None]]:
     """Earliest in-flight launch keyed by the assignment item ref."""
     p = marker(conn)
     holes = ", ".join(p for _ in STAFFING_LAUNCH_STATES)
@@ -63,7 +67,7 @@ def _staffing_launches(
              ORDER BY created_at ASC, launch_id ASC""",
         (int(project_id), *STAFFING_LAUNCH_STATES),
     ).fetchall()
-    assigned: dict[str, tuple[str, str, str]] = {}
+    assigned: dict[str, tuple[str, str, datetime | None]] = {}
     for row in rows:
         record = dict(row)
         ref = _assignment_ref(str(record.get("session_name") or ""))
@@ -72,12 +76,14 @@ def _staffing_launches(
         assigned[ref] = (
             str(record["launch_id"]),
             str(record["state"]),
-            str(record["created_at"]),
+            parse_stamp(record["created_at"]),
         )
     return assigned
 
 
-def _pickable_since(conn: Any, item_ids: Sequence[int]) -> dict[int, tuple[str, bool]]:
+def _pickable_since(
+    conn: Any, item_ids: Sequence[int]
+) -> dict[int, tuple[datetime | None, bool]]:
     """When each item became pickable, and whether a claim release put it there."""
     if not item_ids:
         return {}
@@ -97,15 +103,15 @@ def _pickable_since(conn: Any, item_ids: Sequence[int]) -> dict[int, tuple[str, 
              GROUP BY i.id, i.updated_at, i.created_at""",
         tuple(int(item_id) for item_id in item_ids),
     ).fetchall()
-    resolved: dict[int, tuple[str, bool]] = {}
+    resolved: dict[int, tuple[datetime | None, bool]] = {}
     for row in rows:
         record = dict(row)
-        released = str(record.get("released_at") or "")
+        released = parse_stamp(record.get("released_at"))
         stamps = [
-            str(record.get(name) or "")
+            parse_stamp(record.get(name))
             for name in ("updated_at", "created_at", "released_at")
         ]
-        latest = max(stamp for stamp in stamps if stamp)
+        latest = max((stamp for stamp in stamps if stamp is not None), default=None)
         resolved[int(record["id"])] = (latest, bool(released) and released == latest)
     return resolved
 
@@ -144,9 +150,7 @@ def scope_candidates(
     for step in steps:
         since, was_owned = pickable.get(step.item_id, (step.created_at, False))
         public_ref = refs.get(step.item_id, str(step.item_id))
-        launch_id, launch_state, launched_at = launches.get(
-            public_ref, ("", "", "")
-        )
+        launch_id, launch_state, launched_at = launches.get(public_ref, ("", "", None))
         entries.append(
             FrontierEntry(
                 item_id=step.item_id,
@@ -154,7 +158,9 @@ def scope_candidates(
                 title=step.title,
                 next_step=step.next_step.value,
                 rank=step.rank,
-                pickable_since=since or step.created_at,
+                pickable_since=since
+                if since is not None
+                else parse_stamp(step.created_at),
                 was_owned=was_owned,
                 launch_id=launch_id,
                 launch_state=launch_state,

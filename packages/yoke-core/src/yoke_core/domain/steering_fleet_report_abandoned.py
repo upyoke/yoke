@@ -9,6 +9,10 @@ to look again unless the report says so.
 
 from __future__ import annotations
 
+from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
+
+from datetime import datetime
+
 from dataclasses import dataclass
 from typing import Any
 
@@ -45,7 +49,7 @@ def abandoned_launches(
     conn: Any,
     *,
     project_id: int,
-    now: str,
+    now: datetime | str,
 ) -> tuple[AbandonedLaunch, ...]:
     """Launches whose worker was delivered its mandate and never started it.
 
@@ -69,7 +73,7 @@ def abandoned_launches(
     abandoned = []
     for row in rows:
         record = dict(row)
-        age = age_seconds(str(record.get("completed_at") or ""), now)
+        age = age_seconds(parse_stamp(record.get("completed_at")), now)
         if age is None or age >= ABANDONED_LAUNCH_WINDOW_SECONDS:
             continue
         evidence = record.get("result_evidence")

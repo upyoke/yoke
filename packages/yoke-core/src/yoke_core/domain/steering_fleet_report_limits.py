@@ -34,9 +34,13 @@ class MachinePlanLimit:
     scope: str
     meter: str
     remaining_percent: float | None
-    resets_at: str | None
+    resets_at: datetime | None
     status: str
     reason: str | None
+
+    def __post_init__(self) -> None:
+        if self.resets_at is not None:
+            object.__setattr__(self, "resets_at", parse_instant(self.resets_at))
 
 
 def _p(conn: Any) -> str:
@@ -133,9 +137,7 @@ def load_plan_limits(
                         remaining_percent=float(remaining)
                         if isinstance(remaining, (int, float))
                         else None,
-                        resets_at=window.get("resets_at")
-                        if isinstance(window.get("resets_at"), str)
-                        else None,
+                        resets_at=window.get("resets_at"),
                         status=str(window.get("status") or "unknown"),
                         reason=window.get("reason")
                         if isinstance(window.get("reason"), str)

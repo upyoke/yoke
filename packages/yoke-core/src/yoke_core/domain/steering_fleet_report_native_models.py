@@ -12,6 +12,14 @@ all would bury every other fact in it. The exact tokens stay one read away in
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+
+from yoke_contracts.timestamps import format_instant
+
+from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
+
+from datetime import datetime
+
 from dataclasses import dataclass
 import json
 from typing import Any, Mapping
@@ -42,7 +50,7 @@ class MachineNativeModels:
     status: str
     reason: str | None
     source: str
-    observed_at: str
+    observed_at: datetime | None
     model_count: int
     sample_models: tuple[str, ...]
 
@@ -107,7 +115,7 @@ def load_native_models(
         "SELECT machine_id, hostname, project_checkouts, surface_native_models "
         f"FROM session_relays WHERE connected_until>={marker} "
         "ORDER BY hostname, machine_id",
-        (now,),
+        (instant_parameter(conn, parse_stamp(now)),),
     ).fetchall()
     found: list[MachineNativeModels] = []
     for row in rows:
@@ -133,7 +141,7 @@ def load_native_models(
                     status=str(reading.get("status") or "unknown"),
                     reason=reading.get("reason") or None,
                     source=str(reading.get("source") or ""),
-                    observed_at=str(reading.get("observed_at") or ""),
+                    observed_at=parse_stamp(reading.get("observed_at")),
                     model_count=len(models),
                     sample_models=models[:NAMED_MODEL_SAMPLE],
                 )
@@ -166,7 +174,7 @@ def native_model_lines(rows: tuple[MachineNativeModels, ...]) -> list[str]:
         staleness = (
             ""
             if row.status == "ok"
-            else f" (stale since {row.observed_at or 'unknown'})"
+            else f" (stale since {format_instant(row.observed_at) if row.observed_at is not None else 'unknown'})"
         )
         lines.append(f"    {row.surface}: {row.model_count}{staleness} — {named}")
     return lines

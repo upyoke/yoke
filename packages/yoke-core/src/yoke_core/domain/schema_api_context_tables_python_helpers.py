@@ -113,6 +113,7 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
     },
     "yoke_core.domain.db_helpers": {
         "columns": [
+            ("instant_parameter", "callable"),
             ("iso8601_now", "callable"),
             ("connect", "callable"),
             ("query_rows", "callable"),
@@ -120,9 +121,12 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             ("query_scalar", "callable"),
         ],
         "notes": (
-            "Legacy compatibility helper surface. Agents should prefer "
-            "registered `yoke <subcommand>` surfaces for control-plane "
-            "access. "
+            "Source-dev SQL and clock helpers. Agents use registered "
+            "`yoke <subcommand>` surfaces for control-plane access. "
+            "Native SQL writers import instant_parameter from this module; "
+            "the wrong guess time_sql.instant_parameter does not exist. "
+            "Parse ingress first: the adapter accepts aware datetime/null, "
+            "binding natively on Postgres and fixed-six UTC/null on SQLite. "
             "There is NO `read_only=` keyword on `connect` and NO "
             "`get_canonical_conn` importable name on this module — those "
             "are wrong guesses the live denial log has captured. There is "

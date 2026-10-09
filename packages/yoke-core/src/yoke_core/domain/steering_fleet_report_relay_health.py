@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
+
+from datetime import datetime
+
 from dataclasses import dataclass
 import json
 from typing import Any
@@ -28,8 +32,8 @@ class RelayHealthCondition:
     quarantine_count: int
     error_code: str
     failure_count: int
-    first_failed_at: str
-    last_failed_at: str
+    first_failed_at: datetime | None
+    last_failed_at: datetime | None
     refusal_reason: str
     local_revision: str
     server_revision: str
@@ -80,7 +84,7 @@ def relay_health_conditions(
         quarantines = quarantines if isinstance(quarantines, list) else []
         refusal = health.get("run_refusal")
         refusal = refusal if isinstance(refusal, dict) else {}
-        first_failed_at = str(failure.get("first_failed_at") or "")
+        first_failed_at = parse_stamp(failure.get("first_failed_at"))
         sustained = (
             age_seconds(first_failed_at, now) or 0
         ) >= SUSTAINED_RELAY_REPORT_FAILURE_SECONDS
@@ -106,7 +110,7 @@ def relay_health_conditions(
                 error_code=error_code,
                 failure_count=int(failure.get("failure_count") or attempts or 0),
                 first_failed_at=first_failed_at,
-                last_failed_at=str(failure.get("last_failed_at") or ""),
+                last_failed_at=parse_stamp(failure.get("last_failed_at")),
                 refusal_reason=str(refusal.get("reason") or ""),
                 local_revision=str(refusal.get("local_revision") or ""),
                 server_revision=str(refusal.get("server_revision") or ""),

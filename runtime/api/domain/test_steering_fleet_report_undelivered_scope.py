@@ -9,6 +9,8 @@ covered by ``test_steering_fleet_report_undelivered``.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import pytest
 
 from runtime.api.steering_fleet_test_helpers import (
@@ -90,7 +92,7 @@ def test_an_ended_recipient_is_reported_as_a_lost_delivery(fleet):
 
     assert [entry.session_id for entry in rows] == [ANSWERER]
     assert rows[0].delivery_state == RECIPIENT_ENDED
-    assert rows[0].recipient_gone_at == JUST_NOW
+    assert rows[0].recipient_gone_at == parse_instant(JUST_NOW)
     # Nothing to revive, so this is a fact to read rather than the seat's work.
     assert rows[0].needs_seat_action is False
 

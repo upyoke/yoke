@@ -30,6 +30,12 @@ awaiting-a-seat line instead of reporting them as waits nobody can answer.
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+
+from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
+
+from datetime import datetime
+
 from dataclasses import dataclass
 from typing import Any, Sequence
 
@@ -141,7 +147,9 @@ def _last_questions(
     return found
 
 
-def answered_after(conn: Any, *, answerer: str, asker: str, asked_at: str) -> bool:
+def answered_after(
+    conn: Any, *, answerer: str, asker: str, asked_at: datetime | str
+) -> bool:
     """Did the intended answerer send this asker anything after the question?
 
     Checked before anything else. An answerer that replied and then ended
@@ -154,7 +162,7 @@ def answered_after(conn: Any, *, answerer: str, asker: str, asked_at: str) -> bo
 
 
 def _replied_pairs(
-    conn: Any, triples: Sequence[tuple[str, str, str]]
+    conn: Any, triples: Sequence[tuple[str, str, datetime | str | None]]
 ) -> set[tuple[str, str]]:
     """Which (answerer, asker) pairs already have a reply at or after the ask."""
     if not triples:
@@ -164,9 +172,9 @@ def _replied_pairs(
         f"(m.sender_session_id = {p} AND r.session_id = {p} AND m.created_at >= {p})"
         for _ in triples
     )
-    params: list[str] = []
+    params: list[Any] = []
     for answerer, asker, asked_at in triples:
-        params.extend((answerer, asker, asked_at))
+        params.extend((answerer, asker, instant_parameter(conn, parse_stamp(asked_at))))
     rows = conn.execute(
         f"""SELECT DISTINCT m.sender_session_id AS answerer,
                    r.session_id AS asker
@@ -244,7 +252,7 @@ def dead_waits(
     conn: Any,
     *,
     idle: Sequence[Any],
-    now: str,
+    now: datetime | str,
 ) -> tuple[DeadWait, ...]:
     """For each idle holder, what is known about the answer it waits on."""
     from yoke_core.domain.steering_message_recipients import (
@@ -262,13 +270,13 @@ def dead_waits(
             if question is not None
         ],
     )
-    pending: list[tuple[Any, str, str, str]] = []
+    pending: list[tuple[Any, str, datetime | None, str]] = []
     for holder in idle:
         question = questions.get(holder.session_id)
         if question is None:
             continue
         answerer = str(question.get("answerer_session_id") or "")
-        asked_at = str(question.get("created_at") or "")
+        asked_at = parse_stamp(question.get("created_at"))
         if not answerer or answerer == holder.session_id:
             continue
         pending.append(

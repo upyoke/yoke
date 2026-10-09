@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.fixtures.backlog import insert_item
 from yoke_contracts.session_control.plan_limits import ALL_MODELS_SCOPE
 from yoke_core.domain.events_tool_call_outcome import OUTCOME_DENIED
@@ -18,13 +20,13 @@ from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 from yoke_core.domain.strategy_docs_defaults import seed_default_docs
 
 
-NOW = "2026-08-26T12:00:00Z"
-LONG_AGO = "2026-08-26T09:00:00Z"
-BEFORE_THAT = "2026-08-26T08:00:00Z"
-JUST_NOW = "2026-08-26T11:58:00Z"
+NOW = "2026-08-26T12:00:00.000000Z"
+LONG_AGO = "2026-08-26T09:00:00.000000Z"
+BEFORE_THAT = "2026-08-26T08:00:00.000000Z"
+JUST_NOW = "2026-08-26T11:58:00.000000Z"
 #: Well past every seeded message's expiry, so an envelope sent at
 #: :data:`LONG_AGO` is still deliverable at :data:`NOW`.
-NOT_YET_EXPIRED = "2026-08-26T23:00:00Z"
+NOT_YET_EXPIRED = "2026-08-26T23:00:00.000000Z"
 STAFFING_SECONDS = 5 * 60
 IDLE_SECONDS = 20 * 60
 SURFACE = "codex-cli"
@@ -217,7 +219,7 @@ def seed_relay(conn) -> None:
             json.dumps([PROJECT_ID]),
             NOW,
             NOW,
-            "2026-08-26T23:00:00Z",
+            "2026-08-26T23:00:00.000000Z",
         ),
     )
 
@@ -248,7 +250,7 @@ def quiet_holder(session_id: str, item_id: int = 1) -> ClaimHolder:
         public_ref=f"YOK-{item_id}",
         mode="wait",
         parked=False,
-        last_activity_at=LONG_AGO,
+        last_activity_at=parse_instant(LONG_AGO),
         idle_seconds=3 * 3600,
     )
 
@@ -294,7 +296,7 @@ def plan_limit_row(
     scope: str = ALL_MODELS_SCOPE,
     meter: str = "planUsage.totalPercentUsed",
     remaining_percent: float | None = 22.0,
-    resets_at: str | None = "2026-09-07T01:00:00Z",
+    resets_at: str | None = "2026-09-07T01:00:00.000000Z",
     status: str = "ok",
     reason: str | None = None,
 ) -> MachinePlanLimit:

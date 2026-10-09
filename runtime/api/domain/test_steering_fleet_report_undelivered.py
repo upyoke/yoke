@@ -9,6 +9,8 @@ belongs in this view at all -- gone recipients, finished receipts, grouping
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import pytest
 
 from runtime.api.steering_fleet_test_helpers import (
@@ -37,7 +39,7 @@ from yoke_core.domain.steering_fleet_report_undelivered import undelivered_messa
 
 #: A turn that ran after :data:`LONG_AGO` and attached nothing, then stopped
 #: — hours of silence before :data:`NOW`.
-AFTER_THE_SEND = "2026-08-26T09:30:00Z"
+AFTER_THE_SEND = "2026-08-26T09:30:00.000000Z"
 
 
 @pytest.fixture
@@ -242,7 +244,7 @@ def test_a_recipient_inside_an_unreturned_call_waits_for_that_calls_hook(fleet):
     rows = undelivered_messages(fleet, project_id=PROJECT_ID, now=NOW)
 
     assert [entry.delivery_state for entry in rows] == [TURN_IN_FLIGHT]
-    assert rows[0].turn_in_flight_since == LONG_AGO
+    assert rows[0].turn_in_flight_since == parse_instant(LONG_AGO)
     assert rows[0].needs_seat_action is False
 
 
@@ -319,4 +321,3 @@ def test_a_desktop_recipient_is_flagged_as_its_operators_to_wake(fleet):
     }
 
     assert operator_wake == {ANSWERER: True, ASKER: False}
-

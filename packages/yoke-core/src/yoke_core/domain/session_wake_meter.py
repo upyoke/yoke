@@ -20,9 +20,10 @@ from typing import Any, Mapping
 from uuid import NAMESPACE_URL, uuid5
 
 from yoke_contracts.session_control.model_billing_pools import pool_exhaustion
+from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_message_types import (
     SessionMessageError,
-    timestamp,
     utc_now,
 )
 from yoke_core.domain.session_relay_evidence import redacted_evidence
@@ -57,22 +58,18 @@ class MeterWall:
     meter: str
     pool: str
     remaining_percent: float
-    resets_at: str | None
+    resets_at: datetime | None
     window: str
 
     def refusal_message(self) -> str:
         quota = f"{int(round(self.remaining_percent))}%"
-        reset = self.resets_at or "unknown"
+        reset = (
+            format_instant(self.resets_at) if self.resets_at is not None else "unknown"
+        )
         return (
             f"Native wake refused: meter {self.meter} ({self.window}) has "
             f"{quota} remaining, resets {reset}. {RECOVERY}"
         )
-
-
-def _now_text(now: datetime | str) -> str:
-    if isinstance(now, datetime):
-        return timestamp(now)
-    return str(now)
 
 
 def pinned_model(row: Mapping[str, Any]) -> str:
@@ -144,7 +141,7 @@ def _wall_from_windows(
         meter=str(matched.get("meter") or "unknown"),
         pool=str(reading.pool or ""),
         remaining_percent=remaining,
-        resets_at=resets_at if isinstance(resets_at, str) else None,
+        resets_at=parse_instant(resets_at) if resets_at is not None else None,
         window=window_label(
             str(matched.get("window_kind") or "unknown"),
             str(reading.pool or ""),
@@ -164,6 +161,7 @@ def meter_wall(
     Missing session, unnamed model, unreadable meter, and a pool that still
     has remaining quota are all None: this refuses only what it can prove.
     """
+    stamp = parse_instant(now)
     row = _session_row(conn, session_id)
     if row is None:
         return None
@@ -173,7 +171,6 @@ def meter_wall(
     project_id = row.get("project_id")
     if not model or not surface or not machine_id or project_id is None:
         return None
-    stamp = _now_text(now)
     rows = (
         limits
         if limits is not None
@@ -204,9 +201,10 @@ def record_meter_exhausted_skip(
     candidate: Mapping[str, Any],
     wall: MeterWall,
     *,
-    now: str,
+    now: datetime | str,
 ) -> None:
     """Record why an automatic wake was not dispatched, without starting a native."""
+    now = parse_instant(now)
     message_id = str(candidate["message_id"])
     session_id = str(candidate["session_id"])
     placeholder = marker(conn)
@@ -224,8 +222,8 @@ def record_meter_exhausted_skip(
             session_id,
             "wake_relay",
             _SKIP_ADAPTER_REVISION,
-            now,
-            now,
+            instant_parameter(conn, now),
+            instant_parameter(conn, now),
             SKIP_METER_EXHAUSTED,
             redacted_evidence(
                 {
@@ -236,7 +234,7 @@ def record_meter_exhausted_skip(
                     "probe_detail": (
                         f"meter {wall.meter} ({wall.window}) "
                         f"{int(round(wall.remaining_percent))}% remaining, "
-                        f"resets {wall.resets_at or 'unknown'}"
+                        f"resets {format_instant(wall.resets_at) if wall.resets_at is not None else 'unknown'}"
                     ),
                 }
             ),
@@ -248,7 +246,7 @@ def skip_exhausted_wake(
     conn: Any, candidate: Mapping[str, Any], now: datetime | str
 ) -> bool:
     """True when this wake must not start; the skip is recorded when so."""
-    stamp = _now_text(now)
+    stamp = parse_instant(now)
     wall = meter_wall(conn, str(candidate["session_id"]), stamp)
     if wall is None:
         return False

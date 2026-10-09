@@ -23,6 +23,12 @@ get a line each rather than one line whose count and reason disagree.
 
 from __future__ import annotations
 
+from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
+
+from yoke_core.domain.db_helpers import instant_parameter
+
+from datetime import datetime
+
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Mapping
@@ -90,9 +96,9 @@ class UndeliveredMessages:
     evidence_id: str = ""
     #: When the recipient's still-running tool call started. Set only for
     #: ``TURN_IN_FLIGHT``, where it is the whole finding.
-    turn_in_flight_since: str = ""
+    turn_in_flight_since: datetime | None = None
     #: When the recipient ended or was terminated, for the two gone states.
-    recipient_gone_at: str = ""
+    recipient_gone_at: datetime | None = None
     #: How long the native holding a declined wake has produced nothing, when
     #: its machine could measure that. Set only for the held state, where it
     #: is the difference between a turn that is working and one to look at.
@@ -125,8 +131,8 @@ class _Group:
     operator_wake: bool = False
     diagnostic: str = ""
     evidence_id: str = ""
-    turn_in_flight_since: str = ""
-    recipient_gone_at: str = ""
+    turn_in_flight_since: datetime | None = None
+    recipient_gone_at: datetime | None = None
     held_native_silent_for_seconds: int | None = None
     queued_wake: bool = False
     failed_attempt_count: int = 0
@@ -148,7 +154,7 @@ class _Group:
         if escalation:
             self.wake_escalation = escalation
         if state == TURN_IN_FLIGHT:
-            self.turn_in_flight_since = str(record.get(OPEN_TOOL_CALL_COLUMN) or "")
+            self.turn_in_flight_since = parse_stamp(record.get(OPEN_TOOL_CALL_COLUMN))
         # An explicit wake still at zero attempts is not a missing wake, it
         # is a wake the plane never picked up — and that receipt blocks the
         # next wake request for this session until something releases it.
@@ -159,8 +165,10 @@ class _Group:
         ):
             self.queued_wake = True
         if state in (RECIPIENT_ENDED, RECIPIENT_TERMINATED):
-            self.recipient_gone_at = str(
-                record.get("terminated_at") or record.get("ended_at") or ""
+            self.recipient_gone_at = parse_stamp(
+                record.get("terminated_at")
+                if record.get("terminated_at") is not None
+                else record.get("ended_at")
             )
         # A desktop recipient is never resumed by Yoke, so this row is not
         # a worker to revive; it names a chat only its operator can open.
@@ -207,7 +215,6 @@ def undelivered_messages(
     from yoke_core.domain.steering_fleet_report_detectors import (
         age_seconds,
         marker,
-        parse_stamp,
     )
 
     placeholder = marker(conn)
@@ -243,13 +250,13 @@ def undelivered_messages(
               JOIN harness_sessions s ON s.session_id = r.session_id
              WHERE {deliverable_receipt(placeholder)}
              ORDER BY r.created_at, r.message_id""",
-        (int(project_id), now),
+        (int(project_id), instant_parameter(conn, parse_stamp(now))),
     ).fetchall()
     current = parse_stamp(now)
     groups: dict[tuple[str, str], _Group] = {}
     for raw in rows:
         record = dict(raw)
-        sent_at = str(record.get("created_at") or "")
+        sent_at = parse_stamp(record.get("created_at"))
         waited = age_seconds(sent_at, now)
         if waited is None:
             continue

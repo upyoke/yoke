@@ -251,3 +251,11 @@ Session usage and machine capacity retain native observation clocks internally
 and format only their declared wire fields. Missing usage observations are null.
 Carried usage storage canonicalizes its observation while preserving unrelated
 JSON facts; malformed clocks refuse before SQL or capacity probes.
+
+Fleet readers retain native activity, launch, message, landing, decision and
+report-delivery clocks through ranking and exact elapsed comparisons. Earliest
+landing and latest decision selection compare instants, with explicit null and
+identity tie order. Report JSON emits fixed-six UTC/null; calendar reset labels
+remain human display. Delivery interval compare-and-set binds native values and
+includes the exact cutoff without an empty SQL sentinel. Declared malformed
+reset clocks refuse; missing resets remain unknown. Fingerprints still omit age.
