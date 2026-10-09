@@ -238,11 +238,13 @@ row per reason, status and route per minute is written, so a flood cannot grow
 `events` without bound; repeats inside that minute are not counted. The record
 is disposable diagnostics: nothing operational reads it, and a failed write
 logs `collector_refusal_record_failed` while the caller still receives its
-refusal. Each install records its own refusals in its own `events` table. To
-see recent refusals:
+refusal. Each install records its own refusals in its own `events` table.
+Collector rows belong to the organization, not a project (`project_id` is
+NULL), so project-scoped `yoke events query` does not return them; read recent
+refusals with the read-only diagnostic surface:
 
 ```bash
-yoke events query --event-name FrontendCollectorRefused --since '24 hours ago'
+yoke db read "SELECT created_at, event_outcome, envelope::jsonb #> '{context,detail}' AS detail FROM events WHERE event_name = 'FrontendCollectorRefused' ORDER BY created_at DESC LIMIT 20"
 ```
 
 ### Envelope Size Limits

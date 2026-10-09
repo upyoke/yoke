@@ -1,8 +1,9 @@
 """Disposable diagnostics: a bounded server event for each collector refusal kind.
 
 The anonymous collector answers every refusal to its caller; this module also
-leaves a server-side record an operator can read with
-``yoke events query --event-name FrontendCollectorRefused``. The record is
+leaves a server-side ``FrontendCollectorRefused`` event an operator reads with
+``yoke db read`` (the row has no project, so project-scoped event reads omit
+it; docs/structured-logging-standard.md carries the query). The record is
 telemetry only: nothing operational reads it, and a failed write never
 changes the refusal the caller receives.
 

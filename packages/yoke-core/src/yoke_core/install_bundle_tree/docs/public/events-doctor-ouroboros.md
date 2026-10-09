@@ -65,8 +65,8 @@ remains disposable: using Yoke never depends on its successful delivery.
 Each refusal also records one `FrontendCollectorRefused` backend event (reason,
 status, route, truncated Origin, serving host; no body, cookie, key or client
 address), at most once per reason, status and route per minute, so floods stay
-bounded. Read recent refusals with
-`yoke events query --event-name FrontendCollectorRefused --since '24 hours ago'`.
+bounded. The rows carry no project, so read them with `yoke db read`:
+`yoke db read "SELECT created_at, event_outcome, envelope::jsonb #> '{context,detail}' AS detail FROM events WHERE event_name = 'FrontendCollectorRefused' ORDER BY created_at DESC LIMIT 20"`.
 Accepted frontend events take `created_at` from the collector's receipt time;
 the envelope keeps the client `event_time` with `received_at` and
 `client_time_offset_seconds`, and rows more than 300 seconds off carry
