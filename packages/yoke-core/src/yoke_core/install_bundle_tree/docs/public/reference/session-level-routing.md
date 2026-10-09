@@ -253,8 +253,11 @@ that blocked it. Yoke never moves a launch to another level; relaunch at a
 different `--level` or wait for the named reset. An unknown level refuses as
 `level_unknown` with the levels the project reads.
 
-The launch result and `launch get` name the level, the chosen option, every
-pool each option read, and why the winner won (`level_placement`); the
+The launch result, `launch preview`, and `launch get` name the level, the
+chosen option, every pool each option read, and why the winner won
+(`level_placement`). Options name their machine by its registered name, as
+the steering report does; `Selected machine` keeps the id `--machine`
+takes. Each pool shows quota left, headroom, and its reset in UTC. The
 stored launch keeps the level as its ask, and `launch retry` places the
 level again. `--machine` narrows placement to one machine.
 
