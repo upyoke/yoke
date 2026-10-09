@@ -38,7 +38,10 @@ def _catalog(conn: Any) -> dict[tuple[str, str], tuple[str, bool, str | None]]:
 
 
 def _text_instant(column: str) -> sql.Composed:
-    return sql.SQL("NULLIF({}::text,'')::timestamptz").format(sql.Identifier(column))
+    return sql.SQL(
+        "regexp_replace(NULLIF({}::text,''), "
+        "'([.][0-9]{{6}})[0-9]+', E'\\\\1', 'g')::timestamptz"
+    ).format(sql.Identifier(column))
 
 
 def _expression(table: str, column: str, data_type: str) -> sql.Composable:
@@ -111,6 +114,63 @@ def _admit_column(
         )
 
 
+def _detach_dependent_view(conn: Any, changing: set[tuple[str, str]]) -> bool:
+    """Reconcile only the existing owned progress projection, without CASCADE."""
+    if not changing:
+        return False
+    rows = conn.execute(
+        "SELECT DISTINCT vn.nspname,v.relname,v.relkind,v.oid,"
+        "t.relname,a.attname FROM pg_depend d "
+        "JOIN pg_rewrite r ON d.classid='pg_rewrite'::regclass AND d.objid=r.oid "
+        "JOIN pg_class v ON v.oid=r.ev_class "
+        "JOIN pg_namespace vn ON vn.oid=v.relnamespace "
+        "JOIN pg_class t ON d.refclassid='pg_class'::regclass AND t.oid=d.refobjid "
+        "JOIN pg_namespace tn ON tn.oid=t.relnamespace "
+        "JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum=d.refobjsubid "
+        "WHERE tn.nspname='public' AND v.oid<>t.oid"
+    ).fetchall()
+    affected = {tuple(row[:4]) for row in rows if (row[4], row[5]) in changing}
+    if not affected:
+        return False
+    unknown = [
+        f"{row[0]}.{row[1]}"
+        for row in affected
+        if row[:3] != ("public", "item_progress_view", "v")
+    ]
+    if not unknown:
+        oid = next(iter(affected))[3]
+        dependents = conn.execute(
+            "SELECT DISTINCT n.nspname,v.relname FROM pg_depend d "
+            "JOIN pg_rewrite r ON d.classid='pg_rewrite'::regclass AND d.objid=r.oid "
+            "JOIN pg_class v ON v.oid=r.ev_class "
+            "JOIN pg_namespace n ON n.oid=v.relnamespace "
+            "WHERE d.refclassid='pg_class'::regclass AND d.refobjid=%s AND v.oid<>%s",
+            (oid, oid),
+        ).fetchall()
+        unknown = [f"{row[0]}.{row[1]}" for row in dependents]
+    if unknown:
+        raise RuntimeError(
+            "instant_dependent_view_unowned: "
+            + ", ".join(sorted(unknown))
+            + ". Recovery: declare the owner's transactional reconstruction before "
+            "retrying governed rehearsal; no view was dropped."
+        )
+    custom = conn.execute(
+        "SELECT relacl IS NOT NULL OR reloptions IS NOT NULL OR "
+        "pg_get_userbyid(relowner)<>current_user OR "
+        "obj_description(oid,'pg_class') IS NOT NULL FROM pg_class WHERE oid=%s",
+        (next(iter(affected))[3],),
+    ).fetchone()[0]
+    if custom:
+        raise RuntimeError(
+            "instant_dependent_view_customized: public.item_progress_view has "
+            "custom ownership, grants, options or commentary. Recovery: declare "
+            "their exact transactional restoration before rehearsal; no view was dropped."
+        )
+    conn.execute("DROP VIEW item_progress_view")
+    return True
+
+
 def convert_stored_instants(conn: Any, columns: Iterable[tuple[str, str]]) -> None:
     """Convert a frozen history roster atomically in its caller's transaction.
 
@@ -156,6 +216,9 @@ def convert_stored_instants(conn: Any, columns: Iterable[tuple[str, str]]) -> No
                     "ALTER TABLE {} ALTER COLUMN {} SET DEFAULT ({})::timestamptz"
                 ).format(sql.Identifier(table), name, sql.SQL(default))
             )
+    restore_view = _detach_dependent_view(
+        conn, {key for key in present if catalog[key][0] != "timestamp with time zone"}
+    )
     for table, clauses in sorted(by_table.items()):
         conn.execute(
             sql.SQL("ALTER TABLE {} {}").format(
@@ -164,6 +227,10 @@ def convert_stored_instants(conn: Any, columns: Iterable[tuple[str, str]]) -> No
         )
     for statement in defaults:
         conn.execute(statement)
+    if restore_view:
+        from yoke_core.domain.flow_init import create_or_replace_item_progress_view
+
+        create_or_replace_item_progress_view(conn, commit=False)
 
 
 def assert_native_stored_instants(
