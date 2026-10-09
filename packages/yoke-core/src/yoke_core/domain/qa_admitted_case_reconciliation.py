@@ -35,9 +35,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.deployment_qa_admission_materialization import (
-    ADMITTED_REQUIREMENT_CASE_PREFIX,
+    admitted_requirement_case_key,
+    admitted_requirement_identity_clause,
 )
 from yoke_core.domain.qa_admitted_case_currency import (
     ANSWERED_COPY_RECOVERY,
@@ -106,18 +107,47 @@ def admitted_copies_in_flight(
         if not _table_exists(conn, table):
             return []
     placeholder = marker(conn)
+    source = query_one(
+        conn,
+        "SELECT id,item_id,plan_id,plan_case_key,host_baseline,target_env "
+        f"FROM qa_requirements WHERE id={placeholder}",
+        (int(source_requirement_id),),
+    )
+    if source is None or source["item_id"] is None:
+        return []
+    identity = f"q.plan_id IS NULL AND q.plan_case_key={placeholder}"
+    identity_params: tuple[Any, ...] = (
+        admitted_requirement_case_key(int(source_requirement_id)),
+    )
+    if source["plan_id"] is not None:
+        plan_identity, plan_params = admitted_requirement_identity_clause(
+            dict(source), marker=placeholder
+        )
+        identity = (
+            f"({identity}) OR ({plan_identity} "
+            f"AND q.deployment_member_item_id={placeholder} "
+            f"AND q.host_baseline IS NOT DISTINCT FROM {placeholder} "
+            f"AND (CAST({placeholder} AS TEXT) IS NULL OR q.target_env={placeholder}))"
+        )
+        identity_params += (
+            *plan_params,
+            int(source["item_id"]),
+            source["host_baseline"],
+            source["target_env"],
+            source["target_env"],
+        )
     statuses = ",".join([placeholder] * len(ACTIVE_RUN_STATUSES))
     rows = query_rows(
         conn,
         "SELECT q.id,q.deployment_run_id,q.deployment_stage,"
         "q.deployment_member_item_id FROM qa_requirements q "
         "JOIN deployment_runs dr ON dr.id=q.deployment_run_id "
-        f"WHERE q.plan_case_key={placeholder} AND q.plan_id IS NULL "
+        f"WHERE ({identity}) "
         f"AND NOT {settled_obligation_sql(conn, 'q')} "
         f"AND dr.status IN ({statuses}) "
         "ORDER BY q.id",
         (
-            f"{ADMITTED_REQUIREMENT_CASE_PREFIX}{int(source_requirement_id)}",
+            *identity_params,
             *sorted(ACTIVE_RUN_STATUSES),
         ),
     )

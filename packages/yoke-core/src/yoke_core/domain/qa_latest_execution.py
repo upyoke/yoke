@@ -81,3 +81,24 @@ def latest_executions(
         if prior is None or key > (execution_start(prior), int(prior["id"])):
             selected[requirement_id] = run
     return selected
+
+
+def current_first_run_history(
+    conn: Any, rows: Iterable[Any], requirement_id: int | None
+) -> list[Any]:
+    """Put the native-selected attempt first without discarding audit history.
+
+    Requirement-filtered run lists feed case detail. Detached judgments stay
+    readable as history but cannot become the current answer. Unfiltered
+    listings retain their existing order and do not grade unrelated cases.
+    """
+    history = list(rows)
+    if requirement_id is None or not history:
+        return history
+    current = latest_executions(conn, [int(requirement_id)]).get(int(requirement_id))
+    current_id = current["id"] if current else None
+    return sorted(
+        history,
+        key=lambda row: (row["id"] == current_id, int(row["id"])),
+        reverse=True,
+    )

@@ -28,7 +28,7 @@ import {
   showFailure,
 } from "./qa_view_primitives.js";
 
-// Every execution this case recorded, newest first. The activity table joins
+// Every run this case recorded, with the native-selected attempt first. The activity table joins
 // each requirement to its LATEST run alone, so it can say what happened most
 // recently and never what happened before that; the case's own run list is
 // the complete record, and a repeated execution belongs on the page rather
@@ -38,9 +38,7 @@ async function loadExecutions(context, requirementId) {
     context, "qa.run.list", { requirement_id: Number(requirementId) },
     { kind: "qa_requirement", qa_requirement_id: Number(requirementId) },
   );
-  return [...(result?.rows || [])].sort(
-    (left, right) => Number(right.id || 0) - Number(left.id || 0),
-  );
+  return result?.rows || [];
 }
 
 // Artifacts are resolved through the activity read's shared evidence chain,

@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from yoke_core.domain.handlers.qa import _error, _p
 from yoke_core.domain.qa_constants import REQ_COLUMNS, RUN_COLUMNS
+from yoke_core.domain.qa_latest_execution import current_first_run_history
 from yoke_core.domain.qa_plan_case_currency import annotate_requirement_currency
 from yoke_core.domain.qa_review_requirement_facts import frozen_target_facts
 from yoke_contracts.api.function_call import (
@@ -24,9 +25,7 @@ def _rows_to_dicts(rows: Any, columns: tuple) -> List[Dict[str, Any]]:
     return [{col: row[col] for col in columns} for row in rows]
 
 
-# ---------------------------------------------------------------------------
 # qa.requirement.list
-# ---------------------------------------------------------------------------
 
 
 class QaRequirementListRequest(BaseModel):
@@ -177,6 +176,9 @@ def handle_qa_run_list(request: FunctionCallRequest) -> HandlerOutcome:
             f"WHERE {where.format(p=_p(conn))} ORDER BY id",
             params,
         )
+        rows = current_first_run_history(conn, rows, requirement_id)
+    except ValueError as exc:
+        return _error("qa_execution_order_ambiguous", str(exc))
     finally:
         conn.close()
     return HandlerOutcome(
