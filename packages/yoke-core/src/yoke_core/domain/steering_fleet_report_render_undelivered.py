@@ -78,6 +78,14 @@ def _state_phrase(entry: UndeliveredMessages) -> str:
         # refuses the seat's next wake. Saying so is what makes the row
         # actionable rather than a restatement of the silence.
         return "never injected, wake queued but unattempted"
+    if entry.delivery_state == NEVER_ATTEMPTED and entry.wake_releasable_at:
+        # The same queued receipt, still inside the grace the wake command
+        # gives it: a re-run now is refused as in flight, so the row names
+        # when a release becomes possible rather than offering one.
+        return (
+            "never injected, wake queued but unattempted — releasable at "
+            f"{entry.wake_releasable_at}"
+        )
     if entry.delivery_state == TURN_IN_FLIGHT:
         return (
             f"recipient turn in flight since {entry.turn_in_flight_since} — "
@@ -117,7 +125,8 @@ def _wake_suffix(entry: UndeliveredMessages) -> str:
     desktop recipient is neither: Yoke never resumes one, so the line asks
     for the only thing that delivers it instead of naming a revive recipe.
     A queued-but-unattempted wake outranks the escalation note, because the
-    escalation on that row describes the attempt that never happened.
+    escalation on that row describes the attempt that never happened; one
+    still inside its grace names no move, since the release would refuse.
     """
     if entry.delivery_state in _NO_WAKE_STATES:
         return ""
@@ -137,6 +146,8 @@ def _wake_suffix(entry: UndeliveredMessages) -> str:
             f", re-run `yoke session-control session wake {entry.session_id}` "
             "to release the queued wake and retry"
         )
+    if entry.wake_releasable_at and not entry.operator_wake:
+        return ""
     if entry.operator_wake:
         return (
             ", waiting for the operator to wake it — ask them to type "

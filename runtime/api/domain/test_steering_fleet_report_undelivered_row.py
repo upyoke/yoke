@@ -86,6 +86,26 @@ def test_a_queued_unattempted_wake_says_so_and_names_its_recovery():
     assert "no delivery attempted" not in queued
 
 
+def test_a_queued_wake_inside_its_grace_names_when_it_becomes_releasable():
+    """The wake command refuses a release until the grace has passed.
+
+    Offering the release recipe then taught a command that answers
+    `wake_in_flight`, so the row names when the release becomes possible
+    and offers no recovery until it is.
+    """
+    young = _row(
+        delivery_state=NEVER_ATTEMPTED,
+        wake_releasable_at="2026-08-26T12:03:00Z",
+        wake_escalation="starved_hook_route",
+    )
+
+    assert "wake queued but unattempted" in young
+    assert "releasable at 2026-08-26T12:03:00Z" in young
+    assert "yoke session-control session wake" not in young
+    assert "wake escalated" not in young
+    assert "no delivery attempted" not in young
+
+
 def test_a_queued_hook_on_a_desktop_recipient_does_not_ask_the_operator():
     """Firing hooks is not an operator who has not typed."""
     queued = _row(delivery_state=AWAITING_ATTEMPT, operator_wake=True)
@@ -108,9 +128,7 @@ def test_a_failed_attempt_on_a_desktop_recipient_does_not_ask_the_operator():
 
 def test_a_queued_wake_on_a_desktop_recipient_still_asks_its_operator():
     """Yoke never resumes a desktop chat, so no release recipe applies."""
-    desktop = _row(
-        delivery_state=NEVER_ATTEMPTED, queued_wake=True, operator_wake=True
-    )
+    desktop = _row(delivery_state=NEVER_ATTEMPTED, queued_wake=True, operator_wake=True)
 
     assert "waiting for the operator to wake it" in desktop
     assert "yoke session-control session wake" not in desktop
@@ -183,7 +201,9 @@ def test_a_held_wake_names_the_native_holding_it_and_how_to_end_it():
     observed runs of this repeat for hours, not moments. The line now says
     what is holding the envelope and names the one lever the seat has.
     """
-    line = _row(delivery_state=WAKE_HELD_FOR_NATIVE_TURN, wake_escalation="starved_hook_route")
+    line = _row(
+        delivery_state=WAKE_HELD_FOR_NATIVE_TURN, wake_escalation="starved_hook_route"
+    )
     assert "wake held" in line
     assert "a native turn is already running" in line
     assert f"yoke sessions terminate {SESSION}" in line
