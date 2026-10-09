@@ -49,7 +49,7 @@ def swap_headroom() -> tuple[int | None, int | None]:
     if sys.platform == "darwin":
         try:
             result = subprocess.run(
-                ["sysctl", "-n", "vm.swapusage"],
+                ["/usr/sbin/sysctl", "-n", "vm.swapusage"],
                 capture_output=True,
                 text=True,
                 timeout=2,
