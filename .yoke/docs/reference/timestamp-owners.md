@@ -216,3 +216,8 @@ Project, session, process/work/path claim and strategy execution seed helpers
 bind native SQL clock facts. Deterministic strategy and machine-QA seed clocks
 are parsed once at their declared owners; release/end absence remains null.
 Minimal explicit SQLite machine fixtures format through the shared SQL adapter.
+
+Session keepalive writes bind native expiry facts at the SQL owner. Current
+clock ingress uses strict None-only defaults; malformed clocks refuse before
+updates. Native inclusive expiry retains microsecond order, while the existing
+status projection formats fixed-six UTC and release clears expiry to null.

@@ -28,7 +28,9 @@ from yoke_contracts.session_control.keepalive import (
     DEFAULT_KEEPALIVE_SECONDS,
     MAX_KEEPALIVE_SECONDS,
 )
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
@@ -78,7 +80,8 @@ def session_keepalive_facts(
     if not row:
         return None
     until = parse_timestamp(row.get("keepalive_until"))
-    if until is None or until <= (now or utc_now()):
+    current = parse_instant(utc_now() if now is None else now)
+    if until is None or until <= current:
         return None
     return {
         "keepalive_until": timestamp(until),
@@ -149,6 +152,7 @@ def hold_session_keepalive(
             f"{MAX_KEEPALIVE_SECONDS} seconds; got {window}. "
             "Re-hold the session to extend it past that window.",
         )
+    current = parse_instant(utc_now() if now is None else now)
     if not _keepalive_columns_present(conn):
         raise SessionError(
             "KEEPALIVE_UNSUPPORTED",
@@ -164,12 +168,12 @@ def hold_session_keepalive(
             f"Session '{session_id}' was permanently terminated and cannot be "
             "held alive. Launch a replacement session instead.",
         )
-    until = timestamp((now or utc_now()) + timedelta(seconds=window))
+    until = current + timedelta(seconds=window)
     marker = _p(conn)
     conn.execute(
         f"UPDATE harness_sessions SET keepalive_until = {marker}, "
         f"keepalive_reason = {marker} WHERE session_id = {marker}",
-        (until, stated, session_id),
+        (instant_parameter(conn, until), stated, session_id),
     )
     if commit:
         conn.commit()
