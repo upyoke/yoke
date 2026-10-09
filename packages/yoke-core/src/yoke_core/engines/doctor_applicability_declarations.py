@@ -178,6 +178,7 @@ _SHAPES = (
             "undeployed-done",
             "validation-no-qa-reqs",
             "work-claim-status-mismatch",
+            "workflow-stage-level-pins",
             "wrong-repo-issues",
             "zombie-ephemeral-envs",
         ),

@@ -219,7 +219,10 @@ Yoke chooses the option and machine. An explicit `--level` overrides one
 launch. A missing stage level without an explicit selector refuses as
 `stage_level_missing`, naming `--level` or the operator-only workflow migration
 preview/apply prerequisite for an existing old pin. Select a compatible
-published version; new versions never move existing pins automatically:
+published version; new versions never move existing pins automatically.
+`HC-workflow-stage-level-pins` fails naming every non-terminal item pinned to a
+version with a level-less stage, with its exact
+`yoke workflows item migrate PREFIX-N --version N --preview` recipe:
 
 ```text
 yoke session-control launch preview --project P --level SENIOR [--machine M] --json
