@@ -65,7 +65,7 @@ def _epic_task_target(parsed) -> TargetRef:
 
 EPIC_TASK_BODY_GET_USAGE = (
     "yoke workflow-item epic-task body-get --epic PREFIX-N --task-num N "
-    "[--output-file PATH] [--session-id S] [--json]"
+    "[--output-file PATH] [--head-sha COMMIT] [--session-id S] [--json]"
 )
 
 
@@ -181,6 +181,10 @@ def epic_task_simulation_upsert(args: List[str]) -> int:
     parser.add_argument(
         "--phase", required=True, help="Simulation phase (e.g. plan, integration)."
     )
+    parser.add_argument(
+        "--head-sha",
+        help="Exact code commit verified; required when no clean claimed epic lane supplies it.",
+    )
     body_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
         body_group,
@@ -216,7 +220,11 @@ def epic_task_simulation_upsert(args: List[str]) -> int:
     return dispatch_and_emit(
         function_id="workflow_item.epic_task.simulation_upsert",
         target=TargetRef(kind="epic_task", public_ref=parsed.epic),
-        payload={"phase": parsed.phase, "body": body},
+        payload={
+            "phase": parsed.phase,
+            "body": body,
+            **({"head_sha": parsed.head_sha} if parsed.head_sha else {}),
+        },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_writer,

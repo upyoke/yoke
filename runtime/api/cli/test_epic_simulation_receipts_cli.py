@@ -32,6 +32,25 @@ class TestSimulationUpsert:
         assert req.target.task_num is None
         assert req.payload == {"phase": "plan", "body": "SIMULATION: CLEAN"}
 
+    def test_forwards_verified_candidate_commit(self) -> None:
+        sha = "a" * 40
+        rc = _run(
+            _stub_ok,
+            "workflow-item",
+            "epic-task",
+            "simulation-upsert",
+            "--epic",
+            f"TST-{109}",
+            "--phase",
+            "plan",
+            "--body",
+            "SIMULATION: CLEAN",
+            "--head-sha",
+            sha,
+        )
+        assert rc == 0
+        assert _CAPTURED_REQUESTS[-1].payload["head_sha"] == sha
+
     def test_missing_body_source_returns_two(self) -> None:
         rc = _run(
             _stub_ok,
@@ -153,6 +172,7 @@ class TestProductionProof:
         fixture = f"TST-{51}"
         calls = []
         monkeypatch.setenv("DEPLOYMENT_MEMBER_REF", member)
+        monkeypatch.setenv("YOKE_QA_CANDIDATE_TREE", json.dumps({"head_sha": "a" * 40}))
         monkeypatch.setattr("sys.argv", ["proof", "--project", "test-project"])
 
         def execute(args, **kwargs):
@@ -164,6 +184,7 @@ class TestProductionProof:
             elif args[:2] == ["items", "create"] and "--dry-run" not in args:
                 result = {"public_ref": fixture}
             elif "simulation-upsert" in args:
+                assert args[args.index("--head-sha") + 1] == "a" * 40
                 assert kwargs["input"].startswith(f"SIMULATION: CLEAN\nEPIC: {fixture}")
                 if "--json" not in args:
                     return SimpleNamespace(
