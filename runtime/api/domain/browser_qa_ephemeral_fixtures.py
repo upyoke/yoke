@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from yoke_core.domain import db_backend
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.browser_qa_deployment_identity import (
     resolve_run_pinned_source,
 )
@@ -41,11 +42,11 @@ def ensure_ephemeral_table(db_path: str) -> None:
             port_web INTEGER,
             url TEXT,
             status TEXT NOT NULL DEFAULT 'pending',
-            started_at TEXT,
-            stopped_at TEXT,
+            started_at TIMESTAMPTZ,
+            stopped_at TIMESTAMPTZ,
             health_check_url TEXT,
             deployed_sha TEXT,
-            created_at TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL,
             UNIQUE(project_id, branch)
         );
     """,
@@ -76,7 +77,7 @@ def seed_ephemeral_env(
             (project_id, branch, deployed_sha, url, status, created_at)
         VALUES ({p}, {p}, {p}, {p}, 'healthy', {p}) RETURNING id
         """,
-        (100, branch, deployed_sha, url, "2026-01-01T00:00:00Z"),
+        (100, branch, deployed_sha, url, parse_instant("2026-01-01T00:00:00Z")),
     )
     env_id = int(cur.fetchone()[0])
     conn.commit()
@@ -112,7 +113,7 @@ def seed_deployment_run(
             flow TEXT NOT NULL,
             release_lineage TEXT,
             status TEXT NOT NULL DEFAULT 'created',
-            created_at TEXT NOT NULL
+            created_at TIMESTAMPTZ NOT NULL
         );
     """,
     )
@@ -127,7 +128,7 @@ def seed_deployment_run(
         VALUES ({p}, {p}, 'test-flow', {p}, 'running', {p})
         ON CONFLICT(id) DO NOTHING
         """,
-        (run_id, project_id, release_lineage, "2026-01-01T00:00:00Z"),
+        (run_id, project_id, release_lineage, parse_instant("2026-01-01T00:00:00Z")),
     )
     conn.commit()
     conn.close()

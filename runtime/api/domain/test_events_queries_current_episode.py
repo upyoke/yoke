@@ -22,6 +22,7 @@ from pathlib import Path
 # to re-enter the partially-initialized module).
 import yoke_core.domain.events_crud  # noqa: F401
 from yoke_core.domain.events_queries import _build_where, cmd_list
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
@@ -65,13 +66,13 @@ CREATE TABLE events (
     client_timing_id TEXT,
     envelope TEXT,
     hook_event_name TEXT,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX idx_events_session_id ON events(session_id);
 CREATE INDEX idx_events_created_at ON events(created_at);
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY,
-    episode_started_at TEXT
+    episode_started_at TIMESTAMPTZ
 );
 """
 
@@ -108,6 +109,7 @@ def _setup_db():
 
 def _stamp_episode(db_path: str, session_id: str, at: str) -> None:
     """Record the episode boundary the way register_session does."""
+    at = parse_instant(at)
     conn = connect_test_db(db_path)
     conn.execute(
         "INSERT INTO harness_sessions (session_id, episode_started_at) "
@@ -128,6 +130,7 @@ def _insert_event(
     severity: str = "INFO",
     item_id: str = "",
 ) -> None:
+    created_at = parse_instant(created_at)
     conn = connect_test_db(db_path)
     conn.execute(
         "INSERT INTO events (event_name, event_kind, event_type, source_type, "

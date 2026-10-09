@@ -29,7 +29,7 @@ _ITEMS_DDL = (
     " technical_plan TEXT, worktree_plan TEXT, shepherd_log TEXT,"
     " shepherd_caveats TEXT, test_results TEXT, deploy_log TEXT,"
     " db_mutation_profile TEXT,"
-    " db_compatibility_attestation TEXT, updated_at TEXT, spec_updated_at TEXT,"
+    " db_compatibility_attestation TEXT, updated_at TIMESTAMPTZ, spec_updated_at TIMESTAMPTZ,"
     " spec_updated_by TEXT, status TEXT)"
 )
 
@@ -51,7 +51,8 @@ class _FakeDB:
     def __init__(self) -> None:
         self._tmp_dir = tempfile.TemporaryDirectory()
         self._ctx = init_test_db(
-            Path(self._tmp_dir.name), apply_schema=_apply_items_schema,
+            Path(self._tmp_dir.name),
+            apply_schema=_apply_items_schema,
         )
         self.path = self._ctx.__enter__()
 
@@ -79,7 +80,8 @@ class _FakeDB:
         try:
             marker = _p(conn)
             row = conn.execute(
-                f"SELECT spec FROM items WHERE id = {marker}", (item_id,),
+                f"SELECT spec FROM items WHERE id = {marker}",
+                (item_id,),
             ).fetchone()
         finally:
             conn.close()
@@ -97,14 +99,19 @@ class _Harness:
             mock.patch.object(backlog_queries, "_resolve_write_db_path", **path),
             mock.patch.object(backlog_queries, "_assert_write_db_ready"),
             mock.patch.object(
-                backlog_structured_write_op, "_resolve_write_db_path", **path,
+                backlog_structured_write_op,
+                "_resolve_write_db_path",
+                **path,
             ),
             mock.patch.object(
-                backlog_structured_write_op, "_assert_write_db_ready",
+                backlog_structured_write_op,
+                "_assert_write_db_ready",
             ),
             mock.patch.object(backlog_rendering, "_render_body", return_value=True),
             mock.patch.object(
-                backlog_rendering, "_sync_body", return_value=(True, "full"),
+                backlog_rendering,
+                "_sync_body",
+                return_value=(True, "full"),
             ),
             mock.patch.object(backlog_rendering, "_record_sync_failure"),
             mock.patch.object(repair, "_emit_audit", return_value=True),
@@ -136,15 +143,23 @@ class TestApplyUnresolvedMarker:
 
 class TestClassifyMissingFileBudget:
     def test_missing_file_budget_is_recoverable(self):
-        assert idea_readiness_repair.classify_readiness_issues(
-            [{"code": "MISSING_FILE_BUDGET", "context": {}}],
-        ) == idea_readiness_repair.CLASS_MIXED_STALE_COUNT
+        assert (
+            idea_readiness_repair.classify_readiness_issues(
+                [{"code": "MISSING_FILE_BUDGET", "context": {}}],
+            )
+            == idea_readiness_repair.CLASS_MIXED_STALE_COUNT
+        )
 
     def test_missing_plus_unresolved_function_stays_terminal(self):
-        assert idea_readiness_repair.classify_readiness_issues([
-            {"code": "MISSING_FILE_BUDGET", "context": {}},
-            {"code": "UNRESOLVED_FUNCTION", "context": {}},
-        ]) == idea_readiness_repair.CLASS_UNRECOVERABLE
+        assert (
+            idea_readiness_repair.classify_readiness_issues(
+                [
+                    {"code": "MISSING_FILE_BUDGET", "context": {}},
+                    {"code": "UNRESOLVED_FUNCTION", "context": {}},
+                ]
+            )
+            == idea_readiness_repair.CLASS_UNRECOVERABLE
+        )
 
 
 class TestAttemptMissingFileBudgetRepair:
@@ -172,7 +187,8 @@ class TestAttemptMissingFileBudgetRepair:
 
     def test_maybe_repair_skips_when_code_absent(self):
         handled, remaining = repair.maybe_repair_missing_file_budget(
-            item_id=1, issues=[{"code": "FILE_BUDGET_NOT_IN_CLAIM"}],
+            item_id=1,
+            issues=[{"code": "FILE_BUDGET_NOT_IN_CLAIM"}],
         )
         assert handled is None
         assert remaining[0]["code"] == "FILE_BUDGET_NOT_IN_CLAIM"
