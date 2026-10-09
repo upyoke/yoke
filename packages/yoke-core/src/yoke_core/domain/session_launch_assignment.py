@@ -102,17 +102,23 @@ def refuse_held_assigned_item(
     ref = render_item_ref(conn, item_id, required=True)
     states = sorted(IN_FLIGHT_LAUNCH_STATES)
     holes = ",".join(p for _ in states)
+    predecessor_filter = (
+        f"AND COALESCE(l.registered_session_id,l.native_session_id,'') <> {p} "
+        if predecessor
+        else ""
+    )
+    predecessor_params = (predecessor,) if predecessor else ()
     launch = conn.execute(
         "SELECT l.launch_id, l.state, "
         f"CASE WHEN {live_session_sql('s')} THEN s.session_id END AS session_id "
         "FROM session_launches l LEFT JOIN harness_sessions s "
         "ON s.session_id=COALESCE(l.registered_session_id,l.native_session_id) "
         f"WHERE l.project_id={p} AND l.session_name LIKE {p} "
-        f"AND ({p} IS NULL OR COALESCE(l.registered_session_id,l.native_session_id,'') <> {p}) "
+        f"{predecessor_filter}"
         f"AND (l.state IN ({holes}) OR l.state='outcome_unknown' "
         f"OR (s.session_id IS NOT NULL AND {live_session_sql('s')})) "
         "ORDER BY l.created_at, l.launch_id LIMIT 1",
-        (project_id, f"{ref}: %", predecessor, predecessor, *states),
+        (project_id, f"{ref}: %", *predecessor_params, *states),
     ).fetchone()
     if not live_holder and launch is None:
         return
