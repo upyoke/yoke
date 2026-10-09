@@ -11,20 +11,15 @@ import argparse
 import os
 import subprocess
 import sys
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now
 from pathlib import Path
 from typing import Iterable, Optional, TextIO
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_READ_PERMISSION_LEVELS,
 )
-from yoke_core.domain.gh_rest_transport import (
-    RestRequest,
-    RestTransportError,
-    request_with_retry,
-    split_repo,
-)
 from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
+from yoke_core.domain.validate_epic_github import _issue_accessible_via_rest
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
@@ -39,7 +34,10 @@ from yoke_core.domain.validate_epic_context import (
     _result,
     _terminal_success_placeholders,
 )
-from yoke_core.domain.project_attribution import UnattributedProjectError, required_project
+from yoke_core.domain.project_attribution import (
+    UnattributedProjectError,
+    required_project,
+)
 
 
 def _run(
@@ -49,27 +47,6 @@ def _run(
     env: Optional[dict[str, str]] = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=str(cwd), text=True, capture_output=True, env=env)
-
-
-def _issue_accessible_via_rest(
-    repo: str, issue_num: str, *, token: str
-) -> bool:
-    """Return True when ``GET /repos/<owner>/<name>/issues/<n>`` responds 200.
-
-    Routes via the canonical bearer-token REST transport.
-    """
-    if not repo or not issue_num:
-        return False
-    try:
-        owner, name = split_repo(repo)
-    except ValueError:
-        return False
-    req = RestRequest(method="GET", path=f"/repos/{owner}/{name}/issues/{issue_num}")
-    try:
-        request_with_retry(req, token=token)
-    except RestTransportError:
-        return False
-    return True
 
 
 def run_validation(repo_root: Path, epic_ref: str, *, out: TextIO, err: TextIO) -> int:
@@ -129,7 +106,9 @@ def run_validation(repo_root: Path, epic_ref: str, *, out: TextIO, err: TextIO) 
             (canonical_epic_id,),
         )
         if null_status > 0:
-            _result(out, "❌", f"Task status: {null_status} tasks with NULL/empty status")
+            _result(
+                out, "❌", f"Task status: {null_status} tasks with NULL/empty status"
+            )
             issues += 1
             check1_ok = False
         if check1_ok:
@@ -172,7 +151,13 @@ def run_validation(repo_root: Path, epic_ref: str, *, out: TextIO, err: TextIO) 
                 issues += 1
                 check2_ok = False
         if check2_ok:
-            _result(out, "✅", "Worktrees: all present" if checked_worktrees else "Worktrees: none expected")
+            _result(
+                out,
+                "✅",
+                "Worktrees: all present"
+                if checked_worktrees
+                else "Worktrees: none expected",
+            )
             passed += 1
 
         check3_ok = True
@@ -224,13 +209,25 @@ def run_validation(repo_root: Path, epic_ref: str, *, out: TextIO, err: TextIO) 
                 checked_gh = True
                 issue_num = gh_issue.lstrip("#")
                 if not _issue_accessible_via_rest(
-                    verified_repo, issue_num, token=rest_token,
+                    verified_repo,
+                    issue_num,
+                    token=rest_token,
                 ):
-                    _result(out, "❌", f"GitHub issue {gh_issue} not found (task {row['task_num']})")
+                    _result(
+                        out,
+                        "❌",
+                        f"GitHub issue {gh_issue} not found (task {row['task_num']})",
+                    )
                     issues += 1
                     check3_ok = False
             if check3_ok:
-                _result(out, "✅", "GitHub issues: all accessible" if checked_gh else "GitHub issues: none linked")
+                _result(
+                    out,
+                    "✅",
+                    "GitHub issues: all accessible"
+                    if checked_gh
+                    else "GitHub issues: none linked",
+                )
                 passed += 1
 
         check4_ok = True
@@ -280,9 +277,9 @@ def run_validation(repo_root: Path, epic_ref: str, *, out: TextIO, err: TextIO) 
             """,
             (canonical_epic_id, *_ACTIVE_TASK_STATUSES),
         ).fetchall()
-        now = datetime.now(timezone.utc)
+        now = utc_now()
         for row in hb_rows:
-            hb = _parse_timestamp(str(row["last_heartbeat"] or ""))
+            hb = _parse_timestamp(row["last_heartbeat"])
             if hb is None:
                 continue
             checked_heartbeats = True
@@ -299,7 +296,9 @@ def run_validation(repo_root: Path, epic_ref: str, *, out: TextIO, err: TextIO) 
             _result(
                 out,
                 "✅",
-                "In-progress tasks: heartbeats fresh" if checked_heartbeats else "In-progress tasks: none active",
+                "In-progress tasks: heartbeats fresh"
+                if checked_heartbeats
+                else "In-progress tasks: none active",
             )
             passed += 1
 
@@ -324,7 +323,9 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     if not args.epic_ref:
         print("Usage: validate.sh <epic-ref>", file=sys.stderr)
         return 1
-    return run_validation(Path(args.repo_root), args.epic_ref, out=sys.stdout, err=sys.stderr)
+    return run_validation(
+        Path(args.repo_root), args.epic_ref, out=sys.stdout, err=sys.stderr
+    )
 
 
 if __name__ == "__main__":
