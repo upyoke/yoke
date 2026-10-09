@@ -112,7 +112,7 @@ def test_delivery_fact_clears_named_environment_dependency(
     test_db, tmp_path, monkeypatch
 ):
     _carried_dash_landing(test_db, tmp_path, monkeypatch, status="release")
-    _dependency(test_db, satisfaction="fact:deployed:stage", status="release")
+    _dependency(test_db, satisfaction="fact:deployed:stage", status="done")
     test_db.execute(
         "INSERT INTO deployment_run_items(run_id,item_id,added_at) "
         "VALUES('run-previous',%s,'2026-10-01T00:00:00Z')",
@@ -122,6 +122,11 @@ def test_delivery_fact_clears_named_environment_dependency(
         "UPDATE deployment_runs SET target_tier='persistent',target_environment_id=(SELECT id FROM environments "
         "WHERE project_id=1 AND name='stage') WHERE id='run-previous'"
     )
+    from runtime.api.domain.dependency_delivery_test_support import (
+        stamp_completed_members,
+    )
+
+    stamp_completed_members(test_db, "run-previous")
     test_db.commit()
     ok, receipt = cmd_validate_composition("run-candidate")
     assert ok, receipt

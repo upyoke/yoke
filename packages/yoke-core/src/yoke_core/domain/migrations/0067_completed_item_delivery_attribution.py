@@ -28,6 +28,14 @@ def apply(conn: Any) -> None:
         )
     ):
         return
+    if (
+        conn.execute(
+            "SELECT 1 FROM items i JOIN deployment_run_items m ON m.item_id=i.id "
+            "WHERE i.status='done' LIMIT 1"
+        ).fetchone()
+        is None
+    ):
+        return
     rows = conn.execute(
         "SELECT i.id,i.project_id,i.deployment_flow,s.facts,s.rung_id,s.recorded_at,"
         "dr.id AS run_id,dr.project_id AS run_project_id,dr.release_lineage,dr.bound_sources,"

@@ -61,6 +61,9 @@ def _run(conn: Any, run_id: str, *, flow: str, members: tuple[int, ...]) -> None
         "VALUES (%s,%s,%s,'succeeded',%s) ON CONFLICT(id) DO NOTHING",
         (run_id, PROJECT_YOKE, flow, now),
     )
+    from runtime.api.fixtures.completed_delivery import pin_run_delivery
+
+    pin_run_delivery(conn, run_id, environment="prod")
     for item_id in members:
         conn.execute(
             "INSERT INTO deployment_run_items (run_id,item_id,added_at) "
@@ -81,9 +84,7 @@ def _member_at_release_wait(conn: Any, item_id: int, *, status: str = "") -> Non
     )
     stage = delivery_redirect_stage(load_item_workflow_runtime(conn, item_id))
     assert stage, "the dash pin must declare a release wait"
-    conn.execute(
-        "UPDATE items SET status=%s WHERE id=%s", (status or stage, item_id)
-    )
+    conn.execute("UPDATE items SET status=%s WHERE id=%s", (status or stage, item_id))
     conn.commit()
 
 
@@ -126,9 +127,9 @@ def test_a_sibling_flow_run_tells_the_holder_nothing(test_db: Any) -> None:
     _parked_owner(test_db, HOLDER_A, 9814)
 
     assert notify_delivery_cleared(test_db, run_id="run-stage") == []
-    assert _recipients(
-        test_db, delivery_cleared_idempotency_key(9814, "run-stage")
-    ) == []
+    assert (
+        _recipients(test_db, delivery_cleared_idempotency_key(9814, "run-stage")) == []
+    )
 
 
 def test_the_completion_flow_run_of_the_same_pair_does_tell_it(test_db: Any) -> None:
@@ -142,9 +143,9 @@ def test_the_completion_flow_run_of_the_same_pair_does_tell_it(test_db: Any) -> 
 
     [report] = notify_delivery_cleared(test_db, run_id="run-prod")
     assert report["public_ref"].endswith("-9815")
-    assert _recipients(
-        test_db, delivery_cleared_idempotency_key(9815, "run-prod")
-    ) == [HOLDER_A]
+    assert _recipients(test_db, delivery_cleared_idempotency_key(9815, "run-prod")) == [
+        HOLDER_A
+    ]
 
 
 def test_an_unowned_wait_reaches_the_steering_seat_instead(test_db: Any) -> None:
@@ -205,9 +206,10 @@ def test_one_failed_send_neither_aborts_the_caller_nor_its_siblings(
 
     monkeypatch.setattr(notice, "push_notice", flaky)
 
-    reports = {r["public_ref"][-4:]: r["delivery"] for r in notify_delivery_cleared(
-        test_db, run_id="run-partial"
-    )}
+    reports = {
+        r["public_ref"][-4:]: r["delivery"]
+        for r in notify_delivery_cleared(test_db, run_id="run-partial")
+    }
 
     assert reports["9816"].startswith("failed: ")
     assert reports["9817"] in ("delivered", "undelivered")
@@ -215,9 +217,13 @@ def test_one_failed_send_neither_aborts_the_caller_nor_its_siblings(
     assert _recipients(
         test_db, delivery_cleared_idempotency_key(9817, "run-partial")
     ) == [HOLDER_B]
-    assert _recipients(
-        test_db, delivery_cleared_idempotency_key(9816, "run-partial")
-    ) == []
-    assert test_db.execute(
-        "SELECT status FROM deployment_runs WHERE id='run-partial'"
-    ).fetchone()["status"] == "succeeded"
+    assert (
+        _recipients(test_db, delivery_cleared_idempotency_key(9816, "run-partial"))
+        == []
+    )
+    assert (
+        test_db.execute(
+            "SELECT status FROM deployment_runs WHERE id='run-partial'"
+        ).fetchone()["status"]
+        == "succeeded"
+    )

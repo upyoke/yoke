@@ -202,16 +202,6 @@ def _upsert(
         OBLIGATION_DELIVERY_EVIDENCE,
     )
 
-    if obligation == OBLIGATION_DELIVERY_EVIDENCE:
-        lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
-        row = conn.execute(
-            f"SELECT facts FROM item_gate_satisfactions WHERE item_id={p} AND obligation={p}{lock}",
-            (item_id, obligation),
-        ).fetchone()
-        if row:
-            existing = json.loads(str(row[0] or "{}"))
-            if COMPLETED_DELIVERIES in existing:
-                facts = {**facts, COMPLETED_DELIVERIES: existing[COMPLETED_DELIVERIES]}
     params = (
         rung_id,
         target_status,
@@ -223,6 +213,20 @@ def _upsert(
         obligation,
     )
     try:
+        if obligation == OBLIGATION_DELIVERY_EVIDENCE:
+            lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
+            row = conn.execute(
+                f"SELECT facts FROM item_gate_satisfactions WHERE item_id={p} AND obligation={p}{lock}",
+                (item_id, obligation),
+            ).fetchone()
+            if row:
+                existing = json.loads(str(row[0] or "{}"))
+                if COMPLETED_DELIVERIES in existing:
+                    facts = {
+                        **facts,
+                        COMPLETED_DELIVERIES: existing[COMPLETED_DELIVERIES],
+                    }
+        params = (*params[:3], json.dumps(facts, sort_keys=True), *params[4:])
         updated = conn.execute(
             "UPDATE item_gate_satisfactions SET "
             f"rung_id = {p}, target_status = {p}, detail = {p}, "

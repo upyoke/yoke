@@ -251,7 +251,7 @@ export function workbenchClient(overrides = {}) {
       created_at: recentIso(3),
       completed_at: recentIso(2),
       stages: [{ name: "deploy", state: "complete" }],
-      member_items: [{ ref: "YOK-6", title: "Land the release" }],
+      member_items: [{ ref: "YOK-6", title: "Land the release", completed_deliveries: [{ run_id: "run-0", environment: "stage", member_public_ref: "YOK-6", candidate: "a".repeat(40) }] }],
     }] },
     "sessions.steering_groups.list": { rows: [] },
     "overview.activation.get": { dismiss_available: false, modules: [] },

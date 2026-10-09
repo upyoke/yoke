@@ -115,7 +115,7 @@ def test_cross_project_member_clears_frontier_hard_block_and_explanation(
     dependency_conn: Any,
 ) -> None:
     insert_frontier_item(dependency_conn, 1, status="idea")
-    insert_frontier_item(dependency_conn, 2, status="implemented")
+    insert_frontier_item(dependency_conn, 2, status="done")
     _insert_edge(dependency_conn, 1, 2)
     dependency_conn.execute(
         "INSERT INTO sites (id,project_id,name) VALUES (21,2,'external')"

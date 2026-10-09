@@ -156,6 +156,10 @@ def test_overview_members_keep_their_own_qa_even_in_compact_presentation():
     rejected = {"state": "cases unresolved", "failed_requirement_ids": [91]}
     with (
         patch(
+            "yoke_core.domain.deployment_run_list_read.completed_deliveries",
+            return_value={},
+        ),
+        patch(
             "yoke_core.domain.deployment_run_list_read._member_items",
             return_value=members,
         ),

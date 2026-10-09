@@ -242,3 +242,29 @@ def test_cross_project_attribution_uses_the_bound_candidate(test_db, monkeypatch
     assert entry["member_item_id"] == MEMBER_A
     assert entry["candidate"] == candidate
     assert _deployed(test_db)
+
+
+def test_delivery_stamp_storage_failure_rolls_back_without_refusing_the_gate(test_db):
+    from yoke_core.domain.gate_satisfier_stamp import _upsert
+
+    class UnwritableStamp:
+        rolled_back = False
+
+        def execute(self, *args, **kwargs):
+            raise RuntimeError("stamp storage unavailable")
+
+        def rollback(self):
+            self.rolled_back = True
+
+    conn = UnwritableStamp()
+    assert not _upsert(
+        conn,
+        item_id=MEMBER_A,
+        obligation="delivery_evidence",
+        rung_id="merged_only",
+        target_status="done",
+        detail="merge-only proof",
+        facts={},
+        recorded_by_session_id="test-session",
+    )
+    assert conn.rolled_back
