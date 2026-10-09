@@ -211,7 +211,7 @@ def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
     if (
         run is None
         or run["verdict"] != "pass"
-        or not run["completed_at"]
+        or run["completed_at"] is None
         or run.get("case_outcome") in {"running", "waiting"}
     ):
         return False
@@ -236,7 +236,7 @@ def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
     proving_digests = {live_digest} if live_digest else set()
     if rebind_sql:
         rebound_from = str(row["rebound_from_digest"] or "")
-        if str(row["rebound_at"] or "") and rebound_from:
+        if row["rebound_at"] is not None and rebound_from:
             proving_digests.add(rebound_from)
     recorded_digest = recorded_execution_target_digest(run["raw_result"])
     if live_digest and recorded_digest not in proving_digests:

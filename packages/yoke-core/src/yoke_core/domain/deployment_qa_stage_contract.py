@@ -87,7 +87,7 @@ def _run_stage(conn: Any, run_id: str, stage_name: str) -> dict[str, Any]:
     snapshot = _object(
         run.get("requirement_snapshot"), subject="run requirement snapshot"
     )
-    if not str(run.get("composition_frozen_at") or "").strip():
+    if run.get("composition_frozen_at") is None:
         raise ValueError(
             "deployment run composition is not frozen; freeze it before scoped QA"
         )
