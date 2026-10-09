@@ -1,11 +1,8 @@
-"""A merge on GitHub becomes a recorded landing, and someone is told.
+"""GitHub merges become recorded landings and owner notifications.
 
-Two candidate shapes matter. An item whose queue admission was recorded is
-read for all four landing facts. An item that only has a pull request open —
-the route that hands nothing off — is asked whether it merged, which is how
-a merge whose waiting process died becomes visible here at all. Either way
-the landing is recorded from GitHub's own merge time and pushed to whoever
-can close it out.
+Armed candidates read all four landing facts; unarmed open pull requests ask
+only whether they merged. Both routes record GitHub's own merge instant and
+notify whoever can close out the lane.
 """
 
 from __future__ import annotations
@@ -34,6 +31,7 @@ from runtime.api.domain.merge_queue_observer_test_helpers import (
     observer_connection,
 )
 from runtime.api.domain.test_session_message_support import NOW
+from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 import yoke_core.domain.merge_queue_landing_observer as landing_observer
 from yoke_core.domain.merge_queue_landing_observer import observe_pending_landings
@@ -75,7 +73,7 @@ def test_landing_notification_is_sent_once_to_the_claim_holder():
     assert record is not None
     assert record.state == LANDED
     assert record.pr_number == "42"
-    assert record.observed_at == "2026-08-22T16:00:00Z"
+    assert record.observed_at == parse_instant("2026-08-22T16:00:00Z")
 
     inject(conn, message_id)
     delivered = observe_pending_landings(conn, [1], now=INJECTED_AT, read_state=merged)
@@ -131,8 +129,8 @@ def test_a_landing_with_no_queue_admission_is_still_recorded():
     ).fetchone()
     # GitHub's own merge time, so the report that measures how long a landing
     # has gone unclosed measures from the merge rather than from this poll.
-    assert landed_at == GITHUB_MERGED_AT
-    assert merged_at == GITHUB_MERGED_AT
+    assert parse_instant(landed_at) == parse_instant(GITHUB_MERGED_AT)
+    assert parse_instant(merged_at) == parse_instant(GITHUB_MERGED_AT)
     body = message_body(conn, landed_message_id(conn))
     assert "Landing complete for ALP-1" in body
     # The merge commit rides along so a seat picking up an abandoned lane can
@@ -162,8 +160,8 @@ def test_a_second_landing_replaces_the_first_ones_merge_time():
     landed_at, merged_at = conn.execute(
         "SELECT merge_queue_landed_at,merged_at FROM items WHERE id=101"
     ).fetchone()
-    assert landed_at == GITHUB_MERGED_AT
-    assert merged_at == GITHUB_MERGED_AT
+    assert parse_instant(landed_at) == parse_instant(GITHUB_MERGED_AT)
+    assert parse_instant(merged_at) == parse_instant(GITHUB_MERGED_AT)
 
 
 def test_a_second_poll_over_a_recorded_landing_changes_nothing():

@@ -165,3 +165,9 @@ Resident observation batches parse captured clocks as native aware facts, bind m
 HTTP item responses format their finite creation, update and merge clocks before
 response-model validation. Native microseconds survive across database timezones;
 unknown merge clocks stay null and malformed supplied clock facts refuse.
+
+Queue observation records retain native freshness and semantic-change clocks;
+record payloads format fixed-six UTC/null. Arming notice lookup matches only its
+qualified clock suffix and reuses the stored immutable key for the same instant.
+New episodes format canonical keys, and native landing/notification writes retain
+microseconds across database timezones. Existing notice bytes remain unchanged.

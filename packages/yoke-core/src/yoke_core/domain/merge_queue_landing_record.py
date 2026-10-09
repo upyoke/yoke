@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field, replace
+from datetime import datetime
 from typing import Any
 
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.merge_queue_enqueue_verification import LandingReadback
 from yoke_core.domain.merge_queue_landing_record_state import (
     CLOSED_UNMERGED,
@@ -45,8 +48,14 @@ class LandingObservation:
     failed_checks: tuple[LandingCheck, ...] = field(default_factory=tuple)
     narrative: str = ""
     disarm_note: str = ""
-    observed_at: str = ""
-    changed_at: str = ""
+    observed_at: datetime | None = None
+    changed_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        for name in ("observed_at", "changed_at"):
+            value = getattr(self, name)
+            if value is not None:
+                object.__setattr__(self, name, parse_instant(value))
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -78,8 +87,12 @@ class LandingRecord(LandingObservation):
             "failed_checks": [check_payload(check) for check in self.failed_checks],
             "narrative": self.narrative,
             "disarm_note": self.disarm_note,
-            "observed_at": self.observed_at,
-            "changed_at": self.changed_at,
+            "observed_at": format_instant(self.observed_at)
+            if self.observed_at is not None
+            else None,
+            "changed_at": format_instant(self.changed_at)
+            if self.changed_at is not None
+            else None,
         }
 
 
@@ -157,9 +170,10 @@ def from_readback(
     project_id: int,
     pr_number: str,
     readback: LandingReadback,
-    observed_at: str,
+    observed_at: datetime | str,
 ) -> LandingRecord:
     """Classify the four server-read landing facts into a durable record."""
+    observed_at = parse_instant(observed_at)
     state = readback.state
     queue_holding, queue_entry_state, merge_when_ready = _queue_outcomes(readback)
     kind = PENDING
@@ -199,6 +213,8 @@ def from_readback(
 
 def write_landing_record(conn: Any, record: LandingRecord) -> None:
     """Upsert one observation, preserving ``changed_at`` when facts match."""
+    observed = instant_parameter(conn, parse_instant(record.observed_at))
+    changed = instant_parameter(conn, parse_instant(record.changed_at))
     p = _p(conn)
     checks = json.dumps(
         [check_payload(check) for check in record.failed_checks],
@@ -242,8 +258,8 @@ def write_landing_record(conn: Any, record: LandingRecord) -> None:
             checks,
             record.narrative,
             record.disarm_note,
-            record.observed_at,
-            record.changed_at,
+            observed,
+            changed,
         ),
     )
 
@@ -272,8 +288,8 @@ def read_landing_record(conn: Any, item_id: int) -> LandingRecord | None:
         failed_checks=_decode_checks(value.get("failed_checks")),
         narrative=str(value.get("narrative") or ""),
         disarm_note=str(value.get("disarm_note") or ""),
-        observed_at=str(value.get("observed_at") or ""),
-        changed_at=str(value.get("changed_at") or ""),
+        observed_at=parse_instant(value["observed_at"]),
+        changed_at=parse_instant(value["changed_at"]),
     )
 
 
@@ -311,8 +327,8 @@ def record_from_payload(
         failed_checks=_decode_checks(json.dumps(payload.get("failed_checks") or [])),
         narrative=str(payload.get("narrative") or ""),
         disarm_note=str(payload.get("disarm_note") or ""),
-        observed_at=str(payload.get("observed_at") or ""),
-        changed_at=str(payload.get("changed_at") or ""),
+        observed_at=payload.get("observed_at"),
+        changed_at=payload.get("changed_at"),
     )
 
 
