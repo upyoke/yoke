@@ -17,7 +17,6 @@ from datetime import datetime, timedelta, timezone
 
 from yoke_core.engines.doctor import DoctorArgs, RecordCollector
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from runtime.api.fixtures.schema_ddl_items import _ITEMS_RELAXED_DDL
 from yoke_core.engines._project_identity_test_helpers import (
     _insert_deployment_flow,
     _insert_item as _insert_project_item,
@@ -37,11 +36,9 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _iso_offset(**kwargs) -> str:
-    """Return a UTC timestamp offset from now."""
-    return (datetime.now(timezone.utc) + timedelta(**kwargs)).strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
+def _iso_offset(**kwargs) -> datetime:
+    """Return an aware instant offset from now for native SQL binding."""
+    return datetime.now(timezone.utc) + timedelta(**kwargs)
 
 
 _REST_DDL = """
@@ -52,41 +49,41 @@ _REST_DDL = """
             status TEXT, dispatch_attempts INTEGER, body TEXT,
             github_issue TEXT, branch TEXT, worktree_path TEXT,
             max_attempts INTEGER, agent_id TEXT,
-            last_heartbeat TEXT
+            last_heartbeat TIMESTAMPTZ
         );
         CREATE TABLE item_worktrees (
             id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL,
             branch TEXT NOT NULL, path TEXT, lane_role TEXT NOT NULL,
-            state TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL, released_at TEXT
+            state TEXT NOT NULL DEFAULT 'active', created_at TIMESTAMPTZ NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL, released_at TIMESTAMPTZ
         );
 
         CREATE TABLE shepherd_verdicts (
             id INTEGER PRIMARY KEY,
             public_ref TEXT, transition TEXT, worker TEXT, verdict TEXT,
-            caveats TEXT, attempt INTEGER, created_at TEXT
+            caveats TEXT, attempt INTEGER, created_at TIMESTAMPTZ
         );
 
         CREATE TABLE deployment_flows (
             id TEXT PRIMARY KEY, project_id INTEGER, name TEXT, description TEXT,
-            stages TEXT, on_failure TEXT, created_at TEXT,
+            stages TEXT, on_failure TEXT, created_at TIMESTAMPTZ,
             target_env TEXT, done_description TEXT
         );
 
         CREATE TABLE deployment_runs (
             id TEXT PRIMARY KEY, project_id INTEGER, flow TEXT, target_env TEXT,
             release_lineage TEXT, status TEXT, current_stage TEXT,
-            created_at TEXT, started_at TEXT, completed_at TEXT, created_by TEXT
+            created_at TIMESTAMPTZ, started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ, created_by TEXT
         );
 
         CREATE TABLE deployment_run_items (
-            run_id TEXT, item_id INTEGER, added_at TEXT,
+            run_id TEXT, item_id INTEGER, added_at TIMESTAMPTZ,
             PRIMARY KEY (run_id, item_id)
         );
 
         CREATE TABLE projects (
             id INTEGER PRIMARY KEY, slug TEXT UNIQUE, name TEXT,
-            default_branch TEXT, created_at TEXT,
+            default_branch TEXT, created_at TIMESTAMPTZ,
             emoji TEXT, github_repo TEXT, public_item_prefix TEXT DEFAULT 'YOK'
         );
         INSERT INTO projects
@@ -104,15 +101,15 @@ _REST_DDL = """
 
         CREATE TABLE project_capabilities (
             id INTEGER PRIMARY KEY, project_id INTEGER, type TEXT, config TEXT,
-            verified_at TEXT, created_at TEXT, settings TEXT
+            verified_at TIMESTAMPTZ, created_at TIMESTAMPTZ, settings TEXT
         );
 
         CREATE TABLE ephemeral_environments (
             id INTEGER PRIMARY KEY, project_id INTEGER, branch TEXT, item TEXT,
             workflow_run_id TEXT, github_ref TEXT, port_api INTEGER,
-            port_web INTEGER, url TEXT, status TEXT, started_at TEXT,
-            stopped_at TEXT, health_check_url TEXT, deployed_sha TEXT,
-            created_at TEXT
+            port_web INTEGER, url TEXT, status TEXT, started_at TIMESTAMPTZ,
+            stopped_at TIMESTAMPTZ, health_check_url TEXT, deployed_sha TEXT,
+            created_at TIMESTAMPTZ
         );
 
         CREATE TABLE qa_requirements (
@@ -121,7 +118,7 @@ _REST_DDL = """
             qa_phase TEXT, target_env TEXT, blocking_mode TEXT,
             requirement_source TEXT, success_policy TEXT,
             capability_requirements TEXT, suite_id TEXT,
-            waived_at TEXT, waiver_rationale TEXT, created_at TEXT,
+            waived_at TIMESTAMPTZ, waiver_rationale TEXT, created_at TIMESTAMPTZ,
             waiver_source TEXT
         );
 
@@ -129,8 +126,8 @@ _REST_DDL = """
             id INTEGER PRIMARY KEY, qa_requirement_id INTEGER,
             performed_by TEXT, qa_kind TEXT, verdict TEXT,
             score REAL, confidence REAL, raw_result TEXT,
-            duration_ms INTEGER, started_at TEXT, completed_at TEXT,
-            created_at TEXT
+            duration_ms INTEGER, started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ
         );
 
         CREATE TABLE events (
@@ -140,7 +137,7 @@ _REST_DDL = """
             actor_id INTEGER, environment TEXT, service TEXT, project_id INTEGER,
             item_id TEXT, task_num INTEGER, agent TEXT, tool_name TEXT,
             duration_ms INTEGER, exit_code INTEGER, trace_id TEXT,
-            anomaly_flags TEXT, client_timing_id TEXT, envelope TEXT, created_at TEXT
+            anomaly_flags TEXT, client_timing_id TEXT, envelope TEXT, created_at TIMESTAMPTZ
         );
 
         CREATE TABLE item_status_transitions (
@@ -148,7 +145,7 @@ _REST_DDL = """
             task_num INTEGER, from_status TEXT, to_status TEXT NOT NULL,
             source TEXT, session_id TEXT, actor_id INTEGER,
             project_id INTEGER,
-            created_at TEXT NOT NULL DEFAULT '2026-01-01T00:00:00Z'
+            created_at TIMESTAMPTZ NOT NULL DEFAULT '2026-01-01T00:00:00Z'
         );
 
         CREATE TABLE event_registry (
@@ -158,16 +155,16 @@ _REST_DDL = """
         );
 
         CREATE TABLE ouroboros_entries (
-            id INTEGER PRIMARY KEY, timestamp TEXT, agent TEXT,
+            id INTEGER PRIMARY KEY, timestamp TIMESTAMPTZ, agent TEXT,
             context TEXT, category TEXT, body TEXT,
-            reviewed_at TEXT, archived_at TEXT, created_at TEXT,
+            reviewed_at TIMESTAMPTZ, archived_at TIMESTAMPTZ, created_at TIMESTAMPTZ,
             project_id INTEGER
         );
 
         CREATE TABLE item_dependencies (
             id INTEGER PRIMARY KEY, dependent_item_id INTEGER, blocking_item_id INTEGER,
             gate_point TEXT, satisfaction TEXT, source TEXT, session_id INTEGER,
-            rationale TEXT, evidence_json TEXT, created_at TEXT
+            rationale TEXT, evidence_json TEXT, created_at TIMESTAMPTZ
         );
 """
 
@@ -193,6 +190,8 @@ def _make_conn():
     prior = os.environ.get(db_backend.PG_DSN_ENV)
     os.environ[db_backend.PG_DSN_ENV] = new_dsn
     conn = db_backend.connect()
+    from runtime.api.fixtures.schema_ddl_items import _ITEMS_RELAXED_DDL
+
     apply_fixture_ddl(conn, _ITEMS_RELAXED_DDL)
     apply_fixture_ddl(conn, _REST_DDL)
     install_workflow_registry_and_pin_items(conn)

@@ -80,8 +80,6 @@ from yoke_core.engines.doctor_registry import (  # noqa: F401
     RecordCollector,
     _column_exists,
     _DELEGATED_SYNC_HCS,
-    _iso_to_epoch,
-    _now_epoch,
     _github_auth_configured,
     _resolve_main_root,
     _resolve_repo_root,

@@ -19,6 +19,8 @@ import block stays a single statement against ``doctor_hc_meta``:
 from __future__ import annotations
 
 from typing import List
+from datetime import timedelta
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows, query_scalar
@@ -78,7 +80,12 @@ def hc_status_consistency(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         if not task_count or int(task_count) == 0:
             issues.append(f"- {item_id}: status is {status} but has no tasks in DB")
     if issues:
-        rec.record("HC-status-consistency", "Backlog status consistency", "FAIL", "\n".join(issues))
+        rec.record(
+            "HC-status-consistency",
+            "Backlog status consistency",
+            "FAIL",
+            "\n".join(issues),
+        )
     else:
         rec.record("HC-status-consistency", "Backlog status consistency", "PASS", "")
 
@@ -87,7 +94,7 @@ def hc_blocked_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-blocked-items: Blocked items check."""
     warn_items: List[str] = []
     fail_items: List[str] = []
-    now = _base._now_epoch()
+    now = _base.utc_now()
     # blocked is a flag; the legacy status='blocked' surface is
     # drift, owned by HC-blocked-status-drift. Read the flag here so we
     # only age out flag-driven blocks.
@@ -98,24 +105,30 @@ def hc_blocked_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     for row in rows:
         item_id = row["id"]
         updated = row["updated_at"]
-        if updated:
-            upd_epoch = _base._iso_to_epoch(updated)
-            if upd_epoch != 0:
-                age_days = (now - upd_epoch) // 86400
-                if age_days > 30:
-                    fail_items.append(f"- {item_id}: blocked for {age_days} days (>30)")
-                elif age_days > 7:
-                    warn_items.append(f"- {item_id}: blocked for {age_days} days (>7)")
-                else:
-                    warn_items.append(f"- {item_id}: blocked ({age_days} days)")
-            else:
-                warn_items.append(f"- {item_id}: blocked (unknown duration — cannot parse updated timestamp)")
-        else:
+        if updated is None:
             warn_items.append(f"- {item_id}: blocked (no updated timestamp)")
+            continue
+        try:
+            age_days = (now - parse_instant(updated)).days
+        except InvalidInstant:
+            warn_items.append(
+                f"- {item_id}: blocked (invalid_instant — updated timestamp refused)"
+            )
+            continue
+        if age_days > 30:
+            fail_items.append(f"- {item_id}: blocked for {age_days} days (>30)")
+        elif age_days > 7:
+            warn_items.append(f"- {item_id}: blocked for {age_days} days (>7)")
+        else:
+            warn_items.append(f"- {item_id}: blocked ({age_days} days)")
 
     if fail_items:
-        rec.record("HC-blocked-items", "Blocked items", "FAIL",
-                    "\n".join(fail_items + warn_items))
+        rec.record(
+            "HC-blocked-items",
+            "Blocked items",
+            "FAIL",
+            "\n".join(fail_items + warn_items),
+        )
     elif warn_items:
         rec.record("HC-blocked-items", "Blocked items", "WARN", "\n".join(warn_items))
     else:
@@ -126,7 +139,7 @@ def hc_dispatch_chain(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-dispatch-chain: Dispatch chain integrity."""
     issues: List[str] = []
     warnings: List[str] = []
-    now = _base._now_epoch()
+    now = _base.utc_now()
 
     # Check heartbeat freshness for in-progress tasks
     rows = query_rows(
@@ -137,15 +150,21 @@ def hc_dispatch_chain(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     )
     for row in rows:
         hb = row["last_heartbeat"]
-        if hb and hb != "null":
-            hb_epoch = _base._iso_to_epoch(hb)
-            if hb_epoch != 0:
-                age_hrs = (now - hb_epoch) // 3600
-                if age_hrs >= 2:
-                    warnings.append(
-                        f"- {row['epic_id']} task {row['task_num']} ({row['title']}): "
-                        f"heartbeat is {age_hrs}h old (>2h threshold)"
-                    )
+        if hb is None:
+            continue
+        try:
+            age = now - parse_instant(hb)
+        except InvalidInstant:
+            warnings.append(
+                f"- {row['epic_id']} task {row['task_num']}: invalid_instant — heartbeat refused"
+            )
+            continue
+        if age >= timedelta(hours=2):
+            age_hrs = age // timedelta(hours=1)
+            warnings.append(
+                f"- {row['epic_id']} task {row['task_num']} ({row['title']}): "
+                f"heartbeat is {age_hrs}h old (>2h threshold)"
+            )
 
     # Check task count consistency for epic items. Epic decomposition runs
     # in ``/yoke shepherd`` (``refined-idea -> planning``), so the filter
@@ -167,11 +186,16 @@ def hc_dispatch_chain(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             )
 
     if issues:
-        rec.record("HC-dispatch-chain", "Dispatch chain integrity", "FAIL",
-                    "\n".join(issues + warnings))
+        rec.record(
+            "HC-dispatch-chain",
+            "Dispatch chain integrity",
+            "FAIL",
+            "\n".join(issues + warnings),
+        )
     elif warnings:
-        rec.record("HC-dispatch-chain", "Dispatch chain integrity", "WARN",
-                    "\n".join(warnings))
+        rec.record(
+            "HC-dispatch-chain", "Dispatch chain integrity", "WARN", "\n".join(warnings)
+        )
     else:
         rec.record("HC-dispatch-chain", "Dispatch chain integrity", "PASS", "")
 

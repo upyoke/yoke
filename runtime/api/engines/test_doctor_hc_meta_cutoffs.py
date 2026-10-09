@@ -44,9 +44,7 @@ from yoke_core.engines.doctor import (
 def _seed_undeployed_done(conn, item_id: int) -> None:
     """Seed a done item that trips HC-undeployed-done."""
     days_old = 30
-    updated = (datetime.now(timezone.utc) - timedelta(days=days_old)).strftime(
-        "%Y-%m-%d %H:%M:%S",
-    )
+    updated = datetime.now(timezone.utc) - timedelta(days=days_old)
     _seed_project(conn, "yoke")
     _insert_item(
         conn,

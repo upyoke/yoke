@@ -14,6 +14,8 @@ registration parity; this module is the authoritative source.
 from __future__ import annotations
 
 from typing import List
+from datetime import timedelta
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows, query_scalar
@@ -57,9 +59,9 @@ def _completed_workflow_rows(rows, *, task_graph_only: bool = False):
 def hc_undeployed_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-undeployed-done: Undeployed done items."""
     issues: List[str] = []
-    now = _base._now_epoch()
+    now = _base.utc_now()
     # Default warn threshold: 7 days
-    warn_seconds = 7 * 86400
+    warn_age = timedelta(days=7)
     min_item_id = _base._read_int_cutoff("hc_undeployed_done_min_item_id")
 
     rows = query_rows(
@@ -91,21 +93,20 @@ def hc_undeployed_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
         updated = row["updated_at"]
         public_ref = render_item_ref(conn, int(item_id))
-        if updated:
-            upd_epoch = _base._iso_to_epoch(updated)
-            if upd_epoch != 0:
-                age_seconds = now - upd_epoch
-                if age_seconds >= warn_seconds:
-                    age_days = age_seconds // 86400
-                    if age_days == 0:
-                        age_hours = age_seconds // 3600
-                        issues.append(
-                            f"- {public_ref}: done for {age_hours} hours with no deployed_to value"
-                        )
-                    else:
-                        issues.append(
-                            f"- {public_ref}: done for {age_days} days with no deployed_to value"
-                        )
+        if updated is None:
+            issues.append(
+                f"- {public_ref}: missing update clock; deployment age unknown"
+            )
+            continue
+        try:
+            age = now - parse_instant(updated)
+        except InvalidInstant:
+            issues.append(f"- {public_ref}: invalid_instant — update clock refused")
+            continue
+        if age >= warn_age:
+            issues.append(
+                f"- {public_ref}: done for {age.days} days with no deployed_to value"
+            )
 
     if issues:
         rec.record(

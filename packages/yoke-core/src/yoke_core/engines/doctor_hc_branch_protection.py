@@ -13,7 +13,7 @@ Pairs with yoke-ci.yml, cla.yml, and the operator's branch-protection runbook.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import iso8601_now
 from pathlib import Path
 from typing import Iterable, Optional, Sequence, Tuple
 
@@ -315,9 +315,7 @@ def _emit_drift_event(
             "actual_contexts": list(actual),
             "missing_checks": list(missing),
             "reason": reason,
-            "drift_detected_at": datetime.now(timezone.utc).strftime(
-                "%Y-%m-%dT%H:%M:%SZ"
-            ),
+            "drift_detected_at": iso8601_now(),
         },
     )
 

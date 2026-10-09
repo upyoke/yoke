@@ -112,7 +112,12 @@ def test_a_live_project_default_plan_declares_a_test_command(conn):
 
 
 def test_a_retired_plan_does_not_declare_a_test_command(conn):
-    conn.execute("INSERT INTO qa_plans (id, retired_at) VALUES (5, 'gone')")
+    from yoke_contracts.timestamps import parse_instant
+
+    conn.execute(
+        "INSERT INTO qa_plans (id, retired_at) VALUES (5, %s)",
+        (parse_instant("1970-01-01T00:00:00Z"),),
+    )
     conn.execute(
         "INSERT INTO qa_plan_project_defaults (project_id, plan_id) VALUES (1, 5)"
     )

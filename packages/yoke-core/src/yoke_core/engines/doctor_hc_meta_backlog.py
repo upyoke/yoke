@@ -16,6 +16,8 @@ registration parity; this module is the authoritative source.
 from __future__ import annotations
 
 import re
+from datetime import timedelta
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from pathlib import Path
 from typing import List
 
@@ -109,7 +111,7 @@ def hc_backlog_quality(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-backlog-quality: Backlog quality (stale ideas, short titles, missing bodies)."""
     issues: List[str] = []
     fail_issues: List[str] = []
-    now = _base._now_epoch()
+    now = _base.utc_now()
 
     # Read stale threshold from config
     stale_days = 30
@@ -123,7 +125,7 @@ def hc_backlog_quality(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                         stale_days = int(line.strip().split("=", 1)[1])
                     except ValueError:
                         pass
-    stale_seconds = stale_days * 86400
+    stale_age = timedelta(days=stale_days)
 
     # body column retired. Check spec for meaningful content
     # beyond just the title heading (matching old has_body heuristic).
@@ -138,20 +140,27 @@ def hc_backlog_quality(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     for row in rows:
         yok_id = render_item_ref(conn, row["id"])
         status = row["status"] or ""
-        created = row["created_at"] or ""
+        created = row["created_at"]
         title = row["title"] or ""
         priority = row["priority"]
         has_body = int(row["has_body"]) if row["has_body"] is not None else 0
 
         # Sub-check 1: Stale ideas
-        if status == "idea" and created:
-            created_epoch = _base._iso_to_epoch(created)
-            if created_epoch != 0:
-                age = now - created_epoch
-                if age > stale_seconds:
+        if status == "idea":
+            if created is None:
+                issues.append(f"- {yok_id}: missing creation clock; idea age unknown")
+            else:
+                try:
+                    age = now - parse_instant(created)
+                except InvalidInstant:
                     issues.append(
-                        f"- {yok_id}: stale idea ({age // 86400} days old, threshold: {stale_days})"
+                        f"- {yok_id}: invalid_instant — creation clock refused"
                     )
+                else:
+                    if age > stale_age:
+                        issues.append(
+                            f"- {yok_id}: stale idea ({age.days} days old, threshold: {stale_days})"
+                        )
 
         # Sub-check 2: Title too short
         if title and len(title) < 10:

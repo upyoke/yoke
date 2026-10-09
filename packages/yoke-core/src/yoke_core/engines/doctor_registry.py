@@ -16,8 +16,6 @@ from yoke_core.engines.doctor_report import (  # noqa: F401
     DoctorArgs,
     RecordCollector,
     _column_exists,
-    _iso_to_epoch,
-    _now_epoch,
     _resolve_main_root,
     _resolve_repo_root,
     _run,

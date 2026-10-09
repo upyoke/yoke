@@ -9,10 +9,10 @@ from __future__ import annotations
 import subprocess
 
 # Kept as a module attribute, not just an import: HC modules and their tests
-# patch ``doctor_report.time.time`` to pin the clock for staleness checks.
+# patch ``doctor_report.time.time`` to pin filesystem metadata ages.
 import time  # noqa: F401
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now, format_instant
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -86,7 +86,7 @@ class RecordCollector:
         counted as passes or dropped, so the summary line answers "what did
         this run actually verify?" honestly.
         """
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        timestamp = format_instant(utc_now())
 
         ran_count = self.total_count - self.na_count
         lines: List[str] = []
@@ -232,24 +232,6 @@ def _table_exists(conn, table_name: str) -> bool:
 def _column_exists(conn, table_name: str, column_name: str) -> bool:
     """Return True if *column_name* exists on *table_name*."""
     return _schema_column_exists(conn, table_name, column_name)
-
-
-def _now_epoch() -> int:
-    return int(datetime.now(timezone.utc).timestamp())
-
-
-def _iso_to_epoch(ts: str) -> int:
-    """Parse an ISO timestamp to Unix epoch. Return 0 on failure."""
-    if not ts:
-        return 0
-    ts = ts.rstrip("Z")
-    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f"):
-        try:
-            dt = datetime.strptime(ts, fmt).replace(tzinfo=timezone.utc)
-            return int(dt.timestamp())
-        except ValueError:
-            continue
-    return 0
 
 
 def _run(
