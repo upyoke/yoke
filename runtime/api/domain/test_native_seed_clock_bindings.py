@@ -16,7 +16,7 @@ from runtime.api.domain import (
     steering_claim_test_support as steering,
     strategy_execution_test_support as execution,
 )
-from runtime.api.fixtures.backlog_inserts import insert_epic_task
+from runtime.api.fixtures.backlog_inserts import insert_epic_task, insert_item
 
 MOMENT = parse_instant("2026-10-09T16:11:12.345678+05:45")
 SEEDERS = [projects, strategy, coordination, lint, machine, paths, steering, execution]
@@ -40,14 +40,17 @@ def test_seed_graph_has_native_clock_facts_and_nullable_history(
     execution.handoff_item_claim(test_db, 7, "before-clock", "after-clock")
     execution.seed_strategy_doc(test_db, "CLOCK-DOC", "# CLOCK-DOC\n")
     execution.link_blitz_document(test_db, 7, "CLOCK-DOC")
+    insert_item(test_db, id=8, project_sequence=8, workflow_id="epic")
+    insert_item(test_db, id=9, project_sequence=9, workflow_id="epic")
     coordination.seed_session(test_db, "lint-clock")
-    lint.seed_item_claim(test_db, "lint-clock", 7)
-    insert_epic_task(test_db, epic_id=7, task_num=1)
-    lint.seed_epic_task_claim(test_db, "lint-clock", 7, 1)
-    target = paths.seed_target(test_db, item_id=7, path="/tmp/clock-target")
-    claim = paths.seed_item_claim(test_db, item_id=7, target_ids=(target,))
-    paths.bind_claim(test_db, claim_id=claim, item_id=7, task_num=1)
-    paths.seed_session(test_db, session_id="path-clock", item_id=7, task_num=1)
+    lint.seed_item_claim(test_db, "lint-clock", 8)
+    insert_epic_task(test_db, epic_id=8, task_num=1)
+    insert_epic_task(test_db, epic_id=9, task_num=1)
+    lint.seed_epic_task_claim(test_db, "lint-clock", 8, 1)
+    target = paths.seed_target(test_db, item_id=9, path="/tmp/clock-target")
+    claim = paths.seed_item_claim(test_db, item_id=9, target_ids=(target,))
+    paths.bind_claim(test_db, claim_id=claim, item_id=9, task_num=1)
+    paths.seed_session(test_db, session_id="path-clock", item_id=9, task_num=1)
     machine.seed_qa_session(test_db, "machine-clock")
     monkeypatch.setattr(strategy, "SEED_SLUGS", ("CLOCK-SEED",))
     monkeypatch.setattr(strategy, "SEED_CONTENT", {"CLOCK-SEED": "# CLOCK-SEED\n"})
