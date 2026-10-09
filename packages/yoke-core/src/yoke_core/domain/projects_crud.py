@@ -11,7 +11,8 @@ from typing import Optional
 
 from yoke_core.domain.db_helpers import (
     connect,
-    iso8601_now,
+    instant_parameter,
+    utc_now,
     query_one,
     query_rows,
     query_scalar,
@@ -88,7 +89,7 @@ def cmd_create(
                 name,
                 selected_prefix,
                 GITHUB_SYNC_DISABLED,
-                iso8601_now(),
+                instant_parameter(conn, utc_now()),
             ),
         )
         from yoke_core.domain.project_policy_capabilities import (

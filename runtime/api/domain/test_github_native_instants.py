@@ -111,3 +111,69 @@ def test_actions_stall_threshold_and_wire_projection(offset):
     )
     assert response.updated_at == "2026-07-09T17:00:00.000001Z"
     assert _classify(payload, {"status": "in_progress"}).updated_at is None
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_binding_persistence_and_refresh_preserve_native_verification_facts(
+    test_db, zone
+):
+    from yoke_core.domain.project_github_binding_persistence import (
+        persist_project_binding,
+        persist_verified_installation,
+    )
+    from yoke_core.domain.project_github_binding_state import (
+        BindingPersistenceState,
+        refresh_attached_project_bindings,
+    )
+
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    stamp = parse_instant("1969-12-31T23:59:59.999999Z")
+    persist_verified_installation(
+        test_db,
+        placeholder="%s",
+        installation_id="native-clock",
+        api_url="https://api.github.com",
+        account_id="1",
+        account_login="clock-owner",
+        account_type="Organization",
+        repository_selection="selected",
+        permissions="{}",
+        status="active",
+        verified_at=stamp,
+        last_error=None,
+    )
+    persist_project_binding(
+        test_db,
+        placeholder="%s",
+        project_id=1,
+        installation_id="native-clock",
+        repository_id="1",
+        api_url="https://api.github.com",
+        github_repo="clock-owner/repo",
+        default_branch="main",
+        repository_is_private=True,
+        status="active",
+        permissions="{}",
+        verified_at=stamp,
+        last_error=None,
+    )
+    for table in ("github_app_installations", "project_github_repo_bindings"):
+        clocks = test_db.execute(
+            f"SELECT created_at,updated_at,last_verified_at FROM {table} "
+            "WHERE installation_id=%s",
+            ("native-clock",),
+        ).fetchone()
+        assert tuple(clocks) == (stamp, stamp, stamp)
+    refreshed = stamp + timedelta(microseconds=1)
+    refresh_attached_project_bindings(
+        test_db,
+        installation_id="native-clock",
+        permissions="{}",
+        persistence=BindingPersistenceState("active", None, None),
+        verified_at=refreshed,
+    )
+    clocks = test_db.execute(
+        "SELECT created_at,updated_at,last_verified_at FROM project_github_repo_bindings "
+        "WHERE project_id=1"
+    ).fetchone()
+    assert tuple(clocks) == (stamp, refreshed, refreshed)

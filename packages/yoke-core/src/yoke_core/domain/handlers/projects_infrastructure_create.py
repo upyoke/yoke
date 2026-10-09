@@ -61,7 +61,7 @@ def handle_projects_site_create(request: FunctionCallRequest) -> HandlerOutcome:
     error = _validate_settings(payload)
     if error is not None:
         return error
-    from yoke_core.domain.db_helpers import connect, iso8601_now
+    from yoke_core.domain.db_helpers import connect, instant_parameter, utc_now
     from yoke_core.domain.project_identity import placeholder, resolve_project_id
 
     project = str(payload["project"])
@@ -85,7 +85,7 @@ def handle_projects_site_create(request: FunctionCallRequest) -> HandlerOutcome:
             (
                 project_id,
                 site_name,
-                iso8601_now(),
+                instant_parameter(conn, utc_now()),
                 dumps_compact(payload.get("settings") or {}),
             ),
         )
@@ -108,12 +108,13 @@ def handle_projects_environment_create(
     url, error = _optional_url(payload)
     if error is not None:
         return error
-    from yoke_core.domain.db_helpers import connect, iso8601_now
+    from yoke_core.domain.db_helpers import connect, instant_parameter, utc_now
     from yoke_core.domain.project_identity import placeholder, resolve_project_id
 
     project = str(payload["project"])
     site_name = str(payload["site"]).strip()
     from yoke_core.domain.environment_reference import validate_name
+
     try:
         environment_name = validate_name(str(payload["environment"]))
     except ValueError as exc:
@@ -144,12 +145,14 @@ def handle_projects_environment_create(
             if int(existing[0]) != int(site[0]):
                 return _failure(
                     "environment_site_mismatch",
-                    f"environment {environment_name!r} already belongs to "
-                    "another site",
+                    f"environment {environment_name!r} already belongs to another site",
                     "$.payload.environment",
                 )
             return _environment_outcome(
-                project, site_name, environment_name, OUTCOME_ALREADY_PRESENT,
+                project,
+                site_name,
+                environment_name,
+                OUTCOME_ALREADY_PRESENT,
             )
         conn.execute(
             "INSERT INTO environments "
@@ -159,14 +162,17 @@ def handle_projects_environment_create(
                 int(site[0]),
                 project_id,
                 environment_name,
-                iso8601_now(),
+                instant_parameter(conn, utc_now()),
                 dumps_compact(payload.get("settings") or {}),
                 url,
             ),
         )
         conn.commit()
         return _environment_outcome(
-            project, site_name, environment_name, OUTCOME_CREATED,
+            project,
+            site_name,
+            environment_name,
+            OUTCOME_CREATED,
         )
     finally:
         conn.close()
@@ -175,18 +181,25 @@ def handle_projects_environment_create(
 def _site_outcome(project: str, site: str, outcome: str) -> HandlerOutcome:
     return HandlerOutcome(
         result_payload=ProjectsSiteCreateResponse(
-            project=project, site=site, outcome=outcome,
+            project=project,
+            site=site,
+            outcome=outcome,
         ).model_dump(),
         primary_success=True,
     )
 
 
 def _environment_outcome(
-    project: str, site: str, environment: str, outcome: str,
+    project: str,
+    site: str,
+    environment: str,
+    outcome: str,
 ) -> HandlerOutcome:
     return HandlerOutcome(
         result_payload=ProjectsEnvironmentCreateResponse(
-            site=site, environment=environment, outcome=outcome,
+            site=site,
+            environment=environment,
+            outcome=outcome,
             project=project,
         ).model_dump(),
         primary_success=True,
@@ -200,7 +213,9 @@ def _require_strings(
         value = payload.get(key)
         if not value or not isinstance(value, str):
             return _failure(
-                "payload_invalid", f"{key} is required", f"$.payload.{key}",
+                "payload_invalid",
+                f"{key} is required",
+                f"$.payload.{key}",
             )
     return None
 
@@ -254,9 +269,7 @@ REGISTRATION_SPECS: List[Dict[str, Any]] = [
         "request_model": ProjectsSiteCreateRequest,
         "response_model": ProjectsSiteCreateResponse,
         "side_effects": ["sites_insert"],
-        "owner_module": (
-            "yoke_core.domain.handlers.projects_infrastructure_create"
-        ),
+        "owner_module": ("yoke_core.domain.handlers.projects_infrastructure_create"),
     },
     {
         "function_id": "projects.environment.create",
@@ -264,9 +277,7 @@ REGISTRATION_SPECS: List[Dict[str, Any]] = [
         "request_model": ProjectsEnvironmentCreateRequest,
         "response_model": ProjectsEnvironmentCreateResponse,
         "side_effects": ["environments_insert"],
-        "owner_module": (
-            "yoke_core.domain.handlers.projects_infrastructure_create"
-        ),
+        "owner_module": ("yoke_core.domain.handlers.projects_infrastructure_create"),
     },
 ]
 

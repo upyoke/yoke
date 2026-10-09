@@ -24,7 +24,12 @@ from yoke_contracts.verification_posture import (
     VERIFICATION_POSTURE_FAMILY,
 )
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
+from yoke_core.domain.db_helpers import (
+    instant_parameter,
+    utc_now,
+    query_one,
+    query_rows,
+)
 
 #: Slug prefix of the QA plans that carry a project's registered verification
 #: command, one per scope. It lives here rather than beside the registration
@@ -132,7 +137,7 @@ def _retire_registered_commands(conn: Any, project_id: int) -> list[str]:
         )
         conn.execute(
             f"UPDATE qa_plans SET retired_at={marker} WHERE id={marker}",
-            (iso8601_now(), int(plan["id"])),
+            (instant_parameter(conn, utc_now()), int(plan["id"])),
         )
         retired.append(str(plan["slug"]))
     return retired
@@ -165,12 +170,14 @@ def attest_no_tests(
     apply_patch_on_connection(
         conn,
         project,
-        ops=[{
-            "op": "put",
-            "family": VERIFICATION_POSTURE_FAMILY,
-            "attachment": "project",
-            "payload": {"posture": POSTURE_ATTESTED_NO_TESTS, "reason": text},
-        }],
+        ops=[
+            {
+                "op": "put",
+                "family": VERIFICATION_POSTURE_FAMILY,
+                "attachment": "project",
+                "payload": {"posture": POSTURE_ATTESTED_NO_TESTS, "reason": text},
+            }
+        ],
     )
     conn.commit()
     return {
@@ -199,8 +206,7 @@ def clear_no_tests(
     text = str(reason or "").strip()
     if not text:
         raise VerificationPostureError(
-            "clearing the no-tests attestation requires a reason recording "
-            "what changed"
+            "clearing the no-tests attestation requires a reason recording what changed"
         )
     if not attests_no_tests(conn, int(project_id)):
         stored = declared_posture(conn, int(project_id))
@@ -211,11 +217,13 @@ def clear_no_tests(
     apply_patch_on_connection(
         conn,
         project,
-        ops=[{
-            "op": "remove",
-            "family": VERIFICATION_POSTURE_FAMILY,
-            "attachment": "project",
-        }],
+        ops=[
+            {
+                "op": "remove",
+                "family": VERIFICATION_POSTURE_FAMILY,
+                "attachment": "project",
+            }
+        ],
     )
     conn.commit()
     return {

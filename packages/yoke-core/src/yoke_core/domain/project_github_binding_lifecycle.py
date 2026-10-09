@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
-from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
+from yoke_core.domain.db_helpers import connect, instant_parameter, utc_now, query_one
 from yoke_core.domain.project_github_binding_payload import (
     permission_status,
     permissions_dict,
@@ -91,8 +91,7 @@ def cmd_apply_project_github_binding_lifecycle(
             )
         stored_status = str(installation["status"] or "")
         deleted_is_terminal = (
-            stored_status == INSTALLATION_DELETED
-            and status != INSTALLATION_DELETED
+            stored_status == INSTALLATION_DELETED and status != INSTALLATION_DELETED
         )
         effective_status = INSTALLATION_DELETED if deleted_is_terminal else status
         selected_permissions = (
@@ -100,14 +99,12 @@ def cmd_apply_project_github_binding_lifecycle(
             if permissions is not None and not deleted_is_terminal
             else permissions_text(permissions_dict(installation["permissions"]))
         )
-        permission_state = permission_status(
-            permissions_dict(selected_permissions)
-        )
+        permission_state = permission_status(permissions_dict(selected_permissions))
         persistence = binding_persistence_state(
             effective_status,
             str(permission_state.get("status") or "unknown"),
         )
-        now = iso8601_now()
+        now = utc_now()
         if not deleted_is_terminal:
             conn.execute(
                 "UPDATE github_app_installations SET permissions=%s, status=%s, "
@@ -116,9 +113,9 @@ def cmd_apply_project_github_binding_lifecycle(
                 (
                     selected_permissions,
                     effective_status,
-                    now,
+                    instant_parameter(conn, now),
                     persistence.installation_error,
-                    now,
+                    instant_parameter(conn, now),
                     installation_key,
                 ),
             )

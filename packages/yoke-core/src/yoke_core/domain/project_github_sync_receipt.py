@@ -9,7 +9,7 @@ from threading import Lock
 from typing import Any, Callable, Optional
 
 from yoke_core.domain import control_plane_transport, db_backend
-from yoke_core.domain.db_helpers import connect, iso8601_now
+from yoke_core.domain.db_helpers import connect, instant_parameter, utc_now
 from yoke_core.domain.project_identity import resolve_project
 
 
@@ -52,9 +52,7 @@ def record_installation_token_result(
     if target is None:
         return False
     project, db_path = target
-    conn = control_plane_transport.local_connection_or_none(
-        lambda: connect(db_path)
-    )
+    conn = control_plane_transport.local_connection_or_none(lambda: connect(db_path))
     if conn is None:
         # No local authority — an https control plane is the ordinary case
         # here, not a failure, so the receipt relays rather than being lost.
@@ -69,7 +67,10 @@ def record_installation_token_result(
             return False
     try:
         return record_over_connection(
-            conn, project, outcome=outcome, error=error,
+            conn,
+            project,
+            outcome=outcome,
+            error=error,
         )
     except Exception:
         return False
@@ -92,7 +93,12 @@ def record_over_connection(
         "UPDATE project_github_repo_bindings SET "
         f"last_sync_at={placeholder}, last_sync_outcome={placeholder}, "
         f"last_sync_error={placeholder} WHERE project_id={placeholder}",
-        (iso8601_now(), outcome, error if outcome == "failed" else "", identity.id),
+        (
+            instant_parameter(conn, utc_now()),
+            outcome,
+            error if outcome == "failed" else "",
+            identity.id,
+        ),
     )
     conn.commit()
     return True
@@ -102,6 +108,7 @@ def with_installation_token_receipt(
     request: Callable[..., Any],
 ) -> Callable[..., Any]:
     """Wrap the canonical REST executor with durable terminal receipts."""
+
     @wraps(request)
     def tracked(req, *, token, timeout_seconds=30.0, max_attempts=None):
         try:

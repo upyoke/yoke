@@ -20,7 +20,7 @@ from yoke_core.domain import (
     json_helper,
     project_github_capability_settings,
 )
-from yoke_core.domain.db_helpers import connect, iso8601_now
+from yoke_core.domain.db_helpers import connect, instant_parameter, utc_now
 from yoke_core.domain.github_app_user_verification import (
     VerifiedProjectGitHubBinding,
     verify_project_github_binding,
@@ -122,7 +122,7 @@ def _store_verified_project_repo_binding(
         assert conn is not None
         ident = resolve_project(conn, project, required=True)
         assert ident is not None
-        now = iso8601_now()
+        now = utc_now()
         p = _p(conn)
         selected_permissions = permissions_text(metadata.permissions)
         installation_status = metadata.installation_status
@@ -222,7 +222,7 @@ def _store_verified_project_repo_binding(
                 ident.id,
                 "github",
                 json_helper.dumps_compact(capability_settings),
-                now,
+                instant_parameter(conn, now),
             ),
         )
         if owns_conn:

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain import db_backend, json_helper
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.project_github_auth_models import GITHUB_CAPABILITY_TYPE
 from yoke_core.domain.project_github_binding_payload import permissions_dict
 from yoke_core.domain.project_github_capability_settings import (
@@ -16,22 +19,26 @@ from yoke_core.domain.project_github_capability_settings import (
 BINDING_ACTIVE = "active"
 BINDING_PENDING = "pending"
 BINDING_UNAVAILABLE = "unavailable"
-BINDING_STATUS_VALUES = frozenset({
-    BINDING_ACTIVE,
-    BINDING_PENDING,
-    BINDING_UNAVAILABLE,
-})
+BINDING_STATUS_VALUES = frozenset(
+    {
+        BINDING_ACTIVE,
+        BINDING_PENDING,
+        BINDING_UNAVAILABLE,
+    }
+)
 
 INSTALLATION_ACTIVE = "active"
 INSTALLATION_PENDING = "pending"
 INSTALLATION_SUSPENDED = "suspended"
 INSTALLATION_DELETED = "deleted"
-INSTALLATION_STATUS_VALUES = frozenset({
-    INSTALLATION_ACTIVE,
-    INSTALLATION_PENDING,
-    INSTALLATION_SUSPENDED,
-    INSTALLATION_DELETED,
-})
+INSTALLATION_STATUS_VALUES = frozenset(
+    {
+        INSTALLATION_ACTIVE,
+        INSTALLATION_PENDING,
+        INSTALLATION_SUSPENDED,
+        INSTALLATION_DELETED,
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -54,15 +61,21 @@ def binding_persistence_state(
     if unavailable:
         error = f"installation_{installation_status}"
         return BindingPersistenceState(
-            BINDING_UNAVAILABLE, error, error,
+            BINDING_UNAVAILABLE,
+            error,
+            error,
         )
     if installation_status != INSTALLATION_ACTIVE:
         return BindingPersistenceState(
-            BINDING_PENDING, None, "installation_pending",
+            BINDING_PENDING,
+            None,
+            "installation_pending",
         )
     if missing_permissions:
         return BindingPersistenceState(
-            BINDING_PENDING, None, "missing_permissions",
+            BINDING_PENDING,
+            None,
+            "missing_permissions",
         )
     return BindingPersistenceState(BINDING_ACTIVE, None, None)
 
@@ -73,7 +86,7 @@ def refresh_attached_project_bindings(
     installation_id: str,
     permissions: str,
     persistence: BindingPersistenceState,
-    verified_at: str,
+    verified_at: datetime,
 ) -> None:
     """Apply one installation refresh to every attached project atomically."""
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -85,9 +98,9 @@ def refresh_attached_project_bindings(
         (
             permissions,
             persistence.binding_status,
-            verified_at,
+            instant_parameter(conn, verified_at),
             persistence.binding_error,
-            verified_at,
+            instant_parameter(conn, verified_at),
             installation_id,
         ),
     )
@@ -105,7 +118,7 @@ def refresh_project_binding(
     project_id: int,
     permissions: str,
     persistence: BindingPersistenceState,
-    verified_at: str,
+    verified_at: datetime,
 ) -> None:
     """Refresh one repository binding without changing its installation peers."""
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -117,9 +130,9 @@ def refresh_project_binding(
         (
             permissions,
             persistence.binding_status,
-            verified_at,
+            instant_parameter(conn, verified_at),
             persistence.binding_error,
-            verified_at,
+            instant_parameter(conn, verified_at),
             project_id,
         ),
     )
@@ -143,7 +156,7 @@ def _refresh_attached_project_capabilities(
     *,
     installation_id: str,
     permissions: str,
-    verified_at: str,
+    verified_at: datetime,
 ) -> None:
     """Rebuild each attached project's binding-owned capability projection."""
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -167,7 +180,7 @@ def _refresh_project_capability(
     *,
     binding: Any,
     permissions: str,
-    verified_at: str,
+    verified_at: datetime,
 ) -> None:
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
     project_id = int(binding["project_id"])
@@ -189,7 +202,7 @@ def _refresh_project_capability(
             project_id,
             GITHUB_CAPABILITY_TYPE,
             json_helper.dumps_compact(settings),
-            verified_at,
+            instant_parameter(conn, verified_at),
         ),
     )
 

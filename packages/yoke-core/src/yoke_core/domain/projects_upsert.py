@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import Any, Optional
 
 from yoke_contracts.glyph_contract import validate_glyph
 
 from yoke_core.domain.db_helpers import (
     connect,
-    iso8601_now,
+    instant_parameter,
+    utc_now,
     query_one,
     query_rows,
     query_scalar,
@@ -101,7 +104,7 @@ def cmd_upsert(
                 f"project {selected_slug!r} does not exist; use projects.create "
                 "to register a new project"
             )
-        now = iso8601_now()
+        now = utc_now()
         if created:
             selected_prefix = require_public_item_prefix(public_item_prefix)
             assert_prefix_available(conn, selected_prefix)
@@ -181,7 +184,7 @@ def _insert(
     github_repo: Optional[str],
     public_item_prefix: str,
     emoji: Optional[str],
-    now: str,
+    now: datetime,
     github_sync_mode: str,
 ) -> int:
     numeric_id = selected_id or int(
@@ -200,7 +203,7 @@ def _insert(
             _clean_optional(default_branch) or "main",
             _clean_optional(github_repo),
             public_item_prefix,
-            now,
+            instant_parameter(conn, now),
             org_id,
             github_sync_mode,
         ),

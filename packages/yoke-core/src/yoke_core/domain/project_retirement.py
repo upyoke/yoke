@@ -9,9 +9,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now, query_rows
+from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_rows
 from yoke_core.domain.item_terminal_resources import item_is_terminal
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.schema_common import _column_exists, _table_exists
@@ -106,13 +107,13 @@ def set_retirement(
                 + ". Complete or cancel open work and runs, and have claim holders "
                 "release their holds, then retry.",
             )
-    previous = row[RETIRED_AT]
-    value = (previous or iso8601_now()) if retired else None
+    previous = None if row[RETIRED_AT] is None else parse_instant(row[RETIRED_AT])
+    value = (utc_now() if previous is None else previous) if retired else None
     changed = value != previous
     if changed:
         conn.execute(
             f"UPDATE projects SET {RETIRED_AT}={marker} WHERE id={marker}",
-            (value, identity.id),
+            (instant_parameter(conn, value), identity.id),
         )
         from yoke_core.domain.events import emit_event
 
@@ -124,7 +125,10 @@ def set_retirement(
             session_id=session_id,
             conn=conn,
             transactional=True,
-            context={"retired_at": value, "reason": reason},
+            context={
+                "retired_at": format_instant(value) if value is not None else None,
+                "reason": reason,
+            },
         )
     return {
         "project_id": identity.id,
