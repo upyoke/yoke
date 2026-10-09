@@ -60,6 +60,7 @@ def test_removal_ignores_other_alias_external_credential(
         for alias, entry in before["connections"].items()
         if alias != "retiring"
     }
+    expected["projects"] = before.get("projects", [])
     assert _config(machine_home) == expected
     assert external.exists() is external_exists
     if external_exists:
