@@ -71,83 +71,6 @@ class TestReviewGet:
         assert "Needs work" in result
 
 
-class TestSimulationParsing:
-    """Test _parse_simulation_result matching all shell test cases."""
-
-    def test_result_clean(self):
-        body = "## Result: CLEAN\nAll good."
-        assert epic._parse_simulation_result(body) == "CLEAN"
-
-    def test_result_gaps_found(self):
-        body = "## Result: GAPS FOUND\nSome issues."
-        assert epic._parse_simulation_result(body) == "GAPS FOUND"
-
-    def test_result_gaps_found_suffix(self):
-        body = "## Result: GAPS FOUND (all fixed in cycle 1)\nDetails."
-        assert epic._parse_simulation_result(body) == "GAPS FOUND"
-
-    def test_result_count_format_gaps(self):
-        body = "## Result: 3 critical, 2 warnings, 1 notes"
-        assert epic._parse_simulation_result(body) == "GAPS FOUND"
-
-    def test_result_count_format_clean(self):
-        body = "## Result: 0 critical, 0 warnings, 0 notes"
-        assert epic._parse_simulation_result(body) == "CLEAN"
-
-    def test_bold_format(self):
-        body = "**Result:** 1 gap found\nDetails."
-        assert epic._parse_simulation_result(body) == "GAPS FOUND"
-
-    def test_simulation_prefix_clean(self):
-        body = "SIMULATION: CLEAN\nAll good."
-        assert epic._parse_simulation_result(body) == "CLEAN"
-
-    def test_simulation_prefix_gaps_found(self):
-        body = "SIMULATION: GAPS FOUND\n## Gap 1: Missing interface"
-        assert epic._parse_simulation_result(body) == "GAPS FOUND"
-
-    def test_simulation_prefix_takes_priority(self):
-        """SIMULATION: prefix overrides ## Result: line."""
-        body = "SIMULATION: GAPS FOUND\n## Result: CLEAN\nContradiction."
-        assert epic._parse_simulation_result(body) == "GAPS FOUND"
-
-    def test_clean_with_suffix(self):
-        body = "SIMULATION: CLEAN -- No issues found."
-        assert epic._parse_simulation_result(body) == "CLEAN"
-
-    def test_no_result_returns_none(self):
-        body = "No result line here, just notes about the simulation."
-        assert epic._parse_simulation_result(body) is None
-
-    def test_empty_body_returns_none(self):
-        assert epic._parse_simulation_result("") is None
-
-    def test_incidental_clean_in_prose_rejected(self):
-        """incidental 'clean' in prose should not match."""
-        body = "The integration looks clean overall. No issues observed during testing."
-        assert epic._parse_simulation_result(body) is None
-
-    def test_truncated_output_rejected(self):
-        """truncated output without proper format."""
-        body = "Let me check the integration paths...\nStatus: reviewing code for issues"
-        assert epic._parse_simulation_result(body) is None
-
-    def test_simulation_clean_prefix_parses(self):
-        """positive control: SIMULATION: CLEAN."""
-        body = "SIMULATION: CLEAN\n\nAll integrations verified."
-        assert epic._parse_simulation_result(body) == "CLEAN"
-
-    def test_clean_in_prose_not_prefix(self):
-        """CLEAN in prose body but not as prefix."""
-        body = "The code is not CLEAN enough to pass without further review.\n## Other section"
-        assert epic._parse_simulation_result(body) is None
-
-    def test_simulation_gaps_found_prefix_parses(self):
-        """positive control: SIMULATION: GAPS FOUND."""
-        body = "SIMULATION: GAPS FOUND\n### GAP #1: Missing error handler"
-        assert epic._parse_simulation_result(body) == "GAPS FOUND"
-
-
 class TestSimulationGet:
     def test_simulation_get(self, test_db):
         """Directly insert simulation data, then read with simulation_get."""
@@ -196,7 +119,10 @@ class TestSimulationGet:
             success_policy='{"type":"deterministic","criteria":"result_pass","phase":"integration"}',
         )
         raw_result = json.dumps(
-            {"body": "SIMULATION: GAPS FOUND\n## Gap 1: Missing interface", "phase": "integration"},
+            {
+                "body": "SIMULATION: GAPS FOUND\n## Gap 1: Missing interface",
+                "phase": "integration",
+            },
             separators=(",", ":"),
         )
         insert_qa_run(

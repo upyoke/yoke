@@ -6,7 +6,6 @@ orchestration, mutations, and the CLI surface.
 
 from __future__ import annotations
 
-import re
 from datetime import datetime, timezone
 from typing import Any, List
 
@@ -155,57 +154,16 @@ def _require_task_exists(conn, epic_id: str, task_num: int) -> None:
 
 
 def _parse_simulation_result(body: str) -> str | None:
-    """Parse simulation result from body text.
+    """Return the canonical header verdict, or None for an invalid report."""
+    from yoke_core.domain.simulation_report_headers import (
+        SimulationReportError,
+        parse_simulation_headers,
+    )
 
-    Returns 'CLEAN', 'GAPS FOUND', or None.
-    Matches the shell parse_result() logic exactly.
-    """
-    if not body:
+    try:
+        return parse_simulation_headers(body)
+    except SimulationReportError:
         return None
-
-    # Primary: match "SIMULATION: CLEAN" or "SIMULATION: GAPS FOUND"
-    for line in body.splitlines():
-        stripped = line.strip()
-        m_sim = re.match(r"^SIMULATION:\s*(.+)$", stripped)
-        if m_sim:
-            val_sim = m_sim.group(1).strip().upper()
-            if val_sim.startswith("CLEAN"):
-                return "CLEAN"
-            if val_sim.startswith("GAPS FOUND"):
-                return "GAPS FOUND"
-
-    # Fallback: match "## Result:" or "**Result:**"
-    for line in body.splitlines():
-        stripped = line.strip()
-
-        m = re.match(r"^##\s+Result:\s*(.+)$", stripped)
-        if m:
-            val = m.group(1).strip()
-            if val.upper().startswith("CLEAN"):
-                return "CLEAN"
-            if val.upper().startswith("GAPS FOUND"):
-                return "GAPS FOUND"
-            cm = re.match(r"^(\d+)\s+critical", val)
-            if cm:
-                counts = [
-                    int(x)
-                    for x in re.findall(r"(\d+)\s+(?:critical|warning|note)", val)
-                ]
-                return "GAPS FOUND" if any(c > 0 for c in counts) else "CLEAN"
-            return None
-
-        m2 = re.match(r"^\*\*Result:\*\*\s*(.+)$", stripped)
-        if m2:
-            val2 = m2.group(1).strip()
-            if "gap" in val2.lower() and re.search(r"[1-9]", val2):
-                return "GAPS FOUND"
-            if val2.upper().startswith("CLEAN"):
-                return "CLEAN"
-            if val2.upper().startswith("GAPS FOUND"):
-                return "GAPS FOUND"
-            return None
-
-    return None
 
 
 def public_epic_pipe_rows(conn, epic_id: int, body: str) -> str:

@@ -45,6 +45,48 @@ class TestSimulationUpsert:
         )
         assert rc == 2
 
+    def test_verified_receipt_output_and_json(self) -> None:
+        ref = f"TST-{109}"
+        run_id = 81
+        message = f"{ref} simulation plan CLEAN; run {run_id} verified"
+
+        def stub(request):
+            return FunctionCallResponse(
+                success=True,
+                function=request.function,
+                request_id=request.request_id,
+                result={
+                    "public_ref": ref,
+                    "phase": "plan",
+                    "requirement_id": 31,
+                    "run_id": run_id,
+                    "verdict": "CLEAN",
+                    "verified": True,
+                    "message": message,
+                },
+            )
+
+        args = (
+            "workflow-item",
+            "epic-task",
+            "simulation-upsert",
+            "--epic",
+            ref,
+            "--phase",
+            "plan",
+            "--body",
+            f"SIMULATION: CLEAN\nEPIC: {ref}",
+        )
+        rc, out, _ = _run_capture(stub, *args)
+        assert rc == 0 and out == message + "\n"
+        rc, out, _ = _run_capture(stub, *args, "--json")
+        import json
+
+        assert rc == 0
+        result = json.loads(out)["result"]
+        assert result["run_id"] == run_id and result["verified"] is True
+        assert "body" not in result
+
 
 class TestSubmissionReceiptGet:
     def test_dispatches_with_watermark(self) -> None:
