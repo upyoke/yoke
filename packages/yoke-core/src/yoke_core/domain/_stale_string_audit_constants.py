@@ -65,6 +65,8 @@ GENERIC_QUOTED_STRINGS = {
     "Write",  # Generic tool/action verb.
     "AND",  # Generic logical conjunction, not retired display wording.
     "command not found",  # Active shell failure diagnostic.
+    ".run",  # Generic method suffix, not a retired interface.
+    ".execute",  # Generic method suffix, not a retired interface.
     "defaults",
     "default",
     "unknown",

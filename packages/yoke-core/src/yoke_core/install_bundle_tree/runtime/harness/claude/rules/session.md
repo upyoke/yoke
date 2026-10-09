@@ -1,56 +1,45 @@
 # Claude — Session Rules
 
-This file holds only Claude-Code-specific session rules, in their **normative short form**. **For every harness-neutral rule — worktree discipline, commit discipline, bug discipline, deployment rules, lifecycle, simplify, DB access — read `AGENTS.md` at your repo root.** If a rule belongs in Codex sessions too, it lives in AGENTS.md, not here.
+Read `AGENTS.md` for shared rules. Before Claude hook, recovery or watcher work,
+read `.yoke/docs/reference/agent-rules/claude-sessions.md`; it owns the inventory,
+failure paths, session revival and identity across episodes.
 
-The reasoning, recovery paths, watcher inventory, and worked failure modes behind everything below are in the repo-root-relative `.yoke/docs/reference/agent-rules/claude-sessions.md`. Read the relevant part **before** the action it governs. That split exists because this file is delivered through a finite startup channel; what sat past the cut was in force and unread.
+Hook schema is all-or-nothing: every `settings.json` entry uses nested
+`{hooks: [{type, command}]}`. One flat entry disables all hooks.
 
-Paths here are repo-root-relative, because this file is read from `.claude/rules/` in an installed project and from `runtime/harness/claude/rules/` in the Yoke source tree.
+## Tool Constraints
 
-Claude-specific guidance covers its native tool names and settings schema. Read the target harness manifest's `agent_wake` and `session_control` facts before choosing a wake or messaging primitive; this document does not establish another harness's capabilities.
+`AskUserQuestion` needs at least 2 options; prefer inline chat for iteration.
+Never Stop after arming Monitor while holding a work claim: continue the turn,
+or checkpoint and `yoke sessions touch --mode parked` first. Park retains claims;
+your next tool call clears it. SessionEnd on transient signals never releases
+claims; follow named recovery if a command refuses `SESSION_ENDED`.
 
-When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
-yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
-Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
+## Watcher waits
 
-## Hook Schema (Claude-only)
-- **Hook schema is all-or-nothing.** One invalid entry in `settings.json` silently disables ALL hooks. Every entry — `UserPromptSubmit`, `SessionEnd`, all of them — must use the nested `{hooks: [{type, command}]}` shape; the flat `{type, command}` form breaks the whole file. If hooks seem dead, check `claude` CLI startup for "Settings Error".
+Main sessions first use `--print-streaming-pair`, which runs nothing. Run the
+printed command: `background-wake` arms its command and one `yoke watch tail`
+subscription; `in-turn` runs foreground with Bash `timeout: 600000`. Unknown
+waits in-turn. A returned/backgrounded handle still runs: continue it until exit,
+never relaunch beside it or manually poll. Read the completed raw capture once.
 
-## SessionEnd and Session Identity (Claude-only)
-- **Claude fires `SessionEnd` on transient signals** — laptop sleep, app reload, brief disconnect, idle timeout — not only on permanent termination. So the Stop and SessionEnd hooks never assert "agent gone" on their own: they end a session only when it holds nothing at all, and report a structured skip reason otherwise. They never release claims.
-- **A pure wake target holds no claim by design.** A caller that needs one alive takes a bounded lease: `yoke sessions keepalive hold <session-id> --reason ... [--seconds N]`, cleared by `yoke sessions keepalive release` or expiry. That lease is control-plane state; the held session's own tool calls neither set nor clear it. `parked` mode is the opposite — a session declares it about itself and its next tool call takes it back. A park also holds its claim.
-- **A transient end self-heals on the next hook event of any kind,** including `PreToolUse`/`PostToolUse`. Revival does not wait for `SessionStart` or `UserPromptSubmit`, because an agentic turn continuing past a sleep never submits a new prompt.
-- **One `session_id` may legitimately span multiple episodes,** and that is intentional — the same conversation resumes under the same id. Locks attached to the prior episode remain valid; there is no per-episode handoff to coordinate.
-- **Reactivation reacquires conditionally:** inside the reacquire window, with no other live holder, the claim is re-inserted in the same transaction. When another session legitimately holds the target, recovery is explicit: `yoke claims work acquire --item PREFIX-N --reason session-reactivation-recovery`.
-- **A surface that refuses `SESSION_ENDED` names its recovery** — a populated `yoke sessions begin ...` built from the ended row's own stored identity. Follow the printed recipe rather than improvising.
-- **Episode-scoped audit goes through `--current-episode`** on `yoke events query --session <id>`. It REQUIRES an explicit session and fails closed. **Read `elided_prior_episode_rows`:** an empty `rows` beside a non-zero count means "ask again without the flag", not "nothing happened". The portable, episode-blind claim-holder read is `yoke claims work holder-get PREFIX-N`; inherited claims stay visible there on purpose.
+Subagents run long commands foreground in one Bash sequence, never
+`Bash(run_in_background: true)` plus Monitor and return. Tighten dispatch if its
+budget cannot fit the check. Watcher wrappers capture and classify output;
+read the deep home's inventory before fallback. Relay wake digests whole to your
+own visible output. Fleet mail is for actionable red gates, blockers, conflicts,
+decisions and terminal results; no progress mail.
 
-## Tool Constraints (Claude-only)
-- `AskUserQuestion` requires at least 2 options. Per the shared Interaction Style rule in AGENTS.md, prefer inline chat; use it only for short, discrete choices.
-
-## Long commands — tier router (read this first)
-Two tiers with different authority. Apply only the one matching your session tier; **do not cross-apply.** If unsure, you are a subagent (subagents have `YOKE_HOOK_AGENT_TYPE` exported by their adapter; the main session does not).
-
-**Main-session tier** (the top-level session running `/yoke` skills inline):
-- **Invoke watcher-backed long commands with `--print-streaming-pair` first.** It prints and runs nothing — it launches no child, merges nothing, deploys nothing, records nothing — and reports the safe wait for this session's harness wake capability. Then run the printed command yourself; that run is the operation.
-- `wait_mode=background-wake` → run the printed background command and its `yoke watch tail` subscription once. `wait_mode=in-turn` → run the printed foreground invocation and keep it open until it exits. Unknown always waits.
-- **Give every `in-turn` watcher invocation `timeout: 600000` on the Bash tool.** At the 120-second default the harness moves the call to a background task, and a turn that ends there kills the watcher it was holding. Headless Claude watcher Bash omitting it is denied by `lint-headless-watcher-timeout` — not a blanket Bash rule.
-- **A backgrounded call is still running — it was not interrupted.** Some commands outlive even 600000 (a CI-routed QA gate is 13-14 minutes). Reading the background task's output is how you continue the call, not how you end the turn: keep reading until the command exits and you have its outcome. Re-run only once the process is verifiably gone. A relay-launched worker has no second chance here: its turn is the whole life of the command, and the watcher says so on its own progress stream, naming the continuation before the command starts.
-- **Do not Stop after arming Monitor while you hold a work claim.** Monitor wakes resume the current turn; ending it closes the reader and the paired `watch_tail` dies on a broken pipe with no completion record and no later wake. The Stop promised-work gate holds such a Stop rather than allowing it. Expect the block, and expect it to cost you the turn — park first if you need the session quiet: the park is read before every hold.
-
-**Subagent tier** (any dispatch via the `Agent` tool):
-- **Long commands run foreground inside a single `Bash` tool-call sequence** via `yoke watch pytest -- <args>` or a sibling wrapper. **Never `Bash(run_in_background: true)` + `Monitor` and then return:** the subagent turn is atomic, so any wake fired afterwards has nowhere to deliver — the subagent suspends mid-flight, the parent dispatch deadlocks, and watcher subprocesses leak around shared control-plane resources. `lint_subagent_background` denies backgrounding tools in subagent context (default `deny`).
-- If the turn budget cannot fit the foreground run, the orchestrator fans out tighter dispatches. Growing the budget to fit a self-armed background pattern is not a workaround.
-
-**Both tiers:**
-- **Do not manually poll a running long command.** `background-wake` uses one armed `yoke watch tail <progress-capture>` subscription; `in-turn` waits on the original call. The tail exits on the sentinel and resumes on re-arm; bare `tail -f` is denied. Inspect `tail -80 <raw-capture>` once after completion.
-- **Prefer the wrappers over a hand-authored filter,** and confirm no wrapper covers the command before falling back: a command may be a *subcommand* of one (`yoke merge item` → `yoke watch merge merge-item`). The wrappers are `yoke watch pytest | merge | deploy | fleet | preflight | qa-case | qa-plan | ci-run | doctor`, with `yoke watch tail` for the progress subscription; the inventory, filters, and exit statuses are in the deep home. `--local` on the pytest wrapper is only a small targeted check expected to finish in about one minute, and is not justified by an uncommitted tree.
-- **On Monitor wakes, relay watcher output.** Merge and deploy send actionable errors and final results only; other wrappers may send progress digests. Relay each digest whole. Never fill quiet periods.
-- **Relay is your own visible output and nothing else.** It never authorizes mailing a watcher line to another session. A worker must not `yoke say` progress upward — a percentage, an elapsed poll, a "still green" note costs the recipient an inbox row and changes nothing it would do. Ending a turn sends no Fleet message; send terminal and actionable reports deliberately with `yoke say --steering`. Message another session only for something it would act on: a red gate and what failed, a blocker, a conflict with your instruction, a defect outside your scope, a terminal item state, or a decision you need.
-
-**Suppression tokens** (add to the Bash command body; all are recorded in the audit event): `# lint:no-main-check` overrides the main-branch commit block; `# lint:no-lifecycle-mutation-check` the raw-lifecycle-mutation block; `# lint:no-polling-check` the polling guardrail. `# lint:no-monitor-watcher-tail-check` and `# lint:no-raw-pytest-check` are audit-only and do NOT unblock — use the minted `yoke watch tail` or `yoke watch pytest` instead.
+Suppression tokens (audit recorded): `# lint:no-main-check`,
+`# lint:no-lifecycle-mutation-check`, `# lint:no-polling-check` override their
+named guards. `# lint:no-monitor-watcher-tail-check` and
+`# lint:no-raw-pytest-check` are audit-only and do NOT unblock: use minted
+`yoke watch tail` and `yoke watch pytest`.
 
 ## Harness wake capability
-Cross-harness behavior you author must match what each harness declares, not what this Claude-only file makes convenient.
+
+Read the target manifest's `agent_wake` and `session_control` before choosing a
+cross-harness primitive. Generated facts follow; never restate them independently.
 
 <!-- BEGIN GENERATED: harness-wake-capability -->
 Wake capability is a manifest fact, not prose. Source of truth:
@@ -62,7 +51,3 @@ restate one of these facts on a document's own authority.
 - `codex` — idle wake: none; timer wake: none. Verified on codex-cli.
 - `cursor` — idle wake: supported (`notify_on_output`); timer wake: none. Verified on cursor-cli.
 <!-- END GENERATED: harness-wake-capability -->
-
-## Cross-references
-- **Path-claim overlaps surfaced mid-flow:** the resolution protocol is `.agents/skills/yoke/idea/path-claim-blocking.md`.
-- **Agent-to-Yoke surface boundary:** the canonical shape is `yoke <subcommand>`. The HTTP function-call server, `curl localhost:8765`, `$YOKE_API`, and direct runtime-API imports are not agent shapes; `lint-no-agent-runtime-api-import-from-c` and `lint-no-agent-curl-against-yoke-api` enforce it in both main-session and subagent contexts. Full stance: AGENTS.md `### yoke CLI`.

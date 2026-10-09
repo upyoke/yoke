@@ -52,7 +52,7 @@ and mechanical fix guidance with durable links, no transcripts.
 Use **reuse / quality / efficiency**, AGENTS **Simplify — three-axis doctrine**,
 as feedback: duplicated helpers/constants, divergent interfaces, redundant
 computation and unjustified duplicated infrastructure. **Codebase-reader naming**:
-assume future readers of the codebase will NOT have planning artifacts. Shared
+Assume future readers of the codebase will NOT have planning artifacts. Shared
 files/modules/helpers/events/config/commands/symbols/docs explain current function,
 purpose, mechanics/domain. Report work-item/strategy/plan/initiative/phase/task/
 AC/FR/branch/lane provenance names unless runtime/domain concept.
@@ -220,7 +220,8 @@ caveat/downgrade. Read system-wide.md BEFORE --system audit: five consistency
 categories, source bundle/process and report-only persistence differ from epic.
 Simulation never creates real backlog/GitHub state. Use isolated project fixture/
 test contract, never invent dry-run env behavior; report discovered work to parent
-for `/yoke idea`, no harness suggestions. No code/dependency writes.
+for `/yoke idea`. Do not create work items yourself or use harness suggestions.
+No code/dependency writes.
 
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'

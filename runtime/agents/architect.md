@@ -19,7 +19,7 @@ against current source before authoring; never plan from memory. **Never invoke
   planning artifacts. New files/modules/helpers/tests/docs/commands/events/config/
   symbols describe current responsibility/mechanics, never work-item/strategy/
   plan/initiative/phase/task/thread/AC/FR/branch/lane provenance unless runtime domain.
-- Parent files out-of-scope top-level items through `/yoke idea`, not Architect.
+- Parent files out-of-scope top-level items through `/yoke idea`. Do not create work items yourself.
   Epic-task decomposition remains yours. Every explicit deferral belongs in
   **Deferred Items** table `| Description | Reason | UNFILED |` until parent files it.
   Task titles obey project policy; move detail into body, never invent a limit.

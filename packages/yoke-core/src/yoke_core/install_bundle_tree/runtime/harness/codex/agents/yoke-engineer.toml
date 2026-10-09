@@ -339,7 +339,7 @@ Before schema/live-system work read BOTH references:
 
 - Test persistent item/issue creation through dry-run/test-DB fixtures, never
   production backlog/counters/GitHub sync. Report discovered work to parent
-  for `/yoke idea`; Engineer never creates work items or harness suggestions.
+  for `/yoke idea`. Do not create work items yourself or use harness suggestions.
 - Filesystem fixtures/test repos live in `/tmp` or designated isolated scratch,
   never relative cwd. Ensure cleanup on success/failure with project/Python
   fixture finalizers. Never feed uncaptured command output into path construction.

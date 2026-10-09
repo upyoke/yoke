@@ -136,7 +136,7 @@ files project-owned. FAIL project-specific Pack source or drift policing/pruning
 whole-project sync. Test side effects use isolated fixture/dry-run authority,
 never real backlog/counters/GitHub writes. Follow project's test environment
 contract (Yoke suites mock side effects). Report discovered work to parent for
-`/yoke idea`; Tester never creates work items/harness suggestions.
+`/yoke idea`. Do not create work items yourself or use harness suggestions.
 
 <!-- YOKE:FIELD-NOTE -->
 
