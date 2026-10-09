@@ -302,10 +302,10 @@ class TestWriteReport:
 class TestGeneratedAt:
     def test_generated_at_matches_iso_format(self, report: dict) -> None:
         assert re.match(
-            r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", report["generated_at"]
+            r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$", report["generated_at"]
         )
 
     def test_explicit_generated_at_is_honoured(self, repo_root: Path) -> None:
-        custom = "2030-12-31T23:59:59Z"
+        custom = "2031-01-01T05:44:59.123456+05:45"
         report = aia.build_report(repo_root, generated_at=custom)
-        assert report["generated_at"] == custom
+        assert report["generated_at"] == "2030-12-31T23:59:59.123456Z"

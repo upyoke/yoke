@@ -266,3 +266,8 @@ null or malformed clocks before enqueueing; request text and monotonic queue age
 keep their own meaning. Transport retry, resident delivery and relay failure
 diagnostics share the same fixed-six UTC formatter, preserving microseconds and
 refusing naive clocks rather than assigning a timezone.
+
+Deployment-start markers and Atlas reports format their declared clocks through
+the shared kernel; report readers compare native instants without rewriting raw
+captures. CI reuse accepts only qualified external clock evidence within its
+known window; malformed, unqualified or future evidence cannot skip the suite.

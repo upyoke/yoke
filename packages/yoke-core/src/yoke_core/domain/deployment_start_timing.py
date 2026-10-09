@@ -2,12 +2,13 @@
 
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import datetime, timezone
 from functools import wraps
 import json
 import os
 from pathlib import Path
 from time import monotonic
+
+from yoke_contracts.timestamps import iso8601_now
 
 PREFIX = "Deployment start timing: "
 _SCOPE = ContextVar("deployment_start_timing", default=None)
@@ -59,9 +60,7 @@ def _emit(step, phase, elapsed_ms=None, outcome=None):
     record = {
         key: state[key] for key in ("run_id", "source_sha", "member_count", "transport")
     }
-    record.update(
-        step=step, phase=phase, timestamp=datetime.now(timezone.utc).isoformat()
-    )
+    record.update(step=step, phase=phase, timestamp=iso8601_now())
     if elapsed_ms is not None:
         record.update(elapsed_ms=elapsed_ms, outcome=outcome)
     state["records"].append(record)
