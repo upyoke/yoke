@@ -29,10 +29,10 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional, Union
 
+from yoke_contracts.timestamps import iso8601_now
 from yoke_contracts.cursor_session_map import (
     CURSOR_SESSION_MAP_DIR_NAME,
     resolve_mapped_session_id,
@@ -96,6 +96,7 @@ def resolve_actor_role(
 # Anchor registry (read / write / prune) — one small JSON file per anchor pid
 # ---------------------------------------------------------------------------
 
+
 def _load_json(path: Path) -> Optional[Dict[str, Any]]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -145,11 +146,7 @@ def record_session_anchor(
     if not session_id:
         return None
     try:
-        resolved = (
-            anchor
-            if anchor is not None
-            else find_nearest_harness_anchor(pid)
-        )
+        resolved = anchor if anchor is not None else find_nearest_harness_anchor(pid)
         if resolved is None:
             return None
         directory = Path(anchors_dir)
@@ -173,13 +170,11 @@ def record_session_anchor(
             "anchor_pid": resolved.pid,
             "anchor_start_time": resolved.start_time,
             "anchor_process_name": resolved.process_name,
-            "registered_at": datetime.now(timezone.utc).isoformat(),
+            "registered_at": iso8601_now(),
         }
         if decision.contended:
             record["shared_by_multiple_sessions"] = True
-            record["contending_session_ids"] = list(
-                decision.contending_session_ids
-            )
+            record["contending_session_ids"] = list(decision.contending_session_ids)
             record.update(writer_breadcrumb())
         tmp = directory / f".{resolved.pid}.json.tmp.{os.getpid()}"
         _dump_json(tmp, record)
@@ -218,11 +213,11 @@ def resolve_session_from_ancestry(
         # (fresh machine, hermetic test home) resolves to None for free.
         if not any(directory.glob("*.json")):
             return None
-        resolve_start = (
-            process_start_time if start_time_of is None else start_time_of
-        )
+        resolve_start = process_start_time if start_time_of is None else start_time_of
         for ancestor in anchor_candidate_pids(
-            pid, parents=parents, name_of=name_of,
+            pid,
+            parents=parents,
+            name_of=name_of,
         ):
             path = directory / f"{ancestor}.json"
             if not path.is_file():
@@ -262,9 +257,7 @@ def prune_stale_anchors(
         directory = Path(anchors_dir)
         if not directory.is_dir():
             return 0
-        resolve_start = (
-            process_start_time if start_time_of is None else start_time_of
-        )
+        resolve_start = process_start_time if start_time_of is None else start_time_of
         for path in directory.glob("*.json"):
             try:
                 pid = int(path.stem)
@@ -287,6 +280,7 @@ def prune_stale_anchors(
 # ---------------------------------------------------------------------------
 # The unified ambient chain
 # ---------------------------------------------------------------------------
+
 
 def resolve_ambient_session_id(
     anchors_dir: _AnchorsDir,

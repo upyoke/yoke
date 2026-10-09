@@ -10,12 +10,13 @@ helper itself — so no event seeding is required.
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timezone
 from typing import Any, Optional
 
 import pytest
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain.sessions_lifecycle_release import (
     release_work_claim_for_execution,
 )
@@ -46,8 +47,8 @@ SYNTHETIC_ITEM_REF = f"YOK-{SYNTHETIC_ITEM_ID}"
 SESSION_A = "019e1f0d-7f82-72d2-85ee-b46947b2a6fd"
 SESSION_B = "019e1f0a-a6a2-7321-835f-9772a881820b"
 
-WORKSPACE = "/tmp/yok1674-routed-ownership-fixture"
-_SEED_TS = "2026-05-13T01:58:26+00:00"
+WORKSPACE = "/tmp/routed-ownership-fixture"
+_SEED_TS = parse_instant("2026-05-13T01:58:26.123456Z")
 
 
 def _p(conn: Any) -> str:
@@ -109,8 +110,8 @@ def seed_item(conn: Any) -> None:
             workflow_id,
             workflow_version_id,
             SYNTHETIC_ITEM_ID,
-            _SEED_TS,
-            _SEED_TS,
+            instant_parameter(conn, _SEED_TS),
+            instant_parameter(conn, _SEED_TS),
             spec,
         ),
     )
@@ -129,7 +130,7 @@ def register_live_session(
     canonical actor-resolution path (which reaches into config tables
     this minimal fixture does not provision).
     """
-    now = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+    now = parse_instant(utc_now())
     p = _p(conn)
     conn.execute(
         "INSERT INTO harness_sessions "
@@ -142,10 +143,10 @@ def register_live_session(
         (
             session_id,
             WORKSPACE,
-            now,
-            now,
+            instant_parameter(conn, now),
+            instant_parameter(conn, now),
             current_item_id,
-            now if current_item_id else None,
+            instant_parameter(conn, now if current_item_id else None),
         ),
     )
     conn.commit()

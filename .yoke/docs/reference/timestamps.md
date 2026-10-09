@@ -319,3 +319,7 @@ UI time elements publish qualified source instants with all six fractional
 digits; null publishes no machine clock. Display ages and refresh counters
 remain measured in milliseconds. Hosted-frame, QA/workbench and card specimen
 fixtures reuse the shared Date producer without changing historical versions.
+
+Conversation mappings and process-anchor files publish fixed-six UTC clocks
+through the shared kernel; OS process-start identity text stays opaque. Current
+routed-session fixtures bind native clocks and adapt only at SQLite ownership.
