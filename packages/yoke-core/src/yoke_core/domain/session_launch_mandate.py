@@ -8,7 +8,7 @@ from yoke_contracts.skill_registry import SKILLS_BY_ID
 from yoke_contracts.session_control.models import LaunchCreateRequest
 from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.session_launch_item_level import DEFAULT_LEVEL_REASON
-from yoke_core.domain.session_launch_mandate_teaching import STANDING_TEACHINGS
+from yoke_core.domain.session_launch_mandate_teaching import LEVEL_HANDOFF_TEACHING
 from yoke_core.domain.session_launch_store import marker, value
 from yoke_core.domain.session_launch_types import LaunchRequest, SessionLaunchError
 from yoke_core.domain.session_workflow_routing import live_next_step
@@ -17,23 +17,11 @@ from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
 _DELIBERATE_CLOSE = (
-    "Ending a turn sends no Fleet message. When those legs are complete, "
-    "message the orchestrator "
+    "Only at the item's terminal status, send "
     '(printf %s "DONE {ref} <one-line summary>" | yoke say --stdin '
-    "--steering) and END your session — do not pick up further work, do not "
-    "chain into other items. Send that report before releasing any claim you "
-    "still hold; after a close-out that already released it, --steering "
-    "resolves from the item you last held in this session. The PREFIX-N in "
-    "the DONE heading is the report identity and must name work this session "
-    "holds or released; a repeat of the same DONE is deduplicated rather "
-    "than delivered twice. A completion you are later RESUMED to do is its "
-    "own leg and reaches the seat on its own, whether or not that resume "
-    "hands you a fresh claim — never release an unfinished lane to force "
-    "one through. A send answering `Collapsed into an earlier message` did "
-    "NOT deliver your body; read it rather than assume you reported. "
-    "Complete means the item reached its own terminal status: a close-out "
-    "that stopped at a pinned release wait has NOT completed those legs, "
-    "and neither the report nor the END is owed yet."
+    "--steering) before releasing a claim you still hold, then END your session. "
+    "A release wait retains the claim and park; it owes no DONE or END. "
+    "Ending a turn sends no Fleet message."
 )
 
 
@@ -44,57 +32,29 @@ def compose_single_item_mandate(
     remaining_legs: str,
     extras: str = "",
 ) -> str:
-    """Return the canonical item-bound worker mandate, with optional extras.
+    """Route one worker to its live skill, with claim and close boundaries.
 
-    The report target is the steering ROLE, never the launching session.
-    Baking a session id in made every mandate outlive its own address: when
-    the operator stopped that seat, each later report drove a headless
-    resume of a dead session that acknowledged and never answered, and the
-    successor seat had to redirect every live worker by hand.
-
-    Every composed mandate belongs to a launched CLI session, which is a
-    headless command: it cannot be prompted again inside its own turn, but the
-    relay does re-enter it on a delivered message. That is why the landing
-    handoff is safe to teach here. The failure it replaces was a worker that
-    stopped on the handoff before any notice reached it, leaving its branch
-    landed and its item at reviewing-implementation with nobody to close it
-    out, seven times in one night; the landing observer's notice is what closes
-    that gap, so the mandate names the notice rather than an in-turn wait no
-    launched worker survives.
-
-    The release-wait teaching answers the failure this close created. A
-    worker whose merge landed at a pinned release wait read "when those legs
-    are complete" as complete, so twelve items in one night were reported and
-    left unowned before their delivery ran, against four that parked and held.
-    The mandate names that boundary so it does not undo the retention.
-
-    The continuation teaching answers the other half of the same fact. A
-    headless turn is the whole life of every command it starts, so a turn
-    that ends while a long command is still running kills it: two print-mode
-    turns ended on a merge their harness had moved to a background task,
-    reported success, and left the watcher killed at the turn exit with no
-    verdict recorded. Nothing about that hand-back means the work stopped, so
-    the mandate says to continue the call rather than to read the hand-back
-    as completion.
+    Phase instructions own verification, candidate review, landing and delivery
+    recovery. The launch carries only what the worker must know before reading
+    that skill. Steering is a role address resolved at delivery.
     """
     close = _DELIBERATE_CLOSE.format(ref=public_ref)
     mandate = (
         f"{entrypoint}\n\n"
-        f"Single-item mandate (steering): acquire the {public_ref} work claim "
+        f"Single-item mandate: acquire the {public_ref} work claim "
         f"as your FIRST action — `yoke claims work acquire --item {public_ref} "
         f'--reason "<why you are claiming it>"` — then execute only '
         f"{public_ref} through "
         f"{remaining_legs}. Do NOT create or dispatch any deployment run — "
-        "the orchestrator batches deploys. Message the orchestrator ONLY for "
-        "substantive updates — a red gate and what failed, a blocker, a conflict "
-        "with this instruction, a defect outside your scope, a decision you need. "
-        "NEVER send progress: no percentages, elapsed-time polls, watcher "
-        'heartbeats, or "still green" notes; relay those in your own output '
-        f"instead. {close} If your claim is swept mid-work, reacquire and "
-        "continue."
+        "the orchestrator batches deploys. Follow the next live bound skill "
+        "and read its phase instructions before verification, merge or delivery. "
+        "On re-entry, read the Progress Log and lane status/log; preserve existing "
+        "work. Before stopping short of done, append a Progress Log checkpoint "
+        "with stage, committed and dirty work, and next action. "
+        "Send steering only failures, blockers, conflicts, outside-scope defects "
+        f"or decisions. Keep progress in your own output. {LEVEL_HANDOFF_TEACHING} {close} "
+        "If your claim is swept, reacquire and continue."
     )
-    for teaching in STANDING_TEACHINGS:
-        mandate = f"{mandate}\n\n{teaching}"
     extra = extras.strip()
     return f"{mandate}\n\n{extra}" if extra else mandate
 

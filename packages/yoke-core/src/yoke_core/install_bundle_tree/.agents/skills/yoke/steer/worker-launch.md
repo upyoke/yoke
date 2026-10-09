@@ -92,7 +92,7 @@ After repeated `relay_lease_expired` results on one surface, relaunch the item
 on a different CLI surface and immediately file a field-note with the launch
 ids and result codes.
 
-The server emits this single-item mandate (steering) shape — claim first,
+The server emits a compact single-item mandate — claim first,
 execute only that item through the routed legs, no deployment run, report then
 END. Every worker gets the `yoke say --steering` DONE step in the same place.
 The single-recipient `yoke say --item PREFIX-N --stdin` form is insufficient
@@ -221,7 +221,16 @@ and to stop early only for a command-handed wait or the taught local-check inter
 ```text
 {ROUTED_ENTRYPOINT}
 
-Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action — `yoke claims work acquire --item PREFIX-N --reason "<why you are claiming it>"` — then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. For a substantive peer request or reply, address the intended worker/session AND copy relevant steering using union recipient flags (`--item PREFIX-N --steering`, or an exact listed `--session SESSION-ID --steering`; use explicit `--steering-scope '{"project_id": N}'` when you hold no applicable item). Reply to the original requesting session for acceptance, refusal, scope conflict, blocker, or decision; never send a rejection only to steering. Acknowledgement records receipt, not acceptance or implementation. When those legs are complete, message the orchestrator (`printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --steering`) and END your session — do not pick up further work, do not chain into other items. Send that report before releasing any claim you still hold; after close-out already released it, `--steering` resolves from the item you last held in this session. The PREFIX-N in the DONE heading is the report identity and must name work this session holds or released. If your claim is swept mid-work, reacquire and continue.
+Single-item mandate: claim FIRST, execute only the assigned item through the live bound skills, read phase instructions before verification/merge/delivery, preserve re-entry work and checkpoint before stopping. No deployment runs. Send only substantive steering reports. DONE and END only at the terminal status. Retain the claim and park at release wait.
+```
+
+### Worker phase obligations
+
+These obligations are read through the worker's bound skill and operation
+rules before their action, rather than repeated in every launch body. The
+expanded contract below preserves the recovery details for steering review.
+
+```text
 
 Keep the item resumable by another worker. Steering may restaff it onto a different model at any point by terminating this session, which releases your claim and leaves the lane, its branch, and any uncommitted work in place for the successor. So before any stop short of done — a park, a blocker or decision report, a landing or release wait, or the end of a turn — append a Progress Log checkpoint naming the live stage, what is committed, what is still uncommitted in the lane, and the next concrete step: `yoke items progress-log append PREFIX-N --headline "<checkpoint>" --stdin`. When the item you claim is already past its first stage, you are that successor: before acting, read `yoke items section get PREFIX-N --section 'Progress Log'` and the lane's `git status` and `git log`, keep the uncommitted work you find, and resume at the live stage from the last checkpoint rather than repeating transitions or steps it records as done.
 

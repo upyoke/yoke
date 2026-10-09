@@ -252,7 +252,8 @@ def test_usher_merge_step_routes_the_landing_the_same_way():
 
 
 def test_every_launched_worker_mandate_carries_the_landing_handoff():
-    assert HEADLESS_LANDING_WAIT_TEACHING in _mandate()
+    assert "read its phase instructions before verification, merge or delivery" in _mandate()
+    assert HEADLESS_LANDING_WAIT_TEACHING in _read(SKILLS / "steer" / "worker-launch.md")
     teaching = HEADLESS_LANDING_WAIT_TEACHING
     assert "headless command that cannot be prompted again" in teaching
     assert "arms the landing and returns landing_pending=true" in teaching
