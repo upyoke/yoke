@@ -54,6 +54,7 @@ class TestSimulationUpsert:
             return FunctionCallResponse(
                 success=True,
                 function=request.function,
+                version=request.version,
                 request_id=request.request_id,
                 result={
                     "public_ref": ref,
