@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 import os
 import sqlite3
@@ -29,10 +30,11 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
 _CONTROL_DB_DDL = """
-    CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT UNIQUE, name TEXT NOT NULL, public_item_prefix TEXT NOT NULL DEFAULT 'YOK', created_at TEXT NOT NULL);
-    CREATE TABLE project_capabilities (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, type TEXT NOT NULL, settings TEXT DEFAULT '{}', verified_at TEXT, created_at TEXT NOT NULL, UNIQUE(project_id, type));
+    CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT UNIQUE, name TEXT NOT NULL, public_item_prefix TEXT NOT NULL DEFAULT 'YOK', created_at TIMESTAMPTZ NOT NULL);
+    CREATE TABLE project_capabilities (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, type TEXT NOT NULL, settings TEXT DEFAULT '{}', verified_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL, UNIQUE(project_id, type));
 """
 
+_CONTROL_SEED_AT = datetime(2026, 4, 23, tzinfo=timezone.utc)
 
 def _p(conn) -> str: return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
@@ -62,7 +64,7 @@ def _apply_control_db_schema() -> None:
         p = _p(conn)
         conn.execute(
             _upsert_project_sql(p),
-            (1, "yoke", "Yoke", "2026-04-23T00:00:00Z"),
+            (1, "yoke", "Yoke", _CONTROL_SEED_AT),
         )
         conn.commit()
     finally:
@@ -88,12 +90,12 @@ def _seed_capability(
     p = _p(conn)
     conn.execute(
         _upsert_project_sql(p),
-        (project_id, project, project.capitalize(), "2026-04-23T00:00:00Z"),
+        (project_id, project, project.capitalize(), _CONTROL_SEED_AT),
     )
     conn.execute(
         _upsert_capability_sql(p),
         (project_id, "migration_model", settings_json,
-         "2026-04-23T00:00:00Z"),
+         _CONTROL_SEED_AT),
     )
     conn.commit()
     conn.close()
@@ -201,12 +203,12 @@ class TestResolveValidationDbPaths:
         p = _p(conn)
         conn.execute(
             _upsert_project_sql(p),
-            (1, "yoke", "Yoke", "2026-04-23T00:00:00Z"),
+            (1, "yoke", "Yoke", _CONTROL_SEED_AT),
         )
         conn.execute(
             _upsert_capability_sql(p),
             (1, "migration_model", settings_json,
-             "2026-04-23T00:00:00Z"),
+             _CONTROL_SEED_AT),
         )
         conn.commit()
         conn.close()
