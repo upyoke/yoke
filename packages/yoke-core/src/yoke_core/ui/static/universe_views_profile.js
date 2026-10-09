@@ -151,8 +151,9 @@ function signOutSetting(context, signOutPath) {
     button.disabled = true;
     error.replaceChildren();
     try {
-      const response = await fetch(signOutPath, { method: "POST", credentials: "same-origin" });
-      if (response.ok) { window.location.assign("/"); return; }
+      const view = documentNode.defaultView;
+      const response = await view.fetch(signOutPath, { method: "POST", credentials: "same-origin" });
+      if (response.ok) { view.location.assign("/"); return; }
       const body = await response.json().catch(() => ({}));
       error.textContent = `${body.error?.code || `HTTP ${response.status}`}: `
         + `${body.error?.message || "sign-out did not complete; try again"}`;

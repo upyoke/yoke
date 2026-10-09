@@ -25,8 +25,16 @@ set `YOKE_API_TRUSTED_PROXIES` in the bundle `.env` to the TLS proxy IPs/CIDRs,
 preserve Host, and forward scheme/client headers; restart with
 `yoke self-host init --dir PATH --protect-existing --start`.
 Backend and operational writes retain their
-authenticated boundary. Hosted shells must forward these paths to the selected
-tenant engine and serve the packaged assets on the same origin.
+authenticated boundary.
+
+Each workbench sends to its own universe's collector. A local or self-hosted
+workbench uses the serving universe's `/api/events`. A hosted shell serves
+several universes from one origin, so it mounts the workbench with
+`eventsEndpoint` set to the organization's own collector route
+(`/api/orgs/<slug>/api/events`) and forwards that route, with the viewer's
+session, to the tenant engine. A hosted mount without `eventsEndpoint` sends
+nothing and warns `collector_endpoint_unconfigured`; it never falls back to a
+shared collector.
 
 Configuration returns only a publishable digest. The private cookie signing key
 belongs to the organization in `organizations.events_signing_key`. Signed,
@@ -37,8 +45,14 @@ on the Public Suffix List (app.upyoke.com counts upyoke.com as internal; an IP
 or localhost is its own site), and sign-in provider returns such as
 accounts.google.com never become a touch. `frontend_event_rate_limits` stores disposable request counts (60
 requests per client/organization per minute), independently of event retention.
-The server stamps organization and verified actor identity; browser-supplied
-identity and project/work-item references cannot choose their durable owners.
+The server stamps organization, environment (`YOKE_ENVIRONMENT`), and the
+viewer's verified actor: a bearer token, the self-hosted `yoke_web_session`
+cookie, or, on the Local view, the per-run token that admits the local
+operator. A page view without one stays anonymous and carries only the
+browser's `visitor_id`. The emitter's `service` and `project` are stored as
+sent (`web` and `yoke` for the workbench); browser-supplied identity and
+project/work-item references cannot choose their durable owners, so the row
+indexes as global.
 Accepted batches deduplicate on event UUIDs through the existing event sink.
 Collector envelopes use INFO severity and are acknowledged only after sink
 completion; failures return `collector_unavailable`, never false success.
@@ -62,7 +76,8 @@ happened."
 
 Account acquisition is durable state: a signed-in flow creating an actor stores
 the verified attribution cookie's visitor identity, first touch, and last touch
-in `actors.attribution`. Later sign-ins preserve that acquisition snapshot. A
+in `actors.attribution`. Later sign-ins preserve that acquisition snapshot and
+add a [visitor link](#visitor-links) for the browser they come from. A
 flow without an attribution cookie creates an actor with no attribution. The event ledger is never
 used to reconstruct this account fact and may be pruned independently.
 
@@ -70,6 +85,28 @@ used to reconstruct this account fact and may be pruned independently.
 observed names as suggestions. Advanced filters keep the precise server-side
 event name, source, severity and time constraints. The loaded scope remains
 explicit; text search does not promise matches outside it.
+
+### Visitor links
+
+`actor_visitor_links` is the durable list of browsers each actor has signed in
+from: one row per `visitor_id`, owned by its `actor_id`. Every web sign-in
+(company OIDC or `yoke ui up` browser admission) links the browser's verified
+visitor id to the signed-in actor, so an actor gains one link per browser or
+device. A visitor id already linked to another actor is never re-linked: the
+sign-in proceeds, the server logs `visitor_linked_to_other_actor`, and the row
+records `refused_actor_id`/`refused_at`. `actors.attribution` remains the
+signup snapshot. Sign-out (Profile → Sign out, `POST /v1/auth/sign-out`)
+revokes the web session and clears the attribution cookie, so the next person
+on a shared browser starts under a fresh visitor id.
+
+Events are never rewritten. Tie a browser's anonymous page views to their
+actor at query time:
+
+```sql
+SELECT e.* FROM events e
+JOIN actor_visitor_links l ON l.visitor_id = (e.envelope::jsonb ->> 'visitor_id')
+WHERE e.source_type = 'frontend' AND l.actor_id = <actor id>;
+```
 
 ## Doctor
 

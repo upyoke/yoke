@@ -63,6 +63,26 @@ Invalid or rotated signed cookies are discarded with attribution_cookie_reminted
 The next capture mints a fresh visitor and cookie using the current secret.
 Site domains are case-insensitive, trim a trailing dot and remove leading www.
 
+## Visitor links: tying page views to actors
+
+Follow the identity-stitching model: many anonymous visitor ids per account,
+one account per visitor id. Each sign-in on each browser records
+(visitor_id, account) for that browser's verified visitor_id in a durable link
+list owned by the account; signup attribution stays a separate snapshot. A
+visitor_id already linked to a different account is never re-linked: refuse
+by name (visitor_linked_to_other_actor), record the refusal, and let sign-in
+proceed. Sign-out clears the attribution cookie so a shared browser starts a
+fresh visitor_id. Events are never rewritten; join each frontend event's
+envelope visitor_id to the link list at query time. The engine's list is
+actor_visitor_links; [workbench telemetry](../public/events-doctor-ouroboros.md#visitor-links)
+gives the join.
+
+The collector stamps the actor only from a verified credential sent with the
+request, keeps the emitter's service and project, and sets the serving
+environment. A host serving several universes points each mount at its own
+universe's collector; a shared collector would store one tenant's page views
+in another's universe.
+
 ## Verified attribution and sign-in hand-off
 
 GET /api/events/attribution verifies the signed cookie and returns the record:
