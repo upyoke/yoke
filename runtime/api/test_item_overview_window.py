@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_contracts.timestamps import format_instant, parse_instant
 
 from datetime import datetime, timedelta, timezone
@@ -216,12 +217,24 @@ def test_finished_facts_carry_the_transition_time(test_db):
     rows = _rows_by_title(overview)
     assert rows["closed"]["finished"] is True
     assert rows["closed"]["terminal"] is True
-    assert rows["closed"]["finished_at"] == format_instant(finished_at)
+    assert rows["closed"]["finished_at"] == parse_instant(finished_at)
+    assert isinstance(rows["closed"]["finished_at"], datetime)
     # Not the merge, which is the whole point.
     assert rows["closed"]["finished_at"] != rows["closed"]["merged_at"]
     assert rows["still-going"]["finished"] is False
     assert rows["still-going"]["terminal"] is False
     assert rows["still-going"]["finished_at"] is None
+    response = FunctionCallResponse(
+        success=True,
+        function="items.overview.list",
+        version="v1",
+        result=overview.result_payload,
+    )
+    wire_rows = {
+        row["title"]: row for row in response.model_dump(mode="json")["result"]["rows"]
+    }
+    assert wire_rows["closed"]["finished_at"] == format_instant(finished_at)
+    assert wire_rows["still-going"]["finished_at"] is None
 
 
 def test_a_stopped_item_is_terminal_but_never_finished(test_db):

@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Dict, FrozenSet, List, Tuple
 
@@ -151,7 +151,7 @@ def finished_window_clause(
 def finished_times_in_window(
     conn: Any,
     window: timedelta = FINISHED_WINDOW,
-) -> Dict[int, str]:
+) -> Dict[int, datetime]:
     """Return ``item_id -> finishing instant`` for the window, in one query.
 
     The read is bounded by the window rather than by the roster, so a board
@@ -165,13 +165,11 @@ def finished_times_in_window(
         _FINISHING_TRANSITION_SQL.format(marker=_marker(conn)),
         (instant_parameter(conn, window_cutoff(window)),),
     )
-    times: Dict[int, str] = {}
+    times: Dict[int, datetime] = {}
     for row in cursor.fetchall():
         values = dict(row) if hasattr(row, "keys") else None
         item_id = int(values["item_id"] if values else row[0])
-        finished_at = format_instant(
-            parse_instant(values["finished_at"] if values else row[1])
-        )
+        finished_at = parse_instant(values["finished_at"] if values else row[1])
         times[item_id] = finished_at
     return times
 

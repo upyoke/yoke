@@ -16,7 +16,7 @@ from yoke_core.domain.sessions_lifecycle_reactivation_claims import _within_wind
 
 
 @pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
-def test_finished_window_binds_exact_native_cutoff_and_formats_view(
+def test_finished_window_binds_exact_native_cutoff_and_returns_native_instants(
     test_db, monkeypatch, zone
 ):
     from runtime.api.fixtures.backlog import insert_item
@@ -42,7 +42,7 @@ def test_finished_window_binds_exact_native_cutoff_and_formats_view(
             (item_id, instant),
         )
         if micros >= 0:
-            expected[item_id] = format_instant(instant)
+            expected[item_id] = instant
         if micros == 1:
             view = collect_latest_transition(test_db, item_id, now=now)
             assert view["latest_at"] == format_instant(instant)
@@ -53,6 +53,7 @@ def test_finished_window_binds_exact_native_cutoff_and_formats_view(
     assert {
         key: value for key, value in result.items() if key in [101, 102, 103]
     } == expected
+    assert all(isinstance(value, datetime) for value in result.values())
 
 
 def test_recovery_readers_preserve_exact_inclusive_release_boundary():
