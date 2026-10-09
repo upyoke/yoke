@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from types import SimpleNamespace
+
+import pytest
 
 from yoke_core.engines import merge_worktree_pr_check_runs as checks_mod
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
@@ -16,7 +19,9 @@ def _auth():
     return SimpleNamespace(token="tok", repo="upyoke/yoke")
 
 
-def _check_run(*, name, status, conclusion="", required=True, started="2026-09-21T00:00:00Z"):
+def _check_run(
+    *, name, status, conclusion="", required=True, started="2026-09-21T00:00:00Z"
+):
     return {
         "__typename": "CheckRun",
         "name": name,
@@ -50,7 +55,9 @@ def _pr_node(
         "merged": merged,
         "closed": closed,
         "state": state,
-        "autoMergeRequest": {"enabledAt": "2026-09-21T00:00:00Z"} if auto_merge else None,
+        "autoMergeRequest": {"enabledAt": "2026-09-21T00:00:00Z"}
+        if auto_merge
+        else None,
         "mergeStateStatus": merge_state,
         "headRefOid": head,
         "mergedAt": merged_at or None,
@@ -79,9 +86,7 @@ def test_open_armed_pr_and_pending_required_check(monkeypatch) -> None:
         _pr_node(
             auto_merge=True,
             merge_state="BLOCKED",
-            contexts=(
-                _check_run(name="repo-contracts", status="IN_PROGRESS"),
-            ),
+            contexts=(_check_run(name="repo-contracts", status="IN_PROGRESS"),),
         ),
     )
 
@@ -254,3 +259,65 @@ def test_latest_required_run_wins_by_start_time(monkeypatch) -> None:
             url="https://example/repo-contracts",
         ),
     )
+
+
+@pytest.mark.parametrize("kind", ["CheckRun", "StatusContext"])
+@pytest.mark.parametrize(
+    "earlier,later",
+    [
+        ("2026-09-21T05:45:00.123456+05:45", "2026-09-21T00:00:00.123457Z"),
+        ("2026-09-21T00:00:00.123456Z", "2026-09-20T20:00:00.123456-04:00"),
+        (None, "1969-12-31T23:59:59.123456Z"),
+    ],
+)
+def test_required_check_selection_compares_native_instants(
+    monkeypatch, kind, earlier, later
+):
+    nodes = []
+    for clock, verdict in ((earlier, "failure"), (later, "success")):
+        node = _check_run(
+            name="repo-contracts", status="COMPLETED", conclusion=verdict, started=clock
+        )
+        if kind == "StatusContext":
+            node = {
+                "__typename": kind,
+                "context": "repo-contracts",
+                "state": verdict,
+                "createdAt": clock,
+                "isRequired": True,
+                "targetUrl": "opaque/url",
+            }
+        nodes.append(node)
+    payload = _pr_node(contexts=nodes)
+    original = deepcopy(payload)
+    _wire(monkeypatch, payload)
+    checks, err = checks_mod.read_required_checks(_ctx(), "42")
+    assert err is None
+    assert checks[0].conclusion == "success"
+    assert payload == original
+
+
+@pytest.mark.parametrize("kind", ["CheckRun", "StatusContext"])
+@pytest.mark.parametrize(
+    "clock", ["2026-09-21", "2026-09-21T00:00:00", "2026-09-21T00:00:00-00:00"]
+)
+def test_invalid_required_check_clock_makes_projection_unreadable(
+    monkeypatch, kind, clock
+):
+    node = _check_run(
+        name="repo-contracts", status="COMPLETED", conclusion="SUCCESS", started=clock
+    )
+    if kind == "StatusContext":
+        node = {
+            "__typename": kind,
+            "context": "repo-contracts",
+            "state": "SUCCESS",
+            "createdAt": clock,
+            "isRequired": True,
+        }
+    _wire(monkeypatch, _pr_node(contexts=[node]))
+    projection = checks_mod.read_pr_landing_and_required_checks(_ctx(), "42")
+    assert projection.state is None
+    assert projection.required_checks is None
+    assert "clock" in projection.checks_error
+    assert projection.state_error == projection.checks_error
