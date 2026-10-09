@@ -73,6 +73,7 @@ class WorkflowVersionGetResponse(BaseModel):
     published_at: str
     immutable_at: str
     published_by_actor_id: Optional[int] = None
+    published_reason: Optional[str] = None
     current: bool
     definition: Dict[str, Any]
 

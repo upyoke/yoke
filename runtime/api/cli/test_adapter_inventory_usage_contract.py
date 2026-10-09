@@ -45,6 +45,9 @@ from yoke_cli.commands.adapters.workflows_item_posture import (
 from yoke_cli.commands.adapters.workflows_canon_help import (
     USAGE_BY_FUNCTION_ID as canon_usage,
 )
+from yoke_cli.commands.adapters.workflows_publication import (
+    WORKFLOWS_VERSION_PUBLISH_USAGE,
+)
 from yoke_cli.commands.adapters.workflows_versions import (
     WORKFLOWS_CURRENT_SET_USAGE,
     WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE,
@@ -65,6 +68,7 @@ from yoke_core.domain.qa_method_definitions import BUILTIN_QA_METHODS
 
 def test_workflow_inventory_matches_public_cli_usage() -> None:
     expected = {
+        "workflows.version.publish": WORKFLOWS_VERSION_PUBLISH_USAGE,
         "workflows.definition.get": WORKFLOWS_DEFINITION_GET_USAGE,
         "workflows.version.get": WORKFLOWS_VERSION_GET_USAGE,
         "workflows.version.list": WORKFLOWS_VERSION_LIST_USAGE,

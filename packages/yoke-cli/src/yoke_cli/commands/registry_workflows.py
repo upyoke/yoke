@@ -26,7 +26,13 @@ from yoke_cli.commands.adapters.workflow_mechanics import (
     workflows_testing_default_set,
 )
 
+from yoke_cli.commands.adapters.workflows_publication import workflows_version_publish
+
 WORKFLOW_SUBCOMMAND_REGISTRY = {
+    ("workflows", "version", "publish"): (
+        "workflows.version.publish",
+        workflows_version_publish,
+    ),
     ("workflows", "definition", "get"): (
         "workflows.definition.get",
         workflows_definition_get,

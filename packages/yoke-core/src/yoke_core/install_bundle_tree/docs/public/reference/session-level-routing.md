@@ -281,7 +281,7 @@ such as 🐎 or 🚀 — rather than silently stripping it:
 | Universe level glyph, `levels[N].glyph` | `universe.levels.set` | `yoke universe levels get --json`, correct the glyph, then `yoke universe levels set --stdin` |
 | Project override level glyph, `levels[N].glyph` | `session-routing` capability settings | `yoke projects capability-settings set --project P --cap-type session-routing --settings-json '{"levels": [...]}' --base AS_READ_JSON` |
 | Project emoji, `projects.emoji` (empty clears it) | `projects.create` / `projects.update` | `yoke projects update --slug S --name N --emoji <glyph>` |
-| Workflow stage glyph, `stages[].glyph` | Workflow version publish | Publish a corrected version through the workflow's source (built-in fixture plus `yoke workflows canon-update apply`, or the owning Pack plus `yoke packs update`), then `yoke workflows item migrate ITEM` |
+| Workflow stage glyph, `stages[].glyph` | Workflow version publish | Publish an edited definition with `yoke workflows version publish WORKFLOW --definition-file F --expected-current-version N --reason TEXT` (`--keep-current` preserves the global default), then `yoke workflows item migrate ITEM --version V` |
 
 `HC-stored-glyph-contract` FAILs on every stored value that breaks the
 contract and prints its location with the correction command above.

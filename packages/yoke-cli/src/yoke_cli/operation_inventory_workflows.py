@@ -6,6 +6,7 @@ WRAPPED_ROWS: tuple[_Row, ...] = (
     _w("yoke workflows definition get", "workflows"),
     _w("yoke workflows version get", "workflows"),
     _w("yoke workflows version list", "workflows"),
+    _w("yoke workflows version publish", "workflows"),
     _w("yoke workflows item get", "workflows"),
     _w("yoke workflows current set", "workflows"),
     _w("yoke workflows policy-defaults publish", "workflows"),

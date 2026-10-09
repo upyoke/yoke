@@ -167,7 +167,7 @@ _EXPECTED_SCHEMA_STR = (
     "|workflow_execution_instruction_projects:instruction_id/INTEGER,project_id/INTEGER"
     "|workflow_execution_instruction_workflows:instruction_id/INTEGER,workflow_id/TEXT"
     "|workflow_execution_instructions:id/INTEGER,content/TEXT,applies_to_all_workflows/INTEGER,applies_to_all_projects/INTEGER,before_creation/INTEGER,on_every_read/INTEGER,when_entering_stage/INTEGER,stage_buckets/TEXT,updated_by_actor_id/INTEGER,created_at/TEXT,updated_at/TEXT"
-    "|workflow_versions:id/INTEGER,workflow_id/TEXT,version/INTEGER,definition_schema_version/INTEGER,definition_json/TEXT,definition_digest/TEXT,published_at/TEXT,published_by_actor_id/INTEGER,immutable_at/TEXT,derived_from_canon_version/INTEGER"
+    "|workflow_versions:id/INTEGER,workflow_id/TEXT,version/INTEGER,definition_schema_version/INTEGER,definition_json/TEXT,definition_digest/TEXT,published_at/TEXT,published_by_actor_id/INTEGER,immutable_at/TEXT,derived_from_canon_version/INTEGER,published_reason/TEXT"
     "|workflows:id/TEXT,name/TEXT,description/TEXT,source/TEXT,status/TEXT,canon_follow/TEXT,canon_adopted_from_version/INTEGER,current_version_id/INTEGER,created_at/TEXT,updated_at/TEXT"
 )
 
