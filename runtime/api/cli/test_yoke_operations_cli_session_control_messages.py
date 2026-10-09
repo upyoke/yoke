@@ -273,7 +273,7 @@ def test_sent_message_output_points_to_its_delivery_receipt() -> None:
     )()
     output = io.StringIO()
     messages.write_message_result(response, output, io.StringIO())
-    assert f"Track delivery: yoke messages get {FULL_MESSAGE_ID}" in output.getvalue()
+    assert f"track: yoke messages get {FULL_MESSAGE_ID}" in output.getvalue()
 
 
 def test_message_list_has_an_explicit_empty_state() -> None:

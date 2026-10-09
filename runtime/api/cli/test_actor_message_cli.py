@@ -86,7 +86,7 @@ def _rendered(result: dict) -> str:
     return output.getvalue()
 
 
-def test_a_queued_role_send_says_which_seat_it_waits_for() -> None:
+def test_a_queued_role_send_counts_the_seat_recipient() -> None:
     """Zero session recipients must not read as a message that went nowhere."""
     rendered = _rendered(
         {
@@ -98,12 +98,12 @@ def test_a_queued_role_send_says_which_seat_it_waits_for() -> None:
         }
     )
 
-    assert "queued for the steering seat covering alpha" in rendered
-    assert "steering seat" in rendered
-    assert "awaiting seat" in rendered
+    assert "queued for 1 recipient(s)" in rendered
+    assert "yoke messages get m-1" in rendered
+    assert len(rendered) <= 200
 
 
-def test_a_seated_role_send_names_the_holding_seat() -> None:
+def test_a_seated_role_send_points_to_its_full_receipt() -> None:
     rendered = _rendered(
         {
             "message_id": "m-2",
@@ -119,8 +119,8 @@ def test_a_seated_role_send_names_the_holding_seat() -> None:
         }
     )
 
-    assert "delivered to the steering seat covering alpha (s-seat)" in rendered
-    assert "s-seat" in rendered
+    assert "queued for 1 recipient(s)" in rendered
+    assert "yoke messages get m-2" in rendered
 
 
 def test_message_detail_carries_the_role_recipient_state() -> None:

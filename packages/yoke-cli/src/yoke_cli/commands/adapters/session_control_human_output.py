@@ -8,9 +8,6 @@ from typing import Any, TextIO
 
 from yoke_contracts.read_detail import SUMMARY_EXCERPT_CHARACTERS
 from yoke_contracts.session_control.liveness import ENDED_CAUSE_KILLED
-from yoke_contracts.session_control.terminal_report import (
-    COLLAPSED_DIFFERING_BODY_NOTICE,
-)
 from yoke_cli.commands.adapters.session_control_attempt_output import (
     write_attempts,
 )
@@ -240,6 +237,12 @@ def _write_message_detail(
     command = message.get("acknowledgement_command")
     if command:
         print(command, file=stdout)
+    if with_body:
+        message_id = message.get("message_id")
+        print(f"msg {message_id} from {_fit(_sender(message), 48)}; state {_message_state(message)}; {recipient_count(message)} recipient(s)", file=stdout)
+        write_body(message, stdout)
+        print(f"details: yoke messages get {message_id} --json --full", file=stdout)
+        return
     recipients = message.get("recipients") or []
     actor_recipients = message.get("actor_recipients") or []
     sender = message.get("sender_session_id")
@@ -261,10 +264,6 @@ def _write_message_detail(
     if summary:
         fields.append(("Steering", summary))
     write_summary("MESSAGE", fields, stdout)
-    # A receipt reports what happened to a message; only the read of one
-    # is someone opening their own mail, so only it serves the prose.
-    if with_body:
-        write_body(message, stdout)
     _write_recipients(
         recipients,
         stdout,
@@ -280,11 +279,17 @@ def write_message_result(
 ) -> None:
     if "recipients" in result:
         message_id = result.get("message_id")
+        if message_id:
+            if result.get("collapsed_differing_body"):
+                receipt = f"msg {message_id}: Collapsed into an earlier message; body NOT delivered"
+            else:
+                duplicate = " (deduplicated)" if result.get("deduplicated") else ""
+                receipt = f"msg {message_id} queued for {result.get('recipient_count', 0)} recipient(s){duplicate}"
+            print(f"{receipt}; track: yoke messages get {message_id}", file=stdout)
+            return
         fields: list[tuple[str, Any]] = [
             ("Recipients", result.get("recipient_count", 0)),
         ]
-        if message_id:
-            fields.insert(0, ("Message ID", message_id))
         if result.get("applied_liveness"):
             fields.append(("Liveness", ", ".join(result["applied_liveness"])))
         if "deduplicated" in result:
@@ -294,19 +299,13 @@ def write_message_result(
         summary = steering_summary(result)
         if summary:
             fields.append(("Steering", summary))
-        write_summary(
-            "MESSAGE SENT" if message_id else "MESSAGE PREVIEW", fields, stdout
-        )
+        write_summary("MESSAGE PREVIEW", fields, stdout)
         _write_recipients(
             result.get("recipients") or [],
             stdout,
             actor_recipients=result.get("actor_recipients") or [],
             steering_recipient=result.get("steering_recipient"),
         )
-        if result.get("collapsed_differing_body"):
-            print(COLLAPSED_DIFFERING_BODY_NOTICE, file=stdout)
-        if message_id:
-            print(f"Track delivery: yoke messages get {message_id}", file=stdout)
         return
     if "messages" in result:
         messages = result.get("messages") or []

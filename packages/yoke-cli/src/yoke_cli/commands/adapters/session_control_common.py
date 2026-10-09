@@ -161,6 +161,13 @@ def read_stdin_payload(parsed: argparse.Namespace) -> str | None:
 
 def write_message_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
     del stderr
+    if getattr(response, "function", "") == "session_control.message.acknowledge":
+        result = response.result or {}
+        message = result.get("message") or {}
+        message_id = result.get("message_id") or message.get("message_id")
+        state = result.get("state") or message.get("state") or "acknowledged"
+        print(f"msg {message_id} acknowledged (state {state})", file=stdout)
+        return
     write_human_message_result(response.result or {}, stdout)
 
 
