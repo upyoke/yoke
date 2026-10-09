@@ -262,7 +262,7 @@ def _browser_freshness_errors(
     if latest_code.sha:
         errors.append(f"  Latest SHA: {latest_code.sha}")
     if latest_code.timestamp:
-        errors.append(f"  Latest commit: {latest_code.timestamp}")
+        errors.append(f"  Latest commit: {format_instant(latest_code.timestamp)}")
     errors.append(
         "  Re-run each materialized Browser case with `yoke qa case run "
         "--requirement-id <REQ_ID>` to generate fresh passing runs."

@@ -9,8 +9,9 @@ from runtime.api.domain.test_qa_simulation_triage import _seed, _record
 from yoke_contracts.timestamps import InvalidInstant, parse_instant, format_instant
 from yoke_core.domain import qa_browser_freshness_check as browser
 from yoke_core.domain import qa_terminal_settlement as terminal
+from yoke_core.domain import qa_gate_helpers as gate_helpers
 from yoke_core.domain.events_acting_identity import acting_event_identity
-from yoke_core.domain.qa_gate_definitions import LatestCodeRef
+from yoke_core.domain.qa_gate_definitions import GateTarget, LatestCodeRef
 from yoke_core.domain.qa_simulation_triage import current_simulation_triage
 
 WIRE = "2026-10-09T15:00:00.123456Z"
@@ -113,3 +114,92 @@ def test_actual_new_triage_receipt_formats_microseconds_and_preserves_capture(te
         ).fetchone()
     )
     assert after == before
+
+
+@pytest.mark.parametrize("clock", CLOCKS + (None,))
+def test_commit_reference_retains_native_clock_until_diagnostic(clock):
+    ref = LatestCodeRef(
+        branch="opaque branch",
+        sha="opaque sha",
+        timestamp=clock,
+        accepted_shas=("opaque accepted sha",),
+    )
+    assert ref.timestamp == (None if clock is None else INSTANT)
+    if ref.timestamp is not None:
+        assert ref.timestamp.utcoffset() == timedelta(0)
+    assert ref.accepted_shas == ("opaque accepted sha",)
+    errors = browser._browser_freshness_errors(
+        name="item",
+        transition_name="review",
+        latest_code=ref,
+        stale_rows=[],
+    )
+    assert "  Branch: opaque branch" in errors
+    assert "  Latest SHA: opaque sha" in errors
+    assert (f"  Latest commit: {WIRE}" in errors) == (clock is not None)
+
+
+@pytest.mark.parametrize("clock", CLOCKS + (None,))
+def test_commit_override_parses_at_native_reference_ingress(monkeypatch, clock):
+    monkeypatch.setenv("YOKE_QA_GATE_BRANCH", "opaque branch")
+    monkeypatch.setenv("YOKE_QA_GATE_COMMIT_SHA", "opaque sha")
+    if clock is None:
+        monkeypatch.delenv("YOKE_QA_GATE_COMMIT_TS", raising=False)
+    else:
+        monkeypatch.setenv(
+            "YOKE_QA_GATE_COMMIT_TS",
+            clock if isinstance(clock, str) else format_instant(clock),
+        )
+    ref = gate_helpers._git_latest_code_ref(GateTarget(item_id=1), "unused")
+    assert ref == LatestCodeRef(
+        branch="opaque branch",
+        sha="opaque sha",
+        timestamp=clock,
+    )
+
+
+@pytest.mark.parametrize(
+    "clock",
+    ("", "2026-10-09", "2026-10-09T15:00:00-00:00", INSTANT.replace(tzinfo=None)),
+)
+def test_commit_reference_refuses_ambiguous_clock(clock):
+    with pytest.raises(InvalidInstant):
+        LatestCodeRef(timestamp=clock)
+
+
+def test_git_commit_seconds_enter_native_reference(monkeypatch, tmp_path):
+    from subprocess import CompletedProcess
+
+    for name in (
+        "YOKE_QA_GATE_BRANCH",
+        "YOKE_QA_GATE_COMMIT_SHA",
+        "YOKE_QA_GATE_COMMIT_TS",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(
+        gate_helpers, "_resolve_target_branch_project", lambda *args: ("branch", None)
+    )
+    commands = []
+
+    def run(command, **kwargs):
+        commands.append(command)
+        if command == ["git", "rev-parse", "--show-toplevel"]:
+            return CompletedProcess(command, 0, str(tmp_path))
+        assert command == [
+            "git",
+            "-C",
+            str(tmp_path),
+            "log",
+            "-1",
+            "--format=%H|%cd",
+            "--date=format:%Y-%m-%dT%H:%M:%SZ",
+            "branch",
+        ]
+        assert kwargs["env"]["TZ"] == "UTC"
+        return CompletedProcess(command, 0, "opaque sha|2026-10-09T15:00:00Z\n")
+
+    monkeypatch.setattr(gate_helpers.subprocess, "run", run)
+    ref = gate_helpers._git_latest_code_ref(GateTarget(item_id=1), "unused")
+    assert ref.timestamp == INSTANT.replace(microsecond=0)
+    assert ref.sha == "opaque sha"
+    assert len(commands) == 2

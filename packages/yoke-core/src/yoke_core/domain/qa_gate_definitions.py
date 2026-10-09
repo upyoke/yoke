@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, List, Optional, Tuple
+
+from yoke_contracts.timestamps import parse_instant
 
 # ``done`` asserts blocking QA is settled. Engine terminals abandon the item
 # without that claim and without auto-waiving rows; the run still enforces
@@ -123,5 +126,9 @@ class LatestCodeRef:
 
     branch: Optional[str] = None
     sha: Optional[str] = None
-    timestamp: Optional[str] = None
+    timestamp: datetime | None = None
     accepted_shas: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.timestamp is not None:
+            object.__setattr__(self, "timestamp", parse_instant(self.timestamp))
