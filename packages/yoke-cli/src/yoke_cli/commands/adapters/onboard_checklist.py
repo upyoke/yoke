@@ -37,7 +37,10 @@ ONBOARD_CHECKLIST_USAGE = (
 def onboard_checklist_cmd(args: List[str]) -> int:
     if args and args[0] == "init":
         return _init(args[1:])
-    parser = argparse.ArgumentParser(prog="yoke onboard checklist")
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        prog="yoke onboard checklist",
+    )
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parser.add_argument("--run-id", dest="run_id", default=None)
     parser.add_argument(
@@ -98,7 +101,10 @@ def onboard_checklist_init(args: List[str]) -> int:
 
 
 def _init(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke onboard checklist init")
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        prog="yoke onboard checklist init",
+    )
     parser.add_argument("--config", dest="config_path", default=None)
     parser.add_argument("--checkout", dest="checkout_path", default=None)
     parser.add_argument(

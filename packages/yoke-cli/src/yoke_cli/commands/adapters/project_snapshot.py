@@ -45,6 +45,7 @@ PROJECT_SNAPSHOT_SYNC_USAGE = (
 
 def project_snapshot_sync(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke project snapshot sync",
         description=(
             "Scan committed git tree state in this checkout and sync "

@@ -56,6 +56,7 @@ PROJECT_ID_ENV = "YOKE_PROJECT_ID"
 
 def dev_setup(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke dev setup",
         description=(
             "Plan or apply Yoke source-dev/admin setup. This is the only "
@@ -130,6 +131,7 @@ def dev_setup(args: List[str]) -> int:
 
 def dev_path_snapshot_prewarm(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke dev path-snapshot-prewarm",
         description=(
             "Source-dev/admin path-snapshot prewarm. Builds the HEAD "
@@ -183,6 +185,7 @@ def dev_path_snapshot_prewarm(args: List[str]) -> int:
 
 def dev_db_admin_setup(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke dev db-admin setup",
         description=(
             "Plan or apply a machine-local db-admin Postgres profile from "
@@ -259,6 +262,7 @@ def dev_db_admin_setup(args: List[str]) -> int:
 
 def dev_db_admin_exec(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke dev db-admin exec",
         description=(
             "Run one command with a db-admin profile's DSN in a variable you "

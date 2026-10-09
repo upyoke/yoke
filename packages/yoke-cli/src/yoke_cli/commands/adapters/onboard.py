@@ -47,7 +47,9 @@ ONBOARD_USAGE = (
 
 
 def onboard(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke setup")
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter, prog="yoke setup"
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--quick", action="store_true")
     mode.add_argument("--advanced", action="store_true")

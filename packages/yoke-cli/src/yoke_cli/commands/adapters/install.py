@@ -44,7 +44,9 @@ PROJECT_UNINSTALL_USAGE = "yoke project uninstall [REPO_ROOT] [--config PATH] [-
 
 
 def _install_parser(prog: str) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog=prog)
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter, prog=prog
+    )
     parser.add_argument(
         "repo_root", nargs="?", default=None, help="Project repo root (default: cwd)."
     )
@@ -188,7 +190,10 @@ def project_refresh(args: List[str]) -> int:
 
 
 def project_uninstall(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke project uninstall")
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        prog="yoke project uninstall",
+    )
     parser.add_argument(
         "repo_root", nargs="?", default=None, help="Project repo root (default: cwd)."
     )

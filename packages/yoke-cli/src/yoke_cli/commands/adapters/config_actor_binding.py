@@ -29,6 +29,7 @@ USAGE_BY_FUNCTION_ID: Dict[str, str] = {"config.bind_actor.run": BIND_ACTOR_USAG
 
 def config_bind_actor(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke config bind-actor",
         description=(
             "Record which actor this machine operates the selected universe "

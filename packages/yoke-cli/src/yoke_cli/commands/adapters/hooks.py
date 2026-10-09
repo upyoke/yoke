@@ -87,6 +87,7 @@ def hook_evaluate(args: List[str]) -> int:
 
     client_timing = HookClientWall.start()
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke hook evaluate",
         description=HOOK_EVALUATE_USAGE,
     )

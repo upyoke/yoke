@@ -41,7 +41,9 @@ AUTH_SET_USAGE = (
 
 
 def env_use(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke env use")
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter, prog="yoke env use"
+    )
     parser.add_argument("env")
     parser.add_argument("--config", dest="config_path", default=None)
     parsed = parse_or_usage_error(parser, args, ENV_USE_USAGE)
@@ -57,7 +59,9 @@ def env_use(args: List[str]) -> int:
 
 
 def connection_set(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke connection set")
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter, prog="yoke connection set"
+    )
     parser.add_argument("env")
     parser.add_argument("credential", nargs="?")
     parser.add_argument(
@@ -97,6 +101,7 @@ def connection_set(args: List[str]) -> int:
 
 def connection_remove(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke connection remove",
         description=(
             "Retire a machine connection alias and its Yoke-owned credential. "
@@ -128,7 +133,9 @@ def connection_remove(args: List[str]) -> int:
 
 
 def auth_set(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke auth set")
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter, prog="yoke auth set"
+    )
     parser.add_argument("env")
     parser.add_argument("credential", nargs="?")
     parser.add_argument("--token-file", dest="token_file", default=None)

@@ -151,7 +151,11 @@ def onboard_project(args: List[str]) -> int:
 
 
 def _project_parser(prog: str, usage: str) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog=prog, description=usage)
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        prog=prog,
+        description=usage,
+    )
     parser.add_argument("--slug", required=True)
     parser.add_argument("--name", required=True)
     parser.add_argument(

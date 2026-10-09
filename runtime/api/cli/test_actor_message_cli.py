@@ -33,7 +33,7 @@ def test_say_help_names_human_actor_addressing(capsys) -> None:
     rendered = capsys.readouterr().out
     assert "--actor ACTOR" in rendered
     assert "Human organization member" in rendered
-    assert "yoke say --actor ben --stdin" in rendered
+    assert ".yoke/docs/items-and-sessions.md" in rendered
 
 
 def test_preview_output_lists_human_recipients() -> None:

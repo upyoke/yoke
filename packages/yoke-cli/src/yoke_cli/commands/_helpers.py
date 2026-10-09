@@ -167,6 +167,8 @@ def parse_or_usage_error(
     args: List[str],
     usage: str,
 ) -> Optional[argparse.Namespace]:
+    if parser.formatter_class is argparse.HelpFormatter:
+        parser.formatter_class = argparse.RawDescriptionHelpFormatter
     _ensure_project_arg_for_item_parser(parser)
     try:
         return parser.parse_args(args)

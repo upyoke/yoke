@@ -15,6 +15,7 @@ UNINSTALL_USAGE = (
 
 def uninstall(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke uninstall",
         description=(
             "Remove Yoke from this machine. Machines holding a local universe or "

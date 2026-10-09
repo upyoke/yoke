@@ -28,6 +28,7 @@ STAMP_PROJECT_ENV_USAGE = "yoke config stamp-project-env [--config PATH]"
 
 def project_register(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke project register",
         description=(
             "Map a checkout to a project id for ONE connection env. Project\n"
@@ -73,6 +74,7 @@ def project_register(args: List[str]) -> int:
 
 def config_stamp_project_env(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke config stamp-project-env",
         description=(
             "Stamp every untagged projects entry with the connection env its "
