@@ -49,6 +49,41 @@ class TestLegacySurfaceRetired(unittest.TestCase):
 class TestOrientationProjectAuthority(unittest.TestCase):
     """Session orientation must not teach DB repo paths as client checkouts."""
 
+    def test_first_prompt_keeps_one_orientation_and_lifecycle_effects(self) -> None:
+        from yoke_contracts.session_model_facts import SessionModelFacts
+        from yoke_core.domain.session_orientation import CLIENT_ORIENTATION_PRESENT_KEY
+        from yoke_core.hooks.types import HookContext
+
+        orientation = "## Yoke Orientation\nYour Session: sess-orient\n"
+        for supplied in (False, True):
+            with self.subTest(client_supplied=supplied):
+                ctx = HookContext(
+                    event_name="UserPromptSubmit", executor_family="claude",
+                    executor_surface="claude", payload={CLIENT_ORIENTATION_PRESENT_KEY: supplied},
+                )
+                with mock.patch(
+                    "yoke_core.hooks.telemetry.resolve_session_id_from_env_and_payload",
+                    return_value=("sess-orient", True),
+                ), mock.patch(
+                    "yoke_core.hooks.registration._register_from_hook",
+                    return_value=("", "claude", "", SessionModelFacts(), ""),
+                ) as register, mock.patch.object(
+                    session_dispatch, "_first_prompt", return_value=True,
+                ), mock.patch(
+                    "yoke_core.hooks.telemetry.emit_harness_session_sent_first_user_prompt_submit",
+                ) as prompt, mock.patch.object(
+                    session_dispatch, "_render_claude_orientation", return_value=orientation,
+                ) as render, mock.patch.object(
+                    session_dispatch, "_render_resume_block", return_value="resume\n",
+                ):
+                    rendered = session_dispatch._run_claude_prompt_submit(ctx, "/repo")
+                combined = (orientation if supplied else "") + rendered
+                self.assertEqual(combined.count("## Yoke Orientation"), 1)
+                self.assertIn("resume", combined)
+                self.assertEqual(render.call_count, int(not supplied))
+                register.assert_called_once()
+                prompt.assert_called_once_with("", "sess-orient")
+
     def test_orientation_does_not_render_project_repo_path_map(self) -> None:
         from yoke_contracts.session_model_facts import SessionModelFacts
         from yoke_core.hooks import session_dispatch_orientation as orientation

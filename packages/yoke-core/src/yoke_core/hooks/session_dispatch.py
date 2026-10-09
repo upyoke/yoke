@@ -190,6 +190,10 @@ def _run_claude_prompt_submit(record: HookContext, root: str) -> str:
     if not _first_prompt(session_id, codex=False):
         return _render_resume_block(root, session_id, "UserPromptSubmit")
     telemetry.emit_harness_session_sent_first_user_prompt_submit("", session_id)
+    from yoke_core.domain.session_orientation import CLIENT_ORIENTATION_PRESENT_KEY
+
+    if record.payload.get(CLIENT_ORIENTATION_PRESENT_KEY):
+        return _render_resume_block(root, session_id, "UserPromptSubmit")
     return _render_claude_orientation(session_id, root, err, executor, facts) + \
         _render_resume_block(root, session_id, "UserPromptSubmit")
 
