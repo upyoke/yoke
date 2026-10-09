@@ -21,7 +21,9 @@ from runtime.api.domain.closing_connection_test_support import closing_connectio
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import db_helpers
 from yoke_core.domain.conflict_survey import record_conflict_survey, survey_conflicts
-from yoke_core.domain.handlers import direct_workflow_conflict_survey_status as status_mod
+from yoke_core.domain.handlers import (
+    direct_workflow_conflict_survey_status as status_mod,
+)
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -42,7 +44,7 @@ def _item_sections_contract(test_db):
         "item_id INTEGER NOT NULL REFERENCES items(id), "
         "section_name TEXT NOT NULL, content TEXT NOT NULL, "
         "ordering INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL, "
-        "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, "
+        "created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL, "
         "PRIMARY KEY(item_id, section_name))"
     )
     test_db.commit()
@@ -62,6 +64,7 @@ def _call_status_closing(monkeypatch, test_db, item_id: int):
     def _use():
         with closing_connection(test_db) as proxy:
             yield proxy
+
     monkeypatch.setattr(db_helpers, "connect", _use)
     return status_mod.handle_conflict_survey_status(_status_request(item_id))
 
@@ -83,7 +86,9 @@ def _call_status(monkeypatch, test_db, item_id: int):
 def test_status_reports_recorded_clear_survey(test_db, monkeypatch):
     insert_item(test_db, id=3201, workflow_id="dash", title="Clear change")
     recorded = survey_conflicts(
-        test_db, item_id=3201, touch_paths=["src/isolated_change.py"],
+        test_db,
+        item_id=3201,
+        touch_paths=["src/isolated_change.py"],
     )
     assert recorded.clear is True
     record_conflict_survey(test_db, recorded)
@@ -117,12 +122,19 @@ def test_status_reports_not_found_without_recorded_survey(test_db, monkeypatch):
     assert payload["blockers"] == []
 
 
-@pytest.mark.parametrize(("item_id", "content", "durable_state"), [
-    (3205, '{"pending_request":"request"}', DURABLE_PENDING),
-    (3206, "{", DURABLE_UNREADABLE),
-])
+@pytest.mark.parametrize(
+    ("item_id", "content", "durable_state"),
+    [
+        (3205, '{"pending_request":"request"}', DURABLE_PENDING),
+        (3206, "{", DURABLE_UNREADABLE),
+    ],
+)
 def test_status_classifies_nonrecorded_durable_rows(
-    test_db, monkeypatch, item_id, content, durable_state,
+    test_db,
+    monkeypatch,
+    item_id,
+    content,
+    durable_state,
 ):
     insert_item(test_db, id=item_id, workflow_id="dash", title="Incomplete survey")
     test_db.execute(
@@ -150,7 +162,9 @@ def test_status_reports_blocked_survey(test_db, monkeypatch):
         spec="## File Budget\n\n- `src/contended.py`\n",
     )
     recorded = survey_conflicts(
-        test_db, item_id=3203, touch_paths=["src/contended.py"],
+        test_db,
+        item_id=3203,
+        touch_paths=["src/contended.py"],
     )
     assert recorded.clear is False
     record_conflict_survey(test_db, recorded)
@@ -179,7 +193,8 @@ def test_status_rejects_non_item_target():
 
 
 def test_status_names_blockers_before_the_connection_closes(
-    test_db, monkeypatch,
+    test_db,
+    monkeypatch,
 ):
     """Regression: the blocker names were read after the block exited."""
     insert_item(test_db, id=3205, workflow_id="dash", title="Contended")
@@ -191,7 +206,9 @@ def test_status_names_blockers_before_the_connection_closes(
         spec="## File Budget\n\n- `src/late_read.py`\n",
     )
     recorded = survey_conflicts(
-        test_db, item_id=3205, touch_paths=["src/late_read.py"],
+        test_db,
+        item_id=3205,
+        touch_paths=["src/late_read.py"],
     )
     assert recorded.clear is False
     record_conflict_survey(test_db, recorded)

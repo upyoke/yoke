@@ -44,21 +44,25 @@ class TestClaimReviewedNegative:
         assert _claim_reviewed_negative('{"state":"none"}') is False
 
     def test_declared_profile_returns_false(self):
-        profile = json.dumps({
-            "state": "declared",
-            REVIEWED_NEGATIVE_FIELD: True,
-        })
+        profile = json.dumps(
+            {
+                "state": "declared",
+                REVIEWED_NEGATIVE_FIELD: True,
+            }
+        )
         assert _claim_reviewed_negative(profile) is False
 
     def test_reviewed_negative_false_returns_false(self):
-        assert _claim_reviewed_negative(
-            '{"state":"none","reviewed_negative":false}'
-        ) is False
+        assert (
+            _claim_reviewed_negative('{"state":"none","reviewed_negative":false}')
+            is False
+        )
 
     def test_reviewed_negative_truthy_non_bool_returns_false(self):
-        assert _claim_reviewed_negative(
-            '{"state":"none","reviewed_negative":"yes"}'
-        ) is False
+        assert (
+            _claim_reviewed_negative('{"state":"none","reviewed_negative":"yes"}')
+            is False
+        )
 
     def test_empty_and_malformed_inputs_return_false(self):
         assert _claim_reviewed_negative(None) is False
@@ -73,10 +77,11 @@ class TestStampReviewedNegative:
 
     def test_stamp_on_none_profile_adds_attestation(self):
         stamped = stamp_reviewed_negative(
-            {"state": "none"}, validated_at="2026-05-01T00:00:00Z",
+            {"state": "none"},
+            validated_at="2026-05-01T00:00:00Z",
         )
         assert stamped[REVIEWED_NEGATIVE_FIELD] is True
-        assert stamped[REVIEWED_VALIDATED_AT_FIELD] == "2026-05-01T00:00:00Z"
+        assert stamped[REVIEWED_VALIDATED_AT_FIELD] == "2026-05-01T00:00:00.000000Z"
         assert is_reviewed_negative(stamped) is True
 
     def test_stamp_does_not_mutate_input(self):
@@ -86,9 +91,13 @@ class TestStampReviewedNegative:
 
     def test_stamp_on_declared_profile_is_identity(self):
         declared = {"state": "declared", "model_name": "primary"}
-        assert stamp_reviewed_negative(
-            declared, validated_at="2026-05-01T00:00:00Z",
-        ) == declared
+        assert (
+            stamp_reviewed_negative(
+                declared,
+                validated_at="2026-05-01T00:00:00Z",
+            )
+            == declared
+        )
 
     def test_amend_rejects_caller_supplied_attestation_keys(self):
         from yoke_core.domain.db_claim import DbClaimAmendmentError, amend

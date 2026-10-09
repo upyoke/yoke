@@ -12,6 +12,8 @@ binding) lives at the joint gate, not in this module.
 from __future__ import annotations
 
 import re
+from datetime import datetime
+from yoke_contracts.timestamps import format_instant
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
@@ -20,11 +22,13 @@ _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 MIGRATION_STRATEGY_ADDITIVE_ONLY = "additive_only"
 MIGRATION_STRATEGY_HARD_CUTOVER = "hard_cutover"
 MIGRATION_STRATEGY_EXPAND_CONTRACT = "expand_contract"
-VALID_MIGRATION_STRATEGIES = frozenset({
-    MIGRATION_STRATEGY_ADDITIVE_ONLY,
-    MIGRATION_STRATEGY_HARD_CUTOVER,
-    MIGRATION_STRATEGY_EXPAND_CONTRACT,
-})
+VALID_MIGRATION_STRATEGIES = frozenset(
+    {
+        MIGRATION_STRATEGY_ADDITIVE_ONLY,
+        MIGRATION_STRATEGY_HARD_CUTOVER,
+        MIGRATION_STRATEGY_EXPAND_CONTRACT,
+    }
+)
 
 
 # Reviewed-negative attestation keys — stamped by the ``db_claim.amend``
@@ -43,7 +47,7 @@ class DbMutationProfileError(ValueError):
 
 
 def stamp_reviewed_negative(
-    profile: Dict[str, Any], *, validated_at: str
+    profile: Dict[str, Any], *, validated_at: datetime | str
 ) -> Dict[str, Any]:
     """Return *profile* with the reviewed-negative attestation stamped.
 
@@ -55,7 +59,7 @@ def stamp_reviewed_negative(
         return profile
     stamped = dict(profile)
     stamped[REVIEWED_NEGATIVE_FIELD] = True
-    stamped[REVIEWED_VALIDATED_AT_FIELD] = validated_at
+    stamped[REVIEWED_VALIDATED_AT_FIELD] = format_instant(validated_at)
     return stamped
 
 
@@ -115,7 +119,9 @@ def _normalize_migration_modules(value: Any) -> List[str]:
     return normalized
 
 
-def _normalize_kind_list(value: Any, *, field: str, vocabulary: Iterable[str]) -> List[str]:
+def _normalize_kind_list(
+    value: Any, *, field: str, vocabulary: Iterable[str]
+) -> List[str]:
     if value is None:
         return []
     if not isinstance(value, list):
@@ -156,7 +162,9 @@ def _normalize_affected_surfaces(value: Any) -> List[Dict[str, Any]]:
         columns = entry.get("columns")
         out: Dict[str, Any] = {"table": table}
         if columns is not None:
-            if not isinstance(columns, list) or not all(isinstance(c, str) and c for c in columns):
+            if not isinstance(columns, list) or not all(
+                isinstance(c, str) and c for c in columns
+            ):
                 raise DbMutationProfileError(
                     f"affected_surfaces[{idx}].columns must be a list of non-empty strings"
                 )

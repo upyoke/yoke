@@ -221,3 +221,34 @@ class TestReadClaim:
     def test_read_claim_missing_item_raises(self, db_conn):
         with pytest.raises(DbClaimAmendmentError):
             read_claim(9999, conn=db_conn)
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_reviewed_negative_stamp_formats_shared_native_amendment_clock(
+    db_conn, monkeypatch, zone
+):
+    from yoke_contracts.timestamps import parse_instant
+    from yoke_core.domain import db_claim_apply as owner
+
+    db_conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    item_id = 41
+    insert_item(db_conn, id=item_id, status="idea")
+    stamp = parse_instant("1969-12-31T05:44:59.123456+05:45")
+    monkeypatch.setattr(owner.db_helpers, "utc_now", lambda: stamp)
+    amend(item_id, {"state": "none"}, reason="reviewed database scope", conn=db_conn)
+    row = db_conn.execute(
+        "SELECT updated_at,db_mutation_profile FROM items WHERE id=%s", (item_id,)
+    ).fetchone()
+    assert row[0] == stamp
+    profile = json.loads(row[1])
+    assert profile["validated_at"] == "1969-12-30T23:59:59.123456Z"
+    assert profile["reviewed_negative"] is True
+    event = db_conn.execute(
+        "SELECT created_at,envelope FROM events WHERE event_name='DbClaimAmended' AND item_id=%s",
+        (str(item_id),),
+    ).fetchone()
+    assert event[0] == stamp
+    assert (
+        json.loads(event[1])["context"]["new_profile"]["validated_at"]
+        == profile["validated_at"]
+    )
