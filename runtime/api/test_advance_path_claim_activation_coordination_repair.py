@@ -1,17 +1,6 @@
-"""Activation-phase repair of coordination_only mutex residue.
+"""Activation repair unblocks claims held by coordination-only edges.
 
-Sibling of :mod:`test_advance_path_claim_activation`. Pins the repair
-behavior: the repair pass that fires before the per-claim activation loop
-unblocks ``state='blocked'`` rows whose only inter-item edge is
-``coordination_only``, while leaving rows with a real ``activation`` /
-``integration`` / ``closure`` edge blocked.
-
-Kept in its own module so the parent file stays under the file-line gate.
-Fixtures and minimal seed helpers are duplicated rather than shared via the
-broader ``runtime/api/conftest.py`` — the blast radius of a shared in-memory
-schema fixture across all of ``runtime/api/`` is worse than the duplication
-cost here.
-"""
+Real activation, integration and closure dependencies remain blocking."""
 
 from __future__ import annotations
 
@@ -38,9 +27,7 @@ from yoke_core.domain.workflow_registry import converge_builtin_workflows
 @pytest.fixture
 def conn(monkeypatch):
     name = pg_testdb.create_test_database()
-    monkeypatch.setenv(
-        db_backend.PG_DSN_ENV, pg_testdb.dsn_for_test_database(name)
-    )
+    monkeypatch.setenv(db_backend.PG_DSN_ENV, pg_testdb.dsn_for_test_database(name))
     c = pg_testdb.connect_test_database(name)
     create_core_tables(c)
     converge_builtin_workflows(c)
@@ -94,6 +81,7 @@ def stub_resolver(monkeypatch):
         return "snap-base"
 
     from yoke_core.domain import advance_path_claim_activation_retry as _retry
+
     monkeypatch.setattr(
         _retry,
         "resolve_integration_head_with_divergence_check",
@@ -118,7 +106,7 @@ def _ensure_dep_table(conn):
         "source TEXT NOT NULL, session_id INTEGER, "
         "rationale TEXT NOT NULL DEFAULT '', "
         "evidence_json TEXT NOT NULL DEFAULT '{}', "
-        "created_at TEXT NOT NULL)",
+        "created_at TIMESTAMPTZ NOT NULL)",
     )
     conn.commit()
 
@@ -156,7 +144,12 @@ def _seed_active_claim(conn, *, item_id, actor_id, target_id) -> int:
 
 
 def _seed_blocked_claim(
-    conn, *, item_id, actor_id, target_id, blocked_reason,
+    conn,
+    *,
+    item_id,
+    actor_id,
+    target_id,
+    blocked_reason,
 ) -> int:
     cur = conn.execute(
         "INSERT INTO path_claims "
@@ -188,26 +181,37 @@ class TestCoordinationOnlyRepair:
     """
 
     def test_coordination_only_blocked_row_is_repaired_and_activated(
-        self, conn, stub_resolver,
+        self,
+        conn,
+        stub_resolver,
     ):
         actor = seed_human_actor(conn)
         upstream_item = _seed_item(conn, item_id=9101)
         downstream_item = _seed_item(conn, item_id=9102)
         target_id = _seed_target(conn)
         upstream_claim = _seed_active_claim(
-            conn, item_id=upstream_item, actor_id=actor, target_id=target_id,
+            conn,
+            item_id=upstream_item,
+            actor_id=actor,
+            target_id=target_id,
         )
         downstream_claim = _seed_blocked_claim(
-            conn, item_id=downstream_item, actor_id=actor,
+            conn,
+            item_id=downstream_item,
+            actor_id=actor,
             target_id=target_id,
             blocked_reason=f"serial-via-dependency on path_claims.id={upstream_claim}",
         )
         _add_edge(
-            conn, dependent=downstream_item, blocking=upstream_item,
+            conn,
+            dependent=downstream_item,
+            blocking=upstream_item,
             gate_point="coordination_only",
         )
         result = run_activation_phase(
-            conn, item_id=downstream_item, actor_id=actor,
+            conn,
+            item_id=downstream_item,
+            actor_id=actor,
         )
         # No block error survives; the claim ends up ``active``.
         assert result.is_blocked is False
@@ -218,27 +222,38 @@ class TestCoordinationOnlyRepair:
         assert state == "active"
 
     def test_real_activation_edge_block_survives_repair(
-        self, conn, stub_resolver,
+        self,
+        conn,
+        stub_resolver,
     ):
         actor = seed_human_actor(conn)
         upstream_item = _seed_item(conn, item_id=9201)
         downstream_item = _seed_item(conn, item_id=9202)
         target_id = _seed_target(conn)
         upstream_claim = _seed_active_claim(
-            conn, item_id=upstream_item, actor_id=actor, target_id=target_id,
+            conn,
+            item_id=upstream_item,
+            actor_id=actor,
+            target_id=target_id,
         )
         downstream_claim = _seed_blocked_claim(
-            conn, item_id=downstream_item, actor_id=actor,
+            conn,
+            item_id=downstream_item,
+            actor_id=actor,
             target_id=target_id,
             blocked_reason=f"serial-via-dependency on path_claims.id={upstream_claim}",
         )
         # Real activation edge — coord-only repair must NOT touch this row.
         _add_edge(
-            conn, dependent=downstream_item, blocking=upstream_item,
+            conn,
+            dependent=downstream_item,
+            blocking=upstream_item,
             gate_point="activation",
         )
         result = run_activation_phase(
-            conn, item_id=downstream_item, actor_id=actor,
+            conn,
+            item_id=downstream_item,
+            actor_id=actor,
         )
         assert result.is_blocked is True
         state = conn.execute(
@@ -256,11 +271,14 @@ class TestCoordinationOnlyRepair:
         from yoke_core.domain.path_claims_blocked_coordination_repair import (
             repair_coordination_only_blocked,
         )
+
         actor = seed_human_actor(conn)
         upstream_target = _seed_target(conn, "runtime/api/domain/upstream")
         upstream_item = _seed_item(conn, item_id=9300)
         upstream_claim = _seed_active_claim(
-            conn, item_id=upstream_item, actor_id=actor,
+            conn,
+            item_id=upstream_item,
+            actor_id=actor,
             target_id=upstream_target,
         )
         repaired_expected: list[int] = []
@@ -270,7 +288,9 @@ class TestCoordinationOnlyRepair:
             )
             downstream_item = _seed_item(conn, item_id=9300 + offset)
             cid = _seed_blocked_claim(
-                conn, item_id=downstream_item, actor_id=actor,
+                conn,
+                item_id=downstream_item,
+                actor_id=actor,
                 target_id=downstream_target,
                 blocked_reason=(
                     f"serial-via-dependency on path_claims.id={upstream_claim}"
@@ -281,7 +301,9 @@ class TestCoordinationOnlyRepair:
             # the target overlap. Without target overlap the repair flips
             # the row to planned (NONE classification == no live overlap).
             _add_edge(
-                conn, dependent=downstream_item, blocking=upstream_item,
+                conn,
+                dependent=downstream_item,
+                blocking=upstream_item,
                 gate_point="coordination_only",
             )
             repaired_expected.append(cid)
@@ -291,14 +313,18 @@ class TestCoordinationOnlyRepair:
         activation_target = upstream_target  # share with upstream
         activation_downstream = _seed_item(conn, item_id=9399)
         survives_blocked = _seed_blocked_claim(
-            conn, item_id=activation_downstream, actor_id=actor,
+            conn,
+            item_id=activation_downstream,
+            actor_id=actor,
             target_id=activation_target,
             blocked_reason=(
                 f"serial-via-dependency on path_claims.id={upstream_claim}"
             ),
         )
         _add_edge(
-            conn, dependent=activation_downstream, blocking=upstream_item,
+            conn,
+            dependent=activation_downstream,
+            blocking=upstream_item,
             gate_point="activation",
         )
 

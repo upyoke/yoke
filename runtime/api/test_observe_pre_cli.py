@@ -58,7 +58,7 @@ CREATE TABLE events (
     hook_event_name TEXT,
     client_timing_id TEXT,
     envelope TEXT,
-    created_at TEXT
+    created_at TIMESTAMPTZ
 )
 """
 )

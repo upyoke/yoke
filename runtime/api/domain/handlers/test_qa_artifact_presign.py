@@ -50,7 +50,7 @@ def _seed(
     conn.execute(
         "CREATE TABLE IF NOT EXISTS sites ("
         "id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, name TEXT NOT NULL,"
-        " description TEXT, created_at TEXT NOT NULL,"
+        " description TEXT, created_at TIMESTAMPTZ NOT NULL,"
         " settings TEXT DEFAULT '{}')"
     )
     conn.execute(
@@ -58,8 +58,8 @@ def _seed(
         "id INTEGER PRIMARY KEY, site INTEGER NOT NULL, project_id INTEGER NOT NULL,"
         " name TEXT NOT NULL,"
         " url TEXT, deploy_method TEXT, deploy_command TEXT,"
-        " health_check_url TEXT, config_notes TEXT, last_deployed_at TEXT,"
-        " created_at TEXT NOT NULL, settings TEXT DEFAULT '{}')"
+        " health_check_url TEXT, config_notes TEXT, last_deployed_at TIMESTAMPTZ,"
+        " created_at TIMESTAMPTZ NOT NULL, settings TEXT DEFAULT '{}')"
     )
     insert_item(conn, id=42, title="T", status="reviewing-implementation")
     insert_qa_requirement(
@@ -187,6 +187,7 @@ class TestPresignHappyPath(unittest.TestCase):
                 )
         self.assertTrue(outcome.primary_success, outcome.error)
         self.assertEqual(outcome.result_payload["environment"], "prod")
+
 
 class TestPresignDeploymentRunOwner(unittest.TestCase):
     """A requirement a deployment run owns stores evidence under that run."""

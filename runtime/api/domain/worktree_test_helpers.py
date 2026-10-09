@@ -40,7 +40,7 @@ _YOKE_DB_DDL = textwrap.dedent("""\
         default_branch TEXT DEFAULT 'main',
         github_repo TEXT,
         public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
-        created_at TEXT DEFAULT '2026-01-01T00:00:00Z'
+        created_at TIMESTAMPTZ DEFAULT '2026-01-01T00:00:00Z'
     );
     CREATE TABLE IF NOT EXISTS items (
         id INTEGER PRIMARY KEY,
@@ -49,8 +49,8 @@ _YOKE_DB_DDL = textwrap.dedent("""\
         priority TEXT DEFAULT 'medium',
         project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),
         project_sequence INTEGER NOT NULL,
-        created_at TEXT DEFAULT '2026-01-01T00:00:00Z',
-        updated_at TEXT DEFAULT '2026-01-01T00:00:00Z',
+        created_at TIMESTAMPTZ DEFAULT '2026-01-01T00:00:00Z',
+        updated_at TIMESTAMPTZ DEFAULT '2026-01-01T00:00:00Z',
         UNIQUE(project_id, project_sequence)
     );
     CREATE TABLE IF NOT EXISTS epic_tasks (
@@ -104,8 +104,7 @@ def pin_test_item_workflow(conn, item_id: int, workflow_id: str) -> None:
 
     _, version_id = resolve_current_workflow_pin(conn, workflow_id)
     conn.execute(
-        "UPDATE items SET workflow_id = %s, workflow_version_id = %s "
-        "WHERE id = %s",
+        "UPDATE items SET workflow_id = %s, workflow_version_id = %s WHERE id = %s",
         (workflow_id, version_id, item_id),
     )
 
@@ -116,14 +115,24 @@ def git_repo(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=str(repo), check=True)
-    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=str(repo), check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"], cwd=str(repo), check=True
+    )
     subprocess.run(["git", "config", "user.name", "Test"], cwd=str(repo), check=True)
-    subprocess.run(["git", "checkout", "-qb", "main"], cwd=str(repo), check=True,
-                    capture_output=True)
+    subprocess.run(
+        ["git", "checkout", "-qb", "main"],
+        cwd=str(repo),
+        check=True,
+        capture_output=True,
+    )
     (repo / "README.md").write_text("init\n")
     subprocess.run(["git", "add", "README.md"], cwd=str(repo), check=True)
-    subprocess.run(["git", "commit", "-q", "-m", "initial"], cwd=str(repo), check=True,
-                    capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "initial"],
+        cwd=str(repo),
+        check=True,
+        capture_output=True,
+    )
 
     # Create the runtime/config compatibility fixture used by worktree tests.
     (repo / "runtime").mkdir()

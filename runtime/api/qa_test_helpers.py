@@ -41,8 +41,8 @@ CREATE TABLE items (
     priority TEXT NOT NULL DEFAULT 'medium',
     project_id INTEGER NOT NULL DEFAULT 1,
     project_sequence INTEGER NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
     source TEXT NOT NULL DEFAULT 'test'
 );
 INSERT INTO items (id, project_sequence, created_at, updated_at)

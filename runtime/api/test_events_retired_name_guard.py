@@ -59,7 +59,7 @@ def _create_events_table(conn) -> None:
             tool_use_id TEXT, turn_id TEXT, hook_event_name TEXT,
             client_timing_id TEXT,
             envelope TEXT,
-            created_at TEXT NOT NULL
+            created_at TIMESTAMPTZ NOT NULL
         );
         """,
     )

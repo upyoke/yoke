@@ -28,14 +28,14 @@ def release_pin_db():
     with connect_test_db(db["db_path"]) as conn:
         conn.execute(
             "CREATE TABLE IF NOT EXISTS sites (id INTEGER PRIMARY KEY, project_id INTEGER NOT "
-            "NULL, name TEXT NOT NULL, created_at TEXT NOT NULL, "
+            "NULL, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL, "
             "UNIQUE(id, project_id), UNIQUE(project_id, name))"
         )
         conn.execute(
             "CREATE TABLE IF NOT EXISTS environments (id INTEGER PRIMARY KEY, site INTEGER NOT "
             "NULL, project_id INTEGER NOT NULL, name TEXT NOT NULL, "
-            "settings TEXT DEFAULT '{}', last_deployed_at TEXT, "
-            "created_at TEXT NOT NULL, UNIQUE(project_id, name), "
+            "settings TEXT DEFAULT '{}', last_deployed_at TIMESTAMPTZ, "
+            "created_at TIMESTAMPTZ NOT NULL, UNIQUE(project_id, name), "
             "FOREIGN KEY(site, project_id) REFERENCES sites(id, project_id))"
         )
         conn.execute(
@@ -109,7 +109,9 @@ def _envelope(
 
 
 def _stored_settings(
-    db_path: str, environment: str = "stage", project_id: int = 1,
+    db_path: str,
+    environment: str = "stage",
+    project_id: int = 1,
 ) -> dict:
     with connect_test_db(db_path) as conn:
         raw = conn.execute(
@@ -186,9 +188,7 @@ def test_capability_without_path_fails_closed(client, release_pin_db):
     assert _stored_settings(release_pin_db["db_path"]) == before
 
 
-def test_owner_merge_can_explicitly_configure_the_capability(
-    client, release_pin_db
-):
+def test_owner_merge_can_explicitly_configure_the_capability(client, release_pin_db):
     _set_capability(
         release_pin_db["db_path"],
         {},
@@ -219,12 +219,8 @@ def test_an_environment_registered_only_to_another_project_is_refused(
 def test_deployment_ci_can_record_but_cannot_use_generic_settings_mutation(
     client, release_pin_db
 ):
-    headers = _token_headers(
-        release_pin_db["db_path"], ROLE_DEPLOYMENT_CI
-    )
-    recorded = client.post(
-        "/v1/functions/call", json=_envelope(), headers=headers
-    )
+    headers = _token_headers(release_pin_db["db_path"], ROLE_DEPLOYMENT_CI)
+    recorded = client.post("/v1/functions/call", json=_envelope(), headers=headers)
     assert recorded.status_code == 200
 
     generic_merge = client.post(
@@ -257,9 +253,7 @@ def test_infrastructure_ci_and_cross_project_deployment_ci_are_denied(
     )
     assert denied_infrastructure.status_code == 403
 
-    deployment_headers = _token_headers(
-        release_pin_db["db_path"], ROLE_DEPLOYMENT_CI
-    )
+    deployment_headers = _token_headers(release_pin_db["db_path"], ROLE_DEPLOYMENT_CI)
     denied_cross_project = client.post(
         "/v1/functions/call",
         json=_envelope(project="externalwebapp"),
@@ -272,15 +266,11 @@ def test_infrastructure_ci_and_cross_project_deployment_ci_are_denied(
 def test_authorized_target_cannot_mask_a_different_payload_project(
     client, release_pin_db
 ):
-    headers = _token_headers(
-        release_pin_db["db_path"], ROLE_DEPLOYMENT_CI
-    )
+    headers = _token_headers(release_pin_db["db_path"], ROLE_DEPLOYMENT_CI)
     envelope = _envelope()
     envelope["payload"]["project"] = "externalwebapp"
 
-    response = client.post(
-        "/v1/functions/call", json=envelope, headers=headers
-    )
+    response = client.post("/v1/functions/call", json=envelope, headers=headers)
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "project_mismatch"

@@ -159,8 +159,8 @@ class TestItemProgressCLI:
             conn.execute(
                 "CREATE TABLE items (id INTEGER PRIMARY KEY, title TEXT, "
                 "status TEXT DEFAULT 'idea', "
-                "priority TEXT DEFAULT 'medium', created_at TEXT, "
-                "updated_at TEXT, source TEXT DEFAULT '2', "
+                "priority TEXT DEFAULT 'medium', created_at TIMESTAMPTZ, "
+                "updated_at TIMESTAMPTZ, source TEXT DEFAULT '2', "
                 "project_id INTEGER DEFAULT 1, project_sequence INTEGER)"
             )
             from runtime.api.api_workflow_test_helpers import (
@@ -174,7 +174,7 @@ class TestItemProgressCLI:
                 "updated_at, project_id, project_sequence) "
                 "VALUES (1, 'Test', 'issue', "
                 "(SELECT current_version_id FROM workflows WHERE id='issue'), "
-                "'2026-01-01', '2026-01-01', 1, 1)"
+                "'2026-01-01T00:00:00.123456Z', '2026-01-01T00:00:00.123456Z', 1, 1)"
             )
             conn.commit()
             conn.close()

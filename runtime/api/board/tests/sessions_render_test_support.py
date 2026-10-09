@@ -6,6 +6,8 @@ helpers that insert one session row or one item claim.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import contextlib
 from pathlib import Path
 
@@ -48,7 +50,7 @@ _RENDER_SCHEMA = """
         project_id INTEGER NOT NULL REFERENCES projects(id),
         offered_at TIMESTAMPTZ NOT NULL,
         last_heartbeat TIMESTAMPTZ,
-        last_tool_call_at TEXT,
+        last_tool_call_at TIMESTAMPTZ,
         ended_at TIMESTAMPTZ,
         terminated_at TIMESTAMPTZ
     );
@@ -111,6 +113,10 @@ def make_render_db(tmp_path: Path):
         yield db, render_sessions_section
 
 
+def _native_clock(value):
+    return parse_instant(value) if value is not None else None
+
+
 def insert_render_session(db, **kwargs) -> None:
     raw = connect_test_db(db.path)
     try:
@@ -130,10 +136,10 @@ def insert_render_session(db, **kwargs) -> None:
                 kwargs.get("mode", "wait"),
                 kwargs.get("workspace", ""),
                 kwargs.get("project_id", 1),
-                kwargs.get("offered_at", "2026-05-19T20:00:00Z"),
-                kwargs.get("last_heartbeat", "2026-05-19T20:01:00Z"),
-                kwargs.get("ended_at"),
-                kwargs.get("terminated_at"),
+                _native_clock(kwargs.get("offered_at", "2026-05-19T20:00:00Z")),
+                _native_clock(kwargs.get("last_heartbeat", "2026-05-19T20:01:00Z")),
+                _native_clock(kwargs.get("ended_at")),
+                _native_clock(kwargs.get("terminated_at")),
             ),
         )
         raw.commit()
@@ -160,7 +166,7 @@ def insert_render_item_claim(
                 session_id,
                 make_item_target(item_id).scope_json(),
                 "work",
-                "2026-05-19T20:02:00Z",
+                parse_instant("2026-05-19T20:02:00Z"),
                 "item",
             ),
         )

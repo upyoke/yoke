@@ -18,6 +18,8 @@ contracts from the mutation CLI migration.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import json
 import os
 import shutil
@@ -113,7 +115,7 @@ def _apply_service_client_schema_on_conn(conn) -> None:
             description TEXT,
             stages TEXT NOT NULL,
             on_failure TEXT DEFAULT 'halt',
-            created_at TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL,
             target_env TEXT DEFAULT NULL,
             done_description TEXT DEFAULT NULL,
             UNIQUE(project_id, name)
@@ -137,7 +139,7 @@ def _apply_service_client_schema_on_conn(conn) -> None:
     conn.execute(
         """INSERT INTO deployment_flows (id, project_id, name, stages, created_at)
            VALUES ('test-flow', 1, 'TestFlow', ?, ?)""",
-        (stages_json, "2026-04-20T00:00:00Z"),
+        (stages_json, parse_instant("2026-04-20T00:00:00Z")),
     )
 
     # Seed items
@@ -145,31 +147,31 @@ def _apply_service_client_schema_on_conn(conn) -> None:
         """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                               created_at, updated_at, source, frozen)
            VALUES (1, 'Active item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'high', 1, 1,
-                   '2026-01-01', '2026-01-01', 'user', 0)"""
+                   '2026-01-01T00:00:00.123456Z', '2026-01-01T00:00:00.123456Z', 'user', 0)"""
     )
     conn.execute(
         """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                               created_at, updated_at, source, frozen)
            VALUES (2, 'Done item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'medium', 1, 2,
-                   '2026-01-01', '2026-01-01', 'user', 0)"""
+                   '2026-01-01T00:00:00.123456Z', '2026-01-01T00:00:00.123456Z', 'user', 0)"""
     )
     conn.execute(
         """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                               created_at, updated_at, source, frozen)
            VALUES (3, 'Cancelled item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'cancelled', 'low', 1, 3,
-                   '2026-01-01', '2026-01-01', 'user', 0)"""
+                   '2026-01-01T00:00:00.123456Z', '2026-01-01T00:00:00.123456Z', 'user', 0)"""
     )
     conn.execute(
         """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                               created_at, updated_at, source, frozen)
            VALUES (4, 'Frozen item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', 1, 4,
-                   '2026-01-01', '2026-01-01', 'user', 1)"""
+                   '2026-01-01T00:00:00.123456Z', '2026-01-01T00:00:00.123456Z', 'user', 1)"""
     )
     conn.execute(
         """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                               created_at, updated_at, source, frozen)
            VALUES (5, 'ExternalWebapp active', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'medium', 2, 1,
-                   '2026-01-01', '2026-01-01', 'user', 0)"""
+                   '2026-01-01T00:00:00.123456Z', '2026-01-01T00:00:00.123456Z', 'user', 0)"""
     )
 
     conn.commit()

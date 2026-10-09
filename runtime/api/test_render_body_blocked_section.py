@@ -7,6 +7,8 @@ is included when present.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import pytest
 
 from runtime.api.fixtures import pg_testdb
@@ -37,7 +39,7 @@ def conn():
             title TEXT,
             blocked INTEGER DEFAULT 0,
             blocked_reason TEXT,
-            updated_at TEXT
+            updated_at TIMESTAMPTZ
         );
         """
     )
@@ -51,8 +53,12 @@ def _add(conn, item_id, blocked=0, blocked_reason=None, updated_at=None):
         " blocked_reason, updated_at) "
         "VALUES (%s, 1, %s, %s, %s, %s, %s)",
         (
-            item_id, item_id, f"Item {item_id}", blocked, blocked_reason,
-            updated_at,
+            item_id,
+            item_id,
+            f"Item {item_id}",
+            blocked,
+            blocked_reason,
+            parse_instant(updated_at) if updated_at is not None else None,
         ),
     )
 
@@ -64,15 +70,17 @@ def test_returns_none_when_not_blocked(conn):
 
 def test_renders_section_with_reason_and_updated_at(conn):
     _add(
-        conn, 2, blocked=1,
+        conn,
+        2,
+        blocked=1,
         blocked_reason="Awaiting external API contract",
-        updated_at="2026-05-08T12:00:00Z",
+        updated_at="2026-05-08T12:00:00.123456Z",
     )
     out = render_blocked_section(conn, 2)
     assert out is not None
     assert out.startswith("## Block")
     assert "Awaiting external API contract" in out
-    assert "2026-05-08T12:00:00Z" in out
+    assert "2026-05-08T12:00:00.123456Z" in out
     assert "yoke items unblock YOK-2" in out
 
 

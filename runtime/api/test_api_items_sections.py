@@ -39,12 +39,12 @@ _SCHEMA = """
 CREATE TABLE items (
     id INTEGER PRIMARY KEY,
     workflow_id TEXT, project_id INTEGER, project_sequence INTEGER,
-    spec TEXT, updated_at TEXT, spec_updated_at TEXT, spec_updated_by TEXT
+    spec TEXT, updated_at TIMESTAMPTZ, spec_updated_at TIMESTAMPTZ, spec_updated_by TEXT
 );
 CREATE TABLE item_sections (
     item_id INTEGER, section_name TEXT, content TEXT,
     ordering INTEGER, source TEXT DEFAULT 'operator',
-    created_at TEXT, updated_at TEXT,
+    created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ,
     PRIMARY KEY(item_id, section_name)
 );
 CREATE TABLE harness_sessions (

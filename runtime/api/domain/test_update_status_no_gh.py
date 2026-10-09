@@ -1,19 +1,6 @@
-"""Status sync + parent-epic checkbox update without host ``gh``.
+"""Status and epic-checkbox synchronization use bearer-token REST calls.
 
-Verifies update_status side effects route through the bearer-token REST
-transport and never spawn ``gh``:
-
-- ``_run_gh`` symbol is no longer present on the front-door module.
-- ``shutil.which('gh')`` is not on the gate path; the GitHub-side-effect
-  fan-out gate is now ``if not github_issue: return``.
-- ``_github_label_sync`` / ``_github_comment_post`` /
-  ``_github_close_on_terminal`` dispatch REST requests.
-- ``_update_epic_checkbox`` GETs the parent-issue body via REST and
-  PATCHes the flipped body back.
-
-All tests masking ``gh`` from PATH still succeed because the engine
-never reaches a host-``gh`` subprocess.
-"""
+The tests remove host gh from PATH and verify no subprocess is required."""
 
 from __future__ import annotations
 
@@ -46,20 +33,20 @@ _EPIC_TASKS_DDL = (
     "epic_id TEXT, task_num TEXT, title TEXT, item_worktree_id INTEGER, "
     "context_estimate TEXT, dependencies TEXT, status TEXT, "
     "dispatch_attempts INTEGER DEFAULT 0, github_issue TEXT, "
-    "last_heartbeat TEXT)"
+    "last_heartbeat TIMESTAMPTZ)"
 )
 # The repo-resolution join reads projects; without the table the swallowed
 # lookup failure would poison the Postgres transaction for later statements.
 _PROJECTS_DDL = (
-    "CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT, "
-    "github_repo TEXT)"
+    "CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT, github_repo TEXT)"
 )
 
 
 def _disposable_conn(*ddl: str) -> Any:
     name = pg_testdb.create_test_database()
     conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name,
+        pg_testdb.connect_test_database(name),
+        name,
     )
     for statement in ddl:
         conn.execute(statement)
@@ -74,7 +61,9 @@ def _disposable_conn(*ddl: str) -> Any:
 
 def _auth(project: str = "yoke", repo: str = "org/yoke") -> ProjectGithubAuth:
     return ProjectGithubAuth(
-        project=project, repo=repo, token="t",
+        project=project,
+        repo=repo,
+        token="t",
     )
 
 
@@ -92,6 +81,7 @@ class TestRunGhSymbolRetired:
 
     def test_update_status_helpers_drops_run_gh(self):
         from yoke_core.domain import update_status_helpers as ush
+
         assert not hasattr(ush, "_run_gh"), (
             "_run_gh should be retired from update_status_helpers"
         )
@@ -108,23 +98,29 @@ class TestGithubLabelSyncRest:
                 return _ok_response([{"name": "status:plan drafted"}])
             return _ok_response()
 
-        with mock.patch(
-            "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
-            return_value=_auth(),
-        ), mock.patch(
-            "yoke_core.domain.update_status_github_sync.request_with_retry",
-            side_effect=fake_req,
+        with (
+            mock.patch(
+                "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
+                return_value=_auth(),
+            ),
+            mock.patch(
+                "yoke_core.domain.update_status_github_sync.request_with_retry",
+                side_effect=fake_req,
+            ),
         ):
             us._github_label_sync(
-                "100", "implementing", [], "yoke", stderr=StringIO(),
+                "100",
+                "implementing",
+                [],
+                "yoke",
+                stderr=StringIO(),
             )
         # Should have POSTed the label-create + retrieved + deleted old + added new.
         methods = [c[0] for c in calls]
         assert "GET" in methods
         assert "POST" in methods
         assert any(
-            c[0] == "DELETE"
-            and c[1].endswith("labels/status%3Aplan%20drafted")
+            c[0] == "DELETE" and c[1].endswith("labels/status%3Aplan%20drafted")
             for c in calls
         )
 
@@ -138,20 +134,29 @@ class TestGithubCommentPostRest:
             calls.append((req.method, req.path, req.body))
             return _ok_response()
 
-        with mock.patch(
-            "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
-            return_value=_auth(),
-        ), mock.patch(
-            "yoke_core.domain.update_status_github_sync.request_with_retry",
-            side_effect=fake_req,
+        with (
+            mock.patch(
+                "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
+                return_value=_auth(),
+            ),
+            mock.patch(
+                "yoke_core.domain.update_status_github_sync.request_with_retry",
+                side_effect=fake_req,
+            ),
         ):
             us._github_comment_post(
-                "42", "idea", "implementing", "note text",
-                [], "yoke", stderr=StringIO(),
+                "42",
+                "idea",
+                "implementing",
+                "note text",
+                [],
+                "yoke",
+                stderr=StringIO(),
             )
         # Comment POST should fire on the /comments endpoint.
-        assert any(c[0] == "POST" and c[1].endswith("/issues/42/comments")
-                   for c in calls)
+        assert any(
+            c[0] == "POST" and c[1].endswith("/issues/42/comments") for c in calls
+        )
 
 
 class TestGithubCloseOnTerminalRest:
@@ -165,15 +170,24 @@ class TestGithubCloseOnTerminalRest:
                 return _ok_response({"state": "closed"})
             return _ok_response()
 
-        with mock.patch(
-            "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
-            return_value=_auth(),
-        ), mock.patch(
-            "yoke_core.domain.update_status_github_sync.request_with_retry",
-            side_effect=fake_req,
+        with (
+            mock.patch(
+                "yoke_core.domain.update_status_github_sync.resolve_project_github_auth",
+                return_value=_auth(),
+            ),
+            mock.patch(
+                "yoke_core.domain.update_status_github_sync.request_with_retry",
+                side_effect=fake_req,
+            ),
         ):
             us._github_close_on_terminal(
-                "42", "done", "1", "1", [], "yoke", stderr=StringIO(),
+                "42",
+                "done",
+                "1",
+                "1",
+                [],
+                "yoke",
+                stderr=StringIO(),
             )
         # PATCH /issues/42 with state=closed
         patches = [c for c in calls if c[0] == "PATCH"]
@@ -205,16 +219,26 @@ class TestEpicCheckboxRest:
                 return _ok_response({"body": body_before, "number": 1234})
             return _ok_response()
 
-        with mock.patch(
-            "yoke_core.domain.update_status_epic_checkbox.resolve_project_github_auth",
-            return_value=_auth(),
-        ), mock.patch(
-            "yoke_core.domain.update_status_epic_checkbox.request_with_retry",
-            side_effect=fake_req,
+        with (
+            mock.patch(
+                "yoke_core.domain.update_status_epic_checkbox.resolve_project_github_auth",
+                return_value=_auth(),
+            ),
+            mock.patch(
+                "yoke_core.domain.update_status_epic_checkbox.request_with_retry",
+                side_effect=fake_req,
+            ),
         ):
             us._update_epic_checkbox(
-                conn, "42", "1", "done", "#100", [], "yoke",
-                stdout=StringIO(), stderr=StringIO(),
+                conn,
+                "42",
+                "1",
+                "done",
+                "#100",
+                [],
+                "yoke",
+                stdout=StringIO(),
+                stderr=StringIO(),
             )
 
         # GET parent body, PATCH with flipped checkbox.
@@ -245,21 +269,25 @@ class TestNoGithubIssueShortCircuit:
         # would attempt to acquire a claim; bypass that via env.
         monkeypatch.setenv("YOKE_CLAIM_BYPASS", "test-bypass")
         # Avoid board rebuild + auto_derive side effects.
-        with mock.patch("yoke_core.domain.update_status.auto_unblock"), \
-             mock.patch("yoke_core.domain.update_status.auto_derive_epic_status"), \
-             mock.patch(
-                 "yoke_core.domain.update_status._github_label_sync"
-             ) as label, \
-             mock.patch(
-                 "yoke_core.domain.update_status._github_comment_post"
-             ) as comment, \
-             mock.patch(
-                 "yoke_core.domain.update_status._github_close_on_terminal"
-             ) as close:
+        with (
+            mock.patch("yoke_core.domain.update_status.auto_unblock"),
+            mock.patch("yoke_core.domain.update_status.auto_derive_epic_status"),
+            mock.patch("yoke_core.domain.update_status._github_label_sync") as label,
+            mock.patch(
+                "yoke_core.domain.update_status._github_comment_post"
+            ) as comment,
+            mock.patch(
+                "yoke_core.domain.update_status._github_close_on_terminal"
+            ) as close,
+        ):
             rc = us.update_task_status(
-                conn, "50", "1", "implementing",
+                conn,
+                "50",
+                "1",
+                "implementing",
                 no_derive=True,
-                stdout=StringIO(), stderr=StringIO(),
+                stdout=StringIO(),
+                stderr=StringIO(),
             )
         assert rc == 0
         # Without github_issue, the GitHub side effects do NOT fire.
@@ -288,21 +316,25 @@ class TestNoGithubIssueShortCircuit:
         conn.commit()
         monkeypatch.setenv("YOKE_CLAIM_BYPASS", "test-bypass")
         err = StringIO()
-        with mock.patch("yoke_core.domain.update_status.auto_unblock"), \
-             mock.patch("yoke_core.domain.update_status.auto_derive_epic_status"), \
-             mock.patch(
-                 "yoke_core.domain.update_status._github_label_sync"
-             ) as label, \
-             mock.patch(
-                 "yoke_core.domain.update_status._github_comment_post"
-             ) as comment, \
-             mock.patch(
-                 "yoke_core.domain.update_status._github_close_on_terminal"
-             ) as close:
+        with (
+            mock.patch("yoke_core.domain.update_status.auto_unblock"),
+            mock.patch("yoke_core.domain.update_status.auto_derive_epic_status"),
+            mock.patch("yoke_core.domain.update_status._github_label_sync") as label,
+            mock.patch(
+                "yoke_core.domain.update_status._github_comment_post"
+            ) as comment,
+            mock.patch(
+                "yoke_core.domain.update_status._github_close_on_terminal"
+            ) as close,
+        ):
             rc = us.update_task_status(
-                conn, "50", "1", "implementing",
+                conn,
+                "50",
+                "1",
+                "implementing",
                 no_derive=True,
-                stdout=StringIO(), stderr=err,
+                stdout=StringIO(),
+                stderr=err,
             )
         assert rc == 0
         label.assert_not_called()

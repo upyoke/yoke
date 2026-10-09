@@ -61,12 +61,12 @@ CREATE TABLE items (
     shepherd_caveats TEXT, test_results TEXT, deploy_log TEXT,
     db_mutation_profile TEXT,
     db_compatibility_attestation TEXT, architecture_impact TEXT,
-    updated_at TEXT, spec_updated_at TEXT, spec_updated_by TEXT
+    updated_at TIMESTAMPTZ, spec_updated_at TIMESTAMPTZ, spec_updated_by TEXT
 );
 CREATE TABLE item_sections (
     item_id INTEGER, section_name TEXT, content TEXT,
     ordering INTEGER, source TEXT DEFAULT 'operator',
-    created_at TEXT, updated_at TEXT,
+    created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ,
     PRIMARY KEY(item_id, section_name)
 );
 CREATE TABLE harness_sessions (

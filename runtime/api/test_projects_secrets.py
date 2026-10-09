@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import json
 from pathlib import Path
 
@@ -223,7 +225,7 @@ class TestResolveDeployEnvs:
                 "description TEXT, stages TEXT NOT NULL DEFAULT '[]', "
                 "target_tier TEXT, target_environment_id INTEGER, "
                 "on_failure TEXT DEFAULT 'abort', "
-                "created_at TEXT NOT NULL)"
+                "created_at TIMESTAMPTZ NOT NULL)"
             )
             conn.execute(
                 "INSERT INTO deployment_flows "
@@ -237,7 +239,7 @@ class TestResolveDeployEnvs:
                     "[]",
                     "persistent",
                     999,
-                    "2026-04-20T00:00:00Z",
+                    parse_instant("2026-04-20T00:00:00Z"),
                 ),
             )
             conn.commit()
@@ -259,7 +261,7 @@ class TestResolveDeployEnvs:
                     1,
                     "deployment_environments",
                     json.dumps({"environments": ["alpha", "beta"]}),
-                    "2026-04-20T00:00:00Z",
+                    parse_instant("2026-04-20T00:00:00Z"),
                 ),
             )
             conn.commit()

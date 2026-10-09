@@ -42,25 +42,22 @@ class TestDuration:
     def test_duration_with_session_tool_call(self, events_db_file):
         """Duration spans the call's captured start and completion."""
         tuid = f"tu-{uuid.uuid4()}"
-        # The stored start keeps milliseconds, so derive the completion from
-        # the truncated value: measuring against a microsecond-precise "now"
-        # leaves a sub-millisecond remainder that rounds either way.
-        started = datetime.now(timezone.utc).replace(microsecond=0)
-        start_time = started.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        # Native start/completion preserve the same microsecond origin.
+        started = datetime.now(timezone.utc)
         completed = started + timedelta(milliseconds=750)
 
         conn = connect_test_db(events_db_file)
         conn.execute(
             "CREATE TABLE session_tool_calls ("
             "session_id TEXT NOT NULL, tool_use_id TEXT NOT NULL, "
-            "started_at TEXT NOT NULL, completed_at TEXT)"
+            "started_at TIMESTAMPTZ NOT NULL, completed_at TIMESTAMPTZ)"
         )
         conn.execute(
             "INSERT INTO session_tool_calls (session_id, tool_use_id, started_at) "
             "VALUES ('sess', %s, %s)",
             (
                 tuid,
-                start_time,
+                started,
             ),
         )
         conn.commit()

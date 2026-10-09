@@ -60,7 +60,8 @@ class TestContinuityRecording:
         assert row[0] == event_id
 
     def test_writer_refuses_empty_provenance_string(
-        self, conn,
+        self,
+        conn,
     ):
         """recorded_event_id is opaque (no ledger FK check — retention
         prunes events the durable row outlives) but stays mandatory."""
@@ -175,12 +176,15 @@ class TestNearestAncestorInheritance:
 
     def test_no_value_returns_none(self, conn):
         leaf = mint_target(conn, "yoke", "untouched.py")
-        assert path_context.read_context_value(
-            conn,
-            target_id=leaf,
-            context_family="posture",
-            entry_key="criticality",
-        ) is None
+        assert (
+            path_context.read_context_value(
+                conn,
+                target_id=leaf,
+                context_family="posture",
+                entry_key="criticality",
+            )
+            is None
+        )
 
 
 def test_same_depth_conflict_synthetic():
@@ -198,7 +202,7 @@ def test_same_depth_conflict_synthetic():
                 path_string TEXT NOT NULL,
                 generation INTEGER NOT NULL,
                 parent_target_id INTEGER,
-                created_at TEXT NOT NULL
+                created_at TIMESTAMPTZ NOT NULL
             );
             CREATE TABLE path_context_values (
                 id INTEGER PRIMARY KEY,
@@ -207,14 +211,12 @@ def test_same_depth_conflict_synthetic():
                 entry_key TEXT NOT NULL DEFAULT '',
                 value TEXT NOT NULL DEFAULT '{}',
                 recorded_event_id TEXT NOT NULL,
-                recorded_at TEXT NOT NULL
+                recorded_at TIMESTAMPTZ NOT NULL
             );
             """,
         )
         root = mint_target(conn, "yoke", "", kind="directory")
-        mid = mint_target(
-            conn, "yoke", "mid", kind="directory", parent_target_id=root
-        )
+        mid = mint_target(conn, "yoke", "mid", kind="directory", parent_target_id=root)
         leaf = mint_target(conn, "yoke", "mid/leaf.py", parent_target_id=mid)
         for value in ('{"level": "low"}', '{"level": "high"}'):
             conn.execute(
@@ -253,10 +255,7 @@ class TestArchitectureFamilyConstants:
     def test_classification_constants_present(self):
         assert path_context.FAMILY_ARCHITECTURE_LAYER == "architecture_layer"
         assert path_context.FAMILY_ARCHITECTURE_DOMAIN == "architecture_domain"
-        assert (
-            path_context.FAMILY_DEPENDENCY_RULE
-            == "architecture_dependency_rule"
-        )
+        assert path_context.FAMILY_DEPENDENCY_RULE == "architecture_dependency_rule"
         assert (
             path_context.FAMILY_CROSS_CUTTING_ENTRYPOINT
             == "architecture_cross_cutting_entrypoint"
@@ -267,16 +266,10 @@ class TestArchitectureFamilyConstants:
         assert path_context.FAMILY_FIXTURE == "architecture_fixture"
         assert path_context.FAMILY_ARCHIVE == "architecture_archive"
         assert path_context.FAMILY_TEST_SURFACE == "architecture_test_surface"
-        assert (
-            path_context.FAMILY_PACK_SOURCE
-            == "architecture_pack_source"
-        )
+        assert path_context.FAMILY_PACK_SOURCE == "architecture_pack_source"
 
     def test_known_families_includes_architecture(self):
-        assert (
-            path_context.ARCHITECTURE_FAMILIES
-            <= path_context.KNOWN_FAMILIES
-        )
+        assert path_context.ARCHITECTURE_FAMILIES <= path_context.KNOWN_FAMILIES
 
     def test_classification_and_exemption_disjoint(self):
         assert (
@@ -285,9 +278,7 @@ class TestArchitectureFamilyConstants:
             == frozenset()
         )
 
-    def test_layer_value_inherits_through_existing_reader(
-        self, conn
-    ):
+    def test_layer_value_inherits_through_existing_reader(self, conn):
         """Architecture families piggyback on the existing inherited reader.
 
         ``path_context_values`` supports architecture context families
@@ -295,11 +286,11 @@ class TestArchitectureFamilyConstants:
         check that the new family name flows end-to-end through the
         unchanged writer/reader.
         """
-        parent = mint_target(
-            conn, "yoke", "runtime/api/domain", kind="directory"
-        )
+        parent = mint_target(conn, "yoke", "runtime/api/domain", kind="directory")
         child = mint_target(
-            conn, "yoke", "runtime/api/domain/path_claims.py",
+            conn,
+            "yoke",
+            "runtime/api/domain/path_claims.py",
             parent_target_id=parent,
         )
         event_id = emit_event(conn, name="ArchitectureLayerAssigned")

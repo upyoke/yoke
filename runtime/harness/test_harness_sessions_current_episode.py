@@ -8,6 +8,8 @@ fact; missing boundary still surfaces the claim row. Boundary truth is
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import contextlib
 import tempfile
 import unittest
@@ -26,14 +28,14 @@ CREATE TABLE work_claims (
     target_kind TEXT NOT NULL,
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
-    claimed_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    released_at TEXT,
+    claimed_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    released_at TIMESTAMPTZ,
     release_reason TEXT
 );
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY,
-    episode_started_at TEXT
+    episode_started_at TIMESTAMPTZ
 );
 """
 
@@ -64,11 +66,17 @@ def _insert_claim(
     claimed_at: str,
 ) -> int:
     from yoke_core.domain.work_claim_targets import make_item_target
+
     cursor = conn.execute(
         "INSERT INTO work_claims "
         "(session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat) "
         "VALUES (%s, 'item', %s, 'exclusive', %s, %s) RETURNING id",
-        (session_id, make_item_target(item_id).scope_json(), claimed_at, claimed_at),
+        (
+            session_id,
+            make_item_target(item_id).scope_json(),
+            parse_instant(claimed_at),
+            parse_instant(claimed_at),
+        ),
     )
     row = cursor.fetchone()
     cursor.close()
@@ -82,18 +90,19 @@ def _stamp_episode(conn, session_id: str, at: str) -> None:
         "INSERT INTO harness_sessions (session_id, episode_started_at) "
         "VALUES (%s, %s) "
         "ON CONFLICT(session_id) DO UPDATE SET episode_started_at = %s",
-        (session_id, at, at),
+        (session_id, parse_instant(at), parse_instant(at)),
     )
     conn.commit()
 
 
 class TestWhoClaimsCurrentEpisode(unittest.TestCase):
-
     def test_baseline_without_flag_unchanged(self) -> None:
         with _build_conn() as conn:
             _insert_claim(conn, "sess-base", 10, "2026-05-01T00:00:00Z")
             out = cmd_who_claims(
-                conn, 10, caller_session_id="sess-base",
+                conn,
+                10,
+                caller_session_id="sess-base",
             )
         # Baseline output (no flag) is unchanged — no episode_scope line.
         self.assertNotIn("episode_scope=", out)
@@ -104,12 +113,13 @@ class TestWhoClaimsCurrentEpisode(unittest.TestCase):
             _stamp_episode(conn, "sess-cur", "2026-05-01T00:00:00Z")
             _insert_claim(conn, "sess-cur", 11, "2026-05-02T00:00:00Z")
             out = cmd_who_claims(
-                conn, 11,
+                conn,
+                11,
                 caller_session_id="sess-cur",
                 current_episode=True,
             )
         self.assertIn("episode_scope=current_episode", out)
-        self.assertIn("episode_boundary=2026-05-01T00:00:00Z", out)
+        self.assertIn("episode_boundary=2026-05-01T00:00:00.000000Z", out)
 
     def test_current_episode_marks_inherited_when_claim_predates_boundary(self) -> None:
         """Inherited claims are visible, not hidden."""
@@ -119,13 +129,14 @@ class TestWhoClaimsCurrentEpisode(unittest.TestCase):
             _insert_claim(conn, "sess-inh", 12, "2026-04-30T00:00:00Z")
             _stamp_episode(conn, "sess-inh", "2026-05-02T00:00:00Z")
             out = cmd_who_claims(
-                conn, 12,
+                conn,
+                12,
                 caller_session_id="sess-inh",
                 current_episode=True,
             )
         # Inheritance is visible: it is NOT omitted.
         self.assertIn("episode_scope=inherited_from_prior_episode", out)
-        self.assertIn("episode_boundary=2026-05-02T00:00:00Z", out)
+        self.assertIn("episode_boundary=2026-05-02T00:00:00.000000Z", out)
         # The canonical claim row is still the first line.
         first_line = out.split("\n", 1)[0]
         self.assertIn("12", first_line)
@@ -134,7 +145,8 @@ class TestWhoClaimsCurrentEpisode(unittest.TestCase):
         with _build_conn() as conn:
             _insert_claim(conn, "sess-nb", 13, "2026-05-01T00:00:00Z")
             out = cmd_who_claims(
-                conn, 13,
+                conn,
+                13,
                 caller_session_id="sess-nb",
                 current_episode=True,
             )
