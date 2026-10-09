@@ -323,3 +323,6 @@ fixtures reuse the shared Date producer without changing historical versions.
 Conversation mappings and process-anchor files publish fixed-six UTC clocks
 through the shared kernel; OS process-start identity text stays opaque. Current
 routed-session fixtures bind native clocks and adapt only at SQLite ownership.
+
+QA daily summaries keep public UTC day labels as dates and bind their half-open
+window as native UTC midnight instants, independent of the SQL session timezone.
