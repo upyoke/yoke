@@ -207,19 +207,25 @@ def _resolve_active_authority(
 
 
 def _owned_connection_secret(entry: Mapping[str, Any]) -> Path | None:
-    source = entry.get("credential_source")
-    if not isinstance(source, Mapping):
+    selected = _connection_secret(entry)
+    if selected is None:
         return None
-    raw = str(source.get("path") or "").strip()
-    if not raw:
-        return None
-    selected = Path(raw).expanduser().resolve()
     expected = (machine_config.yoke_home() / contract.SECRETS_DIR_NAME).resolve()
     if selected.parent != expected:
         raise MachineConfigWriteError(
             "refusing to remove a credential outside Yoke-owned machine secrets"
         )
     return selected
+
+
+def _connection_secret(entry: Mapping[str, Any]) -> Path | None:
+    source = entry.get("credential_source")
+    if not isinstance(source, Mapping):
+        return None
+    raw = str(source.get("path") or "").strip()
+    if not raw:
+        return None
+    return Path(raw).expanduser().resolve()
 
 
 def _shared_secret_aliases(
@@ -234,7 +240,7 @@ def _shared_secret_aliases(
     for alias, other in connections.items():
         if alias == env or not isinstance(other, Mapping):
             continue
-        if _owned_connection_secret(other) == secret:
+        if _connection_secret(other) == secret:
             aliases.append(str(alias))
     return sorted(aliases)
 
