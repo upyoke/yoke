@@ -141,3 +141,5 @@ Conflict surveys retain native observation facts; new persisted envelopes format
 Doctor blocked-item, task heartbeat, undeployed-item and backlog ages compare native aware instants through timedeltas, retaining their existing thresholds at microsecond boundaries. The Unix epoch is valid evidence. Missing clocks remain unknown and malformed stored clocks produce refusal findings rather than quiet passes. The private epoch parser and its reexports are retired; new report headers and branch-protection drift events use fixed-six UTC wire clocks.
 
 Merge-audit report generation and done-transition transport payloads are wire owners, so their new clocks use the shared fixed-six formatter. Their timestamps are not SQL parameters. Doctor meta fixture schema derivation stays lazy until the disposable connection is prepared.
+
+Doctor close-out checks query native merge and queue-landing clock nullness directly, without empty-text substitutes or comparisons. A completed item lacking a merge fact still warns; a real native landing fact still identifies active work needing close-out.

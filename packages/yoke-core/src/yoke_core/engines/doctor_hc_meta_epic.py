@@ -43,12 +43,9 @@ def hc_orphaned_active_items(conn, args: DoctorArgs, rec: RecordCollector) -> No
     issues: List[str] = []
     flagged: set = set()
 
-    landed = "(merged_at IS NOT NULL AND merged_at <> '')"
+    landed = "(merged_at IS NOT NULL)"
     if _column_exists(conn, "items", "merge_queue_landed_at"):
-        landed = (
-            f"({landed} OR (merge_queue_landed_at IS NOT NULL "
-            "AND merge_queue_landed_at <> ''))"
-        )
+        landed = f"({landed} OR merge_queue_landed_at IS NOT NULL)"
     rows = query_rows(
         conn,
         "SELECT id, status "
@@ -129,9 +126,9 @@ def hc_premature_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     min_item_id = _base._read_int_cutoff("hc_premature_done_min_item_id")
     rows = query_rows(
         conn,
-        "SELECT id, workflow_id, title, COALESCE(merged_at, '') as merged_at "
+        "SELECT id, workflow_id, title, merged_at "
         "FROM items WHERE status = 'done' "
-        "AND (merged_at IS NULL OR merged_at = '') ORDER BY id",
+        "AND merged_at IS NULL ORDER BY id",
     )
     issues = [
         f"- {render_item_ref(conn, r['id'])} ({r['workflow_id']}: {r['title']}): "

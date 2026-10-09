@@ -106,7 +106,7 @@ def test_malformed_stored_clocks_refuse_instead_of_reporting_green(monkeypatch, 
                     "last_heartbeat": bad,
                 }
             ]
-            if "FROM epic_tasks" in sql
+            if sql.startswith("SELECT epic_id, task_num,")
             else []
         ),
     )
