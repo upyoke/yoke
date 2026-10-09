@@ -16,11 +16,15 @@ from yoke_core.domain.deployment_requirement_snapshots import (
 )
 
 
-def pin_run_delivery(conn, run_id, *, environment="prod", candidate=None):
+def pin_run_delivery(conn, run_id, *, environment=None, candidate=None):
     row = conn.execute(
-        "SELECT project_id,release_lineage FROM deployment_runs WHERE id=%s", (run_id,)
+        "SELECT dr.project_id,dr.release_lineage,e.name FROM deployment_runs dr "
+        "LEFT JOIN deployment_flows f ON f.id=dr.flow "
+        "LEFT JOIN environments e ON e.id=f.target_environment_id WHERE dr.id=%s",
+        (run_id,),
     ).fetchone()
     project_id = int(row[0])
+    environment = environment or row[2] or "prod"
     conn.execute(
         "INSERT INTO environments(site,project_id,name,url,created_at) "
         "SELECT id,%s,%s,%s,'2026-10-01T00:00:00Z' FROM sites "

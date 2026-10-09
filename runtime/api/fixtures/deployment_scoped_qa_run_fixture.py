@@ -162,6 +162,9 @@ def seed_run_standing_on_qa_stage(
             flow_snapshot,
         ),
     )
+    from runtime.api.fixtures.completed_delivery import pin_run_delivery
+
+    pin_run_delivery(conn, run_id, environment=environment)
     for item_id in members:
         insert_item(
             conn,

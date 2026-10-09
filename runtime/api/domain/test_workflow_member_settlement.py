@@ -119,7 +119,7 @@ def test_mixed_workflows_close_together_without_direct_evidence(test_db, monkeyp
         "AND item_id=ANY(%s)",
         (list(members),),
     ).fetchall()
-    assert [row["item_id"] for row in evidence] == [members[-1]]
+    assert sorted(row["item_id"] for row in evidence) == list(members)
 
 
 def test_incomplete_blitz_document_holds_collective_settlement(test_db, monkeypatch):
