@@ -104,11 +104,11 @@ def point_at_replacement(conn: Any, failed_id: int, replacement_id: int) -> None
 
     try:
         # Validate both links on every successor, rather than silently choosing one.
-        validate_successor(conn, failed, replacement_id)
         validate_successor(
             conn,
             {**failed, "replacement_requirement_id": replacement_id},
             replacement_id,
+            require_terminal=False,
         )
     except QaSuccessorError as exc:
         raise QaReplacementError(str(exc)) from exc

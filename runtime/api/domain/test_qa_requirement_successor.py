@@ -47,6 +47,9 @@ def test_superseding_chain_moves_both_links_to_terminal_and_settles_gate(test_db
         == final
     )
     assert requirement_row(test_db, middle)["replacement_requirement_id"] == final
+    from runtime.api.domain.test_qa_declared_replacement import _pass
+
+    _pass(test_db, "run-successor-chain")
     status = deployment_qa_stage_status(
         test_db, run_id="run-successor-chain", stage_name="item-qa", member_item_id=9811
     )

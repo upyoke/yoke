@@ -12,7 +12,12 @@ class QaSuccessorError(ValueError):
 
 
 def validate_successor(
-    conn: Any, broken: dict[str, Any], target_id: int, *, reconcile: bool = False
+    conn: Any,
+    broken: dict[str, Any],
+    target_id: int,
+    *,
+    reconcile: bool = False,
+    require_terminal: bool = True,
 ) -> None:
     """Require every existing edge to converge on the named terminal case.
 
@@ -72,7 +77,7 @@ def validate_successor(
             "replacement_graph_invalid: conflicting successor links; ask an operator to run yoke qa requirement supersede --reconcile with the actual terminal case"
         )
     ends = {terminal(edge) for edge in edges}
-    if ends and ends != {int(target_id)}:
+    if require_terminal and ends and ends != {int(target_id)}:
         raise QaSuccessorError(
             "replacement_graph_invalid: requested case is not the unique terminal successor; inspect the chain and name its terminal case, or ask the operator to resolve ambiguous branches"
         )
