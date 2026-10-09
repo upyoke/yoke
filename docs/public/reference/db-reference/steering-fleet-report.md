@@ -80,4 +80,6 @@ The fleet watcher remembers the holder, landing, and deployment-run rows it actu
 
 ## Pull read deltas
 
+Combined full reports print native model availability, universe level headings, headroom legends, Test Machines and launch balance once. Project counts are added once per project, regardless of document-seat count. Empty document seats occupy one heading line; seat-specific work and differing placement results remain visible under their scopes. JSON retains each scope's complete facts.
+
 Human `yoke steering report get` returns changed held-scope, inbox, unattended-work and shared-machine sections plus an unchanged count. A nullable session-owned checkpoint stores age-blind fingerprints across calls; no telemetry or new table is involved. `--full` returns every section and advances the checkpoint; `--json` preserves the complete report without consuming it. Project-filtered reads retain checkpoints for other scopes. Hook/watcher delivery intervals and suppression use their existing separate record. An invalid checkpoint refuses as `steering_report_read_state_invalid`; `yoke steering report get --full` replaces it.
