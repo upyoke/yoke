@@ -158,18 +158,19 @@ by name. The steering report lists each override beside its level block.
 
 Current published built-in definitions allow the key. Existing items keep
 their immutable workflow pins when a new definition is deployed, so an old
-pin may refuse the amendment. Read `yoke workflows item get PREFIX-N` for
-its actual allowlist. The control-plane operator must select a compatible
-published version and preview `yoke workflows item migrate PREFIX-N
---version N --preview` before applying the migration and retrying the
-amendment. This requires a live steering seat covering the target project or document; workers cannot
-self-authorize it. `yoke workflows item-posture amend --help` carries the
+pin may refuse the amendment, or a level-named launch's recording of it. Read
+`yoke workflows item get PREFIX-N` for its actual allowlist. The control-plane
+operator must select a compatible published version and preview `yoke
+workflows item migrate PREFIX-N --version N --preview` before applying the
+migration and retrying the amendment. This requires a live steering seat
+covering the target project or document; workers cannot self-authorize it. `yoke workflows item-posture amend --help` carries the
 recovery decision tree. Publishing a definition never blanket-repins items.
 
 The override applies once to an automatic stage default: shift first, then
-clamp to the named bounds and the project's level range. An explicit
-`--level` or exact surface/model request wins for that launch and bypasses
-the item default. Changing an override never changes a running worker.
+clamp to the named bounds and the project's level range. An exact
+surface/model request bypasses the item default. A `--level` on an item-bound
+create sets the override itself ([Launching by level](#launching-by-level)).
+Changing an override never changes a running worker.
 
 ## Stage levels
 
@@ -202,7 +203,8 @@ retaining a release-wait claim:
 3. Run the returned `next_command` exactly. It launches this item's
    successor from the new stage's effective level. Read `launch create
    --help` for selectors and idempotency. Workers may launch their own
-   successor after release; other workers and in-flight launches still block.
+   successor after release; other workers and in-flight launches still block,
+   and a worker still holding a claim refuses `item_has_live_worker`.
 4. Verify the launch was accepted, then end the session. A refusal names its
    recovery: report it to steering and preserve the checkpoint; do not claim
    success or continue at the previous level. If the predecessor dies before
@@ -215,9 +217,19 @@ staffing, not an operator execution instruction or a workflow skill binding.
 ## Launching by level
 
 A create with no selector uses the item's live effective stage level, and
-Yoke chooses the option and machine. An explicit `--level` overrides one
-launch. A missing stage level without an explicit selector refuses as
-`stage_level_missing`, naming `--level` or the steering-seat workflow migration
+Yoke chooses the option and machine; it records nothing. An explicit `--level`
+on an item-bound create also records that level as the item's override for
+every stage, `{"min": L, "max": L, "reason": R}`, in the launch's own
+transaction and with the launching seat's own authority (no claim is acquired
+or released). The worker is therefore not handed off at its first stage edge.
+`--level-reason R` states why (default `launch-time level`); the result's
+`item_level` (`level`, `reason`, `changed`, `previous`) echoes it, and a launch
+that fails records nothing. A pin that does not allow `level` refuses
+`item_level_not_recordable`; an item-bound create against a server that predates
+the recording prints `item_level_unrecorded`. A preview, an itemless create,
+and an exact surface place one launch only. A missing stage level without an
+explicit selector refuses as `stage_level_missing`, naming `--level` or the
+steering-seat workflow migration
 preview/apply prerequisite for an existing old pin. Select a compatible
 published version; new versions never move existing pins automatically.
 `HC-workflow-stage-level-pins` fails naming every non-terminal item pinned to a

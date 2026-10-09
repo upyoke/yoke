@@ -323,7 +323,8 @@ work that still has implementation or verification left to do.
    The holder read must show no live holder before you launch.
 
 3. **Launch the successor** with the [launcher recipe](worker-launch.md), naming the new
-   level. Give the idempotency key the predecessor's launch id, so a restaff
+   level with `--level`, which also records it as the item's level for every
+   stage. Give the idempotency key the predecessor's launch id, so a restaff
    onto a level the item already had is a new launch rather than a replay of
    the old one:
 

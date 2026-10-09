@@ -3,10 +3,11 @@
 `session_control.launch.create` defaults to the item's live effective stage
 level, and Yoke chooses the option and machine. Judge the current leg before
 every item launch and pass `--level` whenever that judgment differs from the
-stage level. This file is how the steering seat decides the level and an
-item's override. It applies to **new launches only** — a running session keeps
-the selection it started with, and changing a worker's level means launching
-a replacement, never editing a live one.
+stage level: on an item-bound create, `--level` is how you staff the item at
+that level for every stage. This file is how the steering seat decides the
+level and an item's override. It applies to **new launches only** — a running
+session keeps the selection it started with, and changing a worker's level
+means launching a replacement, never editing a live one.
 
 ## Choose the level for the current leg
 
@@ -29,21 +30,39 @@ option's machine, pools (left, headroom, reset), blocker, and where the next
 launch goes and why, beside the live workers per surface. A level reading
 `no capacity` will refuse; choose by that read rather than re-deriving it.
 
-## Set the item's level override when you staff it
+## Staff an item at a level: `--level` sets its override
 
-On every item you staff, first read `yoke workflows item get PREFIX-N` and
-check the pinned definition's `item_posture_allowlist`. A newly deployed
-workflow version does not change an existing item's pin. If `level` is
-absent, ask the control-plane operator to select a compatible published
-version and preview `yoke workflows item migrate PREFIX-N --version N
---preview`; apply only after the compatibility checks pass. Migration
-requires a live steering seat covering the target project or document. Record that prerequisite for this
-item and continue staffing other eligible items; never silently omit the
-override or blanket-repin the backlog. `yoke workflows item-posture amend
---help` carries the recovery decision tree.
+An item-bound `launch create --level LEVEL` is the staffing path. In the
+launch's own transaction it records `{"min": LEVEL, "max": LEVEL, "reason": R}`
+as the item's `level` override, so **every stage** resolves to LEVEL, then
+launches the worker there. That is why the worker is not handed back to the
+stage level (`level_change`) at its first stage edge. `--level-reason R` says
+why (default `launch-time level`); the receipt's `Item level` row (`item_level`
+in `--json`) shows what was recorded, and a launch that fails records nothing.
+Omit `--level` when the stage level is right: the launch reads the item's
+effective stage level and records nothing. A preview, an itemless create, and
+an exact `--surface` selection place that one launch only. The write uses the
+launching seat's own authority; acquire and release no claim for it.
 
-Once the pinned definition allows it, set the level override before the
-launch and record why:
+```text
+yoke session-control launch create --project P --item PREFIX-N \
+  --level JUNIOR --level-reason "well-specified text change" --idempotency-key K
+```
+
+The write needs the pinned definition's `item_posture_allowlist` to include
+`level`; read `yoke workflows item get PREFIX-N`. A newly deployed workflow
+version does not change an existing item's pin. If `level` is absent the
+create refuses `item_level_not_recordable`: ask the control-plane operator to
+select a compatible published version and preview `yoke workflows item
+migrate PREFIX-N --version N --preview`; apply only after the compatibility
+checks pass. Migration requires a live steering seat covering the target
+project or document. Record that prerequisite for this item and continue
+staffing other eligible items; never blanket-repin the backlog or launch it
+elsewhere to avoid the refusal.
+
+Change a **running** item's level, or give it a `shift`, `min`, or `max`
+instead of a pin, with the posture amend; `yoke workflows item-posture amend
+--help` has the shape and the recovery tree:
 
 ```text
 yoke workflows item-posture amend PREFIX-N --key level \
@@ -51,18 +70,12 @@ yoke workflows item-posture amend PREFIX-N --key level \
   --reason "steering staffing default"
 ```
 
-`max: SENIOR` is the default. Leave the max off only when the task is
-genuinely very complex — then the override still records the reason, as
-`{"min": "SENIOR", "reason": "..."}` or a `shift` up. The value is
-`{shift, min, max, reason}`; `yoke workflows item-posture amend --help` has
-the shape. The report lists every item's override. The override shifts and
-clamps an automatic stage default once. An explicit `--level` or exact
-surface/model request wins for that launch; do not clamp it again.
-
-Changing an override mid-stage does not touch the running worker, which
-keeps the selection it launched with: amend the override, then restaff the
-item through rule 9 in [`worker-lifecycle.md`](worker-lifecycle.md) so the
-successor launches at the new level.
+The override shifts and clamps an automatic stage default once; an exact
+surface/model request bypasses it. The report lists every item's override.
+Amending mid-stage does not touch the running worker, which keeps the
+selection it launched with: restaff the item through rule 9 in
+[`worker-lifecycle.md`](worker-lifecycle.md) so the successor launches at the
+new level.
 
 The levels a project reads, and each level's options, are data:
 
@@ -158,8 +171,9 @@ Move a running item between levels mechanically, never on a hunch:
    up has no capacity. Never promote or demote silently.
 
 A parked delivery or landing wait is not a failure and never climbs the
-ladder. When a step changes the level beyond the item's override (a climb
-past its `max`), amend the override first and record why.
+ladder. The successor's `--level` replaces the item's override with that
+level, so a climb past an earlier `max` needs no separate amend; state why
+with `--level-reason`.
 
 Every step is a restaff through rule 9 in
 [`worker-lifecycle.md`](worker-lifecycle.md): read or request the checkpoint,

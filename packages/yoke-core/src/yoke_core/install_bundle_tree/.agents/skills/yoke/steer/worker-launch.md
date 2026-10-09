@@ -36,8 +36,12 @@ edits, small bug fixes, docs, routine cleanup → `--level JUNIOR`; trivial,
 fully specified → `--level INTERN`; definition or implementation of real
 design work → the stage level (omit `--level`); very complex → `--level
 PRINCIPAL`. Depth: [`model-selection.md`](model-selection.md).
-Add the judged `--level {_level}` to both preview and create; it overrides the
-effective stage level for this launch only.
+Add the judged `--level {_level}` to both preview and create. On the item-bound
+create it also records that level as the item's override for every stage
+(`--level-reason TEXT`, default `launch-time level`), so the worker is not
+handed off at a stage edge; the receipt's `Item level` row confirms it. A
+preview and an itemless create place one launch only. To change a running
+item's level, relaunch with a new `--level` ([`model-selection.md`](model-selection.md)).
 An exact operator selection adds `--surface {_surface}
 --model {_model} --reasoning-effort {_effort} [--context-window {_context}]`
 and names that selection in the idempotency key.
