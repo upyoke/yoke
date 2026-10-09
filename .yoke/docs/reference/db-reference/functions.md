@@ -119,6 +119,7 @@ Replaces every hand-authored `printf '%s' "$content" | python3 -m yoke_core.cli.
 | `items.progress_log.append` | `"item"` | `yoke_core.domain.handlers.items_progress_log` | `{old_lines, new_lines, entry_count}` (read-then-upsert with `ordering=200`) |
 | `items.scalar.update` | `"item"` | `yoke_core.domain.handlers.items_scalar` → `prepare_update` | `{field, old, new}` |
 | `items.get` (read) | `None` | `yoke_core.domain.handlers.reads.items_get` | typed item payload (optional `fields[]`) |
+| `items.dependency.list` | `None` (read) | `yoke_core.domain.handlers.item_dependency_reads` | Returns both-direction edge rows and `integration_gate: {evaluated: true, is_blocked: bool, blockers: [{public_ref, reason}]}` for depends-on integration edges only. Evaluation failure preserves rows with `{evaluated: false, is_blocked: null, error_code: "integration_dependency_evaluation_failed"}` and no raw exception text. |
 | `items.create` | `None` | `yoke_core.domain.handlers.items_create` → `backlog_create_op.execute_create` | `{public_ref, dry_run, log, execution_instructions, execution_instructions_considered}` |
 
 **Canonical create — a non-web filer attests the operator instructions:**

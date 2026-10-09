@@ -75,6 +75,11 @@ def test_landing_fake_dependency_list_matches_handler_row_keys():
         target=SimpleNamespace(public_ref="YOK-200"),
     ).result
     ItemDependencyListResponse.model_validate(result)
+    assert result["integration_gate"] == {
+        "evaluated": True,
+        "is_blocked": False,
+        "blockers": [],
+    }
     emitted = result["dependencies"][0]
     assert "dependent_item" not in emitted
     assert "blocking_item" not in emitted

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+import json
 
 from runtime.api.cli.test_yoke_operations_cli_dispatch import (
     _CAPTURED_REQUESTS,
@@ -11,6 +12,46 @@ from runtime.api.cli.test_yoke_operations_cli_dispatch import (
     _stub_dispatch_ok,
 )
 from yoke_core.domain.item_dependency import VALID_SOURCES
+from yoke_contracts.api.function_call import FunctionCallResponse
+
+
+@pytest.mark.parametrize("json_output", [False, True])
+@pytest.mark.parametrize("evaluated", [False, True])
+def test_dependency_list_prints_complete_integration_gate(json_output, evaluated):
+    subject = f"YOK-{20}"
+    gate = (
+        {"evaluated": True, "is_blocked": False, "blockers": []}
+        if evaluated
+        else {
+            "evaluated": False,
+            "is_blocked": None,
+            "error_code": "integration_dependency_evaluation_failed",
+        }
+    )
+    result = {"item_id": 20, "dependencies": [], "integration_gate": gate}
+
+    def dispatch(request):
+        assert request.function == "items.dependency.list"
+        assert request.target.public_ref == subject
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version=request.version,
+            request_id=request.request_id,
+            result=result,
+        )
+
+    flags = ["--json"] if json_output else []
+    rc, out, err = _run_capture(
+        dispatch, "items", "dependency", "list", subject, *flags
+    )
+    assert rc == 0
+    assert not err
+    printed = json.loads(out)
+    assert (printed["result"] if json_output else printed) == {
+        "dependencies": [],
+        "integration_gate": gate,
+    }
 
 
 @pytest.fixture(autouse=True)
@@ -22,10 +63,16 @@ class TestItemDependencyWriteDispatch:
     def test_dependency_add_dispatches_coordination_only(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "dependency", "add",
-            "YOK-20", "YOK-10", "idea",
-            "--gate-point", "coordination_only",
-            "--rationale", "shared paths are independent",
+            "items",
+            "dependency",
+            "add",
+            "YOK-20",
+            "YOK-10",
+            "idea",
+            "--gate-point",
+            "coordination_only",
+            "--rationale",
+            "shared paths are independent",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -43,12 +90,20 @@ class TestItemDependencyWriteDispatch:
     def test_dependency_add_dispatches_activation_fact_merged(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "dependency", "add",
-            "YOK-20", "YOK-10", "feed",
-            "--gate-point", "activation",
-            "--satisfaction", "fact:merged",
-            "--rationale", "upstream lands schema first",
-            "--evidence", '{"shared_files":["runtime/api/db.py"]}',
+            "items",
+            "dependency",
+            "add",
+            "YOK-20",
+            "YOK-10",
+            "feed",
+            "--gate-point",
+            "activation",
+            "--satisfaction",
+            "fact:merged",
+            "--rationale",
+            "upstream lands schema first",
+            "--evidence",
+            '{"shared_files":["runtime/api/db.py"]}',
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -65,12 +120,19 @@ class TestItemDependencyWriteDispatch:
     def test_dependency_update_dispatches_fact_merged(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "dependency", "update",
-            "YOK-20", "YOK-10",
-            "--match-gate-point", "activation",
-            "--gate-point", "integration",
-            "--satisfaction", "fact:merged",
-            "--rationale", "merge order still matters",
+            "items",
+            "dependency",
+            "update",
+            "YOK-20",
+            "YOK-10",
+            "--match-gate-point",
+            "activation",
+            "--gate-point",
+            "integration",
+            "--satisfaction",
+            "fact:merged",
+            "--rationale",
+            "merge order still matters",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -87,7 +149,11 @@ class TestItemDependencyWriteDispatch:
     def test_dependency_remove_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "items", "dependency", "remove", "YOK-20", "YOK-10",
+            "items",
+            "dependency",
+            "remove",
+            "YOK-20",
+            "YOK-10",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -97,7 +163,11 @@ class TestItemDependencyWriteDispatch:
 
     def test_dependency_add_help_lists_authoring_flags(self) -> None:
         rc, out, _err = _run_capture(
-            _stub_dispatch_ok, "items", "dependency", "add", "--help",
+            _stub_dispatch_ok,
+            "items",
+            "dependency",
+            "add",
+            "--help",
         )
         assert rc == 0
         assert "yoke items dependency add" in out
@@ -112,12 +182,18 @@ class TestShepherdVerdictWriteDispatch:
     def test_verdict_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "shepherd", "verdict",
-            "--item", "YOK-42",
-            "--transition", "planning_to_plan_drafted",
-            "--worker", "Worker F",
-            "--verdict", "BLOCKED",
-            "--caveats", "needs another pass",
+            "shepherd",
+            "verdict",
+            "--item",
+            "YOK-42",
+            "--transition",
+            "planning_to_plan_drafted",
+            "--worker",
+            "Worker F",
+            "--verdict",
+            "BLOCKED",
+            "--caveats",
+            "needs another pass",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -134,15 +210,24 @@ class TestShepherdVerdictWriteDispatch:
     def test_caveat_disposition_dispatches(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "shepherd", "caveat-disposition",
-            "--item", "YOK-42",
-            "--transition", "planning_to_plan_drafted",
-            "--attempt", "2",
-            "--caveat-num", "1",
-            "--caveat-text", "Needs QA waiver rationale",
-            "--disposition", "RESOLVED",
-            "--resolution-details", "Rationale recorded",
-            "--verdict-id", "99",
+            "shepherd",
+            "caveat-disposition",
+            "--item",
+            "YOK-42",
+            "--transition",
+            "planning_to_plan_drafted",
+            "--attempt",
+            "2",
+            "--caveat-num",
+            "1",
+            "--caveat-text",
+            "Needs QA waiver rationale",
+            "--disposition",
+            "RESOLVED",
+            "--resolution-details",
+            "Rationale recorded",
+            "--verdict-id",
+            "99",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -162,13 +247,20 @@ class TestShepherdVerdictWriteDispatch:
     def test_caveat_disposition_rejects_unknown_disposition(self) -> None:
         rc = _run_with_dispatch(
             _stub_dispatch_ok,
-            "shepherd", "caveat-disposition",
-            "--item", "YOK-42",
-            "--transition", "planning_to_plan_drafted",
-            "--attempt", "2",
-            "--caveat-num", "1",
-            "--caveat-text", "Needs QA waiver rationale",
-            "--disposition", "UNKNOWN",
+            "shepherd",
+            "caveat-disposition",
+            "--item",
+            "YOK-42",
+            "--transition",
+            "planning_to_plan_drafted",
+            "--attempt",
+            "2",
+            "--caveat-num",
+            "1",
+            "--caveat-text",
+            "Needs QA waiver rationale",
+            "--disposition",
+            "UNKNOWN",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
