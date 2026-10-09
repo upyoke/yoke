@@ -21,10 +21,15 @@ from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.qa_obligation_settlement import effective_requirement
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.epic_parsing import (
-    _parse_simulation_result,
     _placeholder,
     _require_task_exists,
 )
+from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.simulation_report_headers import (
+    SimulationReceipt,
+    parse_simulation_headers,
+)
+from yoke_core.domain.simulation_attempt_read import verify_simulation_attempt
 from yoke_core.domain.qa_workflow_binding_validation import (
     item_transition_for_gate,
 )
@@ -191,26 +196,12 @@ def simulation_upsert(
     body: str,
     *,
     scripts_dir: Optional[str] = None,
-) -> str:
-    """Upsert a simulation report.
-
-    Parses result (CLEAN/GAPS FOUND) from body text.
-    Writes to qa_requirements + qa_runs.
-    """
-    result = _parse_simulation_result(body)
-
-    # Map result to qa_runs verdict
-    verdict = "undetermined"
-    verdict_reason = (
-        "The simulation body did not state CLEAN or GAPS FOUND, so its "
-        "quality outcome could not be established."
-    )
-    if result == "CLEAN":
-        verdict = "pass"
-        verdict_reason = None
-    elif result == "GAPS FOUND":
-        verdict = "fail"
-        verdict_reason = None
+) -> SimulationReceipt:
+    """Retain and verify one simulation attempt after validating its public identity."""
+    public_ref = render_item_ref(conn, int(epic_id))
+    result = parse_simulation_headers(body, public_ref)
+    verdict = {"CLEAN": "pass", "GAPS FOUND": "fail"}[result]
+    verdict_reason = None
 
     raw_result = json.dumps({"body": body, "phase": phase}, separators=(",", ":"))
     success_policy = json.dumps(
@@ -258,7 +249,7 @@ def simulation_upsert(
             ) from exc
 
     try:
-        _qa_run_add(
+        run_id = _qa_run_add(
             requirement_id=int(req_id),
             performed_by="agent",
             qa_kind="simulation",
@@ -271,4 +262,6 @@ def simulation_upsert(
             f"Error creating run: qa run-add exited with {exc.code}"
         ) from exc
 
-    return f"Upserted simulation: {epic_id}/{phase}"
+    receipt = SimulationReceipt(public_ref, phase, int(req_id), int(run_id), result)
+    verify_simulation_attempt(conn, int(epic_id), receipt)
+    return receipt

@@ -171,7 +171,8 @@ def epic_task_simulation_upsert(args: List[str]) -> int:
         description=(
             "Persist a Simulator report for an epic phase as qa rows "
             "(epic-level: no --task-num; CLEAN / GAPS FOUND is parsed "
-            "from the body; re-upserting a phase replaces prior runs). "
+            "from canonical SIMULATION / EPIC headers; retains every actual attempt for the phase). "
+            "Returns public_ref, phase, message, requirement_id, run_id, verdict and verified=true after exact-run readback. "
             "Example: yoke workflow-item epic-task simulation-upsert "
             "--epic PREFIX-N --phase plan --body-file /tmp/sim-report.md"
         ),

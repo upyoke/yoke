@@ -26,6 +26,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from pydantic import BaseModel, Field
 
 from yoke_core.domain import epic
+from yoke_core.domain.simulation_report_headers import SimulationReportError
+from yoke_core.domain.simulation_attempt_read import SimulationReadbackError
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -36,9 +38,7 @@ from yoke_contracts.api.function_call import (
 _OWNER_MODULE = "yoke_core.domain.handlers.workflow_item_epic_task_state"
 
 
-# ---------------------------------------------------------------------------
 # Request / response models
-# ---------------------------------------------------------------------------
 
 
 class BodyGetRequest(BaseModel):
@@ -71,6 +71,11 @@ class SimulationUpsertResponse(BaseModel):
     epic_id: int
     phase: str
     message: str
+    public_ref: str
+    requirement_id: int
+    run_id: int
+    verdict: str
+    verified: bool
 
 
 class SubmissionReceiptGetRequest(BaseModel):
@@ -83,10 +88,8 @@ class SubmissionReceiptGetResponse(BaseModel):
     receipt: str
 
 
-# ---------------------------------------------------------------------------
 # Shared helpers (per-module by convention: tests patch
 # ``<module>._open_connection`` per handler module)
-# ---------------------------------------------------------------------------
 
 
 def _bad_request(message: str) -> HandlerOutcome:
@@ -118,9 +121,7 @@ def _task_target(request: FunctionCallRequest) -> Optional[Tuple[int, int]]:
     return int(target.epic_id), int(target.task_num)
 
 
-# ---------------------------------------------------------------------------
 # Handlers
-# ---------------------------------------------------------------------------
 
 
 def handle_body_get(request: FunctionCallRequest) -> HandlerOutcome:
@@ -186,11 +187,7 @@ def handle_update_status(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def handle_simulation_upsert(request: FunctionCallRequest) -> HandlerOutcome:
-    """Persist a simulation report via ``epic.simulation_upsert``.
-
-    Epic-level operation: the target carries ``epic_id`` only (any
-    ``task_num`` is ignored), matching the domain owner's shape.
-    """
+    """Persist and verify the simulation for the server-resolved item."""
     target = request.target
     if target.kind != "epic_task" or target.epic_id is None:
         return _bad_request("target must carry public_ref")
@@ -201,11 +198,21 @@ def handle_simulation_upsert(request: FunctionCallRequest) -> HandlerOutcome:
         return _bad_request(f"payload invalid: {exc}")
     with _open_connection() as conn:
         try:
-            message = epic.simulation_upsert(
+            receipt = epic.simulation_upsert(
                 conn,
                 str(epic_id),
                 payload.phase,
                 payload.body,
+            )
+        except (SimulationReportError, SimulationReadbackError) as exc:
+            return HandlerOutcome(
+                result_payload={
+                    k: getattr(exc, k)
+                    for k in ("requirement_id", "run_id")
+                    if hasattr(exc, k)
+                },
+                primary_success=False,
+                error=FunctionError(code=exc.code, message=str(exc)),
             )
         except RuntimeError as exc:
             return HandlerOutcome(
@@ -214,9 +221,7 @@ def handle_simulation_upsert(request: FunctionCallRequest) -> HandlerOutcome:
                 error=FunctionError(code="downstream_failure", message=str(exc)),
             )
     response = SimulationUpsertResponse(
-        epic_id=epic_id,
-        phase=payload.phase,
-        message=message,
+        epic_id=epic_id, **receipt.__dict__, message=receipt.message
     )
     return HandlerOutcome(result_payload=response.model_dump(), primary_success=True)
 
@@ -261,9 +266,7 @@ def handle_submission_receipt_get(request: FunctionCallRequest) -> HandlerOutcom
     return HandlerOutcome(result_payload=response.model_dump(), primary_success=True)
 
 
-# ---------------------------------------------------------------------------
 # Registration descriptors
-# ---------------------------------------------------------------------------
 
 
 def _kwargs(

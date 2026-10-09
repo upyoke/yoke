@@ -21,15 +21,11 @@ intercept calls:
 * ``epic_resolution`` — read helpers (``task_get``, ``task_list``, etc.).
 * ``epic_parsing`` — column lists, validation, and parse helpers.
 
-CLI usage::
-
-    python3 -m yoke_core.domain.epic <subcmd> [args...]
-
-All output uses pipe-delimited format matching the CLI contract.
-Exit codes: 0 success, 1 error/not-found, 2 usage error.
 """
 
 from __future__ import annotations
+
+from yoke_core.domain.simulation_report_headers import SimulationReceipt
 
 import contextlib
 import io
@@ -37,9 +33,7 @@ import select
 import sys
 from typing import List, Optional
 
-# ---------------------------------------------------------------------------
 # Re-exports from child modules (backward compatibility)
-# ---------------------------------------------------------------------------
 from yoke_core.domain.epic_parsing import (  # noqa: F401
     CHAIN_FIELD_WHITELIST,
     DISPATCH_CHAIN_COLUMNS,
@@ -128,9 +122,8 @@ def _qa_run_add_silent(**kwargs) -> int:
         return cmd_run_add(**kwargs)
 
 
-# ---------------------------------------------------------------------------
 # Mutations: files
-# ---------------------------------------------------------------------------
+
 
 def file_add(
     conn,
@@ -169,9 +162,8 @@ def file_add(
     return f"Added file {file_path} (action: {action}) to {epic_id}/{task_num}"
 
 
-# ---------------------------------------------------------------------------
 # Mutations: history / events
-# ---------------------------------------------------------------------------
+
 
 def history_insert(
     conn,
@@ -188,8 +180,11 @@ def history_insert(
     if note:
         ctx["note"] = note
 
-    del scripts_dir  # unused -- kept for API-compat; Python emitter resolves DB internally
+    del (
+        scripts_dir
+    )  # unused -- kept for API-compat; Python emitter resolves DB internally
     from yoke_core.domain.item_status_transitions import record_task_transition
+
     record_task_transition(
         conn,
         epic_id=epic_id,
@@ -201,6 +196,7 @@ def history_insert(
     conn.commit()
     try:
         from yoke_core.domain.events import emit_event as _native_emit
+
         _native_emit(
             "TaskStatusChanged",
             event_kind="lifecycle",
@@ -218,38 +214,61 @@ def history_insert(
     return f"Inserted history: {epic_id}/{task_num} {from_status} -> {to_status}"
 
 
-# ---------------------------------------------------------------------------
 # Review / progress-notes / simulation / proceed-triage
 # (implementations live in epic_review.py — lazy wrappers keep epic.* patch targets)
-# ---------------------------------------------------------------------------
 
-def _ensure_implementation_review_requirement(conn, epic_id: str, task_num: int, *, scripts_dir: Optional[str] = None) -> int:
-    from yoke_core.domain.epic_review import _ensure_implementation_review_requirement as _impl
+
+def _ensure_implementation_review_requirement(
+    conn, epic_id: str, task_num: int, *, scripts_dir: Optional[str] = None
+) -> int:
+    from yoke_core.domain.epic_review import (
+        _ensure_implementation_review_requirement as _impl,
+    )
+
     return _impl(conn, epic_id, task_num, scripts_dir=scripts_dir)
 
 
-def review_seed(conn, epic_id: str, task_num: int, *, scripts_dir: Optional[str] = None) -> str:
+def review_seed(
+    conn, epic_id: str, task_num: int, *, scripts_dir: Optional[str] = None
+) -> str:
     from yoke_core.domain.epic_review import review_seed as _impl
+
     return _impl(conn, epic_id, task_num, scripts_dir=scripts_dir)
 
 
-def review_insert(conn, epic_id: str, task_num: int, verdict: str, body: str, *, scripts_dir: Optional[str] = None) -> str:
+def review_insert(
+    conn,
+    epic_id: str,
+    task_num: int,
+    verdict: str,
+    body: str,
+    *,
+    scripts_dir: Optional[str] = None,
+) -> str:
     from yoke_core.domain.epic_review import review_insert as _impl
+
     return _impl(conn, epic_id, task_num, verdict, body, scripts_dir=scripts_dir)
 
 
-def progress_note_insert(conn, epic_id: str, task_num: int, note_num: int, body: str, commit_hash: str = "") -> str:
+def progress_note_insert(
+    conn, epic_id: str, task_num: int, note_num: int, body: str, commit_hash: str = ""
+) -> str:
     from yoke_core.domain.epic_review import progress_note_insert as _impl
+
     return _impl(conn, epic_id, task_num, note_num, body, commit_hash)
 
 
 def progress_note_mark_synced(conn, epic_id: str, task_num: int, note_num: int) -> str:
     from yoke_core.domain.epic_review import progress_note_mark_synced as _impl
+
     return _impl(conn, epic_id, task_num, note_num)
 
 
-def simulation_upsert(conn, epic_id: str, phase: str, body: str, *, scripts_dir: Optional[str] = None) -> str:
+def simulation_upsert(
+    conn, epic_id: str, phase: str, body: str, *, scripts_dir: Optional[str] = None
+) -> SimulationReceipt:
     from yoke_core.domain.epic_review import simulation_upsert as _impl
+
     return _impl(conn, epic_id, phase, body, scripts_dir=scripts_dir)
 
 
@@ -262,6 +281,7 @@ def proceed_triage_and_handoff(
     session_id: Optional[str] = None,
 ) -> int:
     from yoke_core.domain.epic_review import proceed_triage_and_handoff as _impl
+
     return _impl(
         epic_id,
         recommendation=recommendation,
@@ -271,9 +291,8 @@ def proceed_triage_and_handoff(
     )
 
 
-# ---------------------------------------------------------------------------
 # Migration
-# ---------------------------------------------------------------------------
+
 
 def _epic_task_files_has_unique(conn) -> bool:
     """Whether UNIQUE(epic_id, task_num, file_path) exists."""
@@ -315,14 +334,13 @@ def migrate_task_files(conn) -> str:
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
 # CLI entry point (implementation lives in epic_cli.py)
-# ---------------------------------------------------------------------------
 
 
 def main(argv=None):
     """CLI entry point — delegates to epic_cli to avoid circular imports."""
     from yoke_core.domain.epic_cli import main as _cli_main
+
     return _cli_main(argv)
 
 

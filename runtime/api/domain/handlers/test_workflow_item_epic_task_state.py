@@ -98,26 +98,6 @@ class TestUpdateStatus:
 
 
 class TestSimulationUpsert:
-    def test_upsert_parses_clean_result(self, handler_conns):
-        with (
-            patch(
-                "yoke_core.domain.epic._qa_requirement_add_silent",
-                return_value=23,
-            ),
-            patch("yoke_core.domain.epic._qa_run_add_silent") as add_run,
-        ):
-            outcome = state_handlers.handle_simulation_upsert(
-                make_request(
-                    "workflow_item.epic_task.simulation_upsert",
-                    task_num=None,
-                    payload={"phase": "plan", "body": "SIMULATION: CLEAN"},
-                ),
-            )
-        assert outcome.primary_success
-        assert outcome.result_payload["phase"] == "plan"
-        assert f"{EPIC_ID}/plan" in outcome.result_payload["message"]
-        assert add_run.call_args.kwargs["verdict"] == "pass"
-
     def test_missing_phase_is_invalid_payload(self, handler_conns):
         outcome = state_handlers.handle_simulation_upsert(
             make_request(

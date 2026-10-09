@@ -13,6 +13,7 @@ from runtime.api.fixtures.file_test_db import (
     init_test_db,
 )
 from yoke_core.domain import epic
+from yoke_core.domain.project_identity import render_item_ref
 
 
 @pytest.fixture
@@ -38,11 +39,21 @@ def test_integration_simulation_binds_to_the_qa_gate(db) -> None:
             "yoke_core.domain.epic._qa_requirement_add_silent",
             return_value=24,
         ) as add_req,
-        patch("yoke_core.domain.epic._qa_run_add_silent"),
+        patch("yoke_core.domain.epic._qa_run_add_silent", return_value=5),
+        patch("yoke_core.domain.epic_review_qa.verify_simulation_attempt"),
     ):
-        epic.simulation_upsert(db, "42", "integration", "SIMULATION: CLEAN")
+        epic.simulation_upsert(
+            db,
+            "42",
+            "integration",
+            f"SIMULATION: CLEAN\nEPIC: {render_item_ref(db, 42)}",
+        )
 
     assert (
-        add_req.call_args.kwargs["workflow_transition_id"]
+        add_req.call_args.kwargs["workflow_transition_id"] == "reviewed-implementation"
+    )
+
+    assert (
+        db.execute("SELECT status FROM items WHERE id = 42").fetchone()[0]
         == "reviewed-implementation"
     )

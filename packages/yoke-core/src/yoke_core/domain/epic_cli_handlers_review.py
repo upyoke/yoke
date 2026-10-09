@@ -65,8 +65,14 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
 
     if subcmd == "review-insert":
         if not epic_id or len(rest) < 2:
-            _cli_usage_error("Usage: review-insert <epic-id> <task_num> <verdict> [--body-file <path>]")
-        body = _load_body_arg(rest[2:], _epic, "review-insert <epic-id> <task_num> <verdict> [--body-file <path>]")
+            _cli_usage_error(
+                "Usage: review-insert <epic-id> <task_num> <verdict> [--body-file <path>]"
+            )
+        body = _load_body_arg(
+            rest[2:],
+            _epic,
+            "review-insert <epic-id> <task_num> <verdict> [--body-file <path>]",
+        )
         try:
             print(_epic.review_insert(conn, epic_id, int(rest[0]), rest[1], body))
         except RuntimeError as exc:
@@ -81,13 +87,17 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
 
     if subcmd == "progress-note-insert":
         if not epic_id or len(rest) < 2:
-            _cli_usage_error("Usage: progress-note-insert <epic-id> <task_num> <note_num> [--body-file <path>]")
+            _cli_usage_error(
+                "Usage: progress-note-insert <epic-id> <task_num> <note_num> [--body-file <path>]"
+            )
         task_num_val = int(rest[0])
         note_num_val = int(rest[1])
         body_rest = rest[2:]
         if body_rest and body_rest[0] == "--body-file":
             if len(body_rest) < 2 or not body_rest[1]:
-                _cli_usage_error("Usage: progress-note-insert <epic-id> <task_num> <note_num> [--body-file <path>]")
+                _cli_usage_error(
+                    "Usage: progress-note-insert <epic-id> <task_num> <note_num> [--body-file <path>]"
+                )
             with open(body_rest[1], "r") as f:
                 body = f.read()
         else:
@@ -96,13 +106,19 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
         try:
             proc = subprocess.run(
                 ["git", "rev-parse", "--short", "HEAD"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if proc.returncode == 0:
                 commit_hash = proc.stdout.strip()
         except (subprocess.TimeoutExpired, FileNotFoundError):
             pass
-        print(_epic.progress_note_insert(conn, epic_id, task_num_val, note_num_val, body, commit_hash))
+        print(
+            _epic.progress_note_insert(
+                conn, epic_id, task_num_val, note_num_val, body, commit_hash
+            )
+        )
         return True
 
     if subcmd == "progress-note-list-unsynced":
@@ -159,7 +175,10 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
         if task_num_val is None:
             _cli_usage_error(usage)
         result = _epic.progress_note_list(
-            conn, epic_id, task_num_val, limit_val,
+            conn,
+            epic_id,
+            task_num_val,
+            limit_val,
         )
         if result:
             print(result)
@@ -167,13 +186,19 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
 
     if subcmd == "progress-note-mark-synced":
         if not epic_id or len(rest) < 2:
-            _cli_usage_error("Usage: progress-note-mark-synced <epic-id> <task_num> <note_num>")
-        print(_epic.progress_note_mark_synced(conn, epic_id, int(rest[0]), int(rest[1])))
+            _cli_usage_error(
+                "Usage: progress-note-mark-synced <epic-id> <task_num> <note_num>"
+            )
+        print(
+            _epic.progress_note_mark_synced(conn, epic_id, int(rest[0]), int(rest[1]))
+        )
         return True
 
     if subcmd == "submission-receipt-get":
         if not epic_id or len(rest) < 1:
-            _cli_usage_error("Usage: submission-receipt-get <epic-id> <task_num> [--after-note-count N]")
+            _cli_usage_error(
+                "Usage: submission-receipt-get <epic-id> <task_num> [--after-note-count N]"
+            )
         task_num_val = int(rest[0])
         after_note_count = 0
         receipt_rest = rest[1:]
@@ -181,20 +206,26 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
             if len(receipt_rest) == 2 and receipt_rest[0] == "--after-note-count":
                 after_note_count = int(receipt_rest[1])
             else:
-                _cli_usage_error("Usage: submission-receipt-get <epic-id> <task_num> [--after-note-count N]")
-        print(_epic.submission_receipt_get(
-            conn,
-            epic_id,
-            task_num_val,
-            after_note_count=after_note_count,
-        ))
+                _cli_usage_error(
+                    "Usage: submission-receipt-get <epic-id> <task_num> [--after-note-count N]"
+                )
+        print(
+            _epic.submission_receipt_get(
+                conn,
+                epic_id,
+                task_num_val,
+                after_note_count=after_note_count,
+            )
+        )
         return True
 
     if subcmd == "simulation-upsert":
         if not epic_id or len(rest) < 1:
-            _cli_usage_error("Usage: simulation-upsert <epic-id> <phase> (reads body from stdin)")
+            _cli_usage_error(
+                "Usage: simulation-upsert <epic-id> <phase> (reads body from stdin)"
+            )
         body = _epic._read_stdin_safe()
-        print(_epic.simulation_upsert(conn, epic_id, rest[0], body))
+        print(_epic.simulation_upsert(conn, epic_id, rest[0], body).message)
         return True
 
     if subcmd == "simulation-get":
@@ -225,9 +256,7 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
                 _pth_i += 2
             elif rest[_pth_i] == "--filed-items" and _pth_i + 1 < len(rest):
                 _pth_filed_items = [
-                    item.strip()
-                    for item in rest[_pth_i + 1].split(",")
-                    if item.strip()
+                    item.strip() for item in rest[_pth_i + 1].split(",") if item.strip()
                 ]
                 _pth_i += 2
             elif rest[_pth_i] == "--session-id" and _pth_i + 1 < len(rest):
@@ -247,7 +276,9 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
 
     if subcmd == "cascade-task-status":
         if not epic_id or len(rest) < 2:
-            _cli_usage_error("Usage: cascade-task-status <epic-id> <from-parent-status> <to-parent-status>")
+            _cli_usage_error(
+                "Usage: cascade-task-status <epic-id> <from-parent-status> <to-parent-status>"
+            )
         print(_epic.cascade_task_status(conn, epic_id, rest[0], rest[1]))
         return True
 
