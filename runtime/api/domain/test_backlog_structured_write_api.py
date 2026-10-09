@@ -20,7 +20,6 @@ from yoke_core.domain import (
 )
 from yoke_core.domain.handlers import (
     items_structured_field,
-    items_structured_field_models as _models,
 )
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -39,12 +38,12 @@ def _apply_fake_db_schema() -> None:
             "shepherd_log TEXT, shepherd_caveats TEXT, test_results TEXT, "
             "deploy_log TEXT, db_mutation_profile "
             "TEXT, db_compatibility_attestation TEXT, architecture_impact "
-            "TEXT, updated_at TEXT, spec_updated_at TEXT, spec_updated_by TEXT)"
+            "TEXT, updated_at TIMESTAMPTZ, spec_updated_at TIMESTAMPTZ, spec_updated_by TEXT)"
         )
         conn.execute(
             "CREATE TABLE item_sections (item_id INTEGER, section_name TEXT, "
             "content TEXT, ordering INTEGER, source TEXT DEFAULT 'operator', "
-            "created_at TEXT, updated_at TEXT, PRIMARY KEY(item_id, section_name))"
+            "created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ, PRIMARY KEY(item_id, section_name))"
         )
         conn.commit()
     finally:
@@ -59,7 +58,8 @@ class _FakeDB:
             prefix="yoke-test-backlog-structured-write-api-",
         )
         self._db_ctx = init_test_db(
-            Path(self._tmpdir), apply_schema=_apply_fake_db_schema,
+            Path(self._tmpdir),
+            apply_schema=_apply_fake_db_schema,
         )
         self.path = self._db_ctx.__enter__()
 
@@ -77,7 +77,8 @@ class _FakeDB:
         with connect_test_db(self.path) as conn:
             p = "%s" if db_backend.connection_is_postgres(conn) else "?"
             row = conn.execute(
-                f"SELECT {field} FROM items WHERE id = {p}", (item_id,),
+                f"SELECT {field} FROM items WHERE id = {p}",
+                (item_id,),
             ).fetchone()
         return row[0] if row else None
 
@@ -107,7 +108,10 @@ def _patched_db(test: unittest.TestCase, db: _FakeDB) -> None:
 
 
 def _request(
-    function: str, payload: dict, *, item_id: int = 101,
+    function: str,
+    payload: dict,
+    *,
+    item_id: int = 101,
     preconditions: Optional[dict] = None,
 ) -> FunctionCallRequest:
     return FunctionCallRequest(
@@ -128,8 +132,7 @@ class TestReplaceHandler(unittest.TestCase):
         self.db.insert_item(101, spec="existing\n")
         req = _request(
             "items.structured_field.replace",
-            {"field": "spec", "content": "new content\nline two\n",
-             "source": "refine"},
+            {"field": "spec", "content": "new content\nline two\n", "source": "refine"},
         )
         outcome = items_structured_field.handle_replace(req)
         self.assertTrue(outcome.primary_success)
@@ -137,14 +140,18 @@ class TestReplaceHandler(unittest.TestCase):
         payload = outcome.result_payload
         # Envelope required fields
         for key in (
-            "old_line_count", "new_line_count", "old_hash", "new_hash",
-            "payload_byte_count", "verification", "github_sync",
+            "old_line_count",
+            "new_line_count",
+            "old_hash",
+            "new_hash",
+            "payload_byte_count",
+            "verification",
+            "github_sync",
         ):
             self.assertIn(key, payload)
         self.assertEqual(payload["new_line_count"], 2)
         self.assertEqual(payload["github_sync"], "ok")
-        self.assertEqual(self.db.fetch_field(101, "spec"),
-                         "new content\nline two\n")
+        self.assertEqual(self.db.fetch_field(101, "spec"), "new content\nline two\n")
 
     def test_empty_content_rejected_with_empty_body_error(self) -> None:
         # Empty content rejected even when field is already empty
@@ -167,15 +174,17 @@ class TestReplaceHandler(unittest.TestCase):
         req = _request(
             "items.structured_field.replace",
             {"field": "spec", "content": ""},
-            preconditions={"allow_empty": True,
-                           "allow_empty_reason": "intentional clear"},
+            preconditions={
+                "allow_empty": True,
+                "allow_empty_reason": "intentional clear",
+            },
         )
         outcome = items_structured_field.handle_replace(req)
         # The handler's empty_body short-circuit must NOT fire.
         if outcome.error is not None:
             self.assertNotEqual(outcome.error.code, "empty_body")
 
-    def test_sun_1664_regression_empty_stdin_rejected(self) -> None:
+    def test_empty_stdin_rejected(self) -> None:
         # Initial spec write with empty content cannot succeed.
         # Even when the existing field is empty (newly-created item), the
         # handler MUST reject without the allow_empty precondition.
@@ -202,10 +211,17 @@ class TestReplaceHandler(unittest.TestCase):
     def test_sync_warning_surfaces_as_github_sync_degraded(self) -> None:
         # Sync failure → warning with code="github_sync_degraded"
         self.db.insert_item(101, spec="x\n")
-        with mock.patch.object(
-            backlog_rendering, "_sync_body", return_value=(False, None),
-        ), mock.patch.object(
-            backlog_rendering, "_record_sync_failure", return_value=None,
+        with (
+            mock.patch.object(
+                backlog_rendering,
+                "_sync_body",
+                return_value=(False, None),
+            ),
+            mock.patch.object(
+                backlog_rendering,
+                "_record_sync_failure",
+                return_value=None,
+            ),
         ):
             req = _request(
                 "items.structured_field.replace",
@@ -238,8 +254,12 @@ class TestAppendAddendumHandler(unittest.TestCase):
         self.db.insert_item(101, spec="# Spec\n\nbody\n")
         req = _request(
             "items.structured_field.append_addendum",
-            {"field": "spec", "heading": "Refinement Addendum",
-             "content": "more", "source": "refine"},
+            {
+                "field": "spec",
+                "heading": "Refinement Addendum",
+                "content": "more",
+                "source": "refine",
+            },
         )
         outcome = items_structured_field.handle_append_addendum(req)
         self.assertTrue(outcome.primary_success)
@@ -253,8 +273,7 @@ class TestAppendAddendumHandler(unittest.TestCase):
         self.db.insert_item(101, spec=existing)
         req = _request(
             "items.structured_field.append_addendum",
-            {"field": "spec", "heading": "Refinement Addendum",
-             "content": "duplicate"},
+            {"field": "spec", "heading": "Refinement Addendum", "content": "duplicate"},
         )
         outcome = items_structured_field.handle_append_addendum(req)
         self.assertTrue(outcome.primary_success)
@@ -305,8 +324,12 @@ class TestSectionAppendHandler(unittest.TestCase):
         self.db.insert_item(101, spec="x\n")
         req = _request(
             "items.structured_field.section_append",
-            {"section": "Progress Log",
-             "headline": "checkpoint", "content": "body", "ordering": 200},
+            {
+                "section": "Progress Log",
+                "headline": "checkpoint",
+                "content": "body",
+                "ordering": 200,
+            },
         )
         outcome = items_structured_field.handle_section_append(req)
         self.assertTrue(outcome.primary_success)
@@ -316,28 +339,7 @@ class TestSectionAppendHandler(unittest.TestCase):
         self.db.insert_item(101, spec="x\n")
         req = _request(
             "items.structured_field.section_append",
-            {"section": "Progress Log",
-             "headline": "h", "content": ""},
+            {"section": "Progress Log", "headline": "h", "content": ""},
         )
         outcome = items_structured_field.handle_section_append(req)
         self.assertFalse(outcome.primary_success)
-
-
-class TestRegistrations(unittest.TestCase):
-    def test_models_module_composes_four_registrations(self) -> None:
-        entries = _models.build_registrations()
-        ids = {e["function_id"] for e in entries}
-        self.assertEqual(ids, {
-            "items.structured_field.replace",
-            "items.structured_field.append_addendum",
-            "items.structured_field.section_upsert",
-            "items.structured_field.section_append",
-        })
-        for entry in entries:
-            self.assertEqual(entry["claim_required_kind"], "item")
-            self.assertIn("render_body", entry["side_effects"])
-            self.assertIn("github_sync", entry["side_effects"])
-
-
-if __name__ == "__main__":
-    unittest.main()

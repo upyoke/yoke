@@ -12,18 +12,18 @@ from yoke_core.domain import environment_reference
 def _seed(conn) -> None:
     conn.execute(
         "CREATE TABLE IF NOT EXISTS projects ("
-        "id BIGINT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, created_at TEXT)"
+        "id BIGINT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, created_at TIMESTAMPTZ)"
     )
     conn.execute(
         "CREATE TABLE IF NOT EXISTS sites ("
         "id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES projects(id), "
-        "name TEXT NOT NULL, created_at TEXT, UNIQUE(id, project_id), "
+        "name TEXT NOT NULL, created_at TIMESTAMPTZ, UNIQUE(id, project_id), "
         "UNIQUE(project_id, name))"
     )
     conn.execute(
         "CREATE TABLE IF NOT EXISTS environments ("
         "id INTEGER PRIMARY KEY, site INTEGER NOT NULL, project_id INTEGER NOT NULL, "
-        "name TEXT NOT NULL, created_at TEXT, UNIQUE(project_id, name), "
+        "name TEXT NOT NULL, created_at TIMESTAMPTZ, UNIQUE(project_id, name), "
         "FOREIGN KEY(site, project_id) REFERENCES sites(id, project_id))"
     )
     conn.execute("INSERT INTO projects (id, slug) VALUES (41, 'yoke')")
@@ -63,7 +63,9 @@ def test_name_resolves_within_its_own_project(tmp_path: Path) -> None:
         conn = db_backend.connect()
         try:
             yoke_prod = environment_reference.resolve(conn, project_id=41, name="prod")
-            platform_prod = environment_reference.resolve(conn, project_id=43, name="prod")
+            platform_prod = environment_reference.resolve(
+                conn, project_id=43, name="prod"
+            )
         finally:
             conn.close()
 
@@ -80,7 +82,9 @@ def test_an_unregistered_name_refuses_and_names_what_is_registered(
     with context:
         conn = db_backend.connect()
         try:
-            with pytest.raises(environment_reference.EnvironmentReferenceError) as caught:
+            with pytest.raises(
+                environment_reference.EnvironmentReferenceError
+            ) as caught:
                 environment_reference.resolve(conn, project_id=41, name="customer-west")
             message = str(caught.value)
             registered = environment_reference.registered_names(conn, project_id=41)

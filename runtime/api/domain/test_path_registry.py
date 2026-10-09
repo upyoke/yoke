@@ -37,6 +37,7 @@ NOW = "2026-04-29T00:00:00Z"
 
 def _p(conn) -> str:
     from yoke_core.domain import db_backend
+
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
@@ -53,7 +54,7 @@ def _apply_path_registry_schema() -> None:
             "name TEXT NOT NULL, "
             "default_branch TEXT NOT NULL DEFAULT 'main', github_repo TEXT, "
             "public_item_prefix TEXT NOT NULL DEFAULT 'YOK', "
-            "created_at TEXT NOT NULL)"
+            "created_at TIMESTAMPTZ NOT NULL)"
         )
         conn.execute(
             "INSERT INTO projects (id, slug, name, created_at) "
@@ -115,9 +116,7 @@ class TestPathUtilities:
 
 class TestTargetIdentity:
     def test_initial_mint_returns_generation_one(self, fresh_db):
-        tid = _resolve_path_target_id(
-            fresh_db, 4, "a/b.py", KIND_FILE, None, NOW
-        )
+        tid = _resolve_path_target_id(fresh_db, 4, "a/b.py", KIND_FILE, None, NOW)
         row = fresh_db.execute(
             f"SELECT generation FROM path_targets WHERE id = {_p(fresh_db)}",
             (tid,),
@@ -125,12 +124,8 @@ class TestTargetIdentity:
         assert row[0] == 1
 
     def test_idempotent_resolution_reuses_id(self, fresh_db):
-        a = _resolve_path_target_id(
-            fresh_db, 4, "x.py", KIND_FILE, None, NOW
-        )
-        b = _resolve_path_target_id(
-            fresh_db, 4, "x.py", KIND_FILE, None, NOW
-        )
+        a = _resolve_path_target_id(fresh_db, 4, "x.py", KIND_FILE, None, NOW)
+        b = _resolve_path_target_id(fresh_db, 4, "x.py", KIND_FILE, None, NOW)
         assert a == b
 
     def test_target_at_returns_latest_generation(self, fresh_db):
@@ -155,9 +150,7 @@ class TestTargetIdentity:
         assert target_at(fresh_db, 4, "x.py") == latest
         assert target_at(fresh_db, 4, "missing") is None
 
-    def test_disappearance_then_reappearance_bumps_generation(
-        self, fresh_db
-    ):
+    def test_disappearance_then_reappearance_bumps_generation(self, fresh_db):
         # First scan: mint generation 1.
         first_target_id = _resolve_path_target_id(
             fresh_db, 4, "x.py", KIND_FILE, None, NOW
@@ -193,9 +186,7 @@ class TestTargetIdentity:
         assert row[0] == 2
 
     def test_kind_change_bumps_generation(self, fresh_db):
-        first = _resolve_path_target_id(
-            fresh_db, 4, "asset", KIND_FILE, None, NOW
-        )
+        first = _resolve_path_target_id(fresh_db, 4, "asset", KIND_FILE, None, NOW)
         second = _resolve_path_target_id(
             fresh_db, 4, "asset", KIND_DIRECTORY, None, NOW
         )
@@ -226,9 +217,7 @@ class TestAncestorsDescendants:
         ]:
             parent = _parent_path_string(path)
             parent_id = ids[parent] if parent is not None else None
-            ids[path] = _resolve_path_target_id(
-                conn, 4, path, kind, parent_id, NOW
-            )
+            ids[path] = _resolve_path_target_id(conn, 4, path, kind, parent_id, NOW)
         return ids
 
     def test_root_has_no_parent(self, fresh_db):
@@ -304,6 +293,5 @@ class TestStaticAudits:
                     f"DELETE FROM {table}",
                 ):
                     assert stmt not in text, (
-                        f"forbidden executable statement {stmt!r} in "
-                        f"{module.__file__}"
+                        f"forbidden executable statement {stmt!r} in {module.__file__}"
                     )

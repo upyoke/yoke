@@ -26,7 +26,8 @@ from yoke_core.domain.projects_trunk import (
 def _empty_db_conn() -> Any:
     name = pg_testdb.create_test_database()
     return pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name,
+        pg_testdb.connect_test_database(name),
+        name,
     )
 
 
@@ -46,7 +47,7 @@ def conn_with_derived(conn) -> Iterator[Any]:
     conn.execute(
         "CREATE TABLE project_derived_facts (project_id INTEGER, "
         "fact_key TEXT, present INTEGER, fact_value TEXT, "
-        "observed_at TEXT, observed_from TEXT)"
+        "observed_at TIMESTAMPTZ, observed_from TEXT)"
     )
     yield conn
 
@@ -102,7 +103,7 @@ def test_derived_branch_satisfies_the_lower_rung(conn_with_derived):
     conn_with_derived.execute(
         "INSERT INTO project_derived_facts "
         "(project_id, fact_key, present, fact_value, observed_at, observed_from) "
-        "VALUES (100, 'default_branch', 1, 'trunk', 'now', 'binding')"
+        "VALUES (100, 'default_branch', 1, 'trunk', '2026-07-01T12:34:56.123456Z', 'binding')"
     )
     assert resolve_trunk(conn_with_derived, 100) == "trunk"
 
@@ -115,7 +116,7 @@ def test_declared_branch_outranks_derived(conn_with_derived):
     conn_with_derived.execute(
         "INSERT INTO project_derived_facts "
         "(project_id, fact_key, present, fact_value, observed_at, observed_from) "
-        "VALUES (100, 'default_branch', 1, 'derived', 'now', 'binding')"
+        "VALUES (100, 'default_branch', 1, 'derived', '2026-07-01T12:34:56.123456Z', 'binding')"
     )
     assert resolve_trunk(conn_with_derived, 100) == "declared"
 

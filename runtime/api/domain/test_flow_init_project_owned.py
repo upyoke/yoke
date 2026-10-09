@@ -19,7 +19,7 @@ def test_schema_init_does_not_seed_project_delivery_topology(
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS projects ("
                 "id BIGINT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, "
-                "created_at TEXT)"
+                "created_at TIMESTAMPTZ)"
             )
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS items (id BIGINT PRIMARY KEY, status TEXT)"

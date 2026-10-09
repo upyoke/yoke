@@ -53,7 +53,7 @@ def _apply_path_context_schema() -> None:
             "name TEXT NOT NULL, "
             "default_branch TEXT NOT NULL DEFAULT 'main', "
             "github_repo TEXT, public_item_prefix TEXT NOT NULL DEFAULT 'YOK', "
-            "created_at TEXT NOT NULL)"
+            "created_at TIMESTAMPTZ NOT NULL)"
         )
         create_core_tables(conn)
         create_governed_tables(conn)

@@ -37,8 +37,8 @@ CREATE TABLE IF NOT EXISTS project_capabilities (
     type TEXT NOT NULL,
 
     settings TEXT DEFAULT '{}',
-    verified_at TEXT,
-    created_at TEXT NOT NULL,
+    verified_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL,
     UNIQUE(project_id, type)
 );
 
@@ -92,7 +92,9 @@ class TestProseVsClaimReviewedNegativeClaim:
         conn, db_path = helper_db
         item_id = 70
         insert_item(
-            conn, id=item_id, status="refining-idea",
+            conn,
+            id=item_id,
+            status="refining-idea",
             spec=(
                 "This work item changes the prose-vs-claim gate so "
                 "meta work items can discuss ALTER TABLE, ADD COLUMN, "
@@ -105,10 +107,7 @@ class TestProseVsClaimReviewedNegativeClaim:
         )
         conn.commit()
 
-        assert (
-            _run_prose_vs_claim_check(item_id=item_id, db_path=db_path)
-            is None
-        )
+        assert _run_prose_vs_claim_check(item_id=item_id, db_path=db_path) is None
         assert (
             _run_db_mutation_gate(
                 item_id=item_id,
@@ -118,13 +117,13 @@ class TestProseVsClaimReviewedNegativeClaim:
             is None
         )
 
-    def test_raw_prose_without_attestation_still_blocks(
-        self, helper_db
-    ) -> None:
+    def test_raw_prose_without_attestation_still_blocks(self, helper_db) -> None:
         conn, db_path = helper_db
         item_id = 71
         insert_item(
-            conn, id=item_id, status="refining-idea",
+            conn,
+            id=item_id,
+            status="refining-idea",
             spec=(
                 "The implementation will ALTER TABLE items and "
                 "ADD COLUMN due_date on the authoritative DB."
@@ -134,7 +133,8 @@ class TestProseVsClaimReviewedNegativeClaim:
         conn.commit()
 
         outcome = _run_prose_vs_claim_check(
-            item_id=item_id, db_path=db_path,
+            item_id=item_id,
+            db_path=db_path,
         )
         assert outcome is not None
         assert outcome["error_code"] == "GATE_DB_CLAIM_PROSE_MISMATCH"
@@ -148,7 +148,9 @@ class TestProseVsClaimReviewedNegativeClaim:
         conn, db_path = helper_db
         item_id = 72
         insert_item(
-            conn, id=item_id, status="refining-idea",
+            conn,
+            id=item_id,
+            status="refining-idea",
             spec="Performs ALTER TABLE items during apply.",
             db_mutation_profile=_profile(
                 reviewed_negative=False,
@@ -157,7 +159,8 @@ class TestProseVsClaimReviewedNegativeClaim:
         )
         conn.commit()
         outcome = _run_prose_vs_claim_check(
-            item_id=item_id, db_path=db_path,
+            item_id=item_id,
+            db_path=db_path,
         )
         assert outcome is not None
         assert outcome["error_code"] == "GATE_DB_CLAIM_PROSE_MISMATCH"
@@ -170,7 +173,9 @@ class TestProseVsClaimReviewedNegativeClaim:
         conn, db_path = helper_db
         item_id = 73
         insert_item(
-            conn, id=item_id, status="refining-idea",
+            conn,
+            id=item_id,
+            status="refining-idea",
             spec="Performs ALTER TABLE items during apply.",
             db_mutation_profile=json.dumps(
                 {
@@ -182,7 +187,4 @@ class TestProseVsClaimReviewedNegativeClaim:
             ),
         )
         conn.commit()
-        assert (
-            _run_prose_vs_claim_check(item_id=item_id, db_path=db_path)
-            is None
-        )
+        assert _run_prose_vs_claim_check(item_id=item_id, db_path=db_path) is None
