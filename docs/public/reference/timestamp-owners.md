@@ -307,3 +307,9 @@ microseconds through actual event insertion/retention callers. Severity fixture
 SQL adapts only its declared clock. The event insert owner strictly validates
 supplied and generated instants before severity/storage lookup; canonical event
 envelope clocks remain an owned JSON boundary.
+
+Stale/reclaim fixture clocks and carry/review seed clocks stay native through
+SQL and preserve microseconds. Minimal session, actor, organization and event
+schemas declare native instants while retaining nullable states. Runnable item
+seeds reuse the existing backlog fixture owner with qualified deterministic
+inputs; the stale fixture's absent project sequence stays absent.

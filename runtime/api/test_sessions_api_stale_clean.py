@@ -7,7 +7,7 @@ import pytest
 
 from runtime.api.sessions_api_stale_test_helpers import (
     _ago_minutes,
-    _now_literal,
+    _now_instant,
     conn,  # noqa: F401  (backend-aware pytest fixture)
 )
 from runtime.api.test_sessions import _insert_claimable_items, _register
@@ -259,7 +259,7 @@ class TestCleanStaleHarnessSessions:
                 conn.execute(
                     "UPDATE harness_sessions SET last_heartbeat = %s "
                     "WHERE session_id = %s",
-                    (_now_literal(), sid),
+                    (_now_instant(), sid),
                 )
                 conn.commit()
             return real_classify(conn, sid, **kwargs)

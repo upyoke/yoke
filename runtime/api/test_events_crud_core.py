@@ -197,12 +197,12 @@ class TestPrune:
             "VALUES ('old-debug', 'agent', 's1', 'DEBUG', 'k', 't', 'N', %s)",
             (_instant_offset_days(-8),),
         )
-        # Insert recent DEBUG event (1 day ago)
+        # Insert recent DEBUG event inside its one-day retention window
         conn.execute(
             "INSERT INTO events (event_id, source_type, session_id, severity, "
             "event_kind, event_type, event_name, created_at) "
             "VALUES ('new-debug', 'agent', 's1', 'DEBUG', 'k', 't', 'N', %s)",
-            (_instant_offset_days(-1),),
+            (_instant_offset_days(0),),
         )
         # Insert old ERROR event (never pruned)
         conn.execute(

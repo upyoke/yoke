@@ -39,7 +39,7 @@ from runtime.api.test_dependency_schema import (
     PROJECTS_SCHEMA,
 )
 from yoke_core.domain import db_backend
-from runtime.api.fixtures.backlog import seed_fixture_operating_actor
+from runtime.api.fixtures.backlog import insert_item, seed_fixture_operating_actor
 from runtime.api.fixtures.operating_actor import seed_fixture_universe_identity
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
@@ -116,16 +116,16 @@ def _create_schema(conn) -> None:
             kind TEXT NOT NULL CHECK(kind IN ('human','system')),
             system_component TEXT,
             name TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL
+            created_at TIMESTAMPTZ NOT NULL
         );
         -- The universe's identity card: recording which actor this machine
         -- operates the universe as needs the universe to say which one it is.
         CREATE TABLE IF NOT EXISTS organizations (
             id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE,
-            name TEXT NOT NULL, created_at TEXT NOT NULL
+            name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL
         );
         INSERT INTO organizations (id, slug, name, created_at)
-            VALUES (1, 'default', 'Default', '2026-01-01T00:00:00Z')
+            VALUES (1, 'default', 'Default', '2026-01-01T00:00:00.000000Z')
             ON CONFLICT DO NOTHING;
         """,
         _SESSIONS_AND_CLAIMS_DDL,
@@ -256,7 +256,7 @@ def _create_ownership_schema(conn) -> None:
 EMIT_PATH_TABLES = """
     CREATE TABLE IF NOT EXISTS actors (status TEXT NOT NULL DEFAULT 'active',
         id INTEGER PRIMARY KEY, kind TEXT NOT NULL DEFAULT 'system',
-        system_component TEXT, name TEXT NOT NULL DEFAULT '', created_at TEXT
+        system_component TEXT, name TEXT NOT NULL DEFAULT '', created_at TIMESTAMPTZ
     );
     CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY, event_id TEXT UNIQUE, event_name TEXT NOT NULL,
@@ -267,7 +267,7 @@ EMIT_PATH_TABLES = """
         task_num INTEGER, agent TEXT, tool_name TEXT, duration_ms INTEGER,
         trace_id TEXT, anomaly_flags TEXT, tool_use_id TEXT,
         turn_id TEXT, hook_event_name TEXT, client_timing_id TEXT, envelope TEXT,
-        created_at TEXT NOT NULL
+        created_at TIMESTAMPTZ NOT NULL
     );
     CREATE TABLE IF NOT EXISTS event_registry (
         event_name TEXT PRIMARY KEY, owner_service TEXT, status TEXT
@@ -300,15 +300,16 @@ def ownership_conn(tmp_path):
         tmp_path, apply_schema=lambda: _apply_on_backend(_build_ownership_schema)
     ):
         c = _connect_with_backend_setup(tmp_path)
-        # Seed a runnable item (matches the legacy fixture).
-        c.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, "
-            "project_sequence, "
-            "created_at, updated_at, source, frozen) VALUES "
-            "(100, 'Test item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'high', 1, 100, "
-            "'2026-03-01', '2026-03-01', 'user', 0)"
+        insert_item(
+            c,
+            id=100,
+            title="Test item",
+            status="refined-idea",
+            priority="high",
+            created_at="2026-03-01T00:00:00.000000Z",
+            source="user",
+            frozen=0,
         )
-        c.commit()
         # Create SML files so scheduler sees SML as coherent
         ws = str(tmp_path)
         (tmp_path / ".yoke" / "strategy").mkdir(parents=True, exist_ok=True)

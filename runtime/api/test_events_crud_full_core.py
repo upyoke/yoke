@@ -2,6 +2,7 @@
 """Direct API CRUD tests: insert, severity check, list/count, query builder, prune."""
 
 from __future__ import annotations
+from yoke_contracts.timestamps import parse_instant
 
 import pytest
 
@@ -215,12 +216,12 @@ class TestQueryBuilder:
         assert len(params) == 0
 
     def test_since_filter(self):
-        where, params = events_crud._build_where(["--since", "2025-01-01"])
+        where, params = events_crud._build_where(["--since", "2025-01-01T00:00:00Z"])
         assert "created_at >= %s" in where
-        assert params == ["2025-01-01"]
+        assert params == [parse_instant("2025-01-01T00:00:00Z")]
 
     def test_until_filter(self):
-        where, params = events_crud._build_where(["--until", "2025-12-31"])
+        where, params = events_crud._build_where(["--until", "2025-12-31T00:00:00Z"])
         assert "created_at <= %s" in where
 
     def test_multiple_filters(self):
@@ -231,7 +232,7 @@ class TestQueryBuilder:
                 "--event-name",
                 "Test",
                 "--since",
-                "2025-01-01",
+                "2025-01-01T00:00:00Z",
             ]
         )
         assert "source_type=%s" in where

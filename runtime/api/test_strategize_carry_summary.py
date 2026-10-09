@@ -18,7 +18,9 @@ Covers:
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+
+from yoke_contracts.timestamps import utc_now
 
 from yoke_core.domain.strategize_carry import (
     format_summary,
@@ -26,7 +28,6 @@ from yoke_core.domain.strategize_carry import (
     register_new_landings,
 )
 from runtime.api.test_strategize_carry_test_helpers import (
-    _iso,
     _make_db,
     _seed_landed_items,
 )
@@ -70,9 +71,7 @@ class TestDeferredSessionCase(unittest.TestCase):
         # Session 1: register and leave everything pending.
         session1_new = register_new_landings(conn, project="yoke")
         self.assertEqual(len(session1_new), 12)
-        session1_result = get_candidate_set(
-            conn, project="yoke", new_ids=session1_new
-        )
+        session1_result = get_candidate_set(conn, project="yoke", new_ids=session1_new)
         self.assertEqual(len(session1_result["new"]), 12)
 
         # Session 2: deferred — no mark calls, no additional landed items.
@@ -80,9 +79,7 @@ class TestDeferredSessionCase(unittest.TestCase):
         session2_new = register_new_landings(conn, project="yoke")
         self.assertEqual(session2_new, [])
 
-        session2_result = get_candidate_set(
-            conn, project="yoke", new_ids=session2_new
-        )
+        session2_result = get_candidate_set(conn, project="yoke", new_ids=session2_new)
         self.assertEqual(len(session2_result["new"]), 0)
         self.assertEqual(len(session2_result["carry_forward"]), 12)
         # Deferred sessions must not flip anything to reflected/dismissed.
@@ -99,21 +96,17 @@ class TestDeferredSessionCase(unittest.TestCase):
 
         # Simulate horizon drift: bump merged_at so it is outside the 60d
         # window the next call looks at.
-        long_ago = datetime.now(timezone.utc) - timedelta(days=200)
+        long_ago = utc_now() - timedelta(days=200)
         conn.execute(
             "UPDATE items SET merged_at=%s WHERE id=1",
-            (_iso(long_ago),),
+            (long_ago,),
         )
         conn.commit()
 
-        second_new = register_new_landings(
-            conn, project="yoke", horizon_days=60
-        )
+        second_new = register_new_landings(conn, project="yoke", horizon_days=60)
         self.assertEqual(second_new, [])  # Outside horizon now.
 
-        result = get_candidate_set(
-            conn, project="yoke", horizon_days=60, new_ids=[]
-        )
+        result = get_candidate_set(conn, project="yoke", horizon_days=60, new_ids=[])
         # The aged item still shows up as carry-forward — the bounded
         # horizon never silently drops pending work.
         self.assertEqual(len(result["carry_forward"]), 1)
@@ -142,9 +135,7 @@ class TestFormatSummary(unittest.TestCase):
         conn = _make_db()
         _seed_landed_items(conn, count=5)
         register_new_landings(conn, project="yoke")
-        result = get_candidate_set(
-            conn, project="yoke", carry_limit=2, new_ids=[]
-        )
+        result = get_candidate_set(conn, project="yoke", carry_limit=2, new_ids=[])
         summary = format_summary(result)
         self.assertIn("carry-limit cap (2) hit", summary)
 

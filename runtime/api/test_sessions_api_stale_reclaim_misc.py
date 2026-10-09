@@ -226,7 +226,7 @@ class TestStaleSessionSweepEvent:
             outcome TEXT DEFAULT 'completed',
             client_timing_id TEXT,
             envelope TEXT,
-            created_at TEXT
+            created_at TIMESTAMPTZ
         );
         CREATE TABLE IF NOT EXISTS event_registry (
             event_name TEXT PRIMARY KEY,
