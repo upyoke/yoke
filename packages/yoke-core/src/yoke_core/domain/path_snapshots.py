@@ -13,7 +13,8 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now as _utc_now_iso
+from yoke_core.domain.db_helpers import instant_parameter
 from pathlib import Path
 from typing import Any, List, Optional
 
@@ -34,10 +35,6 @@ from yoke_core.domain.path_targets_materialization import materialize_planned_ta
 
 class PathSnapshotError(RuntimeError):
     """Raised when the scanner cannot produce a complete snapshot."""
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _p(conn) -> str:
@@ -119,7 +116,7 @@ def _materialize_snapshot(
     mint+entries+materialize in one transaction; rolls back any write failure.
     """
     targets = _all_paths_with_kinds(files)
-    now_iso = _utc_now_iso()
+    now_iso = instant_parameter(conn, _utc_now_iso())
     p = _p(conn)
 
     try:

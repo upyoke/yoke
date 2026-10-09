@@ -14,7 +14,8 @@ amendment chain alone.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now as _now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, List, Sequence
 
 from yoke_core.domain import db_backend
@@ -30,10 +31,6 @@ from yoke_core.domain.workflow_item_binding_lock import (
 
 class AmendmentNotFound(PathClaimError):
     """The amendment id does not exist for the given claim."""
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _p(conn: Any) -> str:
@@ -64,7 +61,7 @@ def _record_cancel(
         "INSERT INTO path_claim_amendments "
         "(claim_id, amended_at, amendment_kind, payload, reason) "
         f"VALUES ({p}, {p}, 'cancel', {p}, {p}) RETURNING id",
-        (claim_id, _now(), json.dumps(payload), reason),
+        (claim_id, instant_parameter(conn, _now()), json.dumps(payload), reason),
     )
     return int(cur.fetchone()[0])
 
@@ -99,7 +96,7 @@ def _undo_narrow(conn: Any, claim_id: int, payload: dict) -> None:
     if not removed_ids:
         return
     existing = set(_existing_targets(conn, claim_id))
-    now = _now()
+    now = instant_parameter(conn, _now())
     rows = []
     for tid in removed_ids:
         if tid in existing:

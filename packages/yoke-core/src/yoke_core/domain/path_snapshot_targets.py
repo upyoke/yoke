@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
@@ -35,7 +39,7 @@ def _p(conn: Any) -> str:
 
 def _chunks(values: Sequence[Any]) -> Iterable[Sequence[Any]]:
     for idx in range(0, len(values), _QUERY_CHUNK_SIZE):
-        yield values[idx: idx + _QUERY_CHUNK_SIZE]
+        yield values[idx : idx + _QUERY_CHUNK_SIZE]
 
 
 def _get(row: Any, key: str, index: int) -> Any:
@@ -75,9 +79,7 @@ def _latest_targets_by_path(
                 generation=int(_get(row, "generation", 2)),
                 kind=str(_get(row, "kind", 3)),
                 parent_target_id=None if parent is None else int(parent),
-                materialization_state=str(
-                    _get(row, "materialization_state", 5)
-                ),
+                materialization_state=str(_get(row, "materialization_state", 5)),
             )
     return latest
 
@@ -153,7 +155,7 @@ def resolve_snapshot_target_ids(
     *,
     project_id: int,
     targets: Sequence[Tuple[str, str]],
-    now_iso: str,
+    now_iso: datetime | str,
 ) -> SnapshotTargetResolution:
     """Resolve or mint target ids for a whole snapshot in bulk.
 
@@ -207,7 +209,7 @@ def resolve_snapshot_target_ids(
             kind,
             parent_id,
             1 if latest is None else latest.generation + 1,
-            now_iso,
+            instant_parameter(conn, parse_instant(now_iso)),
         )
     return SnapshotTargetResolution(
         target_ids=target_ids,

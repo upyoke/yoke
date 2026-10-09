@@ -27,7 +27,8 @@ module so callers can stay on a single import path.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now as _utc_now_iso
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Iterable, Optional
 
 from yoke_core.domain import db_backend
@@ -39,10 +40,6 @@ from yoke_core.domain.path_targets_planning import (
 from yoke_core.domain.path_targets_states import (
     PRE_OBSERVATION_STATES as _PRE_OBSERVATION_STATES,
 )
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _p(conn) -> str:
@@ -109,7 +106,7 @@ def materialize_planned_target(
     ).fetchone()
     if row is None or str(row[6]) not in _PRE_OBSERVATION_STATES:
         return False
-    now_iso = _utc_now_iso()
+    now_iso = instant_parameter(conn, _utc_now_iso())
     conn.execute(
         "UPDATE path_targets "
         "SET materialization_state = 'observed', "
@@ -163,7 +160,7 @@ def abandon_planned_target(
     ).fetchone()
     if row is None or str(row[6]) not in _PRE_OBSERVATION_STATES:
         return False
-    now_iso = _utc_now_iso()
+    now_iso = instant_parameter(conn, _utc_now_iso())
     conn.execute(
         "UPDATE path_targets "
         "SET materialization_state = 'abandoned', "
@@ -218,7 +215,9 @@ def abandon_planned_targets_without_open_claim(
         if still_claimed is not None:
             continue
         if abandon_planned_target(
-            conn, target_id=target_id, reason=reason,
+            conn,
+            target_id=target_id,
+            reason=reason,
             session_id=session_id,
         ):
             abandoned += 1

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+from yoke_contracts.timestamps import parse_instant, utc_now
 from typing import Any, Iterable, Mapping
 
 from yoke_core.domain import db_backend, db_helpers, json_helper
@@ -279,18 +280,9 @@ def _row(row: Any, key: str) -> Any:
 
 
 def _report_is_fresh(raw: Any) -> bool:
-    if not raw:
+    if raw is None:
         return False
-    try:
-        observed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
-    except ValueError:
-        return False
-    if observed.tzinfo is None:
-        observed = observed.replace(tzinfo=timezone.utc)
-    return (
-        datetime.now(timezone.utc) - observed.astimezone(timezone.utc)
-        <= PACK_REPORT_FRESHNESS
-    )
+    return utc_now() - parse_instant(raw) <= PACK_REPORT_FRESHNESS
 
 
 __all__ = [

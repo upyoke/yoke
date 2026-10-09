@@ -332,3 +332,7 @@ Actor birth, approval preparation, universe-setting and migration-audit writes
 retain native clocks. Session drift/rework and presentation ordering compare
 aware instants; naive external presentation observations are rejected. Shepherd
 pipe output formats native instants; its verdict date remains a UTC date label.
+
+Path claim, amendment, target planning/materialization and snapshot writes bind
+native clocks. Claim-age and Pack freshness reads preserve native microseconds;
+malformed internal clock facts refuse instead of assuming a timezone.
