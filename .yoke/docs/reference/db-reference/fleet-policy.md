@@ -10,12 +10,13 @@ names the person who needs to change the value.
 A relay poll leases assigned launches alongside serial control work. Pending
 wake delivery does not prevent launch admission. The relay checks current
 reclaimable memory and swap headroom before each native spawn, with a three
-second stagger between spawn boundaries. This works on macOS (`vm_stat` and
-`sysctl vm.swapusage`) and Linux (`/proc/meminfo`). It requires at least 1 GiB
+second stagger between spawn boundaries. macOS probes use `/usr/bin/vm_stat`
+and `/usr/sbin/sysctl -n vm.swapusage` independently of the relay's filtered
+PATH; Linux reads `/proc/meminfo`. Admission requires at least 1 GiB
 of available memory and, when swap is enabled, 512 MiB of free swap. A machine
 with swap disabled can launch when memory headroom is sufficient.
 
-The launch record names `native_memory_headroom_low`,
+Launch and wake records, including Cursor, name `native_memory_headroom_low`,
 `native_swap_headroom_low`, or `native_capacity_unreadable` when no native was
 started. Free memory or swap headroom by stopping unused processes, then retry
 the launch. Restore the OS capacity probe before retrying an unreadable
