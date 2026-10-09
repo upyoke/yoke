@@ -94,12 +94,7 @@ from yoke_core.domain.qa import cmd_requirement_add, cmd_run_add
 
 
 def _read_stdin_safe() -> str:
-    """Read stdin without blocking when no data is available.
-
-    Returns empty string if stdin is a tty, if stdin is closed/empty,
-    or if no data is available (e.g., /dev/null redirection in tests).
-    Only blocks when stdin is a pipe with data (the intended usage).
-    """
+    """Read a ready stdin pipe; return empty for tty, closed or unready input."""
     if sys.stdin.isatty():
         return ""
     # On Unix, use select to check if stdin has data
@@ -265,11 +260,17 @@ def progress_note_mark_synced(conn, epic_id: str, task_num: int, note_num: int) 
 
 
 def simulation_upsert(
-    conn, epic_id: str, phase: str, body: str, *, scripts_dir: Optional[str] = None
+    conn,
+    epic_id: str,
+    phase: str,
+    body: str,
+    *,
+    scripts_dir: Optional[str] = None,
+    head_sha: Optional[str] = None,
 ) -> SimulationReceipt:
     from yoke_core.domain.epic_review import simulation_upsert as _impl
 
-    return _impl(conn, epic_id, phase, body, scripts_dir=scripts_dir)
+    return _impl(conn, epic_id, phase, body, scripts_dir=scripts_dir, head_sha=head_sha)
 
 
 def proceed_triage_and_handoff(
