@@ -15,6 +15,7 @@ from yoke_core.domain.qa_constants import REQ_COLUMNS, RUN_COLUMNS
 from yoke_core.domain import qa_latest_execution as executions
 from yoke_core.domain.qa_plan_case_currency import annotate_requirement_currency
 from yoke_core.domain.qa_review_requirement_facts import frozen_target_facts
+from yoke_core.domain.qa_run_outcome import qa_run_read_projection
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
@@ -86,9 +87,6 @@ def handle_qa_requirement_list(request: FunctionCallRequest) -> HandlerOutcome:
         result_payload={"rows": listed},
         primary_success=True,
     )
-
-
-# qa.requirement.get
 
 
 class QaRequirementGetRequest(BaseModel):
@@ -183,7 +181,7 @@ def handle_qa_run_list(request: FunctionCallRequest) -> HandlerOutcome:
     finally:
         conn.close()
     return HandlerOutcome(
-        result_payload={"rows": _rows_to_dicts(rows, RUN_COLUMNS)},
+        result_payload={"rows": [qa_run_read_projection(row) for row in rows]},
         primary_success=True,
     )
 
@@ -261,7 +259,7 @@ def handle_qa_run_get(request: FunctionCallRequest) -> HandlerOutcome:
     if row is None:
         return _error("not_found", f"run {run_id} not found")
     return HandlerOutcome(
-        result_payload={"run": {col: row[col] for col in RUN_COLUMNS}},
+        result_payload={"run": qa_run_read_projection(row)},
         primary_success=True,
     )
 

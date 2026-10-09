@@ -251,6 +251,19 @@ test("an execution whose evidence is out of reach does not read as never run", a
   );
 });
 
+test("case detail displays the native judged outcome over retained capture evidence", async () => {
+  for (const [verdict, caseOutcome] of [["pass", "passed"], ["fail", "failed"], ["undetermined", "needs_review"]]) {
+    const documentNode = new FakeDocument();
+    const root = documentNode.createElement("main");
+    const run = { ...EXECUTION, verdict, case_outcome: caseOutcome,
+      raw_result: JSON.stringify({ case_outcome: "needs_review", evidence: "saved frame" }),
+      execution_status: "captured" };
+    await renderQaCaseDetail(caseContext(documentNode, [], { runs: [run] }), root, "1", "9001");
+    await settle();
+    assert.equal(values(root)[5], caseOutcome === "needs_review" ? "needs review" : caseOutcome);
+  }
+});
+
 test("a case that truly never ran says so", async () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("main");

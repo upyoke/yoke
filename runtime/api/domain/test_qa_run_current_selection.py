@@ -4,6 +4,7 @@ import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement, insert_qa_run
+from runtime.api.fixtures.qa_captured_plan_review_fixture import captured_plan_review
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -11,6 +12,8 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.handlers.qa_reads import handle_qa_run_list
 from yoke_core.domain import db_helpers
+from yoke_core.domain.qa_plan_review import begin_plan_review
+from yoke_core.domain.qa_plan_review_submission import submit_plan_review
 
 
 def _read(requirement_id):
@@ -144,3 +147,69 @@ def test_current_selection_uses_the_returned_history_snapshot(test_db, monkeypat
     assert inserted
     assert [row["id"] for row in rows] == [current["id"], old["id"]]
     assert inserted[0] not in [row["id"] for row in rows]
+
+
+@pytest.mark.parametrize(
+    "second_start,current_is_capture",
+    [("2026-09-30T20:00:00-04:00", True), ("2026-09-30T20:00:01-04:00", False)],
+)
+def test_reviewed_capture_history_keeps_utc_selection_and_original_evidence(
+    test_db, second_start, current_is_capture
+):
+    execution, requirement_id, capture_id = captured_plan_review(test_db, 4873)
+    test_db.execute(
+        "UPDATE qa_runs SET started_at=%s WHERE id=%s",
+        ("2026-10-01T09:00:01+09:00", capture_id),
+    )
+    test_db.commit()
+    before = dict(
+        test_db.execute("SELECT * FROM qa_runs WHERE id=%s", (capture_id,)).fetchone()
+    )
+    pending = insert_qa_run(
+        test_db,
+        qa_requirement_id=requirement_id,
+        verdict=None,
+        case_outcome="needs_review",
+        started_at=second_start,
+    )
+    bundle = begin_plan_review(test_db, execution)
+    submit_plan_review(
+        test_db,
+        execution,
+        bundle_id=bundle["bundle_id"],
+        bundle_digest=bundle["bundle_digest"],
+        verdicts=[
+            {
+                "requirement_id": requirement_id,
+                "verdict": "pass",
+                "rationale": "The captured frame matches the contract.",
+            }
+        ],
+        reviewer_actor_id=None,
+        reviewer_session_id="review-session",
+    )
+    test_db.commit()
+    outcome = _read(requirement_id)
+    assert outcome.primary_success, outcome.error
+    rows = outcome.result_payload["rows"]
+    assert rows[0]["id"] == (capture_id if current_is_capture else pending["id"])
+    assert rows[0]["case_outcome"] == (
+        "passed" if current_is_capture else "needs_review"
+    )
+    capture = next(row for row in rows if row["id"] == capture_id)
+    assert capture["case_outcome"] == "passed"
+    assert capture["verdict"] == "pass"
+    assert capture["raw_result"] == before["raw_result"]
+    stored = dict(
+        test_db.execute("SELECT * FROM qa_runs WHERE id=%s", (capture_id,)).fetchone()
+    )
+    for key in (
+        "case_outcome",
+        "raw_result",
+        "execution_status",
+        "started_at",
+        "completed_at",
+    ):
+        assert stored[key] == before[key]
+    assert stored["case_outcome"] == "needs_review"
+    assert len(rows) == 2

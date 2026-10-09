@@ -70,19 +70,6 @@ async function loadEvidenceRow(context, projects, requirement, requirementId) {
   return null;
 }
 
-// The outcome an execution recorded, in the vocabulary every QA surface uses.
-function executionOutcome(run) {
-  if (!run) return null;
-  const caseOutcome = String(run.case_outcome || "").trim();
-  if (caseOutcome) return caseOutcome.replaceAll(" ", "_");
-  const verdict = String(run.verdict || "").trim().toLowerCase();
-  if (verdict === "pass") return "passed";
-  if (verdict === "fail" || verdict === "error") return "failed";
-  if (verdict === "undetermined") return "needs_review";
-  const status = String(run.execution_status || "").trim().toLowerCase();
-  return status || "queued";
-}
-
 // The subject's own id, not a name a reader can use: a requirement carries
 // the public item ref, and the public ref that addresses the item lives on
 // the item. One read turns the first into the second.
@@ -227,7 +214,7 @@ async function loadQaCaseDetail(
       "Outcome",
       latest
         ? outcomeNode(
-          documentNode, executionOutcome(latest), latest.capture_degraded_reason,
+          documentNode, latest.case_outcome, latest.capture_degraded_reason,
         )
         : "never run",
     ],
