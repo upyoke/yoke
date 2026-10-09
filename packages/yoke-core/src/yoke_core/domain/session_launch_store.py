@@ -163,6 +163,8 @@ def update_launch(
     delivery_changed_at: datetime | str | None = None,
     **changes: Any,
 ) -> LaunchRecord:
+    if delivery_changed_at is not None:
+        delivery_changed_at = parse_instant(delivery_changed_at)
     unknown = set(changes) - MUTABLE_LAUNCH_COLUMNS
     if unknown:
         raise ValueError(f"unknown launch update columns: {sorted(unknown)}")
@@ -195,9 +197,13 @@ def update_launch(
                 conn,
                 launch_id=launch_id,
                 state=str(next_state),
-                changed_at=delivery_changed_at
-                or changes.get("completed_at")
-                or utc_now(),
+                changed_at=(
+                    delivery_changed_at
+                    if delivery_changed_at is not None
+                    else changes["completed_at"]
+                    if changes.get("completed_at") is not None
+                    else utc_now()
+                ),
             )
         elif next_state in {"assigned", "launching", "awaiting_registration"}:
             reopen_launch_delivery(conn, launch_id=launch_id)

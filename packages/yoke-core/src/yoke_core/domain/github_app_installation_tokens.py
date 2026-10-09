@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Callable, Iterable, Mapping
@@ -58,7 +60,8 @@ class InstallationTokenCache:
         refresh_skew_seconds: int = 60,
         force_refresh: bool = False,
     ) -> InstallationToken:
-        selected_now = now or utc_now()
+        now = parse_instant(utc_now() if now is None else now)
+        selected_now = now
         selected_installation_id = _normalize_installation_id(installation_id)
         normalized = _normalize_restrictions(
             repository_ids=repository_ids,
@@ -112,13 +115,14 @@ def mint_installation_token(
 ) -> InstallationToken:
     """Mint a short-lived bearer token for a GitHub App installation."""
 
+    now = parse_instant(utc_now() if now is None else now)
     normalized = _normalize_restrictions(
         repository_ids=repository_ids,
         repositories=repositories,
         permissions=permissions,
     )
     selected_installation_id = _normalize_installation_id(installation_id)
-    selected_now = now or utc_now()
+    selected_now = now
     app_jwt = generate_app_jwt(
         issuer=issuer,
         private_key_pem=private_key_pem,

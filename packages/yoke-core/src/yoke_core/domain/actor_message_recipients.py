@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -198,8 +200,9 @@ def actor_recipients_for_message(conn: Any, message_id: str) -> list[dict[str, A
 
 
 def expire_due_actor_recipients(conn: Any, *, now: datetime | None = None) -> int:
+    now = parse_instant(utc_now() if now is None else now)
     marker = _p(conn)
-    stamp = instant_parameter(conn, now or utc_now())
+    stamp = instant_parameter(conn, now)
     cursor = conn.execute(
         "UPDATE actor_message_recipients SET state='expired',expired_at="
         + marker
@@ -219,6 +222,7 @@ def acknowledge_actor_recipient(
     actor_id: int,
     read_at: datetime | None = None,
 ) -> None:
+    read_at = parse_instant(utc_now() if read_at is None else read_at)
     from yoke_core.domain.session_message_store import begin_message_mutation
 
     begin_message_mutation(conn)
@@ -250,7 +254,7 @@ def acknowledge_actor_recipient(
         "UPDATE actor_message_recipients SET state='read',read_at="
         + marker
         + f" WHERE message_id={marker} AND actor_id={marker} AND state='pending'",
-        (instant_parameter(conn, read_at or utc_now()), message_id, actor_id),
+        (instant_parameter(conn, read_at), message_id, actor_id),
     )
     if cursor.rowcount != 1:
         raise SessionMessageError(

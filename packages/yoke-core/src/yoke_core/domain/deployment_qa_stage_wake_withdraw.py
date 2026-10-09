@@ -14,6 +14,8 @@ not depend on a second read of the same fact.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from datetime import datetime
 from typing import Any, Optional
 
@@ -26,7 +28,7 @@ from yoke_core.domain.deployment_qa_stage_wake import (
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_item_delivery_status import TERMINAL_RUN_STATUSES
 from yoke_core.domain.session_message_store import cancel_message_rows
-from yoke_core.domain.session_message_types import parse_timestamp, utc_now
+from yoke_core.domain.session_message_types import utc_now
 
 
 #: Item statuses that mean the member is no longer a waiting owner.
@@ -105,9 +107,7 @@ def _member_stage_credited(
     return answer is not None and answer.accepted
 
 
-def deployment_qa_wait_settled_reason(
-    conn: Any, *, idempotency_key: str
-) -> str | None:
+def deployment_qa_wait_settled_reason(conn: Any, *, idempotency_key: str) -> str | None:
     """Why this wait is no longer owed, or ``None`` if it still is."""
     parsed = parse_deployment_qa_wait_key(idempotency_key)
     if parsed is None:
@@ -183,7 +183,8 @@ def withdraw_deployment_qa_wait_wakes(
     the settling event. Without it, each wait is evaluated on its current
     run and member facts. Already-recorded attempts are not rewritten.
     """
-    stamp = now if isinstance(now, datetime) else parse_timestamp(now) or utc_now()
+    now = parse_instant(utc_now() if now is None else now)
+    stamp = now if isinstance(now, datetime) else now
     wanted_run = str(run_id or "")
     wanted_item = None if item_id is None else int(item_id)
     actor_id: int | None = None

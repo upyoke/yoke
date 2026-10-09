@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -99,6 +101,7 @@ def preview_message(
     sender_session_id: str | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
+    now = parse_instant(utc_now() if now is None else now)
     address = _steering_address(conn, selector, sender_session_id)
     recipients = resolve_recipients(
         conn,
@@ -166,7 +169,8 @@ def send_message(
     now: datetime | None = None,
     commit: bool = True,
 ) -> dict[str, Any]:
-    current = now or utc_now()
+    now = parse_instant(utc_now() if now is None else now)
+    current = now
     begin_message_mutation(conn)
     try:
         reported_item = resolve_terminal_report_item(

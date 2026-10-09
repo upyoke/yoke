@@ -335,3 +335,7 @@ retain their timing owner. Scheduler fixtures declare native instant columns.
 QA failure/review wakes, parked-session ordering and hook context reuse the
 shared native clock. Fleet polling validates each supplied clock before reads;
 event relative bounds validate their anchor and preserve microseconds.
+
+Messaging and GitHub token owners validate provided clocks before receipts,
+wakes, signing or cache reads. Surface-policy mark responses format declared
+clocks as fixed-six UTC/null while SQL binds native instants at its adapter.

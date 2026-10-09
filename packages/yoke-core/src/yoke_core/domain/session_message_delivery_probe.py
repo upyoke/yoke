@@ -19,6 +19,8 @@ per hook.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain.db_helpers import instant_parameter
 
 from datetime import datetime
@@ -105,12 +107,13 @@ def record_undelivered_receipts(
     when the session had nothing pending, which is the ordinary case and the
     one that deliberately writes nothing at all.
     """
+    now = parse_instant(utc_now() if now is None else now)
     if reason not in PROBE_REASONS:
         raise ValueError(f"unknown delivery probe reason: {reason}")
     session = str(session_id or "").strip()
     if not session:
         return 0
-    current = now or utc_now()
+    current = now
     stamp = instant_parameter(conn, current)
     marker = _p(conn)
     # The reason itself is the row's ``result_code``; evidence carries only

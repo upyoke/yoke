@@ -77,6 +77,7 @@ def session_keepalive_facts(
     that "held" means the same thing to the end path, the roster projection,
     and the acceptance run verifying its own preparation.
     """
+    now = parse_instant(utc_now() if now is None else now)
     if not row:
         return None
     until = parse_timestamp(row.get("keepalive_until"))
@@ -101,6 +102,7 @@ def session_keepalive_holds(
     "nothing blocking" while the hook refuses to end is how a real refusal
     becomes invisible, so both read the fleet through this one query.
     """
+    now = parse_instant(utc_now() if now is None else now)
     targets = tuple(str(one) for one in session_ids if str(one or "").strip())
     if not targets or not _keepalive_columns_present(conn):
         return {}
@@ -112,7 +114,7 @@ def session_keepalive_holds(
         "AND keepalive_until IS NOT NULL",
         targets,
     ).fetchall()
-    current = now or utc_now()
+    current = now
     held: Dict[str, Dict[str, Any]] = {}
     for raw in rows:
         row = _row_to_dict(raw)
@@ -137,6 +139,7 @@ def hold_session_keepalive(
     needs longer renews rather than stacking leases it would have to unwind.
     Transactional registration callers defer the commit to their outer unit.
     """
+    now = parse_instant(utc_now() if now is None else now)
     stated = (reason or "").strip()
     if not stated:
         raise SessionError(

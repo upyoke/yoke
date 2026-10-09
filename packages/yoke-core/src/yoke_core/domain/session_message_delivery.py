@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain.db_helpers import instant_parameter
 
 import json
@@ -82,9 +84,10 @@ def _expire_rows(conn: Any, *, now: datetime) -> int:
 
 def expire_due_recipients(conn: Any, *, now: datetime | None = None) -> int:
     """Converge every due, unacknowledged receipt through one mutation."""
+    now = parse_instant(utc_now() if now is None else now)
     _begin_mutation(conn)
     try:
-        stamp = now or utc_now()
+        stamp = now
         count = _expire_rows(conn, now=stamp)
         from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
             withdraw_deployment_qa_wait_wakes,

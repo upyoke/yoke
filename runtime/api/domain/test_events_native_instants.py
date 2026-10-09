@@ -2,7 +2,7 @@
 
 import base64
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -85,8 +85,8 @@ def test_performance_fractional_half_open_range_uses_native_event_instants(
     result = performance_query.read_observations(test_db, None, None, start, end)
     ours = [row for row in result if row["session_id"] == prefix]
     assert [row["observed_at"] for row in ours] == [
-        format_instant(start),
-        "2026-10-08T12:00:00.500001Z",
+        start,
+        start + timedelta(microseconds=1),
     ]
     type_row = test_db.execute(
         "SELECT pg_typeof(created_at)::text FROM events WHERE session_id=%s LIMIT 1",

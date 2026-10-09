@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+
+from yoke_contracts.timestamps import utc_now
 
 from runtime.api.test_sessions import _register, conn  # noqa: F401
 from yoke_core.domain.session_activity_state import apply_envelope_state
@@ -16,8 +18,9 @@ from yoke_core.domain.session_mode import (
 from yoke_core.domain.sessions import SessionError, heartbeat
 from yoke_core.hooks.session_turn_posture_tail import persist_accepted_hook_turn_posture
 
+
 def _after_registration(seconds=1):
-    return datetime.now(timezone.utc) + timedelta(seconds=seconds)
+    return utc_now() + timedelta(seconds=seconds)
 
 
 def _shared_factory(conn, monkeypatch):
@@ -32,7 +35,7 @@ def _ensure_turn_posture(conn):
     )
     conn.execute(
         "ALTER TABLE harness_sessions "
-        "ADD COLUMN IF NOT EXISTS turn_posture_at TEXT DEFAULT NULL"
+        "ADD COLUMN IF NOT EXISTS turn_posture_at TIMESTAMPTZ DEFAULT NULL"
     )
     conn.commit()
 
@@ -123,7 +126,9 @@ def _parked_row(conn):
 def test_accepted_prompt_submit_clears_parked(conn, monkeypatch):
     _register(conn)
     _ensure_turn_posture(conn)
-    set_session_mode(conn, "sess-1", SESSION_MODE_PARKED, reason="awaiting superseded decisions")
+    set_session_mode(
+        conn, "sess-1", SESSION_MODE_PARKED, reason="awaiting superseded decisions"
+    )
     assert persist_accepted_hook_turn_posture(
         event_name="UserPromptSubmit",
         session_id="sess-1",
@@ -209,12 +214,13 @@ def test_delayed_prompt_does_not_clear_a_newer_park_write(conn, monkeypatch):
     _ensure_turn_posture(conn)
     from yoke_core.domain.session_turn_posture import posture_timestamp
 
-    previous = datetime.now(timezone.utc) - timedelta(seconds=30)
+    previous = utc_now() - timedelta(seconds=30)
     prompt_observed = previous + timedelta(seconds=10)
     stamp = posture_timestamp(previous)
     conn.execute(
         "UPDATE harness_sessions SET turn_posture = 'waiting', "
-        f"turn_posture_at = '{stamp}' WHERE session_id = 'sess-1'"
+        "turn_posture_at = %s WHERE session_id = 'sess-1'",
+        (stamp,),
     )
     conn.commit()
     set_session_mode(conn, "sess-1", SESSION_MODE_PARKED, reason="waiting on operator")

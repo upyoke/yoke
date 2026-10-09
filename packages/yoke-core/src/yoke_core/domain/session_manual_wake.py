@@ -13,6 +13,8 @@ an opaque ``wake_in_flight``.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from datetime import datetime
 from time import monotonic, sleep
 from typing import Any
@@ -233,7 +235,8 @@ def request_session_wake(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """Queue one forced stopped-route wake and return body-free attempt facts."""
-    current = now or utc_now()
+    now = parse_instant(utc_now() if now is None else now)
+    current = now
     target_selector = _selector(session_id=session_id, public_ref=public_ref)
     message_id = _message_id(actor_id, idempotency_key)
     begin_message_mutation(conn)

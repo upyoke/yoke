@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from datetime import datetime, timedelta
 
 import jwt
@@ -26,6 +28,7 @@ def generate_app_jwt(
 ) -> str:
     """Return an RS256 JWT accepted by GitHub App installation APIs."""
 
+    now = parse_instant(utc_now() if now is None else now)
     selected_issuer = require_nonempty_string(issuer, "GitHub App JWT issuer")
     if _is_empty_key(private_key_pem):
         raise GitHubAppTokenError("GitHub App private key is required")
@@ -33,11 +36,13 @@ def generate_app_jwt(
         raise GitHubAppTokenError(
             "GitHub App JWT lifetime must be between 1 and 600 seconds"
         )
-    selected_now = ensure_utc(now or utc_now())
+    selected_now = ensure_utc(now)
     payload = {
-        "iat": int((
-            selected_now - timedelta(seconds=GITHUB_APP_JWT_IAT_BACKDATE_SECONDS)
-        ).timestamp()),
+        "iat": int(
+            (
+                selected_now - timedelta(seconds=GITHUB_APP_JWT_IAT_BACKDATE_SECONDS)
+            ).timestamp()
+        ),
         "exp": int((selected_now + timedelta(seconds=lifetime_seconds)).timestamp()),
         "iss": selected_issuer,
     }

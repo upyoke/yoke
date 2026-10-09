@@ -1,6 +1,7 @@
 """Posture- and idle-keyed wake eligibility for durable message receipts."""
 
 from __future__ import annotations
+from yoke_contracts.timestamps import parse_instant
 
 from yoke_core.domain.db_helpers import instant_parameter
 
@@ -45,11 +46,7 @@ from yoke_core.domain.session_wake_process_absence import (
     native_hold_retry_available,
     native_process_gone,
 )
-from yoke_core.domain.session_message_types import (
-    parse_timestamp,
-    row_dict,
-    utc_now,
-)
+from yoke_core.domain.session_message_types import parse_timestamp, row_dict, utc_now
 from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
     machine_surface_versions,
@@ -129,7 +126,7 @@ def wake_eligible_recipients(
     """Return redacted wake routes with their scheduler authority."""
     from yoke_core.hooks.session_message_delivery import wake_eligible
 
-    current = now or utc_now()
+    current = parse_instant(utc_now() if now is None else now)
     marker = _p(conn)
     open_attempt_filter = ""
     open_attempt_params: tuple[Any, ...] = ()
@@ -214,10 +211,8 @@ def wake_eligible_recipients(
                 continue
             if explicit_wake and attempt_count > 0:
                 continue
-            # A desktop recipient has no wake route to reach, so the sweep
-            # owes it one thing: telling the operator whose chat it is. That
-            # is due on the grace window, not on whichever branch below this
-            # recipient would have taken.
+            # Desktop recipients need an operator notice at the grace window;
+            # their unreachable wake route does not choose when it is due.
             notify_operator_to_wake(
                 conn,
                 row,

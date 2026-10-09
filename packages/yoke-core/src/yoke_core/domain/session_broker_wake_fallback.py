@@ -20,6 +20,8 @@ the route, and hands off.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -89,6 +91,7 @@ def direct_wake_waits_for_broker(
     now: datetime | str | None = None,
 ) -> bool:
     """Keep a failed direct route from immediately claiming itself again."""
+    now = parse_instant(utc_now() if now is None else now)
     latest = _latest_wake_result(conn, message_id=message_id, session_id=session_id)
     if not latest or latest[0] != "wake_relay":
         return False
@@ -97,7 +100,7 @@ def direct_wake_waits_for_broker(
         return False
     completed = parse_timestamp(completed_at)
     current = parse_timestamp(now) if isinstance(now, str) else now
-    if not completed or (current or utc_now()) >= completed + timedelta(
+    if not completed or (current) >= completed + timedelta(
         seconds=BROKER_JOB_TIMEOUT_SECONDS
     ):
         return False

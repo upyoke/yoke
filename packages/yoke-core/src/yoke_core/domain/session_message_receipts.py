@@ -15,6 +15,8 @@ revoke a message that also went elsewhere.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from datetime import datetime
 from typing import Any
 
@@ -37,10 +39,11 @@ def acknowledge_message(
     session_id: str,
     now: datetime | None = None,
 ) -> dict[str, Any]:
+    now = parse_instant(utc_now() if now is None else now)
     from yoke_core.domain.session_message_delivery import expire_due_recipients
 
     expire_due_recipients(conn, now=now)
-    acknowledged_at = now or utc_now()
+    acknowledged_at = now
     seated = acknowledge_steering_recipient(
         conn,
         message_id=message_id,
@@ -123,6 +126,7 @@ def acknowledge_actor_message(
     actor_id: int,
     now: datetime | None = None,
 ) -> dict[str, Any]:
+    now = parse_instant(utc_now() if now is None else now)
     acknowledge_actor_recipient(
         conn, message_id=message_id, actor_id=actor_id, read_at=now
     )
@@ -138,6 +142,7 @@ def cancel_message(
     reason: str = "cancelled_by_sender",
     now: datetime | None = None,
 ) -> dict[str, Any]:
+    now = parse_instant(utc_now() if now is None else now)
     details = message_details(conn, message_id)
     sender = int(details["sender_actor_id"]) == actor_id
     project_ids = {
@@ -174,7 +179,7 @@ def cancel_message(
         message_id=message_id,
         actor_id=actor_id,
         reason=reason,
-        cancelled_at=now or utc_now(),
+        cancelled_at=now,
     )
     conn.commit()
     return cancelled
