@@ -13,6 +13,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
+from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 
 from yoke_core.api.frontend_events_config import (
@@ -30,6 +31,7 @@ from yoke_core.api.http_auth import authenticate_request
 from yoke_core.api.observability_otel import environment_name
 from yoke_core.api.web_session_auth import authenticate_web_session
 from yoke_core.domain import db_helpers
+from yoke_core.domain.frontend_collector_refusals import record_refusal
 from yoke_core.domain.frontend_events_storage import (
     admit_client,
     consume_attribution_handoff,
@@ -41,16 +43,39 @@ router = APIRouter()
 _log = logging.getLogger(__name__)
 
 
-def refusal(status, error, recovery, **headers):
-    return JSONResponse(
+def recorded(request, response, reason):
+    """Record the refusal after the response is sent; telemetry never delays it."""
+    response.background = BackgroundTask(
+        record_refusal,
+        reason=reason,
+        status=response.status_code,
+        route=request.url.path,
+        origin=request.headers.get("origin", ""),
+        host=request.url.netloc,
+    )
+    return response
+
+
+def refusal(request, status, error, recovery, **headers):
+    response = JSONResponse(
         {"error": error, "recovery": recovery}, status_code=status, headers=headers
     )
+    return recorded(request, response, error)
+
+
+def refused_authorization(request, response):
+    try:
+        reason = json.loads(response.body).get("error") or "unauthorized"
+    except (ValueError, AttributeError):
+        reason = "unauthorized"
+    return recorded(request, response, str(reason))
 
 
 def admission(request):
     origin = collector_origin(request)
     if request.headers.get("origin") != origin:
         return refusal(
+            request,
             403,
             "origin_not_allowed",
             "Send from the exact serving origin; preserve Host or set "
@@ -61,6 +86,7 @@ def admission(request):
     org_id, key, _ = read_collector_identity()
     if request.headers.get("x-events-key") != key:
         return refusal(
+            request,
             401,
             "publishable_key_invalid",
             "Reload /api/events/config and configure the returned publishableKey.",
@@ -73,6 +99,7 @@ def admission(request):
         )
     if delay:
         return refusal(
+            request,
             429,
             "rate_limited",
             "Retry the same event ids after Retry-After.",
@@ -174,9 +201,10 @@ def viewer_actor_id(request, auth):
     return getattr(request.state, "viewer_actor_id", None)
 
 
-def diagnosed(error):
+def diagnosed(request, error):
     reason, _, recovery = str(error).partition(":")
     return refusal(
+        request,
         413 if reason in ("event_too_large", "payload_too_large") else 400,
         reason,
         recovery.strip() or "Check collector input and retry.",
@@ -192,11 +220,14 @@ def configuration(request: Request):
             {"publishableKey": key}, headers={"Cache-Control": "no-store"}
         )
     except ValueError as error:
-        return diagnosed(error)
+        return diagnosed(request, error)
     except Exception:
         _log.exception("collector_unavailable: restore the boot-converged database")
         return refusal(
-            503, "collector_unavailable", "Restore the collector database and reload."
+            request,
+            503,
+            "collector_unavailable",
+            "Restore the collector database and reload.",
         )
 
 
@@ -210,7 +241,7 @@ async def collect(request: Request):
         if request.headers.get("authorization"):
             auth = await run_in_threadpool(authenticate_request, request)
             if isinstance(auth, JSONResponse):
-                return auth
+                return refused_authorization(request, auth)
         else:
             auth = await run_in_threadpool(authenticate_web_session, request)
         await run_in_threadpool(
@@ -222,10 +253,11 @@ async def collect(request: Request):
         )
         return JSONResponse({"accepted": len(events)})
     except ValueError as error:
-        return diagnosed(error)
+        return diagnosed(request, error)
     except Exception:
         _log.exception("collector_unavailable: restore the limiter or event sink")
         return refusal(
+            request,
             503,
             "collector_unavailable",
             "Restore the limiter or sink, then retry the same event ids.",
@@ -258,12 +290,13 @@ async def attribution(request: Request):
             },
         )
     except ValueError as error:
-        response = diagnosed(error)
+        response = diagnosed(request, error)
         response.headers["Cache-Control"] = "no-store"
         return response
     except Exception:
         _log.exception("attribution_unavailable: restore the limiter or signing key")
         return refusal(
+            request,
             503,
             "attribution_unavailable",
             "Restore collector storage and retry attribution capture.",
@@ -302,12 +335,13 @@ async def attribution_handoff(request: Request):
             record = handoff.mint(cookie_input(request), body.get("audience"))
         return JSONResponse(record, headers=headers)
     except ValueError as error:
-        response = diagnosed(error)
+        response = diagnosed(request, error)
         response.headers["Cache-Control"] = "no-store"
         return response
     except Exception:
         _log.exception("attribution_handoff_unavailable: restore durable nonce storage")
         return refusal(
+            request,
             503,
             "attribution_handoff_unavailable",
             "Restore collector signing identity and durable nonce storage, then restart sign-in.",
