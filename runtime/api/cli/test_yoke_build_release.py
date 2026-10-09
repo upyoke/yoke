@@ -119,7 +119,7 @@ def test_build_release_renders_pep503_simple_index(
     assert channel["version"] == "0.2.0"
     assert channel["index_url"] == "https://api.upyoke.com/simple/"
     assert channel["release_base_url"] == ("https://api.upyoke.com/dist/releases/0.2.0")
-    assert channel["generated_at"] == "2026-06-18T00:00:00+00:00"
+    assert channel["generated_at"] == "2026-06-18T00:00:00.000000Z"
     assert channel["migration_history"]["manifest_sha256"] == (
         result.migration_history_manifest_sha256
     )

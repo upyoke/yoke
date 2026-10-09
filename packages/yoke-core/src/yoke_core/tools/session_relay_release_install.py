@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import iso8601_now
+
 from yoke_contracts.machine_config.directories import create_private_directory
 
 from collections.abc import Callable
 from contextlib import contextmanager
-from datetime import datetime, timezone
 import fcntl
 import os
 from pathlib import Path
@@ -255,7 +256,7 @@ def _install_candidate(
                 "pinned_release": release,
                 "served_build": served_build,
                 "distribution_index": index,
-                "installed_at": datetime.now(timezone.utc).isoformat(),
+                "installed_at": iso8601_now(),
             },
         )
         link.symlink_to(candidate, target_is_directory=True)
@@ -309,7 +310,7 @@ def _record_failure(
                 "code": code,
                 "message": message,
                 "served_build": served_build,
-                "observed_at": datetime.now(timezone.utc).isoformat(),
+                "observed_at": iso8601_now(),
             },
         )
     except OSError:

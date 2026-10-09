@@ -1,12 +1,7 @@
-"""``yoke board rebuild`` flag adapter.
+"""Board rebuild and render adapter, using client packages without the engine.
 
-The rebuild + render paths run on the client-tier :mod:`yoke_cli.board`
-modules, so ``yoke board rebuild`` works end-to-end without loading engine
-code. The source-dev timing telemetry (``board_rebuild_timing_events`` +
-``events_writes``, both DB-backed) is soft-gated: when the ``yoke_core``
-timing surface is importable the command emits the same
-Started/Completed/Failed events as before; otherwise the timing surface
-degrades to no-ops and the rebuild still runs.
+Available engine timing emits workflow events; absent engine timing uses the
+same call surface with no-op emitters, preserving the client rebuild path.
 """
 
 from __future__ import annotations
@@ -56,17 +51,11 @@ def _print_mode(parsed: argparse.Namespace) -> str:
 
 
 class _NullTiming:
-    """No-op timing surface used when the engine timing module cannot load.
-
-    Mirrors the ``board_rebuild_timing_events`` call surface the adapter uses so
-    the command can emit nothing without branching on core-availability at every
-    call site.
-    """
+    """No-op emitter with the engine timing call surface."""
 
     @staticmethod
     def ambient_session_id(explicit):
-        # Every consumer of this value is a no-op emitter below, so the
-        # null surface passes the explicit id through and resolves nothing.
+        # No-op emitters require no ambient identity resolution.
         return explicit or ""
 
     @staticmethod
@@ -77,11 +66,9 @@ class _NullTiming:
 
     @staticmethod
     def utc_now():
-        from datetime import datetime, timezone
+        from yoke_contracts.timestamps import utc_now
 
-        return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace(
-            "+00:00", "Z"
-        )
+        return utc_now()
 
     @staticmethod
     def start_clock():
@@ -114,9 +101,7 @@ def _timing_connection():
         yield _NullTiming(), None
         return
     try:
-        timing = importlib.import_module(
-            "yoke_core.cli.board_rebuild_timing_events"
-        )
+        timing = importlib.import_module("yoke_core.cli.board_rebuild_timing_events")
         events_writes = importlib.import_module("yoke_core.domain.events_writes")
     except ImportError:
         yield _NullTiming(), None
@@ -127,23 +112,46 @@ def _timing_connection():
 
 def board_rebuild(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke board rebuild", description=BOARD_REBUILD_USAGE,
+        prog="yoke board rebuild",
+        description=BOARD_REBUILD_USAGE,
     )
-    parser.add_argument("--force", action="store_true",
-                        help="Force a rebuild even if no changes detected.")
-    parser.add_argument("--repo-root", dest="repo_root", default=None,
-                        help="Repository root whose board should be rebuilt.")
-    parser.add_argument("--output-name", dest="output_name", default=None,
-                        help="Override default BOARD.md output filename.")
-    parser.add_argument("--scope", default=None,
-                        help="Optional rebuild scope filter.")
-    parser.add_argument("--print", dest="print_board", action="store_true",
-                        help="Print the board after rebuilding it.")
-    parser.add_argument("--print-only", dest="print_only", action="store_true",
-                        help="Print the rendered board without writing files.")
-    parser.add_argument("--no-pager", dest="no_pager", action="store_true",
-                        help="Disable paging; write the board straight to stdout "
-                             "(paging otherwise activates on an interactive TTY).")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force a rebuild even if no changes detected.",
+    )
+    parser.add_argument(
+        "--repo-root",
+        dest="repo_root",
+        default=None,
+        help="Repository root whose board should be rebuilt.",
+    )
+    parser.add_argument(
+        "--output-name",
+        dest="output_name",
+        default=None,
+        help="Override default BOARD.md output filename.",
+    )
+    parser.add_argument("--scope", default=None, help="Optional rebuild scope filter.")
+    parser.add_argument(
+        "--print",
+        dest="print_board",
+        action="store_true",
+        help="Print the board after rebuilding it.",
+    )
+    parser.add_argument(
+        "--print-only",
+        dest="print_only",
+        action="store_true",
+        help="Print the rendered board without writing files.",
+    )
+    parser.add_argument(
+        "--no-pager",
+        dest="no_pager",
+        action="store_true",
+        help="Disable paging; write the board straight to stdout "
+        "(paging otherwise activates on an interactive TTY).",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, BOARD_REBUILD_USAGE)
@@ -209,7 +217,8 @@ def board_rebuild(args: List[str]) -> int:
                 result = coerce_rebuild_outcome(raw_result)
                 if parsed.print_board and result.exit_code == 0:
                     board_text = read_board_text(
-                        result, repo_root=repo_root,
+                        result,
+                        repo_root=repo_root,
                         output_name=parsed.output_name,
                     )
         except Exception as exc:
@@ -250,14 +259,16 @@ def board_rebuild(args: List[str]) -> int:
         )
         duration = timing.duration_ms(started_perf)
         completed_at = timing.utc_now()
-        payload.update({
-            "started_at": started_at,
-            "completed_at": completed_at,
-            "duration_ms": duration,
-            "trace_id": trace_id,
-            "phases_ms": phase_recorder.snapshot(),
-            "print_mode": print_mode,
-        })
+        payload.update(
+            {
+                "started_at": started_at,
+                "completed_at": completed_at,
+                "duration_ms": duration,
+                "trace_id": trace_id,
+                "phases_ms": phase_recorder.snapshot(),
+                "print_mode": print_mode,
+            }
+        )
         finished_event_id = timing.emit_board_command_event(
             (
                 "BoardRebuildCommandCompleted"
@@ -309,12 +320,7 @@ def _active_data_source() -> str:
 
 
 def board(args: List[str]) -> int:
-    """``yoke board`` — shortcut for ``yoke board rebuild --print``.
-
-    Bare ``yoke board`` rebuilds and prints the board; passing an explicit
-    print/json mode (or other rebuild flags) is forwarded unchanged so the
-    shortcut never fights a caller who already chose an output mode.
-    """
+    """Rebuild and print, preserving any explicit output mode and flags."""
     output_modes = ("--print", "--print-only", "--json")
     if any(arg in output_modes for arg in args):
         return board_rebuild(list(args))

@@ -302,3 +302,8 @@ those declared fields as fixed-six UTC/null. Organization seed, external identit
 link and release-note writes use the shared native SQL adapter. Release-note
 pipe output formats only its creation clock; its default version remains a UTC
 calendar date.
+
+Release build metadata validates its supplied clock before replacing output,
+and emits fixed-six UTC. Relay installation/failure receipts and API JSON logs
+share the canonical formatter. Board timing retains native wall instants and
+formats its declared event clocks before emission; durations remain monotonic.

@@ -5,26 +5,19 @@ from __future__ import annotations
 import os
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from typing import Any, Dict
 
 from yoke_core.domain.events import emit_event
+from yoke_contracts.timestamps import format_instant, utc_now as utc_now
 
 
 EVENT_KIND = "workflow"
 EVENT_TYPE = "board_rebuild_command"
 TOOL_NAME = "yoke board rebuild"
-
-
-def utc_now() -> str:
-    return (
-        datetime.now(timezone.utc)
-        .isoformat(timespec="milliseconds")
-        .replace("+00:00", "Z")
-    )
 
 
 def duration_ms(start: float) -> int:
@@ -75,8 +68,8 @@ def emit_board_command_event(
     scope: str | None,
     session_id: str,
     trace_id: str,
-    started_at: str,
-    completed_at: str | None = None,
+    started_at: datetime | str,
+    completed_at: datetime | str | None = None,
     duration_ms_value: int | None = None,
     exit_code: int | None = None,
     status: str | None = None,
@@ -88,6 +81,8 @@ def emit_board_command_event(
     print_mode: str = "",
     conn: Any | None = None,
 ) -> str | None:
+    started_at = format_instant(started_at)
+    completed_at = format_instant(completed_at) if completed_at is not None else None
     context: Dict[str, Any] = {
         "command": TOOL_NAME,
         "repo_root": str(repo_root),
