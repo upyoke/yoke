@@ -190,8 +190,8 @@ def resolve_project_github_auth(
     resolved = ProjectGithubAuth(
         **{
             **result.__dict__,
-            "token_issued_at": issued_at.isoformat() if issued_at else "",
-            "token_expires_at": minted.expires_at.isoformat(),
+            "token_issued_at": issued_at,
+            "token_expires_at": minted.expires_at,
         }
     )
     register_installation_token(token, state.project_slug, db_path=db_path)

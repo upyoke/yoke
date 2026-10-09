@@ -74,7 +74,7 @@ def test_graphql_401_refreshes_installation_token_once(
         project="yoke",
         repo="upyoke/yoke",
         token="stale-installation-token",
-        token_issued_at=issued_at.isoformat(),
+        token_issued_at=issued_at,
     )
     fresh = ProjectGithubAuth(
         project="yoke",
@@ -87,7 +87,7 @@ def test_graphql_401_refreshes_installation_token_once(
             14,
             0,
             tzinfo=timezone.utc,
-        ).isoformat(),
+        ),
     )
     request_tokens: list[str] = []
     refreshes: list[dict] = []

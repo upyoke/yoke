@@ -101,3 +101,5 @@ Board item classification keeps nullable native update facts and sorts done
 items by those instants without an empty-string SQL fallback.
 
 Board session ages consume native starts and ends with explicit null absence; malformed clocks refuse rather than inventing UTC. Daily velocity fallback queries compare native transition instants with native cutoffs, while calendar rollups retain day strings. Strategy revision windows retain all native history before projecting UTC days and applying the day bound. Reflection persistence fixtures mirror native timestamp ownership, with exact microsecond dedup across qualified offsets.
+
+GitHub token facts retain native aware issued/expiry instants through authorization and GraphQL refresh telemetry; explicit numeric token ages and JWT seconds remain duration/protocol fields. Qualified provider clocks use shared strict ingress. Actions wait-run projects only its owned updated_at to fixed-six UTC or null, and stall decisions retain native precision without guessing naive or malformed clocks.

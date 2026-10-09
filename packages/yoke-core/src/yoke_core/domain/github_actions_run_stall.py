@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
+
+from yoke_contracts.timestamps import as_utc, format_instant, parse_instant, utc_now
 
 
 PENDING_ZERO_JOBS_STALL_SECONDS = 120
@@ -12,35 +14,21 @@ STALLED_DISPATCH_TOKEN = "stalled_dispatch"
 CI_RUN_NEVER_STARTED_REASON = "ci_run_never_started"
 
 
-def _timestamp(value: str) -> Optional[datetime]:
-    raw = str(value or "").strip()
-    if not raw:
-        return None
-    try:
-        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
-
-
 def pending_run_message(
     *,
     repo: str,
     run_id: str,
     jobs_count: int,
-    updated_at: str,
+    updated_at: datetime | str | None,
     observed_at: Optional[datetime] = None,
     concurrency_groups: Optional[tuple[str, ...]] = None,
 ) -> str:
     """Name a stall only after a complete read rules out concurrency waits."""
-    now = observed_at or datetime.now(timezone.utc)
-    updated = _timestamp(updated_at)
+    now = utc_now() if observed_at is None else as_utc(observed_at)
+    updated = None if updated_at is None else parse_instant(updated_at)
+    updated_text = "unknown" if updated is None else format_instant(updated)
     age_seconds = (now - updated).total_seconds() if updated is not None else -1
-    detail = (
-        f"pending run={run_id} jobs={jobs_count} updated_at={updated_at or 'unknown'}"
-    )
+    detail = f"pending run={run_id} jobs={jobs_count} updated_at={updated_text}"
     if concurrency_groups is None:
         return detail
     if concurrency_groups:
@@ -51,7 +39,7 @@ def pending_run_message(
         f"{STALLED_DISPATCH_TOKEN} "
         f"waiting_on={PENDING_ZERO_JOBS_STALL_REASON} "
         f"failure_reason={CI_RUN_NEVER_STARTED_REASON} "
-        f"run={run_id} status=pending jobs=0 updated_at={updated_at}; "
+        f"run={run_id} status=pending jobs=0 updated_at={updated_text}; "
         "force-cancel with `gh api --method POST "
         f"repos/{repo}/actions/runs/{run_id}/force-cancel`"
     )
