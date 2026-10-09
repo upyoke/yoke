@@ -82,8 +82,8 @@ class Satisfaction(str, Enum):
       ordinary members of this form.
     - ``FACT_MERGED``: Blocking item's merge must be confirmed by canonical
       fact (for example ``merged_at``) or branch ancestry.
-    - ``fact:deployed:<environment-name>``: A succeeded deployment run for
-      the blocker's project and named environment must carry the blocker.
+    - ``fact:deployed:<environment-name>``: The blocker is done with durable
+      completion attribution to that registered environment.
     """
 
     STATUS_DONE = "status:done"

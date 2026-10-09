@@ -235,7 +235,7 @@ Every row in `item_dependencies` is a real enforced blocker with directional mea
 **Satisfaction condition** (`satisfaction`) -- *what* must be true about the blocker:
 - `status:<stage-id>` -- blocking item must reach that stage in its pinned workflow. Use `status:done` for the usual item-to-item wait, including required deployment and closeout. Authoring a stage that workflow version does not have refuses and lists the stages it does
 - `fact:merged` -- blocking item's merge must be confirmed by canonical fact (`merged_at`), branch ancestry when available, or `release`/`done` status as the weakest fallback
-- `fact:deployed:<environment-name>` -- the environment must still be registered for the blocking item's project. A succeeded run targeting an environment with that name satisfies the fact only when `deployment_run_items` names the blocker, even if another project owns the run. Reserve this for a dependent that needs the blocker live before its workflow reaches `done`; code containment alone does not count
+- `fact:deployed:<environment-name>` -- the blocker must be done and its delivery stamp must attribute completion to that registered environment. The persisted attribution names the exact run, member, environment, project and candidate, including source-bound cross-project delivery. Readers never re-check current whole-run status or QA acceptance; subsequent sibling failure or cancellation leaves completed delivery satisfied. Ordinary completion dependencies use `status:done` and ignore run and environment.
 
 **Explanation fields**:
 - `rationale` -- short human-readable reason for the edge (e.g., "Operator-declared activation dependency")

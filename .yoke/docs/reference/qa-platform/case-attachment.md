@@ -42,12 +42,12 @@ yoke items dependency add DEPENDENT BLOCKER operator --gate-point closure \
 ```
 
 Read `yoke items dependency add --help` for satisfaction and direction. Use
-`fact:deployed:<environment-name>` when QA needs a registered environment
-before the blocker reaches done. Composition skips release items with an open
+`fact:deployed:<environment-name>` when QA needs the blocker done with delivery
+attributed to that registered environment. Composition skips release items with an open
 blocking edge to an unshipped item and names the blocker in its receipt; the
 first release after the blocker ships enrolls the waiting item automatically.
-A blocker a live or settling release still holds has not shipped: the receipt
-names that run, and the first release after it settles enrolls the item.
+A completed blocker stays satisfied even while its carrying release waits on
+siblings. An incomplete blocker remains held; the receipt names the run.
 Coordination-only and satisfied edges do not delay composition.
 
 Removing a release member also aborts its live run/member QA executions and

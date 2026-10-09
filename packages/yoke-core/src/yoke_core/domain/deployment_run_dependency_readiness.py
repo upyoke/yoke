@@ -11,12 +11,10 @@ from yoke_core.domain.deployment_qa_source_obligation import latest_completion_r
 
 
 def _delivered(delivery: dict[str, Any] | None) -> bool:
-    """Whether a completion run recorded its delivery as finished.
+    """Whether an incomplete blocker's holding run finished, for diagnosis.
 
-    A settling run reads ``succeeded`` to completion authority, but it is
-    still ``executing`` on its own row, and the dependency gate counts only a
-    recorded ``succeeded`` run. Calling it shipped here would enroll a
-    dependent that the same composition's dependency check then refuses.
+    This is not dependency satisfaction: the kernel reads completion and its
+    persisted environment attribution, independently of current run status.
     """
     return bool(
         delivery and delivery["status"] == "succeeded" and not delivery["settling"]
@@ -26,27 +24,12 @@ def _delivered(delivery: dict[str, Any] | None) -> bool:
 def unshipped_dependency_pairs(
     conn: Any, item_ids: Sequence[int]
 ) -> list[tuple[int, int, GateResult]]:
-    """Open blocking edges whose blocker has neither completed nor shipped.
+    """Read each edge's declared milestone or completed environment fact.
 
-    Reuse the dependency kernel's direction, satisfaction and coordination
-    rules. A blocker proposed for this same release is still unshipped: QA
-    that needs its completed delivery waits for a subsequent release. So is
-    a blocker whose release is still live or settling. Delivery uses the
-    existing completion-flow membership fact, without a repository walk
-    inside composition's database locks.
+    Completion alone cannot clear an explicit environment edge, and a run's
+    success cannot substitute for an item's done milestone.
     """
-    shipped: dict[int, bool] = {}
-    pending = []
-    for dependent, blocker, verdict in unsatisfied_dependency_pairs(conn, item_ids):
-        if blocker not in shipped:
-            item = query_one(conn, "SELECT status FROM items WHERE id=%s", (blocker,))
-            delivery = latest_completion_run(conn, blocker) if item else None
-            shipped[blocker] = bool(
-                item and item["status"] == "done" or _delivered(delivery)
-            )
-        if not shipped[blocker]:
-            pending.append((dependent, blocker, verdict))
-    return pending
+    return unsatisfied_dependency_pairs(conn, item_ids)
 
 
 def blocker_holding_run(conn: Any, blocker_id: int) -> tuple[str, str] | None:
@@ -56,6 +39,9 @@ def blocker_holding_run(conn: Any, blocker_id: int) -> tuple[str, str] | None:
     own status. ``None`` when no live release holds the blocker — it has not
     been released yet, or its delivery finished.
     """
+    item = query_one(conn, "SELECT status FROM items WHERE id=%s", (int(blocker_id),))
+    if item and item["status"] == "done":
+        return None
     delivery = latest_completion_run(conn, int(blocker_id), skip_terminal_failures=True)
     if delivery is None or _delivered(delivery):
         return None

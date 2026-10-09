@@ -154,9 +154,10 @@ learns the other's part from its own skill. The split is the whole rule:
   skipped and why: held by another release, back in rework (status before
   its release stage), removed, or blocked by an open dependency on an unshipped
   item. Composition skips that dependent until its blocker ships or reaches
-  done. A blocker a live or settling release still holds has not shipped:
-  only a recorded `succeeded` run counts, so the notice names that run and
-  the first release after it settles enrolls the dependent. The first
+  done. Completion dependencies read the item's done milestone; explicit
+  environment dependencies also read its persisted delivery attribution.
+  Completed members remain satisfied while siblings wait, fail or cancel.
+  For incomplete blockers the notice names the holding run. The first
   subsequent release enrolls it, including landings below
   the prior release baseline. Satisfied and coordination-only edges do not
   delay enrollment. Workers finding blocked item QA record the dependency

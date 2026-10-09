@@ -9,23 +9,16 @@ import pytest
 
 from runtime.api.domain.test_deployment_qa_stage_execution import (
     _complete_case,
-    _environment,
     _plan,
 )
+from runtime.api.fixtures.completed_delivery import (
+    _stage as _stage,
+    seed_selected_requirement_run as _seed_selected_requirement_run,
+)
 from runtime.api.fixtures.backlog_inserts import insert_item
-from yoke_core.domain.deployment_flow_versioning import cmd_create
 from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
-)
-from yoke_core.domain.deployment_stage_receipts import (
-    allocate_deployment_stage_receipt,
-    complete_deployment_stage_receipt,
-)
-from yoke_core.domain.deployment_requirement_snapshots import (
-    requirement_selection,
-    snapshot_flow_requirements,
-    snapshot_member_requirements,
 )
 from yoke_core.domain.deployment_qa_admission_materialization import (
     admitted_requirement_case_key,
@@ -35,131 +28,25 @@ from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.qa_plan_management import QaPlanError
 
 
-def _stage(environment: str = "stage") -> dict[str, Any]:
-    return {
-        "name": "member-qa",
-        "step_runner": "qa",
-        "stage_kind": "qa",
-        "scope": "item",
-        "target": {
-            "kind": "persistent_environment",
-            "environment": environment,
-            "source_stage": "deploy",
-        },
-        "verdict": {"mode": "agent_only"},
-    }
-
-
-def _seed_selected_requirement_run(
-    conn: Any,
-    *,
-    run_id: str,
-    item_id: int,
-    requirement_id: int,
-    environment: str = "stage",
-) -> None:
-    _environment(conn)
-    if environment != "stage":
-        conn.execute(
-            "INSERT INTO environments(site,project_id,name,url,settings,created_at) "
-            "SELECT id,1,%s,%s,'{}',%s FROM sites WHERE project_id=1 "
-            "ORDER BY id LIMIT 1 ON CONFLICT(project_id,name) DO NOTHING",
-            (
-                environment,
-                f"https://{environment}.example.test",
-                "2026-09-14T00:00:00Z",
-            ),
-        )
-    stages = [
-        {
-            "name": "deploy",
-            "step_runner": "auto",
-            "stage_kind": "execution",
-            "scope": "run",
-        },
-        _stage(environment),
-    ]
-    flow_id = f"flow-{run_id}"
-    cmd_create(
-        conn,
-        flow_id,
-        "yoke",
-        flow_id,
-        "",
-        json.dumps(stages),
-        status="disabled",
-    )
-    flow_snapshot = snapshot_flow_requirements(
-        conn, flow_id=flow_id, project_id=1, stages=stages
-    )
-    conn.execute(
-        "INSERT INTO deployment_runs("
-        "id,project_id,flow,release_lineage,status,current_stage,created_at,"
-        "composition_frozen_at,requirement_snapshot"
-        ") VALUES (%s,1,%s,%s,'executing','deploy',%s,%s,%s)",
-        (
-            run_id,
-            flow_id,
-            "c" * 40,
-            "2026-09-14T00:00:00Z",
-            "2026-09-14T00:01:00Z",
-            flow_snapshot,
-        ),
-    )
-    member_snapshot = snapshot_member_requirements(
-        conn,
-        run_id=run_id,
-        item_id=item_id,
-        selection_json=requirement_selection(requirement_ids=(requirement_id,)),
-    )
-    conn.execute(
-        "INSERT INTO deployment_run_items(run_id,item_id,added_at,requirement_snapshot) "
-        "VALUES (%s,%s,%s,%s)",
-        (run_id, item_id, "2026-09-14T00:00:00Z", member_snapshot),
-    )
-    conn.execute(
-        "UPDATE items SET deployment_flow = %s WHERE id = %s",
-        (flow_id, item_id),
-    )
-    receipt = allocate_deployment_stage_receipt(
-        conn,
-        run_id=run_id,
-        stage_name="deploy",
-        correlation_id=f"{run_id}-deploy-1",
-        target_kind="persistent_environment",
-        executor="test",
-        commit=False,
-    )
-    complete_deployment_stage_receipt(
-        conn,
-        run_id=run_id,
-        receipt_id=int(receipt["id"]),
-        correlation_id=str(receipt["correlation_id"]),
-        status="ready",
-        target_name=environment,
-        observed_url=f"https://{environment}.example.test"
-        if environment != "stage"
-        else "https://preview.example.test",
-        observed_release_lineage="c" * 40,
-        executor_receipt="test://deploy-ready",
-        commit=False,
-    )
-    conn.execute(
-        "UPDATE deployment_runs SET current_stage='member-qa' WHERE id=%s",
-        (run_id,),
-    )
-    conn.commit()
-
-
-def _original_requirement(
-    conn: Any, *, item_id: int, method_id: str | None
-) -> int:
+def _original_requirement(conn: Any, *, item_id: int, method_id: str | None) -> int:
     columns = [
-        "item_id", "qa_kind", "qa_phase", "target_env", "blocking_mode",
-        "requirement_source", "instructions", "expected_outcome", "created_at",
+        "item_id",
+        "qa_kind",
+        "qa_phase",
+        "target_env",
+        "blocking_mode",
+        "requirement_source",
+        "instructions",
+        "expected_outcome",
+        "created_at",
     ]
     values: list[Any] = [
-        item_id, "visual_acceptance", "post_deploy", "stage", "blocking", "explicit",
+        item_id,
+        "visual_acceptance",
+        "post_deploy",
+        "stage",
+        "blocking",
+        "explicit",
         "Capture the deployed release summary before accepting it.",
         "The release summary shows the admitted item and running revision.",
         "2026-09-14T00:00:00Z",
@@ -172,14 +59,21 @@ def _original_requirement(
         ).fetchone()
         columns.extend(
             [
-                "method_id", "method_name", "runner_id", "capability_requirements",
-                "verdict_path", "method_config",
+                "method_id",
+                "method_name",
+                "runner_id",
+                "capability_requirements",
+                "verdict_path",
+                "method_config",
             ]
         )
         values.extend(
             [
-                method_id, method["name"], method["runner_id"],
-                method["required_capability_kinds"], method["verdict_path"],
+                method_id,
+                method["name"],
+                method["runner_id"],
+                method["required_capability_kinds"],
+                method["verdict_path"],
                 json.dumps(
                     {
                         "steps": [
@@ -201,12 +95,16 @@ def _original_requirement(
 
 def test_explicit_screenshot_obligation_materializes_before_execution(test_db) -> None:
     item_id = 9710
-    insert_item(test_db, id=item_id, project_sequence=710, workflow_id="issue", status="done")
+    insert_item(
+        test_db, id=item_id, project_sequence=710, workflow_id="issue", status="done"
+    )
     original_id = _original_requirement(
         test_db, item_id=item_id, method_id="browser-inspection"
     )
     _seed_selected_requirement_run(
-        test_db, run_id="run-admitted-screenshot", item_id=item_id,
+        test_db,
+        run_id="run-admitted-screenshot",
+        item_id=item_id,
         requirement_id=original_id,
     )
 
@@ -227,24 +125,32 @@ def test_explicit_screenshot_obligation_materializes_before_execution(test_db) -
     assert roster[0]["case_key"] == admitted_requirement_case_key(original_id)
     scoped = test_db.execute(
         "SELECT item_id,deployment_member_item_id,method_id,execution_target_json "
-        "FROM qa_requirements WHERE id=%s", (roster[0]["requirement_id"],)
+        "FROM qa_requirements WHERE id=%s",
+        (roster[0]["requirement_id"],),
     ).fetchone()
     assert scoped["item_id"] is None and scoped["deployment_member_item_id"] == item_id
     target = json.loads(scoped["execution_target_json"])
     assert target["environment"]["name"] == "stage"
     assert target["deployment"]["release_lineage"] == "c" * 40
-    assert test_db.execute(
-        "SELECT item_id FROM qa_requirements WHERE id=%s", (original_id,)
-    ).fetchone()["item_id"] == item_id
+    assert (
+        test_db.execute(
+            "SELECT item_id FROM qa_requirements WHERE id=%s", (original_id,)
+        ).fetchone()["item_id"]
+        == item_id
+    )
 
 
 def test_agent_selected_plan_stays_distinct_from_admitted_obligation(test_db) -> None:
     item_id = 9711
-    insert_item(test_db, id=item_id, project_sequence=711, workflow_id="issue", status="done")
+    insert_item(
+        test_db, id=item_id, project_sequence=711, workflow_id="issue", status="done"
+    )
     original_id = _original_requirement(test_db, item_id=item_id, method_id=None)
     plan_id = _plan(test_db, "agent-selected-release")
     _seed_selected_requirement_run(
-        test_db, run_id="run-agent-selection", item_id=item_id,
+        test_db,
+        run_id="run-agent-selection",
+        item_id=item_id,
         requirement_id=original_id,
     )
     with pytest.raises(QaPlanError, match="select a project QA plan"):
@@ -273,7 +179,9 @@ def test_agent_selected_plan_stays_distinct_from_admitted_obligation(test_db) ->
     assert [case["plan_id"] for case in execution["roster"]] == [plan_id]
     _complete_case(test_db, execution)
     blocked = deployment_qa_stage_status(
-        test_db, run_id="run-agent-selection", stage_name="member-qa",
+        test_db,
+        run_id="run-agent-selection",
+        stage_name="member-qa",
         member_item_id=item_id,
     )
     assert not blocked["accepted"]

@@ -138,6 +138,9 @@ def _seed_run(
             flow_snapshot,
         ),
     )
+    from runtime.api.fixtures.completed_delivery import pin_run_delivery
+
+    pin_run_delivery(conn, run_id, environment="stage")
     for item_id in (*members, *existing_members):
         if item_id in members:
             insert_item(

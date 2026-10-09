@@ -48,7 +48,7 @@ test("a newer real membership replaces the removal row", () => {
     run("run-removed", { member_items: [], removed_member_items: [item] }),
     run("run-later", { created_at: "2026-10-02T12:00:00Z", status: "succeeded" }),
   ]);
-  assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "✓ deployed");
+  assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "○ awaiting item completion");
   assert.equal(byClass(box, "item-deployment-run")[0].textContent, "run-later");
 });
 
@@ -68,8 +68,8 @@ test("failed and cancelled deployments remain readable when member QA is unreada
 test("actual QA failure and accepted member evidence keep their presentation", () => {
   for (const [qa, expected] of [
     [{ state: "rejected" }, "✗ QA failed"],
-    [{ state: "accepted" }, "✓ deployed · QA passed"],
-    [{ state: "discharged" }, "✓ deployed · QA discharged"],
+    [{ state: "accepted" }, "◐ QA passed · awaiting item completion"],
+    [{ state: "discharged" }, "◐ QA discharged · awaiting item completion"],
     [{ failed_requirement_ids: [9] }, "✗ QA failed · #9"],
   ]) {
     const box = card([run("run-qa", { member_items: [{ ...item, item_qa: qa }] })]);

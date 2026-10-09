@@ -33,16 +33,21 @@ def _in(conn: Any, values: Iterable[Any]) -> Tuple[str, tuple]:
 def _run_memberships(
     conn: Any, item_ids: Tuple[int, ...], *, finished: bool
 ) -> Set[Tuple[int, str]]:
-    """(item, environment) pairs a succeeded run carried, or a live run is carrying."""
+    """Completed attribution, or environments a live run is carrying."""
+    if finished:
+        from yoke_core.domain.completed_item_delivery import completed_deliveries
+
+        return {
+            (item_id, entry["environment"])
+            for item_id, entries in completed_deliveries(conn, item_ids).items()
+            for entry in entries
+        }
     items, item_params = _in(conn, item_ids)
     terminal, terminal_params = _in(conn, sorted(TERMINAL_RUN_STATUSES))
-    if finished:
-        # The same evidence the dependency kernel reads for a deployed fact.
-        target = "target.id = run.target_environment_id AND target.project_id = run.project_id"
-        status, status_params = "run.status = 'succeeded'", ()
-    else:
-        target = "target.id = COALESCE(run.target_environment_id, flow.target_environment_id)"
-        status, status_params = f"run.status NOT IN ({terminal})", terminal_params
+    target = (
+        "target.id = COALESCE(run.target_environment_id, flow.target_environment_id)"
+    )
+    status, status_params = f"run.status NOT IN ({terminal})", terminal_params
     rows = conn.execute(
         "SELECT DISTINCT member.item_id, target.name FROM deployment_run_items member "
         "JOIN deployment_runs run ON run.id = member.run_id "

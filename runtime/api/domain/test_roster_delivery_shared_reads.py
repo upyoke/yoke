@@ -188,6 +188,7 @@ def test_a_card_with_no_landing_resolves_no_release_line(monkeypatch) -> None:
         "not_deployed": 0,
         "flow": "",
         "no_code_change": False,
+        "completed_deliveries": [],
     }
 
 
