@@ -178,3 +178,12 @@ def test_plan_copy_identity_does_not_reach_other_members_baselines_or_environmen
     assert [
         row.requirement_id for row in admitted_copies_in_flight(test_db, source)
     ] == [copy]
+    verification = insert_qa_requirement(
+        test_db,
+        item_id=MEMBER,
+        plan_id=plan,
+        plan_case_key="admission-frame",
+        qa_phase="verification",
+        target_env="stage",
+    )
+    assert admitted_copies_in_flight(test_db, verification["id"]) == []

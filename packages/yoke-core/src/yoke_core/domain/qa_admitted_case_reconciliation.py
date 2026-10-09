@@ -109,7 +109,7 @@ def admitted_copies_in_flight(
     placeholder = marker(conn)
     source = query_one(
         conn,
-        "SELECT id,item_id,plan_id,plan_case_key,host_baseline,target_env "
+        "SELECT id,item_id,plan_id,plan_case_key,host_baseline,target_env,qa_phase "
         f"FROM qa_requirements WHERE id={placeholder}",
         (int(source_requirement_id),),
     )
@@ -119,7 +119,7 @@ def admitted_copies_in_flight(
     identity_params: tuple[Any, ...] = (
         admitted_requirement_case_key(int(source_requirement_id)),
     )
-    if source["plan_id"] is not None:
+    if source["plan_id"] is not None and source["qa_phase"] == "post_deploy":
         plan_identity, plan_params = admitted_requirement_identity_clause(
             dict(source), marker=placeholder
         )
