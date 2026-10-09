@@ -231,6 +231,13 @@ def item_worktrees_release(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke item-worktrees release",
         description=ITEM_WORKTREES_RELEASE_USAGE,
+        epilog=(
+            "Review-stage recovery for items not yet merged. A merged item "
+            "awaiting delivery refuses with lane_owned_by_release_closeout: "
+            "its delivery close-out releases the lane and work claim, so park "
+            'with `yoke sessions touch --mode parked --reason "awaiting '
+            'PREFIX-N delivery: ..."` instead.'
+        ),
     )
     parser.add_argument(
         "item",

@@ -13,8 +13,10 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_core.domain.item_worktrees import LANE_ROLES
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_behavior import (
     LANE_IMPLEMENTATION,
+    delivery_redirect_stage,
     lane_release_recovery_statuses,
     worktree_lane_policy,
 )
@@ -177,13 +179,34 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
             return _error("not_found", ITEM_NOT_FOUND)
         status = str(item["status"] if hasattr(item, "keys") else item[0])
         runtime = load_item_workflow_runtime(conn, item_id)
+        if status == delivery_redirect_stage(runtime):
+            ref = render_item_ref(conn, item_id)
+            return HandlerOutcome(
+                primary_success=False,
+                error=FunctionError(
+                    code="lane_owned_by_release_closeout",
+                    message=(
+                        f"{ref} is merged and awaiting delivery at its "
+                        f"pinned release stage {status!r}; its delivery "
+                        "close-out releases the lane and work claim. "
+                        "Evidence-only lane release is review-stage recovery "
+                        "for items not yet merged."
+                    ),
+                    recovery_hint=(
+                        "Park until delivery: yoke sessions touch --mode "
+                        f'parked --reason "awaiting {ref} delivery: ..." — '
+                        "delivery wakes this session if the item owes anything."
+                    ),
+                ),
+            )
         accepted = lane_release_recovery_statuses(runtime)
         if status not in accepted:
             named = ", ".join(repr(stage) for stage in sorted(accepted)) or "none"
             return _error(
                 "recovery_status_invalid",
-                "evidence-only lane release requires a post-implementation "
-                f"stage of the pinned workflow ({named}); got {status!r}",
+                "evidence-only lane release is review-stage recovery for items "
+                "not yet merged; it requires a review stage of the pinned "
+                f"workflow ({named}); got {status!r}",
             )
         policy = worktree_lane_policy(runtime)
         if policy.allowed_roles != frozenset({LANE_IMPLEMENTATION}):

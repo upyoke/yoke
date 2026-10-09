@@ -81,7 +81,7 @@ Exit-code dispatch:
   yoke item-worktrees release PREFIX-N --all-active \
    --reason evidence-only-recovery
   ```
-  The release adapter repeats the branch and cleanliness checks. The server accepts only this fixed recovery reason, a post-implementation stage of the pinned workflow with exactly one active implementation lane, and an attestation matching that lane. Then re-run `/yoke usher PREFIX-N`.
+  The release adapter repeats the branch and cleanliness checks. The server accepts only this fixed recovery reason, a review stage of the pinned workflow (the item is not yet merged) with exactly one active implementation lane, and an attestation matching that lane. Then re-run `/yoke usher PREFIX-N`.
 - **Exit 99:** Self-modifying bootstrap — the underlying done-transition engine re-executes itself. This is handled internally by the launcher and should never surface to usher. If it does, treat as unexpected and apply the catch-all below.
 - **Any other non-zero exit (catch-all):** Unexpected failure. Revert to `implemented` so the item is never stranded in `release`. Report: `[Route A] PREFIX-N: unexpected done-transition failure (exit {code}). Reverted to implemented. Investigate the done-transition output above.`
 
