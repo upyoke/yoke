@@ -6,7 +6,7 @@ control plane's landing notice. Re-enter the same merge command when that
 notice arrives, retaining its result and verification evidence.
 
 The existing landing observer reads the registered pull request during relay
-upkeep. A recorded admission or an existing observation that GitHub armed or
+upkeep. A recorded admission or a pending observation that GitHub armed or
 queued that same pull request requires a full queue read even after GitHub
 clears merge-when-ready. This distinguishes a stopped landing from a pull
 request that was opened for verification and has never been armed. The durable

@@ -18,6 +18,7 @@ from yoke_core.domain.merge_queue_enqueue_verification import (
     read_landing,
 )
 from yoke_core.domain.schema_common import _column_exists
+from yoke_core.domain.merge_queue_landing_record_state import PENDING
 from yoke_core.domain.merge_queue_readback_outcomes import (
     ENQUEUED,
     MERGE_WHEN_READY_ARMED,
@@ -48,7 +49,7 @@ def pending_landing_rows(conn: Any, project_ids: Iterable[int]) -> list[dict[str
     rows = conn.execute(
         "SELECT i.id, i.project_id, i.project_sequence, i.merge_queue_pr_number, "
         "i.merge_queue_enqueued_at, i.merge_queue_landed_at, "
-        "CASE WHEN l.pr_number=i.merge_queue_pr_number AND "
+        f"CASE WHEN l.pr_number=i.merge_queue_pr_number AND l.state={marker} AND "
         f"(l.merge_when_ready={marker} OR l.queue_holding={marker}) "
         "THEN 1 ELSE 0 END AS previously_held, "
         "l.observed_at AS previous_observed_at, p.slug, "
@@ -59,7 +60,7 @@ def pending_landing_rows(conn: Any, project_ids: Iterable[int]) -> list[dict[str
         "AND i.merge_queue_pr_number IS NOT NULL "
         "AND i.merge_queue_notified_at IS NULL "
         f"AND i.status NOT IN ({terminal_slots}) ORDER BY i.id",
-        (MERGE_WHEN_READY_ARMED, ENQUEUED, *projects, *terminal),
+        (PENDING, MERGE_WHEN_READY_ARMED, ENQUEUED, *projects, *terminal),
     ).fetchall()
     return [row_dict(row) for row in rows]
 
@@ -84,7 +85,7 @@ def read_candidate(
     answered "not yet" forever while its holder sat parked on a landing
     that was already over.
 
-    The existing durable observation also proves a landing was held when
+    A pending durable observation also proves a landing was held when
     no admission timestamp was recorded. GitHub clearing merge-when-ready
     must not turn that landing into a never-armed pull request: complete the
     four-fact read so the observer can send its stopped notice. Match that
