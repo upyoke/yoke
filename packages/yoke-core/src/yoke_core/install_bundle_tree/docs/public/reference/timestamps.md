@@ -296,3 +296,9 @@ owned creation/verification response fields as fixed-six UTC/null. Carried-work
 landing attribution compares native timedeltas at the inclusive ten-minute
 boundary. Missing or invalid external Git clock facts cannot infer ownership;
 malformed internal landing clocks refuse rather than assuming a timezone.
+
+Invites retain native creation and acceptance instants; list projections format
+those declared fields as fixed-six UTC/null. Organization seed, external identity
+link and release-note writes use the shared native SQL adapter. Release-note
+pipe output formats only its creation clock; its default version remains a UTC
+calendar date.

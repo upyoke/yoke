@@ -25,6 +25,7 @@ from yoke_contracts.api.function_call import (
 )
 
 from yoke_contracts.api_urls import HOSTED_PLATFORM_URL
+from yoke_contracts.timestamps import temporal_wire
 
 from yoke_core.domain.universe_startup_lock import (
     hosted_tenant_container_process,
@@ -197,7 +198,9 @@ def handle_identity_invite_list(request: FunctionCallRequest) -> HandlerOutcome:
     finally:
         conn.close()
     return HandlerOutcome(
-        result_payload={"invites": [asdict(invite) for invite in invites]},
+        result_payload={
+            "invites": [temporal_wire(asdict(invite)) for invite in invites]
+        },
         primary_success=True,
     )
 

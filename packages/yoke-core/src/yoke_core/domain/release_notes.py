@@ -17,8 +17,14 @@ import sys
 from datetime import datetime, timezone
 from typing import List, Optional
 
+from yoke_contracts.timestamps import format_instant, utc_now
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect, iso8601_now, query_rows, query_scalar
+from yoke_core.domain.db_helpers import (
+    connect,
+    instant_parameter,
+    query_rows,
+    query_scalar,
+)
 from yoke_core.domain.project_identity import render_item_ref, resolve_project_id
 
 VALID_CATEGORIES = frozenset({"features", "improvements", "bug_fixes", "internal"})
@@ -50,10 +56,6 @@ def _cli_error(msg: str, code: int = 1) -> None:
 def _cli_usage_error(msg: str) -> None:
     print(msg, file=sys.stderr)
     sys.exit(2)
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _current_version() -> str:
@@ -111,7 +113,14 @@ def cmd_insert(
         "ON CONFLICT(item_id, version, project_id) DO UPDATE SET "
         "category=EXCLUDED.category, title=EXCLUDED.title, "
         "created_at=EXCLUDED.created_at",
-        (item_id, category, title, version, project_id, iso8601_now()),
+        (
+            item_id,
+            category,
+            title,
+            version,
+            project_id,
+            instant_parameter(conn, utc_now()),
+        ),
     )
     conn.commit()
     return (
@@ -170,7 +179,9 @@ def cmd_list(conn, version: Optional[str] = None, project: Optional[str] = None)
     )
     lines = []
     for row in rows:
-        lines.append("|".join("" if v is None else str(v) for v in tuple(row)))
+        values = list(row)
+        values[-1] = format_instant(values[-1])
+        lines.append("|".join("" if v is None else str(v) for v in values))
     return "\n".join(lines)
 
 

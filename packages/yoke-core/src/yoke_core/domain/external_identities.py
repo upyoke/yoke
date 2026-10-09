@@ -12,9 +12,11 @@ is the authoritative sign-in lookup.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+
 from typing import Any, Optional
 
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.external_identity_events import (
     EVENT_ORGANIZATION_DOMAIN_CHANGED,
@@ -31,10 +33,6 @@ class ExternalIdentityConflict(ExternalIdentityError):
     """The (issuer, subject) pair is already bound to a different actor."""
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
@@ -47,7 +45,10 @@ def _clean(value: Optional[str], field: str) -> str:
 
 
 def resolve_external_identity(
-    conn: Any, *, issuer: str, subject: str,
+    conn: Any,
+    *,
+    issuer: str,
+    subject: str,
 ) -> Optional[int]:
     """Return the actor id bound to ``(issuer, subject)``, or None."""
     p = _p(conn)
@@ -100,7 +101,7 @@ def link_external_identity(
             issuer,
             subject,
             (str(email).strip() or None) if email else None,
-            _now(),
+            instant_parameter(conn, utc_now()),
             created_by_actor_id,
         ),
     )
@@ -124,9 +125,7 @@ def default_org_id(conn: Any) -> int:
     Matches the single-card convention the local-universe birth path and
     the ``organizations.get`` handler use.
     """
-    row = conn.execute(
-        "SELECT id FROM organizations ORDER BY id LIMIT 1"
-    ).fetchone()
+    row = conn.execute("SELECT id FROM organizations ORDER BY id LIMIT 1").fetchone()
     if row is None:
         raise ExternalIdentityError("no organization exists on this universe")
     return int(row[0])
