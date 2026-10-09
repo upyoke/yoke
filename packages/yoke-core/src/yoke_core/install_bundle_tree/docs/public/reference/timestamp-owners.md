@@ -99,3 +99,5 @@ adoption evidence and fleet-rehearsal receipts use fixed-six UTC. Database
 read diagnostics format native datetimes while calendar dates retain date ISO.
 Board item classification keeps nullable native update facts and sorts done
 items by those instants without an empty-string SQL fallback.
+
+Board session ages consume native starts and ends with explicit null absence; malformed clocks refuse rather than inventing UTC. Daily velocity fallback queries compare native transition instants with native cutoffs, while calendar rollups retain day strings. Strategy revision windows retain all native history before projecting UTC days and applying the day bound. Reflection persistence fixtures mirror native timestamp ownership, with exact microsecond dedup across qualified offsets.

@@ -23,7 +23,7 @@ from yoke_contracts.board.momentum_series import (
     lines_changed_by_day,
     strategy_bytes_by_day,
 )
-from yoke_contracts.board.sql import day_text_expr, days_ago_text_expr
+from yoke_contracts.board.sql import day_text_expr, days_ago_expr
 from yoke_contracts.board.widgets_activity import (
     _CHART,
     _activity_day_counts,
@@ -124,7 +124,7 @@ def _legacy_series(
         "    COALESCE(CAST(t.task_num AS TEXT), '-') AS task_num"
         "  FROM item_status_transitions t"
         "  WHERE t.task_num IS NOT NULL"
-        f"    AND t.created_at >= {days_ago_text_expr(days)} {pf_t}"
+        f"    AND t.created_at >= {days_ago_expr(days)} {pf_t}"
         "  GROUP BY day,"
         "    COALESCE(CAST(t.project_id AS TEXT), ''),"
         "    COALESCE(CAST(t.item_id AS TEXT), ''),"
@@ -155,7 +155,7 @@ def _legacy_series(
         "    COALESCE(CAST(t.task_num AS TEXT), '-') AS task_num"
         "  FROM item_status_transitions t"
         "  WHERE t.to_status IN ('done','passed')"
-        f"    AND t.created_at >= {days_ago_text_expr(days)}"
+        f"    AND t.created_at >= {days_ago_expr(days)}"
         f"    {pf_t}"
         "  GROUP BY day,"
         "    COALESCE(CAST(t.item_id AS TEXT), ''),"

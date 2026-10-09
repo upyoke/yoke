@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
@@ -12,6 +12,7 @@ from yoke_contracts.board.project_scope import public_ref
 from yoke_contracts.board.utils import display_width
 from yoke_contracts.coordination_claim_keys import COORDINATION_TARGET_KINDS
 from yoke_contracts.public_ref import unresolved_item_ref
+from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_contracts.session_level import (
     UNRESOLVED_EXECUTION_LEVEL,
     level_is_unresolved,
@@ -20,21 +21,17 @@ from yoke_contracts.session_level import (
 _RENDERED_ITEM_REF_RE = re.compile(r"^[A-Za-z]+-\d")
 
 
-def _format_session_age(iso_ts: str) -> str:
-    try:
-        ts = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        secs = max(0, int((datetime.now(timezone.utc) - ts).total_seconds()))
-        if secs < 60:
-            return f"{secs}s"
-        if secs < 3600:
-            return f"{secs // 60}m"
-        if secs < 86400:
-            return f"{secs // 3600}h"
-        return f"{secs // 86400}d"
-    except (ValueError, TypeError):
-        return iso_ts[:16] if iso_ts else "?"
+def _format_session_age(value: datetime | str | None) -> str:
+    if value is None:
+        return "?"
+    secs = max(0, int((utc_now() - parse_instant(value)).total_seconds()))
+    if secs < 60:
+        return f"{secs}s"
+    if secs < 3600:
+        return f"{secs // 60}m"
+    if secs < 86400:
+        return f"{secs // 3600}h"
+    return f"{secs // 86400}d"
 
 
 def _claims_for_session(db: BoardDBLike, session_id: str) -> List[Tuple]:

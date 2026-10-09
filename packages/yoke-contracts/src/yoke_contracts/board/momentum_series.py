@@ -68,7 +68,8 @@ def display_fraction(value: float, bound: float) -> float:
 
 
 def activity_items_query(
-    project_ids: Sequence[int], days: Optional[int],
+    project_ids: Sequence[int],
+    days: Optional[int],
 ) -> Tuple[str, Tuple]:
     """(sql, params) for the distinct-items activity component.
 
@@ -199,7 +200,8 @@ def strategy_bytes_by_day(
 
 
 def _strategy_query(
-    project_ids: Sequence[int], days: Optional[int],
+    project_ids: Sequence[int],
+    days: Optional[int],
 ) -> Tuple[str, Tuple]:
     # The window runs over each document's whole saved history, and the day
     # cutoff is applied to the computed changes afterwards. Filtering first
@@ -207,7 +209,7 @@ def _strategy_query(
     # document's baseline and drop the change that revision actually made.
     revision_day = day_text_expr("created_at")
     adjacent = (
-        f"SELECT {revision_day} AS day, revision, byte_length, "
+        "SELECT created_at, revision, byte_length, "
         "LAG(byte_length) OVER "
         "(PARTITION BY project_id, slug ORDER BY revision) "
         "AS previous_byte_length "
@@ -215,7 +217,8 @@ def _strategy_query(
         f"WHERE project_id IN ({_markers(project_ids)})"
     )
     measured = (
-        "SELECT day, ABS(byte_length - COALESCE(previous_byte_length, 0)) "
+        f"SELECT {revision_day} AS day, "
+        "ABS(byte_length - COALESCE(previous_byte_length, 0)) "
         "AS size_change "
         f"FROM ({adjacent}) adjacent "
         "WHERE previous_byte_length IS NOT NULL OR revision = 1"

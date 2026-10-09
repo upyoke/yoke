@@ -3,11 +3,15 @@
 Covers the persist_entries() boundary: DB round-trip, dedup, and error
 surfacing. Parsing and end-to-end tests live in test_reflection_capture.py.
 """
+
 from __future__ import annotations
 
 from unittest import mock
 
 import psycopg
+import pytest
+
+from yoke_contracts.timestamps import parse_instant
 
 from yoke_core.domain.reflection_capture import (
     ReflectionEntry,
@@ -36,7 +40,7 @@ class TestPersistEntries:
         assert result.errors == []
 
         row = conn.execute("SELECT * FROM ouroboros_entries WHERE id=1").fetchone()
-        assert row["timestamp"] == "2026-04-12T10:30:00Z"
+        assert row["timestamp"] == parse_instant("2026-04-12T10:30:00Z")
         assert row["agent"] == "engineer"
         assert row["context"] == "YOK-1216 task 3"
         assert row["category"] == "friction"
@@ -102,9 +106,9 @@ class TestBugLanguageGateExemption:
         assert result.entries_persisted == 1
         assert result.entries_skipped == 0
         assert result.errors == []
-        body = conn.execute(
-            "SELECT body FROM ouroboros_entries WHERE id=1"
-        ).fetchone()["body"]
+        body = conn.execute("SELECT body FROM ouroboros_entries WHERE id=1").fetchone()[
+            "body"
+        ]
         assert "workaround" in body
         conn.close()
 
@@ -139,9 +143,7 @@ class TestPersistFailedEmission:
     def test_emit_persist_failed_payload_shape(self):
         from yoke_core.domain.reflection_capture import _emit_persist_failed
 
-        with mock.patch(
-            "yoke_core.domain.events.emit_event"
-        ) as emit_event:
+        with mock.patch("yoke_core.domain.events.emit_event") as emit_event:
             _emit_persist_failed(
                 agent="tester",
                 category="friction",
@@ -160,3 +162,37 @@ class TestPersistFailedEmission:
         assert ctx["body_excerpt"] == "x" * 200
         assert len(ctx["body_excerpt"]) == 200
         assert ctx["exception_type"] == "ValueError"
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_reflection_dedup_uses_exact_instants_across_offsets(zone):
+    conn = _make_reflection_db()
+    try:
+        conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+        entries = [
+            ReflectionEntry(
+                timestamp=stamp,
+                agent="engineer",
+                context="test",
+                category="friction",
+                body="Same observation",
+            )
+            for stamp in [
+                "2026-04-12T10:30:00.000001Z",
+                "2026-04-12T16:15:00.000001+05:45",
+                "2026-04-12T10:30:00.000002Z",
+            ]
+        ]
+        result = persist_entries(entries, project="yoke", _conn=conn)
+        assert result.errors == []
+        assert result.entries_persisted == 2
+        assert result.entries_skipped == 1
+        rows = conn.execute(
+            "SELECT timestamp FROM ouroboros_entries ORDER BY timestamp"
+        ).fetchall()
+        assert [row["timestamp"] for row in rows] == [
+            parse_instant(entries[0].timestamp),
+            parse_instant(entries[2].timestamp),
+        ]
+    finally:
+        conn.close()

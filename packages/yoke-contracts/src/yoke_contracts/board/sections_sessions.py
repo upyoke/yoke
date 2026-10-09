@@ -81,7 +81,7 @@ def render_sessions_section(
                 workspace,
                 project_id,
             ) = row
-            age = _format_session_age(offered_at or "")
+            age = _format_session_age(offered_at)
 
             keycaps = session_holding_labels(db, sid)
             claim_rows = _chunk_claims(keycaps) if keycaps else ["—"]
@@ -157,7 +157,7 @@ def render_sessions_section(
                 project_id,
                 ended_at,
             ) = row
-            ended_age = _format_session_age(ended_at or "")
+            ended_age = _format_session_age(ended_at)
 
             # Compute duration
             duration = "—"
