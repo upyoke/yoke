@@ -65,7 +65,7 @@ def _epic_task_target(parsed) -> TargetRef:
 
 EPIC_TASK_BODY_GET_USAGE = (
     "yoke workflow-item epic-task body-get --epic PREFIX-N --task-num N "
-    "[--output-file PATH] [--head-sha COMMIT] [--session-id S] [--json]"
+    "[--output-file PATH] [--session-id S] [--json]"
 )
 
 
@@ -161,7 +161,7 @@ def epic_task_update_status(args: List[str]) -> int:
 
 EPIC_TASK_SIMULATION_UPSERT_USAGE = (
     "yoke workflow-item epic-task simulation-upsert --epic PREFIX-N --phase P "
-    "(--body TEXT | --body-file PATH | --stdin) [--session-id S] [--json]"
+    "(--body TEXT | --body-file PATH | --stdin) [--head-sha COMMIT] [--session-id S] [--json]"
 )
 
 
