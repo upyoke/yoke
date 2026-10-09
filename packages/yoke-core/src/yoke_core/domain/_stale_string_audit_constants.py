@@ -67,6 +67,10 @@ GENERIC_QUOTED_STRINGS = {
     "command not found",  # Active shell failure diagnostic.
     ".run",  # Generic method suffix, not a retired interface.
     ".execute",  # Generic method suffix, not a retired interface.
+    ".remove",  # Generic method suffix; also occurs inside removeprefix.
+    ".split",  # Generic method suffix, not display wording.
+    ") else",  # Conditional-expression fragment from paired quote extraction.
+    "all Y",  # Schematic enumeration placeholder, not display wording.
     "defaults",
     "default",
     "unknown",

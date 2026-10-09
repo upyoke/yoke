@@ -131,16 +131,16 @@ class TestInferAndCreatePreventions:
         retired_module = "yoke_core.domain." + "life" + "cycle"
         assert retired_module not in text
 
-    def test_duplicate_check_reads_board_and_recent_commits_first(self):
-        """The idea duplicate pass must look at human-context surfaces
-        before relying on literal phrase matching."""
+    def test_duplicate_check_reads_current_project_rows_and_commits_first(self):
+        """Current project scope and commits ground literal phrase search."""
         text = _read(_INFER_AND_CREATE)
-        board_idx = text.index("sed -n '1,300p' .yoke/BOARD.md")
-        commits_idx = text.index("git log --oneline -10")
+        rows_idx = text.index('yoke items list --project "$_project"')
+        commits_idx = text.index("log --oneline -10")
         search_idx = text.index("items search")
-        assert board_idx < search_idx
+        assert rows_idx < search_idx
         assert commits_idx < search_idx
         assert "literal phrase matching" in text
+        assert "--limit 1000" in text
 
 
 # ---------------------------------------------------------------------------

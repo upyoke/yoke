@@ -282,7 +282,7 @@ def test_normalize_candidate_string_filters_paths_and_commands():
     assert _normalize_candidate_string("Drop a Log & Enter") == "Drop a Log & Enter"
     assert _normalize_candidate_string("smoke.spec.ts") is None
     assert _normalize_candidate_string("python3 -m yoke_core.domain.foo") is None
-    assert _normalize_candidate_string("PYTHONPATH") is None
+    assert all(_normalize_candidate_string(s) is None for s in ("PYTHONPATH", ".remove", ".split", ") else", "all Y"))
     assert _normalize_candidate_string("RACING") == "RACING"
 
 

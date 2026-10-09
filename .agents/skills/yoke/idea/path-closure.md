@@ -1,51 +1,26 @@
-# /yoke idea — policy-aware path closure
+# Idea — Final Path Closure
 
-Read this after the item is created and its body is persisted, before
-Idea authors or gates the File Budget or path-claim surface.
+Before authoring/gating either surface, use workflows.item.get central effective
+axes; no raw-policy/posture reconstruction. After body persistence, enumerate
+every required physical file from actual investigation. Counts/approximations,
+"every caller", "all importers" or a subset with N-implied prose are incomplete
+even if a mechanical check passes.
 
-After creation and before Idea authors or gates either surface, call registered `workflows.item.get` through
-`yoke workflows item get ITEM --json`. Consume only
-`result.effective_policies.file_budget` and
-`result.effective_policies.path_claims` as authority. `required` enables
-the item surface, `required_per_task` enables the generated-task surface,
-and `optional` is off. Never reconstruct these values from the raw pinned
-definition or posture; the runtime owns historical compatibility and
-allowed tightening.
-- When File Budget is enabled, every file the implementer will edit is
-   enumerated in `## File Budget`, one path per line, with its line
-   allocation, current line count, remaining headroom against 350, and
-   explicit at-or-over-limit flag. **Counts and approximations are not acceptable** — phrases
-   like "roughly 30 files", "every caller", "all importers", "the survey
-   shows N matches" must be expanded into a literal path list before exit.
-- When path claims are enabled, author complete declared coverage. If File
-   Budget is also enabled, its paths and claim coverage must agree at the
-   applicable item/task scope (verified by `yoke readiness check`). If File
-   Budget is off, derive claim paths from the spec's execution scope and
-   investigation rather than inventing a budget.
-- When File Budget is enabled and path claims are off, keep the budget as
-   sizing and conflict-survey evidence; do not register a claim merely to
-   mirror it.
-- When both axes are off, neither artifact is required. The universal
-   350-line authored-file limit still applies through
-   `yoke_core.domain.file_line_check`.
-- For an Epic whose effective path-claims value is `required_per_task`, intake is the
-   exception: keep the full parent File Budget, but defer claim registration
-   until Shepherd persists generated tasks and `epic_task_files`. Never mint
-   an unbound parent claim as a substitute; the required gate reports this
-   pre-task state as a deliberate deferral.
-- Use whatever investigative work the spec demands — grep, sub-agents,
-   codebase reading — to produce the full derived touch set. Materialize that
-   set in whichever axes are enabled; when both are enabled, the deliverable
-   is the populated File Budget plus matching claim.
-- **Claim overlap does NOT narrow scope.** If a required file is already covered by another item's active or non-terminal path claim, it stays in the execution artifact; when File Budget is enabled, the file stays in the File Budget, and when claims are enabled it stays in the claim surface. Active path claims are coordination/dependency/blocking facts — never permission to omit a required file. If registration conflicts, surface the conflict and route to the canonical resolution protocol at [`path-claim-blocking.md`](path-claim-blocking.md). The default shape is `coordination_only` (compatibility edge, no lifecycle gate) for independent same-file edits; order-dependent overlaps use directional `activation` instead. The full shape list, the columns they touch, and the resolution order live in `path-claim-blocking.md` and your `path_claims` packet stanza; this SKILL does not restate either surface. See `AGENTS.md` `## Path Claims — Hard Rule` for the full doctrine.
+Budget on: exact per-file allocation/current count/headroom350/limit flag.
+Claims on: complete derived scope. Both: applicable item/task parity.
+Budget-only does not mint claims; claims-only does not invent a proxy budget;
+neither omits both but universal350 remains.
 
-Do NOT exit path closure with the spec saying "N files implied" while only listing a subset. If the readiness check passes but the spec body still contains "every X" / "all Y" / "~N files" prose without an enumeration alongside it, treat that as a structural defect and resolve it before handing off.
+Required_per_task intake retains full parent execution budget while deferring
+claims until Shepherd persists tasks and epic_task_files. No unbound parent
+claim substitutes for task ownership.
 
-When File Budget is enabled, **only physical files belong in `## File
-Budget` list-item backticks.** Function ids (`items.section.upsert`), event
-names, command surfaces, and other operational references go in surrounding
-prose — not in the `- ` list-item backticks the parser inspects. The
-dotted-identifier carve-out in `yoke_core.domain.file_budget_paths` silently
-drops them, but writing them in the budget at all confuses both reader and
-future consumer.
+Claim overlap never narrows scope: keep required files in intent and each
+enabled surface. Independent edits use attested coordination_only;
+order-dependent overlap needs directional activation evidence.
+Follow [path-claim-blocking.md](path-claim-blocking.md) for conflict repair.
 
+Only physical edit paths belong in File Budget list-item backticks. Function
+ids/events/command references go in prose; the dotted-identifier carve-out is
+not permission to confuse the budget. Complete this before readiness release
+and final confirmation.
