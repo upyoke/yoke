@@ -291,3 +291,8 @@ clocks once. The chart's external uPlot coordinate adapter uses numeric seconds
 for display while inspection preserves the original canonical endpoints;
 calendar controls use the shared Date-to-instant wire adapter. The captured
 Performance review page filters endpoints with exact kernel microseconds.
+
+Attribution fixtures generate native freshness clocks, strictly parse supplied
+current/recent item instants and bind deterministic item clocks natively.
+Absent attribution clocks remain null; explicit SQLite bindings format canonical
+fixed-six UTC while item/session identifiers retain opaque values.

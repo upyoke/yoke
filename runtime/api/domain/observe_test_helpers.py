@@ -27,18 +27,21 @@ from __future__ import annotations
 
 import contextlib
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime
+
+from yoke_contracts.timestamps import as_utc, parse_instant, utc_now
 from pathlib import Path
 from typing import Iterator, Optional, Tuple
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 from runtime.api.fixtures.file_test_db import apply_fixture_schema_ddl, init_test_db
 
 
-def _fresh_now() -> str:
-    """Return a fresh ISO 8601 UTC timestamp for freshness-sensitive session fixtures."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _fresh_now() -> datetime:
+    """Return a native aware instant for freshness-sensitive session fixtures."""
+    return as_utc(utc_now())
 
 
 def _p(conn) -> str:
@@ -83,7 +86,7 @@ def seed_item(conn, item_id: int, *, status: str, workflow: str = "issue") -> No
     Attribution only reads ``id`` / ``status`` / ``workflow_id``; the remaining
     NOT NULL columns carry deterministic fixture values.
     """
-    now = "2026-01-01T00:00:00Z"
+    now = instant_parameter(conn, parse_instant("2026-01-01T00:00:00Z"))
     p = _p(conn)
     workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, workflow)
     conn.execute(
@@ -110,9 +113,9 @@ def seed_session(
     session_id: str,
     *,
     current_item_id: Optional[str] = None,
-    current_item_set_at: Optional[str] = None,
+    current_item_set_at: datetime | str | None = None,
     recent_item_id: Optional[str] = None,
-    recent_item_recorded_at: Optional[str] = None,
+    recent_item_recorded_at: datetime | str | None = None,
 ) -> None:
     """Insert one ``harness_sessions`` row with the canonical NOT NULL columns.
 
@@ -120,7 +123,17 @@ def seed_session(
     / ``recent_item_recorded_at``; the remaining NOT NULL columns carry
     deterministic fixture values.
     """
-    now = _fresh_now()
+    current_clock = (
+        None if current_item_set_at is None else parse_instant(current_item_set_at)
+    )
+    recent_clock = (
+        None
+        if recent_item_recorded_at is None
+        else parse_instant(recent_item_recorded_at)
+    )
+    now = instant_parameter(conn, _fresh_now())
+    current_clock = instant_parameter(conn, current_clock)
+    recent_clock = instant_parameter(conn, recent_clock)
     p = _p(conn)
     conn.execute(
         "INSERT INTO harness_sessions "
@@ -133,8 +146,8 @@ def seed_session(
             now,
             now,
             current_item_id,
-            current_item_set_at,
+            current_clock,
             recent_item_id,
-            recent_item_recorded_at,
+            recent_clock,
         ),
     )

@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+
+from yoke_contracts.timestamps import utc_now
 from pathlib import Path
 from unittest import mock
 
@@ -127,9 +129,7 @@ class TestSessionAttribution(unittest.TestCase):
             seed_item(conn, 50, status="implementing")
             seed_item(conn, 51, status="implementing")
             # Set recorded_at to 2 hours ago (7200s > 1800s limit)
-            two_hours_ago = (
-                datetime.now(timezone.utc) - timedelta(hours=2)
-            ).strftime("%Y-%m-%dT%H:%M:%SZ")
+            two_hours_ago = utc_now() - timedelta(hours=2)
             seed_session(
                 conn,
                 "sess_500",
@@ -204,7 +204,8 @@ class TestSessionAttribution(unittest.TestCase):
             conn.close()
 
             item_id, source = _resolve_main_session_attribution(
-                db_path, project_dir,
+                db_path,
+                project_dir,
             )
             self.assertIsNone(item_id)
             self.assertIsNone(source)
@@ -227,7 +228,8 @@ class TestSessionAttribution(unittest.TestCase):
             conn.close()
 
             item_id, task_id, source = _resolve_dispatch_context(
-                db_path, project_dir,
+                db_path,
+                project_dir,
             )
             self.assertIsNone(item_id)
             self.assertIsNone(task_id)
