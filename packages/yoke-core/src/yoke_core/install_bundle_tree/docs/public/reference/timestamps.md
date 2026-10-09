@@ -259,3 +259,10 @@ identity tie order. Report JSON emits fixed-six UTC/null; calendar reset labels
 remain human display. Delivery interval compare-and-set binds native values and
 includes the exact cutoff without an empty SQL sentinel. Declared malformed
 reset clocks refuse; missing resets remain unknown. Fingerprints still omit age.
+
+Deferred hook observations retain native aware clocks until their telemetry
+JSON payload formats the declared observation field. Required observations reject
+null or malformed clocks before enqueueing; request text and monotonic queue ages
+keep their own meaning. Transport retry, resident delivery and relay failure
+diagnostics share the same fixed-six UTC formatter, preserving microseconds and
+refusing naive clocks rather than assigning a timezone.

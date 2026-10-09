@@ -281,7 +281,7 @@ def test_the_retry_notice_names_the_wait_it_is_about_to_take(capsys) -> None:
     )
 
     assert capsys.readouterr().err.strip() == (
-        "2026-09-07T18:26:17Z note: relay attempt 3/7 failed "
+        "2026-09-07T18:26:17.000000Z note: relay attempt 3/7 failed "
         "(relay unreachable) class=unreachable outcome=retrying; retrying in 6s"
     )
 

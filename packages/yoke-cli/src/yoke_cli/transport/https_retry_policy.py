@@ -34,9 +34,11 @@ import ssl
 import sys
 import urllib.error
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import TextIO
 from urllib.parse import urlsplit
+
+from yoke_contracts.timestamps import format_instant, utc_now
 
 
 CONNECTION_ATTEMPTS = 7
@@ -188,18 +190,9 @@ def connection_backoff_seconds(attempt: int) -> float:
     return backoff[min(max(attempt, 0), len(backoff) - 1)]
 
 
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
 def utc_stamp(clock: Callable[[], datetime] | None = None) -> str:
-    """UTC ``YYYY-MM-DDTHH:MM:SSZ`` stamp shared by owned stderr diagnostics."""
-    instant = (clock or _utc_now)()
-    if instant.tzinfo is None:
-        instant = instant.replace(tzinfo=timezone.utc)
-    else:
-        instant = instant.astimezone(timezone.utc)
-    return instant.strftime("%Y-%m-%dT%H:%M:%SZ")
+    """Fixed-six UTC stamp shared by owned stderr diagnostics."""
+    return format_instant((clock or utc_now)())
 
 
 def _classify_retry_reason(reason: str) -> str:
@@ -251,7 +244,7 @@ def write_retry_notice(
     from a command that has hung, and the observed report is exactly that:
     zero output, no receipt, and no way to know which one happened.
 
-    Each line starts with a UTC ``YYYY-MM-DDTHH:MM:SSZ`` stamp so retained
+    Each line starts with a UTC ``YYYY-MM-DDTHH:MM:SS.ffffffZ`` stamp so retained
     relay stderr can be correlated with session load. ``class=`` and
     ``outcome=retrying`` are derived from the already-safe reason; this
     helper does not change retry timing or budgets.

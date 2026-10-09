@@ -212,13 +212,13 @@ def test_failure_burst_logs_first_periodic_and_recovery_lines(caplog) -> None:
 
     messages = [record.getMessage() for record in caplog.records]
     assert messages == [
-        "2026-09-08T14:54:09Z relay poll failed: request rejected; "
+        "2026-09-08T14:54:09.000000Z relay poll failed: request rejected; "
         "class=relay_failure consecutive_failures=1 elapsed_seconds=0.0 "
         "outcome=retrying",
-        "2026-09-08T14:54:09Z relay poll failed: request rejected; "
+        "2026-09-08T14:54:09.000000Z relay poll failed: request rejected; "
         "class=relay_failure consecutive_failures=3 "
         f"elapsed_seconds={interval:.1f} outcome=retrying",
-        "2026-09-08T14:54:09Z relay poll recovered; class=relay_recovery "
+        "2026-09-08T14:54:09.000000Z relay poll recovered; class=relay_recovery "
         "consecutive_failures=3 "
         f"elapsed_seconds={interval + 5:.1f} outcome=recovered",
     ]

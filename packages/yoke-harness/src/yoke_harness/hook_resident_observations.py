@@ -16,7 +16,6 @@ import sys
 import threading
 import time
 import urllib.request
-from dataclasses import dataclass
 from typing import Any
 
 from yoke_cli.transport.bounded_json_http import request_json
@@ -32,6 +31,7 @@ from yoke_harness.hook_observation_delivery import (
     owned_diagnostic_line,
     retry_delay_seconds,
 )
+from yoke_harness.hook_observation_payload import PendingObservation
 from yoke_harness.hook_resident_client_wall import PendingClientWall
 
 
@@ -40,27 +40,6 @@ OBSERVATION_FLUSH_COUNT = 32
 OBSERVATION_BATCH_MAX_BYTES = 1024 * 1024
 MESSAGE_PROBE_INTERVAL_SECONDS = 2.0
 OBSERVATION_PATH = "/v1/hooks/telemetry/batch"
-
-
-@dataclass(frozen=True)
-class PendingObservation:
-    observation_id: str
-    endpoint: str
-    authorization: str
-    observed_at: str
-    hook_wait_ms: int
-    hook_request: dict[str, Any]
-    enqueued_at: float
-
-    batch_field = "observations"
-
-    def payload(self) -> dict[str, Any]:
-        return {
-            "observation_id": self.observation_id,
-            "observed_at": self.observed_at,
-            "hook_wait_ms": self.hook_wait_ms,
-            "hook_request": self.hook_request,
-        }
 
 
 PendingTelemetry = PendingObservation | PendingClientWall
