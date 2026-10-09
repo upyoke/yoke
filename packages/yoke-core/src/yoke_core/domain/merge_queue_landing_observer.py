@@ -21,9 +21,10 @@ claim holder, and a landing recorded without it is exactly the state the
 report exists to surface.
 
 What each candidate costs depends on which route it is on. An item whose
-queue admission was recorded is waiting on a notification only this
-observer sends, so it gets the full four-fact read and can be told its
-landing stopped. An item that merely has a pull request open is asked one
+queue admission or prior armed/queued observation was recorded is waiting
+on a notification only this observer sends, so it gets the full four-fact
+read even after arming is cleared and can be told its landing stopped.
+An item that merely has a pull request open is asked one
 question — did it merge — because the ordinary answer for a pull request
 still being verified is *not yet*, and a landing that was never armed
 cannot have been ejected from a queue it never entered.
