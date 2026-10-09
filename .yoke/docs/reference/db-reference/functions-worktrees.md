@@ -89,4 +89,4 @@ Never publish a correction while armed/queued: hold first, verify both queue
 entry and merge-when-ready cleared, correct and rerun QA, then re-arm through the
 merge boundary. A hold that observes landing returns the actual merge commit.
 Pending landing records are durable; clearing one does not fabricate completion.
-Release pins retain exact lineage; [deployment contracts](events-and-deployments.md).
+Release pins retain exact lineage; [deployment contracts](deployment-run-records.md).
