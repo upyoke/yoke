@@ -51,7 +51,11 @@ def _row(row: Any) -> dict[str, Any]:
         "set_by_actor_id": int(record["set_by_actor_id"]),
         "set_by_session_id": record.get("set_by_session_id"),
         "created_at": format_instant(record["created_at"]),
-        "cleared_at": format_instant(record.get("cleared_at")),
+        "cleared_at": (
+            None
+            if record.get("cleared_at") is None
+            else format_instant(record["cleared_at"])
+        ),
         "cleared_by_actor_id": record.get("cleared_by_actor_id"),
     }
 

@@ -6,6 +6,8 @@ current run-stage Inbox decision and reports whether it has been resolved.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 
@@ -91,9 +93,15 @@ def approve_item(
             f"SELECT resolved_at FROM decision_requests WHERE id = {p}",
             (int(verdict.request_id),),
         ).fetchone()
+        if stamp is None or stamp[0] is None:
+            return _main._error_response(
+                409,
+                "APPROVAL_EVIDENCE_UNAVAILABLE",
+                "Resolved approval lacks its decision instant; repair the Inbox decision evidence.",
+            )
         return _main.ApproveResponse(
             id=public_ref,
-            approved_at=str(stamp[0] if stamp is not None else ""),
+            approved_at=format_instant(stamp[0]),
             comment=req.comment,
         )
     except db_backend.operational_error_types(conn) as exc:

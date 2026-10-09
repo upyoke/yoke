@@ -339,3 +339,7 @@ event relative bounds validate their anchor and preserve microseconds.
 Messaging and GitHub token owners validate provided clocks before receipts,
 wakes, signing or cache reads. Surface-policy mark responses format declared
 clocks as fixed-six UTC/null while SQL binds native instants at its adapter.
+
+Item approval, task-binding and workflow-version replies format their declared
+instant fields explicitly. A resolved approval without its required clock
+refuses with named missing-evidence recovery; immutable digests stay opaque.

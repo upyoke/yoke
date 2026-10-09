@@ -35,6 +35,7 @@ from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
 )
 from yoke_core.domain.session_message_delivery import expire_due_recipients
 from yoke_core.domain.work_claim_targets import make_item_target
+from yoke_contracts.timestamps import parse_instant
 
 
 RUN_ID = "run-20260920-011"
@@ -44,15 +45,15 @@ MEMBER_B = 9707
 NOW = datetime(2026, 9, 21, 3, 12, tzinfo=timezone.utc)
 
 
-def _message(conn: Any, key: str) -> tuple[str, str, str]:
+def _message(conn: Any, key: str) -> tuple[str, datetime | None, str]:
     row = conn.execute(
-        "SELECT message_id, COALESCE(cancelled_at,''), "
+        "SELECT message_id, cancelled_at, "
         "COALESCE(cancellation_reason,'') FROM session_messages "
         "WHERE idempotency_key=%s",
         (key,),
     ).fetchone()
     assert row is not None
-    return str(row[0]), str(row[1]), str(row[2])
+    return str(row[0]), row[1], str(row[2])
 
 
 def _recipient_state(conn: Any, message_id: str) -> str:
@@ -64,7 +65,9 @@ def _recipient_state(conn: Any, message_id: str) -> str:
     return str(row[0])
 
 
-def _seed_member(conn: Any, item_id: int, session_id: str, *, status: str = "idea") -> None:
+def _seed_member(
+    conn: Any, item_id: int, session_id: str, *, status: str = "idea"
+) -> None:
     insert_item(
         conn,
         id=item_id,
@@ -133,14 +136,14 @@ def test_a_wait_wake_does_not_survive_the_run_completing(test_db: Any) -> None:
     )
     test_db.execute("UPDATE items SET status='done' WHERE id=%s", (MEMBER_A,))
     test_db.commit()
-    assert cancelled_at == ""
+    assert cancelled_at is None
     assert _recipient_state(test_db, message_id) == "pending"
 
     withdrawn = expire_due_recipients(test_db, now=NOW)
 
     assert withdrawn == 0
     _, cancelled_at, reason = _message(test_db, key)
-    assert cancelled_at
+    assert cancelled_at == NOW
     assert reason == "run_terminal:succeeded"
     assert _recipient_state(test_db, message_id) == "cancelled"
     attempt = test_db.execute(
@@ -149,7 +152,7 @@ def test_a_wait_wake_does_not_survive_the_run_completing(test_db: Any) -> None:
         ("attempt-stale-1",),
     ).fetchone()
     assert str(attempt[0]) == "native_turn_running"
-    assert str(attempt[1]) == "2026-09-20T21:55:01Z"
+    assert attempt[1] == parse_instant("2026-09-20T21:55:01Z")
 
 
 def test_an_outstanding_member_keeps_its_wait(test_db: Any) -> None:
@@ -160,7 +163,7 @@ def test_an_outstanding_member_keeps_its_wait(test_db: Any) -> None:
 
     assert withdraw_deployment_qa_wait_wakes(test_db, now=NOW) == 0
     message_id, cancelled_at, reason = _message(test_db, key)
-    assert cancelled_at == ""
+    assert cancelled_at is None
     assert reason == ""
     assert _recipient_state(test_db, message_id) == "pending"
 
@@ -180,9 +183,9 @@ def test_a_done_member_loses_its_wait_while_the_run_is_still_live(
     assert withdraw_deployment_qa_wait_wakes(test_db, now=NOW) == 1
     _, cancelled_a, reason_a = _message(test_db, key_a)
     _, cancelled_b, reason_b = _message(test_db, key_b)
-    assert cancelled_a
+    assert cancelled_a == NOW
     assert reason_a == "member_done"
-    assert cancelled_b == ""
+    assert cancelled_b is None
     assert reason_b == ""
 
 
@@ -207,13 +210,11 @@ def test_a_run_scoped_wait_withdraws_when_the_run_is_terminal(test_db: Any) -> N
     )
     assert result in ("delivered", "undelivered")
     key = run_stage_wait_idempotency_key(RUN_ID, STAGE)
-    test_db.execute(
-        "UPDATE deployment_runs SET status='failed' WHERE id=%s", (RUN_ID,)
-    )
+    test_db.execute("UPDATE deployment_runs SET status='failed' WHERE id=%s", (RUN_ID,))
     test_db.commit()
     assert withdraw_deployment_qa_wait_wakes(test_db, now=NOW) == 1
     _, cancelled_at, reason = _message(test_db, key)
-    assert cancelled_at
+    assert cancelled_at == NOW
     assert reason == "run_terminal:failed"
 
 

@@ -201,3 +201,4 @@ def test_surface_policy_sql_and_response_clocks_have_distinct_owned_representati
     raw = dict(created, created_at=INSTANT, cleared_at=INSTANT)
     assert policy._row(raw)["created_at"] == format_instant(INSTANT)
     assert policy._row(raw)["cleared_at"] == format_instant(INSTANT)
+    assert policy._row(dict(raw, cleared_at=None))["cleared_at"] is None

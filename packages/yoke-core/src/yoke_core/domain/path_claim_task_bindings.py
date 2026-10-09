@@ -7,6 +7,8 @@ registering session into path authority.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -154,7 +156,7 @@ def task_bindings_for_claim(conn: Any, claim_id: int) -> list[dict[str, Any]]:
         {
             "epic_id": int(_value(row, "epic_id", 0)),
             "task_num": int(_value(row, "task_num", 1)),
-            "bound_at": str(_value(row, "bound_at", 2)),
+            "bound_at": format_instant(_value(row, "bound_at", 2)),
         }
         for row in rows
     ]
