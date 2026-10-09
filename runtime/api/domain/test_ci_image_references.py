@@ -108,6 +108,8 @@ def test_each_ci_image_is_declared_once_per_file() -> None:
         text = path.read_text(encoding="utf-8")
         for image in sorted(images):
             count = text.count(image)
+            if count == 0 and image in _DOCKERFILE.read_text(encoding="utf-8"):
+                continue
             assert count == 1, (
                 f"{path.relative_to(_ROOT)} declares {image} {count} times; "
                 "declare it once via workflow env, the service image key, "
@@ -115,17 +117,19 @@ def test_each_ci_image_is_declared_once_per_file() -> None:
             )
 
 
-def test_shard_postgres_start_retries_a_rate_limited_mirror_pull() -> None:
-    """Many shards pull at once; public ECR answers toomanyrequests on some."""
+def test_ci_steps_retry_mirror_pulls_before_using_the_image() -> None:
+    """Public ECR throttles anonymous pulls per IP when shards start together."""
     for name in ("yoke-ci.yml", "yoke-tests-selection.yml"):
-        text = (_WORKFLOWS / name).read_text(encoding="utf-8")
-        marker, _, step = text.partition("Start Postgres")
-        assert marker != text, name
-        step = step.split("\n      - name:", 1)[0]
-        assert "for delay in 15 60 0" in step, name
-        assert '"$POSTGRES_IMAGE"' in step, name
-        assert "&& exit 0" in step, name
-        assert "exit 1" in step, name
+        step = _step_body(_WORKFLOWS / name, "Start Postgres")
+        assert 'docker pull "$POSTGRES_IMAGE"' in step, name
+        assert "for attempt in 1 2 3 4 5" in step, name
+        assert "sleep $((5 + RANDOM % 26))" in step, name
+        assert step.index('docker pull "$POSTGRES_IMAGE"') < step.index("docker run")
+    build = _step_body(_WORKFLOWS / "yoke-ci.yml", "Build Yoke core image")
+    assert "s/^ARG PYTHON_IMAGE=//p" in build
+    assert 'docker pull "$python_image"' in build
+    assert "for attempt in 1 2 3 4 5" in build
+    assert build.index('docker pull "$python_image"') < build.index("docker build")
 
 
 def test_ci_files_do_not_name_bare_docker_hub_official_images() -> None:
@@ -231,7 +235,7 @@ def _docker_command_images(
     for match in _DOCKER_INVOCATION.finditer(joined):
         tail = re.split(r"\n|&&|\|\||;", joined[match.end() :], maxsplit=1)[0]
         token = _first_positional(shlex.split(tail), origin)
-        images.append(_resolve_shell_image(token, env_chain, origin))
+        images.append(_resolve_shell_image(token, env_chain, origin, script))
     return images
 
 
@@ -253,8 +257,18 @@ def _first_positional(tokens: list[str], origin: str) -> str:
     raise AssertionError(f"{origin}: docker command has no image")
 
 
+def _step_body(path: Path, step_name: str) -> str:
+    text = path.read_text(encoding="utf-8")
+    marker, _, body = text.partition(step_name)
+    assert marker != text, f"{path.name}: missing step {step_name}"
+    return body.split("\n      - name:", 1)[0]
+
+
 def _resolve_shell_image(
-    token: str, env_chain: list[dict[str, str]], origin: str
+    token: str,
+    env_chain: list[dict[str, str]],
+    origin: str,
+    script: str,
 ) -> str:
     name = _shell_name(token)
     if name is not None:
@@ -263,12 +277,38 @@ def _resolve_shell_image(
                 token = env[name]
                 break
         else:
-            raise AssertionError(
-                f"{origin}: ${name} is not declared in workflow, job, or step env"
-            )
+            token = _image_assigned_from_dockerfile_arg(script, name, origin)
     if "$" in token or "${{" in token:
         raise AssertionError(f"{origin}: {token!r} is not a concrete image reference")
     return token
+
+
+_DOCKERFILE_ARG_ASSIGNMENT = re.compile(
+    r"""([A-Za-z_][A-Za-z0-9_]*)="\$\(sed -n 's/\^ARG """
+    r"""([A-Za-z_][A-Za-z0-9_]*)=//p' Dockerfile\)\""""
+)
+
+
+def _image_assigned_from_dockerfile_arg(script: str, name: str, origin: str) -> str:
+    for match in _DOCKERFILE_ARG_ASSIGNMENT.finditer(script):
+        if match.group(1) != name:
+            continue
+        text = _DOCKERFILE.read_text(encoding="utf-8")
+        first = _FROM.search(text)
+        preamble = text[: first.start()] if first else text
+        defaults = {
+            arg_name: value.strip() for arg_name, value in _ARG.findall(preamble)
+        }
+        arg_name = match.group(2)
+        if arg_name not in defaults:
+            raise AssertionError(
+                f"{origin}: ${name} reads ARG {arg_name}, which has no default "
+                "before the first FROM"
+            )
+        return defaults[arg_name]
+    raise AssertionError(
+        f"{origin}: ${name} is not declared in workflow, job, or step env"
+    )
 
 
 def _concrete_static_image(value: object, origin: str) -> str:

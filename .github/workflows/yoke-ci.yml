@@ -211,30 +211,28 @@ jobs:
           git config --global init.defaultBranch main
 
       - name: Start Postgres (durability off, dynamic host port)
-        # Not services: those cannot pass -c. Retry: public ECR rate-limits anonymous pulls.
+        # Not services: those cannot pass -c. Pull retries: public ECR throttles per IP.
         run: |
           socket_dir="$(mktemp -d /tmp/yoke-ci-pg.XXXXXX)"
           echo "YOKE_PG_SOCKET_DIR=${socket_dir}" >> "$GITHUB_ENV"
-          for delay in 15 60 0; do
-            docker rm -f "$PG_CONTAINER" >/dev/null 2>&1 || true
-            docker run -d \
-              --name "$PG_CONTAINER" \
-              -v "${socket_dir}:/var/run/postgresql" \
-              -e POSTGRES_USER=yoke \
-              -e POSTGRES_PASSWORD=yoke \
-              -e POSTGRES_DB=postgres \
-              -p 5432 \
-              "$POSTGRES_IMAGE" \
-              -c fsync=off \
-              -c synchronous_commit=off \
-              -c full_page_writes=off \
-              -c wal_level=minimal \
-              -c max_wal_senders=0 && exit 0
-            if [ "$delay" = 0 ]; then break; fi
-            echo "postgres image pull failed; retrying in ${delay}s" >&2
-            sleep "$delay"
+          for attempt in 1 2 3 4 5; do
+            docker pull "$POSTGRES_IMAGE" && break
+            [ "$attempt" -eq 5 ] && exit 1
+            sleep $((5 + RANDOM % 26))
           done
-          exit 1
+          docker run -d \
+            --name "$PG_CONTAINER" \
+            -v "${socket_dir}:/var/run/postgresql" \
+            -e POSTGRES_USER=yoke \
+            -e POSTGRES_PASSWORD=yoke \
+            -e POSTGRES_DB=postgres \
+            -p 5432 \
+            "$POSTGRES_IMAGE" \
+            -c fsync=off \
+            -c synchronous_commit=off \
+            -c full_page_writes=off \
+            -c wal_level=minimal \
+            -c max_wal_senders=0
 
       - name: Resolve Postgres DSN (dynamic host port)
         # `docker port <name> 5432` prints "0.0.0.0:NNNNN" (plus an IPv6
@@ -335,15 +333,14 @@ jobs:
           echo "YOKE_ENGINE_VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Build Yoke core image
-        # Retry with backoff so a transient registry pull failure costs a
-        # retry rather than the gate; deterministic failures still fail.
+        # Pull retries before the build: public ECR throttles anonymous pulls per IP.
         run: |
-          for delay in 15 60 0; do
-            docker build \
-              --build-arg "YOKE_ENGINE_VERSION=$YOKE_ENGINE_VERSION" \
-              --tag yoke-core:${{ github.sha }} . && exit 0
-            if [ "$delay" = 0 ]; then break; fi
-            echo "docker build failed; retrying in ${delay}s" >&2
-            sleep "$delay"
+          python_image="$(sed -n 's/^ARG PYTHON_IMAGE=//p' Dockerfile)"
+          for attempt in 1 2 3 4 5; do
+            docker pull "$python_image" && break
+            [ "$attempt" -eq 5 ] && exit 1
+            sleep $((5 + RANDOM % 26))
           done
-          exit 1
+          docker build \
+            --build-arg "YOKE_ENGINE_VERSION=$YOKE_ENGINE_VERSION" \
+            --tag yoke-core:${{ github.sha }} .
