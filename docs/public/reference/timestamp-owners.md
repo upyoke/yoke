@@ -227,3 +227,9 @@ poll-cutoff facts, adapting only at their SQL owners. The inclusive poll floor
 keeps microseconds; malformed notification clocks refuse authority. Invalid
 replacement clocks refuse before deleting a superseded wait. Continue commands
 and verdict notices remain opaque and each session/run still notifies once.
+
+Peer broker reservations, settlement and native relay adoption retain aware
+instants through their owners and adapt only at SQL bindings. Snapshot clocks
+compare by instant rather than timezone spelling; malformed clocks refuse.
+Lease expiry is inclusive and relay freshness is strict at microsecond precision.
+Adoption retains the single wake charge and original message bytes and digests.

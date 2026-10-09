@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 
 import pytest
 
+from yoke_contracts.timestamps import format_instant
+
 from runtime.api.domain.merge_queue_observer_test_helpers import (
     INJECTED_AT,
     inject,
@@ -70,7 +72,9 @@ def test_a_concluded_run_carries_its_verdict_to_the_waiting_session(
     )
 
     assert result["concluded"] == 1
-    body = message_body(waiting_connection, message_id_for(waiting_connection, NOTICE_KEY))
+    body = message_body(
+        waiting_connection, message_id_for(waiting_connection, NOTICE_KEY)
+    )
     assert "CI verdict: success" in body
     assert RUN_ID in body
     assert "yoke watch pytest --impacted main --bounded" in body
@@ -91,9 +95,12 @@ def test_repeated_sweeps_send_one_notice_and_stop_once_it_lands(
     assert message_count(waiting_connection) == 1
     assert _wait_row(waiting_connection)["notified_at"]
     # The wait has left the candidate set, so a later sweep reads nothing.
-    assert observe_pending_ci_runs(
-        waiting_connection, [1], now=INJECTED_AT, read_run=concluded
-    )["checked"] == 0
+    assert (
+        observe_pending_ci_runs(
+            waiting_connection, [1], now=INJECTED_AT, read_run=concluded
+        )["checked"]
+        == 0
+    )
 
 
 def test_a_session_whose_turn_is_in_flight_is_not_woken(waiting_connection) -> None:
@@ -106,9 +113,7 @@ def test_a_session_whose_turn_is_in_flight_is_not_woken(waiting_connection) -> N
     def refuse(*_args):  # pragma: no cover - the assertion is that it is unused
         raise AssertionError("a session reading the run itself must not be polled")
 
-    result = observe_pending_ci_runs(
-        waiting_connection, [1], now=NOW, read_run=refuse
-    )
+    result = observe_pending_ci_runs(waiting_connection, [1], now=NOW, read_run=refuse)
 
     assert result["in_flight_sessions"] == 1
     assert message_count(waiting_connection) == 0
@@ -122,7 +127,7 @@ def test_a_run_still_in_flight_produces_no_notice(waiting_connection) -> None:
 
     assert result["concluded"] == 0
     assert message_count(waiting_connection) == 0
-    assert _wait_row(waiting_connection)["read_at"] == "2026-09-04T18:00:00Z"
+    assert _wait_row(waiting_connection)["read_at"] == format_instant(NOW)
 
 
 def test_a_merge_boundary_wait_names_itself_accurately_and_teaches_resume(
@@ -184,15 +189,13 @@ def test_a_watcher_that_already_printed_success_is_not_woken(
     def refuse(*_args):  # pragma: no cover - the assertion is that it is unused
         raise AssertionError("a received wait must not be polled again")
 
-    result = observe_pending_ci_runs(
-        waiting_connection, [1], now=NOW, read_run=refuse
-    )
+    result = observe_pending_ci_runs(waiting_connection, [1], now=NOW, read_run=refuse)
 
     assert result["checked"] == 0
     assert message_count(waiting_connection) == 0
     row = _wait_row(waiting_connection)
     assert row["conclusion"] == "success"
-    assert row["notified_at"] == "2026-09-04T17:59:00Z"
+    assert row["notified_at"] == format_instant("2026-09-04T17:59:00Z")
 
 
 def test_a_watcher_that_already_printed_failure_is_not_woken(
@@ -228,7 +231,7 @@ def test_a_second_resolve_of_the_same_wait_is_a_noop(waiting_connection) -> None
 
     row = _wait_row(waiting_connection)
     assert row["conclusion"] == "success"
-    assert row["notified_at"] == "2026-09-04T17:59:00Z"
+    assert row["notified_at"] == format_instant("2026-09-04T17:59:00Z")
 
 
 def test_a_watcher_winning_the_sweep_race_suppresses_the_duplicate_notice(
@@ -267,13 +270,11 @@ def test_resolving_one_wait_leaves_a_sibling_session_and_run_pending(
     assert result["concluded"] == 1
     assert message_count(waiting_connection) == 1
     own = waiting_connection.execute(
-        "SELECT notified_at FROM session_ci_run_waits "
-        "WHERE session_id=? AND run_id=?",
+        "SELECT notified_at FROM session_ci_run_waits WHERE session_id=? AND run_id=?",
         (SESSION, RUN_ID),
     ).fetchone()
     sibling = waiting_connection.execute(
-        "SELECT notified_at FROM session_ci_run_waits "
-        "WHERE session_id=? AND run_id=?",
+        "SELECT notified_at FROM session_ci_run_waits WHERE session_id=? AND run_id=?",
         ("s2", other_run),
     ).fetchone()
     assert own["notified_at"]

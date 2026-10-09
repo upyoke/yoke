@@ -192,7 +192,7 @@ def test_broker_loss_writer_supplies_its_revision() -> None:
 
     row = _attempt_row(conn, "broker-attempt")
     assert tuple(row[2:]) == (
-        "2026-08-22T12:00:31Z",
+        "2026-08-22T12:00:31.000000Z",
         "broker_hook_lease_expired",
         BROKER_ADAPTER_REVISION,
     )

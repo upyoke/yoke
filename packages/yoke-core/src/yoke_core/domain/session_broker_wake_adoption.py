@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Mapping
+
+from yoke_contracts.timestamps import parse_instant
 
 from yoke_contracts.session_control.private_route_qualification import (
     PrivateRouteQualificationGrant,
@@ -55,7 +58,9 @@ def _same(value: Any, expected: Any) -> bool:
     return str(value or "") == str(expected or "")
 
 
-def _close_with_code(conn: Any, attempt_id: str, result_code: str, now: str) -> None:
+def _close_with_code(
+    conn: Any, attempt_id: str, result_code: str, now: datetime
+) -> None:
     from yoke_core.domain.session_broker_wake_settlement import (
         close_broker_attempt,
     )
@@ -76,7 +81,7 @@ def _adopt_attempt(
     attempt_id: str,
     candidate: Mapping[str, Any],
     heartbeat: RelayHeartbeat,
-    now: str,
+    now: datetime,
     qualification: PrivateRouteQualificationGrant | None,
     execution: tuple[str, str],
 ) -> RelayJob | None:
@@ -105,11 +110,13 @@ def _adopt_attempt(
             str(attempt[1] or "") == "broker_instructed",
             _same(receipt[0], candidate.get("state")),
             int(receipt[1] or 0) == int(candidate.get("wake_attempt_count") or 0),
-            _same(receipt[2], candidate.get("last_wake_at")),
+            parse_timestamp(receipt[2])
+            == parse_timestamp(candidate.get("last_wake_at")),
             _same(receipt[3], candidate.get("injection_lease_id")),
             _same(receipt[4], heartbeat.machine_id),
             _same(receipt[5], candidate.get("turn_posture")),
-            _same(receipt[6], candidate.get("turn_posture_at")),
+            parse_timestamp(receipt[6])
+            == parse_timestamp(candidate.get("turn_posture_at")),
         )
         if not all(checks):
             conn.rollback()
@@ -190,11 +197,12 @@ def claim_broker_wake_job(
     conn: Any,
     heartbeat: RelayHeartbeat,
     *,
-    now: str,
+    now: datetime | str,
     broker_lease_id: str,
     broker_session_id: str,
 ) -> RelayJob | None:
-    settle_broker_wake_losses(conn, now=parse_timestamp(now))
+    current = parse_instant(now)
+    settle_broker_wake_losses(conn, now=current)
     p = marker(conn)
     rows = conn.execute(
         "SELECT a.attempt_id,a.message_id,a.target_session_id "
@@ -210,7 +218,7 @@ def claim_broker_wake_job(
     for attempt_id, message_id, session_id in rows:
         candidates = wake_eligible_recipients(
             conn,
-            now=parse_timestamp(now),
+            now=current,
             bypass_waiting_retry_cooldown=True,
             ignore_attempt_id=str(attempt_id),
         )
@@ -224,7 +232,7 @@ def claim_broker_wake_job(
             None,
         )
         if candidate is None:
-            _close_with_code(conn, str(attempt_id), "broker_target_changed", now)
+            _close_with_code(conn, str(attempt_id), "broker_target_changed", current)
             continue
         if int(candidate["project_id"]) not in projects:
             continue
@@ -234,14 +242,14 @@ def claim_broker_wake_job(
         if execution is None:
             surface = str(candidate["executor_surface"])
             if surface in heartbeat.surface_versions:
-                _close_with_code(conn, str(attempt_id), "version_mismatch", now)
+                _close_with_code(conn, str(attempt_id), "version_mismatch", current)
             continue
         claimed = _adopt_attempt(
             conn,
             attempt_id=str(attempt_id),
             candidate=candidate,
             heartbeat=heartbeat,
-            now=now,
+            now=current,
             qualification=qualification,
             execution=execution,
         )
