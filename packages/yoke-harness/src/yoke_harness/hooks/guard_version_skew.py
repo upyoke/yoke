@@ -26,26 +26,11 @@ def _field(provenance: object, key: str) -> str:
 
 
 def _recovery(server: object) -> str:
-    """Name the action that actually moves the server off its revision.
-
-    A process stamps its revision once, when it imports — deliberately, so a
-    checkout advancing underneath a long-running API is not reported as
-    current. What closes the gap therefore depends on where that process
-    loaded its code from, and only one of the two answers is a restart.
-    """
+    """Recover according to the serving process's source provenance."""
     if _field(server, "install_kind") == "source_checkout":
         tree = _field(server, "install_path") or "its checkout"
-        return (
-            "the serving process stamped its revision when it imported, so "
-            f"restarting it re-reads {tree} at whatever revision that tree is "
-            "on now (restarting this session changes nothing)"
-        )
-    return (
-        "the server runs an installed build, so restarting it re-imports the "
-        "same revision — the gap closes when a build at the intended revision "
-        "is installed there, not before (restarting this session changes "
-        "nothing either)"
-    )
+        return f"restart the serving process to reread {tree}"
+    return "install a current build on the server to close the gap"
 
 
 def _same_revision(left: str, right: str) -> bool:
