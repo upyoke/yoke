@@ -2,7 +2,7 @@
 
 Convenience helpers to insert rows into the disposable Postgres database
 provided by the ``test_db`` fixture.  All helpers thread
-:func:`yoke_core.domain.db_helpers.iso8601_now` through every
+:func:`yoke_core.domain.db_helpers.utc_now` through every
 ``created_at`` / ``updated_at`` column at insert time so callers do not
 have to supply a timestamp.
 
@@ -13,11 +13,16 @@ implementation module.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Optional
+
+from yoke_core.domain.db_helpers import instant_parameter
 
 from runtime.api.fixtures.backlog_insert_support import (
     ensure_project_id as _ensure_project_id,
-    now as _now,
+    native_columns as _native_columns,
+    stamp as _stamp,
+    values as _values,
     placeholder as _placeholder,
     table_has_column as _table_has_column,
 )
@@ -39,14 +44,14 @@ def insert_item(
     status: str = "idea",
     priority: str = "medium",
     project: str = "yoke",
-    created_at: Optional[str] = None,
-    updated_at: Optional[str] = None,
+    created_at: str | datetime | None = None,
+    updated_at: str | datetime | None = None,
     **kwargs,
 ) -> Any:
     """Insert a row into ``items`` and return it."""
-    ts = created_at or _now()
-    uts = updated_at or ts
-    extra = dict(kwargs)
+    ts = _stamp(created_at)
+    uts = ts if updated_at is None else _stamp(updated_at)
+    extra = _native_columns("items", dict(kwargs))
     selected_workflow_id = str(workflow_id)
     cols = {
         "id": id,
@@ -76,12 +81,13 @@ def insert_item(
         else:
             cols["workflow_id"] = selected_workflow_id
     cols.update(extra)
+    params = _values(conn, "items", cols)
     col_names = ", ".join(cols.keys())
     p = _placeholder(conn)
     placeholders = ", ".join(p for _ in cols)
     conn.execute(
         f"INSERT INTO items ({col_names}) VALUES ({placeholders})",
-        tuple(cols.values()),
+        params,
     )
     conn.commit()
     return conn.execute(f"SELECT * FROM items WHERE id = {p}", (id,)).fetchone()
@@ -95,13 +101,13 @@ def insert_item_worktree(
     lane_role: str = "implementation",
     path: Optional[str] = None,
     state: str = "active",
-    created_at: Optional[str] = None,
-    updated_at: Optional[str] = None,
-    released_at: Optional[str] = None,
+    created_at: str | datetime | None = None,
+    updated_at: str | datetime | None = None,
+    released_at: str | datetime | None = None,
     id: Optional[int] = None,
 ) -> Any:
     """Insert one universal item-owned worktree lane and return it."""
-    ts = created_at or _now()
+    ts = _stamp(created_at)
     cols = {
         "item_id": item_id,
         "branch": branch,
@@ -109,18 +115,19 @@ def insert_item_worktree(
         "lane_role": lane_role,
         "state": state,
         "created_at": ts,
-        "updated_at": updated_at or ts,
+        "updated_at": ts if updated_at is None else _stamp(updated_at),
         "released_at": released_at,
     }
     if id is not None:
         cols = {"id": id, **cols}
     p = _placeholder(conn)
+    params = _values(conn, "item_worktrees", cols)
     col_names = ", ".join(cols.keys())
     placeholders = ", ".join(p for _ in cols)
     row = conn.execute(
         f"INSERT INTO item_worktrees ({col_names}) "
         f"VALUES ({placeholders}) RETURNING id",
-        tuple(cols.values()),
+        params,
     ).fetchone()
     lane_id = int(row[0])
     conn.commit()
@@ -142,7 +149,7 @@ def insert_epic_task(
     **kwargs,
 ) -> Any:
     """Insert a row into ``epic_tasks`` and return it."""
-    extra = dict(kwargs)
+    extra = _native_columns("epic_tasks", dict(kwargs))
     if not _table_has_column(conn, "epic_tasks", "worktree"):
         branch = str(
             extra.pop("branch", None) or extra.pop("worktree", None) or ""
@@ -166,12 +173,13 @@ def insert_epic_task(
         "dependencies": dependencies,
         **extra,
     }
+    params = _values(conn, "epic_tasks", cols)
     col_names = ", ".join(cols.keys())
     p = _placeholder(conn)
     placeholders = ", ".join(p for _ in cols)
     conn.execute(
         f"INSERT INTO epic_tasks ({col_names}) VALUES ({placeholders})",
-        tuple(cols.values()),
+        params,
     )
     conn.commit()
     return conn.execute(
@@ -192,12 +200,12 @@ def insert_event(
     severity: str = "INFO",
     project: str = "yoke",
     envelope: Optional[str] = None,
-    created_at: Optional[str] = None,
+    created_at: str | datetime | None = None,
     **kwargs,
 ) -> Any:
     """Insert a row into ``events`` and return it."""
-    ts = created_at or _now()
-    extra = dict(kwargs)
+    ts = _stamp(created_at)
+    extra = _native_columns("events", dict(kwargs))
     cols = {
         "event_id": event_id,
         "event_name": event_name,
@@ -216,12 +224,13 @@ def insert_event(
     elif _table_has_column(conn, "events", "project"):
         cols["project"] = project
     cols.update(extra)
+    params = _values(conn, "events", cols)
     col_names = ", ".join(cols.keys())
     p = _placeholder(conn)
     placeholders = ", ".join(p for _ in cols)
     cur = conn.execute(
         f"INSERT INTO events ({col_names}) VALUES ({placeholders}) RETURNING id",
-        tuple(cols.values()),
+        params,
     )
     row_id = cur.fetchone()[0]
     conn.commit()
@@ -236,14 +245,15 @@ def insert_deployment_run(
     flow: str = "flow-test",
     status: str = "created",
     current_stage: Optional[str] = None,
-    created_at: Optional[str] = None,
+    created_at: str | datetime | None = None,
     **kwargs,
 ) -> Any:
     """Insert a row into ``deployment_runs`` and return it.
 
     Ensures the referenced ``projects`` and ``deployment_flows`` rows exist.
     """
-    ts = created_at or _now()
+    ts = _stamp(created_at)
+    kwargs = _native_columns("deployment_runs", kwargs)
     p = _placeholder(conn)
 
     # Ensure project exists
@@ -258,7 +268,7 @@ def insert_deployment_run(
             "INSERT INTO deployment_flows "
             "(id, project_id, name, stages, created_at) "
             f"VALUES ({p}, {p}, {p}, {p}, {p})",
-            (flow, project_id, flow, "[]", ts),
+            (flow, project_id, flow, "[]", instant_parameter(conn, ts)),
         )
 
     cols = {
@@ -270,11 +280,12 @@ def insert_deployment_run(
         "created_at": ts,
         **kwargs,
     }
+    params = _values(conn, "deployment_runs", cols)
     col_names = ", ".join(cols.keys())
     placeholders = ", ".join(p for _ in cols)
     conn.execute(
         f"INSERT INTO deployment_runs ({col_names}) VALUES ({placeholders})",
-        tuple(cols.values()),
+        params,
     )
     conn.commit()
     return conn.execute(
