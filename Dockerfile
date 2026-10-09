@@ -3,7 +3,11 @@
 # Docker Hub first — one more registry round-trip that can fail the whole
 # build on a transient network error before any real work starts.
 
-FROM python:3.13-slim AS builder
+# Official image via the AWS public mirror. GitHub-hosted runners hit Docker
+# Hub anonymous rate limits. One ARG so both stages pull the same image.
+ARG PYTHON_IMAGE=public.ecr.aws/docker/library/python:3.13-slim
+
+FROM ${PYTHON_IMAGE} AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
@@ -59,7 +63,7 @@ RUN if [ -n "$YOKE_ENGINE_VERSION" ]; then \
     && python -m pip wheel --wheel-dir /wheels --find-links /wheels \
         --constraint /tmp/yoke-local-constraints.txt .
 
-FROM python:3.13-slim AS runtime
+FROM ${PYTHON_IMAGE} AS runtime
 
 # The git short sha this image was built from; /v1/health serves it as
 # `build` so deploy gates can assert WHICH code is answering.

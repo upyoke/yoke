@@ -47,6 +47,9 @@ permissions:
 env:
   # Bound for reuse-coverage: covering runs older than this still force suite.
   REUSE_WINDOW_HOURS: "24"
+  # Official image via the AWS public mirror. GitHub-hosted runners hit
+  # Docker Hub anonymous rate limits.
+  POSTGRES_IMAGE: public.ecr.aws/docker/library/postgres:16
 
 jobs:
   # Tree-only contracts precede shards, which also enforce them.
@@ -224,7 +227,7 @@ jobs:
             -e POSTGRES_PASSWORD=yoke \
             -e POSTGRES_DB=postgres \
             -p 5432 \
-            postgres:16 \
+            "$POSTGRES_IMAGE" \
             -c fsync=off \
             -c synchronous_commit=off \
             -c full_page_writes=off \
@@ -330,7 +333,7 @@ jobs:
           echo "YOKE_ENGINE_VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Build Yoke core image
-        # Retry with backoff so a transient Docker Hub pull failure costs a
+        # Retry with backoff so a transient registry pull failure costs a
         # retry rather than the gate; deterministic failures still fail.
         run: |
           for delay in 15 60 0; do

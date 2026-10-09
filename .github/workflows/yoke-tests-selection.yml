@@ -59,6 +59,9 @@ concurrency:
 env:
   # This repository explicitly selects its project; runners have no machine binding.
   YOKE_PROJECT: yoke
+  # Official image via the AWS public mirror. GitHub-hosted runners hit
+  # Docker Hub anonymous rate limits.
+  POSTGRES_IMAGE: public.ecr.aws/docker/library/postgres:16
 
 permissions:
   contents: read
@@ -193,7 +196,7 @@ jobs:
             -e POSTGRES_PASSWORD=yoke \
             -e POSTGRES_DB=postgres \
             -p 5432 \
-            postgres:16 \
+            "$POSTGRES_IMAGE" \
             -c fsync=off \
             -c synchronous_commit=off \
             -c full_page_writes=off \
