@@ -62,7 +62,7 @@ belong to that fresh command, not this flow.
 ## 13. Release before success
 
 ```bash
-yoke claims work release --item "$ITEM_REF" --reason completed
+yoke claims work release --item "$ITEM_REF" --reason "completed"
 ```
 
 This is `claims.work.release`; use the actual claim identity returned by
@@ -70,11 +70,13 @@ acquisition when calling its typed dispatch surface. Success is incomplete
 while this session owns the claim. Name any release failure in the final
 report; never hide it behind a success summary.
 
-## 14–15. Report and completion
+## 14. Final Output
 
 After transition and release, report the actual lane set, changed files and
 purpose, verification results, full verified commit/no changes, actual
 entry-to-handoff transition and freshly resolved next skill.
+
+## 15. Completion
 
 Completion requires every changed lane/AC reviewed, findings fixed, required
 checks passed (or explicitly unconfigured), committed/no changes, the pinned
