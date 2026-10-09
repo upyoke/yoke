@@ -8,8 +8,15 @@ import json
 import os
 import subprocess
 import sys
+import threading
 from typing import BinaryIO, Callable, Mapping, TextIO
 
+from yoke_harness.session_relay_native_streams import BoundedStreams, STDOUT, drain
+from yoke_harness.session_relay_native_diagnostics import (
+    NativeDiagnosticError,
+    diagnostic_reference,
+    store_native_diagnostic,
+)
 from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
 from yoke_harness.session_relay_codex_worker_protocol import (
     capacity_refusal_outcome,
@@ -29,6 +36,59 @@ from yoke_harness.session_relay_detached_worker import (
 
 _MODULE = "yoke_harness.session_relay_codex_cli_process"
 ProcessFactory = Callable[..., subprocess.Popen[bytes]]
+
+
+def _retain_and_reap(
+    process: subprocess.Popen[bytes],
+    streams: BoundedStreams,
+    reference: str,
+) -> None:
+    """Own the native for the rest of its turn and keep what it said.
+
+    This worker outlives the relay poll that started it, so it is the only
+    process that can see how the native ends. Reading the streams to their end
+    and writing them once, with the exit status, is what turns a codex turn
+    that died into something an operator can still read.
+    """
+
+    def own() -> None:
+        drain(process.stdout, streams, STDOUT)
+        try:
+            exit_code = process.wait()
+        except (OSError, subprocess.SubprocessError):
+            exit_code = None
+        _retain(streams, reference, exit_code)
+
+    threading.Thread(target=own, daemon=False, name="yoke-codex-relay-reap").start()
+
+
+def _retain(
+    streams: BoundedStreams,
+    reference: str,
+    exit_code: int | None,
+) -> None:
+    """Write one codex native's account, or leave the outcome unaffected."""
+    stdout, stderr = streams.snapshot()
+    try:
+        store_native_diagnostic(
+            stdout,
+            stderr,
+            reference=diagnostic_reference(reference),
+            exit_code=exit_code,
+        )
+    except NativeDiagnosticError:
+        return
+
+
+def stop_native(process: subprocess.Popen[bytes]) -> None:
+    if process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=2)
 
 
 def run_detached_operation(

@@ -15,7 +15,12 @@ from typing import Mapping
 from uuid import UUID
 
 from yoke_cli.config import machine_config
-from yoke_harness.session_launch_containment import release_supervised_native
+from yoke_harness.session_launch_containment import (
+    release_supervised_native,
+    supervision_record_path,
+)
+from yoke_harness.session_relay_termination import read_local_record
+from yoke_harness.session_process_custody import write_record
 from yoke_harness.session_relay_termination import adopt_launched_session
 
 
@@ -206,12 +211,21 @@ def release_launch_containment(
     """
     if not projection.binding_id:
         return False
-    adopt_launched_session(
+    source = supervision_record_path(projection.launch_id, state_dir)
+    record = read_local_record(source)
+    if record is not None:
+        record["target_session_id"] = projection.binding_id
+        if not write_record(source, record):
+            return False
+    if not adopt_launched_session(
         projection.launch_id,
         projection.binding_id,
         state_dir=state_dir,
+    ):
+        return False
+    release_supervised_native(
+        projection.launch_id, state_dir=state_dir, custody_transferred=True
     )
-    release_supervised_native(projection.launch_id, state_dir=state_dir)
     return True
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 from typing import Any, Mapping
 from uuid import uuid4
@@ -138,7 +139,7 @@ def report_termination_reap(
         raise SessionRelayError("result_invalid", "unknown termination result code")
     p = marker(conn)
     row = conn.execute(
-        "SELECT state,lease_id,result_code FROM session_termination_reaps "
+        "SELECT state,lease_id,result_code,evidence FROM session_termination_reaps "
         f"WHERE target_session_id={p}",
         (target_session_id,),
     ).fetchone()
@@ -156,6 +157,7 @@ def report_termination_reap(
         )
     require_relay_batch(conn, relay_id=relay_id, now=now)
     state = "succeeded" if result_code in _SUCCESS_RESULTS else "failed"
+    attempts = json.loads(row[3] or "{}").get("attempts", [])
     conn.execute(
         "UPDATE session_termination_reaps SET state="
         + p
@@ -170,8 +172,18 @@ def report_termination_reap(
             state,
             now,
             result_code,
-            redacted_evidence(
-                {**dict(evidence or {}), "adapter_revision": adapter_revision}
+            json.dumps(
+                {
+                    **json.loads(
+                        redacted_evidence(
+                            {
+                                **dict(evidence or {}),
+                                "adapter_revision": adapter_revision,
+                            }
+                        )
+                    ),
+                    **({"attempts": attempts} if attempts else {}),
+                }
             ),
             target_session_id,
         ),

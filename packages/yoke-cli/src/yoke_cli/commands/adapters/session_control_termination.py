@@ -20,11 +20,18 @@ SESSION_TERMINATE_USAGE = (
 )
 SESSION_TERMINATE_DESCRIPTION = (
     "Permanently end one top-level session, cancel its undelivered "
-    "messages, request best-effort native-process reaping, and release "
+    "messages, request one bounded verified native-process reap, and release "
     "the session's held work claims. A session a wake is resuming is "
     "refused as TERMINATION_RESUME_IN_FLIGHT: a headless worker's process "
     "exits between turns and a message resumes it from its transcript, so "
-    "message it instead."
+    "message it instead. Logical termination is immediate; physical exit "
+    "is recorded separately by the machine relay. It sends TERM, waits up "
+    "to 2 seconds, then KILL and verifies exit for up to 2 seconds. Signal "
+    "errors, missing custody, or unverified exit remain unresolved with "
+    "custody retained. Inspect machine custody/permissions, then explicitly "
+    "repeat this command to retry a failed reap. A pending attempt is not "
+    "duplicated, and a verified successful repeat is a no-op. Claude's "
+    "native job-stop command retains its separate 20-second timeout."
 )
 
 
@@ -39,6 +46,12 @@ def _write_termination_result(response: Any, stdout: TextIO, stderr: TextIO) -> 
             ("TERMINATED", session.get("terminated_at")),
             ("CANCELLED RECIPIENTS", result.get("cancelled_recipient_count", 0)),
             ("REAP", result.get("reap_state")),
+            (
+                "PHYSICAL EXIT",
+                "verified"
+                if result.get("reap_state") == "succeeded"
+                else "unresolved; inspect machine custody and reap evidence",
+            ),
             ("DEDUPLICATED", bool(result.get("deduplicated"))),
         ),
         stdout,

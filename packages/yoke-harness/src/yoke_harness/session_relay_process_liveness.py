@@ -1,10 +1,7 @@
-"""Prove, from this machine's own records, which sessions' natives are gone.
+"""Prove native exit from this machine's custody records.
 
-The control plane can only watch a session's heartbeat go quiet, and quiet
-has two causes it cannot tell apart: an agent thinking for a long time, and
-a process that died. So it waits out a TTL. The machine that started the
-native does not have to guess — it kept the pid, and asking the local
-process table whether that pid is still the process it recorded settles it.
+The control plane waits out a heartbeat TTL; this machine proves native exit.
+Group custody survives the supervisor until its remaining members also exit.
 
 Two record families name a session's process, both written by paths that
 already exist for other reasons:
@@ -28,9 +25,8 @@ A session whose first launch exited and was later woken has a spent launch
 handle beside a live resume-custody record, so the scan below also asks the
 custody reader whether this machine is still running a native for it.
 
-A record whose process is gone is spent once the control plane accounts for
-it: ended here, ended earlier, or never reachable. A claim-holding session
-is spared instead, and reports again once its claims release.
+Records are pruned only after their custody is gone and the control plane
+accounts for them. Claim-holding sessions report again after claims release.
 
 A launch handle names the launch that started the native as well as the
 session, so the report carries the launch id and the last line the native
@@ -47,6 +43,7 @@ from typing import Any, Callable, Iterator, Mapping
 
 from yoke_cli.config import machine_config
 from yoke_contracts.process_ancestry import process_start_time
+from yoke_harness.session_process_custody import custody_state
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
 from yoke_harness.cursor_native_result_usage import (
     fold_launch_native_result,
@@ -282,6 +279,9 @@ def _prune(dead: tuple[VerifiedDeadSession, ...]) -> None:
     for entry in dead:
         for path in entry.record_paths:
             try:
+                record = read_local_record(path)
+                if record is None or custody_state(record) != "gone":
+                    continue
                 path.unlink(missing_ok=True)
             except OSError:
                 continue

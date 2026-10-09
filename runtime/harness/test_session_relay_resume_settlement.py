@@ -274,7 +274,7 @@ def test_a_vanished_resume_without_an_outcome_settles_as_died(
     )
     # The supervisor was killed alongside the native it was waiting on, so no
     # outcome was ever written and the recorded process is gone.
-    monkeypatch.setattr(settlement, "process_start_time", lambda pid: None)
+    monkeypatch.setattr(settlement, "custody_state", lambda record: "gone")
 
     finished = finished_native_resumes(state_dir=tmp_path)
 

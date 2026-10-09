@@ -199,6 +199,16 @@ staffed the item, then terminate it:
 yoke sessions terminate {WORKER_SESSION_ID} --reason "PREFIX-N unresponsive cleanup"
 ```
 
+Logical termination cancels delivery and releases ownership immediately;
+physical exit is a separate relay result. Each explicit request gets one
+bounded TERM/KILL attempt (2 seconds grace, then up to 2 seconds exit
+verification; Claude native job-stop command timeout 20 seconds). Missing
+custody, signal denial or an unverified exit remains unresolved and retains
+custody. Inspect the machine's custody/permissions and reap evidence, then
+repeat the explicit termination command to retry a failed physical reap.
+Pending attempts are not duplicated; verified success is a no-op on repeat.
+Failed attempts remain in the existing reap record's evidence history.
+
 Resolve `{WORKER_SESSION_ID}` from the launch that staffed the item
 (`yoke session-control launch list --project {_project}` /
 `yoke session-control launch get LAUNCH-ID`). No lingering. No re-tasking.
