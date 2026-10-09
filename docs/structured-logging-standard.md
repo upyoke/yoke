@@ -244,7 +244,7 @@ NULL), so project-scoped `yoke events query` does not return them; read recent
 refusals with the read-only diagnostic surface:
 
 ```bash
-yoke db read "SELECT created_at, event_outcome, envelope::jsonb #> '{context,detail}' AS detail FROM events WHERE event_name = 'FrontendCollectorRefused' ORDER BY created_at DESC LIMIT 20"
+yoke db read "SELECT created_at, event_outcome, envelope::jsonb -> 'context' -> 'detail' AS detail FROM events WHERE event_name = 'FrontendCollectorRefused' ORDER BY created_at DESC LIMIT 20"
 ```
 
 ### Envelope Size Limits
