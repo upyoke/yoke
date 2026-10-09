@@ -5,11 +5,15 @@ from __future__ import annotations
 import hashlib
 import json
 from copy import deepcopy
+from datetime import datetime
 
 import pytest
 
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
+
 from yoke_core.domain.builtin_workflow_canon import (
     CANON_DIR,
+    CanonGeneration,
     canon_digests,
     canon_generations,
     recognize,
@@ -180,3 +184,72 @@ def test_current_definition_validates(workflow_id: str) -> None:
     for fixture in builtin_workflow_definitions():
         if str(fixture["workflow"]["id"]) == workflow_id:
             validate_workflow_definition(fixture["definition"])
+
+
+@pytest.mark.parametrize(
+    "clock",
+    [
+        parse_instant("1969-12-31T23:59:59.123456Z"),
+        "1969-12-31T23:59:59.123456Z",
+        "1970-01-01T05:29:59.123456+05:30",
+    ],
+)
+def test_canon_publication_ingress_is_native_without_changing_definition(clock):
+    payload = json.loads(next(iter(sorted(CANON_DIR.glob("*.json")))).read_text())
+    payload["published_at"] = clock
+    before = deepcopy(payload)
+    generation = CanonGeneration(payload)
+    assert isinstance(generation.published_at, datetime)
+    assert generation.published_at == parse_instant("1969-12-31T23:59:59.123456Z")
+    assert generation.digest == definition_digest(before["definition"])
+    assert payload == before
+
+
+@pytest.mark.parametrize(
+    "bad", [None, "", "1969-12-31", "1969-12-31T23:59:59", datetime(1969, 12, 31)]
+)
+def test_canon_publication_ingress_refuses_missing_or_ambiguous_clock(bad):
+    payload = json.loads(next(iter(sorted(CANON_DIR.glob("*.json")))).read_text())
+    payload["published_at"] = bad
+    with pytest.raises(InvalidInstant, match="invalid_instant"):
+        CanonGeneration(payload)
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+def test_historical_generation_fixture_binds_native_publication_clock(
+    test_db, monkeypatch, zone
+):
+    from runtime.api import workflow_version_test_helpers as fixtures
+
+    archived = next(
+        generation
+        for generation in canon_generations("dash")
+        if "file_budget" not in generation.definition["policies"]
+    )
+    clock = parse_instant("1969-12-31T23:59:59.123456Z")
+    generation = CanonGeneration(
+        {
+            "workflow_id": archived.workflow_id,
+            "canon_version": archived.canon_version,
+            "published_at": clock,
+            "definition": deepcopy(archived.definition),
+        }
+    )
+    monkeypatch.setattr(
+        fixtures, "canon_generations", lambda workflow_id: (generation,)
+    )
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    version_id, _ = fixtures.seed_generation_lacking_file_budget(test_db)
+    row = test_db.execute(
+        "SELECT published_at, immutable_at, definition_digest, "
+        "pg_typeof(published_at)::text, pg_typeof(immutable_at)::text "
+        "FROM workflow_versions WHERE id=%s",
+        (version_id,),
+    ).fetchone()
+    assert tuple(row) == (
+        clock,
+        clock,
+        archived.digest,
+        "timestamp with time zone",
+        "timestamp with time zone",
+    )

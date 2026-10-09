@@ -21,10 +21,12 @@ current definition changed, which took the fleet down twice.
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.workflow_definition_codec import definition_digest
 
 CANON_DIR = Path(__file__).parent / "builtin_workflow_canon"
@@ -38,7 +40,7 @@ class CanonGeneration:
     def __init__(self, payload: Dict[str, Any]) -> None:
         self.workflow_id: str = str(payload["workflow_id"])
         self.canon_version: int = int(payload["canon_version"])
-        self.published_at: str = str(payload["published_at"])
+        self.published_at: datetime = parse_instant(payload["published_at"])
         self.definition: Dict[str, Any] = payload["definition"]
         self.digest: str = definition_digest(self.definition)
 
@@ -52,9 +54,7 @@ def _load() -> Tuple[CanonGeneration, ...]:
         CanonGeneration(json.loads(path.read_text(encoding="utf-8")))
         for path in sorted(CANON_DIR.glob("*.json"))
     ]
-    return tuple(
-        sorted(generations, key=lambda g: (g.workflow_id, g.canon_version))
-    )
+    return tuple(sorted(generations, key=lambda g: (g.workflow_id, g.canon_version)))
 
 
 def canon_generations(workflow_id: Optional[str] = None) -> Tuple[CanonGeneration, ...]:
