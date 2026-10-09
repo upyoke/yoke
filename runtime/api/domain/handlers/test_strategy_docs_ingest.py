@@ -12,6 +12,8 @@ the tests write returned texts back the way the CLI does.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from pathlib import Path
 from unittest.mock import patch
 
@@ -59,7 +61,10 @@ def checkout(tmp_db: str, tmp_path: Path) -> Path:
 
 def _ingest_request(payload: dict, session_id: str = SESSION_WITHOUT_CLAIM):
     return build_request(
-        "strategy.ingest.run", payload, session_id=session_id, actor_id="42",
+        "strategy.ingest.run",
+        payload,
+        session_id=session_id,
+        actor_id="42",
     )
 
 
@@ -76,10 +81,13 @@ class TestRefusals:
         assert outcome.error.code == "invalid_payload"
 
     def test_headerless_file_typed_code(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         strategy_view_path(checkout, "PAD").write_text(
-            "# PAD\n\nheaderless\n", encoding="utf-8",
+            "# PAD\n\nheaderless\n",
+            encoding="utf-8",
         )
         outcome = handlers.handle_ingest(
             _ingest_request(ingest_files_payload(checkout, ["PAD"]))
@@ -88,7 +96,9 @@ class TestRefusals:
         assert "PAD.md" in outcome.error.message
 
     def test_missing_file_raises_client_side(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         # The file read happens in the CLI before dispatch; the typed
         # message names the path and teaches the render recovery.
@@ -100,11 +110,15 @@ class TestRefusals:
 
 class TestDryRun:
     def test_previews_without_writing(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         edit_rendered_body(checkout, "PAD", SEED_CONTENT["PAD"] + "More.\n")
         with patch.object(
-            doc_handlers._events, "emit_event", return_value=ok_emit(),
+            doc_handlers._events,
+            "emit_event",
+            return_value=ok_emit(),
         ) as emit:
             outcome = handlers.handle_ingest(
                 _ingest_request(
@@ -127,17 +141,21 @@ class TestDryRun:
             ).fetchone()
         finally:
             conn.close()
-        assert str(row["updated_at"]) == SEED_UPDATED_AT
+        assert format_instant(row["updated_at"]) == SEED_UPDATED_AT
 
 
 class TestWriteBack:
     def test_written_doc_rerenders_and_emits_source_ingest(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         new_body = SEED_CONTENT["VISION"] + "Sharper vision.\n"
         edit_rendered_body(checkout, "VISION", new_body)
         with patch.object(
-            doc_handlers._events, "emit_event", return_value=ok_emit(),
+            doc_handlers._events,
+            "emit_event",
+            return_value=ok_emit(),
         ) as emit:
             outcome = handlers.handle_ingest(
                 _ingest_request(ingest_files_payload(checkout, ["VISION"]))
@@ -158,7 +176,9 @@ class TestWriteBack:
         assert context["source"] == "ingest"
 
     def test_rerun_after_write_noops(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         edit_rendered_body(checkout, "VISION", SEED_CONTENT["VISION"] + "More.\n")
         from yoke_core.domain.strategy_docs_render import (
@@ -166,7 +186,9 @@ class TestWriteBack:
         )
 
         with patch.object(
-            doc_handlers._events, "emit_event", return_value=ok_emit(),
+            doc_handlers._events,
+            "emit_event",
+            return_value=ok_emit(),
         ):
             first = handlers.handle_ingest(
                 _ingest_request(ingest_files_payload(checkout, ["VISION"]))
@@ -201,14 +223,18 @@ class TestConflict:
             conn.close()
 
     def test_conflict_outcome_teaches_and_preserves_edit(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         edited_body = SEED_CONTENT["PAD"] + "Local edit.\n"
         edit_rendered_body(checkout, "PAD", edited_body)
         before = strategy_view_path(checkout, "PAD").read_text(encoding="utf-8")
         self._bump_row(tmp_db, "PAD")
         with patch.object(
-            doc_handlers._events, "emit_event", return_value=ok_emit(),
+            doc_handlers._events,
+            "emit_event",
+            return_value=ok_emit(),
         ) as emit:
             outcome = handlers.handle_ingest(
                 _ingest_request(ingest_files_payload(checkout, ["PAD"]))
@@ -231,15 +257,11 @@ class TestConflict:
 def test_registration_shape() -> None:
     (entry,) = handlers.REGISTRATIONS
     assert entry["function_id"] == "strategy.ingest.run"
-    assert entry["owner_module"] == (
-        "yoke_core.domain.handlers.strategy_docs_ingest"
-    )
+    assert entry["owner_module"] == ("yoke_core.domain.handlers.strategy_docs_ingest")
     assert entry["target_kinds"] == ["global"]
     assert entry["side_effects"] == ["db_write", "event_emit"]
     assert "client_side_file_io" in entry["guardrails"]
-    assert entry["emitted_event_names"] == [
-        handlers.STRATEGY_DOC_REPLACED_EVENT_NAME
-    ]
+    assert entry["emitted_event_names"] == [handlers.STRATEGY_DOC_REPLACED_EVENT_NAME]
     assert "compare_and_swap_base" in entry["guardrails"]
     assert "foreign_process_claim_refused" in entry["guardrails"]
     assert entry["ambient_session_required"] is False
@@ -267,10 +289,6 @@ def test_permission_key_mirrors_replace() -> None:
             adapter_status="live",
         )
 
-    ingest_key = permission_key_for(
-        _entry("strategy.ingest.run", ("db_write",))
-    )
-    replace_key = permission_key_for(
-        _entry("strategy.doc.replace", ("db_write",))
-    )
+    ingest_key = permission_key_for(_entry("strategy.ingest.run", ("db_write",)))
+    replace_key = permission_key_for(_entry("strategy.doc.replace", ("db_write",)))
     assert ingest_key == replace_key == PERM_ITEMS_WRITE

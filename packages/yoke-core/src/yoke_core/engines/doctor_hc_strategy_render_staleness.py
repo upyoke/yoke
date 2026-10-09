@@ -16,6 +16,8 @@ holds only some projects), or a project with zero strategy rows
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant, parse_instant
+
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -69,8 +71,8 @@ def _doc_issue(root: Path, slug: str, row: Any, archived: bool) -> "str | None":
             f"{slug}: render header {exc.kind} — re-render via `yoke "
             "strategy render` (DB content is unaffected)"
         )
-    db_updated_at = str(row["updated_at"])
-    if header.updated_at != db_updated_at:
+    db_updated_at = format_instant(row["updated_at"])
+    if parse_instant(header.updated_at) != parse_instant(row["updated_at"]):
         return (
             f"{slug}: rendered view is stale (header updated_at "
             f"{header.updated_at} <> DB {db_updated_at}) — re-render via "
@@ -109,7 +111,10 @@ def _orphan_files(root: Path, known_slugs: set) -> List[str]:
 
 
 def _checkout_issues(
-    conn: Any, root: Path, project_id: int, notes: List[str],
+    conn: Any,
+    root: Path,
+    project_id: int,
+    notes: List[str],
 ) -> List[str]:
     """Collect one mapped checkout's findings (or append a skip note)."""
     from yoke_core.domain.strategy_docs import STRATEGY_DOCS_TABLE
@@ -126,8 +131,7 @@ def _checkout_issues(
     rows: Dict[str, Any] = {
         str(r["slug"]): r
         for r in conn.execute(
-            f"SELECT {columns} FROM {STRATEGY_DOCS_TABLE} "
-            "WHERE project_id = %s",
+            f"SELECT {columns} FROM {STRATEGY_DOCS_TABLE} WHERE project_id = %s",
             (project_id,),
         ).fetchall()
     }
@@ -150,14 +154,18 @@ def _checkout_issues(
 
 
 def hc_strategy_render_staleness(
-    conn: Any, args: DoctorArgs, rec: RecordCollector,
+    conn: Any,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     """WARN on rendered strategy files that drifted from their DB rows."""
     from yoke_core.domain.strategy_docs import STRATEGY_DOCS_TABLE
 
     if not _table_exists(conn, STRATEGY_DOCS_TABLE):
         rec.record(
-            _HC_ID, _HC_DESC, "SKIP",
+            _HC_ID,
+            _HC_DESC,
+            "SKIP",
             f"{STRATEGY_DOCS_TABLE} table missing — strategy-DB substrate "
             "absent on this DB (validation fixture); skipping",
         )
@@ -165,7 +173,9 @@ def hc_strategy_render_staleness(
     checkouts = _mapped_checkouts()
     if not checkouts:
         rec.record(
-            _HC_ID, _HC_DESC, "SKIP",
+            _HC_ID,
+            _HC_DESC,
+            "SKIP",
             "no checkout→project mappings in machine config — nowhere to "
             "compare rendered strategy views; skipping",
         )
@@ -185,7 +195,9 @@ def hc_strategy_render_staleness(
         return
     note_text = f" ({'; '.join(notes)})" if notes else ""
     rec.record(
-        _HC_ID, _HC_DESC, "PASS",
+        _HC_ID,
+        _HC_DESC,
+        "PASS",
         f"rendered strategy docs match their DB rows across {checked} "
         f"mapped checkout(s){note_text}",
     )

@@ -27,6 +27,7 @@ def test_prepared_item_mutations_retain_native_clocks(monkeypatch):
         id=7,
         title="Native clock",
         status=workflow.stage_ids[0],
+        priority="medium",
         project="yoke",
         workflow=workflow,
     )

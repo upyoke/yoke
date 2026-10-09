@@ -123,8 +123,8 @@ class DriftReviewResult:
 def _get_checkpoint_start(
     conn: Any,
     project: Any,
-) -> Optional[str]:
-    """Return the ISO 8601 timestamp of the latest project checkpoint.
+) -> Optional[datetime]:
+    """Return the native instant of the latest project checkpoint.
 
     Checkpoints are ``strategy_checkpoints`` rows written by strategize
     finalize and drift-review completion. ``project`` accepts a slug or

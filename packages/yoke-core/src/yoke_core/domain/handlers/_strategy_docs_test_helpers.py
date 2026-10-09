@@ -27,7 +27,7 @@ from yoke_core.domain.work_processes import PROCESS_STRATEGIZE
 SESSION_WITH_CLAIM = "session-strategy-claim"
 SESSION_WITHOUT_CLAIM = "session-no-claim"
 
-SEED_UPDATED_AT = "2026-06-10T00:00:00Z"
+SEED_UPDATED_AT = "2026-06-10T00:00:00.000000Z"
 
 SEED_SLUGS = ("MISSION", "VISION", "MASTER-PLAN", "LANDSCAPE", "PAD", "WISPS")
 

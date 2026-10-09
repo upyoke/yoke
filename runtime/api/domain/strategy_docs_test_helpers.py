@@ -19,7 +19,7 @@ from yoke_core.domain import strategy_docs as sd
 from yoke_core.domain.strategy_docs_paths import strategy_view_path
 from runtime.api.fixtures.file_test_db import connect_test_db
 
-SEED_UPDATED_AT = "2026-06-10T00:00:00Z"
+SEED_UPDATED_AT = "2026-06-10T00:00:00.000000Z"
 
 # Fixture corpus deliberately larger than the default starter canon so
 # ordering (defaults first, extras alphabetical after) is observable.

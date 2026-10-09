@@ -10,6 +10,8 @@ Storage shape and the append helper live in
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from pathlib import Path
 
 import pytest
@@ -73,7 +75,7 @@ class TestReplace:
         assert int(rev["byte_length"]) == len(new_content.encode("utf-8"))
         assert str(rev["source_operation"]) == "replace"
         assert int(rev["actor_id"]) == 42
-        assert str(rev["created_at"]) == result["updated_at"]
+        assert format_instant(rev["created_at"]) == result["updated_at"]
 
     def test_sequence_increments_per_doc(self, tmp_db: str) -> None:
         conn = connect_test_db(tmp_db)
@@ -181,7 +183,7 @@ class TestCreate:
         assert str(rev["content_sha256"]) == content_sha256(content)
         assert str(rev["source_operation"]) == "create"
         assert int(rev["actor_id"]) == 7
-        assert str(rev["created_at"]) == result["updated_at"]
+        assert format_instant(rev["created_at"]) == result["updated_at"]
 
 
 class TestIngest:
@@ -229,7 +231,7 @@ class TestIngest:
         assert str(rev["content_sha256"]) == content_sha256(new_body)
         assert str(rev["source_operation"]) == "ingest"
         assert int(rev["actor_id"]) == 9
-        assert str(rev["created_at"]) == results["VISION"]["updated_at"]
+        assert format_instant(rev["created_at"]) == results["VISION"]["updated_at"]
         # Unchanged docs in the same batch record nothing.
         assert results["MISSION"]["status"] == "unchanged"
         assert unchanged_revs == []

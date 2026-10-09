@@ -103,3 +103,33 @@ def test_actor_birth_clocks_preserve_microseconds(test_db, monkeypatch, zone):
             ).fetchone()[0]
             == STAMP
         )
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_org_and_project_grants_keep_native_clocks(test_db, monkeypatch, zone):
+    from yoke_core.domain import actor_permissions, actor_role_grants, actors
+
+    actor_id = actors.seed_human_actor(test_db, name="Grant clock")
+    org_id = external_identities.default_org_id(test_db)
+    monkeypatch.setattr(actor_role_grants, "utc_now", lambda: STAMP)
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    actor_permissions.grant_actor_project_role(
+        test_db,
+        actor_id=actor_id,
+        project_id=1,
+        role_name="viewer",
+    )
+    actor_permissions.grant_actor_org_role(
+        test_db,
+        actor_id=actor_id,
+        org_id=org_id,
+        role_name="operator",
+    )
+    for table in ("actor_project_roles", "actor_org_roles"):
+        assert (
+            test_db.execute(
+                f"SELECT granted_at FROM {table} WHERE actor_id=%s",
+                (actor_id,),
+            ).fetchone()[0]
+            == STAMP
+        )

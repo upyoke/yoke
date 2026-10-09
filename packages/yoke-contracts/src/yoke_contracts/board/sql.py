@@ -3,31 +3,31 @@
 from __future__ import annotations
 
 DATE_FMT_SQL = "'YYYY-MM-DD'"
-LOCAL_NOW_SQL = "LOCALTIMESTAMP"
+LOCAL_NOW_SQL = "CURRENT_TIMESTAMP"
 
 
 def timestamp_expr(value_sql: str) -> str:
-    """Return *value_sql* cast from Yoke timestamp text to Postgres timestamp."""
-    return f"NULLIF({value_sql}, '')::timestamp"
+    """Return the native timestamp expression without text coercion."""
+    return value_sql
 
 
 def day_expr(value_sql: str) -> str:
-    """Return a ``YYYY-MM-DD`` day bucket expression for timestamp text."""
-    return f"to_char({timestamp_expr(value_sql)}, {DATE_FMT_SQL})"
+    """Return a UTC calendar-day bucket for a native instant."""
+    return day_from_timestamp_expr(timestamp_expr(value_sql))
 
 
 def day_text_expr(value_sql: str) -> str:
-    """Return a ``YYYY-MM-DD`` bucket from ISO timestamp text without casting."""
-    return f"NULLIF(substring({value_sql} from 1 for 10), '')"
+    """Return a UTC calendar-day bucket for a native instant."""
+    return day_expr(value_sql)
 
 
 def day_from_timestamp_expr(timestamp_sql: str) -> str:
     """Return a ``YYYY-MM-DD`` day bucket expression for a timestamp expression."""
-    return f"to_char({timestamp_sql}, {DATE_FMT_SQL})"
+    return f"to_char(({timestamp_sql}) AT TIME ZONE 'UTC', {DATE_FMT_SQL})"
 
 
 def days_ago_expr(days: int) -> str:
-    """Return the local timestamp cutoff *days* before now.
+    """Return the native instant cutoff *days* before now.
 
     *days* is an explicit bounded window baked into SQL text. Do not pass
     wall-clock-derived counts (project age, days since first commit): those
@@ -44,11 +44,11 @@ def days_ago_expr(days: int) -> str:
 
 def days_ago_text_expr(days: int) -> str:
     """Return a ``YYYY-MM-DD`` text cutoff *days* before now."""
-    return f"to_char({days_ago_expr(days)}, {DATE_FMT_SQL})"
+    return day_from_timestamp_expr(days_ago_expr(days))
 
 
 def age_days_expr(value_sql: str) -> str:
-    """Return item age in fractional days from a timestamp-text column."""
+    """Return item age in fractional days from a native timestamp column."""
     return (
         f"(EXTRACT(EPOCH FROM ({LOCAL_NOW_SQL} - {timestamp_expr(value_sql)})) "
         "/ 86400.0)"

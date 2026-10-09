@@ -13,7 +13,7 @@ header advance, and the in-process composition
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import format_instant
+from yoke_contracts.timestamps import format_instant, parse_instant
 
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
@@ -45,7 +45,8 @@ def _row_from_sql(row: Mapping[str, Any]) -> Dict[str, Any]:
 def _row_matches_known(row: Mapping[str, Any], known: Mapping[str, Any]) -> bool:
     archived = row.get("archived_at") is not None
     return (
-        str(known.get("updated_at") or "") == format_instant(row["updated_at"])
+        known.get("updated_at") is not None
+        and parse_instant(known["updated_at"]) == parse_instant(row["updated_at"])
         and str(known.get("content_sha256") or "")
         == content_sha256(str(row["content"]))
         and bool(known.get("archived", False)) is archived

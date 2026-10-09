@@ -96,5 +96,6 @@ def test_strategy_clock_roundtrip_and_cas_are_timezone_independent(
 def test_strategy_checkpoint_keeps_native_anchor(test_db, monkeypatch, zone):
     monkeypatch.setattr(strategy_checkpoints, "utc_now", lambda: STAMP)
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
+    strategy_checkpoints.ensure_schema(test_db)
     assert strategy_checkpoints.record_checkpoint(test_db, project=1, kind="strategize")
     assert strategy_checkpoints.latest_checkpoint_at(test_db, 1) == STAMP

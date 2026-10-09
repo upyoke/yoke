@@ -6,6 +6,9 @@ permission catalog and re-exports these writers.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
+
 from typing import Any
 
 
@@ -33,7 +36,13 @@ def grant_actor_project_role(
         "(actor_id, project_id, role_id, granted_at, granted_by_actor_id) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}) "
         "ON CONFLICT(actor_id, project_id, role_id) DO NOTHING",
-        (actor_id, project_id, role_id, catalog._now(), granted_by_actor_id),
+        (
+            actor_id,
+            project_id,
+            role_id,
+            instant_parameter(conn, utc_now()),
+            granted_by_actor_id,
+        ),
     )
     conn.commit()
 
@@ -90,7 +99,7 @@ def grant_actor_org_role(
         org_id=org_id,
         role=role_name,
         granted_by_actor_id=granted_by_actor_id,
-        now=catalog._now(),
+        now=utc_now(),
     )
     conn.commit()
 

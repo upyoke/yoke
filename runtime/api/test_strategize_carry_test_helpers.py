@@ -20,7 +20,7 @@ CREATE TABLE projects (
     slug TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
-    created_at TEXT NOT NULL DEFAULT '2026-01-01T00:00:00Z'
+    created_at TIMESTAMPTZ NOT NULL DEFAULT '2026-01-01T00:00:00Z'
 );
 INSERT INTO projects (id, slug, name, public_item_prefix, created_at)
 VALUES
@@ -55,7 +55,7 @@ def _make_db() -> Any:
             priority TEXT DEFAULT 'medium',
             project_id INTEGER DEFAULT 1,
             project_sequence INTEGER,
-            merged_at TEXT
+            merged_at TIMESTAMPTZ
         )
         """
     )

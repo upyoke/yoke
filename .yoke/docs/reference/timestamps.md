@@ -336,3 +336,7 @@ pipe output formats native instants; its verdict date remains a UTC date label.
 Path claim, amendment, target planning/materialization and snapshot writes bind
 native clocks. Claim-age and Pack freshness reads preserve native microseconds;
 malformed internal clock facts refuse instead of assuming a timezone.
+
+Org and project role grants bind native clocks. Strategy section CAS, cached
+render headers and staleness checks compare instants. Board calendar buckets
+project native instants to UTC dates; age windows use aware timestamps.
