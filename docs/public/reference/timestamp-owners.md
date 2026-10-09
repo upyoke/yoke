@@ -161,3 +161,7 @@ Snapshot chunk staging and capability CAS/Pulumi creation bind native facts at t
 Shared session holdings use native release and overlap facts, with instant-based steering-window keys across offset representations. Invalid release clocks refuse rather than disappear. Historical path/coordination observations with no known release retain a null clock and explicit internal held state, so absence cannot turn history into current authority. Remount receipts use native strict clocks internally and finite fixed-six file projection; invalid receipt clocks refuse aliasing without rewriting bytes, and the existing less-than expiry cutoff retains microsecond precision.
 
 Resident observation batches parse captured clocks as native aware facts, bind monotonic heartbeat comparisons at each SQL owner, and format only the declared event-envelope clock. Missing/invalid captured clocks have typed refusals. The composed API fixture declares its finite instant columns natively. Legacy explicit SQLite migration validation retains native duration facts and formats the failure-audit start at its SQLite boundary without losing microseconds; it does not grant control-plane apply authority.
+
+HTTP item responses format their finite creation, update and merge clocks before
+response-model validation. Native microseconds survive across database timezones;
+unknown merge clocks stay null and malformed supplied clock facts refuse.
