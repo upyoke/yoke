@@ -5,6 +5,8 @@ Sibling modules own isolation, INSERT construction, and argv compatibility.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import json
 import logging
 import os
@@ -98,7 +100,7 @@ def build_envelope(
     hook_event_name: Optional[str] = None,
     auth_context: Optional[StandardAuthContext] = None,
     context: Optional[Dict[str, Any]] = None,
-    created_at: Optional[str] = None,
+    created_at: str | datetime | None = None,
 ) -> Dict[str, Any]:
     """Build the canonical event envelope stored in ``events.envelope``."""
     # Reject unknown / normalize known; severity_num still defaults at read-side.
@@ -204,7 +206,7 @@ def emit_event(
     hook_event_name: Optional[str] = None,
     auth_context: Optional[StandardAuthContext] = None,
     context: Optional[Dict[str, Any]] = None,
-    created_at: Optional[str] = None,
+    created_at: str | datetime | None = None,
     db_path: Optional[str] = None,
     conn: Optional[Any] = None,
     transactional: bool = False,

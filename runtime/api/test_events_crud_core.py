@@ -1,5 +1,6 @@
 """Tests for yoke_core.domain.events_crud — init, insert, queries, prune,
 severity config, and event-name validation."""
+
 from __future__ import annotations
 
 import pytest
@@ -7,11 +8,13 @@ import pytest
 from yoke_core.domain import events_crud as ec
 from yoke_core.domain.schema_common import _table_exists
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.events_crud_test_fixtures import (  # noqa: F401
+from runtime.api.events_crud_test_fixtures import (
     _insert_event,
-    _iso_offset_days,
-    db_path,
+    _instant_offset_days,
 )
+
+
+pytest_plugins = ("runtime.api.events_crud_test_fixtures",)
 
 
 class TestInit:
@@ -192,21 +195,21 @@ class TestPrune:
             "INSERT INTO events (event_id, source_type, session_id, severity, "
             "event_kind, event_type, event_name, created_at) "
             "VALUES ('old-debug', 'agent', 's1', 'DEBUG', 'k', 't', 'N', %s)",
-            (_iso_offset_days(-8),),
+            (_instant_offset_days(-8),),
         )
         # Insert recent DEBUG event (1 day ago)
         conn.execute(
             "INSERT INTO events (event_id, source_type, session_id, severity, "
             "event_kind, event_type, event_name, created_at) "
             "VALUES ('new-debug', 'agent', 's1', 'DEBUG', 'k', 't', 'N', %s)",
-            (_iso_offset_days(-1),),
+            (_instant_offset_days(-1),),
         )
         # Insert old ERROR event (never pruned)
         conn.execute(
             "INSERT INTO events (event_id, source_type, session_id, severity, "
             "event_kind, event_type, event_name, created_at) "
             "VALUES ('old-error', 'agent', 's1', 'ERROR', 'k', 't', 'N', %s)",
-            (_iso_offset_days(-365),),
+            (_instant_offset_days(-365),),
         )
         conn.commit()
         conn.close()
@@ -224,7 +227,7 @@ class TestPrune:
             "event_kind, event_type, event_name, created_at) "
             "VALUES ('old-status', 'system', 's1', 'STATUS', 'lifecycle', "
             "'status_change', 'ItemStatusChanged', %s)",
-            (_iso_offset_days(-365),),
+            (_instant_offset_days(-365),),
         )
         conn.commit()
         conn.close()
@@ -245,7 +248,7 @@ class TestPrune:
             "INSERT INTO function_call_ledger "
             "(request_id, function_id, result, created_at) "
             "VALUES ('r-old', 'x.y.z', '{}', %s), ('r-new', 'x.y.z', '{}', %s)",
-            (_iso_offset_days(-(LEDGER_TTL_DAYS + 1)), _iso_offset_days(-1)),
+            (_instant_offset_days(-(LEDGER_TTL_DAYS + 1)), _instant_offset_days(-1)),
         )
         conn.commit()
         conn.close()

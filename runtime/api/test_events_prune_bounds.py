@@ -7,7 +7,7 @@ import time
 
 from yoke_core.domain import db_backend, events_crud as ec
 from yoke_core.domain.events_prune_batches import prune_matching_events
-from runtime.api.events_crud_test_fixtures import _iso_offset_days
+from runtime.api.events_crud_test_fixtures import _instant_offset_days
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 pytest_plugins = ("runtime.api.events_crud_test_fixtures",)
@@ -27,7 +27,7 @@ def _insert(
             "INSERT INTO events (event_id, source_type, session_id, severity, "
             "event_kind, event_type, event_name, created_at) "
             "VALUES (%s, 'agent', 's1', %s, 'k', 't', %s, %s)",
-            (event_id, severity, event_name, _iso_offset_days(days)),
+            (event_id, severity, event_name, _instant_offset_days(days)),
         )
         conn.commit()
     finally:

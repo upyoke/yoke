@@ -1,7 +1,10 @@
 """Shared DDL, fixture, and helpers for events_crud test sibling modules."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import as_utc, utc_now
 from pathlib import Path
 
 import pytest
@@ -11,11 +14,9 @@ from yoke_core.domain.migration_audit_schema import ensure_migration_audit_table
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
-def _iso_offset_days(days: int) -> str:
-    """Return an ISO-8601 UTC timestamp ``days`` in the past (or future)."""
-    return (datetime.now(timezone.utc) + timedelta(days=days)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+def _instant_offset_days(days: int) -> datetime:
+    """Return a native aware instant at the requested calendar-day offset."""
+    return as_utc(utc_now()) + timedelta(days=days)
 
 
 def _apply_events_schema() -> None:

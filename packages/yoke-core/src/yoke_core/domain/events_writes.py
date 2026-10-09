@@ -8,6 +8,7 @@ module after defining its helpers, so eager imports would create a cycle.
 from __future__ import annotations
 
 from contextlib import contextmanager
+from datetime import datetime
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
@@ -185,7 +186,7 @@ def cmd_insert(
     turn_id: Optional[str] = None,
     hook_event_name: Optional[str] = None,
     envelope: Optional[str] = None,
-    created_at: Optional[str] = None,
+    created_at: str | datetime | None = None,
     skip_severity: bool = False,
 ) -> bool:
     """Insert an event row. Deduplicates on event_id."""
@@ -195,7 +196,7 @@ def cmd_insert(
         normalize_severity,
     )
 
-    instant = utc_now() if created_at is None else parse_instant(created_at)
+    instant = parse_instant(utc_now() if created_at is None else created_at)
     raw_item_id = item_id
     if source_type not in VALID_SOURCE_TYPES:
         raise ValueError(f"source_type must be one of: {', '.join(VALID_SOURCE_TYPES)}")

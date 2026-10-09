@@ -301,3 +301,9 @@ Full Doctor fixtures declare their finite stored-instant columns natively,
 including both audit schema owners, without tightening nullable slim states.
 Shared current/day/minute clocks stay aware and preserve microseconds; actual
 health-check callers use those native values directly.
+
+Event fixture suites share one native day-offset generator and preserve
+microseconds through actual event insertion/retention callers. Severity fixture
+SQL adapts only its declared clock. The event insert owner strictly validates
+supplied and generated instants before severity/storage lookup; canonical event
+envelope clocks remain an owned JSON boundary.
