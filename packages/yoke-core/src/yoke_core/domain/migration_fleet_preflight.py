@@ -120,7 +120,7 @@ def rehearse(
     source_environment: str,
     emit: Optional[Callable[[str], None]] = None,
 ) -> Verdict:
-    """Admit one copy through cleanup; read serving privileges on its source."""
+    """Admit one copy through cleanup; read serving privileges on its live database source."""
     try:
         with migration_rehearsal_copy_lock.copy_lock(
             spec, f"{REHEARSAL_PREFIX}{database}"

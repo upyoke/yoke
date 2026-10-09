@@ -88,7 +88,7 @@ def create_github_app_tables(conn) -> None:
             conn,
             "project_github_repo_bindings",
             name,
-            "TEXT",
+            "TIMESTAMPTZ" if name == "last_sync_at" else "TEXT",
         )
     conn.execute(PROJECT_GITHUB_REPOSITORY_ID_UNIQUE_INDEX_SQL)
 

@@ -19,19 +19,10 @@ STAMP = "2026-10-08T16:30:00.123456Z"
 
 @pytest.fixture
 def blank():
-    from runtime.api.fixtures.pg_testdb import (
-        connect_test_database,
-        create_test_database,
-        drop_test_database,
-    )
+    from runtime.api.fixtures.native_instant_database import blank_database
 
-    name = create_test_database()
-    conn = connect_test_database(name)
-    try:
+    with blank_database() as conn:
         yield conn
-    finally:
-        conn.close()
-        drop_test_database(name)
 
 
 def test_history_freezes_complete_roster_and_serving_floor():

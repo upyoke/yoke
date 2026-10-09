@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import importlib
+from yoke_contracts.timestamps import parse_instant
 
 from runtime.api.fixtures.backlog_inserts import insert_item
-from yoke_core.domain.item_landings import ItemLanding, append_landing, landings_for_item
+from yoke_core.domain.item_landings import (
+    ItemLanding,
+    append_landing,
+    landings_for_item,
+)
 from yoke_core.domain.item_landings_reconstruct import LandingFact
 from yoke_core.domain.item_landings_schema import (
     ORIGIN_RECONSTRUCTED,
@@ -31,8 +36,7 @@ LANDED = "2026-09-19T22:15:00Z"
 def _entry():
     directory = history_dir(migration_history_package)
     match = next(
-        record for record in ordered_entries(directory)
-        if record.name == ENTRY_NAME
+        record for record in ordered_entries(directory) if record.name == ENTRY_NAME
     )
     return load_migration_module(directory / f"{match.name}.py", match.name)
 
@@ -40,12 +44,12 @@ def _entry():
 entry = _entry()
 # Import after load so tests share the same module object the applier uses
 # when they pass facts in; the filename stem is the entry's identity.
-MIGRATION = importlib.import_module(
-    f"yoke_core.domain.migrations.{ENTRY_NAME}"
-)
+MIGRATION = importlib.import_module(f"yoke_core.domain.migrations.{ENTRY_NAME}")
 
 
-def _fact(sequence: int, merge: str, candidate: str, pr_number: str = "1379") -> LandingFact:
+def _fact(
+    sequence: int, merge: str, candidate: str, pr_number: str = "1379"
+) -> LandingFact:
     return LandingFact(
         merge_sha=merge,
         candidate_sha=candidate,
@@ -114,7 +118,7 @@ def test_a_live_row_for_the_same_merge_is_left_recorded(test_db) -> None:
     assert counts["written"] == 0
     assert len(rows) == 1
     assert rows[0].origin == ORIGIN_RECORDED
-    assert rows[0].landed_at == "2026-09-19T22:20:00Z"
+    assert rows[0].landed_at == parse_instant("2026-09-19T22:20:00Z")
 
 
 def test_a_second_apply_writes_nothing(test_db) -> None:

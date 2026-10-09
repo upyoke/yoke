@@ -26,8 +26,8 @@ from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
 
 LANE_SHA = "1" * 40
 MERGE_SHA = "2" * 40
-QUEUE_LANDED_AT = "2026-09-19T23:04:11Z"
-COMMIT_TIME = "2026-09-19T22:58:02Z"
+QUEUE_LANDED_AT = "2026-09-19T23:04:11.000000Z"
+COMMIT_TIME = "2026-09-19T22:58:02.000000Z"
 
 
 def _outcome(**overrides) -> StandaloneMergeOutcome:

@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Iterable, Sequence
 
-from yoke_core.domain.item_merge_provenance_operator import MERGED_AT_FORMAT
+from yoke_contracts.timestamps import parse_instant, format_instant
 
 #: Field separator inside one ``git log`` record.
 _UNIT = "\x1f"
@@ -54,8 +54,11 @@ class LandingFact:
     candidate_sha: str
     pr_number: str
     target_branch: str
-    landed_at: str
+    landed_at: datetime
     project_sequence: int
+
+    def __post_init__(self):
+        object.__setattr__(self, "landed_at", parse_instant(self.landed_at))
 
     def as_json(self) -> dict[str, object]:
         return {
@@ -63,7 +66,7 @@ class LandingFact:
             "candidate_sha": self.candidate_sha,
             "pr_number": self.pr_number,
             "target_branch": self.target_branch,
-            "landed_at": self.landed_at,
+            "landed_at": format_instant(self.landed_at),
             "project_sequence": self.project_sequence,
         }
 
@@ -86,12 +89,15 @@ def _git_out(repo_root: str, *args: str) -> str:
     return result.stdout if result.returncode == 0 else ""
 
 
-def _landed_at(epoch: str) -> str:
+def _landed_at(epoch: str) -> datetime | None:
     try:
         seconds = int(epoch)
     except (TypeError, ValueError):
-        return ""
-    return datetime.fromtimestamp(seconds, timezone.utc).strftime(MERGED_AT_FORMAT)
+        return None
+    try:
+        return datetime.fromtimestamp(seconds, timezone.utc)
+    except (OverflowError, OSError, ValueError):
+        return None
 
 
 def _project_sequence(subject: str) -> int | None:
@@ -189,7 +195,7 @@ def facts_from_json(payload: str | Sequence[object]) -> tuple[LandingFact, ...]:
                 candidate_sha=str(row.get("candidate_sha") or ""),
                 pr_number=str(row.get("pr_number") or ""),
                 target_branch=str(row.get("target_branch") or DEFAULT_TARGET_BRANCH),
-                landed_at=str(row["landed_at"]),
+                landed_at=row["landed_at"],
                 project_sequence=int(row["project_sequence"]),
             )
         )

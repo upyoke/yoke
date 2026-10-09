@@ -307,3 +307,9 @@ Release build metadata validates its supplied clock before replacing output,
 and emits fixed-six UTC. Relay installation/failure receipts and API JSON logs
 share the canonical formatter. Board timing retains native wall instants and
 formats its declared event clocks before emission; durations remain monotonic.
+
+Landing history and reconstructed Git facts retain native instants; their
+payloads format only the declared landing clock. Queue observations outrank Git
+committer clocks, with microseconds preserved. Unknown queue observations are
+null; supplied malformed clocks refuse before recording. Additive GitHub binding
+convergence declares the same native last-sync clock type as fresh birth.

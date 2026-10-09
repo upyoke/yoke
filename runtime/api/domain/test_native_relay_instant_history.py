@@ -9,7 +9,12 @@ from yoke_core.domain.migrations import _native_instant_documents as documents
 from runtime.api.domain.test_native_instant_history import STAMP, history
 
 
-pytest_plugins = ("runtime.api.domain.test_native_instant_history",)
+@pytest.fixture
+def blank():
+    from runtime.api.fixtures.native_instant_database import blank_database
+
+    with blank_database() as conn:
+        yield conn
 
 
 def _relay(conn):

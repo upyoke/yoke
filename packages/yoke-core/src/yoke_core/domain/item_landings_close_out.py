@@ -21,7 +21,8 @@ from __future__ import annotations
 
 from yoke_core.domain.public_item_target import public_item_target
 
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now, parse_instant, format_instant
 from typing import Any, Optional
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
@@ -51,7 +52,9 @@ def landing_route(*, merge_sha: str, candidate_sha: str, pr_number: str) -> str:
     return ROUTE_MERGE_QUEUE if pr_number else ROUTE_STANDALONE
 
 
-def landing_time(*, repo_root: str, merge_sha: str, queue_landed_at: str) -> str:
+def landing_time(
+    *, repo_root: str, merge_sha: str, queue_landed_at: datetime | str | None
+) -> datetime:
     """When this landing happened, by the same precedence the item stamp uses.
 
     A queue landing observed on GitHub holds the moment the queue merged it,
@@ -60,10 +63,10 @@ def landing_time(*, repo_root: str, merge_sha: str, queue_landed_at: str) -> str
     landing takes the commit's time, which for that boundary IS the landing.
     A landing nobody timed falls back to now, and says nothing stronger.
     """
-    if queue_landed_at.strip():
-        return queue_landed_at.strip()
+    if queue_landed_at is not None:
+        return parse_instant(queue_landed_at)
     recorded = git.commit_time(repo_root, merge_sha) if repo_root else ""
-    return recorded or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return parse_instant(recorded) if recorded else utc_now()
 
 
 def _record(item_id: int, payload: dict[str, Any]) -> str:
@@ -93,7 +96,7 @@ def close_out_lane(
     landed_lane: Optional[LandedLane],
     outcome: Any,
     queue_pr_number: str = "",
-    queue_landed_at: str = "",
+    queue_landed_at: datetime | str | None = None,
 ) -> tuple[LandedLane, str]:
     """The lane close-out is finishing, with its landing recorded.
 
@@ -132,10 +135,12 @@ def close_out_lane(
                 candidate_sha=candidate_sha,
                 pr_number=pr_number,
             ),
-            "landed_at": landing_time(
-                repo_root=repo_root,
-                merge_sha=identity,
-                queue_landed_at=str(queue_landed_at or ""),
+            "landed_at": format_instant(
+                landing_time(
+                    repo_root=repo_root,
+                    merge_sha=identity,
+                    queue_landed_at=queue_landed_at,
+                )
             ),
         },
     )
