@@ -13,10 +13,7 @@ from yoke_core.domain import (
     dash_evidence_gate,
     doc_completion_gate,
 )
-from yoke_core.domain.conflict_survey import (
-    record_conflict_survey,
-    survey_conflicts,
-)
+from yoke_core.domain.conflict_survey import record_conflict_survey, survey_conflicts
 from yoke_core.domain.dash_execution import (
     evaluate_dash_evidence,
     record_dash_escalation,
@@ -41,11 +38,9 @@ from yoke_core.domain.strategy_execution_schema import (
 def _item_sections_contract(test_db):
     test_db.execute(
         "CREATE TABLE IF NOT EXISTS item_sections ("
-        "item_id INTEGER NOT NULL REFERENCES items(id), "
-        "section_name TEXT NOT NULL, content TEXT NOT NULL, "
+        "item_id INTEGER NOT NULL REFERENCES items(id), section_name TEXT NOT NULL, content TEXT NOT NULL, "
         "ordering INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL, "
-        "created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL, "
-        "PRIMARY KEY(item_id, section_name))"
+        "created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL, PRIMARY KEY(item_id, section_name))"
     )
     test_db.commit()
 
@@ -57,10 +52,7 @@ def test_conflict_survey_preserves_dot_paths_and_finds_frontier_scope(test_db):
         id=2102,
         workflow_id="dash",
         title="Registered work",
-        spec=(
-            "## File Budget\n\n"
-            "- `.agents/skills/yoke/dash/SKILL.md`\n"
-        ),
+        spec=("## File Budget\n\n- `.agents/skills/yoke/dash/SKILL.md`\n"),
     )
 
     result = survey_conflicts(
@@ -73,8 +65,7 @@ def test_conflict_survey_preserves_dot_paths_and_finds_frontier_scope(test_db):
     assert result.clear is False
     assert result.touch_paths == (".agents/skills/yoke/dash/SKILL.md",)
     assert any(
-        blocker.kind == "frontier_scope"
-        and blocker.owner_item_id == 2102
+        blocker.kind == "frontier_scope" and blocker.owner_item_id == 2102
         for blocker in result.blockers
     )
     stored = test_db.execute(
@@ -96,7 +87,8 @@ def test_conflict_survey_reads_linked_blitz_execution_budget(test_db):
         spec="",
     )
     project_id = test_db.execute(
-        "SELECT project_id FROM items WHERE id = %s", (2104,),
+        "SELECT project_id FROM items WHERE id = %s",
+        (2104,),
     ).fetchone()[0]
     linked_at = datetime(2026, 7, 28, tzinfo=timezone.utc)
     test_db.execute(
@@ -125,22 +117,29 @@ def test_conflict_survey_reads_linked_blitz_execution_budget(test_db):
 
     assert result.clear is False
     assert any(
-        blocker.kind == "frontier_scope"
-        and blocker.owner_item_id == 2104
+        blocker.kind == "frontier_scope" and blocker.owner_item_id == 2104
         for blocker in result.blockers
     )
-    assert test_db.execute(
-        "SELECT spec FROM items WHERE id = %s", (2104,),
-    ).fetchone()[0] == ""
+    assert (
+        test_db.execute(
+            "SELECT spec FROM items WHERE id = %s",
+            (2104,),
+        ).fetchone()[0]
+        == ""
+    )
+
+
 def test_dash_evidence_cannot_self_attest_enabled_posture(test_db):
     insert_item(
         test_db,
         id=2110,
         workflow_id="dash",
-        workflow_posture=json.dumps({
-            "approval_on_done": True,
-            "deployment": True,
-        }),
+        workflow_posture=json.dumps(
+            {
+                "approval_on_done": True,
+                "deployment": True,
+            }
+        ),
     )
     record_dash_evidence(
         test_db,
@@ -151,7 +150,8 @@ def test_dash_evidence_cannot_self_attest_enabled_posture(test_db):
         commit_sha="abc1234",
         merge_sha="def5678",
         touched_files=["ui/footer.js"],
-        tree_root="/repo/.worktrees/lane", tree_head_sha="abc1234",
+        tree_root="/repo/.worktrees/lane",
+        tree_head_sha="abc1234",
         posture_checks={"deployment": "completed"},
     )
     evidence = evaluate_dash_evidence(test_db, 2110)
@@ -235,21 +235,15 @@ def test_registered_execution_functions_keep_claim_boundaries_explicit():
         for row in [*EXECUTION_REGISTRATIONS, *PROMOTION_REGISTRATIONS]
     }
 
-    assert registrations["direct_workflow.dash.survey"][
-        "claim_required_kind"
-    ] is None
-    assert registrations["direct_workflow.blitz.survey"][
-        "claim_required_kind"
-    ] is None
-    assert registrations["direct_workflow.dash.evidence"][
-        "claim_required_kind"
-    ] == "item"
-    assert registrations["direct_workflow.dash.escalate"][
-        "claim_required_kind"
-    ] == "item"
-    assert registrations["ouroboros.field_note.promote"][
-        "claim_required_kind"
-    ] is None
+    assert registrations["direct_workflow.dash.survey"]["claim_required_kind"] is None
+    assert registrations["direct_workflow.blitz.survey"]["claim_required_kind"] is None
+    assert (
+        registrations["direct_workflow.dash.evidence"]["claim_required_kind"] == "item"
+    )
+    assert (
+        registrations["direct_workflow.dash.escalate"]["claim_required_kind"] == "item"
+    )
+    assert registrations["ouroboros.field_note.promote"]["claim_required_kind"] is None
 
 
 class _NonClosingConnection:
@@ -269,7 +263,9 @@ def test_conflict_survey_gate_allows_recorded_overlap(
 ):
     insert_item(test_db, id=2140, workflow_id="dash")
     initial = survey_conflicts(
-        test_db, item_id=2140, touch_paths=["src/direct.py"],
+        test_db,
+        item_id=2140,
+        touch_paths=["src/direct.py"],
     )
     assert initial.clear is True
     record_conflict_survey(test_db, initial)
@@ -308,7 +304,8 @@ def test_dash_evidence_gate_accepts_complete_close_record(
         commit_sha="abc1234",
         merge_sha="def5678",
         touched_files=["src/direct.py"],
-        tree_root="/repo/.worktrees/lane", tree_head_sha="abc1234",
+        tree_root="/repo/.worktrees/lane",
+        tree_head_sha="abc1234",
     )
     monkeypatch.setattr(
         dash_evidence_gate,
@@ -316,17 +313,22 @@ def test_dash_evidence_gate_accepts_complete_close_record(
         lambda _path: _NonClosingConnection(test_db),
     )
 
-    assert dash_evidence_gate.evaluate(
-        item_id=2150,
-        target_status="done",
-        db_path="unused",
-    ) is None
+    assert (
+        dash_evidence_gate.evaluate(
+            item_id=2150,
+            target_status="done",
+            db_path="unused",
+        )
+        is None
+    )
 
 
 def test_doc_completion_gate_names_missing_document_evidence(monkeypatch):
     connection = _NonClosingConnection(object())
     monkeypatch.setattr(
-        doc_completion_gate, "connect", lambda _path: connection,
+        doc_completion_gate,
+        "connect",
+        lambda _path: connection,
     )
     monkeypatch.setattr(
         doc_completion_gate,
