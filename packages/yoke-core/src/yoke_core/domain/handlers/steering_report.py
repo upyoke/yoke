@@ -28,6 +28,8 @@ class SteeringReportGetRequest(BaseModel):
     """
 
     deliver: bool = False
+    read_delta: bool = False
+    full: bool = False
 
 
 class SteeringReportGetResponse(BaseModel):
@@ -38,6 +40,7 @@ class SteeringReportGetResponse(BaseModel):
     fingerprint: str = ""
     delivered: Optional[bool] = None
     body: str = ""
+    delta_body: str = ""
     project_id: Optional[int] = None
     available: List[Dict[str, Any]] = Field(default_factory=list)
     waited_too_long: List[Dict[str, Any]] = Field(default_factory=list)
@@ -127,10 +130,19 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
             return _claim_required(project_id)
         if project_id is not None:
             report = combined.sections[0].report
-            return HandlerOutcome(
-                result_payload={**report_dict(report), "body": report_body(report)}
-            )
-        result = combined_dict(combined)
+            result = {**report_dict(report), "body": report_body(report)}
+        else:
+            result = combined_dict(combined)
+        if payload.read_delta:
+            from yoke_core.domain.steering_fleet_report_read import report_read_delta
+
+            try:
+                result["delta_body"] = report_read_delta(
+                    conn, session_id=session_id, combined=combined, full=payload.full,
+                )
+            except ValueError as exc:
+                conn.rollback()
+                return _error("steering_report_read_state_invalid", str(exc))
         if payload.deliver:
             from yoke_core.domain.steering_fleet_report_delivery import (
                 record_report_delivery,

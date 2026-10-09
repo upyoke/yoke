@@ -29,6 +29,10 @@ from yoke_core.domain.session_recovery_facts import (
     SESSION_RECOVERY_COLUMNS,
 )
 from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
+from yoke_core.domain.steering_fleet_report_read import (
+    READ_FINGERPRINTS_COLUMN,
+    READ_FINGERPRINTS_DDL,
+)
 
 
 def create_session_tables(conn: Any) -> None:
@@ -96,7 +100,8 @@ def create_session_tables(conn: Any) -> None:
           last_chain_step INTEGER DEFAULT NULL,
           last_checkpoint_at TEXT DEFAULT NULL,
           last_steering_report_at TEXT DEFAULT NULL,
-{recovery_columns}          last_steering_report_fingerprint TEXT DEFAULT NULL
+{recovery_columns}          last_steering_report_fingerprint TEXT DEFAULT NULL,
+          {READ_FINGERPRINTS_COLUMN} {READ_FINGERPRINTS_DDL}
         );
         CREATE INDEX IF NOT EXISTS idx_harness_sessions_heartbeat ON harness_sessions(last_heartbeat);
         CREATE INDEX IF NOT EXISTS idx_harness_sessions_project ON harness_sessions(project_id);

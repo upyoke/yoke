@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from unittest.mock import patch
+from dataclasses import replace
 
 from runtime.api.domain.steering_claim_test_support import (
     PROJECT_ALPHA,
@@ -145,3 +146,57 @@ def test_explicit_project_keeps_the_single_scope_payload(test_db, monkeypatch) -
     assert outcome.primary_success
     assert outcome.result_payload["project_id"] == PROJECT_ALPHA
     assert "scopes" not in outcome.result_payload
+
+
+def test_read_delta_is_durable_and_keeps_full_facts(test_db, monkeypatch) -> None:
+    seed_standard_steering_world(test_db)
+    with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
+        acquire_steering(test_db, SESSION_ALPHA, PROJECT_ALPHA)
+        acquire_steering(test_db, SESSION_ALPHA, PROJECT_BETA)
+    _patch_report_dependencies(monkeypatch, test_db)
+    request = _request().model_copy(update={"payload": {"read_delta": True}})
+    first = handle_get(request)
+    assert "## alpha" in first.result_payload["delta_body"]
+    second = handle_get(request)
+    assert len(second.result_payload["delta_body"]) <= 100
+    assert "unchanged" in second.result_payload["delta_body"]
+    assert "## alpha" in second.result_payload["body"]
+    assert len(second.result_payload["scopes"]) == 2
+    monkeypatch.setattr(
+        "yoke_core.domain.steering_fleet_report.compose_report",
+        lambda _conn, *, project_id, now, **_kwargs: replace(
+            _empty_report(project_id, now),
+            messages_awaiting_seat=int(project_id == PROJECT_ALPHA),
+        ),
+    )
+    changed = handle_get(request)
+    assert "## alpha" in changed.result_payload["delta_body"]
+    assert "## beta" not in changed.result_payload["delta_body"]
+    single = _request(PROJECT_ALPHA).model_copy(update={"payload": {"read_delta": True}})
+    assert handle_get(single).primary_success
+    again = handle_get(request)
+    assert "## beta" not in again.result_payload["delta_body"]
+    row = test_db.execute(
+        "SELECT last_steering_report_fingerprint FROM harness_sessions WHERE session_id = %s",
+        (SESSION_ALPHA,),
+    ).fetchone()
+    assert not row["last_steering_report_fingerprint"]
+
+
+def test_full_read_repairs_invalid_checkpoint(test_db, monkeypatch) -> None:
+    seed_standard_steering_world(test_db)
+    with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
+        acquire_steering(test_db, SESSION_ALPHA, PROJECT_ALPHA)
+    _patch_report_dependencies(monkeypatch, test_db)
+    test_db.execute(
+        "UPDATE harness_sessions SET steering_report_read_fingerprints = %s WHERE session_id = %s",
+        ("invalid", SESSION_ALPHA),
+    )
+    test_db.commit()
+    request = _request().model_copy(update={"payload": {"read_delta": True}})
+    refused = handle_get(request)
+    assert refused.error.code == "steering_report_read_state_invalid"
+    assert "get --full" in refused.error.message
+    repaired = handle_get(request.model_copy(update={"payload": {"read_delta": True, "full": True}}))
+    assert repaired.primary_success
+    assert "## alpha" in repaired.result_payload["body"]

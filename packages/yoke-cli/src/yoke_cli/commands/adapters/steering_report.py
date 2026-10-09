@@ -14,10 +14,15 @@ from yoke_cli.commands._helpers import (
 from yoke_contracts.api.function_call import TargetRef
 
 
-STEERING_REPORT_GET_USAGE = "yoke steering report get [--project P] [--json]"
+STEERING_REPORT_GET_USAGE = "yoke steering report get [--project P] [--full] [--json]"
 
 STEERING_REPORT_GET_DESCRIPTION = """\
 Read the fleet report for every steering scope this session holds.
+
+Default human output shows changed scope, inbox and shared-machine sections
+since this session's last pull read, plus an unchanged count. --full prints
+everything and advances that read checkpoint. --json preserves every fact
+without consuming the human read checkpoint. Hook/watcher delivery is separate.
 
 Omit --project to compose one report covering each live steering claim, with
 a section named by that claim's scope descriptor (today, the project slug).
@@ -55,8 +60,12 @@ is `yoke deployment-runs stages RUN`.
 
 def _print_report(response: Any, stdout, _stderr) -> None:
     result = response.result or {}
-    body = str(result.get("body") or "").strip()
+    body = str(result.get("delta_body", result.get("body")) or "").strip()
     print(body or "steering report: nothing to show", file=stdout)
+
+
+def _print_full_report(response: Any, stdout, _stderr) -> None:
+    print((response.result or {}).get("body") or "steering report: nothing to show", file=stdout)
 
 
 def steering_report_get(args: List[str]) -> int:
@@ -72,6 +81,7 @@ def steering_report_get(args: List[str]) -> int:
         help="Optional filter: one held scope (slug or id). Omit to compose all.",
     )
     add_json_arg(parser)
+    parser.add_argument("--full", action="store_true", help="Print every report section.")
     parsed = parse_or_usage_error(parser, args, STEERING_REPORT_GET_USAGE)
     if parsed is None:
         return 2
@@ -82,10 +92,10 @@ def steering_report_get(args: List[str]) -> int:
             kind="global",
             project_id=client_project_context(explicit) if explicit else None,
         ),
-        payload={},
+        payload=({} if parsed.json_mode else {"read_delta": True, "full": parsed.full}),
         session_id=None,
         json_mode=parsed.json_mode,
-        human_writer=None if parsed.json_mode else _print_report,
+        human_writer=(None if parsed.json_mode else _print_full_report if parsed.full else _print_report),
     )
 
 
