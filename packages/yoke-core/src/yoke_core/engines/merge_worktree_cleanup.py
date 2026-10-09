@@ -9,9 +9,6 @@ from yoke_core.domain.public_item_target import public_item_target
 from yoke_core.domain.worktree_import_reseat import reseat_loaded_packages
 from yoke_core.engines.merge_landed_lane_cleanup import release_lane_row
 from yoke_core.engines.merge_worktree_prepare import MergeContext
-from yoke_core.engines.merge_worktree_post_helpers import (
-    _chdir_out_of_doomed_worktree,
-)
 from yoke_core.engines.remote_branch_cleanup import (
     delete_remote_branch_if_merged,
 )
@@ -40,6 +37,12 @@ def _post_merge_cleanup(
     emit ``MergeVerificationFailed`` and exit 1 without cleaning up the
     worktree.  Verification success emits ``MergeVerificationPassed``.
     """
+    # The helper facade re-exports this routine. Resolve its cwd helper only
+    # when executing, so either module can be imported first in a fresh process.
+    from yoke_core.engines.merge_worktree_post_helpers import (
+        _chdir_out_of_doomed_worktree,
+    )
+
     mw = _parent()
     _print = mw._print
     _run_git = mw._run_git
