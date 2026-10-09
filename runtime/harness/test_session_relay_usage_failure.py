@@ -4,6 +4,7 @@ from email.message import Message
 from io import BytesIO
 import json
 from pathlib import Path
+from types import SimpleNamespace
 import urllib.error
 import urllib.request
 
@@ -29,6 +30,13 @@ def test_failed_usage_response_is_logged_cached_and_rendered_without_backoff(
         limits,
         "_load_claude_credentials",
         lambda: {"claudeAiOauth": {"accessToken": token}},
+    )
+    monkeypatch.setattr(
+        limits,
+        "probe_cli_surface",
+        lambda surface, command: SimpleNamespace(
+            verdict="ok", version="2.3.4", error=None
+        ),
     )
     monkeypatch.setattr(limits, "_cursor_access_token", lambda: token)
     monkeypatch.setattr(limits, "_cursor_tier_from_cli", lambda: {})
