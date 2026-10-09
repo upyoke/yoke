@@ -38,7 +38,7 @@ import os
 from typing import Any, List, Optional, Sequence
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 
 class PathClaimOverrideError(Exception):
@@ -84,7 +84,8 @@ def _claim_state(conn: Any, claim_id: int) -> Optional[str]:
 
 
 def _declared_target_ids(
-    conn: Any, claim_id: int,
+    conn: Any,
+    claim_id: int,
 ) -> set[int]:
     p = _p(conn)
     rows = conn.execute(
@@ -137,16 +138,15 @@ def invoke_override(
             "the claim before invoking override."
         )
     if blocking_claim_id is not None and not _claim_exists(
-        conn, blocking_claim_id,
+        conn,
+        blocking_claim_id,
     ):
-        raise ClaimNotFound(
-            f"blocking_claim_id {blocking_claim_id} does not exist."
-        )
+        raise ClaimNotFound(f"blocking_claim_id {blocking_claim_id} does not exist.")
 
     from yoke_core.domain.path_claims_events_override import emit_override
 
     targets = [int(t) for t in (blocking_path_targets or [])]
-    invoked_at = iso8601_now()
+    invoked_at = utc_now()
     p = _p(conn)
     conn.execute(
         "INSERT INTO path_claim_overrides "
@@ -168,7 +168,7 @@ def invoke_override(
             item_id,
             project,
             session_id,
-            invoked_at,
+            instant_parameter(conn, invoked_at),
         ),
     )
     return emit_override(
@@ -189,7 +189,8 @@ def invoke_override(
 
 
 def list_overrides(
-    conn: Any, *,
+    conn: Any,
+    *,
     path_claim_id: Optional[int] = None,
     blocking_claim_id: Optional[int] = None,
 ) -> List[dict]:
@@ -226,23 +227,23 @@ def list_overrides(
             targets = json.loads(row[3] or "[]")
         except (TypeError, ValueError):
             targets = []
-        out.append({
-            "id": int(row[0]),
-            "path_claim_id": int(row[1]),
-            "blocking_claim_id": (
-                int(row[2]) if row[2] is not None else None
-            ),
-            "blocking_path_targets": [int(t) for t in targets],
-            "override_point": row[4],
-            "conflict_reason": row[5],
-            "integration_target": row[6],
-            "actor_id": int(row[7]) if row[7] is not None else None,
-            "actor_reason": row[8],
-            "item_id": int(row[9]) if row[9] is not None else None,
-            "project": row[10],
-            "session_id": row[11],
-            "created_at": row[12],
-        })
+        out.append(
+            {
+                "id": int(row[0]),
+                "path_claim_id": int(row[1]),
+                "blocking_claim_id": (int(row[2]) if row[2] is not None else None),
+                "blocking_path_targets": [int(t) for t in targets],
+                "override_point": row[4],
+                "conflict_reason": row[5],
+                "integration_target": row[6],
+                "actor_id": int(row[7]) if row[7] is not None else None,
+                "actor_reason": row[8],
+                "item_id": int(row[9]) if row[9] is not None else None,
+                "project": row[10],
+                "session_id": row[11],
+                "created_at": row[12],
+            }
+        )
     return out
 
 

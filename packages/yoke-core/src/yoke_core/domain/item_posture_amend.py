@@ -22,7 +22,11 @@ from typing import Any, Callable, Mapping, Optional
 
 from yoke_core.domain.dash_posture_read import marker, posture as read_posture
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
+from yoke_core.domain.item_posture_events import (
+    AMENDED_EVENT_NAME,
+    emit_posture_amended,
+)
 from yoke_core.domain.item_posture_amend_guards import (
     ItemPostureAmendError,
     disallowed_posture_message,
@@ -48,7 +52,6 @@ from yoke_core.domain.workflow_runtime import (
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
-AMENDED_EVENT_NAME = "ItemWorkflowPostureAmended"
 SUPERSEDED_RATIONALE = "Superseded by a workflow-posture amendment."
 
 Guard = Callable[..., None]
@@ -105,13 +108,18 @@ def _supersede_verification(
         with_runs=False,
     )
     placeholder = marker(conn)
-    now = iso8601_now()
+    now = utc_now()
     for requirement_id in waived:
         conn.execute(
             f"UPDATE qa_requirements SET waived_at={placeholder}, "
             f"waiver_rationale={placeholder}, waiver_source={placeholder} "
             f"WHERE id={placeholder}",
-            (now, SUPERSEDED_RATIONALE, "system", requirement_id),
+            (
+                instant_parameter(conn, now),
+                SUPERSEDED_RATIONALE,
+                "system",
+                requirement_id,
+            ),
         )
     detached: list[int] = []
     plan_id = previous.get("plan_id")
@@ -124,33 +132,6 @@ def _supersede_verification(
         )
         detached.append(int(plan_id))
     return {"waived_requirement_ids": waived, "detached_plan_ids": detached}
-
-
-def _emit_amended(
-    conn: Any,
-    *,
-    item_id: int,
-    project: str,
-    session_id: str,
-    context: dict[str, Any],
-) -> Optional[str]:
-    from yoke_core.domain.events import emit_event
-
-    envelope = emit_event(
-        AMENDED_EVENT_NAME,
-        event_kind="workflow",
-        event_type="item_posture_amendment",
-        source_type="system",
-        session_id=session_id,
-        severity="INFO",
-        outcome="completed",
-        project=project,
-        item_id=item_id,
-        context=context,
-        conn=conn,
-        transactional=True,
-    )
-    return envelope.event_id if envelope.ok else None
 
 
 def _require_relax_authority(
@@ -289,7 +270,11 @@ def amend_item_posture(
     conn.execute(
         f"UPDATE items SET workflow_posture={placeholder}, "
         f"updated_at={placeholder} WHERE id={placeholder}",
-        (json.dumps(normalized, sort_keys=True), iso8601_now(), int(item_id)),
+        (
+            json.dumps(normalized, sort_keys=True),
+            instant_parameter(conn, utc_now()),
+            int(item_id),
+        ),
     )
 
     from yoke_core.domain.item_posture_bindings import bind_item_posture_selection
@@ -305,7 +290,7 @@ def amend_item_posture(
         )
     except ItemPostureError as exc:
         raise ItemPostureAmendError(str(exc)) from exc
-    event_id = _emit_amended(
+    event_id = emit_posture_amended(
         conn,
         item_id=int(item_id),
         project=str(item["project_id"]),

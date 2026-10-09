@@ -14,7 +14,7 @@ import json
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 
 STATUS_PREPARING = "preparing"
@@ -49,8 +49,13 @@ def open_repair_row(
         "INSERT INTO path_integrity_repairs "
         "(failure_id, operation, status, requested_at, arguments) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}) RETURNING id",
-        (failure_id, operation, STATUS_PREPARING, iso8601_now(),
-         json.dumps(arguments, sort_keys=True)),
+        (
+            failure_id,
+            operation,
+            STATUS_PREPARING,
+            instant_parameter(conn, utc_now()),
+            json.dumps(arguments, sort_keys=True),
+        ),
     )
     repair_id = int(cur.fetchone()[0])
     conn.commit()
@@ -71,20 +76,21 @@ def close_repair_row(
         f"SET status={p}, applied_at={p}, error_text={p}, "
         f"    recorded_event_id={p} "
         f"WHERE id={p}",
-        (status,
-         iso8601_now() if status == STATUS_APPLIED else None,
-         error_text, recorded_event_id, repair_id),
+        (
+            status,
+            instant_parameter(conn, utc_now()) if status == STATUS_APPLIED else None,
+            error_text,
+            recorded_event_id,
+            repair_id,
+        ),
     )
     conn.commit()
 
 
-def mark_failure_repaired(
-    conn: Any, failure_id: int
-) -> None:
+def mark_failure_repaired(conn: Any, failure_id: int) -> None:
     p = _p(conn)
     conn.execute(
-        "UPDATE path_integrity_failures "
-        f"SET repair_status={p} WHERE id={p}",
+        f"UPDATE path_integrity_failures SET repair_status={p} WHERE id={p}",
         (FAILURE_REPAIRED, failure_id),
     )
     conn.execute(
@@ -105,19 +111,25 @@ def write_abandon_row(
     reason: str,
 ) -> int:
     arguments = {"reason": reason}
+    now = utc_now()
     p = _p(conn)
     cur = conn.execute(
         "INSERT INTO path_integrity_repairs "
         "(failure_id, operation, status, requested_at, applied_at, "
         " arguments, abandon_reason) "
         f"VALUES ({p}, 'abandon', {p}, {p}, {p}, {p}, {p}) RETURNING id",
-        (failure_id, STATUS_ABANDONED, iso8601_now(), iso8601_now(),
-         json.dumps(arguments, sort_keys=True), reason),
+        (
+            failure_id,
+            STATUS_ABANDONED,
+            instant_parameter(conn, now),
+            instant_parameter(conn, now),
+            json.dumps(arguments, sort_keys=True),
+            reason,
+        ),
     )
     repair_id = int(cur.fetchone()[0])
     conn.execute(
-        "UPDATE path_integrity_failures "
-        f"SET repair_status={p} WHERE id={p}",
+        f"UPDATE path_integrity_failures SET repair_status={p} WHERE id={p}",
         (FAILURE_ABANDONED, failure_id),
     )
     conn.execute(
@@ -132,9 +144,7 @@ def write_abandon_row(
     return repair_id
 
 
-def fetch_failure_row(
-    conn: Any, failure_id: int
-):
+def fetch_failure_row(conn: Any, failure_id: int):
     p = _p(conn)
     return conn.execute(
         "SELECT id, run_id, invariant_kind, target_id, repair_status, "
@@ -144,9 +154,7 @@ def fetch_failure_row(
     ).fetchone()
 
 
-def fetch_project_for_run(
-    conn: Any, run_id: int
-) -> Optional[str]:
+def fetch_project_for_run(conn: Any, run_id: int) -> Optional[str]:
     p = _p(conn)
     row = conn.execute(
         f"SELECT project_id FROM path_integrity_runs WHERE id={p}",

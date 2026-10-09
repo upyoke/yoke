@@ -108,7 +108,7 @@ def converge_pack_catalog(conn: Any) -> None:
     """Project the Pack descriptors shipped by this server build into the DB."""
 
     create_pack_projection_tables(conn)
-    now = db_helpers.iso8601_now()
+    now = db_helpers.utc_now()
     for row in catalog_rows():
         conn.execute(
             "INSERT INTO pack_catalog("
@@ -128,7 +128,7 @@ def converge_pack_catalog(conn: Any) -> None:
                 json_helper.dumps_compact(row["dependencies"]),
                 row["documentation"],
                 row["file_count"],
-                now,
+                db_helpers.instant_parameter(conn, now),
             ),
         )
 
@@ -149,7 +149,7 @@ def report_project_packs(
     slugs = [row["slug"] for row in rows]
     if len(slugs) != len(set(slugs)):
         raise PackProjectionError("Pack report contains duplicate slugs")
-    now = db_helpers.iso8601_now()
+    now = db_helpers.utc_now()
     conn.execute(
         "DELETE FROM project_pack_report_entries WHERE project_id=%s", (identity.id,)
     )
@@ -171,7 +171,12 @@ def report_project_packs(
         ") VALUES(%s,%s,%s,%s) ON CONFLICT(project_id) DO UPDATE SET "
         "receipt_digest=EXCLUDED.receipt_digest, pack_count=EXCLUDED.pack_count, "
         "reported_at=EXCLUDED.reported_at",
-        (identity.id, receipt_digest, len(rows), now),
+        (
+            identity.id,
+            receipt_digest,
+            len(rows),
+            db_helpers.instant_parameter(conn, now),
+        ),
     )
     return {
         "project_id": identity.id,

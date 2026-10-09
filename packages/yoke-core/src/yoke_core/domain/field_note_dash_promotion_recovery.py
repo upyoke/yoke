@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 
 # Two-arg advisory-lock classid for one in-process promotion reservation.
@@ -43,10 +44,12 @@ def try_hold_promotion_reservation(conn: Any, entry_id: int) -> bool:
     """
     if not db_backend.connection_is_postgres(conn):
         return True
-    return _lock_flag(conn.execute(
-        "SELECT pg_try_advisory_lock(%s, %s)",
-        (PROMOTION_RESERVATION_LOCK_CLASS, int(entry_id)),
-    ).fetchone())
+    return _lock_flag(
+        conn.execute(
+            "SELECT pg_try_advisory_lock(%s, %s)",
+            (PROMOTION_RESERVATION_LOCK_CLASS, int(entry_id)),
+        ).fetchone()
+    )
 
 
 def release_promotion_reservation(conn: Any, entry_id: int) -> None:
@@ -63,19 +66,21 @@ def find_unlinked_promoted_dash(
     conn: Any,
     *,
     title: str,
-    created_at: str,
+    created_at: datetime | str,
 ) -> Optional[int]:
     """Return the earliest unlinked Dash matching this reservation."""
     marker = _p(conn)
-    row = _row_dict(conn.execute(
-        "SELECT i.id FROM items i "
-        f"WHERE i.workflow_id = {marker} AND i.title = {marker} "
-        f"AND i.created_at >= {marker} AND NOT EXISTS ("
-        "SELECT 1 FROM ouroboros_entry_dispositions d "
-        f"WHERE d.item_id = i.id) "
-        "ORDER BY i.id ASC LIMIT 1",
-        ("dash", title, created_at),
-    ))
+    row = _row_dict(
+        conn.execute(
+            "SELECT i.id FROM items i "
+            f"WHERE i.workflow_id = {marker} AND i.title = {marker} "
+            f"AND i.created_at >= {marker} AND NOT EXISTS ("
+            "SELECT 1 FROM ouroboros_entry_dispositions d "
+            f"WHERE d.item_id = i.id) "
+            "ORDER BY i.id ASC LIMIT 1",
+            ("dash", title, instant_parameter(conn, created_at)),
+        )
+    )
     if row is None:
         return None
     return int(row["id"])
@@ -89,19 +94,19 @@ def persist_completed_promotion(
 ) -> None:
     """Link the Dash onto its field note and mark the disposition completed."""
     marker = _p(conn)
-    now = iso8601_now()
+    now = utc_now()
     conn.execute(
         "UPDATE ouroboros_entry_dispositions "
         f"SET state = 'completed', item_id = {marker}, "
         f"failure_reason = NULL, updated_at = {marker} "
         f"WHERE entry_id = {marker}",
-        (int(item_id), now, int(entry_id)),
+        (int(item_id), instant_parameter(conn, now), int(entry_id)),
     )
     conn.execute(
         "UPDATE ouroboros_entries "
         f"SET reviewed_at = COALESCE(reviewed_at, {marker}) "
         f"WHERE id = {marker}",
-        (now, int(entry_id)),
+        (instant_parameter(conn, now), int(entry_id)),
     )
     conn.commit()
 

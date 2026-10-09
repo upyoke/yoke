@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+from yoke_contracts.timestamps import format_instant
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -98,13 +99,13 @@ def handle_ouroboros_entry_insert(
         return _bad_request(
             "observation must be non-empty", jsonpath="$.payload.observation"
         )
-    from yoke_core.domain.db_helpers import connect, iso8601_now
+    from yoke_core.domain.db_helpers import connect, utc_now
     from yoke_core.domain.ouroboros_entries import cmd_insert_entry
 
     with connect() as conn:
         entry_id = cmd_insert_entry(
             conn,
-            payload.timestamp or iso8601_now(),
+            utc_now() if payload.timestamp is None else payload.timestamp,
             payload.agent,
             payload.context,
             payload.category,
@@ -166,7 +167,7 @@ def handle_ouroboros_entry_mark_reviewed(
                     f"{cutoff} as reviewed"
                 )
                 if batch.reviewed_at:
-                    message += f" at {batch.reviewed_at}"
+                    message += f" at {format_instant(batch.reviewed_at)}"
                 message += f"; {batch.remaining_count} remain"
                 result = OuroborosEntryReviewResponse(
                     message=message,

@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.project_identity import row_value
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
@@ -76,13 +76,13 @@ def record_correction(
     if exists is None:
         raise CorrectionTargetError(f"ouroboros entry {corrected_id} does not exist")
 
-    now = iso8601_now()
+    now = utc_now()
     conn.execute(
         f"INSERT INTO {CORRECTIONS_TABLE} "
         "(correction_entry_id, corrected_entry_id, created_at) "
         f"VALUES ({p}, {p}, {p}) "
         "ON CONFLICT(correction_entry_id) DO NOTHING",
-        (correction_id, corrected_id, now),
+        (correction_id, corrected_id, instant_parameter(conn, now)),
     )
     # Superseding is the point: the corrected note leaves the unreviewed
     # queue so it no longer competes with its own correction. An already
@@ -90,7 +90,7 @@ def record_correction(
     conn.execute(
         "UPDATE ouroboros_entries "
         f"SET reviewed_at = COALESCE(reviewed_at, {p}) WHERE id = {p}",
-        (now, corrected_id),
+        (instant_parameter(conn, now), corrected_id),
     )
     conn.commit()
 
