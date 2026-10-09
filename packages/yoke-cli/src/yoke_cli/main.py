@@ -119,12 +119,7 @@ def _render_help() -> str:
         "Session id resolves from $YOKE_SESSION_ID (or --session-id "
         "override); actor id is filled server-side from harness_sessions."
     )
-    # The root listing is the deep home for reading a command's answer:
-    # every subcommand's `--help` carries the short recipe, and the worked
-    # catalog behind it lives here. The field-note footer follows so the
-    # Ouroboros channel is one screen from every CLI agent surface. Both
-    # stanzas reach per-subcommand help via argparse's `epilog`; see
-    # `yoke_cli.commands._helpers.parse_or_usage_error`.
+    # Standing read and field-note guidance lives on root help.
     lines.extend(["", format_recipes_for_help(), "", _FIELD_NOTE_FOOTER])
     return "\n".join(lines)
 

@@ -16,8 +16,6 @@ import os
 import sys
 from typing import Any, Callable, Dict, List, Optional, TextIO
 
-from yoke_contracts.adapter_read_recipes import FOOTER as _READ_RECIPE_FOOTER
-from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.read_detail import DETAIL_FULL, DETAIL_SUMMARY
 from yoke_cli.commands.local_dispatch_preload import ensure_handlers_loaded
@@ -46,46 +44,7 @@ __all__ = [
     "emit_response",
     "run_id_receipt",
     "split_comma",
-    "attach_help_trailer",
 ]
-
-
-def attach_help_trailer(parser: argparse.ArgumentParser) -> None:
-    """Ensure the standing ``--help`` trailer renders at the end of a block.
-
-    The trailer is two stanzas: the narrow-read recipe, which answers "I
-    want part of this command's answer" at the moment the caller is
-    composing the invocation, and the field-note directive, which answers
-    "this recipe did not work". Both belong at the bottom of every
-    subcommand's help for the same reason — the reader is there deciding
-    what to run next.
-
-    Single-edit lever: every per-subcommand adapter parser flows through
-    :func:`parse_or_usage_error`, which calls this helper just before
-    ``parser.parse_args`` runs. Argparse renders ``epilog`` at the bottom
-    of ``--help`` output, so both stanzas surface without per-adapter
-    wiring. Each stanza is attached independently and only when the
-    parser's own text does not already carry it, so a parser that composes
-    one of them into its long description keeps its single copy and still
-    gains the other.
-
-    The default ``HelpFormatter`` strips whitespace from ``epilog``; we
-    swap to ``RawDescriptionHelpFormatter`` so the multi-line trailer's
-    line breaks survive the render. Adapters that already pinned a
-    formatter (e.g. ``RawTextHelpFormatter``) keep their choice.
-    """
-    existing = f"{parser.description or ''}\n{parser.epilog or ''}"
-    additions = [
-        stanza
-        for stanza in (_READ_RECIPE_FOOTER, _FIELD_NOTE_FOOTER)
-        if stanza not in existing
-    ]
-    if not additions:
-        return
-    parts = ([parser.epilog] if parser.epilog else []) + additions
-    parser.epilog = "\n\n".join(parts)
-    if parser.formatter_class is argparse.HelpFormatter:
-        parser.formatter_class = argparse.RawDescriptionHelpFormatter
 
 
 def add_session_arg(parser: argparse.ArgumentParser) -> None:
@@ -208,11 +167,7 @@ def parse_or_usage_error(
     args: List[str],
     usage: str,
 ) -> Optional[argparse.Namespace]:
-    # Every per-subcommand `--help` carries the standing trailer. The
-    # single attach-on-parse hook covers every adapter without per-file
-    # editing; argparse renders ``epilog`` at the bottom of the help block.
     _ensure_project_arg_for_item_parser(parser)
-    attach_help_trailer(parser)
     try:
         return parser.parse_args(args)
     except SystemExit as exc:

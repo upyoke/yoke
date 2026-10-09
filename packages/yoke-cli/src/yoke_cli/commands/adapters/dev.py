@@ -10,7 +10,6 @@ from typing import List
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
-    attach_help_trailer,
     parse_or_usage_error,
 )
 from yoke_cli.config import db_admin_dsn_exec
@@ -83,7 +82,6 @@ def dev_setup(args: List[str]) -> int:
     mode.add_argument("--dry-run", dest="dry_run", action="store_true")
     parser.set_defaults(apply=False, dry_run=False)
     add_json_arg(parser)
-    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, DEV_SETUP_USAGE)
     if parsed is None:
         return 2
@@ -147,7 +145,6 @@ def dev_path_snapshot_prewarm(args: List[str]) -> int:
         help="Project id (explicit value, YOKE_PROJECT, or the checkout binding).",
     )
     add_json_arg(parser)
-    attach_help_trailer(parser)
     parsed = parse_or_usage_error(
         parser,
         args,
@@ -232,7 +229,6 @@ def dev_db_admin_setup(args: List[str]) -> int:
     mode.add_argument("--dry-run", dest="dry_run", action="store_true")
     parser.set_defaults(apply=False, dry_run=False, prod=False)
     add_json_arg(parser)
-    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, DEV_DB_ADMIN_SETUP_USAGE)
     if parsed is None:
         return 2
@@ -274,7 +270,6 @@ def dev_db_admin_exec(args: List[str]) -> int:
     )
     parser.add_argument("admin_env", metavar="ADMIN_ENV")
     parser.add_argument("--dsn-var", required=True, metavar="NAME")
-    attach_help_trailer(parser)
     split = args.index("--") if "--" in args else len(args)
     parsed = parse_or_usage_error(parser, args[:split], DEV_DB_ADMIN_EXEC_USAGE)
     if parsed is None:

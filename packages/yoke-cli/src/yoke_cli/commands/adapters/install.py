@@ -16,7 +16,6 @@ import json
 from typing import List
 
 from yoke_cli.commands._helpers import (
-    attach_help_trailer,
     parse_or_usage_error,
 )
 from yoke_cli.config.machine_config import MachineConfigError
@@ -41,17 +40,15 @@ PROJECT_REFRESH_USAGE = (
 # committed the layer but could not publish it is neither a success nor an
 # install failure, so it gets its own status rather than borrowing either.
 PUBLICATION_PENDING_EXIT = 3
-PROJECT_UNINSTALL_USAGE = (
-    "yoke project uninstall [REPO_ROOT] [--config PATH] [--json]"
-)
+PROJECT_UNINSTALL_USAGE = "yoke project uninstall [REPO_ROOT] [--config PATH] [--json]"
 
 
 def _install_parser(prog: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=prog)
-    parser.add_argument("repo_root", nargs="?", default=None,
-                        help="Project repo root (default: cwd).")
-    parser.add_argument("--project-id", dest="project_id", type=int,
-                        default=None)
+    parser.add_argument(
+        "repo_root", nargs="?", default=None, help="Project repo root (default: cwd)."
+    )
+    parser.add_argument("--project-id", dest="project_id", type=int, default=None)
     parser.add_argument("--config", dest="config_path", default=None)
     parser.add_argument(
         "--force",
@@ -78,15 +75,12 @@ def _install_parser(prog: str) -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--json", dest="json_mode", action="store_true")
-    attach_help_trailer(parser)
     return parser
 
 
 def _refresh_parser() -> argparse.ArgumentParser:
     parser = _install_parser("yoke project refresh")
-    source_group = parser.add_argument_group(
-        "source-dev/admin local-source refresh"
-    )
+    source_group = parser.add_argument_group("source-dev/admin local-source refresh")
     source_group.add_argument(
         "--source-checkout",
         metavar="PATH",
@@ -122,33 +116,31 @@ def _refresh_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _run_install(args: List[str], usage: str, prog: str,
-                 operation: str) -> int:
+def _run_install(args: List[str], usage: str, prog: str, operation: str) -> int:
     parsed = parse_or_usage_error(_install_parser(prog), args, usage)
     if parsed is None:
         return 2
     domain = _project_install_domain()
     fn = domain.install if operation == "install" else domain.refresh
-    return _run(lambda: fn(
-        parsed.repo_root,
-        project_id=parsed.project_id,
-        config_path=parsed.config_path,
-        mode=None,
-        force=parsed.force,
-        commit=not parsed.no_commit,
-        publish=not parsed.no_publish,
-    ))
+    return _run(
+        lambda: fn(
+            parsed.repo_root,
+            project_id=parsed.project_id,
+            config_path=parsed.config_path,
+            mode=None,
+            force=parsed.force,
+            commit=not parsed.no_commit,
+            publish=not parsed.no_publish,
+        )
+    )
 
 
 def project_install(args: List[str]) -> int:
-    return _run_install(args, PROJECT_INSTALL_USAGE,
-                        "yoke project install", "install")
+    return _run_install(args, PROJECT_INSTALL_USAGE, "yoke project install", "install")
 
 
 def project_refresh(args: List[str]) -> int:
-    parsed = parse_or_usage_error(
-        _refresh_parser(), args, PROJECT_REFRESH_USAGE
-    )
+    parsed = parse_or_usage_error(_refresh_parser(), args, PROJECT_REFRESH_USAGE)
     if parsed is None:
         return 2
     if parsed.apply and not parsed.source_checkout:
@@ -170,41 +162,48 @@ def project_refresh(args: List[str]) -> int:
     if parsed.source_checkout:
         from yoke_cli.project_install.local_source import refresh_from_source
 
-        return _run(lambda: refresh_from_source(
+        return _run(
+            lambda: refresh_from_source(
+                parsed.repo_root,
+                source_checkout=parsed.source_checkout,
+                project_id=parsed.project_id,
+                project_slug=parsed.project_slug,
+                manifest_from=parsed.manifest_from,
+                apply=parsed.apply,
+                force=parsed.force,
+                commit=not parsed.no_commit,
+            )
+        )
+    return _run(
+        lambda: _project_install_domain().refresh(
             parsed.repo_root,
-            source_checkout=parsed.source_checkout,
             project_id=parsed.project_id,
-            project_slug=parsed.project_slug,
-            manifest_from=parsed.manifest_from,
-            apply=parsed.apply,
+            config_path=parsed.config_path,
+            mode=None,
             force=parsed.force,
             commit=not parsed.no_commit,
-        ))
-    return _run(lambda: _project_install_domain().refresh(
-        parsed.repo_root,
-        project_id=parsed.project_id,
-        config_path=parsed.config_path,
-        mode=None,
-        force=parsed.force,
-        commit=not parsed.no_commit,
-        publish=not parsed.no_publish,
-    ))
+            publish=not parsed.no_publish,
+        )
+    )
 
 
 def project_uninstall(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke project uninstall")
-    parser.add_argument("repo_root", nargs="?", default=None,
-                        help="Project repo root (default: cwd).")
+    parser.add_argument(
+        "repo_root", nargs="?", default=None, help="Project repo root (default: cwd)."
+    )
     parser.add_argument("--config", dest="config_path", default=None)
     parser.add_argument("--json", dest="json_mode", action="store_true")
-    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, PROJECT_UNINSTALL_USAGE)
     if parsed is None:
         return 2
     domain = _project_install_domain()
-    return _run(lambda: domain.uninstall(
-        parsed.repo_root, config_path=parsed.config_path,
-    ))
+    return _run(
+        lambda: domain.uninstall(
+            parsed.repo_root,
+            config_path=parsed.config_path,
+        )
+    )
 
 
 def _run(operation) -> int:

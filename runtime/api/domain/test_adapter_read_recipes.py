@@ -8,7 +8,6 @@ deciding how to invoke a command carries it.
 
 from __future__ import annotations
 
-import argparse
 import re
 
 import pytest
@@ -73,35 +72,40 @@ def test_catalog_covers_the_routine_wants() -> None:
     assert "--full" in shapes
 
 
-def test_every_subcommand_help_carries_both_trailer_stanzas() -> None:
-    from yoke_cli.commands._helpers import attach_help_trailer
+@pytest.mark.parametrize(
+    "command", ["items get", "claims path widen", "sessions", "dev", "project snapshot"]
+)
+def test_subcommand_help_has_no_standing_trailers(command, capsys) -> None:
+    from yoke_cli.main import main
 
-    parser = argparse.ArgumentParser(prog="yoke example")
-    attach_help_trailer(parser)
-    assert arr.FOOTER in parser.epilog
-    assert FIELD_NOTE_FOOTER in parser.epilog
-
-
-def test_trailer_attach_is_idempotent() -> None:
-    from yoke_cli.commands._helpers import attach_help_trailer
-
-    parser = argparse.ArgumentParser(prog="yoke example")
-    attach_help_trailer(parser)
-    once = parser.epilog
-    attach_help_trailer(parser)
-    assert parser.epilog == once
+    assert main(command.split() + ["--help"]) == 0
+    output = capsys.readouterr().out
+    assert arr.FOOTER not in output
+    assert FIELD_NOTE_FOOTER not in output
 
 
-def test_trailer_adds_only_the_missing_stanza() -> None:
-    """A parser composing one stanza itself still gains the other."""
-    from yoke_cli.commands._helpers import attach_help_trailer
+def test_root_help_keeps_the_standing_read_and_field_note_guidance(capsys) -> None:
+    from yoke_cli.main import main
 
-    parser = argparse.ArgumentParser(
-        prog="yoke example", description=f"body\n\n{FIELD_NOTE_FOOTER}"
-    )
-    attach_help_trailer(parser)
-    assert arr.FOOTER in parser.epilog
-    assert parser.epilog.count(FIELD_NOTE_FOOTER) == 0
+    assert main(["--help"]) == 0
+    output = capsys.readouterr().out
+    assert arr.format_recipes_for_help() in output
+    assert FIELD_NOTE_FOOTER in output
+
+
+@pytest.mark.parametrize(
+    "command, ceiling", [("items get", 2000), ("messages send", 4300), ("say", 4300)]
+)
+def test_command_help_stays_within_its_fixed_fixture_budget(
+    command, ceiling, capsys
+) -> None:
+    from yoke_cli.main import main
+
+    assert main(command.split() + ["--help"]) == 0
+    output = capsys.readouterr().out
+    assert len(output) <= ceiling
+    if command in ("messages send", "say"):
+        assert ".yoke/docs/items-and-sessions.md" in output
 
 
 def test_startup_packet_points_at_the_help_that_carries_the_recipe() -> None:

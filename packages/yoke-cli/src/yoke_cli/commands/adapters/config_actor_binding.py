@@ -15,16 +15,13 @@ from importlib import import_module
 from typing import Dict, List
 
 from yoke_cli.commands._helpers import (
-    attach_help_trailer,
     parse_or_usage_error,
 )
 from yoke_cli.config import machine_config
 from yoke_cli.config import writer
 
 
-BIND_ACTOR_USAGE = (
-    "yoke config bind-actor [--actor-id N] [--config PATH]"
-)
+BIND_ACTOR_USAGE = "yoke config bind-actor [--actor-id N] [--config PATH]"
 
 
 USAGE_BY_FUNCTION_ID: Dict[str, str] = {"config.bind_actor.run": BIND_ACTOR_USAGE}
@@ -44,13 +41,12 @@ def config_bind_actor(args: List[str]) -> int:
             "(e.g. `yoke --env prod config bind-actor --actor-id 4`). "
             "Omit --actor-id on a universe with exactly one human actor and "
             "that actor is recorded; with several, pass the id explicitly "
-            "(list them with `yoke db read \"SELECT id, kind, name FROM "
-            "actors\"`)."
+            '(list them with `yoke db read "SELECT id, kind, name FROM '
+            'actors"`).'
         ),
     )
     parser.add_argument("--actor-id", dest="actor_id", type=int, default=None)
     parser.add_argument("--config", dest="config_path", default=None)
-    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, BIND_ACTOR_USAGE)
     if parsed is None:
         return 2
@@ -79,9 +75,7 @@ def _bind_actor(actor_id, config_path) -> dict:
         )
     try:
         if actor_id is None:
-            converged = converge_operating_actor_binding(
-                conn, config_path=config_path
-            )
+            converged = converge_operating_actor_binding(conn, config_path=config_path)
             if converged is None:
                 raise writer.MachineConfigWriteError(
                     "this universe does not carry exactly one human actor, so "

@@ -32,7 +32,6 @@ from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_contracts.deployment_itemless_teaching import (
     BASIS_UNCONVERGED_REQUEST_MATCH,
     CREATE_DESCRIPTION,
-    ITEMLESS_RELEASE_RECIPE,
     execute_created_run_note,
     replayed_run_note,
     unconverged_key_note,
@@ -75,7 +74,6 @@ def deployment_runs_create(args: List[str]) -> int:
         prog="yoke deployment-runs create",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=CREATE_DESCRIPTION,
-        epilog=ITEMLESS_RELEASE_RECIPE,
     )
     parser.add_argument("project")
     parser.add_argument("flow")

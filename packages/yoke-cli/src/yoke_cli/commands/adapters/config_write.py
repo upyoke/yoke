@@ -12,7 +12,6 @@ import argparse
 from typing import List
 
 from yoke_cli.commands._helpers import (
-    attach_help_trailer,
     parse_or_usage_error,
     usage_error,
 )
@@ -34,8 +33,7 @@ CONNECTION_SET_USAGE = (
     "[CREDENTIAL | --token-file PATH | --token-stdin | --dsn DSN | "
     "--dsn-file PATH | --dsn-stdin] [--config PATH]"
 )
-CONNECTION_REMOVE_USAGE = (
-    "yoke connection remove ENV [--activate ENV] [--config PATH]")
+CONNECTION_REMOVE_USAGE = "yoke connection remove ENV [--activate ENV] [--config PATH]"
 AUTH_SET_USAGE = (
     "yoke auth set ENV [CREDENTIAL | --token-file PATH | --token-stdin | "
     "--dsn DSN | --dsn-file PATH | --dsn-stdin] [--config PATH]"
@@ -46,43 +44,49 @@ def env_use(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke env use")
     parser.add_argument("env")
     parser.add_argument("--config", dest="config_path", default=None)
-    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, ENV_USE_USAGE)
     if parsed is None:
         return 2
     writer = _writer()
-    return _run(lambda: writer.set_active_env(
-        parsed.env, path=parsed.config_path,
-    ))
+    return _run(
+        lambda: writer.set_active_env(
+            parsed.env,
+            path=parsed.config_path,
+        )
+    )
 
 
 def connection_set(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke connection set")
     parser.add_argument("env")
     parser.add_argument("credential", nargs="?")
-    parser.add_argument("--transport", choices=["local-postgres", "https"],
-                        default=None)
+    parser.add_argument(
+        "--transport", choices=["local-postgres", "https"], default=None
+    )
     prod_group = parser.add_mutually_exclusive_group()
-    prod_group.add_argument("--prod", dest="prod", action="store_true",
-                            default=False)
-    prod_group.add_argument("--non-prod", dest="non_prod",
-                            action="store_true", default=False)
+    prod_group.add_argument("--prod", dest="prod", action="store_true", default=False)
+    prod_group.add_argument(
+        "--non-prod", dest="non_prod", action="store_true", default=False
+    )
     parser.add_argument("--api-url", dest="api_url", default=None)
     parser.add_argument("--token-file", dest="token_file", default=None)
-    parser.add_argument("--token-stdin", dest="token_stdin",
-                        action="store_true")
+    parser.add_argument("--token-stdin", dest="token_stdin", action="store_true")
     parser.add_argument("--dsn", dest="dsn", default=None)
     parser.add_argument("--dsn-file", dest="dsn_file", default=None)
     parser.add_argument("--dsn-stdin", dest="dsn_stdin", action="store_true")
     parser.add_argument("--config", dest="config_path", default=None)
-    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, CONNECTION_SET_USAGE)
     if parsed is None:
         return 2
-    if parsed.credential and any((
-        parsed.token_file, parsed.token_stdin, parsed.dsn,
-        parsed.dsn_file, parsed.dsn_stdin,
-    )):
+    if parsed.credential and any(
+        (
+            parsed.token_file,
+            parsed.token_stdin,
+            parsed.dsn,
+            parsed.dsn_file,
+            parsed.dsn_stdin,
+        )
+    ):
         return usage_error(
             "positional credential is mutually exclusive with credential flags: "
             f"{CONNECTION_SET_USAGE}"
@@ -104,18 +108,23 @@ def connection_remove(args: List[str]) -> int:
     )
     parser.add_argument("env")
     parser.add_argument(
-        "--activate", default=None, metavar="ENV",
+        "--activate",
+        default=None,
+        metavar="ENV",
         help="Connection to make active when retiring the active authority.",
     )
     parser.add_argument("--config", dest="config_path", default=None)
-    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, CONNECTION_REMOVE_USAGE)
     if parsed is None:
         return 2
     writer = _writer()
-    return _run(lambda: writer.remove_connection(
-        parsed.env, activate=parsed.activate, path=parsed.config_path,
-    ))
+    return _run(
+        lambda: writer.remove_connection(
+            parsed.env,
+            activate=parsed.activate,
+            path=parsed.config_path,
+        )
+    )
 
 
 def auth_set(args: List[str]) -> int:
@@ -123,20 +132,23 @@ def auth_set(args: List[str]) -> int:
     parser.add_argument("env")
     parser.add_argument("credential", nargs="?")
     parser.add_argument("--token-file", dest="token_file", default=None)
-    parser.add_argument("--token-stdin", dest="token_stdin",
-                        action="store_true")
+    parser.add_argument("--token-stdin", dest="token_stdin", action="store_true")
     parser.add_argument("--dsn", dest="dsn", default=None)
     parser.add_argument("--dsn-file", dest="dsn_file", default=None)
     parser.add_argument("--dsn-stdin", dest="dsn_stdin", action="store_true")
     parser.add_argument("--config", dest="config_path", default=None)
-    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, AUTH_SET_USAGE)
     if parsed is None:
         return 2
-    if parsed.credential and any((
-        parsed.token_file, parsed.token_stdin, parsed.dsn,
-        parsed.dsn_file, parsed.dsn_stdin,
-    )):
+    if parsed.credential and any(
+        (
+            parsed.token_file,
+            parsed.token_stdin,
+            parsed.dsn,
+            parsed.dsn_file,
+            parsed.dsn_stdin,
+        )
+    ):
         return usage_error(
             "positional credential is mutually exclusive with credential flags: "
             f"{AUTH_SET_USAGE}"
@@ -235,9 +247,8 @@ def _inferred_connection_transport(
 
 def _looks_like_postgres_dsn(value: str) -> bool:
     lowered = value.lower()
-    return (
-        lowered.startswith(("postgres://", "postgresql://"))
-        or any(token in lowered for token in ("host=", "dbname=", "sslmode="))
+    return lowered.startswith(("postgres://", "postgresql://")) or any(
+        token in lowered for token in ("host=", "dbname=", "sslmode=")
     )
 
 
