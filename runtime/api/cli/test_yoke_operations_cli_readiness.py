@@ -128,4 +128,4 @@ def test_claims_path_gate_and_activation_dispatch() -> None:
     req = _CAPTURED[-1]
     assert req.function == "claims.path.activation_run"
     assert req.target.public_ref == "YOK-1800"
-    assert req.payload == {}
+    assert req.payload == {"resolved_heads": {}}

@@ -6,7 +6,7 @@
 > `worktree_preflight_steps`). The implementation-entry
 > orchestrator does not call `advance_path_claim_activation.run_activation_phase`
 > separately — that's the "exactly one claim/activation/worktree
-> boundary" rule. The standalone CLI / `run_activation_phase` entrypoint
+> boundary" rule. The standalone registered CLI entrypoint
 > below remains for operators reconciling activation outside the full
 > worktree-preflight bundle.
 
@@ -40,26 +40,20 @@ Skip when:
 
 ## Invocation
 
-Normal implementation entry does not have an agent-facing activation
-command: `worktree_preflight.run_preflight` invokes this phase in-process. The
-standalone activation entrypoint is a Yoke source-dev/admin boundary in
-`yoke_core.domain.advance_path_claim_activation` for operators reconciling
-activation outside the full worktree-preflight bundle; it is not a registered
-product CLI wrapper and should not be taught as normal implementation flow.
+Normal implementation entry uses `worktree_preflight.run_preflight` automatically.
+For manual reconciliation, invoke the registered `claims.path.activation_run`
+through `yoke claims path activation-run --item PREFIX-N`. Read its `--help`
+for checkout requirements and failure recovery.
 
-Exit codes:
+Both entry points resolve integration heads from this machine's registered
+project checkout before relaying activation to the control plane, including
+HTTPS. Register a missing mapping with `yoke project register <checkout>
+--project-id <id>` and retry from that machine.
 
-| Exit | Meaning                                                                  |
-|---   |---                                                                       |
-| 0    | All planned claims activated; stdout: ``activated=[ids]``.               |
-| 1    | One or more claims are blocked or refs have diverged; stderr lists ``BLOCKED:`` and ``DIVERGED:`` rows. Stop the skill. |
-| 2    | Missing item, missing owner/source actor, or invalid ``--item`` value. Stop the skill and surface the stderr message. |
-
-The CLI is the guard-compatible replacement for the legacy inline
-heredoc. Skill prose, persona docs, and harness adapters route through
-this entrypoint exclusively — no inlined ``python3 - <<PY`` blocks. The
-domain function :func:`run_activation_phase` remains the in-process
-caller surface for tests and adjacent Yoke surfaces.
+Exit 0 means activation completed or there were no claims. Exit 1 means a
+checkout/head could not be resolved or activation remained incomplete; the
+response preserves outcomes and names the reason and recovery. Exit 2 means
+invalid command arguments. Resolve the reported failure before retrying.
 
 ## Outcomes
 

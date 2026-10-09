@@ -91,7 +91,8 @@ S6c applies dependency verification **per candidate**. For each entry in the can
 **Before the per-task loop:** activate any planned path claims for the epic, then provision every dispatchable chain worktree via the unified creator. This matches the single-worktree issue entry path: the caller flips path-claim rows from `state='planned'` to `state='active'`, and the creator remains the door-lock that refuses non-active claims. These are path-claim states, not item lifecycle statuses.
 
 ```bash
-# Path-claim activation is a registered function-call surface.
+# claims.path.activation_run resolves heads from the registered local checkout.
+# Read activation-run --help; resolve any named failure before retrying.
 yoke claims path activation-run --item "${_epic_ref}"
 _activation_exit=$?
 if [ "$_activation_exit" -ne 0 ]; then
