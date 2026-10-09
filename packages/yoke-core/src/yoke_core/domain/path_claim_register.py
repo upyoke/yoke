@@ -7,10 +7,8 @@ next. The denial body embeds:
 
 1. The conflicting claim id(s).
 2. The overlapping repo-relative path strings.
-3. The ready-to-paste
-   ``yoke claims path coordination-decision-build --item YOK-N
-   --conflicting-claim <id> --paths <paths>`` command that builds the
-   evidence packet for the overlap.
+3. The holder item and a route back to ``/yoke refine``. Coordination
+   attestation belongs to the authoring phase, not a runtime caller.
 
 This module owns the body string so the
 :mod:`yoke_core.domain.path_claims_dispatch` ``cmd_register`` handler
@@ -32,11 +30,7 @@ from yoke_core.domain.project_identity import (
 )
 
 
-_RESOLUTION_CMD = (
-    "yoke claims path coordination-decision-build "
-    "--item {public_ref} --conflicting-claim {claim_id} "
-    "--paths {paths}"
-)
+_RESOLUTION_CMD = "/yoke refine {public_ref}"
 
 
 def _p(conn: Any) -> str:
@@ -72,14 +66,12 @@ def compose_overlap_denial(
     The body opens with ``base_message`` (the underlying error text from
     :class:`yoke_core.domain.path_claims.IncompatibleOverlap`),
     enumerates each conflicting claim id with its overlapping paths,
-    and emits the ``yoke claims path coordination-decision-build`` command for the
-    first conflicting claim so the operator's next move is one paste.
+    and routes the caller to Refine for an authoring-phase decision.
 
     When ``conn`` is ``None`` or the conflict lookup yields zero rows
     (e.g. classifier said INCOMPATIBLE but the per-claim scan came back
     empty under test fixtures), the body still includes the ``item_id``
-    + ``integration_target`` header and a generic resolution-command
-    template with ``<paths>`` placeholder so callers see the shape.
+    + ``integration_target`` header and the Refine route.
     """
     target_ids = [int(t) for t in candidate_target_ids]
     conflicts = _resolve_conflicts(conn, integration_target, target_ids)
@@ -91,29 +83,10 @@ def compose_overlap_denial(
     ]
     if conflicts:
         lines.append("  conflicting claims:")
-        for claim_id, overlap_paths in conflicts:
+        for claim_id, overlap_paths, holder_ref in conflicts:
             paths_str = ", ".join(overlap_paths) or "(no path strings)"
-            lines.append(f"    claim {claim_id}: {paths_str}")
-        first_claim_id, first_paths = conflicts[0]
-        paths_arg = ",".join(first_paths) if first_paths else "<paths>"
-        lines.append("")
-        lines.append("Build the coordination evidence packet:")
-        lines.append("  " + _RESOLUTION_CMD.format(
-            public_ref=public_ref,
-            claim_id=first_claim_id,
-            paths=paths_arg,
-        ))
-    else:
-        lines.append("")
-        lines.append(
-            "Build the coordination evidence packet (substitute the live "
-            "conflicting-claim id and overlapping paths):"
-        )
-        lines.append("  " + _RESOLUTION_CMD.format(
-            public_ref=public_ref,
-            claim_id="<claim-id>",
-            paths="<paths>",
-        ))
+            lines.append(f"    claim {claim_id}, holder {holder_ref}: {paths_str}")
+    lines.append("Recovery: " + _RESOLUTION_CMD.format(public_ref=public_ref))
     return "\n".join(lines)
 
 
@@ -121,8 +94,8 @@ def _resolve_conflicts(
     conn: Optional[Any],
     integration_target: str,
     candidate_target_ids: List[int],
-) -> List[tuple[int, List[str]]]:
-    """Return ``[(other_claim_id, [overlap_path_strings]), ...]``.
+) -> List[tuple[int, List[str], str]]:
+    """Return claim id, overlapping paths and holder item reference.
 
     Empty when no connection is available (handler may pass None for
     unit tests) or when the conflict scan finds no rows.
@@ -140,11 +113,19 @@ def _resolve_conflicts(
         )
     except db_backend.database_error_types(conn):
         return []
-    out: List[tuple[int, List[str]]] = []
+    out: List[tuple[int, List[str], str]] = []
     for row in rows:
         other_id = int(row.get("claim_id") or 0)
         overlap_ids = row.get("blocking_target_ids") or []
-        out.append((other_id, _path_strings_for(conn, overlap_ids)))
+        holder = conn.execute(
+            f"SELECT owner_item_id FROM path_claims WHERE id = {_p(conn)}",
+            (other_id,),
+        ).fetchone()
+        holder_ref = (
+            _display_item_ref(conn, int(holder[0])) if holder and holder[0]
+            else unresolved_item_ref(consulted=True)
+        )
+        out.append((other_id, _path_strings_for(conn, overlap_ids), holder_ref))
     return out
 
 

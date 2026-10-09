@@ -2,8 +2,7 @@
 
 The overlap-denial body embeds the conflicting claim
 id(s), the overlapping path strings, and the
-``yoke claims path coordination-decision-build`` command shape so the operator's
-next move is one paste.
+holder item and the Refine route, where authoring-phase coordination belongs.
 """
 
 from __future__ import annotations
@@ -37,8 +36,8 @@ class TestComposeOverlapDenialNoConflicts:
         assert str(UNREADABLE_INTERNAL_ID) not in body
         assert "integration_target='main'" in body
         assert "overlap reason text" in body
-        assert "yoke claims path coordination-decision-build" in body
-        assert f"--item {unresolved_item_ref(consulted=False)}" in body
+        assert f"/yoke refine {unresolved_item_ref(consulted=False)}" in body
+        assert "coordination-decision-build" not in body
 
     def test_no_conflicts_uses_placeholder_claim_id(self) -> None:
         body = compose_overlap_denial(
@@ -50,8 +49,8 @@ class TestComposeOverlapDenialNoConflicts:
         )
         # No live claim id -> placeholder shown so the operator knows
         # what to substitute.
-        assert "<claim-id>" in body
-        assert "<paths>" in body
+        assert "Recovery: /yoke refine" in body
+        assert "coordination-decision-build" not in body
 
 
 # The overlapping item's public sequence is its own counter, so a denial
@@ -132,6 +131,10 @@ class TestComposeOverlapDenialWithConflicts:
             "VALUES (%s, %s, %s)",
             (OVERLAP_INTERNAL_ID, PROJECT_ID, OVERLAP_SEQUENCE),
         )
+        conn.execute(
+            "INSERT" + " INTO items (id, project_id, project_sequence) "
+            "VALUES (%s, %s, %s)", (999, PROJECT_ID, OVERLAP_SEQUENCE + 1),
+        )
         conn.execute("INSERT INTO path_targets VALUES (10, 'a.py', 'file', NULL, 'observed')")
         conn.execute("INSERT INTO path_targets VALUES (11, 'b.py', 'file', NULL, 'observed')")
         # Conflicting active claim covering both targets.
@@ -177,7 +180,6 @@ class TestComposeOverlapDenialWithConflicts:
         assert str(OVERLAP_INTERNAL_ID) not in body
         assert "claim 200" in body
         assert "a.py" in body and "b.py" in body
-        # Resolution command points at the first conflicting claim.
-        assert "--conflicting-claim 200" in body
-        # Overlapping paths threaded through into --paths arg.
-        assert "--paths a.py,b.py" in body
+        assert f"holder {ITEM_PREFIX}-{OVERLAP_SEQUENCE + 1}" in body
+        assert f"/yoke refine {ITEM_PREFIX}-{OVERLAP_SEQUENCE}" in body
+        assert "coordination-decision-build" not in body
