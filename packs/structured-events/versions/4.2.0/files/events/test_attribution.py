@@ -185,7 +185,9 @@ def test_url_hygiene_and_bots():
     assert sanitize_url("javascript:alert(1)") is None
     # Device-login codes: the user_code parameter and the /machine-approval/<code> segment.
     assert (
-        sanitize_url("https://app.example.com/machine-approval/WTMP-Z9JG/?user_code=WTMP-Z9JG&a=1")
+        sanitize_url(
+            "https://app.example.com/machine-approval/WTMP-Z9JG/?user_code=WTMP-Z9JG&a=1"
+        )
         == "https://app.example.com/machine-approval/redacted/?a=1"
     )
     assert sanitize_path("/machine-approval/Z9YG-RCUL") == "/machine-approval/redacted"
