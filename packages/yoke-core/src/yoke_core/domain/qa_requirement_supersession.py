@@ -37,7 +37,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
+from yoke_core.domain.db_helpers import (
+    instant_parameter,
+    utc_now,
+    query_one,
+    query_rows,
+)
 from yoke_core.domain.qa_events import emit_qa_requirement_event
 from yoke_core.domain.qa_obligation_settlement import requirement_retracted_at_select
 from yoke_core.domain.qa_requirement_source_retirement import (
@@ -223,14 +228,14 @@ def record_supersession(
             "supersede the newer case instead if that one is wrong."
         )
 
-    now = iso8601_now()
+    now = utc_now()
     conn.execute(
         "UPDATE qa_requirements SET superseded_by_requirement_id=%s,"
         "superseded_at=%s,supersession_rationale=%s,supersession_source=%s "
         "WHERE id=%s",
         (
             int(superseded_by_requirement_id),
-            now,
+            instant_parameter(conn, now),
             rationale,
             str(source),
             int(requirement_id),

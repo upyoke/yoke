@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
+from yoke_core.domain.db_helpers import (
+    instant_parameter,
+    utc_now,
+    query_one,
+    query_rows,
+)
 from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.schema_common import _column_exists
 
@@ -17,7 +22,7 @@ def retract_requirements(
     source: str,
 ) -> None:
     """Retire the selected requirements in the caller's transaction, keeping rows."""
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     for req_id in requirement_ids:
         conn.execute(
             "UPDATE qa_requirements SET retracted_at=%s, "
@@ -93,7 +98,7 @@ def retract_plan_from_item(
                 "evidence"
             )
     if not already_retracted:
-        now = iso8601_now()
+        now = instant_parameter(conn, utc_now())
         conn.execute(
             "UPDATE qa_plan_item_attachments SET retracted_at=%s, "
             "retraction_rationale=%s, retraction_source=%s, "

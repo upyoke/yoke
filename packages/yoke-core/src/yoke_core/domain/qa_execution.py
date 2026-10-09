@@ -8,7 +8,7 @@ from typing import Optional
 
 from yoke_core.domain.db_helpers import (
     connect,
-    iso8601_now,
+    utc_now,
     query_one,
     query_scalar,
 )
@@ -176,9 +176,9 @@ def cmd_run_add(
             db_path=db_path,
             head_sha=head_sha,
         )
-        now_iso = iso8601_now()
+        now = utc_now()
         completed_at_value = (
-            now_iso if (verdict is not None or execution_status is not None) else None
+            now if (verdict is not None or execution_status is not None) else None
         )
 
         inserted_id = insert_qa_run(
@@ -194,9 +194,9 @@ def cmd_run_add(
             confidence=confidence,
             raw_result=raw_result,
             duration_ms=duration_ms,
-            started_at=now_iso,
+            started_at=now,
             completed_at=completed_at_value,
-            created_at=now_iso,
+            created_at=now,
         ).run_id
         from yoke_core.domain.item_activity import touch_for_qa_requirement
 
@@ -293,7 +293,7 @@ def cmd_run_complete(
             artifact_count=run_artifact_count(conn, run_id),
         )
 
-        columns: dict = {"completed_at": iso8601_now()}
+        columns: dict = {"completed_at": utc_now()}
         if verdict is not None:
             columns.update(
                 verdict=verdict,

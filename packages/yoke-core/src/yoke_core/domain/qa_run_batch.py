@@ -21,7 +21,7 @@ from typing import List, Optional
 
 from yoke_core.domain.db_helpers import (
     connect,
-    iso8601_now,
+    utc_now,
     query_one,
     query_scalar,
 )
@@ -189,14 +189,14 @@ def cmd_run_add_batch(
                             )
                             sys.exit(2)
 
-        now_iso = iso8601_now()
+        now = utc_now()
         from yoke_core.domain.qa_requirement_pass_currency import (
             stamp_executed_method_config,
         )
 
         for row in payload:
             verdict = row.get("verdict")
-            completed_at_value = None if verdict is None else now_iso
+            completed_at_value = None if verdict is None else now
             raw_result = stamp_executed_method_config(
                 row.get("raw_result"),
                 row.get("_method_config"),
@@ -217,9 +217,9 @@ def cmd_run_add_batch(
                 confidence=row.get("confidence"),
                 raw_result=raw_result,
                 duration_ms=row.get("duration_ms"),
-                started_at=now_iso,
+                started_at=now,
                 completed_at=completed_at_value,
-                created_at=now_iso,
+                created_at=now,
             ).run_id
             inserted_ids.append(inserted_id)
 

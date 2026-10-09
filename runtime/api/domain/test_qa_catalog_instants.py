@@ -91,3 +91,29 @@ def test_editor_refuses_invalid_clock_before_database_access(bad):
             success_policy_params={},
             cases=[],
         )
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_builtin_method_seeding_keeps_native_updates_and_original_creation(
+    test_db, monkeypatch, zone
+):
+    from yoke_core.domain import qa_catalog_schema
+
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    original = test_db.execute(
+        "SELECT created_at FROM qa_methods WHERE id='command'"
+    ).fetchone()[0]
+    assert isinstance(original, datetime)
+    stamp = parse_instant("1969-12-31T23:59:59.999999Z")
+    monkeypatch.setattr(qa_catalog_schema, "utc_now", lambda: stamp)
+    qa_catalog_schema.seed_builtin_qa_methods(test_db)
+    before = test_db.execute(
+        "SELECT created_at,updated_at FROM qa_methods WHERE id='command'"
+    ).fetchone()
+    assert tuple(before) == (original, stamp)
+    stamp += timedelta(microseconds=1)
+    qa_catalog_schema.seed_builtin_qa_methods(test_db)
+    after = test_db.execute(
+        "SELECT created_at,updated_at FROM qa_methods WHERE id='command'"
+    ).fetchone()
+    assert tuple(after) == (original, stamp)

@@ -111,3 +111,5 @@ QA requirement creation, waivers, plan snapshots, materialization, rematerializa
 Board replay probes coverage of native aggregate and scalar reads before rendering them. An archived payload without the current figure omits that figure rather than executing a query it never recorded. The version-2 baseline fingerprints and archived payload bytes remain frozen; live collection still records the current native SQL plan.
 
 Worktree registration, path/commit recording, terminal cleanup and lane release bind native instants at SQL ownership, with one shared release/update fact per mutation. Actor UI preferences likewise bind native updated_at; preference values and timezone names retain their own non-instant semantics.
+
+QA CLI/batch/browser run writes generate native start/completion facts for the existing finite run writer. Requirement retraction, supersession and target rebinding, method seeding/registration, project defaults, review bundle creation and host-wait completion bind native SQL clocks; supersession and rebind receipts retain native facts internally. Host-wait queue JSON remains an explicitly formatted six-digit wire owner.

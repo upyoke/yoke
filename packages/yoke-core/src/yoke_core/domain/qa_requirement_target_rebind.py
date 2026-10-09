@@ -20,9 +20,12 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from yoke_core.domain.db_helpers import iso8601_now, query_one
+from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_one
 from yoke_core.domain.qa_events import emit_qa_requirement_event
-from yoke_core.domain.qa_execution_environment_target import canonical_target, target_digest
+from yoke_core.domain.qa_execution_environment_target import (
+    canonical_target,
+    target_digest,
+)
 from yoke_core.domain.qa_requirement_rebind_endpoint_delta import (
     endpoint_delta,
     stale_label_rebind_applies,
@@ -160,7 +163,7 @@ def rebind_requirement(
             "host. Start a fresh deployment/plan execution or use sanctioned "
             "retirement or supersession; rebinding is not re-verifying"
         )
-    now = iso8601_now()
+    now = utc_now()
     from_target_json = canonical_target(stored)
     delta_json = json.dumps(delta, sort_keys=True, separators=(",", ":"))
     conn.execute(
@@ -171,7 +174,7 @@ def rebind_requirement(
         (
             new_json,
             new_digest,
-            now,
+            instant_parameter(conn, now),
             old_digest,
             from_target_json,
             delta_json,

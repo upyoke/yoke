@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 from yoke_core.domain import db_backend, qa_plan_requirement_identity
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
     environment_reference_column_sql,
@@ -209,7 +209,7 @@ def seed_builtin_qa_methods(conn: Any) -> None:
     complete catalog call both, in that order.
     """
     marker = _placeholder(conn)
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     columns = (
         "id",
         "name",

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import uuid4
 
-from yoke_core.domain.db_helpers import iso8601_now, query_one
+from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_one
 from yoke_core.domain.qa_plan_execution_store import marker, select_plan_execution
 from yoke_core.domain.qa_host_turns import record_host_wait
 
@@ -67,17 +67,21 @@ def submit_host_wait(
         raise QaPlanReviewError(
             "host_wait_not_contended: the named host is free or yours; resume the walk"
         )
-    now = iso8601_now()
+    stored_now = instant_parameter(conn, utc_now())
     # No verdict or decision request is created. The completed bundle preserves
     # its original capture and the reason this attempt could not finish.
     conn.execute(
         f"UPDATE qa_plan_review_bundles SET state='completed',reviewed_at={p} WHERE id={p}",
-        (now, bundle_id),
+        (stored_now, bundle_id),
     )
     conn.execute(
         f"UPDATE qa_plan_executions SET state='completed',completed_at={p},"
         f"release_reason={p},machine_lease_id=NULL WHERE id={p}",
-        (now, "blocked-on-host:" + machine + ": " + rationale, str(execution["id"])),
+        (
+            stored_now,
+            "blocked-on-host:" + machine + ": " + rationale,
+            str(execution["id"]),
+        ),
     )
     stored = query_one(
         conn, f"SELECT * FROM qa_plan_executions WHERE id={p}", (str(execution["id"]),)
@@ -94,8 +98,8 @@ def submit_host_wait(
         completed_at=None,
         release_reason=None,
         continues_execution_id=None,
-        created_at=now,
-        heartbeat_at=now,
+        created_at=stored_now,
+        heartbeat_at=stored_now,
     )
     columns = list(values)
     conn.execute(

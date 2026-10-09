@@ -7,7 +7,7 @@ import json
 from typing import Any, Mapping
 from uuid import uuid4
 
-from yoke_core.domain.db_helpers import iso8601_now, query_one
+from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_one
 from yoke_core.domain.dispatch_descriptors import DispatchDescriptor
 from yoke_core.domain.qa_review_evidence import (
     capture_artifacts,
@@ -310,7 +310,7 @@ def begin_plan_review(
     encoded = canonical(payload)
     digest = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
     bundle_id = str(uuid4())
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     conn.execute(
         "INSERT INTO qa_plan_review_bundles("
         "id,execution_id,roster_digest,bundle_digest,bundle_json,state,created_at"

@@ -6,7 +6,7 @@ from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_contracts.qa_execution_status import execution_status_error
 from yoke_core.domain import qa_events
 from yoke_core.domain import qa_undetermined_evidence as _review_evidence
-from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
+from yoke_core.domain.db_helpers import connect, utc_now, query_one
 from yoke_core.domain.handlers.qa import _error, _p
 from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
 from yoke_core.domain.handlers.qa_browser_write_models import (
@@ -134,9 +134,9 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
         raw_result = stamp_executed_method_config(
             raw_result, row.get("method_config"), conn=conn, requirement_id=int(req_id)
         )
-        now_iso = iso8601_now()
+        now = utc_now()
         completed_at_value = (
-            now_iso if (verdict is not None or execution_status is not None) else None
+            now if (verdict is not None or execution_status is not None) else None
         )
         agent_case = is_agent_reviewed_case(row["verdict_path"], row["method_id"])
         if execution_status == "captured" and agent_case:
@@ -158,9 +158,9 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
             capture_degraded_reason=capture_degraded_reason,
             raw_result=raw_result,
             duration_ms=duration_ms,
-            started_at=now_iso,
+            started_at=now,
             completed_at=completed_at_value,
-            created_at=now_iso,
+            created_at=now,
         ).run_id
         conn.commit()
         event_name = (
@@ -188,7 +188,7 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
 
 def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain import qa_events
-    from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
+    from yoke_core.domain.db_helpers import connect, utc_now, query_one
     from yoke_contracts.qa_execution_status import CAPTURED
     from yoke_core.domain.qa_constants import (
         NEEDS_REVIEW_OUTCOME,
@@ -275,7 +275,7 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
                 issue,
                 jsonpath="$.payload.execution_status",
             )
-        columns: dict = {"completed_at": iso8601_now()}
+        columns: dict = {"completed_at": utc_now()}
         if verdict is not None:
             columns.update(
                 verdict=verdict,
