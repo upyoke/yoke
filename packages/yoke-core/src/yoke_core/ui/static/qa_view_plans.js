@@ -1,3 +1,4 @@
+import { instantMicros } from "./timestamps.js";
 import { attachTooltip } from "./universe_tooltip.js";
 import {
   el,
@@ -79,9 +80,14 @@ function orderedPlans(rows) {
     const leftRank = PLAN_OUTCOME_ORDER.get(left.last_outcome) ?? 99;
     const rightRank = PLAN_OUTCOME_ORDER.get(right.last_outcome) ?? 99;
     if (leftRank !== rightRank) return leftRank - rightRank;
-    const leftTime = new Date(left.last_at || 0).getTime() || 0;
-    const rightTime = new Date(right.last_at || 0).getTime() || 0;
-    return rightTime - leftTime || left.slug.localeCompare(right.slug);
+    const leftTime = left.last_at == null ? null : instantMicros(left.last_at);
+    const rightTime = right.last_at == null ? null : instantMicros(right.last_at);
+    if (leftTime !== rightTime) {
+      if (leftTime === null) return 1;
+      if (rightTime === null) return -1;
+      return leftTime < rightTime ? 1 : -1;
+    }
+    return left.slug.localeCompare(right.slug);
   });
 }
 

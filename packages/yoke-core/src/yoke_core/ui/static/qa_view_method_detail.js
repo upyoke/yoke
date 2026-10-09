@@ -1,3 +1,4 @@
+import { instantMicros } from "./timestamps.js";
 import { el } from "./universe_view_support.js";
 import {
   capabilityLabel,
@@ -276,9 +277,13 @@ function combinedPlans(details) {
       right.method_is_complete_plan === true,
     ) - Number(left.method_is_complete_plan === true);
     if (relationOrder !== 0) return relationOrder;
-    const leftTime = new Date(leftSummary.last_at || 0).getTime() || 0;
-    const rightTime = new Date(rightSummary.last_at || 0).getTime() || 0;
-    if (leftTime !== rightTime) return rightTime - leftTime;
+    const leftTime = leftSummary.last_at == null ? null : instantMicros(leftSummary.last_at);
+    const rightTime = rightSummary.last_at == null ? null : instantMicros(rightSummary.last_at);
+    if (leftTime !== rightTime) {
+      if (leftTime === null) return 1;
+      if (rightTime === null) return -1;
+      return leftTime < rightTime ? 1 : -1;
+    }
     return String(left.project || "").localeCompare(
       String(right.project || ""),
     ) || String(left.slug || "").localeCompare(

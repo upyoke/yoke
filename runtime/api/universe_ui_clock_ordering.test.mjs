@@ -73,3 +73,43 @@ test("released holding groups select microseconds, retain equal-offset ties and 
   assert.deepEqual(releasedHoldingHistory([missing, beforeEpoch]), [{ ...beforeEpoch, occurrence_count: 2 }]);
   assert.throws(() => releasedHoldingHistory([old, { ...old, released_at: "" }]), /invalid_instant/);
 });
+
+
+import { renderQaPlans } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_view_plans.js";
+import { renderQaMethodDetail } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_view_method_detail.js";
+import { FakeDocument, byClass } from "./universe_ui_dom_test_support.mjs";
+
+async function renderedPlanOrder(detail, clocks) {
+  const rows = clocks.map(([slug, last_at], index) => ({
+    id: index + 1, slug, project: "demo", case_keys: [], case_count: 0,
+    method_is_complete_plan: true, attachments: [], last_at, last_outcome: "passed",
+    outcome_summary: { state: "passed", counts: { passed: 1 }, last_at },
+  }));
+  const documentNode = new FakeDocument();
+  const host = documentNode.createElement("main");
+  const context = { document: documentNode, isMounted: () => true,
+    projects: () => [{ id: 1, slug: "demo", name: "Demo" }],
+    client: { call: async () => ({ status: 200, envelope: { success: true,
+      result: detail ? { method: { id: "command", name: "Command", plans: rows } } : { rows },
+    } }) },
+  };
+  if (detail) await renderQaMethodDetail(context, host, ["1"], "command");
+  else await renderQaPlans(context, host, ["1"]);
+  return byClass(host, detail ? "qa-plan-link" : "qa-plan-button")
+    .map((node) => detail ? node.children[0].children[0].textContent : node.textContent);
+}
+
+for (const detail of [false, true]) {
+  test(`${detail ? "related" : "listed"} QA plans sort exact instants before name ties and nulls`, async () => {
+    const clocks = [["a-earlier", first], ["n-missing", null],
+      ["z-later", later], ["b-equal", equal],
+      ["q-before-epoch", "1969-12-31T23:59:59.999999Z"]];
+    const expected = ["z-later", "a-earlier", "b-equal", "q-before-epoch", "n-missing"];
+    assert.deepEqual(await renderedPlanOrder(detail, clocks), expected);
+    assert.deepEqual(await renderedPlanOrder(detail, [...clocks].reverse()), expected);
+  });
+  test(`${detail ? "related" : "listed"} QA plan ordering refuses unqualified clocks`, async () => {
+    await assert.rejects(renderedPlanOrder(detail, [["valid", first],
+      ["bad", "2060-10-08T00:00:00"]]), /invalid_instant/);
+  });
+}
