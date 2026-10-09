@@ -46,11 +46,11 @@ _RENDER_SCHEMA = """
         mode TEXT DEFAULT 'wait',
         workspace TEXT DEFAULT '',
         project_id INTEGER NOT NULL REFERENCES projects(id),
-        offered_at TEXT NOT NULL,
-        last_heartbeat TEXT,
+        offered_at TIMESTAMPTZ NOT NULL,
+        last_heartbeat TIMESTAMPTZ,
         last_tool_call_at TEXT,
-        ended_at TEXT,
-        terminated_at TEXT
+        ended_at TIMESTAMPTZ,
+        terminated_at TIMESTAMPTZ
     );
     CREATE TABLE items (
         id INTEGER PRIMARY KEY,
@@ -62,8 +62,8 @@ _RENDER_SCHEMA = """
         session_id TEXT,
         scope TEXT NOT NULL,
         claim_type TEXT,
-        claimed_at TEXT,
-        released_at TEXT,
+        claimed_at TIMESTAMPTZ,
+        released_at TIMESTAMPTZ,
         release_reason TEXT,
         target_kind TEXT
     );
@@ -73,8 +73,8 @@ _RENDER_SCHEMA = """
         owner_item_id INTEGER,
         owner_session_id TEXT,
         owner_work_claim_id INTEGER,
-        released_at TEXT,
-        cancelled_at TEXT,
+        released_at TIMESTAMPTZ,
+        cancelled_at TIMESTAMPTZ,
         release_reason TEXT,
         cancel_reason TEXT
     );

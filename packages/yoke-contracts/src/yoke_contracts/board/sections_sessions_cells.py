@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 from yoke_contracts.board.board_db import BoardDBLike
@@ -14,6 +14,7 @@ from yoke_contracts.session_model_facts import REQUESTED_LABEL
 from yoke_contracts.session_usage_display import usage_cell
 from yoke_contracts.session_usage_facts import usage_from_document
 from yoke_contracts.session_usage_pricing import estimated_session_cost
+from yoke_contracts.timestamps import parse_instant
 
 
 def _resolve_executor_emoji(executor: str) -> str:
@@ -55,28 +56,23 @@ def _render_executor(executor: str, executor_surface: Optional[str]) -> str:
 
 
 def _display_usage(
-    db: BoardDBLike, usage_totals: Optional[str], offered_at: str
+    db: BoardDBLike, usage_totals: Optional[str], offered_at: datetime | str | None
 ) -> str:
     """Render what this session consumed beside what it would have cost.
 
     The dollar half is an API-equivalent estimate priced at read time from
     the revision effective when this session was first registered.
     """
-    when = datetime.fromisoformat(offered_at.replace("Z", "+00:00"))
-    if when.tzinfo is None:
-        raise ValueError("session offered_at must be a UTC timestamp")
-    stamp = (
-        when.astimezone(timezone.utc)
-        .isoformat(timespec="microseconds")
-        .replace("+00:00", "Z")
-    )
+    usage = usage_from_document(usage_totals)
+    if offered_at is None:
+        return usage_cell(usage, None)
+    when = parse_instant(offered_at)
     sql = (
         "SELECT revision_id,effective_at,catalog_json "
         "FROM model_reference_revisions WHERE effective_at <= %s "
         "ORDER BY effective_at DESC,published_at DESC,revision_id DESC LIMIT 1"
     )
-    params = (stamp,)
-    usage = usage_from_document(usage_totals)
+    params = (when,)
     has_query = getattr(db, "has_query", None)
     if callable(has_query) and not has_query(sql, params):
         return usage_cell(usage, None)
@@ -100,7 +96,7 @@ def session_common_cells(
     model: Optional[str],
     requested_model: Optional[str],
     usage_totals: Optional[str],
-    offered_at: str,
+    offered_at: datetime | str | None,
     project_id: object,
 ) -> list[str]:
     return [

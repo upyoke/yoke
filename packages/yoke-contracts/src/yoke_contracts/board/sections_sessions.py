@@ -7,8 +7,9 @@ and the aligned-table helpers the sessions section depends on.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import List
+
+from yoke_contracts.timestamps import parse_instant
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.sections_sessions_cells import session_common_cells
@@ -161,20 +162,16 @@ def render_sessions_section(
 
             # Compute duration
             duration = "—"
-            try:
-                start = datetime.fromisoformat(
-                    (offered_at or "").replace("Z", "+00:00")
-                )
-                end = datetime.fromisoformat((ended_at or "").replace("Z", "+00:00"))
-                dur_secs = int((end - start).total_seconds())
+            if offered_at is not None and ended_at is not None:
+                start = parse_instant(offered_at)
+                end = parse_instant(ended_at)
+                dur_secs = max(0, int((end - start).total_seconds()))
                 if dur_secs < 60:
                     duration = f"{dur_secs}s"
                 elif dur_secs < 3600:
                     duration = f"{dur_secs // 60}m"
                 else:
                     duration = f"{dur_secs // 3600}h{(dur_secs % 3600) // 60}m"
-            except (ValueError, TypeError):
-                pass
 
             keycaps = session_holding_labels(db, sid)
             claim_rows = _chunk_claims(keycaps) if keycaps else ["—"]
