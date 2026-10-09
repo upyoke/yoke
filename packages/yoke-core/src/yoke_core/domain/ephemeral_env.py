@@ -12,10 +12,14 @@ Exit codes: 0 success, 1 error/not-found, 2 usage error.
 
 from __future__ import annotations
 
+from datetime import datetime
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+from yoke_core.domain.stored_instant_columns import STORED_INSTANT_COLUMNS
+from yoke_core.domain.db_helpers import instant_parameter
+
 from typing import Optional
 
 from yoke_core.domain.db_helpers import (
-    iso8601_now,
     query_one,
     query_rows,
     query_scalar,
@@ -93,8 +97,25 @@ _GET_FIELDS = frozenset(
 )
 
 
+ENVIRONMENT_INSTANT_FIELDS = frozenset(
+    column
+    for table, column in STORED_INSTANT_COLUMNS
+    if table == "ephemeral_environments"
+)
+
+
+def _format_value(value) -> str:
+    return (
+        format_instant(value)
+        if isinstance(value, datetime)
+        else ""
+        if value is None
+        else str(value)
+    )
+
+
 def _format_row(row) -> str:
-    return "|".join("" if v is None else str(v) for v in tuple(row))
+    return "|".join(_format_value(v) for v in tuple(row))
 
 
 @rollback_workflow_binding_write_errors
@@ -106,7 +127,7 @@ def cmd_create(
     workflow_run_id: str = "",
     github_ref: str = "",
 ) -> str:
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     project_id = resolve_project_id(conn, project)
     item = prepare_create_item_binding(
         conn,
@@ -148,18 +169,24 @@ def cmd_update(conn, env_id: int, field: str, value: str) -> str:
         value=value,
     )
 
+    parameter = (
+        instant_parameter(conn, parse_instant(value) if value is not None else None)
+        if field in ENVIRONMENT_INSTANT_FIELDS
+        else value
+    )
+
     # Auto-set stopped_at for terminal statuses
     if field == "status" and value in INACTIVE_ENVIRONMENT_STATUSES:
         conn.execute(
             f"UPDATE ephemeral_environments SET {field}=%s, stopped_at=%s WHERE id=%s",
-            (value, iso8601_now(), env_id),
+            (value, instant_parameter(conn, utc_now()), env_id),
         )
         conn.commit()
         return f"Updated env {env_id}: {field}={value} (stopped_at auto-set)"
 
     conn.execute(
         f"UPDATE ephemeral_environments SET {field}=%s WHERE id=%s",
-        (value, env_id),
+        (parameter, env_id),
     )
     conn.commit()
     return f"Updated env {env_id}: {field}={value}"
@@ -201,7 +228,7 @@ def cmd_get_by_id(conn, env_id: int, field: Optional[str] = None) -> str:
                 f"SELECT {field} FROM ephemeral_environments WHERE id=%s",
                 (env_id,),
             )
-        return "" if val is None else str(val)
+        return _format_value(val)
     else:
         row = query_one(
             conn,
@@ -237,11 +264,9 @@ def cmd_list(conn, project: Optional[str] = None, status: Optional[str] = None) 
 def cmd_cleanup(conn, max_age_hours: int = 24) -> str:
     # Compute the cutoff in Python so cleanup does not depend on SQL date
     # modifier dialect.
-    from datetime import datetime, timedelta, timezone
+    from datetime import timedelta
 
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=max_age_hours)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    cutoff = instant_parameter(conn, utc_now() - timedelta(hours=max_age_hours))
     count = query_scalar(
         conn,
         "SELECT COUNT(*) FROM ephemeral_environments "
@@ -255,7 +280,7 @@ def cmd_cleanup(conn, max_age_hours: int = 24) -> str:
             "SET status='stopped', stopped_at=%s "
             "WHERE status NOT IN ('stopped', 'failed') "
             "AND created_at < %s",
-            (iso8601_now(), cutoff),
+            (instant_parameter(conn, utc_now()), cutoff),
         )
         conn.commit()
     return str(count or 0)

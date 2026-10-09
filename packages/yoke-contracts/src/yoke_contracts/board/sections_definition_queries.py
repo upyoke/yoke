@@ -38,7 +38,7 @@ def _items_sql(
         CASE WHEN p.emoji IS NOT NULL AND p.emoji <> ''
              THEN p.emoji || ' ' || p.slug
              ELSE p.slug END,
-        COALESCE(i.updated_at, ''),
+        i.updated_at,
         p.slug,
         p.public_item_prefix,
         i.project_sequence,{metadata_columns}{queue_columns}
@@ -72,7 +72,7 @@ def query_item_rows(
         queue_metadata=False,
     )
     if has_query(prior_sql, params):
-        return [(*row[:-1], "", "", row[-1]) for row in db.query(prior_sql, params)]
+        return [(*row[:-1], None, None, row[-1]) for row in db.query(prior_sql, params)]
 
     legacy_sql = _items_sql(
         project_filter,
@@ -80,7 +80,8 @@ def query_item_rows(
         queue_metadata=False,
     )
     return [
-        (*row[:-1], None, None, "", "", row[-1]) for row in db.query(legacy_sql, params)
+        (*row[:-1], None, None, None, None, row[-1])
+        for row in db.query(legacy_sql, params)
     ]
 
 

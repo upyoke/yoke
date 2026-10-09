@@ -142,7 +142,9 @@ def read_refresh(conn: Any, project_id: int) -> LandingRefresh:
     )
 
 
-def record_age_seconds(observed_at: str, *, now: datetime) -> float | None:
+def record_age_seconds(
+    observed_at: datetime | str | None, *, now: datetime
+) -> float | None:
     observed = parse_timestamp(observed_at)
     if observed is None:
         return None

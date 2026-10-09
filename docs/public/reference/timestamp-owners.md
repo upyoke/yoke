@@ -86,3 +86,16 @@ clock JSON projection, preserving opaque strings, integers and existing receipt
 bytes. Current board and session-message fixtures declare native clock columns;
 calendar-day rollups remain dates. Git epoch seconds stay a provider protocol,
 with fixed-six UTC formatting when projected into a request.
+
+
+Merge-lock expiry and temporary-environment cleanup bind native cutoffs and
+retain the exact cutoff, including microseconds. Their SQL clocks remain native;
+relayed lock payloads and temporary-environment pipe output format declared
+clocks. Manual environment clock updates validate qualified instants before
+binding. Task-status writes bind a native wall clock.
+
+New reflection fallback clocks, YAML update clocks, command event envelopes,
+adoption evidence and fleet-rehearsal receipts use fixed-six UTC. Database
+read diagnostics format native datetimes while calendar dates retain date ISO.
+Board item classification keeps nullable native update facts and sorts done
+items by those instants without an empty-string SQL fallback.

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import format_instant, utc_now
 from collections.abc import Mapping
 from typing import Any, Callable, ContextManager, Sequence, Tuple
 
@@ -284,9 +284,7 @@ def adopt_legacy_content_identities(
                 entry.name: entry.content_sha256 for entry in manifest.entries
             }
             marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-            stamp = adopted_at or datetime.now(timezone.utc).strftime(
-                "%Y-%m-%dT%H:%M:%SZ"
-            )
+            stamp = format_instant(utc_now() if adopted_at is None else adopted_at)
             records = tuple(
                 AdoptionRecord(
                     entry_name=name,

@@ -15,7 +15,8 @@ from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -78,8 +79,8 @@ def _yoke_root() -> Path:
 # ---------------------------------------------------------------------------
 
 
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _now_iso() -> datetime:
+    return utc_now()
 
 
 def _is_dry_run() -> bool:

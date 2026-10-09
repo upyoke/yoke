@@ -22,7 +22,10 @@ from __future__ import annotations
 import os
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from pathlib import Path
 from typing import Any, Optional, Sequence
 
@@ -32,9 +35,7 @@ from yoke_core.domain.merge_lock_contention import LockScope
 from yoke_core.domain import control_plane_transport as _transport
 
 
-# ---------------------------------------------------------------------------
 # Infrastructure
-# ---------------------------------------------------------------------------
 
 DEFAULT_TTL_MINUTES = 30
 
@@ -68,9 +69,7 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-# ---------------------------------------------------------------------------
 # Data classes
-# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -82,16 +81,16 @@ class LockHandle:
     scope: LockScope = field(default_factory=LockScope)
 
 
-# ---------------------------------------------------------------------------
 # Core operations
-# ---------------------------------------------------------------------------
 
 
-def _rows_over_transport(now: str) -> list[dict]:
-    return list(_relay("merge.lock.list", {"now": now}).get("rows") or [])
+def _rows_over_transport(now: datetime) -> list[dict]:
+    return list(
+        _relay("merge.lock.list", {"now": format_instant(now)}).get("rows") or []
+    )
 
 
-def _rows_over_connection(conn: Any, now: str) -> list[dict]:
+def _rows_over_connection(conn: Any, now: datetime | str) -> list[dict]:
     """Drop expired rows, then read whatever still holds the lock.
 
     Rows carry the epic as its public ref, the same shape the control plane
@@ -100,7 +99,10 @@ def _rows_over_connection(conn: Any, now: str) -> list[dict]:
     from yoke_core.domain.item_ref_render import render_item_refs
 
     p = _p(conn)
-    conn.execute(f"DELETE FROM merge_locks WHERE expires_at < {p}", (now,))
+    conn.execute(
+        f"DELETE FROM merge_locks WHERE expires_at < {p}",
+        (instant_parameter(conn, parse_instant(now)),),
+    )
     conn.commit()
     rows = conn.execute(
         "SELECT id, session_id, branch, epic_id, "
@@ -135,7 +137,7 @@ def check(
     a live merge somewhere else and are not this caller's to judge.
     """
     scope = scope or LockScope()
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = utc_now()
     owned = _local_connection_or_none() if conn is None else None
     live = conn if conn is not None else owned
     try:
@@ -191,11 +193,11 @@ def acquire(
             DEFAULT_TTL_MINUTES,
         )
 
-    now = datetime.now(timezone.utc)
+    now = utc_now()
     pid = os.environ.get("YOKE_MERGE_LOCK_PID") or str(os.getpid())
     session_id = f"{pid}-{int(now.timestamp())}"
-    acquired_at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    expires_at = (now + timedelta(minutes=ttl_minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    acquired_at = now
+    expires_at = now + timedelta(minutes=ttl_minutes)
 
     scope = scope or LockScope()
     owned = _local_connection_or_none() if conn is None else None
@@ -204,8 +206,8 @@ def acquire(
         payload = {
             "session_id": session_id,
             "branch": branch,
-            "acquired_at": acquired_at,
-            "expires_at": expires_at,
+            "acquired_at": format_instant(acquired_at),
+            "expires_at": format_instant(expires_at),
             "project_slug": scope.project_slug,
             "target_branch": scope.target_branch,
         }
@@ -228,8 +230,8 @@ def acquire(
                 session_id,
                 branch,
                 epic_id,
-                acquired_at,
-                expires_at,
+                instant_parameter(conn, acquired_at),
+                instant_parameter(conn, expires_at),
                 scope.project_slug,
                 scope.target_branch,
             ),
@@ -290,9 +292,7 @@ def force_clear(conn: Optional[Any] = None) -> None:
             owned.close()
 
 
-# ---------------------------------------------------------------------------
 # CLI
-# ---------------------------------------------------------------------------
 
 
 def main(argv: Optional[list[str]] = None) -> int:

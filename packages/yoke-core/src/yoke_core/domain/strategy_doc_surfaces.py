@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
+
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
@@ -47,18 +50,18 @@ def set_strategy_doc_parent(
         if cursor in visited:
             raise StrategyExecutionLinkError("strategy ancestry cannot form a cycle")
         visited.add(cursor)
-        row = _row(conn.execute(
-            "SELECT parent_slug FROM strategy_docs "
-            f"WHERE project_id = {marker} AND slug = {marker}",
-            (int(project_id), cursor),
-        ))
+        row = _row(
+            conn.execute(
+                "SELECT parent_slug FROM strategy_docs "
+                f"WHERE project_id = {marker} AND slug = {marker}",
+                (int(project_id), cursor),
+            )
+        )
         if row is None:
             raise StrategyDocMissingError(
                 f"project {project_id} has no strategy doc {cursor!r}"
             )
-        cursor = (
-            str(row["parent_slug"]) if row["parent_slug"] is not None else None
-        )
+        cursor = str(row["parent_slug"]) if row["parent_slug"] is not None else None
     conn.execute(
         f"UPDATE strategy_docs SET parent_slug = {marker} "
         f"WHERE project_id = {marker} AND slug = {marker}",
@@ -71,9 +74,7 @@ def set_strategy_doc_parent(
 def list_strategy_surfaces(conn: Any, project_id: int) -> list[dict[str, Any]]:
     """Return the corpus with ancestry, revision, and execution facts."""
     marker = _marker(conn)
-    recent_cutoff = (
-        datetime.now(timezone.utc) - timedelta(days=7)
-    ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    recent_cutoff = utc_now() - timedelta(days=7)
     rows = conn.execute(
         "SELECT d.slug, d.content, d.updated_at, d.updated_by_actor_id, "
         "d.archived_at, d.parent_slug, "
@@ -95,10 +96,11 @@ def list_strategy_surfaces(conn: Any, project_id: int) -> list[dict[str, Any]]:
         "AND c.strategy_doc_slug = d.slug AND c.released_at IS NULL "
         "LEFT JOIN items i ON i.id = c.owner_item_id "
         f"WHERE d.project_id = {marker}",
-        (recent_cutoff, int(project_id)),
+        (instant_parameter(conn, recent_cutoff), int(project_id)),
     ).fetchall()
     order = {
-        slug: index for index, slug in enumerate(
+        slug: index
+        for index, slug in enumerate(
             project_doc_slugs(conn, int(project_id)),
         )
     }
@@ -107,32 +109,43 @@ def list_strategy_surfaces(conn: Any, project_id: int) -> list[dict[str, Any]]:
         values = dict(row)
         summary = summary_from_row(conn, values)
         held = values["execution_owner_kind"] is not None
-        summary.update({
-            "parent_slug": values["parent_slug"],
-            "revisions": int(values["revisions"]),
-            "recent_writes": int(values["recent_writes"]),
-            "execution_owner_kind": values["execution_owner_kind"],
-            "execution_owner_session_id": values["execution_owner_session_id"],
-            "execution_item_id": values["execution_item_id"],
-            "execution_item_title": values["execution_item_title"],
-            "execution_item_status": values["execution_item_status"],
-            # Resolved here, from the item's own pinned definition, so the
-            # card does not carry a terminal-status list of its own.
-            "execution_item_terminal": bool(
-                item_is_terminal(conn, int(values["execution_item_id"]))
-            ) if values["execution_item_id"] is not None else False,
-            "execution_item_ref": (
-                format_item_ref(
-                    values["project_slug"],
-                    values["public_item_prefix"],
-                    values["execution_item_sequence"])
-                if values["execution_item_id"] is not None else None
-            ),
-            "execution_state": (
-                "claimed" if held
-                else ("reference" if values["archived_at"] is not None else "available")
-            ),
-        })
+        summary.update(
+            {
+                "parent_slug": values["parent_slug"],
+                "revisions": int(values["revisions"]),
+                "recent_writes": int(values["recent_writes"]),
+                "execution_owner_kind": values["execution_owner_kind"],
+                "execution_owner_session_id": values["execution_owner_session_id"],
+                "execution_item_id": values["execution_item_id"],
+                "execution_item_title": values["execution_item_title"],
+                "execution_item_status": values["execution_item_status"],
+                # Resolved here, from the item's own pinned definition, so the
+                # card does not carry a terminal-status list of its own.
+                "execution_item_terminal": bool(
+                    item_is_terminal(conn, int(values["execution_item_id"]))
+                )
+                if values["execution_item_id"] is not None
+                else False,
+                "execution_item_ref": (
+                    format_item_ref(
+                        values["project_slug"],
+                        values["public_item_prefix"],
+                        values["execution_item_sequence"],
+                    )
+                    if values["execution_item_id"] is not None
+                    else None
+                ),
+                "execution_state": (
+                    "claimed"
+                    if held
+                    else (
+                        "reference"
+                        if values["archived_at"] is not None
+                        else "available"
+                    )
+                ),
+            }
+        )
         result.append(summary)
     result.sort(key=lambda doc: order[str(doc["slug"])])
     return result
@@ -156,10 +169,7 @@ def strategy_write_activity(
         "GROUP BY SUBSTRING(created_at, 1, 10) ORDER BY day",
         (int(project_id), cutoff),
     ).fetchall()
-    return [
-        {"day": str(row["day"]), "writes": int(row["writes"])}
-        for row in rows
-    ]
+    return [{"day": str(row["day"]), "writes": int(row["writes"])} for row in rows]
 
 
 def get_strategy_surface(
@@ -170,18 +180,27 @@ def get_strategy_surface(
     """Return the document, history, ancestry, references, and claim facts."""
     doc = get_doc(conn, int(project_id), slug)
     marker = _marker(conn)
-    meta = _row(conn.execute(
-        "SELECT parent_slug FROM strategy_docs "
-        f"WHERE project_id = {marker} AND slug = {marker}",
-        (int(project_id), slug),
-    )) or {}
+    meta = (
+        _row(
+            conn.execute(
+                "SELECT parent_slug FROM strategy_docs "
+                f"WHERE project_id = {marker} AND slug = {marker}",
+                (int(project_id), slug),
+            )
+        )
+        or {}
+    )
     claim = active_strategy_doc_claim(
-        conn, project_id=int(project_id), slug=slug,
+        conn,
+        project_id=int(project_id),
+        slug=slug,
     )
     corpus = project_doc_slugs(conn, int(project_id))
     references = [
-        candidate for candidate in corpus
-        if candidate != slug and re.search(
+        candidate
+        for candidate in corpus
+        if candidate != slug
+        and re.search(
             rf"(?<![A-Z0-9_-]){re.escape(candidate)}(?![A-Z0-9_-])",
             doc["content"],
         )
@@ -205,18 +224,23 @@ def get_blitz_surface(conn: Any, item_id: int) -> dict[str, Any]:
     item = _require_blitz_item(conn, item_id)
     runtime = load_item_workflow_runtime(conn, int(item_id))
     marker = _marker(conn)
-    link = _row(conn.execute(
-        "SELECT project_id, strategy_doc_slug, linked_at "
-        "FROM item_strategy_docs "
-        f"WHERE item_id = {marker}",
-        (int(item_id),),
-    ))
+    link = _row(
+        conn.execute(
+            "SELECT project_id, strategy_doc_slug, linked_at "
+            "FROM item_strategy_docs "
+            f"WHERE item_id = {marker}",
+            (int(item_id),),
+        )
+    )
     item_claim = _active_item_claim(conn, int(item_id))
     doc = (
         get_strategy_surface(
-            conn, int(link["project_id"]), str(link["strategy_doc_slug"]),
+            conn,
+            int(link["project_id"]),
+            str(link["strategy_doc_slug"]),
         )
-        if link is not None else None
+        if link is not None
+        else None
     )
     return {
         "item": item,
@@ -226,7 +250,9 @@ def get_blitz_surface(conn: Any, item_id: int) -> dict[str, Any]:
         "execution_linked_at": link["linked_at"] if link else None,
         "item_claim": item_claim,
         "worktree_lanes": list_item_worktrees(
-            conn, int(item_id), active_only=False,
+            conn,
+            int(item_id),
+            active_only=False,
         ),
     }
 

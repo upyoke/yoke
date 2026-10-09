@@ -15,10 +15,11 @@ Two responsibilities, both rehomed here to keep
 * :func:`freeform_block_has_end_markers_no_heads` — backstop helper for
   blocks carrying ``---END ENTRY---`` separators but no parseable heads.
 """
+
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import format_instant, utc_now
 from typing import List, Optional
 
 from yoke_core.domain.reflection_capture_shape_parsers import ReflectionEntry
@@ -40,7 +41,7 @@ _BOLD_HEADER_LINE_RE = re.compile(r"^\*\*([^*]+?):\*\*\s*$", re.MULTILINE)
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return format_instant(utc_now())
 
 
 def _normalize_category(raw: str) -> str:
@@ -59,7 +60,7 @@ def _parse_freeform_segment(seg: str, default_agent: str) -> Optional[Reflection
     if first_idx >= len(lines):
         return None
     first_line = lines[first_idx]
-    rest = lines[first_idx + 1:]
+    rest = lines[first_idx + 1 :]
     cat_match = _CATEGORY_HEAD_RE.match(first_line)
     if cat_match:
         category = _normalize_category(cat_match.group(1).strip())
@@ -67,8 +68,11 @@ def _parse_freeform_segment(seg: str, default_agent: str) -> Optional[Reflection
         if not body or not category:
             return None
         return ReflectionEntry(
-            timestamp=_now_iso(), agent=default_agent, context="",
-            category=category, body=body,
+            timestamp=_now_iso(),
+            agent=default_agent,
+            context="",
+            category=category,
+            body=body,
         )
     upper_head = _FREEFORM_UPPERCASE_HEAD_RE.match(first_line)
     if upper_head:
@@ -82,14 +86,18 @@ def _parse_freeform_segment(seg: str, default_agent: str) -> Optional[Reflection
             return None
         category = _normalize_category(upper_head.group(1))
         return ReflectionEntry(
-            timestamp=_now_iso(), agent=default_agent, context="",
-            category=category, body=body,
+            timestamp=_now_iso(),
+            agent=default_agent,
+            context="",
+            category=category,
+            body=body,
         )
     return None
 
 
 def try_shape_freeform_multi(
-    block: str, default_agent: str,
+    block: str,
+    default_agent: str,
 ) -> Optional[List[ReflectionEntry]]:
     """Multi-entry freeform fallback: segments separated by ``---END ENTRY---``.
 
@@ -151,33 +159,48 @@ def _split_by_header_re(block: str, header_re: re.Pattern) -> List[tuple[str, st
 
 
 def try_shape_markdown_freeform(
-    block: str, default_agent: str,
+    block: str,
+    default_agent: str,
 ) -> Optional[List[ReflectionEntry]]:
     """Block opens with a ``#``/``##``/``###`` markdown header; sections become entries."""
     segments = _split_by_header_re(block, _MARKDOWN_HEADER_RE)
     if not segments:
         return None
-    return [ReflectionEntry(
-        timestamp=_now_iso(), agent=default_agent, context="",
-        category=cat, body=body,
-    ) for cat, body in segments]
+    return [
+        ReflectionEntry(
+            timestamp=_now_iso(),
+            agent=default_agent,
+            context="",
+            category=cat,
+            body=body,
+        )
+        for cat, body in segments
+    ]
 
 
 def try_shape_bold_header_freeform(
-    block: str, default_agent: str,
+    block: str,
+    default_agent: str,
 ) -> Optional[List[ReflectionEntry]]:
     """Block opens with a ``**Header:**`` bold-emphasized header line; sections become entries."""
     segments = _split_by_header_re(block, _BOLD_HEADER_LINE_RE)
     if not segments:
         return None
-    return [ReflectionEntry(
-        timestamp=_now_iso(), agent=default_agent, context="",
-        category=cat, body=body,
-    ) for cat, body in segments]
+    return [
+        ReflectionEntry(
+            timestamp=_now_iso(),
+            agent=default_agent,
+            context="",
+            category=cat,
+            body=body,
+        )
+        for cat, body in segments
+    ]
 
 
 def try_shape_generic_freeform(
-    block: str, default_agent: str,
+    block: str,
+    default_agent: str,
 ) -> Optional[List[ReflectionEntry]]:
     """Last-resort: capture any non-empty REFLECTION-bounded block as one ``freeform`` entry.
 
@@ -192,10 +215,15 @@ def try_shape_generic_freeform(
         return None
     if _SHAPE_A_ENTRY_RE.search(block):
         return None
-    return [ReflectionEntry(
-        timestamp=_now_iso(), agent=default_agent, context="",
-        category="freeform", body=body,
-    )]
+    return [
+        ReflectionEntry(
+            timestamp=_now_iso(),
+            agent=default_agent,
+            context="",
+            category="freeform",
+            body=body,
+        )
+    ]
 
 
 _OBSERVATION_BODY_PREFIX_RE = re.compile(r"^observation\s*:\s*", re.IGNORECASE)

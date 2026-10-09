@@ -91,7 +91,7 @@ def handle_observe_landing(request: FunctionCallRequest) -> HandlerOutcome:
             if record is not None and record.pr_number != pr_number:
                 record = None
             age = record_age_seconds(
-                record.observed_at if record is not None else "",
+                record.observed_at if record is not None else None,
                 now=current,
             )
             refresh_age = record_age_seconds(after.started_at, now=current)

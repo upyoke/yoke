@@ -1,23 +1,17 @@
-"""CLI surface for emitting structured events into the Yoke event log.
+"""Build and persist structured CLI events with session/project attribution.
 
-Handles CLI argument parsing, session/project fallback resolution,
-envelope construction, registry validation, and write-side severity
-filtering. Delegates persistence to :mod:`yoke_core.domain.events_crud`.
-
-Context-payload helpers (truncation, integer normalisation, error-context
-validation, JSON parsing) live in :mod:`emit_event_context`. Argument
-parser construction and :class:`UsageError` live in
-:mod:`emit_event_parser` and are re-exported below for callers that
-import them from this module.
+Registry validation and severity filtering precede persistence. Context parsing
+and truncation live in emit_event_context; arguments live in emit_event_parser.
 """
 
 from __future__ import annotations
+
+from yoke_contracts.timestamps import format_instant, utc_now
 
 import argparse
 import json
 import os
 import sys
-import time
 import uuid
 from pathlib import Path
 from typing import Any, Optional
@@ -128,7 +122,10 @@ def _registry_warning(event_name: str) -> tuple[Optional[str], bool]:
         )
     status = row[0]
     if status == "deprecated":
-        return f"WARN: event emitter: event '{event_name}' is deprecated in the registry", False
+        return (
+            f"WARN: event emitter: event '{event_name}' is deprecated in the registry",
+            False,
+        )
     return None, False
 
 
@@ -143,7 +140,14 @@ def _current_trace_context() -> dict[str, str]:
         return {}
 
 
-def _build_envelope(args: argparse.Namespace, *, event_id: str, session_id: str, project: str, anomaly_flags: Optional[str]) -> dict[str, Any]:
+def _build_envelope(
+    args: argparse.Namespace,
+    *,
+    event_id: str,
+    session_id: str,
+    project: str,
+    anomaly_flags: Optional[str],
+) -> dict[str, Any]:
     detail = _parse_context_payload(args.context, label="context")
     error = _parse_context_payload(args.error_context, label="error-context")
     context = None
@@ -154,7 +158,9 @@ def _build_envelope(args: argparse.Namespace, *, event_id: str, session_id: str,
         if error is not None:
             context["error"] = error
 
-    decomposed_item, decomposed_task, work_unit_sentinel = events_crud.decompose_work_unit(args.item_id)
+    decomposed_item, decomposed_task, work_unit_sentinel = (
+        events_crud.decompose_work_unit(args.item_id)
+    )
     task_num_value = _normalize_int(args.task_num)
     if decomposed_task is not None and task_num_value is None:
         task_num_value = decomposed_task
@@ -171,7 +177,7 @@ def _build_envelope(args: argparse.Namespace, *, event_id: str, session_id: str,
         "event_name": args.name,
         "event_kind": args.kind,
         "event_type": args.type,
-        "event_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "event_time": format_instant(utc_now()),
         "event_outcome": args.outcome or None,
         "source_type": args.source_type,
         "severity": args.severity,
@@ -196,7 +202,9 @@ def _build_envelope(args: argparse.Namespace, *, event_id: str, session_id: str,
         "hook_event_name": args.hook_event_name or None,
         "context": context,
     }
-    encoded = json.dumps(envelope, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    encoded = json.dumps(envelope, separators=(",", ":"), ensure_ascii=False).encode(
+        "utf-8"
+    )
     if len(encoded) > MAX_ENVELOPE_BYTES:
         envelope["context"] = None
         envelope["_truncated"] = True
@@ -209,7 +217,9 @@ def emit(args: argparse.Namespace) -> int:
     skip_severity = os.environ.get("YOKE_EVENTS_CAPTURE") == "1"
     if not skip_severity:
         db_path = _db_path()
-        if not events_crud.check_severity(db_path, args.name, args.source_type, args.severity):
+        if not events_crud.check_severity(
+            db_path, args.name, args.source_type, args.severity
+        ):
             return 0
 
     warning, add_unregistered_flag = _registry_warning(args.name)

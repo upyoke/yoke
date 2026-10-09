@@ -76,3 +76,48 @@ def test_new_payload_digest_projects_native_clocks_and_preserves_opaque_values()
     )
     assert wire["token"] == native["token"]
     assert native["clock"] == STAMP
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_merge_lock_keeps_native_expiry_and_exact_cutoff(test_db, monkeypatch, zone):
+    from yoke_core.domain import merge_lock
+
+    monkeypatch.setattr(merge_lock, "utc_now", lambda: STAMP)
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    handle = merge_lock.acquire("native-clock", conn=test_db, ttl_minutes=1)
+    clocks = test_db.execute(
+        "SELECT acquired_at, expires_at FROM merge_locks WHERE session_id=%s",
+        (handle.session_id,),
+    ).fetchone()
+    assert tuple(clocks) == (STAMP, STAMP + timedelta(minutes=1))
+    assert merge_lock._rows_over_connection(test_db, STAMP + timedelta(minutes=1))
+    assert not merge_lock._rows_over_connection(
+        test_db, STAMP + timedelta(minutes=1, microseconds=1)
+    )
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_ephemeral_cleanup_preserves_exact_cutoff_and_native_stopped_fact(
+    test_db, monkeypatch, zone
+):
+    from yoke_core.domain import ephemeral_env
+
+    monkeypatch.setattr(ephemeral_env, "utc_now", lambda: STAMP)
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    floor = STAMP - timedelta(hours=24)
+    for branch, clock in (
+        ("before", floor - timedelta(microseconds=1)),
+        ("exact", floor),
+    ):
+        test_db.execute(
+            "INSERT INTO ephemeral_environments (project_id, branch, status, created_at) "
+            "VALUES (%s, %s, 'running', %s)",
+            (1, branch, clock),
+        )
+    test_db.commit()
+    ephemeral_env.cmd_cleanup(test_db, max_age_hours=24)
+    facts = test_db.execute(
+        "SELECT branch, status, stopped_at FROM ephemeral_environments ORDER BY branch"
+    ).fetchall()
+    assert tuple(facts[0]) == ("before", "stopped", STAMP)
+    assert tuple(facts[1]) == ("exact", "running", None)
