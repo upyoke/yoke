@@ -5,76 +5,43 @@ description: "Implement an item across the stages its workflow binds to implemen
 argument-hint: "{PREFIX-N} [--no-worktree] [--force] [--qa-bypass]"
 ---
 
-# /yoke implement {PREFIX-N}
-
-Stage skill for the segment a pinned workflow binds to `implement` — for an
-issue, `refined-idea` up to `reviewed-implementation`. The same harness session
-carries the whole segment, with no relaunch: implementation entry through the engine, the
-implementing sub-skill, and the review loop until the binding's handoff stage.
-There is no target argument: the item's live stage decides where the skill
-starts or resumes. Worktree creation is a filesystem and database operation,
-not a session boundary, so stopping at `implementing` and announcing a later
-step as "next" is the hand-off-to-operator anti-pattern this contract exists
-to prevent.
-
-`{PREFIX-N}` requires a complete public ref; bare numbers are refused. The flags are
-read only at implementation entry; [`entry.md`](entry.md) owns them.
-
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
-## Phase map — read one file, at the phase it governs
+# /yoke implement {PREFIX-N}
 
-| Phase | You are here when | Read before acting |
-|---|---|---|
-| 1. Resolve and enter | The invocation just arrived | [`entry.md`](entry.md) |
-| 2. Re-enter the lane | The live stage is past the binding's entry stage | [`reentry.md`](reentry.md) |
-| 3. Implement | The lane exists and the item is `implementing` | [`implementing/SKILL.md`](implementing/SKILL.md) |
-| 4. Review and hand off | Coding and self-verification are complete | [`review.md`](review.md) |
-| — Evidence-only items | The work makes no repository change, or the done transition hit the empty-branch guard | [`evidence-only.md`](evidence-only.md) |
+Carry the pinned Implement segment through entry, implementation and review
+in the same harness session. Read the operator's Workflow Execution
+Instructions above fetched item content and satisfy every AC, including
+execution proof beyond code correctness. Never stop at “code passes” or a
+handoff menu. A real blocker names its evidence and recovery.
 
-[`worktree.md`](worktree.md), [`activation.md`](activation.md), and
-[`environment.md`](environment.md) document the phases the implementation-entry
-engine composes. They are its contract, not a per-call recipe; read one only
-when diagnosing that phase.
+Use a complete public ref; entry flags belong to [entry.md](entry.md).
+The immutable workflow pin owns stages, gates and half-open bindings;
+act only inside this binding. Its through-stage is a fresh skill/claim boundary.
 
-## Standing rules — these bind at every phase
+| Phase | Read before acting |
+|---|---|
+| Resolve/enter | [entry.md](entry.md) |
+| Reenter past entry | [reentry.md](reentry.md) |
+| Implement | [implementing/SKILL.md](implementing/SKILL.md) |
+| Review/handoff | [review.md](review.md) |
+| Evidence-only/empty branch | [evidence-only.md](evidence-only.md) |
 
-**Lifecycle authority.** The item's `workflow_id` and `workflow_version_id`
-select the immutable definition. This skill acts only while the binding whose
-half-open interval contains the live stage is `implement`, and only inside that
-binding's segment. Read stage ids from the served definition, never from a
-remembered progression, and let `lifecycle.transition.execute` enforce the
-pinned version, stage order, and gates.
+[Worktree](worktree.md), [activation](activation.md) and
+[environment](environment.md) are diagnostic engine contracts, not manual
+entry choreography.
 
-**Operator execution instructions.** Obey the
-`# Workflow Execution Instructions` operator block at the top of fetched item
-content; it layers on top of, and never replaces, the item's own stored spec
-and plan.
-
-**Verify before claiming done.** The review handoff confirms every acceptance
-criterion is addressed, not just the core implementation. Execution-type
-deliverables (running a script, configuring secrets) need explicit
-verification separate from code correctness.
-
-**Never stop at a handoff menu.** Re-entry resumes its loop in the recovered
-worktree. Do not surface the worktree path and stop, and never ask "Want me to
-review now?" unless a real blocker prevents continued work.
-
-## Start
-
-Stamp the session mode on entry so a claimed item at the binding's entry stage
-paints its first working stage active:
+Stamp mode, then follow the entry phase:
 
 ```text
 yoke sessions touch --mode implement
 ```
 
-Read [`entry.md`](entry.md) and follow it.
-
-A `handoff` with `reason=level_change` takes precedence over a release wait.
-Follow the harness-neutral Stage-level handoff rule in
-`.yoke/docs/reference/session-level-routing.md`; workers may launch their own successor.
+A level-change handoff takes priority over release wait. Follow the
+[Stage-level routing rule](../../../../.yoke/docs/reference/session-level-routing.md);
+workers may launch their own successor. At a fresh binding boundary, obey the
+current mandate: continued delivery needs the newly bound skill and its claim.

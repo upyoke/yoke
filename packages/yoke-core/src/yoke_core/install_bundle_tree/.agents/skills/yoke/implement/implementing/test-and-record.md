@@ -1,292 +1,147 @@
 # Active — Test Commands & QA Recording
 
-Surfaces project test commands and handles QA run recording after implementation. Called by the active router as the test-and-record phase.
+Use the [Project Context Summary](project-context.md#project-context-summary)
+before broadening audit/discovery. Every test collects from the registered
+WORKTREE_PATH. Attached Command cases resolve that lane themselves.
 
-**Context variables** (from router): `{N}`, `{NNN}`, `{title}`, `{WORKTREE_PATH}`
+## Attached immutable cases
 
-**Exact-path test anchor:** Every direct test invocation in this phase MUST
-collect from `{WORKTREE_PATH}`, not the main checkout. Attached Command cases
-resolve the same mapped worktree through `yoke qa case run`; do not re-run
-their shell text from another checkout.
+Read the pin to select the next verification transition. Materialize and read
+the complete roster through registered `qa.plan.materialize` and
+`qa.requirement.list`:
 
----
-
-## a1. Use Project Context Summary
-
-This phase runs after `implementing/project-context.md`. If that earlier phase emitted a `Project Context Summary`, use its likely test/doc surfaces to scope the text-sensitive audit below before widening the grep.
-
-Do not broad-explore a project's test tree when the project docs already name the relevant helpers, fixtures, or directories. Start from the surfaced paths, then expand only as far as the minimum audit scope requires.
-
-## a2. Surface and run attached plan cases
-
-After QA seeding, materialize the default plan for the next verification
-checkpoint, then list the item's immutable case snapshots:
-
-```bash
-yoke qa plan materialize --item "PREFIX-{N}" \
- --transition reviewing-implementation
-yoke qa requirement list --item "PREFIX-{N}" --json
+```text
+yoke qa plan materialize --item PREFIX-N --transition <pinned-verification-stage>
+yoke qa requirement list --item PREFIX-N --json
+yoke qa plan run --item PREFIX-N --transition <pinned-verification-stage>
 ```
 
-Surface every row with a non-null `plan_id`, including its case key, method,
-instructions, expected outcome, transition, and host baseline. An empty list
-means no project or item plan is attached; do not guess a replacement command.
+Surface each plan case's key, method, instructions, expected outcome,
+transition and host baseline. An empty roster is not permission to guess a
+command. A registered Test Machine pin uses `--machine NAME`; otherwise the
+runner prefers a verified free machine and honors case constraints.
 
-Run the complete materialized roster through the ordered plan executor:
+The method owns execution: Command runs in the mapped lane with exit verdict;
+Browser check evaluates assertions; inspection captures for agent review;
+Exploratory mission returns a main-owned walker dispatch. Never extract a
+case command, run it independently, replace a failure with a smaller command,
+or discover a substitute from package.json. Rerun a failed deterministic case
+with `yoke qa case run --requirement-id <id>`; inspection verdicts use the
+plan review bundle.
 
-```bash
-yoke qa plan run --item "PREFIX-{N}" \
- --transition reviewing-implementation
+The plan run is the one full execution. Iterate with failing tests, changed
+paths or `yoke watch pytest --impacted main --bounded`. Unbounded selection
+means keep testing the judged-relevant scope, not widen automatically.
+CI-declared projects use the committed lane candidate; commit before its
+watcher. Local checks must be small, expected to finish in about a minute,
+with wrapper admission and xdist. Read the project's source-dev doctrine
+before selection. A new tree requires new evidence; do not duplicate a full
+suite by hand before the executor repeats it. Follow the runner's live stream
+and capture handle through exit.
+
+## Review continuation and failures
+
+Exit 12 with `state="awaiting_agent_review"` requires immediate continuation:
+dispatch the exact returned descriptor, prompt and complete immutable bundle.
+For `dispatch_kind=subagent`, use its named harness subagent type.
+For `main_agent_mission`, keep ownership here, dispatch each informed or
+target-naive walker, aggregate reports and submit the complete verdict batch
+through the returned command.
+
+Only a walker HUMAN_GATE requires human action: checkpoint its exact action
+and resume state in Progress Log; route to a live covering steering seat,
+else the item's human owner. Walker never sends Fleet mail.
+`--item` targets the current holder, not the human owner.
+Acknowledgement is read receipt, not sign-in proof.
+After verifying the action, launch a fresh walker with saved resume state.
+Do not waive or recapture merely because review is pending.
+Evidence-backed undetermined halts for the owner/operator Inbox resolution.
+An unexecuted case records failed/blocked_on_precondition without inventing
+human work. Never record an ad-hoc agent pass for Browser or mission methods.
+
+Every case must reach pass, justified registered waiver or explicit review
+outcome. A future item or planned path claim is not a waiver for current
+failures. Expand claim/budget before a fix and use dependency or claim reconciliation
+before retry. Do not use `path-claim-override` for a planned future claim;
+override is last resort for an irreducible live collision and requires
+explicit operator approval.
+
+## Text-sensitive audit — blocking
+
+Only copy/theme/labels/empty or error states and similar user-visible text
+require this gate. Backend/script/config-only changes skip it.
+Before edits, run the source-dev stale-string preflight under this project's
+declared authority and wrapper. Before every relevant commit, run blocking
+verify; source module is `yoke_core.domain.stale_string_audit`.
+These local-code operations are not raw control-plane mutation shortcuts.
+
+The helper consumes context and attached case configuration before
+deterministic discovery. It prefers removed literals from unstaged, staged
+and main...HEAD diffs; before removals it uses quoted spec/body literals.
+Values also added by the candidate are filtered out. Single words match
+whole words, not supported identifier substrings. Audit all discovered
+*.ts/*.tsx/*.js/*.jsx/*.py surfaces, including helpers, fixtures and smoke.
+
+Surface project/source/surfaces/doc_paths, candidate_strings,
+candidate_source (`git_diff_removed`, `spec_body`, `none`), matches and verdict:
+
+| Verdict | Required handling |
+|---|---|
+| matches_found | Mandatory file:line checklist; repair every actual stale reference before commit |
+| clean | Record no stale matches |
+| not_text_sensitive | Record the reason for skip |
+| missing_candidate_strings | Stop; clarify explicit old literals in item context, then rerun preflight |
+
+Verify exit 1 means remaining matches; exit 2 means candidate extraction
+failure. Both block commit, with no override. Repair and rerun.
+A status-write check does not replace the explicit precommit verification.
+
+## Governed DB evidence
+
+For apply-intent claims declaring migration_modules, the implementation
+review gate requires each module in the lane's permanent ordered history
+and a passing `migration_audit` rehearsal receipt on the item's control
+plane. A validation-only or authoritative-project row does not replace it.
+
+Governed-runner modules: `yoke migration rehearse PREFIX-N` uses configured
+local-Postgres authority and validation binding, refuses HTTPS; absent
+authority routes to the control-plane operator. Rehearse then merge;
+boot converge applies the merged history. Read DB rules for all live-universe
+receipts before release. Modules remain forever, safely rerunnable and without
+committing; the applier commits each entry with its ledger row.
+Rehearsal commands cannot call rehearsal recursively; use focused probes/tests.
+
+Exception modules calling record_audit_fingerprint remain the author's
+apply responsibility. Before entering review, execute their declared CLI on
+both validation (explicit validation target) and authoritative surfaces, then
+read the authoritative audit state/reason. Never invent a DB path.
+The module and verification stay tracked permanently; one execution row
+never permits deleting the only executable history.
+
+## Record and advance
+
+Deterministic method runners own their records. For explicit agent-verifiable
+requirements, `qa.run.add` stamps the clean claimed lane HEAD:
+commit before recording; raw-result is evidence, not tree identity.
+
+```text
+yoke qa run add --requirement-id <id> --performed-by agent --qa-kind ac_verification --verdict pass --raw-result "<actual verified evidence>"
 ```
 
-For a mission that must run on one registered Test Machine, append
-`--machine NAME`. Without a pin the runner prefers a verified free machine;
-a case-authored machine constraint remains authoritative.
+Use the stored kind for structural no_tests_declared and say
+“agent-attested / no-tests-declared”, never that tests ran. Record a failed
+verdict honestly, fix and append a passing run after rerun.
+Multi-line evidence uses registered artifact surfaces rather than an old
+DB-router file option. Counts, scope and pass claims must match actual
+output, QA runs or recorded waivers.
 
-The method owns execution: Command uses the mapped worktree and exit-code
-verdict, Browser check uses automatic assertions, Browser inspection captures
-evidence for agent review, and Exploratory mission returns a main-owned walker
-dispatch. Never extract `method_config.command` and
-run it separately, discover a substitute from `package.json`, or replace a
-failing case with a smaller command. Use `yoke qa case run` only to rerun a
-specific failed deterministic case after diagnosis; inspection verdicts come
-from the plan-level review bundle.
+Preview the pinned through-stage union with
+`yoke qa gate-summary --item PREFIX-N --target <handoff-stage>`.
+One case pass is not union satisfaction. Continue [review](../review.md)
+back-to-back in this lane through both pinned review writes.
+The done gate reads evidence automatically; QA bypass flags/env are test-only
+and production refuses GATE_QA_BYPASS_FORBIDDEN.
 
-**The plan run is the one full execution.** Iterate as much as the work needs
-with the cheap layers — the individual failing tests, the changed module's
-paths, `yoke watch pytest --impacted main --bounded` (which reports an
-unbounded selection instead of widening to the full sweep, so read that verdict
-as *keep testing what you judge relevant*; for a project declaring
-`ci_workflow_file` it runs on that CI against the pushed lane commit, so commit
-and let CI run it. `--local` is only a small targeted check expected to finish
-in about one minute; uncommitted work does not justify a slow local run) — then let the plan/case
-run close the loop. Do not run the project's full sweep by hand and then hand the same
-tree to the executor: it re-runs the identical registered command, so only the
-verdict-producing run needs to happen. Command execution streams live to
-stderr and names its raw capture file before starting, so a long run is
-followable without a second copy. Re-running after the tree changes — a fix, a
-new commit, the post-rebase run — is a different execution and stays required.
-
-Exit `12` and `state="awaiting_agent_review"` are a mandatory continuation,
-not a human-review state. Immediately dispatch the returned
-`review_bundle.dispatch` descriptor through the harness subagent facility,
-when its `dispatch_kind` is `subagent`, passing the prompt and complete
-immutable bundle to the named `subagent_type`. When the dispatch kind is
-`main_agent_mission`, keep mission ownership here: dispatch each typed walker
-according to its informed or target-naive executor, aggregate its report, and
-send the complete verdict batch through the returned `submit_command`. A walker
-`HUMAN_GATE` return is the one exception to the no-operator rule: append its
-exact action and resume state to the Progress Log, then send that request to
-a live covering steering seat or else the item's human owner. The walker
-never sends Fleet mail. `--item` addresses the current holder, not the owner.
-Acknowledgement is read, not sign-in proof. After the action is verified,
-dispatch a fresh walker with the saved resume state. Do not waive or recapture evidence merely because
-review is pending. Choose `undetermined` only with attached evidence: it halts
-the item until an owner/operator resolves the Inbox request. An unexecuted case
-records failed/`blocked_on_precondition` and returns without human work.
-
-## a2b. Plan-case failure discipline
-
-Every attached case must end in pass, waiver, or an explicit review outcome.
-If a case fails, fix the failure and rerun the same requirement, or use the
-registered waiver surface with a concrete rationale. Future/planned item ownership
-or a planned path claim is not a waiver for a current regression.
-If the fix expands the required files, widen the claim and use
-dependency or claim reconciliation before retrying.
-Do not use `path-claim-override` for a planned future claim when reconciliation can
-resolve the ordering; override is last resort for irreducible live collisions
-and requires explicit operator approval.
-
-## a3. Text-Sensitive Test Audit Gate
-
-**Conditional step — only when the change touches user-visible copy, theme strings, button labels, empty/error state messages, route-specific page wording, or similar UI text.** Skip entirely for backend-only, script-only, config-only, or non-copy changes.
-
-This is a **structural gate**, not advisory guidance. The gate has two enforcement points: a deterministic pre-edit preflight and a blocking pre-commit verify step. Both are mandatory when the change is text-sensitive.
-
-### a3.1. Discover test surfaces (before first edit)
-
-Run the preflight helper before writing any implementation code:
-
-```bash
-# Source-dev/admin stale-string preflight helper: set _audit_json for
-# PREFIX-{N} and "{WORKTREE_PATH}". No registered product CLI wrapper exists yet.
-```
-
-The helper consumes project context plus attached QA-plan case configuration,
-falls back to deterministic directory discovery, derives candidate old strings,
-and greps the discovered test surfaces in one pass.
-
-Candidate-string derivation prefers **removed lines of the combined git diffs** (`git diff`, `git diff --staged`, `git diff main...HEAD`) so mid-implementation runs target the literal values being replaced. When no removals exist yet (preflight, before any edit), it falls back to quoted literals in the item spec/body and filters out anything that also appears on a `+` line — so new values the agent intentionally placed are never flagged as stale.
-
-Single-word candidates match whole words, so a retired heading still matches
-its quoted fixture but does not match part of a supported identifier.
-
-Surface the JSON summary to the agent. The important fields are:
-- `project`, `source`, `surfaces`, `doc_paths`
-- `candidate_strings` — the old values being audited
-- `candidate_source` — `git_diff_removed`, `spec_body`, or `none`
-- `matches` — pre-edit stale references that must be fixed in the same implementation commit
-- `verdict` — one of `not_text_sensitive`, `missing_candidate_strings`, `clean`, `matches_found`
-
-### a3.2. Handle the preflight verdict
-
-**If `verdict` is `matches_found`:** Surface the matches as a **mandatory checklist**. The agent MUST fix every matched file during implementation — not after commit. Display:
-
-```
-## Stale String Audit — Pre-Edit Matches
-
-The following test files reference strings being changed. Fix these IN the same commit as the implementation, not after:
-
-- {file}:{line} — "{matched content}"
-- ...
-
-Total: {N} match(es) in {M} file(s). All must be updated before commit.
-```
-
-**If `verdict` is `clean`:** Record that explicitly:
-```
-Stale String Audit: no pre-existing references found in test surfaces. Proceeding.
-```
-
-**If `verdict` is `not_text_sensitive`:** Record the skip:
-```
-Stale String Audit: skipped (not text-sensitive).
-```
-
-**If `verdict` is `missing_candidate_strings`:** Stop and tighten the work-item context before coding. Add explicit quoted old strings to the spec/body (or otherwise clarify the values being replaced), then re-run the preflight. The gate must know what old strings it is enforcing before implementation begins.
-
-### a3.3. Pre-commit verify (blocking gate)
-
-**Before every commit** that includes implementation changes for a text-sensitive item, run the blocking verify helper:
-
-```bash
-# Source-dev/admin stale-string verify helper for PREFIX-{N} and
-# "{WORKTREE_PATH}". No registered product CLI wrapper exists yet.
-```
-
-The review loop's status writes re-run this helper automatically for the review-completion commit path (`reviewing-implementation` / `reviewed-implementation`; see [`../review.md`](../review.md)), so stale-string commits are blocked structurally.
-
-**If exit code is 1 (matches found):** Do NOT commit. Fix the remaining stale strings first, then re-run the verification. This is a hard block — there is no override flag.
-
-**If exit code is 2 (candidate extraction failure):** Do NOT commit. Tighten the item spec/body so the old strings are explicit, then re-run the preflight and verification.
-
-The agent covers all file types in test directories — `*.ts`, `*.tsx`, `*.js`, `*.jsx`, `*.py` — not just `*.spec.*` or `*.test.*` patterns. This ensures helper files (`api-mocks.ts`), smoke-specific files (`smoke.spec.ts`), fixtures, and shared utilities are all caught.
-
----
-
-## a4. DB Mutation Evidence — rehearsal receipts on the item's control plane
-
-If the item declares `mutation_intent="apply"` with one or more entries in `migration_modules` (see the `db_mutation_profile` JSON-nested-field schema in your packet), the `check_implementing_to_reviewing_implementation_gate` requires each module in the ordered history of the item's own lane and a passing rehearsal receipt for it **in `migration_audit` on the control plane that holds the item** — not on the model's authoritative DB and not on the worktree's validation surface. `yoke migration rehearse` writes exactly that receipt, for every project's models alike.
-
-**Governed-runner modules** (runner kind = `governed_migration_module`):
-
-  **Rehearse, then merge. You do not apply.** Run
-  `yoke migration rehearse PREFIX-{N}` from the configured local-Postgres
-  authority that owns the item; if none is configured, escalate to the
-  control-plane operator. The command refuses HTTPS product connections because
-  it executes the checked-out project's code and validation surface locally.
-  Rehearsal runs the module
-  against the model's validation surface and records the receipt the evidence
-  gate reads. Applying to the authoritative database is the job of the boot
-  converge that starts a server running your merged code — there is no
-  authoritative apply step for you to run or wait on.
-
-  **The module is permanent.** Add it to the ordered history as
-  `NNNN_slug.py`, commit it, and leave it there forever. It is never deleted
-  after applying; a module that is gone cannot be applied by a universe that
-  never received it.
-  The body must be safe to re-run and must NOT commit — the applier commits
-  each entry together with its ledger row, which is what makes "applied but
-  unrecorded" impossible.
-
-  **Avoid recursive `rehearsal_commands` self-calls.** The attestation's
-  commands run inside rehearsal against the validation surface. A command
-  that invokes `yoke migration rehearse` would recurse. Use a focused schema
-  probe or the module's tests instead; refine-time dry-run rejects recursive
-  rehearsal commands.
-
-**Exception-pathway modules** (modules that call `record_audit_fingerprint` instead of going through the governed runner): the apply is the author's responsibility. Before the review loop's first status write ([`../review.md`](../review.md)), run the module's apply CLI against **both** surfaces:
-
-```bash
-# 1. Validation surface (worktree-local). Use the module's explicit
-# validation-target option/env; do not point Yoke authority at a DB file.
-# Source-dev/admin exception module apply CLI for the declared module.
-
-# 2. Authoritative DB. Run without a DB-path override so the module uses
-# the active Postgres authority selected by the backend.
-# Source-dev/admin exception module apply CLI for the same declared module.
-
-# 3. Confirm the audit row landed on authoritative (not just validation):
-yoke db read --format lines \
- "SELECT state, exception_reason FROM migration_audit \
-  WHERE migration_name='<module>'"
-```
-
-The exception module and its verification remain tracked as durable history.
-An audit row proves one execution; it does not prove every present or future
-install has received the change, and therefore never authorizes deleting the
-only executable record.
-
-## b. Record QA Runs (after implementation, before review)
-
-After completing implementation and running tests and verification, record a `qa_runs` entry for each requirement:
-
-```bash
-# Record a passing run. The write stamps verification_tree.head_sha from the
-# claimed lane HEAD on a clean tree. --raw-result is evidence text, not identity.
-# A dirty tree or missing lane refuses; commit the candidate before recording.
-yoke qa run add \
- --requirement-id {req-id} \
- --performed-by "agent" \
- --qa-kind "ac_verification" \
- --verdict "pass" \
- --raw-result "{brief evidence — e.g., 'All 12 tests pass', 'Config verified in output'}"
-```
-
-For a structural `no_tests_declared` requirement, record exactly what the
-floor proves — an agent review, not an executed suite:
-
-```bash
-yoke qa run add --requirement-id {req-id} --performed-by agent \
-  --qa-kind no_tests_declared --verdict pass \
-  --raw-result "agent-attested / no-tests-declared: reviewed against the item spec; no test command is registered"
-```
-
-If a test fails, record `--verdict "fail"` with brief failure details in `--raw-result`. For multi-line file evidence, summarize the relevant excerpt or attach an artifact through the registered QA artifact surfaces; the old DB-router `qa run-add --raw-result-file` helper is operator-debug only, not normal product flow. Fix the issue, then record a new passing run. Do not pass prose as the run's identity — a blocking pass without a head sha is refused at record time.
-
-## Evidence-Based Summary Discipline
-
-When summarizing test results, the agent MUST derive all claims from recorded evidence (QA runs, actual command output, recorded waivers). Specifically:
-
-- **Test count claims** MUST match actual command output. Do not extrapolate or round.
-- **Suite scope claims** MUST reflect which suites were actually run.
-- **Never claim success for a suite that was not run or that failed.**
-
-**IMPORTANT — Browser and mission cases:** Do not record an ad-hoc `agent`
-verdict for `browser-check`, `browser-inspection`, or `exploratory-mission`.
-Execute the complete roster through `yoke qa plan run`; the registered runners
-and review submission own provenance, evidence, and verdicts.
-
-## c. Advance Through Review Completion
-
-**One plan-case pass is not union-gate satisfaction.** Every blocking
-requirement in the attached plan must pass or be waived. To preview the union,
-use `yoke qa gate-summary --item PREFIX-N --target reviewed-implementation` for a
-standalone issue, or the epic/task form for a task lane. The gate verdict is
-the authority.
-
-After recording QA runs for all AC-verification requirements, continue with
-the review loop in [`../review.md`](../review.md) in the same session and
-worktree. It owns the two review-stage status writes, the commit invariant,
-and the stop at the binding's handoff stage.
-
-## d. The done-gate checks these automatically
-
-When the done transition runs, the done-transition engine calls `check_done_gate()`. `YOKE_QA_GATE_BYPASS` and `--skip-qa` are test-only; production use refuses as `GATE_QA_BYPASS_FORBIDDEN`.
-
-## e. Ad-hoc Tester Dispatch
-
-When the implementing agent needs to dispatch a Tester outside the conduct
-pipeline, it MUST use the structured dispatch template at
-`.agents/skills/yoke/shared/tester-dispatch-template.md`. Do not dispatch a
-Tester for Browser method cases; execute them through the shared case runner.
+An ad-hoc Tester outside Conduct uses the
+[shared structured dispatch](../../shared/tester-dispatch-template.md).
+Browser method cases use the shared runner, not a separate Tester.

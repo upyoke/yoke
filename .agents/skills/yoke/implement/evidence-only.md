@@ -3,7 +3,7 @@
 Read this when the work makes no repository change, or when the done
 transition or usher hit the empty-branch guard (exit 8) on such an item.
 
-Items that require no code changes (validation, proof, guidance updates) pass `--no-worktree` to `/yoke implement` at implementation entry. This leaves the item without an active implementation lane in `item_worktrees`, so the done-transition engine (`yoke_core.engines.done_transition`) skips the empty-branch guard (exit 8).
+Pass `--no-worktree` only when the operator explicitly requested it. Evidence-only intent alone does not authorize this flag. This leaves the item without an active implementation lane in `item_worktrees`, so the done-transition engine (`yoke_core.engines.done_transition`) skips the empty-branch guard (exit 8).
 
 **If an evidence-only item entered implementation WITHOUT `--no-worktree`** and later hits exit 8 during done-transition or usher, the recovery path is:
 1. Complete the caller's rollback to `implemented`; lane release is refused at every other status.

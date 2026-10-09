@@ -1,13 +1,7 @@
-# /yoke implement phase 1 — resolve the pin, then enter or re-enter
+# /yoke implement — resolve the pin, then enter or re-enter
 
-Keep the operator's token as the public item ref. Never treat the numeric tail
-of `PREFIX-N` as `items.id`.
-
-## Resolve the pinned segment
-
-`workflows.item.get` serves the item's immutable pin and its effective
-policies; the exact version read serves the definition this skill interprets:
-
+Keep the complete public ref; its numeric tail is not `items.id`.
+Read `workflows.item.get` and the exact `workflows.version.get`:
 ```bash
 _item_workflow_json=$(yoke workflows item get PREFIX-N --json) || {
  echo "Item PREFIX-N not found."
@@ -44,108 +38,82 @@ for binding in definition["skill_bindings"]:
 ' "$_status")
 ```
 
-`_segment` is `<skill> <from_stage_id> <through_stage_id>` for the binding whose
-half-open interval (`from_stage_id <= live stage < through_stage_id`) contains
-the live stage. `workflow_id` is only the registry key for the version read; no
-behavior branches on its value. File Budget and path claims are independent
-effective axes read only from `result.effective_policies`; the 350-line
-authored-file limit remains universal.
 
-## Require the implement binding
+The executable selector uses stage ordering and half-open skill bindings,
+never workflow-name branches. File Budget and path claims are independent
+`result.effective_policies` axes; 350 authored lines is universal.
 
-- The bound skill must be `implement`. When another skill is bound at the live
-  stage, stop and report the item, its live stage, and that bound skill; do
-  not transition toward this segment from here.
-- `_worktree_policy` must be `single_implementation_lane`, or `none` for a
-  laneless workflow where the work happens in place. Any multi-lane policy
-  belongs to the task-graph skill its binding names; stop and report it.
+Require the live binding to be Implement and worktrees to be
+`single_implementation_lane` or `none`. Otherwise report the live stage and
+actual bound skill/policy; do not transition toward this segment.
 
 ## Preflight policy coverage
 
-File Budget and path claims are independent effective axes. Both enabled:
-the coverage gate compares the budget with active claims. Budget off, claims
-on: the execution artifact or survey supplies claim scope. Budget on, claims
-off: the budget supplies sizing and conflict evidence. Both off: neither
-artifact gate applies; the universal 350-line authored-file limit still holds.
-Spec coverage is block-by-design: repair it before the worktree takes edits,
-using `yoke claims path widen --claim-id <id> --add-paths <added> --reason
-"<why widening>" --item PREFIX-N`, or the pinned authoring segment's budget
-repair. Resolve that segment's binding before reporting its entrypoint.
+Both axes enabled: budget and claims must cover every required file.
+Budget off/claims on: claim the execution artifact/survey scope.
+Budget on/claims off: budget sizing and conflict evidence remains.
+Both off: neither artifact gate applies; the universal limit remains.
+Repair missing coverage before edits with `claims.path.widen`, or the
+pinned authoring segment's budget repair. Required paths cannot disappear
+because another holder claims them; follow dependency and coordination rules.
 
 ## Reach the binding's entry stage first
 
-Implementation entry is valid only from the `implement` binding's
-`from_stage_id` under `single_implementation_lane` or `none`. The engine
-dispatches the single adjacent `lifecycle.transition.execute` from that stage;
-it does not walk earlier stages. An item still before that stage gets there
-through the skill bound at its live stage. Resolve that binding from the
-pinned definition before reporting its entrypoint. Never hand-write intermediate status writes to
-climb toward the entry stage: raw status writes are claim-protected and refused
-with `ClaimVerificationDenied`.
+Entry requires the pinned definition's Implement `from_stage_id` and
+`single_implementation_lane` or `none`. The engine performs one adjacent
+transition, never walks earlier stages. An earlier live stage belongs to its
+own pinned binding. Raw intermediate status writes are claim-protected and
+refuse with `ClaimVerificationDenied`.
 
 ## Enter at the binding's entry stage
 
-When the live stage equals the binding's `from_stage_id`, enter through the
-engine. Defer the first work-claim acquisition to the orchestrator: its
-identity probe must pass before
-`worktree_preflight.run_preflight` acquires the claim and creates the lane, so
-do not acquire one first:
+Defer the first work-claim acquisition to the orchestrator for ordinary entry:
+its identity probe must pass before `worktree_preflight.run_preflight` acquires the claim.
+A launch handoff explicitly requiring claim-first takes precedence; the engine
+reuses that same-session claim.
 
 ```bash
 yoke advance implementation-entry --item PREFIX-N
 ```
 
-Pass through `--no-worktree` (evidence-only work, see
-[`evidence-only.md`](evidence-only.md)), `--force` (operator-asserted override
-of the file-level collision blocker and generated-task gates), or
-`--qa-bypass` when the invocation carried them; `--help` prints the matrix. A
-`none` worktree policy skips lane creation on its own, so `--no-worktree` is
-neither needed nor meaningful there.
+Pass only invocation-authorized flags: explicit `--no-worktree`,
+`--force` or `--qa-bypass`. Read `--help` for their actual policy matrix;
+a `none` policy skips the lane on its own. Never add force to cure a refusal.
 
-The engine composes preflight gates → `worktree_preflight.run_preflight`
-(claim + path-claim activation + worktree creation or reuse) → the
-capability-gated environment phase → the single adjacent
-`lifecycle.transition.execute` into the next stage, inside one Python process,
-emitting one `AdvancePhaseCompleted` event per phase. Its preflight retains
-activation dependencies and applies File Budget and spec coverage only as the
-effective policies select them; acceptance criteria are a Refine-closure check
-(`readiness.check.run`), not an implementation-entry gate. It is idempotent:
-rerunning against an item already in that stage reuses the worktree,
-re-acquires the same claim, and skips the status write. A preflight failure
-stops before any claim or lane mutation and prints the gate narrative;
-`worktree-create-failed` releases the claim; a finalize failure leaves the
-worktree and claim in place so the next invocation converges. Verify the trail
-with `yoke events query --item PREFIX-N --event-name AdvancePhaseCompleted`.
+The engine composes gates → claim/activation/lane → capability environment →
+one adjacent lifecycle transition, emitting `AdvancePhaseCompleted` per phase.
+It retains activation dependencies; coverage follows effective axes.
+AC completeness is Refine's readiness closure, not an entry gate.
+Reentry reuses the lane/claim and skips an already completed status write.
 
-Before any claim or lane mutation the engine corroborates the acting session
-through the ambient resolver the write guards use. Missing identity refuses as
-`write-guard-identity-unresolved`; an explicit `--session-id` must match the ambient result. Repair the harness env stamp, process-anchor registry, or Cursor
-conversation map and retry — never provision an unwritable lane with a guessed
-identity.
+| Result | Required handling |
+|---|---|
+| Preflight failure | No new claim/lane mutation; surface narrative |
+| worktree-create-failed | Engine releases claim; preserve creation error |
+| Finalize failure | Lane and claim remain for convergent retry |
+| Claim/path conflict, unreadable/stale upstream or dirt | Stop on actual refusal; resolve underlying condition, no force/widen shortcut |
 
-A sanctioned block (`work-claim-conflict`, `path-claim-blocked`,
-`upstream-unverified`, `upstream-stale`, dirty trees,
-`worktree-create-failed`) is surfaced verbatim and stops the skill; do not
-retry it with `--force` or paper over it by widening a claim.
+Missing identity refuses `write-guard-identity-unresolved`;
+`--session-id` must match the ambient result. Repair harness stamp,
+process anchor or conversation map rather than guessing identity.
+Verify phase evidence with `yoke events query --item PREFIX-N --event-name AdvancePhaseCompleted`.
 
-On success, read the registered lane path into `WORKTREE_PATH` and continue in
-this session with [`implementing/SKILL.md`](implementing/SKILL.md):
+On success, recover the registered lane and continue this session:
 
 ```bash
 WORKTREE_PATH=$(yoke item-worktrees get PREFIX-N --lane-role implementation --field path)
 ```
 
-Under a `none` policy leave `WORKTREE_PATH` empty.
+For `none`, leave it empty. [Implementing](implementing/SKILL.md) owns the next phase.
 
 ## Re-enter past the entry stage
 
-When the live stage is past `from_stage_id` but still inside the segment, the
-lane already exists. Take the claim first —
-`yoke claims work acquire --item PREFIX-N --reason implement-reentry` is
-idempotent for the same session and refuses with `claim_conflict` naming the
-holder when another live session owns the item, which stops the skill — then
-follow [`reentry.md`](reentry.md).
+Before lane recovery, acquire the claim:
 
-Claims persist across idle sweeps, process exit, and restart; Stop and
-SessionEnd hooks never release them. The release at the binding's handoff is
-owned by [`review.md`](review.md).
+```text
+yoke claims work acquire --item PREFIX-N --reason implement-reentry
+```
+
+Same-session acquisition is idempotent. Another live holder's `claim_conflict`
+stops reentry. Follow [reentry.md](reentry.md). Claims survive idle, exit and
+restart; hooks do not release them. [Review](review.md) owns handoff release.

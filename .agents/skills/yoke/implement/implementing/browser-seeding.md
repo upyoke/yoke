@@ -40,7 +40,7 @@ yoke qa requirement add \
   --workflow-transition reviewed-implementation \
   --instructions "<route and behavior to exercise>" \
   --expected-outcome "<observable passing outcome>" \
-  --method-config '{"steps":[...]}'
+  --method-config '{"steps":[{"action":"navigate","route":"/ROUTE"},{"action":"assert","target":"main","check":"visible"}]}'
 ```
 
 When it selects a deployed environment, author the same case with
