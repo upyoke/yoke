@@ -92,7 +92,7 @@ class TestComposeOverlapDenialWithConflicts:
             CREATE TABLE path_claim_targets (
                 claim_id INTEGER NOT NULL,
                 target_id INTEGER NOT NULL,
-                declared_at TEXT
+                declared_at TIMESTAMPTZ
             );
             CREATE TABLE path_targets (
                 id INTEGER PRIMARY KEY,
