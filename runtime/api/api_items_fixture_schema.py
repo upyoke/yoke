@@ -21,22 +21,22 @@ CREATE TABLE project_capabilities (
 );
 CREATE TABLE strategy_docs (
     id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL,
-    slug TEXT NOT NULL, content TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL,
-    updated_by_actor_id INTEGER, archived_at TEXT, UNIQUE(project_id, slug)
+    slug TEXT NOT NULL, content TEXT NOT NULL DEFAULT '', updated_at TIMESTAMPTZ NOT NULL,
+    updated_by_actor_id INTEGER, archived_at TIMESTAMPTZ, UNIQUE(project_id, slug)
 );
 CREATE TABLE strategy_doc_claims (
     id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL,
     strategy_doc_slug TEXT NOT NULL, owner_kind TEXT NOT NULL DEFAULT 'item',
     owner_item_id INTEGER, owner_session_id TEXT,
     registered_by_actor_id INTEGER, registered_by_session_id TEXT,
-    registered_at TEXT NOT NULL, released_by_actor_id INTEGER,
-    released_by_session_id TEXT, released_at TEXT, release_mode TEXT,
+    registered_at TIMESTAMPTZ NOT NULL, released_by_actor_id INTEGER,
+    released_by_session_id TEXT, released_at TIMESTAMPTZ, release_mode TEXT,
     release_reason TEXT
 );
 CREATE TABLE deployment_flows (
     id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, name TEXT NOT NULL,
     description TEXT, stages TEXT NOT NULL, on_failure TEXT DEFAULT 'halt',
-    created_at TEXT NOT NULL, target_tier TEXT DEFAULT NULL,
+    created_at TIMESTAMPTZ NOT NULL, target_tier TEXT DEFAULT NULL,
     target_environment_id INTEGER DEFAULT NULL,
     done_description TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'active', UNIQUE(project_id, name)
@@ -46,11 +46,11 @@ CREATE TABLE deployment_runs (
     target_tier TEXT, target_environment_id INTEGER, release_lineage TEXT,
     status TEXT NOT NULL DEFAULT 'created'
       CHECK(status IN ('created','executing','succeeded','failed','cancelled')),
-    current_stage TEXT, created_at TEXT NOT NULL, started_at TEXT,
-    completed_at TEXT, created_by TEXT DEFAULT 'operator'
+    current_stage TEXT, created_at TIMESTAMPTZ NOT NULL, started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ, created_by TEXT DEFAULT 'operator'
 );
 CREATE TABLE deployment_run_items (
-    run_id TEXT NOT NULL, item_id INTEGER NOT NULL, added_at TEXT NOT NULL,
+    run_id TEXT NOT NULL, item_id INTEGER NOT NULL, added_at TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (run_id, item_id)
 );
 CREATE TABLE epic_tasks (
@@ -65,18 +65,18 @@ CREATE TABLE qa_requirements (
     blocking_mode TEXT NOT NULL DEFAULT 'blocking',
     requirement_source TEXT NOT NULL DEFAULT 'explicit',
     success_policy TEXT NOT NULL DEFAULT 'blocking', capability_requirements TEXT,
-    suite_id TEXT, waived_at TEXT, waiver_rationale TEXT, created_at TEXT NOT NULL,
+    suite_id TEXT, waived_at TIMESTAMPTZ, waiver_rationale TEXT, created_at TIMESTAMPTZ NOT NULL,
     plan_case_key TEXT, deployment_member_item_id INTEGER,
     superseded_by_requirement_id INTEGER
 );
 CREATE TABLE qa_runs (
     id INTEGER PRIMARY KEY, qa_requirement_id INTEGER NOT NULL,
     performed_by TEXT, verdict TEXT, verdict_reason TEXT, execution_status TEXT,
-    raw_result TEXT, case_outcome TEXT, completed_at TEXT, created_at TEXT NOT NULL
+    raw_result TEXT, case_outcome TEXT, completed_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL
 );
 CREATE TABLE item_sections (
     item_id INTEGER, section_name TEXT, content TEXT, ordering INTEGER,
-    source TEXT DEFAULT 'operator', created_at TEXT, updated_at TEXT,
+    source TEXT DEFAULT 'operator', created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ,
     PRIMARY KEY(item_id, section_name)
 );
 CREATE TABLE harness_sessions (
@@ -85,13 +85,13 @@ CREATE TABLE harness_sessions (
     executor TEXT, executor_surface TEXT, provider TEXT, model TEXT,
     reasoning_effort TEXT DEFAULT NULL, context_window_tokens INTEGER DEFAULT NULL, requested_model TEXT DEFAULT NULL, requested_reasoning_effort TEXT DEFAULT NULL, requested_context_window_tokens INTEGER DEFAULT NULL,
     execution_level TEXT, executor_version TEXT, machine_id TEXT, workspace TEXT, mode TEXT,
-    offered_at TEXT, last_heartbeat TEXT, ended_at TEXT,
-    terminated_at TEXT, terminated_by_actor_id INTEGER,
+    offered_at TIMESTAMPTZ, last_heartbeat TIMESTAMPTZ, ended_at TIMESTAMPTZ,
+    terminated_at TIMESTAMPTZ, terminated_by_actor_id INTEGER,
     terminated_by_session_id TEXT, termination_reason TEXT,
     offer_envelope TEXT,
-    current_item_id TEXT, current_item_set_at TEXT,
-    recent_item_id TEXT, recent_item_status TEXT, recent_item_recorded_at TEXT,
-    last_seen_main_sha TEXT, last_drift_check_at TEXT
+    current_item_id TEXT, current_item_set_at TIMESTAMPTZ,
+    recent_item_id TEXT, recent_item_status TEXT, recent_item_recorded_at TIMESTAMPTZ,
+    last_seen_main_sha TEXT, last_drift_check_at TIMESTAMPTZ
 );
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
@@ -99,9 +99,9 @@ CREATE TABLE work_claims (
     target_kind TEXT NOT NULL CHECK({TARGET_KIND_CHECK_SQL}),
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
-    claimed_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    released_at TEXT,
+    claimed_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    released_at TIMESTAMPTZ,
     release_reason TEXT,
     reason TEXT DEFAULT NULL,
     reason_intent TEXT DEFAULT NULL,
