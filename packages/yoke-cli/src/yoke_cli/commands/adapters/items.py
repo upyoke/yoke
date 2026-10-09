@@ -30,6 +30,7 @@ from yoke_cli.commands.text_file import (
     resolve_text_file,
 )
 from yoke_contracts.items_projection import render_field_catalog
+from yoke_contracts.read_detail import excerpt
 
 
 __all__ = [
@@ -44,9 +45,6 @@ __all__ = [
     "LIFECYCLE_TRANSITION_USAGE",
     "LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE",
 ]
-
-
-# items.get.run
 
 ITEMS_GET_USAGE = (
     "yoke items get <PREFIX-N> [field1 field2 ...] "
@@ -127,7 +125,19 @@ def items_get(args: List[str]) -> int:
                 if not text.endswith("\n"):
                     stdout.write("\n")
             return None
-        print(json.dumps(result, sort_keys=True), file=stdout)
+        human_result = dict(result)
+        human_result["execution_instructions"] = [
+            {
+                **{
+                    key: value for key, value in instruction.items() if key != "content"
+                },
+                "title": excerpt(instruction.get("content")),
+                "content_characters": len(str(instruction.get("content") or "")),
+                "read": f"yoke items get {parsed.item} --json",
+            }
+            for instruction in result.get("execution_instructions") or []
+        ]
+        print(json.dumps(human_result, sort_keys=True), file=stdout)
         return None
 
     return dispatch_and_emit(
@@ -139,8 +149,6 @@ def items_get(args: List[str]) -> int:
         human_writer=_human_writer,
     )
 
-
-# items.progress_log.append
 
 PROGRESS_LOG_USAGE = (
     "yoke items progress-log append <PREFIX-N> --headline TEXT "
@@ -193,8 +201,6 @@ def items_progress_log_append(args: List[str]) -> int:
         json_mode=parsed.json_mode,
     )
 
-
-# items.structured_field.replace
 
 STRUCTURED_FIELD_USAGE = (
     "yoke items structured-field replace <PREFIX-N> --field FIELD "
@@ -259,8 +265,6 @@ def items_structured_field_replace(args: List[str]) -> int:
         json_mode=parsed.json_mode,
     )
 
-
-# lifecycle.skip.record_recoverable_substrate
 
 LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE = (
     "yoke lifecycle skip record-recoverable-substrate <PREFIX-N> "
