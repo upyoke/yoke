@@ -105,6 +105,17 @@
     "gemini.google.com",
     "copilot.microsoft.com"
   ],
+  "excluded_referrer_domains": [
+    "accounts.google.com",
+    "accounts.youtube.com",
+    "login.microsoftonline.com",
+    "login.live.com",
+    "appleid.apple.com",
+    "okta.com",
+    "auth0.com",
+    "onelogin.com",
+    "amazoncognito.com"
+  ],
   "sensitive_query_keys": [
     "token",
     "access_token",
