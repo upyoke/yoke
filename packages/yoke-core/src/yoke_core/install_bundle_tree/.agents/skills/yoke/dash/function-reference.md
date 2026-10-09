@@ -1,58 +1,51 @@
 # Dash — registered operation authority
 
-Read this when you need the function id or exact adapter shape for a Dash
-operation, not as a phase step. Every `yoke` command in the Dash phase files
-is a CLI adapter for the same function-call envelope; the function id is the
-operation authority.
+Use the [single function catalog](../../../../.yoke/docs/reference/db-reference/functions.md)
+for exact target, payload, claim, option and response schema, then the adapter's
+--help for flags/refusals. This is a lookup home, not another phase.
+Each CLI adapter dispatches the same typed function authority.
 
-| Function id | Target and payload | CLI adapter |
-|---|---|---|
-| `items.create` | Global target; Dash title, instruction, project, entry surface, permitted posture, and the operator execution-instruction attestation | `yoke dash "<title>" --stdin --execution-instructions-considered --json` |
-| `workflow.execution_instruction.resolve` | Global target; named workflow and project; read-only matching instructions | `yoke workflow execution-instruction resolve --workflow W --project P --full` |
-| `items.detail.get` | Item target; optional `include` naming content sections (`narrative`, `body`, `progress_log`) — omit for the posture plus `content_index`, which names each stored section and the read that returns it | `yoke items detail get ITEM --json` |
-| `github.merge_queue.readiness` | Item target; empty payload; reads PR and target-branch queue without mutation | `yoke github merge-queue readiness ITEM --json` |
-| `github.merge_queue.hold` | Item target; empty payload; clears merge-when-ready, removes the queue entry, and verifies both before a correction is pushed | `yoke github merge-queue hold ITEM --json` |
-| `claims.work.acquire` | Item target; `reason` | `yoke claims work acquire --item ITEM --reason TEXT` |
-| `workflows.item.get` | Item target; empty payload; centrally resolved effective policies | `yoke workflows item get ITEM --json` |
-| `items.structured_field.section_upsert` | Item target; a posture-enabled File Budget section | `yoke items structured-field section-upsert ITEM --section "File Budget" ...` |
-| `direct_workflow.dash.survey` | `paths` or explicit `no_changes`, plus optional `integration_target` | `yoke direct-workflow dash survey ITEM (--path PATH \| --no-changes) --json` |
-| `direct_workflow.conflict_survey.status` | Item target; empty payload — rediscover the live survey | `yoke direct-workflow conflict-survey status ITEM --json` |
-| `claims.path.register` | Item target; complete paths plus mode and optional planned/exception posture | `yoke claims path register --item ITEM --paths PATHS ...` |
-| `qa.plan.materialize` | Item target; the transition whose attached plans become case rows | `yoke qa plan materialize --item ITEM --transition T --json` |
-| `qa.requirement.list` | Item target; empty payload — the materialized requirement ids | `yoke qa requirement list --item ITEM --json` |
-| `qa.requirement.add` | Item target; selected method, executable case contract, and workflow transition | `yoke qa requirement add --item ITEM ...` |
-| `lifecycle.transition.execute` | Item target; `source_status`, `target_status`, and `reason` | `yoke lifecycle transition ITEM --from STATUS --to STATUS --reason TEXT` |
-| `deployment_runs.start_for_item` | Item target; selected/default flow and merged release lineage | `yoke --env <control-plane> deployment-runs start-for-item ITEM ...`; escalate a serving-API self-deploy refusal to the control-plane operator |
-| `direct_workflow.dash.evidence` | `result_summary`, `verification_summary`, `verification_status`, `commit_sha`, `merge_sha`, `touched_files`, and `no_changes` | `yoke direct-workflow dash evidence ITEM ...` |
-| `claims.work.release` | Current item or claim target; `reason` | `yoke claims work release --item ITEM --reason TEXT` |
-| `direct_workflow.dash.escalate` | `issue_title`, `findings`, and optional `priority` | `yoke direct-workflow dash escalate ITEM ...` |
+| Function id | Local purpose / adapter |
+|---|---|
+| items.create | Resolved project/title, full instruction, allowed entry/posture and attestation; yoke dash |
+| workflow.execution_instruction.resolve | Read matching instructions before authoring; yoke workflow execution-instruction resolve |
+| items.detail.get | Posture/content_index and explicitly requested narrative/body/log; yoke items detail get |
+| workflows.item.get | Exact pin/effective independent axes; yoke workflows item get |
+| claims.work.acquire | First work action, reason; yoke claims work acquire |
+| direct_workflow.dash.survey | Full replacing paths or grounded no_changes; yoke direct-workflow dash survey |
+| direct_workflow.conflict_survey.status | Read actual full survey; yoke direct-workflow conflict-survey status |
+| items.structured_field.section_upsert | Spec's complete enabled File Budget |
+| claims.path.register / claims.path.widen | Complete selected coverage; yoke claims path register / widen |
+| qa.plan.materialize | Target transition's immutable snapshots; `qa.plan.materialize`, yoke qa plan materialize |
+| qa.requirement.list | Read roster; `qa.requirement.list`, yoke qa requirement list |
+| qa.requirement.add | Explicit method/config and actual bound transition |
+| lifecycle.transition.execute | Adjacent pinned source/target/reason; yoke lifecycle transition |
+| github.merge_queue.readiness / hold | Read live candidate / verify disarmed before correction |
+| deployment_runs.start_for_item | Authorized selected flow for landed lineage with DEPLOY claim |
+| direct_workflow.dash.evidence | Result, honest verification, touched paths, actual identities or no_changes; yoke direct-workflow dash evidence |
+| sessions.identity | Actual session; yoke sessions identity |
+| events.query.run | Session/episode denial read; yoke events query |
+| claims.work.release | Self-only when terminal or actual premerge exit; yoke claims work release |
+| direct_workflow.dash.escalate | Agreed absorbing Issue title/findings; yoke direct-workflow dash escalate |
 
-## Who may call what
+Survey has no item-claim prerequisite; evidence, escalation, lifecycle and
+path registration require it. Work release is self-only.
+Detailed contracts remain in the catalog, not a second copied envelope.
 
-Survey has no item-claim precondition. Evidence, escalation, lifecycle
-transitions, and path-claim registration all require the current item claim.
-Work-claim release is self-only.
+## Local tool operations
 
-## The two tool-shaped operations
-
-Worktree preparation and merging are each a retained tool-shaped operation,
-because both act on the local checkout rather than on control-plane state
-alone. Each command has no registered `direct_workflow.*` function id — use
-them verbatim; do not invent function ids for them.
+Preparation and merge are each a retained tool-shaped operation; each has no registered
+direct_workflow function id. Use them verbatim:
 
 ```text
 yoke direct-workflow worktree prepare ITEM --workflow dash --json
-yoke merge item ITEM --result "<what changed>" --verification "<checks run>"
+yoke merge item ITEM --result "<result>" --verification "<proof>"
 ```
 
-The first delegates to the local engine worktree preflight. It prints exactly
-one JSON envelope last, success or refusal — an unexpected failure inside
-preparation reports `block_kind="worktree-prepare-failed"` with the lane read
-and the retry, rather than a bare traceback. A successful receipt adds
-`run_recipes` and `lane_orientation` (`package_roots`, `test_roots`,
-`focused_test_command`). The second is the
-standalone-item merge boundary: it takes the merge lock, lands the branch on
-the project base branch, stamps `merged_at`, publishes, records execution
-evidence with the merge identity it just resolved, and then transitions the
-item — through the `dash_evidence` gate, not around it. Run
-`yoke merge item --help` for the flag matrix.
+Preparation prints one final success/refusal envelope with lane orientation,
+run recipes and absolute path. Unexpected internal failure names
+worktree-prepare-failed with lane state/retry instead of a bare traceback.
+Merge takes its lock, lands/publishes, records real execution/merge evidence
+and closes through the evidence gate. Its queue/delivery waits and conditional
+claim release belong to [merge.md](merge.md) and [close-out.md](close-out.md).
+Read merge item --help rather than inventing a function id or hand merge.

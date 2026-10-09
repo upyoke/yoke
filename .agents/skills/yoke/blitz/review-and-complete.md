@@ -31,11 +31,11 @@ Revise the linked document with this exact completion shape:
 ```markdown
 ## Blitz Completion
 
-- Completed: <delivered outcomes>
-- Changed: <departures from the starting plan, or none>
-- Remaining: <open work, or nothing remains>
+- Completed: <what was completed: delivered outcomes>
+- Changed: <what changed from the starting plan, or none>
+- Remaining: <what remains: open work, or nothing>
 - Verification identities: <commands, receipts, runs, commits, or artifacts>
-- Parent reconciliation: <parent update and revision, or no parent exists>
+- Parent reconciliation: <how the parent strategy was reconciled, its revision, or no parent exists>
 ```
 
 Append final Slice Log with document revision/final verification. Re-read
@@ -51,10 +51,10 @@ When release still owes selected-flow delivery, keep the work claim and park thi
 Its delivery wake resumes the same definition-driven walk.
 The terminal edge still runs `doc_completion` and document-archive semantics.
 
-Terminal transition atomically releases the item-owned document claim and all
-registered Blitz lanes, and archives the execution document only when no other
-non-terminal Blitz links it. Already archived is a no-op; shared live documents
-stay active; parents are never archived here. Archive failure
+The terminal transition atomically archives the linked execution document only when no other
+non-terminal Blitz links it, and releases the item-owned document claim and all
+registered Blitz lanes. Already archived is a no-op; a shared live document stays active;
+the parent document is never archived here. Archive failure
 `GATE_BLITZ_DOCUMENT_ARCHIVE_FAILED` retains stage and names retry recovery.
 Use that recovery, rather than manual archival. After terminal success:
 

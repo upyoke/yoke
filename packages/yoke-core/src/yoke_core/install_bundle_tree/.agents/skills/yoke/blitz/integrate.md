@@ -13,7 +13,7 @@ yoke item-worktrees list ITEM --json
 
 Repeat create with `--lane-role integration`, then rerun the ordinary worktree preparation
 to materialize pathless registrations over either HTTPS or machine-local
-Postgres. Verify all recorded paths. The item owns every lane; main holds
+Postgres. Verify every registered worker worktree and its recorded path. The item owns every lane; main holds
 its work claim. Parallel work requires registered branches/directories.
 
 Each worker brief names outcome/exact files, registered lane, focused checks,

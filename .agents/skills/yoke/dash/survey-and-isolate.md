@@ -1,160 +1,99 @@
-# Dash phases 2–3 — survey the touch set, then isolate
+# Dash — survey the complete touch set, then isolate
 
-## 2. Infer and survey the touch set
+## Bounded survey
 
-**Bounded discovery only.** This step exists to name candidate files, not to
-read, trace, or fix them. The moment you can name the likely touch set, stop
-and record the survey below, then isolate — deep reading, call-chain tracing,
-and edits belong inside the worktree phase 3 creates, never here. A long
-investigation that never paused to survey and isolate is a Dash that started
-implementing on main.
+Before isolation, discover only far enough to name likely targets.
+Source/test roots come from project rules or tracked roots; enumerate with
+`rg --files` before reading. No invented conventional roots, unmatched zsh
+globs or guessed implementation paths. Prefer concrete files over directories.
+Deep tracing and edits belong in the lane.
 
-Discover this project's source and test roots before grepping — read them from
-the project rules file, or derive tracked top-level roots with
-`git ls-files | cut -d/ -f1 | sort -u`. Enumerate candidates from those
-resolved roots with `rg --files ... | rg '<name-or-symbol>'` before reading;
-never pass optional path globs to zsh, invent a conventional source root, or
-mirror a test filename into an assumed implementation path. Use imports or
-symbols to find the owner. Then read only far enough to name the likely touch
-set. Prefer files; use a directory only when the work genuinely spans it.
-
-Record the survey:
+Use `direct_workflow.dash.survey`:
 
 ```text
-yoke direct-workflow dash survey ITEM --path <path> [--path <path> ...] --json
+yoke direct-workflow dash survey ITEM --path <path> --json
 yoke direct-workflow dash survey ITEM --no-changes --json
 ```
 
-Use the second, empty-intent form only for a grounded no-change outcome. The
-forms are exclusive; never invent a placeholder path for a no-change Dash.
+The two forms are exclusive; no-changes needs a grounded no-edit finding,
+never a placeholder. Every survey call replaces the entire stored touch set;
+repeat all required paths on each call. Rediscover through
+`yoke direct-workflow conflict-survey status ITEM --json`.
+Receipt `touch_path_update="replace"` echoes the whole set.
 
-Every survey call replaces the entire stored touch set; it never widens the
-previous set. Repeat every still-required path on every call. To rediscover
-the live survey at path-widening time, run
-`yoke direct-workflow conflict-survey status ITEM --json` — there is no
-`yoke survey` command. The receipt names this as `touch_path_update="replace"`
-and echoes the complete stored set.
+Read every path_sizes count, headroom, at/over flag, limit, classification and
+exists. New and existing-empty both count zero; exists distinguishes them.
+Do not open/select a file that is not authored yet. At/over-limit is a
+preimplementation split/home decision, not a problem deferred to commit.
 
-The response's `path_sizes` carries `current_line_count`, `remaining_headroom`,
-`at_or_over_limit`, `limit`, `classification`, and `exists` for every path.
-Treat an at/over-limit path as a pre-implementation split or alternate-home
-decision; do not wait for the commit gate.
+## Independent policy axes
 
-`exists` is the file's own answer, not an inference from its size: a path the
-work will create and an existing empty file both count zero lines. Read it
-before opening or test-selecting a surveyed path — `false` means the change
-authors that file, so there is nothing there to read yet. The human receipt
-prints the same fact as a trailing `existing` / `new` on each `survey-size`
-line.
+Enabled File Budget: persist complete edit targets, responsibilities and
+survey sizing in the spec's File Budget through
+`items.structured_field.section_upsert`.
+Disabled: no invented section. Claims enabled/budget off: survey supplies
+claim scope. Both enabled: pair full enumerations. Budget enabled/claims off:
+retain sizing/conflict evidence without registering. Neither: instruction and
+survey still define scope. Never remove a required file to clear a contact.
 
-## File Budget and path claims
-
-When `FILE_BUDGET_POLICY` is non-`optional`, persist the surveyed edit targets
-and their single responsibilities plus the survey's same per-path sizing
-fields under `## File Budget` through
-`items.structured_field.section_upsert` before implementation. When disabled,
-do not require or invent the section. When `PATH_CLAIMS_POLICY` is
-non-`optional` and budget is off, the survey itself is the claim-path source.
-When both are enabled, pair their enumerations. When budget is on and claims
-are off, use the budget for sizing and conflict evidence without registering a
-claim. When both are off, the stored instruction and survey define scope
-without either artifact.
-
-## Resolving a survey contact
+## Contacts
 
 For every reported survey contact, read the advisory and choose:
 
-- proceed when the edits are independent; same-file collisions resolve at merge;
-- when the decision needs holder evidence, ask an addressable holder for that
-  evidence with the harness task-messaging tool (`send_message_to_thread` in
-  Codex). When the holder is not addressable in the current harness, give the
-  operator its session id and wait;
-- when the edits are order-dependent, wait for the holding work to land
-  (merge receipt, merged_at, or git ancestry — not status) and re-run the survey;
-- when a directory survey was only a discovery aid, narrow it to the complete
-  concrete file set before preparation, repeating every required file in the
-  replacement survey;
-- when an overlap cannot be decided or resolved from the surfaced evidence,
-  release the work claim and present the holder, paths, and evidence to the
-  operator; do not create a dependency or attestation, or continue editing
-  through uncertainty;
-- if the survey reveals a decision boundary — an unclear requirement, work in
-  another project, missing authorization, or a conflicting requirement — stop
-  and follow [`escalate.md`](escalate.md), which asks the question and keeps
-  the Dash. A larger-than-expected touch set is not such a boundary.
+- Independent edits may proceed; same-file integration is resolved at merge.
+- If you need holder evidence, ask an addressable holder for that evidence
+  through an available harness-native task channel (`send_message_to_thread`
+  only where the harness offers it). If unavailable, give the operator the
+  exact holder session id and wait; do not substitute Fleet item/session mail.
+- Ordered edits wait for the holding work to land, proved by merge receipt,
+  merged_at or ancestry, then re-run the survey.
+- A directory used only for discovery: narrow it to the complete
+  concrete file set before preparation, repeating all required paths.
+- Unresolved overlap: release the work claim and present the holder, paths, and evidence to the operator.
+  Do not invent a dependency/attestation or edit through uncertainty.
+- Actual scope/authority/requirement decision: follow
+  [escalate.md](escalate.md). Larger scope alone is not a boundary.
 
-Selected path-claim posture is a separate coverage obligation, never a remedy
-for a survey contact. When effective path claims are enabled, keep the inferred
-set complete and register or widen it through `claims.path.register` /
-`claims.path.widen` before preparation; preparation only validates that
-coverage.
+Selected path-claim posture is separate coverage, never a survey-contact
+remedy. Register/widen every required inferred file before preparation.
+The preparation call validates that coverage; it does not author it.
 
-Never remove a required file merely to make the survey clear.
+## Prepare immediately
 
-## 3. Claim and isolate
-
-Run this immediately after recording the survey — before reading further file
-contents, tracing implementation details, or making any edit.
-
-Prepare the item lane (a `--no-changes` survey skips creation):
+Before deeper reads, tracing or edits:
 
 ```text
 yoke direct-workflow worktree prepare ITEM --workflow dash --json
 ```
 
-No environment override is required. Validation-surface provisioning is a
-best-effort local lane convenience, not a Dash preparation gate; an HTTPS
-control plane has no local capability database to inspect and skips that step
-silently. Governed migration rehearsal remains the validation authority when
-the instruction changes a database model.
+No environment override is required. HTTPS skips best-effort local validation
+provisioning; governed rehearsal remains database-change authority.
+Use returned absolute worktree_path for reads, edits, tests and git.
+lane_orientation owns package/test roots and focused_test_command;
+run_recipes owns lane execution. Cursor stays rooted at its conversation home;
+do not remount into a lane. Use an explicit live working_directory if Shell
+would inherit a deleted cwd.
 
-Use the returned absolute `worktree_path` for every read, edit, test, and git
-command. The receipt's `lane_orientation` answers where the work goes without
-guessing: `package_roots` are the project's declared source roots,
-`test_roots` its declared test roots, and `focused_test_command` the exact
-focused check to run over named files. `run_recipes` names the run surfaces
-for the lane. Keep the Cursor agent rooted on the main project checkout — do not call
-`move_agent_to_root` (or otherwise remount the chat) into `.worktrees/...`. Yoke
-worktrees are code lanes, not the conversation home; remounting assigns a new
-Cursor conversation id and, after the lane is removed, leaves Shell stuck on a
-deleted cwd (`ENOENT`). Pass an explicit live `working_directory` when Shell
-would inherit a worktree or deleted path.
+Preparation reuses the claim, validates selected coverage, activates it,
+verifies current tracked upstream, and creates/reuses the registered lane.
+It uses the item's own project machine mapping and refuses a missing mapping
+rather than borrowing this repo. Repair a wrong recorded path through
+item-worktrees path-record. One project/one item/one lane; extra-project work
+needs a linked companion and the scope decision in escalation.
 
-The preparation call reuses the item work claim already held since phase 1
-(reporting `work-claim:already-owned`, or acquiring it if absent), validates
-selected path-claim coverage against the survey, activates those claims, brings
-the project's default branch current with the remote that tracks it, and
-creates or reuses the registered worktree.
+## Activate or resume
 
-An item belonging to another project prepares its lane in THAT project's
-checkout: preparation resolves the item's project machine mapping
-(`yoke project register <checkout> --project-id <id>` adds a missing one) and
-refuses rather than borrowing the session's repo. The work claim covers the
-recorded lane; repair a wrong-repo lane with `yoke item-worktrees path-record`.
-One item never gets a second lane in another repo. Work the instruction turns
-out to mandate in a second project needs its own companion item filed there and
-linked by an `item_dependencies` edge — a scope judgment the operator owns, so
-follow [`escalate.md`](escalate.md) rather than writing into that repo from here.
-
-Activate through `lifecycle.transition.execute` using the pinned definition.
-Read `yoke workflows item get ITEM --json`, then
-`yoke workflows version get WORKFLOW_ID WORKFLOW_VERSION --json` with the
-returned pin. Set `LIVE_STAGE` to the item's current status and `NEXT_STAGE`
-to the unique forward target whose `from_stage_id` equals `LIVE_STAGE` in
-`definition.transitions`, using
-`definition.stages` order to distinguish forward edges from rework. Confirm
-the active half-open `definition.skill_bindings` interval belongs to Dash.
-If there is no unique forward edge, stop with `workflow_next_stage_ambiguous`
-and ask the workflow owner to repair or select the declared route; never
-invent a target. Skip activation when resuming an already-active lane:
+Read workflows.item.get and its exact workflows.version.get.
+LIVE_STAGE comes from status; NEXT_STAGE is the unique declared forward edge
+from it, using stage order to separate rework. Confirm the live half-open Dash
+binding. Missing/ambiguous edge refuses workflow_next_stage_ambiguous; ask the
+workflow owner, never invent a route. Resumed active lanes skip entry activation.
 
 ```text
 yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE --reason "Dash execution started"
 ```
 
-The live `conflict_survey` gate requires a recorded, readable touch set and
-re-evaluates current contacts, but an overlap does not block the transition.
-The `work_claim_activation` gate verifies this session owns the item claim.
-`--no-changes` skips the git lane; otherwise the item needs its worktree.
-
-Next: [`implement.md`](implement.md).
+The conflict_survey gate requires readable full scope and rereads contacts,
+but overlap does not block the transition. The `work_claim_activation` gate
+requires this session's claim. No-changes skips git isolation; otherwise the
+registered worktree is required. Next: [implement.md](implement.md).
