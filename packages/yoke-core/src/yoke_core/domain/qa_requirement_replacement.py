@@ -37,7 +37,7 @@ def _row(conn: Any, requirement_id: int) -> dict[str, Any] | None:
     row = query_one(
         conn,
         "SELECT id,item_id,epic_id,task_num,deployment_run_id,deployment_stage,"
-        "deployment_member_item_id,execution_target_digest,target_env,host_baseline,workflow_transition_id,"
+        "deployment_member_item_id,execution_target_json,execution_target_digest,target_env,host_baseline,workflow_transition_id,"
         "qa_phase,plan_case_key,blocking_mode,waived_at,retracted_at,"
         "superseded_by_requirement_id,replacement_requirement_id "
         "FROM qa_requirements WHERE id=%s",

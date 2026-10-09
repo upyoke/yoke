@@ -9,10 +9,12 @@ release admits it again.
 
 Retirement is the step that makes the correction stick. The operator
 records the corrected body as a new item requirement for the same item,
-transition, phase and target, then supersedes the source with it. Neither
+transition, phase and resolved environment, then supersedes the source with
+it. Neither
 item row has a verdict to show (post-deploy sources are never run), so the
 proof is the run's: at least one admitted copy of the source must already be
-superseded by a run case that passed. That passing case stays the answer
+replaced or superseded by a run case whose terminal successor passed. That
+passing case stays the answer
 for its run -- :func:`admitted_source_lineage` lets the corrected
 requirement read the retired source's copies on a run that admitted the
 source -- and later releases admit only the corrected body, because
@@ -45,7 +47,8 @@ NEXT_ADMISSION_NOTICE = (
     "fresh copy of the same body. Retire the source: record the corrected "
     "body as a new item requirement (yoke qa requirement add --item "
     "<item ref> --method-id {method_id} --qa-phase post_deploy "
-    "--workflow-transition {transition} --target-env {target_env} with the "
+    "--workflow-transition {transition} --target-env {target_env} naming the "
+    "source snapshot destination (no matching snapshot digest is needed), with the "
     "corrected --instructions, --expected-outcome and --method-config), then "
     "yoke qa requirement supersede --requirement-id {source_id} "
     "--superseded-by-requirement-id <corrected-item-requirement-id> "
@@ -55,12 +58,13 @@ NEXT_ADMISSION_NOTICE = (
 #: Refused when no admitted copy of the source was answered by a passing run
 #: case: neither item row ever executes, so nothing else proves the new body.
 SOURCE_RETIREMENT_REFUSAL = (
-    "requirement {source_id} is a post_deploy item source: neither it nor a "
+    "source_retirement_unproven: requirement {source_id} is a post_deploy item source: neither it nor a "
     "corrected item requirement ever executes, so the proof that the "
     "corrected body is right comes from a run. Correct one of its admitted "
     "copies first -- materialize the corrected case with --replaces "
     "CASE_KEY=<failed copy id> on that run's stage and record its passing "
-    "verdict -- then re-run this supersede."
+    "current configuration-and-target-qualified verdict on its terminal successor "
+    "-- then re-run this supersede."
 )
 
 _LINEAGE_COLUMNS = "id,item_id,plan_id,plan_case_key"
@@ -75,20 +79,43 @@ def is_source_retirement(broken: Mapping[str, Any]) -> bool:
     )
 
 
+def source_retirement_scope(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Item source identity uses its destination, not its admission snapshot."""
+    from yoke_core.domain.deployment_member_post_deploy_admission import (
+        requirement_target_environment,
+    )
+
+    return dict(
+        row,
+        execution_target_digest="",
+        target_env=requirement_target_environment(
+            row.get("target_env"), row.get("execution_target_json")
+        ),
+    )
+
+
 def passing_run_replacement(conn: Any, source: Mapping[str, Any]) -> int | None:
-    """The passing run case that superseded an admitted copy of *source*."""
+    """The current passing terminal successor of a corrected admitted copy."""
     from yoke_core.domain.qa_obligation_settlement import effective_requirement
     from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 
     identity, params = admitted_requirement_identity_clause(source)
+    environment = source_retirement_scope(source)["target_env"]
     copies = query_rows(
         conn,
-        "SELECT id,superseded_by_requirement_id FROM qa_requirements "
+        "SELECT id,target_env,execution_target_json FROM qa_requirements "
         f"WHERE deployment_run_id IS NOT NULL AND deployment_member_item_id=%s "
-        f"AND superseded_by_requirement_id IS NOT NULL AND {identity} ORDER BY id",
+        "AND (superseded_by_requirement_id IS NOT NULL "
+        "OR replacement_requirement_id IS NOT NULL) "
+        f"AND {identity} ORDER BY id",
         (int(source["item_id"]), *params),
     )
     for copy in copies:
+        if (
+            environment
+            and source_retirement_scope(dict(copy))["target_env"] != environment
+        ):
+            continue
         replacement_id = int(effective_requirement(conn, int(copy["id"]))["id"])
         if has_current_passing_run(conn, replacement_id):
             return replacement_id
@@ -149,7 +176,7 @@ def admitted_source_correction(conn: Any, broken: Mapping[str, Any]) -> dict[str
         return {}
     source = query_one(
         conn,
-        "SELECT id,method_id,workflow_transition_id,target_env,waived_at,"
+        "SELECT id,method_id,workflow_transition_id,target_env,execution_target_json,waived_at,"
         f"superseded_by_requirement_id,{requirement_retracted_at_select(conn)} "
         "FROM qa_requirements WHERE id=%s",
         (int(source_id),),
@@ -163,7 +190,8 @@ def admitted_source_correction(conn: Any, broken: Mapping[str, Any]) -> dict[str
             source_id=int(source_id),
             method_id=source["method_id"] or "<method>",
             transition=source["workflow_transition_id"] or "<transition>",
-            target_env=source["target_env"] or "<environment>",
+            target_env=source_retirement_scope(dict(source))["target_env"]
+            or "<environment>",
         ),
     }
 
@@ -176,4 +204,5 @@ __all__ = [
     "is_source_retirement",
     "lineage_identity_clause",
     "passing_run_replacement",
+    "source_retirement_scope",
 ]
