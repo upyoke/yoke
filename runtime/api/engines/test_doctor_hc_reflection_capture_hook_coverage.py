@@ -1,4 +1,5 @@
 """Tests for HC-reflection-capture-hook-coverage and HC-reflection-capture-unhandled."""
+
 from __future__ import annotations
 
 import json
@@ -31,15 +32,18 @@ def _make_conn(*, with_events_table: bool = True) -> Any:
     name = pg_testdb.create_test_database()
     conn = pg_testdb.connect_test_database(name)
     if with_events_table:
-        apply_fixture_ddl(conn, """
+        apply_fixture_ddl(
+            conn,
+            """
             CREATE TABLE events (
                 id INTEGER PRIMARY KEY,
                 event_name TEXT NOT NULL,
                 tool_name TEXT,
                 payload TEXT,
-                created_at TEXT NOT NULL DEFAULT (now()::text)
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """,
+        )
     return pg_testdb.drop_database_on_close(conn, name)
 
 
@@ -53,9 +57,12 @@ def _insert_event(conn, event_name, tool_name=None, payload=None, age_hours=0):
     conn.execute(
         "INSERT INTO events(event_name, tool_name, payload, created_at) "
         "VALUES(%s, %s, %s, %s)",
-        (event_name, tool_name,
-         json.dumps(payload) if payload is not None else None,
-         _stamp(age_hours)),
+        (
+            event_name,
+            tool_name,
+            json.dumps(payload) if payload is not None else None,
+            _stamp(age_hours),
+        ),
     )
     conn.commit()
 
@@ -78,10 +85,15 @@ class TestCoverageHC:
     def test_pass_when_all_calls_matched(self):
         conn = _make_conn()
         for ttid in ("toolu_01", "toolu_02"):
-            _insert_event(conn, "HarnessToolCallCompleted",
-                          tool_name="Agent", payload={"tool_use_id": ttid})
-            _insert_event(conn, "ReflectionCaptureHookFired",
-                          payload={"tool_use_id": ttid})
+            _insert_event(
+                conn,
+                "HarnessToolCallCompleted",
+                tool_name="Agent",
+                payload={"tool_use_id": ttid},
+            )
+            _insert_event(
+                conn, "ReflectionCaptureHookFired", payload={"tool_use_id": ttid}
+            )
         rec = _FakeRecord()
         hc_reflection_capture_hook_coverage(conn, _FakeArgs(), rec)
         assert rec.records[0][2] == "PASS"
@@ -89,8 +101,12 @@ class TestCoverageHC:
 
     def test_fail_when_call_missing_fired_event(self):
         conn = _make_conn()
-        _insert_event(conn, "HarnessToolCallCompleted",
-                      tool_name="Agent", payload={"tool_use_id": "toolu_orphan"})
+        _insert_event(
+            conn,
+            "HarnessToolCallCompleted",
+            tool_name="Agent",
+            payload={"tool_use_id": "toolu_orphan"},
+        )
         rec = _FakeRecord()
         hc_reflection_capture_hook_coverage(conn, _FakeArgs(), rec)
         assert rec.records[0][2] == "FAIL"
@@ -114,14 +130,17 @@ class TestUnhandledHC:
     def test_warn_when_unhandled_present(self):
         conn = _make_conn()
         _insert_event(
-            conn, "ReflectionCaptureHookUnhandled",
+            conn,
+            "ReflectionCaptureHookUnhandled",
             payload={
                 "tool_use_id": "toolu_03",
                 "role": "engineer",
                 "blocks_unrecognized": 1,
                 "raw_examples": [
-                    {"excerpt": "completely novel shape body...",
-                     "classification_attempt": "unrecognized_shape"},
+                    {
+                        "excerpt": "completely novel shape body...",
+                        "classification_attempt": "unrecognized_shape",
+                    },
                 ],
             },
         )
@@ -135,9 +154,13 @@ class TestUnhandledHC:
         conn = _make_conn()
         for i in range(15):
             _insert_event(
-                conn, "ReflectionCaptureHookUnhandled",
-                payload={"tool_use_id": f"toolu_{i:02d}", "blocks_unrecognized": 1,
-                         "raw_examples": [{"excerpt": f"shape-{i}"}]},
+                conn,
+                "ReflectionCaptureHookUnhandled",
+                payload={
+                    "tool_use_id": f"toolu_{i:02d}",
+                    "blocks_unrecognized": 1,
+                    "raw_examples": [{"excerpt": f"shape-{i}"}],
+                },
             )
         rec = _FakeRecord()
         hc_reflection_capture_unhandled(conn, _FakeArgs(), rec)

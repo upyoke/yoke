@@ -1,5 +1,8 @@
 """Tests for HC-reflection-capture-persist-failed."""
+
 from __future__ import annotations
+
+import pytest
 
 import json
 from datetime import datetime, timedelta, timezone
@@ -28,15 +31,18 @@ def _make_conn(*, with_events_table: bool = True) -> Any:
     name = pg_testdb.create_test_database()
     conn = pg_testdb.connect_test_database(name)
     if with_events_table:
-        apply_fixture_ddl(conn, """
+        apply_fixture_ddl(
+            conn,
+            """
             CREATE TABLE events (
                 id INTEGER PRIMARY KEY,
                 event_name TEXT NOT NULL,
                 tool_name TEXT,
                 payload TEXT,
-                created_at TEXT NOT NULL DEFAULT (now()::text)
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """,
+        )
     return pg_testdb.drop_database_on_close(conn, name)
 
 
@@ -48,11 +54,12 @@ def _stamp(age_hours: int = 0) -> str:
 
 def _insert_event(conn, event_name, payload=None, age_hours=0):
     conn.execute(
-        "INSERT INTO events(event_name, payload, created_at) "
-        "VALUES(%s, %s, %s)",
-        (event_name,
-         json.dumps(payload) if payload is not None else None,
-         _stamp(age_hours)),
+        "INSERT INTO events(event_name, payload, created_at) VALUES(%s, %s, %s)",
+        (
+            event_name,
+            json.dumps(payload) if payload is not None else None,
+            _stamp(age_hours),
+        ),
     )
     conn.commit()
 
@@ -75,7 +82,8 @@ class TestPersistFailedHC:
     def test_warn_when_persist_failed_present(self):
         conn = _make_conn()
         _insert_event(
-            conn, "ReflectionCapturePersistFailed",
+            conn,
+            "ReflectionCapturePersistFailed",
             payload={
                 "agent": "engineer",
                 "category": "problems-encountered",
@@ -100,10 +108,13 @@ class TestPersistFailedHC:
             ("game-changing-ideas", "OperationalError"),
         ):
             _insert_event(
-                conn, "ReflectionCapturePersistFailed",
+                conn,
+                "ReflectionCapturePersistFailed",
                 payload={
-                    "agent": "tester", "category": category,
-                    "body_excerpt": "x", "exception_type": exc,
+                    "agent": "tester",
+                    "category": category,
+                    "body_excerpt": "x",
+                    "exception_type": exc,
                 },
             )
         rec = _FakeRecord()
@@ -119,9 +130,11 @@ class TestPersistFailedHC:
         conn = _make_conn()
         for i in range(15):
             _insert_event(
-                conn, "ReflectionCapturePersistFailed",
+                conn,
+                "ReflectionCapturePersistFailed",
                 payload={
-                    "agent": "engineer", "category": "friction",
+                    "agent": "engineer",
+                    "category": "friction",
                     "body_excerpt": f"excerpt-{i}",
                     "exception_type": "OperationalError",
                 },
@@ -134,11 +147,46 @@ class TestPersistFailedHC:
     def test_ignores_events_older_than_24h(self):
         conn = _make_conn()
         _insert_event(
-            conn, "ReflectionCapturePersistFailed",
-            payload={"agent": "engineer", "category": "friction",
-                     "body_excerpt": "stale", "exception_type": "X"},
+            conn,
+            "ReflectionCapturePersistFailed",
+            payload={
+                "agent": "engineer",
+                "category": "friction",
+                "body_excerpt": "stale",
+                "exception_type": "X",
+            },
             age_hours=48,
         )
         rec = _FakeRecord()
         hc_reflection_capture_persist_failed(conn, _FakeArgs(), rec)
         assert rec.records[0][2] == "PASS"
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_native_event_lookback_keeps_exact_microsecond_cutoff(monkeypatch, zone):
+    from yoke_contracts.timestamps import parse_instant
+    from yoke_core.engines import doctor_hc_reflection_capture_persist_failed as owner
+
+    stamp = parse_instant("1969-12-31T23:59:59.123456Z")
+    conn = _make_conn()
+    try:
+        conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+        monkeypatch.setattr(owner, "utc_now", lambda: stamp)
+        cutoff = stamp - timedelta(hours=24)
+        for created in [
+            cutoff - timedelta(microseconds=1),
+            cutoff,
+            cutoff + timedelta(microseconds=1),
+        ]:
+            conn.execute(
+                "INSERT INTO events(event_name,payload,created_at) VALUES(%s,%s,%s)",
+                ("ReflectionCapturePersistFailed", "{}", created),
+            )
+        conn.commit()
+        entries = owner._persist_failed_entries_24h(conn)
+        assert [row["created_at"] for row in entries] == [
+            cutoff + timedelta(microseconds=1),
+            cutoff,
+        ]
+    finally:
+        conn.close()

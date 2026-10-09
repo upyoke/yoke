@@ -25,15 +25,15 @@ CREATE TABLE work_claims (
     target_kind TEXT NOT NULL,
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
-    claimed_at TEXT NOT NULL,
-    last_heartbeat TEXT,
-    released_at TEXT,
+    claimed_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ,
+    released_at TIMESTAMPTZ,
     release_reason TEXT,
     release_reason_intent TEXT
 );
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY,
-    ended_at TEXT
+    ended_at TIMESTAMPTZ
 );
 """
 
@@ -57,6 +57,7 @@ def _insert_claim(conn, **kwargs) -> None:
     )
     conn.commit()
 
+
 _AUDIT_DDL = """
 CREATE TABLE migration_audit (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -66,16 +67,14 @@ CREATE TABLE migration_audit (
     source_commit TEXT,
     integration_target TEXT,
     worktree TEXT,
-    completed_at TEXT
+    completed_at TIMESTAMPTZ
 );
 """
 
 
 def _make_conn(ddl: Optional[str] = None):
     name = pg_testdb.create_test_database()
-    c = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    c = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     if ddl:
         apply_fixture_ddl(c, ddl)
     return c
@@ -208,7 +207,7 @@ class TestStaleOrOrphan:
         conn = _make_conn(
             "CREATE TABLE work_claims (id INTEGER PRIMARY KEY, "
             "session_id TEXT, target_kind TEXT, scope TEXT, "
-            "claimed_at TEXT, released_at TEXT, release_reason TEXT);"
+            "claimed_at TIMESTAMPTZ, released_at TIMESTAMPTZ, release_reason TEXT);"
         )
         try:
             rec = _run_stale(conn)
@@ -258,18 +257,22 @@ class TestUnmergedSource:
         assert rec.results[-1].result == "PASS"
 
     def test_warns_when_source_commit_not_on_target(
-        self, audit_conn, tmp_path: Path,
+        self,
+        audit_conn,
+        tmp_path: Path,
     ) -> None:
         repo = tmp_path / "repo"
         repo.mkdir()
         subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True)
         subprocess.run(
             ["git", "config", "user.email", "test@example.com"],
-            cwd=repo, check=True,
+            cwd=repo,
+            check=True,
         )
         subprocess.run(
             ["git", "config", "user.name", "Yoke Test"],
-            cwd=repo, check=True,
+            cwd=repo,
+            check=True,
         )
         (repo / "file.txt").write_text("main\n")
         subprocess.run(["git", "add", "file.txt"], cwd=repo, check=True)
@@ -278,7 +281,9 @@ class TestUnmergedSource:
         (repo / "file.txt").write_text("feature\n")
         subprocess.run(["git", "commit", "-am", "feature"], cwd=repo, check=True)
         source_commit = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=repo, text=True,
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo,
+            text=True,
         ).strip()
         subprocess.run(["git", "checkout", "main"], cwd=repo, check=True)
         subprocess.run(["git", "branch", "-D", "feature"], cwd=repo, check=True)

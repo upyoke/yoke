@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.engines.doctor_hc_reflection_capture_hook_coverage import (
     _cutoff_24h,
     _events_table_present,
@@ -40,9 +41,8 @@ def _tool_use_ids_24h(conn: Any, event_predicate: str) -> set[str]:
     try:
         p = _p(conn)
         rows = conn.execute(
-            f"SELECT payload FROM events WHERE {event_predicate} "
-            f"AND created_at >= {p}",
-            (_cutoff_24h(),),
+            f"SELECT payload FROM events WHERE {event_predicate} AND created_at >= {p}",
+            (instant_parameter(conn, _cutoff_24h()),),
         ).fetchall()
     except db_backend.database_error_types(conn):
         return set()
@@ -55,12 +55,16 @@ def _tool_use_ids_24h(conn: Any, event_predicate: str) -> set[str]:
 
 
 def hc_reflection_capture_hook_coverage(
-    conn: Any, args: DoctorArgs, rec: RecordCollector,
+    conn: Any,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     """Every Agent-tool call in 24h emits ReflectionCaptureHookFired."""
     if not _events_table_present(conn):
         rec.record(
-            _HC_COVERAGE_NAME, _HC_COVERAGE_DESC, "PASS",
+            _HC_COVERAGE_NAME,
+            _HC_COVERAGE_DESC,
+            "PASS",
             "events table not present (fixture/minimal-schema context); skipping",
         )
         return
@@ -70,7 +74,9 @@ def hc_reflection_capture_hook_coverage(
     )
     if not agent_calls:
         rec.record(
-            _HC_COVERAGE_NAME, _HC_COVERAGE_DESC, "PASS",
+            _HC_COVERAGE_NAME,
+            _HC_COVERAGE_DESC,
+            "PASS",
             "no Agent-tool calls observed in the last 24h",
         )
         return
@@ -79,7 +85,9 @@ def hc_reflection_capture_hook_coverage(
     missing = sorted(agent_calls - fired)
     if not missing:
         rec.record(
-            _HC_COVERAGE_NAME, _HC_COVERAGE_DESC, "PASS",
+            _HC_COVERAGE_NAME,
+            _HC_COVERAGE_DESC,
+            "PASS",
             f"all {len(agent_calls)} Agent-tool calls in the last 24h "
             "have matching ReflectionCaptureHookFired events",
         )
@@ -111,5 +119,9 @@ from yoke_project_checks._declare import (  # noqa: E402
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('reflection-capture-hook-coverage', 'Every Agent-tool call in 24h emits ReflectionCaptureHookFired', hc_reflection_capture_hook_coverage),
+    (
+        "reflection-capture-hook-coverage",
+        "Every Agent-tool call in 24h emits ReflectionCaptureHookFired",
+        hc_reflection_capture_hook_coverage,
+    ),
 )

@@ -21,7 +21,9 @@ never auto-release claims or rewrite audit rows. Surface only.
 from __future__ import annotations
 
 import subprocess
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+from yoke_contracts.timestamps import format_instant, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import List, Optional
 
 from yoke_contracts.coordination_claim_keys import (
@@ -47,20 +49,30 @@ _LIST_PREVIEW = 10
 
 
 def hc_coordination_claims_stale_or_orphan(
-    conn, args: DoctorArgs, rec: RecordCollector,
+    conn,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     """Report active shared-operation claims that look stale or orphaned."""
     if not _base._table_exists(conn, "work_claims"):
-        rec.record(_HC_STALE_NAME, _HC_STALE_DESC, "PASS",
-                   "work_claims table missing — skipping")
+        rec.record(
+            _HC_STALE_NAME,
+            _HC_STALE_DESC,
+            "PASS",
+            "work_claims table missing — skipping",
+        )
         return
     for column in ("target_kind", "scope", "last_heartbeat"):
         if not _base._column_exists(conn, "work_claims", column):
-            rec.record(_HC_STALE_NAME, _HC_STALE_DESC, "PASS",
-                       f"{column} column missing — skipping")
+            rec.record(
+                _HC_STALE_NAME,
+                _HC_STALE_DESC,
+                "PASS",
+                f"{column} column missing — skipping",
+            )
             return
 
-    threshold_iso = _iso_minutes_ago(_STALE_WINDOW_MIN)
+    threshold = utc_now() - timedelta(minutes=_STALE_WINDOW_MIN)
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     kinds_sql = ", ".join(f"'{kind}'" for kind in COORDINATION_TARGET_KINDS)
     project_expr = _scope_text(conn, "project_id")
@@ -80,7 +92,7 @@ def hc_coordination_claims_stale_or_orphan(
         "    OR hs.ended_at IS NOT NULL "
         "  ) "
         "ORDER BY COALESCE(cl.last_heartbeat, cl.claimed_at) ASC, cl.id ASC",
-        (threshold_iso,),
+        (instant_parameter(conn, threshold),),
     ).fetchall()
 
     if not rows:
@@ -95,36 +107,48 @@ def hc_coordination_claims_stale_or_orphan(
     ]
     for row in rows[:_LIST_PREVIEW]:
         reason = (
-            "session ended" if row["session_ended_at"] else
-            ("no heartbeat" if row["heartbeat_at"] is None else "heartbeat stale")
+            "session ended"
+            if row["session_ended_at"]
+            else ("no heartbeat" if row["heartbeat_at"] is None else "heartbeat stale")
+        )
+        heartbeat = (
+            None if row["heartbeat_at"] is None else format_instant(row["heartbeat_at"])
         )
         issues.append(
             f"  - id={row['id']} project={row['project_id']} "
             f"key={row['lease_key']} session={row['session_id']} "
-            f"heartbeat_at={row['heartbeat_at']} ({reason})"
+            f"heartbeat_at={heartbeat} ({reason})"
         )
     if len(rows) > _LIST_PREVIEW:
         issues.append(f"  ... and {len(rows) - _LIST_PREVIEW} more")
-    issues.append(
-        "- Inspect via: `yoke coordination-claim list --active-only`"
-    )
+    issues.append("- Inspect via: `yoke coordination-claim list --active-only`")
 
     rec.record(_HC_STALE_NAME, _HC_STALE_DESC, "WARN", "\n".join(issues))
 
 
 def hc_coordination_claims_unmerged_source(
-    conn, args: DoctorArgs, rec: RecordCollector,
+    conn,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     """Report completed live-apply audit rows whose source branch never merged."""
     if not _base._table_exists(conn, "migration_audit"):
-        rec.record(_HC_UNMERGED_NAME, _HC_UNMERGED_DESC, "PASS",
-                   "migration_audit table missing — skipping")
+        rec.record(
+            _HC_UNMERGED_NAME,
+            _HC_UNMERGED_DESC,
+            "PASS",
+            "migration_audit table missing — skipping",
+        )
         return
     required = ("source_branch", "integration_target", "worktree")
     for column in required:
         if not _base._column_exists(conn, "migration_audit", column):
-            rec.record(_HC_UNMERGED_NAME, _HC_UNMERGED_DESC, "PASS",
-                       f"{column} column missing — skipping")
+            rec.record(
+                _HC_UNMERGED_NAME,
+                _HC_UNMERGED_DESC,
+                "PASS",
+                f"{column} column missing — skipping",
+            )
             return
 
     rows = conn.execute(
@@ -168,7 +192,7 @@ def hc_coordination_claims_unmerged_source(
         issues.append(f"  ... and {len(unmerged) - _LIST_PREVIEW} more")
     issues.append(
         "- Inspect via: `python3 -m yoke_core.cli.db_router query "
-        "\"SELECT id, migration_name, source_branch, source_commit, "
+        '"SELECT id, migration_name, source_branch, source_commit, '
         "integration_target FROM migration_audit WHERE state='completed'\"`"
     )
 
@@ -199,12 +223,6 @@ def _claim_key_sql(conn) -> str:
     return f"CASE cl.target_kind {branches} END"
 
 
-def _iso_minutes_ago(minutes: int) -> str:
-    return (datetime.now(timezone.utc) - timedelta(minutes=minutes)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
-
-
 def _branch_merged(
     *,
     worktree: Optional[str],
@@ -225,9 +243,19 @@ def _branch_merged(
     repo = worktree or "."
     try:
         result = subprocess.run(
-            ["git", "-C", repo, "merge-base", "--is-ancestor",
-             source_ref, integration_target],
-            check=False, capture_output=True, text=True, timeout=5,
+            [
+                "git",
+                "-C",
+                repo,
+                "merge-base",
+                "--is-ancestor",
+                source_ref,
+                integration_target,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return True
