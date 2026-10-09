@@ -130,6 +130,11 @@ FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] 
         "level": ArgumentFloor(
             "next-release", "an exact selection with --surface S [--model M]"
         ),
+        "level_reason": ArgumentFloor(
+            "next-release",
+            "--level LEVEL without --level-reason, then record the reason with "
+            "`yoke workflows item-posture amend PREFIX-N --key level`",
+        ),
     },
     "session_control.launch.preview": {
         "level": ArgumentFloor(

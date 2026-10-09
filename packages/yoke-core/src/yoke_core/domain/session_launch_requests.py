@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
 from yoke_core.domain.session_launch_idempotency import deduplicated_outcome
+from yoke_core.domain.session_launch_item_level import pin_item_level
 from yoke_core.domain.session_launch_level_placement import LEVEL_NO_CAPACITY
 from yoke_core.domain.session_launch_level_selection import (
     level_source,
@@ -129,6 +130,7 @@ def create_launch(
                 if preview.outcome == LEVEL_NO_CAPACITY
                 else launch_refusal_message(conn, preview),
             )
+        item_level = pin_item_level(conn, request=request, auth=auth)
         validate_model_selection(
             str(preview.selected_surface),
             model=request.model,
@@ -178,7 +180,7 @@ def create_launch(
             return outcome
         launch = get_launch(conn, launch_id)
         conn.commit()
-        return LaunchCreateOutcome(launch, preview, False)
+        return LaunchCreateOutcome(launch, preview, False, item_level)
     except Exception:
         conn.rollback()
         raise

@@ -16,6 +16,7 @@ from yoke_core.domain.release_wait_ownership import (
     RELEASE_WAIT_RETENTION_TEACHING,
 )
 from yoke_core.domain.session_launch_mandate_teaching import (
+    LEVEL_HANDOFF_TEACHING,
     CANDIDATE_REVIEW_TEACHING,
     COMMITTED_GATE_TEACHING,
     HEADLESS_TOOL_CONTINUATION_TEACHING,
@@ -63,6 +64,35 @@ def test_composed_mandate_keeps_the_item_resumable_by_a_restaffed_successor() ->
     assert "yoke items section get PREFIX-N --section 'Progress Log'" in teaching
     assert "keep the uncommitted work you find" in teaching
     assert "rather than repeating transitions" in teaching
+
+
+def test_the_level_handoff_steps_are_inline_not_a_pointer_to_a_doc() -> None:
+    body = _mandate()
+    assert LEVEL_HANDOFF_TEACHING in body
+    teaching = LEVEL_HANDOFF_TEACHING
+    steps = [
+        "handoff with reason level_change",
+        "takes precedence over retaining a release wait",
+        "(1) append a Progress Log checkpoint",
+        "yoke items progress-log append PREFIX-N",
+        "(2) release every claim you hold with `yoke claims work release --all-mine",
+        "(3) run the handoff's next_command exactly as returned",
+        "a refusal names its recovery",
+        "(4) verify the launch was accepted with `yoke session-control launch get",
+        "then end your session",
+    ]
+    positions = [teaching.index(step) for step in steps]
+    assert positions == sorted(positions)
+    # Older installed layers lack the section a pointer would name.
+    assert "session-level-routing" not in teaching
+    assert "Stage-level handoff" not in teaching
+
+
+def test_the_level_handoff_precedes_the_release_wait_it_overrides() -> None:
+    body = _mandate()
+    assert body.index(LEVEL_HANDOFF_TEACHING) < body.index(
+        RELEASE_WAIT_RETENTION_TEACHING
+    )
 
 
 def test_a_successor_reads_the_checkpoint_before_any_gate_or_merge() -> None:

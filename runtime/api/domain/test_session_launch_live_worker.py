@@ -151,6 +151,26 @@ def test_claim_only_live_holder_is_named(monkeypatch):
     assert "worker" in message
 
 
+def test_a_worker_holding_the_claim_is_told_to_release_it_first(monkeypatch):
+    conn, item = _create_conn(monkeypatch, status="idea")
+    conn.execute(
+        "INSERT INTO work_claims (session_id, target_kind, scope, claim_type) "
+        "VALUES ('caller', 'item', ?, 'exclusive')",
+        (make_item_target(41).scope_json(),),
+    )
+    conn.commit()
+    before = _write_counts(conn)
+    refused = _create(item, "level-successor")
+    assert not refused.primary_success
+    assert refused.error.code == "item_has_live_worker"
+    message = refused.error.message
+    assert "You hold this item's claim yourself" in message
+    assert "yoke claims work release --all-mine" in message
+    assert "then retry the same command" in message
+    assert "yoke sessions terminate" not in message
+    assert _write_counts(conn) == before
+
+
 def test_other_item_pending_launch_does_not_block(monkeypatch):
     conn, _, _ = _first(monkeypatch)
     conn.execute(

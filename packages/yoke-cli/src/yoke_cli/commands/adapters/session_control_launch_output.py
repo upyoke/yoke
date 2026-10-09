@@ -109,6 +109,7 @@ def _write_launch_detail(
     stdout: TextIO,
     *,
     deduplicated: Any = None,
+    item_level: Mapping[str, Any] | None = None,
 ) -> None:
     fields: list[tuple[str, Any]] = [
         ("Launch ID", launch.get("launch_id")),
@@ -156,6 +157,16 @@ def _write_launch_detail(
     ]
     if deduplicated is not None:
         fields.insert(2, ("Deduplicated", bool(deduplicated)))
+    if item_level:
+        recorded = "recorded" if item_level.get("changed") else "already recorded"
+        fields.insert(
+            3,
+            (
+                "Item level",
+                f"{item_level.get('level')} for every stage, {recorded} "
+                f"({item_level.get('reason')})",
+            ),
+        )
     write_summary("LAUNCH", fields, stdout)
     write_level_candidates(launch.get("level_placement"), stdout)
 
@@ -216,6 +227,7 @@ def write_launch_result(result: Mapping[str, Any], stdout: TextIO) -> None:
             launch,
             stdout,
             deduplicated=result.get("deduplicated"),
+            item_level=result.get("item_level"),
         )
         return
     if "outcome" in result or "eligible_relays" in result:

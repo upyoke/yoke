@@ -117,3 +117,24 @@ def test_only_carried_arguments_count_toward_a_floor() -> None:
     assert declared_argument_floors(LAUNCH_CREATE, {"level": ""}) == {}
     assert declared_argument_floors(LAUNCH_CREATE, None) == {}
     assert declared_argument_floors("items.get.run", {"level": "SENIOR"}) == {}
+
+
+def test_a_level_reason_refused_as_payload_invalid_names_its_own_floor(
+    monkeypatch,
+) -> None:
+    request = _request(
+        LAUNCH_CREATE,
+        {
+            "project": "yoke",
+            "item": "YOK-1",
+            "level": "SENIOR",
+            "level_reason": "needs design judgment",
+        },
+    )
+
+    response = _retype(monkeypatch, request, _refused(request, "payload_invalid"))
+
+    error = response.error
+    assert error.code == ARGUMENT_SKEW_ERROR_CODE
+    assert "level_reason (minimum serving version next-release)" in error.message
+    assert "item-posture amend PREFIX-N --key level" in error.recovery_hint
