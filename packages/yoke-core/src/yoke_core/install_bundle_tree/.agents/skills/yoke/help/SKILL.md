@@ -86,7 +86,7 @@ WORKFLOW ROUTING
  yoke workflows version get <workflow> <version> --json
   Read immutable stages/transitions/gates/skill bindings. The half-open binding
   owns the live stage; through_stage_id is the command/claim handoff. Use returned
-  next_skill_id. The definition owns lifecycle flows, including release wait.
+  next_skill_id. The definition owns lifecycle flows, including the release wait.
 
 DEPENDENCY INSPECTION
  Authority: item_dependencies.

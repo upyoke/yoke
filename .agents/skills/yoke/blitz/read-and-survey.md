@@ -1,105 +1,72 @@
-# /yoke blitz steps 1–3 — read the document, survey, isolate
+# Blitz — read, survey, isolate
 
-## 1. Read the item and execution document
+## 1. Read authority
 
-Read both projections:
-
-```text
+```sh
 yoke items detail get ITEM --json
 yoke workflows item get ITEM --json
 yoke strategy execution get ITEM --json
-```
-
-Require `workflow_id=blitz`, a single document slug, and no conflicting
-active document claim. Read the full authoritative document with:
-
-```text
 yoke strategy doc get <SLUG> --project <PROJECT>
 ```
 
-Extract the required outcomes, explicit slice boundaries, affected areas,
-dependencies, delivery actions, verification, unresolved decisions, and
-parent-strategy relationship. If the document cannot cold-start an
-executor, stop for plan repair; do not fabricate scope.
+Require `workflow_id=blitz`, one linked slug and no conflicting active
+document claim. Extract outcomes, explicit slices, areas, dependencies,
+delivery, verification, unresolved decisions and parent relationship.
+Insufficient cold-start instructions require plan repair before execution.
 
-Read effective `file_budget` and `path_claims` independently from
-`workflows.item.get` at `result.effective_policies.file_budget` and
-`result.effective_policies.path_claims`. `optional` is off; `required` and
-`required_per_task` apply at their reported scopes. Never reconstruct these
-values from raw policies or posture: the central projection owns historical
-compatibility and allowed tightening. When File Budget is enabled, require
-the execution document to carry an enumerated `## File Budget`; the document
-remains the authority, so do not copy it into the item body. When disabled,
-do not require that section. The universal 350-line check always applies.
+Read `result.effective_policies.file_budget` and `.path_claims` independently
+from `workflows.item.get`: `optional` is off; `required`/`required_per_task`
+apply at returned scopes. The central projection owns compatibility/tightening.
+Enabled File Budget requires an enumerated `## File Budget` in the execution
+document, without copying it into the item; off requires none. Always 350 lines.
 
-## 2. Survey before activation
+## 2. Bounded survey before activation
 
-**Bounded discovery only.** Name candidate paths from the document's
-affected areas — do not read them end to end here. Record the survey, then
-move to step 3 before any deeper investigation or edit.
+Name candidate paths from document areas, without end-to-end file reads.
+Include every required area, then record:
 
-Translate the document's affected areas into likely file or directory
-paths and record them:
-
-```text
+```sh
 yoke direct-workflow blitz survey ITEM --path <path> [--path <path> ...] --json
 ```
 
-Survey contacts are advisories: proceed when edits are independent, or
-yield by authoring a dependency and dropping this claim. Coordinate
-every collision in the execution document's append-only surfaces. Wait,
-reorder slices, or enable and register path claims when the document
-needs stronger serialization. A planned claim is not a stronger reason
-to yield than an active one. Never omit a required area to obtain a
-clear survey.
+Contacts are advisory: proceed for independent edits; order-dependent work
+authors a dependency, drops the claim and yields. Planned claims are no stronger
+than active claims. Coordinate collisions in append-only document surfaces;
+wait, reorder or enable/register complete claims for stronger serialization.
 
-Apply File Budget and path claims as this matrix:
+| Budget | Claims | Scope evidence |
+|---|---|---|
+| on | on | Budget targets plus complete claim coverage |
+| off | on | Document/survey-derived claim paths |
+| on | off | Budget sizing/conflicts, without claim registration |
+| off | off | Document and survey, without either artifact |
 
-- both on: pair File Budget edit targets with complete claim coverage;
-- budget off / claims on: derive claim paths from the execution document and
-  survey;
-- budget on / claims off: use the budget for sizing and conflict evidence
-  without registering a claim;
-- both off: the document and survey define execution scope without either
-  artifact.
+## 3. Prepare immediately; activate atomically
 
-## 3. Claim, isolate, and activate atomically
+Before deeper investigation or edits:
 
-Run this immediately after recording the survey above, before reading
-further file contents or making any edit.
-
-Prepare the item worktree:
-
-```text
+```sh
 yoke direct-workflow worktree prepare ITEM --workflow blitz
 ```
 
-The receipt is one JSON envelope, printed last whether preparation succeeded
-or refused. On success read `lane_orientation` for the project's declared
-`package_roots` and `test_roots` plus the `focused_test_command`, rather than
-inferring any of the three.
+The last JSON envelope reports success/refusal. Read `lane_orientation`
+for declared `package_roots`, `test_roots` and `focused_test_command`.
 
-Then activate through `lifecycle.transition.execute`. Refresh
-`yoke workflows item get ITEM --json` and fetch its pin with
-`yoke workflows version get WORKFLOW_ID WORKFLOW_VERSION --json`. Resolve
-`LIVE_STAGE` from status and `NEXT_STAGE` from the unique declared forward
-edge in `definition.transitions` whose `from_stage_id` equals `LIVE_STAGE`,
-ordered by `definition.stages`. Confirm
-the active half-open `definition.skill_bindings` interval belongs to Blitz.
-An absent or ambiguous edge is `workflow_next_stage_ambiguous`: stop and ask
-the workflow owner to repair or select the declared route. A resumed active
-lane skips activation and continues at its live phase:
+For activation, refresh `yoke workflows item get ITEM --json` and its pin
+with `yoke workflows version get <workflow-id> <workflow-version> --json`.
+`LIVE_STAGE` is status; `NEXT_STAGE` is the unique forward edge in
+`definition.transitions` from that status, ordered by `definition.stages`.
+Confirm the active half-open `definition.skill_bindings` interval owns Blitz.
+Absent/ambiguous edge: `workflow_next_stage_ambiguous`; workflow owner repairs
+or selects a declared route. Resumed active lanes skip activation.
 
-```text
-yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE --reason "Blitz execution started"
+```sh
+yoke lifecycle transition ITEM --from <live-stage> --to <next-stage> --reason "Blitz execution started"
 ```
 
-This transition must acquire the item-owned document claim while the item
-work claim and its registered worker worktree are held, after the live
-`conflict_survey` gate passes. Confirm the claim in
-`yoke strategy execution get ITEM --json`. If activation returns without
-the document claim, stop; do not emulate the atomic contract with an
-untracked document edit.
+Activation atomically acquires the item-owned document claim while holding
+the work claim/registered worker lane, after `conflict_survey`. Confirm through
+`yoke strategy execution get ITEM --json`. A missing document claim stops
+execution; repair the atomic contract before editing.
 
-
-Next: [`integrate.md`](integrate.md).
+Next: [integrate.md](integrate.md).
