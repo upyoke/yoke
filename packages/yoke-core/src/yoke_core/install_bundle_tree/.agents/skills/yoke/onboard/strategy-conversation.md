@@ -1,6 +1,6 @@
 # Onboard Step 1: Strategy Conversation
 
-Strategy document writes: read the selected command’s `--help` for required fields and limits; the canonical contract is `.yoke/docs/reference/db-reference/functions-strategy.md`.
+Strategy document writes: read the selected command’s `--help` for required fields and limits; the canonical contract is `.yoke/docs/reference/db-reference/functions-project-configuration.md`.
 
 Strategy is the root: everything later — the execution profile, Packs, environments, the first work items — derives from and is justified by these docs. This step fills all five default strategy docs in one conversation: `MISSION`, `VISION`, `MASTER-PLAN`, `LANDSCAPE`, and `CURRENT-PLAN`.
 

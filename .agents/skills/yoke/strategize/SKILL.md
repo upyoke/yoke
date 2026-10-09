@@ -7,7 +7,7 @@ argument-hint: "[--model MODEL]"
 
 # /yoke strategize
 
-Strategy document writes: read the selected command’s `--help` for required fields and limits; the canonical contract is `.yoke/docs/reference/db-reference/functions-strategy.md`.
+Strategy document writes: read the selected command’s `--help` for required fields and limits; the canonical contract is `.yoke/docs/reference/db-reference/functions-project-configuration.md`.
 
 Guided interactive loop for Strategic Markdown Layer (SML) coherence. Refreshes the SML docs against recent reality, performs source-backed research, proposes changes, obtains operator approval, and records audit trail.
 

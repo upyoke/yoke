@@ -1,6 +1,6 @@
 # /yoke steer steps 1–3 — parse, read the document, take the seat
 
-Strategy document writes: read the selected command’s `--help` for required fields and limits; the canonical contract is `.yoke/docs/reference/db-reference/functions-strategy.md`.
+Strategy document writes: read the selected command’s `--help` for required fields and limits; the canonical contract is `.yoke/docs/reference/db-reference/functions-project-configuration.md`.
 
 ## Scope invariants — these govern what this seat covers
 

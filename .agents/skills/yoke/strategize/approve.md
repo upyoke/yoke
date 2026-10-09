@@ -1,6 +1,6 @@
 # Approve
 
-Strategy document writes: read the selected command’s `--help` for required fields and limits; the canonical contract is `.yoke/docs/reference/db-reference/functions-strategy.md`.
+Strategy document writes: read the selected command’s `--help` for required fields and limits; the canonical contract is `.yoke/docs/reference/db-reference/functions-project-configuration.md`.
 
 Write approved SML changes to the DB authority (which re-renders the gitignored local `.yoke/strategy/` views; there is no commit), check frontier implications, and emit the SMLChangeApproved event. If all changes were deferred, skip writing and proceed directly to finalize.
 
