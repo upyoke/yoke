@@ -217,6 +217,34 @@ to the durable account/actor owner, never only to events.
 Each sign-in links the browser's visitor_id to its actor; page views join to
 actors through that link list at query time ([Section E](structured-logging-standard/marketing-attribution.md#visitor-links-tying-page-views-to-actors)).
 
+**Frontend event time.** The collector stamps each accepted frontend event
+with its own receipt time: `created_at` is the server receipt time, so ordering
+and time-based reports never trust a browser clock. The envelope keeps the
+client `event_time` as the client's claim beside `received_at` and
+`client_time_offset_seconds` (`event_time` minus receipt; negative when the
+event was queued or the client clock runs behind). Beyond 300 seconds either
+way the row carries `anomaly_flags = 'client_time_skew'`; it is still accepted.
+Rows written before receipt stamping keep `created_at = event_time`.
+
+**Collector refusals.** Every refusal from `/api/events`, `/api/events/config`,
+`/api/events/attribution` and its hand-off routes (for example
+`origin_not_allowed`, `publishable_key_invalid`, `rate_limited`,
+`payload_too_large`, `attribution_handoff_replayed`) also writes one
+`FrontendCollectorRefused` event (`source_type = 'backend'`,
+`event_kind = 'system'`, severity WARN, `event_outcome` = the reason) with
+`context.detail` holding reason, status, route, the truncated Origin and the
+serving host — never a request body, cookie, key or client address. At most one
+row per reason, status and route per minute is written, so a flood cannot grow
+`events` without bound; repeats inside that minute are not counted. The record
+is disposable diagnostics: nothing operational reads it, and a failed write
+logs `collector_refusal_record_failed` while the caller still receives its
+refusal. Each install records its own refusals in its own `events` table. To
+see recent refusals:
+
+```bash
+yoke events query --event-name FrontendCollectorRefused --since '24 hours ago'
+```
+
 ### Envelope Size Limits
 
 | Limit | Value | Enforced by |
