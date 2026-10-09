@@ -234,6 +234,7 @@ COLUMNS: tuple[tuple[str, str], ...] = (
     ("session_message_attempts", "started_at"),
     ("session_message_attempts", "completed_at"),
     ("session_message_recipients", "created_at"),
+    ("session_message_recipients", "wake_after"),
     ("session_message_recipients", "injection_leased_at"),
     ("session_message_recipients", "injection_lease_expires_at"),
     ("session_message_recipients", "last_injected_at"),

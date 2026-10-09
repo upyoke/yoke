@@ -189,7 +189,7 @@ def test_an_undelivered_wake_frees_the_receipt_for_the_next_attempt() -> None:
 
 def test_a_broker_relayed_wake_is_settled_by_the_same_receipt() -> None:
     """The peer-hook route earns its verdict from delivery, exactly as direct does."""
-    from runtime.api.domain.test_session_broker_wake import (
+    from runtime.api.domain.session_broker_test_support import (
         _heartbeat as _broker_heartbeat,
         _reserve,
         _seed,

@@ -233,3 +233,17 @@ instants through their owners and adapt only at SQL bindings. Snapshot clocks
 compare by instant rather than timezone spelling; malformed clocks refuse.
 Lease expiry is inclusive and relay freshness is strict at microsecond precision.
 Adoption retains the single wake charge and original message bytes and digests.
+
+Wake receipt and probe expiry, deferred-wake backoff and steering-recipient
+cancellation bind native SQL instants. Stale-alive probing selects its latest
+activity as a native instant and retains the strict threshold. Native turn-end
+reports carry native posture/record clocks, formatting only declared observation
+JSON clocks; absent observation clocks stay null. Wake refusal facts and new
+steering digests format their declared clocks while retaining opaque bodies.
+
+Recipient wake_after is an instant deadline, declared TIMESTAMPTZ at birth and
+included in the same governed stored-instant conversion as receipt clocks.
+The classified scalar roster now covers 265 columns across 125 tables; stored
+mutable document clocks remain separately owned finite fields. Disposable
+SQLite broker seeds write canonical clocks so native-claim snapshot comparisons
+exercise the current boundary rather than historical whole-second seed text.

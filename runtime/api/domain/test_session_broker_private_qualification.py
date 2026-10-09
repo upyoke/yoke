@@ -21,7 +21,7 @@ from yoke_core.domain.session_private_route_qualification import (
 from yoke_core.domain.session_relay_storage import heartbeat_relay
 from yoke_core.domain.session_relay import claim_relay_job
 from yoke_core.domain.session_relay_types import RelayHeartbeat
-from runtime.api.domain.test_session_broker_wake import MACHINE_ID, _seed
+from runtime.api.domain.session_broker_test_support import MACHINE_ID, _seed
 from runtime.api.domain.test_session_message_support import (
     NOW,
     NOW_TEXT,

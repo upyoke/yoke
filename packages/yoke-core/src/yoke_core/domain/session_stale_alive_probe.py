@@ -35,6 +35,8 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Sequence
 
 from yoke_contracts.session_control.liveness import LIVENESS_STALE
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_message_types import row_dict, utc_now
@@ -99,8 +101,8 @@ def _has_live_probe(conn: Any, session_id: str, *, now: datetime) -> bool:
     time also keeps the answer unambiguous: whatever the session does next
     is a response to exactly one question.
     """
+    stamped = instant_parameter(conn, parse_instant(now))
     marker = _p(conn)
-    from yoke_core.domain.session_message_types import timestamp
 
     return (
         conn.execute(
@@ -109,7 +111,7 @@ def _has_live_probe(conn: Any, session_id: str, *, now: datetime) -> bool:
             f"WHERE r.session_id={marker} AND m.idempotency_key={marker} "
             "AND r.state IN ('pending','injected') AND m.cancelled_at IS NULL "
             f"AND m.expires_at>{marker} LIMIT 1",
-            (session_id, probe_key(session_id), timestamp(now)),
+            (session_id, probe_key(session_id), stamped),
         ).fetchone()
         is not None
     )
@@ -155,7 +157,7 @@ def probe_stale_alive_sessions(
     machine could not prove dead — alive, or unknown, which for this purpose
     are the same answer: worth asking.
     """
-    current = now or utc_now()
+    current = parse_instant(utc_now() if now is None else now)
     projects = tuple(sorted({int(value) for value in authorized_projects}))
     probed: List[str] = []
     skipped: List[Dict[str, Any]] = []
@@ -182,8 +184,12 @@ def probe_stale_alive_sessions(
         )
         if not activity_is_stale(
             max(
-                str(row.get("last_heartbeat") or ""),
-                str(row.get("last_tool_call_at") or ""),
+                (
+                    parse_instant(row[key])
+                    for key in ("last_heartbeat", "last_tool_call_at")
+                    if row.get(key) is not None
+                ),
+                default=None,
             ),
             executor=row.get("executor"),
             now=current - threshold,

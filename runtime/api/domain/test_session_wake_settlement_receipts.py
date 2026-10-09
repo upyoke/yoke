@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.timestamps import format_instant
+
 from runtime.api.domain.test_session_relay import (
     RELAY_ID,
     _add_wake_recipient,
@@ -86,8 +88,8 @@ def test_each_relay_terminal_result_writes_a_complete_receipt(
     row = _attempt_row(conn, job.job_id)
     assert tuple(row) == (
         job.job_id,
-        STARTED_AT,
-        "2026-08-22T12:00:10Z",
+        format_instant(STARTED_AT),
+        "2026-08-22T12:00:10.000000Z",
         result_code,
         NATIVE_ADAPTER_REVISION,
     )
@@ -103,7 +105,7 @@ def test_running_resume_writes_the_complete_in_flight_shape() -> None:
     row = _attempt_row(conn, job.job_id)
     assert tuple(row) == (
         job.job_id,
-        STARTED_AT,
+        format_instant(STARTED_AT),
         None,
         RESUMED_RUNNING_RESULT,
         NATIVE_ADAPTER_REVISION,

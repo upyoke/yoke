@@ -35,12 +35,13 @@ invisible loop that resets itself forever.
 from __future__ import annotations
 
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
 from yoke_core.domain.session_message_authorization import project_policy
-from yoke_core.domain.session_message_types import parse_timestamp, timestamp
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_relay_storage import marker
 
 
@@ -58,7 +59,7 @@ def restore_deferred_wake_budget(
     *,
     message_id: str,
     session_id: str,
-    now: str,
+    now: datetime | str,
     running_native_pid: object = None,
 ) -> None:
     """Give back the retry a deferred wake never spent, and back it off.
@@ -84,6 +85,7 @@ def restore_deferred_wake_budget(
     """
     if not message_id or not session_id:
         return
+    current = parse_instant(now)
     p = marker(conn)
     row = conn.execute(
         f"SELECT project_id FROM session_message_recipients WHERE message_id={p} "
@@ -92,12 +94,9 @@ def restore_deferred_wake_budget(
     ).fetchone()
     if row is None:
         return
-    current = parse_timestamp(now)
     policy = project_policy(conn, int(row[0]))
-    backoff = (
-        timestamp(current + timedelta(seconds=policy.wake_after_idle_seconds))
-        if current is not None
-        else now
+    backoff = instant_parameter(
+        conn, current + timedelta(seconds=policy.wake_after_idle_seconds)
     )
     # The backoff is owed either way; only the refund is bounded. A recipient
     # this far in is not racing a turn that is about to end.
@@ -119,9 +118,7 @@ def restore_deferred_wake_budget(
         assignments.insert(0, "wake_escalation=" + p)
         values.insert(0, NATIVE_TURN_RUNNING_RESULT)
     conn.execute(
-        "UPDATE session_message_recipients SET "
-        + ",".join(assignments)
-        + " "
+        "UPDATE session_message_recipients SET " + ",".join(assignments) + " "
         f"WHERE message_id={p} AND session_id={p} AND state='pending' "
         f"AND wake_attempt_count>0 AND wake_after<={p} "
         "AND NOT EXISTS (SELECT 1 FROM session_message_attempts a "

@@ -74,7 +74,7 @@ def create_session_control_tables(conn: Any) -> None:
             state TEXT NOT NULL DEFAULT 'pending'
                 CHECK(state IN ('pending','injected','acknowledged','expired','cancelled')),
             created_at TIMESTAMPTZ NOT NULL,
-            wake_after TEXT NOT NULL,
+            wake_after TIMESTAMPTZ NOT NULL,
             injection_lease_id TEXT,
             injection_leased_at TIMESTAMPTZ,
             injection_lease_expires_at TIMESTAMPTZ,

@@ -27,6 +27,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_explicit_wake import explicit_stopped_wake_requested
 from yoke_core.domain.session_message_types import parse_timestamp, row_dict, timestamp
@@ -41,8 +43,11 @@ def _marker(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _open_receipts(conn: Any, *, session_id: str, now: datetime) -> list[dict[str, Any]]:
+def _open_receipts(
+    conn: Any, *, session_id: str, now: datetime
+) -> list[dict[str, Any]]:
     """Every receipt for this session an attempt could still be owed on."""
+    stamped = instant_parameter(conn, parse_instant(now))
     marker = _marker(conn)
     rows = conn.execute(
         "SELECT r.message_id,r.state,r.wake_attempt_count,r.last_wake_at,"
@@ -57,7 +62,7 @@ def _open_receipts(conn: Any, *, session_id: str, now: datetime) -> list[dict[st
         "AND m.cancelled_at IS NULL AND m.expires_at>"
         + marker
         + " ORDER BY m.created_at,r.message_id",
-        (session_id, timestamp(now)),
+        (session_id, stamped),
     ).fetchall()
     return [row_dict(raw) for raw in rows]
 
@@ -72,12 +77,16 @@ def _queued_explicit(row: dict[str, Any]) -> bool:
     )
 
 
-def _receipt_facts(row: dict[str, Any], *, reason: str, retry_at: Any) -> dict[str, Any]:
+def _receipt_facts(
+    row: dict[str, Any], *, reason: str, retry_at: Any
+) -> dict[str, Any]:
     return {
         "message_id": str(row["message_id"]),
         "wake_attempt_count": int(row.get("wake_attempt_count") or 0),
-        "last_wake_at": row.get("last_wake_at"),
-        "retry_after": timestamp(retry_at) if retry_at else None,
+        "last_wake_at": timestamp(row["last_wake_at"])
+        if row.get("last_wake_at") is not None
+        else None,
+        "retry_after": timestamp(retry_at) if retry_at is not None else None,
         "reason": reason,
     }
 
@@ -99,6 +108,7 @@ def stale_queued_wakes(
     and asks for a fresh wake, and whatever refused the first attempt refuses
     that one by name, with its own recovery, instead of silently blocking.
     """
+    now = parse_instant(now)
     window = timedelta(seconds=max(0, int(grace_seconds)))
     stale: list[dict[str, Any]] = []
     for row in _open_receipts(conn, session_id=session_id, now=now):
@@ -134,6 +144,7 @@ def recent_wake_blocker(
     A writer must hold the target harness-session row lock across this read
     and its insert; :func:`request_session_wake` does so.
     """
+    now = parse_instant(now)
     grace = timedelta(seconds=max(0, int(grace_seconds)))
     for row in _open_receipts(conn, session_id=session_id, now=now):
         if str(row["message_id"]) == exclude_message_id:
