@@ -55,6 +55,7 @@ def test_independent_completion_stays_deployed_after_sibling_failure(
     assert _status(test_db, MEMBER_A) == "done"
     assert _deployed(test_db)
     assert not _deployed(test_db, MEMBER_B)
+
     assert not _deployed(test_db, environment="stage")
     assert _run_memberships(test_db, (MEMBER_A, MEMBER_B), finished=True) == {
         (MEMBER_A, "prod")
@@ -116,6 +117,19 @@ def test_completion_record_cannot_credit_another_member(test_db, monkeypatch):
     assert completed_deliveries(test_db, [MEMBER_B]).get(MEMBER_B) == []
     assert not _deployed(test_db, MEMBER_B)
 
+    # Re-labeling the outer owner still cannot borrow another member's candidate.
+    raw = test_db.execute(
+        "SELECT facts FROM item_gate_satisfactions WHERE item_id=%s AND obligation='delivery_evidence'",
+        (MEMBER_B,),
+    ).fetchone()[0]
+    facts = json.loads(raw)
+    facts["completed_deliveries"][0]["item_id"] = MEMBER_B
+    test_db.execute(
+        "UPDATE item_gate_satisfactions SET facts=%s WHERE item_id=%s AND obligation='delivery_evidence'",
+        (json.dumps(facts), MEMBER_B),
+    )
+    assert completed_deliveries(test_db, [MEMBER_B]).get(MEMBER_B) == []
+
 
 def test_later_stage_delivery_has_its_own_exact_candidate(test_db, monkeypatch):
     _isolate_status_effects(monkeypatch)
@@ -126,8 +140,8 @@ def test_later_stage_delivery_has_its_own_exact_candidate(test_db, monkeypatch):
     _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
     candidate = "b" * 40
     test_db.execute(
-        "INSERT INTO deployment_runs(id,project_id,flow,status,release_lineage,target_environment_id,created_at) "
-        "SELECT 'stage-delivery',project_id,flow,'succeeded',%s,"
+        "INSERT INTO deployment_runs(id,project_id,flow,status,release_lineage,target_tier,target_environment_id,created_at) "
+        "SELECT 'stage-delivery',project_id,flow,'succeeded',%s,'persistent',"
         "(SELECT id FROM environments WHERE project_id=1 AND name='stage'),created_at "
         "FROM deployment_runs WHERE id=%s",
         (candidate, run_id),

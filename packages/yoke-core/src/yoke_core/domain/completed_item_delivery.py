@@ -10,6 +10,10 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable
 
+from yoke_core.domain.delivery_evidence_ladder import (
+    SOURCE_CONTAINMENT,
+    SOURCE_MEMBERSHIP,
+)
 from yoke_core.domain.gate_satisfier_ladder_catalog import OBLIGATION_DELIVERY_EVIDENCE
 from yoke_core.domain.schema_common import _table_exists
 
@@ -70,6 +74,13 @@ def completed_deliveries(conn: Any, item_ids: Iterable[int]) -> dict[int, list[d
             if isinstance(entry, dict)
             and entry.get("item_id") == int(item_id)
             and entry.get("project_id") == int(project_id)
+            and (
+                entry.get("member_item_id") == int(item_id)
+                or (
+                    entry.get("source") == SOURCE_CONTAINMENT
+                    and entry.get("member_item_id") is None
+                )
+            )
             and entry.get("run_id")
             and entry.get("environment_id")
             and entry.get("environment")
@@ -106,7 +117,9 @@ def _attribution(conn: Any, *, item_id: int, run_id: str, source: str) -> dict |
         return None
     data = dict(row)
     candidate = recorded_source_sha(data, int(data["item_project_id"]))
-    if not candidate or (source == "run_membership" and data["member_item_id"] is None):
+    if not candidate or (
+        source == SOURCE_MEMBERSHIP and data["member_item_id"] is None
+    ):
         return None
     return {
         "item_id": item_id,
@@ -182,7 +195,7 @@ def record_completion_delivery(conn: Any, *, item_id: int) -> None:
     entries = [entry]
     for row in rows:
         attributed = _attribution(
-            conn, item_id=item_id, run_id=str(row[0]), source="run_membership"
+            conn, item_id=item_id, run_id=str(row[0]), source=SOURCE_MEMBERSHIP
         )
         if attributed:
             entries.append(attributed)
@@ -204,7 +217,7 @@ def record_completed_run_delivery(conn: Any, *, run_id: str) -> None:
     for row in rows:
         item_id = int(row[0])
         entry = _attribution(
-            conn, item_id=item_id, run_id=run_id, source="run_membership"
+            conn, item_id=item_id, run_id=run_id, source=SOURCE_MEMBERSHIP
         )
         if entry is None:
             raise ValueError(

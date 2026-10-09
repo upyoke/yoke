@@ -13,6 +13,7 @@ from typing import Any
 
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.deployment_run_project_sources import recorded_source_sha
+from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow_facts
 
 
 def apply(conn: Any) -> None:
@@ -38,6 +39,7 @@ def apply(conn: Any) -> None:
         "LEFT JOIN item_gate_satisfactions s ON s.item_id=i.id AND s.obligation='delivery_evidence' "
         "WHERE i.status='done' ORDER BY i.id,dr.created_at DESC,dr.id DESC"
     ).fetchall()
+    closing = item_completion_flow_facts(conn, {int(row["id"]) for row in rows})
     by_item: dict[int, dict] = {}
     independent: set[int] = set()
     for row in rows:
@@ -57,7 +59,8 @@ def apply(conn: Any) -> None:
             and item_id not in independent
             and (
                 data["rung_id"] == "independent_member_delivered"
-                and data["flow"] == data["deployment_flow"]
+                and item_id in closing
+                and data["flow"] in closing[item_id].closing_flows
             )
         ):
             qualifying = True
@@ -72,6 +75,8 @@ def apply(conn: Any) -> None:
             },
             int(data["project_id"]),
         )
+        if int(data["run_project_id"]) != int(data["project_id"]) and not candidate:
+            continue
         saved["entries"].append(
             {
                 "item_id": item_id,
