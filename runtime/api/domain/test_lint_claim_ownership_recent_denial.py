@@ -15,7 +15,7 @@ from unittest import mock
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import lint_claim_ownership_mutations as lint
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.fixtures.file_test_db import init_test_db
 from runtime.api.domain.test_lint_claim_ownership_mutations import (
@@ -36,8 +36,7 @@ def _state_schema(
 
     *rows* are ``(session_id, command_summary)`` recent Bash calls;
     *holders* are ``(session_id, item_id, released)`` work-claim rows.
-    ``started_at`` uses ``iso8601_now`` (matching production) for the
-    lexical ``started_at > %s`` compare.
+    ``started_at`` is an aware instant for the native SQL cutoff comparison.
     """
 
     def _apply() -> None:
@@ -46,15 +45,15 @@ def _state_schema(
             conn.execute(
                 "CREATE TABLE session_tool_calls (id INTEGER PRIMARY KEY, "
                 "session_id TEXT NOT NULL, tool_use_id TEXT NOT NULL, "
-                "tool_name TEXT, started_at TEXT NOT NULL, completed_at TEXT, "
+                "tool_name TEXT, started_at TIMESTAMPTZ NOT NULL, completed_at TIMESTAMPTZ, "
                 "outcome TEXT, command_summary TEXT)"
             )
             conn.execute(
                 "CREATE TABLE work_claims (id INTEGER PRIMARY KEY, "
                 "session_id TEXT NOT NULL, target_kind TEXT NOT NULL, "
                 "scope TEXT NOT NULL, claim_type TEXT NOT NULL DEFAULT 'exclusive', "
-                "claimed_at TEXT NOT NULL, last_heartbeat TEXT NOT NULL, "
-                "released_at TEXT, release_reason TEXT)"
+                "claimed_at TIMESTAMPTZ NOT NULL, last_heartbeat TIMESTAMPTZ NOT NULL, "
+                "released_at TIMESTAMPTZ, release_reason TEXT)"
             )
             conn.execute(
                 "CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT, "
@@ -72,7 +71,7 @@ def _state_schema(
                     "VALUES (%s, 1, %s)",
                     (item_id, sequence),
                 )
-            now = iso8601_now()
+            now = utc_now()
             for idx, (session_id, command) in enumerate(rows, start=1):
                 conn.execute(
                     "INSERT INTO session_tool_calls (id, session_id, "
@@ -218,7 +217,7 @@ class TestRecentDenialBranch(unittest.TestCase):
                     "INSERT INTO session_tool_calls (id, session_id, "
                     "tool_use_id, tool_name, started_at) "
                     "VALUES (1, %s, 'tu-null', 'Bash', %s)",
-                    (_AMBIENT, iso8601_now()),
+                    (_AMBIENT, utc_now()),
                 )
                 conn.commit()
             finally:

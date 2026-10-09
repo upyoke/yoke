@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_contracts.api.function_call import (
@@ -44,19 +46,25 @@ def test_holder_list_filters_by_session_id(monkeypatch) -> None:
         conn,
         "CREATE TABLE work_claims ("
         "id INTEGER, session_id TEXT, target_kind TEXT, scope TEXT, "
-        "claimed_at TEXT, last_heartbeat TEXT, "
-        "released_at TEXT)",
+        "claimed_at TIMESTAMPTZ, last_heartbeat TIMESTAMPTZ, "
+        "released_at TIMESTAMPTZ)",
     )
     for row in (
-        (1, "held-a", 10, "2026-01-02T00:00:00Z", None),
+        (1, "held-a", 10, "2026-01-02T00:00:00.123456Z", None),
         (2, "held-b", 11, "2026-01-03T00:00:00Z", None),
-        (3, "held-a", 12, "2026-01-01T00:00:00Z", "done"),
+        (3, "held-a", 12, "2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z"),
     ):
         conn.execute(
             "INSERT INTO work_claims "
             "(id, session_id, target_kind, scope, claimed_at, released_at) "
             "VALUES (%s, %s, 'item', %s, %s, %s)",
-            (row[0], row[1], make_item_target(row[2]).scope_json(), row[3], row[4]),
+            (
+                row[0],
+                row[1],
+                make_item_target(row[2]).scope_json(),
+                parse_instant(row[3]),
+                parse_instant(row[4]) if row[4] is not None else None,
+            ),
         )
     conn.commit()
     monkeypatch.setattr(
@@ -83,7 +91,7 @@ def test_holder_list_filters_by_session_id(monkeypatch) -> None:
             "session_id": "held-a",
             "target_kind": "item",
             "scope": {"item_id": 10},
-            "claimed_at": "2026-01-02T00:00:00Z",
+            "claimed_at": "2026-01-02T00:00:00.123456Z",
             "last_heartbeat": None,
             "lane_worktrees": [],
         }
@@ -98,15 +106,15 @@ def _seeded_lane_db():
         conn,
         "CREATE TABLE work_claims ("
         "id INTEGER, session_id TEXT, target_kind TEXT, scope TEXT, "
-        "claimed_at TEXT, last_heartbeat TEXT, "
-        "released_at TEXT)",
+        "claimed_at TIMESTAMPTZ, last_heartbeat TIMESTAMPTZ, "
+        "released_at TIMESTAMPTZ)",
     )
     apply_fixture_ddl(
         conn,
         "CREATE TABLE item_worktrees ("
         "id INTEGER, item_id INTEGER, branch TEXT, path TEXT, "
-        "lane_role TEXT, state TEXT, created_at TEXT, updated_at TEXT, "
-        "released_at TEXT)",
+        "lane_role TEXT, state TEXT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ, "
+        "released_at TIMESTAMPTZ)",
     )
     conn.execute(
         "INSERT INTO work_claims "

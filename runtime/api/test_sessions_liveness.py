@@ -48,17 +48,17 @@ _LIVENESS_SCHEMA = """
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY,
     executor TEXT,
-    last_heartbeat TEXT,
-    last_tool_call_at TEXT,
+    last_heartbeat TIMESTAMPTZ,
+    last_tool_call_at TIMESTAMPTZ,
     tool_call_count INTEGER NOT NULL DEFAULT 0,
-    ended_at TEXT
+    ended_at TIMESTAMPTZ
 );
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id TEXT,
-    last_heartbeat TEXT,
-    claimed_at TEXT,
-    released_at TEXT,
+    last_heartbeat TIMESTAMPTZ,
+    claimed_at TIMESTAMPTZ,
+    released_at TIMESTAMPTZ,
     target_kind TEXT,
     scope TEXT NOT NULL
 );
@@ -72,7 +72,11 @@ def _insert_session(
     conn.execute(
         "INSERT INTO harness_sessions(session_id, executor, last_heartbeat, ended_at)"
         f" VALUES ({p}, {p}, {p}, NULL)",
-        (sid, executor, last_heartbeat),
+        (
+            sid,
+            executor,
+            parse_instant(last_heartbeat) if last_heartbeat is not None else None,
+        ),
     )
 
 
@@ -83,7 +87,7 @@ def _stamp_tool_call(conn: Any, sid: str, at: str):
         "UPDATE harness_sessions SET last_tool_call_at = "
         f"{p}, tool_call_count = COALESCE(tool_call_count, 0) + 1 "
         f"WHERE session_id = {p}",
-        (at, sid),
+        (parse_instant(at), sid),
     )
 
 
