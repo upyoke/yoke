@@ -143,7 +143,13 @@ def notify_repair(conn: Any, request: Any, result: dict[str, Any]) -> dict[str, 
     from yoke_core.domain.deployment_run_driver_notice import push_member_notice
     from yoke_core.domain.function_target_row_project import resolve_item_project
 
-    item_id = result.get("deployment_member_item_id") or result.get("item_id")
+    subject = query_one(
+        conn,
+        "SELECT COALESCE(deployment_member_item_id,item_id,epic_id) AS item_id "
+        "FROM qa_requirements WHERE id=%s",
+        (result["requirement_id"],),
+    )
+    item_id = subject["item_id"]
     if item_id is None:
         return {
             "delivery": "not_applicable",
