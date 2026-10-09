@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
-from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+from yoke_core.domain.qa_obligation_settlement import (
+    unanswered_attempt_sql,
+    unretracted_requirement_sql,
+)
 
 import json
 from typing import Any
@@ -62,7 +65,8 @@ def _case_result(
         f"{latest_execution_id_sql('q.id')}"
         f") WHERE q.plan_id={marker} AND q.plan_case_key={marker} "
         f"AND COALESCE(q.host_baseline, '')={marker} "
-        f"AND NOT {settled_obligation_sql(conn, 'q')} "
+        f"AND {unretracted_requirement_sql(conn, 'q')} "
+        f"AND {unanswered_attempt_sql(conn, 'q')} "
         f"{deployment_filter} "
         "ORDER BY happened_at DESC, q.id DESC LIMIT 1",
         params,
