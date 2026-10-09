@@ -7,12 +7,13 @@ from pathlib import Path
 from typing import Iterator
 
 from yoke_core.domain import db_backend
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.events_schema import _create_events_table
 from yoke_core.domain.schema_init_tables import create_path_registry_tables
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 
-NOW = "2026-04-29T00:00:00Z"
+NOW = parse_instant("2026-04-29T00:00:00.123456Z")
 
 
 def _project_row_id(project_id: str | int) -> int:
@@ -35,12 +36,16 @@ def _apply_path_snapshot_schema(
             "name TEXT NOT NULL, "
             "default_branch TEXT NOT NULL DEFAULT 'main', github_repo TEXT, "
             "public_item_prefix TEXT NOT NULL DEFAULT 'YOK', "
-            "created_at TEXT NOT NULL)"
+            "created_at TIMESTAMPTZ NOT NULL)"
         )
         if project_id is not None and repo_path is not None:
             p = "%s" if db_backend.connection_is_postgres(conn) else "?"
             numeric_project_id = _project_row_id(project_id)
-            slug = str(project_id) if not str(project_id).isdigit() else f"project-{project_id}"
+            slug = (
+                str(project_id)
+                if not str(project_id).isdigit()
+                else f"project-{project_id}"
+            )
             # config_root is a per-test temp dir — repo_path may be the LIVE
             # yoke checkout (the Yoke-repo perf test), whose .parent is the real
             # .worktrees/ and would be polluted by a config write there.
@@ -68,9 +73,7 @@ def path_snapshot_db(
     """Yield a backend-routed DB for path-snapshot tests."""
 
     def apply_schema() -> None:
-        _apply_path_snapshot_schema(
-            repo_path, project_id, tmp_path / "machine-config"
-        )
+        _apply_path_snapshot_schema(repo_path, project_id, tmp_path / "machine-config")
 
     with init_test_db(tmp_path, apply_schema=apply_schema) as db_path:
         conn = connect_test_db(db_path)

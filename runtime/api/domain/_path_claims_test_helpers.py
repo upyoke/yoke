@@ -105,7 +105,7 @@ def _apply_path_claim_schema() -> None:
             "source TEXT NOT NULL DEFAULT 'test', session_id INTEGER, "
             "rationale TEXT NOT NULL DEFAULT '', "
             "evidence_json TEXT NOT NULL DEFAULT '{}', "
-            "created_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z')"
+            "created_at TIMESTAMPTZ NOT NULL DEFAULT '1970-01-01T00:00:00Z')"
         )
         seed_canonical_actors(c)
         c.commit()

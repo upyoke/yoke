@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+
+from yoke_contracts.timestamps import parse_instant
 from typing import Any
 
 from runtime.api.test_dependency_schema import ITEMS_SCHEMA, PROJECTS_SCHEMA
@@ -25,8 +27,8 @@ SERVICE_CLIENT_PARITY_SCHEMA = (
         site TEXT,
         name TEXT NOT NULL,
         url TEXT,
-        last_deployed_at TEXT,
-        created_at TEXT NOT NULL DEFAULT '',
+        last_deployed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
         settings TEXT DEFAULT '{}'
     );
 
@@ -37,7 +39,7 @@ SERVICE_CLIENT_PARITY_SCHEMA = (
         description TEXT,
         stages TEXT NOT NULL,
         on_failure TEXT DEFAULT 'halt',
-        created_at TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
         target_tier TEXT DEFAULT NULL,
         target_environment_id TEXT DEFAULT NULL,
         done_description TEXT DEFAULT NULL,
@@ -55,16 +57,16 @@ SERVICE_CLIENT_PARITY_SCHEMA = (
         status TEXT NOT NULL DEFAULT 'created'
           CHECK(status IN ('created','executing','succeeded','failed','cancelled')),
         current_stage TEXT,
-        created_at TEXT NOT NULL,
-        started_at TEXT,
-        completed_at TEXT,
+        created_at TIMESTAMPTZ NOT NULL,
+        started_at TIMESTAMPTZ,
+        completed_at TIMESTAMPTZ,
         created_by TEXT DEFAULT 'operator'
     );
 
     CREATE TABLE deployment_run_items (
         run_id TEXT NOT NULL,
         item_id INTEGER NOT NULL,
-        added_at TEXT NOT NULL,
+        added_at TIMESTAMPTZ NOT NULL,
         delivery_intent TEXT CHECK(delivery_intent IN ('progress', 'final')),
         PRIMARY KEY (run_id, item_id)
     );
@@ -74,8 +76,8 @@ SERVICE_CLIENT_PARITY_SCHEMA = (
         project_id INTEGER NOT NULL REFERENCES projects(id),
         type TEXT NOT NULL,
         settings TEXT DEFAULT '{}',
-        verified_at TEXT,
-        created_at TEXT NOT NULL,
+        verified_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL,
         UNIQUE(project_id, type)
     );
 """
@@ -92,7 +94,7 @@ def _project_id(slug: str) -> int:
 
 def seed_service_client_parity_data(conn: Any) -> None:
     """Seed the service-client parity dataset on the strict project schema."""
-    ts = "2026-03-01T00:00:00Z"
+    ts = parse_instant("2026-03-01T00:00:00.123456Z")
     items = (
         (
             1,

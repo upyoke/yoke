@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch
 
 from yoke_core.domain.events import build_envelope, emit_event
+from yoke_contracts.timestamps import utc_now
 from runtime.api.fixtures.pg_testdb import test_database
 
 
@@ -93,16 +94,16 @@ class TestEmitEvent(unittest.TestCase):
             "id INTEGER PRIMARY KEY, event_name TEXT NOT NULL DEFAULT '*', "
             "source_type TEXT NOT NULL DEFAULT '*', "
             "min_severity TEXT NOT NULL DEFAULT 'INFO', "
-            "created_at TEXT NOT NULL, UNIQUE(event_name, source_type))"
+            "created_at TIMESTAMPTZ NOT NULL, UNIQUE(event_name, source_type))"
         )
         self.conn.execute(
             "INSERT INTO severity_config "
             "(event_name, source_type, min_severity, created_at) "
-            "VALUES ('*', '*', %s, 'now') "
+            "VALUES ('*', '*', %s, %s) "
             "ON CONFLICT(event_name, source_type) DO UPDATE SET "
             "min_severity=excluded.min_severity, "
             "created_at=excluded.created_at",
-            (min_severity,),
+            (min_severity, utc_now()),
         )
         self.conn.commit()
 

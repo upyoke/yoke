@@ -19,7 +19,7 @@ def apply_command_plan_schema() -> None:
                 id INTEGER PRIMARY KEY,
                 project_id INTEGER NOT NULL,
                 slug TEXT NOT NULL,
-                retired_at TEXT
+                retired_at TIMESTAMPTZ
             );
             CREATE TABLE qa_plan_cases (
                 id INTEGER PRIMARY KEY,

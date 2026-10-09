@@ -41,8 +41,8 @@ _CONSTRAINED_AUDIT_DDL = """
             DEFAULT 'planned',
         failure_reason TEXT,
         exception_reason TEXT,
-        started_at TEXT NOT NULL,
-        completed_at TEXT,
+        started_at TIMESTAMPTZ NOT NULL,
+        completed_at TIMESTAMPTZ,
         duration_ms INTEGER
     );
 """
@@ -77,16 +77,37 @@ class TestMigrationAuditFinalShape:
             finally:
                 conn.close()
         expected = {
-            "id", "migration_name", "description", "tables_declared",
-            "expected_deltas", "pre_row_counts", "post_row_counts",
-            "pre_fk_violations", "post_fk_violations", "backup_path",
-            "state", "failure_reason", "exception_reason",
-            "source_fingerprint", "rehearsed_at", "lease_id",
-            "test_copy_path", "baseline_verify_result",
-            "author_verify_result", "session_id", "model_name",
-            "project_id", "started_at", "completed_at", "duration_ms",
-            "actor_id", "worktree", "source_branch", "source_commit",
-            "integration_target", "change_class",
+            "id",
+            "migration_name",
+            "description",
+            "tables_declared",
+            "expected_deltas",
+            "pre_row_counts",
+            "post_row_counts",
+            "pre_fk_violations",
+            "post_fk_violations",
+            "backup_path",
+            "state",
+            "failure_reason",
+            "exception_reason",
+            "source_fingerprint",
+            "rehearsed_at",
+            "lease_id",
+            "test_copy_path",
+            "baseline_verify_result",
+            "author_verify_result",
+            "session_id",
+            "model_name",
+            "project_id",
+            "started_at",
+            "completed_at",
+            "duration_ms",
+            "actor_id",
+            "worktree",
+            "source_branch",
+            "source_commit",
+            "integration_target",
+            "change_class",
         }
         assert expected == cols
         assert "status" not in cols
@@ -106,9 +127,7 @@ class TestRecordAuditFingerprint:
                 tables=["items"],
                 pre_counts={"items": 5},
                 post_counts={"items": 5},
-                exception_reason=(
-                    "historical maintenance — decision record paired"
-                ),
+                exception_reason=("historical maintenance — decision record paired"),
                 model_name="primary",
                 project_id=1,
                 session_id="sess-1",
@@ -126,14 +145,14 @@ class TestRecordAuditFingerprint:
         assert row is not None
         assert row["state"] == "completed"
         assert row["failure_reason"] is None
-        assert row["exception_reason"] == "historical maintenance — decision record paired"
+        assert (
+            row["exception_reason"] == "historical maintenance — decision record paired"
+        )
         assert row["model_name"] == "primary"
         assert row["project_id"] == 1
         assert row["session_id"] == "sess-1"
 
-    def test_no_backup_fingerprint_requires_exception_reason(
-        self, tmp_path
-    ) -> None:
+    def test_no_backup_fingerprint_requires_exception_reason(self, tmp_path) -> None:
         """No-backup callers must carry their typed justification."""
         from yoke_core.domain.migration_harness import record_audit_fingerprint
 
@@ -162,9 +181,7 @@ class TestRecordAuditFingerprint:
         assert row["exception_reason"] == "bounded no-backup exception"
         assert row["backup_path"] == ""
 
-    def test_insert_failure_raises_audit_emission_error(
-        self, tmp_path
-    ) -> None:
+    def test_insert_failure_raises_audit_emission_error(self, tmp_path) -> None:
         """Fail-closed contract: a DB error during the INSERT propagates as
         :class:`AuditEmissionError` rather than being silently swallowed.
 
