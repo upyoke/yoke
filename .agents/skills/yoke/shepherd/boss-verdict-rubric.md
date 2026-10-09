@@ -1,255 +1,85 @@
-# Shepherd: Boss Verdict Parsing, Persistence, Reflections, and Caveat Triage
+# Shepherd — parse, persist and disposition
 
-Covers steps 5f–5i: the 5-layer verdict parsing chain, verdict persistence, reflection capture, and the caveat resolution gate.
+## Five-layer parse (first successful extraction wins)
 
-**Inherited from router/boss-verdict.md:** `_num`, `_verdict_item`, `_transition`, `_attempt`, `_session_id`, `_worker_name`, `_boss_raw_output`, `_pre_boss_verdict_max_id`, `_db_boss_row_id`.
+Initialize verdict source and DB row ID empty:
+1. Strict case-sensitive line ^VERDICT:\s*(READY|NOT_READY|CAVEATS)\s*$.
+2. Existing accidental self-persistence recovery: query exact public_ref/edge/
+   worker with id > pre-dispatch maximum, newest one only. Accept READY/
+   NOT_READY/CAVEATS with caveats; older attempts never qualify.
+3. Case-insensitive verdict:/verdict is/recommend or recommending/issuing plus
+   ready/not_ready/not ready/caveats; or standalone tokens in last 20 lines.
+   Normalize; conflicting matches choose nearest output end.
+4. One-shot lightweight Boss extraction, maxTurns=1, no tools/explanation:
+   return exactly VERDICT: READY/NOT_READY/CAVEATS or INDETERMINATE.
+   Parse strict layer-1 pattern; INDETERMINATE falls through.
+5. NOT_READY safety default plus [UNPARSEABLE_BOSS_OUTPUT], preserve full
+   reasoning, continue bounded retries.
 
----
-
-## 5f. Parse Boss Verdict
-
-The verdict parsing chain applies layers in order, stopping at the first successful extraction.
-
-Initialize `_verdict_source=""` and `_db_boss_row_id=""` before the layer chain.
-
-**Layer 1: Primary strict regex** (existing).
-Search for a line matching `^VERDICT:\s*(READY|NOT_READY|CAVEATS)\s*$` (case-sensitive). If found, extract the verdict.
-
-**Layer 2: DB fallback query** (existing).
-If Layer 1 fails, check whether the Boss persisted its verdict to the DB directly:
-```bash
-_db_boss_row=$(yoke db read --format lines "SELECT id, verdict, COALESCE(caveats,'') FROM shepherd_verdicts WHERE item='$_verdict_item' AND transition='$_transition' AND worker='$_worker_name' AND id > $_pre_boss_verdict_max_id ORDER BY id DESC LIMIT 1")
-_db_boss_row_id=$(printf '%s' "$_db_boss_row" | cut -d'|' -f1)
-_db_boss_verdict=$(printf '%s' "$_db_boss_row" | cut -d'|' -f2)
-_db_boss_caveats=$(printf '%s' "$_db_boss_row" | cut -d'|' -f3-)
-```
-If `_db_boss_verdict` is `READY`, `NOT_READY`, or `CAVEATS`, use it as `_verdict` and `_db_boss_caveats` for `_caveats_text`. The `id > _pre_boss_verdict_max_id` anchor prevents stale rows from prior retries from matching.
-
-**Layer 3: Fallback regex parser** (NEW).
-If Layers 1-2 fail, apply broader case-insensitive patterns to extract the verdict from natural language. Search the Boss's full text output for these patterns:
-- `verdict:\s*(ready|not_ready|not ready|caveats)` anywhere on a line (case-insensitive, not anchored to line start)
-- `verdict is\s+(ready|not_ready|not ready|caveats)` (case-insensitive)
-- `recommend(?:ing)?\s+(ready|not_ready|not ready|caveats)` (case-insensitive)
-- `issuing\s+(ready|not_ready|not ready|caveats)` (case-insensitive)
-- Bare `NOT_READY` or `CAVEATS` or `READY` appearing as a standalone token (word boundaries) in the **last 20 lines** of output (recency-weighted, since verdicts typically appear near the end)
-
-Normalization: `not ready` maps to `NOT_READY`, case-insensitive `ready` maps to `READY`, etc.
-
-**Conflict resolution:** If multiple conflicting verdicts are found, prefer the one closest to the end of the output.
-
-If extracted via Layer 3, log: `"Verdict extracted via fallback_regex (primary parser failed)"`. Prepend `[FALLBACK_PARSED]` to `_caveats_text`. This marker does NOT trigger model escalation (unlike `[UNPARSEABLE_BOSS_OUTPUT]`).
-
-**Layer 4: Lightweight verdict extraction prompt** (NEW).
-If Layer 3 also fails, invoke a lightweight single-shot subagent to parse the Boss's raw output:
-
-**Dispatch:** descriptor `DispatchDescriptor(role="boss", extras=(("model","haiku"),))` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Single-shot extraction (`maxTurns: 1` enforced by the parent skill, not the descriptor). Result-schema markers: `VERDICT: READY|NOT_READY|CAVEATS`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
-```
- Extract the verdict from the following Boss review output.
- Return exactly one line: VERDICT: READY, VERDICT: NOT_READY, or VERDICT: CAVEATS.
- If you cannot determine the verdict, return: VERDICT: INDETERMINATE.
- Do not explain. Do not use tools. Just return the verdict line.
-
- Boss output:
- {_boss_raw_output}
+```text
+yoke db read "SELECT id,verdict,COALESCE(caveats,'') FROM shepherd_verdicts WHERE public_ref='ITEM' AND transition='EDGE' AND worker='WORKER' AND id > PRE_DISPATCH_MAX ORDER BY id DESC LIMIT 1"
 ```
 
-Parse the extraction output with the same strict regex as Layer 1. `INDETERMINATE` is treated as a parse failure (falls through to Layer 5).
+Source markers are layer1_regex/layer2_db/layer3_fallback/layer4_extraction/
+layer5_unparseable. Layers 3–4 prepend [FALLBACK_PARSED] and log extraction route;
+they do **not** increment the two-genuine-unparseable model escalation count.
 
-If extracted via Layer 4, log: `"Verdict extracted via lightweight_extraction (primary parser failed)"`. Prepend `[FALLBACK_PARSED]` to `_caveats_text`.
+CAVEATS extraction: numbered list following verdict. Layer4 with no list may
+ask once "Also extract the caveats list." Still absent: persist
+[FALLBACK_PARSED] [Caveats not extractable -- review Boss output manually],
+keep full Boss output/feedback; do not invent caveats.
 
-**Layer 5: Store UNPARSEABLE and continue to retry handling.**
-If all layers fail:
-- Set `_verdict="NOT_READY"` (deterministic safety default)
-- Set `_caveats_text="[UNPARSEABLE_BOSS_OUTPUT] Boss returned no parseable VERDICT block. All fallback layers (strict regex, DB query, fallback regex, lightweight extraction) failed."`
-- Continue through retry handling. This marker is used for model escalation on subsequent Boss retries.
+Full Boss retry after layer5: authoritative scope-aware reads only
+(spec/prd → spec, body if empty; plan → technical_plan/worktree_plan with
+spec/design context/body if empty), no broad codebase exploration;
+FIRST output line must be VERDICT. Include full prior reasoning.
 
-**Caveats extraction for fallback-parsed verdicts:**
-When Layer 3 or Layer 4 identifies a CAVEATS verdict: look for numbered lists in the Boss output following the verdict indicator. If Layer 4 was used and none found, re-prompt: "Also extract the caveats list." If still not extractable, persist with `_caveats_text="[FALLBACK_PARSED] [Caveats not extractable -- review Boss output manually]"` and include full Boss output in `_boss_feedback`.
+## Persist exactly once
 
-**Model escalation threshold:**
-The existing model escalation logic in step 5e counts `[UNPARSEABLE_BOSS_OUTPUT]` markers. With the new fallback layers, the threshold remains at 2, but only counts genuine `[UNPARSEABLE_BOSS_OUTPUT]` (i.e., all fallbacks failed). `[FALLBACK_PARSED]` verdicts do NOT increment the escalation counter.
-
-**Constrained retry prompt:**
-When a retry is triggered after all fallback layers failed (Layer 5), the retry prompt for the full Boss agent must include this constraint: "Read the authoritative artifact from the DB using the same scope-aware source selection as the main review (`spec`/`prd` -> `items.spec`, falling back to `items.body` (virtual rendered field); `plan` -> `items.technical_plan` + `items.worktree_plan`, with `items.spec`/`items.design_spec` for context and `items.body` only as fallback when a structured field is empty), but do NOT explore the broader codebase. Your FIRST output line must be the VERDICT: block." This prevents the Boss from repeating the same codebase-exploration pattern that caused the original turn budget exhaustion while still allowing it to read the authoritative artifact.
-
-Also extract `_boss_feedback` -- the full Boss reasoning -- for potential retry prompts.
-
----
-
-## 5g. Persist Verdict
-
-**Populate `_caveats_text` for all verdict types** before persisting:
-
-| Verdict | `_caveats_text` value |
-|---|---|
-| CAVEATS | Numbered caveat list from Boss output (existing behavior) |
-| NOT_READY | Boss feedback/reasoning (`_boss_feedback`) |
-| BLOCKED | Blocking reason |
-| READY | Empty string (existing behavior) |
-
-**Dedup guard:** If the verdict was extracted via Layer 2 (DB fallback — meaning the Boss self-persisted despite being told not to during this invocation), skip the insert and reuse the anchored row ID to avoid duplicates:
+CAVEATS = numbered list; NOT_READY = full feedback; BLOCKED = blocking reason;
+READY = empty caveats. Worker identifies artifact producer/review role.
+Layer2 reuses its anchored fresh row ID, no duplicate insert. Otherwise
+shepherd.verdict.run creates the row; request JSON on original write and keep
+result.verdict_id:
 
 ```bash
-if [ "$_verdict_source" = "layer2_db" ] && [ -n "$_db_boss_row_id" ]; then
- # Boss already persisted during this invocation — reuse the anchored row ID.
- _verdict_id="$_db_boss_row_id"
- echo "Verdict already persisted by Boss during this invocation (Layer 2 recovery) — reusing row $_verdict_id"
-else
- _verdict_id=$(yoke shepherd verdict --item "$_item_ref" --transition "$_transition" --worker "$_worker_name" --verdict "$_verdict" --caveats "$_caveats_text")
-fi
+yoke shepherd verdict --item ITEM --transition EDGE --worker WORKER --verdict VERDICT --caveats "{reason or numbered caveats}" --json
 ```
 
-Set `_verdict_source` during the parsing chain in step 5f:
-- Layer 1 (strict regex): `_verdict_source="layer1_regex"`
-- Layer 2 (DB fallback): `_verdict_source="layer2_db"`
-- Layer 3 (fallback regex): `_verdict_source="layer3_fallback"`
-- Layer 4 (lightweight extraction): `_verdict_source="layer4_extraction"`
-- Layer 5 (unparseable): `_verdict_source="layer5_unparseable"`
+Verified ambient identity owns the write. Failure stops; no advancement.
+Extract worker/Boss reflection entries (REFLECTION start/end, BEGIN/END ENTRY,
+timestamp/agent/context/category/observation) through existing Ouroboros/hook
+contract; persist each once, not duplicate an already-hook-recorded entry.
+Telemetry success is never verdict authority.
 
-Where:
-- `_worker_name` is the worker that produced the artifact (PM, Designer, Architect, or "review" for {_review_transition})
-- `_session_id` is the calling session's verified ambient identity
-- `_db_boss_row_id` is the Layer 2 row ID captured from rows created after `_pre_boss_verdict_max_id`
-- `_verdict_id` is the row ID of the newly inserted verdict row (or reused row for Layer 2), used when persisting caveat dispositions in step 5i
+## All caveats need a disposition before advance
 
----
+- RESOLVED requires an artifact edit **just made**, naming exact field/section/
+  change. "Already handles this" or "no changes needed" is ANALYZED.
+- DEFERRED implementation concern persists in shepherd_caveats and, if it names
+  a task number, that task body so the next worker sees it.
+- ANALYZED persists caveat and defensible reasoning for human verification;
+  it cannot vanish into verdict storage. Ambiguous operator decision stops
+  with evidence/Progress Log and required guidance.
 
-## 5h. Capture Reflections
-
-Search the worker's and Boss's responses for reflection blocks:
-
-```
----REFLECTION-START---
----BEGIN ENTRY---
-timestamp: {ISO}
-agent: {name}
-context: {context}
-category: {category}
-{observation text}
----END ENTRY---
----REFLECTION-END---
-```
-
-For each extracted entry, persist via:
-```bash
-yoke ouroboros entry insert \
- --agent "{agent}" \
- --context "shepherd $_item_ref $_transition" \
- --category "{category}" \
- --observation "{observation}"
-```
-
----
-
-## 5i. Caveat Resolution Gate
-
-When the verdict is **CAVEATS**, every caveat must be triaged before the pipeline advances. No caveat may be left undispositioned.
-
-**For each caveat in `_caveats_text`:**
-
-1. **Can this be resolved now by editing the artifact?** Determine whether the caveat points to something fixable within the current transition's scope -- a missing detail in the spec, an ambiguity in the plan, an unresolved open question, a gap the Boss flagged that the worker should have covered. If so:
- - Fix it. Edit the relevant DB-backed artifact directly (for example `spec`, `design_spec`, `technical_plan`, `worktree_plan`, or task content) to address the concern.
- - **The `resolution_details` MUST reference the specific change** -- section name, field modified, or content added/removed. Vague summaries like "already handles this", "determined not needed", or "Architect confirmed no changes required" are NOT valid RESOLVED details. If you cannot point to a specific artifact edit you just made, the disposition is ANALYZED, not RESOLVED.
- - Record the disposition: `RESOLVED: {one-line summary of what was changed, referencing the specific edit}`
-
-2. **Is this an implementation concern for a later stage?** If the caveat is about how something should be built, tested, or deployed -- something the current worker cannot act on -- then it must be **persisted in the work item artifacts** so the engineer or next worker sees it when they read the item:
- - Write the caveat into the `shepherd_caveats` structured field (rendered back into the item body under `## Shepherd Caveats`; see format below).
- - If tasks exist (post-planning transitions) and the caveat explicitly references a task number (e.g., "Task 005: ..."), also write it into that task's body.
- - Record the disposition: `DEFERRED to PREFIX-{N} body: {caveat summary}`
-
-3. **Does analysis show no change is needed?** If the caveat is based on a misunderstanding, or the concern is already addressed elsewhere in the artifact, or analysis genuinely determines the caveat is inapplicable, record as ANALYZED. **ANALYZED caveats MUST be persisted to `shepherd_caveats`** (rendered under `## Shepherd Caveats`) so a human reviewer can verify the judgment -- they cannot silently disappear into the DB.
- - Write the caveat and its reasoning into `shepherd_caveats` under `## Shepherd Caveats > ### {_transition}`.
- - Record the disposition: `ANALYZED: {reasoning why no change needed}`
-
-**Persist each caveat disposition.** After triaging each caveat, persist the disposition to the DB:
+Persist every one, 1-based index and exact verdict row/attempt:
 
 ```bash
-yoke shepherd caveat-disposition \
- --item "$_item_ref" --transition "$_transition" --attempt "$_attempt" \
- --caveat-num "$_caveat_num" --caveat-text "$_caveat_text" \
- --disposition "$_disposition" --resolution-details "$_resolution_details" \
- --verdict-id "$_verdict_id"
+yoke shepherd caveat-disposition --item ITEM --transition EDGE --attempt {attempt} --caveat-num {caveat_num} --caveat-text "{caveat}" --disposition RESOLVED --resolution-details "{specific edit and persisted destination}" --verdict-id {verdict_id}
 ```
 
-Where:
-- `_caveat_num` is the 1-based index of the caveat in the list
-- `_caveat_text` is the text of the individual caveat
-- `_disposition` is `RESOLVED`, `DEFERRED`, or `ANALYZED`
-- `_resolution_details` is a one-line summary (what was changed for RESOLVED, where it was deferred to for DEFERRED, or reasoning for ANALYZED)
-- `_verdict_id` is the row ID captured in step 5g
+Collect DEFERRED/ANALYZED as:
+- **Caveat N:** text — *DISPOSITION:* details.
+RESOLVED stays fixed in place. Print full triage including specific edits.
 
-**Build `_caveats_list` during triage.** For each DEFERRED or ANALYZED caveat, append a formatted line to `_caveats_list`. RESOLVED caveats are NOT written to the body (they were fixed in-place). Format:
+Write the collected nonempty transition subsection once with the producer's
+field-targeted items.structured_field.section_upsert, heading level 3:
+create if absent, append for new edge, replace only same edge on retry.
+No read-transform shell surgery, no empty erasure, no other-field mutation:
 
 ```bash
-_caveats_list=""
-# After triaging each caveat (inside the loop):
-if [ "$_disposition" = "DEFERRED" ] || [ "$_disposition" = "ANALYZED" ]; then
- _caveats_list="${_caveats_list}
-- **Caveat ${_caveat_num}:** ${_caveat_text} — *${_disposition}:* ${_resolution_details}"
-fi
+yoke items structured-field section-upsert ITEM --field shepherd_caveats --heading-level 3 --section EDGE --content-file CAVEATS_FILE --source shepherd --json
 ```
 
-Do NOT write caveats to the body individually during triage — the template below writes them all at once after the loop completes.
-
-**Disposition log.** After triaging all caveats, output the full list:
-
-```
-Caveat triage for PREFIX-{N} at {_transition}:
- 1. RESOLVED: {summary} -- {specific artifact edit made}
- 2. DEFERRED to PREFIX-{N} body: {summary}
- 3. ANALYZED: {summary} -- {reasoning why no change needed}
-```
-
-**Body format for DEFERRED and ANALYZED caveats.** Write to `items.shepherd_caveats` via structured field writes. ANALYZED caveats are persisted so human reviewers can verify the shepherd's reasoning.
-
-```bash
-# Build subsection; use awk (not sed) to avoid BSD sed failures with markdown
-# metacharacters like **bold**, [links](url), |pipes|.
-_new_subsection=$(printf '### %s\n\n%s\n' "$_transition" "$_caveats_list")
-_existing_caveats=$(yoke items get "$_item_ref" shepherd_caveats 2>/dev/null)
-
-if [ -n "$_existing_caveats" ]; then
- _has_transition=$(printf '%s\n' "$_existing_caveats" | grep -c "^### ${_transition}$" || true)
- if [ "$_has_transition" -gt 0 ]; then
- # RETRY CASE: replace existing ### {_transition} subsection
- _before=$(printf '%s\n' "$_existing_caveats" | awk -v h="### $_transition" '$0 == h { exit } { print }')
- _after_section=$(printf '%s\n' "$_existing_caveats" | awk -v h="### $_transition" '
- found == 1 && /^### / { past=1 }
- past == 1 { print }
- $0 == h { found=1 }
- ')
- _merged_caveats="${_before}${_new_subsection}"
- if [ -n "$_after_section" ]; then
- _merged_caveats="${_merged_caveats}
-${_after_section}"
- fi
- else
- # NEW TRANSITION: append new subsection
- _merged_caveats="${_existing_caveats}
-
-${_new_subsection}"
- fi
-else
- _merged_caveats="$_new_subsection"
-fi
-
-# Guard: non-empty check before write
-if [ -z "$_merged_caveats" ]; then
- echo "Error: Caveats merge produced empty output — aborting DB write to prevent data loss." >&2
-fi
-```
-
-When `_merged_caveats` is non-empty, dispatch the
-`items.structured_field.replace` function call (envelope in
-[`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md))
-with `target = {kind: "item", item_id: $_num}` and `payload =
-{field: "shepherd_caveats", content: "$_merged_caveats", source:
-"shepherd"}`. Three cases handled: **(1) No existing content** —
-creates a single `### {_transition}` subsection. **(2) New
-transition** — preserves prior subsections, appends new one.
-**(3) Same transition (retry)** — replaces only the matching
-subsection.
-
-**Caveat decisions:** Triage within the authorized scope. Ask for guidance when an ambiguous caveat needs an operator decision; preserve the evidence and Progress Log checkpoint. Use ANALYZED only when the reasoning is clear and defensible.
-
-**Atomicity.** Structured field writes are atomic -- they cannot corrupt other fields. The body is re-rendered from all fields by the internal body renderer.
+Receipt must name the stored field/heading/section and verified write;
+failure retains stage and named recovery. Body rerender is handler-owned.
