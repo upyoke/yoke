@@ -327,22 +327,16 @@ routed-session fixtures bind native clocks and adapt only at SQLite ownership.
 QA daily summaries keep public UTC day labels as dates and bind their half-open
 window as native UTC midnight instants, independent of the SQL session timezone.
 
-Notice, settlement, signing and export-name owners validate a supplied clock
-before acting; only null selects the shared generated clock. Qualified offsets
-normalize to native UTC without losing microseconds. Captured hook endpoints
-retain their timing owner. Scheduler fixtures declare native instant columns.
+Notice, messaging, settlement, signing, export-name and fleet polling owners
+validate supplied clocks before reads or actions; only null selects the shared
+clock. Qualified offsets normalize without losing microseconds. Captured hook
+endpoints retain their timing owner. Scheduler fixtures declare native columns.
+QA wakes, parked ordering, hook context and event relative bounds reuse this clock.
 
-QA failure/review wakes, parked-session ordering and hook context reuse the
-shared native clock. Fleet polling validates each supplied clock before reads;
-event relative bounds validate their anchor and preserve microseconds.
-
-Messaging and GitHub token owners validate provided clocks before receipts,
-wakes, signing or cache reads. Surface-policy mark responses format declared
-clocks as fixed-six UTC/null while SQL binds native instants at its adapter.
-
-Item approval, task-binding and workflow-version replies format their declared
-instant fields explicitly. A resolved approval without its required clock
-refuses with named missing-evidence recovery; immutable digests stay opaque.
-
-Session identity/release readers keep native instants. Steering ties compare
-instants, and composition replies/event context format clocks at their boundary.
+Surface-policy, approval, task-binding, workflow inventory and composition
+replies format declared clocks as fixed-six UTC/null. Approval missing its
+required clock refuses with named recovery. Session identity/release readers
+keep native instants; steering ties compare instants before claim ids. Chain
+event context, new triage receipts and stale-browser diagnostics format their
+owned clock fields. Terminal settlement parses its optional completion instant.
+Existing frozen snapshots, retained triage receipts, reports and digests stay opaque.

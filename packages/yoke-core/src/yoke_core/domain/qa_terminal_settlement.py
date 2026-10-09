@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from typing import Any, Sequence
+from yoke_contracts.timestamps import parse_instant
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_latest_execution import latest_executions
@@ -114,8 +115,10 @@ def _issue_for_requirement(
             recovery,
         )
     verdict = str(requirement.get("verdict") or "").strip().lower()
-    completed_at = str(requirement.get("completed_at") or "").strip()
-    if verdict != "pass" or not completed_at:
+    completed_at = requirement.get("completed_at")
+    if completed_at is not None:
+        completed_at = parse_instant(completed_at)
+    if verdict != "pass" or completed_at is None:
         actual = str(
             requirement.get("case_outcome")
             or requirement.get("execution_status")
