@@ -1,10 +1,14 @@
 """Item mutation clocks retain precision through native SQL bindings."""
 
+import json
+from datetime import datetime
+
 import pytest
 
-from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.timestamps import InvalidInstant, parse_instant, temporal_wire
 from yoke_core.domain import backlog_item_db_writes, mutations_create, mutations_update
-from yoke_core.domain.mutation_fields import ItemState
+from yoke_core.domain.mutation_fields import ApprovalResult, ItemState
+from yoke_core.domain.runs import DeploymentRun, RunItem
 from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 STAMP = parse_instant("1970-01-01T05:29:59.123456+05:30")
@@ -86,3 +90,75 @@ def test_invalid_declared_clock_refuses_before_item_write(test_db):
         )
         == before
     )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "1969-12-31T23:59:59.123456Z",
+        "1970-01-01T05:29:59.123456+05:30",
+        "1969-12-31T19:59:59.123456-04:00",
+    ],
+)
+def test_run_and_mutation_models_retain_native_clock_facts(value):
+    from yoke_core.api.service_client_shared_emit import _mutation_result_to_dict
+
+    run = DeploymentRun(
+        "run",
+        "project",
+        "flow",
+        "executing",
+        created_at=value,
+        started_at=value,
+        completed_at=value,
+    )
+    member = RunItem("run", 7, added_at=value)
+    item = ItemState(7, "item", "implementing", "medium", merged_at=value)
+    approval = ApprovalResult(
+        success=True,
+        approved_at=value,
+        field_writes={"updated_at": STAMP, "opaque": value},
+    )
+    assert run.created_at == run.started_at == run.completed_at == STAMP
+    assert member.added_at == item.merged_at == approval.approved_at == STAMP
+    assert json.loads(json.dumps(temporal_wire({"added_at": member.added_at}))) == {
+        "added_at": "1969-12-31T23:59:59.123456Z",
+    }
+    wire = json.loads(json.dumps(_mutation_result_to_dict(approval)))
+    assert (
+        wire["approved_at"]
+        == wire["field_writes"]["updated_at"]
+        == "1969-12-31T23:59:59.123456Z"
+    )
+    assert wire["field_writes"]["opaque"] == value
+    assert approval.field_writes["updated_at"] == STAMP
+
+
+def test_run_and_mutation_models_preserve_absent_clock_facts():
+    run = DeploymentRun("run", "project", "flow", "created")
+    assert run.created_at is run.started_at is run.completed_at is None
+    assert RunItem("run", 7).added_at is None
+    assert ItemState(7, "item", "implementing", "medium").merged_at is None
+    assert ApprovalResult(success=False).approved_at is None
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "1970-01-01",
+        "1970-01-01T00:00:00",
+        "1970-01-01T00:00:00-00:00",
+        datetime(1970, 1, 1),
+    ],
+)
+def test_run_and_mutation_models_refuse_unverifiable_clock_facts(value):
+    for field in ("created_at", "started_at", "completed_at"):
+        with pytest.raises(InvalidInstant):
+            DeploymentRun("run", "project", "flow", "created", **{field: value})
+    with pytest.raises(InvalidInstant):
+        RunItem("run", 7, added_at=value)
+    with pytest.raises(InvalidInstant):
+        ItemState(7, "item", "implementing", "medium", merged_at=value)
+    with pytest.raises(InvalidInstant):
+        ApprovalResult(success=True, approved_at=value)
