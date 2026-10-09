@@ -56,26 +56,26 @@ def _make_conn():
             status TEXT, priority TEXT,
             project_id INTEGER DEFAULT 1, project_sequence INTEGER,
             github_issue TEXT,
-            deployed_to TEXT, updated_at TEXT,
-            deployment_flow TEXT, merged_at TEXT,
-            deploy_stage TEXT, created_at TEXT
+            deployed_to TEXT, updated_at TIMESTAMPTZ,
+            deployment_flow TEXT, merged_at TIMESTAMPTZ,
+            deploy_stage TEXT, created_at TIMESTAMPTZ
         );
         CREATE TABLE item_worktrees (
             id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL,
             branch TEXT NOT NULL, path TEXT, lane_role TEXT NOT NULL,
-            state TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL, released_at TEXT
+            state TEXT NOT NULL DEFAULT 'active', created_at TIMESTAMPTZ NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL, released_at TIMESTAMPTZ
         );
         CREATE TABLE epic_tasks (
             epic_id TEXT, task_num INTEGER, title TEXT,
-            status TEXT, last_heartbeat TEXT,
+            status TEXT, last_heartbeat TIMESTAMPTZ,
             dispatch_attempts INTEGER DEFAULT 0,
             item_worktree_id INTEGER, github_issue TEXT,
             PRIMARY KEY (epic_id, task_num)
         );
         CREATE TABLE projects (
             id INTEGER PRIMARY KEY, slug TEXT UNIQUE, name TEXT,
-            default_branch TEXT, created_at TEXT,
+            default_branch TEXT, created_at TIMESTAMPTZ,
             github_repo TEXT, public_item_prefix TEXT DEFAULT 'YOK',
             github_sync_mode TEXT NOT NULL DEFAULT 'disabled'
         );
@@ -87,13 +87,13 @@ def _make_conn():
              '2026-01-01T00:00:00Z', 'upyoke/yoke', 'YOK', 'enabled');
         CREATE TABLE ouroboros_entries (
             id INTEGER PRIMARY KEY, agent TEXT, context TEXT,
-            category TEXT, body TEXT, created_at TEXT,
-            reviewed_at TEXT, archived_at TEXT
+            category TEXT, body TEXT, created_at TIMESTAMPTZ,
+            reviewed_at TIMESTAMPTZ, archived_at TIMESTAMPTZ
         );
         CREATE TABLE events (
             id INTEGER PRIMARY KEY, event_id TEXT, source_type TEXT,
             event_name TEXT, event_type TEXT, item_id TEXT,
-            task_num INTEGER, client_timing_id TEXT, envelope TEXT, created_at TEXT
+            task_num INTEGER, client_timing_id TEXT, envelope TEXT, created_at TIMESTAMPTZ
         );
         CREATE TABLE epic_dispatch_chains (
             id INTEGER PRIMARY KEY, epic_id TEXT, item_worktree_id INTEGER,
@@ -182,7 +182,9 @@ def relayed_control_plane(conn):
             with patch.object(db_helpers, "connect", lambda: _KeepOpenConn(conn)):
                 outcome = item_worktree_inventory.handle_inventory(request)
             if not outcome.primary_success:
-                raise RuntimeError(outcome.error.message if outcome.error else "refused")
+                raise RuntimeError(
+                    outcome.error.message if outcome.error else "refused"
+                )
             return outcome.result_payload
         if function_id == "merge.prune.authority_verdict":
             path = Path(payload["path"]) if payload.get("path") else None

@@ -313,3 +313,9 @@ SQL and preserve microseconds. Minimal session, actor, organization and event
 schemas declare native instants while retaining nullable states. Runnable item
 seeds reuse the existing backlog fixture owner with qualified deterministic
 inputs; the stale fixture's absent project sequence stays absent.
+
+Project identity test writers parse the finite stored-clock roster before schema
+lookup and bind native values through the shared SQL parameter adapter. The
+actual git Doctor schema owners declare those clocks as `TIMESTAMPTZ`. Their
+fixture tests cover supplied-clock refusal, microseconds across server time
+zones, nullable clocks, opaque text, and explicit canonical SQLite binding.
