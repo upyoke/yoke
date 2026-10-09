@@ -75,12 +75,15 @@ def test_previously_observed_landing_stops_when_github_clears_arming(
     # The same governed arming marker used by merge item starts a new episode.
     point_item_at_pull_request(conn, 101, "42", enqueued_at=INJECTED_TEXT)
     assert (
-        observe(conn, read_state=armed_awaiting_checks, read_membership=not_queued)[
-            "ejected"
-        ]
+        observe(
+            conn,
+            now=INJECTED_AT,
+            read_state=armed_awaiting_checks,
+            read_membership=not_queued,
+        )["ejected"]
         == 0
     )
-    assert observe(conn, read_state=merged)["landed"] == 1
+    assert observe(conn, now=INJECTED_AT, read_state=merged)["landed"] == 1
     assert "Landing complete" in message_body(conn, landed_message_id(conn))
     assert message_count(conn) == 2
 
