@@ -9,11 +9,12 @@ never drift apart in what they write.
 
 from __future__ import annotations
 
+from datetime import datetime
 import json
 from typing import Any, Iterable, Mapping, Optional
 
 from yoke_core.domain.qa_converging_columns import converged_values
-from yoke_core.domain.db_helpers import query_one
+from yoke_core.domain.db_helpers import instant_parameter, query_one
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder
 from yoke_core.domain.qa_events import emit_qa_requirement_event
 from yoke_core.domain.qa_execution_environment_target import (
@@ -141,7 +142,7 @@ def insert_requirement(
     case: Any,
     baseline: Optional[str],
     baseline_position: int,
-    now: str,
+    now: datetime,
     execution_target: dict[str, Any],
     target_env: Optional[str] = None,
 ) -> Optional[int]:
@@ -167,7 +168,7 @@ def insert_requirement(
         "deployment_member_item_id": deployment_member_item_id,
     }
     columns = (*subject, *stored, "created_at")
-    values = (*subject.values(), *stored.values(), now)
+    values = (*subject.values(), *stored.values(), instant_parameter(conn, now))
     row = conn.execute(
         f"INSERT INTO qa_requirements({', '.join(columns)}) "
         f"VALUES ({', '.join([marker] * len(values))}) "

@@ -121,3 +121,67 @@ def test_ephemeral_cleanup_preserves_exact_cutoff_and_native_stopped_fact(
     ).fetchall()
     assert tuple(facts[0]) == ("before", "stopped", STAMP)
     assert tuple(facts[1]) == ("exact", "running", None)
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_qa_requirement_creation_and_waiver_bind_native_instants(
+    test_db, monkeypatch, zone
+):
+    from runtime.api.fixtures.backlog_inserts import insert_item
+    from yoke_core.domain.handlers.qa_requirement_insert import (
+        RequirementSubject,
+        execute_insert,
+    )
+    from yoke_core.domain import qa_requirement_ops
+    from yoke_core.domain.qa_cli_requirement_insert import INSERT_SQL, insert_params
+
+    class BindingRecorder:
+        def __init__(self, conn):
+            self._conn = conn
+            self.bindings = []
+
+        def execute(self, sql, params=()):
+            if sql.startswith("INSERT INTO qa_requirements"):
+                self.bindings.append(params[-1])
+            return self._conn.execute(sql, params)
+
+        def __getattr__(self, name):
+            return getattr(self._conn, name)
+
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    insert_item(test_db, id=1, title="Native QA clocks", status="implementing")
+    conn = BindingRecorder(test_db)
+    row = {"qa_kind": "ac_verification", "qa_phase": "verification"}
+    requirement_id = execute_insert(
+        conn, RequirementSubject.for_item(1), row, STAMP
+    ).fetchone()[0]
+    params = insert_params(
+        conn=conn,
+        item_id=1,
+        epic_id=None,
+        task_num=None,
+        deployment_run_id=None,
+        row=row,
+        created_at=STAMP,
+    )
+    cli_id = test_db.execute(INSERT_SQL, params).fetchone()[0]
+    assert conn.bindings == [STAMP]
+    assert params[-1] == STAMP
+    clocks = test_db.execute(
+        "SELECT created_at FROM qa_requirements WHERE id IN (%s,%s) ORDER BY id",
+        (requirement_id, cli_id),
+    ).fetchall()
+    assert [fact[0] for fact in clocks] == [STAMP, STAMP]
+    monkeypatch.setattr(
+        qa_requirement_ops, "utc_now", lambda: STAMP + timedelta(microseconds=1)
+    )
+    qa_requirement_ops.waive_requirement(
+        test_db,
+        req_id=requirement_id,
+        rationale="Explicit waiver",
+        source="human",
+        force=True,
+    )
+    assert test_db.execute(
+        "SELECT waived_at FROM qa_requirements WHERE id=%s", (requirement_id,)
+    ).fetchone()[0] == STAMP + timedelta(microseconds=1)

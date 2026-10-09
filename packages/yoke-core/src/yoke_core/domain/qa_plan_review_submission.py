@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Mapping, Sequence
 
-from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
+from yoke_core.domain.db_helpers import (
+    instant_parameter,
+    utc_now,
+    query_one,
+    query_rows,
+)
 from yoke_core.domain.qa_capture_settlement import stamp_reviewed_capture
 from yoke_core.domain.qa_constants import (
     UNDETERMINED_VERDICT,
@@ -81,7 +87,7 @@ def _record_verdict(
     case: Mapping[str, Any],
     verdict: str,
     rationale: str,
-    created_at: str,
+    created_at: datetime,
 ) -> QaRunWrite:
     p = marker(conn)
     require_agent_undetermined_evidence(
@@ -102,7 +108,7 @@ def _record_verdict(
             run_id,
             verdict,
             rationale,
-            created_at,
+            instant_parameter(conn, created_at),
         ),
     )
     write = stamp_reviewed_capture(
@@ -180,7 +186,7 @@ def submit_plan_review(
                 (bundle_id,),
             )
         }
-        now = iso8601_now()
+        now = utc_now()
         run_ids: dict[int, int] = {}
         created_run_ids: dict[int, int] = {}
         discharged: list[tuple[dict[str, Any], dict[str, Any]]] = []
@@ -219,7 +225,12 @@ def submit_plan_review(
                 "SET state='completed',reviewer_actor_id="
                 f"{p},reviewer_session_id={p},reviewed_at={p} "
                 f"WHERE id={p} AND state='pending'",
-                (reviewer_actor_id, reviewer_session_id, now, bundle_id),
+                (
+                    reviewer_actor_id,
+                    reviewer_session_id,
+                    instant_parameter(conn, now),
+                    bundle_id,
+                ),
             )
             if execution["state"] != "completed":
                 from yoke_core.domain.qa_plan_execution_lifecycle import (

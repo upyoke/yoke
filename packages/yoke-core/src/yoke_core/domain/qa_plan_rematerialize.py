@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.db_helpers import iso8601_now, query_rows
+from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_rows
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_case_targets import case_variants
 from yoke_core.domain.qa_plan_attachment_validation import (
@@ -120,7 +120,7 @@ def rematerialize_for_item(
     refreshed_requirement_ids: list[int] = []
     corrected_admitted_copy_ids: list[int] = []
     retained_requirement_ids: set[int] = set()
-    now = iso8601_now()
+    now = utc_now()
     for plan_id, attachment in attachments.items():
         plan = _plan_row(conn, plan_id)
         cases = plan_cases(conn, plan_id)
@@ -217,7 +217,12 @@ def rematerialize_for_item(
             "UPDATE qa_requirements "
             f"SET waived_at={marker}, waiver_rationale={marker}, "
             f"waiver_source={marker} WHERE id={marker}",
-            (iso8601_now(), REPLACEMENT_RATIONALE, "system", requirement_id),
+            (
+                instant_parameter(conn, utc_now()),
+                REPLACEMENT_RATIONALE,
+                "system",
+                requirement_id,
+            ),
         )
     if commit:
         conn.commit()

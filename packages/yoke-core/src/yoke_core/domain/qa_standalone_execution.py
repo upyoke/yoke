@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import uuid4
 
-from yoke_core.domain.db_helpers import iso8601_now, query_one
+from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_one
 from yoke_core.domain.qa_plan_management import _project_id
 from yoke_core.domain.qa_plan_execution_store import (
     QaPlanExecutionStateError,
@@ -122,7 +122,7 @@ def _roster(
                 case=case,
                 baseline=baseline,
                 baseline_position=position,
-                now=iso8601_now(),
+                now=utc_now(),
                 execution_target=target,
             )
             if requirement_id is None:
@@ -263,7 +263,7 @@ def begin_standalone_execution(
     if continuation:
         require_same_mission_roster(continuation, roster)
     target, digest = execution_target_for_roster(roster)
-    now = iso8601_now()
+    now = utc_now()
     values = {
         "id": execution_id,
         "standalone_plan_id": plan_id,
@@ -276,8 +276,8 @@ def begin_standalone_execution(
         "continues_execution_id": str(continuation["id"]) if continuation else None,
         "cursor_ordinal": 0,
         "state": "active",
-        "created_at": now,
-        "heartbeat_at": now,
+        "created_at": instant_parameter(conn, now),
+        "heartbeat_at": instant_parameter(conn, now),
     }
     conn.execute(
         f"INSERT INTO qa_plan_executions({','.join(values)}) "

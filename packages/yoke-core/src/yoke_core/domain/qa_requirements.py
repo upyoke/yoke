@@ -13,7 +13,7 @@ from __future__ import annotations
 import sys
 from typing import Optional
 
-from yoke_core.domain.db_helpers import connect, iso8601_now
+from yoke_core.domain.db_helpers import connect, utc_now
 from yoke_core.domain.qa_constants import (
     BROWSER_METHOD_IDS,
     VALID_BLOCKING_MODES,
@@ -171,9 +171,7 @@ def cmd_requirement_add(
                 bind_item_named_target,
             )
 
-            refused = bind_item_named_target(
-                conn, item_id=int(owner_id), row=row
-            )
+            refused = bind_item_named_target(conn, item_id=int(owner_id), row=row)
             if refused:
                 print(f"Error: {refused}", file=sys.stderr)
                 sys.exit(2)
@@ -197,13 +195,14 @@ def cmd_requirement_add(
         cur = conn.execute(
             INSERT_SQL,
             insert_params(
+                conn=conn,
                 item_id=item_id,
                 epic_id=epic_id,
                 task_num=task_num,
                 deployment_run_id=deployment_run_id,
                 deployment_stage=deployment_stage,
                 row=row,
-                created_at=iso8601_now(),
+                created_at=utc_now(),
             ),
         )
         inserted_id = int(cur.fetchone()[0])

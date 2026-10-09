@@ -11,6 +11,8 @@ import json
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.domain import test_independent_member_delivery_close_out as delivery
 from runtime.api.domain.test_deployment_qa_admission_execution import (
     _original_requirement,
@@ -148,7 +150,7 @@ def test_a_run_materializes_and_executes_its_qa_on_an_unconverged_schema(
         test_db,
         RequirementSubject.for_item(member),
         {"qa_kind": "ac_verification", "qa_phase": "verification"},
-        "2026-10-07T00:00:00Z",
+        parse_instant("2026-10-07T00:00:00Z"),
     ).fetchone()
     assert added
     cases = _current_cases(test_db, plan_id)

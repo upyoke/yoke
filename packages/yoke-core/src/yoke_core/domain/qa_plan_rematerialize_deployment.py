@@ -32,7 +32,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.db_helpers import iso8601_now, query_rows
+from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_rows
 from yoke_core.domain.qa_deployment_case_correction_window import (
     determinate_verdict,
 )
@@ -162,7 +162,7 @@ def _insert_case(
         case=case,
         baseline=baseline,
         baseline_position=baseline_position,
-        now=iso8601_now(),
+        now=utc_now(),
         execution_target=execution_target,
     )
     if inserted is None:
@@ -306,7 +306,12 @@ def rematerialize_for_deployment_stage(
         conn.execute(
             "UPDATE qa_requirements SET waived_at=%s, waiver_rationale=%s, "
             "waiver_source=%s WHERE id=%s",
-            (iso8601_now(), REPLACEMENT_RATIONALE, "system", requirement_id),
+            (
+                instant_parameter(conn, utc_now()),
+                REPLACEMENT_RATIONALE,
+                "system",
+                requirement_id,
+            ),
         )
     if commit:
         conn.commit()

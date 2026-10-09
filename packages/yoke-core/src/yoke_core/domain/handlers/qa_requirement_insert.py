@@ -8,6 +8,10 @@ named, so the insert stays one statement rather than one per shape.
 
 from __future__ import annotations
 
+from datetime import datetime
+from yoke_contracts.timestamps import as_utc
+from yoke_core.domain.db_helpers import instant_parameter
+
 from dataclasses import dataclass
 import json
 from typing import Any, Optional
@@ -66,7 +70,7 @@ class RequirementSubject:
 def insert_params(
     subject: RequirementSubject,
     row: dict[str, Any],
-    now_iso: str,
+    created_at: datetime,
 ) -> tuple[Any, ...]:
     """Return parameters in :data:`_COLUMNS` order."""
     return (
@@ -99,7 +103,7 @@ def insert_params(
         row.get("host_baseline"),
         row.get("starting_state"),
         row.get("starting_state_reason"),
-        now_iso,
+        as_utc(created_at),
     )
 
 
@@ -107,7 +111,7 @@ def execute_insert(
     conn: Any,
     subject: RequirementSubject,
     row: dict[str, Any],
-    now_iso: str,
+    created_at: datetime,
 ) -> Any:
     """Insert one requirement row and return the cursor holding its id."""
     from yoke_core.domain import db_backend
@@ -116,8 +120,9 @@ def execute_insert(
     stored = converged_values(
         conn,
         "qa_requirements",
-        dict(zip(_COLUMNS, insert_params(subject, row, now_iso))),
+        dict(zip(_COLUMNS, insert_params(subject, row, created_at))),
     )
+    stored["created_at"] = instant_parameter(conn, stored["created_at"])
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     return conn.execute(
         f"INSERT INTO qa_requirements ({', '.join(stored)}) "

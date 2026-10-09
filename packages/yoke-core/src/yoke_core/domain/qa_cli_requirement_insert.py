@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
+
+from yoke_core.domain.db_helpers import instant_parameter
 
 
 INSERT_SQL = """
@@ -18,12 +21,13 @@ INSERT_SQL = """
 
 def insert_params(
     *,
+    conn: Any,
     item_id: int | None,
     epic_id: int | None,
     task_num: int | None,
     deployment_run_id: str | None,
     row: dict[str, Any],
-    created_at: str,
+    created_at: datetime,
     deployment_stage: str | None = None,
 ) -> tuple[Any, ...]:
     """Return values in :data:`INSERT_SQL` column order.
@@ -48,7 +52,7 @@ def insert_params(
         row.get("capability_requirements"),
         row.get("suite_id"),
         row.get("workflow_transition_id"),
-        created_at,
+        instant_parameter(conn, created_at),
     )
 
 

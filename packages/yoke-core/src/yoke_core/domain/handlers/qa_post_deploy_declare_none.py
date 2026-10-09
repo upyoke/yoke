@@ -95,7 +95,7 @@ def handle_qa_post_deploy_declare_none(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     """Write the item's recorded nothing-to-verify declaration."""
-    from yoke_core.domain.db_helpers import connect, iso8601_now
+    from yoke_core.domain.db_helpers import connect, utc_now
     from yoke_core.domain.qa_events import emit_qa_requirement_event
     from yoke_core.domain.qa_requirement_ops import waive_requirement
 
@@ -155,7 +155,7 @@ def handle_qa_post_deploy_declare_none(
             "workflow_transition_id": transition_id,
         }
         cur = execute_insert(
-            conn, RequirementSubject.for_item(int(item_id)), row, iso8601_now()
+            conn, RequirementSubject.for_item(int(item_id)), row, utc_now()
         )
         requirement_id = int(cur.fetchone()[0])
         conn.commit()

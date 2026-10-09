@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
-from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
+from yoke_core.domain.db_helpers import utc_now, query_one, query_rows
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder
 from yoke_core.domain.qa_execution_environment_target import (
     resolve_plan_execution_target,
@@ -95,7 +95,7 @@ def materialize_deployment_plan(
     created: list[int] = []
     existing: list[int] = []
     attachment = {"qa_phase": "post_deploy"}
-    now = iso8601_now()
+    now = utc_now()
     try:
         for case in cases:
             for baseline_position, baseline in enumerate(case_baselines(case), start=1):
