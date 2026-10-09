@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 from typing import Any, Mapping
+from datetime import datetime
+from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_contracts.onboard_checklist import (
     BRANCHES,
@@ -30,9 +32,12 @@ class ProjectOnboardingRunError(RuntimeError):
     """A project onboarding run cannot be read or mutated."""
 
 
-def upsert_default_rows(conn: Any, p: str, run_id: str, branch: str, now: str) -> None:
+def upsert_default_rows(
+    conn: Any, p: str, run_id: str, branch: str, now: datetime
+) -> None:
     existing = {
-        row["row_id"]: row for row in conn.execute(
+        row["row_id"]: row
+        for row in conn.execute(
             f"SELECT * FROM project_onboarding_checklist_rows WHERE run_id = {p}",
             (run_id,),
         ).fetchall()
@@ -51,8 +56,18 @@ def upsert_default_rows(conn: Any, p: str, run_id: str, branch: str, now: str) -
             "step = EXCLUDED.step, title = EXCLUDED.title, layer = EXCLUDED.layer, "
             "owner = EXCLUDED.owner, hint = EXCLUDED.hint, updated_at = EXCLUDED.updated_at",
             (
-                run_id, spec.row_id, spec.step, spec.title, spec.layer,
-                spec.owner, status, spec.hint, evidence, blocker, note, now,
+                run_id,
+                spec.row_id,
+                spec.step,
+                spec.title,
+                spec.layer,
+                spec.owner,
+                status,
+                spec.hint,
+                evidence,
+                blocker,
+                note,
+                instant_parameter(conn, now),
             ),
         )
 
@@ -61,7 +76,7 @@ def apply_row_updates(
     conn: Any,
     p: str,
     run_id: str,
-    now: str,
+    now: datetime,
     *,
     row_status: Mapping[str, str],
     evidence: Mapping[str, Any],
@@ -75,7 +90,7 @@ def apply_row_updates(
         conn.execute(
             "UPDATE project_onboarding_checklist_rows "
             f"SET status = {p}, updated_at = {p} WHERE run_id = {p} AND row_id = {p}",
-            (status, now, run_id, row_id),
+            (status, instant_parameter(conn, now), run_id, row_id),
         )
     for row_id, value in evidence.items():
         validate_row_id(row_id)
@@ -83,21 +98,31 @@ def apply_row_updates(
             "UPDATE project_onboarding_checklist_rows "
             f"SET evidence_json = {p}, updated_at = {p} "
             f"WHERE run_id = {p} AND row_id = {p}",
-            (json_dumps(value), now, run_id, row_id),
+            (json_dumps(value), instant_parameter(conn, now), run_id, row_id),
         )
     for row_id, value in blocker.items():
         validate_row_id(row_id)
         conn.execute(
             "UPDATE project_onboarding_checklist_rows "
             f"SET blocker = {p}, updated_at = {p} WHERE run_id = {p} AND row_id = {p}",
-            ("" if value is None else str(value), now, run_id, row_id),
+            (
+                "" if value is None else str(value),
+                instant_parameter(conn, now),
+                run_id,
+                row_id,
+            ),
         )
     for row_id, value in note.items():
         validate_row_id(row_id)
         conn.execute(
             "UPDATE project_onboarding_checklist_rows "
             f"SET note = {p}, updated_at = {p} WHERE run_id = {p} AND row_id = {p}",
-            ("" if value is None else str(value), now, run_id, row_id),
+            (
+                "" if value is None else str(value),
+                instant_parameter(conn, now),
+                run_id,
+                row_id,
+            ),
         )
 
 
@@ -183,10 +208,12 @@ def run_metadata(
 ) -> dict[str, Any]:
     metadata = dict(payload.get("metadata") or {})
     metadata.update(base_metadata())
-    metadata.update({
-        "last_operation": operation,
-        "doctor": payload.get("doctor") or {},
-    })
+    metadata.update(
+        {
+            "last_operation": operation,
+            "doctor": payload.get("doctor") or {},
+        }
+    )
     if extra:
         metadata.update(dict(extra))
     return metadata
