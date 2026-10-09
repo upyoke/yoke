@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now
 from typing import Any, Mapping
 
 from yoke_core.domain.deployment_run_driver_notice import push_member_notice
@@ -124,7 +124,7 @@ def notify_member_qa_failure(
                 requirement_ids=requirement_ids,
             ),
             idempotency_key=key,
-            now=datetime.now(timezone.utc),
+            now=utc_now(),
         )
         conn.execute(f"RELEASE SAVEPOINT {savepoint}")
         conn.commit()

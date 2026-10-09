@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now
 from typing import Any, Optional
 
 from yoke_core.hooks.adapter_capability import AdapterCapability
@@ -49,7 +49,7 @@ def build_context(
         target_root=resolve_context_target_root(payload, payload_cwd),
         session_id=session_id,
         item_id=None,
-        now=datetime.now(timezone.utc),
+        now=utc_now(),
         remote=remote,
     )
 

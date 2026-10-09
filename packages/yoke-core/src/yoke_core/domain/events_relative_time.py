@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
-from yoke_contracts.timestamps import as_utc, parse_instant
+from yoke_contracts.timestamps import parse_instant, utc_now
 
 _UNIT_SECONDS = {"second": 1, "minute": 60, "hour": 3600, "day": 86400, "week": 604800}
 _RELATIVE_RE = re.compile(
@@ -27,7 +27,7 @@ def parse_since(value: str, *, now: datetime | None = None) -> datetime:
         )
     match = _RELATIVE_RE.fullmatch(value)
     if match:
-        anchor = as_utc(now if now is not None else datetime.now(timezone.utc))
+        anchor = parse_instant(utc_now() if now is None else now)
         delta = timedelta(
             seconds=int(match.group("amount"))
             * _UNIT_SECONDS[match.group("unit").lower()]

@@ -331,3 +331,7 @@ Notice, settlement, signing and export-name owners validate a supplied clock
 before acting; only null selects the shared generated clock. Qualified offsets
 normalize to native UTC without losing microseconds. Captured hook endpoints
 retain their timing owner. Scheduler fixtures declare native instant columns.
+
+QA failure/review wakes, parked-session ordering and hook context reuse the
+shared native clock. Fleet polling validates each supplied clock before reads;
+event relative bounds validate their anchor and preserve microseconds.

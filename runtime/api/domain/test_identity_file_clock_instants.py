@@ -90,9 +90,13 @@ def test_routed_fixture_binds_native_or_explicit_sqlite_instants(monkeypatch, po
 
 
 @pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
-def test_release_gap_fixture_reads_native_session_and_claim_clocks(tmp_path, zone):
+def test_release_gap_fixture_reads_native_session_and_claim_clocks(
+    tmp_path, monkeypatch, zone
+):
     from runtime.api.fixtures.file_test_db import init_test_db
 
+    instant = timestamps.utc_now().replace(microsecond=123456)
+    monkeypatch.setattr(routed, "utc_now", lambda: instant)
     with init_test_db(tmp_path, apply_schema=routed.apply_release_gap_schema) as path:
         conn = routed.make_db(path)
         try:
@@ -105,16 +109,18 @@ def test_release_gap_fixture_reads_native_session_and_claim_clocks(tmp_path, zon
             ).fetchone()
             assert all(
                 isinstance(value, datetime) and value.tzinfo is not None
-                for value in row
+                for value in (row[0], row[1])
             )
-            assert row[0] == row[1]
+            assert row[0] == row[1] == instant
+            assert row[0].microsecond == 123456
+            assert row[2] is None
             claim = conn.execute(
                 "SELECT claimed_at,released_at FROM work_claims WHERE session_id=%s",
                 (routed.SESSION_A,),
             ).fetchone()
             assert all(
                 isinstance(value, datetime) and value.tzinfo is not None
-                for value in claim
+                for value in (claim[0], claim[1])
             )
             assert claim[1] >= claim[0]
         finally:

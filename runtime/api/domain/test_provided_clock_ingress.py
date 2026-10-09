@@ -205,3 +205,66 @@ def test_hook_clock_reaches_existing_captured_endpoint_owner(monkeypatch, clock)
     monkeypatch.setattr(observe_cli, "parse_hook_event", parse)
     observe_cli.record_hook_event({}, completed_at=clock)
     assert captured == [INSTANT if clock is None else clock]
+
+
+@pytest.mark.parametrize("clock", BAD_CLOCKS)
+@pytest.mark.parametrize("second_read", (False, True))
+def test_fleet_invalid_clock_refuses_before_any_registered_read(clock, second_read):
+    from yoke_core.domain import fleet_delta_probe
+
+    calls = []
+    moments = iter((INSTANT, clock) if second_read else (clock,))
+    with pytest.raises(InvalidInstant):
+        fleet_delta_probe.run(
+            ["sample"],
+            session_id="sample-session",
+            clock=lambda: next(moments),
+            call=lambda *args: calls.append(args),
+        )
+    assert calls == []
+
+
+@pytest.mark.parametrize("clock", (INSTANT, "2026-10-09T20:45:00.123456+05:45", None))
+def test_event_relative_cutoff_keeps_microseconds_and_qualified_offsets(
+    monkeypatch, clock
+):
+    from datetime import timedelta
+    from yoke_core.domain import events_relative_time
+
+    monkeypatch.setattr(
+        events_relative_time,
+        "utc_now",
+        (lambda: INSTANT) if clock is None else unused_clock,
+    )
+    assert events_relative_time.parse_since(
+        "1 second ago", now=clock
+    ) == INSTANT - timedelta(seconds=1)
+
+
+@pytest.mark.parametrize("clock", BAD_CLOCKS)
+def test_event_relative_cutoff_rejects_unqualified_clock(clock):
+    from yoke_core.domain.events_relative_time import parse_since
+
+    with pytest.raises(InvalidInstant):
+        parse_since("1 second ago", now=clock)
+
+
+def test_hook_context_retains_shared_native_microsecond_clock(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from yoke_core.hooks import context
+
+    monkeypatch.setattr(context, "utc_now", lambda: INSTANT)
+    monkeypatch.setattr(context, "resolve_context_target_root", lambda *args: tmp_path)
+    result = context.build_context(
+        event_name="PostToolUse",
+        remote=True,
+        capability=SimpleNamespace(family="codex"),
+        payload={
+            "cwd": str(tmp_path),
+            "session_id": "sample-session",
+            "tool_name": "Read",
+        },
+    )
+    assert result.now == INSTANT
+    assert result.now.microsecond == 123456
+    assert result.payload["session_id"] == "sample-session"
