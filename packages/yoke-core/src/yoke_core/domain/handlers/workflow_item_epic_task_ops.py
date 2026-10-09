@@ -92,12 +92,9 @@ def handle_task_get(request: FunctionCallRequest) -> HandlerOutcome:
             )
         except LookupError as exc:
             return _not_found(str(exc))
+    response = TaskBodyResponse(epic_id=epic_id, task_num=task_num, body=body)
     return HandlerOutcome(
-        result_payload=TaskBodyResponse(
-            epic_id=epic_id,
-            task_num=task_num,
-            body=body,
-        ).model_dump(),
+        result_payload=response.model_dump(),
         primary_success=True,
     )
 
