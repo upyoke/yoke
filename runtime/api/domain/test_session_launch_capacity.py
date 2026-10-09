@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
+from datetime import datetime, timezone
 
 import pytest
 
@@ -146,3 +148,55 @@ def test_a_relay_that_publishes_no_reading_carries_no_cap_and_says_so() -> None:
     assert reading.at_capacity is False
     assert "capacity unreported" in reading.summary()
     assert "relay_predates_capacity_readings" in reading.summary()
+
+
+@pytest.mark.parametrize(
+    "observed",
+    [
+        "2026-08-22T12:00:00.123456Z",
+        "2026-08-22T17:45:00.123456+05:45",
+        "2026-08-22T08:00:00.123456-04:00",
+    ],
+)
+def test_capacity_keeps_native_observation_until_json_projection(observed) -> None:
+    reading = machine_capacity(
+        launch_connection(),
+        machine_id=MACHINE,
+        capacity_document={"observed_at": observed, "max_worker_lanes": 3},
+        now=NOW,
+    )
+    assert reading.observed_at == datetime(
+        2026, 8, 22, 12, 0, 0, 123456, tzinfo=timezone.utc
+    )
+    payload = json.loads(json.dumps(reading.to_dict()))
+    assert payload["observed_at"] == "2026-08-22T12:00:00.123456Z"
+    assert payload["summary"] == reading.summary()
+    assert payload["at_capacity"] is False
+    assert payload["machine_id"] == MACHINE
+
+
+def test_capacity_projection_keeps_absent_observation_null() -> None:
+    reading = machine_capacity(
+        launch_connection(),
+        machine_id=MACHINE,
+        capacity_document=None,
+        now=NOW,
+    )
+    assert reading.observed_at is None
+    assert json.loads(json.dumps(reading.to_dict()))["observed_at"] is None
+
+
+@pytest.mark.parametrize(
+    "observed", ["", "2026-08-22", "2026-08-22T12:00:00", "2026-08-22T12:00:00-00:00"]
+)
+def test_capacity_constructor_refuses_unverifiable_observation(observed) -> None:
+    from yoke_contracts.timestamps import InvalidInstant
+
+    reading = machine_capacity(
+        launch_connection(),
+        machine_id=MACHINE,
+        capacity_document=None,
+        now=NOW,
+    )
+    with pytest.raises(InvalidInstant):
+        replace(reading, observed_at=observed)

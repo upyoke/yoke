@@ -13,7 +13,7 @@ not a roomy machine, and the reading says so rather than passing silently.
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.timestamps import parse_instant, temporal_wire
 
 from yoke_core.domain.db_helpers import instant_parameter
 
@@ -49,7 +49,11 @@ class MachineCapacity:
     total_memory_bytes: int | None
     load_average_1m: float | None
     core_count: int | None
-    observed_at: str | None
+    observed_at: datetime | None
+
+    def __post_init__(self) -> None:
+        if self.observed_at is not None:
+            object.__setattr__(self, "observed_at", parse_instant(self.observed_at))
 
     @property
     def at_capacity(self) -> bool:
@@ -62,7 +66,7 @@ class MachineCapacity:
         return self.max_worker_lanes is None
 
     def to_dict(self) -> dict[str, Any]:
-        payload = asdict(self)
+        payload = temporal_wire(asdict(self))
         payload["at_capacity"] = self.at_capacity
         payload["summary"] = self.summary()
         return payload

@@ -25,6 +25,7 @@ from datetime import datetime
 from dataclasses import asdict, dataclass
 from typing import Any, Sequence
 
+from yoke_contracts.timestamps import parse_instant, temporal_wire
 from yoke_contracts.session_control.model_billing_pools import window_covers_model
 from yoke_core.domain.session_probe import not_probe_session_sql
 from yoke_core.domain.steering_fleet_plan_capacity import (
@@ -44,12 +45,16 @@ class PoolCheck:
     window: str
     remaining_percent: float | None
     headroom_percent: float | None
-    resets_at: str | None
+    resets_at: datetime | None
     status: str
     exhausted: bool
 
+    def __post_init__(self) -> None:
+        if self.resets_at is not None:
+            object.__setattr__(self, "resets_at", parse_instant(self.resets_at))
+
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return temporal_wire(asdict(self))
 
 
 def option_pools(
