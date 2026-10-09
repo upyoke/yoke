@@ -185,7 +185,7 @@ for (const band of BANDS) {
     assert.equal(byClass(box, "item-card-delivery-flow")[0].textContent, FLOW);
     assert.equal(byClass(box, "item-delivery-merges").length, 0);
     assert.deepEqual(byClass(box, "item-deployment-environment").map((node) => node.textContent), ["prod", "stage"]);
-    assert.deepEqual(byClass(box, "item-deployment-outcome").map((node) => node.textContent), ["✓ deployed", "✓ in build"]);
+    assert.deepEqual(byClass(box, "item-deployment-outcome").map((node) => node.textContent), ["○ awaiting item completion", "○ in build"]);
     assert.deepEqual(byClass(box, "item-deployment-relation").map((node) => node.textContent), ["member", "carried"]);
     assert.equal(byClass(box, "item-deployment-run")[0].href, "/deployments/runs/run-prod?project=1");
     assert.equal(byClass(box, "state-pill").length, 0);

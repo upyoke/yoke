@@ -108,12 +108,17 @@ function deliveryBox(facts, others = []) {
   }, deploymentsByItemId([active]));
 }
 
-test("a member's passed QA is deployed even while its run waits on another member", () => {
+const completed = (runId = "run-current") => [{
+  item_id: ITEM_ID, member_item_id: ITEM_ID, project_id: 1, run_project_id: 1,
+  run_id: runId, environment_id: 1, environment: "prod", candidate: "a".repeat(40),
+}];
+
+test("completed attribution is deployed while its run waits on another member", () => {
   const siblingRef = `YOK-${ITEM_SEQUENCE + 1}`;
-  const box = deliveryBox({ item_qa: { state: "accepted" } }, [
+  const box = deliveryBox({ completed_deliveries: completed(), item_qa: { state: "accepted" } }, [
     { id: ITEM_ID + 1, ref: siblingRef, status: "release", item_qa: { state: "awaiting review" } },
   ]);
-  assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "✓ deployed · QA passed");
+  assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "✓ deployed · item completed");
   assert.equal(byClass(box, "item-deployment-wait")[0].textContent, `run still open: waiting on ${siblingRef}`);
   assert.equal(byClass(box, "item-deployment-wait").length, 1);
 });
@@ -135,12 +140,12 @@ test("unrun or unresolved QA remains deploying, rather than claiming failure", (
 
 test("a discharge remains distinct from a passing QA result", () => {
   const box = deliveryBox({ item_qa: { state: "discharged" } });
-  assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "✓ deployed · QA discharged");
+  assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "◐ QA discharged · awaiting item completion");
 });
 
 test("a sibling's rejected QA is a run wait even after its item finished", () => {
   const siblingRef = `YOK-${ITEM_SEQUENCE + 1}`;
-  const box = deliveryBox({ item_qa: { state: "accepted" } }, [{
+  const box = deliveryBox({ completed_deliveries: completed(), item_qa: { state: "accepted" } }, [{
     id: ITEM_ID + 1, ref: siblingRef, status: "done", item_qa: { state: "rejected" },
   }]);
   assert.equal(byClass(box, "item-deployment-wait")[0].textContent,
@@ -160,8 +165,26 @@ test("a terminal member run has no remaining-wait sub-line", () => {
     public_ref: ITEM_REF,
   }, deploymentsByItemId([{
     ...run("run-finished", "succeeded", 20),
-    member_items: [{ public_ref: ITEM_REF, item_qa: { state: "accepted" } }],
+    member_items: [{ public_ref: ITEM_REF, completed_deliveries: completed("run-finished"), item_qa: { state: "accepted" } }],
   }]));
-  assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "✓ deployed · QA passed");
+  assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "✓ deployed · item completed");
   assert.equal(byClass(box, "item-deployment-wait").length, 0);
 });
+
+test("accepted QA alone never displays delivered", () => {
+  const box = deliveryBox({ item_qa: { state: "accepted" } });
+  assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "◐ QA passed · awaiting item completion");
+});
+
+for (const status of ["failed", "cancelled"]) {
+  test(`completed attribution survives a later ${status} run`, () => {
+    const doc = new FakeDocument();
+    const box = appendItemDelivery(doc, doc.createElement("div"), {
+      public_ref: ITEM_REF, project_id: 1, delivery: { completed_deliveries: completed("run-earlier") },
+    }, deploymentsByItemId([{
+      ...run("run-newer", status, 1), member_items: [{ id: ITEM_ID, ref: ITEM_REF }],
+    }]));
+    assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "✓ deployed · item completed");
+    assert.equal(byClass(box, "item-deployment-run")[0].textContent, "run-earlier");
+  });
+}

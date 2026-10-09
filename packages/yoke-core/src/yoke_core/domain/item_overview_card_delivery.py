@@ -63,6 +63,9 @@ def card_delivery(
             str(flow["id"]): flow["target_environment_id"] for flow in flow_rows
         }
     ids = [int(row["internal_id"]) for row in drawn]
+    from yoke_core.domain.completed_item_delivery import completed_deliveries
+
+    completed = completed_deliveries(conn, ids)
     merges_by_item = recorded_merge_shas_for_items(conn, ids)
     evidence_by_item = read_json_sections(
         conn, item_ids=ids, section=DASH_EVIDENCE_SECTION
@@ -95,6 +98,7 @@ def card_delivery(
             )
         evidence = evidence_by_item.get(item_id, {})
         summaries[item_id] = {
+            "completed_deliveries": completed.get(item_id, []),
             "merges": summary.merges,
             "deployed": summary.deployed,
             "not_deployed": summary.not_deployed,

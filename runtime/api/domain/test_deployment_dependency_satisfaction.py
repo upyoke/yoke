@@ -74,6 +74,12 @@ def _seed_validation(db_path: str, *, with_delivery_fact: bool) -> str:
             "VALUES (%s,200,%s)",
             (prior_run, NOW),
         )
+        conn.execute("UPDATE items SET status='done' WHERE id=200")
+        from runtime.api.domain.dependency_delivery_test_support import (
+            stamp_completed_members,
+        )
+
+        stamp_completed_members(conn, prior_run)
         conn.commit()
         conn.close()
     return current_run
@@ -91,7 +97,7 @@ def test_composition_reports_missing_environment_delivery(db_path: str) -> None:
     assert "merged, not yet deployed to prod" in message
 
 
-def test_cross_project_progress_member_is_deployed_before_done(
+def test_cross_project_progress_member_does_not_clear_completion_dependency(
     dependency_conn: Any,
 ) -> None:
     insert_dependency_item(dependency_conn, 2, status="implemented", merged=True)
@@ -125,7 +131,7 @@ def test_cross_project_progress_member_is_deployed_before_done(
         blocking_merged=True,
         workflow=WORKFLOW,
     )
-    assert deployed.satisfied is True
+    assert deployed.satisfied is False
     assert done.satisfied is False
 
 
@@ -156,9 +162,7 @@ def test_another_projects_release_satisfies_its_bound_member(
     dependency_conn: Any,
 ) -> None:
     """A project-2 blocker delivered inside a project-1 release is deployed."""
-    insert_dependency_item(
-        dependency_conn, 2, status="implemented", project_id=2, merged=True
-    )
+    insert_dependency_item(dependency_conn, 2, status="done", project_id=2, merged=True)
     # The carrier's prod (101) is seeded; the bound project registers its own.
     dependency_conn.execute(
         "INSERT INTO sites (id,project_id,name) VALUES (22,2,'bound')"
@@ -179,7 +183,7 @@ def test_another_projects_release_satisfies_its_bound_member(
         dependency_conn,
         blocking_item_id=2,
         satisfaction="fact:deployed:prod",
-        blocking_status="implemented",
+        blocking_status="done",
         blocking_merged=True,
         workflow=WORKFLOW,
     )

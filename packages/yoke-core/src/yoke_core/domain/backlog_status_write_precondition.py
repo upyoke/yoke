@@ -93,6 +93,12 @@ def apply_prepared_item_writes(
             )
             if stale is not None:
                 return stale
+            if value == "done" and item["status"] != "done":
+                from yoke_core.domain.completed_item_delivery import (
+                    record_completion_delivery,
+                )
+
+                record_completion_delivery(conn, item_id=item_id)
         _update_item_multi(
             conn,
             item_id,

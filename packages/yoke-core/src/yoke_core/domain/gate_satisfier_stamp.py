@@ -197,6 +197,20 @@ def _upsert(
     recorded_by_session_id: Optional[str] = None,
 ) -> bool:
     p = _p(conn)
+    from yoke_core.domain.completed_item_delivery import COMPLETED_DELIVERIES
+    from yoke_core.domain.gate_satisfier_ladder_catalog import (
+        OBLIGATION_DELIVERY_EVIDENCE,
+    )
+
+    if obligation == OBLIGATION_DELIVERY_EVIDENCE:
+        row = conn.execute(
+            f"SELECT facts FROM item_gate_satisfactions WHERE item_id={p} AND obligation={p}",
+            (item_id, obligation),
+        ).fetchone()
+        if row:
+            existing = json.loads(str(row[0] or "{}"))
+            if COMPLETED_DELIVERIES in existing:
+                facts = {**facts, COMPLETED_DELIVERIES: existing[COMPLETED_DELIVERIES]}
     params = (
         rung_id,
         target_status,

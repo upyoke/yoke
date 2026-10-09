@@ -136,7 +136,7 @@ yoke items dependency add \
 Choose the blocker's pinned stage, normally `status:done`, for an item wait
 that includes required delivery and closeout. Choose `fact:merged` for trunk
 code. Reserve `fact:deployed:<environment-name>` for a dependent that needs
-the blocker live in a registered environment before `done`.
+the blocker done with persisted delivery attribution to a registered environment.
 
 After authoring, re-run ``yoke readiness check`` to confirm the
 readiness repair landed.
