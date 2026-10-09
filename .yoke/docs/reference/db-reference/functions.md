@@ -95,7 +95,7 @@ Every registered function declares one of five `claim_required_kind` values; the
 | `"item"` | Resolves the active work-claim row for `target.public_ref`. The calling session's `session_id` must match. Otherwise `error.code="claim_required"` (HTTP 409). |
 | `"epic"` | Same as `"item"` but resolves the parent epic id from `target.kind="epic_task"` (`target.public_ref`). |
 | `"self_only"` | The claim itself is the target (e.g. `claims.work.release`). The handler reads the claim row by target and asserts `actor.session_id == row.session_id`. |
-| `"operator_override"` | Requires the calling session to carry an operator-authored bypass marker (e.g. `path-claim-override`). Otherwise `error.code="operator_override_required"`. |
+| `"steering"` | Requires a live steering seat covering the target project or document. Otherwise `error.code="steering_seat_required"`; acquire the seat with `yoke claims steering acquire --project P --reason TEXT` or route via `yoke say --steering`. |
 
 The five values are the closed enum; the registry rejects any other string at import time.
 
@@ -201,8 +201,8 @@ Ensure the policy-required default lane with `yoke item-worktrees create PREFIX-
 |---|---|---|---|
 | `workflows.definition.get` | `None` (read) | `yoke_core.domain.handlers.workflows_definition` | Lists selected immutable definitions, version history, gate catalog, and deployment flows (with description, `supersedes_flow_id`, and `flow_actor_names` for the people their stages name). |
 | `workflows.item.get` | `None` (read) | `yoke_core.domain.handlers.workflows_versioning` | Returns the item's exact pin, digest, stage, posture, interpreted lane policy, and active lanes. |
-| `workflows.current.set` | `"operator_override"` | same module | Selects an already-published version for subsequently created items; existing pins do not change. |
-| `workflows.item.migrate` | `"operator_override"` | same module | Atomically migrates one item when stage/posture, active lanes and claims, approval/QA gates, and delivery bindings remain representable; label-only changes are compatible, while retroactive unsatisfied gates are refused. |
+| `workflows.current.set` | `None` | same module | Selects an already-published version for subsequently created items; existing pins do not change. |
+| `workflows.item.migrate` | `"steering"` | same module | Atomically migrates one item when stage/posture, active lanes and claims, approval/QA gates, and delivery bindings remain representable; label-only changes are compatible, while retroactive unsatisfied gates are refused. |
 | `workflows.item_posture.amend` | `"item"` | `yoke_core.domain.handlers.workflows_item_posture` | Sets, replaces, or clears ONE posture key on an already-filed item. The amendable roster is the item's pinned `item_posture_allowlist`; each key declares its own guard, so a key with none refuses as unamendable rather than stranding records. Refuses at a terminal stage, over a verification selection whose requirement already carries a recorded run, while path claims are registered under a selection being cleared, and while an owner decision is open on a cleared approval selection. Replacing a verification selection waives its unexecuted requirement snapshots, detaches the superseded plan, and attaches the new one in the same transaction. |
 
 The operator adapters are `yoke workflows item get PREFIX-N`, `yoke workflows current set WORKFLOW VERSION`, `yoke workflows item migrate PREFIX-N [--version N]`, and `yoke workflows item-posture amend PREFIX-N --verification-plan ID_OR_SLUG --reason TEXT` (`--help` carries the per-key decision tree). Full immutable definition publication (`workflows.version.publish`), plus listing, previewing, taking, and following published canon updates (`workflows.canon_status.list`, `workflows.canon_update.*`, `workflows.canon_follow.set`), is in [functions-workflow-canon.md](functions-workflow-canon.md).
@@ -277,7 +277,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 | `claims.path.widen` | `"item"` | same handler → `claims_path.widen` |
 | `claims.path.release` | `"item"` | same handler → `claims_path.release` |
 | `claims.path.amend` | `"item"` | same handler → `claims_path.amend` |
-| `claims.path.override` | `"operator_override"` | same handler → existing path-claim override gate |
+| `claims.path.override` | `"steering"` | same handler → existing path-claim override gate |
 | `claims.coordination_claim.acquire` | `None` | `yoke_core.domain.handlers.claims_coordination_claim.acquire` |
 | `claims.coordination_claim.heartbeat` | `"self_only"` | same handler |
 | `claims.coordination_claim.release` | `"self_only"` | same handler |

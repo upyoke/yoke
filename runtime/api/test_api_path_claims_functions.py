@@ -120,8 +120,10 @@ class TestClaimsPath(_ClaimsHandlerSuite):
         self.assertEqual(resp.result["state"], "released")
 
     def test_override_rejected_for_non_operator(self):
-        """Non-operator session => operator_override_required."""
-        with patch.object(claims_module, "is_operator_session", return_value=False):
+        """Non-operator session => steering_seat_required."""
+        with patch.object(
+            claims_module, "steering_seat_for_request", return_value=(None, "alpha")
+        ):
             resp = dispatch(
                 _envelope(
                     "claims.path.override",
@@ -136,11 +138,15 @@ class TestClaimsPath(_ClaimsHandlerSuite):
             )
         self.assertFalse(resp.success)
         assert resp.error is not None
-        self.assertEqual(resp.error.code, "operator_override_required")
+        self.assertEqual(resp.error.code, "steering_seat_required")
 
     def test_override_allowed_for_operator(self):
         with (
-            patch.object(claims_module, "is_operator_session", return_value=True),
+            patch.object(
+                claims_module,
+                "steering_seat_for_request",
+                return_value=({"claim_id": 5}, "alpha"),
+            ),
             patch(
                 "yoke_core.domain.path_claims_override.invoke_override",
                 return_value="evt-1",

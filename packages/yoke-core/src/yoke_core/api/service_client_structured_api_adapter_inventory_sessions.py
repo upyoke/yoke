@@ -100,7 +100,7 @@ SESSION_ADAPTERS = [
             "--operation OP --route ROUTE [--json]"
         ),
         notes="stage-only exact-release private-route proof",
-        agent_path="operator-only",
+        agent_path="direct",
     ),
     _read_entry(
         function_id="session_control.message.preview",

@@ -56,8 +56,9 @@ def _register_operator_and_target(conn, *, target="worker") -> None:
         conn,
         session_id="operator",
         actor_id=41,
-        mode="operator",
+        mode="wait",
     )
+    claim_work(conn, session_id="operator", target=make_steering_target(1))
     _register(
         conn,
         session_id=target,
@@ -173,7 +174,7 @@ def test_operator_termination_ends_silences_releases_and_queues_reap(
             {
                 "terminated_by_actor_id": 41,
                 "terminated_by_session_id": "operator",
-                "authority": "operator",
+                "authority": "steering",
                 "reason": "worker completed",
                 "cancelled_recipient_count": 1,
                 "reap_state": "pending",
@@ -230,7 +231,7 @@ def test_steering_claim_authorizes_termination_and_unrelated_session_does_not(
     )
     conn.commit()
 
-    with pytest.raises(SessionError, match="operator mode or a live steering seat"):
+    with pytest.raises(SessionError, match="live steering seat"):
         terminate_session(
             conn,
             target_session_id="worker",

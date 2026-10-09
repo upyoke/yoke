@@ -204,9 +204,9 @@ def register(registry) -> None:
         target_kinds=["item"],
         side_effects=["path_claim_override_event"],
         emitted_event_names=["PathClaimOverride"],
-        guardrails=["operator_override_required", "human_only_hook_guard"],
+        guardrails=["steering_seat_required", "human_only_hook_guard"],
         adapter_status="live",
-        claim_required_kind="operator_override",
+        claim_required_kind="steering",
     )
 
     # claims.path.required_gate — read-only idea/refine coverage gate

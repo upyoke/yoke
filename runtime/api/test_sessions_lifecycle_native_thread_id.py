@@ -3,7 +3,7 @@
 Split out alongside ``test_sessions_lifecycle_actor_id.py`` rather than
 grown into the already-near-budget parent file. ``native_thread_id`` is
 the harness's own thread identity (Codex's ``CODEX_THREAD_ID``) — distinct
-from ``session_id``, since an operator-started Codex session registers
+from ``session_id``, since an manually started Codex session registers
 under its own session id while the app-server keys its thread on a
 different value. Wake resolves against this stored column instead of
 assuming the two agree (that assumption only holds for a plane-launched
@@ -26,9 +26,7 @@ pytest_plugins = ("runtime.api.test_sessions",)
 
 class TestRegisterSessionNativeThreadId:
     def test_register_persists_native_thread_id(self, conn):
-        result = _register(
-            conn, session_id="sess-thread", native_thread_id="thread-42"
-        )
+        result = _register(conn, session_id="sess-thread", native_thread_id="thread-42")
         assert result["native_thread_id"] == "thread-42"
 
     def test_register_defaults_to_null_when_absent(self, conn):
@@ -67,9 +65,7 @@ class TestRegisterSessionNativeThreadId:
         """
         _register(conn, session_id="sess-upgrade")
         with pytest.raises(SessionError) as exc_info:
-            _register(
-                conn, session_id="sess-upgrade", native_thread_id="thread-7"
-            )
+            _register(conn, session_id="sess-upgrade", native_thread_id="thread-7")
         assert exc_info.value.code == "SESSION_EXISTS"
 
         row = conn.execute(

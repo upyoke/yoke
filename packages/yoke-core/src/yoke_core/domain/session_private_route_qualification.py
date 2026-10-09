@@ -77,7 +77,7 @@ def _private_candidate(scope: PrivateRouteQualificationScope) -> None:
         )
 
 
-def _active_operator_identity(
+def _active_steering_identity(
     conn: Any,
     *,
     session_id: str,
@@ -86,7 +86,7 @@ def _active_operator_identity(
 ) -> None:
     marker = _marker(conn)
     row = conn.execute(
-        "SELECT actor_id,ended_at,mode FROM harness_sessions "
+        "SELECT actor_id,ended_at,terminated_at FROM harness_sessions "
         f"WHERE session_id={marker}",
         (session_id,),
     ).fetchone()
@@ -96,11 +96,28 @@ def _active_operator_identity(
         or not expected_actor.isdigit()
         or str(row["actor_id"] or "") != expected_actor
         or row["ended_at"] is not None
-        or str(row["mode"] or "") != "operator"
+        or row["terminated_at"] is not None
     ):
         raise PrivateRouteQualificationError(
             "qualification_owner_inactive",
-            "qualification owner is not an active operator session",
+            "qualification owner is not an active session",
+        )
+    from yoke_core.domain.session_steering_authority import (
+        covering_session_seat,
+        steering_authority_message,
+    )
+
+    if (
+        covering_session_seat(
+            conn,
+            caller_session_id=session_id,
+            target={"project_id": int(project_id)},
+        )
+        is None
+    ):
+        raise PrivateRouteQualificationError(
+            "steering_seat_required",
+            steering_authority_message(project_id),
         )
     from yoke_core.domain.actor_permissions import (
         PERM_PROJECT_ADMIN,
@@ -119,8 +136,8 @@ def _active_operator_identity(
         )
 
 
-def _active_operator(conn: Any, lease: CoordinationClaim) -> None:
-    _active_operator_identity(
+def _active_steering(conn: Any, lease: CoordinationClaim) -> None:
+    _active_steering_identity(
         conn,
         session_id=lease.session_id,
         actor_id=str(lease.actor_id or ""),
@@ -145,7 +162,7 @@ def grant_from_lease(
         )
     _runtime_release(scope)
     _private_candidate(scope)
-    _active_operator(conn, lease)
+    _active_steering(conn, lease)
     expires_at = qualification_expires_at(lease.claimed_at)
     if (now or datetime.now(timezone.utc)) >= _utc(expires_at):
         raise PrivateRouteQualificationError(
@@ -174,7 +191,7 @@ def open_qualification_grant(
 ) -> PrivateRouteQualificationGrant:
     _runtime_release(scope)
     _private_candidate(scope)
-    _active_operator_identity(
+    _active_steering_identity(
         conn,
         session_id=sender_session_id,
         actor_id=str(operator_actor_id),
@@ -276,9 +293,7 @@ def qualification_for_message(
 
     lease = active_claim(
         conn,
-        make_route_qualification_target(
-            int(candidate["project_id"]), scope.grant_key
-        ),
+        make_route_qualification_target(int(candidate["project_id"]), scope.grant_key),
         for_update=True,
     )
     if lease is None or lease.session_id != sender_session_id:

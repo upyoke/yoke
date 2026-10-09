@@ -48,7 +48,7 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "approve",
         "internal",
-        "operator",
+        "wait",
         False,
         "record a deployment approval",
         'RUN-ID [--note "..."]',
@@ -115,7 +115,7 @@ SKILLS: tuple[Skill, ...] = (
         "refresh frontier work",
         "[--no-new-items] [PREFIX-N ...] [--model MODEL]",
     ),
-    Skill("help", "utility", "operator", False, "show command reference", ""),
+    Skill("help", "utility", "wait", False, "show command reference", ""),
     Skill(
         "idea",
         "utility",
@@ -149,7 +149,7 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "models",
         "utility",
-        "operator",
+        "wait",
         False,
         "publish model catalog revisions and propose level changes",
         "lookup MODEL_ID | get | validate | diff | publish | revisions | restore"
@@ -158,7 +158,7 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "onboard",
         "orchestrator",
-        "operator",
+        "wait",
         False,
         "make a wired project execution-ready",
         "[--project P] [--run-id RUN]",
@@ -186,7 +186,7 @@ SKILLS: tuple[Skill, ...] = (
     Skill(
         "resync",
         "utility",
-        "operator",
+        "wait",
         False,
         "detect and repair GitHub drift",
         "[--fix]",

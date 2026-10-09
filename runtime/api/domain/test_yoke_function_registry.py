@@ -194,7 +194,7 @@ class TestClaimRequiredKindEnumeration(_RegistryTestBase):
     """Registry accepts exactly the five canonical kinds."""
 
     def test_all_five_kinds_accepted(self):
-        kinds = (None, "item", "epic", "self_only", "operator_override")
+        kinds = (None, "item", "epic", "self_only", "steering")
         for ix, kind in enumerate(kinds):
             register(
                 f"test.kind.op_{ix}",

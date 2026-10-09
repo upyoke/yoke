@@ -63,7 +63,7 @@ tail -80 <raw-capture>          # the capture a watcher prints, once it exits
 
 ## Verification Failure Ownership — Hard Rule
 - **Current-item verification failures belong to the current item.** A future item, planned path claim, or cleanup item owning a touched file is not a waiver: a failing registered command, gate, or regression on this branch gets fixed here, unless a live active-session conflict or explicit operator waiver says otherwise.
-- **Use dependency and claim reconciliation before override.** Widen the claim, add or verify the serial dependency, wait for or release a live holder, or reconcile the future claim. Do not use `path-claim-override` for a planned future claim when reconciliation works — it is a last resort for irreducible live collisions and needs explicit operator approval.
+- **Use dependency and claim reconciliation before override.** Widen the claim, add or verify the serial dependency, wait for or release a live holder, or reconcile the future claim. Do not use `path-claim-override` for a planned future claim when reconciliation works — it is a last resort for irreducible live collisions and requires a live steering seat covering the project.
 - **Verification summaries are evidence-bound.** A failing command cannot be reported green by pointing at a future item. Record the failure, the action taken, and the rerun evidence.
 
 ## Code Conventions

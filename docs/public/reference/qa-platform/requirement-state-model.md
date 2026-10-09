@@ -156,7 +156,7 @@ yoke qa requirement supersede --requirement-id OLD --superseded-by-requirement-i
 
 Inspect the chain and name its unique terminal before running this command.
 Operator-sourced reconciliation requires ordinary same-scope passing proof and a
-live actor-owned operator session or steering seat covering the requirement.
+live steering seat covering the requirement.
 That authority is sufficient without the item's work claim; the claim alone is
 insufficient. Coverage uses the item's live strategy-document membership.
 The repair retains prior rationale and supersession time, appends the actor,

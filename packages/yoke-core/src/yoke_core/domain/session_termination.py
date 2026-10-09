@@ -9,8 +9,8 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.session_message_store import cancel_open_recipients
 from yoke_core.domain.session_message_types import parse_timestamp, utc_now
 from yoke_core.domain.session_resume_in_flight import resume_in_flight
-from yoke_core.domain.session_operator_authority import (
-    require_operator_or_steering_authority,
+from yoke_core.domain.session_steering_authority import (
+    require_steering_authority,
     session_control_target,
 )
 from yoke_core.domain.session_termination_events import emit_session_terminated
@@ -155,9 +155,8 @@ def terminate_session(
             "TERMINATION_REASON_REQUIRED", "Termination reason is required."
         )
     target = session_control_target(conn, target_session_id)
-    authority = require_operator_or_steering_authority(
+    require_steering_authority(
         conn,
-        actor_id=actor_id,
         caller_session_id=caller_session_id,
         project_id=int(target["project_id"]),
         action="Session termination",
@@ -221,7 +220,7 @@ def terminate_session(
         context={
             "terminated_by_actor_id": int(actor_id),
             "terminated_by_session_id": caller_session_id,
-            "authority": authority,
+            "authority": "steering",
             "reason": termination_reason,
             "cancelled_recipient_count": cancelled,
             "reap_state": reap_state,

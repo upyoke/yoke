@@ -62,35 +62,28 @@ def gate(req):
     return verify_claim(lookup(req.function), req)
 
 
-@pytest.mark.parametrize("authority", ["steering", "operator", "document"])
+@pytest.mark.parametrize("authority", ["steering", "document"])
 def test_repair_without_item_claim_records_authority_and_notifies_holder(
     repair_world, authority
 ):
     conn, old, final, claim = repair_world
     seat = None
-    if authority == "operator":
+    document = None
+    if authority == "document":
+        document = "AREA-PLAN"
+        seed_strategy_doc(conn, 1, document)
         conn.execute(
-            "UPDATE harness_sessions SET mode='operator' WHERE session_id=%s",
-            (RECORDER,),
+            "INSERT INTO item_strategy_docs(item_id,project_id,strategy_doc_slug,linked_at) VALUES (%s,1,%s,%s)",
+            (MEMBER, document, iso8601_now()),
         )
         conn.commit()
-    else:
-        document = None
-        if authority == "document":
-            document = "AREA-PLAN"
-            seed_strategy_doc(conn, 1, document)
-            conn.execute(
-                "INSERT INTO item_strategy_docs(item_id,project_id,strategy_doc_slug,linked_at) VALUES (%s,1,%s,%s)",
-                (MEMBER, document, iso8601_now()),
-            )
-            conn.commit()
-        seat = acquire(
-            conn,
-            session_id=RECORDER,
-            project_id=1,
-            document=document,
-            reason="repair QA",
-        )
+    seat = acquire(
+        conn,
+        session_id=RECORDER,
+        project_id=1,
+        document=document,
+        reason="repair QA",
+    )
     req = request(old, final)
     assert gate(req) is None
     with patch(

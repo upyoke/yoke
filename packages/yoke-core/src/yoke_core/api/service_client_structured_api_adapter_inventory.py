@@ -95,7 +95,7 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="lifecycle.repair_status.execute",
         cli_invocation=("yoke lifecycle repair-status YOK-N --to STATUS --reason TEXT"),
-        notes="operator-only audited lifecycle reconciliation",
+        notes="steering-seat audited lifecycle reconciliation",
     ),
     AdapterEntry(
         "lifecycle.skip.record_recoverable_substrate",

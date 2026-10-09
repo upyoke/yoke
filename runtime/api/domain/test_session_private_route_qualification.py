@@ -47,7 +47,7 @@ def _connection():
     add_coordination_claim_schema(conn)
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
     conn.execute(
-        "UPDATE harness_sessions SET actor_id=10,mode='operator',"
+        "UPDATE harness_sessions SET actor_id=10,mode='wait',"
         "executor_surface='claude-cli',executor_version='2.1.241' "
         "WHERE session_id='s1'"
     )
@@ -57,6 +57,10 @@ def _connection():
         project_id=1,
         role_name=ROLE_ADMIN,
     )
+    from yoke_core.domain.sessions_lifecycle_claim import claim_work
+    from yoke_core.domain.work_claim_targets import make_steering_target
+
+    claim_work(conn, session_id="s1", target=make_steering_target(1))
     conn.commit()
     return conn
 
@@ -131,10 +135,13 @@ def test_open_refuses_prod_or_nonexact_serving_sha(
         )
 
     assert denied.value.code == code
-    assert conn.execute(
-        "SELECT COUNT(*) FROM work_claims WHERE target_kind IN "
-        "('migration_serialization','qa_admission','route_qualification')"
-    ).fetchone()[0] == 0
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) FROM work_claims WHERE target_kind IN "
+            "('migration_serialization','qa_admission','route_qualification')"
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_open_refuses_canonical_floor_and_inactive_operator(monkeypatch) -> None:
@@ -151,7 +158,9 @@ def test_open_refuses_canonical_floor_and_inactive_operator(monkeypatch) -> None
         )
     assert canonical.value.code == "qualification_canonical_route"
 
-    conn.execute("UPDATE harness_sessions SET mode='agent' WHERE session_id='s1'")
+    conn.execute(
+        "UPDATE harness_sessions SET ended_at='2026-01-01T00:00:00Z' WHERE session_id='s1'"
+    )
     with pytest.raises(PrivateRouteQualificationError) as inactive:
         open_qualification_grant(
             conn,
@@ -253,10 +262,13 @@ def test_post_acquire_validation_failure_rolls_back_reserved_lease(
         )
 
     assert raised.value.code == "qualification_recheck_failed"
-    assert conn.execute(
-        "SELECT COUNT(*) FROM work_claims WHERE target_kind IN "
-        "('migration_serialization','qa_admission','route_qualification')"
-    ).fetchone()[0] == 0
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) FROM work_claims WHERE target_kind IN "
+            "('migration_serialization','qa_admission','route_qualification')"
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_message_lookup_binds_run_sender_project_operation_and_route(

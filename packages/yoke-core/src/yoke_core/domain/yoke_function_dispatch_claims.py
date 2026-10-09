@@ -9,14 +9,13 @@ maps to one verification predicate:
   match the active claim row.
 - ``"self_only"`` — read ``work_claims`` by id; require the actor to own
   the claim row.
-- ``"operator_override"`` — require the actor's session row to carry the
-  operator mode marker.
+- ``"steering"`` — require a live steering seat covering the target scope.
 - ``"qa_subject"`` — delegate to
   :func:`yoke_core.domain.yoke_function_dispatch_qa_claims.qa_subject_claim_verdict`,
   which accepts a live item claim or the claim a long gate run bound at
   its start.
 
-Tests monkeypatch :func:`who_claims_for_item` and :func:`is_operator_session`
+Tests monkeypatch :func:`who_claims_for_item` and :func:`steering_seat_for_request`
 to inject synthetic rows without touching the live DB.
 """
 
@@ -67,36 +66,34 @@ def who_claims_for_item(item_id: int) -> Optional[Dict[str, Any]]:
         return None
 
 
-def is_operator_session(actor_session_id: str) -> bool:
-    """Return True when the session row's mode marks it as operator.
+def steering_seat_for_request(entry: RegistryEntry, request: FunctionCallRequest):
+    """Resolve the actual target and check the caller's covering live seat."""
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.function_target_resolution import resolve_project_context
+    from yoke_core.domain.steering_scope_membership import item_coverage_target
+    from yoke_core.domain.session_steering_authority import covering_session_seat
 
-    Inspects ``harness_sessions.mode``; ``"operator"`` is the canonical
-    bypass marker. Returns False on any error or absence.
-    """
-    if not actor_session_id:
-        return False
-    try:
-        from yoke_core.domain import db_backend, db_helpers
-    except Exception:
-        return False
-    conn = None
-    try:
-        with db_helpers.connect() as conn:
+    with db_helpers.connect() as conn:
+        project = resolve_project_context(conn, entry, request)
+        if project is None:
+            return None, "<unresolved>"
+        item_id = request.target.item_id or request.target.epic_id
+        if item_id is None and request.payload.get("path_claim_id") is not None:
             from yoke_core.domain.yoke_function_dispatch_claims_resolve import (
                 _placeholder,
             )
 
-            p = _placeholder(conn)
             row = conn.execute(
-                f"SELECT mode FROM harness_sessions WHERE session_id = {p}",
-                (actor_session_id,),
+                f"SELECT owner_item_id FROM path_claims WHERE id={_placeholder(conn)}",
+                (int(request.payload["path_claim_id"]),),
             ).fetchone()
-    except db_backend.database_error_types(conn):
-        return False
-    if row is None:
-        return False
-    mode = row[0]
-    return str(mode or "") == "operator"
+            item_id = row[0] if row is not None else None
+        target = item_coverage_target(conn, project_id=project[0], item_id=item_id)
+        return covering_session_seat(
+            conn,
+            caller_session_id=request.actor.session_id,
+            target=target,
+        ), project[1]
 
 
 def _claim_error(
@@ -294,21 +291,27 @@ def verify_claim(
         )
         return None
 
-    if kind == "operator_override":
-        if not is_operator_session(actor_session):
+    if kind == "steering":
+        from yoke_core.domain.session_steering_authority import (
+            steering_authority_message,
+        )
+
+        seat, project = steering_seat_for_request(entry, request)
+        if seat is None:
             return _claim_error(
                 request,
                 fid,
                 ver,
-                "operator_override_required",
-                f"session {actor_session!r} lacks operator-override authority",
-                recovery_hint=(
-                    "Ask an authorized human operator to invoke this operation "
-                    "from an operator-started session. An agent changing its own "
-                    "session mode is not sanctioned remediation."
-                ),
+                "steering_seat_required",
+                f"{fid} {steering_authority_message(project)}",
+                recovery_hint="Acquire the covering steering seat or route via yoke say --steering.",
             )
-        allow_claim_verification(evidence, authority="operator_session")
+        allow_claim_verification(
+            evidence,
+            authority="steering",
+            claim_id=seat["claim_id"],
+            holder_session_id=actor_session,
+        )
         return None
 
     # Defensive — registry validation makes this unreachable.
@@ -323,7 +326,7 @@ def verify_claim(
 
 __all__ = [
     "who_claims_for_item",
-    "is_operator_session",
+    "steering_seat_for_request",
     "verify_claim",
     "_resolve_qa_requirement_item_id",
     "_session_claim_id_for_target",

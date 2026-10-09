@@ -1,11 +1,7 @@
 """``path-claims override`` CLI handler.
 
-Sibling of :mod:`path_claims_dispatch` for the operator-collision-
-approval surface. Prefers a local control-plane connection so the
-legacy ``service_client path-claim-override`` entry (and unit tests)
-keep distinct rejection codes. When this checkout has no local
-authority (https product connection), falls through to the registered
-``claims.path.override`` function via the dispatcher.
+Routes the legacy command through the registered ``claims.path.override``
+function so local and HTTPS calls share steering-seat authorization.
 
 Usage:
 
@@ -31,19 +27,7 @@ from __future__ import annotations
 import argparse
 from typing import List, Sequence
 
-from yoke_core.domain.item_ref_resolution import ItemRefError, resolve_item_ref
-from yoke_core.domain.path_claims_dispatch_io import (
-    open_conn,
-    print_error,
-    print_json,
-)
-from yoke_core.domain.path_claims_override import (
-    ClaimNotFound,
-    EmptyActorReason,
-    HookContextRejection,
-    PathClaimOverrideError,
-    invoke_override,
-)
+from yoke_core.domain.path_claims_dispatch_io import print_error, print_json
 
 
 def _parse_int_list(raw: str) -> List[int]:
@@ -146,76 +130,7 @@ def cmd_override(argv: Sequence[str]) -> int:
         print_error("USAGE", "see --help for path-claims override")
         return 2
 
-    try:
-        conn = open_conn()
-    except RuntimeError:
-        return _relay_override(args)
-
-    try:
-        try:
-            event_id = invoke_override(
-                conn,
-                path_claim_id=args.claim_id,
-                override_point=args.override_point,
-                integration_target=args.integration_target,
-                actor_id=args.actor_id,
-                actor_reason=args.actor_reason,
-                blocking_claim_id=args.blocking_claim_id,
-                blocking_path_targets=(
-                    _parse_int_list(args.blocking_path_targets)
-                    if args.blocking_path_targets
-                    else []
-                ),
-                conflict_reason=args.conflict_reason,
-                item_id=(
-                    resolve_item_ref(conn, args.item, project=args.project)
-                    if args.item
-                    else None
-                ),
-                project=args.project,
-                session_id=args.session_id,
-            )
-        except HookContextRejection as exc:
-            print_error(
-                "HOOK_CONTEXT",
-                str(exc),
-                claim_id=args.claim_id,
-            )
-            return 1
-        except EmptyActorReason as exc:
-            print_error(
-                "EMPTY_ACTOR_REASON",
-                str(exc),
-                claim_id=args.claim_id,
-            )
-            return 1
-        except ClaimNotFound as exc:
-            print_error(
-                "CLAIM_NOT_FOUND",
-                str(exc),
-                claim_id=args.claim_id,
-            )
-            return 1
-        except (PathClaimOverrideError, ItemRefError, ValueError) as exc:
-            print_error(
-                "VALIDATION",
-                str(exc),
-                claim_id=args.claim_id,
-            )
-            return 1
-    finally:
-        conn.close()
-
-    print_json(
-        {
-            "success": True,
-            "event_id": event_id,
-            "claim_id": args.claim_id,
-            "blocking_claim_id": args.blocking_claim_id,
-            "override_point": args.override_point,
-        }
-    )
-    return 0
+    return _relay_override(args)
 
 
 __all__ = ["cmd_override"]

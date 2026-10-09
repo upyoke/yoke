@@ -43,9 +43,13 @@ def _candidate_connection(monkeypatch, *, route: str):
     monkeypatch.setenv("YOKE_BUILD_SHA", RELEASE_SHA)
     conn, message_id = _seed()
     add_coordination_claim_schema(conn)
+    from yoke_core.domain.sessions_lifecycle_claim import claim_work
+    from yoke_core.domain.work_claim_targets import make_steering_target
+
+    claim_work(conn, session_id="s1", target=make_steering_target(1))
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
     conn.execute(
-        "UPDATE harness_sessions SET actor_id=10,mode='operator' WHERE session_id='s1'"
+        "UPDATE harness_sessions SET actor_id=10,mode='wait' WHERE session_id='s1'"
     )
     # Route-scoped grants only arbitrate where a grant is still required, so
     # the target is idle rather than ended: a stopped wake needs no grant now.

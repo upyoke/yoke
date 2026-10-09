@@ -27,13 +27,12 @@ def _project_id(conn, project: str) -> int:
 
 
 def _authorize(conn, request: FunctionCallRequest, project: str, action: str) -> None:
-    from yoke_core.domain.session_operator_authority import (
-        require_operator_or_steering_authority,
+    from yoke_core.domain.session_steering_authority import (
+        require_steering_authority,
     )
 
-    require_operator_or_steering_authority(
+    require_steering_authority(
         conn,
-        actor_id=numeric_actor_id(request),
         caller_session_id=str(request.actor.session_id or "").strip(),
         project_id=_project_id(conn, project),
         action=action,
