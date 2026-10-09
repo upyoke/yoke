@@ -18,6 +18,7 @@ class QaRequirementSupersedeRequest(BaseModel):
     rationale: str = Field(..., min_length=1)
     source: str = "agent"
     declare_replacement: bool = False
+    reconcile: bool = False
 
 
 class QaRequirementSupersedeResponse(BaseModel):
@@ -69,9 +70,22 @@ def handle_qa_requirement_supersede(
         declare_existing_replacement,
     )
 
+    from yoke_core.domain.qa_requirement_successor import (
+        QaSuccessorError,
+        authorize_reconciliation,
+    )
+
     conn = connect()
     try:
         try:
+            if body.reconcile:
+                if body.declare_replacement or body.source != "operator":
+                    return _error(
+                        "payload_invalid",
+                        "Reconciliation requires --source operator and cannot declare a pending replacement",
+                    )
+                authorize_reconciliation(conn, request, int(req_id))
+                body.rationale = f"actor={request.actor.actor_id} session={request.actor.session_id}: {body.rationale}"
             if body.declare_replacement:
                 declared = declare_existing_replacement(
                     conn,
@@ -118,10 +132,11 @@ def handle_qa_requirement_supersede(
                 superseded_by_requirement_id=int(body.superseded_by_requirement_id),
                 rationale=body.rationale,
                 source=body.source,
+                reconcile=body.reconcile,
             )
         except LookupError as exc:
             return _error("not_found", str(exc))
-        except QaSupersessionError as exc:
+        except (QaSupersessionError, QaSuccessorError) as exc:
             return _error("supersession_refused", str(exc))
         except QaReplacementError as exc:
             return _error("replacement_refused", str(exc))
