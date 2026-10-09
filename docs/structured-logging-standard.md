@@ -161,7 +161,7 @@ Error responses:
 Anonymous frontend analytics use a publishable X-Events-Key, exact Origin
 allowlist and shared rate limit; no bearer token is required. Backend/audit/
 security ingestion retains authenticated authorization. The [Pack collector
-contract](../packs/structured-events/versions/4.0.0/files/events/README.md) names
+contract](../packs/structured-events/versions/4.1.0/files/events/README.md) names
 refusals, recovery and server-side identity stamping. Frontend emission and
 attribution capture run from first load with no consent state, so collect only
 non-personal data. Every frontend event attaches attribution when capture

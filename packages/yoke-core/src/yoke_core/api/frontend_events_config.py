@@ -1,7 +1,11 @@
 """Same-origin anonymous collection and server-verified attribution cookies."""
 
+import ipaddress
+from functools import cache
 from http.cookies import SimpleCookie
 from urllib.parse import urlsplit
+
+from publicsuffixlist import PublicSuffixList
 
 from yoke_core.domain.frontend_events_storage import read_collector_identity
 
@@ -29,11 +33,31 @@ def collector_origin(request):
     return f"{parts.scheme}://{parts.netloc}"
 
 
+@cache
+def _public_suffixes():
+    return PublicSuffixList()
+
+
+def site_domain(host):
+    """The registrable domain owning ``host``, so the apex and siblings are internal.
+
+    app.upyoke.com and app.stage.upyoke.com both own upyoke.com; a self-hosted
+    yoke.acme.co.uk owns acme.co.uk. An IP or a host with no registrable
+    domain (localhost, a single-label LAN name) is its own site.
+    """
+    host = host.lower().rstrip(".")
+    try:
+        ipaddress.ip_address(host)
+        return host
+    except ValueError:
+        return _public_suffixes().privatesuffix(host) or host
+
+
 def attribution_cookie(request):
     from yoke_core.frontend_events.events_cookie import AttributionCookie
 
     _, _, secret = read_collector_identity()
-    return AttributionCookie(secret, request.url.hostname)
+    return AttributionCookie(secret, site_domain(request.url.hostname))
 
 
 def cookie_name(request):

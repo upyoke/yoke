@@ -39,7 +39,7 @@
       "version": "1.1.0"
     },
     "structured-events": {
-      "content_digest": "f49fea8a435f68c79936be003a4da9e942a99ff4968474cc1c0c3a3502ba0ce6",
+      "content_digest": "a72e2eb4af143e0ca737d487cd0de311999e04068dc3b245c716435a3b978874",
       "files": {
         "docs/packs/structured-events/README.md": {
           "mode": 420,
@@ -134,7 +134,7 @@
         "events/test_attribution.py": {
           "mode": 420,
           "path": "events/test_attribution.py",
-          "sha256": "1701b3afd5b19073d2b255e330d52fba6f445990e133c25d226197fc5004ae3e"
+          "sha256": "8fb529b2fafe30dbac5a70bf79d63a15342eb1952cfd6880e0ff26edf2fc1e1b"
         },
         "events/test_browser.mjs": {
           "mode": 420,
@@ -178,7 +178,7 @@
         "project_name": "yoke"
       },
       "source": {
-        "commit": "bfe1349f2c2e3d304a24fa8b6d6e1dbbe1d6ca87",
+        "commit": "dee0f176ee2da63875cd2b48ac76dbec3daee6cc",
         "kind": "lane"
       },
       "version": "4.1.0"

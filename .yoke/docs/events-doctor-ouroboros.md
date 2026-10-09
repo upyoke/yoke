@@ -29,7 +29,10 @@ Configuration returns only a publishable digest. The private cookie signing key
 belongs to the organization in `organizations.events_signing_key`. Signed,
 HttpOnly attribution cookies use tenant-specific names; HTTPS uses `__Host-`
 cookies and Secure, while the loopback HTTP door uses port-specific HttpOnly
-cookies. `frontend_event_rate_limits` stores disposable request counts (60
+cookies. The attribution site domain is the serving host's registrable domain
+on the Public Suffix List (app.upyoke.com counts upyoke.com as internal; an IP
+or localhost is its own site), and sign-in provider returns such as
+accounts.google.com never become a touch. `frontend_event_rate_limits` stores disposable request counts (60
 requests per client/organization per minute), independently of event retention.
 The server stamps organization and verified actor identity; browser-supplied
 identity and project/work-item references cannot choose their durable owners.

@@ -136,7 +136,10 @@ def test_sign_in_and_own_domain_returns_keep_prior_touches():
     first = capture_touch(
         "https://app.example.com/", "https://accounts.google.com/", site, "first"
     )
-    assert update_attribution(None, first, "v")["first_touch"]["acquisition_channel"] == "direct"
+    assert (
+        update_attribution(None, first, "v")["first_touch"]["acquisition_channel"]
+        == "direct"
+    )
 
 
 def test_server_cookie_persistence_and_integrity():

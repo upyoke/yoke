@@ -1088,6 +1088,15 @@ wheels = [
 ]
 
 [[package]]
+name = "publicsuffixlist"
+version = "1.0.2.20261007"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a7/09/8b44f8db9ace72939c488f0a7eacc3696350230f1dacbf2be5a60d08b49a/publicsuffixlist-1.0.2.20261007.tar.gz", hash = "sha256:4f1bedc2c2c5cc4b0b60b270c579d475c7580e6441d262d1fcfc62f3d45a58e0", size = 109274, upload-time = "2026-10-07T10:09:06.265Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b8/fc/8ae1e924ff5d8a793c425501d208918da795e249c5e4b221401c76ecc8d7/publicsuffixlist-1.0.2.20261007-py2.py3-none-any.whl", hash = "sha256:f004acc09befea70390ea67a15bc5848ea8aa90707337682502510e4151a9b30", size = 109028, upload-time = "2026-10-07T10:09:05.066Z" },
+]
+
+[[package]]
 name = "pycparser"
 version = "3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2288,6 +2297,7 @@ dependencies = [
     { name = "opentelemetry-sdk" },
     { name = "packaging" },
     { name = "psycopg", extra = ["binary"] },
+    { name = "publicsuffixlist" },
     { name = "pydantic" },
     { name = "pyjwt", extra = ["crypto"] },
     { name = "pynacl" },
@@ -2318,6 +2328,7 @@ requires-dist = [
     { name = "opentelemetry-sdk", specifier = ">=1.30,<2" },
     { name = "packaging", specifier = ">=24,<27" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.1,<4" },
+    { name = "publicsuffixlist", specifier = ">=1.0,<2" },
     { name = "pydantic", specifier = "==2.13.4" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8,<3" },
     { name = "pynacl", specifier = ">=1.5.0,<2.0" },
