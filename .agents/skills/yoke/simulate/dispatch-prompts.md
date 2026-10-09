@@ -1,6 +1,11 @@
 # Simulate Phase: Canonical Simulator Dispatch Prompts
 
-Use these prompts when invoking the `yoke-simulator` subagent.
+Dispatch the read-only `yoke-simulator` with the common contract below and exactly one mode prompt. Include both in the actual dispatch.
+
+## Common contract — append to every mode prompt
+
+For each modified write path, trace external-call failures, safe propagation under `set -e`, compatibility with the previous error model, and failure-case test coverage. Report gaps with `[CRITICAL]`, `[WARNING]`, `[NOTE]`; name verified paths, mismatch/root cause, affected tasks, concrete fix guidance and `Fix level: plan|code|mixed`.
+
 
 ## Plan Simulation Prompt
 
@@ -12,7 +17,7 @@ Item ID: {public_ref}
 
 Trace the planned architecture for integration gaps. No code has been written yet — you are checking the plan's structural soundness.
 
-IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: {public_ref}. Persistence rejects bodies whose attested epic does not match {public_ref} (exit 16) or that omit the EPIC line entirely (exit 17).
+Begin with SIMULATION: CLEAN or SIMULATION: GAPS FOUND, then EPIC: {public_ref}. Wrong epic refuses exit 16; missing EPIC refuses exit 17.
 
 Read the authoritative item spec and plans from the DB:
 yoke items get {public_ref} spec
@@ -23,7 +28,7 @@ yoke items get {public_ref} worktree_plan
 {for each task: task number, title, and body content from yoke workflow-item epic-task body-get}
 
 ## Context Budget Guidance
-The task content above is already inline in this prompt. Do not re-read these task bodies from the DB. You should read the authoritative item spec/plans from the DB.
+Use inline task bodies; read authoritative parent spec/plans without fetching those bodies again.
 
 ## Instructions
 Focus on:
@@ -33,14 +38,7 @@ Focus on:
 - Environment and runtime assumptions that vary across tasks
 - Merge sequence predictions
 
-## Failure Path Analysis
-For each modified write path in this epic:
-1. What external calls can fail?
-2. Under `set -e`, does failure propagate safely or crash the caller?
-3. Does the new error model match the old one?
-4. Do tests cover the failure case, not just the happy path?
-
-Produce your gap report. Use [CRITICAL], [WARNING], [NOTE] severity prefixes.
+Apply the common contract and return your gap report.
 ```
 
 ## Standard Integration Prompt
@@ -53,10 +51,10 @@ Item ID: {public_ref}
 
 All tasks are complete (or: the following tasks are incomplete and should be excluded from path tracing: {list}). Trace actual code across worktrees for integration gaps before merging.
 
-IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: {public_ref}. Persistence rejects bodies whose attested epic does not match {public_ref} (exit 16) or that omit the EPIC line entirely (exit 17).
+Begin with SIMULATION: CLEAN or SIMULATION: GAPS FOUND, then EPIC: {public_ref}. Wrong epic refuses exit 16; missing EPIC refuses exit 17.
 
 ## Worktree-State Authority
-A task's resolved worktree checkout is the authority for that task's actual code whether the item/epic has one worktree or many. Main is the base/integration target, not evidence of unmerged task state. Use the task's `worktree_path` / branch when verifying files; if no worktree path or prompt-supplied diff exists, report evidence missing instead of inspecting main as a substitute.
+Task `worktree_path` / branch is actual-code authority in one lane or many. Main is the base/integration target. Without a resolved lane or supplied diff, report missing evidence.
 
 Read the authoritative item spec from the DB:
 yoke items get {public_ref} spec
@@ -77,7 +75,7 @@ yoke items get {public_ref} spec
 {for each task with a review: output of yoke workflow-item epic-task review-get}
 
 ## Context Budget Guidance
-The task content, code changes, and reviews above are already inline in this prompt. Do not re-read them from the DB. You should read the authoritative item spec from the DB.
+Use inline tasks, changes and reviews; read the authoritative parent spec without fetching the inline content again.
 
 ## Instructions
 Focus on:
@@ -86,14 +84,7 @@ Focus on:
 - Merge sequence and generated-file overlap
 - Combined state validity after merge
 
-## Failure Path Analysis
-For each modified write path in this epic:
-1. What external calls can fail?
-2. Under `set -e`, does failure propagate safely or crash the caller?
-3. Does the new error model match the old one?
-4. Do tests cover the failure case, not just the happy path?
-
-Produce your gap report. Use [CRITICAL], [WARNING], [NOTE] severity prefixes.
+Apply the common contract and return your gap report.
 ```
 
 ## Compressed Integration Prompt
@@ -106,12 +97,12 @@ Item ID: {public_ref}
 
 All tasks are complete (or: the following tasks are incomplete and should be excluded from path tracing: {list}). Trace actual code across worktrees for integration gaps before merging.
 
-IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: {public_ref}. Persistence rejects bodies whose attested epic does not match {public_ref} (exit 16) or that omit the EPIC line entirely (exit 17).
+Begin with SIMULATION: CLEAN or SIMULATION: GAPS FOUND, then EPIC: {public_ref}. Wrong epic refuses exit 16; missing EPIC refuses exit 17.
 
 ## Worktree-State Authority
-A task's resolved worktree checkout is the authority for that task's actual code whether the item/epic has one worktree or many. Main is the base/integration target, not evidence of unmerged task state. Use the task's `worktree_path` / branch when verifying files; if no worktree path or prompt-supplied diff exists, report evidence missing instead of inspecting main as a substitute.
+Task `worktree_path` / branch is actual-code authority in one lane or many. Main is the base/integration target. Without a resolved lane or supplied diff, report missing evidence.
 
-This is a large epic ({_task_count} tasks). To preserve context budget for analysis, this prompt provides compressed context instead of full task bodies and full diffs.
+Task count: {_task_count}. Use the compressed context below.
 
 Read the authoritative item spec from the DB:
 yoke items get {public_ref} spec
@@ -187,12 +178,5 @@ Focus on:
 - Merge sequence and generated-file overlap
 - Combined state validity after merge
 
-## Failure Path Analysis
-For each modified write path in this epic:
-1. What external calls can fail?
-2. Under `set -e`, does failure propagate safely or crash the caller?
-3. Does the new error model match the old one?
-4. Do tests cover the failure case, not just the happy path?
-
-Produce your gap report. Use [CRITICAL], [WARNING], [NOTE] severity prefixes.
+Apply the common contract and return your gap report.
 ```

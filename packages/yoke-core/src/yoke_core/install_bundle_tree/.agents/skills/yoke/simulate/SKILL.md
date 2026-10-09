@@ -5,11 +5,13 @@ description: Run the Simulator to trace cross-task integration paths and find ga
 argument-hint: "{epic-ref} [--auto-fix] | --system"
 ---
 
-# Harness slash skill. Conduct invokes the epic flow internally, and operators may invoke either epic simulation or the system-wide audit directly. There is no terminal `yoke simulate` adapter; dispatch uses the harness skill surface.
 
 # /yoke simulate {epic-ref} | --system
 
-Trace cross-task execution paths across an entire epic to find integration gaps that per-task testing misses. Or, with `--system`, run an Ouroboros system-wide consistency audit across all of Yoke's components.
+Harness slash skill; operators may invoke either epic simulation or the system
+audit. There is no terminal `yoke simulate` adapter. Conduct may invoke the
+epic flow internally. Trace cross-task plans or actual lane code
+through the read-only Simulator.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -17,56 +19,28 @@ yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evide
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
-## Arguments
+Use a complete public epic ref. Task states auto-detect plan or integration;
+`--force-integration` traces completed work and excludes named incomplete tasks.
+`--auto-fix` accepts plan fixes and re-simulations; otherwise follow the loop's
+approval points. Code gaps return for an amend cycle. `--system` requires a Yoke
+source checkout and produces a consistency report only.
 
-- `{epic-ref}` — Public ref of the epic backlog item (PREFIX-N).
-- `--system` — Run a system-wide consistency audit (no epic name required). Checks all agents, SKILLs, scripts, rules, hooks, and docs for internal consistency. Produces a report only — no auto-fix.
-- `--auto-fix` — Automatically accept the shared Architect plan-fix loop and re-simulations; code gaps return to the caller rather than being reported clean. Conduct invokes this mode internally with its persisted report.
-- `--force-integration` — Run integration simulation even if some tasks are incomplete (traces completed work only)
+The Simulator and Architect are read-only; the dispatching skill persists
+reports and returned plans. Discover actual callers/consumers alongside planned
+files. For code-gap forensics use `yoke events query --item PREFIX-N`. Findings
+name verified paths, mismatch, severity and concrete fix guidance; link evidence.
 
-## Philosophy
+## Phase map — read before the governed action
 
-**Blast radius via discovery.** When gathering context for the Simulator, include grep-based discovery of actual consumers and callers — not just the file lists from the Architect's plan. The Simulator's value is finding what the plan missed.
+| Phase | Read |
+|---|---|
+| System audit | [system.md](system.md): source guard and report-only guidance |
+| Epic simulation | [epic-flow.md](epic-flow.md): phase gates, context, persistence and summary |
+| Simulator dispatch | [dispatch-prompts.md](dispatch-prompts.md): common contract and selected mode |
+| Approved fix loop or `--auto-fix` | [autofix-loop.md](autofix-loop.md): capped fixes and caller outcomes |
 
-**Events table for forensic context.** For integration simulations, the events table captures tool call history, anomaly patterns, and timing from task execution. Include `yoke events query --item PREFIX-N` in investigation when diagnosing cross-task gaps against actual code.
+Stamp the mode, then follow the applicable phase:
 
-**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent. The simulation report is the current finding for the Architect's autofix pass. Every gap must include verified file paths, the specific mismatch, severity, and concrete fix guidance so the Architect can fix each gap mechanically. Link evidence; do not paste transcripts.
-
-## Phase map — read one file, at the phase it governs
-
-| Phase | You are here when | Read before acting |
-|---|---|---|
-| System audit | `--system` is present | [`system.md`](system.md) |
-| Epic simulation | An epic id was given | [`epic-flow.md`](epic-flow.md) |
-| Dispatch the Simulator | A phase is about to invoke the Simulator | [`dispatch-prompts.md`](dispatch-prompts.md) |
-| Auto-fix | Fixable gaps remain and auto-fix was approved or `--auto-fix` is set | [`autofix-loop.md`](autofix-loop.md) |
-
-## Steps
-
-Stamp the session mode so the board's active-session row reflects the live phase (default `wait` misrepresents an active simulate). Use the registered session wrapper:
-
-```bash
-yoke sessions touch \
- --mode simulate
+```sh
+yoke sessions touch --mode simulate
 ```
-
-1. **If `--system` is present, read and follow [system.md](system.md).**
- This phase owns the Ouroboros-wide audit flow and its report output.
-
-2. **Otherwise, read and follow [epic-flow.md](epic-flow.md).**
- This phase covers epic existence checks, phase detection, context gathering, reflection capture, report persistence, and the main simulation summary.
-
-3. **Use [dispatch-prompts.md](dispatch-prompts.md) when invoking the Simulator.**
- It contains the canonical prompts for plan simulations and both integration modes.
-
-4. **If fixable gaps remain and the operator approves auto-fix or `--auto-fix` is set, read and follow [autofix-loop.md](autofix-loop.md).**
- This phase owns Architect fix mode, DB writes, change summaries, and the capped re-simulation loop.
-
-## Notes
-
-- The Simulator subagent is read-only — it cannot write or edit files. The simulate command saves the report.
-- The Architect subagent is also read-only — it produces modified task content as output, but the simulate command is responsible for writing content to the DB.
-- Plan simulation is the cheapest point to catch bugs — no code has been written yet, so fixes are cheap.
-- Integration simulation catches cross-branch mismatches that per-task testing misses.
-- `--force-integration` is useful when most tasks are complete but one is stuck.
-- System-wide simulation (`--system`) is an Ouroboros feature. It audits Yoke's own components for consistency drift and produces a report only.

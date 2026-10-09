@@ -4,13 +4,7 @@ This phase owns per-epic simulation before any optional auto-fix loop.
 
 ## 1. Verify The Epic Exists
 
-Check that `epic_tasks` rows exist for this epic in the DB:
-
-```bash
-_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id=(SELECT item_id FROM item_refs WHERE public_ref='{epic-ref}')")
-```
-
-If `_task_count` is `0`, report `task_graph_missing` and stop simulation.
+Read `yoke epic-tasks list --epic "{epic-ref}"` once for task count and statuses. No rows: report `task_graph_missing` and stop simulation.
 Read `yoke items detail get {epic-ref} --json` to resolve the item's pin, then
 restore its task graph through the definition's authoring binding before
 retrying. Render any re-entry command through
@@ -18,13 +12,7 @@ retrying. Render any re-entry command through
 
 ## 2. Auto-Detect Simulation Phase
 
-Query task statuses from DB:
-
-```bash
-yoke epic-tasks list --epic "{epic-ref}"
-```
-
-Each row returns `task_num|title|status|worktree|...`.
+Use the task statuses already read in step 1.
 
 - If all tasks have status `planning` or `planned` -> **Plan simulation**
 - If all tasks have status `completed` or `merged` -> **Integration simulation**
@@ -33,19 +21,15 @@ Each row returns `task_num|title|status|worktree|...`.
 
 ## 3. Gather Context For The Simulator
 
-Resolve the backlog item ID:
-
-```bash
-_item_ref="{epic-ref}"
-```
+Keep the complete public `{epic-ref}` in every read and request.
 
 ### Plan simulation context
 
 - Read structured fields:
  ```bash
- yoke items get "$_item_ref" spec
- yoke items get "$_item_ref" technical_plan
- yoke items get "$_item_ref" worktree_plan
+ yoke items get "{epic-ref}" spec
+ yoke items get "{epic-ref}" technical_plan
+ yoke items get "{epic-ref}" worktree_plan
  ```
 - Read all task content:
  ```bash
@@ -66,16 +50,13 @@ Integration mode defaults to compressed two-phase mode unless `sim_force_standar
 _force_standard=$(python3 -m yoke_core.domain.runtime_settings get sim_force_standard_integration false)
 ```
 
-If `_force_standard` is `true`, set `_use_compressed=false`. Otherwise set `_use_compressed=true`.
+A true override selects standard mode; otherwise use compressed mode.
 
 Compute and log the scope estimate for observability:
 
 ```bash
 _pflight_tasks=$(python3 -m yoke_core.domain.runtime_settings get sim_preflight_task_threshold 8)
 _pflight_kb=$(python3 -m yoke_core.domain.runtime_settings get sim_preflight_size_kb 20)
-_body_bytes=0
-_review_bytes=0
-_diff_bytes=0
 ```
 
 Include task bodies, reviews, spec, plan, and diff stat sizes in the log line.
@@ -90,6 +71,8 @@ When `_use_compressed=true`, build:
 - Per-task change summaries
 - Diff stats per branch
 - Review summaries
+- Explicit shim re-exports and parent-supplied commit-boundary evidence under
+  [dispatch-prompts.md](dispatch-prompts.md)'s bounded verification contract
 
 ### Standard integration bundle
 
@@ -115,14 +98,14 @@ after confirming the hook did not capture the response.
 
 For direct Simulate, write the report through the registered adapter:
 
-```text
+```sh
 yoke workflow-item epic-task simulation-upsert --epic PREFIX-N --phase <phase> --stdin < <report-file>
 ```
 
 For retained `caller=conduct` integration context, use the internal
 `persist_simulation` boundary already used by Conduct's simulation gate:
 
-```text
+```sh
 python3 -m yoke_core.domain.persist_simulation <epic-ref> integration < <report-file>
 ```
 
