@@ -1,5 +1,12 @@
 # Steering fleet report
 
+Failed HTTP usage checks record the status, UTC response time, Retry-After,
+and safe rate-limit response headers in the relay error log and the cached
+plan-limit window reason. The unreadable Fleet row displays that evidence
+alongside its recovery guidance. Credentials, cookies, and response bodies
+are excluded. Retry-After is evidence only; probes retain the four-minute
+refresh cadence.
+
 A steering session spends its attention on whatever it is doing, and the fleet changes underneath it. The fleet report is that negative space, composed server-side for every steering claim the calling session holds. Omit `--project` to get one report whose sections are those held scopes, each heading the claim's scope descriptor — the project slug for a whole-project seat, `<project> · <document>` for a seat narrowed to one strategy document. Pass `--project P` to keep a single scope. It reports; nothing in it staffs anything.
 
 A seat narrowed to a strategy document reports only that document's work, including linked items whose execution project differs from the document's owning project. Every item-keyed section — available work, claim holders, idle holders, live landing readbacks, dead waits, landed-without-close-out — follows membership in `item_strategy_docs`, and undelivered messages follow the sessions holding those items. A project seat covers its unlinked items and its CURRENT-PLAN members. An open item linked to another document with no live seat appears under **unattended linked work**, with the document's owning project and an acquire command. Delivery-plane and machine facts stay project-wide: a launch that never bound a session has no item to attribute it to, and machines are shared by every seat running on them.
