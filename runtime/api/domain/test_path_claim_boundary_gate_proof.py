@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Hosted path-claim boundary proof and freshness coverage."""
 
 from __future__ import annotations
@@ -12,9 +14,11 @@ from runtime.api.domain._path_claims_test_helpers import (
     seed_target,
     seed_test_holder_for,
 )
-from runtime.api.domain.test_path_claims_gate_boundary import (
+from runtime.api.domain.test_path_claims_gate_boundary import (  # noqa: F401
     _commit_in_worktree,
     _git,
+    project_repo,
+    real_db,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain.path_claim_boundary_gate_proof import (
@@ -28,9 +32,6 @@ from yoke_core.domain.project_github_auth import MissingCapability, MissingPermi
 from yoke_core.domain.gate_satisfier_stamp import read_rungs
 from yoke_core.domain.path_claims import register
 from yoke_core.domain.path_claims_gate_boundary import check_boundary_for_item
-
-
-pytest_plugins = ("runtime.api.domain.test_path_claims_gate_boundary",)
 
 
 def _seed_proof_case(project_repo, real_db):

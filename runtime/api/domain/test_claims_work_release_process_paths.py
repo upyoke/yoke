@@ -23,6 +23,7 @@ from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     conn,
     seed_test_holder_session,
 )
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.sessions_lifecycle_claim import release_claim
 from yoke_core.domain.work_claim_targets import WorkClaimTarget, make_item_target
 
@@ -138,7 +139,7 @@ class TestReleaseCascade:
             (stale_pc,),
         ).fetchone()
         # Stale row's release timestamp + reason are NOT overwritten.
-        assert stale_row["released_at"] == "2026-04-30T00:00:00Z"
+        assert stale_row["released_at"] == parse_instant("2026-04-30T00:00:00Z")
         assert stale_row["release_reason"] == "manual"
 
     def test_item_release_does_not_touch_path_claims(self, conn):
