@@ -132,7 +132,7 @@ def test_validate_marker_syntax_clean_returns_empty() -> None:
 
 def test_expand_markers_replaces_body_with_packet() -> None:
     fresh = schema_api_context.render_topic_packet(
-        "core", role="engineer_agent"
+        "core", role="engineer_agent", include_schema=False
     ).rstrip("\n")
     text = (
         f"intro\n{_make_marker('engineer_agent', 'core')}\n"
@@ -140,13 +140,15 @@ def test_expand_markers_replaces_body_with_packet() -> None:
     )
     out = expand_markers(text)
     assert fresh in out
+    assert "Schema cheat sheet:" not in out
+    assert "--topic core --detail full" in out
     assert "old body that should be replaced" not in out
     assert _make_marker("engineer_agent", "core") in out
     assert MARKER_END in out
 
 
 def test_expand_markers_idempotent_on_fresh_text() -> None:
-    body = schema_api_context.render_topic_packet("core", role="engineer_agent").rstrip(
+    body = schema_api_context.render_topic_packet("core", role="engineer_agent", include_schema=False).rstrip(
         "\n"
     )
     text = f"{_make_marker('engineer_agent', 'core')}\n\n{body}\n\n{MARKER_END}\n"
@@ -193,7 +195,7 @@ def test_render_claude_agent_expands_markers(tmp_path: Path) -> None:
     )
     rendered = render_claude_agent("architect", target_root=root)
     fresh_core = schema_api_context.render_topic_packet(
-        "core", role="architect_agent"
+        "core", role="architect_agent", include_schema=False
     ).rstrip("\n")
     assert fresh_core in rendered, "expander did not insert fresh core packet"
     assert _make_marker("architect_agent", "core") in rendered
@@ -209,7 +211,7 @@ def test_render_codex_body_expands_markers(tmp_path: Path) -> None:
     (canonical / "boss.codex.json").write_text('{"description": "x"}', encoding="utf-8")
     rendered = render_codex_agent_body(canonical, "boss")
     fresh_claims = schema_api_context.render_topic_packet(
-        "claims", role="boss_agent"
+        "claims", role="boss_agent", include_schema=False
     ).rstrip("\n")
     assert fresh_claims in rendered
     assert _make_marker("boss_agent", "claims") in rendered
@@ -300,7 +302,7 @@ def test_canonical_marker_bodies_are_empty_or_fresh(repo_root: Path) -> None:
             if not stripped:
                 continue
             fresh = schema_api_context.render_topic_packet(
-                p["topic"], role=p["role"]
+                p["topic"], role=p["role"], include_schema=False
             ).rstrip("\n")
             assert stripped == fresh.strip(), (
                 f"{role}.md role={p['role']} topic={p['topic']}: marker body "
@@ -322,7 +324,7 @@ def test_claude_and_codex_adapters_have_byte_identical_packet_bodies(
         codex_rendered = render_codex_agent_body(canonical_dir, role)
         for p in pairs:
             fresh_body = schema_api_context.render_topic_packet(
-                p["topic"], role=p["role"]
+                p["topic"], role=p["role"], include_schema=False
             ).rstrip("\n")
             assert fresh_body in claude_rendered, (
                 f"role={role} topic={p['topic']}: missing in Claude render"

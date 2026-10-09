@@ -59,6 +59,7 @@ FILE_LIKE_SUFFIXES = (
 )
 
 GENERIC_QUOTED_STRINGS = {
+    "PYTHONPATH",  # Active environment contract, not retired display copy.
     "defaults",
     "default",
     "unknown",

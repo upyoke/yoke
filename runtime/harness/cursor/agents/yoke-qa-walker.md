@@ -247,18 +247,15 @@ reading secret content.
 
 ### DB Quick Reference — core (control plane + structured fields)
 
-**Control-plane DB invariant:** Yoke control-plane authority is Postgres. Use registered `yoke <subcommand>` readers/writers for domain state, and `yoke db read "SELECT ..."` for raw diagnostic SELECTs. Do not construct DB file paths from `$PWD`, `CLAUDE_PROJECT_DIR`, or linked worktree paths. Product/normal prod reads stay on wrapped HTTPS/API-backed surfaces (`yoke <subcommand>` and `yoke db read`); do not retry by switching to a local-Postgres prod env. When a required mutation has no registered command, escalate the missing command to the control-plane operator, naming the required operation and registered surfaces checked.
+**Control-plane DB invariant:** authority is Postgres, never a constructed worktree DB path. Use registered `yoke <subcommand>` and diagnostic `yoke db read "SELECT ..."`. Normal prod authority is HTTPS/API; retain it on retry. Escalate missing mutations to the control-plane operator with the operation and surfaces checked.
 
-**Package roots (where a module actually lives):** an importable package name never implies a directory at the repo root, and the mapping is per-project. Resolve a module through the roots your project's `architecture_model` declares — read them with `yoke project-structure get --project P --family architecture_model --json` and consult its `package_roots`, which maps each package to roots labelled `package_under_root` (the package directory sits under the root) or `package_is_root` (the root directory IS the package, so the package name never appears on disk). One package may declare several roots; check every one before concluding a module is absent.
+**Package roots:** read `yoke project-structure get --project P --family architecture_model --json`. Check every `package_roots` entry: `package_under_root` holds the package directory; `package_is_root` is that directory.
 
 **Work-item entry surfaces:** every create names a workflow and a typed entry surface (`web_form`, `cli`, `harness_skill`, or `promotion`). The selected immutable workflow version must allow that surface. File through `/yoke idea` (the skill-owned `harness_skill` path), `yoke dash TITLE INSTRUCTION`, or the laneless `yoke task TITLE INSTRUCTION`. `yoke items create` refuses a live harness session that is not in idea mode — the entry-surface token is caller-asserted and skips skill-side scaffolding. Operator/debug, `--dry-run`, and test isolation retain the low-level adapter. `/yoke idea` attests Before creation with `--execution-instructions-considered` after `yoke workflow execution-instruction resolve --workflow W --project P --full`; Non-web creation requires that attestation; adapters never set it.
 
-**Function-call surface (canonical mutation path):** `yoke_core.domain.yoke_function_dispatch.dispatch` validates a `FunctionCallRequest` from `yoke_contracts.api.function_call` and returns a `FunctionCallResponse`. Minimal envelope: `{function, request_id, actor:{session_id,actor_id}, target:{kind,public_ref+task_num?|qa_requirement_id|...}, payload, preconditions:{}, options:{}}`. `target.kind` ∈ `item|epic_task|qa_requirement|session|process`. `actor.session_id` is mandatory — handlers verify it against `work_claims`. `preconditions`/`options` are dicts (default `{}`). Scratch Python imports must prepend the repo root to `sys.path` or set `PYTHONPATH`; `/tmp` imports are not the agent path.
+**Registered writes** (use their `yoke` CLI adapters): `items.structured_field.replace`, `items.progress_log.append`, `lifecycle.transition.execute`, `claims.work.acquire`, `claims.work.release`, `claims.path.register`, `db_claim.amend`. CLI grammar: (dots→spaces, underscores→hyphens).
 
-
-**Registered write function ids** (dispatch through these, never a guessed name): `items.structured_field.replace`, `items.progress_log.append`, `lifecycle.transition.execute`, `claims.work.acquire`, `claims.work.release`, `claims.path.register`, `db_claim.amend`. Each has a CLI adapter under the reversible grammar (dots→spaces, underscores→hyphens).
-
-**`harness_id` enum:** `claude-code | codex | cursor` (on `harness_sessions.executor`). Variants `claude-desktop` / `claude-vscode` / `codex-desktop` / `cursor-desktop` / `cursor-cli` collapse to these canonical ids in the agent-context render path.
+**`harness_sessions.executor`:** `claude-code | codex | cursor`; surface variants normalize to these ids.
 
 **Wrapper commands (prefer over raw SQL):**
 
@@ -388,29 +385,8 @@ reading secret content.
   - `yoke watch doctor -- --only HC-event-registry-coverage,HC-event-callsite-registry-sync`
   - `yoke watch doctor -- --full --json`
 
-**Schema cheat sheet:**
 
-- **`items`** — `id, title, workflow_id, workflow_version_id, workflow_posture, generated_task_membership_finalized_at, status, priority, project_id, project_sequence, github_issue, frozen, blocked, blocked_reason, deployment_flow, deploy_stage, source, owner, created_at, updated_at`
-- **`epic_tasks`** — `id, epic_id, task_num, title, status, body, dependencies, item_worktree_id, last_activity_at`
-- **`epic_dispatch_chains`** — `id, epic_id, item_worktree_id, queue, current_index, current_task, current_attempt, max_attempts, no_chain, started_at, last_updated`
-- **`epic_progress_notes`** — `id, epic_id, task_num, note_num, body, created_at`
-- **`item_dependencies`** — `id, dependent_item_id, blocking_item_id, gate_point, satisfaction, source, session_id, rationale, evidence_json, created_at`
-- **`events`** — `id, event_id, source_type, session_id, severity, event_kind, event_type, event_name, event_outcome, org_id, actor_id, environment, service, project_id, item_id, task_num, agent, tool_name, duration_ms, exit_code, trace_id, anomaly_flags, tool_use_id, turn_id, hook_event_name, client_timing_id, envelope, created_at`
-- **`event_registry`** — `event_name, event_kind, event_type, owner_service, description, context_schema, severity_default, added_in, status`
-- **`ouroboros_entries`** — `id, timestamp, agent, context, category, body, reviewed_at, archived_at, created_at, project_id, target_project_id`
-- **`item_sections`** — `item_id, section_name, content, ordering, created_at, updated_at, source`
-- **`item_gate_satisfactions`** — `id, item_id, obligation, rung_id, target_status, detail, facts, recorded_at, recorded_by_session_id`
-- **`project_derived_facts`** — `id, project_id, fact_key, present, fact_value, observed_at, observed_from`
-- **`yoke_core.domain.worktree`** — `paths db, paths main, paths yoke-root, create`
-- **`yoke_core.domain.db_helpers`** — `iso8601_now, connect, query_rows, query_one, query_scalar`
-- **`yoke_contracts.model_reference`** — `lookup_model_reference, lookup_api_price, validate_model_record`
-- **`runtime/harness/<harness-dir>/manifest.json`** — `agent_wake, session_control, supports`
-
-**JSON-nested-field schemas** (_parse the rendered JSON string; do NOT query nested fields as top-level columns_):
-- `items.db_mutation_profile` — `state`:'none'|'declared'='none', `model`:str|null=null, `mutation_intent`:'apply'=null, `compatibility_class`:'pre_merge_safe'|'pre_merge_breaking'=null, `migration_strategy`:'additive_only'|'hard_cutover'|'expand_contract'=null, `migration_modules`:list[str]=[]. Validator: `yoke_core.domain.db_mutation_profile.validate_json_string`.
-- `items.db_compatibility_attestation` — `pre_merge_readers_writers`:list[dict]=[], `invariants`:list[str]=[], `rehearsal_commands`:list[str]=[], `residual_risk_notes`:list[str]=[], `class_escalations`:list[dict]=[], `frozen_at`:str|null=null. Validator: `yoke_core.domain.db_compatibility_attestation.validate_json_string`.
-
-_Compact depth. For per-table/command notes, caveats and corrected wrong guesses, read_ `yoke packets render --role qa_walker_agent --topic core --detail full`.
+_Schema and operation depth:_ `yoke packets render --role qa_walker_agent --topic core --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
 
@@ -479,24 +455,8 @@ WHERE tgt.path_string IN ('<project-source-path>/foo.py', '<project-source-path>
 - _Classify a path-claim overlap before authoring a coordination edge_
   - `yoke claims path coordination-decision-build --item PREFIX-N --conflicting-claim CLAIM_ID --paths a.py,b.py`
 
-**Schema cheat sheet:**
 
-- **`harness_sessions`** — `session_id, executor, executor_surface, presentation_surface, presentation_state, presentation_mode, presentation_source, presentation_observed_at, provider, model, reasoning_effort, context_window_tokens, requested_model, requested_reasoning_effort, requested_context_window_tokens, usage_totals, mode, quiet_reason, keepalive_until, keepalive_reason, execution_level, offer_envelope, current_item_id, current_item_set_at, recent_item_id, recent_item_status, recent_item_recorded_at, actor_id, project_id, offered_at, last_heartbeat, turn_posture, turn_posture_at, ended_at, terminated_at, terminated_by_actor_id, terminated_by_session_id, termination_reason, last_tool_call_at, tool_call_count, episode_started_at, native_process_gone_at, native_process_gone_evidence, pending_resume_notice, last_chain_step, last_checkpoint_at`
-- **`session_tool_calls`** — `id, session_id, tool_use_id, tool_name, started_at, completed_at, outcome, command_summary`
-- **`work_claims`** — `id, session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat, released_at, release_reason, reason, reason_intent, release_reason_intent`
-- **`path_claims`** — `id, state, mode, owner_kind, owner_item_id, owner_session_id, owner_work_claim_id, registered_by_actor_id, registered_by_session_id, integration_target, base_commit_sha, registered_at, activated_at, released_at, cancelled_at, release_reason, cancel_reason, blocked_reason, exception_reason`
-- **`path_claim_targets`** — `id, claim_id, target_id, declared_at`
-- **`path_claim_task_bindings`** — `claim_id, epic_id, task_num, bound_at`
-- **`path_targets`** — `id, project_id, kind, path_string, generation, parent_target_id, created_at, materialization_state, materialization_updated_at, planned_by_item_id, planned_by_claim_id`
-- **`path_claim_amendments`** — `id, claim_id, amended_at, amendment_kind, payload, reason`
-- **`actors`** — `id, kind, system_component, name, status, created_at, attribution`
-- **`machines`** — `machine_id, name, owner_actor_id, access, registered_at, last_seen_at, retired_at, retired_by_actor_id`
-- **`harness_machine_reports`** — `project_id, machine_id, harness_id, glue_written, glue_present, glue_malformed, config_present, project_entry_present, approval_state, unattended_posture, reported_at`
-
-**JSON-nested-field schemas** (_parse the rendered JSON string; do NOT query nested fields as top-level columns_):
-- `harness_sessions.offer_envelope` — `chain_checkpoint`:dict={}, `chain_skip_memory`:list[dict]=[]. Validator: `yoke_core.domain.sessions_queries_chain.update_chain_checkpoint`.
-
-_Compact depth. For per-table/command notes, caveats and corrected wrong guesses, read_ `yoke packets render --role qa_walker_agent --topic claims --detail full`.
+_Schema and operation depth:_ `yoke packets render --role qa_walker_agent --topic claims --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
 
@@ -543,17 +503,8 @@ _Compact depth. For per-table/command notes, caveats and corrected wrong guesses
   - `yoke workflow-item epic-dispatch-chain list --epic PREFIX-1704`
   - `yoke workflow-item epic-dispatch-chain get --epic PREFIX-1704 --worktree branch-name`
 
-**Schema cheat sheet:**
 
-- **`qa_requirements`** — `id, item_id, epic_id, task_num, deployment_run_id, deployment_stage, deployment_member_item_id, qa_kind, qa_phase, target_env, blocking_mode, requirement_source, success_policy, capability_requirements, suite_id, waived_at, waiver_rationale, waiver_source, retracted_at, retraction_rationale, retraction_source, replacement_requirement_id, plan_id, plan_case_key, case_position, baseline_position, method_id, method_name, runner_id, verdict_path, host_baseline, starting_state, starting_state_reason, entry_surface, required_completion, workflow_transition_id, instructions, expected_outcome, method_config, execution_target_json, execution_target_digest, rebound_at, rebound_from_digest, rebind_rationale, rebind_actor_id, rebound_from_target_json, rebind_endpoint_delta_json, created_at`
-- **`qa_runs`** — `id, qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, score, confidence, raw_result, duration_ms, started_at, completed_at, created_at, execution_status, case_outcome, capture_degraded_reason`
-- **`doctor_runs`** — `id, ran_at, project, scope, runtime, fail_count, pass_count, warn_count, na_count, results`
-
-**JSON-nested-field schemas** (_parse the rendered JSON string; do NOT query nested fields as top-level columns_):
-- `qa_requirements.capability_requirements` — `(JSON array of capability tokens the runner must advertise)`:list[str]=[]. Validator: `yoke_core.domain.qa_requirement_ops`.
-- `qa_requirements.success_policy` — `kind`:'all_pass'='all_pass', `threshold`:int|null=null. Validator: `yoke_core.domain.qa_requirement_ops`.
-
-_Compact depth. For per-table/command notes, caveats and corrected wrong guesses, read_ `yoke packets render --role qa_walker_agent --topic qa --detail full`.
+_Schema and operation depth:_ `yoke packets render --role qa_walker_agent --topic qa --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
 
@@ -580,21 +531,8 @@ _Compact depth. For per-table/command notes, caveats and corrected wrong guesses
 - _Init a checkout and create a private GitHub remote_
   - `yoke project git bootstrap CHECKOUT --project <project> --yes`
 
-**Schema cheat sheet:**
 
-- **`projects`** — `id, org_id, slug, name, emoji, default_branch, github_repo, public_item_prefix, breakage_policy, github_sync_mode, retired_at, created_at`
-- **`project_structure`** — `id, project_id, family, attachment_value, attachment_kind, entry_key, payload`
-- **`deployment_flows`** — `id, project_id, name, description, stages, on_failure, created_at, target_tier, target_environment_id, done_description, status, definition_schema_version, takes_delivery_custody, supersedes_flow_id`
-- **`deployment_runs`** — `id, project_id, flow, target_tier, target_environment_id, release_lineage, status, current_stage, current_stage_entered_at, created_at, started_at, completed_at, created_by, carried_work, bound_sources, candidate_containment, artifact_identity, composition_resolution, composition_frozen_at, requirement_snapshot, driver_attachment, settling_at, create_idempotency_key, create_request, membership_removals`
-- **`deployment_run_items`** — `run_id, item_id, added_at, delivery_intent, requirement_selection, requirement_snapshot, containment_attestation`
-- **`path_snapshots`** — `id, project_id, commit_sha, built_at`
-- **`project_capabilities`** — `id, project_id, type, verified_at, created_at, settings`
-- **`capability_secrets`** — `id, project_id, type, key, value, source, created_at`
-- **`github_app_installations`** — `installation_id, api_url, account_id, account_login, account_type, repository_selection, permissions, status, last_verified_at, last_error, created_at, updated_at`
-- **`project_github_repo_bindings`** — `project_id, installation_id, repository_id, api_url, github_repo, default_branch, repository_is_private, status, permissions, last_verified_at, last_error, created_at, updated_at, last_sync_at, last_sync_outcome, last_sync_error`
-- **`migration_audit`** — `id, migration_name, description, tables_declared, expected_deltas, pre_row_counts, post_row_counts, pre_fk_violations, post_fk_violations, backup_path, state, failure_reason, exception_reason, source_fingerprint, rehearsed_at, lease_id, test_copy_path, baseline_verify_result, author_verify_result, session_id, model_name, project_id, started_at, completed_at, duration_ms, actor_id, worktree, source_branch, source_commit, integration_target, change_class`
-
-_Compact depth. For per-table/command notes, caveats and corrected wrong guesses, read_ `yoke packets render --role qa_walker_agent --topic project --detail full`.
+_Schema and operation depth:_ `yoke packets render --role qa_walker_agent --topic project --detail full`.
 
 <!-- YOKE:DB-PACKET end -->
 

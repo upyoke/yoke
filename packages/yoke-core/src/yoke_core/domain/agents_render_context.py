@@ -125,7 +125,7 @@ def expand_markers(text: str) -> str:
         out.append(text[cursor : p["marker_start_end"]])
         out.append("\n\n")
         out.append(
-            schema_api_context.render_topic_packet(p["topic"], role=p["role"]).rstrip(
+            schema_api_context.render_topic_packet(p["topic"], role=p["role"], include_schema=False).rstrip(
                 "\n"
             )
         )
@@ -178,7 +178,7 @@ def detect_packet_drift(text: str) -> list[str]:
         on_disk = text[p["marker_start_end"] : p["marker_end_start"]]
         fresh = (
             "\n\n"
-            + schema_api_context.render_topic_packet(p["topic"], role=p["role"]).rstrip(
+            + schema_api_context.render_topic_packet(p["topic"], role=p["role"], include_schema=False).rstrip(
                 "\n"
             )
             + "\n\n"

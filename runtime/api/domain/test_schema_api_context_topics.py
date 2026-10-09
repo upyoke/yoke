@@ -126,13 +126,12 @@ def test_every_role_packet_teaches_locked_worktree_source_verification() -> None
         assert "Verify Python imports/tests against linked worktree source" in role_body
         assert "yoke dev import-check yoke_core" in role_body
         assert "yoke dev run -- yoke watch pytest --local --" in role_body
-        assert "declared locked .venv" in role_body
-        assert "Python identity and source origins" in role_body
+        assert f"yoke packets render --role {role} --topic core --detail full" in role_body
         assert "python3 -m yoke_core.tools.watch_pytest" not in role_body
 
 
 def test_main_packet_includes_learning_log_and_deployment_runs() -> None:
-    main_body = sac.render_role_packet("main_agent", detail=PACKET_DETAIL_FULL)
+    main_body = sac.render_topic_packet("core", detail=PACKET_DETAIL_FULL) + sac.render_role_packet("main_agent")
 
     assert "ouroboros_entries" in main_body
     assert "deployment_runs" in main_body

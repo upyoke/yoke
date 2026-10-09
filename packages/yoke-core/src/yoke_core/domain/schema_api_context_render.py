@@ -39,8 +39,7 @@ PACKET_DETAILS: tuple[str, ...] = (PACKET_DETAIL_COMPACT, PACKET_DETAIL_FULL)
 def packet_detail_pointer(role: str, topic: str) -> str:
     """Return the one line naming where a compact block's notes live."""
     return (
-        f"_Compact depth. For per-table/command notes, caveats and corrected "
-        f"wrong guesses, read_ "
+        f"_Schema and operation depth:_ "
         f"`yoke packets render --role {role} --topic {topic} --detail full`."
     )
 
@@ -56,17 +55,11 @@ def _validate_detail(detail: str) -> str:
 
 def render_invariant_block() -> list[str]:
     return [
-        "**Control-plane DB invariant:** Yoke control-plane authority "
-        "is Postgres. Use registered `yoke <subcommand>` readers/writers "
-        'for domain state, and `yoke db read "SELECT ..."` for raw '
-        "diagnostic SELECTs. Do not "
-        "construct DB file paths from `$PWD`, `CLAUDE_PROJECT_DIR`, or "
-        "linked worktree paths. Product/normal prod reads stay on "
-        "wrapped HTTPS/API-backed surfaces (`yoke <subcommand>` and "
-        "`yoke db read`); do not retry by switching to a local-Postgres "
-        "prod env. When a required mutation has no registered command, "
-        "escalate the missing command to the control-plane operator, naming "
-        "the required operation and registered surfaces checked.",
+        "**Control-plane DB invariant:** authority is Postgres, never a "
+        "constructed worktree DB path. Use registered `yoke <subcommand>` "
+        'and diagnostic `yoke db read "SELECT ..."`. Normal prod authority '
+        "is HTTPS/API; retain it on retry. Escalate missing mutations to "
+        "the control-plane operator with the operation and surfaces checked.",
     ]
 
 
@@ -81,17 +74,10 @@ def render_package_roots_block() -> list[str]:
     than none.
     """
     return [
-        "**Package roots (where a module actually lives):** an importable "
-        "package name never implies a directory at the repo root, and the "
-        "mapping is per-project. Resolve a module through the roots your "
-        "project's `architecture_model` declares — read them with "
+        "**Package roots:** read "
         "`yoke project-structure get --project P --family architecture_model "
-        "--json` and consult its `package_roots`, which maps each package to "
-        "roots labelled `package_under_root` (the package directory sits "
-        "under the root) or `package_is_root` (the root directory IS the "
-        "package, so the package name never appears on disk). One package "
-        "may declare several roots; check every one before concluding a "
-        "module is absent.",
+        "--json`. Check every `package_roots` entry: `package_under_root` "
+        "holds the package directory; `package_is_root` is that directory.",
     ]
 
 
@@ -123,41 +109,15 @@ def render_item_entry_surface_block() -> list[str]:
 
 
 def render_function_call_surface_block() -> list[str]:
-    """Function-call dispatch surface + harness_id enum.
-
-    Lives at the top of the ``core`` topic so every agent sees the
-    canonical envelope shape before reaching for any CLI adapter.
-    ``harness_id`` enum is named here so agents do not confabulate
-    ``claude_code`` / ``codex_desktop`` when inspecting
-    ``harness_sessions.executor``.
-    """
+    """Registered write identities and canonical harness ids for CLI callers."""
     return [
-        "**Function-call surface (canonical mutation path):** "
-        "`yoke_core.domain.yoke_function_dispatch.dispatch` "
-        "validates a `FunctionCallRequest` from "
-        "`yoke_contracts.api.function_call` and returns a "
-        "`FunctionCallResponse`. Minimal envelope: "
-        "`{function, request_id, actor:{session_id,actor_id}, "
-        "target:{kind,public_ref+task_num?|qa_requirement_id|...}, "
-        "payload, preconditions:{}, options:{}}`. `target.kind` ∈ "
-        "`item|epic_task|qa_requirement|session|process`. "
-        "`actor.session_id` is mandatory — handlers verify it against "
-        "`work_claims`. `preconditions`/`options` are dicts (default "
-        "`{}`). Scratch Python imports must prepend the repo root to "
-        "`sys.path` or set `PYTHONPATH`; `/tmp` imports are not the "
-        "agent path.",
-        "",
-        "",
-        "**Registered write function ids** (dispatch through these, never a "
-        "guessed name): "
+        "**Registered writes** (use their `yoke` CLI adapters): "
         + ", ".join(f"`{fid}`" for fid in seed.AGENT_WRITE_FUNCTION_IDS)
-        + ". Each has a CLI adapter under the reversible grammar "
+        + ". CLI grammar: "
         "(dots→spaces, underscores→hyphens).",
         "",
-        "**`harness_id` enum:** `claude-code | codex | cursor` (on "
-        "`harness_sessions.executor`). Variants `claude-desktop` / "
-        "`claude-vscode` / `codex-desktop` / `cursor-desktop` / `cursor-cli` "
-        "collapse to these canonical ids in the agent-context render path.",
+        "**`harness_sessions.executor`:** `claude-code | codex | cursor`; "
+        "surface variants normalize to these ids.",
     ]
 
 
