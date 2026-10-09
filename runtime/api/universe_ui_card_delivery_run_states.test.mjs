@@ -109,7 +109,7 @@ function deliveryBox(facts, others = []) {
 }
 
 const completed = (runId = "run-current") => [{
-  item_id: ITEM_ID, member_item_id: ITEM_ID, project_id: 1, run_project_id: 1,
+  item_id: ITEM_ID, member_public_ref: ITEM_REF, project_id: 1, run_project_id: 1,
   run_id: runId, environment_id: 1, environment: "prod", candidate: "a".repeat(40),
 }];
 

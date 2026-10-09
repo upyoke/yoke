@@ -139,7 +139,7 @@ function deliveryRuns(row, deployments) {
     selected.set(entry.environment, {
       ...run, id: entry.run_id, project_id: entry.run_project_id,
       target_environment: entry.environment, completed_delivery: entry,
-      delivery_relation: entry.member_item_id ? "member" : "carried",
+      delivery_relation: entry.member_public_ref ? "member" : "carried",
     });
   }
   return [...selected.values()];
