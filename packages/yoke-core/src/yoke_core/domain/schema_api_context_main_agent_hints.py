@@ -1,13 +1,4 @@
-"""Compact hints appended to the ``main_agent`` packet only.
-
-The topic packets carry what every role holding that topic needs. These two
-facts belong to the top-level session alone, so they ride here rather than
-widening a shared topic: a main session inspects deployment-run rows and acts
-at release time, while the subagent roles do neither.
-
-Both are compact-body text and count against the role's packet budget; keep
-them one rendered line each.
-"""
+"""Main-session delivery depth in explicit project-topic reads."""
 
 from __future__ import annotations
 
@@ -16,11 +7,9 @@ from __future__ import annotations
 DEPLOYMENT_RUN_QUERY_HINT = (
     "**Deployment-run raw-query hint:** "
     "`deployment_flows.target_environment_id` references "
-    "`environments.id` (JOIN environments for the display name; "
-    "`target_tier` is persistent/ephemeral/NULL — there is no "
-    "`target_env` column); `deployment_runs.status` and "
-    "`deployment_runs.current_stage` record progress. There is no "
-    "`deployment_runs.item_id`; join through `deployment_run_items` "
+    "`environments.id` (JOIN environments for the display name); "
+    "`target_tier` is persistent/ephemeral/NULL. `deployment_runs.status` and "
+    "`deployment_runs.current_stage` record progress. Join through `deployment_run_items` "
     "for item-bound runs. `deployment_runs.carried_work` records "
     "resolved items and unresolved bare commits; a warning that "
     "changes what the run can attest is `deployment_runs.get` "

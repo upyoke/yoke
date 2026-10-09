@@ -292,12 +292,14 @@ All 8 agents include the following sections in their system prompts:
 **Per-role topic assignment (`ROLE_TOPICS`):**
 
 - **`engineer_agent`**, **`tester_agent`**, and **`qa_walker_agent`** receive every topic — `core`, `claims`, `qa`, `project`. They run or explore execution surfaces and read project and QA contracts at execution time.
-- **`main_agent`** receives `core` + `claims` + `qa`. The QA topic is included because conduct / polish / advance main sessions orchestrate engineer + tester loops and inspect case/run state ahead of re-dispatch.
+- **`main_agent`** receives `core` + `claims` + `auth` + `qa` + `packs`, plus a project-topic depth pointer for delivery. The QA recipes support case/run inspection ahead of re-dispatch.
 - **`architect_agent`**, **`simulator_agent`**, and **`boss_agent`** receive `core` + `claims` only. Architect plans work, Simulator traces contracts, and Boss reviews artifacts without recording QA runs. If a future role assignment needs another topic, add the role key to `seed.ROLE_TOPICS` plus marker pairs in the canonical prompt.
 
 PM and Designer do not have this section because they have no Bash tool and cannot run DB queries. The invariant is that **Bash-capable actor implies packet-capable actor** — when those roles eventually gain Bash, adding their role keys to `ROLE_TOPICS` plus marker pairs in their canonical prompts is sufficient; no parallel hand-authored cheat sheet should ever be reintroduced. The current Yoke design keeps Product Manager and Product Designer non-Bash — their tool grant is `Read, Grep, Glob` only, and orchestrators pass them backlog/spec context through dispatch prompts.
 
-**The reviewed-implementation gate is the authority — passing tests are not.** The Engineer and Tester packet now teaches `yoke qa gate-summary --item PREFIX-N --target reviewed-implementation` as the preview (or `--epic-id E --task-num K` for an epic task), and instructs that the only sanctioned way to advance to `reviewed-implementation` is through `yoke lifecycle transition PREFIX-N --to reviewed-implementation`. Direct status writes are rejected by the gate even when the test suite is green.
+**Role recipe selection.** Startup includes reads needed by each role, Engineer progress/submission and verification recipes, Tester review/verdict recipes, and authoring-only coordination for Main/Architect. Boss and Simulator receive reads; QA Walker follows the mission commands in its dispatch. Lifecycle repair, raw diagnostic SQL, Pulumi state migration, and expanded delivery rules remain in explicit topic reads. Every retained startup recipe is unchanged; the catalog continues to render them at full depth.
+
+**The reviewed-implementation gate is the authority.** Tester/Main can preview it with `yoke qa gate-summary --item PREFIX-N --target reviewed-implementation`. Main advances through `yoke lifecycle transition PREFIX-N --to reviewed-implementation`; direct status writes are rejected even when tests pass. Engineer reads the QA topic when its dispatch requires gate details.
 
 ### CLI Prohibition
 

@@ -30,6 +30,7 @@ EPIC_TASK_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "architect_agent"),
         "topic": "core",
         "purpose": "Write epic task body / metadata via CLI adapters",
         "recipe": (
@@ -47,6 +48,7 @@ EPIC_TASK_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "tester_agent"),
         "topic": "core",
         "purpose": "Tester: seed / insert / get review verdict for an epic task",
         "recipe": (
@@ -69,6 +71,7 @@ EPIC_TASK_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "engineer_agent"),
         "topic": "core",
         "purpose": "Engineer: append a progress note to an epic task",
         "recipe": (
@@ -87,6 +90,7 @@ EPIC_TASK_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "core",
         "purpose": "Update epic-task status / metadata field via CLI",
         "recipe": (
@@ -120,6 +124,7 @@ EPIC_TASK_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "core",
         "purpose": "Read or refresh an epic dispatch chain",
         "recipe": (

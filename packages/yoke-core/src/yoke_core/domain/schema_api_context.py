@@ -234,11 +234,6 @@ def has_command(module: str, fragment: str) -> bool:
     return fragment in text
 
 
-# ---------------------------------------------------------------------------
-# Packet rendering
-# ---------------------------------------------------------------------------
-
-
 _TOPIC_HEADERS = {
     "core": "DB Quick Reference — core (control plane + structured fields)",
     "claims": "DB Quick Reference — claims (sessions, work, paths)",
@@ -276,13 +271,25 @@ def render_topic_packet(
         parts.append("")
         parts.extend(render_package_roots_block())
         parts.append("")
-        parts.extend(render_item_entry_surface_block())
-        parts.append("")
-        parts.extend(render_function_call_surface_block())
-        parts.append("")
-    parts.extend(render_command_block(
-        topic, role=role, detail=detail if include_schema else PACKET_DETAIL_COMPACT
-    ))
+        if include_schema or role in ("main_agent", "architect_agent"):
+            parts.extend(render_item_entry_surface_block())
+            parts.append("")
+        if include_schema or role in (
+            "main_agent",
+            "architect_agent",
+            "engineer_agent",
+            "tester_agent",
+        ):
+            parts.extend(render_function_call_surface_block())
+            parts.append("")
+    parts.extend(
+        render_command_block(
+            topic,
+            role=role,
+            detail=detail if include_schema else PACKET_DETAIL_COMPACT,
+            startup=not include_schema,
+        )
+    )
     parts.append("")
     if include_schema:
         parts.extend(render_table_block(topic, _resolve_columns, detail=detail))
@@ -290,14 +297,14 @@ def render_topic_packet(
     if json_block:
         parts.append("")
         parts.extend(json_block)
+    if topic == "project" and role == "main_agent" and include_schema:
+        parts.extend(["", *MAIN_AGENT_HINTS])
     if detail == PACKET_DETAIL_COMPACT or not include_schema:
         parts.extend(["", packet_detail_pointer(role, topic)])
     return "\n".join(parts).rstrip() + "\n"
 
 
-def render_role_packet(
-    role: str, *, detail: str = PACKET_DETAIL_COMPACT
-) -> str:
+def render_role_packet(role: str, *, detail: str = PACKET_DETAIL_COMPACT) -> str:
     """Return role action recipes; explicit topic reads carry schema detail."""
     if role not in seed.ROLE_TOPICS:
         raise ValueError(f"unknown role: {role}")
@@ -306,7 +313,7 @@ def render_role_packet(
         for t in seed.ROLE_TOPICS[role]
     ]
     if role == "main_agent":
-        chunks[-1] = "\n".join([chunks[-1].rstrip(), *MAIN_AGENT_HINTS])
+        chunks.append(packet_detail_pointer(role, "project"))
     return "\n".join(chunks).rstrip() + "\n"
 
 

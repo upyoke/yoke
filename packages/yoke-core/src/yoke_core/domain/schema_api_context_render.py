@@ -153,12 +153,13 @@ def render_command_block(
     *,
     role: str = "main_agent",
     detail: str = PACKET_DETAIL_COMPACT,
+    startup: bool = False,
 ) -> list[str]:
     """Render one topic's wrapper commands at the requested depth.
 
-    Both depths carry every command and its exact recipe — dropping a
-    command would make the packet lie about what exists. Compact drops only
-    the explanatory note beside each recipe.
+    Topic reads carry the complete role-aware catalog at both depths.
+    Startup selects rows whose audience acts on them now; every retained
+    recipe stays exact. Compact omits expanded notes.
     """
     _validate_detail(detail)
     rows = [
@@ -167,6 +168,7 @@ def render_command_block(
         if command["topic"] == topic
         and role in command.get("roles", (role,))
         and role not in command.get("exclude_roles", ())
+        and (not startup or role in command.get("startup_roles", (role,)))
     ]
     if not rows:
         return []

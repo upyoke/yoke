@@ -31,6 +31,7 @@ from __future__ import annotations
 
 CORE_COMMANDS: list[dict] = [
     {
+        "startup_roles": ("main_agent",),
         "topic": "core",
         "purpose": "Read one item's posture, then the content you need",
         "recipe": (
@@ -115,6 +116,7 @@ CORE_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "core",
         "purpose": "Inspect open work via registered reads + diagnostic SQL",
         "recipe": (
@@ -140,6 +142,7 @@ CORE_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "architect_agent"),
         "topic": "core",
         "purpose": "Write structured item field (canonical agent shape)",
         "recipe": (
@@ -155,6 +158,7 @@ CORE_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "architect_agent"),
         "topic": "core",
         "purpose": "Apply additive structured-field transform",
         "recipe": (
@@ -206,6 +210,7 @@ CORE_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "engineer_agent"),
         "topic": "core",
         "purpose": "Amend DB-mutation claim on an item",
         "recipe": (
@@ -219,6 +224,7 @@ CORE_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (),
         "topic": "core",
         "purpose": "Inspect the selected Yoke control-plane authority",
         "recipe": 'yoke db read "SELECT 1"',
@@ -234,6 +240,7 @@ CORE_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "core",
         "purpose": "Read / write item sections (Progress Log, custom sections)",
         "recipe": (
@@ -250,6 +257,7 @@ CORE_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "core",
         "purpose": "Backlog GitHub sync",
         "recipe": "yoke items github-sync PREFIX-N",
@@ -260,6 +268,7 @@ CORE_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "core",
         "purpose": "Backlog mutation family (CLI adapter)",
         "recipe": ("yoke items scalar update PREFIX-N --field priority --value medium"),
@@ -273,6 +282,7 @@ CORE_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (),
         "topic": "core",
         "purpose": "Audited raw diagnostic read",
         "recipe": 'yoke db read "SELECT ..."',

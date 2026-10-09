@@ -104,6 +104,27 @@ def test_core_topic_includes_dependency_wrappers() -> None:
     assert "yoke items dependency remove" not in body
 
 
+def test_reading_roles_receive_reads_and_discover_mutation_depth() -> None:
+    for role in ("boss_agent", "simulator_agent", "qa_walker_agent"):
+        body = sac.render_role_packet(role)
+        assert "yoke items get PREFIX-N spec" in body
+        assert "yoke items dependency list PREFIX-N" in body
+        assert "yoke claims work acquire" not in body
+        assert "yoke items structured-field replace" not in body
+        assert "yoke pulumi exec" not in body
+        assert "yoke lifecycle repair-status" not in body
+        depth = sac.render_topic_packet("core", role=role, detail=PACKET_DETAIL_FULL)
+        assert "yoke items structured-field replace" in depth
+
+
+def test_coordination_authoring_stays_with_authoring_roles() -> None:
+    for role in seed.ROLE_TOPICS:
+        body = sac.render_role_packet(role)
+        assert ("yoke claims path coordination-decision-build" in body) == (
+            role in ("main_agent", "architect_agent")
+        )
+
+
 def test_every_role_packet_teaches_locked_worktree_source_verification() -> None:
     body = sac.render_topic_packet("core", detail=PACKET_DETAIL_FULL)
     for token in (
@@ -123,22 +144,28 @@ def test_every_role_packet_teaches_locked_worktree_source_verification() -> None
 
     for role in seed.ROLE_TOPICS:
         role_body = sac.render_role_packet(role, detail=PACKET_DETAIL_FULL)
-        assert "Verify Python imports/tests against linked worktree source" in role_body
-        assert "yoke dev import-check yoke_core" in role_body
-        assert "yoke dev run -- yoke watch pytest --local --" in role_body
-        assert f"yoke packets render --role {role} --topic core --detail full" in role_body
+        executes_tests = role in {"main_agent", "engineer_agent", "tester_agent"}
+        assert ("yoke dev import-check yoke_core" in role_body) == executes_tests
+        assert (
+            "yoke dev run -- yoke watch pytest --local --" in role_body
+        ) == executes_tests
+        assert (
+            f"yoke packets render --role {role} --topic core --detail full" in role_body
+        )
         assert "python3 -m yoke_core.tools.watch_pytest" not in role_body
 
 
 def test_main_packet_includes_learning_log_and_deployment_runs() -> None:
-    main_body = sac.render_topic_packet("core", detail=PACKET_DETAIL_FULL) + sac.render_role_packet("main_agent")
+    main_body = sac.render_topic_packet(
+        "core", detail=PACKET_DETAIL_FULL
+    ) + sac.render_topic_packet("project", detail=PACKET_DETAIL_FULL)
 
     assert "ouroboros_entries" in main_body
     assert "deployment_runs" in main_body
     assert "`deployment_flows.target_environment_id`" in main_body
     assert "`deployment_runs.status`" in main_body
     assert "`deployment_runs.current_stage`" in main_body
-    assert "There is no `deployment_runs.item_id`" in main_body
+    assert "Join through `deployment_run_items` for item-bound runs" in main_body
 
 
 def test_taught_items_get_fields_match_handler_allowlist() -> None:
@@ -231,8 +258,11 @@ def test_main_agent_role_includes_packs_and_deployment_run_hint() -> None:
     assert sac._TOPIC_HEADERS["qa"] in body
     assert sac._TOPIC_HEADERS["packs"] in body
     assert sac._TOPIC_HEADERS["project"] not in body
-    assert "deployment_runs" in body
-    assert "deployment_run_items" in body
+    assert "deployment_runs" not in body
+    assert "yoke packets render --role main_agent --topic project --detail full" in body
+    depth = sac.render_topic_packet("project", detail=PACKET_DETAIL_FULL)
+    assert "deployment_runs" in depth
+    assert "deployment_run_items" in depth
 
 
 def test_qa_topic_includes_gate_summary_recipe_matching_cli() -> None:

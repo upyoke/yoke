@@ -1,19 +1,7 @@
-"""``claims`` topic wrapper-command recipes for the agent-context packet.
+"""Claim recipes and startup audiences consumed by schema_api_context_commands.
 
-Sibling of :mod:`schema_api_context_commands` (which combines per-topic
-lists into the canonical ``WRAPPER_COMMANDS``). Holds the ``claims``
-topic entries: work-claim acquire/release, path-claim CRUD/widen,
-path-claim conflict inspection, and the coordination-decision helper.
-
-Recipe shape doctrine (current):
-    The canonical claim function ids (``claims.work.acquire``,
-    ``claims.work.release``, ``claims.path.register``,
-    ``claims.path.widen``) use the strict ``yoke <subcommand>``
-    grammar (CLI grammar contract). Break-glass or not-yet-wrapped claim
-    surfaces are described as dispositions instead of taught as
-    copy-paste command recipes.
-
-Pure data only — no I/O, no DB connections, no imports beyond stdlib.
+Registered operations use canonical yoke CLI forms; break-glass operations
+remain dispositions. Pure data, with no I/O or database connections.
 """
 
 from __future__ import annotations
@@ -39,6 +27,7 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "engineer_agent", "tester_agent"),
         "topic": "claims",
         "purpose": "Acquire a work claim (canonical agent shape — target variants)",
         "recipe": (
@@ -101,6 +90,7 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "architect_agent"),
         "topic": "claims",
         "purpose": "Claim → mutate → release (generic plan-stage edit)",
         "recipe": (
@@ -119,6 +109,7 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (),
         "topic": "claims",
         "purpose": "Operator override: release a stranded foreign-session work claim",
         "recipe": (
@@ -138,6 +129,7 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "engineer_agent", "tester_agent"),
         "topic": "claims",
         "purpose": "Release a work claim + manual spec-rewrite pattern",
         "recipe": (
@@ -166,6 +158,7 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "claims",
         "purpose": (
             "Release a work claim when this session is ending and a "
@@ -190,6 +183,7 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "claims",
         "purpose": (
             "Controlled handoff to a fresh session (Progress Log "
@@ -240,6 +234,7 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "architect_agent"),
         "topic": "claims",
         "purpose": "Register a path claim (canonical agent shape)",
         "recipe": (
@@ -255,6 +250,7 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "engineer_agent"),
         "topic": "claims",
         "purpose": "Widen a path claim (canonical agent shape)",
         "recipe": (
@@ -271,6 +267,7 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (),
         "topic": "claims",
         "purpose": "Narrow a path claim (drop or keep paths)",
         "recipe": (
@@ -307,6 +304,7 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (),
         "topic": "claims",
         "purpose": "Find conflicts on specific paths (SQL)",
         "recipe": (
@@ -327,6 +325,7 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "architect_agent"),
         "topic": "claims",
         "purpose": "Classify a path-claim overlap before authoring a coordination edge",
         "recipe": (
