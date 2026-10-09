@@ -93,16 +93,16 @@ def test_signal_errors_preserve_custody_and_do_not_claim_exit(
                 raise error("denied")
             return real_kill(group, sig)
 
-        monkeypatch.setattr(custody.os, "killpg", denied)
-        result = reap.reap_terminated_session(
-            {"target_session_id": SESSION}, state_dir=tmp_path
-        )
-        assert result.result_code == expected
-        assert result.evidence["probe_detail"] == "physical_reap_unresolved"
         path = supervision_record_path(ATTEMPT, tmp_path)
-        assert json.loads(path.read_text())["termination_result"] == expected
-        assert process.poll() is None
-        monkeypatch.undo()
+        with monkeypatch.context() as patch:
+            patch.setattr(custody.os, "killpg", denied)
+            result = reap.reap_terminated_session(
+                {"target_session_id": SESSION}, state_dir=tmp_path
+            )
+            assert result.result_code == expected
+            assert result.evidence["probe_detail"] == "physical_reap_unresolved"
+            assert json.loads(path.read_text())["termination_result"] == expected
+            assert process.poll() is None
         assert (
             reap.reap_terminated_session(
                 {"target_session_id": SESSION}, state_dir=tmp_path
@@ -260,3 +260,45 @@ def test_one_explicit_reap_does_not_signal_the_same_group_twice(tmp_path, monkey
         assert signals == [signal.SIGTERM, signal.SIGKILL]
     finally:
         _finish(process)
+
+
+@pytest.mark.parametrize("missing", [FileNotFoundError, ProcessLookupError])
+def test_linux_group_scan_keeps_live_members_when_another_task_exits(
+    monkeypatch, missing
+):
+    class Entry:
+        def __init__(self, name, stat):
+            self.name, self.stat = name, stat
+
+        def __truediv__(self, name):
+            assert name == "stat"
+            return self
+
+        def read_text(self):
+            if isinstance(self.stat, Exception):
+                raise self.stat
+            return self.stat
+
+    entries = [
+        Entry("42", "42 (native) S 1 42 " + "0 " * 16 + "123"),
+        Entry("99", missing("task exited during scan")),
+    ]
+    monkeypatch.setattr(custody.sys, "platform", "linux")
+    monkeypatch.setattr(custody.Path, "iterdir", lambda path: iter(entries))
+    assert custody.group_members(42) == {"42": "linux:123"}
+
+
+def test_linux_group_scan_does_not_hide_permission_failures(monkeypatch):
+    class Entry:
+        name = "99"
+
+        def __truediv__(self, name):
+            return self
+
+        def read_text(self):
+            raise PermissionError("proc observation denied")
+
+    monkeypatch.setattr(custody.sys, "platform", "linux")
+    monkeypatch.setattr(custody.Path, "iterdir", lambda path: iter([Entry()]))
+    with pytest.raises(PermissionError, match="proc observation denied"):
+        custody.group_members(42)
