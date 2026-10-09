@@ -101,6 +101,9 @@ include = ["runtime*"]
 
 [tool.pytest.ini_options]
 testpaths = ["runtime/api", "tests"]
+# Hang diagnostics: ~4x the observed CI phase maximum (153.4s; setups ~100s),
+# versus 46.14s across 32,637 profiled tests, well below the 35-minute job limit.
+faulthandler_timeout = 600
 markers = [
     "launchd_integration: loads a real launchd job through the real_launchd_agent fixture",
 ]
