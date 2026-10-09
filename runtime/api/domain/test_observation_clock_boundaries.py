@@ -1,5 +1,7 @@
 """Hook wire clocks and native attribution windows preserve microseconds."""
 
+import json
+
 from datetime import timedelta
 from types import SimpleNamespace
 
@@ -11,6 +13,61 @@ from yoke_core.domain.observe_parsing import EventRecord
 
 STAMP = parse_instant("1970-01-01T05:29:59.123456+05:30")
 WIRE = "1969-12-31T23:59:59.123456Z"
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_thin_observation_fixture_has_native_creation_clock(monkeypatch, zone):
+    from runtime.api.observe_test_helpers import make_memory_db
+
+    monkeypatch.setattr(observe_event_emission, "utc_now", lambda: STAMP)
+    conn = make_memory_db()
+    try:
+        conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+        envelope = observe_event_emission.build_envelope(
+            EventRecord(
+                tool_name="Bash", exit_code=0, tool_use_id="clock", session_id="clock"
+            )
+        )
+        observe_event_emission.insert_event(conn, envelope)
+        assert (
+            conn.execute(
+                "SELECT created_at FROM events WHERE event_id=%s",
+                (envelope["event_id"],),
+            ).fetchone()[0]
+            == STAMP
+        )
+    finally:
+        conn.close()
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_baseline_artifact_metadata_and_sql_share_one_exact_clock(
+    test_db, monkeypatch, zone
+):
+    from runtime.api.fixtures.pg_testdb import connect_test_database
+    from yoke_core.domain import qa_reporting
+
+    def connect(**_):
+        conn = connect_test_database(test_db.info.dbname)
+        conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+        return conn
+
+    monkeypatch.setattr(qa_reporting, "connect", connect)
+    monkeypatch.setattr(qa_reporting, "utc_now", lambda: STAMP)
+    artifact = qa_reporting.cmd_baseline_record(
+        route="/clock",
+        width=640,
+        height=480,
+        branch="candidate",
+        screenshot_path="/tmp/clock.png",
+    )
+    row = test_db.execute(
+        "SELECT created_at, metadata FROM qa_artifacts WHERE id=%s",
+        (artifact,),
+    ).fetchone()
+    assert row[0] == STAMP
+    metadata = json.loads(row[1]) if isinstance(row[1], str) else row[1]
+    assert metadata["captured_at"] == WIRE
 
 
 def test_start_and_completion_read_one_clock_with_full_precision(monkeypatch):

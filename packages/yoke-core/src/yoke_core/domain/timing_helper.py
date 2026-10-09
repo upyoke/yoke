@@ -5,6 +5,7 @@ import shlex
 import sys
 import time
 from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now, format_instant
 from pathlib import Path
 from typing import Optional
 
@@ -16,7 +17,7 @@ def _epoch_now() -> int:
 
 
 def _iso_now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return format_instant(utc_now())
 
 
 def _file_ts() -> str:
@@ -51,7 +52,9 @@ def _append(path: Path, line: str) -> None:
 
 
 def _assignments(**values: str) -> str:
-    return "\n".join(f"{key}={shlex.quote(str(value))}" for key, value in values.items())
+    return "\n".join(
+        f"{key}={shlex.quote(str(value))}" for key, value in values.items()
+    )
 
 
 def _run_enabled(repo_root: Path) -> int:
@@ -90,7 +93,14 @@ def _run_init(repo_root: Path, script_name: str, note: str, pid: str) -> int:
     return 0
 
 
-def _run_mark(step: str, note: str, timing_log: str, timing_start: str, timing_last: str, timing_script: str) -> int:
+def _run_mark(
+    step: str,
+    note: str,
+    timing_log: str,
+    timing_start: str,
+    timing_last: str,
+    timing_script: str,
+) -> int:
     if not timing_log or not timing_start or not timing_last or not timing_script:
         return 0
     epoch = _epoch_now()
@@ -108,7 +118,13 @@ def _run_mark(step: str, note: str, timing_log: str, timing_start: str, timing_l
     return 0
 
 
-def _run_end(exit_code: str, timing_log: str, timing_start: str, timing_last: str, timing_script: str) -> int:
+def _run_end(
+    exit_code: str,
+    timing_log: str,
+    timing_start: str,
+    timing_last: str,
+    timing_script: str,
+) -> int:
     if not timing_log or not timing_start or not timing_last or not timing_script:
         return 0
     epoch = _epoch_now()
@@ -162,9 +178,22 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.subcmd == "init":
         return _run_init(Path(args.repo_root), args.script_name, args.note, args.pid)
     if args.subcmd == "mark":
-        return _run_mark(args.step, args.note, args.timing_log, args.timing_start, args.timing_last, args.timing_script)
+        return _run_mark(
+            args.step,
+            args.note,
+            args.timing_log,
+            args.timing_start,
+            args.timing_last,
+            args.timing_script,
+        )
     if args.subcmd == "end":
-        return _run_end(args.exit_code, args.timing_log, args.timing_start, args.timing_last, args.timing_script)
+        return _run_end(
+            args.exit_code,
+            args.timing_log,
+            args.timing_start,
+            args.timing_last,
+            args.timing_script,
+        )
     return 1
 
 

@@ -67,3 +67,9 @@ The pending resume notice is mutable state. Permanent conversion repairs only
 its required `reactivated_at` clock using existing episode, heartbeat or offered
 facts. Released claim target descriptors, counts and opaque fields remain intact;
 missing valid owner evidence refuses before any scalar conversion.
+
+New baseline artifact metadata formats its capture clock as fixed-six UTC and
+binds the corresponding creation instant natively; existing artifact bytes stay
+unchanged. Registry/board render headers and timing-log wall clocks use the shared
+formatter. Artifact filename dates remain labels. Current observation birth
+fixtures declare native clock columns; historical conversion fixtures retain TEXT.
