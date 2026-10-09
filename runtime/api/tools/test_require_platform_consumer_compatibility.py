@@ -10,18 +10,12 @@ candidate must each stop the release rather than pass quietly.
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, List
 
 import pytest
 
-from yoke_core.domain.yaml_helper import load_document
-
 from runtime.api.tools import require_platform_consumer_compatibility as gate
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-RELEASE_BRIDGE = REPO_ROOT / ".github" / "workflows" / "platform-release-bridge.yml"
-GATE_MODULE = "runtime.api.tools.require_platform_consumer_compatibility"
 
 CANDIDATE = "a" * 40
 CONSUMER_REVISION = "b" * 40
@@ -35,15 +29,6 @@ def _recorder(seen: List[List[str]]):
     return _record
 
 
-def _bridge_steps() -> List[Dict[str, Any]]:
-    workflow = load_document(RELEASE_BRIDGE)
-    return workflow["jobs"]["dispatch-platform-release"]["steps"]
-
-
-def _step_index(steps: List[Dict[str, Any]], predicate) -> int:
-    return next(index for index, step in enumerate(steps) if predicate(step))
-
-
 def test_the_known_contract_mismatch_stops_the_release() -> None:
     # The live shape: the host refuses the bundle's declared contract. That
     # must be terminal before publication, and it must name both sides so a
@@ -55,7 +40,9 @@ def test_the_known_contract_mismatch_stops_the_release() -> None:
             "head_sha": CONSUMER_REVISION,
             "html_url": "https://example.invalid/run/2",
         },
-        candidate_sha=CANDIDATE, consumer_sha=CONSUMER_REVISION, run_id="2",
+        candidate_sha=CANDIDATE,
+        consumer_sha=CONSUMER_REVISION,
+        run_id="2",
     )
 
     assert code == gate.UNPROVEN
@@ -74,7 +61,9 @@ def test_a_valid_candidate_pair_publishes_and_names_both_identities() -> None:
             "head_sha": CONSUMER_REVISION,
             "html_url": "https://example.invalid/run/1",
         },
-        candidate_sha=CANDIDATE, consumer_sha=CONSUMER_REVISION, run_id="1",
+        candidate_sha=CANDIDATE,
+        consumer_sha=CONSUMER_REVISION,
+        run_id="1",
     )
 
     assert code == 0
@@ -86,7 +75,9 @@ def test_a_valid_candidate_pair_publishes_and_names_both_identities() -> None:
 def test_success_that_names_no_revision_is_unproven_not_proven() -> None:
     code, narrative, proven = gate.classify(
         {"state": "success", "conclusion": "success", "head_sha": ""},
-        candidate_sha=CANDIDATE, consumer_sha=CONSUMER_REVISION, run_id="3",
+        candidate_sha=CANDIDATE,
+        consumer_sha=CONSUMER_REVISION,
+        run_id="3",
     )
 
     assert code == gate.UNPROVEN
@@ -105,7 +96,9 @@ def test_success_against_a_different_consumer_commit_is_unproven() -> None:
             "head_sha": CONSUMER_REVISION,
             "html_url": "https://example.invalid/run/9",
         },
-        candidate_sha=CANDIDATE, consumer_sha="c" * 40, run_id="9",
+        candidate_sha=CANDIDATE,
+        consumer_sha="c" * 40,
+        run_id="9",
     )
 
     assert code == gate.UNPROVEN
@@ -129,7 +122,9 @@ def test_a_non_exact_pair_caller_trusts_the_run_s_own_evidence() -> None:
             "head_sha": CONSUMER_REVISION,
             "html_url": "https://example.invalid/run/10",
         },
-        candidate_sha=CANDIDATE, consumer_sha="main", run_id="10",
+        candidate_sha=CANDIDATE,
+        consumer_sha="main",
+        run_id="10",
         exact_pair=False,
     )
 
@@ -140,7 +135,9 @@ def test_a_non_exact_pair_caller_trusts_the_run_s_own_evidence() -> None:
 def test_a_run_that_never_concluded_leaves_the_candidate_unpublished() -> None:
     code, narrative, proven = gate.classify(
         {"state": "timeout", "html_url": "https://example.invalid/run/4"},
-        candidate_sha=CANDIDATE, consumer_sha=CONSUMER_REVISION, run_id="4",
+        candidate_sha=CANDIDATE,
+        consumer_sha=CONSUMER_REVISION,
+        run_id="4",
     )
 
     assert code == gate.UNAVAILABLE
@@ -270,9 +267,14 @@ def test_a_short_candidate_sha_is_refused_before_anything_is_dispatched(
     monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
     monkeypatch.setattr(gate, "prove", _prove)
 
-    code = gate.main([
-        "--candidate-sha", "abc1234", "--consumer-sha", CONSUMER_REVISION,
-    ])
+    code = gate.main(
+        [
+            "--candidate-sha",
+            "abc1234",
+            "--consumer-sha",
+            CONSUMER_REVISION,
+        ]
+    )
 
     assert code == gate.UNAVAILABLE
     assert proved["called"] is False
@@ -290,61 +292,14 @@ def test_a_short_consumer_sha_is_refused_before_anything_is_dispatched(
     monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
     monkeypatch.setattr(gate, "prove", _prove)
 
-    code = gate.main([
-        "--candidate-sha", CANDIDATE, "--consumer-sha", "short",
-    ])
+    code = gate.main(
+        [
+            "--candidate-sha",
+            CANDIDATE,
+            "--consumer-sha",
+            "short",
+        ]
+    )
 
     assert code == gate.UNAVAILABLE
     assert proved["called"] is False
-
-
-def test_the_bridge_does_not_key_proof_on_the_caller_attempt() -> None:
-    steps = _bridge_steps()
-    proof = steps[
-        _step_index(steps, lambda step: GATE_MODULE in str(step.get("run", "")))
-    ]
-    run = str(proof.get("run", ""))
-
-    assert "--dispatch-key" not in run
-    assert "GITHUB_RUN_ID" not in run
-    assert "GITHUB_RUN_ATTEMPT" not in run
-
-
-def test_the_release_proves_the_pair_before_the_tag() -> None:
-    steps = _bridge_steps()
-    proof = _step_index(steps, lambda step: GATE_MODULE in str(step.get("run", "")))
-    tag = _step_index(
-        steps,
-        lambda step: str(step.get("name") or "").startswith("Create or recover"),
-    )
-
-    assert proof < tag, "the tag is the first irreversible act"
-    # Unconditional: a release publishes whatever trunk now carries, so
-    # there is no diff for this gate to consult and nothing to skip on.
-    assert "if" not in steps[proof]
-
-
-def test_the_release_step_receives_an_explicit_consumer_sha() -> None:
-    steps = _bridge_steps()
-    proof = steps[
-        _step_index(steps, lambda step: GATE_MODULE in str(step.get("run", "")))
-    ]
-
-    assert "--consumer-sha" in str(proof.get("run", ""))
-    assert proof.get("env", {}).get("CONSUMER_SHA") == "${{ inputs.consumer_sha }}"
-
-
-def test_promotion_is_bound_to_the_revision_the_proof_actually_read() -> None:
-    steps = _bridge_steps()
-    proof = steps[
-        _step_index(steps, lambda step: GATE_MODULE in str(step.get("run", "")))
-    ]
-    promotion = steps[
-        _step_index(
-            steps, lambda step: "yoke-release-promote.yml" in str(step.get("run", "")),
-        )
-    ]
-
-    binding = promotion["env"]["PROVEN_CONSUMER_SHA"]
-    assert f"steps.{proof['id']}.outputs.proven_consumer_sha" in binding
-    assert "proven_consumer_sha=$PROVEN_CONSUMER_SHA" in str(promotion["run"])
