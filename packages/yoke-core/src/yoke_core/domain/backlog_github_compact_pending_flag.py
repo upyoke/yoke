@@ -12,8 +12,8 @@ from typing import Any, Optional
 from yoke_core.domain.backlog_github_body_budget import SyncMode
 
 
-# Compact-pending flag — items.github_body_compact_pending: non-NULL ISO
-# timestamp = the item's last successful body sync landed the compact
+# Compact-pending flag — items.github_body_compact_pending: non-NULL native
+# instant = the item's last successful body sync landed the compact
 # mirror. Set by a compact sync, cleared by a full-body sync; the repair
 # pass (`backfill-oversized-bodies`) reads it as its candidate queue
 # (retired pattern: scanning telemetry envelopes for failure markers).
@@ -29,15 +29,14 @@ def record_sync_mode(conn: Optional[Any], item_id: int, mode: SyncMode) -> None:
     if conn is None:
         return
     from yoke_core.domain import db_backend
-    from yoke_core.domain.db_helpers import iso8601_now
+    from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    value = iso8601_now() if mode == "compact" else None
+    value = instant_parameter(conn, utc_now()) if mode == "compact" else None
     try:
         conn.execute("SAVEPOINT github_body_compact_pending")
         conn.execute(
-            f"UPDATE items SET github_body_compact_pending = {p} "
-            f"WHERE id = {p}",
+            f"UPDATE items SET github_body_compact_pending = {p} WHERE id = {p}",
             (value, int(item_id)),
         )
         conn.execute("RELEASE SAVEPOINT github_body_compact_pending")

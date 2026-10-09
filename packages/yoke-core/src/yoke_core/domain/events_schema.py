@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect, iso8601_now, utc_now
+from yoke_core.domain.db_helpers import connect, instant_parameter, utc_now
 from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
@@ -286,7 +286,7 @@ def ensure_event_schema(conn: Any) -> None:
             "*",
             "*",
             "INFO",
-            utc_now() if db_backend.connection_is_postgres(conn) else iso8601_now(),
+            instant_parameter(conn, utc_now()),
         ),
     )
     conn.commit()

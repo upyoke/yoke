@@ -198,3 +198,9 @@ read without changing foreign bytes. Idle eligibility compares native timedeltas
 at microsecond precision before reporting integer durations. OS process-start
 and foreign session-start NumericDate protocols retain their process identity
 role; live-session and newest-spare protections remain in place.
+
+Compact GitHub mirror flags create native instants and adapt only at SQL binding;
+full-body synchronization clears the clock to null. Invalid generated clocks
+refuse before the best-effort savepoint. Severity initialization shares the same
+SQL adapter, retaining native PostgreSQL facts and canonical SQLite boundary
+clocks without changing the existing conflict-preserving seed behavior.

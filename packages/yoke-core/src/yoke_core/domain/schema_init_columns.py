@@ -215,7 +215,7 @@ def apply_additive_schema(conn: Any) -> None:
     )
     conn.commit()
 
-    # github_body_compact_pending — nullable ISO timestamp set when the
+    # github_body_compact_pending — nullable native instant set when the
     # last successful GitHub body sync landed the compact mirror (body
     # over budget) and cleared when a full-body sync lands. The repair
     # pass (backfill-oversized-bodies) reads it as its candidate queue;
