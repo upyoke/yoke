@@ -4,6 +4,12 @@ import pytest
 
 from runtime.api.domain.qa_review_seed import _seed_undetermined_review
 from runtime.api.fixtures.qa_captured_plan_review_fixture import captured_plan_review
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
+from yoke_core.domain.handlers.qa_reads import handle_qa_run_get, handle_qa_run_list
 from yoke_core.domain.decision_request_resolution import resolve_decision_request
 from yoke_core.domain.qa_catalog_reads import list_plans
 from yoke_core.domain.qa_plan_detail import get_plan
@@ -32,6 +38,35 @@ def _assert_projection(conn, plan_id, run_id, outcome):
     assert proof["run_id"] == run_id
     assert proof["outcome"] == listed["last_outcome"] == outcome
     assert detail["union"] == {"satisfied": outcome == "passed", "counts": {outcome: 1}}
+    requirement_id = conn.execute(
+        "SELECT qa_requirement_id FROM qa_runs WHERE id=%s", (run_id,)
+    ).fetchone()[0]
+    conn.commit()
+    actor = ActorContext(actor_id="2", session_id="capture-read-parity")
+    listed_runs = handle_qa_run_list(
+        FunctionCallRequest(
+            function="qa.run.list",
+            actor=actor,
+            target=TargetRef(kind="qa_requirement", qa_requirement_id=requirement_id),
+            payload={},
+        )
+    )
+    read_run = handle_qa_run_get(
+        FunctionCallRequest(
+            function="qa.run.get",
+            actor=actor,
+            target=TargetRef(kind="global", project_id="yoke"),
+            payload={"run_id": run_id, "project": "yoke"},
+        )
+    )
+    assert listed_runs.primary_success, listed_runs.error
+    assert read_run.primary_success, read_run.error
+    current = next(
+        row for row in listed_runs.result_payload["rows"] if row["id"] == run_id
+    )
+    assert current == read_run.result_payload["run"]
+    assert current["case_outcome"] == outcome
+    assert current["raw_result"] == _capture(conn, run_id)["raw_result"]
 
 
 @pytest.mark.parametrize(
@@ -41,6 +76,7 @@ def _assert_projection(conn, plan_id, run_id, outcome):
 def test_agent_judgment_projects_same_capture_outcome(test_db, verdict, outcome):
     execution, requirement_id, capture_id = captured_plan_review(test_db, 4871)
     before = _capture(test_db, capture_id)
+    assert before["case_outcome"] == "needs_review"
     count = test_db.execute("SELECT COUNT(*) FROM qa_runs").fetchone()[0]
     bundle = begin_plan_review(test_db, execution)
     result = submit_plan_review(

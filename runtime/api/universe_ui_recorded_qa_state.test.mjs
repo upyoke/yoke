@@ -28,8 +28,8 @@ function capturedContext() {
     if (request.function === "qa.requirement.get") return ok({ requirement });
     if (request.function === "items.detail.get") return ok({ item });
     if (request.function === "qa.run.list") return ok({ rows: [
-      { id: row.run_id, execution_status: "captured", created_at: row.happened_at },
-      { id: 11, verdict: "fail" },
+      { id: row.run_id, case_outcome: "captured", execution_status: "captured", created_at: row.happened_at },
+      { id: 11, case_outcome: "failed", verdict: "fail" },
     ] });
     if (request.function === "qa.activity.list") return ok({ rows: [row],
       summary: { total: 1, counts: { captured: 1 } } });

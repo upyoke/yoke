@@ -167,7 +167,8 @@ Flag matrix:
   --session-id      no        opaque session id (operator-debug)
   --json            no        flag (typed envelope on stdout)
 
-Rows include execution_status (capture outcome) alongside verdict.
+Rows retain capture execution_status, raw_result and verdict. case_outcome
+is the native judged-outcome projection, including final capture reviews.
 Exit codes: 0 success, 1 dispatch failure, 2 usage error.
 """
 
@@ -211,7 +212,8 @@ def qa_run_list(args: List[str]) -> int:
 
 QA_RUN_GET_USAGE = "yoke qa run get --run-id N [--project P] [--session-id S] [--json]"
 _RUN_GET_HELP_DEEP = (
-    "Fetch one qa_runs row. Project-scoped (--project / $YOKE_PROJECT / "
+    "Fetch one run with native judged case_outcome and retained capture evidence. "
+    "Project-scoped (--project / $YOKE_PROJECT / "
     "checkout map); wrong-project runs are refused. "
     "Example: yoke qa run get --run-id 8142"
 )
