@@ -48,7 +48,10 @@ def test_dependency_list_prints_complete_integration_gate(json_output, evaluated
     assert rc == 0
     assert not err
     printed = json.loads(out)
-    assert (printed["result"] if json_output else printed) == result
+    assert (printed["result"] if json_output else printed) == {
+        "dependencies": [],
+        "integration_gate": gate,
+    }
 
 
 @pytest.fixture(autouse=True)
