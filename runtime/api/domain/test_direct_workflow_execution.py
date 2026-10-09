@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 
 import pytest
@@ -43,7 +44,7 @@ def _item_sections_contract(test_db):
         "item_id INTEGER NOT NULL REFERENCES items(id), "
         "section_name TEXT NOT NULL, content TEXT NOT NULL, "
         "ordering INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL, "
-        "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, "
+        "created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL, "
         "PRIMARY KEY(item_id, section_name))"
     )
     test_db.commit()
@@ -97,6 +98,7 @@ def test_conflict_survey_reads_linked_blitz_execution_budget(test_db):
     project_id = test_db.execute(
         "SELECT project_id FROM items WHERE id = %s", (2104,),
     ).fetchone()[0]
+    linked_at = datetime(2026, 7, 28, tzinfo=timezone.utc)
     test_db.execute(
         "INSERT INTO strategy_docs "
         "(project_id, slug, content, updated_at) VALUES (%s, %s, %s, %s)",
@@ -104,14 +106,14 @@ def test_conflict_survey_reads_linked_blitz_execution_budget(test_db):
             project_id,
             "EXECUTION-PLAN",
             "## File Budget\n\n- `src/document-owned.py`\n",
-            "2026-07-28T00:00:00Z",
+            linked_at,
         ),
     )
     test_db.execute(
         "INSERT INTO item_strategy_docs "
         "(item_id, project_id, strategy_doc_slug, linked_at) "
         "VALUES (%s, %s, %s, %s)",
-        (2104, project_id, "EXECUTION-PLAN", "2026-07-28T00:00:00Z"),
+        (2104, project_id, "EXECUTION-PLAN", linked_at),
     )
     test_db.commit()
 
@@ -175,10 +177,7 @@ def test_dash_escalation_is_a_machine_readable_item_link(test_db):
     assert payload["issue_ref"] == "YOK-2121"
 
 
-def test_field_note_promotion_is_idempotent(
-    test_db,
-    monkeypatch,
-):
+def test_field_note_promotion_is_idempotent(test_db, monkeypatch):
     ensure_field_note_dash_promotion_schema(test_db)
     test_db.execute(
         "INSERT INTO ouroboros_entries "
