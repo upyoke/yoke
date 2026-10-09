@@ -50,7 +50,8 @@ jobs:
   dispatch-platform-release:
     # This bridge targets upstream's hosted service and Platform repository.
     if: github.repository == 'upyoke/yoke'
-    timeout-minutes: 60
+    # Room for a re-proof when Platform main moved during the factory waits.
+    timeout-minutes: 120
     name: dispatch and await Platform release
     runs-on: ubuntu-24.04
     env:
