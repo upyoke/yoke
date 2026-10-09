@@ -215,9 +215,11 @@ def test_cross_project_attribution_uses_the_bound_candidate(test_db, monkeypatch
         "INSERT INTO projects(id,slug,name,public_item_prefix,org_id,created_at) "
         "SELECT 902,'bound-consumer','Bound consumer','BND',org_id,created_at FROM projects WHERE id=1"
     )
-    test_db.execute("INSERT INTO sites(id,project_id,name) VALUES (902,902,'bound')")
     test_db.execute(
-        "INSERT INTO environments(site,project_id,name) VALUES (902,902,'prod')"
+        "INSERT INTO sites(id,project_id,name,created_at) VALUES (902,902,'bound',now())"
+    )
+    test_db.execute(
+        "INSERT INTO environments(site,project_id,name,created_at) VALUES (902,902,'prod',now())"
     )
     test_db.execute("UPDATE items SET project_id=902 WHERE id=%s", (MEMBER_A,))
     candidate = "c" * 40
