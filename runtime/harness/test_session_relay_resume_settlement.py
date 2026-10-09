@@ -54,9 +54,22 @@ class _Dispatcher:
         return _Response(self._success)
 
 
+def _after_custody(script: str, custody: Path) -> str:
+    """Finish only after the parent has persisted this native's identity."""
+    path = supervision_record_path(ATTEMPT_ID, custody)
+    return (
+        "import time\nfrom pathlib import Path\n"
+        "deadline = time.monotonic() + 30\n"
+        f"while not Path({str(path)!r}).is_file():\n"
+        "    if time.monotonic() >= deadline: raise SystemExit('custody_not_persisted')\n"
+        "    time.sleep(0.01)\n"
+        + script
+    )
+
+
 def _spawn(tmp_path: Path, script: str):
     return spawn_supervised_native(
-        [sys.executable, "-c", script],
+        [sys.executable, "-c", _after_custody(script, tmp_path)],
         checkout=tmp_path,
         environment=dict(os.environ),
         attempt_id=ATTEMPT_ID,
@@ -107,7 +120,7 @@ def test_default_spawn_settles_usage_across_custody_and_relay_directories(
     monkeypatch.setattr(machine_config, "cache_dir", lambda: custody)
     monkeypatch.setattr(diagnostics, "relay_state_dir", lambda: relay)
     resumed = spawn_supervised_native(
-        [sys.executable, "-c", f"print({NATIVE_RESULT_LINE!r})"],
+        [sys.executable, "-c", _after_custody(f"print({NATIVE_RESULT_LINE!r})", custody)],
         checkout=tmp_path,
         environment=dict(os.environ),
         attempt_id=ATTEMPT_ID,
