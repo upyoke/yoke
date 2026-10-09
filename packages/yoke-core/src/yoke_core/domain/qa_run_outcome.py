@@ -3,6 +3,15 @@
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_core.domain.qa_constants import RUN_COLUMNS
+
+
+def qa_run_read_projection(row: Any) -> dict[str, Any]:
+    """Project the judged outcome while preserving this attempt's evidence."""
+    result = {column: _row_value(row, column) for column in RUN_COLUMNS}
+    result["case_outcome"] = qa_run_outcome(row)
+    return result
+
 
 def _row_value(row: Any, key: str) -> Any:
     if isinstance(row, Mapping):

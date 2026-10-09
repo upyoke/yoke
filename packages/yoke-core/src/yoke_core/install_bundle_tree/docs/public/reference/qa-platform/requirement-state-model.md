@@ -37,6 +37,10 @@ and retains every historical run, including detached review audit rows. Case
 detail preserves this selection rather than re-sorting by run id. Unfiltered
 run lists retain their existing audit order. A missing or ambiguous start
 refuses the case read with the same named ordering reason as native grading.
+Native `qa.run.list` and `qa.run.get` project each run's `case_outcome` through
+the shared judged-outcome model. A final review of a `needs_review` capture
+therefore reads passed or failed without rewriting its stored capture outcome,
+raw evidence or timestamps. Case detail displays that native projection.
 
 ## Reviews
 
