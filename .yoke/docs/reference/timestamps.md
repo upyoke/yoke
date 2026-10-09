@@ -326,3 +326,8 @@ routed-session fixtures bind native clocks and adapt only at SQLite ownership.
 
 QA daily summaries keep public UTC day labels as dates and bind their half-open
 window as native UTC midnight instants, independent of the SQL session timezone.
+
+Notice, settlement, signing and export-name owners validate a supplied clock
+before acting; only null selects the shared generated clock. Qualified offsets
+normalize to native UTC without losing microseconds. Captured hook endpoints
+retain their timing owner. Scheduler fixtures declare native instant columns.

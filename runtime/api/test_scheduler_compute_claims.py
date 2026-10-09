@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import utc_now
 
 from yoke_core.domain.scheduler import (
     ClaimState,
@@ -17,14 +19,12 @@ from runtime.api.scheduler_test_fixtures import (  # noqa: F401
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
-def _iso(minutes_ago: int) -> str:
-    return (datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+def _seen_at(minutes_ago: int) -> datetime:
+    return utc_now() - timedelta(minutes=minutes_ago)
 
 
 def _claim_top_item(conn, *, session_id: str, executor: str, minutes_ago: int) -> str:
-    seen_at = _iso(minutes_ago)
+    seen_at = _seen_at(minutes_ago)
     conn.execute(
         """INSERT INTO harness_sessions
            (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)
@@ -154,7 +154,7 @@ def test_ended_parked_holder_is_stale(scheduler_db):
     _park(conn, "parked-ended")
     conn.execute(
         "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
-        (_iso(30), "parked-ended"),
+        (_seen_at(30), "parked-ended"),
     )
     conn.commit()
 
@@ -175,7 +175,7 @@ def test_parked_holder_with_dead_native_remains_held(scheduler_db):
     conn.execute(
         "UPDATE harness_sessions SET native_process_gone_at = %s, "
         "native_process_gone_evidence = %s WHERE session_id = %s",
-        (_iso(60), '{"pids": [4242], "exit_code": 137}', "parked-crashed"),
+        (_seen_at(60), '{"pids": [4242], "exit_code": 137}', "parked-crashed"),
     )
     conn.commit()
 
@@ -196,7 +196,7 @@ def test_parked_holder_whose_native_finished_cleanly_stays_live(scheduler_db):
     conn.execute(
         "UPDATE harness_sessions SET native_process_gone_at = %s, "
         "native_process_gone_evidence = %s WHERE session_id = %s",
-        (_iso(60), '{"pids": [4243], "exit_code": 0}', "parked-finished"),
+        (_seen_at(60), '{"pids": [4243], "exit_code": 0}', "parked-finished"),
     )
     conn.commit()
 

@@ -29,8 +29,8 @@ from __future__ import annotations
 import os
 import re
 import tempfile
-from datetime import datetime, timezone
-from yoke_contracts.timestamps import utc_now, format_instant
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now, format_instant, parse_instant
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
 
@@ -60,7 +60,8 @@ def default_artifact_name(
     now: Optional[datetime] = None,
 ) -> str:
     """``<org-slug>-universe-<utc-timestamp>.tar``."""
-    stamp = (now or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%SZ")
+    now = parse_instant(utc_now() if now is None else now)
+    stamp = now.strftime("%Y%m%dT%H%M%SZ")
     cleaned = _FILENAME_SAFE_RE.sub("-", org_slug).strip("-.")
     return f"{cleaned or 'universe'}-universe-{stamp}{ARTIFACT_SUFFIX}"
 

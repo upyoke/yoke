@@ -87,3 +87,35 @@ def test_routed_fixture_binds_native_or_explicit_sqlite_instants(monkeypatch, po
     with pytest.raises(timestamps.InvalidInstant):
         routed.register_live_session(conn, "refused-session")
     assert conn.writes == before
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_release_gap_fixture_reads_native_session_and_claim_clocks(tmp_path, zone):
+    from runtime.api.fixtures.file_test_db import init_test_db
+
+    with init_test_db(tmp_path, apply_schema=routed.apply_release_gap_schema) as path:
+        conn = routed.make_db(path)
+        try:
+            conn.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
+            routed.build_release_gap_fixture(conn)
+            row = conn.execute(
+                "SELECT offered_at,last_heartbeat,current_item_set_at FROM harness_sessions "
+                "WHERE session_id=%s",
+                (routed.SESSION_A,),
+            ).fetchone()
+            assert all(
+                isinstance(value, datetime) and value.tzinfo is not None
+                for value in row
+            )
+            assert row[0] == row[1]
+            claim = conn.execute(
+                "SELECT claimed_at,released_at FROM work_claims WHERE session_id=%s",
+                (routed.SESSION_A,),
+            ).fetchone()
+            assert all(
+                isinstance(value, datetime) and value.tzinfo is not None
+                for value in claim
+            )
+            assert claim[1] >= claim[0]
+        finally:
+            conn.close()

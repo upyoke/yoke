@@ -17,10 +17,12 @@ CLI::
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant, utc_now
+
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -60,9 +62,7 @@ def _item_dict(item: Any, yok_id: str) -> Dict[str, Any]:
         "status": str(_row_value(item, "status", 2)),
         "project": str(_row_value(item, "project", 3)),
         "workflow_id": str(_row_value(item, "workflow_id", 5)),
-        "workflow_version_id": int(
-            _row_value(item, "workflow_version_id", 6)
-        ),
+        "workflow_version_id": int(_row_value(item, "workflow_version_id", 6)),
     }
 
 
@@ -82,9 +82,7 @@ def _collect_warnings(
 ) -> List[str]:
     out: List[str] = []
     if path_claims.get("latest_blocker_reason"):
-        out.append(
-            f"path_claim blocked: {path_claims['latest_blocker_reason']}"
-        )
+        out.append(f"path_claim blocked: {path_claims['latest_blocker_reason']}")
     if progress_log["state"] == "missing":
         out.append("Progress Log section missing")
     elif progress_log.get("is_stale"):
@@ -111,10 +109,10 @@ def build_projection(
     now: Optional[datetime] = None,
 ) -> Dict[str, Any]:
     """Return the compact execution-status projection for ``item_id``."""
+    now = parse_instant(utc_now() if now is None else now)
     own_conn = conn is None
     if conn is None:
         conn = connect(db_path)
-    now = now or datetime.now(timezone.utc)
     repo_root = repo_root or Path.cwd()
     try:
         item = query_one(
@@ -145,11 +143,13 @@ def build_projection(
             _row_value(item, "spec", 4) or "",
             repo_root=file_budget_root(wt_state, repo_root),
         )
-        warnings.extend(_collect_warnings(
-            path_claims=path_claims,
-            progress_log=progress_log,
-            file_budget=file_budget,
-        ))
+        warnings.extend(
+            _collect_warnings(
+                path_claims=path_claims,
+                progress_log=progress_log,
+                file_budget=file_budget,
+            )
+        )
         if db_path:
             try:
                 qa_summary = collect_qa(conn, db_path, item_id)
@@ -159,7 +159,8 @@ def build_projection(
         else:
             qa_summary = {"state": "db_path_unresolved"}
         health = health_state(
-            warnings=warnings, path_claims=path_claims,
+            warnings=warnings,
+            path_claims=path_claims,
             qa_summary=qa_summary,
         )
         return {
@@ -177,7 +178,9 @@ def build_projection(
             "file_budget": file_budget,
             "qa": qa_summary,
             "latest_transition": collect_latest_transition(
-                conn, item_id, now=now,
+                conn,
+                item_id,
+                now=now,
             ),
             "health": health,
             "warnings": warnings,
@@ -189,9 +192,7 @@ def build_projection(
 
 def _render_path_claims(pc: Dict[str, Any], lines: List[str]) -> None:
     if pc["total"]:
-        states = ", ".join(
-            f"{k}={v}" for k, v in sorted(pc["state_counts"].items())
-        )
+        states = ", ".join(f"{k}={v}" for k, v in sorted(pc["state_counts"].items()))
         lines.append(f"  path claims: total={pc['total']}  {states}")
         if pc["latest_blocker_reason"]:
             lines.append(f"    blocker: {pc['latest_blocker_reason']}")
@@ -228,7 +229,8 @@ def render_text(projection: Dict[str, Any]) -> str:
         "  worktree: "
         + (
             f"{wt['branch']} ({'exists' if wt['exists'] else 'MISSING'})"
-            if wt["state"] == "set" else "none"
+            if wt["state"] == "set"
+            else "none"
         )
     )
     _render_path_claims(pc, lines)
@@ -278,20 +280,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("item_id", help="Item id (bare integer or YOK-N)")
     parser.add_argument("--json", action="store_true", help="Emit JSON.")
     parser.add_argument(
-        "--repo-root", default=None,
+        "--repo-root",
+        default=None,
         help="Repo root for File Budget line counts (default: cwd)",
     )
     args = parser.parse_args(argv)
     try:
         item_id = normalize_item_id(args.item_id)
     except (TypeError, ValueError):
-        print(
-            f"ERROR: cannot parse item id '{args.item_id}'", file=sys.stderr
-        )
+        print(f"ERROR: cannot parse item id '{args.item_id}'", file=sys.stderr)
         return 2
-    repo_root = (
-        Path(args.repo_root).resolve() if args.repo_root else Path.cwd()
-    )
+    repo_root = Path(args.repo_root).resolve() if args.repo_root else Path.cwd()
     projection = build_projection(item_id, repo_root=repo_root)
     if args.json:
         print(json.dumps(projection, indent=2, sort_keys=True))

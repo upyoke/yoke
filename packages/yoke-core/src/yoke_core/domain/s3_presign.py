@@ -15,10 +15,12 @@ capability — never ambient shell.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant, utc_now
+
 import hashlib
 import hmac
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Dict, Optional
 from urllib.parse import quote
 
@@ -76,7 +78,8 @@ def presign_for_host(
     both from a bucket/key pair; this seam exists so the signing math can
     be pinned against the documented AWS example verbatim.
     """
-    moment = now or datetime.now(timezone.utc)
+    now = parse_instant(utc_now() if now is None else now)
+    moment = now
     amz_date = moment.strftime("%Y%m%dT%H%M%SZ")
     datestamp = moment.strftime("%Y%m%d")
     scope = f"{datestamp}/{region}/{service}/aws4_request"
@@ -113,16 +116,13 @@ def presign_for_host(
         )
     )
     signature = hmac.new(
-        _signing_key(
-            credentials.secret_access_key, datestamp, region, service
-        ),
+        _signing_key(credentials.secret_access_key, datestamp, region, service),
         string_to_sign.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
 
     return (
-        f"https://{host}{canonical_uri}?{canonical_query}"
-        f"&X-Amz-Signature={signature}"
+        f"https://{host}{canonical_uri}?{canonical_query}&X-Amz-Signature={signature}"
     )
 
 

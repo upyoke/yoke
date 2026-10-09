@@ -25,7 +25,9 @@ person still owes.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from yoke_contracts.timestamps import parse_instant, utc_now
+
+from datetime import datetime, timedelta
 from typing import Any, Mapping
 
 from yoke_contracts.session_control.capabilities import native_wake_supported
@@ -270,9 +272,7 @@ def _envelope_settled_reason(
     expires = parse_timestamp(receipt.get("expires_at"))
     if expires is not None and expires <= now:
         return "original_expired"
-    if _hook_already_attempted(
-        conn, envelope_id=envelope_id, session_id=session_id
-    ):
+    if _hook_already_attempted(conn, envelope_id=envelope_id, session_id=session_id):
         return "hook_attempted"
     return wake_notice_settled_reason(receipt)
 
@@ -292,9 +292,10 @@ def settle_operator_wake_notices(
     raised for ``actor_id`` -- another person's notice, and anyone's own
     waiting decision, are never dismissed here.
     """
+    now = parse_instant(utc_now() if now is None else now)
     from yoke_core.domain.session_message_store import cancel_message_rows
 
-    current = now or datetime.now(timezone.utc)
+    current = now
     settled = 0
     for notice in _standing_notices(conn, actor_id=actor_id):
         noticed = _noticed_envelope(notice["idempotency_key"])

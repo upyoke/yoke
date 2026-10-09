@@ -21,8 +21,10 @@ hear it.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant, utc_now
+
 from collections.abc import Mapping
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Optional
 
 from yoke_contracts.session_control.models import RecipientSelector
@@ -159,6 +161,7 @@ def notify_qa_stage_result(
     ``reason`` covers a stage that configured no audience, an audience
     that resolved to nobody, and an outcome this surface does not report.
     """
+    now = parse_instant(utc_now() if now is None else now)
     if outcome not in REPORTABLE_OUTCOMES:
         return {
             "notified": [],
@@ -196,7 +199,7 @@ def notify_qa_stage_result(
             run_id, stage_name, member_item_id, outcome, target_digest
         ),
         idempotency_intent_only=True,
-        now=now or datetime.now(timezone.utc),
+        now=now,
         commit=False,
     )
     return {

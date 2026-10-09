@@ -1,4 +1,6 @@
+# ruff: noqa: F811
 """SML coherence and SchedulerResult shape tests for yoke_core.domain.scheduler."""
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -51,7 +53,7 @@ class TestSMLState:
         conn = scheduler_db["conn"]
         p = _placeholder(conn)
         conn.execute(
-            f"UPDATE strategy_docs SET archived_at = '2026-03-02' WHERE slug = {p}",
+            f"UPDATE strategy_docs SET archived_at = '2026-03-02T00:00:00.000000Z' WHERE slug = {p}",
             (DEFAULT_STRATEGY_DOC_SLUGS[0],),
         )
         sml = _compute_sml_state(conn, [1])

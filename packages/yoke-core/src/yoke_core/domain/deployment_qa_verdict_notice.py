@@ -18,7 +18,9 @@ reports no recipient rather than guessing at one.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import parse_instant, utc_now
+
+from datetime import datetime
 from typing import Any, Optional
 
 from yoke_core.domain.deployment_run_driver_notice import (
@@ -138,6 +140,7 @@ def notify_deployment_qa_verdict(
     ``""`` nobody addressable (including "this is not a deployment-stage
     requirement"), ``"undelivered"`` queued, ``"delivered"`` reached.
     """
+    now = parse_instant(utc_now() if now is None else now)
     subject = _deployment_subject(conn, requirement_id)
     if subject is None:
         return ""
@@ -181,7 +184,7 @@ def notify_deployment_qa_verdict(
             requirement_id=requirement_id,
         ),
         idempotency_key=key,
-        now=now or datetime.now(timezone.utc),
+        now=now,
     )
     if action in {"approve", "waive"}:
         from yoke_core.domain.deployment_qa_member_acceptance_notice import (

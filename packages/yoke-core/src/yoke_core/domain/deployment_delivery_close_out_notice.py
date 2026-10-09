@@ -32,7 +32,9 @@ notice per item and the run that delivered it.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import parse_instant, utc_now
+
+from datetime import datetime
 from typing import Any, Optional
 
 from yoke_core.domain.deployment_close_out_failure_summary import (
@@ -251,7 +253,8 @@ def notify_delivery_cleared(
     land without treating it as a run failure. Call it only after the run's
     own status is committed.
     """
-    stamp = now or datetime.now(timezone.utc)
+    now = parse_instant(utc_now() if now is None else now)
+    stamp = now
     return [
         {
             "public_ref": member["public_ref"],
