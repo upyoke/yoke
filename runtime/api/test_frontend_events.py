@@ -155,6 +155,53 @@ def test_anonymous_route_cannot_write_backend_events_or_malformed_envelopes(clie
         assert response.json()["error"] == "envelope_invalid"
 
 
+def oversized_event():
+    return {**event(), "context": {"note": "x" * 70_000}}
+
+
+@pytest.mark.parametrize(
+    "body, content_type, status, reason",
+    [
+        (b"{}", "text/plain", 400, "content_type_invalid"),
+        (b"{", "application/json", 400, "json_invalid"),
+        (b'{"events": []}', "application/json", 400, "events_invalid"),
+        (lambda: {"events": [event()] * 51}, "application/json", 400, "events_invalid"),
+        (lambda: {"events": [oversized_event()]}, "application/json", 413, "event_too_large"),
+        (b" " * 524_289, "application/json", 413, "payload_too_large"),
+    ],
+)
+def test_collector_names_each_input_refusal(client, body, content_type, status, reason):
+    content = json.dumps(body()).encode() if callable(body) else body
+    response = client.post(
+        "/api/events",
+        content=content,
+        headers={**headers(client), "Content-Type": content_type},
+    )
+    assert response.status_code == status
+    assert response.json()["error"] == reason
+    assert response.json()["recovery"]
+
+
+def test_collector_refuses_plain_http_for_remote_hosts(database):
+    remote = TestClient(app_factory.create_app(), base_url="http://workbench.example.test")
+    response = remote.post("/api/events", json={"events": [event()]})
+    assert response.status_code == 400
+    assert response.json()["error"] == "collector_https_required"
+    assert response.json()["recovery"]
+
+
+def test_failed_bearer_verification_returns_the_engine_auth_envelope(client):
+    response = client.post(
+        "/api/events",
+        json={"events": [event()]},
+        headers={**headers(client), "Authorization": "Bearer not-a-token"},
+    )
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert response.json()["success"] is False
+    assert response.json()["error"]["code"]
+
+
 def test_collector_failure_and_rate_limit_never_report_acceptance(client, monkeypatch):
     admitted = headers(client)
     monkeypatch.setattr(frontend_events, "admit_client", lambda *args, **kwargs: 7)
