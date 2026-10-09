@@ -39,7 +39,7 @@ CREATE TABLE path_claim_targets (
     PRIMARY KEY (claim_id, target_id));
 CREATE TABLE path_snapshots (
     id INTEGER PRIMARY KEY, project_id INTEGER, commit_sha TEXT,
-    built_at TEXT);
+    built_at TIMESTAMPTZ);
 CREATE TABLE path_snapshot_symlink_facts (
     snapshot_id INTEGER, symlink_path TEXT, reason TEXT,
     target_attempt TEXT, canonical_path TEXT);
@@ -88,8 +88,11 @@ def _seed_symlink_fact(conn: Any) -> None:
 
 
 def _seed_claim(
-    conn: Any, *,
-    claim_id: int, item_id: int, target_ids: list[int],
+    conn: Any,
+    *,
+    claim_id: int,
+    item_id: int,
+    target_ids: list[int],
 ) -> None:
     conn.execute(
         "INSERT INTO path_claims "
@@ -136,9 +139,7 @@ class TestSymlinkCoverageHC:
 
     def test_exception_mode_claim_is_skipped(self, conn):
         _seed_claim(conn, claim_id=1, item_id=1, target_ids=[252])
-        conn.execute(
-            "UPDATE path_claims SET mode='exception' WHERE id=1"
-        )
+        conn.execute("UPDATE path_claims SET mode='exception' WHERE id=1")
         rec = _run(conn)
         assert rec.results[0].result == "PASS"
 

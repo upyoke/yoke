@@ -41,9 +41,9 @@ CREATE TABLE harness_sessions (
     executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL DEFAULT '/tmp',
     mode TEXT DEFAULT 'wait',
-    offered_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    ended_at TEXT,
+    offered_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    ended_at TIMESTAMPTZ,
     executor_surface TEXT
 );
 """

@@ -270,7 +270,7 @@ class TestRetiredSchemaResurrection:
             );
             CREATE TABLE project_capabilities (
                 project_id INTEGER, type TEXT, config TEXT, settings TEXT,
-                created_at TEXT
+                created_at TIMESTAMPTZ
             );
             INSERT INTO projects (id, slug, name, public_item_prefix)
             VALUES (2, 'externalwebapp', 'ExternalWebapp', 'EXT');

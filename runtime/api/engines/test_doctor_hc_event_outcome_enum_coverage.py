@@ -7,6 +7,8 @@ live-events tests use a disposable Postgres test database seeded directly.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import textwrap
 from pathlib import Path
 from typing import Iterable, List
@@ -30,16 +32,14 @@ CREATE TABLE events (
     event_id TEXT NOT NULL UNIQUE,
     event_name TEXT NOT NULL,
     event_outcome TEXT,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 """
 
 
 def _empty_conn():
     name = pg_testdb.create_test_database()
-    return pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    return pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
 
 
 @pytest.fixture
@@ -82,7 +82,7 @@ def _seed_event(
     conn.execute(
         "INSERT INTO events (event_id, event_name, event_outcome, "
         "created_at) VALUES (%s, %s, %s, %s)",
-        (event_id, event_name, event_outcome, created_at),
+        (event_id, event_name, event_outcome, parse_instant(created_at)),
     )
 
 
@@ -111,9 +111,7 @@ class TestSkipWhenEventsTableMissing:
 
 
 class TestSourceScanPasses:
-    def test_pass_with_enum_literal(
-        self, tmp_path: Path, db_conn, patched_repo_root
-    ):
+    def test_pass_with_enum_literal(self, tmp_path: Path, db_conn, patched_repo_root):
         repo = _make_repo(
             tmp_path,
             [
@@ -169,9 +167,7 @@ class TestSourceScanPasses:
 
 
 class TestSourceScanFails:
-    def test_fail_on_non_enum_literal(
-        self, tmp_path: Path, db_conn, patched_repo_root
-    ):
+    def test_fail_on_non_enum_literal(self, tmp_path: Path, db_conn, patched_repo_root):
         repo = _make_repo(
             tmp_path,
             [

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import parse_instant, utc_now
 
 import pytest
 
@@ -27,7 +29,7 @@ CREATE TABLE item_dependencies (
     session_id INTEGER,
     rationale TEXT NOT NULL DEFAULT '',
     evidence_json TEXT NOT NULL DEFAULT '{}',
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 )
 """
 
@@ -89,10 +91,8 @@ def conn(tmp_path):
             c.close()
 
 
-def _now_iso(offset_minutes: int = 0) -> str:
-    return (
-        datetime.now(timezone.utc) + timedelta(minutes=offset_minutes)
-    ).isoformat()
+def _now(offset_minutes: int = 0) -> datetime:
+    return utc_now() + timedelta(minutes=offset_minutes)
 
 
 def _ensure_item(conn, item_id: int) -> None:
@@ -111,33 +111,43 @@ def _insert_blocked_event(
     item_id: int,
     reason: str,
     blocking_claim_id: int | None = None,
-    created_at: str | None = None,
+    created_at: str | datetime | None = None,
 ) -> None:
     _ensure_item(conn, item_id)
-    envelope = json.dumps({
-        "context": {
-            "reason": reason,
-            "blocking_claim_id": blocking_claim_id,
+    envelope = json.dumps(
+        {
+            "context": {
+                "reason": reason,
+                "blocking_claim_id": blocking_claim_id,
+            }
         }
-    })
+    )
     conn.execute(
         "INSERT INTO events (event_id, source_type, session_id, severity, "
         "event_kind, event_type, event_name, project_id, item_id, "
         "envelope, created_at) "
         "VALUES (%s, 'system', '', 'WARN', 'lifecycle', 'path_claim', "
         "'PathClaimRegistrationBlocked', 1, %s, %s, %s)",
-        (uuid.uuid4().hex, item_id, envelope, created_at or _now_iso()),
+        (
+            uuid.uuid4().hex,
+            item_id,
+            envelope,
+            _now() if created_at is None else parse_instant(created_at),
+        ),
     )
     conn.commit()
 
 
 def _add_dep_edge(
-    conn, *, dependent: int, blocking: int,
+    conn,
+    *,
+    dependent: int,
+    blocking: int,
 ) -> None:
     conn.execute(
         "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, "
         "source, created_at) VALUES (%s, %s, 'test', %s)",
-        (dependent, blocking, _now_iso()),
+        (dependent, blocking, _now()),
     )
     conn.commit()
 
@@ -167,7 +177,7 @@ def test_pass_when_overlap_event_has_no_dep_edges(conn):
         conn,
         item_id=8001,
         reason="path coverage overlaps an active claim on 'main'; "
-               "declare an upstream dependency or wait",
+        "declare an upstream dependency or wait",
     )
     # No item_dependencies edge for 8001 → benign rejection.
     rec = _run_hc(conn)
@@ -183,7 +193,7 @@ def test_warn_when_overlap_event_has_dep_edges(conn):
         conn,
         item_id=candidate,
         reason="path coverage overlaps an active claim on 'main'; "
-               "declare an upstream dependency or wait",
+        "declare an upstream dependency or wait",
         blocking_claim_id=blocking_claim,
     )
     _add_dep_edge(conn, dependent=candidate, blocking=upstream)
@@ -201,7 +211,7 @@ def test_pass_when_overlap_event_has_dep_edge_but_no_blocking_claim_id(conn):
         conn,
         item_id=candidate,
         reason="path coverage overlaps an active claim on 'main'; "
-               "declare an upstream dependency or wait",
+        "declare an upstream dependency or wait",
     )
     _add_dep_edge(conn, dependent=candidate, blocking=upstream)
     rec = _run_hc(conn)
@@ -217,7 +227,7 @@ def test_pass_when_blocking_claim_owner_has_no_dep_edge(conn):
         conn,
         item_id=candidate,
         reason="path coverage overlaps an active claim on 'main'; "
-               "declare an upstream dependency or wait",
+        "declare an upstream dependency or wait",
         blocking_claim_id=blocking_claim,
     )
     rec = _run_hc(conn)
@@ -234,7 +244,7 @@ def test_pass_when_event_outside_24h_window(conn):
         item_id=candidate,
         reason="path coverage overlaps an active claim on 'main'",
         blocking_claim_id=blocking_claim,
-        created_at=_now_iso(offset_minutes=-60 * 48),  # 48h ago
+        created_at=_now(offset_minutes=-60 * 48),  # 48h ago
     )
     _add_dep_edge(conn, dependent=candidate, blocking=upstream)
     rec = _run_hc(conn)

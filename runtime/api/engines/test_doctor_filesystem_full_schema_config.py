@@ -241,7 +241,7 @@ class TestBacklogQualityConfigParsing:
             CREATE TABLE items (
                 id INTEGER PRIMARY KEY,
                 status TEXT,
-                created_at TEXT,
+                created_at TIMESTAMPTZ,
                 title TEXT,
                 priority TEXT,
                 spec TEXT

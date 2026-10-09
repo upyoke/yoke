@@ -8,9 +8,7 @@ from yoke_core.engines.doctor import DoctorArgs, RecordCollector, hc_migration_a
 
 def _make_conn():
     name = pg_testdb.create_test_database()
-    conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    conn = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     apply_fixture_ddl(
         conn,
         """
@@ -25,7 +23,7 @@ def _make_conn():
             state TEXT NOT NULL,
             failure_reason TEXT,
             post_row_counts TEXT,
-            started_at TEXT NOT NULL
+            started_at TIMESTAMPTZ NOT NULL
         );
         """,
     )

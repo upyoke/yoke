@@ -35,7 +35,7 @@ def _schema() -> str:
         " project_id INTEGER NOT NULL, "
         " type TEXT NOT NULL, "
         " settings TEXT, "
-        " verified_at TEXT, "
+        " verified_at TIMESTAMPTZ, "
         " PRIMARY KEY(project_id, type)"
         ");"
     )

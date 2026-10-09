@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import json
 import os
 import uuid
@@ -29,14 +31,14 @@ CREATE TABLE events (
     exit_code INTEGER,
     client_timing_id TEXT,
     envelope TEXT,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 CREATE TABLE migration_audit (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     migration_name TEXT NOT NULL,
     model_name TEXT,
     state TEXT NOT NULL,
-    started_at TEXT NOT NULL
+    started_at TIMESTAMPTZ NOT NULL
 );
 """
 
@@ -97,7 +99,14 @@ def _seed_event(
     conn.execute(
         "INSERT INTO events (event_id, event_name, event_outcome, "
         "exit_code, envelope, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
-        (event_id, event_name, event_outcome, exit_code, envelope_text, created_at),
+        (
+            event_id,
+            event_name,
+            event_outcome,
+            exit_code,
+            envelope_text,
+            parse_instant(created_at),
+        ),
     )
     conn.commit()
     return event_id

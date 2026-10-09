@@ -1,4 +1,4 @@
-"""Cutoff tests for YOK-1704 task 3 — bespoke-scaffold HC cutoffs.
+"""Cutoff tests for cross-project commits and session checkpoint integrity.
 
 Sibling of ``test_doctor_hc_meta_cutoffs.py`` that owns the two HC
 sources whose scaffolding does not fit the shared meta-fixture schema:
@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import json
 import subprocess
-from datetime import datetime, timedelta
+from datetime import timedelta
+
+from yoke_contracts.timestamps import parse_instant
 from unittest.mock import patch
 
 import pytest
@@ -134,13 +136,13 @@ CREATE TABLE harness_sessions (
     executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL DEFAULT '',
     mode TEXT NOT NULL DEFAULT 'wait',
-    offered_at TEXT NOT NULL DEFAULT '',
-    last_heartbeat TEXT NOT NULL DEFAULT '',
-    ended_at TEXT,
+    offered_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_heartbeat TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ended_at TIMESTAMPTZ,
     offer_envelope TEXT,
     actor_id INTEGER,
     last_chain_step INTEGER,
-    last_checkpoint_at TEXT
+    last_checkpoint_at TIMESTAMPTZ
 );
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
@@ -148,9 +150,9 @@ CREATE TABLE work_claims (
     target_kind TEXT NOT NULL,
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
-    claimed_at TEXT NOT NULL DEFAULT '',
-    last_heartbeat TEXT NOT NULL DEFAULT '',
-    released_at TEXT,
+    claimed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_heartbeat TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    released_at TIMESTAMPTZ,
     release_reason TEXT
 );
 CREATE TABLE items (id INTEGER PRIMARY KEY, status TEXT NOT NULL DEFAULT 'idea');
@@ -181,34 +183,50 @@ def _seed_clobber_session(conn, session_id: str, offered_at: str) -> None:
     envelope carrying no ``chain_checkpoint`` is the clobbered shape.
     """
     p = _p(conn)
-    base = datetime.fromisoformat(offered_at.replace("Z", "+00:00"))
-    earlier = (base - timedelta(seconds=180)).isoformat()
+    base = parse_instant(offered_at)
+    earlier = base - timedelta(seconds=180)
     conn.execute(
         "INSERT INTO harness_sessions "
         "(session_id, workspace, offered_at, last_heartbeat, offer_envelope, "
         " last_chain_step, last_checkpoint_at) "
         f"VALUES ({p}, '/tmp', {p}, {p}, {p}, 5, {p})",
-        (session_id, offered_at, offered_at, json.dumps({"step": 7}), earlier),
+        (session_id, base, base, json.dumps({"step": 7}), earlier),
     )
     conn.commit()
 
 
 class TestSessionCheckpointIntegrityCutoff:
-    def test_below_cutoff_excluded(self, clobber_conn, tmp_path):
+    @pytest.mark.parametrize(
+        "older,newer,cutoff",
+        [
+            ("2026-04-01T00:00:00Z", "2026-05-14T00:00:00Z", "2026-05-13T17:40:59Z"),
+            (
+                "2026-05-13T17:40:58.999999Z",
+                "2026-05-13T17:40:59.000000Z",
+                "2026-05-13T19:40:59.000000+02:00",
+            ),
+            (
+                "2026-05-13T17:40:59.000000Z",
+                "2026-05-13T17:40:59.000001Z",
+                "2026-05-13T17:40:59.000001Z",
+            ),
+        ],
+    )
+    def test_below_cutoff_excluded(self, clobber_conn, tmp_path, older, newer, cutoff):
         _seed_clobber_session(
             clobber_conn,
             "sess-old",
-            offered_at="2026-04-01T00:00:00+00:00",
+            offered_at=older,
         )
         _seed_clobber_session(
             clobber_conn,
             "sess-new",
-            offered_at="2026-05-14T00:00:00+00:00",
+            offered_at=newer,
         )
         _write_cutoff(
             tmp_path,
             "hc_session_checkpoint_min_created_at",
-            "2026-05-13T17:40:59+00:00",
+            cutoff,
         )
 
         rec = RecordCollector()

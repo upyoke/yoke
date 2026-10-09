@@ -20,7 +20,7 @@ CREATE TABLE qa_runs (
     qa_kind TEXT NOT NULL,
     verdict TEXT,
     raw_result TEXT,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 """
 
@@ -132,10 +132,16 @@ class TestHcQaRunsMutated:
 
     def test_pass_when_failing_run_has_empty_raw_result(self, conn):
         _insert_run(
-            conn, run_id=1, verdict="fail", raw_result="",
+            conn,
+            run_id=1,
+            verdict="fail",
+            raw_result="",
         )
         _insert_run(
-            conn, run_id=2, verdict="fail", raw_result=None,
+            conn,
+            run_id=2,
+            verdict="fail",
+            raw_result=None,
         )
         rec = RecordCollector()
         hc_qa_runs_mutated(conn, DoctorArgs(), rec)

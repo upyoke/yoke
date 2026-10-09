@@ -43,15 +43,15 @@ def _make_conn():
             project_sequence INTEGER,
             github_issue TEXT,
             deployed_to TEXT,
-            updated_at TEXT,
+            updated_at TIMESTAMPTZ,
             deployment_flow TEXT
         );
         CREATE TABLE item_worktrees (
             id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL,
             branch TEXT NOT NULL, path TEXT, commit_sha TEXT,
             lane_role TEXT NOT NULL,
-            state TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL, released_at TEXT
+            state TEXT NOT NULL DEFAULT 'active', created_at TIMESTAMPTZ NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL, released_at TIMESTAMPTZ
         );
 
         CREATE TABLE epic_tasks (
@@ -59,7 +59,7 @@ def _make_conn():
             task_num INTEGER,
             title TEXT,
             status TEXT,
-            last_heartbeat TEXT,
+            last_heartbeat TIMESTAMPTZ,
             dispatch_attempts INTEGER DEFAULT 0,
             item_worktree_id INTEGER,
             github_issue TEXT,
@@ -71,7 +71,7 @@ def _make_conn():
             slug TEXT UNIQUE,
             name TEXT,
             default_branch TEXT,
-            created_at TEXT,
+            created_at TIMESTAMPTZ,
             github_repo TEXT,
             public_item_prefix TEXT DEFAULT 'YOK'
         );
@@ -88,14 +88,14 @@ def _make_conn():
             context TEXT,
             category TEXT,
             body TEXT,
-            created_at TEXT,
-            reviewed_at TEXT,
-            archived_at TEXT
+            created_at TIMESTAMPTZ,
+            reviewed_at TIMESTAMPTZ,
+            archived_at TIMESTAMPTZ
         );
 
         CREATE TABLE harness_sessions (
             session_id TEXT PRIMARY KEY,
-            ended_at TEXT
+            ended_at TIMESTAMPTZ
         );
         INSERT INTO harness_sessions (session_id, ended_at)
         VALUES ('past', '2026-01-01T00:00:00Z');
@@ -105,7 +105,7 @@ def _make_conn():
             session_id TEXT,
             target_kind TEXT,
             scope TEXT NOT NULL,
-            released_at TEXT
+            released_at TIMESTAMPTZ
         );
 
         CREATE TABLE path_claims (

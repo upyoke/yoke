@@ -17,8 +17,8 @@ _SESSIONS_DDL = """
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY,
     executor TEXT NOT NULL,
-    ended_at TEXT,
-    last_tool_call_at TEXT,
+    ended_at TIMESTAMPTZ,
+    last_tool_call_at TIMESTAMPTZ,
     tool_call_count INTEGER NOT NULL DEFAULT 0
 );
 """
@@ -28,7 +28,7 @@ CREATE TABLE events (
     id SERIAL PRIMARY KEY,
     session_id TEXT,
     event_name TEXT,
-    created_at TEXT
+    created_at TIMESTAMPTZ
 );
 """
 
@@ -37,7 +37,8 @@ CREATE TABLE events (
 def conn():
     name = pg_testdb.create_test_database()
     connection = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name,
+        pg_testdb.connect_test_database(name),
+        name,
     )
     apply_fixture_ddl(connection, _SESSIONS_DDL)
     apply_fixture_ddl(connection, _EVENTS_DDL)
@@ -140,18 +141,20 @@ def test_passes_when_hook_dispatch_telemetry_exists(
         ("claude-session", "claude-code", "2026-08-02T12:00:00Z", 1),
     )
     conn.execute(
-        "INSERT INTO events (session_id, event_name, created_at) "
-        "VALUES (%s, %s, %s)",
+        "INSERT INTO events (session_id, event_name, created_at) VALUES (%s, %s, %s)",
         ("claude-session", "HookDispatchTelemetry", "2026-08-02T12:00:00Z"),
     )
 
     assert _run(conn, monkeypatch, tmp_path).result == "PASS"
 
 
-def test_skips_when_session_telemetry_schema_is_absent(monkeypatch, tmp_path: Path) -> None:
+def test_skips_when_session_telemetry_schema_is_absent(
+    monkeypatch, tmp_path: Path
+) -> None:
     name = pg_testdb.create_test_database()
     connection = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name,
+        pg_testdb.connect_test_database(name),
+        name,
     )
     try:
         assert _run(connection, monkeypatch, tmp_path).result == "SKIP"
@@ -170,9 +173,7 @@ def test_warns_when_cursor_config_is_present_but_symlinked(
     canonical.write_text('{"version": 1, "hooks": {}}\n', encoding="utf-8")
     native = tmp_path / ".cursor"
     native.mkdir()
-    (native / "hooks.json").symlink_to(
-        "../runtime/harness/cursor/hooks.json"
-    )
+    (native / "hooks.json").symlink_to("../runtime/harness/cursor/hooks.json")
     monkeypatch.setattr(mod._base, "_resolve_repo_root", lambda: str(tmp_path))
 
     records = RecordCollector()

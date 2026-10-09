@@ -19,15 +19,15 @@ _SCHEMA = """
 CREATE TABLE projects (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 CREATE TABLE path_integrity_runs (
     id INTEGER PRIMARY KEY,
     project_id TEXT NOT NULL,
     commit_sha TEXT,
     status TEXT NOT NULL,
-    started_at TEXT NOT NULL,
-    completed_at TEXT,
+    started_at TIMESTAMPTZ NOT NULL,
+    completed_at TIMESTAMPTZ,
     skip_reason TEXT,
     block_reason TEXT,
     abort_reason TEXT,
@@ -133,7 +133,7 @@ def test_passes_when_table_missing(tmp_path: Path):
         try:
             seeded.execute(
                 "CREATE TABLE projects ("
-                "id TEXT PRIMARY KEY, name TEXT, created_at TEXT)"
+                "id TEXT PRIMARY KEY, name TEXT, created_at TIMESTAMPTZ)"
             )
             seeded.commit()
         finally:

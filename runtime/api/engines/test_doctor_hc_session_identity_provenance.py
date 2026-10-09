@@ -35,9 +35,9 @@ CREATE TABLE harness_sessions (
     execution_level TEXT NOT NULL DEFAULT 'primary',
     workspace TEXT NOT NULL DEFAULT '/tmp',
     mode TEXT DEFAULT 'wait',
-    offered_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    ended_at TEXT,
+    offered_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    ended_at TIMESTAMPTZ,
     executor_surface TEXT
 );
 """
@@ -48,7 +48,7 @@ CREATE TABLE events (
     event_id TEXT,
     session_id TEXT,
     event_name TEXT,
-    created_at TEXT
+    created_at TIMESTAMPTZ
 );
 """
 

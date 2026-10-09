@@ -56,7 +56,7 @@ def _make_conn() -> Any:
             project_id INTEGER,
             type TEXT,
             settings TEXT,
-            created_at TEXT
+            created_at TIMESTAMPTZ
         );
 
         CREATE TABLE deployment_flows (
