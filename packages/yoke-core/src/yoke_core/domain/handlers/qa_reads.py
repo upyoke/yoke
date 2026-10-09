@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from yoke_core.domain.handlers.qa import _error, _p
 from yoke_core.domain.qa_constants import REQ_COLUMNS, RUN_COLUMNS
+from yoke_core.domain import qa_latest_execution as executions
 from yoke_core.domain.qa_plan_case_currency import annotate_requirement_currency
 from yoke_core.domain.qa_review_requirement_facts import frozen_target_facts
 from yoke_contracts.api.function_call import (
@@ -24,9 +25,7 @@ def _rows_to_dicts(rows: Any, columns: tuple) -> List[Dict[str, Any]]:
     return [{col: row[col] for col in columns} for row in rows]
 
 
-# ---------------------------------------------------------------------------
 # qa.requirement.list
-# ---------------------------------------------------------------------------
 
 
 class QaRequirementListRequest(BaseModel):
@@ -89,9 +88,7 @@ def handle_qa_requirement_list(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
-# ---------------------------------------------------------------------------
 # qa.requirement.get
-# ---------------------------------------------------------------------------
 
 
 class QaRequirementGetRequest(BaseModel):
@@ -134,9 +131,7 @@ def handle_qa_requirement_get(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
-# ---------------------------------------------------------------------------
 # qa.run.list / qa.run.get
-# ---------------------------------------------------------------------------
 
 
 class QaRunListRequest(BaseModel):
@@ -171,12 +166,20 @@ def handle_qa_run_list(request: FunctionCallRequest) -> HandlerOutcome:
 
     conn = connect()
     try:
+        actual = ""
+        if requirement_id is not None:
+            actual = (
+                f", {executions.actual_execution_sql('qa_runs')} AS actual_execution"
+            )
         rows = query_rows(
             conn,
-            f"SELECT {', '.join(RUN_COLUMNS)} FROM qa_runs "
+            f"SELECT {', '.join(RUN_COLUMNS)}{actual} FROM qa_runs "
             f"WHERE {where.format(p=_p(conn))} ORDER BY id",
             params,
         )
+        rows = executions.current_first_run_history(rows, requirement_id)
+    except ValueError as exc:
+        return _error("qa_execution_order_ambiguous", str(exc))
     finally:
         conn.close()
     return HandlerOutcome(
@@ -263,9 +266,7 @@ def handle_qa_run_get(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
-# ---------------------------------------------------------------------------
 # qa.gate_summary.run
-# ---------------------------------------------------------------------------
 
 
 class QaGateSummaryRequest(BaseModel):

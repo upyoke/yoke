@@ -32,6 +32,12 @@ An older unfinished attempt is history after a newer actual attempt. A live
 plan execution, process or lease remains separately owned and must finish or
 abort before terminal settlement. Selecting an attempt does not release it.
 
+A requirement-filtered `qa.run.list` puts that native-selected attempt first
+and retains every historical run, including detached review audit rows. Case
+detail preserves this selection rather than re-sorting by run id. Unfiltered
+run lists retain their existing audit order. A missing or ambiguous start
+refuses the case read with the same named ordering reason as native grading.
+
 ## Reviews
 
 A review judges the actual captured run. It does not create an execution.
@@ -68,6 +74,14 @@ An admitted deployment definition is frozen. Grade it against that admitted
 definition; live source edits remain source-lineage diagnostics and retain the
 explicit refresh boundary. A source replacement does not silently retire an
 admitted copy or the source obligation from which it came.
+
+Explicit item plan rematerialization reaches both source-keyed direct copies
+and plan-backed copies on active runs. Plan copies match the source's plan,
+case, member, baseline and declared environment. An unjudged copy refreshes
+with its source; an answered copy or a copy held by a live execution refuses
+before either definition changes. Supersede an answered copy, or abort the
+live execution before retrying refresh. Discharged copies and copies on
+terminal runs retain their original definitions and acceptance history.
 
 Proof must describe the same selected attempt and subject. Code proof records
 the observed build identity; an expected release SHA is not an observation.

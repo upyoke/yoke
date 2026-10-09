@@ -211,6 +211,27 @@ test("a repeated case keeps its history instead of only its newest run", async (
   assert.equal(facts[7], "1 before this one");
 });
 
+test("case detail preserves native current-attempt selection across offset and tie ordering", async () => {
+  for (const currentId of [6, 7]) {
+    const documentNode = new FakeDocument();
+    const root = documentNode.createElement("main");
+    // Native order is authoritative: lower ID can have the later UTC start;
+    // equal instants instead select the higher ID. Audit creation is unrelated.
+    const runs = [
+      { ...EXECUTION, id: currentId, verdict: "pass", case_outcome: "passed",
+        started_at: "2026-10-01T09:00:01+09:00", created_at: "2026-09-30T00:00:00Z" },
+      { ...EXECUTION, id: currentId === 6 ? 7 : 6, verdict: null,
+        case_outcome: "needs_review", started_at: currentId === 6
+          ? "2026-09-30T20:00:00-04:00" : "2026-09-30T20:00:01-04:00" },
+      { ...EXECUTION, id: 99, performed_by: "agent", case_outcome: "failed" },
+    ];
+    await renderQaCaseDetail(caseContext(documentNode, [], { runs }), root, "1", "9001");
+    await settle();
+    assert.equal(values(root)[5], "passed");
+    assert.equal(values(root)[7], "2 before this one");
+  }
+});
+
 test("an execution whose evidence is out of reach does not read as never run", async () => {
   // A case whose subject the activity read does not carry still ran; saying
   // "never run" there would deny an execution the run list can see.
