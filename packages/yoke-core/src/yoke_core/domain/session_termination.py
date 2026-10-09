@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
+
+from yoke_contracts.timestamps import format_instant
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_message_store import cancel_open_recipients
-from yoke_core.domain.session_message_types import parse_timestamp, utc_now
+from yoke_core.domain.session_message_types import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_resume_in_flight import resume_in_flight
 from yoke_core.domain.session_operator_authority import (
     require_operator_or_steering_authority,
@@ -14,7 +18,6 @@ from yoke_core.domain.session_operator_authority import (
 )
 from yoke_core.domain.session_termination_events import emit_session_terminated
 from yoke_core.domain.sessions_analytics import SessionError
-from yoke_core.domain.sessions_queries import _now_iso
 from yoke_core.domain.sessions_render_end import end_session
 
 
@@ -41,7 +44,11 @@ def _refuse_resuming_session(conn: Any, target: dict[str, Any]) -> None:
     if resume is None:
         return
     exited = target.get("native_process_gone_at")
-    after = f" after its recorded native exit at {exited}" if exited else ""
+    after = (
+        f" after its recorded native exit at {format_instant(exited)}"
+        if exited is not None
+        else ""
+    )
     raise SessionError(
         RESUME_IN_FLIGHT_CODE,
         f"Session {session_id} is resuming, not dead: {resume.describe()}"
@@ -85,7 +92,7 @@ def _queue_reap(
     conn: Any,
     *,
     target: dict[str, Any],
-    requested_at: str,
+    requested_at: datetime,
 ) -> str:
     launch_id, launch_native_id = _launch_identity(conn, str(target["session_id"]))
     machine_id = str(target.get("machine_id") or "") or None
@@ -100,7 +107,7 @@ def _queue_reap(
         native_id,
         launch_id,
         state,
-        requested_at,
+        instant_parameter(conn, requested_at),
     )
     conn.execute(
         "INSERT INTO session_termination_reaps "
@@ -163,7 +170,7 @@ def terminate_session(
     if not allow_resume_in_flight:
         _refuse_resuming_session(conn, target)
 
-    now = _now_iso()
+    now = utc_now()
     marker = _p(conn)
     conn.execute(
         "UPDATE harness_sessions SET terminated_at="
@@ -175,12 +182,18 @@ def terminate_session(
         + ",termination_reason="
         + marker
         + f" WHERE session_id={marker}",
-        (now, int(actor_id), caller_session_id, termination_reason, target_session_id),
+        (
+            instant_parameter(conn, now),
+            int(actor_id),
+            caller_session_id,
+            termination_reason,
+            target_session_id,
+        ),
     )
     cancelled = cancel_open_recipients(
         conn,
         session_id=target_session_id,
-        cancelled_at=parse_timestamp(now),
+        cancelled_at=now,
         result_code=TERMINATED_RESULT_CODE,
     )
     reap_state = _queue_reap(conn, target=target, requested_at=now)

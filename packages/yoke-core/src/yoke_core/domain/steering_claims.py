@@ -8,7 +8,7 @@ seat. CURRENT-PLAN document steering overlaps the affected project seat.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
@@ -18,7 +18,7 @@ from yoke_core.domain.sessions_claim_lifecycle_lock import (
 )
 from yoke_core.domain.sessions_ended_recovery import session_ended_message
 from yoke_core.domain.sessions_lifecycle_claim_events import emit_steering_claimed
-from yoke_core.domain.sessions_queries import _now_iso
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.steering_scope_coverage import scopes_overlap
 from yoke_core.domain.steering_seat_holder import holder_facts, holder_label
 from yoke_core.domain.work_claim_target_sql import scope_int_sql
@@ -150,7 +150,8 @@ def acquire(
             f"{int(project_id)} --active-only`.",
         )
 
-    now = _now_iso()
+    now = utc_now()
+    clock = instant_parameter(conn, now)
     p = _p(conn)
     inserted = conn.execute(
         "INSERT INTO work_claims "
@@ -158,7 +159,7 @@ def acquire(
         "last_heartbeat, released_at, release_reason) "
         f"VALUES ({p}, {p}, {p}, 'exclusive', {p}, {p}, NULL, NULL) "
         "RETURNING id",
-        (session_id, TARGET_KIND_STEERING, target.scope_json(), now, now),
+        (session_id, TARGET_KIND_STEERING, target.scope_json(), clock, clock),
     ).fetchone()
     if inserted is None:
         raise SessionError("CLAIM_FAILED", "Steering claim was not created.")
@@ -208,7 +209,7 @@ def _drain_role_addressed_messages(
         session_id=str(claim["session_id"]),
         claim_id=int(claim["id"]),
         descriptor=steering_scope_descriptor(conn, scope),
-        now=datetime.now(timezone.utc),
+        now=utc_now(),
     )
 
 

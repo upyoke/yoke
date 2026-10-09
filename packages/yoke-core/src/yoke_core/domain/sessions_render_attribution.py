@@ -11,10 +11,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from yoke_contracts.timestamps import parse_instant, utc_now
+
+from .db_helpers import instant_parameter
+
 from . import db_backend
 from .sessions_analytics import SessionError
 from .sessions_queries import (
-    _now_iso,
     normalize_claim_item_id,
     normalize_session_item_id,
 )
@@ -83,7 +86,7 @@ def record_recent_item(
         "recent_item_id = %s, recent_item_status = NULL, "
         "recent_item_recorded_at = %s "
         "WHERE session_id = %s",
-        (item_id, _now_iso(), session_id),
+        (item_id, instant_parameter(conn, utc_now()), session_id),
     )
     if commit:
         conn.commit()
@@ -110,7 +113,7 @@ def set_current_item(
         item_status: Optional status to record in ``recent_item_status``
             when the current item becomes the recent item.
     """
-    now = _now_iso()
+    now = utc_now()
     item_id = normalize_session_item_id(item_id)
     row = conn.execute(
         "SELECT ended_at, current_item_id, current_item_set_at "
@@ -129,14 +132,21 @@ def set_current_item(
             "UPDATE harness_sessions SET "
             "recent_item_id = %s, recent_item_status = %s, recent_item_recorded_at = %s "
             "WHERE session_id = %s",
-            (row[1], item_status, row[2], session_id),
+            (
+                row[1],
+                item_status,
+                instant_parameter(conn, parse_instant(row[2]))
+                if row[2] is not None
+                else None,
+                session_id,
+            ),
         )
 
     conn.execute(
         "UPDATE harness_sessions SET "
         "current_item_id = %s, current_item_set_at = %s "
         "WHERE session_id = %s",
-        (item_id, now, session_id),
+        (item_id, instant_parameter(conn, now), session_id),
     )
     if commit:
         conn.commit()
@@ -193,7 +203,13 @@ def clear_current_item(
             "UPDATE harness_sessions SET "
             "recent_item_id = %s, recent_item_recorded_at = %s "
             "WHERE session_id = %s",
-            (row[0], row[1], session_id),
+            (
+                row[0],
+                instant_parameter(conn, parse_instant(row[1]))
+                if row[1] is not None
+                else None,
+                session_id,
+            ),
         )
 
     conn.execute(
@@ -235,7 +251,13 @@ def release_current_item_focus(
         "UPDATE harness_sessions SET "
         "recent_item_id = %s, recent_item_recorded_at = %s "
         "WHERE session_id = %s",
-        (current, row[1], session_id),
+        (
+            current,
+            instant_parameter(conn, parse_instant(row[1]))
+            if row[1] is not None
+            else None,
+            session_id,
+        ),
     )
     fallback = focus_fallback_item_id(
         conn,
@@ -246,7 +268,11 @@ def release_current_item_focus(
         "UPDATE harness_sessions SET "
         "current_item_id = %s, current_item_set_at = %s "
         "WHERE session_id = %s",
-        (fallback, _now_iso() if fallback is not None else None, session_id),
+        (
+            fallback,
+            instant_parameter(conn, utc_now()) if fallback is not None else None,
+            session_id,
+        ),
     )
     if commit:
         conn.commit()
