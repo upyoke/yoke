@@ -17,7 +17,7 @@ from pathlib import Path
 
 from yoke_core.domain import standalone_item_merge as merge_boundary
 from yoke_core.domain import standalone_item_merge_git as git
-from yoke_core.domain.item_merge_provenance_operator import MERGED_AT_FORMAT
+from yoke_contracts.timestamps import format_instant
 
 LANDING_EPOCH = 1789790000
 
@@ -56,9 +56,9 @@ def _repo_with_dated_commit(tmp_path: Path) -> tuple[Path, str]:
 def test_commit_time_reads_the_commits_own_moment(tmp_path: Path) -> None:
     repo, sha = _repo_with_dated_commit(tmp_path)
 
-    assert git.commit_time(str(repo), sha) == datetime.fromtimestamp(
-        LANDING_EPOCH, timezone.utc
-    ).strftime(MERGED_AT_FORMAT)
+    assert git.commit_time(str(repo), sha) == format_instant(
+        datetime.fromtimestamp(LANDING_EPOCH, timezone.utc)
+    )
 
 
 def test_an_unreadable_commit_has_no_time_rather_than_a_wrong_one(
@@ -90,8 +90,8 @@ def test_a_resolved_landing_time_supersedes_what_the_item_recorded(
     )
     assert sent == [
         {
-            "merged_at": datetime.fromtimestamp(LANDING_EPOCH, timezone.utc).strftime(
-                MERGED_AT_FORMAT
+            "merged_at": format_instant(
+                datetime.fromtimestamp(LANDING_EPOCH, timezone.utc)
             ),
             "supersedes_prior_landing": True,
         }

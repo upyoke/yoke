@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from yoke_contracts.timestamps import format_instant
 
 from yoke_contracts.item_worktrees import EVIDENCE_ONLY_RECOVERY_REASON
 from yoke_contracts.api.function_call import (
@@ -36,6 +38,11 @@ class ItemWorktreeLane(BaseModel):
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     released_at: Optional[str] = None
+
+    @field_validator("created_at", "updated_at", "released_at", mode="before")
+    @classmethod
+    def wire_instant(cls, value):
+        return format_instant(value) if value is not None else None
 
 
 class ItemWorktreesGetRequest(BaseModel):

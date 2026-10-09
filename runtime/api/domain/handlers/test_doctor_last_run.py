@@ -60,7 +60,7 @@ class TestLastRunSelection:
         last_doctor_run_read.record_doctor_run(
             test_db,
             _doctor_payload(
-                ran_at="2026-01-01T00:00:00Z",
+                ran_at="2026-01-01T00:00:00.000000Z",
                 results=[
                     {
                         "hc": "HC-old",
@@ -73,19 +73,19 @@ class TestLastRunSelection:
         )
         last_doctor_run_read.record_doctor_run(
             test_db,
-            _doctor_payload(ran_at="2026-01-02T00:00:00Z"),
+            _doctor_payload(ran_at="2026-01-02T00:00:00.000000Z"),
         )
         insert_event(
             test_db,
             event_id="evt-other",
             event_name="YokeFunctionCalled",
-            created_at="2026-01-03T00:00:00Z",
+            created_at="2026-01-03T00:00:00.000000Z",
         )
         outcome = handle_doctor_last_run_get(_request())
         assert outcome.primary_success
         served = outcome.result_payload
         assert served["never_run"] is False
-        assert served["ran_at"] == "2026-01-02T00:00:00Z"
+        assert served["ran_at"] == "2026-01-02T00:00:00.000000Z"
         assert served["scope"] == "quick"
         assert served["project"] == "yoke"
         assert served["pass_count"] == 1
@@ -114,7 +114,7 @@ class TestLastRunSelection:
             test_db,
             event_id="evt-journal",
             event_name="YokeFunctionCalled",
-            created_at="2026-01-02T00:00:00Z",
+            created_at="2026-01-02T00:00:00.000000Z",
         )
         outcome = handle_doctor_last_run_get(_request())
         assert outcome.primary_success
@@ -127,25 +127,25 @@ class TestProjectFilter:
             test_db,
             _doctor_payload(
                 project="externalwebapp",
-                ran_at="2026-01-01T00:00:00Z",
+                ran_at="2026-01-01T00:00:00.000000Z",
             ),
         )
         last_doctor_run_read.record_doctor_run(
             test_db,
-            _doctor_payload(ran_at="2026-01-02T00:00:00Z"),
+            _doctor_payload(ran_at="2026-01-02T00:00:00.000000Z"),
         )
         outcome = handle_doctor_last_run_get(
             _request({"project": "externalwebapp"}),
         )
         assert outcome.primary_success
         served = outcome.result_payload
-        assert served["ran_at"] == "2026-01-01T00:00:00Z"
+        assert served["ran_at"] == "2026-01-01T00:00:00.000000Z"
         assert served["project"] == "externalwebapp"
 
     def test_mismatched_run_never_poses_as_the_project(self, test_db):
         last_doctor_run_read.record_doctor_run(
             test_db,
-            _doctor_payload(ran_at="2026-01-01T00:00:00Z"),
+            _doctor_payload(ran_at="2026-01-01T00:00:00.000000Z"),
         )
         outcome = handle_doctor_last_run_get(
             _request({"project": "externalwebapp"}),
@@ -167,11 +167,11 @@ class TestProjectFilter:
 class TestReceiptPersist:
     def test_receipt_payload_is_readable(self, test_db):
         outcome = last_doctor_run_read.record_receipt_from_payload(
-            _doctor_payload(ran_at="2026-04-01T12:00:00Z"),
+            _doctor_payload(ran_at="2026-04-01T12:00:00.000000Z"),
         )
         assert outcome.primary_success
         served = handle_doctor_last_run_get(_request()).result_payload
-        assert served["ran_at"] == "2026-04-01T12:00:00Z"
+        assert served["ran_at"] == "2026-04-01T12:00:00.000000Z"
         assert served["fail_count"] == 1
 
     def test_run_handler_receipt_skips_scope(self, test_db):
@@ -180,13 +180,13 @@ class TestReceiptPersist:
         outcome = reads_misc.handle_doctor_run(
             _request(
                 {
-                    "receipt": _doctor_payload(ran_at="2026-04-02T00:00:00Z"),
+                    "receipt": _doctor_payload(ran_at="2026-04-02T00:00:00.000000Z"),
                 }
             )
         )
         assert outcome.primary_success
         served = handle_doctor_last_run_get(_request()).result_payload
-        assert served["ran_at"] == "2026-04-02T00:00:00Z"
+        assert served["ran_at"] == "2026-04-02T00:00:00.000000Z"
 
 
 class TestUiExposure:

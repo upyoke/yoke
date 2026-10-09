@@ -42,7 +42,8 @@ def tmp_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 def _plan(conn, checkout: Path, slugs) -> list:
     """read_ingest_files + plan_ingest — the split the CLI composes."""
     return ing.plan_ingest(
-        conn, project_id=PROJECT_A,
+        conn,
+        project_id=PROJECT_A,
         files=ing.read_ingest_files(checkout, slugs),
     )
 
@@ -64,7 +65,9 @@ def checkout(tmp_db: str, tmp_path: Path) -> Path:
 
 class TestPlanValidation:
     def test_missing_file_refused_naming_path(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         strategy_view_path(checkout, "PAD").unlink()
         conn = connect_test_db(tmp_db)
@@ -76,7 +79,9 @@ class TestPlanValidation:
         assert "PAD.md" in str(exc.value)
 
     def test_headerless_file_refused_naming_file(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         path = strategy_view_path(checkout, "PAD")
         path.write_text("# PAD\n\nno header here\n", encoding="utf-8")
@@ -91,11 +96,11 @@ class TestPlanValidation:
         assert "yoke strategy render" in str(exc.value)
 
     def test_header_slug_mismatch_refused(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
-        mission = strategy_view_path(checkout, "MISSION").read_text(
-            encoding="utf-8"
-        )
+        mission = strategy_view_path(checkout, "MISSION").read_text(encoding="utf-8")
         strategy_view_path(checkout, "PAD").write_text(mission, encoding="utf-8")
         conn = connect_test_db(tmp_db)
         try:
@@ -107,13 +112,16 @@ class TestPlanValidation:
         assert "MISSION" in str(exc.value)
 
     def test_invalid_slug_shape_refused(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         conn = connect_test_db(tmp_db)
         try:
             with pytest.raises(sd.UnknownStrategyDocError):
                 ing.plan_ingest(
-                    conn, project_id=PROJECT_A,
+                    conn,
+                    project_id=PROJECT_A,
                     files=[{"slug": "../escape", "path": "x.md", "text": "y\n"}],
                 )
         finally:
@@ -134,7 +142,9 @@ class TestPlanValidation:
             conn.close()
 
     def test_default_slugs_are_project_corpus(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         conn = connect_test_db(tmp_db)
         try:
@@ -147,7 +157,9 @@ class TestPlanValidation:
         assert sorted(p.slug for p in plans) == sorted(SEED_SLUGS)
 
     def test_changed_to_empty_body_refused(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         edit_body(checkout, "PAD", "   \n")
         conn = connect_test_db(tmp_db)
@@ -161,7 +173,9 @@ class TestPlanValidation:
 
 class TestDryRun:
     def test_rendered_spaced_author_preserves_stale_edit_protection(
-        self, tmp_db: str, tmp_path: Path,
+        self,
+        tmp_db: str,
+        tmp_path: Path,
     ) -> None:
         from yoke_core.domain.actors import resolve_actors_by_name
 
@@ -185,9 +199,7 @@ class TestDryRun:
 
         checkout = tmp_path / "checkout"
         sd.render_docs(target_root=checkout, project_id=PROJECT_A)
-        rendered = strategy_view_path(checkout, "PAD").read_text(
-            encoding="utf-8"
-        )
+        rendered = strategy_view_path(checkout, "PAD").read_text(encoding="utf-8")
         assert parse_file_text(rendered).updated_by == "Ben Bauman"
         edit_body(checkout, "PAD", SEED_CONTENT["PAD"] + "Local edit.\n")
 
@@ -207,10 +219,13 @@ class TestDryRun:
         assert ing.dry_run_report([stale_plan])[0]["status"] == "conflict"
 
     def test_changed_unchanged_and_line_delta(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         edit_body(
-            checkout, "PAD",
+            checkout,
+            "PAD",
             SEED_CONTENT["PAD"] + "New idea line.\nAnother.\n",
         )
         conn = connect_test_db(tmp_db)
@@ -226,7 +241,9 @@ class TestDryRun:
                 assert report[slug]["status"] == "unchanged"
 
     def test_stale_base_previews_as_conflict(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         edit_body(checkout, "PAD", SEED_CONTENT["PAD"] + "Local edit.\n")
         bump_db_row(tmp_db, "PAD")
@@ -238,7 +255,7 @@ class TestDryRun:
         (doc,) = ing.dry_run_report(plans)
         assert doc["status"] == "conflict"
         assert doc["base_updated_at"] == SEED_UPDATED_AT
-        assert doc["db_updated_at"] == "2026-06-11T11:11:11Z"
+        assert doc["db_updated_at"] == "2026-06-11T11:11:11.000000Z"
 
     def test_conflict_teaching_names_recovery_steps(self) -> None:
         teaching = ing.conflict_teaching(["PAD", "WISPS"], Path("/repo"))

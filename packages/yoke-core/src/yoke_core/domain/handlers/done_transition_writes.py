@@ -36,6 +36,9 @@ not by these finalize writes.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field, ValidationError
@@ -206,7 +209,7 @@ def handle_populate_merged_at(request: FunctionCallRequest) -> HandlerOutcome:
             )
             conn.execute(
                 f"UPDATE items SET merged_at = {assignment} WHERE id = {p}",
-                (body.merged_at, item_id),
+                (instant_parameter(conn, parse_instant(body.merged_at)), item_id),
             )
             row = conn.execute(
                 f"SELECT merged_at FROM items WHERE id = {p}",
@@ -219,7 +222,10 @@ def handle_populate_merged_at(request: FunctionCallRequest) -> HandlerOutcome:
         return _err("target_not_found", ITEM_NOT_FOUND)
 
     return HandlerOutcome(
-        result_payload={"item_id": item_id, "merged_at": str(row[0] or "")},
+        result_payload={
+            "item_id": item_id,
+            "merged_at": format_instant(row[0]) if row[0] is not None else None,
+        },
         primary_success=True,
     )
 

@@ -9,6 +9,8 @@ class onto its declared error code, and returns the declared response shape.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from pathlib import Path
 
 import pytest
@@ -24,7 +26,7 @@ from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.handlers import item_merge_provenance as writes
 
 FUNCTION = "items.merge_provenance.operator_correct"
-LANDED_AT = "2026-08-01T18:42:00Z"
+LANDED_AT = "2026-08-01T18:42:00.000000Z"
 REASON = "branch landed via gh pr merge; PR merge path unavailable"
 
 
@@ -50,7 +52,7 @@ def _seed(db, item_id: int, *, status: str = "done") -> None:
         conn.close()
 
 
-def _merged_at(db, item_id: int) -> str:
+def _merged_at(db, item_id: int):
     conn = connect_test_db(db)
     try:
         row = conn.execute(
@@ -59,7 +61,7 @@ def _merged_at(db, item_id: int) -> str:
     finally:
         conn.close()
     value = row["merged_at"] if hasattr(row, "keys") else row[0]
-    return str(value or "")
+    return value
 
 
 def _envelope(*, item_id=None, payload=None):
@@ -89,7 +91,7 @@ def test_writes_merged_at_and_returns_declared_shape(db):
     assert outcome.primary_success, outcome.error
     writes.OperatorCorrectMergedAtResponse(**outcome.result_payload)
     assert outcome.result_payload["merged_at"] == LANDED_AT
-    assert _merged_at(db, item_id) == LANDED_AT
+    assert _merged_at(db, item_id) == parse_instant(LANDED_AT)
 
 
 def test_missing_operator_reason_is_payload_invalid(db):
@@ -126,7 +128,7 @@ def test_non_terminal_item_is_a_refusal_not_a_failure(db):
     assert outcome.primary_success is False
     assert outcome.error is not None
     assert outcome.error.code == "merged_at_correction_refused"
-    assert _merged_at(db, item_id) == ""
+    assert _merged_at(db, item_id) is None
 
 
 def test_hook_context_has_its_own_error_code(db, monkeypatch):
@@ -144,4 +146,4 @@ def test_hook_context_has_its_own_error_code(db, monkeypatch):
     assert outcome.primary_success is False
     assert outcome.error is not None
     assert outcome.error.code == "hook_context_refused"
-    assert _merged_at(db, item_id) == ""
+    assert _merged_at(db, item_id) is None

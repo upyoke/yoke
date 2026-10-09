@@ -11,6 +11,7 @@ import re
 from typing import Any, Mapping
 
 from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
+from yoke_contracts.timestamps import temporal_wire
 from yoke_contracts.public_item_contract import (
     is_engine_protocol_field,
     is_public_item_record,
@@ -123,7 +124,11 @@ def public_response(response: FunctionCallResponse) -> FunctionCallResponse:
                 }
             )
     lookup = ItemRefLookup(refs)
-    update = {"result": _public_text(public_result(response.result, refs), lookup)}
+    update = {
+        "result": temporal_wire(
+            _public_text(public_result(response.result, refs), lookup)
+        )
+    }
     if response.error:
         update["error"] = response.error.model_copy(
             update={"message": _public_text(error_message, lookup)}

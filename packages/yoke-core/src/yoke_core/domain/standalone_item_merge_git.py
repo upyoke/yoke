@@ -266,7 +266,7 @@ def commit_time(repo_root: str, commit: str) -> str:
     control plane that stores the answer. Empty when the commit cannot be
     read, which leaves the caller to fall back rather than invent a time.
     """
-    from yoke_core.domain.item_merge_provenance_operator import MERGED_AT_FORMAT
+    from yoke_contracts.timestamps import format_instant
 
     if not commit:
         return ""
@@ -275,7 +275,7 @@ def commit_time(repo_root: str, commit: str) -> str:
         seconds = int(epoch)
     except (TypeError, ValueError):
         return ""
-    return datetime.fromtimestamp(seconds, timezone.utc).strftime(MERGED_AT_FORMAT)
+    return format_instant(datetime.fromtimestamp(seconds, timezone.utc))
 
 
 def has_remote(repo_root: str) -> bool:

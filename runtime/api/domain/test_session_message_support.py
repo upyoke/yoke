@@ -70,29 +70,29 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
             kind TEXT NOT NULL DEFAULT 'human',
             system_component TEXT,
             name TEXT NOT NULL DEFAULT '',
-            created_at TEXT
+            created_at TIMESTAMPTZ
         );
         CREATE TABLE roles (
             id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE,
-            description TEXT, created_at TEXT NOT NULL
+            description TEXT, created_at TIMESTAMPTZ NOT NULL
         );
         CREATE TABLE permissions (
             id INTEGER PRIMARY KEY, key TEXT NOT NULL UNIQUE,
-            description TEXT, created_at TEXT NOT NULL
+            description TEXT, created_at TIMESTAMPTZ NOT NULL
         );
         CREATE TABLE role_permissions (
             role_id INTEGER NOT NULL, permission_id INTEGER NOT NULL,
-            created_at TEXT NOT NULL, PRIMARY KEY (role_id, permission_id)
+            created_at TIMESTAMPTZ NOT NULL, PRIMARY KEY (role_id, permission_id)
         );
         CREATE TABLE actor_project_roles (
             actor_id INTEGER NOT NULL, project_id INTEGER NOT NULL,
-            role_id INTEGER NOT NULL, granted_at TEXT NOT NULL,
+            role_id INTEGER NOT NULL, granted_at TIMESTAMPTZ NOT NULL,
             granted_by_actor_id INTEGER,
             PRIMARY KEY (actor_id, project_id, role_id)
         );
         CREATE TABLE actor_org_roles (
             actor_id INTEGER NOT NULL, org_id INTEGER NOT NULL,
-            role_id INTEGER NOT NULL, granted_at TEXT NOT NULL,
+            role_id INTEGER NOT NULL, granted_at TIMESTAMPTZ NOT NULL,
             granted_by_actor_id INTEGER,
             PRIMARY KEY (actor_id, org_id, role_id)
         );
@@ -102,7 +102,7 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
         );
         CREATE TABLE item_strategy_docs (
             item_id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL,
-            strategy_doc_slug TEXT NOT NULL, linked_at TEXT NOT NULL
+            strategy_doc_slug TEXT NOT NULL, linked_at TIMESTAMPTZ NOT NULL
         );
         CREATE TABLE item_worktrees (
             id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL,
@@ -119,23 +119,23 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
         + ALPHA_WORKSPACE
         + """',
             executor TEXT, executor_surface TEXT, executor_version TEXT,
-            machine_id TEXT, execution_level TEXT, last_heartbeat TEXT,
-            last_tool_call_at TEXT, offered_at TEXT, ended_at TEXT,
-            terminated_at TEXT, terminated_by_actor_id INTEGER,
+            machine_id TEXT, execution_level TEXT, last_heartbeat TIMESTAMPTZ,
+            last_tool_call_at TIMESTAMPTZ, offered_at TIMESTAMPTZ, ended_at TIMESTAMPTZ,
+            terminated_at TIMESTAMPTZ, terminated_by_actor_id INTEGER,
             terminated_by_session_id TEXT, termination_reason TEXT,
-            turn_posture TEXT NOT NULL DEFAULT 'unknown', turn_posture_at TEXT,
+            turn_posture TEXT NOT NULL DEFAULT 'unknown', turn_posture_at TIMESTAMPTZ,
             model TEXT, reasoning_effort TEXT, context_window_tokens INTEGER,
             requested_model TEXT, requested_reasoning_effort TEXT,
             requested_context_window_tokens INTEGER,
             native_thread_id TEXT, offer_envelope TEXT,
-            episode_started_at TEXT
+            episode_started_at TIMESTAMPTZ
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY, session_id TEXT NOT NULL,
             target_kind TEXT NOT NULL, scope TEXT NOT NULL,
             claim_type TEXT NOT NULL DEFAULT 'exclusive',
-            claimed_at TEXT NOT NULL,
-            last_heartbeat TEXT, released_at TEXT, release_reason TEXT,
+            claimed_at TIMESTAMPTZ NOT NULL,
+            last_heartbeat TIMESTAMPTZ, released_at TIMESTAMPTZ, release_reason TEXT,
             reason TEXT, reason_intent TEXT, release_reason_intent TEXT
         );
         """

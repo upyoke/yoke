@@ -110,11 +110,11 @@ def observer_connection():
     conn.executescript(
         """
         ALTER TABLE items ADD COLUMN status TEXT DEFAULT 'reviewing-implementation';
-        ALTER TABLE items ADD COLUMN merged_at TEXT;
+        ALTER TABLE items ADD COLUMN merged_at TIMESTAMPTZ;
         ALTER TABLE items ADD COLUMN merge_queue_pr_number TEXT;
-        ALTER TABLE items ADD COLUMN merge_queue_enqueued_at TEXT;
-        ALTER TABLE items ADD COLUMN merge_queue_landed_at TEXT;
-        ALTER TABLE items ADD COLUMN merge_queue_notified_at TEXT;
+        ALTER TABLE items ADD COLUMN merge_queue_enqueued_at TIMESTAMPTZ;
+        ALTER TABLE items ADD COLUMN merge_queue_landed_at TIMESTAMPTZ;
+        ALTER TABLE items ADD COLUMN merge_queue_notified_at TIMESTAMPTZ;
         UPDATE harness_sessions SET actor_id=10;
         UPDATE items SET merge_queue_pr_number='42',
           merge_queue_enqueued_at='2026-08-27T17:00:00Z' WHERE id=101;

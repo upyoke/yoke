@@ -20,10 +20,11 @@ standalone-item-merge.md``.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant, utc_now
+
 from yoke_core.domain.public_item_target import public_item_target
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Optional, Sequence
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
@@ -76,7 +77,7 @@ def stamp_merged_at(
     because "now" is only ever an approximation of a landing nobody timed.
     """
     landed_at = git.commit_time(repo_root, merge_sha) if repo_root else ""
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = format_instant(utc_now())
     response = call_dispatcher(
         function_id="done_transition.populate_merged_at",
         target=public_item_target(item_id),

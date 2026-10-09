@@ -109,6 +109,7 @@ def test_actor_birth_clocks_preserve_microseconds(test_db, monkeypatch, zone):
 def test_org_and_project_grants_keep_native_clocks(test_db, monkeypatch, zone):
     from yoke_core.domain import actor_permissions, actor_role_grants, actors
 
+    actor_permissions.seed_roles_and_permissions(test_db)
     actor_id = actors.seed_human_actor(test_db, name="Grant clock")
     org_id = external_identities.default_org_id(test_db)
     monkeypatch.setattr(actor_role_grants, "utc_now", lambda: STAMP)

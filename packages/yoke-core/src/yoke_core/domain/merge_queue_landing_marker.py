@@ -16,6 +16,10 @@ repoint can never be the weaker of the two.
 from __future__ import annotations
 
 from typing import Any, Dict
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.merge_queue_landing_record import delete_landing_record
@@ -25,7 +29,7 @@ def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def read_landing_marker(conn: Any, item_id: int) -> Dict[str, str] | None:
+def read_landing_marker(conn: Any, item_id: int) -> Dict[str, Any] | None:
     """The item's four landing facts, or ``None`` when the item is absent."""
     p = _placeholder(conn)
     row = conn.execute(
@@ -37,9 +41,9 @@ def read_landing_marker(conn: Any, item_id: int) -> Dict[str, str] | None:
         return None
     return {
         "pr_number": str(row[0] or ""),
-        "enqueued_at": str(row[1] or ""),
-        "landed_at": str(row[2] or ""),
-        "notified_at": str(row[3] or ""),
+        "enqueued_at": parse_instant(row[1]) if row[1] is not None else None,
+        "landed_at": parse_instant(row[2]) if row[2] is not None else None,
+        "notified_at": parse_instant(row[3]) if row[3] is not None else None,
     }
 
 
@@ -48,8 +52,8 @@ def point_item_at_pull_request(
     item_id: int,
     pr_number: str,
     *,
-    enqueued_at: str = "",
-) -> Dict[str, str] | None:
+    enqueued_at: datetime | str | None = None,
+) -> Dict[str, Any] | None:
     """Point the item at ``pr_number`` and return its four landing facts.
 
     Every landing stamp belongs to one pull request, so a number that
@@ -62,12 +66,17 @@ def point_item_at_pull_request(
     marker = read_landing_marker(conn, item_id)
     if marker is None:
         return None
+    supplied = parse_instant(enqueued_at) if enqueued_at is not None else None
     same_pr = marker["pr_number"] == pr_number
-    recorded_enqueued_at = enqueued_at or (marker["enqueued_at"] if same_pr else "")
-    landed_at = marker["landed_at"] if same_pr else ""
-    notified_at = marker["notified_at"] if same_pr else ""
+    recorded_enqueued_at = (
+        supplied
+        if supplied is not None
+        else (marker["enqueued_at"] if same_pr else None)
+    )
+    landed_at = marker["landed_at"] if same_pr else None
+    notified_at = marker["notified_at"] if same_pr else None
     reset_observation = not same_pr or bool(
-        enqueued_at and enqueued_at != marker["enqueued_at"]
+        supplied is not None and supplied != marker["enqueued_at"]
     )
     p = _placeholder(conn)
     conn.execute(
@@ -76,9 +85,9 @@ def point_item_at_pull_request(
         "merge_queue_notified_at = {0} WHERE id = {0}".format(p),
         (
             pr_number,
-            recorded_enqueued_at or None,
-            landed_at or None,
-            notified_at or None,
+            instant_parameter(conn, recorded_enqueued_at),
+            instant_parameter(conn, landed_at),
+            instant_parameter(conn, notified_at),
             int(item_id),
         ),
     )

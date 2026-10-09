@@ -1,0 +1,78 @@
+"""Native landing cadence and receipt projections preserve microsecond facts."""
+
+import hashlib
+import json
+from datetime import timedelta
+
+import pytest
+
+from yoke_contracts.timestamps import format_instant, parse_instant, temporal_wire
+from yoke_core.domain import last_doctor_run_read, merge_queue_landing_refresh
+from yoke_core.domain.yoke_function_dispatch_events import serialize_payload
+
+STAMP = parse_instant("1970-01-01T05:29:59.123456+05:30")
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_refresh_cadence_keeps_exact_native_boundary(test_db, zone):
+    from yoke_core.domain.merge_queue_landing_record_schema import (
+        ensure_merge_queue_landing_record_schema,
+    )
+
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    ensure_merge_queue_landing_record_schema(test_db)
+    floor = STAMP - timedelta(seconds=60)
+    assert merge_queue_landing_refresh.claim_due_projects(
+        test_db, [1], now=floor, cadence_seconds=60
+    ) == (1,)
+    assert (
+        merge_queue_landing_refresh.claim_due_projects(
+            test_db, [1], now=STAMP - timedelta(microseconds=1), cadence_seconds=60
+        )
+        == ()
+    )
+    assert merge_queue_landing_refresh.claim_due_projects(
+        test_db, [1], now=STAMP, cadence_seconds=60
+    ) == (1,)
+    merge_queue_landing_refresh.complete_projects(test_db, [1], now=STAMP)
+    fact = merge_queue_landing_refresh.read_refresh(test_db, 1)
+    assert fact.started_at == fact.completed_at == STAMP
+    assert fact.payload()["started_at"] == "1969-12-31T23:59:59.123456Z"
+    assert (
+        merge_queue_landing_refresh.read_refresh(test_db, 2).payload()["started_at"]
+        is None
+    )
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_doctor_receipt_native_storage_and_wire_projection(test_db, zone):
+    from yoke_core.domain.health_runs_schema import ensure_doctor_runs_schema
+
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    ensure_doctor_runs_schema(test_db)
+    last_doctor_run_read.record_doctor_run(
+        test_db, {"ran_at": STAMP, "project": "yoke", "results": []}
+    )
+    row = test_db.execute(
+        "SELECT ran_at, project, scope, runtime, fail_count, pass_count, "
+        "warn_count, na_count, results FROM doctor_runs"
+    ).fetchone()
+    assert row[0] == STAMP
+    assert last_doctor_run_read._serve_row(row)["ran_at"] == format_instant(STAMP)
+
+
+def test_new_payload_digest_projects_native_clocks_and_preserves_opaque_values():
+    native = {
+        "clock": STAMP,
+        "unknown": None,
+        "token": "1970-01-01T00:00:00Z",
+        "id": 2**53 + 1,
+    }
+    wire = temporal_wire(native)
+    expected = json.dumps(wire, sort_keys=True, separators=(",", ":")).encode()
+    assert serialize_payload(native) == (
+        len(expected),
+        hashlib.sha256(expected).hexdigest(),
+    )
+    assert wire["token"] == native["token"]
+    assert native["clock"] == STAMP

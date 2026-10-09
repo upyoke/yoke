@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Set
 
 from yoke_contracts.api.function_call import FunctionError, HandlerOutcome
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.health_runs_schema import DOCTOR_RUNS_TABLE
 from yoke_core.domain.json_helper import dumps_compact, loads_text
@@ -44,6 +45,8 @@ def _count(value: Any) -> int:
 def record_doctor_run(conn: Any, payload: Dict[str, Any]) -> None:
     """Insert one completed-run receipt. Caller supplies an open connection."""
     marker = _p(conn)
+    supplied = payload.get("ran_at")
+    clock = utc_now() if supplied is None else parse_instant(supplied)
     conn.execute(
         f"INSERT INTO {DOCTOR_RUNS_TABLE} ("
         "ran_at, project, scope, runtime, fail_count, pass_count, "
@@ -51,7 +54,7 @@ def record_doctor_run(conn: Any, payload: Dict[str, Any]) -> None:
         f") VALUES ({marker}, {marker}, {marker}, {marker}, "
         f"{marker}, {marker}, {marker}, {marker}, {marker})",
         (
-            str(payload.get("ran_at") or db_helpers.iso8601_now()),
+            db_helpers.instant_parameter(conn, clock),
             str(payload.get("project") or ""),
             payload.get("scope"),
             payload.get("runtime"),
@@ -126,9 +129,10 @@ def _serve_row(row: Any) -> Dict[str, Any]:
     except ValueError:
         parsed = []
     checks = _check_rows(parsed)
+    clock = row_value(row, "ran_at", 0)
     return {
         "never_run": False,
-        "ran_at": str(row_value(row, "ran_at", 0) or ""),
+        "ran_at": format_instant(clock) if clock is not None else None,
         "scope": row_value(row, "scope", 2),
         "project": row_value(row, "project", 1),
         "pass_count": _count(row_value(row, "pass_count", 5)),

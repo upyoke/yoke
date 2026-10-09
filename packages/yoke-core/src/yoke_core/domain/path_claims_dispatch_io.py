@@ -12,6 +12,7 @@ import json
 import sys
 from typing import List, Optional, Sequence
 
+from yoke_contracts.timestamps import temporal_wire
 from yoke_core.domain.db_helpers import connect
 
 
@@ -36,13 +37,13 @@ def split_states(raw: Optional[Sequence[str]]) -> Optional[List[str]]:
 
 
 def print_json(payload: object) -> None:
-    print(json.dumps(payload))
+    print(json.dumps(temporal_wire(payload)))
 
 
 def print_error(code: str, message: str, **extra: object) -> None:
     payload = {"success": False, "code": code, "message": message}
     payload.update(extra)
-    print(json.dumps(payload), file=sys.stderr)
+    print(json.dumps(temporal_wire(payload)), file=sys.stderr)
 
 
 def open_conn():

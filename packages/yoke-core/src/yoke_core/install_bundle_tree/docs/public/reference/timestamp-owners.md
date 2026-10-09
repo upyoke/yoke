@@ -73,3 +73,16 @@ binds the corresponding creation instant natively; existing artifact bytes stay
 unchanged. Registry/board render headers and timing-log wall clocks use the shared
 formatter. Artifact filename dates remain labels. Current observation birth
 fixtures declare native clock columns; historical conversion fixtures retain TEXT.
+
+Path-claim CLI JSON and body renderers format owned instants; worktree lane
+responses normalize declared clocks before model validation. Doctor receipts bind
+native run clocks and format only their response projection. Done bookkeeping
+and merge marker writes retain native landing facts, including null unknowns;
+provider corrections accept qualified RFC3339 and compare native instants. Queue
+refresh cadence keeps native cutoffs and facts across database timezones.
+
+New dispatcher result digests and public/CLI payloads apply the shared native
+clock JSON projection, preserving opaque strings, integers and existing receipt
+bytes. Current board and session-message fixtures declare native clock columns;
+calendar-day rollups remain dates. Git epoch seconds stay a provider protocol,
+with fixed-six UTC formatting when projected into a request.

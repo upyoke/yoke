@@ -24,6 +24,8 @@ claim ceremony is enforced upstream by the status flip.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import temporal_wire
+
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field, ValidationError
@@ -49,8 +51,8 @@ class MarkLandingPendingResponse(BaseModel):
     item_id: int
     pr_number: str
     enqueued_at: str
-    landed_at: str = ""
-    notified_at: str = ""
+    landed_at: str | None = None
+    notified_at: str | None = None
 
 
 class RecordLandingPullRequestRequest(BaseModel):
@@ -60,9 +62,9 @@ class RecordLandingPullRequestRequest(BaseModel):
 class RecordLandingPullRequestResponse(BaseModel):
     item_id: int
     pr_number: str
-    enqueued_at: str = ""
-    landed_at: str = ""
-    notified_at: str = ""
+    enqueued_at: str | None = None
+    landed_at: str | None = None
+    notified_at: str | None = None
 
 
 class ClearLandingPendingRequest(BaseModel):
@@ -103,7 +105,7 @@ def _write_landing_marker(
     item_id: int,
     pr_number: str,
     *,
-    enqueued_at: str,
+    enqueued_at: str | None,
     failure_code: str,
 ) -> HandlerOutcome:
     """Point the item at ``pr_number`` and return the four landing facts."""
@@ -117,7 +119,7 @@ def _write_landing_marker(
     if marker is None:
         return _err("target_not_found", ITEM_NOT_FOUND)
     return HandlerOutcome(
-        result_payload={"item_id": item_id, **marker},
+        result_payload={"item_id": item_id, **temporal_wire(marker)},
         primary_success=True,
     )
 
@@ -149,7 +151,7 @@ def handle_record_landing_pull_request(
     return _write_landing_marker(
         item_id,
         body.pr_number,
-        enqueued_at="",
+        enqueued_at=None,
         failure_code="landing_pull_request_record_failed",
     )
 

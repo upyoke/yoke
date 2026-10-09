@@ -10,6 +10,8 @@ which is the local leg of the all-modes contract.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from pathlib import Path
 
 import pytest
@@ -103,7 +105,7 @@ class TestRecordLandingPullRequest:
 
         assert outcome.primary_success, outcome.error
         markers.RecordLandingPullRequestResponse(**outcome.result_payload)
-        assert outcome.result_payload["enqueued_at"] == ""
+        assert outcome.result_payload["enqueued_at"] is None
         pr_number, enqueued_at, landed_at, notified_at = _marker(db, item_id)
         assert pr_number == "863"
         assert enqueued_at is None
@@ -124,7 +126,10 @@ class TestRecordLandingPullRequest:
             _item_envelope(
                 MARK,
                 item_id=item_id,
-                payload={"pr_number": "863", "enqueued_at": "2026-09-03T15:00:00Z"},
+                payload={
+                    "pr_number": "863",
+                    "enqueued_at": "2026-09-03T15:00:00.000000Z",
+                },
             )
         )
 
@@ -132,8 +137,8 @@ class TestRecordLandingPullRequest:
             _item_envelope(RECORD, item_id=item_id, payload={"pr_number": "863"})
         )
 
-        assert outcome.result_payload["enqueued_at"] == "2026-09-03T15:00:00Z"
-        assert _marker(db, item_id)[1] == "2026-09-03T15:00:00Z"
+        assert outcome.result_payload["enqueued_at"] == "2026-09-03T15:00:00.000000Z"
+        assert _marker(db, item_id)[1] == parse_instant("2026-09-03T15:00:00.000000Z")
 
     def test_a_superseding_pull_request_drops_the_previous_stamps(self, db):
         """Every landing stamp belongs to one pull request.
@@ -146,7 +151,10 @@ class TestRecordLandingPullRequest:
             _item_envelope(
                 MARK,
                 item_id=item_id,
-                payload={"pr_number": "863", "enqueued_at": "2026-09-03T15:00:00Z"},
+                payload={
+                    "pr_number": "863",
+                    "enqueued_at": "2026-09-03T15:00:00.000000Z",
+                },
             )
         )
 
@@ -154,7 +162,7 @@ class TestRecordLandingPullRequest:
             _item_envelope(RECORD, item_id=item_id, payload={"pr_number": "871"})
         )
 
-        assert outcome.result_payload["enqueued_at"] == ""
+        assert outcome.result_payload["enqueued_at"] is None
         assert _marker(db, item_id)[:2] == ("871", None)
 
     def test_missing_pull_request_number_is_payload_invalid(self, db):
@@ -190,18 +198,24 @@ class TestLandingPendingMarker:
             _item_envelope(
                 MARK,
                 item_id=item_id,
-                payload={"pr_number": "42", "enqueued_at": "2026-08-27T18:00:00Z"},
+                payload={
+                    "pr_number": "42",
+                    "enqueued_at": "2026-08-27T18:00:00.000000Z",
+                },
             )
         )
         second = markers.handle_mark_landing_pending(
             _item_envelope(
                 MARK,
                 item_id=item_id,
-                payload={"pr_number": "42", "enqueued_at": "2026-08-27T18:00:00Z"},
+                payload={
+                    "pr_number": "42",
+                    "enqueued_at": "2026-08-27T18:00:00.000000Z",
+                },
             )
         )
         assert first.primary_success and second.primary_success
-        assert second.result_payload["enqueued_at"] == "2026-08-27T18:00:00Z"
+        assert second.result_payload["enqueued_at"] == "2026-08-27T18:00:00.000000Z"
         markers.MarkLandingPendingResponse(**second.result_payload)
 
         cleared = markers.handle_clear_landing_pending(
@@ -217,7 +231,10 @@ class TestLandingPendingMarker:
             _item_envelope(
                 MARK,
                 item_id=item_id,
-                payload={"pr_number": "42", "enqueued_at": "2026-08-27T18:00:00Z"},
+                payload={
+                    "pr_number": "42",
+                    "enqueued_at": "2026-08-27T18:00:00.000000Z",
+                },
             )
         )
         conn = connect_test_db(db)
@@ -237,8 +254,8 @@ class TestLandingPendingMarker:
                     queue_holding=NEITHER,
                     queue_entry_state=ENTRY_ABSENT,
                     merge_when_ready=MERGE_WHEN_READY_CLEARED,
-                    observed_at="2026-08-27T18:01:00Z",
-                    changed_at="2026-08-27T18:01:00Z",
+                    observed_at="2026-08-27T18:01:00.000000Z",
+                    changed_at="2026-08-27T18:01:00.000000Z",
                 ),
             )
             conn.commit()
@@ -249,11 +266,14 @@ class TestLandingPendingMarker:
             _item_envelope(
                 MARK,
                 item_id=item_id,
-                payload={"pr_number": "42", "enqueued_at": "2026-08-27T18:05:00Z"},
+                payload={
+                    "pr_number": "42",
+                    "enqueued_at": "2026-08-27T18:05:00.000000Z",
+                },
             )
         )
         assert rearmed.primary_success
-        assert rearmed.result_payload["enqueued_at"] == "2026-08-27T18:05:00Z"
+        assert rearmed.result_payload["enqueued_at"] == "2026-08-27T18:05:00.000000Z"
         conn = connect_test_db(db)
         try:
             assert read_landing_record(conn, item_id) is None
@@ -267,8 +287,8 @@ class TestLandingPendingMarker:
                     queue_holding=NEITHER,
                     queue_entry_state=ENTRY_ABSENT,
                     merge_when_ready=MERGE_WHEN_READY_CLEARED,
-                    observed_at="2026-08-27T18:06:00Z",
-                    changed_at="2026-08-27T18:06:00Z",
+                    observed_at="2026-08-27T18:06:00.000000Z",
+                    changed_at="2026-08-27T18:06:00.000000Z",
                 ),
             )
             conn.commit()
