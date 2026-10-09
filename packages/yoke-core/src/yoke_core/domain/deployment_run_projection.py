@@ -6,11 +6,13 @@ import hashlib
 import json
 from typing import Any, Mapping
 
-from yoke_core.domain.db_helpers import connect
+from yoke_contracts.timestamps import InvalidInstant, parse_instant, temporal_wire
+from yoke_core.domain.db_helpers import connect, instant_parameter
 from yoke_core.domain.deployment_run_bound_sources import bound_sources_recorded
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 from yoke_core.domain.deployment_runs_schema import (
     RUN_FIELDS,
+    RUN_INSTANT_FIELDS,
     VALID_STATUSES,
     _run_named_columns,
 )
@@ -27,16 +29,23 @@ class DeploymentRunProjectionCollision(DeploymentRunProjectionError):
     """Destination state conflicts with the supplied projection authority."""
 
 
-def normalize_snapshot(raw: Mapping[str, Any]) -> dict[str, str | None]:
+def normalize_snapshot(raw: Mapping[str, Any]) -> dict[str, Any]:
     """Validate one canonical portable deployment-run row."""
     if set(raw) != set(RUN_FIELDS):
         raise DeploymentRunProjectionError(
             "snapshot must contain exactly the canonical deployment-run fields"
         )
-    normalized: dict[str, str | None] = {}
+    normalized: dict[str, Any] = {}
     for field in RUN_FIELDS:
         value = raw[field]
-        if value is None or value == "":
+        if field in RUN_INSTANT_FIELDS:
+            try:
+                normalized[field] = None if value is None else parse_instant(value)
+            except InvalidInstant as exc:
+                raise DeploymentRunProjectionError(f"snapshot {field}: {exc}") from exc
+        elif field in ("artifact_identity", "requirement_snapshot"):
+            normalized[field] = None if value is None else str(value)
+        elif value is None or value == "":
             normalized[field] = None
         elif field in ("carried_work", "bound_sources"):
             parsed = parse_carried_work(value)
@@ -61,14 +70,14 @@ def snapshot_digest(snapshot: Mapping[str, Any]) -> str:
     """Return the stable digest used for optimistic destination repair."""
     normalized = normalize_snapshot(snapshot)
     encoded = json.dumps(
-        normalized,
+        temporal_wire(normalized),
         sort_keys=True,
         separators=(",", ":"),
     ).encode()
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _row_snapshot(row: Any) -> dict[str, str | None]:
+def _row_snapshot(row: Any) -> dict[str, Any]:
     return normalize_snapshot(
         {
             field: (row[field] if hasattr(row, "keys") else row[index])
@@ -77,7 +86,7 @@ def _row_snapshot(row: Any) -> dict[str, str | None]:
     )
 
 
-def _locked_existing(conn: Any, run_id: str) -> dict[str, str | None] | None:
+def _locked_existing(conn: Any, run_id: str) -> dict[str, Any] | None:
     columns, env_join = _run_named_columns(conn)
     row = conn.execute(
         f"SELECT {columns} "
@@ -173,15 +182,15 @@ def project_snapshot(
                     snapshot["release_lineage"],
                     snapshot["status"],
                     snapshot["current_stage"],
-                    snapshot["created_at"],
-                    snapshot["started_at"],
-                    snapshot["completed_at"],
+                    instant_parameter(authority, snapshot["created_at"]),
+                    instant_parameter(authority, snapshot["started_at"]),
+                    instant_parameter(authority, snapshot["completed_at"]),
                     snapshot["created_by"],
                     snapshot["carried_work"],
                     *bound_parameter,
                     snapshot["artifact_identity"],
                     snapshot["composition_resolution"],
-                    snapshot["composition_frozen_at"],
+                    instant_parameter(authority, snapshot["composition_frozen_at"]),
                     snapshot["requirement_snapshot"],
                 ),
             )
@@ -226,13 +235,13 @@ def project_snapshot(
                     target_environment_id,
                     snapshot["status"],
                     snapshot["current_stage"],
-                    snapshot["created_at"],
-                    snapshot["started_at"],
-                    snapshot["completed_at"],
+                    instant_parameter(authority, snapshot["created_at"]),
+                    instant_parameter(authority, snapshot["started_at"]),
+                    instant_parameter(authority, snapshot["completed_at"]),
                     snapshot["created_by"],
                     snapshot["carried_work"],
                     snapshot["composition_resolution"],
-                    snapshot["composition_frozen_at"],
+                    instant_parameter(authority, snapshot["composition_frozen_at"]),
                     snapshot["requirement_snapshot"],
                     snapshot["id"],
                 ),
