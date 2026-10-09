@@ -20,6 +20,7 @@ from yoke_contracts.api.function_call import (
 
 _CAPTURED_REQUESTS: List[FunctionCallRequest] = []
 _IDENTITY_RESULT = {"project_id": 1, "project_slug": "yoke", "docs": []}
+_UPDATED_AT = "2026-06-10T00:00:00.123456Z"
 
 
 @pytest.fixture(autouse=True)
@@ -56,15 +57,23 @@ class TestDocArchive:
         results = {
             "strategy.doc.list": _IDENTITY_RESULT,
             "strategy.doc.archive": {
-                "project_id": 1, "project_slug": "yoke",
-                "slug": "PAD", "archived": True, "changed": True,
+                "project_id": 1,
+                "project_slug": "yoke",
+                "slug": "PAD",
+                "archived": True,
+                "changed": True,
             },
             "strategy.render.run": {
-                "project_id": 1, "project_slug": "yoke",
-                "docs": [{
-                    "slug": "PAD", "updated_at": "x",
-                    "file_text": "<!-- h -->\n# PAD\n", "archived": True,
-                }],
+                "project_id": 1,
+                "project_slug": "yoke",
+                "docs": [
+                    {
+                        "slug": "PAD",
+                        "updated_at": _UPDATED_AT,
+                        "file_text": "<!-- h -->\n# PAD\n",
+                        "archived": True,
+                    }
+                ],
             },
         }
         with patch(
@@ -72,19 +81,27 @@ class TestDocArchive:
             side_effect=_stub(results),
         ):
             rc = _run(
-                "strategy", "doc", "archive", "PAD",
-                "--target-root", str(tmp_path),
+                "strategy",
+                "doc",
+                "archive",
+                "PAD",
+                "--target-root",
+                str(tmp_path),
             )
         assert rc == 0
         assert [r.function for r in _CAPTURED_REQUESTS] == [
-            "strategy.doc.list", "strategy.doc.archive", "strategy.render.run",
+            "strategy.doc.list",
+            "strategy.doc.archive",
+            "strategy.render.run",
         ]
         assert (tmp_path / ".yoke" / "strategy" / "archive" / "PAD.md").read_text(
             encoding="utf-8"
         ) == "<!-- h -->\n# PAD\n"
 
     def test_refuses_before_dispatch_when_target_root_is_another_project(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
         monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
@@ -107,8 +124,12 @@ class TestDocArchive:
             side_effect=_stub(results),
         ):
             rc = _run(
-                "strategy", "doc", "archive", "PAD",
-                "--target-root", str(other_checkout),
+                "strategy",
+                "doc",
+                "archive",
+                "PAD",
+                "--target-root",
+                str(other_checkout),
             )
         # A known project mismatch refuses before the archive flip ever
         # dispatches — zero DB writes.
@@ -124,15 +145,23 @@ class TestDocUnarchive:
         results = {
             "strategy.doc.list": _IDENTITY_RESULT,
             "strategy.doc.unarchive": {
-                "project_id": 1, "project_slug": "yoke",
-                "slug": "PAD", "archived": False, "changed": True,
+                "project_id": 1,
+                "project_slug": "yoke",
+                "slug": "PAD",
+                "archived": False,
+                "changed": True,
             },
             "strategy.render.run": {
-                "project_id": 1, "project_slug": "yoke",
-                "docs": [{
-                    "slug": "PAD", "updated_at": "x",
-                    "file_text": "<!-- h -->\n# PAD\n", "archived": False,
-                }],
+                "project_id": 1,
+                "project_slug": "yoke",
+                "docs": [
+                    {
+                        "slug": "PAD",
+                        "updated_at": _UPDATED_AT,
+                        "file_text": "<!-- h -->\n# PAD\n",
+                        "archived": False,
+                    }
+                ],
             },
         }
         with patch(
@@ -140,12 +169,18 @@ class TestDocUnarchive:
             side_effect=_stub(results),
         ):
             rc = _run(
-                "strategy", "doc", "unarchive", "PAD",
-                "--target-root", str(tmp_path),
+                "strategy",
+                "doc",
+                "unarchive",
+                "PAD",
+                "--target-root",
+                str(tmp_path),
             )
         assert rc == 0
         assert [r.function for r in _CAPTURED_REQUESTS] == [
-            "strategy.doc.list", "strategy.doc.unarchive", "strategy.render.run",
+            "strategy.doc.list",
+            "strategy.doc.unarchive",
+            "strategy.render.run",
         ]
         assert (tmp_path / ".yoke" / "strategy" / "PAD.md").read_text(
             encoding="utf-8"
@@ -156,8 +191,12 @@ def test_section_replace_receipt_names_only_the_edited_document(tmp_path):
     from yoke_cli.commands.adapters import strategy_doc_write as owner
     from types import SimpleNamespace
 
-    response = SimpleNamespace(success=True, result={"slug": "MISSION", "changed": True}, warnings=[])
-    report = dict.fromkeys(["MISSION", "LANDSCAPE", "VISION", "MASTER-PLAN", "CURRENT-PLAN"], "rendered")
+    response = SimpleNamespace(
+        success=True, result={"slug": "MISSION", "changed": True}, warnings=[]
+    )
+    report = dict.fromkeys(
+        ["MISSION", "LANDSCAPE", "VISION", "MASTER-PLAN", "CURRENT-PLAN"], "rendered"
+    )
     output = io.StringIO()
 
     def emit(actual, **kwargs):
@@ -165,8 +204,24 @@ def test_section_replace_receipt_names_only_the_edited_document(tmp_path):
         kwargs["human_writer"](actual, output, io.StringIO())
         return 0
 
-    with patch.object(owner, "call_dispatcher", return_value=response) as dispatch, patch.object(owner, "apply_rendered_docs", return_value=(report, [])), patch.object(owner, "emit_response", side_effect=emit):
-        assert owner.dispatch_and_render(function_id="strategy.doc.section_replace", payload={"slug": "MISSION"}, actor=None, target=None, json_mode=False, target_root=tmp_path, anchor_error=None, skipped_verb="edited") == 0
+    with (
+        patch.object(owner, "call_dispatcher", return_value=response) as dispatch,
+        patch.object(owner, "apply_rendered_docs", return_value=(report, [])),
+        patch.object(owner, "emit_response", side_effect=emit),
+    ):
+        assert (
+            owner.dispatch_and_render(
+                function_id="strategy.doc.section_replace",
+                payload={"slug": "MISSION"},
+                actor=None,
+                target=None,
+                json_mode=False,
+                target_root=tmp_path,
+                anchor_error=None,
+                skipped_verb="edited",
+            )
+            == 0
+        )
     assert dispatch.call_args.kwargs["payload"]["slugs"] == ["MISSION"]
     assert len(output.getvalue()) <= 75
     assert "MISSION\trendered" in output.getvalue()
