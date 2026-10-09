@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.stored_instant_columns import STORED_INSTANT_COLUMNS
+
 from typing import Optional
 
 from yoke_core.domain.db_helpers import connect
@@ -119,7 +121,12 @@ def cmd_init(db_path: Optional[str] = None) -> None:
             KEY_COLUMN,
             REQUEST_COLUMN,
         ):
-            _add_column_if_not_exists(conn, "deployment_runs", column, "TEXT")
+            declaration = (
+                "TIMESTAMPTZ"
+                if ("deployment_runs", column) in STORED_INSTANT_COLUMNS
+                else "TEXT"
+            )
+            _add_column_if_not_exists(conn, "deployment_runs", column, declaration)
         conn.execute(KEY_INDEX_SQL)
         for column, declaration in (
             ("delivery_intent", DELIVERY_INTENT_COLUMN_SQL),

@@ -211,7 +211,7 @@ clocks without changing the existing conflict-preserving seed behavior.
 Disposable backlog graph fixtures create native clocks and parse provided clocks
 through the shared strict ingress. The existing finite stored-instant roster
 selects SQL parameters for items, worktrees, generated tasks, events, deployment
-runs and QA records; explicit SQLite formats at binding. Null optional clocks
+runs and QA records and selects native types for missing additive deployment clock columns; explicit SQLite formats at binding. Null optional clocks
 and opaque body/result evidence retain their meaning. Empty or malformed clock
 inputs refuse instead of defaulting to the current time.
 
