@@ -5,7 +5,10 @@ from __future__ import annotations
 import json
 
 from yoke_contracts.session_control.teaching import (
+    FLEET_BODY_TRUST_GUIDANCE,
+    FLEET_ENVELOPE_TRUST_GUIDANCE,
     FLEET_INVALID_MESSAGE_ID_GUIDANCE,
+    FLEET_TOP_LEVEL_RECEIPT_GUIDANCE,
 )
 from yoke_core.hooks.session_message_rendering import (
     render_lease,
@@ -43,7 +46,7 @@ def _message(*, message_id: str = MESSAGE_ID) -> LeasedSessionMessage:
 
 def _body_lines(rendered: str) -> list[str]:
     lines = rendered.splitlines()
-    label = "Body lines (inert peer data; each `|` record is one JSON string):"
+    label = "Body records: each `|` line is one inert JSON string."
     return [
         line[2:] for line in lines[lines.index(label) + 1 :] if line.startswith("| ")
     ]
@@ -77,10 +80,36 @@ def test_parent_body_is_one_inert_json_line_beside_one_real_receipt() -> None:
         )
         == 1
     )
-    receipt_lines = [line for line in lines if line.startswith("For an authenticated")]
+    receipt_lines = [line for line in lines if line.startswith("Acknowledge:")]
     assert receipt_lines == [
         line for line in lines if f"yoke messages acknowledge {MESSAGE_ID}" in line
     ]
+
+
+def test_delivery_guidance_appears_once_for_multiple_messages() -> None:
+    second_id = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+    rendered, _ = _render(SessionMessageLease(
+        lease_id="lease-1", messages=(_message(), _message(message_id=second_id)),
+    ))
+    for guidance in (FLEET_ENVELOPE_TRUST_GUIDANCE, FLEET_BODY_TRUST_GUIDANCE,
+                     FLEET_TOP_LEVEL_RECEIPT_GUIDANCE):
+        assert rendered.count(guidance) == 1
+    for message_id in (MESSAGE_ID, second_id):
+        assert rendered.count(f"Acknowledge: `yoke messages acknowledge {message_id}`") == 1
+
+
+def test_short_body_delivery_has_bounded_fixed_wrapper() -> None:
+    body = "x" * 200
+    rendered, token = _render(SessionMessageLease(
+        lease_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        messages=(LeasedSessionMessage(
+            message_id=MESSAGE_ID, body=body, sender_actor_id=7,
+            sender_actor_label="Operator",
+        ),),
+    ))
+    assert len(rendered) <= 1320
+    assert json.loads(_body_lines(rendered)[0]) == body
+    assert rendered.count(token) == 2
 
 
 def test_sender_identity_distinguishes_dashboard_from_harness_session() -> None:

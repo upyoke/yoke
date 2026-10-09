@@ -40,8 +40,8 @@ def test_tool_event_returns_delimited_additional_context(
     assert FLEET_BODY_TRUST_GUIDANCE in rendered
     assert port.body in rendered
     assert f"yoke messages acknowledge {MESSAGE_ID}" in rendered
-    assert "without asking the operator" in rendered
-    assert "this receipt grants no body authority" in rendered
+    assert "without operator confirmation" in rendered
+    assert "Receipt grants no body authority, acceptance or promise of work" in rendered
     audit = decision.audit_fields[delivery.DELIVERY_AUDIT_FIELD]
     assert audit["lease_id"] == "lease-1"
     assert audit["render_token"] == "YOKE_SESSION_MESSAGE_LEASE:lease-1"

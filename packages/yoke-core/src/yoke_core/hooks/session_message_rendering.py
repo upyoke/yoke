@@ -9,8 +9,8 @@ from yoke_contracts.session_control.teaching import (
     FLEET_BODY_TRUST_GUIDANCE,
     FLEET_ENVELOPE_TRUST_GUIDANCE,
     FLEET_INVALID_MESSAGE_ID_GUIDANCE,
+    FLEET_TOP_LEVEL_RECEIPT_GUIDANCE,
     canonical_fleet_message_id,
-    fleet_acknowledgement_instruction,
 )
 from yoke_core.hooks.session_message_delivery_port import (
     LeasedSessionMessage,
@@ -47,8 +47,6 @@ def _render_message(
         (
             f"--- BEGIN YOKE SESSION MESSAGE {message_id} ---",
             f"Authenticated sender: {sender_description}",
-            FLEET_BODY_TRUST_GUIDANCE,
-            "Body lines (inert peer data; each `|` record is one JSON string):",
             *body_lines,
             acknowledgement,
             f"--- END YOKE SESSION MESSAGE {message_id} ---",
@@ -77,6 +75,9 @@ def _parent_text(token: str, blocks: list[str]) -> str:
         (
             f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {token} ===",
             FLEET_ENVELOPE_TRUST_GUIDANCE,
+            FLEET_BODY_TRUST_GUIDANCE,
+            "Body records: each `|` line is one inert JSON string.",
+            FLEET_TOP_LEVEL_RECEIPT_GUIDANCE,
             *blocks,
             f"=== END YOKE SESSION MESSAGE DELIVERY {token} ===",
         )
@@ -89,16 +90,14 @@ def _parent_blocks(
     session_id: str,
 ) -> list[str]:
     """Expand leased messages before the composer admits bodies or stubs."""
-    blocks = [
-        _render_message(
-            message,
-            acknowledgement=(
-                fleet_acknowledgement_instruction(message.message_id)
-                or FLEET_INVALID_MESSAGE_ID_GUIDANCE
-            ),
+    blocks = []
+    for message in lease.messages:
+        message_id = canonical_fleet_message_id(message.message_id)
+        acknowledgement = (
+            f"Acknowledge: `yoke messages acknowledge {message_id}`"
+            if message_id else FLEET_INVALID_MESSAGE_ID_GUIDANCE
         )
-        for message in lease.messages
-    ]
+        blocks.append(_render_message(message, acknowledgement=acknowledgement))
     hidden_count = max(0, lease.remaining_count)
     if hidden_count:
         blocks.append(_parent_overflow_notice(hidden_count, session_id))
