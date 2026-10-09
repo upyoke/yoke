@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from yoke_contracts.timestamps import format_instant
+
 import logging
 from typing import Any, Mapping, Optional
 
@@ -135,7 +138,7 @@ def emit_chain_end_deferred(
     project: str = "",
     action: Optional[str] = None,
     item_id: Optional[str] = None,
-    last_release_at: Optional[str] = None,
+    last_release_at: datetime | str | None = None,
     reason: Optional[str] = None,
     cap_reached: Optional[bool] = None,
     unfinished_work: Optional[str] = None,
@@ -162,7 +165,9 @@ def emit_chain_end_deferred(
             "chainable": chainable,
             "action": action,
             "item_id": item_id,
-            "last_release_at": last_release_at,
+            "last_release_at": (
+                None if last_release_at is None else format_instant(last_release_at)
+            ),
         }
         if reason is not None:
             context["reason"] = reason

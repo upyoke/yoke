@@ -343,3 +343,6 @@ clocks as fixed-six UTC/null while SQL binds native instants at its adapter.
 Item approval, task-binding and workflow-version replies format their declared
 instant fields explicitly. A resolved approval without its required clock
 refuses with named missing-evidence recovery; immutable digests stay opaque.
+
+Session identity/release readers keep native instants. Steering ties compare
+instants, and composition replies/event context format clocks at their boundary.

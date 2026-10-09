@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 import pytest
+from yoke_contracts.timestamps import parse_instant, format_instant
 
 from runtime.api.fixtures.backlog_inserts import insert_item, insert_qa_requirement
 from yoke_core.domain import deployment_run_composition_freeze as composition
@@ -135,7 +136,7 @@ def test_legacy_run_and_empty_environment_run_skip_new_admission(
     _run(test_db, "run-legacy", "legacy-flow", lineage="main")
     assert composition.freeze_run_composition(test_db, "run-legacy") == {
         "run_id": "run-legacy",
-        "frozen_at": "",
+        "frozen_at": None,
         "legacy": True,
     }
 
@@ -228,6 +229,8 @@ def test_plan_content_and_candidate_stay_frozen_across_cancel_and_retry(
     monkeypatch,
 ) -> None:
     _environment(test_db)
+    clock = parse_instant("2026-10-09T15:00:00.123456Z")
+    monkeypatch.setattr(composition, "utc_now", lambda: clock)
     _plan(test_db, 9411)
     _flow_with_plan(test_db, "advanced-plan", 9411)
     insert_item(
@@ -254,7 +257,7 @@ def test_plan_content_and_candidate_stay_frozen_across_cancel_and_retry(
     cmd_add_item("run-plan", 9412, plan_ids=[9411])
     assert cmd_update("run-plan", "status", "executing") is None
     frozen = test_db.execute(
-        "SELECT requirement_snapshot,artifact_identity FROM deployment_runs "
+        "SELECT requirement_snapshot,artifact_identity,composition_frozen_at FROM deployment_runs "
         "WHERE id='run-plan'"
     ).fetchone()
     member = test_db.execute(
@@ -267,7 +270,8 @@ def test_plan_content_and_candidate_stay_frozen_across_cancel_and_retry(
     )
     test_db.commit()
     repeated = composition.freeze_run_composition(test_db, "run-plan")
-    assert repeated["frozen_at"]
+    assert repeated["frozen_at"] == format_instant(clock)
+    assert frozen["composition_frozen_at"] == clock
     assert frozen["artifact_identity"] == "artifact-original"
     frozen_flow = json.loads(frozen["requirement_snapshot"])
     assert frozen_flow["selections"][0]["plan"]["name"] == "Release plan"

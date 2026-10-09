@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
 from typing import Any, Optional
 
 from . import db_backend
@@ -103,7 +105,7 @@ def chain_pending_state(
 def last_released_at(
     conn: Any,
     session_id: str,
-) -> Optional[str]:
+) -> Optional[datetime]:
     """Most recent ``work_claims.released_at`` for the session, or None."""
     row = conn.execute(
         f"""SELECT released_at FROM work_claims
@@ -112,9 +114,9 @@ def last_released_at(
            LIMIT 1""",
         (session_id,),
     ).fetchone()
-    if row is None or not row["released_at"]:
+    if row is None or row["released_at"] is None:
         return None
-    return str(row["released_at"])
+    return parse_instant(row["released_at"])
 
 
 def is_chain_pending_outcome(handler_outcome: Optional[str]) -> bool:
