@@ -54,6 +54,86 @@ def test_settling_requires_accepted_source_qa_and_a_live_run(test_db, status, ac
     ) is (accepted and status == "executing")
 
 
+def _replace_copy_with_passing_case(conn, *, run_id: str, item_id: int) -> int:
+    """Correct the member copy by replacement alone, then re-fail the copy."""
+    from yoke_core.domain.qa_requirement_replacement import point_at_replacement
+
+    copy = dict(
+        conn.execute(
+            "SELECT * FROM qa_requirements WHERE deployment_run_id=%s "
+            "AND deployment_member_item_id=%s AND method_id IS NOT NULL",
+            (run_id, item_id),
+        ).fetchone()
+    )
+    passing = conn.execute(
+        "SELECT raw_result FROM qa_runs WHERE qa_requirement_id=%s AND verdict='pass'",
+        (copy["id"],),
+    ).fetchone()[0]
+    columns = [key for key in copy if key != "id"]
+    corrected = {**copy, "plan_case_key": f"{copy['plan_case_key']}@corrected"}
+    replacement = int(
+        conn.execute(
+            f"INSERT INTO qa_requirements({','.join(columns)}) "
+            f"VALUES ({','.join(['%s'] * len(columns))}) RETURNING id",
+            tuple(corrected[key] for key in columns),
+        ).fetchone()[0]
+    )
+    replacement_run = insert_qa_run(
+        conn, qa_requirement_id=replacement, verdict="pass", raw_result=passing
+    )
+    conn.execute(
+        "INSERT INTO qa_artifacts(qa_run_id,artifact_type,content_type,"
+        "artifact_handle,created_at) VALUES (%s,'log','application/json',%s,%s)",
+        (
+            replacement_run["id"],
+            "evidence://replacement-case",
+            "2026-09-14T00:03:00Z",
+        ),
+    )
+    point_at_replacement(conn, int(copy["id"]), replacement)
+    # A later re-run of the replaced copy fails; supersession is never stamped.
+    insert_qa_run(conn, qa_requirement_id=int(copy["id"]), verdict="fail")
+    conn.commit()
+    return int(copy["id"])
+
+
+@pytest.mark.parametrize("replaced", (True, False))
+def test_replaced_failing_copy_settles_the_source(test_db, replaced):
+    item_id = 9893
+    run_id = "run-source-replaced"
+    source_id = _deliver_intake(test_db, item_id=item_id, run_id=run_id)
+    _accept_member_qa(test_db, run_id=run_id, item_id=item_id)
+    if replaced:
+        copy_id = _replace_copy_with_passing_case(
+            test_db, run_id=run_id, item_id=item_id
+        )
+        assert (
+            test_db.execute(
+                "SELECT superseded_by_requirement_id FROM qa_requirements WHERE id=%s",
+                (copy_id,),
+            ).fetchone()[0]
+            is None
+        )
+    else:
+        insert_qa_run(
+            test_db,
+            qa_requirement_id=test_db.execute(
+                "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
+                "AND method_id IS NOT NULL",
+                (run_id,),
+            ).fetchone()[0],
+            verdict="fail",
+        )
+        test_db.commit()
+
+    assert (
+        source_obligation_consumed(
+            test_db, item_id=item_id, source_requirement_id=source_id
+        )
+        is replaced
+    )
+
+
 def test_accepted_source_closes_the_member_before_run_success(test_db, monkeypatch):
     from runtime.api.domain.test_status_transition_preflight import (
         _isolate_status_effects,

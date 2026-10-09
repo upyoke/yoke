@@ -103,8 +103,10 @@ def source_obligation_consumed(
     copies. Scoped runs match source/member identity, including copies of any
     source retired in this one's favor on the run that admitted it. Schema-1 runs
     answer through their nonempty shared blocking post-deploy set, using the
-    same reader as settlement. Every copy and replacement must pass or be
-    discharged; an unsettled duplicate or bad replacement still blocks done.
+    same reader as settlement. Every copy must pass or be settled — waived,
+    superseded, retracted, or replaced, the rule stage acceptance applies —
+    and stage acceptance grades each replacement on its own evidence; an
+    unsettled duplicate or bad replacement still blocks done.
     """
     # Containment-only releases prove delivery, but have no member-scoped QA
     # copy. Read the completion membership that actually admitted this source.
@@ -160,7 +162,8 @@ def source_obligation_consumed(
         member_scope = f"({member_scope} OR deployment_member_item_id IS NULL)"
     rows = conn.execute(
         "SELECT id,deployment_stage,deployment_member_item_id,"
-        f"waived_at,superseded_by_requirement_id,{requirement_retracted_at_select(conn)} "
+        "waived_at,superseded_by_requirement_id,replacement_requirement_id,"
+        f"{requirement_retracted_at_select(conn)} "
         "FROM qa_requirements WHERE deployment_run_id="
         f"{marker} AND {member_scope} AND {identity} "
         "ORDER BY id",
@@ -209,7 +212,10 @@ def source_obligation_consumed(
                 "superseded_by_requirement_id": _row_value(
                     row, "superseded_by_requirement_id", 4
                 ),
-                "retracted_at": _row_value(row, "retracted_at", 5),
+                "replacement_requirement_id": _row_value(
+                    row, "replacement_requirement_id", 5
+                ),
+                "retracted_at": _row_value(row, "retracted_at", 6),
             }
         )
         if not settled and latest_verdict(conn, copy_id) != "pass":
