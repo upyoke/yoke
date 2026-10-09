@@ -8,8 +8,11 @@ import signal
 import sys
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+from yoke_contracts.timestamps import parse_instant
 from urllib.request import Request, urlopen
 
 from yoke_cli.config.browser_profile_cookies import (
@@ -34,11 +37,15 @@ class DaemonState:
     token: str = ""
     endpoint: str = ""
     browser_type: str = "chromium"
-    started_at: str = ""
+    started_at: datetime | None = None
     health: str = "unknown"
     port: int = 0
     profile_dir: str = ""
     raw: Dict[str, Any] | None = None
+
+    def __post_init__(self) -> None:
+        if self.started_at is not None:
+            self.started_at = parse_instant(self.started_at)
 
     @classmethod
     def load(cls, path: Optional[Path] = None) -> Optional["DaemonState"]:
@@ -55,7 +62,7 @@ class DaemonState:
             endpoint=str(data.get("endpoint", "")),
             browser_type=str(data.get("browserType", "chromium")),
             profile_dir=str(data.get("profileDir", "")),
-            started_at=str(data.get("startedAt", "")),
+            started_at=data.get("startedAt"),
             health=str(data.get("health", "unknown")),
             port=int(data.get("port", 0)),
             raw=data,
