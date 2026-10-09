@@ -95,11 +95,11 @@ older generations turn following off; only explicit follow turns it on again.
 That write adopts nothing until boot or explicit apply. Writes require org admin;
 below-floor clients receive the named function-version refusal.
 
-```text
+```sh
 yoke workflows version publish WORKFLOW --definition-file F --reason TEXT --expected-current-version {version} --json
 yoke workflows canon-status list --pending --json
 yoke workflows canon-update preview WORKFLOW --json
-yoke workflows canon-update apply WORKFLOW --expected-current-version N --json
+yoke workflows canon-update apply WORKFLOW --expected-current-version <version> --json
 yoke workflows canon-update apply-all WORKFLOW=VERSION --json
 yoke workflows canon-follow set WORKFLOW auto --json
 ```

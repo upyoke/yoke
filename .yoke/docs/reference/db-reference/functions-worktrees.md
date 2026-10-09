@@ -65,11 +65,11 @@ Preparation works over either local Postgres or HTTPS: read the authoritative
 lane list, provision locally, then record the absolute path with
 lane-id/branch stale-state preconditions. Never construct a lane from the session checkout.
 
-```text
+```sh
 yoke item-worktrees create PREFIX-N
 yoke item-worktrees create PREFIX-N --lane-role worker --branch BRANCH
 yoke item-worktrees list PREFIX-N --json
-yoke item-worktrees path-record PREFIX-N --worktree-id ID --branch BRANCH --path ABSOLUTE_PATH
+yoke item-worktrees path-record PREFIX-N --worktree-id <worktree-id> --branch BRANCH --path ABSOLUTE_PATH
 ```
 
 Evidence-only release requires an allowed post-implementation stage, exactly one
@@ -78,7 +78,7 @@ fresh clean-lane attestation. Verify registered path/branch and absence of
 modified tracked or untracked files; ignored-only residue is not dirt. Stale or unverified
 evidence fails closed. The refusal names allowed stages.
 
-```text
+```sh
 yoke item-worktrees get PREFIX-N --lane-role implementation --field branch
 yoke item-worktrees release PREFIX-N --all-active --reason evidence-only-recovery
 ```

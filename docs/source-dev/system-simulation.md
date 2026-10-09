@@ -58,7 +58,7 @@ reflection block does not block the report.
 
 Save the complete returned report through the source-owned helper:
 
-```text
+```sh
 yoke dev run -- python3 -m yoke_core.domain.persist_system_simulation --repo-root CHECKOUT < REPORT_FILE
 ```
 

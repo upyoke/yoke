@@ -253,9 +253,9 @@ accumulate. Every grant uses the same person-role validator, including invites,
 sign-in, bootstrap and local seeding. Invite-role validation precedes creation,
 linking or acceptance; refusal names revoke recovery.
 
-```text
-yoke actors state set ACTOR-ID --disable
-yoke actors role set ACTOR-ID --role ROLE
+```sh
+yoke actors state set <actor-id> --disable
+yoke actors role set <actor-id> --role ROLE
 ```
 
 | Refusal | Recovery |

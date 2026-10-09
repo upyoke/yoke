@@ -132,12 +132,12 @@ explicit field overrides repair legacy invalid content. Default seeding supplies
 valid bounded fields even for long project names. Coordination append refuses
 Summary/State and validates the complete resulting document for other sections.
 
-```text
+```sh
 yoke strategy doc create SLUG --summary TEXT --state TEXT --content-file PATH --target-root PATH
 yoke strategy doc replace SLUG --content-file PATH --base-updated-at TS --target-root PATH
 yoke strategy doc section-replace SLUG --heading Summary --content-file PATH --base-updated-at TS --target-root PATH
 yoke strategy ingest SLUG --target-root PATH --dry-run
-yoke strategy revision restore SLUG --revision N --base-updated-at TS
+yoke strategy revision restore SLUG --revision <revision-number> --base-updated-at TS
 ```
 
 Archived content stays stored until explicitly changed. Refusals report field,
