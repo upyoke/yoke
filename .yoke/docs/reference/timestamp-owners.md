@@ -221,3 +221,9 @@ Session keepalive writes bind native expiry facts at the SQL owner. Current
 clock ingress uses strict None-only defaults; malformed clocks refuse before
 updates. Native inclusive expiry retains microsecond order, while the existing
 status projection formats fixed-six UTC and release clears expiry to null.
+
+CI-wait handlers and observers retain native creation, read, notification and
+poll-cutoff facts, adapting only at their SQL owners. The inclusive poll floor
+keeps microseconds; malformed notification clocks refuse authority. Invalid
+replacement clocks refuse before deleting a superseded wait. Continue commands
+and verdict notices remain opaque and each session/run still notifies once.

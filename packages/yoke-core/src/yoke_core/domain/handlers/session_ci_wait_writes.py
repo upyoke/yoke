@@ -13,6 +13,7 @@ not be told again by a second row.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field, ValidationError
@@ -25,7 +26,9 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.qa_case_ci_conclusion import BINDING_CONCLUSIONS
 from yoke_core.domain.session_ci_wait_observer import apply_received_wait
 from yoke_core.domain.session_ci_wait_schema import CI_WAIT_KINDS
-from yoke_core.domain.session_message_types import timestamp, utc_now
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.session_message_types import utc_now
 
 
 class RecordCiWaitRequest(BaseModel):
@@ -35,8 +38,7 @@ class RecordCiWaitRequest(BaseModel):
     head_sha: str = Field("", description="The commit the run checked out.")
     continue_command: str = Field(
         "",
-        description="The exact command that resumes this wait once the "
-        "verdict lands.",
+        description="The exact command that resumes this wait once the verdict lands.",
     )
     supersedes_run_id: str = Field(
         "",
@@ -100,7 +102,7 @@ def handle_record_ci_wait(request: FunctionCallRequest) -> HandlerOutcome:
             f"kind must be one of {', '.join(CI_WAIT_KINDS)}, got {body.kind!r}",
         )
 
-    now = timestamp(utc_now())
+    now = parse_instant(utc_now())
     try:
         with _connect_rw() as conn:
             p = _placeholder(conn)
@@ -158,7 +160,7 @@ def handle_resolve_ci_wait(request: FunctionCallRequest) -> HandlerOutcome:
             f"got {body.conclusion!r}",
         )
 
-    now = timestamp(utc_now())
+    now = parse_instant(utc_now())
     try:
         with _connect_rw() as conn:
             resolved = apply_received_wait(
@@ -189,9 +191,10 @@ def _insert(
     session_id: str,
     project_id: int,
     body: RecordCiWaitRequest,
-    now: str,
+    now: datetime | str,
 ) -> bool:
     """Insert the wait unless this session already recorded this run."""
+    stamped = instant_parameter(conn, parse_instant(now))
     if body.supersedes_run_id:
         conn.execute(
             f"DELETE FROM session_ci_run_waits WHERE session_id={p} "
@@ -216,7 +219,7 @@ def _insert(
             body.head_sha,
             body.kind,
             body.continue_command,
-            now,
+            stamped,
         ),
     )
     return True

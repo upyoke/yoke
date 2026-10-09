@@ -23,6 +23,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Callable, Iterable
 
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.github_poll_schedule import MINIMUM_POLL_INTERVAL_SECONDS
 from yoke_core.domain.session_ci_wait_notice import (
@@ -30,7 +32,7 @@ from yoke_core.domain.session_ci_wait_notice import (
     notice_idempotency_key,
     push_ci_run_notice,
 )
-from yoke_core.domain.session_message_types import row_dict, timestamp, utc_now
+from yoke_core.domain.session_message_types import row_dict, utc_now
 from yoke_core.domain.session_reclaim_progress import session_turn_is_running
 
 
@@ -81,7 +83,7 @@ def apply_received_wait(
     session_id: str,
     run_id: str,
     conclusion: str,
-    now: str,
+    now: datetime | str,
 ) -> bool:
     """Mark this session's wait notified: the watcher already delivered it.
 
@@ -91,12 +93,13 @@ def apply_received_wait(
     is a no-op. Does not send a notice — the in-process print was the
     delivery.
     """
+    stamped = instant_parameter(conn, parse_instant(now))
     marker = _p(conn)
     cursor = conn.execute(
         f"UPDATE session_ci_run_waits SET conclusion={marker}, "
         f"notified_at={marker} WHERE session_id={marker} AND run_id={marker} "
         f"AND notified_at IS NULL",
-        (conclusion, now, session_id, str(run_id)),
+        (conclusion, stamped, session_id, str(run_id)),
     )
     return int(getattr(cursor, "rowcount", 0) or 0) > 0
 
@@ -110,11 +113,14 @@ def _wait_already_notified(conn: Any, wait_id: int) -> bool:
     ).fetchone()
     if row is None:
         return True
-    return bool(row_dict(row).get("notified_at"))
+    notified = row_dict(row).get("notified_at")
+    if notified is not None:
+        parse_instant(notified)
+    return notified is not None
 
 
 def _pending_rows(
-    conn: Any, project_ids: Iterable[int], *, cutoff: str
+    conn: Any, project_ids: Iterable[int], *, cutoff: datetime
 ) -> list[dict[str, Any]]:
     """Every wait that could still be answered, newest read last.
 
@@ -139,7 +145,7 @@ def _pending_rows(
         "AND hs.terminated_at IS NULL AND hs.actor_id IS NOT NULL "
         f"AND (w.conclusion<>'' OR w.read_at IS NULL OR w.read_at<={marker}) "
         "ORDER BY w.id",
-        (*projects, cutoff),
+        (*projects, instant_parameter(conn, parse_instant(cutoff))),
     ).fetchall()
     return [row_dict(row) for row in rows]
 
@@ -153,9 +159,9 @@ def observe_pending_ci_runs(
     poll_floor_seconds: float = MINIMUM_POLL_INTERVAL_SECONDS,
 ) -> dict[str, Any]:
     """Read every due pending run and notify the sessions whose runs are over."""
-    current = now or utc_now()
-    current_text = timestamp(current)
-    cutoff = timestamp(current - timedelta(seconds=float(poll_floor_seconds)))
+    current = parse_instant(utc_now() if now is None else now)
+    stamped = instant_parameter(conn, current)
+    cutoff = current - timedelta(seconds=float(poll_floor_seconds))
     marker = _p(conn)
     result: dict[str, Any] = {
         "checked": 0,
@@ -189,7 +195,7 @@ def observe_pending_ci_runs(
                 conn.execute(
                     f"UPDATE session_ci_run_waits SET read_at={marker} "
                     f"WHERE id={marker}",
-                    (current_text, wait_id),
+                    (stamped, wait_id),
                 )
                 conn.commit()
                 if error:
@@ -227,7 +233,7 @@ def observe_pending_ci_runs(
                 conn.execute(
                     f"UPDATE session_ci_run_waits SET notified_at={marker} "
                     f"WHERE id={marker} AND notified_at IS NULL",
-                    (current_text, wait_id),
+                    (stamped, wait_id),
                 )
                 result["notified"] += 1
             conn.commit()
