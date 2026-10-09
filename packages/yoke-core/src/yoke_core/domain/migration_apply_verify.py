@@ -8,6 +8,7 @@ from types import ModuleType
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_contracts import schema_authority
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain import runtime_settings
 from yoke_core.domain.db_compatibility_attestation import (
@@ -191,7 +192,7 @@ def run_rehearsal_commands(
                 "returncode": -1,
                 "stdout": "",
                 "stderr": f"timeout after {timeout_seconds}s",
-                "ran_at": _now(),
+                "ran_at": format_instant(_now()),
             }
             outcomes.append(outcome)
             if first_error is None:
@@ -202,7 +203,7 @@ def run_rehearsal_commands(
             "returncode": proc.returncode,
             "stdout": (proc.stdout or "")[-2000:],
             "stderr": (proc.stderr or "")[-2000:],
-            "ran_at": _now(),
+            "ran_at": format_instant(_now()),
         }
         outcomes.append(outcome)
         if proc.returncode != 0 and first_error is None:

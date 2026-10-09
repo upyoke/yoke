@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from yoke_contracts.timestamps import format_instant
+
 from yoke_core.domain.migration_apply_contract import (
     RehearseResult,
 )
@@ -45,9 +47,14 @@ def format_rehearse(
             + (f" ERROR={mod.error}" if mod.error else "")
         )
     if result.source_fingerprint:
+        clock = (
+            format_instant(result.rehearsed_at)
+            if result.rehearsed_at is not None
+            else "unknown"
+        )
         lines.append(
             f"  source_fingerprint={result.source_fingerprint[:16]}... "
-            f"rehearsed_at={result.rehearsed_at}"
+            f"rehearsed_at={clock}"
         )
     return "\n".join(lines)
 

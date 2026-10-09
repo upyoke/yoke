@@ -76,7 +76,10 @@ def pg_insert_migration_audit_row(
     description: Optional[str] = None,
 ) -> int:
     from yoke_core.domain.migration_apply_attribution import refuse_level_as_model_name
-    from yoke_core.domain.migration_apply_audit import DESCRIPTION_BASE
+    from yoke_core.domain.migration_apply_audit import (
+        DESCRIPTION_BASE,
+        _audit_parameter,
+    )
 
     model = refuse_level_as_model_name(model_name)
     cur = audit_conn.execute(
@@ -94,7 +97,7 @@ def pg_insert_migration_audit_row(
             json.dumps({}),
             0,
             "",
-            _now(),
+            _audit_parameter(audit_conn, "started_at", _now()),
             STATE_PLANNED,
             model,
             project_id,
@@ -114,11 +117,13 @@ def pg_update_migration_audit_state(
     *,
     extra: Optional[Mapping[str, Any]] = None,
 ) -> None:
+    from yoke_core.domain.migration_apply_audit import _audit_parameter
+
     sets = ["state = %s"]
     values: List[Any] = [state]
     for column, value in (extra or {}).items():
         sets.append(f"{_quote_identifier(str(column))} = %s")
-        values.append(value)
+        values.append(_audit_parameter(audit_conn, column, value))
     values.append(audit_id)
     audit_conn.execute(
         f"UPDATE migration_audit SET {', '.join(sets)} WHERE id = %s",

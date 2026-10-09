@@ -35,8 +35,8 @@ CREATE TABLE IF NOT EXISTS project_capabilities (
     type TEXT NOT NULL,
     
     settings TEXT DEFAULT '{}',
-    verified_at TEXT,
-    created_at TEXT NOT NULL,
+    verified_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL,
     UNIQUE(project_id, type)
 );
 
@@ -53,13 +53,13 @@ CREATE TABLE IF NOT EXISTS migration_audit (
     backup_path TEXT,
     status TEXT,
     failure_reason TEXT,
-    started_at TEXT,
-    completed_at TEXT,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
     duration_ms INTEGER,
     state TEXT,
     exception_reason TEXT,
     source_fingerprint TEXT,
-    rehearsed_at TEXT,
+    rehearsed_at TIMESTAMPTZ,
     lease_id INTEGER,
     test_copy_path TEXT,
     baseline_verify_result TEXT,
