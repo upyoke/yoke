@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.timestamps import utc_now
+
 
 def insert_mission_docket(
     conn: Any,
@@ -14,7 +16,6 @@ def insert_mission_docket(
     lease_id: int,
     contract_digest: str,
 ) -> tuple[int, dict[str, Any]]:
-    from yoke_core.domain.db_helpers import iso8601_now
     from yoke_core.domain.machine_qa_execution_protocol import (
         host_control_submission_receipt,
     )
@@ -24,7 +25,7 @@ def insert_mission_docket(
         stamp_executed_method_config,
     )
 
-    now = iso8601_now()
+    now = utc_now()
     executor = str(case["method_config"]["executor"])
     transcript = {
         "executor": executor,

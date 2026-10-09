@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import format_instant
+from yoke_contracts.timestamps import format_instant, parse_instant
 
 import json
 from typing import Any
@@ -231,7 +231,11 @@ def _test_machine_detail(
         "concurrency": {"limit": 1, "mode": "serial", "scope": "machine"},
         "verification": {
             "status": status,
-            "checked_at": verification[1] if verification else row.verified_at,
+            "checked_at": (
+                parse_instant(verification[1]) if verification[1] is not None else None
+            )
+            if verification
+            else row.verified_at,
             "error_code": verification[3] if verification else None,
             "checks": list(receipt.get("checks") or []),
             "host_end_state": host_end_state(list(receipt.get("checks") or [])),

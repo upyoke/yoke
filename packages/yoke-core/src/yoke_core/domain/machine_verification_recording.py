@@ -6,7 +6,8 @@ import json
 from typing import Any, Mapping, Sequence
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_contracts.timestamps import utc_now, parse_instant, format_instant
 from yoke_core.domain.machine_qa_execution_protocol import (
     HOST_CONTROL_SUBMISSION_RECEIPT_KEY,
     host_control_submission_receipt,
@@ -37,7 +38,7 @@ def record_test_machine_verification(
     ensure_test_machine_schema(conn)
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     capability_type = test_machine_capability_type(machine)
-    now = iso8601_now()
+    now = utc_now()
     previous = conn.execute(
         "SELECT status,checked_at,receipt_json,error_code "
         "FROM test_machine_verifications "
@@ -58,7 +59,11 @@ def record_test_machine_verification(
             {
                 HOST_CONTROL_SUBMISSION_RECEIPT_KEY: dict(previous_identity),
                 "status": str(previous["status"]),
-                "checked_at": str(previous["checked_at"]),
+                "checked_at": (
+                    format_instant(previous["checked_at"])
+                    if previous["checked_at"] is not None
+                    else None
+                ),
                 "checks": list(previous_receipt.get("checks") or []),
                 "error_code": previous["error_code"],
             }
@@ -83,12 +88,24 @@ def record_test_machine_verification(
         "status=EXCLUDED.status, checked_at=EXCLUDED.checked_at, "
         "receipt_json=EXCLUDED.receipt_json, error_code=EXCLUDED.error_code, "
         "updated_at=EXCLUDED.updated_at",
-        (project_id, capability_type, status, now, receipt, error_code, now),
+        (
+            project_id,
+            capability_type,
+            status,
+            instant_parameter(conn, now),
+            receipt,
+            error_code,
+            instant_parameter(conn, now),
+        ),
     )
     conn.execute(
         "UPDATE project_capabilities SET verified_at="
         f"{marker} WHERE project_id={marker} AND type={marker}",
-        (now if status == "verified" else None, project_id, capability_type),
+        (
+            instant_parameter(conn, now) if status == "verified" else None,
+            project_id,
+            capability_type,
+        ),
     )
     conn.commit()
     return {
@@ -144,14 +161,20 @@ def recorded_test_machine_verification(
             ):
                 return {
                     "status": str(recorded["status"]),
-                    "checked_at": str(recorded["checked_at"]),
+                    "checked_at": (
+                        parse_instant(recorded["checked_at"])
+                        if recorded["checked_at"] is not None
+                        else None
+                    ),
                     "checks": list(recorded.get("checks") or []),
                     "error_code": recorded.get("error_code"),
                 }
         return None
     return {
         "status": str(row["status"]),
-        "checked_at": str(row["checked_at"]),
+        "checked_at": (
+            parse_instant(row["checked_at"]) if row["checked_at"] is not None else None
+        ),
         "checks": list(receipt.get("checks") or []),
         "error_code": row["error_code"],
     }
