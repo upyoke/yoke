@@ -40,6 +40,9 @@ from yoke_contracts.api.function_call import (
 class RunGetRequest(BaseModel):
     repo: str = Field(..., min_length=3, description="GitHub repo slug (owner/name).")
     run_id: WorkflowRunId = Field(..., description="GitHub Actions run id.")
+    receipt_artifact_prefix: str = Field(
+        default="", pattern=r"^[A-Za-z0-9_.-]*$", max_length=100
+    )
     project: str = Field(
         ...,
         min_length=1,
@@ -63,6 +66,7 @@ class RunGetResponse(BaseModel):
     updated_at: Optional[str] = None
     jobs_count: Optional[int] = Field(None, ge=0)
     message: str
+    receipt: Optional[dict[str, Any]] = None
 
 
 def _classify(
@@ -188,13 +192,29 @@ def handle_run_get(request: FunctionCallRequest) -> HandlerOutcome:
                     "missing queue evidence is not a stalled dispatch"
                 )
 
+    result = _classify(
+        payload,
+        data,
+        jobs_count=jobs_count,
+        concurrency_groups=concurrency_groups,
+    ).model_dump()
+    if result["state"] == "success" and payload.receipt_artifact_prefix:
+        from yoke_core.domain.github_actions_receipt import (
+            ActionsReceiptRefused,
+            read_run_receipt,
+        )
+
+        try:
+            result["receipt"] = read_run_receipt(
+                payload.repo,
+                data,
+                payload.receipt_artifact_prefix,
+                token=token,
+            )
+        except ActionsReceiptRefused as exc:
+            result.update(state="failed", message=str(exc), conclusion=exc.reason)
     return HandlerOutcome(
-        result_payload=_classify(
-            payload,
-            data,
-            jobs_count=jobs_count,
-            concurrency_groups=concurrency_groups,
-        ).model_dump(),
+        result_payload=result,
         primary_success=True,
     )
 

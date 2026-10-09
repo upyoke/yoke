@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
 from yoke_core.domain.qa_obligation_settlement import (
+    effective_requirement,
     unanswered_attempt_sql,
     unretracted_requirement_sql,
 )
@@ -41,7 +42,7 @@ def _case_result(
     host_baseline: str | None,
     deployment_run_id: str | None,
     target_env: str | None = None,
-) -> dict:
+) -> dict | None:
     marker = _placeholder(conn)
     deployment_filter = ""
     params: tuple[Any, ...] = (plan_id, case_key, host_baseline or "")
@@ -72,6 +73,19 @@ def _case_result(
         params,
     )
     if row is None:
+        retired = query_rows(
+            conn,
+            f"SELECT q.id FROM qa_requirements q WHERE q.plan_id={marker} "
+            f"AND q.plan_case_key={marker} AND COALESCE(q.host_baseline,'')={marker} "
+            f"AND NOT ({unretracted_requirement_sql(conn, 'q')} "
+            f"AND {unanswered_attempt_sql(conn, 'q')}) {deployment_filter} ",
+            params,
+        )
+        if retired:
+            for requirement in retired:
+                effective_requirement(conn, int(requirement["id"]))
+            # A declared retirement is history, unlike a case never set up.
+            return None
         return {
             "requirement_id": None,
             "run_id": None,

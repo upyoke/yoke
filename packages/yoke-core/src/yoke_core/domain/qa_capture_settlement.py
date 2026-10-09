@@ -8,7 +8,7 @@ from datetime import datetime
 from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.qa_constants import case_outcome_for_verdict
-from yoke_core.domain.qa_plan_execution_store import marker
+from yoke_core.domain.qa_plan_execution_store import marker, result_rows
 from yoke_core.domain.qa_run_verdict_record import (
     QaRunWrite,
     insert_qa_run,
@@ -71,29 +71,44 @@ def settle_unreviewed_execution_captures(
     conn: Any,
     execution: Mapping[str, Any],
 ) -> None:
-    """Settle still-NULL capture runs for this execution's requirements.
+    """Settle only still-NULL captures bound to this execution's results.
 
     Abort, error, and any other terminal path that never wrote a review
     would otherwise freeze those captures at every later item transition.
     """
     if not _table_exists(conn, "qa_runs"):
         return
-    requirement_ids = sorted(
-        {
-            int(case["requirement_id"])
-            for case in execution.get("roster") or []
-            if case.get("requirement_id") is not None
-        }
-    )
-    if not requirement_ids:
+    from yoke_core.domain.qa_plan_review import _execution_capture_run_id
+
+    cases = {
+        int(case["requirement_id"]): case
+        for case in execution.get("roster") or []
+        if case.get("requirement_id") is not None
+        and case.get("runner_id") in CAPTURE_RUNNERS
+    }
+    # A judged result needs no cleanup; a result without a capture binding
+    # gives no authority to choose another attempt for the requirement.
+    captures = [
+        (int(row["requirement_id"]), _execution_capture_run_id(case, row["result"]))
+        for row in result_rows(conn, str(execution["id"]))
+        if (case := cases.get(int(row["requirement_id"]))) is not None
+        and row["result"].get("verdict") is None
+        and (
+            row["result"].get("qa_run_id") is not None
+            or row["result"].get("run_id") is not None
+        )
+    ]
+    if not captures:
         return
     placeholder = marker(conn)
     runners = ", ".join(placeholder for _ in CAPTURE_RUNNERS)
-    req_placeholders = ", ".join(placeholder for _ in requirement_ids)
+    bindings = " OR ".join(
+        f"(qa_requirement_id={placeholder} AND id={placeholder})" for _ in captures
+    )
     unjudged = conn.execute(
-        f"SELECT id FROM qa_runs WHERE qa_requirement_id IN ({req_placeholders}) "
+        f"SELECT id FROM qa_runs WHERE ({bindings}) "
         f"AND performed_by IN ({runners}) AND verdict IS NULL ORDER BY id",
-        (*requirement_ids, *CAPTURE_RUNNERS),
+        (*(value for binding in captures for value in binding), *CAPTURE_RUNNERS),
     ).fetchall()
     now = utc_now()
     for row in unjudged:

@@ -199,14 +199,7 @@ def test_bridge_records_pin_only_after_terminal_platform_success() -> None:
 
 
 def test_bridge_records_the_pin_commit_its_own_promotion_produced() -> None:
-    """The commit this release wrote is attributed by the run that wrote it.
-
-    Promotion pushes the pin materialization onto the consumer's bound
-    branch, and nothing else ever will: skip the record and the next release
-    identifies the commit as recorded release output instead of outside work. The commit itself is
-    resolved server-side from the branch the run already bound, so the bridge
-    names a project and never a repository ref.
-    """
+    """The exact promotion run hands delivered identity to receipt recording."""
     text = _text()
     record_marker = "- name: Record the pin commit this release produced"
     produced = _step(record_marker)
@@ -215,13 +208,14 @@ def test_bridge_records_the_pin_commit_its_own_promotion_produced() -> None:
         "- name: Record desired pin after successful Platform release"
     ) < text.index(record_marker)
     assert "DEPLOYMENT_RUN_ID: ${{ inputs.deployment_run_id }}" in produced
-    assert "yoke deployment-runs release-output record" in produced
+    assert "python3 -m runtime.api.tools.record_hosted_promotion" in produced
     assert '"$DEPLOYMENT_RUN_ID"' in produced
     assert "--project platform" in produced
-    # The branch is the control plane's own recorded binding, not a literal.
     assert "--ref" not in produced
-    assert "--commit <the pin commit" in produced  # recovery text only
-    assert "--commit $" not in produced
+    assert "PROMOTION_RUN_ID: ${{ steps.promotion.outputs.run_id }}" in produced
+    assert '--promotion-run-id "$PROMOTION_RUN_ID"' in produced
+    assert '--product-sha "$PRODUCT_SHA"' in produced
+    assert '--environment "$TARGET_ENVIRONMENT"' in produced
 
 
 def test_a_failed_release_output_record_annotates_rather_than_fails_release() -> None:
@@ -237,7 +231,8 @@ def test_a_failed_release_output_record_annotates_rather_than_fails_release() ->
     produced = _step("- name: Record the pin commit this release produced")
 
     assert "::error title=release_output_unrecorded::" in produced
-    assert "deployment-runs release-output record $DEPLOYMENT_RUN_ID" in produced
+    assert "Recover its exact receipt" in produced
+    assert "QA cannot credit a missing promotion identity" in produced
     # Nothing in this step may end the job: not an explicit failure, and not a
     # bare command whose own status would.
     assert "exit 1" not in produced

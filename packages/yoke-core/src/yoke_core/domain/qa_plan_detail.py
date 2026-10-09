@@ -81,16 +81,20 @@ def get_plan(
     for case, fan_out in zip(case_rows, stored_fan_out(case_rows)):
         host_baselines = case["host_baselines"]
         case_proofs = [
-            _case_result(
-                conn,
-                int(plan_id),
-                str(case["case_key"]),
-                host_baseline,
-                deployment_run_id,
-                target_env,
-            )
+            proof
             for host_baseline in fan_out
             for target_env in (_decode(case["target_envs"], []) or [None])
+            if (
+                proof := _case_result(
+                    conn,
+                    int(plan_id),
+                    str(case["case_key"]),
+                    host_baseline,
+                    deployment_run_id,
+                    target_env,
+                )
+            )
+            is not None
         ]
         required_kinds = capability_kinds(
             case["required_capability_kinds"],
@@ -133,7 +137,7 @@ def get_plan(
     for proof in proofs:
         outcome = str(proof["outcome"])
         counts[outcome] = counts.get(outcome, 0) + 1
-    satisfied = bool(proofs) and all(
+    satisfied = bool(case_rows) and all(
         proof["outcome"] in {"passed", "waived"} for proof in proofs
     )
     return {
