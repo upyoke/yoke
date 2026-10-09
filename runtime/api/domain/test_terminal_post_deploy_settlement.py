@@ -90,7 +90,9 @@ def _accept_member_qa(conn, *, run_id: str, item_id: int) -> None:
     assert accepted["accepted"]
 
 
-def _source_member(conn, *, workflow: str, plan_source: bool) -> tuple[int, str, int]:
+def _source_member(
+    conn, *, workflow: str, plan_source: bool, environment="prod"
+) -> tuple[int, str, int]:
     # Retained workflow pins can carry done QA even when today's Dash does not.
     version_id = conn.execute(
         "SELECT current_version_id FROM workflows WHERE id=%s", (workflow,)
@@ -136,9 +138,9 @@ def _source_member(conn, *, workflow: str, plan_source: bool) -> tuple[int, str,
         )
     source_id = _bind_original(conn, item_id=item_id)
     conn.execute(
-        "UPDATE qa_requirements SET target_env='prod', "
+        "UPDATE qa_requirements SET target_env=%s, "
         "requirement_source='flow_derived' WHERE id=%s",
-        (source_id,),
+        (environment, source_id),
     )
     if plan_source:
         source = conn.execute(
@@ -175,24 +177,27 @@ def _source_member(conn, *, workflow: str, plan_source: bool) -> tuple[int, str,
         run_id=run_id,
         item_id=item_id,
         requirement_id=source_id,
-        environment="prod",
+        environment=environment,
     )
     return item_id, run_id, source_id
 
 
 @pytest.mark.parametrize("workflow", ("dash", "blitz"))
 @pytest.mark.parametrize("plan_source", (False, True))
+@pytest.mark.parametrize("environment", ("stage", "prod"))
 def test_production_source_closes_member_and_finalizes_run(
     test_db,
     monkeypatch,
     workflow,
     plan_source,
+    environment,
 ):
     _isolate_status_effects(monkeypatch)
     item_id, run_id, source_id = _source_member(
         test_db,
         workflow=workflow,
         plan_source=plan_source,
+        environment=environment,
     )
     _accept_member_qa(test_db, run_id=run_id, item_id=item_id)
     assert _status(test_db, item_id) == "release"
@@ -221,14 +226,16 @@ def test_production_source_closes_member_and_finalizes_run(
     )
 
 
-@pytest.mark.parametrize("proof", ("missing", "failed", "unsettled", "wrong-commit"))
+@pytest.mark.parametrize(
+    "proof", ("missing", "failed", "unsettled", "wrong-commit", "wrong-environment")
+)
 def test_terminal_source_still_blocks_without_current_accepted_proof(test_db, proof):
     item_id, run_id, source_id = _source_member(
         test_db,
         workflow="blitz",
         plan_source=True,
     )
-    if proof == "wrong-commit":
+    if proof in {"wrong-commit", "wrong-environment"}:
         _accept_member_qa(test_db, run_id=run_id, item_id=item_id)
         target = deployment_qa_execution_target(
             test_db,
@@ -236,7 +243,13 @@ def test_terminal_source_still_blocks_without_current_accepted_proof(test_db, pr
                 test_db, run_id=run_id, stage_name="member-qa", member_item_id=item_id
             ),
         )
-        target["deployment"]["release_lineage"] = "d" * 40
+        if proof == "wrong-commit":
+            target["deployment"]["release_lineage"] = "d" * 40
+        else:
+            test_db.execute(
+                "UPDATE qa_requirements SET target_env='stage' WHERE id=%s",
+                (source_id,),
+            )
         test_db.execute(
             "UPDATE qa_plan_executions SET execution_target_json=%s, "
             "execution_target_digest=%s WHERE deployment_run_id=%s",
