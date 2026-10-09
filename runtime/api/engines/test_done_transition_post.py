@@ -9,10 +9,12 @@ Pytest fixture (dt_db) shared via _done_transition_test_helpers (private module)
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
 from yoke_contracts.api.function_call import FunctionCallResponse
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.engines import done_transition
 from yoke_core.engines import done_transition_status
 
@@ -51,12 +53,12 @@ class TestPopulateMergedAt:
         conn = connect_dt_db(db_path)
         stored = conn.execute("SELECT merged_at FROM items WHERE id = 42").fetchone()[0]
         conn.close()
-        assert stored, "merged_at should be populated"
-        assert stored.endswith("Z"), f"expected UTC ISO8601, got {stored!r}"
+        assert isinstance(stored, datetime), "merged_at should be a native instant"
+        assert stored.utcoffset() is not None, "merged_at should be timezone aware"
 
     def test_does_not_overwrite_existing(self, dt_db):
         db_path, _ = dt_db
-        original = "2020-01-01T00:00:00Z"
+        original = parse_instant("2020-01-01T00:00:00.123456Z")
         _insert_item(db_path, 43, merged_at=original, status="implementing")
 
         done_transition._populate_merged_at(43)
