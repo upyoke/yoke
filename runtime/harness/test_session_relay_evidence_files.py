@@ -197,3 +197,44 @@ def test_a_symlinked_capture_is_never_read(tmp_path: Path) -> None:
     )
 
     assert [entry.name for entry in found] == ["relay.stderr.log"]
+
+
+def test_filesystem_nanoseconds_sort_natively_and_emit_six_fraction_json(tmp_path):
+    from datetime import datetime
+    from yoke_contracts.timestamps import parse_instant
+
+    state_dir, scratch_root = _machine(tmp_path)
+    older = state_dir / "relay.stderr.log"
+    newer = state_dir / "relay.stdout.log"
+    newer.write_text("opaque 2060-10-08T00:00:00+09:00 unchanged")
+    epoch_ns = 1_728_345_600_123_456_000
+    os.utime(older, ns=(epoch_ns, epoch_ns))
+    os.utime(newer, ns=(epoch_ns + 1000, epoch_ns + 1000))
+    files = list_session_evidence(
+        SESSION_ID, kind="relay", state_dir=state_dir, scratch_root=scratch_root
+    )
+    assert [entry.name for entry in files] == [newer.name, older.name]
+    assert all(isinstance(entry.modified_at, datetime) for entry in files)
+    assert [entry.modified_at.microsecond for entry in files] == [123457, 123456]
+    result = read_session_evidence(
+        {"target_session_id": SESSION_ID, "evidence_request": {"kind": "relay"}},
+        state_dir=state_dir,
+        scratch_root=scratch_root,
+    )
+    assert result.document["selected_file"] == newer.name
+    stamps = [entry["modified_at"] for entry in result.document["files"]]
+    assert all(
+        stamp.endswith("Z") and len(stamp.split(".")[1]) == 7 for stamp in stamps
+    )
+    assert [parse_instant(stamp) for stamp in stamps] == [
+        entry.modified_at for entry in files
+    ]
+    assert result.document["content"] == newer.read_text()
+
+
+def test_external_filesystem_nanoseconds_floor_to_microseconds_before_epoch():
+    from yoke_contracts.timestamps import parse_instant
+    from yoke_harness.session_relay_evidence_files import _modified_instant
+
+    assert _modified_instant(-1) == parse_instant("1969-12-31T23:59:59.999999Z")
+    assert _modified_instant(123456789) == parse_instant("1970-01-01T00:00:00.123456Z")

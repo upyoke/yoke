@@ -7,9 +7,16 @@
 // run, and the flow's name is on the flow definition, so both are read once
 // per project and joined here rather than once per run.
 
+import { instantMicros } from "./timestamps.js";
 import { settledScopedCalls } from "./universe_view_support.js";
 
 const ACTIVITY_LIMIT = 100;
+
+function activityRank(row) {
+  if (row?.happened_at) return instantMicros(row.happened_at);
+  const id = String(row?.run_id ?? "");
+  return /^\d+$/.test(id) ? BigInt(id) * 1000n : 0n;
+}
 
 // Activity is an attempt log. The visible verdict uses the latest live
 // attempt for each requirement; replaced requirements stay in history, and
@@ -21,9 +28,8 @@ export function effectiveChecks(rows) {
       || row.replacement_requirement_id) continue;
     const key = String(row.requirement_id ?? row.case_key ?? row.id);
     const previous = latest.get(key);
-    const rank = Date.parse(row.happened_at || "") || Number(row.run_id) || 0;
-    const priorRank = Date.parse(previous?.happened_at || "")
-      || Number(previous?.run_id) || 0;
+    const rank = activityRank(row);
+    const priorRank = activityRank(previous);
     if (!previous || rank > priorRank) {
       latest.set(key, row);
     }

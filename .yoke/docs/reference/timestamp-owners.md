@@ -319,3 +319,9 @@ lookup and bind native values through the shared SQL parameter adapter. The
 actual git Doctor schema owners declare those clocks as `TIMESTAMPTZ`. Their
 fixture tests cover supplied-clock refusal, microseconds across server time
 zones, nullable clocks, opaque text, and explicit canonical SQLite binding.
+
+Run-check and carried-check ordering and cross-project event page merging use
+the shared microsecond instant kernel. Equal-offset instants retain stable
+arrival/bucket ties; temporal order preserves the producer clock exactly.
+Machine evidence adapts filesystem nanoseconds once into native UTC instants,
+sorts natively, and formats six fractional digits only in its JSON listing.
