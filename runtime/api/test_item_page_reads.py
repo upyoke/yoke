@@ -94,9 +94,9 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
     assert item["merge_queue"] == {
         "pr_number": "42",
         "enqueued_at": "2026-08-27T18:00:00Z",
-        "landed_at": "",
-        "notified_at": "",
-        "status": "in merge queue since 2026-08-27T18:00:00Z",
+        "landed_at": None,
+        "notified_at": None,
+        "status": "in merge queue since 2026-08-27T18:00:00.000000Z",
     }
     assert item["qa_requirements"][0]["requirement_source"] == "footer-renders"
     assert item["qa_requirements"][0]["verdict"] == "undetermined"
@@ -131,9 +131,9 @@ def test_detail_read_projects_empty_queue_shape_before_schema_convergence(monkey
 
     assert item["merge_queue"] == {
         "pr_number": "",
-        "enqueued_at": "",
-        "landed_at": "",
-        "notified_at": "",
+        "enqueued_at": None,
+        "landed_at": None,
+        "notified_at": None,
         "status": "",
     }
 
