@@ -10,6 +10,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.handlers.qa_reads import handle_qa_run_list
+from yoke_core.domain import db_helpers
 
 
 def _read(requirement_id):
@@ -103,3 +104,43 @@ def test_case_read_refuses_missing_start_instead_of_selecting_an_old_pass(test_d
     outcome = _read(requirement["id"])
     assert not outcome.primary_success
     assert outcome.error.code == "qa_execution_order_ambiguous"
+
+
+def test_current_selection_uses_the_returned_history_snapshot(test_db, monkeypatch):
+    item = insert_item(test_db, title="Consistent current history")
+    requirement = insert_qa_requirement(test_db, item_id=item["id"])
+    current = insert_qa_run(
+        test_db,
+        qa_requirement_id=requirement["id"],
+        verdict="pass",
+        started_at="2026-10-01T00:00:01Z",
+    )
+    old = insert_qa_run(
+        test_db,
+        qa_requirement_id=requirement["id"],
+        verdict=None,
+        started_at="2026-10-01T00:00:00Z",
+    )
+    query = db_helpers.query_rows
+    inserted = []
+
+    def read_then_insert(conn, sql, params=()):
+        rows = query(conn, sql, params)
+        if "AS actual_execution" in sql and not inserted:
+            inserted.append(
+                insert_qa_run(
+                    test_db,
+                    qa_requirement_id=requirement["id"],
+                    verdict=None,
+                    started_at="2026-10-01T00:00:02Z",
+                )["id"]
+            )
+        return rows
+
+    monkeypatch.setattr(db_helpers, "query_rows", read_then_insert)
+    outcome = _read(requirement["id"])
+    assert outcome.primary_success, outcome.error
+    rows = outcome.result_payload["rows"]
+    assert inserted
+    assert [row["id"] for row in rows] == [current["id"], old["id"]]
+    assert inserted[0] not in [row["id"] for row in rows]

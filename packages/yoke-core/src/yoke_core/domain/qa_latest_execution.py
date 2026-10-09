@@ -72,6 +72,11 @@ def latest_executions(
         + f") AND {actual_execution_sql('run')}",
         ids,
     )
+    return select_latest_executions(rows)
+
+
+def select_latest_executions(rows: Iterable[Any]) -> dict[int, dict[str, Any]]:
+    """Apply the native start/id kernel to actual attempts from one snapshot."""
     selected: dict[int, dict[str, Any]] = {}
     for row in rows:
         run = dict(row)
@@ -84,7 +89,7 @@ def latest_executions(
 
 
 def current_first_run_history(
-    conn: Any, rows: Iterable[Any], requirement_id: int | None
+    rows: Iterable[Any], requirement_id: int | None
 ) -> list[Any]:
     """Put the native-selected attempt first without discarding audit history.
 
@@ -95,8 +100,16 @@ def current_first_run_history(
     history = list(rows)
     if requirement_id is None or not history:
         return history
-    current = latest_executions(conn, [int(requirement_id)]).get(int(requirement_id))
-    current_id = current["id"] if current else None
+    current = select_latest_executions(
+        row for row in history if row["actual_execution"]
+    ).get(int(requirement_id))
+    if current is None:
+        raise ValueError(
+            f"qa_execution_order_ambiguous: requirement {requirement_id} has only "
+            "judgment audit rows; inspect and correct authoritative capture "
+            "associations through the control-plane operator before grading"
+        )
+    current_id = current["id"]
     return sorted(
         history,
         key=lambda row: (row["id"] == current_id, int(row["id"])),
