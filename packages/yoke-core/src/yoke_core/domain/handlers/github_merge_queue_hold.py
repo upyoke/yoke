@@ -30,7 +30,7 @@ class MergeQueueHoldResponse(BaseModel):
     after: Optional[Dict[str, Any]] = None
     merged: bool = False
     merge_commit_sha: str = ""
-    merged_at: str = ""
+    merged_at: Optional[str] = None
     refusal: str = ""
     narrative: str
 

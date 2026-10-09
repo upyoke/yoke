@@ -185,7 +185,7 @@ class FrontierItemModel(BaseModel):
     blocked_reasons: List[str] = Field(default_factory=list)
     unblocks_count: int = 0
     downstream_depth: int = 0
-    created_at: str = ""
+    created_at: Optional[str] = None
 
 
 class FrontierResultModel(BaseModel):
@@ -241,7 +241,7 @@ class ScheduledStepModel(BaseModel):
     blocked_reasons: List[str] = Field(default_factory=list)
     unblocks_count: int = 0
     downstream_depth: int = 0
-    created_at: str = ""
+    created_at: Optional[str] = None
 
 
 class SchedulerResultModel(BaseModel):

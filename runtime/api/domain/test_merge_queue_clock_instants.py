@@ -258,6 +258,11 @@ def test_landing_models_format_only_report_clock_owners(clock):
     payload = json.loads(json.dumps(hold.to_dict()))
     assert payload["merged_at"] == payload["before"]["merged_at"] == wire
     assert payload["merge_commit_sha"] == "opaque"
+    from yoke_core.domain.handlers.github_merge_queue_hold import REGISTRATIONS
+
+    result = {"item_id": 7, "public_ref": "ITEM-1", "project": "opaque", **payload}
+    validated = REGISTRATIONS[0]["response_model"].model_validate(result)
+    assert validated.model_dump(mode="json")["merged_at"] == wire
     if wire is not None:
         assert wire in payload["refusal"]
 
