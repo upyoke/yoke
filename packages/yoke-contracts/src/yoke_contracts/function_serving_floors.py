@@ -109,12 +109,18 @@ class ArgumentFloor:
 
 
 #: function_id -> {argument: floor}, for arguments added to an already-served
-#: function. A server below the floor rejects the payload outright, because its
-#: request model does not know the argument; the HTTPS client then names the
-#: floor instead of the server's bare validation error. A command only sends a
-#: floored argument after checking it against this build's own request model,
-#: so a payload refusal for it can only come from a server that predates it.
+#: function. Older request models may reject unknown arguments or silently
+#: ignore them. Payload refusals name this floor; adapters whose writes can be
+#: ignored must also verify the success receipt echoes the requested argument.
 FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] = {
+    "items.structured_field.section_upsert": {
+        "field": ArgumentFloor(
+            "next-release", "field-less --section TEXT for a top-level item section"
+        ),
+        "heading_level": ArgumentFloor(
+            "next-release", "field-less --section TEXT for a top-level item section"
+        ),
+    },
     "session_control.launch.create": {
         "use_stage_level": ArgumentFloor(
             "next-release",

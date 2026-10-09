@@ -55,9 +55,8 @@ def test_both_streams_arrive_before_child_exits_without_a_newline(
         "import sys, time; from pathlib import Path; "
         "sys.stdout.write('ready'); sys.stdout.flush(); "
         "sys.stderr.write('ready'); sys.stderr.flush(); "
-        f"release = Path({str(release)!r}); deadline = time.monotonic() + 5\n"
-        "while not release.exists() and time.monotonic() < deadline: time.sleep(.01)\n"
-        "sys.exit(0 if release.exists() else 9)"
+        f"release = Path({str(release)!r})\n"
+        "while not release.exists(): time.sleep(.01)\n"
     )
     results = []
     worker = threading.Thread(
@@ -65,11 +64,13 @@ def test_both_streams_arrive_before_child_exits_without_a_newline(
     )
     worker.start()
     try:
-        assert all(event.wait(2) for event in arrived)
+        # The child stays blocked until this assertion releases it, so EOF cannot
+        # satisfy the streaming proof. Allow startup scheduling on loaded runners.
+        assert all(event.wait(30) for event in arrived)
         assert worker.is_alive()
     finally:
         release.touch()
-        worker.join(6)
+        worker.join(10)
     assert not worker.is_alive()
     assert results[0].returncode == 0
     assert ["".join(parts) for parts in output] == ["ready", "ready"]
