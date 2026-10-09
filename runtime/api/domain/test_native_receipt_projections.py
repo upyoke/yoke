@@ -248,3 +248,37 @@ def test_worktree_history_updates_and_release_keep_native_precision(
         == released["updated_at"]
         == updated + timedelta(microseconds=2)
     )
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_overview_native_latches_and_machine_order_keep_exact_facts(
+    test_db, monkeypatch, zone
+):
+    from runtime.api.domain.test_overview_machine_activation import (
+        MACHINE_A,
+        _seed_relay,
+        _seed_session,
+    )
+    from yoke_core.domain import overview_activation_read, overview_machine_activation
+
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    _seed_relay(test_db, MACHINE_A, "native-clock", seen=STAMP)
+    _seed_session(test_db, "earlier", MACHINE_A, at=STAMP + timedelta(microseconds=1))
+    _seed_session(test_db, "later", MACHINE_A, at=STAMP + timedelta(microseconds=2))
+    machine = overview_machine_activation.read_registered_machines(test_db)[0]
+    assert machine["registered_at"] == STAMP
+    assert machine["last_seen_at"] == STAMP + timedelta(microseconds=2)
+    assert machine["harnesses"][0]["last_at"] == STAMP + timedelta(microseconds=2)
+    monkeypatch.setattr(overview_machine_activation, "utc_now", lambda: STAMP)
+    key = (MACHINE_A, overview_machine_activation.MACHINE_MODULE_CONNECT_HARNESS)
+    first = overview_machine_activation.latch_machine_activations(
+        test_db, {MACHINE_A: {key[1]: True}}
+    )
+    assert first[key] == STAMP
+    assert overview_machine_activation.latch_machine_activations(test_db, {}) == first
+    monkeypatch.setattr(overview_activation_read, "utc_now", lambda: STAMP)
+    universe_key = overview_activation_read.MODULE_FIRST_DEPLOY
+    first = overview_activation_read.latch_activations(test_db, {universe_key: True})
+    assert first[universe_key] == STAMP
+    assert overview_activation_read.latch_activations(test_db, {}) == first
+    assert temporal_wire(first)[universe_key] == format_instant(STAMP)

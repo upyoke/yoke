@@ -32,10 +32,13 @@ signal later disappears. A new machine starts with no rows, so it reads
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from yoke_core.domain import json_helper
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.overview_harness_hook_health import (
     harness_targets,
     session_identities,
@@ -80,7 +83,8 @@ def _relay_rows(conn: Any, actor_id: Optional[int]) -> Dict[str, Dict[str, Any]]
     for row in conn.execute(
         "SELECT machine_id, hostname, surface_versions, first_seen_at, "
         f"last_seen_at, state FROM session_relays {owned}"
-        "ORDER BY last_seen_at", params,
+        "ORDER BY last_seen_at",
+        params,
     ).fetchall():
         machine_id = str(row[0])
         try:
@@ -90,26 +94,29 @@ def _relay_rows(conn: Any, actor_id: Optional[int]) -> Dict[str, Dict[str, Any]]
         if not isinstance(surfaces, dict):
             surfaces = {}
         current = machines.get(machine_id)
-        registered_at = row[3]
-        if current is not None and current["registered_at"]:
-            registered_at = min(str(current["registered_at"]), str(row[3] or ""))
+        registered_at = None if row[3] is None else parse_instant(row[3])
+        if current is not None and current["registered_at"] is not None:
+            registered_at = min(
+                value
+                for value in (current["registered_at"], registered_at)
+                if value is not None
+            )
         # Rows arrive oldest-first, so the newest relay's name and state win.
         machines[machine_id] = {
             "machine_id": machine_id,
             "name": str(row[1] or "") or None,
             "surfaces": sorted(str(key) for key in surfaces),
-            "surface_versions": {
-                str(key): value for key, value in surfaces.items()
-            },
+            "surface_versions": {str(key): value for key, value in surfaces.items()},
             "registered_at": registered_at,
-            "last_seen_at": row[4],
+            "last_seen_at": None if row[4] is None else parse_instant(row[4]),
             "relay_state": str(row[5] or ""),
         }
     return machines
 
 
 def _session_rows(
-    conn: Any, actor_id: Optional[int],
+    conn: Any,
+    actor_id: Optional[int],
 ) -> Dict[str, List[Sequence[Any]]]:
     """Session identity rows grouped by machine, in the hook-health shape."""
     grouped: Dict[str, List[Sequence[Any]]] = {}
@@ -119,7 +126,8 @@ def _session_rows(
         "SELECT machine_id, executor, COALESCE(executor_surface, ''), "
         "CASE WHEN tool_call_count > 0 OR last_tool_call_at IS NOT NULL "
         "THEN 1 ELSE 0 END, episode_started_at, last_tool_call_at, offered_at "
-        f"FROM harness_sessions WHERE machine_id IS NOT NULL {owned}", params,
+        f"FROM harness_sessions WHERE machine_id IS NOT NULL {owned}",
+        params,
     ).fetchall():
         grouped.setdefault(str(row[0]), []).append(tuple(row[1:]))
     return grouped
@@ -131,14 +139,24 @@ def _harnesses(rows: Iterable[Sequence[Any]]) -> List[Dict[str, Any]]:
     for executor, surface, _fed, _episode, _tool, offered_at in rows:
         key = (str(executor), str(surface or ""))
         entry = latest.setdefault(
-            key, {"executor": key[0], "surface": key[1] or None,
-                  "sessions": 0, "last_at": None},
+            key,
+            {
+                "executor": key[0],
+                "surface": key[1] or None,
+                "sessions": 0,
+                "last_at": None,
+            },
         )
         entry["sessions"] += 1
-        if offered_at and (entry["last_at"] is None or str(offered_at) > str(entry["last_at"])):
-            entry["last_at"] = offered_at
+        offered = None if offered_at is None else parse_instant(offered_at)
+        if offered is not None and (
+            entry["last_at"] is None or offered > entry["last_at"]
+        ):
+            entry["last_at"] = offered
     return sorted(
-        latest.values(), key=lambda entry: str(entry["last_at"] or ""), reverse=True,
+        latest.values(),
+        key=lambda entry: (entry["last_at"] is not None, entry["last_at"]),
+        reverse=True,
     )
 
 
@@ -163,7 +181,8 @@ def read_registered_machines(
     if actor_id is not None:
         relayed = _relayed_machine_ids(conn)
         sessions = {
-            machine_id: rows for machine_id, rows in sessions.items()
+            machine_id: rows
+            for machine_id, rows in sessions.items()
             if machine_id in relays or machine_id not in relayed
         }
     stored = list(reports or ())
@@ -171,42 +190,56 @@ def read_registered_machines(
     for machine_id in sorted(set(relays) | set(sessions)):
         relay = relays.get(machine_id)
         rows = sessions.get(machine_id, [])
-        if relay is not None and relay["relay_state"] == RELAY_STATE_REVOKED and not rows:
+        if (
+            relay is not None
+            and relay["relay_state"] == RELAY_STATE_REVOKED
+            and not rows
+        ):
             continue
         harnesses = _harnesses(rows)
-        first_session = min((str(row[5]) for row in rows if row[5]), default=None)
+        first_session = min(
+            (parse_instant(row[5]) for row in rows if row[5] is not None), default=None
+        )
         last_session = harnesses[0]["last_at"] if harnesses else None
-        machines.append({
-            "machine_id": machine_id,
-            "name": relay["name"] if relay else None,
-            "surfaces": relay["surfaces"] if relay else [],
-            "relay_state": relay["relay_state"] if relay else None,
-            "registered_at": (relay["registered_at"] if relay else None) or first_session,
-            "last_seen_at": max(
-                (str(value) for value in (
-                    relay["last_seen_at"] if relay else None, last_session,
-                ) if value),
-                default=None,
-            ),
-            "harnesses": harnesses,
-            "connected": (
-                {"executor": harnesses[0]["executor"], "at": last_session}
-                if harnesses else None
-            ),
-            "targets": harness_targets(
-                session_identities(rows),
-                [row for row in stored if row.get("machine_id") == machine_id],
-                installed_surfaces=(
-                    relay["surface_versions"] if relay else {}
+        machines.append(
+            {
+                "machine_id": machine_id,
+                "name": relay["name"] if relay else None,
+                "surfaces": relay["surfaces"] if relay else [],
+                "relay_state": relay["relay_state"] if relay else None,
+                "registered_at": (relay["registered_at"] if relay else None)
+                or first_session,
+                "last_seen_at": max(
+                    (
+                        value
+                        for value in (
+                            relay["last_seen_at"] if relay else None,
+                            last_session,
+                        )
+                        if value is not None
+                    ),
+                    default=None,
                 ),
-            ),
-        })
+                "harnesses": harnesses,
+                "connected": (
+                    {"executor": harnesses[0]["executor"], "at": last_session}
+                    if harnesses
+                    else None
+                ),
+                "targets": harness_targets(
+                    session_identities(rows),
+                    [row for row in stored if row.get("machine_id") == machine_id],
+                    installed_surfaces=(relay["surface_versions"] if relay else {}),
+                ),
+            }
+        )
     return machines
 
 
 def latch_machine_activations(
-    conn: Any, satisfied: Dict[str, Dict[str, bool]],
-) -> Dict[Tuple[str, str], str]:
+    conn: Any,
+    satisfied: Dict[str, Dict[str, bool]],
+) -> Dict[Tuple[str, str], datetime]:
     """Latch newly satisfied ``(machine, module)`` pairs; return all latches.
 
     Monotone and idempotent, exactly like the universe latch: an existing row
@@ -214,12 +247,12 @@ def latch_machine_activations(
     is deleted.
     """
     latched = {
-        (str(row[0]), str(row[1])): row[2]
+        (str(row[0]), str(row[1])): parse_instant(row[2])
         for row in conn.execute(
             f"SELECT machine_id, module_key, activated_at FROM {FACTS_TABLE}"
         ).fetchall()
     }
-    now = iso8601_now()
+    now = utc_now()
     missing = [
         (machine_id, key)
         for machine_id, modules in satisfied.items()
@@ -230,7 +263,7 @@ def latch_machine_activations(
         conn.execute(
             f"INSERT INTO {FACTS_TABLE} (machine_id, module_key, activated_at) "
             "VALUES (%s, %s, %s) ON CONFLICT (machine_id, module_key) DO NOTHING",
-            (machine_id, key, now),
+            (machine_id, key, instant_parameter(conn, now)),
         )
         latched[(machine_id, key)] = now
     if missing:
@@ -239,7 +272,8 @@ def latch_machine_activations(
 
 
 def machine_module_rows(
-    conn: Any, machines: Sequence[Dict[str, Any]],
+    conn: Any,
+    machines: Sequence[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     """Latch each machine's module signals and stamp per-machine activation.
 
@@ -257,15 +291,17 @@ def machine_module_rows(
     rows: List[Dict[str, Any]] = []
     for machine in machines:
         machine_id = machine["machine_id"]
-        rows.append({
-            **machine,
-            "connected_at": latched.get(
-                (machine_id, MACHINE_MODULE_MACHINE_CONNECTED),
-            ),
-            "harness_activated_at": latched.get(
-                (machine_id, MACHINE_MODULE_CONNECT_HARNESS),
-            ),
-        })
+        rows.append(
+            {
+                **machine,
+                "connected_at": latched.get(
+                    (machine_id, MACHINE_MODULE_MACHINE_CONNECTED),
+                ),
+                "harness_activated_at": latched.get(
+                    (machine_id, MACHINE_MODULE_CONNECT_HARNESS),
+                ),
+            }
+        )
     return rows
 
 
