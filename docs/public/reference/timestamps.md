@@ -189,7 +189,7 @@ Calendar days retain an explicit bucket timezone. Durations retain their units;
 elapsed process deadlines use a monotonic clock. JWT/OIDC NumericDate, AWS,
 HTTP and native third-party formats remain external protocol encodings, with
 conversion at the owning adapter. Internal signing does not turn an owned
-timestamp format into an external protocol. Preserve historical immutable
+timestamp format into an external protocol. GitHub run selectors compare run/attempt priority, native created instants and ids; optional absence precedes dated facts. Preserve historical immutable
 receipt bytes; new generations use canonical UTC. Historical repairs and active
 credential or operation cutovers require evidence from their existing owners.
 
