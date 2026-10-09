@@ -1,3 +1,5 @@
+import { instantFromDate, instantMicros } from "./timestamps.js";
+
 // How a machine's meters read: the scale a headroom bar is drawn on, the
 // short window label that stands in for the vendor's meter id, and the
 // pressure tone every value carries. One module, because a colour is a
@@ -47,9 +49,13 @@ export const PLAN_LIMIT_FRESH_SECONDS = 5 * 60;
 // No parseable `observed_at` is no evidence of freshness, so it reads as
 // stale rather than as a silent current value.
 export function readingIsStale(observedAt, now = Date.now()) {
-  const timestamp = Date.parse(String(observedAt || ""));
-  if (Number.isNaN(timestamp)) return true;
-  return (now - timestamp) / 1000 > PLAN_LIMIT_FRESH_SECONDS;
+  try {
+    const timestamp = instantMicros(observedAt);
+    const current = instantMicros(instantFromDate(new Date(now)));
+    return current - timestamp > BigInt(PLAN_LIMIT_FRESH_SECONDS) * 1_000_000n;
+  } catch {
+    return true;
+  }
 }
 
 // `Number(null)` is 0, so a fact the relay never published would otherwise read
@@ -81,13 +87,17 @@ export function planWindowHeadroom(window, now = Date.now()) {
   if (window?.status !== "ok") return null;
   const seconds = WINDOW_SECONDS[window.window_kind];
   const remaining = Number(window.remaining_percent);
-  const reset = new Date(window.resets_at).getTime();
-  const untilReset = (reset - now) / 1000;
-  if (!seconds || !Number.isFinite(remaining) || !Number.isFinite(reset)) {
+  if (!seconds || !Number.isFinite(remaining) || window.resets_at == null) return null;
+  if (remaining < 0 || remaining > 100) return null;
+  try {
+    const reset = instantMicros(window.resets_at);
+    const current = instantMicros(instantFromDate(new Date(now)));
+    const untilReset = Number(reset - current) / 1_000_000;
+    if (untilReset <= 0) return null;
+    return (seconds * remaining / 100) / untilReset * 100;
+  } catch {
     return null;
   }
-  if (remaining < 0 || remaining > 100 || untilReset <= 0) return null;
-  return (seconds * remaining / 100) / untilReset * 100;
 }
 
 export function headroomMeterPosition(headroom) {

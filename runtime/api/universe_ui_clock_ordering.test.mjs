@@ -113,3 +113,37 @@ for (const detail of [false, true]) {
       ["bad", "2060-10-08T00:00:00"]]), /invalid_instant/);
   });
 }
+
+
+import { planWindowHeadroom, readingIsStale } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_machines_meters.js";
+import { sessionHealthState } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_diagnostics.js";
+
+test("an unexpired meter reset retains its last microsecond of runway", () => {
+  const now = Date.parse("2060-10-08T00:00:00Z");
+  const window = { status: "ok", window_kind: "rolling_5h", remaining_percent: 50 };
+  for (const resets_at of ["2060-10-08T00:00:00.000001Z", "2060-10-08T05:45:00.000001+05:45"]) {
+    assert.ok(planWindowHeadroom({ ...window, resets_at }, now) > 0);
+  }
+  for (const resets_at of ["2060-10-08T00:00:00.000000Z", "2060-10-07T23:59:59.999999Z", null]) {
+    assert.equal(planWindowHeadroom({ ...window, resets_at }, now), null);
+  }
+});
+
+test("an unqualified meter observation supplies no freshness", () => {
+  const now = Date.parse("2060-10-08T00:00:00Z");
+  assert.equal(readingIsStale("2060-10-08T00:00:00", now), true);
+  assert.equal(readingIsStale("2060-10-08T00:00:00-00:00", now), true);
+  assert.equal(readingIsStale("2060-10-08T00:00:00.000001Z", now), false);
+});
+
+test("session staleness is inclusive only after the exact eligible instant", () => {
+  const now = Date.parse("2060-10-08T00:00:00Z");
+  const row = { liveness: "active", claims: [{ target_kind: "item" }],
+    stale_eligible_at: "2060-10-08T00:00:00.000001Z" };
+  assert.equal(sessionHealthState(row, now), null);
+  assert.equal(sessionHealthState({ ...row,
+    stale_eligible_at: "2060-10-08T05:45:00.000001+05:45" }, now), null);
+  assert.equal(sessionHealthState({ ...row,
+    stale_eligible_at: "2060-10-08T00:00:00.000000Z" }, now).state, "possibly stale");
+  assert.equal(sessionHealthState({ ...row, liveness: "stale" }, now).state, "stale");
+});
