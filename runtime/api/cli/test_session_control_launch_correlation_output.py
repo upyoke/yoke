@@ -51,6 +51,26 @@ def _launch(**overrides):
     return result
 
 
+def test_empty_launch_rows_and_equal_settings_are_compact():
+    launch = {"launch_id": "00000000-0000-4000-8000-000000000001", "state": "awaiting_registration", "project": "yoke", "requested_surface": "codex-cli", "selected_surface": "codex-cli", "requested_model": "gpt-6-sol", "resolved_model": "gpt-6-sol", "requested_reasoning_effort": "high", "resolved_reasoning_effort": "high", "requested_context_window_tokens": 1000000, "resolved_context_window_tokens": 1000000, "identity_correlation": "awaiting_registration", "instruction_delivery": "pending"}
+    for create in (False, True):
+        result = {"launch": launch}
+        if create:
+            result["deduplicated"] = False
+        output = io.StringIO()
+        write_launch_result(result, output)
+        assert len(output.getvalue()) <= (1500 if create else 1000)
+        assert output.getvalue().count("gpt-6-sol") == 1
+        assert "Deadline" not in output.getvalue()
+        assert "LEVEL OPTIONS WEIGHED" not in output.getvalue()
+    output = io.StringIO()
+    launch["resolved_model"] = "gpt-6-astra"
+    write_launch_result({"launch": launch}, output)
+    assert "Requested model" in output.getvalue()
+    assert "Effective model" in output.getvalue()
+    assert "gpt-6-sol" in output.getvalue() and "gpt-6-astra" in output.getvalue()
+
+
 def test_launch_detail_shows_identity_chain_and_only_sanitized_evidence() -> None:
     output = io.StringIO()
 

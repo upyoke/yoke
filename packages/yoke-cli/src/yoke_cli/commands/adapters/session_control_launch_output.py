@@ -15,6 +15,8 @@ from yoke_cli.commands.adapters.session_control_human_output import (
     write_table,
 )
 from yoke_cli.commands.adapters.session_control_launch_preview_output import (
+    nonempty_rows,
+    selection_rows,
     write_launch_preview,
 )
 from yoke_cli.commands.adapters.session_control_level_placement_output import (
@@ -130,18 +132,9 @@ def _write_launch_detail(
         ("Requested machine", launch.get("requested_machine_id")),
         ("Assigned machine", launch.get("assigned_machine_id")),
         ("Placement", launch.get("placement_reason")),
-        ("Requested model", launch.get("requested_model")),
-        ("Requested effort", launch.get("requested_reasoning_effort")),
-        (
-            "Requested context tokens",
-            launch.get("requested_context_window_tokens"),
-        ),
-        ("Effective model", launch.get("resolved_model")),
-        ("Effective effort", launch.get("resolved_reasoning_effort")),
-        (
-            "Effective context tokens",
-            launch.get("resolved_context_window_tokens"),
-        ),
+        *selection_rows("Model", launch.get("requested_model"), launch.get("resolved_model")),
+        *selection_rows("Effort", launch.get("requested_reasoning_effort"), launch.get("resolved_reasoning_effort")),
+        *selection_rows("Context tokens", launch.get("requested_context_window_tokens"), launch.get("resolved_context_window_tokens")),
         ("Fallback allowed", bool(launch.get("allow_surface_fallback"))),
         ("Native session", launch.get("native_session_id")),
         ("Registered session", launch.get("registered_session_id")),
@@ -167,7 +160,7 @@ def _write_launch_detail(
                 f"({item_level.get('reason')})",
             ),
         )
-    write_summary("LAUNCH", fields, stdout)
+    write_summary("LAUNCH", nonempty_rows(fields), stdout)
     write_level_candidates(launch.get("level_placement"), stdout)
 
 

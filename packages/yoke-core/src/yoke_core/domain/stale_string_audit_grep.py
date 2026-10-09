@@ -7,6 +7,7 @@ Python-fallback executors.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from typing import Any, Dict, List
 
@@ -64,6 +65,7 @@ def _run_rg(
 
     cmd = [
         "rg", "--no-heading", "--line-number", "--fixed-strings",
+        *(["--word-regexp"] if pattern.isidentifier() else []),
         *exclude_args, *glob_args,
         pattern, surface_path,
     ]
@@ -107,6 +109,7 @@ def _python_grep(
         return matches
 
     extensions = {".ts", ".tsx", ".js", ".jsx", ".py"}
+    word = re.compile(r"(?<!\w)" + re.escape(pattern) + r"(?!\w)") if pattern.isidentifier() else None
     for root, dirs, files in os.walk(surface_path):
         # Prune excluded dirs
         dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
@@ -118,7 +121,7 @@ def _python_grep(
             try:
                 with open(fpath, "r", errors="replace") as f:
                     for i, line in enumerate(f, 1):
-                        if pattern in line:
+                        if word.search(line) if word is not None else pattern in line:
                             rel = os.path.relpath(fpath, search_root)
                             matches.append({
                                 "file": rel,

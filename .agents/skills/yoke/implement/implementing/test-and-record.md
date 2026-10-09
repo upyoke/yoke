@@ -118,6 +118,9 @@ and greps the discovered test surfaces in one pass.
 
 Candidate-string derivation prefers **removed lines of the combined git diffs** (`git diff`, `git diff --staged`, `git diff main...HEAD`) so mid-implementation runs target the literal values being replaced. When no removals exist yet (preflight, before any edit), it falls back to quoted literals in the item spec/body and filters out anything that also appears on a `+` line — so new values the agent intentionally placed are never flagged as stale.
 
+Single-word candidates match whole words, so a retired heading still matches
+its quoted fixture but does not match part of a supported identifier.
+
 Surface the JSON summary to the agent. The important fields are:
 - `project`, `source`, `surfaces`, `doc_paths`
 - `candidate_strings` — the old values being audited

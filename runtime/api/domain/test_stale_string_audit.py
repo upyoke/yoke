@@ -175,6 +175,18 @@ def test_python_grep_respects_extensions(temp_project):
     assert not any(m["file"].endswith(".json") for m in matches)
 
 
+@pytest.mark.parametrize("backend", ["_run_rg", "_python_grep"])
+@pytest.mark.parametrize("heading", ["MACHINE", "VERSION"])
+def test_single_word_heading_matches_literal_and_not_identifier(tmp_path, backend, heading):
+    from yoke_core.domain import stale_string_audit_grep
+
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "fixture.py").write_text(f'heading = "{heading}"\nYOKE_{heading}_CONFIG = "supported"\n')
+    matches = getattr(stale_string_audit_grep, backend)(str(tmp_path), heading, "tests/")
+    assert [match["line"] for match in matches] == [1]
+
+
 # ── _extract_dirs_from_test_command tests ───────────────────────────────
 
 
