@@ -35,7 +35,9 @@ from __future__ import annotations
 
 import os
 import json
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, List, Optional
 
 from yoke_core.domain import db_backend
@@ -65,8 +67,8 @@ class ActorNotFound(ActorError):
     """An actor id was looked up that does not exist."""
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+def _now() -> datetime:
+    return utc_now()
 
 
 def _placeholder(conn: Any) -> str:
@@ -97,7 +99,7 @@ def seed_system_actor(
     cur = conn.execute(
         "INSERT INTO actors (kind, system_component, name, created_at) "
         f"VALUES ('system', {p}, {p}, {p}) RETURNING id",
-        (system_component, system_component, _now()),
+        (system_component, system_component, instant_parameter(conn, _now())),
     )
     actor_id = int(cur.fetchone()[0])
     conn.commit()
@@ -117,7 +119,7 @@ def seed_human_actor(
     p = _placeholder(conn)
     columns = "kind, system_component, name, created_at"
     values = f"'human', NULL, {p}, {p}"
-    params = (str(name or "").strip(), _now())
+    params = (str(name or "").strip(), instant_parameter(conn, _now()))
     if attribution is not None:
         if not all(
             attribution.get(key) for key in ("visitor_id", "first_touch", "last_touch")

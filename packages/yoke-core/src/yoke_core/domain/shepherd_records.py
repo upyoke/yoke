@@ -1,17 +1,26 @@
 """Record formatting and stdin helpers for shepherd commands."""
+
 from __future__ import annotations
 
 import select as select_mod
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now, format_instant
 
 
-def now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def now_iso() -> datetime:
+    return utc_now()
 
 
 def format_row(row) -> str:
-    return "|".join("" if value is None else str(value) for value in tuple(row))
+    return "|".join(
+        ""
+        if value is None
+        else format_instant(value)
+        if isinstance(value, datetime)
+        else str(value)
+        for value in tuple(row)
+    )
 
 
 def read_stdin_safe() -> str:

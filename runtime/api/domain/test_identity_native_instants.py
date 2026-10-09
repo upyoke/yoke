@@ -86,3 +86,20 @@ def test_permission_seed_clocks_are_native(test_db, monkeypatch, zone):
         clocks = test_db.execute(f"SELECT created_at FROM {table}").fetchall()
         assert clocks
         assert all(row[0] == STAMP for row in clocks)
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_actor_birth_clocks_preserve_microseconds(test_db, monkeypatch, zone):
+    from yoke_core.domain import actors
+
+    monkeypatch.setattr(actors, "utc_now", lambda: STAMP)
+    test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
+    actor_id = actors.seed_human_actor(test_db, name="Native clock")
+    system_id = actors.seed_system_actor(test_db, system_component="native-clock-test")
+    for identity in (actor_id, system_id):
+        assert (
+            test_db.execute(
+                "SELECT created_at FROM actors WHERE id=%s", (identity,)
+            ).fetchone()[0]
+            == STAMP
+        )

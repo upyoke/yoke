@@ -327,3 +327,8 @@ microseconds across database timezones. List/detail/revision JSON, generated
 headers, ingest reports and checkpoint CLI output format their declared clocks
 as fixed-six UTC/null; revision content bytes and content digests stay unchanged.
 Board command JSON formats its native timing clocks at the output boundary.
+
+Actor birth, approval preparation, universe-setting and migration-audit writes
+retain native clocks. Session drift/rework and presentation ordering compare
+aware instants; naive external presentation observations are rejected. Shepherd
+pipe output formats native instants; its verdict date remains a UTC date label.

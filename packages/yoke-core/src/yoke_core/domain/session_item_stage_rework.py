@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
 from typing import Any, Mapping
 
 from yoke_core.domain import db_backend
@@ -10,13 +11,7 @@ from yoke_core.domain.schema_common import _table_exists
 
 
 def _instant(value: Any) -> datetime | None:
-    if not value:
-        return None
-    try:
-        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed
+    return parse_instant(value) if value is not None else None
 
 
 def items_returned_after_landing(

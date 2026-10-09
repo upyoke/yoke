@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_contracts.timestamps import format_instant
+
 import json
 from typing import Optional
 
@@ -59,7 +62,15 @@ def cmd_verdict(
         "INSERT INTO shepherd_verdicts "
         "(public_ref, transition, worker, verdict, caveats, attempt, created_at) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}) RETURNING id",
-        (item, transition, worker, verdict, caveats, attempt, ts),
+        (
+            item,
+            transition,
+            worker,
+            verdict,
+            caveats,
+            attempt,
+            instant_parameter(conn, ts),
+        ),
     )
     verdict_id = int(cursor.fetchone()[0])
     conn.commit()
@@ -99,7 +110,7 @@ def cmd_shepherd_log(conn, item: str) -> str:
 
     for row in rows:
         transition, worker, verdict, caveats_raw, attempt, created_at = tuple(row)
-        date = created_at.split("T")[0] if "T" in str(created_at) else str(created_at)
+        date = format_instant(created_at)[:10]
         lines.append("")
         lines.append(f"### {transition} -- {date}")
         lines.append(f"- **Worker:** {worker} (attempt {attempt})")
@@ -171,7 +182,7 @@ def cmd_caveat_disposition(
             disposition,
             resolution_details,
             verdict_id,
-            now_iso(),
+            instant_parameter(conn, now_iso()),
         ),
     )
     conn.commit()

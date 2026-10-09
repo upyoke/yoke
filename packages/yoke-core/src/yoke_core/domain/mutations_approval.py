@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now
 from typing import Any, Dict, List, Optional, Sequence
 
 from .approval import FlowStage, resolve_approval
 from .mutation_fields import ApprovalResult, ItemState, MutationEvent, MutationEventKind
 from .runs import DeploymentRun
+
 
 def prepare_approval(
     *,
@@ -57,15 +58,14 @@ def prepare_approval(
         return ApprovalResult(
             success=False,
             error=(
-                f"Item {item.ref} deploy_stage '{deploy_stage}': "
-                f"{resolution.error}"
+                f"Item {item.ref} deploy_stage '{deploy_stage}': {resolution.error}"
             ),
             error_code="INVALID_STATE",
             item_id=item.id,
         )
 
     next_stage = resolution.next_stage
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = utc_now()
     run_id = active_run.id if active_run else None
 
     events: List[MutationEvent] = [
@@ -83,19 +83,23 @@ def prepare_approval(
     field_writes: Dict[str, Any] = {}
 
     if run_id:
-        events.append(MutationEvent(
-            kind=MutationEventKind.RUN_STAGE_ADVANCED,
-            detail={"run_id": run_id, "next_stage": next_stage},
-        ))
+        events.append(
+            MutationEvent(
+                kind=MutationEventKind.RUN_STAGE_ADVANCED,
+                detail={"run_id": run_id, "next_stage": next_stage},
+            )
+        )
         # All member items get stage synced
         if member_item_ids:
-            events.append(MutationEvent(
-                kind=MutationEventKind.MEMBER_STAGE_SYNCED,
-                detail={
-                    "member_item_ids": list(member_item_ids),
-                    "next_stage": next_stage,
-                },
-            ))
+            events.append(
+                MutationEvent(
+                    kind=MutationEventKind.MEMBER_STAGE_SYNCED,
+                    detail={
+                        "member_item_ids": list(member_item_ids),
+                        "next_stage": next_stage,
+                    },
+                )
+            )
 
     # Item-level writes: deploy_stage + ensure release status
     field_writes["deploy_stage"] = next_stage
