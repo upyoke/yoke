@@ -180,3 +180,8 @@ formats only at the existing merged-at owner.
 Current queue birth fixtures store canonical SQLite boundary clocks. Ejection
 clearing compares native arming instants; a rearm one microsecond later remains
 visible even if the predecessor notice is delivered.
+
+Named entry ingress forwards native default and supplied qualified instants;
+blank or malformed supplied clocks refuse before the entry writer. Governed
+exception audit fingerprints bind native start/completion clocks through the
+shared adapter, retaining explicit backup/no-backup authority requirements.

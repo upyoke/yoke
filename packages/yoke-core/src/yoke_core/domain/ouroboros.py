@@ -9,19 +9,22 @@ CLI usage::
 
 Exit codes: 0 success, 1 error/not-found, 2 usage error.
 """
+
 from __future__ import annotations
 
 import select as select_mod
 import sys
 from typing import List, Optional
 
-from yoke_core.domain.db_helpers import connect, iso8601_now
+from yoke_contracts.timestamps import parse_instant, utc_now
+from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.ouroboros_entries import (
     cmd_insert_entry,
     cmd_list_entries,
     cmd_mark_archived,
     cmd_mark_reviewed,
 )
+
 __all__ = [
     "cmd_insert_entry",
     "cmd_list_entries",
@@ -114,8 +117,7 @@ def _insert_entry_named(conn, rest: list[str]) -> None:
         _cli_error("Error: --agent is required", 2)
     if not category:
         _cli_error("Error: --category is required", 2)
-    if not timestamp:
-        timestamp = iso8601_now()
+    timestamp = utc_now() if timestamp is None else parse_instant(timestamp)
 
     if body_stdin:
         if observation:
@@ -170,7 +172,14 @@ def _insert_entry_positional(conn, rest: list[str]) -> None:
 def _handle_insert_entry(conn, rest: list[str]) -> None:
     named_mode = any(
         arg
-        in ("--agent", "--context", "--category", "--observation", "--timestamp", "--project")
+        in (
+            "--agent",
+            "--context",
+            "--category",
+            "--observation",
+            "--timestamp",
+            "--project",
+        )
         for arg in rest
     )
     if named_mode:
@@ -225,7 +234,9 @@ def main(argv: Optional[List[str]] = None) -> None:
                     )
                 )
             else:
-                _cli_usage_error("Usage: ouroboros mark-archived [--all-reviewed | <id>]")
+                _cli_usage_error(
+                    "Usage: ouroboros mark-archived [--all-reviewed | <id>]"
+                )
 
         else:
             _cli_usage_error(_USAGE)

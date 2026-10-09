@@ -119,12 +119,13 @@ def test_one_notice_failure_does_not_stop_other_items_from_refreshing(monkeypatc
         }
     ]
     markers = {
-        int(row[0]): row[1]
+        int(row[0]): parse_instant(row[1])
         for row in conn.execute(
             "SELECT id,merge_queue_enqueued_at FROM items WHERE id IN (101,102)"
         )
     }
-    assert markers == {101: "2026-08-27T17:00:00Z", 102: "2026-08-27T17:00:00Z"}
+    arming = parse_instant("2026-08-27T17:00:00Z")
+    assert markers == {101: arming, 102: arming}
     refresh = read_refresh(conn, 1)
     assert refresh.completed_at
     assert refresh.last_error == ""

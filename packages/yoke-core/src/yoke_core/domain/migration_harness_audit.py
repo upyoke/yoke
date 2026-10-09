@@ -6,9 +6,10 @@ import json
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.migration_harness_backup import create_exception_backup
 from yoke_core.domain.migration_harness_contract import AuditEmissionError
+
 
 def record_audit_fingerprint(
     db_path: str,
@@ -100,16 +101,24 @@ def record_audit_fingerprint(
 
     conn = db_backend.connect(db_path)
     try:
-        now = iso8601_now()
+        now = instant_parameter(conn, utc_now())
         expected_deltas = {
-            tbl: post_counts.get(tbl, 0) - pre_counts.get(tbl, 0)
-            for tbl in tables
+            tbl: post_counts.get(tbl, 0) - pre_counts.get(tbl, 0) for tbl in tables
         }
         columns: List[str] = [
-            "migration_name", "description", "tables_declared",
-            "expected_deltas", "pre_row_counts", "post_row_counts",
-            "pre_fk_violations", "post_fk_violations", "backup_path",
-            "state", "started_at", "completed_at", "duration_ms",
+            "migration_name",
+            "description",
+            "tables_declared",
+            "expected_deltas",
+            "pre_row_counts",
+            "post_row_counts",
+            "pre_fk_violations",
+            "post_fk_violations",
+            "backup_path",
+            "state",
+            "started_at",
+            "completed_at",
+            "duration_ms",
         ]
         values: List[Any] = [
             name,
