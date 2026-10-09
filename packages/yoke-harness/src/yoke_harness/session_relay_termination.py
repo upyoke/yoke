@@ -5,14 +5,11 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import signal
 import subprocess
-import time
 from typing import Any, Callable, Mapping
 
 from yoke_cli.config import machine_config
 from yoke_contracts.executor_labels import canonical_harness_id
-from yoke_contracts.process_ancestry import process_start_time
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
 from yoke_harness.claude_runtime_records import (
     SESSION_RECORD_MISSING,
@@ -20,11 +17,18 @@ from yoke_harness.claude_runtime_records import (
 )
 from yoke_harness.session_launch_containment import SUPERVISION_DIRECTORY_NAME
 from yoke_harness import session_launch_handles
+from yoke_harness.session_process_custody import (
+    MAX_RECORD_BYTES,
+    SUCCESS_RESULTS,
+    bind_process_group,
+    TERMINATE_WAIT_SECONDS,
+    custody_state,
+    terminate_record,
+    write_record,
+)
 
 
 ADAPTER_REVISION = "session-termination-v2"
-MAX_RECORD_BYTES = 4096
-TERMINATE_WAIT_SECONDS = 2.0
 
 
 def local_state_root(state_dir: Path | None) -> Path:
@@ -61,55 +65,25 @@ def adopt_launched_session(
     start = record.get("process_start_time")
     if not isinstance(pid, int) or pid <= 0 or not isinstance(start, str) or not start:
         return False
+    if not target_session_id or custody_state(record) != "live":
+        return False
     payload = {
         "launch_id": launch_id,
         "target_session_id": target_session_id or None,
         "native_session_id": record.get("native_session_id"),
         "pid": pid,
         "process_start_time": start,
-        # Carried over from the supervision record this replaces, so a reader
-        # holding only the handle can still find the native's own account.
-        # Absent on a handle written before this field existed.
         "capture_path": record.get("capture_path"),
+        "process_group_id": record.get("process_group_id"),
+        "group_members": record.get("group_members"),
     }
     try:
         destination = session_launch_handles.native_handle_path(launch_id)
-        temporary = destination.with_suffix(f".{os.getpid()}.tmp")
-        temporary.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
-        temporary.chmod(0o600)
-        os.replace(temporary, destination)
+        if not write_record(destination, payload):
+            return False
+        return read_local_record(destination) == payload
     except OSError:
         return False
-    return True
-
-
-def _terminate_pid(pid: int, expected_start: object) -> str:
-    if process_start_time(pid) != expected_start:
-        return "already_exited"
-    try:
-        group = os.getpgid(pid)
-    except OSError:
-        return "already_exited"
-    if process_start_time(pid) != expected_start:
-        return "already_exited"
-    if group == os.getpgrp():
-        return "shared_process_group"
-    try:
-        os.killpg(group, signal.SIGTERM)
-    except OSError:
-        return "already_exited"
-    deadline = time.monotonic() + TERMINATE_WAIT_SECONDS
-    while time.monotonic() < deadline:
-        try:
-            os.killpg(group, 0)
-        except OSError:
-            return "terminated"
-        time.sleep(0.1)
-    try:
-        os.killpg(group, signal.SIGKILL)
-    except OSError:
-        return "terminated"
-    return "killed"
 
 
 def _terminate_record(path: Path, record: Mapping[str, Any]) -> tuple[int, str] | None:
@@ -117,12 +91,20 @@ def _terminate_record(path: Path, record: Mapping[str, Any]) -> tuple[int, str] 
     start = record.get("process_start_time") or record.get("anchor_start_time")
     if not isinstance(pid, int) or pid <= 0 or not start:
         return None
-    result = _terminate_pid(pid, start)
-    if result != "shared_process_group":
+    payload = dict(record)
+    result = terminate_record(
+        payload,
+        wait_seconds=TERMINATE_WAIT_SECONDS,
+        persist=lambda value: write_record(path, value),
+    )
+    if result in SUCCESS_RESULTS:
         try:
             path.unlink(missing_ok=True)
         except OSError:
             pass
+    else:
+        payload["termination_result"] = result
+        write_record(path, payload)
     return pid, result
 
 
@@ -139,13 +121,9 @@ def stop_claude_job(
 ) -> tuple[str, dict[str, object]]:
     """Stop one Claude background job by the id its own records already name.
 
-    Yoke starts its own Claude workers as relay-owned processes, so the jobs
-    reached here belong to the daemon: sessions a person opened, and hosts
-    left behind by workers started before that changed. A job id is all the
-    daemon needs to close one, and this path holds the id already, so it
-    never asks the agent listing to map a session back to a job — that
-    listing is read under a byte bound a machine with a few hundred agents
-    overruns, and every identity resolved through it then fails to parse.
+    Relay-owned workers use process custody. Daemon-owned jobs use their
+    recorded native job id; listing every agent would add an unrelated
+    byte-limited lookup to an already resolved identity.
     """
     from yoke_harness.session_relay_claude_native import discover_claude_cli
 
@@ -186,7 +164,12 @@ def _claude_surface(surface: str) -> bool:
 def _record_is_live(record: Mapping[str, Any]) -> bool:
     pid = record.get("pid") or record.get("anchor_pid")
     started = record.get("process_start_time") or record.get("anchor_start_time")
-    return isinstance(pid, int) and pid > 0 and process_start_time(pid) == started
+    return (
+        isinstance(pid, int)
+        and pid > 0
+        and bool(started)
+        and custody_state(record) != "gone"
+    )
 
 
 def _stop_claude_session(
@@ -232,7 +215,10 @@ def _matching_resume_records(
         record = read_local_record(path)
         if record is None or record.get("supervision_kind") != "resume":
             continue
-        if str(record.get("native_session_id") or "") in identities:
+        if (
+            str(record.get("native_session_id") or "") in identities
+            or str(record.get("target_session_id") or "") == target_session_id
+        ):
             matches.append((path, record))
     return matches
 
@@ -286,6 +272,10 @@ def reap_terminated_session(
             and str(record.get("target_session_id") or "") == target
         ):
             records.append((handle, record))
+        source = _supervision_path(launch_id, state_dir)
+        supervised = read_local_record(source)
+        if supervised is not None and supervised.get("target_session_id") == target:
+            records.append((source, supervised))
     records.extend(_matching_resume_records(target, native_id, state_dir))
     records.extend(_matching_anchor_records(target, anchors_dir))
     if (
@@ -299,28 +289,42 @@ def reap_terminated_session(
         )
         outcomes.append(background_result)
         evidence.update(background_evidence)
-    pids: set[int] = set()
+    records = [(path, bind_process_group(record)) for path, record in records]
+    seen: set[int] = set()
     for path, record in records:
-        result = _terminate_record(path, record)
-        if result is None or result[0] in pids:
+        identity = (
+            record.get("process_group_id")
+            or record.get("pid")
+            or record.get("anchor_pid")
+        )
+        if not isinstance(identity, int) or identity in seen:
             continue
-        pids.add(result[0])
-        outcomes.append(result[1])
-    if "killed" in outcomes:
-        code = "killed"
-    elif "terminated" in outcomes:
-        code = "terminated"
-    elif "failed" in outcomes:
+        seen.add(identity)
+        result = _terminate_record(path, record)
+        outcomes.append(result[1] if result is not None else "outcome_unknown")
+    if "failed" in outcomes:
         code = "failed"
     elif "outcome_unknown" in outcomes:
         code = "outcome_unknown"
     elif "shared_process_group" in outcomes:
         code = "shared_process_group"
+    elif "not_found" in outcomes:
+        code = "not_found"
+    elif "killed" in outcomes:
+        code = "killed"
+    elif "terminated" in outcomes:
+        code = "terminated"
     elif "already_exited" in outcomes:
         code = "already_exited"
     else:
         code = "not_found"
     evidence.update({"result_code": code, "handles_considered": len(records)})
+    if code not in SUCCESS_RESULTS:
+        evidence["probe_detail"] = "physical_reap_unresolved"
+        evidence.setdefault(
+            "background_agent_recovery",
+            "Inspect machine custody and signal permissions; explicitly request termination again.",
+        )
     return RelayAdapterResult(
         code,
         adapter_revision=ADAPTER_REVISION,

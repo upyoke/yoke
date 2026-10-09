@@ -15,7 +15,6 @@ import time
 
 from yoke_harness.session_launch_containment import (
     record_supervised_native,
-    release_supervised_native,
 )
 from yoke_harness.session_launch_containment_sweep import (
     CONTAINMENT_TTL_SECONDS,
@@ -64,7 +63,14 @@ def test_registration_releases_the_native_from_supervision(tmp_path: Path) -> No
     process = _sleeper()
     try:
         record_supervised_native(LAUNCH_ID, process.pid, state_dir=tmp_path)
-        release_supervised_native(LAUNCH_ID, state_dir=tmp_path)
+        from yoke_harness.session_launch_handoff import (
+            LaunchProjection,
+            release_launch_containment,
+        )
+
+        assert release_launch_containment(
+            LaunchProjection(LAUNCH_ID, SESSION_ID), state_dir=tmp_path
+        )
 
         assert not _record_file(tmp_path).exists()
         assert contain_stranded_launch_natives(state_dir=tmp_path, ttl_seconds=0) == []
@@ -173,11 +179,13 @@ def test_a_reused_pid_is_reported_exited_rather_than_signalled(
     )
     payload = json.loads(_record_file(tmp_path).read_text())
     payload["process_start_time"] = "a start time this process never had"
+    payload["group_members"] = {str(os.getpid()): "different incarnation"}
     _record_file(tmp_path).write_text(json.dumps(payload))
 
     outcomes = contain_stranded_launch_natives(state_dir=tmp_path)
 
-    assert [outcome.result for outcome in outcomes] == ["already_exited"]
+    assert [outcome.result for outcome in outcomes] == ["outcome_unknown"]
+    assert _record_file(tmp_path).exists()
 
 
 def test_recording_refuses_a_pid_that_does_not_exist(tmp_path: Path) -> None:

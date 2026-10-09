@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_harness import session_relay_codex_cli as codex_cli
+from yoke_harness import session_relay_codex_cli_process as codex_process
 from yoke_harness import session_relay_cursor_cli as cursor_cli
 from yoke_harness.session_relay_cursor import CursorWakeRequest
 from yoke_harness.session_relay_native_capture_format import parse_capture
@@ -76,7 +76,7 @@ def test_a_codex_native_that_ends_leaves_both_of_its_streams(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
-        codex_cli,
+        codex_process,
         "store_native_diagnostic",
         lambda stdout, stderr, **kwargs: store_native_diagnostic(
             stdout, stderr, state_dir=tmp_path, **kwargs
@@ -86,7 +86,7 @@ def test_a_codex_native_that_ends_leaves_both_of_its_streams(
     streams.append(STDOUT, b'{"type":"thread.started"}\n')
     streams.append(STDERR, b"codex refused the resume\n")
 
-    codex_cli._retain(streams, ATTEMPT_ID, 2)
+    codex_process._retain(streams, ATTEMPT_ID, 2)
 
     capture = parse_capture(
         native_diagnostic_path(f"nd-{ATTEMPT_ID}", state_dir=tmp_path).read_bytes()

@@ -33,10 +33,13 @@ from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
-import signal
 import time
 
-from yoke_contracts.process_ancestry import process_start_time
+from yoke_harness.session_process_custody import (
+    SUCCESS_RESULTS,
+    terminate_record,
+    write_record,
+)
 from yoke_contracts.session_control.resume import RESUME_INACTIVITY_SECONDS
 from yoke_harness.session_launch_containment import (
     MAX_RECORD_BYTES,
@@ -63,30 +66,6 @@ class ContainmentOutcome:
     native_session_id: str | None = None
     supervision_kind: str = "launch"
     reason: str = "registration_timeout"
-
-
-def _terminate(pid: int) -> str:
-    """Signal the native's whole process group, escalating only if it stays."""
-    try:
-        group = os.getpgid(pid)
-    except OSError:
-        return "already_exited"
-    try:
-        os.killpg(group, signal.SIGTERM)
-    except OSError:
-        return "already_exited"
-    deadline = time.monotonic() + _TERMINATE_WAIT_SECONDS
-    while time.monotonic() < deadline:
-        try:
-            os.killpg(group, 0)
-        except OSError:
-            return "terminated"
-        time.sleep(0.1)
-    try:
-        os.killpg(group, signal.SIGKILL)
-    except OSError:
-        return "terminated"
-    return "killed"
 
 
 def contain_stranded_launch_natives(
@@ -117,11 +96,12 @@ def contain_stranded_launch_natives(
             reason = "inactivity"
         elif current - recorded_at < ttl_seconds:
             continue
-        elif _registration_handle_exists(payload):
+        elif payload.get("target_session_id") or _registration_handle_exists(payload):
             # The native bound a session, so it has authority and this record
             # is stale rather than actionable. Dropping it is what the
             # registration release should already have done.
-            _drop(path)
+            if _registration_handle_exists(payload):
+                _drop(path)
             continue
         outcome = _contain_payload(path, payload, kind=kind, reason=reason)
         if outcome is not None:
@@ -142,8 +122,16 @@ def _registration_handle_exists(payload: dict[str, object]) -> bool:
     if not launch_id:
         return False
     try:
-        return native_handle_path(launch_id).is_file()
-    except OSError:
+        path = native_handle_path(launch_id)
+        record = json.loads(path.read_text())
+        return (
+            record.get("launch_id") == launch_id
+            and bool(record.get("target_session_id"))
+            and record.get("pid") == payload.get("pid")
+            and record.get("process_start_time") == payload.get("process_start_time")
+            and record.get("process_group_id") == payload.get("process_group_id")
+        )
+    except (OSError, ValueError, AttributeError):
         return False
 
 
@@ -205,13 +193,12 @@ def _contain_payload(
     if not isinstance(pid, int) or pid <= 0:
         _drop(path)
         return None
-    # A reused pid names a different process entirely; the native this
-    # record was written for is already gone.
-    if process_start_time(pid) != payload.get("process_start_time"):
-        result = "already_exited"
-    else:
-        result = _terminate(pid)
-    if kind == "resume":
+    result = terminate_record(
+        payload,
+        wait_seconds=_TERMINATE_WAIT_SECONDS,
+        persist=lambda value: write_record(path, value),
+    )
+    if kind == "resume" or result not in SUCCESS_RESULTS:
         _retain_contained_resume(path, payload, result=result, reason=reason)
     else:
         _drop(path)

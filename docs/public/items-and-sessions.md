@@ -79,7 +79,17 @@ registered worktree. A persisted active work claim keeps its session live
 through stale, idle, parked, process-gone, and startup sweeps. This includes
 release waits; parking records the delivery wait for wake routing and does
 not determine retention. Claim release, completion, cancellation, and
-authorized operator termination free ownership. Explicit session end releases
+authorized operator termination free ownership. Logical termination cancels
+messages immediately and queues one physical reap. The relay retains
+identity-bound process/group custody until verified exit: TERM has a 2-second
+grace, followed by KILL and a bounded 2-second exit check. Missing custody,
+signal denial, and unverified exit remain unresolved. Inspect machine custody
+and permissions, then explicitly repeat `yoke sessions terminate SESSION-ID
+--reason R` to retry a failed reap; prior failed evidence is retained in the
+existing reap record. A pending attempt is not duplicated and a verified
+success stays a no-op. Claude's native job stop has a separate 20-second
+command timeout. Registration transfers custody only after adoption succeeds;
+a failed adoption keeps the registered native protected in supervision. Explicit session end releases
 the claims it still holds. A claim conflict names its holder and requires one
 of those explicit actions rather than a heartbeat timeout.
 

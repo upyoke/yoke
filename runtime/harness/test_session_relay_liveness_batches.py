@@ -172,9 +172,10 @@ def test_a_refused_session_batch_keeps_its_records_and_the_ones_behind_it(
 
 
 def test_more_launch_deaths_than_one_request_holds_are_sent_as_accepted_batches(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch,
 ) -> None:
     launches = _dead_launches(tmp_path, OVERFLOW)
+    monkeypatch.setattr("yoke_harness.session_process_custody.group_members", lambda group: {})
     dispatcher = _BatchDispatcher(collection="launches")
 
     reported = report_unregistered_launch_deaths(
@@ -215,10 +216,11 @@ def test_prunable_session_ids_keeps_only_the_unresolvable_skips() -> None:
 
 
 def test_a_refused_launch_batch_keeps_its_records_and_the_ones_behind_it(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch,
 ) -> None:
     """A custody record is released only for a batch the server received."""
     launches = _dead_launches(tmp_path, OVERFLOW)
+    monkeypatch.setattr("yoke_harness.session_process_custody.group_members", lambda group: {})
     dispatcher = _BatchDispatcher(collection="launches", refuse_call=2)
 
     reported = report_unregistered_launch_deaths(

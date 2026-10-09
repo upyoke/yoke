@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -92,6 +93,20 @@ def _queue_reap(
     native_id = str(target.get("native_thread_id") or "") or launch_native_id
     state = "pending" if machine_id else "unavailable"
     marker = _p(conn)
+    previous = conn.execute(
+        f"SELECT completed_at,result_code,evidence FROM session_termination_reaps WHERE target_session_id={marker}",
+        (str(target["session_id"]),),
+    ).fetchone()
+    retained = json.loads(previous[2] or "{}") if previous is not None else {}
+    history = retained.get("attempts", [])
+    if previous is not None and previous[0]:
+        history.append(
+            {
+                "completed_at": str(previous[0]),
+                "result_code": previous[1],
+                "evidence": {k: v for k, v in retained.items() if k != "attempts"},
+            }
+        )
     values = (
         str(target["session_id"]),
         int(target["project_id"]),
@@ -101,11 +116,12 @@ def _queue_reap(
         launch_id,
         state,
         requested_at,
+        json.dumps({"attempts": history}),
     )
     conn.execute(
         "INSERT INTO session_termination_reaps "
         "(target_session_id,project_id,machine_id,executor_surface,"
-        "target_native_thread_id,launch_id,state,requested_at) VALUES ("
+        "target_native_thread_id,launch_id,state,requested_at,evidence) VALUES ("
         + ",".join(marker for _ in values)
         + ") ON CONFLICT(target_session_id) DO UPDATE SET "
         "project_id=excluded.project_id,machine_id=excluded.machine_id,"
@@ -113,7 +129,7 @@ def _queue_reap(
         "target_native_thread_id=excluded.target_native_thread_id,"
         "launch_id=excluded.launch_id,state=excluded.state,"
         "requested_at=excluded.requested_at,lease_id=NULL,lease_expires_at=NULL,"
-        "completed_at=NULL,result_code=NULL,evidence=NULL",
+        "completed_at=NULL,result_code=NULL,evidence=excluded.evidence",
         values,
     )
     return state
@@ -153,11 +169,15 @@ def terminate_session(
             f"{_p(conn)}",
             (target_session_id,),
         ).fetchone()
+        state = str(reap[0]) if reap is not None else "unavailable"
+        retry = state in {"failed", "unavailable"}
+        if retry:
+            state = _queue_reap(conn, target=target, requested_at=_now_iso())
         return {
             "session": target,
             "cancelled_recipient_count": 0,
-            "reap_state": str(reap[0]) if reap is not None else "unavailable",
-            "deduplicated": True,
+            "reap_state": state,
+            "deduplicated": not retry,
         }
 
     if not allow_resume_in_flight:

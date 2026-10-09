@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from yoke_harness.session_launch_admission import spawn_admitted_process
+from yoke_harness.session_launch_containment import record_supervised_native
+from yoke_harness.session_relay_codex_cli_process import (
+    stop_native as _stop,
+    _retain_and_reap,
+    _retain,
+)
 
 import json
 import os
 import selectors
 import subprocess
-import threading
 import time
 
 from yoke_harness.session_relay_codex import (
@@ -30,17 +35,13 @@ from yoke_harness.session_relay_inventory import (
 from yoke_harness.session_relay_native_diagnostics import (
     BACKGROUND_SESSION_IN_USE,
     MODEL_COMBO_UNSUPPORTED,
-    NativeDiagnosticError,
     classify_native_failure,
-    diagnostic_reference,
     model_combo_rejection_detail,
-    store_native_diagnostic,
 )
 from yoke_harness.session_relay_native_streams import (
     STDERR,
     STDOUT,
     BoundedStreams,
-    drain,
     start_drain,
 )
 from yoke_harness.session_relay_runtime import wake_operation
@@ -73,64 +74,11 @@ def _thread_id(event: object) -> str | None:
     return str(value).strip() if isinstance(value, str) and value.strip() else None
 
 
-def _retain_and_reap(
-    process: subprocess.Popen[bytes],
-    streams: BoundedStreams,
-    reference: str,
-) -> None:
-    """Own the native for the rest of its turn and keep what it said.
-
-    This worker outlives the relay poll that started it, so it is the only
-    process that can see how the native ends. Reading the streams to their end
-    and writing them once, with the exit status, is what turns a codex turn
-    that died into something an operator can still read.
-    """
-
-    def own() -> None:
-        drain(process.stdout, streams, STDOUT)
-        try:
-            exit_code = process.wait()
-        except (OSError, subprocess.SubprocessError):
-            exit_code = None
-        _retain(streams, reference, exit_code)
-
-    threading.Thread(target=own, daemon=False, name="yoke-codex-relay-reap").start()
-
-
-def _retain(
-    streams: BoundedStreams,
-    reference: str,
-    exit_code: int | None,
-) -> None:
-    """Write one codex native's account, or leave the outcome unaffected."""
-    stdout, stderr = streams.snapshot()
-    try:
-        store_native_diagnostic(
-            stdout,
-            stderr,
-            reference=diagnostic_reference(reference),
-            exit_code=exit_code,
-        )
-    except NativeDiagnosticError:
-        return
-
-
 def _stderr_bytes(process: subprocess.Popen[bytes], streams: BoundedStreams) -> bytes:
     thread = getattr(process, "_yoke_stderr_thread", None)
     if thread is not None:
         thread.join(1)
     return streams.snapshot()[1]
-
-
-def _stop(process: subprocess.Popen[bytes]) -> None:
-    if process.poll() is not None:
-        return
-    process.terminate()
-    try:
-        process.wait(timeout=2)
-    except subprocess.TimeoutExpired:
-        process.kill()
-        process.wait(timeout=2)
 
 
 class CodexCliTransport:
@@ -183,6 +131,17 @@ class CodexCliTransport:
                 stderr=subprocess.PIPE,
                 start_new_session=True,
             )
+            if not record_supervised_native(
+                request.job_id,
+                process.pid,
+                native_session_id=request.target_thread_id or request.target_session_id,
+                target_session_id=request.target_session_id,
+                supervision_kind="resume" if resume else "launch",
+            ):
+                _stop(process)
+                raise _NativePhaseError(
+                    "custody", binary_source=resolved.source, pid=process.pid
+                )
             stderr_thread = start_drain(process.stderr, streams, STDERR, daemon=False)
             setattr(process, "_yoke_stderr_thread", stderr_thread)
             if process.stdin is None:
@@ -319,7 +278,17 @@ class CodexCliTransport:
         except _NativePhaseError as failure:
             _retain(streams, request.job_id, None)
             return CodexNativeOutcome(
-                "not_found" if request.job_kind == "wake" else "not_created",
+                "outcome_unknown"
+                if failure.pid
+                else "not_found"
+                if request.job_kind == "wake"
+                else "not_created",
+                failure_code="native_custody_unavailable"
+                if failure.phase == "custody"
+                else None,
+                failure_detail="Inspect machine custody storage and explicitly retry the operation."
+                if failure.phase == "custody"
+                else None,
                 phase=failure.phase,
                 binary_source=failure.binary_source,
                 pid=failure.pid,

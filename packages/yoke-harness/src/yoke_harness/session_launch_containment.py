@@ -23,20 +23,24 @@ from yoke_contracts.machine_config.directories import create_private_directory
 
 import json
 import os
+import subprocess
 from pathlib import Path
 import time
 from typing import Iterator, Mapping
 from uuid import UUID
 
 from yoke_contracts.process_ancestry import process_start_time
+from yoke_harness.session_process_custody import (
+    MAX_RECORD_BYTES,
+    capture_group,
+    custody_state,
+    write_record,
+)
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_cli.config import machine_config
 
 
 SUPERVISION_DIRECTORY_NAME = "session-launch-supervision"
-
-
-MAX_RECORD_BYTES = 4096
 
 
 def _directory(state_dir: Path | None = None) -> Path:
@@ -55,6 +59,7 @@ def record_supervised_native(
     pid: int,
     *,
     native_session_id: str | None = None,
+    target_session_id: str | None = None,
     supervision_kind: str = "launch",
     capture_path: Path | None = None,
     diagnostic_ref: str | None = None,
@@ -64,8 +69,8 @@ def record_supervised_native(
 ) -> bool:
     """Record one native under a launch or resume-attempt identifier.
 
-    Launch registration remains best effort. Detached resume callers require
-    this custody record and stop the process when it cannot be written.
+    Callers require this custody record before accepting native creation or
+    resume. Identity or persistence failures leave acceptance unresolved.
     """
     if not launch_id or pid <= 0 or supervision_kind not in {"launch", "resume"}:
         return False
@@ -77,6 +82,7 @@ def record_supervised_native(
         "pid": int(pid),
         "process_start_time": start_time,
         "native_session_id": native_session_id or None,
+        "target_session_id": target_session_id or None,
         "supervision_kind": supervision_kind,
         "last_activity_at": int(time.time() if now is None else now),
         "capture_path": str(capture_path) if capture_path is not None else None,
@@ -90,14 +96,11 @@ def record_supervised_native(
         "recorded_at": int(time.time() if now is None else now),
     }
     try:
+        payload.update(capture_group(pid, start_time))
         path = supervision_record_path(launch_id, state_dir)
-        temporary = path.with_suffix(f".{os.getpid()}.tmp")
-        temporary.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
-        temporary.chmod(0o600)
-        os.replace(temporary, path)
-    except OSError:
+        return write_record(path, payload)
+    except (OSError, ValueError, subprocess.SubprocessError):
         return False
-    return True
 
 
 def touch_supervised_resume(
@@ -115,9 +118,19 @@ def touch_supervised_resume(
         payload = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(payload, dict) or payload.get("supervision_kind") != "resume":
             return False
+        if custody_state(payload) == "live":
+            try:
+                payload.update(
+                    capture_group(payload["pid"], payload["process_start_time"])
+                )
+            except OSError:
+                pass
         payload["last_activity_at"] = int(time.time() if now is None else now)
         temporary = path.with_suffix(f".{os.getpid()}.tmp")
-        temporary.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+        body = json.dumps(payload, sort_keys=True)
+        if len(body.encode()) > MAX_RECORD_BYTES:
+            return False
+        temporary.write_text(body, encoding="utf-8")
         temporary.chmod(0o600)
         os.replace(temporary, path)
     except (OSError, TypeError, ValueError):
@@ -143,13 +156,19 @@ def release_supervised_native(
     launch_id: str,
     *,
     state_dir: Path | None = None,
+    custody_transferred: bool = False,
 ) -> None:
-    """Stop supervising ``launch_id`` — its native proved it registered."""
+    """Release only after verified exit or an identity-bound custody transfer."""
     if not launch_id:
         return
     try:
-        supervision_record_path(launch_id, state_dir).unlink(missing_ok=True)
-    except OSError:
+        path = supervision_record_path(launch_id, state_dir)
+        if not custody_transferred:
+            payload = json.loads(path.read_text())
+            if custody_state(payload) != "gone":
+                return
+        path.unlink(missing_ok=True)
+    except (OSError, ValueError, TypeError):
         return
 
 
