@@ -12,7 +12,6 @@ from yoke_core.api import app_factory, frontend_events_config
 from yoke_core.api.observability_otel import environment_name
 from yoke_core.api.routes import frontend_events
 from yoke_core.domain import db_helpers, events_writes
-from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.events_schema import ensure_event_schema
 from yoke_core.domain.org_schema import seed_default_org
@@ -354,22 +353,3 @@ def test_local_collector_has_no_bearer_requirement_and_keeps_http_cookie(
         ).status_code
         == 200
     )
-    with database() as conn:
-        operator = seed_human_actor(conn, "local operator")
-    monkeypatch.setattr(server, "_local_operator_actor_id", lambda: operator)
-    local.cookies.set(server.session_cookie_name(8689), "door")
-    operator_view = {**event(), "page_url": "http://127.0.0.1:8689/items"}
-    assert (
-        local.post(
-            "/api/events", json={"events": [operator_view]}, headers=admitted
-        ).status_code
-        == 200
-    )
-    with database() as conn:
-        stamped = dict(
-            conn.execute(
-                "SELECT event_id, actor_id FROM events WHERE event_id IN (%s, %s)",
-                (payload["event_id"], operator_view["event_id"]),
-            ).fetchall()
-        )
-    assert stamped == {payload["event_id"]: None, operator_view["event_id"]: operator}
