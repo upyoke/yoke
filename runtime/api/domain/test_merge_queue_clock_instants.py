@@ -6,7 +6,9 @@ from datetime import timedelta
 import pytest
 
 from runtime.api.domain.merge_queue_observer_test_helpers import (
+    DIRTY,
     MERGED,
+    OUT_OF_QUEUE,
     ejected_message_id,
     inject,
     message_count,
@@ -24,6 +26,7 @@ from yoke_core.domain.merge_queue_landing_record import (
     write_landing_record,
 )
 from yoke_core.domain.merge_queue_landing_record_state import PENDING
+from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.merge_queue_landing_record_schema import (
     ensure_merge_queue_landing_record_schema,
 )
@@ -182,3 +185,46 @@ def test_invalid_stored_arming_suffix_refuses_without_creating_a_new_identity():
         assert message_count(conn) == 1
     finally:
         conn.close()
+
+
+@pytest.mark.parametrize("zone", ZONES)
+@pytest.mark.parametrize("rearmed", [False, True])
+def test_native_ejection_clears_only_its_exact_arming_instant(
+    test_db, monkeypatch, zone, rearmed
+):
+    insert_item(
+        test_db, id=7, project_sequence=7, workflow_id="dash", status="implementing"
+    )
+    ensure_merge_queue_landing_record_schema(test_db)
+    create_session_control_tables(test_db)
+    test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
+    test_db.execute(
+        "UPDATE items SET merge_queue_pr_number='42',merge_queue_enqueued_at=%s WHERE id=7",
+        (MOMENT,),
+    )
+    test_db.commit()
+    next_episode = MOMENT + timedelta(microseconds=1)
+
+    def delivered(conn, **_kwargs):
+        if rearmed:
+            conn.execute(
+                "UPDATE items SET merge_queue_enqueued_at=%s WHERE id=7",
+                (next_episode,),
+            )
+        return "delivered"
+
+    monkeypatch.setattr(observer, "push_notice", delivered)
+    result = observer.observe_pending_landings(
+        test_db,
+        [1],
+        now=MOMENT + timedelta(seconds=1),
+        read_state=lambda *_args: (DIRTY, None),
+        read_membership=lambda *_args: (OUT_OF_QUEUE, None),
+        read_checks=lambda *_args: ((), None),
+        cadence_seconds=0,
+    )
+    assert result["ejected"] == 1
+    clock = test_db.execute(
+        "SELECT merge_queue_enqueued_at FROM items WHERE id=7"
+    ).fetchone()[0]
+    assert clock == (next_episode if rearmed else None)

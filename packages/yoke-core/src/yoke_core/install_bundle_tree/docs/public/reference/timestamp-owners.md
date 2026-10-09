@@ -176,3 +176,7 @@ Git commit-time ingress converts its integral epoch protocol to a native aware
 instant and uses null for an unreadable commit. Nonempty malformed or unbounded
 provider clocks refuse. Close-out forwards the native fact; its request payload
 formats only at the existing merged-at owner.
+
+Current queue birth fixtures store canonical SQLite boundary clocks. Ejection
+clearing compares native arming instants; a rearm one microsecond later remains
+visible even if the predecessor notice is delivered.

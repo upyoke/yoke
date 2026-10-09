@@ -3,6 +3,8 @@
 import ast
 from pathlib import Path
 
+from yoke_contracts.timestamps import format_instant
+
 from runtime.api.merge_queue_landing_test_helpers import (
     ARMED,
     dispatch_for,
@@ -77,7 +79,7 @@ def test_a_stale_record_names_its_refresh_time_and_recovery(monkeypatch):
     assert not outcome.ok
     assert outcome.exit_code == 9
     assert "landing_record_stale" in outcome.error
-    assert observed_at in outcome.error
+    assert format_instant(observed_at) in outcome.error
     assert "control plane can reach GitHub" in outcome.error
     assert "must not substitute local gh/git polling" in outcome.error
 
