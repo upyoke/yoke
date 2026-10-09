@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant, parse_instant
+
 from datetime import datetime, timedelta, timezone
 
 from runtime.api.conftest import insert_item
@@ -16,7 +18,7 @@ from yoke_core.domain.handlers import item_page_reads, items_listing
 
 def _iso(hours_ago: int) -> str:
     stamp = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
-    return stamp.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return format_instant(stamp)
 
 
 def _titles(outcome) -> set[str]:
@@ -38,7 +40,7 @@ def _finished(conn, item_id: int, status: str, hours_ago: int) -> str:
         "INSERT INTO item_status_transitions "
         "(item_id, task_num, from_status, to_status, source, created_at) "
         "VALUES (%s, NULL, 'implementing', %s, 'test', %s)",
-        (item_id, status, stamp),
+        (item_id, status, parse_instant(stamp)),
     )
     return stamp
 
@@ -47,20 +49,38 @@ def test_overview_keeps_live_and_recent_terminals(test_db):
     old = _iso(48)
     recent = _iso(2)
     insert_item(
-        test_db, id=501, title="live-old", status="implementing",
-        created_at=old, updated_at=old,
+        test_db,
+        id=501,
+        title="live-old",
+        status="implementing",
+        created_at=old,
+        updated_at=old,
     )
     insert_item(
-        test_db, id=502, title="done-recent", status="done",
-        created_at=old, updated_at=old, merged_at=recent,
+        test_db,
+        id=502,
+        title="done-recent",
+        status="done",
+        created_at=old,
+        updated_at=old,
+        merged_at=recent,
     )
     insert_item(
-        test_db, id=503, title="done-old", status="done",
-        created_at=old, updated_at=old, merged_at=old,
+        test_db,
+        id=503,
+        title="done-old",
+        status="done",
+        created_at=old,
+        updated_at=old,
+        merged_at=old,
     )
     insert_item(
-        test_db, id=504, title="cancelled-recent", status="cancelled",
-        created_at=old, updated_at=recent,
+        test_db,
+        id=504,
+        title="cancelled-recent",
+        status="cancelled",
+        created_at=old,
+        updated_at=recent,
     )
     _finished(test_db, 502, "done", 2)
     _finished(test_db, 503, "done", 48)
@@ -93,8 +113,13 @@ def test_overview_resolves_each_owner_once(test_db, monkeypatch):
     old = _iso(48)
     for item_id, title in ((601, "owned-a"), (602, "owned-b")):
         insert_item(
-            test_db, id=item_id, title=title, status="implementing",
-            owner=str(actor_id), created_at=old, updated_at=old,
+            test_db,
+            id=item_id,
+            title=title,
+            status="implementing",
+            owner=str(actor_id),
+            created_at=old,
+            updated_at=old,
         )
     test_db.commit()
     calls: list[int] = []
@@ -105,7 +130,8 @@ def test_overview_resolves_each_owner_once(test_db, monkeypatch):
         return real(conn, value)
 
     monkeypatch.setattr(
-        "yoke_core.domain.actors.actor_name", counted,
+        "yoke_core.domain.actors.actor_name",
+        counted,
     )
     outcome = item_page_reads.handle_items_overview_list(
         request_for("items.overview.list", {})
@@ -130,12 +156,22 @@ def test_band_dates_an_item_by_its_finish_not_its_merge(test_db):
     """
     old = _iso(48)
     insert_item(
-        test_db, id=601, title="merged-long-ago-finished-now", status="done",
-        created_at=old, updated_at=old, merged_at=_iso(30),
+        test_db,
+        id=601,
+        title="merged-long-ago-finished-now",
+        status="done",
+        created_at=old,
+        updated_at=old,
+        merged_at=_iso(30),
     )
     insert_item(
-        test_db, id=602, title="merged-now-finished-long-ago", status="done",
-        created_at=old, updated_at=_iso(1), merged_at=_iso(1),
+        test_db,
+        id=602,
+        title="merged-now-finished-long-ago",
+        status="done",
+        created_at=old,
+        updated_at=_iso(1),
+        merged_at=_iso(1),
     )
     _finished(test_db, 601, "done", 1)
     _finished(test_db, 602, "done", 30)
@@ -154,12 +190,21 @@ def test_finished_facts_carry_the_transition_time(test_db):
     """The card's "finished" text reads the same instant the band sorts on."""
     old = _iso(48)
     insert_item(
-        test_db, id=611, title="closed", status="done",
-        created_at=old, updated_at=old, merged_at=_iso(30),
+        test_db,
+        id=611,
+        title="closed",
+        status="done",
+        created_at=old,
+        updated_at=old,
+        merged_at=_iso(30),
     )
     insert_item(
-        test_db, id=612, title="still-going", status="implementing",
-        created_at=old, updated_at=_iso(1),
+        test_db,
+        id=612,
+        title="still-going",
+        status="implementing",
+        created_at=old,
+        updated_at=_iso(1),
     )
     finished_at = _finished(test_db, 611, "done", 3)
     test_db.commit()
@@ -171,7 +216,7 @@ def test_finished_facts_carry_the_transition_time(test_db):
     rows = _rows_by_title(overview)
     assert rows["closed"]["finished"] is True
     assert rows["closed"]["terminal"] is True
-    assert rows["closed"]["finished_at"] == finished_at
+    assert rows["closed"]["finished_at"] == format_instant(finished_at)
     # Not the merge, which is the whole point.
     assert rows["closed"]["finished_at"] != rows["closed"]["merged_at"]
     assert rows["still-going"]["finished"] is False
@@ -187,8 +232,12 @@ def test_a_stopped_item_is_terminal_but_never_finished(test_db):
     """
     old = _iso(48)
     insert_item(
-        test_db, id=621, title="halted", status="stopped",
-        created_at=old, updated_at=_iso(1),
+        test_db,
+        id=621,
+        title="halted",
+        status="stopped",
+        created_at=old,
+        updated_at=_iso(1),
     )
     _finished(test_db, 621, "stopped", 1)
     test_db.commit()

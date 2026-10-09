@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
-from runtime.api.domain.test_session_broker_wake import (
+from runtime.api.domain.session_broker_test_support import (
     MACHINE_ID,
     NOW,
     _reserve,

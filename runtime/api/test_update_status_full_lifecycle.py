@@ -111,7 +111,7 @@ class TestTerminalSuccess:
         assert env.query_int(
             "SELECT COUNT(*) FROM item_activity_days WHERE item_id=42"
         ) == env.query_int(
-            "SELECT COUNT(DISTINCT substring(created_at, 1, 10)) "
+            "SELECT COUNT(DISTINCT (created_at AT TIME ZONE 'UTC')::date) "
             "FROM item_status_transitions WHERE item_id=42"
         )
 

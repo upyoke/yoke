@@ -10,6 +10,8 @@ import os
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain import db_backend
 from yoke_core.domain import deploy_qa_recorder
 from yoke_core.domain.schema_init_apply import execute_schema_script
@@ -179,6 +181,35 @@ class TestRunSmokeStatus:
         assert "run-1" in output
         assert "smoke" in output
         assert "pending" in output
+        assert output.split("|")[4] == "null"
+
+    @pytest.mark.parametrize("zone", ["UTC", "Asia/Kathmandu"])
+    def test_completion_clock_projects_fixed_six_utc(
+        self, deploy_db, capsys, monkeypatch, zone
+    ):
+        stamp = parse_instant("2026-01-01T00:00:00.123456Z")
+        deploy_db.execute(
+            "INSERT INTO qa_requirements (id, deployment_run_id, qa_kind, qa_phase) VALUES (99, 'run-clock', 'smoke', 'post_deploy')"
+        )
+        deploy_db.execute(
+            "INSERT INTO qa_runs (qa_requirement_id, verdict, started_at, completed_at, created_at) VALUES (99, 'pass', %s, %s, %s)",
+            (stamp, stamp, stamp),
+        )
+        deploy_db.commit()
+        real_connect = deploy_qa_recorder.connect
+
+        def connect_in_zone(*args, **kwargs):
+            conn = real_connect(*args, **kwargs)
+            conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+            assert conn.execute("SHOW TimeZone").fetchone()[0] == zone
+            return conn
+
+        monkeypatch.setattr(deploy_qa_recorder, "connect", connect_in_zone)
+        deploy_qa_recorder.cmd_run_smoke_status(
+            "run-clock", db_path=os.environ["YOKE_DB"]
+        )
+        fields = capsys.readouterr().out.strip().split("|")
+        assert fields[3:5] == ["pass", "2026-01-01T00:00:00.123456Z"]
 
 
 class TestQaRecorderIntegration:

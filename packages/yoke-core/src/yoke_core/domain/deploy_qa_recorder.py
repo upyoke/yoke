@@ -1,8 +1,6 @@
 """Deployment QA recording — bridges pipeline stage results into QA tables.
 
-The original ``deploy-qa-recorder.sh`` shell launcher was retired with
-zero-shell wave 3; this module is now the sole entrypoint and is
-invoked via ``python3 -m yoke_core.domain.deploy_qa_recorder``.
+Commands execute QA recording and status reads through the domain owners.
 
 Subcommands (CLI)::
 
@@ -33,6 +31,8 @@ import contextlib
 import io
 import sys
 from typing import List, Optional
+
+from yoke_contracts.timestamps import format_instant
 
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
 from yoke_core.domain.deploy_qa_stage_helpers import (
@@ -195,10 +195,8 @@ def cmd_run_smoke_status(
                     (SELECT qrun.verdict FROM qa_runs qrun
                      WHERE qrun.id=({latest_execution_id_sql("qr.id")})),
                     'pending') AS latest_verdict,
-                COALESCE(
-                    (SELECT qrun.completed_at FROM qa_runs qrun
-                     WHERE qrun.id=({latest_execution_id_sql("qr.id")})),
-                    '') AS latest_run_at,
+                (SELECT qrun.completed_at FROM qa_runs qrun
+                 WHERE qrun.id=({latest_execution_id_sql("qr.id")})) AS latest_run_at,
                 (SELECT COUNT(*) FROM qa_runs qrun
                  JOIN qa_artifacts qa ON qa.qa_run_id = qrun.id
                  WHERE qrun.id=({latest_execution_id_sql("qr.id")})) AS artifact_count
@@ -210,7 +208,9 @@ def cmd_run_smoke_status(
             (run_id,),
         )
         for row in rows:
-            print("|".join(str(v) for v in row))
+            values = list(row)
+            values[4] = format_instant(row[4]) if row[4] is not None else "null"
+            print("|".join(str(v) for v in values))
     finally:
         conn.close()
 
