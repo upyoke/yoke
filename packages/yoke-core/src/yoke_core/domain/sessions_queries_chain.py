@@ -5,11 +5,12 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, Optional
 
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+
 from . import db_backend
 from . import sessions_analytics as _sa
 from .sessions_analytics import EVENT_CHAIN_STEP_COMPLETED, SessionError
 from .sessions_ended_recovery import session_ended_message
-from .sessions_queries_base import _now_iso
 from .sessions_terminal_chain_checkpoint import preserve_consumed_terminal_outcome
 
 
@@ -42,7 +43,7 @@ def update_chain_checkpoint(
 
     Returns the checkpoint dict that was written.
     """
-    now = _now_iso()
+    now = utc_now()
 
     row = conn.execute(
         f"SELECT ended_at, offer_envelope FROM harness_sessions WHERE session_id = {_p(conn)}",
@@ -93,7 +94,10 @@ def update_chain_checkpoint(
     if chain_summary_label:
         checkpoint["chain_summary_label"] = chain_summary_label
 
-    existing_envelope["chain_checkpoint"] = checkpoint
+    existing_envelope["chain_checkpoint"] = {
+        **checkpoint,
+        "completed_at": format_instant(now),
+    }
     envelope_json = json.dumps(existing_envelope)
 
     conn.execute(
@@ -137,6 +141,13 @@ def update_chain_checkpoint(
     return checkpoint
 
 
+def _native_checkpoint(checkpoint: Any) -> Any:
+    """Parse only the checkpoint clock; unrelated envelope evidence is opaque."""
+    if isinstance(checkpoint, dict) and checkpoint.get("completed_at") is not None:
+        return {**checkpoint, "completed_at": parse_instant(checkpoint["completed_at"])}
+    return checkpoint
+
+
 def read_chain_checkpoint(
     conn: Any,
     session_id: str,
@@ -157,7 +168,7 @@ def read_chain_checkpoint(
         envelope = json.loads(row["offer_envelope"])
     except (json.JSONDecodeError, TypeError):
         return None
-    return envelope.get("chain_checkpoint")
+    return _native_checkpoint(envelope.get("chain_checkpoint"))
 
 
 def clear_chain_checkpoint(
@@ -184,7 +195,7 @@ def clear_chain_checkpoint(
         envelope = json.loads(row["offer_envelope"])
     except (json.JSONDecodeError, TypeError):
         return None
-    checkpoint = envelope.pop("chain_checkpoint", None)
+    checkpoint = _native_checkpoint(envelope.pop("chain_checkpoint", None))
     if checkpoint is None:
         return None
     conn.execute(
