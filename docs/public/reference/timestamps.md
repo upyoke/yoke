@@ -340,3 +340,6 @@ keep native instants; steering ties compare instants before claim ids. Chain
 event context, new triage receipts and stale-browser diagnostics format their
 owned clock fields. Terminal settlement parses its optional completion instant.
 Existing frozen snapshots, retained triage receipts, reports and digests stay opaque.
+
+Merge receipt ordering compares present instants without inventing missing clocks.
+Steering reply cutoffs stay native; Doctor and pricing clock fields format at output.

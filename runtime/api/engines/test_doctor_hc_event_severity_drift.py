@@ -21,22 +21,20 @@ CREATE TABLE events (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     event_id TEXT NOT NULL UNIQUE,
     severity TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 CREATE TABLE migration_audit (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     migration_name TEXT NOT NULL,
     state TEXT NOT NULL,
-    completed_at TEXT
+    completed_at TIMESTAMPTZ
 );
 """
 
 
 def _make_conn(ddl: Optional[str] = _DDL):
     name = pg_testdb.create_test_database()
-    c = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    c = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     if ddl:
         apply_fixture_ddl(c, ddl)
     return c
@@ -195,9 +193,7 @@ def test_pass_after_repair_when_residue_cleared(conn) -> None:
 def test_skip_when_events_read_raises(conn) -> None:
     conn.execute("DROP TABLE events")
     conn.execute(
-        "CREATE TABLE events ("
-        "  event_id TEXT PRIMARY KEY"
-        ")"
+        "CREATE TABLE events (  event_id TEXT PRIMARY KEY)"
     )  # severity column missing
     conn.commit()
 

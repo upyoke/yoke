@@ -17,6 +17,8 @@ picks it up rather than the operator re-sending it.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain.db_helpers import instant_parameter
 
 import json
@@ -142,7 +144,7 @@ def _seat_answered(conn: Any, row: Mapping[str, Any]) -> bool:
         conn,
         answerer=answerer,
         asker=asker,
-        asked_at=str(row.get("sent_at") or ""),
+        asked_at=parse_instant(row["sent_at"]),
     )
 
 
