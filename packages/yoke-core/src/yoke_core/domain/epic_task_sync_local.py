@@ -6,9 +6,11 @@ GitHub API calls. Currently: dispatch-chain generation.
 
 from __future__ import annotations
 
-import datetime
 import json
 from typing import Any, TextIO
+
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import project_settings
@@ -45,7 +47,10 @@ def _generate_dispatch_chains(
         chain_path = f"{repo_root}/{worktrees_dir}/{wt_slug}"
         # Check if chain already exists
         lane = record_worker_item_worktree(
-            conn, item_id=int(epic_name), branch=wt_branch, path=chain_path,
+            conn,
+            item_id=int(epic_name),
+            branch=wt_branch,
+            path=chain_path,
         )
         existing = conn.execute(
             f"SELECT id FROM epic_dispatch_chains WHERE epic_id = {p} AND item_worktree_id = {p}",
@@ -59,9 +64,7 @@ def _generate_dispatch_chains(
 
         # Collect task IDs for this worktree
         task_nums = [tn for wb, tn in worktree_map if wb == wt_branch]
-        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        timestamp = instant_parameter(conn, utc_now())
         queue_json = json.dumps(task_nums)
         first_task = task_nums[0] if task_nums else ""
 
@@ -71,7 +74,7 @@ def _generate_dispatch_chains(
                    (epic_id, item_worktree_id, queue,
                     current_index, current_task, current_attempt,
                     max_attempts, no_chain, started_at, last_updated)
-                   VALUES ({p}, {p}, {p}, 0, {p}, 0, {p}, 0, '', {p})""",
+                   VALUES ({p}, {p}, {p}, 0, {p}, 0, {p}, 0, NULL, {p})""",
                 (
                     epic_name,
                     int(lane["id"]),

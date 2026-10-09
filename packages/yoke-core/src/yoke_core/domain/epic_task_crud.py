@@ -18,6 +18,9 @@ from __future__ import annotations
 import io
 from typing import Optional
 
+from yoke_contracts.timestamps import format_instant
+from yoke_core.domain.db_helpers import instant_parameter
+
 from yoke_core.domain.claim_chain_state import touch_epic_task_activity
 from yoke_core.domain.epic_parsing import (
     TASK_FIELD_WHITELIST,
@@ -38,9 +41,7 @@ from yoke_core.domain.title_policy import item_title_length_error
 
 def _reject_long_task_title(conn, epic_id: str, title: str) -> None:
     """Refuse a task title too long for the parent epic's project."""
-    err = item_title_length_error(
-        conn, epic_id, title, subject="Epic task title"
-    )
+    err = item_title_length_error(conn, epic_id, title, subject="Epic task title")
     if err:
         raise ValueError(err)
 
@@ -61,18 +62,28 @@ def task_upsert(
         raise ValueError("title is required")
     _reject_long_task_title(conn, epic_id, title)
     lane_id = None
-    item_exists = _table_exists(conn, "items") and conn.execute(
-        f"SELECT 1 FROM items WHERE id={_placeholder(conn)}", (int(epic_id),)
-    ).fetchone() is not None
+    item_exists = (
+        _table_exists(conn, "items")
+        and conn.execute(
+            f"SELECT 1 FROM items WHERE id={_placeholder(conn)}", (int(epic_id),)
+        ).fetchone()
+        is not None
+    )
     if item_exists:
         from yoke_core.domain.epic_task_scope import (
             ensure_new_task_membership_allowed,
         )
+
         ensure_new_task_membership_allowed(conn, int(epic_id), task_num)
     if worktree.strip() and item_exists:
-        lane_id = int(record_worker_item_worktree(
-            conn, item_id=int(epic_id), branch=worktree, path=None,
-        )["id"])
+        lane_id = int(
+            record_worker_item_worktree(
+                conn,
+                item_id=int(epic_id),
+                branch=worktree,
+                path=None,
+            )["id"]
+        )
     p = _placeholder(conn)
     conn.execute(
         f"""INSERT INTO epic_tasks
@@ -151,6 +162,7 @@ def task_update_status(
         # Parent-module attribute lookup so patches on
         # ``yoke_core.domain.epic.epic_task_sync.sync_task_label`` intercept.
         import yoke_core.domain.epic as _epic_mod
+
         _epic_mod.epic_task_sync.sync_task_label(
             str(epic_id),
             task_num,
@@ -183,6 +195,7 @@ def task_update_body(
     # Parent-module attribute lookup so patches on
     # ``yoke_core.domain.epic.epic_task_sync.sync_task_body`` intercept.
     import yoke_core.domain.epic as _epic_mod
+
     _epic_mod.epic_task_sync.sync_task_body(
         str(epic_id),
         task_num,
@@ -204,6 +217,11 @@ def task_update_field(
     if field not in TASK_FIELD_WHITELIST:
         raise ValueError(f"invalid field '{field}' for task-update-field")
 
+    rendered = value
+    if field == "last_heartbeat":
+        value = instant_parameter(conn, value)
+        rendered = format_instant(value) if value is not None else ""
+
     # Delegate status updates to task_update_status for validation
     if field == "status":
         return task_update_status(conn, epic_id, task_num, value, **kwargs)
@@ -220,4 +238,4 @@ def task_update_field(
     touch_item_activity(conn, item_id=epic_id)
     touch_epic_task_activity(conn, epic_id=epic_id, task_num=task_num)
     conn.commit()
-    return f"Updated {field} of {epic_id}/{task_num} to {value}"
+    return f"Updated {field} of {epic_id}/{task_num} to {rendered}"

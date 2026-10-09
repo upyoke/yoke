@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 
 import pytest
 
@@ -49,8 +50,8 @@ class TestDispatchChainRefreshForActivation:
                 0,  # stale attempt counter from a prior sync
                 5,
                 0,
-                "",
-                "2025-01-01T00:00:00Z",  # yesterday
+                None,
+                "2025-01-01T00:00:00.000000Z",  # yesterday
             ),
         )
         db.commit()
@@ -85,8 +86,11 @@ class TestDispatchChainRefreshForActivation:
         ).fetchone()
         assert row["current_task"] == "1"
         assert row["current_attempt"] == 3
-        assert row["last_updated"] != "2025-01-01T00:00:00Z"
-        assert row["last_updated"].endswith("Z")
+        assert row["last_updated"] != datetime.fromisoformat(
+            "2025-01-01T00:00:00+00:00"
+        )
+        assert isinstance(row["last_updated"], datetime)
+        assert row["last_updated"].utcoffset() is not None
 
     def test_refresh_writes_current_task_when_chain_points_elsewhere(
         self,
@@ -200,8 +204,8 @@ class TestDispatchChainRefreshForActivation:
                 0,
                 5,
                 0,
-                "",
-                "2025-01-01T00:00:00Z",
+                None,
+                "2025-01-01T00:00:00.000000Z",
             ),
         )
         db.commit()

@@ -215,3 +215,10 @@ canonical UTC while retaining actor authority and human decision records.
 Removed-member custody compares exact native creation instants; missing source
 creation proves no later custody, and malformed supplied clocks refuse. Removal
 metadata is formatted at the card boundary without rewriting its stored record.
+
+Epic dispatch writes native started/update clocks, validates supplied clocks
+before scope or lane mutations, and generates unstarted chains with null starts.
+Activation and advance retain honest attempt counters and exact clock values.
+Progress notes and section clocks bind natively; receipt and pipe projections
+format canonical UTC without rewriting receipt bodies. Cascade event envelopes
+use the shared JSON encoder while heartbeat columns remain native.

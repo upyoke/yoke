@@ -12,10 +12,10 @@ from __future__ import annotations
 import json
 from typing import List
 
-from yoke_core.domain.db_helpers import query_one, query_scalar
+from yoke_contracts.timestamps import format_instant, utc_now
+from yoke_core.domain.db_helpers import instant_parameter, query_one, query_scalar
 from yoke_core.domain.epic_parsing import (
     CHAIN_FIELD_WHITELIST,
-    _now_iso,
     _placeholder,
 )
 from yoke_core.domain.project_identity import render_item_ref
@@ -32,6 +32,8 @@ def dispatch_chain_upsert(
     from yoke_core.domain.epic_task_scope import (
         finalize_generated_task_scopes,
     )
+
+    started_at = instant_parameter(conn, data.get("started_at"))
     finalize_generated_task_scopes(conn, int(epic_id))
     worktree_path = data.get("worktree_path", "")
     queue = data.get("queue", [])
@@ -42,8 +44,7 @@ def dispatch_chain_upsert(
     current_attempt = data.get("current_attempt", 1)
     max_attempts = data.get("max_attempts", 5)
     no_chain = data.get("no_chain", 0)
-    started_at = data.get("started_at", "")
-    ts = _now_iso()
+    ts = instant_parameter(conn, utc_now())
 
     p = _placeholder(conn)
     lane = record_worker_item_worktree(
@@ -89,12 +90,16 @@ def dispatch_chain_update(
     epic_id: str,
     worktree: str,
     field: str,
-    value: str,
+    value: str | None,
 ) -> str:
     """Update a single field on a dispatch chain."""
     if field not in CHAIN_FIELD_WHITELIST:
         raise ValueError(f"invalid field '{field}' for dispatch-chain-update")
 
+    rendered = value
+    if field in ("started_at", "last_updated"):
+        value = instant_parameter(conn, value)
+        rendered = format_instant(value) if value is not None else ""
     p = _placeholder(conn)
     count = query_scalar(
         conn,
@@ -113,7 +118,7 @@ def dispatch_chain_update(
         (value, str(epic_id), worktree),
     )
     conn.commit()
-    return f"Updated {field} of dispatch chain {epic_id}/{worktree} to {value}"
+    return f"Updated {field} of dispatch chain {epic_id}/{worktree} to {rendered}"
 
 
 def dispatch_chain_refresh_for_activation(
@@ -137,6 +142,7 @@ def dispatch_chain_refresh_for_activation(
     ``last_updated`` (now) in a single transaction.
     """
     from yoke_core.domain.epic_task_scope import task_scope_issues
+
     scope_issues = task_scope_issues(conn, int(epic_id))
     if scope_issues:
         raise ValueError(
@@ -162,7 +168,7 @@ def dispatch_chain_refresh_for_activation(
     if chain_count == 0:
         raise LookupError(f"dispatch chain '{epic_id}/{worktree}' not found")
 
-    ts = _now_iso()
+    ts = instant_parameter(conn, utc_now())
     conn.execute(
         "UPDATE epic_dispatch_chains "
         f"SET current_task={p}, current_attempt={p}, last_updated={p} "
@@ -228,7 +234,7 @@ def dispatch_chain_advance(conn, epic_id: str, worktree: str) -> str:
         )
 
     next_task = queue[next_index]
-    ts = _now_iso()
+    ts = instant_parameter(conn, utc_now())
 
     conn.execute(
         f"""UPDATE epic_dispatch_chains

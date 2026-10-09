@@ -16,7 +16,8 @@ parent epic's item id). Recording also upserts the
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Dict, Optional
 
 from yoke_core.domain import db_backend
@@ -58,10 +59,6 @@ _WINDOW_INDEX_DDL = (
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def ensure_schema(conn: Any) -> None:
@@ -161,7 +158,7 @@ def _record(
                 resolved_session or None,
                 actor_id,
                 project_id,
-                _now_iso(),
+                instant_parameter(conn, utc_now()),
             ),
         )
         conn.execute("RELEASE SAVEPOINT item_status_transition")

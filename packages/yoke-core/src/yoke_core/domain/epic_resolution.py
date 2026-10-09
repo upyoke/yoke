@@ -94,8 +94,8 @@ def dispatch_chain_get(conn, epic_id: str, worktree: str) -> str:
                   COALESCE(current_task,'') as current_task,
                   current_attempt, max_attempts,
                   no_chain,
-                  COALESCE(started_at,'') as started_at,
-                  COALESCE(last_updated,'') as last_updated
+                  started_at,
+                  last_updated
            FROM epic_dispatch_chains c JOIN item_worktrees iw
              ON iw.id=c.item_worktree_id
            WHERE c.epic_id={p} AND iw.branch={p}""".format(p=_p(conn)),
@@ -116,8 +116,8 @@ def dispatch_chain_list(conn, epic_id: str) -> str:
                   COALESCE(current_task,'') as current_task,
                   current_attempt, max_attempts,
                   no_chain,
-                  COALESCE(started_at,'') as started_at,
-                  COALESCE(last_updated,'') as last_updated
+                  started_at,
+                  last_updated
            FROM epic_dispatch_chains c
            WHERE c.epic_id={p}
            ORDER BY c.id ASC""".format(p=_p(conn)),

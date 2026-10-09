@@ -29,7 +29,9 @@ def db(test_db):
 
 @pytest.fixture
 def db_with_task(db):
-    insert_item(db, id=TEST_ITEM_ID, workflow_id="epic", status="planned", project="yoke")
+    insert_item(
+        db, id=TEST_ITEM_ID, workflow_id="epic", status="planned", project="yoke"
+    )
     insert_epic_task(
         db, epic_id=TEST_ITEM_ID, task_num=1, title="First task", status="planning"
     )
@@ -54,7 +56,18 @@ def db_with_chain(db_with_task):
            (epic_id, item_worktree_id, queue, current_index, current_task,
             current_attempt, max_attempts, no_chain, started_at, last_updated)
            VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})""".format(p=p),
-        (TEST_ITEM_ID, lane["id"], queue, 0, "1", 1, 5, 0, "", ""),
+        (
+            TEST_ITEM_ID,
+            lane["id"],
+            queue,
+            0,
+            "1",
+            1,
+            5,
+            0,
+            None,
+            "2025-01-01T00:00:00.000000Z",
+        ),
     )
     db_with_task.commit()
     return db_with_task
