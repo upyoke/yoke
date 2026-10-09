@@ -11,6 +11,9 @@ queued that same pull request requires a full queue read even after GitHub
 clears merge-when-ready. This distinguishes a stopped landing from a pull
 request that was opened for verification and has never been armed. The durable
 landing record supplies this fact; diagnostic events do not.
+Before replacing that held observation, the observer retains its episode in
+the existing item landing marker until the stopped notice reaches its holder.
+This keeps a failed notice transport retryable on the next observation.
 
 When GitHub holds neither arming nor a queue entry, the observer sends one
 stopped-landing notice to the item's claim holder through the existing wake

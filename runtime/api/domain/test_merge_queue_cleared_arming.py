@@ -26,6 +26,7 @@ from runtime.api.domain.merge_queue_observer_test_helpers import (
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain.merge_queue_landing_marker import point_item_at_pull_request
 from yoke_core.domain.merge_queue_landing_record import read_landing_record
+import yoke_core.domain.merge_queue_landing_observer as landing_observer
 from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
 
 
@@ -68,9 +69,11 @@ def test_previously_observed_landing_stops_when_github_clears_arming(
         (notice,),
     ).fetchone()[0]
     assert json.loads(snapshot)[EXPLICIT_WAKE_ROUTING_FLAG] is True
-    assert stopped()["ejected"] == 0
+    assert stopped()["ejected"] == 1
     assert message_count(conn) == 1
     inject(conn, notice)
+    stopped()
+    assert stopped()["ejected"] == 0
 
     # The same governed arming marker used by merge item starts a new episode.
     point_item_at_pull_request(conn, 101, "42", enqueued_at=INJECTED_TEXT)
@@ -126,3 +129,28 @@ def test_a_different_pr_cannot_inherit_the_previous_prs_arming():
     cleared = replace(ARMED_AWAITING_CHECKS, auto_merge_active=False)
     assert observe(conn, read_state=lambda *_: (cleared, None))["ejected"] == 0
     assert message_count(conn) == 0
+
+
+def test_failed_notice_transport_keeps_the_episode_for_retry(monkeypatch):
+    conn = never_armed(observer_connection())
+    observe(conn, read_state=armed_awaiting_checks, read_membership=not_queued)
+    cleared = replace(ARMED_AWAITING_CHECKS, auto_merge_active=False)
+    send = landing_observer.push_notice
+
+    def unavailable(*args, **kwargs):
+        raise RuntimeError("notice transport unavailable")
+
+    monkeypatch.setattr(landing_observer, "push_notice", unavailable)
+    failed = observe(
+        conn, read_state=lambda *_: (cleared, None), read_membership=not_queued
+    )
+    assert failed["notice_errors"][0]["error"] == "notice transport unavailable"
+    assert message_count(conn) == 0
+    monkeypatch.setattr(landing_observer, "push_notice", send)
+    assert (
+        observe(
+            conn, read_state=lambda *_: (cleared, None), read_membership=not_queued
+        )["ejected"]
+        == 1
+    )
+    assert "Landing stopped" in message_body(conn, ejected_message_id(conn))
