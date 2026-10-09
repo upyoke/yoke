@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain import deployment_runs as dr
 from yoke_core.domain.deployment_run_driver_attachment import (
@@ -80,8 +82,8 @@ def test_the_same_process_refreshes_heartbeat_and_phase(db_path: str) -> None:
         )
         conn.commit()
         assert first is not None and second is not None
-        assert second.attached_at == NOW
-        assert second.heartbeat_at == LATER
+        assert second.attached_at == parse_instant(NOW)
+        assert second.heartbeat_at == parse_instant(LATER)
         assert second.phase == PHASE_EXECUTING
         assert second.progress_capture == "/tmp/progress.log"
     finally:
@@ -245,7 +247,7 @@ def test_an_exited_driver_is_superseded_only_from_its_own_machine(
         assert recovered is not None
         assert (recovered.session_id, recovered.pid) == ("sess-b", 22)
         assert recovered.machine_id == machine_id
-        assert recovered.attached_at == LATER
+        assert recovered.attached_at == parse_instant(LATER)
     finally:
         conn.rollback()
         conn.close()

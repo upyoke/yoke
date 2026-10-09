@@ -67,7 +67,7 @@ def test_the_row_names_the_session_its_item_the_failure_and_when():
 def test_a_session_the_relay_will_retry_says_so_and_asks_nothing():
     line = _row(status="waiting_backoff", attempts=1)
 
-    assert "relay resumes it at 2026-09-03T15:08:29Z" in line
+    assert "relay resumes it at 2026-09-03T15:08:29.000000Z" in line
     assert "attempt 2 of 3" in line
 
 

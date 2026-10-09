@@ -48,7 +48,7 @@ MEASURED_USAGE = json.dumps(
     {
         "status": "complete",
         "reason": "",
-        "observed_at": "2026-09-08T17:00:00Z",
+        "observed_at": "2026-09-08T17:00:00.000000Z",
         "source": "cursor parent-turn stop/afterAgentResponse token fields; "
         "print-mode result usage",
         "models": [
@@ -238,7 +238,7 @@ def test_new_activity_supersedes_the_process_gone_observation(conn):
     conn.execute(
         "UPDATE harness_sessions SET last_heartbeat=%s, episode_started_at=%s "
         "WHERE session_id=%s",
-        (later.isoformat(), later.isoformat(), session_id),
+        (later, later, session_id),
     )
     row = _session_row(conn, session_id)
     assert current_native_process_observation(row) is None

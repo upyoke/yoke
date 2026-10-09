@@ -133,7 +133,7 @@ def test_a_recipient_mid_call_is_left_alone():
         turn_in_flight_since="2026-08-26T11:39:00.000000Z",
     )
 
-    assert "recipient turn in flight since 2026-08-26T11:39:00Z" in line
+    assert "recipient turn in flight since 2026-08-26T11:39:00.000000Z" in line
     assert "no resume" in line
 
 
@@ -157,10 +157,10 @@ def test_a_gone_recipient_names_the_loss_and_how_to_settle_it():
         operator_wake=True,
     )
 
-    assert "recipient session ended 2026-08-26T11:58:00Z" in ended
+    assert "recipient session ended 2026-08-26T11:58:00.000000Z" in ended
     assert "no delivery route remains" in ended
     assert "yoke messages cancel msg-ended" in ended
-    assert "recipient session terminated 2026-08-26T11:58:00Z" in terminated
+    assert "recipient session terminated 2026-08-26T11:58:00.000000Z" in terminated
     assert "yoke messages cancel msg-killed" in terminated
     for line in (ended, terminated):
         assert "wake" not in line

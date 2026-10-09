@@ -271,3 +271,9 @@ Deployment-start markers and Atlas reports format their declared clocks through
 the shared kernel; report readers compare native instants without rewriting raw
 captures. CI reuse accepts only qualified external clock evidence within its
 known window; malformed, unqualified or future evidence cannot skip the suite.
+
+Deployment drivers retain native attachment and heartbeat instants, comparing
+the inclusive live-window cutoff without truncation. Their mutable JSON column
+and refusal diagnostics format only declared clocks; raw capture paths remain
+opaque. Malformed clocks refuse before custody reads or writes. QA wake notices
+retain native sent clocks; their UTC hour/minute label is presentation only.
