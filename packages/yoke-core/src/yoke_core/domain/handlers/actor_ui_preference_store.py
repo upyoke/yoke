@@ -108,7 +108,7 @@ def upsert(resolved_actor_id: int, pref_key: str, value: Any) -> None:
                 resolved_actor_id,
                 pref_key,
                 json_helper.dumps_compact(value),
-                db_helpers.iso8601_now(),
+                db_helpers.instant_parameter(conn, db_helpers.utc_now()),
             ),
         )
         conn.commit()

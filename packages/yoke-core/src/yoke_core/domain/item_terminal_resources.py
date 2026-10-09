@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.item_worktrees import release_item_worktrees
 from yoke_core.domain.strategy_execution import (
@@ -123,7 +123,7 @@ def _release_active_work_claims(
     if not rows:
         return 0, ()
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    released_at = iso8601_now()
+    released_at = instant_parameter(conn, utc_now())
     release_reason = "completed" if successful_terminal else "released"
     release_intent = f"item-terminal:{target_status}"
     released = 0

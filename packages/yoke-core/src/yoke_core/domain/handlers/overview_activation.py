@@ -58,7 +58,8 @@ def _error(
 
 
 def _require_global(
-    request: FunctionCallRequest, function_id: str,
+    request: FunctionCallRequest,
+    function_id: str,
 ) -> Optional[HandlerOutcome]:
     if request.target.kind != "global":
         return _error(
@@ -144,7 +145,11 @@ def _write_dismissal(
                 "VALUES (%s, %s, '1', %s) "
                 "ON CONFLICT (actor_id, pref_key) DO UPDATE SET "
                 "value = EXCLUDED.value, updated_at = EXCLUDED.updated_at",
-                (actor_id, pref_key, db_helpers.iso8601_now()),
+                (
+                    actor_id,
+                    pref_key,
+                    db_helpers.instant_parameter(conn, db_helpers.utc_now()),
+                ),
             )
         else:
             conn.execute(
@@ -171,7 +176,9 @@ def handle_overview_module_restore(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     return _write_dismissal(
-        request, "overview.module.restore", dismissed=False,
+        request,
+        "overview.module.restore",
+        dismissed=False,
     )
 
 

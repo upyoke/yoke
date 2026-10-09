@@ -90,7 +90,10 @@ class ProfileOnboardingResetResponse(BaseModel):
 
 
 def _error(
-    code: str, message: str, *, jsonpath: Optional[str] = None,
+    code: str,
+    message: str,
+    *,
+    jsonpath: Optional[str] = None,
 ) -> HandlerOutcome:
     return HandlerOutcome(
         primary_success=False,
@@ -99,7 +102,8 @@ def _error(
 
 
 def _bound_actor(
-    request: FunctionCallRequest, function_id: str,
+    request: FunctionCallRequest,
+    function_id: str,
 ) -> tuple[Optional[int], Optional[HandlerOutcome]]:
     if request.target.kind != "global":
         return None, _error(
@@ -180,7 +184,8 @@ def handle_profile_token_revoke(request: FunctionCallRequest) -> HandlerOutcome:
     raw_id = (request.payload or {}).get("token_id")
     if not isinstance(raw_id, int) or isinstance(raw_id, bool):
         return _error(
-            "payload_invalid", "token_id must be an integer",
+            "payload_invalid",
+            "token_id must be an integer",
             jsonpath="$.payload.token_id",
         )
     from yoke_core.domain import db_helpers
@@ -207,7 +212,8 @@ def handle_profile_token_revoke(request: FunctionCallRequest) -> HandlerOutcome:
             )
         if row[2] != "active":
             return _error(
-                "token_not_active", f"token {raw_id} is already {row[2]}",
+                "token_not_active",
+                f"token {raw_id} is already {row[2]}",
             )
         revoke_token(conn, token_id=raw_id, actor_id=actor_id)
     finally:
@@ -255,7 +261,12 @@ def handle_profile_preference_set(
                 "VALUES (%s, %s, %s, %s) "
                 "ON CONFLICT (actor_id, pref_key) DO UPDATE SET "
                 "value = EXCLUDED.value, updated_at = EXCLUDED.updated_at",
-                (actor_id, key, value, db_helpers.iso8601_now()),
+                (
+                    actor_id,
+                    key,
+                    value,
+                    db_helpers.instant_parameter(conn, db_helpers.utc_now()),
+                ),
             )
         else:
             conn.execute(
@@ -267,7 +278,8 @@ def handle_profile_preference_set(
     finally:
         conn.close()
     return HandlerOutcome(
-        result_payload={"key": key, "value": value}, primary_success=True,
+        result_payload={"key": key, "value": value},
+        primary_success=True,
     )
 
 
@@ -283,15 +295,15 @@ def handle_profile_onboarding_reset(
     try:
         cleared = hidden_module_count(conn, actor_id)
         conn.execute(
-            "DELETE FROM actor_ui_preferences "
-            "WHERE actor_id = %s AND pref_key LIKE %s",
+            "DELETE FROM actor_ui_preferences WHERE actor_id = %s AND pref_key LIKE %s",
             (actor_id, DISMISS_PREF_PREFIX + "%"),
         )
         conn.commit()
     finally:
         conn.close()
     return HandlerOutcome(
-        result_payload={"cleared": cleared}, primary_success=True,
+        result_payload={"cleared": cleared},
+        primary_success=True,
     )
 
 

@@ -185,3 +185,66 @@ def test_qa_requirement_creation_and_waiver_bind_native_instants(
     assert test_db.execute(
         "SELECT waived_at FROM qa_requirements WHERE id=%s", (requirement_id,)
     ).fetchone()[0] == STAMP + timedelta(microseconds=1)
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_worktree_history_updates_and_release_keep_native_precision(
+    test_db, monkeypatch, zone
+):
+    from runtime.api.fixtures.backlog_inserts import insert_item
+    from yoke_core.domain import (
+        item_worktrees,
+        item_worktree_head,
+        item_worktree_path_recording,
+    )
+
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    insert_item(test_db, id=1, title="Native lane clocks", status="implementing")
+    monkeypatch.setattr(item_worktrees, "utc_now", lambda: STAMP)
+    lane = item_worktrees.record_item_worktree(
+        test_db,
+        item_id=1,
+        branch="native-clock",
+        path="/tmp/native-clock",
+        lane_role="implementation",
+    )
+    assert lane["created_at"] == lane["updated_at"] == STAMP
+    assert lane["released_at"] is None
+    updated = STAMP + timedelta(microseconds=1)
+    monkeypatch.setattr(item_worktree_head, "utc_now", lambda: updated)
+    assert (
+        item_worktree_head.record_head_for_checkout(
+            test_db, project_id=1, checkout_path=lane["path"], commit_sha="1" * 40
+        )
+        == lane["id"]
+    )
+    assert (
+        test_db.execute(
+            "SELECT updated_at FROM item_worktrees WHERE id=%s", (lane["id"],)
+        ).fetchone()[0]
+        == updated
+    )
+    monkeypatch.setattr(
+        item_worktree_path_recording,
+        "utc_now",
+        lambda: updated + timedelta(microseconds=1),
+    )
+    moved = item_worktree_path_recording.record_item_worktree_path(
+        test_db,
+        item_id=1,
+        worktree_id=lane["id"],
+        expected_branch="native-clock",
+        path="/tmp/native-clock-moved",
+    )
+    assert moved["updated_at"] == updated + timedelta(microseconds=1)
+    monkeypatch.setattr(
+        item_worktrees, "utc_now", lambda: updated + timedelta(microseconds=2)
+    )
+    assert item_worktrees.release_item_worktrees(test_db, item_id=1) == 1
+    released = item_worktrees.list_item_worktrees(test_db, 1)[0]
+    assert released["created_at"] == STAMP
+    assert (
+        released["released_at"]
+        == released["updated_at"]
+        == updated + timedelta(microseconds=2)
+    )
