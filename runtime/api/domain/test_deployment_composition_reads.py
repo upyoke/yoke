@@ -59,7 +59,7 @@ def test_freeze_shares_one_custody_resolution_between_refusal_checks():
     from yoke_core.domain import deployment_run_composition_freeze as freeze
 
     conn = Mock()
-    conn.execute.return_value.fetchone.return_value = ("flow", "a" * 40, "", 1, "[]")
+    conn.execute.return_value.fetchone.return_value = ("flow", "a" * 40, None, 1, "[]")
     conn.execute.return_value.fetchall.return_value = []
     custody = object()
     with (
