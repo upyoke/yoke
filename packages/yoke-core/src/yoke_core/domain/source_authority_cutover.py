@@ -8,7 +8,7 @@ All public receipts omit connection strings and credentials.
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import utc_now, format_instant
+from yoke_contracts.timestamps import utc_now
 from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -132,7 +132,7 @@ def begin(
             service_stop_receipt=stop_receipt,
             original_rolcanlogin=rolcanlogin,
         )
-        frozen_at = format_instant(utc_now())
+        frozen_at = utc_now()
         connect_fence.install_connect_fence(
             conn,
             frozen_at=frozen_at,

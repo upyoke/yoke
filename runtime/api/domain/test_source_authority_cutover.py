@@ -3,6 +3,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant, format_instant
+
 from yoke_core.domain import source_authority_cutover as cutover
 from yoke_core.domain import source_authority_cutover_lifecycle as lifecycle
 
@@ -45,6 +47,8 @@ def test_begin_sets_database_boundary_drains_and_proves_stability(
         "_admin_connection",
         lambda _dsn: next(connections),
     )
+    moment = parse_instant("2026-10-09T15:00:00.123456Z")
+    monkeypatch.setattr(cutover, "utc_now", lambda: moment)
     staged = {"database": "source", "database_oid": 7, "staged": True}
     proved = {
         "database": "source",
@@ -53,11 +57,14 @@ def test_begin_sets_database_boundary_drains_and_proves_stability(
         "terminated_other_sessions": 3,
         "provider_superuser_bypass_roles": ["rdsadmin"],
     }
-    monkeypatch.setattr(
-        cutover.connect_fence,
-        "install_connect_fence",
-        lambda *_args, **_kwargs: staged,
-    )
+
+    def install(_conn, *, frozen_at, service_stop_receipt):
+        assert frozen_at == moment
+        assert isinstance(frozen_at, type(moment))
+        assert service_stop_receipt == "service-stopped"
+        return staged
+
+    monkeypatch.setattr(cutover.connect_fence, "install_connect_fence", install)
 
     def prove(_conn):
         assert original.commits == 1
@@ -113,7 +120,7 @@ def test_begin_sets_database_boundary_drains_and_proves_stability(
         cutover,
         "_validate_bundle_authority",
         lambda *_a: {
-            "frozen_at": "then",
+            "frozen_at": "2026-10-09T15:00:00.123456Z",
             "service_stop_receipt": "service-stopped",
         },
     )
@@ -131,6 +138,7 @@ def test_begin_sets_database_boundary_drains_and_proves_stability(
     )
 
     assert report["quiesced"] is True
+    assert report["frozen_at"] == format_instant(moment)
     assert report["terminated_connections"] == 3
     assert report["admin_fence"]["provider_superuser_bypass_roles"] == ["rdsadmin"]
     assert report["stable_watermarks"] is True
@@ -201,7 +209,7 @@ def test_abort_restores_policy_and_original_credential(monkeypatch, tmp_path: Pa
         "fence_state",
         lambda _conn: {
             "policy": {},
-            "frozen_at": "then",
+            "frozen_at": "2026-10-09T15:00:00.123456Z",
             "service_stop_receipt": "stopped",
         },
     )
@@ -235,7 +243,7 @@ def test_abort_restores_policy_and_original_credential(monkeypatch, tmp_path: Pa
         lifecycle,
         "validate_bundle_authority",
         lambda *_a: {
-            "frozen_at": "then",
+            "frozen_at": "2026-10-09T15:00:00.123456Z",
             "service_stop_receipt": "stopped",
         },
     )
