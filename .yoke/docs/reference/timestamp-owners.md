@@ -269,3 +269,12 @@ and claim facts remain unchanged internally; owned output clocks become
 fixed-six UTC, null clocks remain null, and opaque envelope strings and keys
 retain their exact values. Native minimal fixtures exercise the actual API
 registration/end routes rather than masking this boundary with text columns.
+
+Path-integrity and path-context fixture owners bind native project, target,
+snapshot, move, context, event and fixture-registration clocks. Continuity
+fixture implementations share the existing clock binder and public catalog;
+their intentionally malformed substrate states and opaque context values retain
+the same invariant behavior. Minimal supporting schemas use native clock types.
+Scoped deployment fixtures bind native run/member/environment clocks and keep
+frozen requirement snapshots unchanged; verdict/artifact fixture clocks are
+parsed once and adapt only at their SQL bindings.

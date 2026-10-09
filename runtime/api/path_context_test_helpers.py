@@ -8,11 +8,12 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import project_structure as ps
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.schema_init_tables import create_path_registry_tables
 
 
-NOW = "2026-04-30T12:00:00Z"
+NOW = parse_instant("2026-04-30T12:00:00Z")
 
 
 _EVENTS_DDL = """
@@ -28,7 +29,7 @@ _EVENTS_DDL = """
         project_id INTEGER DEFAULT 1,
         client_timing_id TEXT,
         envelope TEXT,
-        created_at TEXT NOT NULL
+        created_at TIMESTAMPTZ NOT NULL
     )
 """
 
@@ -38,10 +39,10 @@ _PROJECTS_DDL = """
         slug TEXT NOT NULL UNIQUE,
         name TEXT,
         public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
-        created_at TEXT
+        created_at TIMESTAMPTZ
     );
     INSERT INTO projects (id, slug, name, public_item_prefix, created_at)
-    VALUES (1, 'yoke', 'Yoke', 'YOK', '2026-01-01T00:00:00Z')
+    VALUES (1, 'yoke', 'Yoke', 'YOK', '2026-01-01T00:00:00.000000Z')
 """
 
 
@@ -99,6 +100,7 @@ def init_minimal_schema(db_path: str):
 
 
 def emit_event(conn: Any, *, name: str = "TestEvent") -> str:
+    now = instant_parameter(conn, utc_now())
     event_id = str(uuid.uuid4())
     p = _p(conn)
     conn.execute(
@@ -115,7 +117,7 @@ def emit_event(conn: Any, *, name: str = "TestEvent") -> str:
             "system",
             name,
             "cli",
-            iso8601_now(),
+            now,
             "{}",
         ),
     )
@@ -130,12 +132,13 @@ def mint_target(
     kind: str = "file",
     parent_target_id: Optional[int] = None,
 ) -> int:
+    now = instant_parameter(conn, utc_now())
     p = _p(conn)
     project_id = 1 if project == "yoke" else int(project)
     cur = conn.execute(
         "INSERT INTO path_targets "
         "(project_id, kind, path_string, generation, parent_target_id, created_at) "
         f"VALUES ({p}, {p}, {p}, 1, {p}, {p}) RETURNING id",
-        (project_id, kind, path_string, parent_target_id, iso8601_now()),
+        (project_id, kind, path_string, parent_target_id, now),
     )
     return int(cur.fetchone()[0])

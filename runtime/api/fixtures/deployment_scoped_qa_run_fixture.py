@@ -16,7 +16,8 @@ import json
 from typing import Any
 
 from runtime.api.fixtures.backlog_inserts import insert_item
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.deployment_requirement_snapshots import (
     requirement_selection,
     snapshot_flow_requirements,
@@ -64,11 +65,11 @@ def seed_frozen_scoped_qa_run(
     "executing" transition, so the seeded row is indistinguishable from
     one that arrived here through the normal execution lifecycle.
     """
+    now = instant_parameter(conn, utc_now())
     project_id = resolve_project_id(conn, project)
     flow_snapshot = snapshot_flow_requirements(
         conn, flow_id=flow, project_id=project_id, stages=stages
     )
-    now = iso8601_now()
     conn.execute(
         "INSERT INTO deployment_runs("
         "id,project_id,flow,release_lineage,status,current_stage,created_at,"
@@ -130,8 +131,8 @@ def seed_run_standing_on_qa_stage(
         complete_deployment_stage_receipt,
     )
 
+    now = instant_parameter(conn, utc_now())
     project_id = resolve_project_id(conn, project)
-    now = iso8601_now()
     conn.execute(
         "INSERT INTO environments(site,project_id,name,url,settings,created_at) "
         "SELECT id,%s,%s,%s,'{}',%s FROM sites "
@@ -299,7 +300,6 @@ def record_case_verdict(
     """Record one verdict through the production write path, with or without
     the evidence the gate looks for."""
     from yoke_core.domain.qa_run_verdict_record import insert_qa_run
-
     from yoke_core.domain.qa_requirement_pass_currency import (
         stamp_executed_method_config,
     )
@@ -313,7 +313,7 @@ def record_case_verdict(
         requirement["method_config"],
         execution_target_digest=requirement["execution_target_digest"],
     )
-    now = "2026-09-18T00:02:00Z"
+    now = parse_instant("2026-09-18T00:02:00Z")
     qa_run_id = insert_qa_run(
         conn,
         qa_requirement_id=int(requirement_id),
@@ -329,7 +329,11 @@ def record_case_verdict(
         conn.execute(
             "INSERT INTO qa_artifacts(qa_run_id,artifact_type,content_type,"
             "artifact_handle,created_at) VALUES (%s,'log','application/json',%s,%s)",
-            (qa_run_id, f"evidence://requirement-{requirement_id}", now),
+            (
+                qa_run_id,
+                f"evidence://requirement-{requirement_id}",
+                instant_parameter(conn, now),
+            ),
         )
     conn.commit()
     return qa_run_id
