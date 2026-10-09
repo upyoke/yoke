@@ -43,7 +43,7 @@ _DEP_DDL = (
     "source TEXT NOT NULL, session_id INTEGER, "
     "rationale TEXT NOT NULL DEFAULT '', "
     "evidence_json TEXT NOT NULL DEFAULT '{}', "
-    "created_at TEXT NOT NULL)"
+    "created_at TIMESTAMPTZ NOT NULL)"
 )
 
 
@@ -92,20 +92,32 @@ def test_widen_records_all_serial_upstreams_and_overlaps(conn):
     shared_a = seed_target(conn, path_string="m/shared_a.py")
     shared_b = seed_target(conn, path_string="m/shared_b.py")
     claim_a = register(
-        conn, actor_id=human, target_ids=[shared_a],
-        integration_target="main", mode="exclusive", item_id=upstream_a,
+        conn,
+        actor_id=human,
+        target_ids=[shared_a],
+        integration_target="main",
+        mode="exclusive",
+        item_id=upstream_a,
     )
     activate(conn, claim_id=claim_a, base_commit_sha=SNAP)
     claim_b = register(
-        conn, actor_id=human, target_ids=[shared_b],
-        integration_target="main", mode="exclusive", item_id=upstream_b,
+        conn,
+        actor_id=human,
+        target_ids=[shared_b],
+        integration_target="main",
+        mode="exclusive",
+        item_id=upstream_b,
     )
     activate(conn, claim_id=claim_b, base_commit_sha=SNAP)
 
     candidate_other = seed_target(conn, path_string="m/only.py")
     candidate_claim = register(
-        conn, actor_id=human, target_ids=[candidate_other],
-        integration_target="main", mode="exclusive", item_id=candidate,
+        conn,
+        actor_id=human,
+        target_ids=[candidate_other],
+        integration_target="main",
+        mode="exclusive",
+        item_id=candidate,
     )
 
     amendment_id = widen(
@@ -150,22 +162,32 @@ def test_widen_mixed_evidence_rejects_mutation_clean(conn):
     shared_attested = seed_target(conn, path_string="x/attested.py")
     shared_silent = seed_target(conn, path_string="x/silent.py")
     claim_attested = register(
-        conn, actor_id=human, target_ids=[shared_attested],
-        integration_target="main", mode="exclusive",
+        conn,
+        actor_id=human,
+        target_ids=[shared_attested],
+        integration_target="main",
+        mode="exclusive",
         item_id=attested_upstream,
     )
     activate(conn, claim_id=claim_attested, base_commit_sha=SNAP)
     claim_silent = register(
-        conn, actor_id=human, target_ids=[shared_silent],
-        integration_target="main", mode="exclusive",
+        conn,
+        actor_id=human,
+        target_ids=[shared_silent],
+        integration_target="main",
+        mode="exclusive",
         item_id=silent_upstream,
     )
     activate(conn, claim_id=claim_silent, base_commit_sha=SNAP)
 
     candidate_other = seed_target(conn, path_string="x/only.py")
     candidate_claim = register(
-        conn, actor_id=human, target_ids=[candidate_other],
-        integration_target="main", mode="exclusive", item_id=candidate,
+        conn,
+        actor_id=human,
+        target_ids=[candidate_other],
+        integration_target="main",
+        mode="exclusive",
+        item_id=candidate,
     )
     starting_state = get_claim(conn, candidate_claim)["state"]
 

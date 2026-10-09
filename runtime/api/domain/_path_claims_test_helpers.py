@@ -301,3 +301,22 @@ def ambient_holder_session(monkeypatch):
     """Set ambient ``YOKE_SESSION_ID`` to the canonical test holder."""
     monkeypatch.setenv("YOKE_SESSION_ID", HOLDER_SESSION_ID)
     yield HOLDER_SESSION_ID
+
+
+DEPENDENCY_FIXTURE_DDL = (
+    "CREATE TABLE IF NOT EXISTS item_dependencies ("
+    "id INTEGER PRIMARY KEY, dependent_item_id INTEGER NOT NULL, "
+    "blocking_item_id INTEGER NOT NULL, "
+    "gate_point TEXT NOT NULL DEFAULT 'activation', "
+    "satisfaction TEXT NOT NULL DEFAULT 'status:done', "
+    "source TEXT NOT NULL, session_id INTEGER, "
+    "rationale TEXT NOT NULL DEFAULT '', "
+    "evidence_json TEXT NOT NULL DEFAULT '{}', "
+    "created_at TIMESTAMPTZ NOT NULL)"
+)
+
+
+def ensure_dependency_fixture_table(conn: Any) -> None:
+    """Ensure the native dependency schema used by narrow claim fixtures."""
+    conn.execute(DEPENDENCY_FIXTURE_DDL)
+    conn.commit()

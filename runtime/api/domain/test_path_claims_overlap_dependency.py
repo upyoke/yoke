@@ -32,7 +32,13 @@ from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
 
 def _seed_item(conn, *, item_id: int, project: str = "yoke") -> int:
     project_key = str(project)
-    project_id = 2 if project_key == "externalwebapp" else int(project_key) if project_key.isdigit() else 1
+    project_id = (
+        2
+        if project_key == "externalwebapp"
+        else int(project_key)
+        if project_key.isdigit()
+        else 1
+    )
     conn.execute(
         "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
         "created_at, updated_at, project_id, project_sequence) "
@@ -53,13 +59,17 @@ def _ensure_item_dependencies_table(conn):
         "source TEXT NOT NULL, session_id INTEGER, "
         "rationale TEXT NOT NULL DEFAULT '', "
         "evidence_json TEXT NOT NULL DEFAULT '{}', "
-        "created_at TEXT NOT NULL)"
+        "created_at TIMESTAMPTZ NOT NULL)"
     )
     conn.commit()
 
 
 def _add_dep_edge(
-    conn, *, dependent: int, blocking: int, gate_point: str = "activation",
+    conn,
+    *,
+    dependent: int,
+    blocking: int,
+    gate_point: str = "activation",
 ):
     _ensure_item_dependencies_table(conn)
     conn.execute(
@@ -159,7 +169,9 @@ class TestExplicitUpstream:
         blk_item = _seed_item(conn, item_id=2007)
         cand_item = _seed_item(conn, item_id=2008)
         blk_claim = _seed_active_claim(
-            conn, item_id=blk_item, target_id=target,
+            conn,
+            item_id=blk_item,
+            target_id=target,
         )
         # No dep edge, but operator passes --upstream-claim-id explicitly.
         outcome = classify_overlap(
@@ -195,8 +207,11 @@ class TestCoordinationOnlyEdge:
 
     def _classify(self, conn, *, target, cand_item):
         return classify_overlap(
-            conn, target_ids=[target], integration_target="main",
-            phase="register", candidate_item_id=cand_item,
+            conn,
+            target_ids=[target],
+            integration_target="main",
+            phase="register",
+            candidate_item_id=cand_item,
         )
 
     def test_classify_overlap_parallel_for_coordination_only(self, conn):
@@ -204,7 +219,9 @@ class TestCoordinationOnlyEdge:
         # both claims may register and activate concurrently.
         target, blk_item, cand_item = self._stage(conn, 2101)
         _add_dep_edge(
-            conn, dependent=cand_item, blocking=blk_item,
+            conn,
+            dependent=cand_item,
+            blocking=blk_item,
             gate_point="coordination_only",
         )
         assert self._classify(conn, target=target, cand_item=cand_item) is (
@@ -228,7 +245,9 @@ class TestOverridePermits:
         blk_item = _seed_item(conn, item_id=2009)
         cand_item = _seed_item(conn, item_id=2010)
         blk_claim = _seed_active_claim(
-            conn, item_id=blk_item, target_id=target,
+            conn,
+            item_id=blk_item,
+            target_id=target,
         )
         # Stage a candidate planned claim so exclude_claim_id is meaningful.
         actor = local_human(conn)

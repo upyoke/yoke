@@ -1,24 +1,15 @@
-"""Tests for yoke_core.domain.idea_readiness_repair_cross_item_overlap.
+"""Cross-item overlap probes report incompatible clusters and actionable context.
 
-AC traceability:
-- ``probe_cross_item_overlap`` surfaces one issue
-  per INCOMPATIBLE cluster; same-item, no-overlap, terminal-other-state,
-  coordination_only, and directional activation cases all silence the
-  cluster.
-- Register-style semantics — planned sibling surfaces even
-  though ``classify_overlap(phase='activate')`` would ignore it.
-- Issue context carries every field needed to author the edge
-  without a second schema hunt.
-- Default repair path is evidence-returning and non-mutating.
-- ``auto_attest=True`` is rejected in v0.
-- No retired-snapshot surface references in implementation or
-  test files.
+Authored coordination/dependency edges silence the appropriate cluster.
+Repairs return evidence and preserve state; automatic attestation is refused.
 """
 
 # The imported ``conn`` fixture is intentionally re-bound by helper/test parameters.
 # ruff: noqa: F811
 
 from __future__ import annotations
+
+from yoke_contracts.timestamps import parse_instant
 
 import re
 from pathlib import Path
@@ -31,6 +22,7 @@ from yoke_core.domain.idea_readiness_repair_cross_item_overlap import (
 )
 import yoke_core.domain.idea_readiness_repair_cross_item_overlap as overlap_mod
 from runtime.api.domain._path_claims_test_helpers import (
+    ensure_dependency_fixture_table as _ensure_item_dependencies_table,
     SNAP,
     conn as conn,
     local_human,
@@ -55,23 +47,12 @@ def _seed_item(conn, *, item_id: int, project: str = "yoke") -> int:
     return item_id
 
 
-def _ensure_item_dependencies_table(conn):
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS item_dependencies ("
-        "id INTEGER PRIMARY KEY, dependent_item_id INTEGER NOT NULL, "
-        "blocking_item_id INTEGER NOT NULL, "
-        "gate_point TEXT NOT NULL DEFAULT 'activation', "
-        "satisfaction TEXT NOT NULL DEFAULT 'status:done', "
-        "source TEXT NOT NULL, session_id INTEGER, "
-        "rationale TEXT NOT NULL DEFAULT '', "
-        "evidence_json TEXT NOT NULL DEFAULT '{}', "
-        "created_at TEXT NOT NULL)"
-    )
-    conn.commit()
-
-
 def _add_dep_edge(
-    conn, *, dependent: int, blocking: int, gate_point: str = "activation",
+    conn,
+    *,
+    dependent: int,
+    blocking: int,
+    gate_point: str = "activation",
 ):
     _ensure_item_dependencies_table(conn)
     conn.execute(
@@ -84,11 +65,17 @@ def _add_dep_edge(
 
 
 def _seed_claim(
-    conn, *, item_id: int, target_id: int, state: str = "planned",
+    conn,
+    *,
+    item_id: int,
+    target_id: int,
+    state: str = "planned",
 ) -> int:
     actor = local_human(conn)
     activated = SNAP if state == "active" else None
-    activated_at = "2026-05-01T01:00:00Z" if state == "active" else None
+    activated_at = (
+        parse_instant("2026-05-01T01:00:00.123456Z") if state == "active" else None
+    )
     cur = conn.execute(
         "INSERT INTO path_claims "
         "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
@@ -121,7 +108,8 @@ def _seed_two_items_sharing(conn, *, path_string: str):
 class TestProbe:
     def test_incompatible_with_planned_sibling_surfaces(self, conn):
         target, cand_claim, other_claim = _seed_two_items_sharing(
-            conn, path_string="runtime/api/domain/lint_shell_quoted_function_payload.py",
+            conn,
+            path_string="runtime/api/domain/lint_shell_quoted_function_payload.py",
         )
         issues = probe_cross_item_overlap(conn, item_id=_CANDIDATE_ITEM)
         assert len(issues) == 1
@@ -158,7 +146,9 @@ class TestProbe:
     def test_coordination_only_edge_silences_cluster(self, conn):
         _seed_two_items_sharing(conn, path_string="runtime/api/domain")
         _add_dep_edge(
-            conn, dependent=_CANDIDATE_ITEM, blocking=_OTHER_ITEM,
+            conn,
+            dependent=_CANDIDATE_ITEM,
+            blocking=_OTHER_ITEM,
             gate_point="coordination_only",
         )
         issues = probe_cross_item_overlap(conn, item_id=_CANDIDATE_ITEM)
@@ -168,7 +158,9 @@ class TestProbe:
         _seed_two_items_sharing(conn, path_string="runtime/api/domain")
         # Candidate is DEPENDENT of a non-coordination edge — HAS_SERIAL.
         _add_dep_edge(
-            conn, dependent=_CANDIDATE_ITEM, blocking=_OTHER_ITEM,
+            conn,
+            dependent=_CANDIDATE_ITEM,
+            blocking=_OTHER_ITEM,
             gate_point="activation",
         )
         issues = probe_cross_item_overlap(conn, item_id=_CANDIDATE_ITEM)
@@ -179,7 +171,9 @@ class TestProbe:
         # candidate is upstream and does not wait.
         _seed_two_items_sharing(conn, path_string="runtime/api/domain")
         _add_dep_edge(
-            conn, dependent=_OTHER_ITEM, blocking=_CANDIDATE_ITEM,
+            conn,
+            dependent=_OTHER_ITEM,
+            blocking=_CANDIDATE_ITEM,
             gate_point="activation",
         )
         issues = probe_cross_item_overlap(conn, item_id=_CANDIDATE_ITEM)
@@ -216,11 +210,13 @@ class TestProbe:
         # Both planned — never activated. classify_overlap(phase='activate')
         # would return NONE; the probe MUST still surface this.
         target, cand_claim, other_claim = _seed_two_items_sharing(
-            conn, path_string="runtime/api/domain",
+            conn,
+            path_string="runtime/api/domain",
         )
         # Sanity: both claims are planned, neither active.
         states = sorted(
-            r[0] for r in conn.execute(
+            r[0]
+            for r in conn.execute(
                 "SELECT state FROM path_claims WHERE id IN (%s, %s)",
                 (cand_claim, other_claim),
             )
@@ -244,23 +240,25 @@ class TestIssueContext:
     def test_context_completeness(self, conn):
         path = "runtime/api/domain/idea_readiness_check.py"
         target, cand_claim, other_claim = _seed_two_items_sharing(
-            conn, path_string=path,
+            conn,
+            path_string=path,
         )
         issues = probe_cross_item_overlap(conn, item_id=_CANDIDATE_ITEM)
         assert len(issues) == 1
         ctx = issues[0].context
         for key in (
-            "candidate_item_id", "candidate_claim_id",
-            "conflicting_claim_id", "conflicting_item_id",
-            "integration_target", "shared_paths",
-            "classifier_phase", "recovery_command",
+            "candidate_item_id",
+            "candidate_claim_id",
+            "conflicting_claim_id",
+            "conflicting_item_id",
+            "integration_target",
+            "shared_paths",
+            "classifier_phase",
+            "recovery_command",
         ):
             assert key in ctx, f"missing context key {key!r}"
         assert ctx["shared_paths"] == [path]
-        assert (
-            "yoke claims path coordination-decision-build"
-            in ctx["recovery_command"]
-        )
+        assert "yoke claims path coordination-decision-build" in ctx["recovery_command"]
         assert f"YOK-{_CANDIDATE_ITEM}" in ctx["recovery_command"]
         assert str(other_claim) in ctx["recovery_command"]
 
@@ -273,8 +271,10 @@ class TestRepair:
         # build_coordination_context reads spec via its own DB connection;
         # the in-memory fixture lacks the structured-field columns, so
         # mock the spec accessor it depends on.
-        specs = {_CANDIDATE_ITEM: "# Candidate spec body",
-                 _OTHER_ITEM: "# Other spec body"}
+        specs = {
+            _CANDIDATE_ITEM: "# Candidate spec body",
+            _OTHER_ITEM: "# Other spec body",
+        }
 
         def _fake_query_item(item_id, field):
             if field == "id":
@@ -285,12 +285,12 @@ class TestRepair:
         # table to read; the helper must not insert into it.
         _ensure_item_dependencies_table(conn)
         with mock.patch(
-            "yoke_core.domain.path_claim_coordination_decision."
-            "query_item",
+            "yoke_core.domain.path_claim_coordination_decision.query_item",
             side_effect=_fake_query_item,
         ):
             outcome = attempt_cross_item_overlap_repair(
-                conn, item_id=_CANDIDATE_ITEM,
+                conn,
+                item_id=_CANDIDATE_ITEM,
             )
         assert outcome.success is False
         assert outcome.auto_attest is False
@@ -313,38 +313,38 @@ class TestRepair:
         item = _seed_item(conn, item_id=_CANDIDATE_ITEM)
         _seed_claim(conn, item_id=item, target_id=target, state="planned")
         outcome = attempt_cross_item_overlap_repair(
-            conn, item_id=_CANDIDATE_ITEM,
+            conn,
+            item_id=_CANDIDATE_ITEM,
         )
         assert outcome.success is True
         assert outcome.clusters == []
 
     def test_auto_attest_true_rejected(self, conn):
         outcome = attempt_cross_item_overlap_repair(
-            conn, item_id=_CANDIDATE_ITEM, auto_attest=True,
+            conn,
+            item_id=_CANDIDATE_ITEM,
+            auto_attest=True,
         )
         assert outcome.success is False
         assert outcome.auto_attest is True
         assert "reserved" in outcome.error
 
 
-class TestRetiredSurfaceResidueAC13:
+class TestRetiredSnapshotResidue:
     """Implementation does not reference retired snapshot surfaces."""
 
     def test_no_retired_snapshot_references(self):
         # Scope per spec wording: "implementation-owned hits." This test
         # file declares the banned terms in its own regex, so itself is
         # excluded by design.
-        impl = (
-            Path(overlap_mod.__file__)
-        )
+        impl = Path(overlap_mod.__file__)
         banned = re.compile(r"base_snapshot_id|_mint_target|path_snapshots")
         hits = [
             f"{impl}:{lineno}: {line}"
             for lineno, line in enumerate(
-                impl.read_text(encoding="utf-8").splitlines(), start=1,
+                impl.read_text(encoding="utf-8").splitlines(),
+                start=1,
             )
             if banned.search(line)
         ]
-        assert not hits, (
-            "banned retired-surface reference found:\n" + "\n".join(hits)
-        )
+        assert not hits, "banned retired-surface reference found:\n" + "\n".join(hits)

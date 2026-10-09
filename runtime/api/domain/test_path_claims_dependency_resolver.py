@@ -19,7 +19,6 @@ Covers register-side awareness:
 from __future__ import annotations
 
 
-
 from yoke_core.domain.path_claims_dependency_resolver import (
     cross_check_explicit_upstream,
     has_bidirectional_dep_edge,
@@ -54,13 +53,17 @@ def _ensure_dep_table(conn):
         "source TEXT NOT NULL, session_id INTEGER, "
         "rationale TEXT NOT NULL DEFAULT '', "
         "evidence_json TEXT NOT NULL DEFAULT '{}', "
-        "created_at TEXT NOT NULL)"
+        "created_at TIMESTAMPTZ NOT NULL)"
     )
     conn.commit()
 
 
 def _add_edge(
-    conn, *, dependent: int, blocking: int, gate_point: str = "activation",
+    conn,
+    *,
+    dependent: int,
+    blocking: int,
+    gate_point: str = "activation",
 ):
     _ensure_dep_table(conn)
     conn.execute(
@@ -72,9 +75,7 @@ def _add_edge(
     conn.commit()
 
 
-def _seed_claim(
-    conn, *, item_id: int, target_id: int, state: str = "active"
-) -> int:
+def _seed_claim(conn, *, item_id: int, target_id: int, state: str = "active") -> int:
     actor = local_human(conn)
     cur = conn.execute(
         "INSERT INTO path_claims "
@@ -101,12 +102,15 @@ class TestHasBidirectionalEdge:
         cand_item = _seed_item(conn, item_id=3002)
         blk_claim = _seed_claim(conn, item_id=blk_item, target_id=target)
         _add_edge(conn, dependent=cand_item, blocking=blk_item)
-        assert has_bidirectional_dep_edge(
-            conn,
-            candidate_claim_id=None,
-            candidate_item_id=cand_item,
-            blocking_claim_id=blk_claim,
-        ) is True
+        assert (
+            has_bidirectional_dep_edge(
+                conn,
+                candidate_claim_id=None,
+                candidate_item_id=cand_item,
+                blocking_claim_id=blk_claim,
+            )
+            is True
+        )
 
     def test_reverse_edge_returns_true(self, conn):
         target = seed_target(conn, path_string="runtime/api/domain")
@@ -114,12 +118,15 @@ class TestHasBidirectionalEdge:
         cand_item = _seed_item(conn, item_id=3004)
         blk_claim = _seed_claim(conn, item_id=blk_item, target_id=target)
         _add_edge(conn, dependent=blk_item, blocking=cand_item)
-        assert has_bidirectional_dep_edge(
-            conn,
-            candidate_claim_id=None,
-            candidate_item_id=cand_item,
-            blocking_claim_id=blk_claim,
-        ) is True
+        assert (
+            has_bidirectional_dep_edge(
+                conn,
+                candidate_claim_id=None,
+                candidate_item_id=cand_item,
+                blocking_claim_id=blk_claim,
+            )
+            is True
+        )
 
     def test_no_edge_returns_false(self, conn):
         target = seed_target(conn, path_string="runtime/api/domain")
@@ -127,12 +134,15 @@ class TestHasBidirectionalEdge:
         cand_item = _seed_item(conn, item_id=3006)
         blk_claim = _seed_claim(conn, item_id=blk_item, target_id=target)
         _ensure_dep_table(conn)
-        assert has_bidirectional_dep_edge(
-            conn,
-            candidate_claim_id=None,
-            candidate_item_id=cand_item,
-            blocking_claim_id=blk_claim,
-        ) is False
+        assert (
+            has_bidirectional_dep_edge(
+                conn,
+                candidate_claim_id=None,
+                candidate_item_id=cand_item,
+                blocking_claim_id=blk_claim,
+            )
+            is False
+        )
 
     def test_missing_table_returns_false(self, conn):
         target = seed_target(conn, path_string="runtime/api/domain")
@@ -140,12 +150,15 @@ class TestHasBidirectionalEdge:
         cand_item = _seed_item(conn, item_id=3008)
         blk_claim = _seed_claim(conn, item_id=blk_item, target_id=target)
         # Do NOT create item_dependencies — resolver should tolerate.
-        assert has_bidirectional_dep_edge(
-            conn,
-            candidate_claim_id=None,
-            candidate_item_id=cand_item,
-            blocking_claim_id=blk_claim,
-        ) is False
+        assert (
+            has_bidirectional_dep_edge(
+                conn,
+                candidate_claim_id=None,
+                candidate_item_id=cand_item,
+                blocking_claim_id=blk_claim,
+            )
+            is False
+        )
 
 
 class TestResolveUpstream:
@@ -199,7 +212,8 @@ class TestResolveUpstream:
 
 class TestCoordinationOnlyNoUpstream:
     def test_resolve_upstream_ignores_reverse_coordination_only_edge(
-        self, conn,
+        self,
+        conn,
     ):
         # No-mutex contract: coordination_only covers the overlap but
         # never becomes the named serial upstream.
@@ -221,7 +235,8 @@ class TestCoordinationOnlyNoUpstream:
         assert chosen is None
 
     def test_resolve_upstream_ignores_forward_coordination_only_edge(
-        self, conn,
+        self,
+        conn,
     ):
         target = seed_target(conn, path_string="runtime/api/domain")
         blk_item = _seed_item(conn, item_id=3311)
@@ -241,7 +256,8 @@ class TestCoordinationOnlyNoUpstream:
         assert chosen is None
 
     def test_mixed_coordination_and_activation_picks_serial_upstream(
-        self, conn,
+        self,
+        conn,
     ):
         t1 = seed_target(conn, path_string="runtime/api/domain/a.py")
         t2 = seed_target(conn, path_string="runtime/api/domain/b.py")
@@ -299,7 +315,9 @@ class TestCrossCheckExplicitUpstream:
         blk_claim = _seed_claim(conn, item_id=blk_item, target_id=target)
         _add_edge(conn, dependent=cand_item, blocking=blk_item)
         msg = cross_check_explicit_upstream(
-            conn, item_id=cand_item, upstream_claim_id=blk_claim,
+            conn,
+            item_id=cand_item,
+            upstream_claim_id=blk_claim,
         )
         assert msg is None
 
@@ -310,7 +328,9 @@ class TestCrossCheckExplicitUpstream:
         blk_claim = _seed_claim(conn, item_id=blk_item, target_id=target)
         _ensure_dep_table(conn)
         msg = cross_check_explicit_upstream(
-            conn, item_id=cand_item, upstream_claim_id=blk_claim,
+            conn,
+            item_id=cand_item,
+            upstream_claim_id=blk_claim,
         )
         assert msg is not None
         assert "Advisory" in msg

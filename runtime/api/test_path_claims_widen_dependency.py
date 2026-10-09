@@ -44,7 +44,7 @@ def _ensure_dep_table(conn):
         "source TEXT NOT NULL, session_id INTEGER, "
         "rationale TEXT NOT NULL DEFAULT '', "
         "evidence_json TEXT NOT NULL DEFAULT '{}', "
-        "created_at TEXT NOT NULL)"
+        "created_at TIMESTAMPTZ NOT NULL)"
     )
     conn.commit()
 
@@ -60,7 +60,10 @@ def _add_edge(conn, *, dependent: int, blocking: int):
 
 
 def _seed_active_claim_with_targets(
-    conn, *, item_id: int, target_ids: list,
+    conn,
+    *,
+    item_id: int,
+    target_ids: list,
 ) -> int:
     actor = local_human(conn)
     cur = conn.execute(
@@ -84,7 +87,10 @@ def _seed_active_claim_with_targets(
 
 
 def _seed_planned_claim_with_targets(
-    conn, *, item_id: int, target_ids: list,
+    conn,
+    *,
+    item_id: int,
+    target_ids: list,
 ) -> int:
     actor = local_human(conn)
     cur = conn.execute(
@@ -117,10 +123,14 @@ class TestWidenForwardEdge:
         a_item = _seed_item(conn, item_id=5101)
         b_item = _seed_item(conn, item_id=5102)
         _seed_active_claim_with_targets(
-            conn, item_id=a_item, target_ids=[t1],
+            conn,
+            item_id=a_item,
+            target_ids=[t1],
         )
         b_claim = _seed_planned_claim_with_targets(
-            conn, item_id=b_item, target_ids=[t2],
+            conn,
+            item_id=b_item,
+            target_ids=[t2],
         )
         _add_edge(conn, dependent=b_item, blocking=a_item)
 
@@ -151,10 +161,14 @@ class TestWidenReverseEdge:
         a_item = _seed_item(conn, item_id=5201)
         b_item = _seed_item(conn, item_id=5202)
         a_claim = _seed_active_claim_with_targets(
-            conn, item_id=a_item, target_ids=[t1],
+            conn,
+            item_id=a_item,
+            target_ids=[t1],
         )
         _seed_planned_claim_with_targets(
-            conn, item_id=b_item, target_ids=[t2],
+            conn,
+            item_id=b_item,
+            target_ids=[t2],
         )
         _add_edge(conn, dependent=b_item, blocking=a_item)
 
@@ -180,10 +194,14 @@ class TestWidenRejectsWhenNoEdge:
         a_item = _seed_item(conn, item_id=5301)
         b_item = _seed_item(conn, item_id=5302)
         _seed_active_claim_with_targets(
-            conn, item_id=a_item, target_ids=[t1],
+            conn,
+            item_id=a_item,
+            target_ids=[t1],
         )
         b_claim = _seed_planned_claim_with_targets(
-            conn, item_id=b_item, target_ids=[t2],
+            conn,
+            item_id=b_item,
+            target_ids=[t2],
         )
         _ensure_dep_table(conn)
         # No dep edge — widening B onto t1 should reject.

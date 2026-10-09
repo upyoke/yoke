@@ -61,7 +61,7 @@ _DEP_DDL = (
     "source TEXT NOT NULL, session_id INTEGER, "
     "rationale TEXT NOT NULL DEFAULT '', "
     "evidence_json TEXT NOT NULL DEFAULT '{}', "
-    "created_at TEXT NOT NULL)"
+    "created_at TIMESTAMPTZ NOT NULL)"
 )
 
 
@@ -97,8 +97,11 @@ def _register_all(conn, items):
     actor_id = local_human(conn)
     return tuple(
         register_for_item(
-            conn, item_id=item_id, integration_target="main",
-            paths=[SHARED_PATH], actor_id=actor_id,
+            conn,
+            item_id=item_id,
+            integration_target="main",
+            paths=[SHARED_PATH],
+            actor_id=actor_id,
         )
         for item_id in items
     )
@@ -106,7 +109,9 @@ def _register_all(conn, items):
 
 class TestCoordinationOnlyEndToEnd:
     def test_all_three_items_are_frontier_runnable_at_activation(
-        self, conn, three_item_scenario,
+        self,
+        conn,
+        three_item_scenario,
     ):
         # coordination_only edges remain inert at lifecycle activation.
         blockers = evaluate_batch_gates(conn, "activation")
@@ -116,7 +121,9 @@ class TestCoordinationOnlyEndToEnd:
             )
 
     def test_parallel_registration_lands_all_planned(
-        self, conn, three_item_scenario,
+        self,
+        conn,
+        three_item_scenario,
     ):
         # Every path claim registers as ``planned`` — no
         # mutex lane, no ``blocked`` row, no ``blocked_reason``.
@@ -130,7 +137,9 @@ class TestCoordinationOnlyEndToEnd:
             assert row["blocked_reason"] is None
 
     def test_coordination_rationale_persists_on_item_dependencies(
-        self, conn, three_item_scenario,
+        self,
+        conn,
+        three_item_scenario,
     ):
         # The operator-attested rationale stays on the dep row — the
         # doctor HC reads it to verify intent even though the runtime

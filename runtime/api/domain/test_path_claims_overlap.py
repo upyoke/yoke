@@ -174,7 +174,7 @@ def _ensure_item_dependencies(conn):
         "source TEXT NOT NULL, session_id INTEGER, "
         "rationale TEXT NOT NULL DEFAULT '', "
         "evidence_json TEXT NOT NULL DEFAULT '{}', "
-        "created_at TEXT NOT NULL)"
+        "created_at TIMESTAMPTZ NOT NULL)"
     )
     conn.commit()
 
@@ -220,7 +220,9 @@ class TestCoordinationOnlySemantics:
     def test_coordination_only_edge_yields_none(self, conn):
         target, _ = self._stage(conn, blk_item_id=2201, cand_item_id=2202)
         _add_dep_edge(
-            conn, dependent=2202, blocking=2201,
+            conn,
+            dependent=2202,
+            blocking=2201,
             gate_point="coordination_only",
         )
         outcome = classify_overlap(
@@ -237,7 +239,9 @@ class TestCoordinationOnlySemantics:
         # directionless mutex-less.
         target, _ = self._stage(conn, blk_item_id=2211, cand_item_id=2212)
         _add_dep_edge(
-            conn, dependent=2211, blocking=2212,
+            conn,
+            dependent=2211,
+            blocking=2212,
             gate_point="coordination_only",
         )
         outcome = classify_overlap(
@@ -253,11 +257,15 @@ class TestCoordinationOnlySemantics:
         # Any non-coordination edge still serialises.
         target, _ = self._stage(conn, blk_item_id=2221, cand_item_id=2222)
         _add_dep_edge(
-            conn, dependent=2222, blocking=2221,
+            conn,
+            dependent=2222,
+            blocking=2221,
             gate_point="coordination_only",
         )
         _add_dep_edge(
-            conn, dependent=2222, blocking=2221,
+            conn,
+            dependent=2222,
+            blocking=2221,
             gate_point="activation",
         )
         outcome = classify_overlap(
@@ -273,10 +281,14 @@ class TestCoordinationOnlySemantics:
         # Operator-asserted serialisation wins regardless of the
         # dep-edge shape between the two items.
         target, blk_claim = self._stage(
-            conn, blk_item_id=2231, cand_item_id=2232,
+            conn,
+            blk_item_id=2231,
+            cand_item_id=2232,
         )
         _add_dep_edge(
-            conn, dependent=2232, blocking=2231,
+            conn,
+            dependent=2232,
+            blocking=2231,
             gate_point="coordination_only",
         )
         outcome = classify_overlap(
