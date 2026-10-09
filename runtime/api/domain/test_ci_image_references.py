@@ -115,6 +115,19 @@ def test_each_ci_image_is_declared_once_per_file() -> None:
             )
 
 
+def test_shard_postgres_start_retries_a_rate_limited_mirror_pull() -> None:
+    """Many shards pull at once; public ECR answers toomanyrequests on some."""
+    for name in ("yoke-ci.yml", "yoke-tests-selection.yml"):
+        text = (_WORKFLOWS / name).read_text(encoding="utf-8")
+        marker, _, step = text.partition("Start Postgres")
+        assert marker != text, name
+        step = step.split("\n      - name:", 1)[0]
+        assert "for delay in 15 60 0" in step, name
+        assert '"$POSTGRES_IMAGE"' in step, name
+        assert "&& exit 0" in step, name
+        assert "exit 1" in step, name
+
+
 def test_ci_files_do_not_name_bare_docker_hub_official_images() -> None:
     offenders: list[str] = []
     for path in [*_workflow_paths(), _DOCKERFILE]:

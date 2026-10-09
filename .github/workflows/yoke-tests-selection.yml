@@ -59,8 +59,7 @@ concurrency:
 env:
   # This repository explicitly selects its project; runners have no machine binding.
   YOKE_PROJECT: yoke
-  # Official image via the AWS public mirror. GitHub-hosted runners hit
-  # Docker Hub anonymous rate limits.
+  # AWS public mirror of the official image. Anonymous pulls can still be rate-limited.
   POSTGRES_IMAGE: public.ecr.aws/docker/library/postgres:16
 
 permissions:
@@ -186,22 +185,30 @@ jobs:
           git config --global init.defaultBranch main
 
       - name: Start Postgres (durability off, dynamic host port)
+        # Retry: public ECR rate-limits anonymous pulls when many shards start together.
         run: |
           socket_dir="$(mktemp -d /tmp/yoke-ci-pg.XXXXXX)"
           echo "YOKE_PG_SOCKET_DIR=${socket_dir}" >> "$GITHUB_ENV"
-          docker run -d \
-            --name "$PG_CONTAINER" \
-            -v "${socket_dir}:/var/run/postgresql" \
-            -e POSTGRES_USER=yoke \
-            -e POSTGRES_PASSWORD=yoke \
-            -e POSTGRES_DB=postgres \
-            -p 5432 \
-            "$POSTGRES_IMAGE" \
-            -c fsync=off \
-            -c synchronous_commit=off \
-            -c full_page_writes=off \
-            -c wal_level=minimal \
-            -c max_wal_senders=0
+          for delay in 15 60 0; do
+            docker rm -f "$PG_CONTAINER" >/dev/null 2>&1 || true
+            docker run -d \
+              --name "$PG_CONTAINER" \
+              -v "${socket_dir}:/var/run/postgresql" \
+              -e POSTGRES_USER=yoke \
+              -e POSTGRES_PASSWORD=yoke \
+              -e POSTGRES_DB=postgres \
+              -p 5432 \
+              "$POSTGRES_IMAGE" \
+              -c fsync=off \
+              -c synchronous_commit=off \
+              -c full_page_writes=off \
+              -c wal_level=minimal \
+              -c max_wal_senders=0 && exit 0
+            if [ "$delay" = 0 ]; then break; fi
+            echo "postgres image pull failed; retrying in ${delay}s" >&2
+            sleep "$delay"
+          done
+          exit 1
 
       - name: Resolve Postgres DSN (dynamic host port)
         run: |
