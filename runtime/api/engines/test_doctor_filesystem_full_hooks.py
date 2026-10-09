@@ -189,7 +189,7 @@ class TestStaleSessionReclaimerAlive:
             CREATE TABLE events (
                 id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                 event_name TEXT,
-                created_at TEXT
+                created_at TIMESTAMPTZ
             )
             """
         )
@@ -204,7 +204,7 @@ class TestStaleSessionReclaimerAlive:
             CREATE TABLE events (
                 id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                 event_name TEXT,
-                created_at TEXT
+                created_at TIMESTAMPTZ
             )
             """
         )
