@@ -34,12 +34,15 @@ def resolve(root: Path, env: Mapping[str, str]) -> SourcePythonEnvironment:
     """Check the declared lock, environment, and interpreter; never sync."""
     root = root.resolve()
     try:
-        declaration = load_declaration(checkout=root, strict=True)
+        declaration = load_declaration(
+            project=env.get("YOKE_PROJECT"), checkout=root, strict=True
+        )
     except Exception as exc:
         raise SourceEnvironmentRefusal(
             f"SOURCE-ENVIRONMENT-DECLARATION: could not read the checkout's QA "
             f"environment declaration ({type(exc).__name__}). Restore the "
-            "control-plane connection and project mapping, then retry the same command."
+            "control-plane connection and select the project with --project, "
+            "YOKE_PROJECT, or a registered checkout mapping, then retry the same command."
         ) from exc
     project = (root / (declaration.uv_project or ".")).resolve()
     flags = declaration.selection_flags()

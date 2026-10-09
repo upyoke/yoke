@@ -33,6 +33,10 @@ Candidate Command QA provisions its disposable checkout through the existing
 test-environment setup, binds Python and Yoke to that exact candidate's
 environment, and records identity and origins before/after the case. Ordinary
 installed control-plane commands retain installed runtime selection.
+The project selected by scoped QA travels in the command environment into
+the declaration lookup, so disposable checkouts need no machine checkout
+mapping or manual ambient project export. Select it with `--project P` on
+the QA command; an absent selection and mapping still produce a named refusal.
 
 The child receives the caller's connected-environment selection and machine
 config unchanged. `dev run` changes where source resolves; it does not change
