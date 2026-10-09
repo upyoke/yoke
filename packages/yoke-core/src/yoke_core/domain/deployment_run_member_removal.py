@@ -260,50 +260,11 @@ def release_replaced_members(
     """
     from yoke_core.domain.dash_lane_head_staleness import active_lane_head
     from yoke_core.domain.delivery_evidence_ladder import item_merge_identity
-    from yoke_core.domain.deployment_run_candidate_containment import (
-        NOT_CONTAINED,
-        UNDETERMINED,
-        CandidateContainment,
+    from yoke_core.domain.deployment_member_candidate_release import (
+        candidate_exclusions,
     )
-    from yoke_core.domain.deployment_run_project_sources import recorded_source_sha
-    from yoke_core.domain.relayed_containment_attestation import take_relayed_verdict
 
-    run = query_one(
-        conn,
-        "SELECT project_id,release_lineage,bound_sources FROM deployment_runs WHERE id=%s",
-        (run_id,),
-    )
-    excluded: list[tuple[int, str, str]] = []
-    walkers: dict[int, CandidateContainment] = {}
-    for member in members:
-        item_id = int(member["item_id"])
-        project = query_one(
-            conn, "SELECT project_id FROM items WHERE id=%s", (item_id,)
-        )
-        project_id = int(project["project_id"])
-        lineage = recorded_source_sha(run, project_id)
-        merge = item_merge_identity(conn, item_id)
-        head = active_lane_head(conn, item_id)
-        if not lineage or not merge:
-            continue
-        if project_id not in walkers:
-            walkers[project_id] = CandidateContainment(
-                conn, project_id, candidate_lineage=lineage
-            )
-        for sha in dict.fromkeys(s for s in (merge, head) if s):
-            verdict = walkers[project_id].contains(sha)
-            if verdict.state == UNDETERMINED:
-                verdict = take_relayed_verdict(
-                    verdict,
-                    conn,
-                    item_id=item_id,
-                    run_id=run_id,
-                    candidate=lineage,
-                    commit_sha=sha,
-                )
-            if verdict.state == NOT_CONTAINED:
-                excluded.append((item_id, merge, head))
-                break
+    excluded = candidate_exclusions(conn, run_id, members, include_lane_head=True)
     if not excluded:
         return
     status, held = lock_run_with_stable_membership(conn, run_id)

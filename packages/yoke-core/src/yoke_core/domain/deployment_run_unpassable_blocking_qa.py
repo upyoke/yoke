@@ -110,8 +110,8 @@ class PinQaDiagnosis:
             f"Re-drive cannot help: it re-executes against the same pin. "
             f"At independent item QA, use `yoke deployment-runs remove-item {run_id} "
             "ITEM --reason R` to let the run finish while the red member rides "
-            "the next release (depth: `remove-item --help`); settlement automatically "
-            "releases a member outside the frozen lineage. For shared gates: "
+            "the next release (depth: `remove-item --help`); failed independent item QA and settlement automatically "
+            "release a member definitely outside its project's frozen lineage; unknown containment holds. For shared gates: "
             f"Supersede {run_id} with a run pinned above the remediation. "
             "Terminalizing stays an operator action."
         )
