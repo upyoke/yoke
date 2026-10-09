@@ -84,7 +84,8 @@ def ejection_message(
     tail = (
         f"Observed {observation.observed}. If the queue merged it in the "
         "meantime, re-running `yoke merge item` converges on that merge "
-        "instead."
+        "instead. If the lane head or base moved, rebase the lane onto its "
+        "base and re-run the verification gate before re-entering that command."
     )
     if route == HOLDER:
         return f"{head} — {observation.recovery}. {tail}"

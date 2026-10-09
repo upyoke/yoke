@@ -18,6 +18,11 @@ from yoke_core.domain.merge_queue_enqueue_verification import (
     read_landing,
 )
 from yoke_core.domain.schema_common import _column_exists
+from yoke_core.domain.merge_queue_landing_record_state import PENDING
+from yoke_core.domain.merge_queue_readback_outcomes import (
+    ENQUEUED,
+    MERGE_WHEN_READY_ARMED,
+)
 from yoke_core.domain.session_message_types import row_dict
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
@@ -43,14 +48,19 @@ def pending_landing_rows(conn: Any, project_ids: Iterable[int]) -> list[dict[str
     terminal_slots = ",".join(marker for _ in terminal)
     rows = conn.execute(
         "SELECT i.id, i.project_id, i.project_sequence, i.merge_queue_pr_number, "
-        "i.merge_queue_enqueued_at, i.merge_queue_landed_at, p.slug, "
+        "i.merge_queue_enqueued_at, i.merge_queue_landed_at, "
+        f"CASE WHEN l.pr_number=i.merge_queue_pr_number AND l.state={marker} AND "
+        f"(l.merge_when_ready={marker} OR l.queue_holding={marker}) "
+        "THEN 1 ELSE 0 END AS previously_held, "
+        "l.observed_at AS previous_observed_at, p.slug, "
         "p.public_item_prefix, p.default_branch "
         "FROM items i JOIN projects p ON p.id=i.project_id "
+        "LEFT JOIN merge_queue_landing_records l ON l.item_id=i.id "
         f"WHERE i.project_id IN ({slots}) "
         "AND i.merge_queue_pr_number IS NOT NULL "
         "AND i.merge_queue_notified_at IS NULL "
         f"AND i.status NOT IN ({terminal_slots}) ORDER BY i.id",
-        (*projects, *terminal),
+        (PENDING, MERGE_WHEN_READY_ARMED, ENQUEUED, *projects, *terminal),
     ).fetchall()
     return [row_dict(row) for row in rows]
 
@@ -66,7 +76,7 @@ def read_candidate(
 ) -> tuple[MergeContext, LandingReadback]:
     """Ask GitHub only what this candidate's landing route can answer.
 
-    Armedness decides the cost, not the recorded admission. An item with a
+    Current or previously observed armedness decides the cost. An item with a
     recorded queue admission is owed the full four-fact read: it can be
     ejected, and only this observer would notice. So is an armed pull
     request that has not reached the queue — GitHub creates the entry only
@@ -74,6 +84,12 @@ def read_candidate(
     concluded red can never be admitted, and asking it only "did it merge"
     answered "not yet" forever while its holder sat parked on a landing
     that was already over.
+
+    A pending durable observation also proves a landing was held when
+    no admission timestamp was recorded. GitHub clearing merge-when-ready
+    must not turn that landing into a never-armed pull request: complete the
+    four-fact read so the observer can send its stopped notice. Match that
+    evidence to this pull request, never its predecessor.
 
     A pull request nobody armed costs one question. It cannot have been
     ejected from a queue it never entered, and a readback carrying no queue
@@ -85,7 +101,7 @@ def read_candidate(
         repo_root="",
         project=str(row["slug"]),
     )
-    if row.get("merge_queue_enqueued_at"):
+    if row.get("merge_queue_enqueued_at") or row.get("previously_held"):
         return (
             ctx,
             read_landing(
