@@ -269,9 +269,9 @@ class TestBoardDataOverHttpBoundary:
                         " requested_context_window_tokens INTEGER,"
                         " usage_totals TEXT,"
                         " mode TEXT, execution_level TEXT, workspace TEXT,"
-                        " project_id INTEGER, offered_at TEXT,"
-                        " last_heartbeat TEXT, last_tool_call_at TEXT,"
-                        " ended_at TEXT, terminated_at TEXT)"
+                        " project_id INTEGER, offered_at TIMESTAMPTZ,"
+                        " last_heartbeat TIMESTAMPTZ, last_tool_call_at TIMESTAMPTZ,"
+                        " ended_at TIMESTAMPTZ, terminated_at TIMESTAMPTZ)"
                     ),
                 )
                 auth = mint_api_auth_context(conn)
