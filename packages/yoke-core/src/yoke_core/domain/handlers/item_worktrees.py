@@ -13,6 +13,7 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_core.domain.item_worktrees import LANE_ROLES
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_behavior import (
     LANE_IMPLEMENTATION,
     delivery_redirect_stage,
@@ -179,7 +180,7 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
         status = str(item["status"] if hasattr(item, "keys") else item[0])
         runtime = load_item_workflow_runtime(conn, item_id)
         if status == delivery_redirect_stage(runtime):
-            ref = request.target.public_ref or f"item {item_id}"
+            ref = render_item_ref(conn, item_id)
             return HandlerOutcome(
                 primary_success=False,
                 error=FunctionError(
