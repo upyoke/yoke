@@ -6,16 +6,21 @@ import sqlite3
 from pathlib import Path
 
 import pytest
+from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 
 from runtime.api.domain.migration_artifact_trust_test_helpers import (
     artifact_verifier_for,
 )
 from runtime.api.domain.migration_boot_test_helpers import connection
 from yoke_core.domain.migration_content_adoption import (
+    AdoptionRecord,
     MigrationContentAdoptionError,
     adopt_legacy_content_identities,
 )
-from yoke_core.domain.migration_content_schema import adoption_evidence_verifier
+from yoke_core.domain.migration_content_schema import (
+    adoption_evidence_verifier,
+    write_adoption_evidence,
+)
 from yoke_core.domain.migration_history import ordered_entries
 from yoke_core.domain.migration_history_manifest import (
     ArtifactIdentity,
@@ -201,3 +206,81 @@ def test_racing_digest_update_rolls_back_new_evidence(tmp_path: Path) -> None:
     assert conn.execute(
         f"SELECT count(*) FROM {YOKE_ADOPTION_EVIDENCE_TABLE}"
     ).fetchone() == (0,)
+
+
+@pytest.mark.parametrize(
+    "clock",
+    [
+        "1969-12-31T23:59:59.123456Z",
+        "1970-01-01T05:29:59.123456+05:30",
+        "1969-12-31T19:59:59.123456-04:00",
+    ],
+)
+def test_adoption_generates_native_fact_until_sqlite_evidence_owner(tmp_path, clock):
+    conn = connection()
+    history, artifact, manifest = _adoption_case(tmp_path)
+    conn.execute(
+        "INSERT INTO applied_migrations (migration_name, applied_at, applied_by, content_sha256) VALUES ('0001_existing', 'now', 'legacy', NULL)"
+    )
+    conn.commit()
+    records = adopt_yoke_legacy_content_identities(
+        conn,
+        history=history,
+        manifest=manifest,
+        artifact=artifact,
+        expected_manifest_sha256=manifest.content_sha256,
+        artifact_verifier=artifact_verifier_for(manifest),
+        adopted_by="operator:test",
+        adopted_at=clock,
+    )
+    assert records[0].adopted_at == parse_instant(clock)
+    row = conn.execute(
+        f"SELECT adopted_at,content_sha256,source_sha256,manifest_sha256 FROM {YOKE_ADOPTION_EVIDENCE_TABLE}"
+    ).fetchone()
+    assert row == (
+        format_instant(clock),
+        history[0].content_sha256,
+        artifact.source_sha256,
+        manifest.content_sha256,
+    )
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_adoption_evidence_sql_owner_binds_native_microseconds(test_db, zone):
+    test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
+    clock = parse_instant("1970-01-01T05:29:59.123456+05:30")
+    record = AdoptionRecord(
+        "0001_native_clock",
+        "a" * 64,
+        "engine",
+        "artifact",
+        "b" * 64,
+        "c" * 40,
+        "d" * 64,
+        "operator:test",
+        clock,
+    )
+    write_adoption_evidence(test_db, (record,), YOKE_ADOPTION_EVIDENCE_CONTRACT)
+    row = test_db.execute(
+        f"SELECT adopted_at,content_sha256,source_sha256 FROM {YOKE_ADOPTION_EVIDENCE_TABLE} WHERE migration_name=%s",
+        (record.entry_name,),
+    ).fetchone()
+    assert tuple(row) == (clock, record.content_sha256, record.source_sha256)
+
+
+@pytest.mark.parametrize(
+    "clock", ["", "1970-01-01", "1970-01-01T00:00:00", "1970-01-01T00:00:00-00:00"]
+)
+def test_adoption_record_refuses_unverifiable_clock(clock):
+    with pytest.raises(InvalidInstant):
+        AdoptionRecord(
+            "entry",
+            "a" * 64,
+            "engine",
+            "artifact",
+            "b" * 64,
+            "c" * 40,
+            "d" * 64,
+            "operator:test",
+            clock,
+        )

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Tuple
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.migration_content_adoption import AdoptionRecord
 from yoke_core.domain.migration_content_schema_ownership import (
     ADOPTION_EVIDENCE_GUARD_PREFIX,
@@ -279,7 +280,7 @@ def write_adoption_evidence(
                 record.source_commit,
                 record.manifest_sha256,
                 record.adopted_by,
-                record.adopted_at,
+                instant_parameter(conn, record.adopted_at),
             ),
         )
 

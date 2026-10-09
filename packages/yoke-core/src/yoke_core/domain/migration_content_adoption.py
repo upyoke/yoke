@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from dataclasses import dataclass
-from yoke_contracts.timestamps import format_instant, utc_now
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant, utc_now
 from collections.abc import Mapping
 from typing import Any, Callable, ContextManager, Sequence, Tuple
 
@@ -45,7 +46,10 @@ class AdoptionRecord:
     source_commit: str
     manifest_sha256: str
     adopted_by: str
-    adopted_at: str
+    adopted_at: datetime
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "adopted_at", parse_instant(self.adopted_at))
 
 
 EvidenceWriter = Callable[[Any, Tuple[AdoptionRecord, ...]], None]
@@ -238,7 +242,7 @@ def adopt_legacy_content_identities(
     write_evidence: EvidenceWriter,
     verify_evidence_immutability: EvidenceGuardVerifier,
     entry_names: Sequence[str] | None = None,
-    adopted_at: str | None = None,
+    adopted_at: datetime | str | None = None,
     state_verifiers: MigrationStateVerifierSource | None = None,
     transaction_authority: TransactionAuthorityFactory | None = None,
 ) -> Tuple[AdoptionRecord, ...]:
@@ -284,7 +288,7 @@ def adopt_legacy_content_identities(
                 entry.name: entry.content_sha256 for entry in manifest.entries
             }
             marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-            stamp = format_instant(utc_now() if adopted_at is None else adopted_at)
+            stamp = utc_now() if adopted_at is None else parse_instant(adopted_at)
             records = tuple(
                 AdoptionRecord(
                     entry_name=name,
