@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import timedelta
+from yoke_contracts.timestamps import utc_now, parse_instant
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Tuple
 
@@ -234,18 +235,11 @@ def _resolve_main_session_attribution(
                 recent_item_id = row[1]
                 recent_recorded_at = row[2]
                 if recent_item_id and recent_recorded_at:
-                    try:
-                        ts_str = str(recent_recorded_at).replace("Z", "+00:00")
-                        parsed = datetime.fromisoformat(ts_str)
-                        # Older rows may carry naive UTC timestamps.
-                        if parsed.tzinfo is None:
-                            parsed = parsed.replace(tzinfo=timezone.utc)
-                        age = int(datetime.now(timezone.utc).timestamp()) - int(
-                            parsed.timestamp()
-                        )
-                    except (TypeError, ValueError):
-                        age = -1
-                    if 0 <= age <= 1800 and _item_exists(conn, str(recent_item_id)):
+                    parsed = parse_instant(recent_recorded_at)
+                    age = utc_now() - parsed
+                    if timedelta(0) <= age <= timedelta(minutes=30) and _item_exists(
+                        conn, str(recent_item_id)
+                    ):
                         return normalize_event_item_id(
                             str(recent_item_id)
                         ), "session_recent"

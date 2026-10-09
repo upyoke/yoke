@@ -34,7 +34,7 @@ import json
 import logging
 import sys
 import uuid
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now, format_instant
 from typing import Any, Dict, Optional
 
 from yoke_core.domain.observe import insert_event
@@ -88,8 +88,7 @@ def parse_pre_event(
     )
 
     event_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc)
-    event_time = now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
+    event_time = format_instant(utc_now())
 
     # Shape matches what insert_event() expects. Fields the post-hook uses
     # (duration_ms, exit_code, anomaly_flags, agent, item_id, task_num) are

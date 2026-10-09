@@ -10,7 +10,8 @@ item-section writes route through :mod:`yoke_core.domain.sections`.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now
 from typing import TYPE_CHECKING, Optional
 
 from yoke_core.domain.item_json_sections import section_write_refusal
@@ -39,7 +40,7 @@ SECTION_APPEND = "section-append"
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return utc_now()
 
 
 class _NullSink:

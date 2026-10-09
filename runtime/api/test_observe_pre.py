@@ -59,7 +59,7 @@ CREATE TABLE events (
     hook_event_name TEXT,
     client_timing_id TEXT,
     envelope TEXT,
-    created_at TEXT
+    created_at TIMESTAMPTZ
 );
 CREATE UNIQUE INDEX idx_events_tool_use_id_dedup ON events(tool_use_id, event_name) WHERE tool_use_id IS NOT NULL
 """
@@ -181,14 +181,14 @@ class TestParsePreEvent:
         # UUID4 string is 36 chars
         assert len(e1["event_id"]) == 36
 
-    def test_event_time_is_iso_with_millis(self):
+    def test_event_time_is_canonical_with_microseconds(self):
         envelope = parse_pre_event({"tool_use_id": "tu-time"})
         assert envelope is not None
         ts = envelope["event_time"]
-        # Matches: YYYY-MM-DDTHH:MM:SS.mmmZ
+        # Canonical owned boundary: YYYY-MM-DDTHH:MM:SS.ffffffZ
         assert ts.endswith("Z")
         assert "T" in ts
-        assert "." in ts
+        assert len(ts.rsplit(".", 1)[1]) == 7
 
 
 # ---------------------------------------------------------------------------

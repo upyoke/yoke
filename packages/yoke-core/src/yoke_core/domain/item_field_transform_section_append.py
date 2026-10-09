@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from yoke_contracts.timestamps import format_instant
 from typing import Callable, Optional, TYPE_CHECKING
 from yoke_core.domain.backlog_queries import VALID_STRUCTURED_FIELDS
 from yoke_core.domain.item_json_sections import section_write_refusal
@@ -83,7 +84,7 @@ def section_append(
     existing = _sections.get_section(item_id, section) or ""
     old_lines = _line_count(existing)
 
-    timestamp = (now_fn or _utc_now)().strftime("%Y-%m-%dT%H:%M:%SZ")
+    timestamp = format_instant((now_fn or _utc_now)())
     headline_clean = headline.strip()
     entry = format_entry(
         timestamp=timestamp,

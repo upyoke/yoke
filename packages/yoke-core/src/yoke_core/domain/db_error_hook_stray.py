@@ -38,9 +38,9 @@ def detect_stray_db(
     os.makedirs(log_dir, exist_ok=True)
     log_path = os.path.join(log_dir, "stray-db-creation.log")
 
-    from datetime import datetime, timezone
+    from yoke_contracts.timestamps import format_instant, utc_now
 
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    ts = format_instant(utc_now())
 
     try:
         size = os.path.getsize(stray_path)
