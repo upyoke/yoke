@@ -70,7 +70,7 @@ def publish_workflow_version(
             )
         if workflow["status"] != "active":
             raise WorkflowRegistryError(
-                f"workflow_disabled: {workflow_id!r}; enable it before publishing"
+                f"workflow_disabled: {workflow_id!r}; ask the control-plane operator to enable it before publishing"
             )
         if (
             expected_current_version is not None
