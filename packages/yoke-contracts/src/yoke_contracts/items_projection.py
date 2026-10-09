@@ -88,12 +88,10 @@ ALLOWED_GET_FIELDS: frozenset[str] = (
     | ADDITIONAL_VIRTUAL_FIELDS
 )
 
-# Default projection when the caller names no fields: every allowed field,
-# in a stable order. Canonical columns alone omitted the structured fields
-# and additional scalars, which made `yoke items get ITEM --json` look like
-# technical_plan was missing.
+# Default reads include metadata and stored fields once. The virtual body
+# composes those fields and sections, so callers request it explicitly.
 DEFAULT_GET_FIELDS: tuple[str, ...] = (
-    tuple(CANONICAL_COLUMNS)
+    tuple(field for field in CANONICAL_COLUMNS if field != "body")
     + tuple(sorted(STRUCTURED_FIELDS))
     + tuple(sorted(ADDITIONAL_SCALAR_FIELDS))
     + tuple(sorted(ADDITIONAL_VIRTUAL_FIELDS))
@@ -121,7 +119,7 @@ def render_field_catalog(*, indent: str = "  ") -> str:
         ("additional scalars", sorted(ADDITIONAL_SCALAR_FIELDS)),
         ("virtual", sorted(ADDITIONAL_VIRTUAL_FIELDS)),
     )
-    lines = ["Accepted fields (omit all to read every one):"]
+    lines = ["Accepted fields (omit all for metadata, stored fields and sections; body is explicit):"]
     for label, names in groups:
         lines.append(f"{indent}{label}: {', '.join(names)}")
     return "\n".join(lines)

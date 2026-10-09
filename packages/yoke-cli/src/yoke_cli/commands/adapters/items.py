@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_cli.commands.adapters.item_flow_output import render_item_field
+from yoke_cli.commands.adapters.item_flow_output import compact_item_result, render_item_field
 
 import argparse
 import json
@@ -30,7 +30,6 @@ from yoke_cli.commands.text_file import (
     resolve_text_file,
 )
 from yoke_contracts.items_projection import render_field_catalog
-from yoke_contracts.read_detail import excerpt
 
 
 __all__ = [
@@ -125,18 +124,7 @@ def items_get(args: List[str]) -> int:
                 if not text.endswith("\n"):
                     stdout.write("\n")
             return None
-        human_result = dict(result)
-        human_result["execution_instructions"] = [
-            {
-                **{
-                    key: value for key, value in instruction.items() if key != "content"
-                },
-                "title": excerpt(instruction.get("content")),
-                "content_characters": len(str(instruction.get("content") or "")),
-                "read": f"yoke items get {parsed.item} --json",
-            }
-            for instruction in result.get("execution_instructions") or []
-        ]
+        human_result = compact_item_result(result, parsed.item)
         print(json.dumps(human_result, sort_keys=True), file=stdout)
         return None
 

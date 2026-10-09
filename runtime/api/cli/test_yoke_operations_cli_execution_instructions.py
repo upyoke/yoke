@@ -204,7 +204,8 @@ def test_item_reads_deliver_operator_prose_once(fields):
     instruction = {"id": 4, "content": prose, "on_every_read": True}
     result = {
         "item_id": 17,
-        "fields": {"spec": "Specification"},
+        "fields": {"spec": "Specification", "design_spec": "", "blocked": False},
+        "sections": [{"name": "Progress Log", "content": "Checkpoint"}, {"name": "Empty", "content": ""}],
         "execution_instructions": [instruction],
         "section_found": True,
         "content": "## Scope\nSpecification",
@@ -231,6 +232,8 @@ def test_item_reads_deliver_operator_prose_once(fields):
         assert descriptor["read"] == "yoke items get EX-1 --json"
         assert descriptor["on_every_read"] is True
         assert "content" not in descriptor
+        assert receipt["fields"] == {"spec": "Specification", "blocked": False}
+        assert receipt["sections"] == [{"name": "Progress Log", "content": "Checkpoint"}]
 
 
 def test_json_item_read_retains_the_complete_instruction_envelope(monkeypatch, capsys):
@@ -258,3 +261,18 @@ def test_json_item_read_retains_the_complete_instruction_envelope(monkeypatch, c
     assert main(["items", "get", "EX-1", "--json"]) == 0
     envelope = json.loads(capsys.readouterr().out)
     assert envelope["result"]["execution_instructions"] == [instruction]
+
+
+def test_default_item_output_size_excludes_empty_fields():
+    from yoke_cli.commands.adapters.item_flow_output import compact_item_result
+    from yoke_contracts.items_projection import DEFAULT_GET_FIELDS
+
+    fields = dict.fromkeys(DEFAULT_GET_FIELDS, "")
+    scope, plan = "Stored scope. " * 250, "Stored plan. " * 250
+    fields.update(id="EX-1", title="Fixture", status="implementing", spec=scope, technical_plan=plan)
+    result = {"item_id": 17, "fields": fields, "sections": [{"name": "Progress Log", "content": "Checkpoint."}]}
+    output = json.dumps(compact_item_result(result, "EX-1"), sort_keys=True)
+    assert len(output) <= 7000
+    assert output.count(scope) == 1
+    assert output.count(plan) == 1
+    assert result["fields"]["design_spec"] == ""

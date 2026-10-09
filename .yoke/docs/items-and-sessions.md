@@ -32,6 +32,10 @@ yoke items get PREFIX-N body
 yoke items progress-log append PREFIX-N --headline TEXT --content TEXT
 ```
 
+The default read returns metadata, stored fields and item sections once;
+request `body` for the composed document. Human output omits empty fields and
+sections. `--json` retains empty values and complete execution instructions.
+
 Writes go through structured fields and registered functions — not raw body
 files. See [reference/commands.md](reference/commands.md).
 
