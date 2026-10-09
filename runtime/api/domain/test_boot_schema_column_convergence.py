@@ -90,8 +90,10 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # an ordered history entry that renames the earlier born-with spelling in place.
 # The universe settings table is net-new; its key, value and update stamp are
 # all born with that table.
+# The visitor link table (actor_visitor_links) is net-new; its visitor id,
+# owning actor, link stamp and refusal record are all born with that table.
 _BORN_WITH_COLUMN_DIGEST = (
-    "2a230ecaac83fe922e54909aca7eb5a90ca5d9056ea3a574ab69416c6ff2b031"
+    "998c91af3308d685efadb798347c70578d4ca0964faec44cd979d2edfd1628c2"
 )
 
 
