@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import tempfile
 from unittest import mock
@@ -179,6 +180,9 @@ def test_python_grep_respects_extensions(temp_project):
 @pytest.mark.parametrize("heading", ["MACHINE", "VERSION"])
 def test_single_word_heading_matches_literal_and_not_identifier(tmp_path, backend, heading):
     from yoke_core.domain import stale_string_audit_grep
+
+    if backend == "_run_rg" and shutil.which("rg") is None:
+        pytest.skip("Optional ripgrep backend is not installed; Python fallback is covered")
 
     tests = tmp_path / "tests"
     tests.mkdir()

@@ -174,7 +174,7 @@ class TestDocReplace:
         ).read_text(encoding="utf-8") == "<!-- h -->\n# PAD\n"
         out = capsys.readouterr().out
         assert "MISSION\twritten" in out
-        assert "PAD\twritten" in out
+        assert "PAD\twritten" not in out
 
     def test_unresolvable_anchor_skips_render_after_replace(self) -> None:
         # An unresolvable anchor (e.g. a linked worktree without
