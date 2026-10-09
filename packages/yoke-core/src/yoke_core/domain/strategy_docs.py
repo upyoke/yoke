@@ -160,7 +160,7 @@ def replace_doc(
     content: str,
     actor_id: Optional[int],
     *,
-    base_updated_at: str,
+    base_updated_at: str | datetime,
     force: bool = False,
     session_id: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -188,6 +188,7 @@ def replace_doc(
             f"from `yoke strategy doc get {slug}` so the write is "
             "compare-and-swap protected."
         )
+    base = parse_instant(base_updated_at)
     content = _header.strip_render_header_if_present(str(content), expected_slug=slug)
     if not content or not content.strip():
         raise EmptyStrategyDocError(
@@ -198,9 +199,7 @@ def replace_doc(
     old = get_doc(conn, project_id, slug)
     old_bytes = _byte_len(old["content"])
     new_bytes = _byte_len(content)
-    if content == old["content"] and parse_instant(base_updated_at) == parse_instant(
-        old["updated_at"]
-    ):
+    if content == old["content"] and base == parse_instant(old["updated_at"]):
         # Only a fresh identical write is a no-op; stale bases still hit CAS.
         return {
             "slug": slug,
@@ -226,7 +225,7 @@ def replace_doc(
             actor_id,
             project_id,
             slug,
-            instant_parameter(conn, parse_instant(base_updated_at)),
+            instant_parameter(conn, base),
         ),
     )
     if cur.rowcount == 0:
