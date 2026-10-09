@@ -1,6 +1,6 @@
 """Typed epic task and dispatch-chain operation payloads."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -50,6 +50,17 @@ class ChainRefreshActivationRequest(BaseModel):
 class BodyResponse(BaseModel):
     epic_id: int
     body: str
+
+
+class HeadDispatch(BaseModel):
+    task_num: Optional[int] = None
+    decision: Literal["resumable", "busy", "blocked", "unknown"]
+    reason: str
+    holder_session_id: Optional[str] = None
+
+
+class ChainReadResponse(BodyResponse):
+    head_dispatch: List[HeadDispatch] = Field(default_factory=list)
 
 
 class TaskBodyResponse(BodyResponse):

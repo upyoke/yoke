@@ -225,6 +225,8 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 | `workflow_item.epic_task.body_get` | `None` (read) | `yoke_core.domain.handlers.workflow_item_epic_task_state.handle_body_get` | Wraps `epic.task_get_body`; returns the body verbatim. |
 | `workflow_item.epic_task.update_status` | `"epic"` | same module → `epic.task_update_status` | Non-pipeline status write + GitHub label sync; terminal success statuses refuse with `pipeline_required`. |
 | `workflow_item.epic_task.simulation_upsert` | `"epic"` | same module → `epic.simulation_upsert` | Epic-level target (no `task_num`); payload `{phase, body}`; parses CLEAN / GAPS FOUND; retains every actual attempt for the phase. |
+| `workflow_item.epic_dispatch_chain.get` | `None` (read) | `yoke_core.domain.handlers.workflow_item_epic_task_ops` | Payload `{worktree}`; returns pipe `body` plus `head_dispatch` rows: `{task_num, decision, reason, holder_session_id}`. In-flight heads report `resumable`, `busy`, `blocked`, or `unknown` on inconsistent/unavailable evidence; empty/exhausted/not-in-flight chains have no diagnostics. Read-only; task acquire is the final gate. |
+| `workflow_item.epic_dispatch_chain.list` | `None` (read) | same module | Returns pipe `body` plus at most one `head_dispatch` row per eligible chain, evaluated for the authenticated caller. Default CLI appends `head task N: decision — reason[; holder SESSION]`; `--json` prints the complete envelope. Holder is observed ownership, not liveness proof. |
 | `workflow_item.epic_task.submission_receipt_get` | `None` (read) | same module → `epic.submission_receipt_get` | Payload `{after_note_count}`; returns the validated `PASS` receipt line; `receipt_invalid` on failing fields. |
 | `workflow_item.epic_progress_note.append` | `"epic"` | `yoke_core.domain.handlers.workflow_item_epic_progress_note.append` | Wraps `yoke_core.domain.epic.progress_note_insert`. |
 
@@ -247,7 +249,6 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
   "payload":  {"note_num": 3, "body": "..."}
 }
 ```
-
 ### `lifecycle.*` — typed lifecycle transitions
 
 | Function id | claim_required_kind | Handler |
