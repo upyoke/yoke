@@ -58,3 +58,18 @@ test("project event pages merge by exact instant and stable bucket/arrival for o
   assert.equal(old.context, opaque);
   await assert.rejects(timeline([[{ created_at: "2060-10-08" }]]), /invalid_instant/);
 });
+
+
+import { releasedHoldingHistory } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_steering.js";
+
+test("released holding groups select microseconds, retain equal-offset ties and count occurrences", () => {
+  const old = { target_key: "clock-holding", released_at: first, reason: opaque };
+  const newer = { ...old, released_at: later, reason: "latest" };
+  const tied = { ...old, released_at: equal, reason: "equal" };
+  assert.deepEqual(releasedHoldingHistory([old, newer]), [{ ...newer, occurrence_count: 2 }]);
+  assert.deepEqual(releasedHoldingHistory([old, tied]), [{ ...old, occurrence_count: 2 }]);
+  const missing = { ...old, released_at: null };
+  const beforeEpoch = { ...old, released_at: "1969-12-31T23:59:59.999999Z" };
+  assert.deepEqual(releasedHoldingHistory([missing, beforeEpoch]), [{ ...beforeEpoch, occurrence_count: 2 }]);
+  assert.throws(() => releasedHoldingHistory([old, { ...old, released_at: "" }]), /invalid_instant/);
+});

@@ -1,3 +1,4 @@
+import { instantMicros } from "./timestamps.js";
 import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 
@@ -113,9 +114,10 @@ function occurrenceCount(holding) {
   return Number.isFinite(count) && count > 1 ? Math.floor(count) : 1;
 }
 
-function releasedAtMillis(holding) {
-  const timestamp = Date.parse(String(holding.released_at || ""));
-  return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
+function releasedLater(holding, prior) {
+  const current = holding.released_at == null ? null : instantMicros(holding.released_at);
+  const previous = prior.released_at == null ? null : instantMicros(prior.released_at);
+  return current !== null && (previous === null || current > previous);
 }
 
 // Keep the card's visible ordering and identity semantics at its render
@@ -130,7 +132,7 @@ export function releasedHoldingHistory(entries) {
       continue;
     }
     const count = occurrenceCount(prior) + occurrenceCount(holding);
-    const latest = releasedAtMillis(holding) > releasedAtMillis(prior)
+    const latest = releasedLater(holding, prior)
       ? { ...prior, ...holding }
       : { ...prior };
     grouped.set(key, { ...latest, occurrence_count: count });
