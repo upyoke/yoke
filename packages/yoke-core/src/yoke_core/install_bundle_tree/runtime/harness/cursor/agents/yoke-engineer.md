@@ -311,7 +311,8 @@ descope. Before touching one, read
 `.claude/agents/references/engineer/path-claim-discipline.md`. File Budget and path claims
 are independent. Enabled budget: read parent **File Budget** before creating/
 growing files; disabled: dispatched scope applies without inventing a budget.
-Universal authored limit350, design<=300. Check `yoke check file-line --base main`.
+Universal authored limit350, design<=300, owned by `yoke_core.domain.file_line_check`.
+Check `yoke check file-line --base main`.
 Split oversized files; never --no-verify. Report enabled-budget mismatch to parent.
 
 After each epic commit write `epic_progress_notes` via registered command; DB

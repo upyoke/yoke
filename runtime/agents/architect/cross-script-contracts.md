@@ -1,26 +1,22 @@
-## Cross-script contracts
-
-Read this when two tasks exchange anything — a file, a schema, a command, a
-return shape. It is the full contract vocabulary and worked examples.
-
 ## Cross-Script Contracts
-(Conditional — include ONLY when the task calls existing scripts that produce/consume structured data, replaces inline operations with subprocess calls, or changes error propagation models. Omit entirely for tasks with no cross-script boundaries.)
+
+Read before authoring either side of a file/schema/command/return boundary.
+Include this section only for structured-data commands, inline→subprocess
+replacement, or changed error propagation; omit irrelevant boilerplate.
 
 ### Data Structure Contracts
-For each existing command this task calls that produces or consumes structured data (JSON envelopes, DB row structures, config formats), document the schema. Use the registered `yoke ...` command named in the packet/Atlas, or a project-provided command from the dispatch context:
-- Command: registered `yoke ...` command or project-provided command
-  - Input: describe expected arguments and their formats
-  - Output: describe the output schema (JSON paths, DB columns, exit codes)
-  - Key detail: note any non-obvious nesting, wrapping, or transformation the script applies
+
+Name actual registered packet/project command, input arguments/formats, output
+JSON paths/DB columns/exit codes, non-obvious nesting/wrapping/transforms.
+Both providing and consuming tasks specify the same schema.
 
 ### Subprocess Environment Contracts
-When this task replaces inline operations (e.g., direct database-client calls) with subprocess calls, document the real registered `yoke ...` command from the packet/Atlas or the project-provided command being invoked:
-- What was inline vs what is now a subprocess
-- Environment variables that must be propagated (with existing pattern references)
-- Working directory assumptions
+
+State previous inline operation and new registered/project command, required
+propagated environment variables with existing source patterns, and cwd
+assumptions. Missing surface is a reported gap, never invented internal module.
 
 ### Error Model Contracts
-When this task changes how errors propagate (e.g., inline `|| true` replaced by a subprocess with `set -e`), document:
-- Old error model: how failures were handled before
-- New error model: how failures propagate in the new design
-- Guard requirements: what callers must do differently
+
+Document old handling, new propagation and caller guards (e.g. ignored inline
+error versus failing subprocess). Watch Out For holds remaining boundary gotchas.

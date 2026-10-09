@@ -63,6 +63,7 @@ GENERIC_QUOTED_STRINGS = {
     "PATH=",  # Active shell environment assignment.
     ".git",  # Repository suffix and domain substring, not display wording.
     "Write",  # Generic tool/action verb.
+    "AND",  # Generic logical conjunction, not retired display wording.
     "defaults",
     "default",
     "unknown",
