@@ -200,3 +200,18 @@ The strict instant formatter requires a supplied instant. A nullable view field
 preserves null before formatting; absence cannot be passed through the parser
 or formatter as if it named a clock. Settlement authority reads a native marker
 and tests nullness, including before its additive column has converged.
+
+Items and deployment-history paging encode their native sort instant as a
+canonical fixed-six cursor value and bind it natively on continuation. ID
+comparisons preserve exact-instant ties; text column cursors remain opaque.
+Learning-log review sorting places null first ascending and last descending,
+with explicit null continuation predicates and unchanged ID tie order. Filed,
+reviewed, archived and promoted clocks format only at their owned projections.
+Capability verification chooses the newest native stamp across active GitHub
+channels before formatting it; suspended channels still supply no authority.
+
+Run gate cards project native requested/resolved clocks and decision answers as
+canonical UTC while retaining actor authority and human decision records.
+Removed-member custody compares exact native creation instants; missing source
+creation proves no later custody, and malformed supplied clocks refuse. Removal
+metadata is formatted at the card boundary without rewriting its stored record.

@@ -11,6 +11,7 @@ import base64
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.ouroboros_entry_presentation import entry_wire_value
 from yoke_core.domain.db_helpers import query_rows, query_scalar
 from yoke_core.domain.field_note_dash_promotion import (
     promoted_dash_by_field_note_ids,
@@ -173,7 +174,7 @@ def parse_roster_shape(raw: object) -> bool:
 def _compact_rows(conn: Any, rows: list) -> list[dict[str, Any]]:
     entries = [
         {
-            name: (int(value) if name == "id" else "" if value is None else str(value))
+            name: entry_wire_value(name, value)
             for name, value in zip(COMPACT_ENTRY_FIELDS, tuple(row))
         }
         for row in rows
@@ -245,7 +246,7 @@ def list_roster_page(
         project_ids if project_ids is not None else [resolve_project_id(conn, project)]
     )
     try:
-        cursor_where, cursor_params = continuation(cursor, ordering, ids)
+        cursor_where, cursor_params = continuation(cursor, ordering, ids, conn=conn)
     except ValueError as exc:
         raise RosterCursorError(str(exc)) from exc
     bound = _bounded_limit(limit)
@@ -280,20 +281,21 @@ def list_roster_page(
     page_params.append(bound)
     expression = SORT_COLUMNS[ordering["column"]]
     direction = ordering["direction"].upper()
+    nulls = "FIRST" if direction == "ASC" else "LAST"
     rows = query_rows(
         conn,
         "SELECT o.id, o.timestamp, o.agent, COALESCE(o.context,''), "
-        "o.category, COALESCE(o.reviewed_at,''), COALESCE(p.slug,''), "
+        "o.category, o.reviewed_at, COALESCE(p.slug,''), "
         f"SUBSTR(COALESCE(o.body,''),1,{p}), {expression} "
         "FROM ouroboros_entries o "
         "LEFT JOIN projects p ON p.id = o.project_id "
-        f"{page_where} ORDER BY {expression} {direction}, o.id {direction} LIMIT {p}",
+        f"{page_where} ORDER BY {expression} {direction} NULLS {nulls}, o.id {direction} LIMIT {p}",
         (ROSTER_PREVIEW_LENGTH + 1, *page_params),
     )
     entries = _compact_rows(conn, rows)
     next_cursor = None
     if len(entries) == bound:
-        last = {**entries[-1], "_sort_value": str(tuple(rows[-1])[-1])}
+        last = {**entries[-1], "_sort_value": tuple(rows[-1])[-1]}
         next_cursor = encode_continuation(last, ordering, ids)
     return {
         "entries": entries,

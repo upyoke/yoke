@@ -41,8 +41,16 @@ class Database:
             )
         return Rows(
             [
-                {"item_id": 7, "id": "run-later", "created_at": "2026-10-02"},
-                {"item_id": 7, "id": "run-before", "created_at": "2026-09-01"},
+                {
+                    "item_id": 7,
+                    "id": "run-later",
+                    "created_at": "2026-10-02T00:00:00.000000Z",
+                },
+                {
+                    "item_id": 7,
+                    "id": "run-before",
+                    "created_at": "2026-09-01T00:00:00.000000Z",
+                },
             ]
         )
 
@@ -50,7 +58,7 @@ class Database:
 def run():
     return {
         "id": "run-original",
-        "created_at": "2026-10-01",
+        "created_at": "2026-10-01T00:00:00.000000Z",
         "status": "succeeded",
         "carried_work": json.dumps({"items": []}),
         "membership_removals": json.dumps(
@@ -72,7 +80,7 @@ def test_removed_record_resolves_identity_and_current_newer_custody():
 
 
 def test_removed_record_without_newer_custody_leaves_destination_unknown():
-    source = {**run(), "created_at": "2026-10-03"}
+    source = {**run(), "created_at": "2026-10-03T00:00:00.000000Z"}
     assert (
         removed_member_items(Database(), [source])["run-original"][0]["later_run_id"]
         is None

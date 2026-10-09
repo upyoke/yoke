@@ -235,26 +235,25 @@ Exit codes: 0 = success, 1 = error/not found, 2 = usage error
 
 ## Timestamp discipline
 
-Yoke's DDL does not declare DB-level timestamp defaults. Every `created_at`, `updated_at`, `started_at`, `completed_at`, `offered_at`, `last_heartbeat`, `acquired_at`, `expires_at`, or similar column is `TEXT NOT NULL` (or `TEXT` for nullable ones) with no DB-level now-value `DEFAULT` clause (no `now()`, no `CURRENT_TIMESTAMP`). Callers supply the timestamp at INSERT time in the canonical ISO-8601 UTC format `YYYY-MM-DDTHH:MM:SSZ`.
+PostgreSQL instant columns use `TIMESTAMPTZ`; Python retains aware datetimes.
+Nullable instants use SQL NULL. The classified roster and serving catalog own
+storage declarations; permanent history owns governed conversion.
 
-The canonical format is sourced from `yoke_core.domain.db_helpers.iso8601_now()`:
-
-```python
-from yoke_core.domain.db_helpers import iso8601_now
-conn.execute(
-    "INSERT INTO ouroboros_entries (timestamp, agent, category, body, created_at) "
-    "VALUES (?, ?, ?, ?, ?)",
-    (ts, agent, category, body, iso8601_now()),
-)
-```
-
-**Why app-supplied, not DB-level:** A DB-level now-value default (Postgres `now()` / `CURRENT_TIMESTAMP`) emits a textual form that diverges from the canonical ISO-8601 format `YYYY-MM-DDTHH:MM:SSZ` the Python layer parses via `datetime.fromisoformat(ts.replace("Z", "+00:00"))` and the GitHub-sync layer round-trips. Keeping the format in app code (one import, one call) means every INSERT call site binds the canonical timestamp explicitly, with no format-translation layer in the DB.
-
-Native-type target (columns are `TEXT` today): timestamp columns become `TIMESTAMPTZ` with no DEFAULT; callers continue to bind `iso8601_now()`.
+Application writers bind `instant_parameter(conn, utc_now())` or a supplied
+`parse_instant(value)`. Owned wire, JSON, file and SQLite values use canonical
+UTC `YYYY-MM-DDTHH:MM:SS.ffffffZ` and permitted nulls. Format with
+`format_instant` or the shared JSON encoder at those boundaries. Calendar dates
+and opaque strings keep their own contracts. Read [domain instants](timestamps.md)
+for the shared kernel, strict input, historical conversion and wire recipes.
 
 ## Query-Time SQL Clock Helpers
 
-Query-time time-window predicates route through `yoke_core.domain.time_sql.now_sql(...)`, which emits Postgres-native UTC timestamp text in the same ISO-8601 shape as the stored `TEXT` columns. Like `sql_json`, `time_sql` is a pure-string-emission module: callers compose the fragment into an f-string at the call site. The helper supports fixed-window offsets (`offset_days`, `offset_hours`, `offset_minutes`) and raw interval expressions (`offset_modifier`) for placeholder-driven windows, plus an optional `localtime` flag used only by the operator-facing board bucket path. For call sites that do not need SQL-evaluated "now," prefer `db_helpers.iso8601_now()` and bind the cutoff as a parameter.
+`yoke_contracts.time_sql.now_sql(...)` supplies native indexed predicates;
+fixed day/hour/minute offsets count elapsed seconds. Trusted `offset_modifier`
+SQL has caller-owned calendar meaning; board buckets declare their timezone.
+Python cutoffs bind through `instant_parameter`. `instant_wire_sql(expression)`
+projects canonical fixed-six UTC text after native filtering and ordering,
+preserving SQL NULL. See [domain instants](timestamps.md) for query examples.
 
 ## `migration_model` capability — recipe + runner vocabulary
 

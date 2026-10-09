@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Iterable, Optional
 
 from yoke_contracts.public_ref import format_item_ref
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _table_exists
 
@@ -38,18 +39,20 @@ def promoted_dash_by_field_note_ids(
     if not ids or not _table_exists(conn, "ouroboros_entry_dispositions"):
         return {}
     marker = _p(conn)
-    rows = _rows_dict(conn.execute(
-        "SELECT d.entry_id, d.item_id AS dash_item_id, d.title, "
-        "d.instruction, d.updated_at AS promoted_at, "
-        "i.project_sequence, p.id AS project_id, p.slug AS project_slug, "
-        "p.public_item_prefix "
-        "FROM ouroboros_entry_dispositions d "
-        "JOIN items i ON i.id = d.item_id "
-        "JOIN projects p ON p.id = i.project_id "
-        f"WHERE d.entry_id IN ({', '.join(marker for _ in ids)}) "
-        f"AND d.disposition_kind = {marker} AND d.state = {marker}",
-        (*ids, "promote_to_dash", "completed"),
-    ))
+    rows = _rows_dict(
+        conn.execute(
+            "SELECT d.entry_id, d.item_id AS dash_item_id, d.title, "
+            "d.instruction, d.updated_at AS promoted_at, "
+            "i.project_sequence, p.id AS project_id, p.slug AS project_slug, "
+            "p.public_item_prefix "
+            "FROM ouroboros_entry_dispositions d "
+            "JOIN items i ON i.id = d.item_id "
+            "JOIN projects p ON p.id = i.project_id "
+            f"WHERE d.entry_id IN ({', '.join(marker for _ in ids)}) "
+            f"AND d.disposition_kind = {marker} AND d.state = {marker}",
+            (*ids, "promote_to_dash", "completed"),
+        )
+    )
     return {
         int(row["entry_id"]): {
             "item_id": int(row["dash_item_id"]),
@@ -62,7 +65,11 @@ def promoted_dash_by_field_note_ids(
             "project": str(row["project_slug"]),
             "title": str(row["title"]),
             "instruction": str(row["instruction"]),
-            "promoted_at": row.get("promoted_at"),
+            "promoted_at": (
+                format_instant(row["promoted_at"])
+                if row.get("promoted_at") is not None
+                else None
+            ),
         }
         for row in rows
     }
@@ -76,30 +83,40 @@ def source_field_note_for_dash(
     if not _table_exists(conn, "ouroboros_entry_dispositions"):
         return None
     marker = _p(conn)
-    row = _row_dict(conn.execute(
-        "SELECT o.id AS entry_id, o.timestamp, o.agent, "
-        "COALESCE(o.context, '') AS context, o.category, o.body, "
-        "COALESCE(o.reviewed_at, '') AS reviewed_at, "
-        "d.updated_at AS promoted_at, p.id AS project_id, "
-        "COALESCE(p.slug, '') AS project "
-        "FROM ouroboros_entry_dispositions d "
-        "JOIN ouroboros_entries o ON o.id = d.entry_id "
-        "LEFT JOIN projects p ON p.id = o.project_id "
-        f"WHERE d.item_id = {marker} AND d.disposition_kind = {marker} "
-        f"AND d.state = {marker}",
-        (int(item_id), "promote_to_dash", "completed"),
-    ))
+    row = _row_dict(
+        conn.execute(
+            "SELECT o.id AS entry_id, o.timestamp, o.agent, "
+            "COALESCE(o.context, '') AS context, o.category, o.body, "
+            "o.reviewed_at, "
+            "d.updated_at AS promoted_at, p.id AS project_id, "
+            "COALESCE(p.slug, '') AS project "
+            "FROM ouroboros_entry_dispositions d "
+            "JOIN ouroboros_entries o ON o.id = d.entry_id "
+            "LEFT JOIN projects p ON p.id = o.project_id "
+            f"WHERE d.item_id = {marker} AND d.disposition_kind = {marker} "
+            f"AND d.state = {marker}",
+            (int(item_id), "promote_to_dash", "completed"),
+        )
+    )
     if row is None:
         return None
     return {
         "entry_id": int(row["entry_id"]),
-        "timestamp": str(row["timestamp"]),
+        "timestamp": format_instant(row["timestamp"]),
         "agent": str(row["agent"]),
         "context": str(row["context"]),
         "category": str(row["category"]),
         "body": str(row["body"]),
-        "reviewed_at": str(row["reviewed_at"]),
-        "promoted_at": row.get("promoted_at"),
+        "reviewed_at": (
+            format_instant(row["reviewed_at"])
+            if row["reviewed_at"] is not None
+            else None
+        ),
+        "promoted_at": (
+            format_instant(row["promoted_at"])
+            if row.get("promoted_at") is not None
+            else None
+        ),
         "project_id": (
             int(row["project_id"]) if row.get("project_id") is not None else None
         ),

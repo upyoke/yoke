@@ -1,10 +1,12 @@
-"""Allowlisted Items ordering and sort-bound, verbatim keyset cursors."""
+"""Allowlisted Items ordering and sort-bound native-instant keyset cursors."""
 
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Any
 
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.work_claim_targets import scope_int_sql
@@ -20,7 +22,7 @@ SORT_COLUMNS = (
     "updated_at",
 )
 SORT_DIRECTIONS = ("asc", "desc")
-ROSTER_SORT_EXPRESSION = "COALESCE(NULLIF(i.updated_at, ''), i.created_at)"
+ROSTER_SORT_EXPRESSION = "COALESCE(i.updated_at, i.created_at)"
 
 
 class RosterCursorError(ValueError):
@@ -70,8 +72,13 @@ def sort_expression(conn: Any, column: str, direction: str) -> str:
 
 
 def encode_cursor(
-    sort_value: str, item_id: int, column: str = "updated_at", direction: str = "desc"
+    sort_value: datetime | str,
+    item_id: int,
+    column: str = "updated_at",
+    direction: str = "desc",
 ) -> str:
+    if column == "updated_at":
+        sort_value = format_instant(sort_value)
     return json.dumps(
         [column, direction, sort_value, int(item_id)], separators=(",", ":")
     )
@@ -79,14 +86,14 @@ def encode_cursor(
 
 def decode_cursor(
     cursor: str, column: str = "updated_at", direction: str = "desc"
-) -> tuple[str, int]:
+) -> tuple[datetime | str, int]:
     try:
         stored_column, stored_direction, value, item_id = json.loads(cursor)
         if stored_column != column or stored_direction != direction:
             raise ValueError("sort changed")
         if not isinstance(value, str) or type(item_id) is not int:
             raise ValueError("invalid key")
-        return value, item_id
+        return (parse_instant(value) if column == "updated_at" else value), item_id
     except (ValueError, TypeError) as exc:
         raise RosterCursorError(
             "Invalid or mismatched sort cursor. Reload the Items page to restart paging."

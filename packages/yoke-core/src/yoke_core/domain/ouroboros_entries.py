@@ -1,11 +1,20 @@
 """Ouroboros entry creation, querying, and review/archive lifecycle."""
+
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Optional
 
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+
 from yoke_core.domain import db_backend
+from yoke_core.domain.ouroboros_entry_presentation import (
+    _apply_correction_link,
+    _format_row,
+    entry_wire_value,
+)
 from yoke_core.domain.db_helpers import (
-    iso8601_now,
+    instant_parameter,
     query_one,
     query_rows,
     query_scalar,
@@ -38,15 +47,18 @@ __all__ = [
 ]
 
 
-# Bound the shared reader so https relay payloads stay under the size limit.
-# Newest-first paging uses the same default when callers omit --limit.
 DEFAULT_ENTRY_LIST_LIMIT = 50
 MAX_ENTRY_LIST_LIMIT = 500
 
-# Result names for the entry-list projection, in SELECT order.
 ENTRY_LIST_COLUMNS = (
-    "id", "timestamp", "agent", "context", "category", "body",
-    "reviewed_at", "project",
+    "id",
+    "timestamp",
+    "agent",
+    "context",
+    "category",
+    "body",
+    "reviewed_at",
+    "project",
 )
 
 
@@ -54,26 +66,9 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _format_row(row) -> str:
-    # Collapse newlines to spaces so each row stays a single ``|``-joined
-    # line. Done in Python rather than SQL: the SQLite ``char(10)`` newline
-    # idiom is not portable (Postgres parses ``char(10)`` as a type cast,
-    # not a newline literal), so newline normalization lives here instead.
-    return "|".join(
-        "" if value is None else str(value).replace("\n", " ")
-        for value in tuple(row)
-    )
-
-
-def _apply_correction_link(entry: dict, link: Optional[dict]) -> None:
-    """Project both supersede directions onto an entry, absent as None."""
-    entry["corrects"] = (link or {}).get("corrects")
-    entry["superseded_by"] = (link or {}).get("superseded_by")
-
-
 def cmd_insert_entry(
     conn,
-    timestamp: str,
+    timestamp: datetime | str,
     agent: str,
     context: Optional[str],
     category: str,
@@ -81,6 +76,7 @@ def cmd_insert_entry(
     project: Optional[str] = None,
     target_project: Optional[str] = None,
 ) -> str:
+    timestamp = instant_parameter(conn, parse_instant(timestamp))
     p = _p(conn)
     project_id = resolve_project_id(conn, project) if project else None
     target_project_id = (
@@ -103,8 +99,14 @@ def cmd_insert_entry(
         "target_project_id, created_at) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) RETURNING id",
         (
-            timestamp, agent, context, category, body, project_id,
-            target_project_id, iso8601_now(),
+            timestamp,
+            agent,
+            context,
+            category,
+            body,
+            project_id,
+            target_project_id,
+            instant_parameter(conn, utc_now()),
         ),
     ).fetchone()
     conn.commit()
@@ -141,9 +143,7 @@ def _bounded_limit(limit: Optional[int]) -> int:
     if limit <= 0:
         raise ValueError("limit must be positive")
     if limit > MAX_ENTRY_LIST_LIMIT:
-        raise ValueError(
-            f"limit must be <= {MAX_ENTRY_LIST_LIMIT}"
-        )
+        raise ValueError(f"limit must be <= {MAX_ENTRY_LIST_LIMIT}")
     return limit
 
 
@@ -180,7 +180,7 @@ def list_entry_rows(
     rows = query_rows(
         conn,
         "SELECT o.id, o.timestamp, o.agent, COALESCE(o.context,''), "
-        "o.category, o.body, COALESCE(o.reviewed_at,''), "
+        "o.category, o.body, o.reviewed_at, "
         "COALESCE(p.slug,'') "
         "FROM ouroboros_entries o "
         "LEFT JOIN projects p ON p.id = o.project_id "
@@ -189,17 +189,18 @@ def list_entry_rows(
     )
     entries = [
         {
-            name: (int(value) if name == "id"
-                   else "" if value is None else str(value))
+            name: entry_wire_value(name, value)
             for name, value in zip(ENTRY_LIST_COLUMNS, tuple(row))
         }
         for row in rows
     ]
     promotions = promoted_dash_by_field_note_ids(
-        conn, (entry["id"] for entry in entries),
+        conn,
+        (entry["id"] for entry in entries),
     )
     links = correction_links_by_entry_ids(
-        conn, (entry["id"] for entry in entries),
+        conn,
+        (entry["id"] for entry in entries),
     )
     for entry in entries:
         entry["promoted_dash"] = promotions.get(entry["id"])
@@ -222,8 +223,7 @@ def count_entry_rows(
     )
     total = query_scalar(
         conn,
-        "SELECT COUNT(*) FROM ouroboros_entries o "
-        f"{where}",
+        f"SELECT COUNT(*) FROM ouroboros_entries o {where}",
         tuple(params),
     )
     return int(total or 0)
@@ -240,7 +240,12 @@ def cmd_list_entries(
     return "\n".join(
         _format_row([row[name] for name in ENTRY_LIST_COLUMNS])
         for row in list_entry_rows(
-            conn, unreviewed, project, category_prefix, limit, offset,
+            conn,
+            unreviewed,
+            project,
+            category_prefix,
+            limit,
+            offset,
         )
     )
 
@@ -251,8 +256,8 @@ def get_entry_row(conn, entry_id: int) -> Optional[dict]:
     row = query_one(
         conn,
         "SELECT o.id, o.timestamp, o.agent, COALESCE(o.context,''), "
-        "o.category, o.body, COALESCE(o.reviewed_at,''), "
-        "COALESCE(p.slug,''), COALESCE(o.archived_at,'') "
+        "o.category, o.body, o.reviewed_at, "
+        "COALESCE(p.slug,''), o.archived_at "
         "FROM ouroboros_entries o "
         "LEFT JOIN projects p ON p.id = o.project_id "
         f"WHERE o.id={p}",
@@ -262,15 +267,15 @@ def get_entry_row(conn, entry_id: int) -> Optional[dict]:
         return None
     names = (*ENTRY_LIST_COLUMNS, "archived_at")
     entry = {
-        name: (int(value) if name == "id"
-               else "" if value is None else str(value))
-        for name, value in zip(names, tuple(row))
+        name: entry_wire_value(name, value) for name, value in zip(names, tuple(row))
     }
     entry["promoted_dash"] = promoted_dash_by_field_note_ids(
-        conn, [entry_id],
+        conn,
+        [entry_id],
     ).get(entry_id)
     _apply_correction_link(
-        entry, correction_links_by_entry_ids(conn, [entry_id]).get(entry_id),
+        entry,
+        correction_links_by_entry_ids(conn, [entry_id]).get(entry_id),
     )
     return entry
 
@@ -280,7 +285,9 @@ def _entry_write_where(conn, entry_id: int, project: Optional[str]) -> tuple:
     project_id = resolve_scope_project_id(conn, project)
     require_entry_writable_by_project(conn, entry_id, project_id)
     scope_sql, scope_params = project_scope_predicate(
-        conn, project_id, include_unattributed=True,
+        conn,
+        project_id,
+        include_unattributed=True,
     )
     where = f"id={_p(conn)}"
     if scope_sql:
@@ -291,13 +298,13 @@ def _entry_write_where(conn, entry_id: int, project: Optional[str]) -> tuple:
 def cmd_mark_reviewed(conn, entry_id: int, project: Optional[str] = None) -> str:
     p = _p(conn)
     where, where_params = _entry_write_where(conn, entry_id, project)
-    ts = iso8601_now()
+    ts = utc_now()
     conn.execute(
         f"UPDATE ouroboros_entries SET reviewed_at={p} WHERE {where}",
-        (ts, *where_params),
+        (instant_parameter(conn, ts), *where_params),
     )
     conn.commit()
-    return f"Marked entry {entry_id} as reviewed at {ts}"
+    return f"Marked entry {entry_id} as reviewed at {format_instant(ts)}"
 
 
 def cmd_mark_archived(
@@ -308,7 +315,7 @@ def cmd_mark_archived(
     include_unattributed: bool = False,
 ) -> str:
     p = _p(conn)
-    ts = iso8601_now()
+    ts = utc_now()
     if all_reviewed:
         scope_sql, scope_params = project_scope_predicate(
             conn,
@@ -325,7 +332,7 @@ def cmd_mark_archived(
             return "0"
         conn.execute(
             f"UPDATE ouroboros_entries SET archived_at={p} WHERE {where}",
-            (ts, *scope_params),
+            (instant_parameter(conn, ts), *scope_params),
         )
         conn.commit()
         return str(count)
@@ -335,7 +342,7 @@ def cmd_mark_archived(
     where, where_params = _entry_write_where(conn, entry_id, project)
     conn.execute(
         f"UPDATE ouroboros_entries SET archived_at={p} WHERE {where}",
-        (ts, *where_params),
+        (instant_parameter(conn, ts), *where_params),
     )
     conn.commit()
     return "1"

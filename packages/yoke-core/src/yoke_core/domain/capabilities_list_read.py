@@ -9,9 +9,12 @@ selected or joined.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain import db_helpers, json_helper
+from yoke_core.domain.time_parse import parse_timestamp_utc
 from yoke_core.domain.capability_type_definitions import (
     KIND_DECLARED_MODEL,
     KIND_PROVIDER_ACCESS,
@@ -175,7 +178,7 @@ def summarize_settings(cap_type: str, settings_json: Any) -> str:
     return " · ".join(parts)
 
 
-def _github_freshness_by_project(conn: Any) -> Dict[int, str]:
+def _github_freshness_by_project(conn: Any) -> Dict[int, datetime]:
     """Newest GitHub verification stamp per project, gated on a live channel.
 
     The stamps live on the App installation and the repo binding, not on
@@ -184,13 +187,11 @@ def _github_freshness_by_project(conn: Any) -> Dict[int, str]:
     deleted, pending, or missing contributes neither stamp: the binding
     status read reports automation unavailable for exactly those
     installations, and a capability row reading ``verified`` against that
-    verdict would contradict it. Timestamps are uniform ISO-8601 text, so
-    the lexicographic MAX/GREATEST matches chronological order.
+    verdict would contradict it. MAX/GREATEST compares native instants.
     """
     rows = conn.execute(
         "SELECT b.project_id, "
-        "NULLIF(MAX(GREATEST(COALESCE(b.last_verified_at, ''), "
-        "COALESCE(i.last_verified_at, ''))), '') AS last_verified_at "
+        "MAX(GREATEST(b.last_verified_at, i.last_verified_at)) AS last_verified_at "
         "FROM project_github_repo_bindings b "
         "JOIN github_app_installations i "
         "ON i.installation_id = b.installation_id "
@@ -198,11 +199,12 @@ def _github_freshness_by_project(conn: Any) -> Dict[int, str]:
         "GROUP BY b.project_id",
         (INSTALLATION_ACTIVE,),
     ).fetchall()
-    freshness: Dict[int, str] = {}
+    freshness: Dict[int, datetime] = {}
     for raw in rows:
         row = dict(raw)
-        if row.get("last_verified_at"):
-            freshness[int(row["project_id"])] = str(row["last_verified_at"])
+        instant = parse_timestamp_utc(row.get("last_verified_at"))
+        if instant is not None:
+            freshness[int(row["project_id"])] = instant
     return freshness
 
 
@@ -233,7 +235,7 @@ def list_capabilities(
             tuple(params),
         ).fetchall()
 
-        github_freshness: Dict[int, str] = {}
+        github_freshness: Dict[int, datetime] = {}
         if any(
             capability_type_definition(str(dict(raw)["type"]))["verification_model"]
             == "repo_binding"
@@ -256,11 +258,13 @@ def list_capabilities(
             cap_type = str(row["type"])
             definition = capability_type_definition(cap_type)
             kind = str(definition["kind"])
-            verified_at = row.get("verified_at") or None
+            verified_at = parse_timestamp_utc(row.get("verified_at"))
             verified_source = VERIFIED_SOURCE_CAPABILITY if verified_at else None
             if definition["verification_model"] == "repo_binding":
                 overlay = github_freshness.get(int(row["project_id"]))
-                if overlay and (verified_at is None or overlay > str(verified_at)):
+                if overlay is not None and (
+                    verified_at is None or overlay > verified_at
+                ):
                     verified_at = overlay
                     verified_source = VERIFIED_SOURCE_REPO_BINDING
             project_id = int(row["project_id"])
@@ -299,9 +303,15 @@ def list_capabilities(
                         row.get("settings"),
                     ),
                     "used_by_summary": used_by,
-                    "verified_at": verified_at,
+                    "verified_at": format_instant(verified_at)
+                    if verified_at is not None
+                    else None,
                     "verified_source": verified_source,
-                    "created_at": row.get("created_at"),
+                    "created_at": (
+                        format_instant(row["created_at"])
+                        if row.get("created_at") is not None
+                        else None
+                    ),
                 }
             )
         return result
