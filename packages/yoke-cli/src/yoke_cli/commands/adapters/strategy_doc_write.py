@@ -134,8 +134,8 @@ def dispatch_and_render(
 
     def _human_writer(response, stdout, stderr) -> None:
         print(json.dumps(response.result, sort_keys=True), file=stdout)
-        for slug, status in report.items():
-            print(f"{slug}\t{status}", file=stdout)
+        if slug in report:
+            print(f"{slug}\t{report[slug]}", file=stdout)
         for warning in response.warnings:
             print(
                 f"warning: {warning.code} ({warning.step}): {warning.detail}",

@@ -44,7 +44,7 @@ Message delivery to a parked worker on a wake-capable surface is automatic: send
 
 Stage age reads `deployment_runs.current_stage_entered_at`, stamped atomically when `current_stage` changes, including entry into `complete`. Re-driving the same stage preserves its age. A NULL timestamp on an older run or a snapshot with no source clock means unknown age; neither the run's start time nor a QA source receipt substitutes for it. Boot adds the column without backfilling old runs.
 
-One line then counts the **steering messages awaiting a seat** in this scope — role-addressed reports that parked with no live seat, plus unacknowledged ones left by an ended seat. Acknowledgement settles a report for handoff: it is never inherited by a successor and never included in this count. The remaining rows are unowned work made visible; acquiring the scope hands them over as one digest, grouped by the sending item and newest first. The line is absent when the count is zero.
+One line counts **steering messages awaiting a seat**: parked role-addressed reports and unacknowledged reports left by an ended seat. Acknowledged reports are settled and never inherited. Acquire prints inherited, parked and stranded counts plus `yoke messages list --state unacknowledged`; its `--json` envelope retains the digest grouped by sending item, newest first. The report count is absent when zero.
 
 A combined report also lists **unacked injected (this session)** — messages addressed to the calling session whose receipt is `injected` but still unacknowledged past the acknowledgement grace period. Each row prints `yoke messages acknowledge <id>`. That is this session's own inbox, not the seat-awaiting count above.
 

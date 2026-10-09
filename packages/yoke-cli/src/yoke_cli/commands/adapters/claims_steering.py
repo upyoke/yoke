@@ -56,7 +56,7 @@ def _print_acquired(response: Any, stdout, _stderr) -> None:
 
 
 def _print_message_handoff(claim: Dict[str, Any], stdout) -> None:
-    """Show the exact settled/unacknowledged handoff result."""
+    """Summarize inherited states; the complete digest stays in JSON."""
     handoff = claim.get("message_handoff") or {}
     drained = int(handoff.get("drained_count") or 0)
     print(
@@ -65,9 +65,7 @@ def _print_message_handoff(claim: Dict[str, Any], stdout) -> None:
         f"{int(handoff.get('stranded_count') or 0)} unacknowledged from an ended seat",
         file=stdout,
     )
-    digest = str(handoff.get("digest") or "")
-    if digest:
-        print(digest, file=stdout)
+    print("read: yoke messages list --state unacknowledged", file=stdout)
 
 
 def _print_released(response: Any, stdout, _stderr) -> None:

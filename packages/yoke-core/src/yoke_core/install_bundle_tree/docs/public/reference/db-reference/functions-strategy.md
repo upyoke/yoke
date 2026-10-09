@@ -29,3 +29,7 @@ count, limit, and repair. Legacy bare headings and headings with any numeric
 Read projections display the complete valid Summary and preserve State's
 authored case and wording. Defensive fallback summaries use the shared limit.
 Archived documents retain their stored content until explicitly edited.
+
+Single-document writes print the mutation receipt and render status for the
+edited slug only. Refusals and warnings retain their reason and recovery;
+`--json` retains the complete mutation envelope.
