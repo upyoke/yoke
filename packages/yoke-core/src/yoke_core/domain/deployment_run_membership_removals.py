@@ -15,7 +15,8 @@ the next release's unheld-custody pass enrolls it again, which is where an item
 removed for being in rework belongs once it returns to its release stage.
 
 Removal also releases outstanding run-bound QA at independent item QA, or
-a member outside the frozen candidate at settlement, without closing it.
+a failed member whose recorded merge is outside its frozen project candidate,
+or a replaced candidate at settlement, without closing it.
 Re-attaching while created with ``deployment_runs.add_item`` clears the entry: the
 operator reversed the decision, and a stale exclusion would silently drop the
 item from the run it was just attached to.

@@ -73,6 +73,7 @@ def settle_subject(
     if outcome not in {"passed", "discharged", "rejected", "blocked"}:
         return status
     conn.commit()
+    released = False
     if outcome == "blocked" and member is not None:
         from yoke_core.domain.deployment_qa_failure_handoff import (
             notify_member_qa_failure,
@@ -81,12 +82,13 @@ def settle_subject(
         handoff = notify_member_qa_failure(
             conn, run_id=run_id, stage=stage, item_id=member, status=status
         )
+        released = handoff.startswith("released:")
         if handoff.startswith(("failed:", "unaddressed:")):
             print(
                 f"Run {run_id} stage {stage!r} member {render_item_ref(conn, member)}: {handoff}"
             )
     completion_failure = ""
-    if outcome in {"passed", "discharged"}:
+    if released or outcome in {"passed", "discharged"}:
         from yoke_core.domain.deployment_run_auto_completion import (
             continue_after_settlement,
         )
@@ -127,7 +129,9 @@ def settle_subject(
             project_slug=project.slug,
             route=route,
             completion_failure=completion_failure,
-            blockers="; ".join(str(reason) for reason in status.get("reasons") or ()),
+            blockers=""
+            if released
+            else "; ".join(str(reason) for reason in status.get("reasons") or ()),
         ),
         idempotency_key=key,
     )

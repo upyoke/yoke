@@ -234,7 +234,6 @@ def materialize_and_gate_deployment_qa_stage(
             for reason in status["reasons"]:
                 print(f"Run {run_id!r} stage {stage['name']!r} {label}: {reason}")
         if not status["accepted"]:
-            waiting.extend(f"{label}: {reason}" for reason in status["reasons"])
             if project_id is not None:
                 if member is not None and status.get("outcome") == "blocked":
                     from yoke_core.domain.deployment_qa_failure_handoff import (
@@ -248,6 +247,8 @@ def materialize_and_gate_deployment_qa_stage(
                         item_id=member,
                         status=status,
                     )
+                    if handoff.startswith("released:"):
+                        continue
                     if handoff.startswith(("failed:", "unaddressed:")):
                         print(f"Run {run_id} stage {stage['name']!r}: {handoff}")
                 else:
@@ -265,6 +266,7 @@ def materialize_and_gate_deployment_qa_stage(
                         target_digest=str(status.get("target_digest") or ""),
                         label=label,
                     )
+            waiting.extend(f"{label}: {reason}" for reason in status["reasons"])
     if accepted_members:
         from yoke_core.domain.deployment_qa_member_acceptance_notice import (
             notify_item_qa_accepted,
