@@ -114,12 +114,12 @@ def test_renewed_access_token_is_persisted_beside_the_refresh_token(
     assert stored == {
         "schema_version": 2,
         "refresh_token": "new-refresh",
-        "refresh_expires_at": (NOW + timedelta(days=180)).isoformat(),
+        "refresh_expires_at": format_instant(NOW + timedelta(days=180)),
         "config_owners": [],
         "config_ownership_complete": False,
         "cached_access": {
             "access_token": "new-access",
-            "expires_at": (NOW + timedelta(hours=8)).isoformat(),
+            "expires_at": format_instant(NOW + timedelta(hours=8)),
             "scope": "",
             "token_type": "bearer",
         },
