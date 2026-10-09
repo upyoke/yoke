@@ -38,7 +38,7 @@ Internal: [amend](amend/SKILL.md) · [approve](approve/SKILL.md) · [implementin
 
 Routing distinctions:
 
-- `/yoke onboard [--project P] [--run-id RUN]` prepares an already-wired project:
+- `/yoke onboard [--project P] [--run-id RUN]` makes a wired project execution-ready:
   strategy, execution profile, Packs, hosting, environments, gated first deploy
   and seeded work. Terminal `yoke setup` owns machine/project wire-up.
 - `/yoke simulate PREFIX-N` and `/yoke simulate --system` are a harness slash

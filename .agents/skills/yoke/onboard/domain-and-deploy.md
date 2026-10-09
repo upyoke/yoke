@@ -1,118 +1,73 @@
-# Onboard Steps 6–7: Domain Record And The Gated First Deploy
-
-Step 6 records the domain posture the infra apply consumes. Step 7 is the second of the two stops: the full infrastructure apply plus first deploy, behind an explicit `[y/N]` gate that defaults No.
+# Onboard Steps 6–7: Domain And Gated Infra Apply + First Deploy
 
 ## Step 6: Domain
 
-- **Entry:** hosted environments registered, or the live checklist says `hosting-setup=deferred|not-needed`.
-- **Skip:** only a domain result matching the live hosting branch. A prior no-host result does not skip this step after hosting becomes `verified|configured`.
-- **Row:** `domain-setup`.
+Entry: registered hosting or live deferred/not-needed branch. Skip only a
+domain result matching that **live** branch; an old no-host answer cannot
+skip newly verified/configured hosting.
 
 ### Hosting deferred/not-needed: close the hosted rows
 
-There is no managed environment to receive a domain or deploy. Record both rows from the live hosting answer, then continue directly to step 8; seeding is allowed because step 5 verified the confirmed delivery outcome as either a registered merge-only default or an empty default.
-
-For postponed hosting:
-
-```bash
-yoke onboard checklist --run-id {run_id} \
-  --row-status domain-setup=not-needed \
-  --evidence domain-setup="hosting deferred; no managed environment needs a domain" \
-  --row-status infra-apply-first-deploy=deferred \
-  --evidence infra-apply-first-deploy="hosting postponed; no managed deploy route registered"
-```
-
-For a confirmed no-managed-host profile:
+Step 5 must have verified a registered merge-only default or an empty default;
+continue directly to step 8 without managed domain/deploy. Choose the live answer:
 
 ```bash
-yoke onboard checklist --run-id {run_id} \
-  --row-status domain-setup=not-needed \
-  --evidence domain-setup="hosting not needed; no managed environment needs a domain" \
-  --row-status infra-apply-first-deploy=not-needed \
-  --evidence infra-apply-first-deploy="confirmed profile has no Yoke-managed host"
+yoke onboard checklist --run-id {run_id} --row-status domain-setup=not-needed --evidence domain-setup="hosting deferred; no managed domain" --row-status infra-apply-first-deploy=deferred --evidence infra-apply-first-deploy="hosting postponed; no managed deploy route"
+yoke onboard checklist --run-id {run_id} --row-status domain-setup=not-needed --evidence domain-setup="hosting not needed; no managed domain" --row-status infra-apply-first-deploy=not-needed --evidence infra-apply-first-deploy="confirmed profile has no Yoke-managed host"
 ```
 
 ### Hosting verified/configured: record the domain
 
-The launch posture is the default subdomain derived from the project slug; bring-your-own domain (hosted zone plus certificate) is a follow-on, and registering domains through Yoke is out of scope here. Record the choice on the environment settings the apply reads, as scalar leaves:
+Default subdomain derives from slug. Bring-your-own hosted zone/certificate is
+follow-on; domain registration is outside this skill. Write scalar leaves on
+the actual registered environments the apply uses:
 
 ```bash
-yoke projects environment-settings merge --project {project} \
-  --environment stage --set domain.mode=default-subdomain \
-  --set domain.hostname={slug}.{default_domain}
-yoke projects environment-settings merge --project {project} \
-  --environment prod --set domain.mode=default-subdomain \
-  --set domain.hostname={slug}.{default_domain}
+yoke projects environment-settings merge --project {project} --environment stage --set domain.mode=default-subdomain --set domain.hostname={slug}.{default_domain}
+yoke projects environment-settings merge --project {project} --environment prod --set domain.mode=default-subdomain --set domain.hostname={slug}.{default_domain}
+yoke projects environment-settings get --project {project} --environment stage --path domain.hostname --json
+yoke projects environment-settings get --project {project} --environment prod --path domain.hostname --json
+yoke onboard checklist --run-id {run_id} --row-status domain-setup=configured --evidence domain-setup="default subdomain {hostname} verified on registered environments; bring-your-own deferred"
 ```
 
-The merge receipt returns changed paths only. Verify by projecting the leaf back (`yoke projects environment-settings get --project {project} --environment stage --path domain.hostname --json`), echo it, then mark:
-
-```bash
-yoke onboard checklist --run-id {run_id} \
-  --row-status domain-setup=configured \
-  --evidence domain-setup="default subdomain recorded: {hostname} on stage+prod; bring-your-own deferred"
-```
-
-**Failure floor:** `domain-setup=blocked` with the failing merge and recovery recipe; stop.
+Merge receipt names changed paths only. Echo projected values. Failure blocks
+domain-setup with command/recovery and stops.
 
 ## Step 7: Gated Infra Apply + First Deploy
 
-- **Entry:** live `hosting-setup=verified|configured` and every earlier managed-host step satisfied. The no-host branch above does not enter this gate.
-- **Skip:** live managed-host infrastructure is applied and the deploy is healthy → report the URL and skip. A prior `deferred|not-needed` value is never proof after hosting becomes available.
-- **Row:** `infra-apply-first-deploy`.
+Entry: live hosting-setup=verified|configured and all prior managed steps satisfied;
+the no-host branch above does not enter this gate. Skip only applied infra
+plus a healthy live deployment: report URL. Old deferred/not-needed is no proof.
 
-### The gate (stop 2 of 2)
+Present full installed-Pack resource preview: state backend, registry, hosts,
+DNS, TLS/firewall, CI OIDC provider/trust-scoped roles and resulting repository
+Actions variables. Use the Pack's preview entrypoint under resolver-materialized
+capability credentials; no shell export, logging or chat secrets.
+Then explain stage build → deploy → smoke; production keeps its later gate.
 
-Present the full preview before anything runs:
+Explicit yes only: [y/N] defaults No. Otherwise record
+infra-apply-first-deploy=deferred, operator declined apply, then allow step 8.
 
-- The infrastructure resource preview from the installed Packs' stacks (run the Pack-provided preview surface, e.g. `pulumi preview` in the Pack's infra directory, under the resolver-materialized env below) — the state backend, registry, hosts, DNS, and the CI OIDC provider plus trust-scoped CI roles whose ARNs land in repository Actions variables (CI federates per run; applies stay on the local `aws-admin` capability).
-- What follows the apply: build → deploy → smoke on stage. Prod keeps its own later gate and is not part of this step.
-
-Then take an explicit yes — `[y/N]` defaults No. Anything other than an explicit yes records the deferral and stops this step (`infra-apply-first-deploy=deferred`, evidence "operator declined the apply gate"); a deferred deploy does not block step 8.
-
-### Credentials for the apply
-
-Every provider-touching command runs with the `aws-admin` capability materialized into the subprocess env by the capability resolver — never exported into the shell, never printed, never in the chat:
-
-```bash
-yoke aws exec --project {project} -- {aws-args}
-```
-
-Pack-provided apply/deploy entrypoints document their own invocation; run them under the same resolver-materialized env discipline.
-
-### Execute
-
-1. Apply the infrastructure stacks the installed Packs provide, in their documented order.
-2. Build and deploy to stage through the project's declared deploy flow surfaces.
-3. Run the smoke check against the stage URL.
-
-This is a long-running external command sequence: capture output per the command-output rules (capture file, stream progress, inspect the capture on failure).
-
-### Evidence and marking
-
-Success:
+After approval, execute Pack-documented infrastructure order, project-declared
+stage build/deploy flow and stage smoke. Read the delivery rules and hold the
+project DEPLOY coordination claim before creating/executing a deployment run;
+release it afterward. Pack entrypoints own invocation and capability resolution.
+`yoke aws exec --project {project} -- {aws-args}` is an operator raw-AWS
+pass-through, not a generic Pulumi/app launcher. Capture and stream long
+commands, inspecting their capture on failure.
 
 ```bash
-yoke onboard checklist --run-id {run_id} \
-  --row-status infra-apply-first-deploy=verified \
-  --evidence infra-apply-first-deploy="infra applied; first deploy live at {stage_url}; smoke passed"
+yoke onboard checklist --run-id {run_id} --row-status infra-apply-first-deploy=verified --evidence infra-apply-first-deploy="infra applied; first stage deploy {stage_url}; smoke passed"
 ```
 
-Echo the deploy URL and smoke result to the operator — the first live deploy is the headline of the whole flow.
-
-### Failure posture: re-approve and retry
-
-- **Apply or deploy failure:** record the failure on the row (`blocked` with the failing stage and captured error), leave all completed writes in place, and stop. Re-entry re-presents the same gate and re-runs the apply — the infrastructure state backend makes the re-apply idempotent. No per-substep compensation machinery.
-- **Smoke failure:** the deploy stays up for diagnosis — do not tear down, do not retry automatically. Record `blocked` with the smoke evidence and the stage URL so the operator (or the next session) can diagnose against the live environment.
+Echo URL and smoke. Apply/deploy failure blocks the row, preserves completed
+writes and stops; reentry re-presents the same gate and reapplies idempotently
+through the state backend. Smoke failure stays up for diagnosis: no teardown
+or automatic retry.
 
 ```bash
-yoke onboard checklist --run-id {run_id} \
-  --row-status infra-apply-first-deploy=blocked \
-  --blocker infra-apply-first-deploy="{failed stage}: {captured error}; deploy left up at {stage_url} for diagnosis; re-run /yoke onboard --run-id {run_id} to re-approve and retry"
+yoke onboard checklist --run-id {run_id} --row-status infra-apply-first-deploy=blocked --blocker infra-apply-first-deploy="{failed stage}: {captured error}; live URL {stage_url}; re-run /yoke onboard --run-id {run_id} to re-approve and retry"
 ```
 
-### Reconfigure
-
-A requested redo of live infra or the deployed app (changed domain posture, changed instance shape) re-proposes the change, shows the delta the stacks will apply, and applies it behind this same gate. Never re-apply silently.
-
-Continue to step 8 of this skill: read [seed-work.md](seed-work.md).
+Requested live-infra/app reconfigure presents its delta behind the same gate;
+never silently reapply. Next: [seed-work.md](seed-work.md).

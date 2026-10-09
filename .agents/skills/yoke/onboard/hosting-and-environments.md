@@ -1,138 +1,93 @@
-# Onboard Steps 4–5: Hosting Capability And Environment Registration
+# Onboard Steps 4–5: Hosting Capability And Deploy Flow
 
-Step 4 verifies (or connects) the hosting capability. Step 5 installs only the confirmed infra Packs and then either registers managed hosting routes or applies the confirmed merge-only/no-default delivery choice. Both branches are registration/verification only — **no cloud mutation happens here**; every cloud write waits behind the approval gate in step 7.
+Registration/verification only; cloud writes wait for step 7 approval.
 
 ## Step 4: Hosting Capability
 
-- **Entry:** the project has not declared that Yoke manages no host.
-- **Skip:** the declared posture is `no-yoke-managed-host`, or the `aws-admin` capability is present AND the live identity probe passes (redacted evidence only) — the latter being the normal case when hosting was connected during wire-up.
-- **Rows:** `hosting-setup`, `capability-setup`.
-
-### Read the declared posture first
-
-A project can say that its hosting is somebody else's job. Read that before asking for anything:
+Read hosting_posture first. No-yoke-managed-host settles hosting-setup=not-needed,
+names provider, requests no credential/probe/aws-admin. Deferred is an open
+decision, never substituted for this exclusion. Empty posture asks once and
+records the chosen branch:
 
 ```bash
 yoke project-structure get --project {project} --family hosting_posture --json
+yoke project-structure patch apply --project {project} --ops-json '[{"op":"put","family":"hosting_posture","attachment":"project","payload":{"posture":"no-yoke-managed-host","provider":"{provider}"}}]'
 ```
 
-A payload of `{"posture": "no-yoke-managed-host"}` settles the row without a credential, a probe, or an `aws-admin` capability. Mark it and move straight to `capability-setup`:
+Use posture aws-admin when Yoke manages AWS; provider is optional descriptive
+prose, never execution authority.
 
-```bash
-yoke onboard checklist --run-id {run_id} \
-  --row-status hosting-setup=not-needed \
-  --evidence hosting-setup="project declares no Yoke-managed host (runs on {provider}); no cloud credential requested"
-```
-
-`not-needed` and `deferred` are different answers and must stay that way: the first is a decision the operator made, the second is a question still open. Never mark a declared posture `deferred`, and never ask for AWS credentials on top of one — that is the failure this declaration exists to prevent.
-
-An empty read means the question is still open. Ask it once here, record the answer through the same family so the next run does not ask again, then continue down the matching branch:
-
-```bash
-yoke project-structure patch apply --project {project} --ops-json '[{"op":"put","family":"hosting_posture","attachment":"project","payload":{"posture":"no-yoke-managed-host","provider":"{where it runs}"}}]'
-```
-
-Use `"posture": "aws-admin"` for the branch where Yoke manages AWS hosting. `provider` is optional prose recording where the code actually runs; Yoke never acts on it.
-
-### Read both halves and verify in-process
-
-`aws-admin` is two facts, not one. The capability row lives in the connected control plane and carries the non-secret settings (`region`, and `account_id` once an identity probe has named it); the access-key pair lives only on this machine under the capability secret store. A deploy needs both, each is filled by a different command, and **either can be present without the other** — a wizard run that stored the pair on a machine whose project row was never registered leaves the credential on disk and the row absent. Asking for the two secret values again would be asking the operator to re-enter what is already saved.
-
-Read both halves in one call. It names the missing half and only the command that fills that half. Once both exist, the same command runs an in-process caller-identity probe through boto3 with credentials materialized by the capability resolver. Nothing is exported into the shell, no secret is printed, and the AWS CLI is not required:
+AWS has two independent halves: connected control-plane capability settings
+(region/account) and machine-local credential pair. Read both before asking.
+The resolver performs an in-process caller-identity probe, redacted only;
+no shell export, ambient credentials or AWS CLI required.
 
 ```bash
 yoke aws admin-status --project {project} --json
 ```
 
-`ready: true` means both halves exist and the in-process caller-identity probe passed; `verification` carries only redacted account and identity facts. Mark and skip:
+ready true: both halves and probe passed, hosting-setup=verified, skip.
+ready false/missing empty/verification.ok false: preserve pair, surface safe
+reason/reset recipe, hosting-setup=blocked, stop; no ambient retry.
+Missing capability_row: fill only non-secret row.
+Missing machine_secrets: operator console credential creation needs explicit
+approval; import **only named missing keys** through terminal stdin, never chat.
+Do not re-request a saved pair.
 
 ```bash
-yoke onboard checklist --run-id {run_id} \
-  --row-status hosting-setup=verified \
-  --evidence hosting-setup="aws-admin row + machine credential pair present; identity probe passed (account {redacted_account}, arn type only)"
+yoke projects capability-settings merge --project {project} --cap-type aws-admin --set region={region}
+yoke projects capability secret set --project {project} --cap-type aws-admin --key access_key_id --value-stdin
+yoke projects capability secret set --project {project} --cap-type aws-admin --key secret_access_key --value-stdin
 ```
 
-`ready: false` with `missing: []` and `verification.ok: false` means the pair exists but the live probe failed. Surface the named safe reason and the returned re-set/retry recipe; do not guess or retry with ambient shell credentials:
+Use returned remedy only for missing halves; settings scalar --key/--value
+is not registered (keys belong to secret surface). Rerun status until ready,
+then configured with redacted account/identity evidence and matching posture.
+Operator may explicitly defer hosting (deferred, reason, no posture write):
+step 7 unreachable, step 8 still allowed. Raw yoke aws exec/preflight are
+operator CLI choices, not hosting verification/VPS setup.
 
-```bash
-yoke onboard checklist --run-id {run_id} \
-  --row-status hosting-setup=blocked \
-  --blocker hosting-setup="aws-admin row + credential pair present but identity probe failed; re-set via: yoke projects capability secret set --project {project} --cap-type aws-admin --key access_key_id --value-stdin (and --key secret_access_key), then re-run /yoke onboard --run-id {run_id}"
-```
-
-### Fill only the missing half
-
-`ready: false` with a non-empty `missing` names `capability_row`, `machine_secrets`, or both, and `remedy` carries the exact command per missing half. Run only those; never a command for a half the report says is present.
-
-- `missing: ["capability_row"]` — the pair is already on this machine and the project simply has no row. Register it with the settings merge, which creates an absent capability and CAS-updates an existing one, so re-running converges:
-
-  ```bash
-  yoke projects capability-settings merge --project {project} --cap-type aws-admin --set region={region}
-  ```
-
-  Do not ask for the access key again, and do not reach for `capability-settings set --key ... --value ...` — settings are one JSON document per capability and that flag pair does not exist there. `--key` belongs to the secret surface below.
-
-- `missing: ["machine_secrets"]` (or both halves) — creating cloud credentials is always user-action plus explicit approval. Guide the operator to create the access key pair in their own provider console; the two values go into the terminal `--value-stdin` prompts — **never into the chat**. Import only the keys the report listed as missing:
-
-  ```bash
-  yoke projects capability secret set --project {project} --cap-type aws-admin --key access_key_id --value-stdin
-  yoke projects capability secret set --project {project} --cap-type aws-admin --key secret_access_key --value-stdin
-  ```
-
-Non-secret settings live on the project capability; secret material lands only in the machine-local capability secret store. Re-run `yoke aws admin-status` until `ready: true`, then mark `hosting-setup=configured` with its redacted verification evidence and record the matching posture (`"posture": "aws-admin"`) so later runs skip the question. The operator may instead defer hosting entirely (`hosting-setup=deferred` with the reason, writing no posture row); step 7 then stays unreachable and step 8 still runs.
-
-`yoke aws exec` remains an operator's raw AWS CLI pass-through. Only an operator choosing that surface needs `yoke aws preflight`; neither command is part of hosting setup, caller-identity verification, or VPS control.
-
-### Remaining capabilities
-
-Verify the rest of the confirmed profile's capabilities:
-
-- **GitHub binding mode.** Record the project's mode — `app-binding` (bind the exact repository selected from the machine's GitHub App installation access) or `disabled` (GitHub automation disabled until an App installation can see the repository with the required permissions). The operator authorizes the machine through `yoke github connect`; onboarding never asks for, stores, or promotes a GitHub token. An App binding is active only when the selected repository belongs to a non-suspended installation with all required repository permissions; otherwise preserve the binding as pending and keep the project in `disabled`. Check with:
+Remaining capabilities: GitHub app-binding selects exact accessible repository;
+active only nonsuspended installation/all required permissions. Otherwise pending
+binding stays disabled. Operator `yoke github connect` authorizes machine;
+onboarding requests/stores/promotes no GitHub token.
+Product-specific keys use capability checks and stdin import, names/redacted proof only.
 
 ```bash
 yoke github status --json
+yoke onboard checklist --run-id {run_id} --row-status capability-setup=configured --evidence capability-setup="GitHub mode {app-binding|disabled}; capabilities {types}; redacted verification/key names"
 ```
 
-- **Product-specific keys** the profile names: same `capability has` check, same `capability secret set --value-stdin` import, redacted evidence only.
+Missing operator input/access blocks the specific row with recovery and stops.
 
-```bash
-yoke onboard checklist --run-id {run_id} \
-  --row-status capability-setup=configured \
-  --evidence capability-setup="github mode {mode}; capabilities verified: {cap types}; secrets imported by key name only"
-```
+## Step 5: Infra Packs And Branch Registration
 
-**Failure floor:** missing operator input or console access → mark the specific row `blocked` with what is needed; stop.
+Entry: scaffold installed/mapped and live hosting answer verified/configured/
+deferred/not-needed. Skip only complete **live** profile matches, including
+registrations/defaults, independent QA/policy/model answers and individual receipts.
+Prior `deferred` or `not-needed` values are not proof of a later hosted profile.
+Read checklist each rerun; it re-evaluates the live capability probe,
+registrations/default/health. Choose exactly one branch; partial managed failure
+never falls through to no-host.
 
-## Step 5: Infra Packs + Hosted Registration Or No-Host Cleanup
-
-- **Entry:** scaffold present (installed or mapped); the durable checklist says `hosting-setup=verified|configured|deferred|not-needed`.
-- **Skip:** re-read the live hosting row. For `verified|configured`, the site, environments, persistent flows, project default, and test binding must match the profile. For `deferred|not-needed`, the confirmed delivery choice must be verified as either a registered merge-only default or an empty default, and the no-host terminal rows, independent test binding, and Project Structure policy work must match. Packs in `.yoke/packs.json` skip individually.
-- **Rows:** `environment-registration`, `project-structure-setup`, `delivery-setup`, `verification-command-binding`.
-
-Prior `deferred` or `not-needed` values are not proof that a later hosting-required profile is satisfied. Every rerun reads `yoke onboard checklist --run-id {run_id} --json` and re-evaluates the live capability probe, registrations, project default, and deployment health. Choose exactly one branch below from the current `hosting-setup` value; a partial managed-host failure never falls through to the no-host branch.
-
-### Install the infra Packs
-
-Same receipt-first, preview-then-apply mechanics as the scaffold (see [profile-and-scaffold.md](profile-and-scaffold.md)) for each infra/deploy Pack in the confirmed profile. A no-host profile never gains an excluded infra/deploy Pack merely to satisfy this step:
+Confirmed infra/deploy Packs only, receipt-first then preview/apply;
+no-host never gains excluded Packs. Installed source is not an infrastructure apply.
 
 ```bash
 yoke packs get {pack} {checkout} --project {project}
 yoke packs get {pack} {checkout} --project {project} --apply
 ```
 
-The preview is also the local-tool preflight. In particular,
-`pulumi-foundation` and every infra Pack that declares Pulumi must show a
-`pulumi` prerequisite row with status `ready` before apply. A missing,
-unusable, or outdated Pulumi CLI blocks the matching checklist row with the
-named prerequisite code and the install recipe printed by the preview; stop
-and rerun after recovery. Never add `--allow-missing-tools` unless the operator
-explicitly confirmed that override in the execution profile.
-
-Installing a Pack lands source in the repo only — its stacks do not run until step 7's gate.
+The preview is also the local-tool preflight. Pulumi foundation and every
+Pulumi-dependent Pack must show a `pulumi` prerequisite row with status `ready`.
+Missing/unusable/outdated tool blocks with named prerequisite code and printed
+OS install recipe. Stop; --allow-missing-tools only when explicitly confirmed
+in the profile. Other prerequisites follow [profile-and-scaffold.md](profile-and-scaffold.md).
 
 ### Hosting verified/configured: register the site and environments
 
-Only this branch may register managed hosting. Registration is idempotent: an existing row with the same identity reports already-present and is never overwritten.
+Only this branch may register managed hosting. Idempotent identical rows skip;
+never overwrite an existing identity.
 
 ```bash
 yoke projects site create --project {project} --site {site_name}
@@ -140,35 +95,28 @@ yoke projects environment create --project {project} --site {site_name} --enviro
 yoke projects environment create --project {project} --site {site_name} --environment prod
 ```
 
-Discover what already exists with the metadata-only inventory (`yoke projects infrastructure list --project {project} --json`). Read environment configuration only through explicit scalar leaf projections (`yoke projects environment-settings get --project {project} --environment {environment} --path {key.path} --json`); never dump an environment settings document.
+Actual non-web/non-Yoke targets need no invented stage/preview environment.
+Infrastructure inventory is metadata-only; environment settings use explicit
+scalar leaf projections, never whole documents.
 
-### Create The Persistent Deploy Flow And Default
+### Persistent Deploy Flow and default
 
-Deployment flows are ordinary database rows. Create each one with a command; nothing in the project repo defines them.
+If old CI/scripts/.yoke/deployment-flows.json exist, read it as a **hint**:
+none of it is contractual. Do not author/migrate/repair/delete it or depend
+on parsing; other project consumers may still use it.
 
-If the checkout already carries deploy configuration of any shape — a CI workflow, a deploy script, an older `.yoke/deployment-flows.json` from a previous Yoke version — read it as a **hint** about the stages this project wants. Whatever shape it has is acceptable input and none of it is contractual: no schema, no version, no required keys. Such a file is the project's own, and may still have consumers inside its repository: do not author, migrate, repair, or delete one, and never make onboarding depend on one parsing.
-
-Validate the proposed stages against the **serving** runtime before create
-or default assignment. A non-Yoke project with no staging environment, and a
-non-web project, are valid coverage: do not invent a stage environment or a
-preview route they cannot execute.
+Validate against the serving executor **before** creation/default:
 
 ```bash
-yoke deployment-flows validate --project {project} --stages-file {stages_path} \
-  --target-tier persistent --environment {environment} --status active --json
+yoke deployment-flows validate --project {project} --stages-file {stages_path} --target-tier persistent --environment {environment} --status active --json
 ```
 
-`execution_supported=false` (or a refusal naming `serving runtime executes
-through schema N`): create with `--status disabled`, do **not** assign it as
-a default, and keep advanced/preview routes unassigned until that runtime is
-deployed. Successful config writes are not proof the serving executor can
-run the flow.
-
-When `execution_supported=true`, create one flow per route, then set defaults:
+execution_supported=false or named schema refusal: create disabled, never assign
+default/advanced preview until serving support deploys. Config-write success
+is not executable proof. When supported, create each actual route:
 
 ```bash
-yoke deployment-flows create {flow_id} --project {project} --name "{flow_name}" \
-  --stages-file {stages_path} --target-tier persistent --environment {environment}
+yoke deployment-flows create {flow_id} --project {project} --name "{flow_name}" --stages-file {stages_path} --target-tier persistent --environment {environment}
 yoke project-structure patch apply --project {project} --ops-json '[{"op":"put","family":"deploy_defaults","attachment":"project","payload":{"deployment_flow":"{default_flow_id}"}}]'
 yoke workflows delivery-default set --project {project} --workflow dash --flow {default_flow_id}
 yoke workflows delivery-default set --project {project} --workflow issue --flow {default_flow_id}
@@ -178,23 +126,24 @@ yoke project-structure deploy-defaults get --project {project}
 yoke workflows mechanics get --json
 ```
 
-Never `--apply-to-all`: Task stays exempt even if an old mapping contains a
-flow. Do not silently modify a definition another project or item already
-uses. On rerun, read `yoke workflows mechanics get --json` and confirm
-dash, issue, epic, and blitz `delivery_defaults` match the confirmed
-default — a leftover workflow-specific row overrides the project default.
-Skip create/set only when all four already match.
+Task exempt: never --apply-to-all. Rerun verifies all four workflow defaults,
+which override project default; skip writes only when all match. Do not change
+another project/item's shared definition. Persistent binds exactly one registered
+environment; ephemeral binds none and requires capability plus serving support;
+merge-only has neither. A referenced definition is immutable: disable and
+create a new behavior-named flow, retain history:
 
-A persistent flow names exactly one registered environment; an ephemeral flow (`--target-tier ephemeral`) deploys per-run preview substrate and names none; a merge-only flow declares neither. Propose preview only when the project actually has ephemeral-env capability **and** validate reports `execution_supported=true` for that definition. Retire a route with `yoke deployment-flows set-status {flow_id} disabled` — a definition a run has referenced is immutable, so a changed route is a retirement plus a new flow, and history stays readable.
+```bash
+yoke deployment-flows set-status {flow_id} disabled
+```
 
 ### Hosting deferred/not-needed: create the confirmed merge-only default
 
-Use this branch only when the confirmed delivery outcome is **merge-only**. Create no site or environment, install no excluded infra/deploy Pack, and omit both `--target-tier` and `--environment`. The two auto stages record the local merge boundary without creating a deployment run:
+Only confirmed merge-only: no site/environment/excluded Pack. Omit target-tier
+and environment on create; two auto stages record local merge without a run:
 
 ```bash
-yoke deployment-flows create {project}-merge-only --project {project} \
-  --name "{project} merge-only" \
-  --stages-json '[{"name":"merged","step_runner":"auto"},{"name":"complete","step_runner":"auto"}]'
+yoke deployment-flows create {project}-merge-only --project {project} --name "{project} merge-only" --stages-json '[{"name":"merged","step_runner":"auto"},{"name":"complete","step_runner":"auto"}]'
 yoke deployment-flows get {project}-merge-only target_tier
 yoke project-structure patch apply --project {project} --ops-json '[{"op":"put","family":"deploy_defaults","attachment":"project","payload":{"deployment_flow":"{project}-merge-only"}}]'
 yoke workflows delivery-default set --project {project} --workflow dash --flow {project}-merge-only
@@ -205,98 +154,62 @@ yoke project-structure deploy-defaults get --project {project}
 yoke workflows mechanics get --json
 ```
 
-A merge-only default is delivery, not the absence of it: an item that resolves to this flow discharges its delivery at the merge, so its close-out transitions through every stage its pinned definition declares — the release wait included — and reaches `done` without any deployment run. The target-tier read must print nothing and the default readback must print exactly `{project}-merge-only`. If that id already exists with a different immutable definition, disable it and create a new behavior-named flow before setting the default. A failed create or readback marks `delivery-setup=blocked` with the exact command and recovery recipe below; stop rather than claiming merge-only delivery.
-
-After both reads verify, record the no-environment registration and the runless default:
+The target-tier read must print nothing; default exactly the registered flow.
+Conflicting immutable ID: disable, create a new behavior-named flow, use its ID.
+Merge-only discharges delivery at merge; walk every pinned stage/gate including
+release wait to done with no deployment run. Verify both reads/all four defaults:
 
 ```bash
-yoke onboard checklist --run-id {run_id} \
-  --row-status environment-registration=not-needed \
-  --evidence environment-registration="live hosting row {deferred|not-needed}; no managed site or environment registered" \
-  --row-status delivery-setup=configured \
-  --evidence delivery-setup="merge-only flow {project}-merge-only active; target tier empty; project default verified; no deployment run"
+yoke onboard checklist --run-id {run_id} --row-status environment-registration=not-needed --evidence environment-registration="live no-host row; no managed registrations" --row-status delivery-setup=configured --evidence delivery-setup="active merge-only default; empty tier/all defaults verified; no deployment run"
 ```
 
 ### Hosting deferred/not-needed: clear the project default
 
-Use this branch only when the confirmed delivery outcome is **no default**. Do not run the managed-host registration or merge-only default-put recipes above. Existing environment and flow history stays intact, but new work must not route to it. Read the default; when the read is non-empty, remove the project attachment through the existing patch surface, then read it again. The final read must print nothing:
+Only when confirmed delivery outcome is **no default**. Preserve environment/
+flow history; read, remove a nonempty attachment, read again; the final read must print nothing.
+Never execute managed or merge-only put recipes in this branch:
 
 ```bash
 yoke project-structure deploy-defaults get --project {project}
-yoke project-structure patch \
-  apply --project {project} --ops-json '[{"op":"remove","family":"deploy_defaults","attachment":"project"}]'
+yoke project-structure patch apply --project {project} --ops-json '[{"op":"remove","family":"deploy_defaults","attachment":"project"}]'
 yoke project-structure deploy-defaults get --project {project}
+yoke onboard checklist --run-id {run_id} --row-status environment-registration=not-needed --evidence environment-registration="live no-host row; no managed registrations" --row-status delivery-setup=not-needed --evidence delivery-setup="project default verified empty; no persistent route assigned"
 ```
 
-After an empty readback, record terminal evidence and continue with the independent test binding and Project Structure policy work below:
-
-```bash
-yoke onboard checklist --run-id {run_id} \
-  --row-status environment-registration=not-needed \
-  --evidence environment-registration="live hosting row {deferred|not-needed}; no managed site or environment registered" \
-  --row-status delivery-setup=not-needed \
-  --evidence delivery-setup="project default verified empty; no persistent route assigned"
-```
-
-If removal or empty readback fails, record the exact command and recovery, then stop. Do not seed work against an unverified default:
-
-```bash
-yoke onboard checklist --run-id {run_id} \
-  --row-status delivery-setup=blocked \
-  --blocker delivery-setup="{failed command}: {captured error}; repair access, then re-run /yoke onboard --run-id {run_id}"
-```
+Removal/readback failure: delivery-setup=blocked with exact command/error/recovery,
+then stop. Do not seed against an unverified default.
 
 ### Bind the confirmed test setup
 
-Read and follow [verification-binding.md](verification-binding.md). It owns
-the whole verification binding: the registered command per scope, which
-GitHub Actions workflow may be declared as this project's CI routing and
-why an unreachable one is refused, when the merge queue may be offered, the
-review-only and attested no-tests branches, and the
-`verification-command-binding` checklist row each outcome writes.
+Follow [verification-binding.md](verification-binding.md), independent of host.
+[governed-database.md](governed-database.md) similarly owns the database answer.
 
-### Project Structure policy rows
+### Project Structure policies and optional architecture
 
-Capture the project-wide policy the profile implies — test roots, context
-routing, ownership defaults, integration targets — through the registered patch
-surface. These rows are descriptive project structure; the command the QA gate
-runs is bound above, not here:
+Use one keyed `put` operation per surveyed test tree; all roots descriptive,
+quick may cover a slice and full the aggregate. Context routing, ownership
+and integration targets use the same patch surface.
 
 ```bash
-yoke project-structure patch apply --project {project} --ops-json '[{"op":"put","family":"test_roots","attachment":"apps/api/tests/","entry_key":"api","payload":{"purpose":"API suite"}},{"op":"put","family":"test_roots","attachment":"apps/web/tests/","entry_key":"web","payload":{"purpose":"Web suite"}}]'
+yoke project-structure patch apply --project {project} --ops-json '[{"op":"put","family":"test_roots","attachment":"{test_root}","entry_key":"{root_key}","payload":{"purpose":"{suite_purpose}"}}]'
 ```
 
-Use one keyed `put` operation per surveyed test tree. Multiple roots describe
-the repository; they do not require `quick` to run every suite. The separately
-registered `full` argv is where the broader aggregate belongs.
-
-### Architecture map (scan-derive-accept; skippable)
-
-Offer the project an architecture map: propose a draft from the tree, review it with the operator, and apply the edited result through the same patch surface — identical for every repo state (an empty repo yields the minimal vocabulary-only map that grows via the unclassified warning; a scaffolded repo is just a tidy tree the scanner classifies). Skipping is fine — the project adopts later with the same two commands.
+Offer scan → draft → operator edit/accept → patch for architecture. Empty repos
+receive minimal vocabulary and future unclassified warning; skipping is valid.
 
 ```bash
 yoke project snapshot sync {checkout} --project {project}
-yoke project-structure architecture-draft get --project {project} > /tmp/architecture-draft.json
-# review + edit the draft with the operator, then insert that JSON payload:
-yoke project-structure patch apply --project {project} --ops-json '[{"op":"put","family":"architecture_model","attachment":"project","payload":{architecture_model_json}}]'
+yoke project-structure architecture-draft get --project {project}
 ```
 
-Once applied, classifications refresh automatically on every snapshot sync; verify with `yoke project-structure architecture-health get --project {project}` and record the coverage line as evidence on the `project-structure-setup` row.
+Insert accepted **complete JSON** through project_structure.patch.apply's
+architecture_model/project put; no placeholder fragment is executable. Same
+schema/patch contract as the policy recipe above. Verify architecture-health;
+snapshot sync thereafter refreshes classification.
 
-### Mark the managed-host and independent rows
-
-For `hosting-setup=verified|configured`, mark the managed registrations:
-
-```bash
-yoke onboard checklist --run-id {run_id} \
-  --row-status environment-registration=configured \
-  --evidence environment-registration="site {site_slug} + stage/prod registered; flows created: {flow_ids}; default flow {flow_id}" \
-  --row-status delivery-setup=configured \
-  --evidence delivery-setup="sites, environments, and flows registered through commands"
-```
-
-On either branch, mark `project-structure-setup=configured` (or `verified` when already satisfied) with evidence naming the independent policy families applied. When a managed sub-part was already satisfied, use `verified` for its row instead of `configured`.
-
-**Failure floor:** a rejected flow create, failed registration, failed Pack apply, or failed no-host cleanup → mark the matching row `blocked` with the error and recovery recipe; stop. Registrations already made stay (they are idempotent to re-run).
-
-Continue to steps 6–7 of this skill: read [domain-and-deploy.md](domain-and-deploy.md).
+Managed branch: environment-registration and delivery-setup configured (verified
+for already-satisfied facts), names actual site/environments/flows/default.
+Both branches: project-structure-setup configured/verified names policy families/
+architecture coverage. Rejected validation/create/register/Pack/cleanup blocks
+the matching row with error/recovery; stop, retain completed registrations.
+Next: [domain-and-deploy.md](domain-and-deploy.md).
