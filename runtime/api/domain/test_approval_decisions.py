@@ -88,9 +88,7 @@ def test_all_mode_needs_one_decision_per_checked_box(conn):
     progress = partial["approval_progress"]
     assert (progress["satisfied"], progress["required"]) == (1, 2)
     assert progress["outstanding"] == ["Bo"]
-    assert progress["summary"] == (
-        "1 of 2 decisions recorded · waiting on Bo"
-    )
+    assert progress["summary"] == ("1 of 2 decisions recorded · waiting on Bo")
 
     finished = resolve_decision_request(
         conn, request["id"], actor_id=3, action="approve", note="named ok"
@@ -117,7 +115,7 @@ def test_pending_gate_ignores_legacy_system_actor_votes(conn, action):
     conn.execute("UPDATE actors SET kind = 'system' WHERE id = 4")
     conn.execute(
         "INSERT INTO decision_request_decisions "
-        "(request_id, actor_id, action, decided_at) VALUES (?, 4, ?, 'later')",
+        "(request_id, actor_id, action, decided_at) VALUES (?, 4, ?, '2026-07-26T12:00:00.000000Z')",
         (request["id"], action),
     )
     current = list_subject_requests(conn, "item_transition", "1907:done")[0]
@@ -128,7 +126,9 @@ def test_pending_gate_ignores_legacy_system_actor_votes(conn, action):
 
 def test_settled_gate_preserves_a_recorded_actor_resolution(conn):
     request = _request(conn, mode="any", roles=(), actors=(4,))
-    settled = resolve_decision_request(conn, request["id"], actor_id=4, action="approve")
+    settled = resolve_decision_request(
+        conn, request["id"], actor_id=4, action="approve"
+    )
     conn.execute("UPDATE actors SET kind = 'system' WHERE id = 4")
     current = list_subject_requests(conn, "item_transition", "1907:done")[0]
     assert settled["status"] == "resolved"

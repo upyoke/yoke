@@ -12,13 +12,15 @@ subject ended, so the question is moot no matter what anyone answered.
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Any, Optional
 
 from yoke_core.domain.approval_decisions import (
     evaluate_decisions,
     record_decision,
 )
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain.decision_request_contract import (
     DECISION_RECORDED_EVENT,
     MERGE_CANDIDATE_REVIEW,
@@ -74,7 +76,6 @@ def _require_session_authority(
     )
 
 
-
 def resolve_decision_request(
     conn: Any,
     request_id: int,
@@ -83,9 +84,11 @@ def resolve_decision_request(
     action: str,
     note: Optional[str] = None,
     session_id: str = "",
-    resolved_at: Optional[str] = None,
+    resolved_at: datetime | str | None = None,
 ) -> dict[str, Any]:
     """Record this actor's decision, then resolve if the policy is now satisfied."""
+    stamp = parse_instant(resolved_at) if resolved_at is not None else utc_now()
+    stored_stamp = instant_parameter(conn, stamp)
     request = _request_row(conn, request_id)
     if request["status"] != "pending":
         raise ValueError(f"decision request {request_id} is {request['status']}")
@@ -106,7 +109,6 @@ def resolve_decision_request(
         raise PermissionError(
             unauthorized_resolution_message(conn, request_id, actor_id)
         )
-    stamp = resolved_at or iso8601_now()
     record_decision(
         conn,
         request_id=request_id,
@@ -156,7 +158,7 @@ def resolve_decision_request(
             progress.action,
             progress.deciding_actor_id,
             progress.note,
-            stamp,
+            stored_stamp,
             decided_context,
             request_id,
         ),
@@ -206,9 +208,10 @@ def withdraw_decision_request(
     reason: str,
     actor_id: Optional[int] = None,
     session_id: str = "",
-    withdrawn_at: Optional[str] = None,
+    withdrawn_at: datetime | str | None = None,
 ) -> dict[str, Any]:
     """Withdraw an open request explicitly when its subject ends."""
+    stamp = parse_instant(withdrawn_at) if withdrawn_at is not None else utc_now()
     if not reason.strip() or len(reason) > 1000:
         raise ValueError("withdrawal reason must contain 1 to 1000 characters")
     request = _request_row(conn, request_id)
@@ -225,7 +228,7 @@ def withdraw_decision_request(
         reason=reason,
         actor_id=actor_id,
         session_id=session_id,
-        withdrawn_at=withdrawn_at,
+        withdrawn_at=stamp,
     )
 
 
@@ -236,7 +239,7 @@ def withdraw_for_ended_subject(
     reason: str,
     actor_id: Optional[int] = None,
     session_id: str = "",
-    withdrawn_at: Optional[str] = None,
+    withdrawn_at: datetime | str | None = None,
     commit: bool = True,
 ) -> dict[str, Any]:
     """Withdraw a pending request whose typed subject has verifiably ended.
@@ -247,13 +250,14 @@ def withdraw_for_ended_subject(
     deciding actor and passes none. Neither can withdraw a live subject,
     because the subject-state contract below is re-evaluated either way.
     """
+    stamp = parse_instant(withdrawn_at) if withdrawn_at is not None else utc_now()
+    stored_stamp = instant_parameter(conn, stamp)
     if not reason.strip() or len(reason) > 1000:
         raise ValueError("withdrawal reason must contain 1 to 1000 characters")
     request = _request_row(conn, request_id)
     if request["status"] != "pending":
         raise ValueError(f"decision request {request_id} is {request['status']}")
     p = _p(conn)
-    stamp = withdrawn_at or iso8601_now()
     subject_end_evidence = require_decision_request_subject_ended(
         conn,
         request,
@@ -263,7 +267,7 @@ def withdraw_for_ended_subject(
         "UPDATE decision_requests SET status = 'withdrawn', "
         f"withdrawal_reason = {p}, withdrawn_at = {p} "
         f"WHERE id = {p} AND status = 'pending'",
-        (reason.strip(), stamp, request_id),
+        (reason.strip(), stored_stamp, request_id),
     )
     if int(cursor.rowcount or 0) != 1:
         raise ValueError(f"decision request {request_id} is no longer pending")

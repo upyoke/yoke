@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_latest_execution import latest_executions
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain.approval_policy import ApprovalPolicy
 from yoke_core.domain.decision_requests import (
     RoleAuthority,
@@ -260,11 +262,11 @@ def apply_qa_review_resolution(
     action: str,
     actor_id: int,
     note: Optional[str],
-    resolved_at: Optional[str] = None,
+    resolved_at: datetime | str | None = None,
     reviewed_run_id: Optional[int] = None,
 ) -> None:
     """Apply the human decision to the canonical requirement evidence."""
-    stamp = resolved_at or iso8601_now()
+    stamp = parse_instant(resolved_at) if resolved_at is not None else utc_now()
     p = _p(conn)
     if action == "waive":
         conn.execute(
@@ -272,7 +274,7 @@ def apply_qa_review_resolution(
             f"waived_at = {p}, waiver_rationale = {p}, "
             f"waiver_source = {p} WHERE id = {p}",
             (
-                stamp,
+                instant_parameter(conn, stamp),
                 (note or "Waived through Inbox review").strip(),
                 f"actor:{actor_id}",
                 int(requirement_id),

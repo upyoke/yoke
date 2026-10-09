@@ -6,6 +6,8 @@ import json
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain import deployment_run_terminalization as terminalization
 
 
@@ -47,12 +49,15 @@ def _seed_run(test_db, run_id: str, status: str) -> None:
 
 def _bind_connection(monkeypatch, test_db) -> None:
     monkeypatch.setattr(
-        terminalization, "connect", lambda: _OpenConnection(test_db),
+        terminalization,
+        "connect",
+        lambda: _OpenConnection(test_db),
     )
 
 
 def test_terminalization_updates_run_and_appends_permanent_audit(
-    test_db, monkeypatch,
+    test_db,
+    monkeypatch,
 ):
     _seed_run(test_db, "run-terminalize-proof", "executing")
     _bind_connection(monkeypatch, test_db)
@@ -72,7 +77,7 @@ def test_terminalization_updates_run_and_appends_permanent_audit(
         (result.run_id,),
     ).fetchone()
     assert run[0] == "cancelled"
-    assert run[1] == result.terminalized_at
+    assert run[1] == parse_instant(result.terminalized_at)
     event = test_db.execute(
         "SELECT source_type, severity, actor_id, envelope FROM events "
         "WHERE event_id=%s",
@@ -110,10 +115,13 @@ def test_terminalization_refuses_an_already_terminal_run(test_db, monkeypatch):
             actor_id=1,
             session_id="terminalization-session",
         )
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM events WHERE event_name=%s",
-        (terminalization.TERMINALIZATION_EVENT,),
-    ).fetchone()[0] == 0
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM events WHERE event_name=%s",
+            (terminalization.TERMINALIZATION_EVENT,),
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_audit_failure_rolls_back_the_run_state(test_db, monkeypatch):

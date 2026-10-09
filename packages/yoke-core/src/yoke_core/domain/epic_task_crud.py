@@ -18,7 +18,7 @@ from __future__ import annotations
 import io
 from typing import Optional
 
-from yoke_contracts.timestamps import format_instant
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_core.domain.claim_chain_state import touch_epic_task_activity
@@ -219,7 +219,9 @@ def task_update_field(
 
     rendered = value
     if field == "last_heartbeat":
-        value = instant_parameter(conn, value)
+        value = instant_parameter(
+            conn, parse_instant(value) if value is not None else None
+        )
         rendered = format_instant(value) if value is not None else ""
 
     # Delegate status updates to task_update_status for validation

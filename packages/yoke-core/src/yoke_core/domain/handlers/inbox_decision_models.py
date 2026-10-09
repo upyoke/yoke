@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.machine_approval_requests import (
     MachineApprovalLifecycleStatus,
 )
@@ -77,11 +78,13 @@ class MachineApprovalLifecycleRequest(BaseModel):
     code: Optional[str] = Field(default=None, min_length=1, max_length=64)
     machine: Optional[str] = Field(default=None, min_length=1, max_length=200)
 
+    @field_validator("occurred_at", "expires_at", mode="before")
+    @classmethod
+    def qualified_instant(cls, value: Any):
+        return parse_instant(value) if value is not None else None
+
     @model_validator(mode="after")
     def require_state_evidence(self):
-        timestamps = (self.occurred_at, self.expires_at)
-        if any(value is not None and value.utcoffset() is None for value in timestamps):
-            raise ValueError("machine authorization timestamps require a timezone")
         if self.state == "pending" and self.expires_at is None:
             raise ValueError("pending machine authorization requires expires_at")
         if self.state == "withdrawn" and not self.reason:

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
 from typing import Any, Callable, Mapping
 
 from yoke_core.domain.project_identity import render_item_ref
@@ -16,6 +18,7 @@ from yoke_core.domain.decision_request_contract import (
     QA_NEEDS_REVIEW,
 )
 from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.decision_machine_clocks import MACHINE_END_TIMESTAMPS
 
 
 SubjectStateCheck = Callable[
@@ -24,12 +27,7 @@ SubjectStateCheck = Callable[
 ]
 
 _MACHINE_ENDED_STATES = frozenset({"expired", "withdrawn", "cancelled", "canceled"})
-_MACHINE_END_TIMESTAMPS = (
-    "ended_at",
-    "expired_at",
-    "cancelled_at",
-    "canceled_at",
-)
+_MACHINE_END_TIMESTAMPS = MACHINE_END_TIMESTAMPS
 
 
 def _p(conn: Any) -> str:
@@ -50,16 +48,7 @@ def _require_table(conn: Any, table: str, request_id: int) -> None:
 
 
 def _instant(value: Any) -> datetime | None:
-    text = str(value or "").strip()
-    if not text:
-        return None
-    try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+    return parse_instant(value) if value is not None else None
 
 
 def _deployment_stage_ended(
@@ -319,7 +308,7 @@ def require_decision_request_subject_ended(
     conn: Any,
     request: Mapping[str, Any],
     *,
-    observed_at: str,
+    observed_at: datetime | str,
 ) -> str:
     """Return audited end evidence or reject an active/unverifiable subject."""
     request_id = int(request["id"])

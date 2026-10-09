@@ -154,7 +154,7 @@ def apply_deployment_stage_decision(
     action: str,
     actor_id: int,
     note: Optional[str],
-    stamp: str,
+    stamp: datetime | str,
     session_id: str = "",
 ) -> None:
     """Close a rejected run; leave an approved one for the runner."""

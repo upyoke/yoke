@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from typing import List
 
-from yoke_contracts.timestamps import format_instant, utc_now
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
 from yoke_core.domain.db_helpers import instant_parameter, query_one, query_scalar
 from yoke_core.domain.epic_parsing import (
     CHAIN_FIELD_WHITELIST,
@@ -33,7 +33,10 @@ def dispatch_chain_upsert(
         finalize_generated_task_scopes,
     )
 
-    started_at = instant_parameter(conn, data.get("started_at"))
+    started = data.get("started_at")
+    started_at = instant_parameter(
+        conn, parse_instant(started) if started is not None else None
+    )
     finalize_generated_task_scopes(conn, int(epic_id))
     worktree_path = data.get("worktree_path", "")
     queue = data.get("queue", [])
@@ -98,7 +101,9 @@ def dispatch_chain_update(
 
     rendered = value
     if field in ("started_at", "last_updated"):
-        value = instant_parameter(conn, value)
+        value = instant_parameter(
+            conn, parse_instant(value) if value is not None else None
+        )
         rendered = format_instant(value) if value is not None else ""
     p = _placeholder(conn)
     count = query_scalar(

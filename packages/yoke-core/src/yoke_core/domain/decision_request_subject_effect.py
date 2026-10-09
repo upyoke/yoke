@@ -16,6 +16,7 @@ whoever asked reads the resolution itself.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Callable, Optional
 
 from yoke_core.domain.decision_request_contract import (
@@ -49,7 +50,7 @@ def _apply_qa_review(
     action: str,
     actor_id: int,
     note: Optional[str],
-    stamp: str,
+    stamp: datetime | str,
     session_id: str,
 ) -> None:
     from yoke_core.domain.qa_review_requests import apply_qa_review_resolution
@@ -105,7 +106,7 @@ def _apply_deployment_stage(
     action: str,
     actor_id: int,
     note: Optional[str],
-    stamp: str,
+    stamp: datetime | str,
     session_id: str,
 ) -> None:
     from yoke_core.domain.deployment_stage_decision_effect import (
@@ -180,7 +181,7 @@ def apply_subject_resolution(
     action: str,
     actor_id: int,
     note: Optional[str],
-    stamp: str,
+    stamp: datetime | str,
     session_id: str = "",
 ) -> None:
     """Carry the resolved decision into the subject the request was gating."""

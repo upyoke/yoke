@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -199,8 +201,8 @@ def test_machine_lifecycle_handler_preserves_actor_and_timestamps(monkeypatch):
     assert calls[0]["org_id"] == 1
     assert calls[0]["session_id"] == "platform-delivery"
     assert calls[0]["state"] == "pending"
-    assert calls[0]["occurred_at"] == "2026-07-28T12:00:00+00:00"
-    assert calls[0]["context"] == {"expires_at": "2026-07-28T12:10:00+00:00"}
+    assert calls[0]["occurred_at"] == parse_instant("2026-07-28T12:00:00Z")
+    assert calls[0]["context"] == {"expires_at": "2026-07-28T12:10:00.000000Z"}
     assert connection.closed is True
 
 
