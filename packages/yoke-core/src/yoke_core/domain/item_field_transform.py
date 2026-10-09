@@ -58,6 +58,7 @@ class TransformResult:
     operation: str
     item_id: Optional[int] = None
     field: str = ""
+    heading_level: Optional[int] = None
     heading: str = ""
     section: str = ""
     changed: bool = False
@@ -107,7 +108,10 @@ def _build_addendum(existing: str, heading: str, body: str) -> str:
 
 def _fail(operation: str, error: str, **fields) -> TransformResult:
     return TransformResult(
-        success=False, operation=operation, error=error, **fields,
+        success=False,
+        operation=operation,
+        error=error,
+        **fields,
     )
 
 
@@ -150,34 +154,54 @@ def append_addendum(
 
     if _has_top_level_heading(existing, heading):
         return TransformResult(
-            success=True, operation=op, item_id=item_id, field=field,
-            heading=heading, changed=False, old_line_count=old_lines,
-            new_line_count=old_lines, verification="heading-already-present",
+            success=True,
+            operation=op,
+            item_id=item_id,
+            field=field,
+            heading=heading,
+            changed=False,
+            old_line_count=old_lines,
+            new_line_count=old_lines,
+            verification="heading-already-present",
         )
 
     updated = _build_addendum(existing, heading, content)
     write_result = execute_structured_write(
-        item_id=item_id, field=field, content=updated, source=source,
+        item_id=item_id,
+        field=field,
+        content=updated,
+        source=source,
         out=out if out is not None else _NullSink(),
     )
     if not write_result.get("success"):
         return _fail(
-            op, str(write_result.get("error") or "structured write failed"),
-            **common, old_line_count=old_lines,
+            op,
+            str(write_result.get("error") or "structured write failed"),
+            **common,
+            old_line_count=old_lines,
         )
 
     persisted = _read_field(item_id, field) or ""
     new_lines = _line_count(persisted)
     if not _has_top_level_heading(persisted, heading):
         return _fail(
-            op, "post-write verification failed: heading not present",
-            **common, old_line_count=old_lines,
-            new_line_count=new_lines, verification="missing",
+            op,
+            "post-write verification failed: heading not present",
+            **common,
+            old_line_count=old_lines,
+            new_line_count=new_lines,
+            verification="missing",
         )
     return TransformResult(
-        success=True, operation=op, item_id=item_id, field=field,
-        heading=heading, changed=True, old_line_count=old_lines,
-        new_line_count=new_lines, verification="ok",
+        success=True,
+        operation=op,
+        item_id=item_id,
+        field=field,
+        heading=heading,
+        changed=True,
+        old_line_count=old_lines,
+        new_line_count=new_lines,
+        verification="ok",
         warning=str(write_result.get("sync_warning") or ""),
     )
 
@@ -221,49 +245,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     :func:`yoke_core.domain.yoke_function_dispatch.dispatch`, and
     emits human stdout (default) or the typed envelope (``--json``).
 
-    Synonym normalization runs first: ``section-upsert`` accepts
-    ``--field <name>`` or ``--heading <name>`` as synonyms for
-    ``--section`` so operators do not need to learn two vocabularies for
-    naming the section being upserted. Synonyms are translated to the
-    canonical ``--section`` form before the sibling parser sees argv.
     """
     from yoke_core.domain.item_field_transform_cli import main as _cli_main
 
-    return _cli_main(_normalize_section_synonyms(argv))
-
-
-def _normalize_section_synonyms(argv: Optional[list[str]]) -> Optional[list[str]]:
-    """Map ``--field`` / ``--heading`` to ``--section`` for section-upsert.
-
-    Only applies when the first token is ``section-upsert`` so the
-    addendum subcommand's existing ``--field`` and ``--heading`` flags
-    are not clobbered. Returns the rewritten argv (a new list) or the
-    original input when no rewrite applies.
-    """
-    if argv is None or not argv:
-        return argv
-    if argv[0] != "section-upsert":
-        return argv
-    rewritten: list[str] = [argv[0]]
-    i = 1
-    seen_canonical = False
-    while i < len(argv):
-        token = argv[i]
-        if token in ("--field", "--heading"):
-            if i + 1 < len(argv) and not seen_canonical:
-                rewritten.extend(["--section", argv[i + 1]])
-                i += 2
-                continue
-            # Malformed (trailing flag) or duplicate synonym: pass
-            # through so argparse emits its own diagnostic.
-            rewritten.append(token)
-            i += 1
-            continue
-        if token == "--section":
-            seen_canonical = True
-        rewritten.append(token)
-        i += 1
-    return rewritten
+    return _cli_main(argv)
 
 
 __all__ = [

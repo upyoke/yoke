@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ReplaceRequest(BaseModel):
@@ -50,13 +50,50 @@ class AppendAddendumResponse(BaseModel):
 
 
 class SectionUpsertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     section: str
     content: str
+    field: Optional[str] = None
+    heading_level: int = Field(default=2, ge=2, le=6)
     ordering: Optional[int] = None
     source: Optional[str] = None
 
+    @field_validator("field")
+    @classmethod
+    def valid_field(cls, value):
+        from yoke_core.domain.backlog_queries import VALID_STRUCTURED_FIELDS
+
+        if value is not None and value not in VALID_STRUCTURED_FIELDS:
+            raise ValueError("invalid_field: choose an allowed structured field")
+        return value
+
+    @field_validator("section")
+    @classmethod
+    def valid_section(cls, value):
+        if not value.strip() or "\n" in value or "\r" in value:
+            raise ValueError("section must be one non-empty line")
+        return value
+
+    @field_validator("content")
+    @classmethod
+    def valid_content(cls, value):
+        if not value.strip():
+            raise ValueError("content must be non-empty")
+        return value
+
+    @model_validator(mode="after")
+    def valid_target_options(self):
+        if self.field is not None and self.ordering is not None:
+            raise ValueError("ordering is only supported without field")
+        if self.field is None and "heading_level" in self.model_fields_set:
+            raise ValueError("heading_level requires field")
+        return self
+
 
 class SectionUpsertResponse(BaseModel):
+    field: Optional[str] = None
+    heading_level: Optional[int] = None
     item_id: int
     section: str
     changed: bool
@@ -91,8 +128,10 @@ def build_registrations():
     module (which exposes the callables).
     """
     from yoke_core.domain.handlers.items_structured_field import (
-        handle_append_addendum, handle_replace,
-        handle_section_append, handle_section_upsert,
+        handle_append_addendum,
+        handle_replace,
+        handle_section_append,
+        handle_section_upsert,
     )
 
     owner = "yoke_core.domain.handlers.items_structured_field"
@@ -160,9 +199,13 @@ def build_registrations():
 
 
 __all__ = [
-    "ReplaceRequest", "ReplaceResponse",
-    "AppendAddendumRequest", "AppendAddendumResponse",
-    "SectionUpsertRequest", "SectionUpsertResponse",
-    "SectionAppendRequest", "SectionAppendResponse",
+    "ReplaceRequest",
+    "ReplaceResponse",
+    "AppendAddendumRequest",
+    "AppendAddendumResponse",
+    "SectionUpsertRequest",
+    "SectionUpsertResponse",
+    "SectionAppendRequest",
+    "SectionAppendResponse",
     "build_registrations",
 ]

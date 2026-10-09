@@ -35,8 +35,6 @@ from yoke_core.domain.handlers.items_structured_field_models import (
     ReplaceResponse,
     SectionAppendRequest,
     SectionAppendResponse,
-    SectionUpsertRequest,
-    SectionUpsertResponse,
 )
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -106,6 +104,9 @@ def _read_field(item_id: int, field: str) -> str:
 def _classify_write_error(error: str) -> str:
     """Map an :func:`execute_structured_write` error string to an error code."""
     lowered = (error or "").lower()
+    for code in ("section_ambiguous", "structured_field_stale"):
+        if lowered.startswith(code + ":"):
+            return code
     if lowered.startswith("section_authority_reserved:"):
         return "section_authority_reserved"
     if "invalid structured field" in lowered:
@@ -259,43 +260,6 @@ def handle_append_addendum(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
-def handle_section_upsert(request: FunctionCallRequest) -> HandlerOutcome:
-    """Upsert a rendered section via ``item_field_transform.section_upsert``."""
-    item_id = _require_item_target(request)
-    if item_id is None:
-        return _bad_request("target must carry kind='item' and public_ref (PREFIX-N)")
-    try:
-        payload = SectionUpsertRequest.model_validate(request.payload)
-    except Exception as exc:
-        return _bad_request(f"payload invalid: {exc}")
-
-    result = item_field_transform.section_upsert(
-        item_id=item_id,
-        section=payload.section,
-        content=payload.content,
-        ordering=payload.ordering,
-        source=payload.source,
-    )
-    if not result.success:
-        return _guard_failed(
-            _classify_write_error(result.error),
-            result.error or "section_upsert failed",
-        )
-
-    response = SectionUpsertResponse(
-        item_id=item_id,
-        section=payload.section,
-        changed=result.changed,
-        new_line_count=result.new_line_count,
-        verification=result.verification,
-    )
-    return HandlerOutcome(
-        result_payload=response.model_dump(),
-        primary_success=True,
-        warnings=_github_sync_warnings(result.warning),
-    )
-
-
 def handle_section_append(request: FunctionCallRequest) -> HandlerOutcome:
     """Append a timestamped entry via ``item_field_transform.section_append``."""
     item_id = _require_item_target(request)
@@ -333,6 +297,11 @@ def handle_section_append(request: FunctionCallRequest) -> HandlerOutcome:
         primary_success=True,
         warnings=_github_sync_warnings(result.warning),
     )
+
+
+from yoke_core.domain.handlers.items_structured_field_sections import (  # noqa: E402
+    handle_section_upsert,
+)
 
 
 # Registry binding metadata lives in the sibling models module — this

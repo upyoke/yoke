@@ -111,7 +111,7 @@ Replaces every hand-authored `printf '%s' "$content" | python3 -m yoke_core.cli.
 |---|---|---|---|
 | `items.structured_field.replace` | `"item"` | `yoke_core.domain.handlers.items_structured_field` → `execute_structured_write` | `{old_lines, new_lines, verification_status}` |
 | `items.structured_field.append_addendum` | `"item"` | same handler → `item_field_transform.append_addendum` | same shape |
-| `items.structured_field.section_upsert` | `"item"` | same handler → `item_field_transform_sections.section_upsert` | same shape |
+| `items.structured_field.section_upsert` | `"item"` | `handlers.items_structured_field_sections` → `item_field_transform_sections.section_upsert` | Optional `field`, `heading_level` (2–6, default 2; requires field); one-line `section`, non-empty `content`; `ordering` refused with field. Targeted receipt echoes field/depth. Refusals: `section_ambiguous`, `structured_field_stale`, CLI `section_upsert_field_unsupported` (inspect possible top-level write; serving floor next-release). |
 | `items.structured_field.section_append` | `"item"` | same handler → `item_field_transform_sections.section_append` | same shape |
 | `items.section.upsert` | `"item"` | `yoke_core.domain.handlers.items_section` → `sections_cli.upsert` | `{section_name, content_lines}` |
 | `items.section.delete` | `"item"` | same handler → `sections_cli.delete` | `{section_name, deleted}` |
@@ -167,7 +167,7 @@ Replaces every hand-authored `printf '%s' "$content" | python3 -m yoke_core.cli.
 }
 ```
 
-The same handler accepts `items.structured_field.section_upsert` (replace a `## heading`-led block in place) and `items.structured_field.section_append` (append after the block). All variants preserve the empty/shrinkage/freeze guards on `execute_structured_write` and report old/new line counts plus a verification status.
+The same handler accepts `items.structured_field.section_upsert` (replace a `## heading`-led block, or a named field subtree at `heading_level`; other bytes preserved, duplicate targets refused, no-op unchanged, stale precondition checked under a row lock) and `items.structured_field.section_append` (append after the block). All variants preserve the empty/shrinkage/freeze guards on `execute_structured_write` and report old/new line counts plus a verification status.
 
 **Canonical write — Progress Log entry:**
 

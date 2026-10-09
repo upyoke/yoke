@@ -1,12 +1,4 @@
-"""Regression coverage for ``section_upsert``'s structured-field routing.
-
-Sibling of :mod:`test_item_field_transform_sections`. Focused on the
-in-field replacement path added so a ``section-upsert`` whose heading is
-already rendered by a structured field replaces in-field rather than
-writing a duplicate ``item_sections`` row. Imports the existing test
-fixtures (``_FakeDB`` and ``_patched_db``) from the sibling so the
-schema setup and module patching stay DRY.
-"""
+"""Structured-field section routing and subtree regression coverage."""
 
 from __future__ import annotations
 
@@ -19,7 +11,8 @@ from yoke_core.domain import (
     render_body_section,
 )
 from runtime.api.domain.test_item_field_transform_sections import (
-    _FakeDB, _patched_db,
+    _FakeDB,
+    _patched_db,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
 
@@ -64,8 +57,10 @@ class TestSectionUpsertRoutesToStructuredField(unittest.TestCase):
 
     def test_single_match_replaces_in_field(self) -> None:
         result = ifts.section_upsert(
-            item_id=501, section="File Budget",
-            content="brand new budget\n", source="refine",
+            item_id=501,
+            section="File Budget",
+            content="brand new budget\n",
+            source="refine",
         )
         self.assertTrue(result.success, result.error)
         self.assertEqual(result.field, "spec")
@@ -89,7 +84,10 @@ class TestSectionUpsertRoutesToStructuredField(unittest.TestCase):
         before_section = SPEC_WITH_FILE_BUDGET.split("## File Budget", 1)[0]
         after_section = "## Verified surfaces\n\ntail content\n"
         result = ifts.section_upsert(
-            item_id=501, section="File Budget", content="new body", source="refine",
+            item_id=501,
+            section="File Budget",
+            content="new body",
+            source="refine",
         )
         self.assertTrue(result.success, result.error)
         spec_after = _fetch_field(self.db, 501, "spec")
@@ -109,13 +107,17 @@ class TestSectionUpsertRoutesToStructuredField(unittest.TestCase):
         )
         _set_field(self.db, 501, "spec", fenced_spec)
         result = ifts.section_upsert(
-            item_id=501, section="File Budget", content="real budget", source="refine",
+            item_id=501,
+            section="File Budget",
+            content="real budget",
+            source="refine",
         )
         self.assertTrue(result.success, result.error)
         # Fell through to item_sections, not in-field.
         self.assertEqual(result.field, "")
         self.assertEqual(
-            self.db.fetch_section(501, "File Budget"), "real budget",
+            self.db.fetch_section(501, "File Budget"),
+            "real budget",
         )
 
 
@@ -128,14 +130,17 @@ class TestSectionUpsertFallback(unittest.TestCase):
 
     def test_no_field_match_creates_item_sections_row(self) -> None:
         result = ifts.section_upsert(
-            item_id=502, section="Brand New Heading",
-            content="fresh content", source="refine",
+            item_id=502,
+            section="Brand New Heading",
+            content="fresh content",
+            source="refine",
         )
         self.assertTrue(result.success, result.error)
         self.assertEqual(result.field, "")
         self.assertEqual(result.verification, "ok")
         self.assertEqual(
-            self.db.fetch_section(502, "Brand New Heading"), "fresh content",
+            self.db.fetch_section(502, "Brand New Heading"),
+            "fresh content",
         )
         spec_after = _fetch_field(self.db, 502, "spec")
         self.assertEqual(spec_after, "## Overview\n\nintro only\n")
@@ -148,12 +153,17 @@ class TestSectionUpsertAmbiguousHeading(unittest.TestCase):
         self.db.insert_item(503)
         _set_field(self.db, 503, "spec", "## Shared\n\nin spec\n")
         _set_field(
-            self.db, 503, "design_spec", "## Shared\n\nin design_spec\n",
+            self.db,
+            503,
+            "design_spec",
+            "## Shared\n\nin design_spec\n",
         )
 
     def test_multiple_matches_refuse_to_write(self) -> None:
         result = ifts.section_upsert(
-            item_id=503, section="Shared", content="ambiguous body",
+            item_id=503,
+            section="Shared",
+            content="ambiguous body",
             source="refine",
         )
         self.assertFalse(result.success)
@@ -163,7 +173,8 @@ class TestSectionUpsertAmbiguousHeading(unittest.TestCase):
         # No write happened anywhere.
         self.assertIsNone(self.db.fetch_section(503, "Shared"))
         self.assertEqual(
-            _fetch_field(self.db, 503, "spec"), "## Shared\n\nin spec\n",
+            _fetch_field(self.db, 503, "spec"),
+            "## Shared\n\nin spec\n",
         )
         self.assertEqual(
             _fetch_field(self.db, 503, "design_spec"),
@@ -180,12 +191,16 @@ class TestSectionUpsertWriteFailure(unittest.TestCase):
 
     def test_structured_write_failure_surfaces_no_fallback(self) -> None:
         from yoke_core.domain import backlog_structured_write_op as _op
+
         with mock.patch.object(
-            _op, "execute_structured_write",
+            _op,
+            "execute_structured_write",
             return_value={"success": False, "error": "synthetic write error"},
         ):
             result = ifts.section_upsert(
-                item_id=504, section="File Budget", content="new body",
+                item_id=504,
+                section="File Budget",
+                content="new body",
                 source="refine",
             )
         self.assertFalse(result.success)
@@ -212,7 +227,9 @@ class TestSectionUpsertWriteFailure(unittest.TestCase):
 
         with mock.patch.object(ifts, "_read_field", side_effect=stub_read):
             result = ifts.section_upsert(
-                item_id=504, section="File Budget", content="new body",
+                item_id=504,
+                section="File Budget",
+                content="new body",
                 source="refine",
             )
         self.assertFalse(result.success)
@@ -241,9 +258,86 @@ class TestReplaceSectionHelperBehavior(unittest.TestCase):
         content = "```\n## File Budget\nfence\n```\n\n## End\ntail\n"
         self.assertIsNone(
             render_body_section.replace_section(
-                content, "File Budget", "anything",
+                content,
+                "File Budget",
+                "anything",
             ),
         )
+
+
+class TestExplicitFieldSubtree(unittest.TestCase):
+    def setUp(self):
+        self.db = _FakeDB()
+        _patched_db(self, self.db)
+        self.db.insert_item(505)
+
+    def upsert(self, body="new", section="EDGE"):
+        return ifts.section_upsert(
+            item_id=505,
+            field="shepherd_caveats",
+            heading_level=3,
+            section=section,
+            content=body,
+        )
+
+    def test_empty_append_replace_and_noop(self):
+        first = self.upsert()
+        self.assertTrue(first.success, first.error)
+        self.assertEqual(
+            _fetch_field(self.db, 505, "shepherd_caveats"), "### EDGE\n\nnew\n"
+        )
+        self.assertIsNone(self.db.fetch_section(505, "EDGE"))
+        self.assertFalse(self.upsert().changed)
+        self.assertTrue(self.upsert("neighbor", "OTHER").success)
+        old = _fetch_field(self.db, 505, "shepherd_caveats")
+        suffix = old[old.index("### OTHER") :]
+        result = self.upsert("replacement")
+        self.assertTrue(result.success, result.error)
+        self.assertEqual(
+            _fetch_field(self.db, 505, "shepherd_caveats"),
+            "### EDGE\n\nreplacement\n\n" + suffix,
+        )
+
+    def test_subtree_boundaries_and_neighbor_bytes(self):
+        before = "## Parent\r\nintro  \r\n"
+        after = "## Following\r\nuntouched  \r\n"
+        old = before + "### EDGE\nold\n#### Child\nchild\n" + after
+        _set_field(self.db, 505, "shepherd_caveats", old)
+        self.assertTrue(self.upsert().success)
+        self.assertEqual(
+            _fetch_field(self.db, 505, "shepherd_caveats"),
+            before + "### EDGE\n\nnew\n\n" + after,
+        )
+
+    def test_fences_ignore_matches_and_boundaries(self):
+        before = "````python\n### EDGE\n```\n### EDGE\n````\n"
+        after = "~~~\n### EDGE\n~~~\n"
+        _set_field(self.db, 505, "shepherd_caveats", before)
+        self.assertTrue(self.upsert(after).success)
+        self.assertEqual(
+            _fetch_field(self.db, 505, "shepherd_caveats"),
+            before + "\n### EDGE\n\n" + after,
+        )
+        self.assertFalse(self.upsert(after).changed)
+
+    def test_ambiguity_refuses_without_fallback(self):
+        old = "### EDGE\none\n### EDGE\ntwo\n"
+        _set_field(self.db, 505, "shepherd_caveats", old)
+        result = self.upsert()
+        self.assertFalse(result.success)
+        self.assertTrue(result.error.startswith("section_ambiguous:"))
+        self.assertEqual(_fetch_field(self.db, 505, "shepherd_caveats"), old)
+        self.assertIsNone(self.db.fetch_section(505, "EDGE"))
+
+    def test_render_failure_names_committed_write(self):
+        from yoke_core.domain import backlog_rendering
+
+        with mock.patch.object(backlog_rendering, "_render_body", return_value=False):
+            result = self.upsert()
+        self.assertFalse(result.success)
+        self.assertIn("committed write", result.error)
+        self.assertIn("shepherd_caveats", result.error)
+        self.assertIn("new", _fetch_field(self.db, 505, "shepherd_caveats"))
 
 
 if __name__ == "__main__":  # pragma: no cover

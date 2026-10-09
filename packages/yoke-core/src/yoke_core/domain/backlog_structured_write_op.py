@@ -33,6 +33,7 @@ def execute_structured_write(
     source: str = "",
     out: TextIO = sys.stdout,
     content: Optional[str] = None,
+    expected_content: Optional[str] = None,
 ) -> dict:
     """Structured field write: DB write → render body → md regen → sync.
 
@@ -75,6 +76,7 @@ def execute_structured_write(
             DbMutationProfileError,
             validate_json_string,
         )
+
         try:
             content = validate_json_string(content)
         except DbMutationProfileError as exc:
@@ -87,6 +89,7 @@ def execute_structured_write(
             DbCompatibilityAttestationError,
             validate_json_string,
         )
+
         try:
             content = validate_json_string(content)
         except DbCompatibilityAttestationError as exc:
@@ -100,7 +103,17 @@ def execute_structured_write(
     conn = connect(db_path)
     try:
         public_ref = render_item_ref(conn, int(item_id))
+        if expected_content is not None:
+            conn.execute("SELECT id FROM items WHERE id=%s FOR UPDATE", (item_id,))
         existing = _query_item_field(conn, item_id, field) or ""
+        if expected_content is not None and existing != expected_content:
+            return {
+                "success": False,
+                "error": (
+                    f"structured_field_stale: {public_ref} {field} changed before write. "
+                    "Read the current field and submit a newly reviewed transform."
+                ),
+            }
         # Safety net: refuse to overwrite non-empty with empty
         if not content or not content.strip():
             if existing and existing.strip():
@@ -151,7 +164,9 @@ def execute_structured_write(
         if field == "db_mutation_profile" and content and content.strip():
             from yoke_core.domain.db_mutation_profile import check_model_name_frozen
 
-            current_attestation = _query_item_field(conn, item_id, "db_compatibility_attestation")
+            current_attestation = _query_item_field(
+                conn, item_id, "db_compatibility_attestation"
+            )
             current_profile = _query_item_field(conn, item_id, "db_mutation_profile")
             freeze_err = check_model_name_frozen(
                 current_attestation, current_profile, content
@@ -164,7 +179,9 @@ def execute_structured_write(
                 check_authored_fields_frozen,
             )
 
-            current_attestation = _query_item_field(conn, item_id, "db_compatibility_attestation")
+            current_attestation = _query_item_field(
+                conn, item_id, "db_compatibility_attestation"
+            )
             freeze_err = check_authored_fields_frozen(current_attestation, content)
             if freeze_err:
                 return {"success": False, "error": freeze_err}
@@ -191,6 +208,7 @@ def execute_structured_write(
         # Structured-field writes are real item activity for board-activity
         # semantics.
         from yoke_core.domain.item_activity import touch_item_activity
+
         touch_item_activity(conn, item_id=item_id)
         conn.commit()
     finally:
@@ -201,7 +219,14 @@ def execute_structured_write(
 
     # Render body from structured fields
     if not _rendering._render_body(item_id, out):
-        return {"success": False, "error": "body render failed"}
+        return {
+            "success": False,
+            "error": f"body render failed after committed write to {public_ref} {field}; "
+            "inspect the stored field and repair rendering; do not replay the write",
+            "committed": True,
+            "item_id": item_id,
+            "field": field,
+        }
 
     # GitHub sync body.  ``_sync_body`` now returns ``(success, mode)``;
     # we destructure so the new ``body_sync_mode`` / ``body_budget_degraded``
@@ -211,7 +236,10 @@ def execute_structured_write(
     body_success, body_sync_mode = _rendering._sync_body(item_id, out)
     body_sync_elapsed_ms = int((perf_counter() - sync_started) * 1000)
     if not body_success:
-        sync_warning = "sync_body failed"
+        sync_warning = (
+            f"sync_body failed after committed write to {public_ref} {field}; "
+            "inspect the stored field and retry GitHub sync, not the write"
+        )
         _rendering._record_sync_failure(item_id, "body", "sync_body failed")
 
     body_budget_degraded = body_sync_mode == "compact"
