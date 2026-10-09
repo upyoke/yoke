@@ -22,12 +22,56 @@ response — never a stand-in for "the call failed for some other reason"
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
+import re
 from typing import Any, Mapping
 import urllib.error
+import urllib.parse
 import urllib.request
+
+from yoke_harness.session_relay_failure_log import FailureReporter
 
 
 PLAN_LIMIT_PROBE_TIMEOUT_SECONDS = 8.0
+_failures = FailureReporter(interval_seconds=0)
+
+
+def _credential_header(name: str) -> bool:
+    key = name.lower()
+    return key.endswith(("token", "key")) or any(
+        word in key for word in ("auth", "cookie", "credential", "account")
+    )
+
+
+def _http_failure(exc: urllib.error.HTTPError, headers: Mapping[str, str]) -> str:
+    """Record response evidence only; Retry-After never changes probe timing."""
+    reason = "stale_credential" if exc.code == 401 else f"http_{exc.code}"
+    parts = [reason]
+    if exc.code == 401:
+        parts.append("http_401")
+    for name, value in exc.headers.items() if exc.headers else ():
+        key = name.lower()
+        if key != "retry-after" and "ratelimit" not in key.replace("-", ""):
+            continue
+        if _credential_header(key):
+            continue
+        safe = " ".join(str(value).split())
+        for request_name, secret in headers.items():
+            if not _credential_header(request_name):
+                continue
+            for candidate in (secret, secret.removeprefix("Bearer ")):
+                if candidate:
+                    safe = safe.replace(candidate, "[redacted]")
+        safe = re.sub(r"(?i)bearer\s+\S+", "[redacted]", safe)
+        safe = safe.replace("|", "/").replace("+", " ")[:128]
+        if key == "retry-after" and safe.isdigit():
+            safe += "s"
+        parts.append(f"{key} {safe}")
+    parts.append(f"at {datetime.now(timezone.utc).isoformat(timespec='seconds')}")
+    detail = ", ".join(parts)
+    host = urllib.parse.urlsplit(exc.url).hostname or "vendor"
+    _failures.failed(f"{host} plan-limit usage-check read", detail)
+    return detail
 
 
 def plan_limit_http_json(
@@ -47,9 +91,7 @@ def plan_limit_http_json(
         ) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        if exc.code == 401:
-            return "stale_credential"
-        return f"http_{exc.code}"
+        return _http_failure(exc, headers)
     except (OSError, json.JSONDecodeError, UnicodeDecodeError, TimeoutError) as exc:
         return f"http_read_failed_{type(exc).__name__}"
     return payload if isinstance(payload, dict) else "http_body_not_an_object"

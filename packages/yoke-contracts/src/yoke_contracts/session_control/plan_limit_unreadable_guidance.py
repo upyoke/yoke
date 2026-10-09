@@ -51,7 +51,11 @@ def unreadable_guidance(reason: str | None) -> str:
     wins: a credential problem on either source needs a sign-in whatever
     the other source said, and a throttle outranks a plain failed read.
     """
-    parts = [part for part in str(reason or "").split(REASON_SEPARATOR) if part]
+    parts = [
+        part.split(",", 1)[0].strip()
+        for part in str(reason or "").split(REASON_SEPARATOR)
+        if part
+    ]
     if any(_is_credential(part) for part in parts):
         return CREDENTIAL_GUIDANCE
     if _THROTTLED_REASON in parts:

@@ -57,7 +57,9 @@ def test_a_401_is_named_a_stale_credential(monkeypatch) -> None:
         raise _http_error(401)
 
     _install_urlopen(monkeypatch, _raise)
-    assert plan_limit_http_json("https://x", headers={}) == "stale_credential"
+    assert str(plan_limit_http_json("https://x", headers={})).startswith(
+        "stale_credential, http_401, at "
+    )
 
 
 def test_another_http_status_keeps_its_own_code_instead_of_unsupported(
@@ -67,7 +69,9 @@ def test_another_http_status_keeps_its_own_code_instead_of_unsupported(
         raise _http_error(503)
 
     _install_urlopen(monkeypatch, _raise)
-    assert plan_limit_http_json("https://x", headers={}) == "http_503"
+    assert str(plan_limit_http_json("https://x", headers={})).startswith(
+        "http_503, at "
+    )
 
 
 def test_a_transport_failure_keeps_the_exception_class_that_raised(
