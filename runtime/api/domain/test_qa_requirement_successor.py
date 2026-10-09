@@ -182,7 +182,6 @@ def test_repaired_admitted_chain_allows_source_retirement(test_db):
         deliver_with_failing_admitted_copy,
     )
     from yoke_core.domain.qa_requirement_supersession import supersede_requirement
-    from yoke_core.domain.qa_run_verdict_record import insert_qa_run
 
     item_id = 9812
     _insert_dash(test_db, item_id=item_id, status="release")
@@ -191,12 +190,7 @@ def test_repaired_admitted_chain_allows_source_retirement(test_db):
     )
     point_at_replacement(test_db, old, middle)
     test_db.commit()
-    insert_qa_run(
-        test_db,
-        qa_requirement_id=middle,
-        verdict="fail",
-        started_at="2026-10-09T00:00:00Z",
-    )
+    record_case_verdict(test_db, middle, "fail", evidence=True)
     final = corrected_case(test_db, failed_id=middle, case_key="terminal-correction")
     declare(test_db, middle, "terminal-correction", [final])
     test_db.commit()
