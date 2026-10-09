@@ -315,3 +315,8 @@ payloads format only the declared landing clock. Queue observations outrank Git
 committer clocks, with microseconds preserved. Unknown queue observations are
 null; supplied malformed clocks refuse before recording. Additive GitHub binding
 convergence declares the same native last-sync clock type as fresh birth.
+
+Item mutation preparation retains aware instants. Item SQL writers derive their
+clock-field ownership from the finite stored roster and bind through the native
+adapter; nullable declared clocks stay null and malformed supplied clocks refuse
+before the item write. Bulk updates retain their transaction and binding guards.

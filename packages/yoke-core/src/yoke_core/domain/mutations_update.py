@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain.workflow_definition_builders import (
@@ -91,7 +91,7 @@ def prepare_update(
     gate = gate or GateContext()
     field_writes: Dict[str, Any] = {}
     events: List[MutationEvent] = []
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = utc_now()
 
     # --- Field-specific validation ---
 

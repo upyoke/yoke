@@ -42,12 +42,15 @@ def apply_field_validators(field: str, content: str) -> str:
 
     if field == "db_mutation_profile":
         from yoke_core.domain.db_mutation_profile import validate_json_string
+
         return validate_json_string(content)
     if field == "db_compatibility_attestation":
         from yoke_core.domain.db_compatibility_attestation import validate_json_string
+
         return validate_json_string(content)
     if field == "architecture_impact":
         from yoke_core.domain.architecture_impact import validate_value
+
         return validate_value(content)
     return content
 
@@ -147,3 +150,20 @@ __all__ = [
     "check_shrinkage_guard",
     "check_freeze_guards",
 ]
+
+
+_WORKFLOW_CONTROLLED_FIELDS = frozenset(
+    {"status", "workflow_id", "workflow_posture", "workflow_version_id"}
+)
+_WORKFLOW_BINDING_FIELDS = frozenset({"deployment_flow"})
+
+
+def _reject_workflow_controlled_fields(fields: set[str]) -> None:
+    denied = sorted(fields & _WORKFLOW_CONTROLLED_FIELDS)
+    if not denied:
+        return
+    raise ValueError(
+        f"Field(s) {', '.join(denied)} require a canonical workflow surface; "
+        "use lifecycle.transition.execute for status or "
+        "workflows.item-version.migrate for workflow pins."
+    )

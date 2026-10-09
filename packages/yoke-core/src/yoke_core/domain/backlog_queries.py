@@ -8,7 +8,8 @@ and ``backlog_rendering``.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now
 from pathlib import Path
 from typing import Any, Optional
 
@@ -106,8 +107,8 @@ def _assert_write_db_ready(db_path: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _now_iso() -> datetime:
+    return utc_now()
 
 
 def _zero_pad(n: int) -> str:

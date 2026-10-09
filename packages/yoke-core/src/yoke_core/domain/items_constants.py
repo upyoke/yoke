@@ -9,7 +9,8 @@ that :mod:`yoke_contracts.items_projection` defines. The public façade
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now
 from typing import Any, Optional
 
 # Canonical column order for pipe-delimited row output ("body" is a
@@ -87,9 +88,9 @@ INTEGER_FIELDS = frozenset(
 # ---------------------------------------------------------------------------
 
 
-def _now_utc() -> str:
+def _now_utc() -> datetime:
     """Return current UTC timestamp in ISO 8601 format."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return utc_now()
 
 
 def _coalesce(value: Any, default: str = "") -> str:
