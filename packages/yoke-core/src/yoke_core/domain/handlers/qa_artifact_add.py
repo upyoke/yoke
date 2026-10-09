@@ -118,7 +118,12 @@ def _present(payload: dict[str, Any], key: str) -> bool:
 
 
 def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
-    from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
+    from yoke_core.domain.db_helpers import (
+        connect,
+        instant_parameter,
+        utc_now,
+        query_one,
+    )
     from yoke_core.domain.qa_artifact_handle import (
         ArtifactHandleError,
         parse_handle,
@@ -318,7 +323,7 @@ def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
                     content_type,
                     handle_text,
                     metadata,
-                    iso8601_now(),
+                    instant_parameter(conn, utc_now()),
                 ),
             )
             artifact_id = int(cur.fetchone()[0])

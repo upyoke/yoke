@@ -73,7 +73,7 @@ def handle_workflows_canon_follow_set(
         payload = WorkflowCanonFollowSetRequest.model_validate(request.payload or {})
     except ValueError as exc:
         return _error("payload_invalid", str(exc), "$.payload")
-    from yoke_core.domain.db_helpers import connect, iso8601_now
+    from yoke_core.domain.db_helpers import connect, instant_parameter, utc_now
     from yoke_core.domain.workflow_registry_sql import marker
 
     with connect() as conn:
@@ -96,7 +96,7 @@ def handle_workflows_canon_follow_set(
         conn.execute(
             f"UPDATE workflows SET canon_follow = {bind}, "
             f"updated_at = {bind} WHERE id = {bind}",
-            (payload.follow, iso8601_now(), payload.workflow_id),
+            (payload.follow, instant_parameter(conn, utc_now()), payload.workflow_id),
         )
         conn.commit()
     return HandlerOutcome(

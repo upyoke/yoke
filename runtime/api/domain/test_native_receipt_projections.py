@@ -282,3 +282,27 @@ def test_overview_native_latches_and_machine_order_keep_exact_facts(
     assert first[universe_key] == STAMP
     assert overview_activation_read.latch_activations(test_db, {}) == first
     assert temporal_wire(first)[universe_key] == format_instant(STAMP)
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_machine_reports_return_the_same_native_fact_as_storage(
+    test_db, monkeypatch, zone
+):
+    from yoke_core.domain import harness_machine_state
+
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    monkeypatch.setattr(harness_machine_state, "utc_now", lambda: STAMP)
+    reported = harness_machine_state.upsert_harness_machine_reports(
+        test_db,
+        project_id=1,
+        machine_id="11111111-1111-4111-8111-111111111111",
+        reports=[{"harness_id": "codex"}],
+    )
+    assert reported[0]["reported_at"] == STAMP
+    reread = harness_machine_state.read_harness_machine_reports(test_db)
+    assert reread == reported
+    assert temporal_wire(reported)[0]["reported_at"] == format_instant(STAMP)
+    stored = test_db.execute(
+        "SELECT reported_at FROM harness_machine_reports"
+    ).fetchone()[0]
+    assert stored == STAMP
