@@ -19,13 +19,14 @@ A source that cannot answer names the reason and recovery.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional, Protocol, Sequence
 
 from yoke_core.domain import checkout_ancestry
+from yoke_core.domain.commit_evidence_instant import commit_instant
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
-
 
 SOURCE_CHECKOUT = "checkout"
 SOURCE_REPOSITORY_PROVIDER = "repository_provider"
@@ -74,8 +75,8 @@ class CarriedWorkSource(Protocol):
     def commit_message(self, sha: str) -> str:
         """Return one commit's full message."""
 
-    def commit_time(self, sha: str) -> str:
-        """Return one commit's committer time as an ISO-8601 string."""
+    def commit_time(self, sha: str) -> datetime | None:
+        """Return a native committer instant, or None for unusable evidence."""
 
     def commit_author(self, sha: str) -> str:
         """Return the author name recorded on the commit."""
@@ -227,8 +228,8 @@ class LocalCheckoutSource:
     def commit_message(self, sha: str) -> str:
         return self._fact(sha)[1]
 
-    def commit_time(self, sha: str) -> str:
-        return self._fact(sha)[0]
+    def commit_time(self, sha: str) -> datetime | None:
+        return commit_instant(self._fact(sha)[0])
 
     def commit_author(self, sha: str) -> str:
         return self._fact(sha)[2]

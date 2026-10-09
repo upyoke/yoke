@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import deployment_run_carried_work_repository as provider
 from yoke_core.domain.deployment_run_carried_work_source import (
     RELATION_AHEAD,
@@ -110,6 +111,9 @@ def test_the_first_parent_range_is_walked_out_of_the_compared_graph(
     # as `rev-list --first-parent` excludes it in a checkout.
     assert commits == (MERGE, TIP)
     assert source.commit_author(TIP) == "A contributor"
+    assert source.commit_time(TIP) == parse_instant("2026-09-15T00:00:00Z")
+    assert source._graph[TIP]["committed_at"] == "2026-09-15T00:00:00Z"
+    assert source.commit_time("e" * 40) is None
 
 
 def test_a_full_sha_resolves_without_spending_a_request(

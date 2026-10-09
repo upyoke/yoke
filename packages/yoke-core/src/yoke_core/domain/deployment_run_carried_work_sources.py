@@ -12,11 +12,12 @@ binds is carried as a commit made outside Yoke, without blocking the release.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any, Mapping, Sequence
 
 from yoke_contracts.public_ref import format_item_ref
-from yoke_contracts.timestamps import InvalidInstant, parse_instant
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.commit_evidence_instant import commit_instant as _commit_instant
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
 from yoke_core.domain.json_helper import loads_text
 from yoke_core.domain.item_merge_receipt_document import merge_identities
@@ -200,16 +201,6 @@ def _resolve_recorded_evidence(
                     _cell(row, "item_id", 0),
                     known_items,
                 )
-
-
-def _commit_instant(value: Any) -> datetime | None:
-    """Missing or invalid external commit evidence cannot identify a landing."""
-    if value is None or value == "":
-        return None
-    try:
-        return parse_instant(value)
-    except InvalidInstant:
-        return None
 
 
 def _resolve_item_metadata(

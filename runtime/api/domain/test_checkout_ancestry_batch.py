@@ -5,6 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import checkout_ancestry
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.deployment_run_carried_work_source import LocalCheckoutSource
@@ -50,7 +51,9 @@ def _commit(repo: Path, name: str) -> str:
     return _git(repo, "rev-parse", "HEAD")
 
 
-def _walk(repo: Path, lane: str, *, base: str, head: str, commits: tuple[str, ...]) -> str:
+def _walk(
+    repo: Path, lane: str, *, base: str, head: str, commits: tuple[str, ...]
+) -> str:
     if git.is_ancestor(str(repo), lane, base):
         return ""
     if not git.is_ancestor(str(repo), lane, head):
@@ -69,7 +72,16 @@ def test_carrying_commit_matches_per_commit_is_ancestor(tmp_path: Path) -> None:
     feature = _commit(repo, "feature")
     _git(repo, "checkout", "-q", "main")
     mid = _commit(repo, "mid")
-    _git(repo, "-c", "commit.gpgsign=false", "merge", "-q", "--no-ff", "--no-edit", "lane")
+    _git(
+        repo,
+        "-c",
+        "commit.gpgsign=false",
+        "merge",
+        "-q",
+        "--no-ff",
+        "--no-edit",
+        "lane",
+    )
     merge = _git(repo, "rev-parse", "HEAD")
     head = _commit(repo, "tip")
     source = LocalCheckoutSource(str(repo))
@@ -81,6 +93,9 @@ def test_carrying_commit_matches_per_commit_is_ancestor(tmp_path: Path) -> None:
     assert source.contains_commit(head, feature) is True
     assert source.contains_commit(base, feature) is False
     assert source.commit_message(feature) == "feature"
+    raw_time = _git(repo, "show", "-s", "--format=%cI", feature)
+    assert source.commit_time(feature) == parse_instant(raw_time)
+    assert source._fact(feature)[0] == raw_time
 
 
 def test_containment_git_does_not_scale_with_candidate_count(
@@ -105,7 +120,9 @@ def test_containment_git_does_not_scale_with_candidate_count(
     for lane in lanes:
         source.carrying_commit(lane, base=base, head=head, commits=commits)
         source.contains_commit(head, lane)
-    ancestor_calls = [args for args in recorded if args[:2] == ("merge-base", "--is-ancestor")]
+    ancestor_calls = [
+        args for args in recorded if args[:2] == ("merge-base", "--is-ancestor")
+    ]
     parent_calls = [
         args for args in recorded if args[:1] == ("rev-list",) and "--parents" in args
     ]
