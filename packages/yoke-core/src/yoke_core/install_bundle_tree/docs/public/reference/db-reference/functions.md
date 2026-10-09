@@ -250,7 +250,6 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 }
 ```
 ### `lifecycle.*` — typed lifecycle transitions
-
 | Function id | claim_required_kind | Handler |
 |---|---|---|
 | `lifecycle.transition` | `"item"` | `yoke_core.domain.handlers.items_scalar.lifecycle_transition` — enforces the pinned definition and its target-stage gates. |
