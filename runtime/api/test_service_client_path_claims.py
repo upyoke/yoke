@@ -33,6 +33,11 @@ from runtime.api.fixtures.file_test_db import (
     connect_test_db,
     init_test_db,
 )
+from yoke_core.domain.actor_permissions import (
+    ROLE_ADMIN,
+    grant_actor_project_role,
+    seed_roles_and_permissions,
+)
 from yoke_core.api.service_client_path_claims import (
     PATH_CLAIMS_COMMANDS,
     cmd_path_claim_get,
@@ -89,6 +94,10 @@ def path_claims_db(tmp_path, monkeypatch):
                 "'2026-05-01T00:00:00Z')"
             )
             conn.commit()
+            seed_roles_and_permissions(conn)
+            grant_actor_project_role(
+                conn, actor_id=2, project_id=1, role_name=ROLE_ADMIN
+            )
             seed_session(conn, "override-steering", 1)
             acquire_steering(conn, "override-steering", 1)
             monkeypatch.setenv("YOKE_SESSION_ID", "override-steering")
@@ -189,7 +198,7 @@ class TestOverrideRejectionDistinct:
         assert code1 != code2
         assert {code1, code2} == {"ACTOR_REASON_REQUIRED", "HOOK_CONTEXT_REJECTED"}
 
-    def test_creation_against_unresolved_claim_refuses_steering_authority(
+    def test_creation_against_unresolved_claim_refuses_project_authority(
         self,
         path_claims_db,
     ):
@@ -207,8 +216,8 @@ class TestOverrideRejectionDistinct:
         )
         assert rc != 0
         payload = json.loads(output)
-        assert payload["code"] == "STEERING_SEAT_REQUIRED"
-        assert "yoke say --steering" in payload["message"]
+        assert payload["code"] == "PERMISSION_DENIED"
+        assert "could not resolve a target project" in payload["message"]
 
     def test_successful_override_returns_success_payload(
         self,
