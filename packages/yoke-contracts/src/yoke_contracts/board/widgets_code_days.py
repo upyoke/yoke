@@ -27,7 +27,9 @@ def _scope_project_ids(db: BoardDBLike, scope: str) -> List[int]:
 
 
 def code_lines_by_day(
-    db: BoardDBLike, scope: str, days: int,
+    db: BoardDBLike,
+    scope: str,
+    days: int,
 ) -> Dict[str, int]:
     """Per-day lines_changed from ``project_code_days``."""
 
@@ -35,7 +37,9 @@ def code_lines_by_day(
 
 
 def code_commits_by_day(
-    db: BoardDBLike, scope: str, days: int,
+    db: BoardDBLike,
+    scope: str,
+    days: int,
 ) -> Dict[str, int]:
     """Per-day commit_count from ``project_code_days``."""
 
@@ -43,7 +47,10 @@ def code_commits_by_day(
 
 
 def _series(
-    db: BoardDBLike, scope: str, days: int, column: str,
+    db: BoardDBLike,
+    scope: str,
+    days: int,
+    column: str,
 ) -> Dict[str, int]:
     project_ids = _scope_project_ids(db, scope)
     if not project_ids:
@@ -56,15 +63,20 @@ def _series(
         f"AND day >= {days_ago_text_expr(days)} "
         "GROUP BY day"
     )
+    params = tuple(project_ids)
+    probe = getattr(db, "has_query_quiet", None)
+    if callable(probe) and not probe(sql, params):
+        return {}
     counts: Dict[str, int] = {}
-    for row in db.query_quiet(sql, tuple(project_ids)):
+    for row in db.query_quiet(sql, params):
         if row and row[0] is not None:
             counts[str(row[0])] = int(row[1] or 0)
     return counts
 
 
 def code_commit_days_all_time(
-    db: BoardDBLike, scope: str,
+    db: BoardDBLike,
+    scope: str,
 ) -> Dict[str, int]:
     """All-time commit_count by day (lifetime / streak union)."""
 

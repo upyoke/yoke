@@ -2,6 +2,8 @@
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.fixtures.pg_testdb import test_database
 from runtime.api.domain.test_qa_plan_standalone_execution import _begin, _plan
 from yoke_core.domain import qa_standalone_execution as standalone
@@ -43,14 +45,16 @@ def test_same_second_new_execution_without_requirements_is_latest(
 ):
     identifiers = iter(("f" * 32, "1" * 32))
     monkeypatch.setattr(standalone, "uuid4", lambda: next(identifiers))
-    monkeypatch.setattr(standalone, "iso8601_now", lambda: "2026-09-30T12:00:00Z")
+    monkeypatch.setattr(
+        standalone, "utc_now", lambda: parse_instant("2026-09-30T12:00:00Z")
+    )
     with test_database() as conn:
         plan = _plan(conn)
         old = (
             _begin(conn)
             if older_has_requirements
             else _empty_execution(
-                conn, plan["id"], "f" * 32, "active", standalone.iso8601_now()
+                conn, plan["id"], "f" * 32, "active", standalone.utc_now()
             )
         )
         finish_plan_execution(conn, old, state="aborted", reason="restart")
@@ -99,3 +103,26 @@ def test_live_owner_precedes_later_terminal_history():
             latest_plan_execution(conn, standalone_plan_id=plan["id"])["id"]
             == live["id"]
         )
+
+
+def test_same_second_abort_then_restart_resumes_the_new_live_owner(monkeypatch):
+    from yoke_core.domain import qa_standalone_execution as standalone
+    from yoke_core.domain.qa_plan_execution_continuation import latest_plan_execution
+
+    identifiers = iter(("f" * 32, "1" * 32, "2" * 32))
+    monkeypatch.setattr(standalone, "uuid4", lambda: next(identifiers))
+    monkeypatch.setattr(
+        standalone, "utc_now", lambda: parse_instant("2026-09-30T12:00:00Z")
+    )
+    with test_database() as conn:
+        _plan(conn)
+        old = _begin(conn)
+        finish_plan_execution(conn, old, state="aborted", reason="first")
+        current = _begin(conn)
+        resumed = _begin(conn)
+        assert resumed["id"] == current["id"]
+        finish_plan_execution(conn, current, state="aborted", reason="second")
+        latest = latest_plan_execution(
+            conn, standalone_plan_id=current["standalone_plan_id"]
+        )
+        assert latest["id"] == current["id"]

@@ -124,7 +124,11 @@ def _project_age_days(db: BoardDBLike, scope: str) -> Tuple[Optional[str], int]:
     """Return ``(first_iso, project_days)`` for *scope*'s project age."""
     pf, params = _project_filter(scope)
     first_day = day_from_timestamp_expr(f"MIN({timestamp_expr('created_at')})")
-    first = db.scalar(f"SELECT {first_day} FROM items WHERE 1=1 {pf}", params)
+    sql = f"SELECT {first_day} FROM items WHERE 1=1 {pf}"
+    probe = getattr(db, "has_scalar", None)
+    if callable(probe) and not probe(sql, params):
+        return None, 0
+    first = db.scalar(sql, params)
     if not first:
         return None, 0
     try:

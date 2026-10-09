@@ -107,3 +107,5 @@ GitHub token facts retain native aware issued/expiry instants through authorizat
 Board pricing binds native offered instants; session durations parse owned start/end facts with explicit null absence. New typed board datetime values use fixed-six UTC, and archived typed query parameters normalize only in the replay lookup without modifying the supplied payload or its durable bytes. Calendar date tags remain calendar values.
 
 QA requirement creation, waivers, plan snapshots, materialization, rematerialization, standalone executions, and new review audit/bundle rows generate aware native facts. Shared insert constructors own backend adaptation; direct SQL writers use the existing instant_parameter only at binding. Original capture start/proof values and immutable review bundle documents remain unchanged.
+
+Board replay probes coverage of native aggregate and scalar reads before rendering them. An archived payload without the current figure omits that figure rather than executing a query it never recorded. The version-2 baseline fingerprints and archived payload bytes remain frozen; live collection still records the current native SQL plan.

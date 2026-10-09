@@ -285,6 +285,10 @@ class ReplayBoardDB:
         """Return whether a payload can serve a quiet query."""
         return entry_key("query_quiet", sql, params) in self._lookup
 
+    def has_scalar(self, sql: str, params: Optional[Sequence[Any]] = None) -> bool:
+        """Return whether the archived payload owns this scalar figure."""
+        return entry_key("scalar", sql, params) in self._lookup
+
     def scalar(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
         return self._serve("scalar", sql, params)
 
