@@ -67,7 +67,11 @@ _EPILOG = (
     "command with --reconcile --source operator and the unique terminal "
     "requirement. Divergent terminals, cycles, missing rows or incompatible "
     "scopes refuse before writing. The repair preserves intermediate rows, "
-    "captures and prior rationale, and appends the verified actor and reason."
+    "captures and prior rationale, and appends the verified actor, seat claim, "
+    "scope and reason. Operator-sourced supersession requires a live operator "
+    "session or steering seat covering the requirement, without the item claim. "
+    "The item claim alone is insufficient. The holder is notified and retains "
+    "its claim; the receipt reports notice delivery and any recovery."
 )
 
 
@@ -87,6 +91,11 @@ def _write_supersede_result(
         # Printed here rather than left in the envelope: this is the only
         # moment the operator holds the corrected configuration, and the
         # source row is the only thing that makes the correction stick.
+        repair_notice = result.get("repair_notice")
+        if repair_notice:
+            print(f"Holder notice: {repair_notice['delivery']}", file=stdout)
+            if repair_notice.get("recovery"):
+                print(repair_notice["recovery"], file=_stderr)
         notice = result.get("next_admission_notice")
         if notice:
             print(f"Next release: {notice}", file=stdout)

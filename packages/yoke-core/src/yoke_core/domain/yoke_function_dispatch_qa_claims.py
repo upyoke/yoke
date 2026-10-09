@@ -129,6 +129,23 @@ def qa_subject_claim_verdict(
         # Project permission is checked separately; the handler binds every
         # existing cursor to this project, actor and owning session.
         return True, None, None
+    if (
+        request.function == "qa.requirement.supersede"
+        and payload.get("source") == "operator"
+        and target.qa_requirement_id is not None
+    ):
+        from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain.qa_requirement_successor import (
+            QaSuccessorError,
+            authorize_reconciliation,
+        )
+
+        with connect() as conn:
+            try:
+                authorize_reconciliation(conn, request, target.qa_requirement_id)
+            except QaSuccessorError as exc:
+                return False, "QA_RECONCILIATION_AUTHORITY_REQUIRED", str(exc)
+        return True, None, None
     if target.kind == "qa_requirement" and target.qa_requirement_id is not None:
         from yoke_core.domain.db_helpers import connect
         from yoke_core.domain.schema_common import _column_exists
