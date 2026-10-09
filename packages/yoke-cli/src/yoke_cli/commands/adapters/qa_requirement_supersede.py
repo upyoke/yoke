@@ -25,7 +25,7 @@ QA_REQUIREMENT_SUPERSEDE_USAGE = (
     "yoke qa requirement supersede --requirement-id N "
     "--superseded-by-requirement-id N "
     "(--rationale TEXT | --content-file PATH | --stdin) "
-    "[--declare-replacement] [--source operator|agent] [--session-id S] [--json]"
+    "[--declare-replacement | --reconcile] [--source operator|agent] [--session-id S] [--json]"
 )
 
 _EPILOG = (
@@ -60,7 +60,14 @@ _EPILOG = (
     "('yoke qa requirement add --item ...'), then supersede the source with "
     "it. Neither item row ever executes, so this needs one admitted copy of "
     "the source already superseded by a passing run case; that case answers "
-    "its own run, and later releases admit only the corrected requirement."
+    "its own run, and later releases admit only the corrected requirement. "
+    "Successor links must converge on the named terminal case; supersession "
+    "updates an existing replacement link to that same case. To repair "
+    "inconsistent links, an operator or project steering holder runs this "
+    "command with --reconcile --source operator and the unique terminal "
+    "requirement. Divergent terminals, cycles, missing rows or incompatible "
+    "scopes refuse before writing. The repair preserves intermediate rows, "
+    "captures and prior rationale, and appends the verified actor and reason."
 )
 
 
@@ -138,6 +145,11 @@ def qa_requirement_supersede(args: List[str]) -> int:
         action="store_true",
         help="Link a pending corrected direct case before its pass; the scoped plan runner executes it.",
     )
+    parser.add_argument(
+        "--reconcile",
+        action="store_true",
+        help="Operator-authorized repair of links converging on the named terminal; preserves correction history.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_SUPERSEDE_USAGE)
@@ -164,6 +176,7 @@ def qa_requirement_supersede(args: List[str]) -> int:
             "rationale": rationale,
             "source": parsed.source,
             "declare_replacement": parsed.declare_replacement,
+            "reconcile": parsed.reconcile,
         },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,

@@ -138,3 +138,25 @@ when any capture evidence changes or the attempt becomes unfinished.
 Generic section upsert, append, delete, and full-field replacement cannot
 author or replace the reserved `Simulation Triage` receipt namespace;
 replay preserves the original audit and refuses a changed capture.
+
+## Successor consistency and repair
+
+Supersession validates the existing correction chain before writing. When a
+replacement chain ends at the named passing case, the superseded row's existing
+replacement link moves to that same terminal case. Intermediate requirements,
+captures and correction history remain available. A different terminal, missing
+row, cycle or incompatible obligation refuses as `replacement_graph_invalid`.
+
+For inconsistent links whose branches both reach the same terminal, an operator
+or project steering holder repairs through the existing supersede surface:
+
+```text
+yoke qa requirement supersede --requirement-id OLD --superseded-by-requirement-id TERMINAL --reconcile --source operator --rationale "Why this terminal answers the obligation"
+```
+
+Inspect the chain and name its unique terminal before running this command.
+The repair requires the ordinary same-scope passing proof and QA subject claim,
+checks verified operator or steering authority, retains the prior rationale and
+supersession time, and appends the actor, previous links and repair rationale.
+Ambiguous branches refuse before writing; ask the operator to resolve the
+intended obligation instead of guessing a successor.

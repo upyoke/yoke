@@ -97,24 +97,21 @@ def point_at_replacement(conn: Any, failed_id: int, replacement_id: int) -> None
             "replacement_graph_invalid: missing or self-linked requirement"
         )
     failed = _row(conn, failed_id)
-    seen = {int(failed_id)}
-    successor_id = int(replacement_id)
-    while successor_id:
-        if successor_id in seen:
-            raise QaReplacementError(
-                "replacement_graph_invalid: replacement cycle; correct the declaration"
-            )
-        seen.add(successor_id)
-        successor = _row(conn, successor_id)
-        if successor is None or same_scope(failed, successor):
-            raise QaReplacementError(
-                "replacement_graph_invalid: missing or incompatible successor; bind the same scope and target"
-            )
-        successor_id = int(
-            successor.get("replacement_requirement_id")
-            or successor.get("superseded_by_requirement_id")
-            or 0
+    from yoke_core.domain.qa_requirement_successor import (
+        QaSuccessorError,
+        validate_successor,
+    )
+
+    try:
+        # Validate both links on every successor, rather than silently choosing one.
+        validate_successor(
+            conn,
+            {**failed, "replacement_requirement_id": replacement_id},
+            replacement_id,
+            require_terminal=False,
         )
+    except QaSuccessorError as exc:
+        raise QaReplacementError(str(exc)) from exc
     conn.execute(
         "UPDATE qa_requirements SET replacement_requirement_id=%s "
         "WHERE id=%s "
