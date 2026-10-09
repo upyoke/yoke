@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.fixtures.backlog_inserts import (
     _ensure_project_id,
     insert_deployment_run,
@@ -44,7 +46,9 @@ def db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 
 def _project_id(conn, project: str) -> int:
-    return int(_ensure_project_id(conn, project, ts="2026-01-01T00:00:00Z"))
+    return int(
+        _ensure_project_id(conn, project, ts=parse_instant("2026-01-01T00:00:00Z"))
+    )
 
 
 def _environment_id(conn, project_id: int, name: str) -> int:
@@ -93,11 +97,17 @@ def test_only_succeeded_persistent_runs_of_this_project_are_asked(db):
         _run(conn, "run-carrier", flow="prod-flow", environment_id=home)
         _run(conn, "run-preview", flow="preview-flow", target_tier="ephemeral")
         _run(
-            conn, "run-failed", flow="prod-flow", status="failed",
+            conn,
+            "run-failed",
+            flow="prod-flow",
+            status="failed",
             environment_id=home,
         )
         _run(
-            conn, "run-elsewhere", project="platform", flow="platform-flow",
+            conn,
+            "run-elsewhere",
+            project="platform",
+            flow="platform-flow",
             environment_id=elsewhere,
         )
         conn.commit()
@@ -115,11 +125,17 @@ def test_any_flow_of_this_project_qualifies(db):
         project_id = _project_id(conn, "yoke")
         home = _environment_id(conn, project_id, "prod")
         _run(
-            conn, "run-a", flow="prod-flow", environment_id=home,
+            conn,
+            "run-a",
+            flow="prod-flow",
+            environment_id=home,
             completed_at="2026-01-02T00:00:00Z",
         )
         _run(
-            conn, "run-b", flow="hotfix-flow", environment_id=home,
+            conn,
+            "run-b",
+            flow="hotfix-flow",
+            environment_id=home,
             completed_at="2026-01-03T00:00:00Z",
         )
         conn.commit()

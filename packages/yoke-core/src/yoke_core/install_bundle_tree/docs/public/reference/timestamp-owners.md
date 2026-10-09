@@ -278,3 +278,8 @@ the same invariant behavior. Minimal supporting schemas use native clock types.
 Scoped deployment fixtures bind native run/member/environment clocks and keep
 frozen requirement snapshots unchanged; verdict/artifact fixture clocks are
 parsed once and adapt only at their SQL bindings.
+
+Bound-release and persistent-release fixture callers parse their deterministic
+project seed clocks before invoking the native project SQL owner. Shared
+cross-project release clocks stay native through site/environment seeding;
+consumer authorization and bound-pin diagnoses keep their existing semantics.
