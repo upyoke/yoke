@@ -49,15 +49,15 @@ DEPLOYMENT_PIPELINE_SCHEMA = """
         release_lineage TEXT,
         status TEXT DEFAULT 'created',
         current_stage TEXT,
-        created_at TEXT,
-        started_at TEXT,
-        completed_at TEXT,
+        created_at TIMESTAMPTZ,
+        started_at TIMESTAMPTZ,
+        completed_at TIMESTAMPTZ,
         created_by TEXT DEFAULT 'operator'
     );
     CREATE TABLE deployment_run_items (
         run_id TEXT,
         item_id INTEGER,
-        added_at TEXT,
+        added_at TIMESTAMPTZ,
         PRIMARY KEY (run_id, item_id)
     );
     CREATE TABLE deployment_run_qa (
@@ -67,7 +67,7 @@ DEPLOYMENT_PIPELINE_SCHEMA = """
         source TEXT DEFAULT 'flow_default',
         blocking INTEGER DEFAULT 1,
         status TEXT DEFAULT 'pending',
-        updated_at TEXT,
+        updated_at TIMESTAMPTZ,
         UNIQUE(run_id, check_name)
     );
     CREATE TABLE qa_requirements (
@@ -87,10 +87,10 @@ DEPLOYMENT_PIPELINE_SCHEMA = """
         qa_kind TEXT,
         verdict TEXT,
         raw_result TEXT,
-        completed_at TEXT,
+        completed_at TIMESTAMPTZ,
         duration_ms INTEGER,
-        created_at TEXT,
-        started_at TEXT
+        created_at TIMESTAMPTZ,
+        started_at TIMESTAMPTZ
     );
     CREATE TABLE qa_plan_review_verdicts (
         requirement_id INTEGER,
@@ -109,7 +109,7 @@ DEPLOYMENT_PIPELINE_SCHEMA = """
         event_name TEXT,
         event_type TEXT,
         source_type TEXT,
-        created_at TEXT,
+        created_at TIMESTAMPTZ,
         client_timing_id TEXT,
         envelope TEXT
     );

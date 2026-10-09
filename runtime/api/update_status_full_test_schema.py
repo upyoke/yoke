@@ -20,8 +20,8 @@ CREATE TABLE IF NOT EXISTS sprints (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     status TEXT NOT NULL DEFAULT 'open',
-    created_at TEXT NOT NULL,
-    activated_at TEXT,
+    created_at TIMESTAMPTZ NOT NULL,
+    activated_at TIMESTAMPTZ,
     closed_at TEXT
 );
 CREATE TABLE IF NOT EXISTS items (
@@ -39,9 +39,9 @@ CREATE TABLE IF NOT EXISTS items (
     track_seq INTEGER,
     github_issue TEXT,
     deployed_to TEXT,
-    merged_at TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
+    merged_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
     source TEXT NOT NULL DEFAULT '2',
     owner TEXT,
     project_id INTEGER NOT NULL DEFAULT 1,
@@ -55,9 +55,9 @@ CREATE TABLE IF NOT EXISTS item_worktrees (
     path TEXT,
     lane_role TEXT NOT NULL,
     state TEXT NOT NULL DEFAULT 'active',
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    released_at TEXT,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    released_at TIMESTAMPTZ,
     FOREIGN KEY (item_id) REFERENCES items(id)
 );
 CREATE TABLE IF NOT EXISTS epic_tasks (
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS epic_tasks (
     github_issue TEXT,
     max_attempts INTEGER DEFAULT 5,
     agent_id TEXT,
-    last_heartbeat TEXT,
+    last_heartbeat TIMESTAMPTZ,
     UNIQUE(epic_id, task_num),
     FOREIGN KEY (item_worktree_id) REFERENCES item_worktrees(id)
 );
@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS events (
     hook_event_name TEXT,
     client_timing_id TEXT,
     envelope TEXT,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 CREATE TABLE IF NOT EXISTS item_status_transitions (
     id INTEGER PRIMARY KEY,
@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS item_status_transitions (
     session_id TEXT,
     actor_id INTEGER,
     project_id INTEGER,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 CREATE TABLE IF NOT EXISTS item_activity_days (
     id INTEGER PRIMARY KEY,
@@ -168,15 +168,15 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL,
     mode TEXT DEFAULT 'wait',
-    offered_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    ended_at TEXT,
+    offered_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    ended_at TIMESTAMPTZ,
     offer_envelope TEXT,
     current_item_id TEXT DEFAULT NULL,
-    current_item_set_at TEXT DEFAULT NULL,
+    current_item_set_at TIMESTAMPTZ DEFAULT NULL,
     recent_item_id TEXT DEFAULT NULL,
     recent_item_status TEXT DEFAULT NULL,
-    recent_item_recorded_at TEXT DEFAULT NULL,
+    recent_item_recorded_at TIMESTAMPTZ DEFAULT NULL,
     actor_id INTEGER DEFAULT NULL
 );
 CREATE TABLE IF NOT EXISTS work_claims (
@@ -185,9 +185,9 @@ CREATE TABLE IF NOT EXISTS work_claims (
     target_kind TEXT NOT NULL CHECK({TARGET_KIND_CHECK_SQL}),
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
-    claimed_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    released_at TEXT,
+    claimed_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    released_at TIMESTAMPTZ,
     release_reason TEXT CHECK(release_reason IS NULL OR release_reason IN ('completed','released','reclaimed','handed_off','expired','session_ended')),
     FOREIGN KEY (session_id) REFERENCES harness_sessions(session_id)
 );
@@ -199,15 +199,15 @@ CREATE TABLE IF NOT EXISTS projects (
     default_branch TEXT DEFAULT 'main',
     github_repo TEXT,
     public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
-    created_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z'
+    created_at TIMESTAMPTZ NOT NULL DEFAULT '1970-01-01T00:00:00Z'
 );
 CREATE TABLE IF NOT EXISTS project_capabilities (
     id INTEGER PRIMARY KEY,
     project_id INTEGER NOT NULL,
     type TEXT NOT NULL,
     config TEXT,
-    verified_at TEXT,
-    created_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z',
+    verified_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT '1970-01-01T00:00:00Z',
     settings TEXT DEFAULT '{{}}',
     UNIQUE(project_id, type)
 );
@@ -218,7 +218,7 @@ CREATE TABLE IF NOT EXISTS capability_secrets (
     key TEXT NOT NULL,
     value TEXT NOT NULL DEFAULT '',
     source TEXT NOT NULL DEFAULT 'literal' CHECK(source = 'literal'),
-    created_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT '1970-01-01T00:00:00Z',
     UNIQUE(project_id, type, key)
 );
 CREATE TABLE IF NOT EXISTS qa_requirements (
@@ -229,7 +229,7 @@ CREATE TABLE IF NOT EXISTS qa_requirements (
     qa_phase TEXT DEFAULT 'verification',
     deployment_run_id TEXT,
     blocking_mode TEXT DEFAULT 'blocking',
-    waived_at TEXT,
+    waived_at TIMESTAMPTZ,
     success_policy TEXT DEFAULT 'blocking',
     plan_case_key TEXT,
     deployment_member_item_id INTEGER
@@ -240,7 +240,7 @@ CREATE TABLE IF NOT EXISTS qa_runs (
     performed_by TEXT,
     verdict TEXT,
     verdict_reason TEXT,
-    created_at TEXT
+    created_at TIMESTAMPTZ
 );
 CREATE TABLE IF NOT EXISTS deployment_flows (
     id TEXT PRIMARY KEY,
