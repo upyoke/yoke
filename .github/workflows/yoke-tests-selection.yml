@@ -190,6 +190,7 @@ jobs:
           socket_dir="$(mktemp -d /tmp/yoke-ci-pg.XXXXXX)"
           echo "YOKE_PG_SOCKET_DIR=${socket_dir}" >> "$GITHUB_ENV"
           for attempt in 1 2 3 4 5; do
+            # artifact-fetch-allow: public ECR throttles anonymous pulls per IP; five jittered attempts precede use
             docker pull "$POSTGRES_IMAGE" && break
             [ "$attempt" -eq 5 ] && exit 1
             sleep $((5 + RANDOM % 26))
