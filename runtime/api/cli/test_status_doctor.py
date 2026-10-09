@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
+from yoke_cli.config import status_doctor
+from yoke_contracts.timestamps import InvalidInstant
+
 from yoke_cli.config.status_doctor import attach_doctor, _age_label, _summarize
 from yoke_contracts.api.function_call import FunctionCallResponse
 
@@ -114,3 +119,25 @@ def test_missing_scope_is_reported_honestly() -> None:
 def test_unknown_scope_is_not_claimed_as_whole_machine() -> None:
     summary = _summarize(_receipt("targeted"))
     assert "targeted scope (not whole-machine)" in summary
+
+
+def test_native_receipt_clock_retains_relative_age(monkeypatch):
+    now = datetime(2026, 10, 9, 10, 11, 12, 345678, tzinfo=timezone.utc)
+    monkeypatch.setattr(status_doctor, "utc_now", lambda: now)
+    instant = (now - timedelta(minutes=3)).astimezone(timezone(timedelta(hours=-7)))
+    assert _age_label(instant) == "3m ago"
+    assert _age_label(instant.isoformat()) == "3m ago"
+    assert _age_label(None) == "unknown age"
+    assert "3m ago" in _summarize(_receipt("quick", ran_at=instant))
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["", "2026-10-09T10:11:12", "2026-02-30T10:11:12Z", 0, datetime(2026, 10, 9)],
+)
+def test_invalid_receipt_clock_reports_unverified_health(value):
+    with pytest.raises(InvalidInstant):
+        _age_label(value)
+    summary = _summarize(_receipt("quick", ran_at=value, pass_count=90))
+    assert summary.startswith("health unverified — invalid receipt clock")
+    assert "90 PASS" not in summary

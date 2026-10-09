@@ -143,7 +143,7 @@ def test_roster_has_explicit_empty_and_full_point_views() -> None:
                     "relay": "connected",
                     "claims": [],
                     "messageability": {"messageable": True},
-                    "ended_at": "",
+                    "ended_at": None,
                     "activity_at": "2026-08-23T12:00:00Z",
                 }
             ],
@@ -207,7 +207,7 @@ def test_roster_names_a_pending_launch_binding_window() -> None:
     )
 
     rendered = output.getvalue()
-    assert "launch launch-1 binding until 2026-08-23T12:03:00Z" in rendered
+    assert "launch launch-1 binding until 2026-08-23T12:03:00.000000Z" in rendered
 
 
 def test_registry_override_and_usage_map_are_ready_for_aggregation() -> None:

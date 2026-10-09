@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from datetime import datetime, timezone
+from datetime import datetime
 import hashlib
 import hmac
 import json
 from typing import Any
 
 from yoke_cli.transport.https import TransportError
+from yoke_contracts.timestamps import InvalidInstant, parse_instant, utc_now
 
 
 _RESPONSE_LIMIT_BYTES = 64 * 1024
@@ -29,16 +30,15 @@ def _validated_intent(authority_intent: str) -> tuple[dict[str, object], str]:
         raise TransportError("runner-fleet authority intent is invalid") from exc
     if schema != 1 or not isinstance(authority, dict):
         raise TransportError("runner-fleet authority intent is invalid")
-    actual = hashlib.sha256(
-        _canonical_json(authority).encode("utf-8")
-    ).hexdigest()
+    actual = hashlib.sha256(_canonical_json(authority).encode("utf-8")).hexdigest()
     if len(digest) != 64 or not hmac.compare_digest(digest, actual):
         raise TransportError("runner-fleet authority intent digest is invalid")
     return authority, digest
 
 
 def _client_from_aws_env(
-    aws_env: Mapping[str, str], region: str,
+    aws_env: Mapping[str, str],
+    region: str,
 ) -> Any:
     import boto3
     from botocore.config import Config
@@ -67,27 +67,25 @@ def fetch_runner_fleet_token(
     project: str,
     authority_intent: str,
     aws_env: Mapping[str, str],
-    client_factory: Callable[[Mapping[str, str], str], Any] = (
-        _client_from_aws_env
-    ),
-    now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+    client_factory: Callable[[Mapping[str, str], str], Any] = (_client_from_aws_env),
+    now: Callable[[], datetime] = utc_now,
 ) -> str:
     """Invoke the key-owning broker without exposing its response on errors."""
     authority, digest = _validated_intent(authority_intent)
     if str(authority.get("project") or "") != str(project or "").strip():
         raise TransportError("runner-fleet authority project does not match")
     region = str(authority.get("aws_region") or "").strip()
-    function_name = str(
-        authority.get("token_broker_function") or ""
-    ).strip()
+    function_name = str(authority.get("token_broker_function") or "").strip()
     expected_repository = str(authority.get("repo") or "").strip()
     if not region or not function_name or not expected_repository:
         raise TransportError("runner-fleet authority intent is incomplete")
-    request = _canonical_json({
-        "action": "provider_token",
-        "authority": authority,
-        "authority_sha256": digest,
-    }).encode("utf-8")
+    request = _canonical_json(
+        {
+            "action": "provider_token",
+            "authority": authority,
+            "authority_sha256": digest,
+        }
+    ).encode("utf-8")
     try:
         response = client_factory(aws_env, region).invoke(
             FunctionName=function_name,
@@ -119,9 +117,7 @@ def fetch_runner_fleet_token(
     try:
         grant = json.loads(raw)
         token = str(grant["token"]).strip()
-        expires_at = datetime.fromisoformat(
-            str(grant["expires_at"]).replace("Z", "+00:00")
-        )
+        expires_at = parse_instant(grant["expires_at"])
         repository = str(grant["repository"])
     except (KeyError, TypeError, ValueError) as exc:
         raise TransportError(
@@ -133,7 +129,11 @@ def fetch_runner_fleet_token(
         raise TransportError(
             "runner-fleet token broker returned a different repository binding"
         )
-    if expires_at.tzinfo is None or expires_at <= now():
+    try:
+        current = parse_instant(now())
+    except InvalidInstant as exc:
+        raise TransportError("runner-fleet current clock is invalid") from exc
+    if expires_at <= current:
         raise TransportError("runner-fleet token broker returned an expired token")
     return token
 
@@ -143,10 +143,8 @@ def fetch_repository_provider_token(
     project: str,
     authority_intent: str,
     aws_env: Mapping[str, str],
-    client_factory: Callable[[Mapping[str, str], str], Any] = (
-        _client_from_aws_env
-    ),
-    now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+    client_factory: Callable[[Mapping[str, str], str], Any] = (_client_from_aws_env),
+    now: Callable[[], datetime] = utc_now,
 ) -> str:
     """Fetch a process-only token for any broker-authorized provider."""
 

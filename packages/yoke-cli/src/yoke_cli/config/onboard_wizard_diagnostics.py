@@ -10,8 +10,10 @@ must not take the wizard down with it.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
+
+from yoke_contracts.timestamps import format_instant, utc_now
 
 LOG_DIR_NAME = "logs"
 LOG_FILE_NAME = "onboard-wizard.log"
@@ -29,7 +31,7 @@ def record(config_path: str | Path, event: str, **fields: object) -> Path | None
     could not be written, so a view can name the file only when it exists.
     """
     target = log_path(config_path)
-    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    stamp = format_instant(utc_now())
     detail = " ".join(f"{key}={_one_line(value)}" for key, value in fields.items())
     line = f"{stamp} {event} {detail}".rstrip() + "\n"
     try:
@@ -42,7 +44,11 @@ def record(config_path: str | Path, event: str, **fields: object) -> Path | None
 
 
 def _one_line(value: object) -> str:
-    text = str(value if value is not None else "")
+    text = (
+        format_instant(value)
+        if isinstance(value, datetime)
+        else str(value if value is not None else "")
+    )
     return " ".join(text.split()) or "-"
 
 
