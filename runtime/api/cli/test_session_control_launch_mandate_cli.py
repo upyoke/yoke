@@ -142,7 +142,9 @@ def test_launch_create_without_selector_teaches_itemless_recovery(capsys) -> Non
     assert (
         "--raw-instructions --stdin for an itemless launch" in capsys.readouterr().err
     )
-    help_text = " ".join(
+    # argparse may wrap a hyphenated flag across lines, so compare with every
+    # whitespace run removed.
+    help_text = "".join(
         launches._launch_create_parser(
             "yoke session-control launch create",
             launches.LAUNCH_CREATE_USAGE,
@@ -151,8 +153,8 @@ def test_launch_create_without_selector_teaches_itemless_recovery(capsys) -> Non
         .format_help()
         .split()
     )
-    assert "(--item PREFIX-N | --raw-instructions --stdin)" in help_text
-    assert "including itemless launches" in help_text
+    assert "(--itemPREFIX-N[--level-reasonTEXT]|--raw-instructions--stdin)" in help_text
+    assert "includingitemlesslaunches" in help_text
 
 
 def test_launch_create_itemless_raw_without_body_is_usage_error() -> None:

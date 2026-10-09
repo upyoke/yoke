@@ -114,14 +114,18 @@ in the pool `M` actually bills to, under `REQUESTED MODEL POOL`, and ranks
 machines by that pool's meter rather than by whichever window reads lowest.
 
 `yoke session-control launch preview` and `create` accept `--level LEVEL`, or
-`--surface S` with the three flags.
+`--surface S` with the three flags. On an item-bound `create`, `--level` also
+records the level as the item's level for every stage (`--level-reason TEXT`,
+default `launch-time level`); a preview or an itemless create places one launch.
 `create --idempotency-key K` replays the launch already named by K. If its
 session ended or was terminated, `launch_replay_finished` names that launch
 and says no new worker started. Repeat create with a new key to relaunch.
 A fresh item-bound create refuses `item_has_live_worker` while a live session
 holds its claim or an earlier launch is pending or has a live session. The
 refusal names the session and launch: wake or message that worker, or terminate
-it first when a fresh worker is required. Same-key replay still deduplicates.
+it first when a fresh worker is required; a worker holding the claim itself is
+told to release it before launching its own level-change successor. Same-key
+replay still deduplicates.
 `--context-window` accepts a token count or compact form such as `1m`.
 `--list-models --surface SURFACE` prints this machine's observed native
 availability (below), plus accepted effort and context values. Claude maps context 1M to the

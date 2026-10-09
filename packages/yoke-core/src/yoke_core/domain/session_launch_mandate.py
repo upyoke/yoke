@@ -7,6 +7,7 @@ from typing import Any
 from yoke_contracts.skill_registry import SKILLS_BY_ID
 from yoke_contracts.session_control.models import LaunchCreateRequest
 from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
+from yoke_core.domain.session_launch_item_level import DEFAULT_LEVEL_REASON
 from yoke_core.domain.session_launch_mandate_teaching import STANDING_TEACHINGS
 from yoke_core.domain.session_launch_store import marker, value
 from yoke_core.domain.session_launch_types import LaunchRequest, SessionLaunchError
@@ -252,6 +253,11 @@ def launch_request_for_create(
         deadline_seconds=deadline_seconds,
         item=str(parsed.item) if parsed.item else None,
         level=parsed.level,
+        level_reason=(
+            (parsed.level_reason or DEFAULT_LEVEL_REASON)
+            if parsed.item and parsed.level
+            else None
+        ),
     )
 
 

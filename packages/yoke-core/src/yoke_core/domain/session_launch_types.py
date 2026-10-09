@@ -132,6 +132,9 @@ class LaunchRequest:
     deadline_seconds: int = DEFAULT_LAUNCH_DEADLINE_SECONDS
     item: str | None = None
     level: str | None = None
+    #: Why ``level`` becomes the item's level for every stage. Set only on an
+    #: item-bound launch that named a level; ``None`` records nothing.
+    level_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -246,6 +249,8 @@ class LaunchCreateOutcome:
     launch: LaunchRecord
     preview: LaunchPreview
     deduplicated: bool
+    #: The item level this create recorded, or ``None`` when it recorded none.
+    item_level: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)

@@ -34,6 +34,26 @@ PROGRESS_CHECKPOINT_TEACHING = (
 )
 
 
+LEVEL_HANDOFF_TEACHING = (
+    "A transition or merge result may carry handoff with reason level_change: "
+    "the item's next stage runs at a different level than your session. That "
+    "takes precedence over retaining a release wait. Do exactly this, in "
+    "order: (1) append a Progress Log checkpoint naming the live stage, what "
+    "is committed, what is uncommitted in the lane, and the next concrete "
+    'step (`yoke items progress-log append PREFIX-N --headline "level-change '
+    'handoff" --stdin`); (2) release every claim you hold with '
+    "`yoke claims work release --all-mine --json` and read the receipt; "
+    "(3) run the handoff's next_command exactly as returned, which launches "
+    "this item's successor at the new level (a refusal names its recovery: "
+    "report it to the orchestrator, keep the checkpoint, and do not continue "
+    "at the old level); (4) verify the launch was accepted with "
+    "`yoke session-control launch get LAUNCH-ID --json`, then end your "
+    "session. Only the item's latest holder, with every claim released, may "
+    "launch its own successor; the successor reads your Progress Log and the "
+    "preserved lane before acting."
+)
+
+
 COMMITTED_GATE_TEACHING = (
     "Commit; the verification gate rebases onto the base branch, pushes "
     "once, and runs CI. Workers do not push the lane by hand."
@@ -151,10 +171,7 @@ STANDING_TEACHINGS = (
     # First: a successor launched onto an in-flight item must resume from
     # the predecessor's checkpoint before it commits or merges anything.
     PROGRESS_CHECKPOINT_TEACHING,
-    "A transition or merge result may carry handoff with reason level_change. "
-    "That takes precedence over retaining a release wait: follow the "
-    "harness-neutral worker rule in `.yoke/docs/reference/session-level-routing.md` "
-    "under Stage-level handoff. Workers may launch their own item's successor.",
+    LEVEL_HANDOFF_TEACHING,
     COMMITTED_GATE_TEACHING,
     # Before the waits: a refusal here means nothing was armed, enqueued, or
     # merged, so the worker needs it before it learns how to wait on any of
@@ -176,6 +193,7 @@ __all__ = [
     "HEADLESS_CI_VERIFICATION_WAIT_TEACHING",
     "HEADLESS_LANDING_WAIT_TEACHING",
     "HEADLESS_TOOL_CONTINUATION_TEACHING",
+    "LEVEL_HANDOFF_TEACHING",
     "PROGRESS_CHECKPOINT_TEACHING",
     "RELEASE_WAIT_RETENTION_TEACHING",
     "STANDING_TEACHINGS",

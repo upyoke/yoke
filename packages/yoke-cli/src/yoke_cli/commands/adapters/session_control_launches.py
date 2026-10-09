@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from typing import Any, get_args, List
 
 from yoke_cli.commands._helpers import (
@@ -36,12 +37,13 @@ LAUNCH_PREVIEW_USAGE = (
 )
 LAUNCH_CREATE_USAGE = (
     f"yoke session-control launch create --project P [{_SELECTION_USAGE}] "
-    "(--item PREFIX-N | --raw-instructions --stdin) --idempotency-key K "
-    "[--presentation P] [--list-models] [--json]"
+    "(--item PREFIX-N [--level-reason TEXT] | --raw-instructions --stdin) "
+    "--idempotency-key K [--presentation P] [--list-models] [--json]"
 )
 SESSIONS_CREATE_USAGE = (
     f"yoke sessions create --project P {_SELECTION_USAGE} "
-    "(--preview | --idempotency-key K [--item PREFIX-N] [--stdin] [--raw-instructions]) "
+    "(--preview | --idempotency-key K [--item PREFIX-N [--level-reason TEXT]] "
+    "[--stdin] [--raw-instructions]) "
     "[--presentation P] [--list-models] [--json]"
 )
 LAUNCH_GET_USAGE = "yoke session-control launch get LAUNCH-ID [--json]"
@@ -62,6 +64,7 @@ def _dispatch_launch(
     function_id: str,
     payload: dict[str, Any],
     sensitive_values: tuple[str, ...] = (),
+    human_writer: Any = write_launch_result,
 ) -> int:
     return dispatch_and_emit(
         function_id=function_id,
@@ -69,9 +72,39 @@ def _dispatch_launch(
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=write_launch_result,
+        human_writer=human_writer,
         sensitive_values=sensitive_values,
     )
+
+
+def _create_result_writer(payload: dict[str, Any]) -> Any:
+    """Name the gap when a server predating item levels recorded none.
+
+    A server that records the item level always echoes ``item_level`` for an
+    item-bound create at a named level; its absence means that server placed
+    this one launch only.
+    """
+    item, level = payload.get("item"), payload.get("level")
+
+    def write(response: Any, stdout: Any, stderr: Any) -> None:
+        write_launch_result(response, stdout, stderr)
+        result = response.result or {}
+        if (
+            item
+            and level
+            and not result.get("deduplicated")
+            and not result.get("item_level")
+        ):
+            pin = json.dumps({"min": level, "max": level, "reason": "<why>"})
+            print(
+                "warning: item_level_unrecorded: this server predates launch-time "
+                f"item levels, so --level {level} placed this launch only. Record "
+                f"it for every stage: yoke workflows item-posture amend {item} "
+                f"--key level --value '{pin}' --reason R",
+                file=stderr,
+            )
+
+    return write
 
 
 def session_launch_preview(args: List[str]) -> int:
@@ -130,6 +163,13 @@ def _launch_create_parser(
     )
     parser.add_argument("--item", default=None)
     parser.add_argument(
+        "--level-reason",
+        default=None,
+        metavar="TEXT",
+        help="Why --level becomes the item's level for every stage; "
+        "defaults to 'launch-time level'. Needs --level and --item.",
+    )
+    parser.add_argument(
         "--presentation",
         default=None,
         help="Requested native presentation; Claude accepts only 'local'.",
@@ -152,6 +192,14 @@ def _create(args: List[str], *, alias: bool) -> int:
     selector = selector_payload(parsed, stage_default=not (alias and parsed.preview))
     if selector is None:
         return 2
+    if parsed.level_reason and not (
+        parsed.level and parsed.item and not (alias and parsed.preview)
+    ):
+        return usage_error(
+            "level_reason_without_item_level: --level-reason explains the item "
+            "level that a create with --level and --item records; a preview "
+            "records nothing"
+        )
     if alias and parsed.preview:
         return _dispatch_launch(
             parsed,
@@ -179,6 +227,8 @@ def _create(args: List[str], *, alias: bool) -> int:
         payload["item"] = parsed.item
     if parsed.raw_instructions:
         payload["compose_mandate"] = False
+    if parsed.level_reason:
+        payload["level_reason"] = parsed.level_reason.strip()
     if parsed.presentation:
         payload["presentation"] = parsed.presentation
     return _dispatch_launch(
@@ -186,6 +236,7 @@ def _create(args: List[str], *, alias: bool) -> int:
         function_id="session_control.launch.create",
         payload=payload,
         sensitive_values=(instructions,) if instructions else (),
+        human_writer=_create_result_writer(payload),
     )
 
 

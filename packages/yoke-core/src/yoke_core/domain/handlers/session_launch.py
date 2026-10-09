@@ -154,6 +154,7 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
                 "launch": public_launch_record(outcome.launch),
                 "preview": outcome.preview.to_dict(),
                 "deduplicated": outcome.deduplicated,
+                "item_level": outcome.item_level,
             }
         )
     except Exception as exc:
