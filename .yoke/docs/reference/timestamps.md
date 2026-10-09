@@ -343,3 +343,6 @@ Existing frozen snapshots, retained triage receipts, reports and digests stay op
 
 Merge receipt ordering compares present instants without inventing missing clocks.
 Steering reply cutoffs stay native; Doctor and pricing clock fields format at output.
+
+Hook report leases format clock metadata as fixed-six UTC/null; confirmation
+parses it before connecting and binds native clocks to the interval claim.

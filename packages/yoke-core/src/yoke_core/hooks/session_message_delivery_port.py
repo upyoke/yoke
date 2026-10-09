@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from typing import Any, Mapping, Protocol
+from yoke_contracts.timestamps import format_instant, parse_instant
 
 
 @dataclass(frozen=True)
@@ -43,8 +44,8 @@ class SessionMessageLease:
     remaining_count: int = 0
     report: str = ""
     report_fingerprint: str = ""
-    report_claimed_at: str = ""
-    report_not_after: str = ""
+    report_claimed_at: str | None = None
+    report_not_after: str | None = None
 
 
 class SessionMessageDeliveryPort(Protocol):
@@ -179,8 +180,8 @@ class CoreSessionMessageDeliveryPort:
             report_fields = dict(
                 report=candidate.text,
                 report_fingerprint=candidate.fingerprint,
-                report_claimed_at=candidate.claimed_at,
-                report_not_after=candidate.not_after,
+                report_claimed_at=format_instant(candidate.claimed_at),
+                report_not_after=format_instant(candidate.not_after),
             )
             if lease is not None:
                 return replace(lease, **report_fields)
@@ -219,6 +220,8 @@ class CoreSessionMessageDeliveryPort:
         not_after: str,
     ) -> None:
         """Claim the report interval now that the reply confirms delivery."""
+        claimed_at = parse_instant(claimed_at)
+        not_after = parse_instant(not_after)
         from yoke_core.domain import db_backend
         from yoke_core.domain.steering_fleet_report_delivery import (
             SteeringReportCandidate,
