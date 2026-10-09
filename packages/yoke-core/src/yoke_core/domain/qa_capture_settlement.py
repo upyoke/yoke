@@ -84,10 +84,17 @@ def settle_unreviewed_execution_captures(
         if case.get("requirement_id") is not None
         and case.get("runner_id") in CAPTURE_RUNNERS
     }
+    # A judged result needs no cleanup; a result without a capture binding
+    # gives no authority to choose another attempt for the requirement.
     captures = [
         (int(row["requirement_id"]), _execution_capture_run_id(case, row["result"]))
         for row in result_rows(conn, str(execution["id"]))
         if (case := cases.get(int(row["requirement_id"]))) is not None
+        and row["result"].get("verdict") is None
+        and (
+            row["result"].get("qa_run_id") is not None
+            or row["result"].get("run_id") is not None
+        )
     ]
     if not captures:
         return

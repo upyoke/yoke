@@ -54,7 +54,7 @@ def _replacement(conn):
 
 
 @pytest.mark.parametrize(
-    "verdict,outcome", [(None, "not_run"), ("fail", "failed"), ("pass", "passed")]
+    "verdict,outcome", [(None, "queued"), ("fail", "failed"), ("pass", "passed")]
 )
 def test_replacement_grades_only_successor_without_retired_not_run(
     test_db, verdict, outcome
