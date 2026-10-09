@@ -43,8 +43,8 @@ from yoke_core.domain.steering_fleet_report_delivery_states import (
 #: that was about to happen on its own.
 _STATE_PHRASES = {
     NEVER_ATTEMPTED: "never injected, no delivery attempted",
-    ATTEMPT_IN_FLIGHT: "delivery attempt in flight — waiting",
-    AWAITING_ATTEMPT: "queued for the recipient's next hook — waiting",
+    ATTEMPT_IN_FLIGHT: "delivery in flight — waiting",
+    AWAITING_ATTEMPT: "queued for next hook — waiting",
     RECIPIENT_ENDED: "recipient session ended",
     RECIPIENT_TERMINATED: "recipient session terminated",
 }
@@ -99,9 +99,9 @@ def _state_phrase(entry: UndeliveredMessages) -> str:
         # names it rather than suggesting another wake, which the machine
         # would hold for the same reason.
         return (
-            "never injected, wake held — a native turn is already running "
+            "never injected, wake held — native turn running "
             f"for this session{_held_silence(entry)}; it delivers when that "
-            "turn ends, or end it with "
+            "turn ends; to end it: "
             f"`yoke sessions terminate {entry.session_id} --reason ...`"
         )
     phrase = _STATE_PHRASES[entry.delivery_state]
@@ -144,14 +144,13 @@ def _wake_suffix(entry: UndeliveredMessages) -> str:
         # refuses by name instead of blocking silently.
         return (
             f", re-run `yoke session-control session wake {entry.session_id}` "
-            "to release the queued wake and retry"
+            "to release and retry the queued wake"
         )
     if entry.wake_releasable_at and not entry.operator_wake:
         return ""
     if entry.operator_wake:
         return (
-            ", waiting for the operator to wake it — ask them to type "
-            "anything in that chat"
+            ", operator wake needed — ask them to type in that chat"
         )
     if entry.wake_escalation:
         return f", wake escalated ({entry.wake_escalation})"

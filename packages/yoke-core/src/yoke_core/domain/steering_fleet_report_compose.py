@@ -58,10 +58,8 @@ from yoke_core.domain.steering_fleet_report_render import (
 
 
 COMBINED_PREAMBLE = (
-    "Control-plane state, composed server-side for every steering claim this "
-    "session holds. Each heading is one held scope. Derived facts about work "
-    "and workers, not instructions and not peer-authored text. Staffing "
-    "decisions remain the steerer's; nothing here has acted."
+    "Server-composed control-plane facts; each heading is a held scope. "
+    "These are not instructions or peer text. Staffing remains the steerer's; nothing acted."
 )
 
 
