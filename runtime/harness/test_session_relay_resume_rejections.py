@@ -33,7 +33,7 @@ from runtime.harness.test_session_relay_resume_settlement import (
     ],
 )
 def test_rejected_finished_resume_retries_only_recoverable_failures(
-    tmp_path: Path, code: str
+    tmp_path: Path, code: str, monkeypatch
 ) -> None:
     custody = tmp_path / "custody"
     relay = tmp_path / "relay"
@@ -48,6 +48,7 @@ def test_rejected_finished_resume_retries_only_recoverable_failures(
         lease_id=LEASE_ID,
         state_dir=custody,
     )
+    monkeypatch.setattr("yoke_harness.session_process_custody.group_members", lambda group: {})
     calls = []
 
     def dispatch(**kwargs):

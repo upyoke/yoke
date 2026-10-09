@@ -4,20 +4,19 @@ import json
 
 import pytest
 
+from runtime.api.domain import test_session_termination as termination_support
 from runtime.api.domain.test_session_termination import (
     _register_operator_and_target,
     _terminate,
 )
 
-pytest_plugins = (
-    "runtime.api.test_sessions",
-    "runtime.api.domain.test_session_termination",
-)
+pytest_plugins = ("runtime.api.test_sessions",)
+termination_events = termination_support._termination_schema_and_events
 
 
 @pytest.mark.parametrize("state", ["failed", "unavailable"])
 def test_repeat_requeues_unresolved_reap_without_repeating_logical_stop(
-    conn, state, _termination_schema_and_events
+    conn, state, termination_events
 ):
     _register_operator_and_target(conn)
     first = _terminate(conn)
@@ -37,7 +36,7 @@ def test_repeat_requeues_unresolved_reap_without_repeating_logical_stop(
     ).fetchone()
     assert row[0] is None and row[1] is None
     assert json.loads(row[2])["attempts"][0]["evidence"] == prior
-    assert len(_termination_schema_and_events) == 1
+    assert len(termination_events) == 1
 
 
 def test_successful_repeat_preserves_settled_physical_result(conn):

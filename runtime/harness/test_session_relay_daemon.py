@@ -38,8 +38,8 @@ def test_cycle_maintenance_contains_a_native_created_after_startup(
 
     monkeypatch.setattr(
         containment_sweep,
-        "_terminate",
-        lambda pid: terminated.append(pid) or "terminated",
+        "terminate_record",
+        lambda record, **kwargs: terminated.append(record["pid"]) or "terminated",
     )
 
     def maintain() -> None:

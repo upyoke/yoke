@@ -117,6 +117,7 @@ def test_default_spawn_settles_usage_across_custody_and_relay_directories(
     )
     assert resumed is not None
     _await_outcome(resumed.capture_path)
+    os.waitpid(resumed.pid, 0)
     assert resumed.capture_path.parent == relay / "native-diagnostics"
     assert supervision_record_path(ATTEMPT_ID, custody).exists()
 
@@ -173,6 +174,7 @@ def test_native_exiting_nonzero_settles_the_attempt_with_a_failure_result(
 
     assert resumed is not None
     _await_outcome(resumed.capture_path)
+    os.waitpid(resumed.pid, 0)
     dispatcher = _Dispatcher()
 
     settled = settle_finished_native_resumes(
@@ -207,6 +209,7 @@ def test_native_exiting_cleanly_settles_the_attempt_as_completed(
 
     assert resumed is not None
     _await_outcome(resumed.capture_path)
+    os.waitpid(resumed.pid, 0)
     dispatcher = _Dispatcher()
 
     settle_finished_native_resumes(
