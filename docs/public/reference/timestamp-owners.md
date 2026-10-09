@@ -334,3 +334,14 @@ clocks do not evaluate an unused default. Captured body and context stay opaque.
 Released holding groups select their newest occurrence with exact instant
 comparison, retain earlier-arrival ties and counts, and order null absence
 before dated occurrences, including instants before the Unix epoch.
+
+The webapp scaffold successor reuses the byte-identical shared Python kernel.
+Sessions parse expiry before native microsecond comparison; creation and expiry
+are formatted only at SQLite binds. Task starts are native instants, while task
+duration, retention and HTTP timing use monotonic clocks. New SQLite membership
+and adoption evidence binds fixed-six clocks explicitly without rewriting old
+immutable evidence or changing its exact append-only guard shape. Its appended
+application migration validates all five finite columns and schema dependencies
+before one atomic four-table rebuild with preserved keys, checks and nullability.
+Boot retains the WAL restore point and resolves its serving floor from the
+applying artifact; customized dependencies require project-owned migration work.
