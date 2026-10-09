@@ -10,6 +10,9 @@ entry state so callers never infer liveness from the arming field alone.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
+
+from yoke_contracts.timestamps import format_instant, parse_instant
 from typing import Optional, Sequence
 
 from yoke_core.domain.merge_queue_entry_checks import (
@@ -67,9 +70,13 @@ class MergeQueueReadiness:
     #: caller that finds a candidate already landed reports the head that
     #: actually landed rather than the one it was holding.
     merge_commit_sha: str = ""
-    merged_at: str = ""
+    merged_at: datetime | None = None
     failed_checks: tuple[LandingCheck, ...] = field(default=())
     warnings: tuple[str, ...] = field(default=())
+
+    def __post_init__(self) -> None:
+        if self.merged_at is not None:
+            object.__setattr__(self, "merged_at", parse_instant(self.merged_at))
 
     @property
     def needs_action(self) -> bool:
@@ -134,7 +141,9 @@ class MergeQueueReadiness:
             "merge_state_status": self.merge_state_status,
             "head_sha": self.head_sha,
             "merge_commit_sha": self.merge_commit_sha,
-            "merged_at": self.merged_at,
+            "merged_at": format_instant(self.merged_at)
+            if self.merged_at is not None
+            else None,
             "failed_checks": [check_payload(check) for check in self.failed_checks],
             "narrative": self.describe(),
             "warnings": list(self.warnings),
@@ -243,7 +252,7 @@ def classify_readiness(
         else "",
         head_sha=state.head_sha if state is not None else "",
         merge_commit_sha=state.merge_commit_sha if state is not None else "",
-        merged_at=state.merged_at if state is not None else "",
+        merged_at=state.merged_at if state is not None else None,
         failed_checks=failed_checks,
         warnings=warnings,
     )

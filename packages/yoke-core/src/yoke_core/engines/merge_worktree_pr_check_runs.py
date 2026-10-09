@@ -246,7 +246,9 @@ def _parse_landing_state(pull_request: dict[str, Any]) -> PrLandingState:
         .strip()
         .lower(),
         head_sha=str(pull_request.get("headRefOid") or "").strip(),
-        merged_at=str(pull_request.get("mergedAt") or "").strip(),
+        merged_at=None
+        if pull_request.get("mergedAt") in (None, "")
+        else pull_request["mergedAt"],
         merge_commit_sha=merge_oid,
     )
 

@@ -6,6 +6,7 @@ from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
+from yoke_contracts.timestamps import parse_instant
 
 from yoke_core.engines import merge_worktree_pr_check_runs as checks_mod
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
@@ -109,14 +110,22 @@ def test_open_armed_pr_and_pending_required_check(monkeypatch) -> None:
     )
 
 
-def test_merged_pr_carries_commit_and_time(monkeypatch) -> None:
+@pytest.mark.parametrize(
+    "clock",
+    [
+        "2026-09-21T12:00:00Z",
+        "2026-09-21T17:45:00.123456+05:45",
+        "2026-09-21T08:00:00.123456-04:00",
+    ],
+)
+def test_merged_pr_carries_commit_and_time(monkeypatch, clock) -> None:
     _wire(
         monkeypatch,
         _pr_node(
             merged=True,
             closed=True,
             state="MERGED",
-            merged_at="2026-09-21T12:00:00Z",
+            merged_at=clock,
             merge_oid="def456",
             contexts=(),
         ),
@@ -127,7 +136,8 @@ def test_merged_pr_carries_commit_and_time(monkeypatch) -> None:
     assert projection.state is not None
     assert projection.state.merged
     assert projection.state.closed
-    assert projection.state.merged_at == "2026-09-21T12:00:00Z"
+    assert projection.state.merged_at == parse_instant(clock)
+    assert projection.state.merged_at.utcoffset().total_seconds() == 0
     assert projection.state.merge_commit_sha == "def456"
     assert projection.required_checks == ()
 

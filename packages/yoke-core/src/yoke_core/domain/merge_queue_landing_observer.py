@@ -211,11 +211,9 @@ def observe_pending_landings(
             # GitHub's own merge time, so a landing first read minutes later
             # ages from when it happened rather than from when it was
             # noticed — which is the number the close-out report shows.
-            # The GitHub reader declares an empty mergedAt as provider absence.
+            # The GitHub reader declares missing mergedAt as native null.
             merge_clock = state.merged_at if state is not None else None
-            landed_at = (
-                current if merge_clock in (None, "") else parse_instant(merge_clock)
-            )
+            landed_at = current if merge_clock is None else merge_clock
             merge_commit = state.merge_commit_sha if state is not None else ""
             prior_landing = row.get("merge_queue_landed_at")
             if prior_landing is not None:

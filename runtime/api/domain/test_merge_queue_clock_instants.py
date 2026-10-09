@@ -17,7 +17,7 @@ from runtime.api.domain.merge_queue_observer_test_helpers import (
 )
 from runtime.api.domain.test_merge_queue_landing_record import _record
 from runtime.api.fixtures.backlog_inserts import insert_item
-from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain import merge_queue_landing_observer as observer
 from yoke_core.domain.merge_queue_landing_notice import arming_notice_key
 from yoke_core.domain.merge_queue_landing_record import (
@@ -228,3 +228,74 @@ def test_native_ejection_clears_only_its_exact_arming_instant(
         "SELECT merge_queue_enqueued_at FROM items WHERE id=7"
     ).fetchone()[0]
     assert clock == (next_episode if rearmed else None)
+
+
+@pytest.mark.parametrize(
+    "clock",
+    [
+        "2026-10-09T10:11:12.345678Z",
+        "2026-10-09T15:56:12.345678+05:45",
+        None,
+    ],
+)
+def test_landing_models_format_only_report_clock_owners(clock):
+    import json
+    from yoke_core.domain.merge_queue_hold import _landed
+    from yoke_core.domain.merge_queue_readiness import classify_readiness
+    from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
+
+    state = PrLandingState(
+        True, True, False, merged_at=clock, merge_commit_sha="opaque"
+    )
+    expected = MOMENT if clock is not None else None
+    readiness = classify_readiness(
+        pr_number="42", target="main", state=state, members=[]
+    )
+    hold = _landed(readiness, outcome="landed", actions=(), before=readiness)
+    assert state.merged_at == readiness.merged_at == hold.merged_at == expected
+    wire = format_instant(MOMENT) if clock is not None else None
+    assert json.loads(json.dumps(readiness.to_dict()))["merged_at"] == wire
+    payload = json.loads(json.dumps(hold.to_dict()))
+    assert payload["merged_at"] == payload["before"]["merged_at"] == wire
+    assert payload["merge_commit_sha"] == "opaque"
+    if wire is not None:
+        assert wire in payload["refusal"]
+
+
+@pytest.mark.parametrize(
+    "clock", ["", "2026-10-09", "2026-10-09T10:11:12", "2026-10-09T10:11:12-00:00"]
+)
+def test_landing_model_constructor_refuses_unverifiable_clock(clock):
+    from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
+
+    with pytest.raises(InvalidInstant):
+        PrLandingState(True, True, False, merged_at=clock)
+
+
+@pytest.mark.parametrize(
+    "clock", ["2026-10-09", "2026-10-09T10:11:12", "2026-10-09T10:11:12-00:00"]
+)
+def test_graphql_landing_clock_refusal_is_unreadable(monkeypatch, clock):
+    from types import SimpleNamespace
+    from yoke_core.engines import merge_worktree_pr_check_runs as checks
+
+    monkeypatch.setattr(
+        checks,
+        "resolve_auth_detail",
+        lambda *_args: (SimpleNamespace(repo="owner/repo", token="opaque"), None),
+    )
+    monkeypatch.setattr(
+        checks,
+        "graphql_with_auth",
+        lambda *_args, **_kw: (
+            {
+                "repository": {"pullRequest": {"merged": True, "mergedAt": clock}},
+            },
+            None,
+        ),
+    )
+    projection = checks.read_pr_landing_and_required_checks(object(), "42")
+    assert projection.state is None
+    assert projection.required_checks is None
+    assert "clock" in projection.state_error
+    assert projection.state_error == projection.checks_error

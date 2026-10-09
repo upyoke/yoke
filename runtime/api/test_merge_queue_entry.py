@@ -1,6 +1,10 @@
 """Queue-entry and membership reads: auth, refusal naming, mapping."""
 
+from copy import deepcopy
 from datetime import datetime, timezone
+
+import pytest
+from yoke_contracts.timestamps import parse_instant
 
 from types import SimpleNamespace
 
@@ -290,3 +294,41 @@ def test_dequeue_pull_request_refusal_stays_named(monkeypatch):
     result = queue_mod.dequeue_pull_request(_ctx(), "7")
     assert not result.success
     assert "not queued" in (result.error_detail or "")
+
+
+@pytest.mark.parametrize(
+    "clock",
+    [
+        "2026-09-21T12:00:00.123456Z",
+        "2026-09-21T17:45:00.123456+05:45",
+        None,
+        "",
+        "2026-09-21",
+        "2026-09-21T12:00:00",
+        "2026-09-21T12:00:00-00:00",
+    ],
+)
+def test_rest_landing_reader_owns_native_clock_ingress(monkeypatch, clock):
+    body = {
+        "merged": True,
+        "state": "closed",
+        "merged_at": clock,
+        "merge_commit_sha": "opaque-commit",
+    }
+    original = deepcopy(body)
+    monkeypatch.setattr(
+        queue_mod, "resolve_auth_detail", lambda *_args: (_auth(), None)
+    )
+    monkeypatch.setattr(
+        queue_mod, "request_with_retry", lambda *_args, **_kw: _response(body)
+    )
+    state, error = queue_mod.read_pr_landing_state(_ctx(), "42")
+    if clock in (None, ""):
+        assert error is None and state.merged_at is None
+    elif clock in ("2026-09-21", "2026-09-21T12:00:00", "2026-09-21T12:00:00-00:00"):
+        assert state is None and "clock" in error
+    else:
+        assert error is None
+        assert state.merged_at == parse_instant("2026-09-21T12:00:00.123456Z")
+        assert state.merge_commit_sha == "opaque-commit"
+    assert body == original
