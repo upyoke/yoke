@@ -1,116 +1,55 @@
-# /yoke refine — Blitz Execution Document Handoff
+# Refine — Blitz Execution Document
 
-Run this path only when `ITEM_NEXT_SKILL=blitz`. It runs after item-artifact
-writes have been verified and before the final
-`REFINE_ACTIVE_STATUS -> REFINE_TARGET_STATUS` transition.
+Only when ITEM_NEXT_SKILL=blitz, after verified artifact writes and before
+the active-to-target transition. Registered strategy.doc.list/get and
+strategy.execution.get/link are authority; metadata linking never acquires
+the document claim. Blitz activation's doc_claim_activation gate owns it.
 
-## Registered operation authority
+## 1. Read the existing execution link
 
-Use these registered function ids as the authority. The commands are their
-CLI adapters:
-
-| Function id | Target and payload | CLI adapter |
-|---|---|---|
-| `strategy.doc.list` | Project target; empty payload | `yoke strategy doc list --project PROJECT --json` |
-| `strategy.doc.get` | Project target; `slug` | `yoke strategy doc get SLUG --project PROJECT --json` |
-| `strategy.execution.get` | Blitz item target; empty payload | `yoke strategy execution get ITEM --project PROJECT --json` |
-| `strategy.execution.link` | Item target; `slug` (for a Blitz this document is also its execution plan) | `yoke strategy execution link ITEM --slug SLUG --project PROJECT --json` |
-
-The link is item metadata. It does not acquire the item-owned document claim.
-`/yoke blitz` acquires that claim atomically at activation through the
-`doc_claim_activation` lifecycle gate.
-
-## 1. Resolve the item project and any existing link
-
-Use the item project resolved in the main Refine lookup as `ITEM_PROJECT`.
-Read the current execution projection first:
-
-```text
-yoke strategy execution get "$ITEM_REF" \
-  --project "$ITEM_PROJECT" --json
+```bash
+yoke strategy execution get "$ITEM_REF" --project "$ITEM_PROJECT" --json
 ```
 
-On re-entry:
-
-- If `execution.execution_document.slug` already names the intended
-  document, keep it and continue to verification. Do not issue a no-op link.
-- If it names a different document, stop at `refining-idea` and surface the
-  conflict. Never silently replace a prior Refine decision.
-- If `execution.execution_document` is null, continue to selection.
+Existing intended slug: keep it and verify, no no-op link.
+Different slug: block at the active stage and surface conflict.
+Null execution document: select below.
 
 ## 2. Select exactly one document
 
-List the project corpus, then inspect every plausible candidate:
-
-```text
+```bash
 yoke strategy doc list --project "$ITEM_PROJECT" --json
-yoke strategy doc get SLUG --project "$ITEM_PROJECT" --json
+yoke strategy doc get <slug> --project "$ITEM_PROJECT" --json
 ```
 
-Selection precedence is deterministic:
+Inspect plausible candidates. Precedence: explicit exact artifact slug,
+otherwise one unique same-project document matching title/outcome/parent
+relationship. Exactly one **unarchived** match is required; one unrelated
+document is not a match. Zero/multiple matches: stop, release item claim
+through registered authority and ask for slug. Do not guess, create children,
+copy the plan to body, or create a strategy document without direction.
 
-1. An exact slug explicitly identified in the item artifacts as the
-   execution document.
-2. Otherwise, one unique project document whose slug and current content
-   match the item's title, requested outcome, and stated parent-plan
-   relationship.
+Cold-start content must state outcomes and slice boundaries, affected areas,
+coordination dependencies, verification/delivery actions, unresolved decisions
+and parent relationship (explicit no-parent when applicable). Incomplete
+content requires plan repair before link or advance.
 
-The result must be exactly one unarchived document in the Blitz item's
-project. A corpus containing one unrelated document is not a match. If zero
-or multiple candidates remain, stop at `refining-idea`, release the item work
-claim, and ask the operator to name the execution-document slug. Do not guess,
-create child items, copy a candidate into the item body, or create a new
-strategy document without explicit operator direction.
+## 3. Link and verify
 
-Before linking, confirm the selected document can cold-start `/yoke blitz`.
-It must state:
-
-- required outcomes and explicit slice boundaries;
-- affected areas and coordination dependencies;
-- verification and delivery actions;
-- unresolved decisions;
-- the parent-strategy relationship, including an explicit no-parent statement
-  when applicable.
-
-If those facts are incomplete, stop for document-plan repair and do not link
-or advance.
-
-## 3. Link through the registered operation
-
-For a new selection, invoke `strategy.execution.link` through its adapter:
-
-```text
-yoke strategy execution link "$ITEM_REF" \
-  --slug "$EXECUTION_SLUG" --project "$ITEM_PROJECT" --json
+```bash
+yoke strategy execution link "$ITEM_REF" --slug "$EXECUTION_SLUG" --project "$ITEM_PROJECT" --json
+yoke strategy execution get "$ITEM_REF" --project "$ITEM_PROJECT" --json
 ```
 
-The operation is the only Refine write to `item_strategy_docs`. Do not
-reconstruct the row with SQL or a lower-level helper.
+Only strategy.execution.link writes this metadata; no SQL reconstruction.
+Require execution.execution_document.slug equals EXECUTION_SLUG, linked_at
+nonempty, one actual document object instead of a copied body/child plan,
+the correct item/project and execution.item_claim matching this claim.
 
-## 4. Verify the execution read
-
-Re-read through `strategy.execution.get`:
-
-```text
-yoke strategy execution get "$ITEM_REF" \
-  --project "$ITEM_PROJECT" --json
-```
-
-Require all of the following before status advancement:
-
-- `execution.item.workflow_id` is `blitz`;
-- `execution.execution_document.slug` equals `EXECUTION_SLUG`;
-- `execution.execution_linked_at` is non-empty;
-- the execution projection contains one document object, not a copied item
-  body or child-item plan;
-- `execution.item_claim` still identifies the current Refine item claim.
-
-Record `EXECUTION_SLUG` for the final summary. After the lifecycle transition,
-read the fresh item's `next_skill_id` using
-[the shared handoff recipe](../shared/stage-handoff.md). Release the item claim
-and hand off with:
-
+Retain slug for report. After lifecycle success resolve fresh next_skill_id,
+release item claim and render:
 ```text
 Next step: /yoke {NEXT_SKILL_ID} {ITEM_REF}
 Execution document: $EXECUTION_SLUG
 ```
+Follow [shared handoff](../shared/stage-handoff.md).

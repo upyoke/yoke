@@ -1,45 +1,27 @@
-# /yoke refine final phase — policy-aware path closure
+# Refine — Final Policy-Aware Closure
 
-## Final phase — Policy-Aware Path Closure (before status advance)
-
-Refine MUST NOT advance from `REFINE_ACTIVE_STATUS` to
-`REFINE_TARGET_STATUS` until every enabled axis is complete. Run the readiness
-check once more after critique-driven updates and before the status mutation
-in step 9:
-
+After verified writes and before status advancement:
 ```bash
 yoke readiness check PREFIX-N
 ```
 
-The exit condition is the same as idea's policy-aware path closure:
+Require every enabled axis complete:
+- Budget: enumerate **every** physical file to edit, one path per row, current
+  count, headroom against350 and at/over-limit flag. No approximations or
+  "all importers" substitute.
+- Claims: complete coverage from the enabled budget or execution/investigation
+  when budget is off. Parity only when both axes are enabled.
+- Checkbox ACs: PRD-9 applies at the active Refine stage; missing criteria
+  return MISSING_ACCEPTANCE_CRITERIA with this public ref/recovery.
+  Workflows without Refine are exempt.
+- Readiness verdict is pass. Unavailable is unperformed, not passing; follow
+  its host recovery instead of retrying locally.
 
-- When File Budget is enabled, every file the implementer will edit is
-  enumerated in `## File Budget`, one path per line, with current line count,
-  remaining headroom against 350, and an at-or-over-limit flag. **Counts and
-  approximations ("roughly 30 files", "every caller", "all importers") are
-  not acceptable** in place of enumerated paths.
-- When path claims are enabled, coverage is complete from the enabled File
-  Budget or, when budget is off, from the execution artifact/investigation.
-- Only when both axes are enabled does this phase require parity between them.
-- Acceptance criteria are present: the shared PRD-9 check runs at the
-  in-progress stage of the pinned Refine binding. Missing checkbox criteria
-  return `MISSING_ACCEPTANCE_CRITERIA` with this item's own public ref and
-  the add-criteria/rerun recovery. Workflows without Refine are exempt.
-- The readiness check reports `verdict=pass`. A `verdict=unavailable` is not a
-  pass: it names checks this host could not perform, and re-running it here
-  cannot change that (see [`readiness-repair.md`](readiness-repair.md)).
+Complete enumeration here or surface the exact gap without advancing.
+The boundary gate is a tripwire, not permission to skip closure.
+Only physical files belong in File Budget list-item backticks; function ids,
+events and command surfaces belong in surrounding prose.
 
-If the check fails or the spec still contains unexpanded prose substitutes for enumeration, do NOT advance. Either complete the enumeration in this pass or stop and surface the gap to the operator. The boundary gate at advance time exists as a tripwire, not as a fallback for refine skipping closure.
-
-When File Budget is enabled, **only physical files belong in `## File
-Budget` list-item backticks.** Function ids (`items.section.upsert`), event
-names, command surfaces, and other operational references go in the
-surrounding spec prose.
-
-## Multi-turn refine session continuity
-
-Refine writes go to the structured fields the protocol names (`spec`,
-`design_spec`, `technical_plan`, `worktree_plan`, `shepherd_caveats`). Those
-are intent/design surfaces, not scratchpads for in-flight state. If a pass
-spans multiple turns, write checkpoint notes to the item's **Progress Log**;
-successor agents use it to learn what is complete, pending, and settled.
+Intent stays in its permitted structured fields. Multi-turn state goes to
+**Progress Log** through its dedicated append operation, never graph fields
+or a shell rewrite.

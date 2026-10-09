@@ -25,6 +25,8 @@ Work claims authorize lanes. Never implement on main or use `--no-worktree` with
 
 File Budget and path claims are independent axes from `workflows.item.get`'s `effective_policies`. The 350-line authored-file limit (`yoke_core.domain.file_line_check`) always holds. Claimed paths do not narrow scope: Every required file stays in the item; never omit, descope, or rewrite away a required file. Claims are coordination/dependency/blocking facts. Read `lanes-and-claims.md` before resolving any overlap; runtime coordination decisions route to Refine.
 
+Authoring agents attest independent overlaps with `coordination_only`; ordered edits require directional `activation` evidence. Only the dependent waits. Unattested overlap stays incompatible; claims coordinate physical files, including symlink targets.
+
 ### yoke CLI
 
 Use registered function ids through `yoke <subcommand>`, never direct runtime API/client/HTTP recipes. Postgres owns control-plane state, never constructed paths/DSNs or lane DB files. Diagnostic SQL: `yoke db read "SELECT ..."`, with `<>`; no write SQL. Missing mutations escalate. Never print secrets or dump settings.

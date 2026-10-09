@@ -1,261 +1,113 @@
-# /yoke refine — Update Protocol
+# Refine — Apply, Verify, Advance
 
-Extracted from `SKILL.md`. Contains steps 6-12 — apply improvements, verify writes, advance status, release claims, and final output.
+## 6. Enhance only
 
-The function-call envelope shape and per-family recipes referenced below
-live in
-[`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md).
+Read the selected field, identify critique gaps, append sections/ACs/discovery
+and analysis; grammar edits may not change meaning. Use registered typed
+writes described in [the envelope home](../idea/body-and-sync-functions.md):
+- `items.structured_field.append_addendum`: idempotent heading-led addition,
+  guarded current read/write/readback; rejects empty, shrinkage or freeze violations.
+- `items.structured_field.section_upsert` / `section_append`: targeted additive
+  transforms preserving surrounding content.
+- `items.structured_field.replace`: entire intended content authored and
+  preservation checked; full-field examples use replace.
 
----
-
-### 6. Apply Improvements (Additive Only)
-
-For each recommended change, **enhance** the existing content — do not replace it. The approach is:
-
-1. **Read the existing content** from the structured field via the
-   `items.get.run` function call (`fields: ["<field>"]`).
-2. **Identify gaps** from the critique (missing ACs, missing blast-radius, missing error handling, etc.).
-3. **Append** new sections, ACs, discovery commands, and analysis to the existing content.
-4. **Edit in place** for grammar/clarity fixes only — no meaning changes, no paraphrasing, no abstraction.
-5. **Write the enhanced version** back through the function-call dispatcher.
-
-**Two write surfaces, one rule each.**
-
-- **Additive transform (preserve existing field, add a heading-led block):**
-  dispatch `items.structured_field.append_addendum` with `target = {kind:
-  "item", public_ref: "PREFIX-N"}` and `payload = {field, heading, content, source:
-  "refine"}`. The handler reads the current field through canonical DB
-  routing, applies an idempotent `## heading`-led append, writes through
-  the existing guarded structured-write path, and re-reads to verify. It
-  refuses empty content, preserves shrinkage/freeze/empty guards, and
-  returns evidence the success summary can quote.
-  Operator/debug adapter: `printf '%s\n' "<addendum>" | yoke items structured-field append-addendum PREFIX-N --field spec --heading "..." --source refine --stdin`.
-- **Full field rewrite (you authored the entire intended content):**
-  dispatch `items.structured_field.replace` with `payload = {field,
-  content, source: "refine"}`. Keep skill examples replace-first for
-  full rewrites. **Never** read the field via `items.get.run`, transform
-  via shell choreography, and pipe the result back into another write —
-  the PreToolUse Bash lint catches that pattern and the remediation
-  points to the addendum / section-upsert / section-append handlers
-  above. Bypass token: `# lint:no-structured-transform-check` (audited).
-  Operator/debug adapter: `printf '%s\n' "<full field content>" | yoke items structured-field replace PREFIX-N --field spec --source refine --stdin`.
-
-Raw `items.body` writes are unsupported — body is a virtual rendered
-field, always go through a structured field or `item_sections` (via
-`items.section.upsert`).
-
-Use repo-root-resolved script paths in every shell command; do not rely
-on shell variables persisting across separate tool invocations.
-
-The enhanced artifact must encode the mandatory-check findings from
-step 5. Do not stop at cleaner wording if the artifact still lacks
-verified references, blast-radius discovery, cleanup coverage,
-failure/recovery coverage, or resolved item-level open questions.
-
-**Subtraction detection check (mandatory before writing).** Before
-writing any field, diff the enhanced content against the original. If
-ANY original content is missing or materially changed in meaning —
-decisions, ACs, user questions, evidence, observations, numbered items
-— the write is rejected. Add the missing content back before writing.
-This check exists because refine can silently destroy operator-provided
-content by abstracting it into vague prose.
-
-**Escalation gate.** If the critique identified major errors (wrong
-references verified against the codebase, contradictory requirements,
-scope conflicts with active work items), do NOT dispatch the write.
-Instead, stop and surface the issues to the operator. Do NOT advance
-status. The item stays at `REFINE_ACTIVE_STATUS` until the operator resolves
-the issue.
-
-**File Budget escalation.** Apply this only when effective File Budget is
-enabled. If the work item is implementation-bearing AND
-the File Budget cannot be resolved during this refine pass — the file
-shape is genuinely unknown, the touched source files are already over
-the 300-line design target with no obvious split, or a proposed task
-owns multiple responsibilities that cannot be reduced without operator
-input — do NOT silently advance. Surface the blocker to the operator
-with the exact set of files in question (including current line counts)
-and the resolution options (split before implementation, expand the
-budget with justification, descope, or split the work item). The item stays at
-`REFINE_ACTIVE_STATUS` until the operator resolves it.
-
-**Obvious File Budget repair.** When File Budget is enabled, do not escalate when reference
-verification finds one obvious live owner for the missing path and adding
-that path does not change the project, deployment target, or behavior
-scope. Add the verified file to the File Budget; widen the path claim with
-the evidence-backed reason only when effective path claims are also enabled;
-otherwise retain the budget as sizing/conflict evidence. Escalate only
-when there are multiple plausible owners, the repair would change scope,
-or the overlap/dependency decision is genuinely ambiguous.
-
-Field routing (dispatch `items.structured_field.replace` with
-`payload.field` matching the routing below):
-
-- Spec content (problem, scope, ACs, dependencies, likely files) → `spec`
-- Design content (UX flows, edge cases) → `design_spec`
-- Technical plan content → `technical_plan`
-- Worktree plan content → `worktree_plan`
-- Caveat content → `shepherd_caveats`
-- Long-running execution context → the `Progress Log` section via the
-  `items.progress_log.append` function call (`target = {kind: "item",
-  public_ref: "PREFIX-N"}`, `payload = {headline, content, source: "refine"}`).
-  The handler creates the section if missing, appends after existing
-  content if present, and formats the
-  `## <UTC ISO timestamp> entry — <headline>` header itself. Never read
-  the section via shell, transform in shell, and pipe back through
-  `items.section.upsert` — that pattern is caught by the
-  structured-transform lint and the remediation now points at
-  `items.progress_log.append`.
-  Operator/debug adapter: `printf '%s\n' "<entry body>" | yoke items progress-log append PREFIX-N --headline "..." --source refine --stdin`.
-
-AC rules:
-
-- When ACs exist but lack canonical `AC-N:` labels, normalize them to
-  `- [ ] AC-N: {description}` during the refinement pass.
-- When ACs are missing entirely, add an `## Acceptance Criteria` section
-  with appropriate ACs derived from the item's stated requirements.
-  This is part of the normal rewrite — not a separate pass.
-
-### 7. Verify The Writes
-
-After every write, re-read the updated field via the `items.get.run`
-function call (`fields: ["<field>"]`) and confirm it contains the
-intended result. If the field comes back empty or malformed, retry the
-write once before reporting failure. Always re-read live DB state
-before concluding that a structured-write or status-advance step
-stopped short — the write may have succeeded even if the response was
-unclear.
-
-Also sanity-check that the persisted content still includes the
-structural changes you intended: canonical AC labels, any required
-grep/residue guidance, explicit cleanup/removal notes, and
-failure/recovery coverage where applicable.
-
-### 7b. Link And Verify A Blitz Execution Document
-
-When `ITEM_NEXT_SKILL=blitz`, read and follow
-[`blitz-execution-document.md`](blitz-execution-document.md). Select exactly
-one project strategy document, invoke the registered
-`strategy.execution.link` operation through
-`yoke strategy execution link ITEM --slug SLUG`, and verify the result with
-registered read `strategy.execution.get` through
-`yoke strategy execution get ITEM --json`.
-
-Do not advance a Blitz when the selection is missing or ambiguous, when an
-existing link conflicts with the selected slug, or when the execution read
-does not return that exact document. Linking does not acquire the document
-claim; `/yoke blitz` activation owns that atomic step.
-
-### 8. Capture Final Summary
-
-Before status advancement, capture the details you will present after cleanup is finished. Do not emit the success summary yet:
-
-```
-## Refinement Complete — PREFIX-{N}
-
-**Fields updated:** {list of fields written}
-**Changes applied:** {count}
-
-{Brief summary of what changed and why}
+```bash
+yoke items structured-field replace "$ITEM_REF" --field spec --source refine --stdin
+yoke items structured-field append-addendum "$ITEM_REF" --field spec --heading "<addition-heading>" --source refine --stdin
+yoke items progress-log append "$ITEM_REF" --headline "<current-state>" --source refine --stdin
 ```
 
-### 9. Advance Status on Success
+Never read a field into shell, transform and pipe it back; dedicated transforms
+own that operation. The audited lint token `lint:no-structured-transform-check`
+does not make routine bypass appropriate. Body is virtual; no raw body writes.
+Use structured fields or registered item sections. Absolute script paths and
+per-call variables avoid lost shell context.
 
-After all refinement work is verified, dispatch
-`lifecycle.transition.execute` with `target = {kind: "item", public_ref: "PREFIX-N"}` and
-`payload = {target_status: REFINE_TARGET_STATUS, source_status:
-REFINE_ACTIVE_STATUS}`. These stage ids came from the active pinned `refine`
-binding; do not reconstruct them from a workflow name.
+**Subtraction detection before every write:** compare to the original.
+Any missing or materially changed decision, AC, user question, evidence,
+observation or numbered item rejects the write. Restore it first.
+Encode all critique discovery, cleanup, recovery and open-question findings,
+not just wording. Major verified errors/contradictions/scope conflicts stop
+the write and advance; operator resolves while item stays active.
 
-After the transition succeeds, read `yoke items detail get ITEM --json` and
-set `ITEM_NEXT_SKILL` from `result.item.workflow.next_skill_id` using
-[the shared handoff recipe](../shared/stage-handoff.md). Do not retain the
-entry context's next-skill value. Final output should include:
+**File Budget escalation:** when enabled, unresolved file shape,
+300+ responsibilities without a clear split, or multi-responsibility tasks
+need exact files/counts and options: investigate/split, justified budget
+expansion, operator scope change or item split. Never silently advance.
+A single verified missing live owner in the same project/target/behavior scope
+is an obvious repair: add budget row and widen only if claims enabled.
+Multiple plausible owners, changed scope or ambiguous overlap escalates.
 
-> **PREFIX-{N}** refined: `REFINE_ACTIVE_STATUS` -> `REFINE_TARGET_STATUS`
-> Next skill: `/yoke {ITEM_NEXT_SKILL}`
+Route spec/design/technical intent to their corresponding fields; worktree_plan
+and shepherd_caveats are graph fields only under generated task policy.
+Long execution state uses `items.progress_log.append`, which preserves entries
+and stamps its own UTC header; never shell-transform/re-upsert the log.
+Normalize existing AC labels without substance loss; add canonical
+`- [ ] AC-N: ...` and a missing Acceptance Criteria section from stated outcomes.
 
-When `ITEM_NEXT_SKILL=blitz`, include the verified execution-document slug
-and the handoff rendered from the fresh item's `next_skill_id` through
-[the shared handoff recipe](../shared/stage-handoff.md).
+## 7. Verify every write
 
-GitHub body sync runs implicitly on the lifecycle transition; explicit
-re-sync is not required.
+Re-read the exact live field after each write. Check preserved intent,
+canonical ACs, discovery/residue, cleanup and error coverage.
+If empty/malformed, re-read live state before deciding the write failed,
+then retry once before reporting failure. Unclear status/write responses
+require a fresh DB read, never an assumed failure or duplicate mutation.
 
-**If any step above failed:** Do NOT advance status. Leave the item at
-`REFINE_ACTIVE_STATUS` and report the failure.
+When ITEM_NEXT_SKILL=blitz, follow [blitz-execution-document.md](blitz-execution-document.md)
+after artifact verification and before advance. `strategy.execution.link`
+must read back the exact document; missing/ambiguous/conflicting projection
+blocks. Linking metadata does not acquire its execution claim.
 
-**If the advance fails with `GATE_DB_CLAIM_PROSE_MISMATCH`:** the
-spec/body declares governed DB mutation but the stored
-`db_mutation_profile` is still `{"state":"none"}` and carries no
-reviewed-none attestation. Dispatch `db_claim.amend` before
-retrying the advance:
+## 8. Capture the report
 
-- **Work item actually mutates the governed DB** — `target = {kind: "item",
-  public_ref: "PREFIX-N"}`, `payload = {reason: "refine: prose declares governed
-  DB mutation", claim: <unified-claim-json>}`.
-- **Meta work item about DB governance** — the spec legitimately cites
-  `ALTER TABLE`, `ADD COLUMN`, `migration_audit`, or similar while
-  performing no governed mutation. Dispatch with `payload = {reason:
-  "refine: work item discusses DB governance vocabulary but mutates
-  nothing; reviewed-none", claim: {state: "none"}}`. The amendment
-  stamps the reviewed-negative attestation onto the stored profile; the
-  prose-vs-claim gate reads that stored attestation and clears
-  structural DDL-shape hits on the next advance attempt. Do **not** work around the gate by
-  backtick-wrapping DDL verbs or deleting governance terminology from
-  the spec.
+Retain fields updated, actual change count and purpose before status
+advancement. Do not emit success yet. Complete [closure.md](closure.md) first.
 
-The declared payload combines profile and attestation fields in one
-flat object; `migration_strategy` is required when
-`mutation_intent="apply"`, and `pre_merge_readers_writers[].role` is
-only `reader` or `writer` (schema-changing migration modules use
-`writer`). See [.yoke/docs/reference/db-reference.md](../../../../.yoke/docs/reference/db-reference.md).
-Once the amendment lands, retry the `lifecycle.transition.execute` call.
-Operator/debug adapter: `yoke db-claim amend`
-constructs the same `db_claim.amend` request envelope.
+## 9. Advance through the exact pin
 
-### 10. Release Item Claim
+Use `lifecycle.transition.execute` with the active/target statuses:
+```bash
+yoke lifecycle transition "$ITEM_REF" --from "$REFINE_ACTIVE_STATUS" --to "$REFINE_TARGET_STATUS" --reason "Refinement verified"
+```
 
-Release the exclusive work claim before any success output is emitted
-via the `claims.work.release` function call: `target = {kind: "claim",
-claim_id: <claim_id>}` plus `payload = {claim_id: <claim_id>, reason:
-"completed"}`. Resolve the `claim_id` via the
-`claims.work.holder_get` read against the current item (or remember
-it from the matching `acquire` response).
+Refresh item detail and derive next_skill_id with
+[shared handoff](../shared/stage-handoff.md); do not reuse entry's prediction.
+GitHub body sync is implicit; no repeated sync. Failure leaves the actual
+active stage and names repair.
 
-This MUST run before the final operator summary. A release failure
-still needs to be called out in the final report; do not silently
-swallow it.
+For GATE_DB_CLAIM_PROSE_MISMATCH, amend honestly before retry:
+```bash
+yoke db-claim amend "$ITEM_REF" --reason "<verified-mutation-or-reviewed-none-reason>" --stdin
+```
+
+`db_claim.amend` takes one flat unified profile+attestation. Actual governed
+work declares it; meta governance-only prose supplies state:none with
+reviewed-none rationale. Never scrub/backtick DDL to evade the gate.
+Apply intent requires migration_strategy; pre_merge_readers_writers roles
+are reader/writer only, with schema modules as writers.
+Read the [DB reference](../../../../.yoke/docs/reference/db-reference.md),
+verify amendment and retry the pinned transition.
+
+## 10. Release before success
+
+`claims.work.release` targets the actual claim_id from acquire or holder_get,
+with reason **"completed"**:
+```bash
+yoke claims work release --item "$ITEM_REF" --reason "completed"
+```
+Surface any release failure; never swallow it.
 
 ### 11. Final Output
 
-After status advancement and claim release, emit:
+After advancement and release, report fields/count/purpose, actual served
+transition and freshly resolved next skill. For Blitz include the verified
+execution-document slug and fresh handoff.
 
-```
-## Refinement Complete — PREFIX-{N}
+## 12. Completion
 
-**Fields updated:** {list of fields written}
-**Changes applied:** {count}
-
-{Brief summary of what changed and why}
-```
-
-Include the served status transition and next-skill note from step 9. When
-`ITEM_NEXT_SKILL=blitz`, also include the linked execution-document slug
-and the handoff rendered from the fresh item's `next_skill_id`.
-
-### 12. Completion
-
-Refinement is complete when:
-- All non-empty artifacts have been evaluated
-- Identified issues have been addressed in the appropriate structured fields
-- Every updated field has been re-read successfully after the write
-- Status has been advanced to `REFINE_TARGET_STATUS`
-- A `blitz` next-skill handoff has exactly one execution strategy document linked and verified
-  through `strategy.execution.get`
-- The item claim has been released with reason `completed`
-- The operator has been shown what changed in the final output
-
-Refinement is NOT complete if:
-- Artifact reads failed (DB error) — report the error and stop
-- The operator interrupted with a question — answer it before continuing
+All nonempty applicable artifacts evaluated, findings addressed in permitted
+fields, every write read back, target reached, claim released and report shown.
+Blitz additionally needs exactly one linked/readback execution document.
+DB read failure stops; an operator question is a checkpoint—answer before
+continuing. Failed work cannot advance.
