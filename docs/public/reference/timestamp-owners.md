@@ -171,3 +171,8 @@ record payloads format fixed-six UTC/null. Arming notice lookup matches only its
 qualified clock suffix and reuses the stored immutable key for the same instant.
 New episodes format canonical keys, and native landing/notification writes retain
 microseconds across database timezones. Existing notice bytes remain unchanged.
+
+Git commit-time ingress converts its integral epoch protocol to a native aware
+instant and uses null for an unreadable commit. Nonempty malformed or unbounded
+provider clocks refuse. Close-out forwards the native fact; its request payload
+formats only at the existing merged-at owner.

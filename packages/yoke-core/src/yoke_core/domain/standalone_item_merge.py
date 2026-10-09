@@ -76,14 +76,14 @@ def stamp_merged_at(
     that cannot answer -- falls back to now and keeps any earlier answer,
     because "now" is only ever an approximation of a landing nobody timed.
     """
-    landed_at = git.commit_time(repo_root, merge_sha) if repo_root else ""
-    now = format_instant(utc_now())
+    landed_at = git.commit_time(repo_root, merge_sha) if repo_root else None
+    clock = utc_now() if landed_at is None else landed_at
     response = call_dispatcher(
         function_id="done_transition.populate_merged_at",
         target=public_item_target(item_id),
         payload={
-            "merged_at": landed_at or now,
-            "supersedes_prior_landing": bool(landed_at),
+            "merged_at": format_instant(clock),
+            "supersedes_prior_landing": landed_at is not None,
         },
     )
     if response.success:

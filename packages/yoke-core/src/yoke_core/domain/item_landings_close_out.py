@@ -65,8 +65,8 @@ def landing_time(
     """
     if queue_landed_at is not None:
         return parse_instant(queue_landed_at)
-    recorded = git.commit_time(repo_root, merge_sha) if repo_root else ""
-    return parse_instant(recorded) if recorded else utc_now()
+    recorded = git.commit_time(repo_root, merge_sha) if repo_root else None
+    return recorded if recorded is not None else utc_now()
 
 
 def _record(item_id: int, payload: dict[str, Any]) -> str:
