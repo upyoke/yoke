@@ -1,6 +1,7 @@
 """Session registration retries and reactivation preserve identity."""
 
 import json
+from yoke_contracts.timestamps import parse_instant
 
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
@@ -108,4 +109,4 @@ class TestSessionRegistrationReentry:
         assert row[1] == "openai"
         assert row[2] == "gpt-5.4"
         assert row[3] is None
-        assert row[4] == original_offered_at
+        assert row[4] == parse_instant(original_offered_at)

@@ -18,6 +18,8 @@ in the rendered Path Claims section, not here.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from yoke_core.domain.project_identity import render_item_ref
 
 from typing import Any, Optional
@@ -72,7 +74,7 @@ def render_blocked_section(conn: Any, item_id: int) -> Optional[str]:
     else:
         lines.append("**Reason:** (none recorded)")
     if updated_at:
-        lines.append(f"**Last updated:** {updated_at}")
+        lines.append(f"**Last updated:** {format_instant(updated_at)}")
     lines.append(
         f"Unblock with `yoke items unblock {render_item_ref(conn, int(item_id))}` "
         "once the underlying coordination is resolved."

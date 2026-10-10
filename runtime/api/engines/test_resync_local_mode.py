@@ -215,8 +215,8 @@ def _seed_item(universe, item_id: int, github_issue) -> str:
             spec="Spec body",
             frozen=0,
             github_issue=github_issue,
-            created_at="2026-01-01",
-            updated_at="2026-01-01",
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
         )
         body = build_body(conn, item_id) or ""
     finally:

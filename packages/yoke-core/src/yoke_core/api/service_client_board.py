@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import sys
 
+from yoke_contracts.timestamps import temporal_wire
+
 from yoke_core.api.service_client_shared import (
     _get_db_readonly,
     AdapterCategory,
@@ -139,7 +141,7 @@ def cmd_charge_frontier(args: list[str]) -> int:
             project_scope=project_scope,
             wip_cap=wip_cap,
         )
-        print(json.dumps(_frontier_result_to_dict(result, conn)))
+        print(json.dumps(temporal_wire(_frontier_result_to_dict(result, conn))))
         return 0
     finally:
         conn.close()
@@ -302,7 +304,7 @@ def cmd_charge_schedule(args: list[str]) -> int:
                 home_project_id=home,
                 conn=conn,
             )
-        print(json.dumps(_scheduler_result_to_dict(result, conn)))
+        print(json.dumps(temporal_wire(_scheduler_result_to_dict(result, conn))))
         return 0
     finally:
         conn.close()

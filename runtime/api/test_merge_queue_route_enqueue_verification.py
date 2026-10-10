@@ -1,5 +1,6 @@
 """The durable handoff follows GitHub's queue membership, not the arming."""
 
+from yoke_contracts.timestamps import parse_instant
 from runtime.api.merge_queue_landing_test_helpers import (
     ARMED,
     UNARMED,
@@ -72,7 +73,7 @@ def test_only_an_already_armed_retry_preserves_the_episode(monkeypatch):
 
         def mark(item_id, pr_number, *, dispatch, preserve_existing):
             calls.append(preserve_existing)
-            return "2026-08-27T17:00:00Z", ""
+            return parse_instant("2026-08-27T17:00:00Z"), ""
 
         monkeypatch.setattr(route_mod, "mark_landing_pending", mark)
         outcome = land(wait_for_landing=False)

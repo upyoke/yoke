@@ -6,6 +6,8 @@ from datetime import timedelta
 
 import pytest
 
+from yoke_contracts.timestamps import format_instant
+
 from yoke_core.domain.session_broker_wake import lease_broker_wake_for_hook
 from yoke_core.domain.session_broker_wake_settlement import (
     complete_broker_hook_lease,
@@ -32,7 +34,7 @@ SURFACE_IDENTITIES = {
 
 def _stamp(*, minutes: int = 0, seconds: int = 0) -> str:
     value = NOW + timedelta(minutes=minutes, seconds=seconds)
-    return value.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return format_instant(value)
 
 
 def _heartbeat(surface: str) -> RelayHeartbeat:

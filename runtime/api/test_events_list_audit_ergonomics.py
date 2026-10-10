@@ -103,25 +103,11 @@ class TestRelativeSinceParsing:
 
         from yoke_core.domain import events_relative_time as ert
 
-        monkeypatch.setattr(ert, "datetime", _FrozenDatetime(now), raising=True)
+        monkeypatch.setattr(ert, "utc_now", lambda: now, raising=True)
         rc, out, _ = _run_list(db_path, ["--since", "2 hours ago"])
         assert rc == 0
         assert "recent" in out
         assert "old" not in out
-
-
-class _FrozenDatetime:
-    """Patch shim for ``datetime.now(timezone.utc)`` used in parse_since."""
-
-    def __init__(self, anchor: datetime) -> None:
-        self._anchor = anchor
-
-    def now(self, tz):  # noqa: D401 - matches datetime.now signature
-        return self._anchor
-
-    @classmethod
-    def fromisoformat(cls, value: str):  # pragma: no cover - parity
-        return datetime.fromisoformat(value)
 
 
 class TestFailedOnlyPreset:

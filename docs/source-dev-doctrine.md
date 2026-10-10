@@ -94,6 +94,12 @@ Rehearse Yoke migrations from the claimed lane through the paired authority:
 yoke --env prod-db-admin dev run -- yoke migration rehearse PREFIX-N
 ```
 
+For the native instant cutover, use the installed launcher instead:
+`yoke --env prod-db-admin migration rehearse PREFIX-N`. Its existing lease and
+audit writers retain authority over the pre-cutover control plane; only the
+frozen history body runs on the validation copy, loading its sibling helpers
+without importing candidate runtime packages.
+
 The item and durable lease/audit receipts live on prod. Migration code runs only
 against the separately bound disposable validation database, whose live cluster
 and database identity must differ from the authority. Preserve each

@@ -18,6 +18,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
+from yoke_contracts.timestamps import parse_instant
 
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_contracts.session_model_facts import SessionModelFacts
@@ -48,15 +49,16 @@ ROUTABLE_VERSION = "2.1.269"
 def _registration_clock(monkeypatch):
     """Pin the registration clock so episode stamps are chosen, not raced.
 
-    ``episode_started_at`` has second granularity, and a test registers and
-    reactivates far faster than that. Real resumes are minutes apart; pinning
-    the clock states which episode each registration belongs to instead of
-    depending on wall-clock elapsing between two calls.
+    Pinning the native clock states which episode each registration belongs
+    to without depending on elapsed wall time between calls.
     """
 
     def _set(stamp: str) -> None:
         monkeypatch.setattr(
-            sessions_lifecycle_registry, "_now_iso", lambda: stamp, raising=True
+            sessions_lifecycle_registry,
+            "utc_now",
+            lambda: parse_instant(stamp),
+            raising=True,
         )
 
     _set(STAMP)

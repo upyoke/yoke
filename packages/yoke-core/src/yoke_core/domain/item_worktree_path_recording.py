@@ -61,7 +61,8 @@ def record_item_worktree_path(
     )
     if lane is None or str(lane["state"]) != "active":
         raise ValueError(
-            f"item worktree lane {worktree_id} is no longer active for item {item_id}"
+            f"item worktree lane {worktree_id} is no longer active for "
+            f"{render_item_ref(conn, item_id)}"
         )
     if str(lane["branch"]) != clean_branch:
         raise ValueError(

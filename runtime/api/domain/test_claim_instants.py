@@ -13,7 +13,7 @@ from yoke_core.domain import coordination_claims
 from yoke_core.domain.coordination_claim_record import claim_as_dict
 from yoke_core.domain.coordination_claims_listing import stale_claim_candidates
 from yoke_core.domain.session_turn_posture import stamp_turn_posture
-from yoke_core.domain.work_claim_targets import make_deploy_serialization_target
+from yoke_core.domain.work_claim_targets import make_route_qualification_target
 
 
 INSTANT = datetime(
@@ -34,7 +34,7 @@ def test_claim_and_posture_preserve_microseconds_and_nulls(test_db, zone):
         "VALUES (%s,'codex','openai','gpt','/tmp',%s,%s,%s)",
         (session_id, project_id, INSTANT, INSTANT),
     )
-    target = make_deploy_serialization_target(project_id, "native-clock")
+    target = make_route_qualification_target(project_id, str(uuid4()))
     claim = coordination_claims.acquire(test_db, target, session_id, now=INSTANT)
     assert claim.claimed_at == INSTANT
     assert claim.released_at is None

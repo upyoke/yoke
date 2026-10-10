@@ -14,10 +14,10 @@ from yoke_core.domain.sessions import SessionError, end_session, heartbeat
 
 pytest_plugins = ("runtime.api.test_sessions",)
 
-_STALE_AT = "2020-01-01T00:00:00Z"
+_STALE_AT = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
 
-def _backdate_heartbeat(conn, session_id: str, stamp: str = _STALE_AT) -> None:
+def _backdate_heartbeat(conn, session_id: str, stamp: datetime = _STALE_AT) -> None:
     conn.execute(
         f"UPDATE harness_sessions SET last_heartbeat = {_p(conn)} "
         f"WHERE session_id = {_p(conn)}",

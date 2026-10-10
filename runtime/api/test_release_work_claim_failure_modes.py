@@ -18,6 +18,7 @@ is covered separately in ``test_service_client_sessions_release_item.py``.
 from __future__ import annotations
 
 from unittest.mock import patch
+from yoke_contracts.timestamps import parse_instant
 
 import pytest
 
@@ -234,6 +235,6 @@ class TestReleaseNewestActiveClaim:
             "SELECT released_at FROM work_claims WHERE id=%s",
             (newer_id,),
         ).fetchone()
-        assert older["released_at"] == "2026-08-10T12:30:00Z"
+        assert older["released_at"] == parse_instant("2026-08-10T12:30:00Z")
         assert older["release_reason"] == "released"
         assert newer["released_at"] is not None

@@ -169,7 +169,9 @@ class DeploymentRunProgress:
         return redrive_recovery(self.run_id, unresolved=self.outstanding)
 
 
-def _answered(raw: Optional[dict[str, Any]], *, now: str) -> Optional[AnsweredDecision]:
+def _answered(
+    raw: Optional[dict[str, Any]], *, now: datetime
+) -> Optional[AnsweredDecision]:
     if raw is None:
         return None
     resolved_at = parse_stamp(raw.get("resolved_at"))
@@ -206,7 +208,7 @@ def run_progress(
     conn: Any,
     *,
     project_id: int,
-    now: str,
+    now: datetime,
 ) -> tuple[DeploymentRunProgress, ...]:
     """Every non-terminal run in the project, with what is holding it."""
     tables = probe_report_tables(conn)

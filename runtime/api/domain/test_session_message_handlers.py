@@ -214,9 +214,9 @@ def test_acknowledge_handler_flattens_body_and_state(monkeypatch) -> None:
         now=NOW,
     )["message_id"]
     monkeypatch.setattr(session_messages_receipts, "open_connection", lambda: conn)
-    from yoke_core.domain import session_message_delivery
+    from yoke_core.domain import session_message_receipts
 
-    monkeypatch.setattr(session_message_delivery, "utc_now", lambda: NOW)
+    monkeypatch.setattr(session_message_receipts, "utc_now", lambda: NOW)
     outcome = session_messages_receipts.handle_message_acknowledge(
         _request(
             "session_control.message.acknowledge",

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import timedelta
 from pathlib import Path
+from yoke_contracts.timestamps import format_instant
 
 from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_core.domain import session_message_delivery as delivery
@@ -43,7 +44,7 @@ def test_each_message_resumes_stored_native_identity_and_is_injected(monkeypatch
             json.dumps({"claude-cli": "2.1.238"}),
             NOW_TEXT,
             NOW_TEXT,
-            (NOW + timedelta(hours=1)).isoformat(),
+            format_instant(NOW + timedelta(hours=1)),
         ),
     )
     park_session(conn)
@@ -102,7 +103,7 @@ def test_each_message_resumes_stored_native_identity_and_is_injected(monkeypatch
                 "path",
                 Path("/capture"),
                 "nd-44444444-4444-4444-8444-444444444444",
-                sent_at.isoformat(),
+                format_instant(sent_at),
             )
 
         result = claude.run_claude_cli_adapter(
@@ -125,12 +126,12 @@ def test_each_message_resumes_stored_native_identity_and_is_injected(monkeypatch
         conn.execute(
             "UPDATE session_message_attempts SET completed_at=?,result_code='wake_delivered' "
             "WHERE attempt_id=?",
-            (sent_at.isoformat(), job.job_id),
+            (format_instant(sent_at), job.job_id),
         )
         stamp_activity(
             conn,
             when=sent_at + timedelta(seconds=2),
-            tool_call=(sent_at + timedelta(seconds=2)).isoformat(),
+            tool_call=format_instant(sent_at + timedelta(seconds=2)),
         )
         receipt = conn.execute(
             "SELECT state,injection_count FROM session_message_recipients "

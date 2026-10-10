@@ -114,6 +114,14 @@ def test_termination_and_reap_share_native_fact_with_message_cancellation(
     actor = test_db.execute(
         "SELECT actor_id FROM harness_sessions WHERE session_id=%s", (caller,)
     ).fetchone()[0]
+    monkeypatch.setattr(steering, "utc_now", lambda: MOMENT)
+    steering.acquire(
+        test_db,
+        session_id=caller,
+        project_id=1,
+        actor_id=actor,
+        reason="termination clock proof",
+    )
     message = _message(test_db, target, expires_at=MOMENT + timedelta(hours=1))
     monkeypatch.setattr(termination, "utc_now", lambda: MOMENT)
     monkeypatch.setattr(
