@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from yoke_contracts.timestamps import parse_instant, utc_now
+from yoke_contracts.timestamps import as_utc, parse_instant, utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_state import require_actor_active
@@ -56,7 +56,7 @@ class CreatedWebSession:
     expires_at: datetime
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "expires_at", parse_instant(self.expires_at))
+        object.__setattr__(self, "expires_at", as_utc(self.expires_at))
 
 
 @dataclass(frozen=True)

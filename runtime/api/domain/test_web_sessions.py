@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from yoke_contracts.timestamps import parse_instant
 
+from datetime import datetime, timedelta, timezone
 from typing import Any, Iterator
 
 import pytest
 
 from runtime.api.fixtures import pg_testdb
 
+from yoke_core.domain import web_sessions
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.external_identity_schema import (
@@ -51,9 +53,29 @@ def conn() -> Iterator[Any]:
         pg_testdb.drop_test_database(name)
 
 
-def test_mint_stores_hash_only_and_verify_touches_last_used(conn):
+@pytest.mark.parametrize("microsecond", [0, 123456])
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_mint_stores_hash_only_and_verify_touches_last_used(
+    conn, monkeypatch, microsecond, zone
+):
+    instant = datetime(1969, 12, 31, 23, 59, 59, microsecond, tzinfo=timezone.utc)
+    supplied = instant.astimezone(timezone(timedelta(hours=5, minutes=30)))
+    monkeypatch.setattr(web_sessions, "_now_dt", lambda: supplied)
+    conn.execute("SELECT set_config('TimeZone', %s, true)", (zone,))
     actor_id = seed_human_actor(conn)
     created = mint_web_session(conn, actor_id=actor_id)
+    expected_expiry = instant + timedelta(
+        seconds=web_sessions.DEFAULT_WEB_SESSION_TTL_S
+    )
+    assert created.expires_at == expected_expiry
+    assert created.expires_at.tzinfo is timezone.utc
+    stored_clocks = conn.execute(
+        "SELECT created_at, expires_at FROM web_sessions WHERE id=%s",
+        (created.web_session_id,),
+    ).fetchone()
+    assert stored_clocks[0] == instant
+    assert stored_clocks[1] == expected_expiry
+    assert all(isinstance(clock, datetime) for clock in stored_clocks)
 
     stored = conn.execute(
         "SELECT token_hash, last_used_at FROM web_sessions WHERE id = %s",

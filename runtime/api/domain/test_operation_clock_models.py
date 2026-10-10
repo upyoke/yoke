@@ -79,6 +79,9 @@ def test_operation_clock_is_native_and_normalized(factory, field, clock):
 @pytest.mark.parametrize(
     "bad",
     [
+        None,
+        0,
+        False,
         datetime(1970, 1, 1),
         "then",
         "1970-01-01",
@@ -140,7 +143,7 @@ def test_ingest_plan_compares_native_clocks_and_formats_conflict_report():
     )
 
 
-@pytest.mark.parametrize("factory", [contention, terminalization])
+@pytest.mark.parametrize("factory", [contention, terminalization, web_session])
 @pytest.mark.parametrize(
     "wire", ["1969-12-31T23:59:59.123456Z", "1970-01-01T05:29:59.123456+05:30"]
 )
@@ -163,9 +166,7 @@ def test_contention_age_floors_exact_seconds_across_valid_years():
     assert _age_seconds(None, INSTANT) is None
 
 
-@pytest.mark.parametrize(
-    "factory,field", [(web_session, "expires_at"), (ingest_plan, "base_updated_at")]
-)
+@pytest.mark.parametrize("factory,field", [(ingest_plan, "base_updated_at")])
 def test_operation_ingress_models_parse_their_owned_qualified_wire_clock(
     factory, field
 ):

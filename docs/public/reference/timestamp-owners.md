@@ -81,7 +81,7 @@ Path-claim CLI JSON and body renderers format owned instants; worktree lane
 responses normalize declared clocks before model validation. Doctor receipts bind
 native run clocks and format only their response projection; the live outcome scan binds its exact native three-day cutoff. Done bookkeeping
 and merge marker writes retain native landing facts, including null unknowns; queue adapters parse local and relayed clock ingress, preserve native arming episodes, and format only request payloads and human landing text;
-provider corrections accept qualified RFC3339 and compare native instants. Claim contention, run terminalization, minted web-session and strategy-ingest plan models retain native clocks; ingest CAS compares native plan facts and formats conflict reports; contention and terminalization refuse internal wire/naive clocks; claim age uses exact timedelta second flooring; claim reports and terminalization responses format only their owned output leaves. Queue
+provider corrections accept qualified RFC3339 and compare native instants. Claim contention, run terminalization, minted web-session and strategy-ingest plan models retain native clocks; ingest CAS compares native plan facts and formats conflict reports; contention, terminalization and minted web-session results refuse internal wire/naive clocks; claim age uses exact timedelta second flooring; claim reports and terminalization responses format only their owned output leaves. Queue
 refresh cadence keeps native cutoffs and facts across database timezones.
 
 Dispatcher request JSON projects native payload, precondition and option clocks while Python-mode values retain datetimes. New result digests and public/CLI payloads apply the shared native
