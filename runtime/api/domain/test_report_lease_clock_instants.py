@@ -171,7 +171,7 @@ def test_actual_hook_settlement_preserves_native_clock_without_string_round_trip
         family
     ]
     decision = delivery.evaluate(
-        hook_context("PreToolUse", family=family, surface=surface)
+        hook_context("PostToolUse", family=family, surface=surface)
     )
     audit = decision.audit_fields[delivery.DELIVERY_AUDIT_FIELD]
     assert isinstance(audit["report_claimed_at"], datetime)
