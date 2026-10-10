@@ -15,7 +15,7 @@ import sys
 from datetime import datetime
 from yoke_contracts.timestamps import utc_now, format_instant
 from pathlib import Path
-from typing import Any, List, Optional, Sequence
+from typing import List, Optional
 
 from yoke_core.domain.db_helpers import (
     connect,
@@ -25,6 +25,7 @@ from yoke_core.domain.db_helpers import (
     query_scalar,
 )
 from yoke_core.domain.qa_artifact_handle import local_handle, serialize_handle
+from yoke_core.domain.qa_constants import _coalesce as _coalesce, _pipe_row as _pipe_row
 from yoke_core.domain.sql_json import json_get
 
 
@@ -35,18 +36,6 @@ from yoke_core.domain.sql_json import json_get
 
 def _now_iso() -> datetime:
     return utc_now()
-
-
-def _coalesce(val: Any, default: str = "") -> str:
-    if val is None:
-        return default
-    return str(val)
-
-
-def _pipe_row(row, cols: Optional[Sequence[str]] = None) -> str:
-    if cols:
-        return "|".join(_coalesce(row[c]) for c in cols)
-    return "|".join(_coalesce(row[i]) for i in range(len(row)))
 
 
 # ---------------------------------------------------------------------------

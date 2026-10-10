@@ -10,7 +10,7 @@ that :mod:`yoke_contracts.items_projection` defines. The public façade
 from __future__ import annotations
 
 from datetime import datetime
-from yoke_contracts.timestamps import utc_now
+from yoke_contracts.timestamps import utc_now, format_instant
 from typing import Any, Optional
 
 # Canonical column order for pipe-delimited row output ("body" is a
@@ -89,7 +89,7 @@ INTEGER_FIELDS = frozenset(
 
 
 def _now_utc() -> datetime:
-    """Return current UTC timestamp in ISO 8601 format."""
+    """Return the current native aware UTC instant."""
     return utc_now()
 
 
@@ -97,7 +97,7 @@ def _coalesce(value: Any, default: str = "") -> str:
     """Coalesce None to *default*."""
     if value is None:
         return default
-    return str(value)
+    return format_instant(value) if isinstance(value, datetime) else str(value)
 
 
 def _map_frozen_read(value: Any) -> str:
@@ -151,5 +151,5 @@ def _to_val(s: str, is_int: bool = False) -> Any:
 
 
 def _pipe_row(row) -> str:
-    """Format a sqlite3.Row as a pipe-delimited string."""
+    """Format a database row as pipe-delimited text."""
     return "|".join(_coalesce(v) for v in row)

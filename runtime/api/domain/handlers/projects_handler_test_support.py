@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -32,7 +33,7 @@ def project_row(**overrides):
         "public_item_prefix": "DMO",
         "github_sync_mode": None,
         "retired_at": None,
-        "created_at": "2026-01-01",
+        "created_at": parse_instant("2026-01-01T00:00:00Z"),
     }
     row.update(overrides)
     return row

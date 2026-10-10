@@ -28,8 +28,8 @@ class TestProjectsList(unittest.TestCase):
         with patch(
             "yoke_core.domain.projects_crud.cmd_list",
             return_value=(
-                "1|yoke|Yoke|main|2026-01-01\n"
-                "2|externalwebapp|ExternalWebapp|main|2026-01-02"
+                "1|yoke|Yoke|main|2026-01-01T00:00:00.000000Z\n"
+                "2|externalwebapp|ExternalWebapp|main|2026-01-02T00:00:00.000000Z"
             ),
         ):
             outcome = projects_get.handle_projects_list(
@@ -186,9 +186,9 @@ class TestProjectsList(unittest.TestCase):
             patch(
                 "yoke_core.domain.projects_crud.cmd_list",
                 return_value=(
-                    "1|yoke|Yoke|main|2026-01-01\n"
-                    "2|externalwebapp|ExternalWebapp|main|2026-01-02\n"
-                    "3|installer-e2e-test|Installer E2E|main|2026-01-03"
+                    "1|yoke|Yoke|main|2026-01-01T00:00:00.000000Z\n"
+                    "2|externalwebapp|ExternalWebapp|main|2026-01-02T00:00:00.000000Z\n"
+                    "3|installer-e2e-test|Installer E2E|main|2026-01-03T00:00:00.000000Z"
                 ),
             ),
             patch(
@@ -215,7 +215,7 @@ class TestProjectsList(unittest.TestCase):
         with (
             patch(
                 "yoke_core.domain.projects_crud.cmd_list",
-                return_value="1|yoke|Yoke|main|2026-01-01",
+                return_value="1|yoke|Yoke|main|2026-01-01T00:00:00.000000Z",
             ),
             patch(
                 "yoke_core.domain.handlers.projects_get.actor_visible_project_ids",
@@ -251,7 +251,7 @@ class TestProjectsListDispatcher(unittest.TestCase):
         }
         with patch(
             "yoke_core.domain.projects_crud.cmd_list",
-            return_value="1|yoke|Yoke|main|2026-01-01",
+            return_value="1|yoke|Yoke|main|2026-01-01T00:00:00.000000Z",
         ):
             response = _dispatch.dispatch(envelope)
         self.assertTrue(
