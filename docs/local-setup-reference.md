@@ -30,7 +30,9 @@ and preserves project edits and strategy documents. Push that removal commit.
 On a git checkout, install and refresh refuse a dirty working tree and refuse
 when HEAD is not the project's `default_branch`. Pass `--force` to proceed
 anyway. A successful write commits the touched bundle paths — including
-untracked and deleted files — and leaves pushing to the operator. Pass
+untracked and deleted files — and publishes only installer-owned commits.
+Protected branches get a proposal; unresolved publication names its retained
+commit and recovery. No remote is a local-only outcome. Pass
 `--no-commit` to skip that commit. Outputs that land on ignore-covered paths
 are generated local views — the board render, the strategy renders under
 `.yoke/strategy/`, the install manifest: they are written to the checkout and
@@ -239,8 +241,9 @@ hooks.
 
 - **Claude adapter:** open the installed project checkout and use `/yoke ...`
   slash commands.
-- **Codex adapter:** open the installed project checkout; Codex reads the
-  installed `.codex/` skills and hooks.
+- **Codex adapter:** open the installed project checkout; native instructions,
+  canonical skills and hooks follow the installed manifest and
+  [discovery owner](public/reference/harness-discovery.md).
 
 First project adoption after install should start with:
 

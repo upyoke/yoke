@@ -328,9 +328,9 @@ leaves the machine unconfigured, which `yoke status` then reports.
 
 ## You own the operations
 
-- **Uptime is yours.** The bundle restarts containers on failure
-  (`restart: unless-stopped`), but host maintenance, monitoring, and
-  capacity are on you.
+- **Uptime is yours.** Automatic restart is disabled. After a failure or host
+  restart, use `yoke self-host init --dir PATH --protect-existing --start`
+  to reopen the private inputs. You own monitoring and capacity.
 - **Backups are yours.** All state lives in the `pgdata` volume; use
   `yoke universe export` for portable archives and retain regular Postgres or
   volume snapshots for infrastructure-level recovery before upgrades and on a
