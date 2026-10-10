@@ -1,23 +1,13 @@
-"""Idle-timeout native wake eligibility for a fleet message recipient.
-
-Split out of ``session_message_delivery`` (which re-exports ``wake_eligible``
-for its existing callers) purely to keep that module's delivery-and-report
-rendering under the authored-file line cap; this is otherwise the same
-function, unchanged.
-"""
+"""Idle-timeout wake eligibility with strict native activity clocks."""
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import as_utc
 
 
 _DELIVERABLE_STATES = frozenset({"pending"})
-
-
-def _as_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
 
 
 def wake_eligible(
@@ -34,11 +24,13 @@ def wake_eligible(
     left to hook injection; once idleness reaches the threshold, wake may
     run. ``wake_after`` is stamped at send so eligibility is not delayed.
     """
+    current = as_utc(now)
+    activity = as_utc(last_activity_at) if last_activity_at is not None else None
     if recipient_state not in _DELIVERABLE_STATES:
         return False
-    if last_activity_at is None:
+    if activity is None:
         return True
-    return _as_utc(now) - _as_utc(last_activity_at) >= idle_threshold
+    return current - activity >= idle_threshold
 
 
 __all__ = ["wake_eligible"]
