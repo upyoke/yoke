@@ -151,7 +151,7 @@ For inconsistent links whose branches both reach the same terminal, an operator
 or project steering holder repairs through the existing supersede surface:
 
 ```text
-yoke qa requirement supersede --requirement-id OLD --superseded-by-requirement-id TERMINAL --reconcile --source operator --rationale "Why this terminal answers the obligation"
+yoke qa requirement supersede --requirement-id {old_requirement_id} --superseded-by-requirement-id {terminal_requirement_id} --reconcile --source operator --rationale "Why this terminal answers the obligation"
 ```
 
 Inspect the chain and name its unique terminal before running this command.

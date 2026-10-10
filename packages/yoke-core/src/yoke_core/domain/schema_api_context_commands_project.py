@@ -12,6 +12,7 @@ from __future__ import annotations
 
 PROJECT_COMMANDS: list[dict] = [
     {
+        "startup_roles": ("main_agent", "engineer_agent"),
         "topic": "project",
         "purpose": "Inspect, get, or update a project Pack",
         "recipe": "yoke packs <list|get|update> --help",
@@ -27,6 +28,12 @@ PROJECT_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (
+            "main_agent",
+            "engineer_agent",
+            "tester_agent",
+            "qa_walker_agent",
+        ),
         "topic": "project",
         "purpose": "Read one branch preview environment",
         "recipe": "yoke ephemeral-env get <project> <branch> --json",
@@ -38,6 +45,7 @@ PROJECT_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "project",
         "purpose": "Read the project's default deployment flow",
         "recipe": ("yoke project-structure deploy-defaults get --project <project>"),
@@ -48,6 +56,7 @@ PROJECT_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "project",
         "purpose": "Update an ephemeral environment row field",
         "recipe": "yoke ephemeral-env update <env-id> status healthy",
@@ -60,6 +69,7 @@ PROJECT_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (),
         "topic": "project",
         "purpose": "Migrate legacy Pulumi operator state",
         "recipe": (
@@ -85,6 +95,7 @@ PROJECT_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "engineer_agent"),
         "topic": "project",
         "purpose": "Execute a capability-owned Pulumi stack command",
         "recipe": (
@@ -121,6 +132,7 @@ PROJECT_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (),
         "topic": "project",
         "purpose": "Register a live Pulumi checkpoint's operator state",
         "recipe": (
@@ -137,6 +149,7 @@ PROJECT_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "project",
         "purpose": "Init a checkout and create a private GitHub remote",
         "recipe": "yoke project git bootstrap CHECKOUT --project <project> --yes",

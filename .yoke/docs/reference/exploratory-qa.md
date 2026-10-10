@@ -12,7 +12,7 @@ and repeatable.
 
 ## Contract
 
-The built-in method has these immutable properties:
+The Machine QA Pack method has these immutable properties:
 
 | Field | Value |
 |---|---|
@@ -129,6 +129,7 @@ returned dispatch has `dispatch_kind=main_agent_mission`. The main agent owns:
 The walker never issues the verdict. Its turn returns one status:
 
 - `WALK_STATUS: COMPLETE` — the walk reached a natural stopping point;
+- `WALK_STATUS: HOST_WAIT` — submit only `host_wait` through the current bundle; [host turns](qa-platform/case-attachment.md#shared-host-turns-and-starting-state) owns queue/resume authority;
 - `WALK_STATUS: HUMAN_GATE` — a person must act before it can continue;
 - `WALK_STATUS: UNDETERMINED` — an essential fact could not be established for
   a reason other than a pending human action.
@@ -214,8 +215,7 @@ yoke --env <connection> qa mission walk-end --item PREFIX-N \
 
 Where the product reads a secret on stdin, pipe it and touch no disk at all.
 Otherwise every file carrying a token or password is staged inside that
-directory and nowhere else — never a loose path under `/tmp`, which is how a
-first-boot admin token once outlived its walk on a shared machine. `walk-end`
+directory and nowhere else, never a loose `/tmp` path. `walk-end`
 removes the directory with plain OS commands (no Yoke install on the host),
 restores the declared starting state, and records that restore as a
 `starting_state_restore` artifact on the mission's run; it exits non-zero

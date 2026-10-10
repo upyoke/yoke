@@ -1,41 +1,25 @@
 # Tester Browser Scenario Execution
 
-When the dispatch prompt includes a **"Browser Scenario Execution"** block,
-execute every listed Browser method case against the live ephemeral
-environment.
+For a dispatch **Browser Scenario Execution** block, execute every listed
+Browser method case against its live ephemeral environment.
 
-## Select the cases
-
-Read the materialized requirements:
+## Select and authorize cases
 
 ```bash
 yoke qa requirement list --item "PREFIX-{N}" --json
 ```
 
-Select each unsatisfied, non-waived requirement whose `method_id` is
-`browser-check` or `browser-inspection`. Method identity selects Browser
-execution; do not infer it from `qa_kind` or item metadata.
+Select unsatisfied, non-waived `browser-check` / `browser-inspection`
+requirements by `method_id`, never `qa_kind` or item metadata. Materialized
+snapshots are immutable: `method_config` supplies steps and optional case-local
+URL. Do not refine, replace, or otherwise rewrite `method_config`.
+Report an incomplete contract instead.
 
-Each requirement is an immutable materialized case snapshot. Its
-`method_config` contains the declared steps and optional case-local base URL.
-Do not refine, replace, or otherwise rewrite `method_config` during testing.
-If the case contract is incomplete, report that specification failure instead
-of changing the case under review.
-
-## Require the deployed code identity
-
-The dispatch block supplies all three execution inputs:
-
-- the ephemeral URL;
-- the already-resolved worktree branch;
-- the already-resolved worktree HEAD SHA deployed to that environment.
-
-Treat a missing URL, branch, or SHA as a prerequisite failure. Never omit the
-freshness flags to make a Browser case run.
+Require all dispatch inputs: ephemeral URL, resolved worktree branch, deployed
+worktree HEAD SHA. Missing input is a prerequisite failure; never remove
+freshness flags to force execution. Item claim and ambient session must be active.
 
 ## Execute each requirement
-
-Run the shared case runner once per selected requirement:
 
 ```bash
 yoke qa case run \
@@ -45,61 +29,40 @@ yoke qa case run \
   --expected-sha "<worktree-head-sha>"
 ```
 
-The runner authorizes and fetches the immutable case through
-`qa.case_execution.begin` before starting the Browser substrate, executes only
-the named requirement, records its run, and stores screenshot and trace
-evidence. The item claim and ambient session must already be active. Do not add
-a second run manually.
+Shared runner authorizes/fetches through `qa.case_execution.begin` before
+Browser startup, runs only this requirement, and owns its run/screenshot/trace
+records. Never manually add another run. Reruns create new evidence runs,
+without changing snapshots. Include returned JSON and artifact paths in report.
 
-## Interpret the result
+| Result | Action |
+|---|---|
+| `browser-check`, `verdict=pass` | Continue. |
+| `verdict=fail` or exit `1` | Report failed case and product/environment evidence. |
+| `browser-inspection`, evidence-backed `verdict=undetermined` | Report the request; item halts until owner/operator approves, rejects or waives. Never report pass. |
+| `blocked_on_precondition`, `verdict=error` or exit `2` | Case did not run or runner failed; report to scheduler, without requesting human review of missing evidence. |
 
-The runner prints JSON. Include the result and artifact paths in the validation
-report.
+## Read evidence through its recorded identity
 
-| Result | Tester action |
-|--------|---------------|
-| `browser-check` with `verdict=pass` | Continue. |
-| `verdict=fail` or exit `1` | Report the failed case and product or environment evidence. |
-| `browser-inspection` with evidence-backed `verdict=undetermined` | Report the request: it halts the item until an owner/operator approves, rejects, or waives the evidence. |
-| `blocked_on_precondition`, `verdict=error`, or exit `2` | The case did not run or its runner failed; report failure to the scheduler without asking a person to review missing evidence. |
-
-Re-running the same requirement creates a new evidence run. It does not mutate
-the case snapshot.
-
-## Read the evidence you are judging
-
-The runner reports scratch paths a claimed lane cannot open. Read evidence
-through the recorded artifact id:
+Runner scratch paths are outside claimed-lane read authority. Use artifact ids:
 
 ```bash
 yoke qa artifact read --requirement-id <id> --artifact-id <id>
 ```
 
-A full-page capture of a long screen is one very tall image, and a viewer
-that scales it to fit makes every label unreadable — so judging it as-is is
-judging a blur. Read the part the case is about:
+Read whole capture once to select relevant pixels. Tall full-page images may
+scale illegibly; inspect the region rather than judge a blur:
 
 ```bash
 yoke qa artifact read --requirement-id <id> --artifact-id <id> \
   --region 0,900,1440,600 --scale 1.5
 ```
 
-`--region x,y,w,h` is a pixel rectangle from the capture's top-left; `--scale`
-multiplies the rendered size and applies after the region. The stored artifact
-is never modified, and the response reports the `artifact_view` it rendered —
-name that region in the finding, so a reader knows which pixels you judged.
-Read the whole capture once first to choose a region; one falling outside the
-image refuses and names the image's size.
+`--region x,y,w,h` is the rectangle from top-left; scale multiplies size after
+cropping. Stored artifact stays intact. Response names rendered `artifact_view`;
+name the judged region in findings. Out-of-image rectangles refuse with image size.
 
 <!-- YOKE:FIELD-NOTE -->
 
 ## Important Notes
 
-- Method identity selects Browser execution; never infer it from legacy
-  requirement kinds or item metadata.
-- `yoke qa case run` owns the run and its evidence records; never add a second
-  run manually.
-- Evidence-backed Browser inspection remains undetermined and halts the item
-  until an owner/operator approves, rejects, or waives it; never report it as pass.
-- The ephemeral URL, deployed branch, and deployed commit are mandatory
-  freshness inputs.
+Report the evidence-backed result with its requirement/run/artifact identity.

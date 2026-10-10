@@ -1,42 +1,40 @@
-# /yoke polish — doctrine and the simplify anchor
+# Polish — Doctrine
 
-Read this before the simplify pass and the implementation review. It is
-what the passes look for; the entrypoint carries only what binds from the
-first action.
+The result must work end to end through the UI, CLI or workflow users encounter:
+wiring, defaults, errors, help and configuration documentation all count.
+Think top-down from the item's purpose and bottom-up from each diff, before and
+after the checklist. Verify named spec facts against source; fix or flag gaps
+a reasonable operator would expect even when the AC omitted them.
 
-## Philosophy
+Code and documentation describe the present. Keep non-obvious WHY comments;
+remove historical amendments, completed TODOs and zero-consumer compatibility
+shims, aliases and reexports. Delete orphaned helpers, obsolete fixtures,
+dead tests, config, flags and docs, unreachable branches and impossible-state or
+imaginary fallbacks. **Permanent ordered migration modules remain:** an
+installation that never received one still needs it. Read the governed
+database contract before migration changes; remove unused compatibility code
+only outside that history and after verifying no live consumers.
 
-**The implementation must be complete end-to-end.** If the operator can't use and experience the result after this branch merges, the work isn't done. A feature that's wired up internally but not reachable from the UI/CLI/workflow where users encounter it is unfinished. Help text that still describes the old behavior is unfinished. A config key that's read but never documented is unfinished. Polish traces the full user journey and closes every gap.
+Describe review failures as systemic causes—missing contracts, paths or context,
+ambiguous specs, truncation—not blame. Fix the code and record prevention.
+For unclear failures inspect bounded telemetry before guessing:
+```bash
+yoke events tail --limit 20
+yoke events anomalies --since "4 hours ago"
+yoke events query --item "$ITEM_REF"
+```
 
-**Clean-slate after every change.** After this branch merges, the codebase should read as if the old way never existed. That means:
-- No comments like "this used to work like X" or "previously this was Y" — rewrite to describe the present.
-- No compatibility shims, re-exports, or aliases for things that were renamed or removed — just use the new name everywhere.
-- No defensive code or error handling for states that can no longer occur after this change.
-- No "just in case" fallbacks for scenarios that aren't real.
-- No stale TODOs, FIXMEs, or "remove after migration" comments when the migration is complete.
+**Codebase-reader naming:** every new/renamed file, directory, symbol, test,
+command, event, setting, heading and comment must explain current purpose,
+mechanics or domain role without its planning artifact. Rewrite work-item,
+plan, phase, task, AC/FR, branch or batch provenance unless it is actual runtime
+domain language. Clear names and descriptive commits are the maintainer handoff;
+do not restate the implementation transcript.
 
-**Dead weight has zero tolerance.** If the implementation obsoletes something, that something must be deleted — not left behind. This includes: orphaned utility functions that only served removed code, test fixtures and mocks that only exercised removed behavior, config keys and feature flags for features that no longer exist, documentation sections that describe removed functionality, and re-exports or type aliases that nothing imports.
-
-**Migration history is permanent.** Never delete an ordered migration module: an installation that has not received it still needs to apply it. Follow the governed migration contract in `.yoke/docs/reference/agent-rules/databases.md`. Remove unused compatibility code only when it is outside that permanent history and has no live consumers.
-
-**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent. Your polished code and commit messages are the current handoff: clean commits, well-named functions, and accurate comments. Do not restate the implementation transcript. Sloppy commits with "fix stuff" messages force the next person to re-investigate.
-
-**No such thing as "agent error."** When the review reveals that the Engineer produced incomplete or incorrect code, never frame this as "the engineer made a mistake." The cause is always systemic: the task spec was ambiguous, an interface contract was incomplete, a file exceeded the harness read limit, or the dispatch context was missing critical paths. Frame every issue as what the SYSTEM should change to prevent it. Fix the code, but also note the systemic cause for the review report.
-
-**Events table for debugging.** When investigating unexpected behavior or test failures during polish, query the events table for recent telemetry: `yoke events tail --limit 20` or `yoke events anomalies --since "4 hours ago"`. Anomaly flags (nonzero_exit, benign_failure, generated_view_write) and tool call timing reveal what happened during the Engineer's session and whether the failure was systemic or code-specific.
-
-**Think, don't just check.** The review dimensions in this skill are a starting point, not a ceiling. Before and after working through the checklist, step back and think about the implementation as a whole: Does this branch actually deliver what the work item intended? Would the operator be satisfied using the result end-to-end? What would a thoughtful senior engineer notice that the checklist doesn't cover? Work top-down (from the work item's purpose to the code) as well as bottom-up (from each file's diff to the overall picture). The checklist catches known failure modes; your judgment catches everything else. If something feels wrong, wasteful, incomplete, or fragile but doesn't match a specific review dimension, fix it or flag it anyway.
-
-**Codebase-reader naming.** Assume future readers of the codebase will NOT have the ephemeral planning artifacts this branch was written from. During polish, rewrite any new or renamed file, module, helper, test, doc, command, event, config key, symbol, heading, or comment that explains itself by pointing at a work item, strategy doc, plan, initiative, phase, task, AC/FR label, branch, worktree, or implementation batch. Polished code describes current function, purpose, mechanics, and domain role to a repository reader.
-
-## Simplify Anchor (reuse / quality / efficiency)
-
-The polish Philosophy above (`Clean-slate after every change`, `Dead weight has zero tolerance`, `Migration history is permanent`) IS the simplify three-axis vocabulary at the polish stage. The shared definition, including the future-concept pull-forward lens, lives in `AGENTS.md`'s `## Simplify — three-axis doctrine` section; polish anchors that vocabulary under explicit headings:
-
-- **Reuse** — clean-slate after every change; rewrite to describe the present rather than amending; remove compatibility shims, re-exports, and aliases nothing imports.
-- **Quality** — dead weight has zero tolerance; orphaned helpers, dead config, dead tests, defensive code for impossible states all get deleted; only non-obvious WHY comments remain; names and current-state docs describe current function/purpose/mechanics rather than planning provenance.
-- **Efficiency** — retain ordered migration history; remove unused compatibility code; flag unnecessary indirection, redundant computation, multi-step pipelines that could collapse into one operation; justify infrastructure against existing surfaces.
-- **Future-concept lens** — if the diff touches actors, sessions, heartbeats, ownership, leases, claims, approvals, overrides, evidence, run records, journals, packets, locks, or shared-state coordination, treat the surface as an end-state v0 or require a deletion / absorption target.
-
-Polish runs the three axes as a **single sequential pass** at the start of the polish flow (see the Named simplify pass below) — **NOT** parallel three-sub-agent fan-out. v0 keeps the pass sequential by design; parallel-fan-out is explicitly deferred to v1.
-
+The shared Simplify doctrine in AGENTS.md governs reuse, quality, efficiency
+and future-concept pull-forward. Reuse existing surfaces/constants/types;
+keep the smallest complete request shape; justify infrastructure against what
+exists. Surfaces concerning actors, sessions, leases, claims, approvals,
+evidence, journals, locks or shared-state coordination need an end-state v0 or
+an explicit deletion/absorption target. Retain migration history while removing
+unnecessary indirection and redundant computation.

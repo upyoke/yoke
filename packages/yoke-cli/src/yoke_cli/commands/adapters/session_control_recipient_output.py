@@ -96,3 +96,12 @@ __all__ = [
     "recipient_surface",
     "steering_summary",
 ]
+
+
+def message_sender(row: Mapping[str, Any]) -> Any:
+    """However a row spells its sender; a compact row resolves it for us."""
+    return (
+        row.get("sender")
+        or row.get("sender_session_id")
+        or row.get("sender_actor_label")
+    )

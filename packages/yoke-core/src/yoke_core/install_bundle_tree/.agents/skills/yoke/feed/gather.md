@@ -1,145 +1,63 @@
-# Gather
+# Feed — gather (read-only)
 
-Collect all context needed for feed's decision phase. This phase is read-only -- it queries state but mutates nothing.
+## Scope and strategy authority
 
-## 1.1 Resolve Scope
+Default: non-terminal, non-frozen frontier. Explicit `_scope_ids`: deep-read/
+report those targets, fail clearly for missing refs, and inspect surrounding
+graph context. Expand mutation scope only when a shared-surface blocker forces it.
 
-Determine whether feed is running against:
+Read full strategy once unless `_no_new_items` AND truly graph-refresh-only:
 
-- the full non-terminal, non-frozen frontier (`_scope_ids` is empty), or
-- an explicit scoped subset of items (`_scope_ids` provided by the operator).
-
-When scoped:
-- deep-read and report primarily on the listed items
-- still inspect the surrounding frontier and dependency graph enough to encode truthful blockers and merge order
-- do not silently expand the mutation scope beyond the listed items unless a shared-surface blocker forces it
-
-## 1.2 Read SML Docs
-
-Read all four Strategic Markdown Layer docs from the DB authority:
-
-```bash
+```sh
 yoke strategy doc get MISSION
 yoke strategy doc get LANDSCAPE
 yoke strategy doc get VISION
 yoke strategy doc get MASTER-PLAN
+yoke items list --project <project> --frozen 0 --fields "id,title,status,workflow_id,workflow_version_id,priority"
 ```
 
-Skip this section entirely when `_no_new_items` is true and the run is truly graph-refresh-only. Otherwise retain the full content of each doc in context. Pay special attention to:
-- **MASTER-PLAN.md** generation/wave structure -- identifies what is next to materialize
-- **VISION.md** near-term priorities and capability targets
-- **LANDSCAPE.md** competitive and technical constraints that affect sequencing
-- **MISSION.md** invariant strategic anchors
+Retain strategic anchors, constraints, near-term priorities and MASTER-PLAN's
+current completion/next natural boundary. Identify already materialized work
+and gaps from this DB content, rather than re-reading its rendered file.
+Filter frontier terminal statuses (`done`, `cancelled`, `stopped`, `failed`);
+derive explicit targets or the whole frontier.
 
-## 1.3 Query Target And Frontier Items
+## Target artifacts and graph
 
-Get all non-terminal items (everything except `done`, `cancelled`, `stopped`, `failed`):
+Use each target's content index/structured fields; record empties, readiness,
+unmeasurable assumptions, status counts and overlaps. Read relevant fields once:
+`yoke items get PREFIX-N spec`,
+`yoke items get PREFIX-N design_spec`,
+`yoke items get PREFIX-N technical_plan`.
+Generated task graphs additionally use
+`yoke items get PREFIX-N worktree_plan` and
+`yoke items get PREFIX-N shepherd_caveats`.
+Use `yoke items get PREFIX-N body` only as an alternative when needed for
+rendered narrative; avoid duplicating its structured content.
+Resolve generated-children posture through `workflows.item.get`.
 
-```bash
-yoke items list --project "$_project" --fields "id,title,status,workflow_id,workflow_version_id,priority"
-```
-
-The status filter accepts one value per call, so list the project's items
-and keep only rows whose `status` is non-terminal (drop `done`,
-`cancelled`, `stopped`, `failed`). This produces the full frontier item
-list. Record every item's `id`, `title`, `status`, `workflow_id`,
-`workflow_version_id`, and `priority`.
-
-Derive `_target_items`:
-- if `_scope_ids` is non-empty, filter the frontier list to those IDs and fail clearly if any requested item is missing
-- otherwise, `_target_items` is the full frontier list
-
-## 1.4 Deep Read Structured Item Context
-
-For every item in `_target_items`, read the DB-backed content that feed may need to update after recent landings:
-
-```bash
-# For each target item:
-yoke items get PREFIX-N body
-yoke items get PREFIX-N spec
-yoke items get PREFIX-N design_spec
-yoke items get PREFIX-N technical_plan
-yoke items get PREFIX-N worktree_plan
-yoke items get PREFIX-N shepherd_caveats
-```
-
-Also note:
-- which structured fields are empty
-- which items are pre-ready vs execution-ready
-- which acceptance criteria or assumptions mention files, schemas, prompts, hooks, tests, docs, or deployment surfaces that may have changed
-
-Summarize findings:
-- how many items are in each status bucket
-- which target items lack enough definition to execute safely
-- which items appear to overlap or conflict in scope
-
-## 1.5 Read Existing Dependencies
-
-For each target item, query its dependency edges:
-
-```bash
-# For each target item:
+```sh
 yoke items dependency list PREFIX-N
 ```
 
-Build a mental model of the current dependency graph:
-- Which items block which other items
-- What gate types are in use (activation, integration, closure)
-- Which edges are `source='feed'` (generated) vs `source='operator'`/`source='idea'` (manual)
-- Any edges where the blocker item is in a terminal status (`done`, `cancelled`) -- these are candidates for staleness
+Record both directions, blocker/dependent identities, activation/integration/
+closure gates and source attribution (Feed vs manual operator/Idea/Shepherd).
+Terminal/cancelled blockers are staleness candidates, not automatic removals.
 
-## 1.6 Read Recent Commits And Landed Diff Stats
+## Recent landed impact — required
 
-Get recent codebase changes for context on what has landed:
-
-```bash
+```sh
 git log --oneline -30
 git log --oneline --since="3 days ago"
-```
-
-For the commits or landed SUN items most likely to affect `_target_items`, inspect what actually changed:
-
-```bash
 git diff <commit>~1..<commit> --stat
 ```
 
-For each recently landed change, record:
-- the landed item/commit identity
-- changed files, schemas, contracts, prompts, hooks, docs, tests, and scripts
-- whether the change invalidates assumptions in any target item's body/spec/design_spec/technical_plan/worktree_plan
+Inspect relevant landed commits' actual files/schema/contracts/prompts/hooks/
+docs/tests/scripts, record stable item/commit identities, and assess every
+target's affected fields/assumptions. Produce the concrete list:
+“These work items need updating because X landed and changed Y.”
 
-Produce a concrete landed-impact list:
-- `These work items need updating because X landed and changed Y.`
-- Do not skip this step. This is the core value of feed.
-
-## 1.7 Inspect Shared Surfaces And Hot Spots
-
-For each target item, inspect the likely touched files, tests, docs, scripts, agents, and hook paths so you can identify real overlap and merge hot spots.
-
-Focus on:
-- shared files and hot write surfaces
-- same contract / API / schema surfaces
-- same prompt / agent / hook paths
-- same generated artifact flow
-- same test harness or deployment surface
-
-## 1.8 Re-Read MASTER-PLAN.md Structure
-
-Re-examine `.yoke/strategy/MASTER-PLAN.md` specifically for generation/wave structure:
-- Identify the current generation and its completion state
-- Identify what the next generation/wave contains
-- Identify which items from the plan are already materialized in the backlog
-- Identify which items from the plan are not yet materialized (these are candidates for `materialize_new`)
-
-## Context Produced
-
-After this phase, the following context is available for subsequent phases:
-
-- **SML content**: Full text of the required SML files when materialization analysis is in scope
-- **Frontier items**: List of all non-terminal items with id, title, status,
-  pinned workflow, and priority
-- **Target item context**: Body/spec/design_spec/technical_plan/worktree_plan/shepherd_caveats for every target item
-- **Dependency graph**: All dependency edges for target items, with source attribution
-- **Recent landed change report**: Recent commits plus diff-stat summaries of what actually changed
-- **Landed-impact updates**: A concrete list of target items that need updates because recent landed work changed their assumptions
-- **Materialization gaps**: Items in MASTER-PLAN.md not yet represented in the backlog
+Inspect likely shared physical paths/contracts/generated flows/test harness/
+deployment surfaces for real coding/merge hot spots. Carry forward target
+artifacts, existing graph, full needed SML, recent changes, actionable updates
+and materialization gaps; keep these facts current instead of repeating dumps.

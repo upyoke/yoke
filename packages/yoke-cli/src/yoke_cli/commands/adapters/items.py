@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from yoke_cli.commands.adapters.item_flow_output import render_item_field
+from yoke_cli.commands.adapters.lifecycle_skip_arguments import configure_skip_arguments
+
+from yoke_cli.commands.adapters.item_flow_output import (
+    compact_item_result,
+    render_item_field,
+)
 
 import argparse
 import json
@@ -19,6 +24,7 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_cli.commands.adapters.workflow_execution_instructions import (
     render_execution_instruction_block,
+    render_item_instruction_summary,
 )
 from yoke_cli.commands.adapters.lifecycle_transition import (
     LIFECYCLE_TRANSITION_USAGE,
@@ -44,9 +50,6 @@ __all__ = [
     "LIFECYCLE_TRANSITION_USAGE",
     "LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE",
 ]
-
-
-# items.get.run
 
 ITEMS_GET_USAGE = (
     "yoke items get <PREFIX-N> [field1 field2 ...] "
@@ -99,10 +102,11 @@ def items_get(args: List[str]) -> int:
         if not response.success:
             return None
         result = response.result or {}
+        rules = result.get("execution_instructions") or []
         stdout.write(
-            render_execution_instruction_block(
-                result.get("execution_instructions") or []
-            )
+            render_item_instruction_summary(rules, parsed.item)
+            if requested_fields or parsed.section is not None
+            else render_execution_instruction_block(rules)
         )
         if parsed.section is not None:
             if not result.get("section_found"):
@@ -127,7 +131,8 @@ def items_get(args: List[str]) -> int:
                 if not text.endswith("\n"):
                     stdout.write("\n")
             return None
-        print(json.dumps(result, sort_keys=True), file=stdout)
+        human_result = compact_item_result(result, parsed.item)
+        print(json.dumps(human_result, sort_keys=True), file=stdout)
         return None
 
     return dispatch_and_emit(
@@ -139,8 +144,6 @@ def items_get(args: List[str]) -> int:
         human_writer=_human_writer,
     )
 
-
-# items.progress_log.append
 
 PROGRESS_LOG_USAGE = (
     "yoke items progress-log append <PREFIX-N> --headline TEXT "
@@ -193,8 +196,6 @@ def items_progress_log_append(args: List[str]) -> int:
         json_mode=parsed.json_mode,
     )
 
-
-# items.structured_field.replace
 
 STRUCTURED_FIELD_USAGE = (
     "yoke items structured-field replace <PREFIX-N> --field FIELD "
@@ -260,8 +261,6 @@ def items_structured_field_replace(args: List[str]) -> int:
     )
 
 
-# lifecycle.skip.record_recoverable_substrate
-
 LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE = (
     "yoke lifecycle skip record-recoverable-substrate <PREFIX-N> "
     "--chain-step N --project P --routed-action ACTION "
@@ -276,48 +275,7 @@ def lifecycle_skip_record_recoverable_substrate(args: List[str]) -> int:
         prog="yoke lifecycle skip record-recoverable-substrate",
         description=LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE,
     )
-    parser.add_argument("item", help="Item id (PREFIX-N).")
-    parser.add_argument(
-        "--chain-step",
-        dest="chain_step",
-        type=int,
-        required=True,
-        help="Current checkpoint step number.",
-    )
-    parser.add_argument(
-        "--project", required=True, help="Project id the failing handler is bound to."
-    )
-    parser.add_argument(
-        "--routed-action",
-        dest="routed_action",
-        required=True,
-        help="Routed action that failed (e.g. 'implement').",
-    )
-    parser.add_argument(
-        "--failure-class",
-        dest="failure_class",
-        required=True,
-        help="Structured failure class string.",
-    )
-    parser.add_argument(
-        "--remediation-owner",
-        dest="remediation_owner",
-        required=True,
-        help="Work item id or recipe owner responsible for the fix.",
-    )
-    parser.add_argument(
-        "--current-status",
-        dest="current_status",
-        default=None,
-        help="Lifecycle status of the failing item at skip time.",
-    )
-    parser.add_argument(
-        "--useful-work-began",
-        dest="useful_work_began",
-        action="store_true",
-        default=False,
-        help="Set when the routed handler made useful progress before the failure.",
-    )
+    configure_skip_arguments(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(

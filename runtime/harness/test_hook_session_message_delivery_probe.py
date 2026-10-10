@@ -49,7 +49,13 @@ def test_a_resumed_cursor_start_takes_delivery_on_the_fresh_start_path(
     assert port.leased == [("session-top", "SessionStart", 10)]
     assert port.probed == []
     rendered = decision.audit_fields["additionalContext"]
-    assert f"BEGIN YOKE SESSION MESSAGE {MESSAGE_ID}" in rendered
+    assert (
+        f"BEGIN YOKE SESSION MESSAGE DELIVERY YOKE_SESSION_MESSAGE_LEASE:lease-1 {MESSAGE_ID}"
+        in rendered
+    )
+    assert "Authenticated sender: actor 41" in rendered
+    assert '| "Please re-run the focused verifier."' in rendered
+    assert "=== END YOKE SESSION MESSAGE DELIVERY ===" in rendered
     assert f"yoke messages acknowledge {MESSAGE_ID}" in rendered
 
 

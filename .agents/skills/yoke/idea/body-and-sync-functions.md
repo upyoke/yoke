@@ -1,343 +1,60 @@
-# Idea Phase: Function-Call Recipes (extracted)
+# Idea — Typed Operation Depth
 
-Function-call recipe blocks used by `body-and-sync.md` and every other
-wave-A skill (refine, feed, curate, amend, shepherd, plan, conduct,
-simulate). The parent body-and-sync flow links here for the per-recipe
-detail; the parent stays focused on prose discipline, decision
-boundaries, and the canonical structured sequence of steps 8 through 11.
+Use registered `yoke` adapters; they build the same typed function envelope.
+The [function index](../../../../.yoke/docs/reference/db-reference/functions.md)
+routes each registered id to its sole family owner. Read that family and
+the operation's --help before a write; this receiver does not duplicate schemas.
 
-This is the canonical place every wave-A skill points readers when they
-need the envelope shape or a concrete example for one of the function
-ids registered through
-`yoke_core.domain.handlers.__init_register__.register_all_handlers`.
+Envelope fields are function/version, authenticated actor identity, typed target,
+payload and optional preconditions/options. Response success/result/error,
+warnings/recovery_hint and event_ids are evidence, not permission to repeat a
+mutation. Ambient session authority cannot be copied from another holder.
+Malformed/unknown functions and claims failures retain their named refusals.
 
-## Function-call invocation envelope
+## Use the existing operation for the question
 
-Every Yoke mutation routes through one universal envelope. The
-dispatcher lives at `POST /v1/functions/call` and is also callable
-in-process via
-`yoke_core.domain.yoke_function_dispatch.dispatch(FunctionCallRequest)`.
-The envelope shape is identical for every function id:
+| Need | Registered function family |
+|---|---|
+| Full intended field; heading addition; targeted section | items.structured_field.replace / append_addendum / section_upsert / section_append |
+| Chronological execution checkpoint | items.progress_log.append |
+| Named item-section read/write/delete | items.section.* |
+| One scalar field | items.scalar.update |
+| Pinned stage/gates | lifecycle.transition.execute |
+| Persisted task body/metadata/decomposition/progress | workflow_item.epic_task.* / workflow_item.epic_progress_note.append |
+| Unified DB profile and attestation | db_claim.amend |
+| Exact/planned/tentative/exemption path coverage and amendments | claims.path.* |
+| Item ownership and holder reads | claims.work.* |
+| Explicit requested generated-board refresh | board.rebuild.run |
+| Native agent or packet rendering/checks | agents.render.* / packets.* |
+| Method-backed requirement and evidence | qa.* |
+| Narrow item/events/project capability reads | items.get.run / events.query.run / projects.capability.has |
 
-```json
-{
-  "function": "<family>.<subfamily>.<operation>",
-  "version": "v1",
-  "actor": {"actor_id": "<session-or-operator>", "session_id": "<harness-session-id>"},
-  "target": {"kind": "item", "public_ref": "PREFIX-42"},
-  "payload": { ... family-specific ... },
-  "preconditions": {},
-  "options": {}
-}
-```
+Field-targeted section_upsert accepts field plus heading_level and preserves
+surrounding field content; omission targets item_sections with ordering.
+Section-append's actual schema differs: use its registered help rather than
+inventing a field flag. Progress Log always uses its dedicated timestamping append.
 
-- `function` — id registered through
-  `yoke_core.domain.handlers.__init_register__`. Validate with
-  `validate_function_id(s)` from
-  `yoke_contracts.api.function_call`.
-- `actor` — harness sessions supply both `actor_id` and `session_id`;
-  the dispatcher reads `session_id` for `claim_required_kind` checks.
-- `target.kind` — discriminated union (`item`, `epic_task`, `section`,
-  `claim`, `path_claim`, `qa_requirement`, `project_structure`,
-  `global`, ...). See per-family recipes for the matching id fields.
-- `payload` — typed Pydantic request model for the function id. The
-  dispatcher returns `envelope_invalid` when malformed.
-- `preconditions` / `options` — optional. Defaults to `{}`.
+Path amendment supports adding or removing named paths; removal needs integration
+target and retained committed coverage. It is not merely a widen alias.
+Typed acquire resolves the public item; release targets its actual claim_id.
+Task targets include public_ref/task_num. Item ids are bare resolved global ids,
+never public sequence tails.
 
-## Function-call response envelope
+## DB payload and permanent history
 
-```json
-{
-  "success": true,
-  "function": "items.structured_field.replace",
-  "version": "v1",
-  "result": { ... },
-  "warnings": [],
-  "error": null,
-  "event_ids": ["<uuid>"]
-}
-```
+Unified db_claim.amend atomically updates profile/compatibility attestation;
+apply `mutation_intent="apply"` requires migration_strategy and modules.
+In pre_merge_readers_writers, `role` is only `reader` or `writer`;
+schema modules are writers. Reviewed-none meta discussion is an explicit
+workflow-stamped negative, not a mutation deferral.
 
-- `success=false` carries `error.code` (`function_not_registered`,
-  `envelope_invalid`, `claim_required`, `invalid_payload`, ...) plus an
-  optional `recovery_hint`.
-- `warnings` is the downstream-degraded surface (recovery hint names
-  the follow-up function id).
-- `event_ids` lists event-ledger rows the call emitted.
+For apply with modules, append an AC naming every declared module:
+`- [ ] AC-N: Each declared migration entry remains permanent ordered history,
+safe to re-run and never deleted after apply; boot convergence records
+filename-stem membership in the authoritative ledger.`
 
-## Items: structured-field writes (`items.structured_field.*`)
-
-Replace an entire structured field (`spec`, `design_spec`,
-`technical_plan`, `worktree_plan`, `shepherd_log`, `shepherd_caveats`,
-`test_results`, `deploy_log`):
-
-```json
-{
-  "function": "items.structured_field.replace",
-  "actor": {"actor_id": "idea-author", "session_id": "<session>"},
-  "target": {"kind": "item", "public_ref": "PREFIX-42"},
-  "payload": {"field": "spec", "content": "<full new content>", "source": "idea", "force": false}
-}
-```
-
-Append a `## heading`-led addendum without rewriting the rest:
-
-```json
-{
-  "function": "items.structured_field.append_addendum",
-  "actor": {"actor_id": "refine-author", "session_id": "<session>"},
-  "target": {"kind": "item", "public_ref": "PREFIX-42"},
-  "payload": {"field": "spec", "heading": "Refinement notes", "content": "<addendum body>", "source": "refine"}
-}
-```
-
-Despite the family name, `items.structured_field.section_upsert` and
-`items.structured_field.section_append` operate on an `item_sections`
-row (not inside a structured field column). `section_upsert` payload is
-`{section, content, ordering?, source?}` and rewrites in place;
-`section_append` payload is `{section, headline, content, ordering?,
-source?}` and appends a timestamped headline-led entry. CLI exposes
-`--section`, `--headline`, `--content`/`--content-file`/`--stdin`,
-optional `--ordering`/`--source` — `--field` is NOT accepted.
-
-## Items: section table (`items.section.*`)
-
-For sections keyed by name on the `item_sections` table (for example,
-`Progress Log`):
-
-```json
-{
-  "function": "items.section.upsert",
-  "actor": {"actor_id": "engineer", "session_id": "<session>"},
-  "target": {"kind": "section", "public_ref": "PREFIX-42", "section_name": "Progress Log"},
-  "payload": {"content": "<full section body>", "ordering": 200, "source": "engineer"}
-}
-```
-
-`items.section.delete` takes an empty payload (`{}`); `items.section.get`
-is read-only and returns `{found, content, line_count}` in `result`.
-
-## Items: progress log entry (`items.progress_log.append`)
-
-Append a chronological entry to the `Progress Log` section. The handler
-owns the ISO-8601 timestamp + headline header format:
-
-```json
-{
-  "function": "items.progress_log.append",
-  "actor": {"actor_id": "engineer", "session_id": "<session>"},
-  "target": {"kind": "item", "public_ref": "PREFIX-42"},
-  "payload": {"headline": "<one-line headline>", "content": "<body>", "source": "engineer"}
-}
-```
-
-## Items: scalar field (`items.scalar.update`)
-
-One mutation per call against any value in
-`mutations.SUPPORTED_UPDATE_FIELDS`:
-
-```json
-{
-  "function": "items.scalar.update",
-  "actor": {"actor_id": "operator", "session_id": "<session>"},
-  "target": {"kind": "item", "public_ref": "PREFIX-42"},
-  "payload": {"field": "blocked", "value": 0}
-}
-```
-
-## Lifecycle (`lifecycle.transition.execute`)
-
-```json
-{
-  "function": "lifecycle.transition.execute",
-  "actor": {"actor_id": "refine", "session_id": "<session>"},
-  "target": {"kind": "item", "public_ref": "PREFIX-42"},
-  "payload": {"target_status": "refined-idea", "source_status": "refining-idea"}
-}
-```
-
-`source_status` is an optional precondition the handler verifies before
-writing. The dispatcher routes through the canonical lifecycle gate so
-effective-policy checks fire: DB claim prose vs claim, conditional File
-Budget/path-claim parity only when both axes are enabled, AC presence, and
-the matching `ItemStatusChanged` event.
-
-## Workflow item: epic-task body and metadata (`workflow_item.epic_task.*`)
-
-Replace an epic task body (function-call equivalent of the prior
-`epic task-update-body` terminal recipe):
-
-```json
-{
-  "function": "workflow_item.epic_task.body_replace",
-  "actor": {"actor_id": "architect", "session_id": "<session>"},
-  "target": {"kind": "epic_task", "public_ref": "PREFIX-1665", "task_num": 11},
-  "payload": {"body": "<full new task body>"}
-}
-```
-
-Other `workflow_item.epic_task.*` share the same target shape:
-`.split` takes `{children: [...]}`; `.reassign` takes
-`{new_worktree}`; `.add` takes
-`{title, body, worktree, context_estimate, dependencies}`;
-`.remove` takes `{reason}`; `.metadata_update` takes
-`{fields: {...}}`.
-
-## Workflow item: epic progress note (`workflow_item.epic_progress_note.append`)
-
-```json
-{
-  "function": "workflow_item.epic_progress_note.append",
-  "actor": {"actor_id": "engineer", "session_id": "<session>"},
-  "target": {"kind": "epic_task", "public_ref": "PREFIX-1665", "task_num": 11},
-  "payload": {"note_num": 3, "body": "<progress note body>", "commit_hash": "<sha>"}
-}
-```
-
-## DB claim — unified amendment (`db_claim.amend`)
-
-Routes both the `db_mutation_profile` and `db_compatibility_attestation`
-columns through one atomic write. The `claim` dict is the unified payload
-documented in `.yoke/docs/reference/db-reference/items-and-epics.md`.
-
-```json
-{
-  "function": "db_claim.amend",
-  "actor": {"actor_id": "refine", "session_id": "<session>"},
-  "target": {"kind": "item", "public_ref": "PREFIX-42"},
-  "payload": {
-    "reason": "idea: spec/body declares no governed DB mutation",
-    "claim": {"state": "none"}
-  }
-}
-```
-
-For declared payloads, populate the full `claim` dict (model name,
-mutation intent, migration modules, `migration_strategy` when
-`mutation_intent="apply"`, compatibility class, plus the four authored
-attestation fields when `pre_merge_safe`). In
-`pre_merge_readers_writers`, `role` is only `reader` or `writer`;
-schema-changing migration modules use `writer`.
-
-## Path claims (`claims.path.*`)
-
-Register a new claim (function-call equivalent of the prior
-`path-claims register` recipe):
-
-```json
-{
-  "function": "claims.path.register",
-  "actor": {"actor_id": "idea", "session_id": "<session>"},
-  "target": {"kind": "item", "public_ref": "PREFIX-42"},
-  "payload": {
-    "public_ref": "PREFIX-42",
-    "paths": ["src/<package>/foo.py"],
-    "mode": "exclusive",
-    "allow_planned": false
-  }
-}
-```
-
-`integration_target` is optional. Omit it to default to the project's
-trunk branch (resolved from `projects.default_branch`, falling back to
-`main`); pass it explicitly only when gating against a non-trunk
-branch.
-
-`claims.path.widen` and the alias `claims.path.amend` take
-`{claim_id, add_target_ids?, add_paths?, reason}`. `.release` takes
-`{claim_id, reason}`. `.override` is last-resort and carries
-`{path_claim_id, override_point, integration_target, actor_id, actor_reason}`.
-
-## Work claims (`claims.work.*`)
-
-```json
-{
-  "function": "claims.work.acquire",
-  "actor": {"actor_id": "engineer", "session_id": "<session>"},
-  "target": {"kind": "item", "public_ref": "PREFIX-42"},
-  "payload": {"target": {"kind": "item", "public_ref": "PREFIX-42"}, "reason": "implement"}
-}
-```
-
-`claims.work.release` takes `{claim_id, reason}` with
-`target.kind="claim"`. `claims.work.holder_get` / `holder_list` are
-read-only.
-
-## Orchestration: board, packets, agents render
-
-Board rebuild — the operator-requested refresh of `.yoke/BOARD.md`.
-Nothing rebuilds the board automatically; dispatch this (or run
-`yoke board rebuild`) only when the operator asks for a refresh:
-
-```json
-{
-  "function": "board.rebuild.run",
-  "actor": {"actor_id": "conduct", "session_id": "<session>"},
-  "target": {"kind": "global"},
-  "payload": {"force": false}
-}
-```
-
-Substrate / packet drift checks (the dispatcher equivalents of the
-prior `agents_render check` / `agents_render render` recipes):
-
-```json
-{
-  "function": "agents.render.check",
-  "actor": {"actor_id": "doctor", "session_id": "<session>"},
-  "target": {"kind": "global"},
-  "payload": {}
-}
-```
-
-`agents.render.run` takes `{target_root?, dry_run}`. `packets.render.run`
-takes `{role: "<role>_agent"}`; `packets.check.run` takes `{}` and
-returns `{drift, seed_ok}`.
-
-## Reads (no claim required)
-
-```json
-{
-  "function": "items.get.run",
-  "actor": {"actor_id": "any", "session_id": "<session>"},
-  "target": {"kind": "item", "public_ref": "PREFIX-42"},
-  "payload": {"fields": ["spec", "db_mutation_profile"]}
-}
-```
-
-Empty `fields` returns the full canonical row. `epic_tasks.list.run`
-takes `target={kind: "epic_task", public_ref: "PREFIX-N"}` with empty payload.
-`events.query.run` takes `{event_name?, public_ref?, since?, until?, limit?}`.
-`path_claims.conflicts.list` takes `{integration_target?}`.
-`doctor.run.run` takes `{only?, quick?, project?}`.
-`projects.capability.has` takes `{project, cap_type}` on `target.kind="global"`.
-
-## QA (`qa.*`)
-
-```json
-{
-  "function": "qa.run.record_verdict",
-  "actor": {"actor_id": "tester", "session_id": "<session>"},
-  "target": {"kind": "qa_requirement", "qa_requirement_id": 17},
-  "payload": {"performed_by": "agent", "qa_kind": "ac_verification", "verdict": "pass", "raw_result": "<evidence>"}
-}
-```
-
-`qa.requirement.update` takes the matching `qa_requirement_id` target
-plus a payload naming the field being updated.
-
-## Permanent-history AC clause (Bucket 1, `mutation_intent="apply"`)
-
-When bucket 1 declares one or more `migration_modules`, the spec must say
-that every entry remains in the model's ordered history. There is no
-install-topology branch and no retire timing: a database that has not seen an
-entry yet still needs the source that can apply it.
-
-Append this through `items.structured_field.section_append` under
-`Acceptance Criteria`:
-
-`- [ ] AC-{N}: Each declared migration entry ({modules}) is committed as permanent ordered history, remains safe to re-run, and is never deleted after apply; boot convergence records filename-stem membership in the authoritative database's ledger.`
-
-Where `{modules}` lists the declared slugs. If the spec already tells an
-implementer to delete or auto-retire an entry, replace that conflicting AC;
-do not preserve both instructions.
+Use supported field-targeted section_upsert or guarded additive transform,
+not a fictitious field-bearing section-append command. A contrary delete-after-
+apply AC must be explicitly corrected under governed instructions; do not keep
+both contradictory requirements. No item applies migrations to an authoritative
+DB or removes ordered history.

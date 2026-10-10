@@ -1,178 +1,100 @@
-# Idea / Dash — Persist Delivery Requirements At Intake
+# Idea / Dash — Delivery Evidence Intake
 
-Called after the item exists and this session holds its work claim
-(`infer-and-create.md` §5b, or Dash's post-file claim). Owns the
-natural-language request: a screenshot, other deployed evidence, or
-"have me approve it". Do not invent a second requirement store, a
-per-item flow engine, or a hidden stage model.
+Run after create and work claim only for requested running screenshots/visual
+proof, named environment/preview QA or human approval. Ordinary implementation
+and branch review previews stay their existing workflow QA; no second store,
+case catalog, flow engine or hidden stages.
 
-## When this applies
+## Placement and suitable item flow
 
-Run this when the operator asked for any of:
+Follow [Where a Browser case runs](../../../../.yoke/docs/reference/browser-scenarios.md#where-a-browser-case-runs):
+visibility determines verification/post_deploy phase, target and declared
+transition; no served surface selects approval_on_done. A screenshot specializes
+a case, not a new flow if existing sequence/verdict already fits.
 
-- a screenshot or visual proof of a running surface
-- QA against a named environment (stage, production) or a preview
-- an explicit human approval of that evidence
-
-Skip when the request is ordinary implementation work with no delivery
-evidence. Pre-merge branch previews stay workflow review/QA; they are not
-this path.
-
-## Choose where the case runs
-
-[Where a Browser case runs](../../../../.yoke/docs/reference/browser-scenarios.md#where-a-browser-case-runs)
-selects the phase, target, and transition for a screenshot request from where
-the change becomes visible, and names the approval that replaces a Browser
-case when no server serves the change. A `post_deploy` case is release proof
-for the environment it names; a pre-merge `verification` case proves the
-candidate server it ran against.
-
-A screenshot request specializes the case. It does not clone a flow when
-the selected flow's sequence and verdict already fit. `--requirement-source
-explicit`. Do not add a second case catalog.
-
-## Select a flow that can satisfy the request
-
-Resolve in this order, without dropping the request:
-
-1. The item's explicit `deployment_flow` when already set.
-2. The project's workflow-specific default from
-   `yoke workflows mechanics get --json` (`delivery_defaults` for this
-   `workflow_id`).
-3. The project-wide `yoke project-structure deploy-defaults get --project P`.
-
-Task stays exempt: omit `--deployment-flow` even when an old mapping still
-names a flow. Never store the literal `none`.
-
-Read the candidate:
-
+Resolve explicit item flow, workflow-specific delivery_default, then project
+default. Task stays exempt per actual laneless policy; omit flow, never none.
 ```bash
-yoke deployment-flows get FLOW-ID --json
+yoke deployment-flows get <flow-id> --json
+yoke deployment-flows validate --project <project> --stages-file <local-stages-path> --target-tier persistent --environment <environment> --status active --json
 ```
 
-Refuse to assign a disabled flow. Before creating or activating a
-definition the serving runtime may not execute, validate it:
-
+Disabled cannot attach. execution_supported=false means keep definition
+disabled and report serving-schema floor; do not weaken requested evidence.
+An unsuitable default gets a suitable **item-only** active flow:
 ```bash
-yoke deployment-flows validate --project P --stages-file PATH \
-  --target-tier persistent --environment ENV --status active --json
+yoke items scalar update PREFIX-N --field deployment_flow --value <flow-id>
 ```
+Never rewrite shared defaults for one item.
 
-`execution_supported=false` means keep the definition `--status disabled` and
-do not set it as a default or item flow. The refusal
-`serving runtime executes through schema N` is the recovery: wait for that
-runtime; do not silently pick a weaker flow that drops the request.
+## Persist an explicit method-backed case
 
-When the inherited default cannot satisfy the requested environment, QA, or
-verdict, select or configure a suitable active flow for **this item only**:
+Use registered `qa.requirement.add`; its CLI below authors the existing QA row.
 
+Dash's optional attachment needs the selected verification method:
 ```bash
-yoke items scalar update PREFIX-N --field deployment_flow --value FLOW-ID
+yoke workflows item-posture amend PREFIX-N --verification-method browser-inspection --reason "intake screenshot request"
 ```
+At filing, the Dash shortcut passes that method. For unserved changes,
+approval_on_done replaces Browser proof; at-file approval flag or registered
+posture amendment applies only where the pinned definition allows.
+Issue/Epic/Blitz use their existing QA gates, not invented Dash posture.
 
-Do not rewrite `deploy_defaults` or `workflows.delivery_default.set` to make
-a single item succeed. Those are shared.
+Bind --workflow-transition to the actual stage owning the declared phase.
+Verification belongs to the selected-method review/qa_verification stage;
+post_deploy/manual_acceptance belongs to pinned release wait/done or deployment
+run. Never bind post-merge acceptance to review. Phase is declared, not inferred
+from URL/environment/prose; verification may target an existing production
+server before merge. Review gates **do not wait for an environment** created
+after merge.
 
-## Persist the item-specific case
+Frozen admission copies correctly bound post_deploy source onto its candidate
+deployment subject. Completion accepts the admitted copy on its chosen member
+run via the acceptance ladder; it does not re-run or waive the original.
+A prior candidate's pass does not satisfy a later run, including a passing run
+recorded on the original intake row itself. A run that never admitted this
+source or no run at all is insufficient. Failed/cancelled member attempts do
+not erase a prior succeeded completion run's accepted copy. A later release
+containing the merge without enrolling the member proves delivery but adds no
+source-QA copy and does not replace the member run. Manual acceptance retains
+its phase gate.
 
-Dash's QA policy is optional item attachment. Select the Dash posture the
-placement section chose. A Browser case needs the method selected before
-`qa.requirement.add` will accept the row:
-
-- at file time: `yoke dash "TITLE" "INSTRUCTION" --execution-instructions-considered --verification-method browser-inspection`
-- afterwards: `yoke workflows item-posture amend PREFIX-N --verification-method browser-inspection --reason "intake screenshot request"`
-
-A change no server serves takes the approval instead:
-
-- at file time: `yoke dash "TITLE" "INSTRUCTION" --execution-instructions-considered --approval-on-done`
-- afterwards: `yoke workflows item-posture amend PREFIX-N --key approval_on_done --value true --reason "operator signs off on an unserved change"`
-
-Issue / Epic / Blitz already carry a `qa_verification` gate; do not invent a
-Dash-style posture there.
-
-Bind `--workflow-transition` to the stage that currently owns that phase.
-Pre-merge `verification` binds to Dash's selected-method review stage
-(`reviewing-implementation`) or, on Issue / Epic / Blitz, the earliest stage
-that already carries `qa_verification` (`reviewed-implementation` on Issue).
-Post-deployment `post_deploy` / `manual_acceptance` binds to the pinned
-release wait (`release`) or `done`, or attaches to the deployment run with
-`--deployment-run`. Do not bind post-merge acceptance to the review
-transition: authoring refuses that pair and names this recovery.
-
-`--qa-phase` is the declared family. Do not infer it from a URL, a literal
-environment name, or instruction prose — a `verification` case may
-legitimately target an existing production environment before merge.
-
-Recording `post_deploy` on the review stage is a contradictory binding.
-Pre-merge `qa_verification` and Dash's review gate wait only for
-`verification` rows. They do not wait for an environment that exists after
-merge. Frozen admission copies a correctly bound `post_deploy`
-row onto the deployment-stage subject; scoped QA executes that copy against
-the observed candidate. `done` consumes that admitted copy on the completion
-run (`done_transition.latest_deployment_run`) when the shared stage
-acceptance ladder accepts it, and does not re-run or waive the original
-intake row. A prior candidate's pass does not satisfy a later run --
-including a passing run recorded on the original intake row itself, which
-proves whatever was deployed when it ran. A completion run that never
-admitted this source does not satisfy it, and neither does the absence of
-any run at all. Failed and cancelled member attempts cannot erase a prior
-succeeded completion run's accepted copy. A later release that contains the
-merge without enrolling the item proves delivery, but contributes no admitted
-copy and does not replace the member run for source QA.
-`manual_acceptance` keeps its established phase gate.
-
-Screenshot / visual evidence of a deployed candidate:
-
+Example for a pin whose post-deploy transition is release:
 ```bash
 yoke qa requirement add --item PREFIX-N \
   --method-id browser-inspection --qa-phase post_deploy \
-  --target-env ENV \
-  --requirement-source explicit \
+  --target-env ENV --requirement-source explicit \
   --instructions "Capture the requested running surface on ENV." \
   --expected-outcome "The screenshot shows the requested behavior on ENV." \
   --method-config '{"steps":[{"action":"navigate","route":"/ROUTE"},{"action":"screenshot","capture":true,"label":"intake"}]}' \
   --workflow-transition release
 ```
 
-Non-visual deployed evidence uses `--method-id command` with the same
-`post_deploy` + `--target-env`. A pre-merge visual check takes the
-`verification` form the placement section names.
+Use its actual bound transition, not the example when it differs.
+Nonvisual evidence uses command method with matching phase/target.
+Premerge visual proof uses verification placement. Read back:
+```bash
+yoke qa requirement list --item PREFIX-N --json
+```
+Require phase, environment and complete instructions/expected outcome/config.
+Intake persists; it neither executes QA nor creates deployment runs.
 
-Read back `yoke qa requirement list --item PREFIX-N --json` and confirm
-`qa_phase`, `target_env`, and instructions survived. Intake persists the
-obligation; it does not execute the case and it does not create a
-deployment run.
+## Explicit approval policy
 
-## Approval is a flow verdict, not a QA add-on
+Evidence alone **does not** add approval. A screenshot does **not** add approval,
+approval_on_done or a human reviewer.
 
-An evidence request answered by a Browser case does **not** add approval,
-`--approval-on-done`, or a human reviewer.
+"Have me approve it" requires verdict.mode=required_human on the **item-scoped QA stage**
+whose configured target is what the operator requested. Read the flow;
+do not assume a kind: persistent_environment names ENV; run_preview names the
+candidate without environment. Reviewers require this operator in actors with
+mode=all, not an ANY role, run-scoped QA or non-QA execution stage.
+Missing reviewer policy is invalid.
 
-"Have me approve it" requires `verdict.mode=required_human` on the
-**item-scoped QA stage** (`scope: item`) whose `target` is the deployed
-thing the operator asked to approve. Match the target to the stage the
-selected flow actually configures — read it, do not assume a kind:
+`human_if_unsure` can pass without asking; only use it for explicitly conditional
+approval. Keep a compatible reviewer requirement already requiring this operator.
+Do not replace a matching policy or weaken required_human.
 
-| Stage the flow configures | The QA stage's `target` |
-|---|---|
-| A persistent environment | `target.kind=persistent_environment`, `environment: ENV` |
-| A release preview of the run's candidate | `target.kind=run_preview`, which names no environment |
-
-That stage's `reviewers` require **this operator**
-(`actors` + `mode=all`), not an `ANY` role policy someone else can satisfy,
-and not a run-scoped QA stage or a non-QA execution stage. Missing reviewer
-policy makes that configuration invalid. `human_if_unsure` can pass
-without asking the operator; reserve it for an explicitly conditional
-review request ("ask me if you're unsure").
-
-When the selected flow already has a compatible reviewer requirement that
-already requires this operator at `required_human` on that same target's
-item-QA stage, keep it. Do not replace a matching policy, and do not
-weaken `required_human` to `human_if_unsure`.
-
-If the candidate is referenced by a run, immutable history, or a shared
-project/workflow default, `yoke deployment-flows create` a new
-item-only definition (validate first), then
-`yoke items scalar update PREFIX-N --field deployment_flow --value FLOW-ID`.
-Never `update-stages` a shared, referenced, or immutable definition. Do not
-build a fallback reviewer system.
+Referenced/immutable/shared-default candidate needs a validated new item-only
+definition then item flow assignment. Never `update-stages` a shared,
+referenced or immutable definition. No fallback reviewer system.

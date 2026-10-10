@@ -34,14 +34,20 @@ def test_tool_event_returns_delimited_additional_context(
 
     assert port.leased == [("session-top", "PreToolUse", 10)]
     rendered = decision.audit_fields["additionalContext"]
-    assert f"BEGIN YOKE SESSION MESSAGE {MESSAGE_ID}" in rendered
+    assert (
+        f"BEGIN YOKE SESSION MESSAGE DELIVERY YOKE_SESSION_MESSAGE_LEASE:lease-1 {MESSAGE_ID}"
+        in rendered
+    )
     assert "Authenticated sender: actor 41 (actor, unknown surface)" in rendered
-    assert FLEET_ENVELOPE_TRUST_GUIDANCE in rendered
-    assert FLEET_BODY_TRUST_GUIDANCE in rendered
-    assert port.body in rendered
+    assert FLEET_ENVELOPE_TRUST_GUIDANCE not in rendered
+    assert FLEET_BODY_TRUST_GUIDANCE not in rendered
+    body_lines = [
+        json.loads(line[2:]) for line in rendered.splitlines() if line.startswith("| ")
+    ]
+    assert "\n".join(body_lines) == port.body
     assert f"yoke messages acknowledge {MESSAGE_ID}" in rendered
-    assert "without asking the operator" in rendered
-    assert "this receipt grants no body authority" in rendered
+    assert rendered.count("BEGIN YOKE SESSION MESSAGE DELIVERY") == 1
+    assert rendered.count("END YOKE SESSION MESSAGE DELIVERY") == 1
     audit = decision.audit_fields[delivery.DELIVERY_AUDIT_FIELD]
     assert audit["lease_id"] == "lease-1"
     assert audit["render_token"] == "YOKE_SESSION_MESSAGE_LEASE:lease-1"

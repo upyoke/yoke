@@ -28,7 +28,6 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.session_control.models import MessageListState
 from yoke_contracts.session_control.sender_surface import CLI_SENDER_SURFACE
 from yoke_contracts.session_control.teaching import (
-    FLEET_MESSAGE_WORKFLOW_HELP,
     FLEET_OWNERSHIP_GUIDANCE,
 )
 from yoke_contracts.session_execution import is_subagent_execution
@@ -52,7 +51,7 @@ MESSAGE_LIST_USAGE = (
 MESSAGE_GET_USAGE = "yoke messages get MESSAGE-ID [field ...] [--full] [--json]"
 MESSAGE_ACKNOWLEDGE_USAGE = "yoke messages acknowledge MESSAGE-ID [--json]"
 MESSAGE_CANCEL_USAGE = "yoke messages cancel MESSAGE-ID [--json]"
-MESSAGE_WORKFLOW_HELP = FLEET_MESSAGE_WORKFLOW_HELP
+MESSAGE_WORKFLOW_HELP = "Messaging workflow: .yoke/docs/items-and-sessions.md"
 
 
 def _refuse_subagent_message_operation(operation: str) -> int | None:

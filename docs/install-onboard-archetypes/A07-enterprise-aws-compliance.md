@@ -55,23 +55,10 @@ non-static execution path.
 
 ## Test setup
 
-**Reality:** monorepo — many suites (unit / contract / integration),
-CODEOWNERS, required status checks, possibly containerized. GitHub Actions
-or an internal Actions runner fleet.
+Confirm each monorepo test tree, a documented reliable quick slice and aggregate full argv. Eligible Actions test workflows may route CI; queue delivery additionally requires merge_group and GitHub access. If the App is forbidden, use the confirmed local command or review-only posture, with the named CI limitation. A single guessed pytest command cannot stand in for forty distinct jobs.
 
-**Bind today:** `ci_workflow_file` plus optional `scope_workflows` for
-`quick` vs `full`. `merge_queue` only if the org already uses the GitHub
-merge queue and the workflow has `merge_group`. Local `command` must name
-the same slice CI runs, or the gate diverges.
-
-**Onboard:** bind `org/monorepo` does not ask which workflow is required.
-If the App is skipped, `command-ci` and `merge_queue` are unreachable
-(named reason).
-
-**Ask that should happen:** required-check filename; `quick` vs `full`
-argv; queue vs standalone. Refuse mapping one `pytest` to a 40-job
-monorepo. G-legacy-suite-unmapped (many suites), G-merge-queue-github-only
-when App is forbidden.
+The confirmed profile, command/CI binding and immutable QA attachment follow
+[test-setup.md](test-setup.md); this example is not a live setup receipt.
 
 ## Crux
 
@@ -82,4 +69,4 @@ when App is forbidden.
 | Data residency | Destination picker (local / existing server / guided self-host / upyoke.com) | Hosted beta refusal; guided setup refuses missing Docker before writes | Team server on-prem with enterprise-owned networking/TLS |
 | Migration | Step-2 governed-database box, recorded on `migration-model-setup` | Unsupported authoritative kinds refused by name | Declare the model, name it for later, or record `not-needed` with the reason |
 
-Ledger: G-byo-aws-identity, G-forge-github-only (org App policy), G-enterprise-static-keys, G-test-setup-unasked, G-ci-workflow-undeclared, G-legacy-suite-unmapped, G-merge-queue-github-only.
+Ledger: G-byo-aws-identity, G-forge-github-only (org App policy), G-enterprise-static-keys, G-merge-queue-github-only.

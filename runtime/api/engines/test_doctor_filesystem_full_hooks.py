@@ -11,8 +11,11 @@ Schema scaffolding shared via _doctor_filesystem_full_test_helpers (private modu
 from __future__ import annotations
 
 import os
+from datetime import datetime, timedelta, timezone
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from yoke_project_checks.check_agents import (
     hc_stale_session_reclaimer_alive,
@@ -32,12 +35,17 @@ from runtime.api.engines._doctor_filesystem_full_test_helpers import (
 
 class TestHookExecutability:
     def test_passes_without_repo_root(self):
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=None):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root", return_value=None
+        ):
             rec = _run_hc(hc_hook_executability)
         assert rec.results[0].result == "PASS"
 
     def test_passes_without_agents_dir(self, tmp_path):
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_hook_executability)
         assert rec.results[0].result == "PASS"
 
@@ -49,9 +57,12 @@ class TestHookExecutability:
         hook.write_text("#!/bin/sh\n")
         hook.chmod(0o644)
         (agents_dir / "yoke-hook.md").write_text(
-            "---\ncommand: \".agents/hooks/exists.sh\"\n---\n"
+            '---\ncommand: ".agents/hooks/exists.sh"\n---\n'
         )
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_hook_executability)
         assert rec.results[0].result == "FAIL"
         assert "not executable" in rec.results[0].detail
@@ -64,17 +75,25 @@ class TestHookExecutability:
         hook.write_text("#!/bin/sh\n")
         hook.chmod(0o755)
         (agents_dir / "yoke-hook.md").write_text(
-            "---\ncommand: \".agents/hooks/exists.sh\"\n---\n"
+            '---\ncommand: ".agents/hooks/exists.sh"\n---\n'
         )
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_hook_executability)
         assert rec.results[0].result == "PASS"
 
     def test_ignores_shell_literal_commands(self, tmp_path):
         agents_dir = tmp_path / ".claude" / "agents"
         agents_dir.mkdir(parents=True)
-        (agents_dir / "yoke-hook.md").write_text("---\ncommand: \"bash missing.sh\"\n---\n")
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)):
+        (agents_dir / "yoke-hook.md").write_text(
+            '---\ncommand: "bash missing.sh"\n---\n'
+        )
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_hook_executability)
         assert rec.results[0].result == "PASS"
 
@@ -82,21 +101,29 @@ class TestHookExecutability:
         agents_dir = tmp_path / ".claude" / "agents"
         agents_dir.mkdir(parents=True)
         (agents_dir / "yoke-hook.md").write_text(
-            "---\ncommand: \"python3 -m yoke_core.domain.observe_pre\"\n---\n"
+            '---\ncommand: "python3 -m yoke_core.domain.observe_pre"\n---\n'
         )
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_hook_executability)
         assert rec.results[0].result == "PASS"
 
 
 class TestSelfTest:
     def test_warns_without_repo_root(self):
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=None):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root", return_value=None
+        ):
             rec = _run_hc(hc_self_test)
         assert rec.results[0].result == "WARN"
 
     def test_warns_when_entrypoint_missing(self, tmp_path):
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_self_test)
         assert rec.results[0].result == "WARN"
 
@@ -104,9 +131,15 @@ class TestSelfTest:
         script = tmp_path / "runtime" / "api" / "domain" / "check_prerequisites.py"
         script.parent.mkdir(parents=True)
         script.write_text("def main():\n    return 0\n")
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)), patch(
-            "yoke_core.engines.doctor_report._run",
-            return_value=_cp(returncode=1, stdout="oops", stderr="bad"),
+        with (
+            patch(
+                "yoke_core.engines.doctor_report._resolve_repo_root",
+                return_value=str(tmp_path),
+            ),
+            patch(
+                "yoke_core.engines.doctor_report._run",
+                return_value=_cp(returncode=1, stdout="oops", stderr="bad"),
+            ),
         ):
             rec = _run_hc(hc_self_test)
         assert rec.results[0].result == "FAIL"
@@ -116,8 +149,14 @@ class TestSelfTest:
         script = tmp_path / "runtime" / "api" / "domain" / "check_prerequisites.py"
         script.parent.mkdir(parents=True)
         script.write_text("def main():\n    return 0\n")
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)), patch(
-            "yoke_core.engines.doctor_report._run", return_value=_cp(returncode=0)
+        with (
+            patch(
+                "yoke_core.engines.doctor_report._resolve_repo_root",
+                return_value=str(tmp_path),
+            ),
+            patch(
+                "yoke_core.engines.doctor_report._run", return_value=_cp(returncode=0)
+            ),
         ):
             rec = _run_hc(hc_self_test)
         assert rec.results[0].result == "PASS"
@@ -125,7 +164,9 @@ class TestSelfTest:
 
 class TestStaleSessions:
     def test_passes_without_repo_root(self):
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=None):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root", return_value=None
+        ):
             rec = _run_hc(hc_stale_sessions)
         assert rec.results[0].result == "PASS"
 
@@ -133,7 +174,10 @@ class TestStaleSessions:
         data_root = tmp_path / "data"
         data_root.mkdir()
         (data_root / "config").write_text("session_registry_enabled=false\n")
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_stale_sessions)
         assert rec.results[0].result == "PASS"
 
@@ -141,7 +185,10 @@ class TestStaleSessions:
         data_root = tmp_path / "data"
         data_root.mkdir()
         (data_root / "config").write_text("session_registry_enabled=true\n")
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_stale_sessions)
         assert rec.results[0].result == "PASS"
 
@@ -154,8 +201,15 @@ class TestStaleSessions:
         stale.write_text("session")
         old_epoch = 1_700_000_000
         os.utime(stale, (old_epoch, old_epoch))
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)), patch(
-            "yoke_core.engines.doctor_report.time.time", return_value=old_epoch + 20_000
+        with (
+            patch(
+                "yoke_core.engines.doctor_report._resolve_repo_root",
+                return_value=str(tmp_path),
+            ),
+            patch(
+                "yoke_core.engines.doctor_report.time.time",
+                return_value=old_epoch + 20_000,
+            ),
         ):
             rec = _run_hc(hc_stale_sessions)
         assert rec.results[0].result == "WARN"
@@ -170,14 +224,51 @@ class TestStaleSessions:
         fresh.write_text("session")
         fresh_epoch = 1_700_020_000
         os.utime(fresh, (fresh_epoch, fresh_epoch))
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)), patch(
-            "yoke_core.engines.doctor_report.time.time", return_value=fresh_epoch + 60
+        with (
+            patch(
+                "yoke_core.engines.doctor_report._resolve_repo_root",
+                return_value=str(tmp_path),
+            ),
+            patch(
+                "yoke_core.engines.doctor_report.time.time",
+                return_value=fresh_epoch + 60,
+            ),
         ):
             rec = _run_hc(hc_stale_sessions)
         assert rec.results[0].result == "PASS"
 
 
 class TestStaleSessionReclaimerAlive:
+    @pytest.mark.parametrize("representation", ["aware", "naive", "iso", "iso-z"])
+    def test_recent_native_and_legacy_timestamps_pass(self, representation):
+        latest = datetime.now(timezone.utc) - timedelta(minutes=30)
+        if representation == "naive":
+            latest = latest.replace(tzinfo=None)
+        elif representation == "iso":
+            latest = latest.isoformat()
+        elif representation == "iso-z":
+            latest = latest.isoformat().replace("+00:00", "Z")
+        conn = MagicMock()
+        conn.execute.return_value.fetchone.return_value = {"latest": latest}
+        with patch(
+            "yoke_core.engines.doctor_hc_agents_sessions._table_exists",
+            return_value=True,
+        ):
+            rec = _run_hc(hc_stale_session_reclaimer_alive, conn=conn)
+        assert rec.results[0].result == "PASS"
+        assert "Last sweep 30m ago" in rec.results[0].detail
+
+    @pytest.mark.parametrize("latest", ["invalid", 42, None, datetime(2000, 1, 1)])
+    def test_missing_stale_and_unparseable_timestamps_warn(self, latest):
+        conn = MagicMock()
+        conn.execute.return_value.fetchone.return_value = {"latest": latest}
+        with patch(
+            "yoke_core.engines.doctor_hc_agents_sessions._table_exists",
+            return_value=True,
+        ):
+            rec = _run_hc(hc_stale_session_reclaimer_alive, conn=conn)
+        assert rec.results[0].result == "WARN"
+
     def test_passes_without_events_table(self):
         rec = _run_hc(hc_stale_session_reclaimer_alive)
         assert rec.results[0].result == "PASS"
@@ -189,7 +280,7 @@ class TestStaleSessionReclaimerAlive:
             CREATE TABLE events (
                 id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                 event_name TEXT,
-                created_at TEXT
+                created_at TIMESTAMPTZ
             )
             """
         )
@@ -204,12 +295,15 @@ class TestStaleSessionReclaimerAlive:
             CREATE TABLE events (
                 id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                 event_name TEXT,
-                created_at TEXT
+                created_at TIMESTAMPTZ
             )
             """
         )
         from datetime import datetime as _dt, timedelta as _td, timezone as _tz
-        thirty_min_ago = (_dt.now(_tz.utc) - _td(minutes=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        thirty_min_ago = (_dt.now(_tz.utc) - _td(minutes=30)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
         conn.execute(
             "INSERT INTO events (event_name, created_at) VALUES (%s, %s)",
             ("HarnessSessionStaleSweepCompleted", thirty_min_ago),

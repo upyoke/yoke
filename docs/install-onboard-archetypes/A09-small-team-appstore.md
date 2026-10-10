@@ -41,20 +41,10 @@ CI for tests/signing, not Yoke `core-container-deploy`.
 
 ## Test setup
 
-**Reality:** XCTest / Gradle + `fastlane` + `.github/workflows/testflight.yml`.
-Not a web pytest tree. Simulator or device needed.
+Confirm XCTest/Gradle argv, scheme/destination and required simulator/device. Bind the Actions test workflow separately from TestFlight/store upload. Registered quick/full commands use a project target and need no HTTPS environment. Deployed scopes require their declared target contract; do not create a web environment for app-store verification.
 
-**Bind today:** `ci_workflow_file` can name the **test** workflow (not
-TestFlight). Register `xcodebuild` / `fastlane test` as project-targeted
-`quick` or `full`; it needs no HTTPS product environment. Reserve `e2e` and
-`smoke` for a real deployed target: local uses one environment or runtime base
-URL, while CI requires a declared environment.
-
-**Onboard:** survey sees `fastlane/` and does not register XCTest.
-
-**Ask that should happen:** which Actions file is unit/UI tests vs store
-upload; register that as `quick`. Refuse binding `command-ci` to
-`testflight.yml` if that job ships a build.
+The confirmed profile, command/CI binding and immutable QA attachment follow
+[test-setup.md](test-setup.md); this example is not a live setup receipt.
 
 ## Crux
 
@@ -64,4 +54,4 @@ upload; register that as `quick`. Refuse binding `command-ci` to
 | Deployment flow | Profile delivery; merge-only `target_tier` NULL | Idea assigns the default; Usher Route A creates no run | External TestFlight remains Actions |
 | Domain | Step 6 default subdomain | Skip `domain-setup=not-needed` | No hostname |
 
-Ledger: G-app-store-deploy, G-test-setup-unasked, G-ci-workflow-undeclared, G-command-ci-misbind, G-legacy-suite-unmapped, G-qa-plan-needs-env.
+Ledger: G-app-store-deploy.

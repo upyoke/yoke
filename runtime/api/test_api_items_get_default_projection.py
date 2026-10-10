@@ -35,10 +35,19 @@ class TestItemsGetDefaultProjection(unittest.TestCase):
         patcher = patch.object(reads, "_read_instructions", return_value=[])
         patcher.start()
         self.addCleanup(patcher.stop)
+        sections = patch(
+            "yoke_core.domain.render_body_item_sections.fetch_item_sections",
+            side_effect=lambda conn, item_id, *, late: (
+                [{"section_name": "Progress Log", "content": "Checkpoint"}]
+                if late
+                else []
+            ),
+        )
+        sections.start()
+        self.addCleanup(sections.stop)
 
     def test_default_projection_includes_structured_and_additional_fields(self):
-        # Empty payload.fields must project every allowed field so
-        # `yoke items get ITEM --json` does not hide technical_plan etc.
+        # Stored text appears once; body stays available as an explicit read.
         queried = []
 
         def fake_query_item(item_id, col, db_path=None):
@@ -83,6 +92,13 @@ class TestItemsGetDefaultProjection(unittest.TestCase):
         )
         self.assertEqual(fields["id"], _FIXTURE_ITEM_REF)
         self.assertEqual(set(fields), set(DEFAULT_GET_FIELDS))
+        self.assertNotIn("body", fields)
+        self.assertEqual(
+            outcome.result_payload["sections"],
+            [
+                {"name": "Progress Log", "content": "Checkpoint"},
+            ],
+        )
 
     def test_explicit_field_subset_still_projects_only_requested(self):
         queried = []
@@ -107,3 +123,14 @@ class TestItemsGetDefaultProjection(unittest.TestCase):
             },
         )
         self.assertEqual(queried, ["title", "technical_plan"])
+        self.assertNotIn("sections", outcome.result_payload)
+
+    def test_explicit_body_still_renders_the_complete_item(self):
+        with patch(
+            "yoke_core.domain.items_queries.query_item",
+            return_value="## Spec\nScope\n## Progress Log\nCheckpoint",
+        ) as query:
+            outcome = reads.handle_items_get(_request({"fields": ["body"]}))
+        query.assert_called_once_with(42, "body")
+        self.assertIn("Checkpoint", outcome.result_payload["fields"]["body"])
+        self.assertNotIn("sections", outcome.result_payload)

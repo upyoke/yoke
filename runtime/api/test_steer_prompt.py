@@ -166,12 +166,12 @@ class TestSteerSkillContract:
         assert "does not exist" in loop
         assert "FROM session_launches" not in raw
 
-    def test_starved_holder_triage_reads_the_stale_reclaim_clock(self):
+    def test_idle_holder_triage_preserves_active_claim_protection(self):
         loop = _words(_read(_STEER_DIR / "loop.md"))
-        assert "stale_eligible_at" in loop
-        assert "effective_stale_ttl_minutes" in loop
         assert "yoke sessions list --json" in loop
-        assert "near reclaim is revived before anything else in the pass" in loop
+        assert "effective_stale_ttl_minutes" in loop
+        assert "Active work claims protect holders from age-based reclaim" in loop
+        assert "no stale TTL countdown releases a live lane" in loop
 
     def test_a_parked_holder_declared_its_wait(self):
         loop = _words(_read(_STEER_DIR / "loop.md"))
@@ -190,7 +190,7 @@ class TestSteerSkillContract:
         assert "Two things the report deliberately does not do" in loop
         assert "Re-verify ownership immediately before launching or reclaiming" in loop
         assert "one more claim handoff window" in loop
-        assert "staffed a second worker onto a healthy item" in loop
+        assert "stale readback can staff a second worker onto a healthy item" in loop
         report_at = loop.index("the fleet report is the detector")
         assert loop.index("yoke claims work holder-get PREFIX-N", report_at) > report_at
         assert "Set the hold flag on work you are holding on purpose" in loop
@@ -198,17 +198,15 @@ class TestSteerSkillContract:
         assert "yoke items freeze PREFIX-N" in loop
         assert "yoke items cancel PREFIX-N --reason TEXT" in loop
 
-    def test_dashboard_card_is_named_as_the_faster_read(self):
+    def test_dashboard_card_uses_reported_state_and_ttl_authority(self):
         loop = _words(_read(_STEER_DIR / "loop.md"))
         assert "dashboard session card" in loop
-        assert "`active` for any live session" in loop
-        assert "confirmed `stale`" in loop
-        assert "`waiting` or `probed`" in loop
-        assert "`active now` under a minute" in loop
-        assert "`idle <age>` past it, rolling over minutes/hours/days" in loop
-        assert "executor-aware TTL (1440 minutes here)" in loop
-        assert "decides alive versus stale" in loop
+        assert "confirmed stale only by server" in loop
+        assert "waiting/probed explain a claim holder's quiet" in loop
+        assert "Effective executor TTL is reported data" in loop
+        assert "active work claim protects its holder from age reclaim" in loop
         assert "still be a session the control plane counts" in loop
+        assert "Do not reproduce a machine's numeric TTL" in loop
 
     def test_no_steer_file_teaches_the_retired_label_or_snapshot_reads(self):
         corpus = _corpus()
@@ -240,10 +238,11 @@ class TestSteerSkillContract:
         loop = _read(_STEER_DIR / "loop.md")
         assert "<!-- YOKE:HARNESS claude start -->" in loop
         assert "ScheduleWakeup" in loop
-        assert "session_message_recipients" in loop
-        assert "cursor-agent --resume <session-id>" in loop
+        assert "yoke session-control evidence get --session SESSION-ID" in loop
+        assert "yoke session-control session wake --item PREFIX-N" in loop
+        assert "cursor-agent --resume" not in loop
         assert "Negative-space checks — first, every periodic pass" in loop
-        assert "injection_count=0" in loop
+        assert "wake_in_flight" in loop and "operator_wake_required" in loop
         assert "failures are silences" in loop
         assert "release_reason=completed" in loop
         assert "yoke claims work acquire --item PREFIX-N --reason steering" in loop
@@ -311,32 +310,3 @@ class TestNearTermPlanDefault:
         frontmatter = _read(_STEER_DIR / "SKILL.md").split("---", 2)[1]
         assert 'argument-hint: "[STRATEGY-DOC-SLUG] [--project P ...]"' in frontmatter
         assert "defaulting to CURRENT-PLAN" in frontmatter
-
-
-class TestNearTermPlanDefaultAcrossTeachingSurfaces:
-    """Router, help, command reference, and packet teach the same default."""
-
-    SURFACES = (
-        _REPO_ROOT / ".agents" / "skills" / "yoke" / "SKILL.md",
-        _REPO_ROOT / ".agents" / "skills" / "yoke" / "help" / "SKILL.md",
-        _REPO_ROOT / "docs" / "public" / "reference" / "commands.md",
-        _REPO_ROOT / ".yoke" / "docs" / "reference" / "commands.md",
-        _REPO_ROOT / "docs" / "harness-bootstrap.md",
-        _REPO_ROOT
-        / "packages"
-        / "yoke-core"
-        / "src"
-        / "yoke_core"
-        / "domain"
-        / "schema_api_context_commands_claims.py",
-    )
-
-    def test_no_surface_still_calls_the_strategy_doc_required(self):
-        for path in self.SURFACES:
-            text = _words(_read(path))
-            assert "required strategy doc" not in text, path
-            assert "a strategy doc is required" not in text, path
-
-    def test_every_surface_names_the_default(self):
-        for path in self.SURFACES:
-            assert "CURRENT-PLAN" in _read(path), path

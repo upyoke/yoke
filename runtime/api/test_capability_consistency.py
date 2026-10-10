@@ -231,36 +231,23 @@ class TestOverviewMatchesRegistry:
                 "the shared registry now advertises implement as an entrypoint."
             )
 
-    def test_overview_lists_implement_in_codex_capability(self, overview_md):
-        # The OVERVIEW.md paragraph describing the shared Codex command surface
-        # must include /yoke implement.
-        capability_phrase_match = re.search(
-            r"shared Yoke registry[^.]*entrypoints[^.]*\.",
-            overview_md,
-            re.DOTALL,
-        )
-        assert capability_phrase_match, (
-            "OVERVIEW.md missing the Codex capability description sentence"
-        )
-        section = capability_phrase_match.group(0)
-        assert "/yoke implement" in section, (
-            "OVERVIEW.md Codex registry description must include /yoke implement"
-        )
+    def test_overview_points_to_capability_owners(self, overview_md):
+        assert "runtime/harness/{claude,codex,cursor}/manifest.json" in overview_md
+        assert "shared registry plus the manifest" in overview_md
+        assert "harness-bootstrap.md" in overview_md
 
 
 class TestHarnessBootstrapClassifiesImplement:
     """``docs/harness-bootstrap.md`` must classify ``/yoke implement YOK-N``
-    as a Tier 1 operator command and teach registered lifecycle writes."""
+    as an operator command and teach registered lifecycle writes."""
 
     def test_safe_operator_commands_table_lists_implement(self, harness_bootstrap_md):
-        # The table sits between ``## 2. Safe Operator Commands`` and the
-        # next top-level heading.
         match = re.search(
-            r"## 2\. Safe Operator Commands\b(.*?)(?=\n## )",
+            r"## Safe Operator Commands\b(.*?)(?=\n## )",
             harness_bootstrap_md,
             re.DOTALL,
         )
-        assert match, "harness-bootstrap.md missing '## 2. Safe Operator Commands'"
+        assert match, "harness-bootstrap.md missing '## Safe Operator Commands'"
         section = match.group(1)
         assert SKILLS_BY_ID["implement"].display in section, (
             "harness-bootstrap.md Safe Operator Commands table must list "
@@ -268,17 +255,15 @@ class TestHarnessBootstrapClassifiesImplement:
         )
         assert "/yoke " + "advance" not in section
 
-    def test_tier_2_teaches_registered_lifecycle_writes(self, harness_bootstrap_md):
-        # The Tier 2 section is between '### Tier 2: Internal sub-skills' and
-        # the next '###' heading.
+    def test_classification_teaches_registered_lifecycle_writes(self, harness_bootstrap_md):
         match = re.search(
-            r"### Tier 2: Internal sub-skills\b(.*?)(?=\n### )",
+            r"## Command Classification\b(.*?)(?=\n## )",
             harness_bootstrap_md,
             re.DOTALL,
         )
-        assert match, "harness-bootstrap.md missing '### Tier 2: Internal sub-skills'"
+        assert match, "harness-bootstrap.md missing '## Command Classification'"
         section = match.group(1)
-        assert "lifecycle.transition.execute" in section
+        assert "Registered CLI/function" in section
         assert "yoke lifecycle transition" in section
 
 

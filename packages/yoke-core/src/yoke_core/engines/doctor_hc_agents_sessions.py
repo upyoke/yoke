@@ -50,7 +50,12 @@ def hc_stale_sessions(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 enabled = line.strip().split("=", 1)[1].strip() == "true"
 
     if not enabled:
-        rec.record("HC-stale-sessions", "Stale session files (session registry disabled)", "PASS", "")
+        rec.record(
+            "HC-stale-sessions",
+            "Stale session files (session registry disabled)",
+            "PASS",
+            "",
+        )
         return
 
     sessions_dir = data_root / "sessions"
@@ -74,12 +79,16 @@ def hc_stale_sessions(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             issues.append(f"- {sfile.name}: stale ({hours}h old)")
 
     if issues:
-        rec.record("HC-stale-sessions", "Stale session files", "WARN", "\n".join(issues))
+        rec.record(
+            "HC-stale-sessions", "Stale session files", "WARN", "\n".join(issues)
+        )
     else:
         rec.record("HC-stale-sessions", "Stale session files", "PASS", "")
 
 
-def hc_stale_session_reclaimer_alive(conn, args: DoctorArgs, rec: RecordCollector) -> None:
+def hc_stale_session_reclaimer_alive(
+    conn, args: DoctorArgs, rec: RecordCollector
+) -> None:
     """HC-stale-session-reclaimer-alive: Verify the stale-session sweep is running.
 
     Checks that a HarnessSessionStaleSweepCompleted event has been emitted within the
@@ -102,7 +111,9 @@ def hc_stale_session_reclaimer_alive(conn, args: DoctorArgs, rec: RecordCollecto
     if not row or not row["latest"]:
         # No sweep events at all — may be a fresh deployment
         rec.record(
-            slug, label, "WARN",
+            slug,
+            label,
+            "WARN",
             "No HarnessSessionStaleSweepCompleted events found. "
             "The stale-session reclaimer may not be running. "
             "It fires via session-start hooks and `yoke sessions "
@@ -111,21 +122,31 @@ def hc_stale_session_reclaimer_alive(conn, args: DoctorArgs, rec: RecordCollecto
         return
 
     from datetime import datetime as _dt, timezone as _tz
+
     try:
-        latest_str = row["latest"]
-        latest_dt = _dt.fromisoformat(latest_str.replace("Z", "+00:00"))
+        latest = row["latest"]
+        if isinstance(latest, _dt):
+            latest_dt = latest
+        elif isinstance(latest, str):
+            latest_dt = _dt.fromisoformat(latest.replace("Z", "+00:00"))
+        else:
+            raise TypeError("Sweep timestamp must be a datetime or ISO string")
         if latest_dt.tzinfo is None:
             # Older rows may carry naive UTC timestamps.
             latest_dt = latest_dt.replace(tzinfo=_tz.utc)
         age_minutes = int((_dt.now(_tz.utc) - latest_dt).total_seconds() / 60)
     except (ValueError, TypeError):
-        rec.record(slug, label, "WARN", f"Cannot parse latest sweep timestamp: {row['latest']}")
+        rec.record(
+            slug, label, "WARN", f"Cannot parse latest sweep timestamp: {row['latest']}"
+        )
         return
 
     max_gap_minutes = 120  # 2 hours
     if age_minutes > max_gap_minutes:
         rec.record(
-            slug, label, "WARN",
+            slug,
+            label,
+            "WARN",
             f"Last HarnessSessionStaleSweepCompleted was {age_minutes}m ago "
             f"(threshold: {max_gap_minutes}m). Reclaimer may be stalled.",
         )
@@ -163,14 +184,14 @@ def hc_stale_reclaim_collision(conn, args: DoctorArgs, rec: RecordCollector) -> 
     from yoke_core.domain.sql_json import json_get
 
     look_back_hours = 24
-    look_back_cutoff = (
-        _dt.now(_tz.utc) - _td(hours=look_back_hours)
-    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    look_back_cutoff = (_dt.now(_tz.utc) - _td(hours=look_back_hours)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
 
     reclaim_rows = conn.execute(
         f"""SELECT e.created_at AS reclaimed_at,
                   e.session_id AS session_id,
-                  {json_get('e.envelope', '$.context.detail.claim_id')} AS claim_id
+                  {json_get("e.envelope", "$.context.detail.claim_id")} AS claim_id
            FROM events e
            WHERE e.event_name = 'WorkReclaimed'
              AND e.created_at >= %s
@@ -191,16 +212,17 @@ def hc_stale_reclaim_collision(conn, args: DoctorArgs, rec: RecordCollector) -> 
             (sid,),
         ).fetchone()
         executor = (
-            (executor_row["executor"] if executor_row and hasattr(executor_row, "keys")
-             else (executor_row[0] if executor_row else None))
-            or "unknown"
-        )
+            executor_row["executor"]
+            if executor_row and hasattr(executor_row, "keys")
+            else (executor_row[0] if executor_row else None)
+        ) or "unknown"
 
         ttl_minutes = resolve_effective_ttl(executor)
 
         try:
             reclaim_dt = _dt.fromisoformat(
-                reclaimed_at.replace("Z", "+00:00") if reclaimed_at.endswith("Z")
+                reclaimed_at.replace("Z", "+00:00")
+                if reclaimed_at.endswith("Z")
                 else reclaimed_at
             )
         except (AttributeError, ValueError):
@@ -219,8 +241,12 @@ def hc_stale_reclaim_collision(conn, args: DoctorArgs, rec: RecordCollector) -> 
             (sid, reclaimed_at, window_end.strftime("%Y-%m-%dT%H:%M:%SZ")),
         ).fetchone()
         post_count = int(
-            (post_activity_row["cnt"] if hasattr(post_activity_row, "keys")
-             else post_activity_row[0]) or 0
+            (
+                post_activity_row["cnt"]
+                if hasattr(post_activity_row, "keys")
+                else post_activity_row[0]
+            )
+            or 0
         )
         if post_count > 0:
             claim_label = f"claim={claim_id}" if claim_id else "claim=unknown"
@@ -232,7 +258,9 @@ def hc_stale_reclaim_collision(conn, args: DoctorArgs, rec: RecordCollector) -> 
 
     if issues:
         rec.record(
-            slug, label, "WARN",
+            slug,
+            label,
+            "WARN",
             f"Detected {len(issues)} reclaim collision(s) in last {look_back_hours}h:\n"
             + "\n".join(issues),
         )

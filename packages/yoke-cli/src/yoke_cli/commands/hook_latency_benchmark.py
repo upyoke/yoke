@@ -8,8 +8,6 @@ import sys
 from pathlib import Path
 from typing import Callable, Dict, List, Tuple
 
-from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
-
 
 HOOK_BENCHMARK_USAGE = (
     "yoke hook benchmark [--samples N] [--compare REPORT.json] [--json]"
@@ -82,7 +80,6 @@ def hook_latency_benchmark(args: List[str]) -> int:
             "Run a fixed harmless command through normal PreToolUse and "
             "PostToolUse checks. This is on demand only and generates no load."
         ),
-        epilog=_FIELD_NOTE_FOOTER,
     )
     parser.add_argument("--samples", type=int, default=5)
     parser.add_argument("--compare", type=Path)

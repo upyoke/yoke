@@ -1,318 +1,142 @@
-"""Doc regression for the conduct simulation-readback wiring.
-
-Splits ``test-conduct-simulation-readback.sh`` into pytest assertions on the
-shared ``persist-epic-simulation`` helpers as wired into the conduct skill.
-"""
-
-from __future__ import annotations
-
-from pathlib import Path
+"""Regression contracts for native simulation receipts and bounded dispatch."""
 
 import pytest
 
-from runtime.api.skill_doc_regressions_test_helpers import (
-    REPO,
-    SKILLS,
-    _read,
-    _read_bundle,
-)
+from runtime.api.skill_doc_regressions_test_helpers import REPO, SKILLS
 
 
-# ---------------------------------------------------------------------------
-# TestConductSimulationReadback
-# ---------------------------------------------------------------------------
+def words(family, name):
+    return " ".join((SKILLS / family / name).read_text().split())
 
 
-class TestConductSimulationReadback:
-    """Conduct epic flow must use the shared ``persist-epic-simulation.sh``.
-
-    Note: the original shell regression also scraped helper-script contents
-    for ``check_epic_simulation_gate``, ``simulation-upsert``/``-get``, and
-    exit-code contracts. Those helpers are now thin shims over
-    ``yoke_core.domain.conduct_reviewed_handoff`` and
-    ``yoke_core.domain.persist_simulation``; contract coverage lives in
-    ``runtime/api/domain/test_conduct_reviewed_handoff.py`` and
-    ``runtime/api/domain/test_persist_simulation.py``. This module only keeps
-    the skill-doc wiring assertions — the part that would otherwise have no
-    Python equivalent.
-    """
-
-    @pytest.fixture
-    def docs(self) -> dict[str, Path]:
-        return {
-            "simulation_gate": SKILLS / "conduct" / "simulation-gate.md",
-            "simulation_gate_criteria": SKILLS
-            / "conduct"
-            / "simulation-gate-criteria.md",
-            "simulation_gate_escalation": SKILLS
-            / "conduct"
-            / "simulation-gate-escalation.md",
-            "autofix": SKILLS / "conduct" / "simulation-autofix.md",
-            "autofix_patching": SKILLS / "simulate" / "autofix-loop.md",
-            "autofix_verification": SKILLS
-            / "conduct"
-            / "simulation-autofix-verification.md",
-        }
-
-    def test_simulation_gate_initializes_local_result(self, docs):
-        # Content split to simulation-gate-criteria.md
-        text = _read_bundle(docs["simulation_gate"], docs["simulation_gate_criteria"])
-        assert '_local_result=""' in text
-
-    def test_simulation_gate_captures_local_clean_and_gaps(self, docs):
-        # Content split to simulation-gate-criteria.md
-        text = _read_bundle(docs["simulation_gate"], docs["simulation_gate_criteria"])
-        assert '"SIMULATION: CLEAN"*) _local_result="CLEAN"' in text
-        assert '"SIMULATION: GAPS FOUND"*) _local_result="GAPS FOUND"' in text
-
-    def test_simulation_gate_uses_persist_helper(self, docs):
-        # Content split across simulation-gate.md and simulation-gate-criteria.md
-        text = _read_bundle(docs["simulation_gate"], docs["simulation_gate_criteria"])
-        assert "yoke_core.domain.persist_simulation" in text
-        assert "_persist_rc" in text
-
-    def test_simulation_gate_has_no_inline_upsert(self, docs):
-        # Check all simulation-gate split files: no inline Simulator->DB hops
-        text = _read_bundle(
-            docs["simulation_gate"],
-            docs["simulation_gate_criteria"],
-            docs["simulation_gate_escalation"],
-        )
-        assert (
-            'echo "{simulator_output}" | sh "$SCRIPT_DIR/yoke-db.sh" epic simulation-upsert'
-            not in text
-        ), (
-            "inline simulation-upsert (shell form) must be absent from simulation-gate files"
-        )
-        assert (
-            'echo "{simulator_output}" | python3 -m yoke_core.cli.db_router epic simulation-upsert'
-            not in text
-        ), (
-            "inline simulation-upsert (Python form) must be absent from simulation-gate files"
-        )
-
-    def test_simulation_gate_references_auto_handoff(self, docs):
-        """simulation gate now relies on auto-handoff from persist_and_verify."""
-        # Content split to simulation-gate-escalation.md
-        text = _read_bundle(docs["simulation_gate"], docs["simulation_gate_escalation"])
-        assert "auto-handoff" in text.lower() or "YOK-1391" in text
-
-    def test_simulation_gate_proceed_branch_uses_python_handoff_owner(self, docs):
-        """PROCEED triage must route through the Python-owned helper, now the
-        wrapped `yoke conduct epic proceed-triage-handoff` command."""
-        # Content split to simulation-gate-escalation.md
-        text = _read_bundle(docs["simulation_gate"], docs["simulation_gate_escalation"])
-        assert "yoke conduct epic proceed-triage-handoff" in text
-        assert "Do NOT write `status reviewed-implementation` manually." in text
-        assert "Reviewed-implementation handoff (same as CLEAN path)" not in text
-
-    def test_simulation_gate_uses_dependencies_column_in_retry_queries(self, docs):
-        # Dependency queries are in simulation-gate-criteria.md (compressed context assembly).
-        # Real epic_tasks column is `dependencies` (NOT `depends_on`); the cleanup swept the
-        # confabulated name out of conduct skill prose.
-        text = _read_bundle(docs["simulation_gate"], docs["simulation_gate_criteria"])
-        # The criteria file contains the query at least twice (Tier 2 and Tier 3 retry paths)
-        assert text.count("SELECT task_num, title, dependencies FROM epic_tasks") >= 2
-        assert "SELECT task_num, title, depends_on FROM epic_tasks" not in text
-
-    def test_autofix_uses_persist_helper(self, docs):
-        # Shared loop and Conduct amend-cycle persistence
-        text = _read_bundle(
-            docs["autofix"], docs["autofix_patching"], docs["autofix_verification"]
-        )
-        assert "yoke_core.domain.persist_simulation" in text
-        adapter = _read(docs["autofix"])
-        assert "../simulate/SKILL.md" in adapter
-        assert "../simulate/autofix-loop.md" in adapter
-        assert "--force-integration --auto-fix" in adapter
-        assert "AUTOFIX_CODE_GAPS" in adapter
-        assert 'DispatchDescriptor(role="architect")' not in adapter
-        assert not (SKILLS / "conduct" / "simulation-autofix-patching.md").exists()
-        assert not (SKILLS / "conduct" / "simulation-autofix-inputs.md").exists()
-
-    def test_autofix_nonblocking_reports_return_without_clean_handoff(self, docs):
-        loop = _read(docs["autofix_patching"])
-        entry = loop.split("## Classify and gather", 1)[0]
-        assert "NOTE-only gaps return `AUTOFIX_NOT_REQUIRED`" in entry
-        assert "No CRITICAL gaps and recommendation `PROCEED`" in entry
-        assert "including WARNING gaps" in entry
-        assert "does not write a passing verdict" in entry
-        assert "after each persisted `GAPS FOUND` re-simulation" in entry
-        adapter = _read(docs["autofix"])
-        assert "`AUTOFIX_NOT_REQUIRED`: return it" in adapter
-        escalation = _read(docs["simulation_gate_escalation"])
-        branch = escalation.split("**If auto-fix returns `AUTOFIX_NOT_REQUIRED`:**", 1)[
-            1
-        ].split("**If auto-fix returns `AUTOFIX_CLEAN`:**", 1)[0]
-        assert "execute Branch 1 above" in branch
-        assert "registered PROCEED triage write" in branch
-        assert "NOTE-only with a non-PROCEED or absent recommendation" in branch
-        assert "simulation_nonblocking_recommendation_unresolved" in branch
-        assert "Do not manufacture" in branch
-
-    def test_autofix_has_no_inline_upsert(self, docs):
-        # Check shared autofix and caller adapter
-        text = _read_bundle(
-            docs["autofix"], docs["autofix_patching"], docs["autofix_verification"]
-        )
-        assert (
-            'yoke-db.sh" epic simulation-upsert "$_epic_ref" "integration" < "$_sim_tmp"'
-            not in text
-        )
-        assert (
-            'db_router epic simulation-upsert "$_epic_ref" "integration" < "$_sim_tmp"'
-            not in text
-        )
+@pytest.mark.parametrize("family,name", [
+    ("conduct", "simulation-gate-criteria.md"),
+    ("conduct", "simulation-autofix-verification.md"),
+    ("simulate", "epic-flow.md"),
+])
+def test_every_persistence_boundary_requires_exact_verified_receipt(family, name):
+    text = words(family, name)
+    for token in ("simulation-upsert", "--json", "verified=true",
+                  "requirement_id", "run_id", "verdict"):
+        assert token in text, (name, token)
+    assert "identity" in text or "public_ref" in text
+    assert "uncertain write" in text.lower()
+    assert "persist_" + "simulation" not in text
 
 
-# ---------------------------------------------------------------------------
-# TestConductSimulatorEpicAttestation
-# ---------------------------------------------------------------------------
+def test_initial_and_retry_dispatches_keep_public_identity():
+    text = words("conduct", "simulation-gate-criteria.md")
+    assert 'if [ -z "${_epic_ref:-}" ]; then' in text
+    assert "_epic_ref lost between dispatches" in text
+    assert "before every initial/retry" in text.lower()
+    assert "two-line verdict block" in text
+    assert "EPIC: PREFIX-{N}" in text
+    assert text.count("EPIC: ${_epic_ref}") == 3
+    assert "formatting_omission" in text and "context_exhaustion" in text
+    assert "Exhaustion" in text and "HALTs" in text
 
 
-class TestConductSimulatorEpicAttestation:
-    """Conduct simulator dispatch must require the two-line verdict block.
+def test_each_mode_requires_common_attestation_contract():
+    text = words("simulate", "dispatch-prompts.md")
+    assert "common contract AND exactly one mode" in text
+    assert "EPIC: {public_ref}" in text
+    for mode in ("Plan mode", "Standard integration mode", "Compressed integration mode"):
+        section = text.split("## " + mode, 1)[1].split("## ", 1)[0]
+        assert "common contract" in section
+    for token in ("Read-only", "do not edit or file work", "set -e",
+                  "previous error model", "failure tests", "Fix level: plan|code|mixed"):
+        assert token in text
 
-    Covers the epic-identity attestation contract: every dispatch and retry
-    template the conduct skill teaches must require both the ``SIMULATION:``
-    verdict line and the ``EPIC: PREFIX-{N}`` attestation line. The defensive
-    bail must halt before any simulator invocation when ``_epic_ref`` is empty.
-    """
 
-    @pytest.fixture
-    def docs(self) -> dict[str, Path]:
-        return {
-            "criteria": SKILLS / "conduct" / "simulation-gate-criteria.md",
-            "escalation": SKILLS / "conduct" / "simulation-gate-escalation.md",
-            "cleanup": SKILLS / "conduct" / "cleanup-report.md",
-            "dispatch_prompts": SKILLS / "simulate" / "dispatch-prompts.md",
-            "epic_flow": SKILLS / "simulate" / "epic-flow.md",
-        }
+def test_identity_and_readback_failures_preserve_diagnostics_and_halt():
+    criteria = words("conduct", "simulation-gate-criteria.md")
+    cleanup = words("conduct", "cleanup-report.md")
+    escalation = words("conduct", "simulation-gate-escalation.md")
+    for text in (criteria, cleanup, escalation):
+        assert "wrong-epic body" in text.lower()
+        assert "missing-epic body" in text.lower()
+        assert "exact" in text
+    assert "returned ids" in criteria
+    assert "producer_unavailable" in criteria
+    assert "Pre-Branch HALT Conditions" in escalation
+    assert "Persistence is not an auto-handoff" in escalation
 
-    def test_standard_dispatch_requires_two_line_verdict(self, docs):
-        text = _read(docs["criteria"])
-        assert "EPIC: PREFIX-{N}" in text
-        assert "two-line verdict block" in text
 
-    def test_dispatch_prompts_all_require_two_line_verdict(self, docs):
-        text = _read(docs["dispatch_prompts"])
-        # Both plan and integration templates surface the requirement
-        assert text.count("two-line verdict block") >= 3
-        assert text.count("EPIC: {public_ref}") >= 3
+def test_clean_handoff_runs_parent_native_gates_before_transition_and_release():
+    text = words("conduct", "simulation-gate-escalation.md")
+    gate = text.index("Complete each still-owed native case")
+    transition = text.index("yoke lifecycle transition")
+    verify = text.index("Verify the returned/live stage equals HANDOFF_STAGE")
+    release = text.index("yoke claims work release")
+    assert gate < transition < verify < release
+    for token in ("--from LIVE_STAGE", "--to HANDOFF_STAGE", "--json",
+                  "current candidate", "declared policy", "holder-list",
+                  "Failed release is incomplete handoff"):
+        assert token in text
+    assert "Do NOT write `status reviewed-implementation` manually" in text
+    assert "yoke conduct epic proceed-triage-handoff" in text
 
-    def test_dispatch_prompts_name_exit_codes(self, docs):
-        text = _read(docs["dispatch_prompts"])
-        assert "exit 16" in text
-        assert "exit 17" in text
 
-    def test_criteria_documents_persist_exit_16_and_17(self, docs):
-        text = _read(docs["criteria"])
-        assert "16" in text and "wrong-epic body" in text
-        assert "17" in text and "missing-epic body" in text
+def test_nonblocking_report_never_invents_clean_or_handoff():
+    loop = words("simulate", "autofix-loop.md")
+    entry = loop.split("## Classify and gather", 1)[0]
+    for token in ("NOTE-only gaps return `AUTOFIX_NOT_REQUIRED`",
+                  "No CRITICAL gaps and recommendation `PROCEED`",
+                  "including WARNING gaps", "does not write a passing verdict",
+                  "after each persisted `GAPS FOUND` re-simulation"):
+        assert token in entry
+    escalation = words("conduct", "simulation-gate-escalation.md")
+    branch = escalation.split("**If auto-fix returns `AUTOFIX_NOT_REQUIRED`:**", 1)[1]
+    assert "registered PROCEED triage write" in branch
+    assert "simulation_nonblocking_recommendation_unresolved" in branch
+    assert "Do not manufacture" in branch
 
-    def test_criteria_defensive_epic_ref_bail(self, docs):
-        text = _read(docs["criteria"])
-        assert 'if [ -z "${_epic_ref:-}" ]; then' in text
-        assert "_epic_ref lost between dispatches" in text
 
-    def test_criteria_retry_tier_prompts_carry_two_line_block(self, docs):
-        text = _read(docs["criteria"])
-        # Formatting-omission retry, aggressive retry, and ultra-compressed
-        # no-tool fallback each must instruct the simulator to emit the
-        # two-line block. The literal `EPIC: ${_epic_ref}` is the
-        # signature in retry prompts.
-        assert text.count("EPIC: ${_epic_ref}") >= 3
+def test_one_architect_loop_and_one_code_amend_preserve_budgets():
+    adapter = words("conduct", "simulation-autofix.md")
+    loop = words("simulate", "autofix-loop.md")
+    amend = words("conduct", "simulation-autofix-verification.md")
+    assert "../simulate/autofix-loop.md" in adapter
+    assert "--force-integration --auto-fix" in adapter
+    assert 'DispatchDescriptor(role="architect")' not in adapter
+    for token in ("iteration limit is **3**", "Never reset iteration",
+                  "simulation_fix_level_missing", "Only update task bodies",
+                  "simulation_fix_no_change", "simulation_fix_iterations_exhausted",
+                  "AUTOFIX_CODE_GAPS", "caller separately owns its gated lifecycle"):
+        assert token in loop
+    assert "Maximum one amend cycle" in amend
+    assert "no implementation retry" in amend
+    assert "EPIC: {public_ref}" in amend
+    assert "without treating the identity failure as an ordinary gap" in amend
+    assert "returns `AUTOFIX_HALTED`" in loop
+    assert "never repeat an uncertain write" in loop
 
-    def test_criteria_classifies_missing_epic_as_formatting_omission(self, docs):
-        text = _read(docs["criteria"])
-        assert "EPIC: PREFIX-{N}` attestation line" in text
 
-    def test_escalation_documents_pre_branch_halts(self, docs):
-        text = _read(docs["escalation"])
-        assert "Pre-Branch HALT Conditions" in text
-        assert "_epic_ref` is empty" in text or "_epic_ref is empty" in text
-        assert "exit 16" in text
-        assert "exit 17" in text
+def test_compressed_bundle_retains_private_exports_commit_proof_and_limits():
+    criteria = words("conduct", "simulation-gate-criteria.md")
+    prompt = words("simulate", "dispatch-prompts.md")
+    for text in (criteria, prompt):
+        for token in ("_BLOCKS", "Commit-Boundary Evidence",
+                      "commit evidence unavailable: no affected file named"):
+            assert token in text
+        assert "source of truth" in text
+    assert "SELECT task_num, title, dependencies FROM epic_tasks" in criteria
+    assert "SELECT task_num, title, depends_on" not in criteria
+    for token in ("at most 3 candidate gaps", "at most 5 selective file reads",
+                  "Forbidden: broad branch diffs", "git log/blame unless explicitly requested"):
+        assert token in prompt
 
-    def test_cleanup_report_surfaces_wrong_epic_explicitly(self, docs):
-        text = _read(docs["cleanup"])
-        assert "wrong-epic body" in text
-        assert "missing-epic body" in text
-        assert "_epic_ref lost between dispatches" in text
 
-    def test_autofix_resimulation_prompts_require_epic_attestation(self):
-        patching = _read(SKILLS / "simulate" / "autofix-loop.md")
-        verification = _read(SKILLS / "conduct" / "simulation-autofix-verification.md")
-        assert "identity-attested" in patching
-        assert "EPIC: PREFIX-{_item_id}" in verification
-        assert "exit 16" in patching
-        assert "exit 17" in patching
-        assert "exit 16" in verification
-        assert "exit 17" in verification
-
-    def test_autofix_attestation_failures_halt_not_gap_downgrade(self):
-        patching = _read(SKILLS / "simulate" / "autofix-loop.md")
-        verification = _read(SKILLS / "conduct" / "simulation-autofix-verification.md")
-        assert "wrong-epic body (exit 16)" in patching
-        assert "returns `AUTOFIX_HALTED`" in patching
-        assert "It is not another plan gap" in patching
-        assert "**`_persist_rc` is 16 or 17:**" in verification
-        assert (
-            "without treating the identity failure as an ordinary gap" in verification
-        )
-
-    def test_compressed_context_includes_commit_boundary_evidence(self, docs):
-        criteria = _read(docs["criteria"])
-        prompts = _read(docs["dispatch_prompts"])
-        combined = criteria + "\n" + prompts
-        assert "Commit-Boundary Evidence" in combined
-        assert "git log --oneline -- {file}" in combined
-        assert "commit evidence unavailable: no affected file named" in combined
-        assert "git log or git blame yourself" in combined
-
-    def test_compressed_context_includes_private_shim_re_exports(self, docs):
-        criteria = _read(docs["criteria"])
-        prompts = _read(docs["dispatch_prompts"])
-        combined = criteria + "\n" + prompts
-        assert "Shim Re-Export Contracts" in combined
-        assert "_BLOCKS" in combined
-        assert "underscore-prefixed" in combined
-        assert "shim import list is the source of truth" in combined
-
-    def test_simulator_agent_requires_worktree_state_authority(self):
-        text = _read(REPO / "runtime" / "agents" / "simulator.md")
-        assert "Worktree-State Authority" in text
-        assert "a task's resolved worktree checkout is the authority" in text
-        assert "whether the item/epic has one worktree or many" in text
-        assert (
-            "Main is the base/integration target, not evidence of unmerged task state"
-            in text
-        )
-        assert "report evidence missing instead of substituting main" in text
-
-    def test_integration_prompts_anchor_actual_code_to_worktrees(self, docs):
-        criteria = _read(docs["criteria"])
-        prompts = _read(docs["dispatch_prompts"])
-        flow = _read(docs["epic_flow"])
-        autofix = _read_bundle(
-            SKILLS / "simulate" / "autofix-loop.md",
-            SKILLS / "conduct" / "simulation-autofix-verification.md",
-        )
-        combined = "\n".join((criteria, prompts, flow, autofix))
-        assert combined.count("Worktree-State Authority") >= 4
-        assert (
-            combined.count(
-                "Main is the base/integration target, not evidence of unmerged task state"
-            )
-            >= 4
-        )
-        assert combined.count("whether the item/epic has one worktree or many") >= 4
-        assert "## Worktree Authorities" in prompts
-        assert "## Worktree Authorities" in criteria
-        assert "_worktree_list" in criteria
-        assert "epic_dispatch_chains" in combined
-        assert "worktree_path" in combined
-        assert (
-            "report evidence missing instead of inspecting main as a substitute"
-            in combined
-        )
+def test_integration_authority_applies_to_both_modes_and_missing_evidence():
+    prompt = words("simulate", "dispatch-prompts.md")
+    assert "append to BOTH integration modes" in prompt
+    assert "one lane or many" in prompt
+    assert "Missing lane or supplied diff is missing evidence" in prompt
+    for mode in ("Standard integration mode", "Compressed integration mode"):
+        assert "integration authority" in prompt.split("## " + mode, 1)[1]
+    criteria = words("conduct", "simulation-gate-criteria.md")
+    assert "_worktree_list" in criteria
+    assert "epic-dispatch-chain list" in criteria
+    agent = " ".join((REPO / "runtime/agents/simulator.md").read_text().split())
+    assert "a task's resolved worktree checkout is the authority" in agent
+    assert "report evidence missing instead of substituting main" in agent

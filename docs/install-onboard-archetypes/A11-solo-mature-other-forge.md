@@ -25,21 +25,16 @@ slug). Board art. Skip hosting. Apply.
 
 GitHub automation disabled. Bitbucket Pipelines (if any) stay unknown.
 
-`/yoke onboard`: survey sees `composer.json`, dokku `Procfile`. Profile AWS
-list is wrong. Defer hosting. Do not create flows.
+`/yoke onboard`: survey sees `composer.json` and dokku `Procfile`. Confirm
+no Yoke-managed host, exclude AWS Packs and choose merge-only or no default.
+Verify that delivery choice; Dokku remains operator-owned.
 
 ## Test setup
 
-**Reality:** mature PHP — maybe PHPUnit locally; Bitbucket Pipelines if
-any. No GitHub Actions.
+Survey the actual PHPUnit suite and register its project-local argv when reliable. Known-red or materially flaky suites stay review-only, retaining roots and exact advisory command. Offer scaffold or operator-attested no-tests only when the suite is absent. Bitbucket Pipelines cannot bind ci_workflow_file, command-ci or the GitHub merge queue.
 
-**Bind today:** local `command` wrapping `./vendor/bin/phpunit` if that
-exists. `ci_workflow_file` cannot name Bitbucket. `merge_queue` impossible.
-
-**Onboard:** survey may see `phpunit.xml`; nothing registers it.
-
-**Ask that should happen:** register PHPUnit as `quick`, or attest
-no-tests if the suite is absent/red. Refuse `command-ci`.
+The confirmed profile, command/CI binding and immutable QA attachment follow
+[test-setup.md](test-setup.md); this example is not a live setup receipt.
 
 ## Crux
 
@@ -49,4 +44,4 @@ no-tests if the suite is absent/red. Refuse `command-ci`.
 | DO/Dokku env | Missing provider | Skip cloud apply | Manual dokku; merge-only |
 | Merge | Local default branch | No GitHub PR | `git push` to Bitbucket as now |
 
-Ledger: G-forge-github-only, G-hosting-aws-only, G-no-deploy-default-flow, G-test-setup-unasked, G-legacy-suite-unmapped, G-command-ci-misbind.
+Ledger: G-forge-github-only, G-hosting-aws-only, G-no-deploy-default-flow.

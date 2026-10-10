@@ -11,7 +11,9 @@ from yoke_core.domain.schema_api_context_render import PACKET_DETAIL_FULL
 
 
 def _main_body() -> str:
-    return sac.render_role_packet("main_agent", detail=PACKET_DETAIL_FULL)
+    return sac.render_topic_packet(
+        "claims", role="main_agent", detail=PACKET_DETAIL_FULL
+    )
 
 
 def test_harness_sessions_executor_canonical_only_taught() -> None:

@@ -101,8 +101,9 @@ def test_explicit_approval_requires_this_operator_not_human_if_unsure() -> None:
 
 
 def test_dash_routes_intake_screenshot_to_delivery_requirements() -> None:
-    text = (
-        REPO / ".agents/skills/yoke/dash/file-and-claim.md"
-    ).read_text(encoding="utf-8")
-    assert "--verification-method browser-inspection" in text
+    text = (REPO / ".agents/skills/yoke/dash/file-and-claim.md").read_text(
+        encoding="utf-8"
+    )
+    assert "browser-inspection for a served change" in text
+    assert "Put the posture on this same create" in text
     assert "delivery-requirements.md" in text

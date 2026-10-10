@@ -92,41 +92,19 @@ Hand-off: source zprofile if needed; open Claude Code, Codex, or Cursor; `/yoke 
 
 `yoke onboard checklist init --project priya-shop --checkout ~/code/priya-shop`
 
-Repo survey reads `package.json`, README, no `.github/workflows`. Strategy
-docs describe the shop. Profile proposal still lists AWS Packs + stage/prod.
-
-**User at stop 1:** drop `aws-admin` / Pulumi / `registry-oidc`; keep
-`webapp-scaffold` mapped (existing app → `scaffold-install=not-needed`).
-Ask for a **manual** delivery path. Skill has no Pack for `ssh git pull`.
-
-Step 4 reads the declared no-Yoke-managed-host posture, performs no
-`aws-admin` probe, and defers cloud apply. Step 7 is unreachable.
-
-Step 5 may still `yoke projects site create`, `environment create --environment
-stage` / `prod`, and `yoke deployment-flows create` if the (unadjusted)
-profile included them. If a default flow is written, later
-`yoke items create` uses it (`deploy-defaults get`).
-
-Seed work: issues for "tame the repo" / "describe the droplet". If a persistent
-flow was registered, Usher Route B will try to run it against an environment
-that has no AWS apply.
+Survey maps the existing app and records the no-Yoke-managed-host posture.
+The confirmed profile excludes AWS Packs, credentials and managed environments;
+step 4 records hosting not needed without a probe. Priya chooses merge-only
+or no default, verified by readback in step 5. Manual SSH delivery remains
+operator-owned. Seed work uses only that verified default; no persistent
+flow or stage/prod placeholder is created.
 
 ## Test setup
 
-**Reality:** vibe-coded Node shop. Maybe a leftover `npm test` script; no
-`.github/workflows`. Flaky or empty if present.
+Survey the Node scripts and confirm the actual suite. Register reliable project-local argv; keep a materially flaky or known-red suite review-only with exact advisory command evidence. If no suite exists, offer a minimal scaffold before an operator-attested no-tests decision. GitHub without an eligible Actions test workflow does not permit command-ci or a merge queue.
 
-**Bind today:** local `command` method if a real argv is registered. No
-Actions file → do not declare `ci_workflow_file`. `merge_queue` requires
-that capability plus GitHub — she has GitHub, not a queue.
-
-**Onboard:** survey may see `package.json` scripts; profile does not propose
-registering them. Writing `verification_profiles.test_command` would not
-create the gate.
-
-**Ask that should happen:** "Register `npm test` as `quick`, attest no
-trustworthy suite, or scaffold?" Recommend register if the script exists
-and exits 0 on main; else attested no-tests. Never invent Actions.
+The confirmed profile, command/CI binding and immutable QA attachment follow
+[test-setup.md](test-setup.md); this example is not a live setup receipt.
 
 ## Crux
 
@@ -136,4 +114,4 @@ and exits 0 on main; else attested no-tests. Never invent Actions.
 | DigitalOcean | Generic self-hosted declaration exists; DigitalOcean apply does not | "Yoke cannot apply infrastructure for DigitalOcean yet" | Record SSH host as documentation; manual deploy stays operator-owned |
 | CI | GitHub without Actions is valid; `ci_workflow_file` capability optional | QA `command-ci` unreachable → local `command` method, named reason | Do not invent a workflow file |
 
-Ledger: G-hosting-aws-only, G-no-deploy-default-flow, G-paas-or-vps-non-aws, G-test-setup-unasked, G-no-tests-posture, G-ci-workflow-undeclared.
+Ledger: G-hosting-aws-only, G-no-deploy-default-flow, G-paas-or-vps-non-aws.

@@ -67,8 +67,10 @@ def test_public_installer_is_only_tracked_shell_script() -> None:
 
 def test_operator_docs_point_at_python_entrypoints() -> None:
     doctrine = _read(AGENTS_DOC)
-    assert "Prefer Python over shell for stateful work." in doctrine
-    assert "python3 -m yoke_core.tools.run_tests" in doctrine
+    assert "Prefer Python for stateful helpers" in doctrine
+    assert "docs/source-dev-doctrine.md" in doctrine
+    source = _read(REPO_ROOT / "docs/source-dev-doctrine.md")
+    assert "python3 -m yoke_core.tools.run_tests" in source
     for retired in (
         "yoke-db.sh",
         "backlog-registry.sh",
@@ -83,11 +85,18 @@ def test_operator_docs_point_at_python_entrypoints() -> None:
     assert "python3 -m yoke_core.hooks.bootstrap render-full" in codex
 
     hook_parity = _read(HOOK_PARITY_DOC)
-    assert "python3 -m yoke_core.hooks.bootstrap render-full" in hook_parity
+    assert "harness-bootstrap.md" in hook_parity
+    bootstrap = _read(REPO_ROOT / "docs/harness-bootstrap.md")
+    assert "`yoke_core.hooks.bootstrap` renderer" in bootstrap
+    assert "`render_full` is a deliberate complete read" in bootstrap
     assert "git-root-stable" not in hook_parity
-    assert "PYTHONPATH=\"$(git rev-parse --show-toplevel)" not in hook_parity
-    assert "yoke hook evaluate PreToolUse" in hook_parity
-    assert "yoke hook evaluate UserPromptSubmit" in hook_parity
+    assert 'PYTHONPATH="$(git rev-parse --show-toplevel)' not in hook_parity
+    assert "yoke hook evaluate <event>" in hook_parity
+    assert "`PreToolUse@Bash`" in hook_parity
+    assert "`UserPromptSubmit`" in hook_parity
+    hook_config = _read(REPO_ROOT / "runtime/harness/codex/hooks.json")
+    assert "yoke hook evaluate PreToolUse" in hook_config
+    assert "yoke hook evaluate UserPromptSubmit" in hook_config
 
     test_inventory = _read(TEST_INVENTORY_DOC)
     assert "test-codex-entry.sh" not in test_inventory
@@ -108,7 +117,9 @@ def test_no_direct_sh_subprocess_in_production_python() -> None:
     # substring inside identifiers or comments.
     pattern = re.compile(r"subprocess\.(?:run|Popen)\(\s*\[\s*[\"']sh[\"']")
     offenders = _iter_offenders(
-        _python_sources(), pattern, allowlist=_DIRECT_SH_ALLOWLIST,
+        _python_sources(),
+        pattern,
+        allowlist=_DIRECT_SH_ALLOWLIST,
     )
     assert not offenders, (
         "Direct ``subprocess.run(['sh', ...])`` / ``subprocess.Popen(['sh', ...])`` "
@@ -160,7 +171,8 @@ def test_no_retired_shell_script_name_as_subprocess_arg() -> None:
             # (``"foo.sh"`` or ``'foo.sh'``), not as a bare word inside
             # a comment or docstring. Require adjacent quote.
             quoted = re.search(
-                r"[\"'](" + retired_alt + r")[\"']", line,
+                r"[\"'](" + retired_alt + r")[\"']",
+                line,
             )
             if not quoted:
                 continue
@@ -169,7 +181,7 @@ def test_no_retired_shell_script_name_as_subprocess_arg() -> None:
             # positives from plain string assignments. If ``subprocess.``
             # appears within 3 lines before this line we flag it.
             start_lineno = max(1, lineno - 3)
-            window = "\n".join(text.splitlines()[start_lineno - 1:lineno])
+            window = "\n".join(text.splitlines()[start_lineno - 1 : lineno])
             if "subprocess." in window or "Popen" in window:
                 offenders.append((rel, lineno, stripped))
     assert not offenders, (
@@ -313,9 +325,7 @@ def test_zero_shell_proof_includes_recipe_residue_patterns() -> None:
         for lineno, line in enumerate(text.splitlines(), start=1):
             for pat in RECIPE_RESIDUE_PATTERNS:
                 if pat in line:
-                    findings.append(
-                        (rel_str, lineno, pat, line.rstrip()[:160])
-                    )
+                    findings.append((rel_str, lineno, pat, line.rstrip()[:160]))
                     break
     assert not findings, (
         "Zero-shell-proof recipe-residue scan found banned terminal-soup "

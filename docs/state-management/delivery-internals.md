@@ -21,7 +21,7 @@ Those names are definition-owned, not a universal item progression.
 
 - Items remain at `implemented` while the run is `created` (queued but not executing)
 - Items transition to `release` when the run starts `executing`
-- Items transition to `done` when the run `succeeded` and all blocking `post_deploy` and `manual_acceptance` QA is satisfied
+- Final members close only through their pinned done gates and accepted delivery/QA evidence; independent member closure and collective settlement follow the run's shared gates
 
 **The `deploy_stage` column** on the `items` table is retained as a read cache during the transition period, kept in sync with the run's `current_stage`. New code should read stage from the run, not from the item. See `packages/yoke-core/src/yoke_core/domain/approval.py` constants `STAGE_AUTHORITY_FIELD` (`current_stage`) and `STAGE_CACHE_FIELD` (`deploy_stage`) for the canonical machine-readable distinction.
 
@@ -107,7 +107,7 @@ Two conditions act as halt states during deployment run execution (items at thes
 
 **`needs-capability`** — A step runner detected a missing or misconfigured project capability (exit code 2). The run is blocked until the operator configures the capability in `project_capabilities` and re-runs `/yoke usher YOK-N`. The Usher does not attempt to proceed or guess — it exits cleanly.
 
-**Human approval gate** — When the pipeline encounters a stage with `step_runner: "human-approval"`, the run halts at that stage. The item is blocked until the operator runs `/yoke approve YOK-N [--note "..."]`, which advances the run's `current_stage` to the next stage in the flow. The operator then re-runs `/yoke usher YOK-N` to resume.
+**Human approval gate** — A `human-approval` stage waits for the authorized decision. `/yoke approve PREFIX-N [--note "..."]` records the answer; the runner consumes it and owns stage advancement. Automatic continuation may complete eligible stages, otherwise the driver receives the exact same-run recovery command.
 
 **External projects:** When a project-owned `github-actions-workflow` stage
 targets a protected GitHub environment, GitHub's native protection rules pause
@@ -141,8 +141,8 @@ When the pipeline encounters a `human-approval` step runner stage:
 2. Pipeline halts the deployment run at the approval stage and exits with code 2
 3. Items remain at `status = 'release'` with the run halted
 4. Operator reviews and runs `/yoke approve YOK-N [--note "..."]`
-5. Approve advances the run's `current_stage` to the next stage in the flow
-6. Operator re-runs `/yoke usher YOK-N` to continue from that next stage
+5. Approval attempts eligible automatic continuation, otherwise wakes the driver with the same-run command; only the runner advances stage state
+6. Rejection terminalizes the run as `failed`; an approved run retains its exact candidate and remaining obligations
 
 **Why the driver asks instead of deciding.** A release driver runs the
 candidate revision while the control plane it reads still runs the deployed
@@ -208,43 +208,26 @@ timeout, records the call and its measured latency on the run as
 `DeploymentRunWarmedUp`, and fails the stage with the real error rather than
 letting a run report success over a cold box.
 
-## Current `release_stage` Usher State Machine
+## Run admission and settlement
 
-```
-Entry: the pinned definition's active skill is `usher`
-       and its current built-in handoff stage is `implemented`
+The pinned workflow selects the Usher binding and delivery posture; do not
+infer a universal item progression from a built-in definition's stage names.
+Creation pins the candidate and bound sources, validates composition and
+enrolls delivery-ready carried members through registered admission.
+Start revalidates, freezes membership and immutable QA content, then executes
+declared stages. Deliberate progress intent and membership removals persist.
+Carried-work attribution and membership remain separate authorities.
 
-1. Create deployment_run (status = 'created')
-2. Enroll items via deployment_run_items for item-bound delivery; skip for environment-level deploys
-3. Materialize run-level QA requirements
-4. Set run status = 'executing'; set member items to `release` only when member items exist
-
-For each stage in deployment_flow.stages:
- 1. Set run.current_stage = stage.name
- 2. Emit DeploymentRunStageStarted event
- 3. Dispatch the step runner for the stage type
- 4. Read exit code:
- 0 (pass) → emit DeploymentRunStageCompleted, continue to next stage
- 1 (fail) → emit DeploymentRunStageFailed
- on_failure = 'halt' → run status = 'failed', exit
- on_failure = 'requeue' → items back to 'implemented', run cancelled, exit
- on_failure = 'skip' → log warning, continue
- 2 (needs-capability) → run halted, exit (items stay 'release')
- 2 (human-approval) → run halted, exit (items stay 'release')
-
-On final stage complete:
- Set run status = 'succeeded'
- Atomically derive and persist deployment_runs.carried_work from the previous succeeded lineage (failed/cancelled record only a permanent answer)
- Check all blocking run-level QA satisfied
- Set member items status = 'done' when member items exist
-
-Carried-work attribution is not membership: resolved riding items and bare
-commits are recorded on the run only, so they cannot enter the member-item
-lifecycle path. It is also a per-run delta rather than candidate containment —
-a run pinned to the revision its predecessor shipped carries nothing new while
-still containing every merge that revision contains, so completion asks the
-containment question directly instead of reasoning across earlier runs.
-```
+Before the completing stage starts, blocking QA must be resolved. Collective
+settlement records `settling_at` while executing, commits prerequisites, then
+closes eligible members atomically through their ordinary done gates. Effects
+run idempotently after commit; the run reaches `succeeded` only when settlement
+finishes. Refusal preserves members, claims and recovery evidence.
+Independent member closure is allowed only by its final-delivery and shared
+gate contract. See [deployment run records](../public/reference/db-reference/deployment-run-records.md)
+for admission, custody, receipt ordering, failed-stage policy, removal and
+settlement detail; [release delivery](../public/reference/db-reference/release-delivery.md)
+owns the distinct QA authorities and notices.
 
 ## Answering "did this release contain that merge"
 The deployment driver reads and attests the containment basis immediately before starting execution, after pre-start preparation. A `candidate_containment_attestation_stale` refusal refreshes the basis and retries start up to three times, with one diagnostic line per retry; any other refusal or exhausted retry preserves the named failure and re-drive recovery.

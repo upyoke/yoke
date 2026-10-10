@@ -9,7 +9,7 @@ from yoke_core.domain.schema_api_context_render import PACKET_DETAIL_FULL
 
 
 def test_main_agent_packet_teaches_qa_requirement_run_columns() -> None:
-    body = sac.render_role_packet("main_agent", detail=PACKET_DETAIL_FULL)
+    body = sac.render_topic_packet("qa", role="main_agent", detail=PACKET_DETAIL_FULL)
     for text in (
         "yoke qa requirement list --item PREFIX-N",
         "yoke qa run list --requirement-id <id>",
@@ -106,7 +106,7 @@ def test_qa_packet_carries_requirement_add_ac_verification_example() -> None:
 
 @pytest.mark.parametrize("role", ("engineer_agent", "tester_agent"))
 def test_qa_runner_packets_require_transition_bound_creation(role: str) -> None:
-    body = sac.render_role_packet(role, detail=PACKET_DETAIL_FULL)
+    body = sac.render_topic_packet("qa", role=role, detail=PACKET_DETAIL_FULL)
     assert (
         "yoke qa requirement add "
         "--item PREFIX-N --qa-kind ac_verification --qa-phase verification "

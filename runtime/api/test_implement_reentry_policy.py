@@ -34,7 +34,7 @@ class TestImplementSkillReentry:
     def test_multi_lane_redirects_through_the_pinned_binding(self):
         """Multi-lane re-entry names the binding's skill, not a remembered one."""
         text = self._read()
-        assert "Run the skill its pinned binding names for that stage." in text
+        assert "Run the skill its pinned binding\nnames for the live stage" in text
         assert "/yoke conduct" not in text
 
 
@@ -45,5 +45,5 @@ class TestLanePolicySurfaces:
         """The Tester template distinguishes item-level and task lanes."""
         text = TESTER_TEMPLATE_MD.read_text()
         assert "single_implementation_lane" in text
-        assert "For generated tasks" in text
-        assert "task's own worktree branch" in text
+        assert "Generated tasks use their own registered lane/branch" in text
+        assert "never the parent lane" in text

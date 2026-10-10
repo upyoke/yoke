@@ -183,7 +183,7 @@ def test_a_backlog_is_not_truncated_by_a_message_count() -> None:
 
 def test_a_lease_too_large_for_the_ceiling_ships_only_what_fits() -> None:
     conn = message_connection()
-    message_ids = _send(conn, 10, body="y" * 400)
+    message_ids = _send(conn, 10, body="y" * 800)
 
     with pytest.MonkeyPatch.context() as monkeypatch:
         rendered = _hook(conn, monkeypatch)
@@ -194,9 +194,9 @@ def test_a_lease_too_large_for_the_ceiling_ships_only_what_fits() -> None:
     assert injected and pending
     assert set(receipts) == set(message_ids)
     for message_id in injected:
-        assert f"--- BEGIN YOKE SESSION MESSAGE {message_id} ---" in rendered
+        assert f" {message_id} ===" in rendered
     for message_id in pending:
-        assert f"--- BEGIN YOKE SESSION MESSAGE {message_id} ---" not in rendered
+        assert f" {message_id} ===" not in rendered
     assert HOOK_DEFERRED_FOR_BUDGET_RESULT in _attempt_results(conn)
 
 
@@ -228,7 +228,7 @@ def test_a_small_message_is_never_blocked_by_an_oversized_sibling() -> None:
     with pytest.MonkeyPatch.context() as monkeypatch:
         rendered = _hook(conn, monkeypatch)
 
-    assert f"--- BEGIN YOKE SESSION MESSAGE {small_id} ---" in rendered
+    assert f" {small_id} ===" in rendered
     assert "delivered as a stub" in rendered
     assert f"Read the full body: yoke messages get {oversized_id}" in rendered
     assert _receipts(conn) == {small_id: "injected", oversized_id: "injected"}
@@ -248,7 +248,7 @@ def test_a_backlog_drains_across_hooks_and_never_receipts_a_missing_body() -> No
             raise AssertionError("backlog did not drain")
     expanded = "\n".join(seen)
     for message_id in message_ids:
-        assert f"--- BEGIN YOKE SESSION MESSAGE {message_id} ---" in expanded
+        assert f" {message_id} ===" in expanded
         assert _receipts(conn)[message_id] == "injected"
     assert (
         len(

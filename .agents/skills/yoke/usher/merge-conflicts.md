@@ -1,60 +1,35 @@
-# Merge — Conflict Handling
+# Usher — conflict recovery
 
-Operator-facing recovery procedures for when the retained merge watcher (`yoke watch merge merge-worktree`) reports conflicts (exit code 3) or fails hard (exit code 1). Also captures the general Notes that describe merge sequencing invariants.
+Read actual watcher error/checkout/branch/default target. Preserve state and
+continue same Git operation; never start another merge/rebase beside it.
+Sequential lanes avoid compounded conflicts. No blanket branch/main preference:
+reconcile current function and intent.
 
----
+Exit3 emits CONFLICT|path|classification:
 
-## When merge reports conflicts (exit code 3)
+| Classification | Meaning |
+|---|---|
+| generated/doc/yoke-gen (auto) | Deterministic generated resolution. |
+| additive (auto) | Independent additions AND union accepted by real format. |
+| doc (branch-modified, manual) | Intentional branch prose needs review. |
+| overlapping (needs agent judgement) | Edits overlap or union would duplicate invalid YAML/JSON/TOML keys. |
 
-When `yoke watch merge merge-worktree` exits with code 3, the underlying merge engine found conflicts that its deterministic auto-resolver could not handle, but the agent may be able to resolve using judgement. The wrapper preserves the engine's structured per-file conflict classification on stderr:
+Inspect both edits; preserve independent/structural imports, exports and
+registrations, regenerate derived files from canonical owners, verify format
+and behavior. Stage exact resolved paths and commit, or continue the active
+rebase, then rerun the same internal merge procedure. If no Git operation is
+active and printed recovery calls for integration, fetch verified current
+project upstream first and merge/rebase the actual declared default branch.
+No guessed main, discarded state or generated-file union without validation.
 
-```
-CONFLICT|path/to/file.sh|additive (auto)
-CONFLICT|path/to/test.sh|overlapping (needs agent judgement)
-```
+Hard exit1 (tests, push, CI or other failure) retains engine cleanup/outcome. Read
+exact phase and lane, fix current-item verification/conflict, commit, then
+resume; successful prior lanes skip. Complex/uncertain intent stops with
+paths, evidence and required operator decision, not a guessed resolution.
+Claim/dependency reconciliation precedes override; no planned future-claim
+waiver or override. Only authorized irreducible live collision recovery applies.
 
-Classifications:
-- **generated (auto)** / **doc (auto)** / **yoke-gen (auto)** — script auto-resolves these
-- **additive (auto)** — both sides only added lines (no deletions from base) AND the union of those additions is still something the file's own format accepts; script auto-resolves via union merge
-- **doc (branch-modified, manual)** — doc file intentionally changed on the branch; review needed
-- **overlapping (needs agent judgement)** — conflicting edits that are not provably additive, or whose union would not be a valid document — two sides adding the same key to a YAML, JSON, or TOML file union into one that repeats the key, which the file's real consumer rejects; the agent should inspect and resolve
-
-**Agent resolution flow (exit code 3):**
-
-1. Parse the `CONFLICT|file|classification` lines from stderr to understand each conflict
-2. `cd {worktree-path}` and `git merge origin/main` (or `git rebase origin/main`)
-3. For each conflicting file, inspect the conflict markers and use judgement:
- - **Additive patterns** (both sides added independent content at the same point): keep both additions, choosing a sensible order
- - **Overlapping patterns** (both sides changed the same lines): understand the intent of each change and produce a correct merge
- - **Structural patterns** (imports, exports, registrations): merge both sides' additions
- - When uncertain, prefer the branch version for files the branch intentionally modified, and the main version for drift
-4. `git add <resolved-files> && git commit` (or `git rebase --continue`)
-5. Re-run `usher’s internal generated-task merge step` — it will resume from the resolved state
-
-**Safety boundary:** If you cannot confidently determine the correct resolution for a conflict, halt and report the conflict to the operator rather than guessing. The additive classification is a strong signal but not the only one — use your understanding of the codebase.
-
-## When merge fails with hard conflicts (exit code 1)
-
-If the merge fails with exit code 1 (test failure, push failure, CI failure, or other non-conflict errors), the merge script handles cleanup internally.
-
-**Why this happens:** When multiple worktree branches modify related files, the first branch merges cleanly but changes main. The second branch then conflicts with the updated main. This is expected for multi-worktree epics — the sequential merge order keeps it to at most one conflict point.
-
-**Resolution steps:**
-1. Read the diagnostic output — it shows the exact error and worktree path
-2. `cd {worktree-path}` (path is printed in the error)
-3. `git rebase origin/main`
-4. Resolve conflicts in the listed files
-5. `git add <resolved-files> && git rebase --continue`
-6. Re-run `usher’s internal generated-task merge step` — it will skip already-merged branches and resume from the failed one
-
-**If conflicts are complex**, keep them in the current item. Report the conflicting paths and required decision when a confident resolution is unavailable; resume this internal step after resolving and committing the lane.
-
-**Prevention tip:** Have the Architect assign shared files (router configs, index files) to a single worktree so cross-branch conflicts are rare.
-
-## Notes
-
-- Merges are **sequential** to avoid compounding conflicts. Each branch rebases onto the updated main after the previous branch was merged.
-- Generated files (flagged by the Architect in the worktree plan) are auto-resolved. If the only conflicts are in generated files, the merge proceeds automatically.
-- If tests fail after rebase, the merge script exits with status 1. This is treated as an integration failure, but future/planned item ownership or a planned path claim is not a waiver for the current merge failure. Do not use `path-claim-override` for a planned future claim when dependency or claim reconciliation can resolve the ordering; override is last resort for irreducible live collisions and requires explicit operator approval.
-- The merge script uses `--force-with-lease` for pushing rebased branches (safe force push).
-- CI timeout is 30 minutes. If CI doesn't complete in that time, the merge fails.
+Engine publication uses force-with-lease where rebase requires it; workers
+never push by hand. The documented CI timeout is 30 minutes; actual receipt/
+named runner timeout owns the outcome. Never infer timeout from silence or
+poll external state instead of the running handle.

@@ -6,7 +6,7 @@ There is one place that decides this —
 `yoke_cli.config.credentialed_git` — and every engine remote operation goes
 through it: merge pushes and fetches, the branch publish that ends a merge,
 the QA lane push that CI checks out, the doctor's branch and stale-remote
-reads, the deploy pipeline's tag and SHA resolution, the advance lane publish,
+reads, the deploy pipeline's tag and SHA resolution,
 and the session-start main-checkout fast-forward.
 
 ## Why it exists

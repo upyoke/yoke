@@ -5,12 +5,11 @@ Covers:
 * ``--help`` prints the canonical ``HELP_BODY``.
 * Argparse rejects an unknown ``--kind``.
 * The retired subcommand is gone (not aliased).
-* The renamed ``attach_help_trailer`` helper resolves.
+* Standing guidance appears only on root and field-note append help.
 """
 
 from __future__ import annotations
 
-import argparse
 import io
 from contextlib import redirect_stderr, redirect_stdout
 from typing import List
@@ -55,26 +54,22 @@ def _reset_captured() -> None:
 
 
 def _run_capture(
-    *argv: str, session_id: str | None = "test-session",
+    *argv: str,
+    session_id: str | None = "test-session",
 ) -> tuple[int, str, str]:
     env = {}
     if session_id is not None:
         env["YOKE_SESSION_ID"] = session_id
     with patch.dict("os.environ", env, clear=session_id is None):
         with patch(
-            "yoke_cli.transport.dispatcher."
-            "_resolve_session_id",
+            "yoke_cli.transport.dispatcher._resolve_session_id",
             return_value=session_id,
         ):
             with patch(
-                "yoke_cli.commands._helpers."
-                "call_dispatcher",
+                "yoke_cli.commands._helpers.call_dispatcher",
                 side_effect=_stub_call_dispatcher,
             ):
-                with patch(
-                    "yoke_cli.commands._helpers."
-                    "ensure_handlers_loaded"
-                ):
+                with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
                     buf = io.StringIO()
                     err = io.StringIO()
                     with redirect_stdout(buf), redirect_stderr(err):
@@ -84,9 +79,13 @@ def _run_capture(
 
 def test_field_note_append_allows_direct_terminal_without_session() -> None:
     rc, _out, err = _run_capture(
-        "ouroboros", "field-note", "append",
-        "--kind", "observation",
-        "--evidence", "terminal field-note without harness session",
+        "ouroboros",
+        "field-note",
+        "append",
+        "--kind",
+        "observation",
+        "--evidence",
+        "terminal field-note without harness session",
         session_id=None,
     )
     assert rc == 0, err
@@ -102,9 +101,13 @@ def test_field_note_append_carries_external_checkout_project() -> None:
         return_value="42",
     ):
         rc, _out, err = _run_capture(
-            "ouroboros", "field-note", "append",
-            "--kind", "failed",
-            "--evidence", "platform recipe failed from its checkout",
+            "ouroboros",
+            "field-note",
+            "append",
+            "--kind",
+            "failed",
+            "--evidence",
+            "platform recipe failed from its checkout",
         )
     assert rc == 0, err
     req = _CAPTURED_REQUESTS[-1]
@@ -120,10 +123,15 @@ def test_field_note_append_carries_an_author_declared_target_project() -> None:
         return_value="yoke",
     ):
         rc, _out, err = _run_capture(
-            "ouroboros", "field-note", "append",
-            "--kind", "failed",
-            "--evidence", "a platform recipe failed, noticed from yoke",
-            "--target-project", "platform",
+            "ouroboros",
+            "field-note",
+            "append",
+            "--kind",
+            "failed",
+            "--evidence",
+            "a platform recipe failed, noticed from yoke",
+            "--target-project",
+            "platform",
         )
     assert rc == 0, err
     payload = _CAPTURED_REQUESTS[-1].payload
@@ -138,9 +146,13 @@ def test_field_note_append_omits_target_project_when_not_declared() -> None:
         return_value="yoke",
     ):
         rc, _out, err = _run_capture(
-            "ouroboros", "field-note", "append",
-            "--kind", "observation",
-            "--evidence", "an author who cannot tell which repo owns the fix",
+            "ouroboros",
+            "field-note",
+            "append",
+            "--kind",
+            "observation",
+            "--evidence",
+            "an author who cannot tell which repo owns the fix",
         )
     assert rc == 0, err
     assert "target_project" not in _CAPTURED_REQUESTS[-1].payload
@@ -153,9 +165,13 @@ def test_field_note_append_omits_project_from_unmapped_directory() -> None:
         return_value=None,
     ):
         rc, _out, err = _run_capture(
-            "ouroboros", "field-note", "append",
-            "--kind", "observation",
-            "--evidence", "note from an unmapped scratch directory",
+            "ouroboros",
+            "field-note",
+            "append",
+            "--kind",
+            "observation",
+            "--evidence",
+            "note from an unmapped scratch directory",
         )
     assert rc == 0, err
     req = _CAPTURED_REQUESTS[-1]
@@ -202,13 +218,18 @@ def test_field_note_group_help_lists_subcommands() -> None:
     assert "yoke ouroboros field-note append" in out
     assert "yoke ouroboros field-note list" in out
     assert "yoke ouroboros field-note get" in out
-    assert out.count(BASIC_RECIPE) == 1
+    assert BASIC_RECIPE not in out
 
 
 def test_field_note_rejects_unknown_kind() -> None:
     rc, _out, err = _run_capture(
-        "ouroboros", "field-note", "append",
-        "--kind", "compat-broken", "--evidence", "test",
+        "ouroboros",
+        "field-note",
+        "append",
+        "--kind",
+        "compat-broken",
+        "--evidence",
+        "test",
     )
     assert rc != 0
     # argparse stderr names every choice the user could have passed.
@@ -217,7 +238,8 @@ def test_field_note_rejects_unknown_kind() -> None:
 
 
 def test_field_note_append_dispatches_against_project_id_schema(
-    tmp_path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from yoke_core.domain import db_backend
     from yoke_core.domain.db_helpers import connect
@@ -231,26 +253,38 @@ def test_field_note_append_dispatches_against_project_id_schema(
         monkeypatch.setenv("YOKE_SESSION_ID", "test-session")
         # Keep the unmapped/no-checkout path: a live machine-config map
         # would otherwise send a project hint the bare test schema lacks.
-        with patch(
-            "yoke_cli.commands.adapters.ouroboros_field_note."
-            "client_project_context",
-            return_value=None,
-        ), patch.object(
-            _ofn._events,
-            "emit_event",
-            return_value=EmitResult(
-                ok=True, event_id="evt-field-note-cli", reason="", envelope=None,
+        with (
+            patch(
+                "yoke_cli.commands.adapters.ouroboros_field_note."
+                "client_project_context",
+                return_value=None,
+            ),
+            patch.object(
+                _ofn._events,
+                "emit_event",
+                return_value=EmitResult(
+                    ok=True,
+                    event_id="evt-field-note-cli",
+                    reason="",
+                    envelope=None,
+                ),
             ),
         ):
             buf = io.StringIO()
             err = io.StringIO()
             with redirect_stdout(buf), redirect_stderr(err):
-                rc = cli_main([
-                    "ouroboros", "field-note", "append",
-                    "--kind", "observation",
-                    "--evidence", evidence,
-                    "--json",
-                ])
+                rc = cli_main(
+                    [
+                        "ouroboros",
+                        "field-note",
+                        "append",
+                        "--kind",
+                        "observation",
+                        "--evidence",
+                        evidence,
+                        "--json",
+                    ]
+                )
 
         assert rc == 0, err.getvalue()
         with connect(db_path) as conn:
@@ -270,35 +304,29 @@ def test_old_subcommand_gone() -> None:
     # dynamically to keep the literal out of grep paths.
     old_subcommand_token = "-".join(("recipe", "event"))
     rc, _out, _err = _run_capture(
-        "ouroboros", old_subcommand_token, "append", "--help",
+        "ouroboros",
+        old_subcommand_token,
+        "append",
+        "--help",
     )
     assert rc != 0
 
 
-def test_attach_help_trailer_appends_canonical_footer() -> None:
-    from yoke_cli.commands._helpers import (
-        attach_help_trailer,
-    )
+def test_root_help_keeps_field_note_footer() -> None:
     from yoke_contracts.field_note_text import FOOTER
 
-    parser = argparse.ArgumentParser(prog="test")
-    attach_help_trailer(parser)
-    assert parser.epilog is not None
-    assert parser.epilog.endswith(FOOTER)
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = cli_main(["--help"])
+    assert rc == 0
+    assert FOOTER in buf.getvalue()
 
 
-def test_attach_help_trailer_does_not_repeat_a_stanza_the_parser_carries() -> None:
-    """A parser composing the footer itself keeps its one copy.
-
-    The read recipe is still attached: the two stanzas answer different
-    questions, so carrying one is not a reason to withhold the other.
-    """
-    from yoke_cli.commands._helpers import (
-        attach_help_trailer,
-    )
-    from yoke_contracts.adapter_read_recipes import FOOTER as READ_FOOTER
+def test_command_help_does_not_repeat_standing_guidance() -> None:
     from yoke_contracts.field_note_text import FOOTER
 
-    parser = argparse.ArgumentParser(prog="test", description=f"Body\n\n{FOOTER}")
-    attach_help_trailer(parser)
-    assert parser.epilog == READ_FOOTER
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = cli_main(["items", "get", "--help"])
+    assert rc == 0
+    assert FOOTER not in buf.getvalue()

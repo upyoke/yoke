@@ -1,198 +1,84 @@
-# Simulate Phase: Canonical Simulator Dispatch Prompts
+# Simulate — dispatch contracts
 
-Use these prompts when invoking the `yoke-simulator` subagent.
+Dispatch the read-only yoke-simulator with this common contract AND exactly
+one mode below. Keep the complete public ref in every initial/retry prompt.
 
-## Plan Simulation Prompt
+## Common contract — append to every mode
 
 ```text
-Simulate the plan for epic "{epic-ref}".
-Item ID: {public_ref}
+Item: {public_ref}; phase: {phase}. Read-only: do not edit or file work.
+Begin with SIMULATION: CLEAN or SIMULATION: GAPS FOUND, then EPIC: {public_ref}.
+Native persistence refuses simulation_identity_missing or
+simulation_identity_mismatch; the exact leading identity is mandatory.
+Trace concrete trigger paths through actual consumers/callers, contracts and
+failure paths. For every modified write trace external-call failures, safe
+set -e propagation, compatibility with the previous error model and failure
+tests. Findings use [CRITICAL], [WARNING], [NOTE], verified paths, root cause,
+affected tasks and concrete guidance with Fix level: plan|code|mixed.
+Use supplied content without re-fetching it; read authoritative parent context
+when requested. No invented evidence. Uncertainty is GAPS FOUND with its reason.
+```
 
-## Phase: PLAN (pre-sync, pre-implementation)
+## Plan mode
 
-Trace the planned architecture for integration gaps. No code has been written yet — you are checking the plan's structural soundness.
-
-IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: {public_ref}. Persistence rejects bodies whose attested epic does not match {public_ref} (exit 16) or that omit the EPIC line entirely (exit 17).
-
-Read the authoritative item spec and plans from the DB:
+```text
+Simulate the plan for {public_ref}; no code has been written.
+Read authoritative parent spec/technical/worktree plans:
 yoke items get {public_ref} spec
 yoke items get {public_ref} technical_plan
 yoke items get {public_ref} worktree_plan
-
-## Task Content
-{for each task: task number, title, and body content from yoke workflow-item epic-task body-get}
-
-## Context Budget Guidance
-The task content above is already inline in this prompt. Do not re-read these task bodies from the DB. You should read the authoritative item spec/plans from the DB.
-
-## Instructions
-Focus on:
-- Interface contract mismatches between dependent tasks
-- Worktree visibility assumptions
-- Dependency ordering feasibility
-- Environment and runtime assumptions that vary across tasks
-- Merge sequence predictions
-
-## Failure Path Analysis
-For each modified write path in this epic:
-1. What external calls can fail?
-2. Under `set -e`, does failure propagate safely or crash the caller?
-3. Does the new error model match the old one?
-4. Do tests cover the failure case, not just the happy path?
-
-Produce your gap report. Use [CRITICAL], [WARNING], [NOTE] severity prefixes.
+Task content: {each task number, title and complete body}.
+Check interface mismatches, worktree visibility, dependency feasibility,
+environment/runtime differences and predicted merge sequence.
+Apply the common contract and return the gap report.
 ```
 
-## Standard Integration Prompt
+## Integration authority — append to BOTH integration modes
 
 ```text
-Simulate the integration for epic "{epic-ref}".
-Item ID: {public_ref}
-
-## Phase: INTEGRATION (post-execution, pre-merge)
-
-All tasks are complete (or: the following tasks are incomplete and should be excluded from path tracing: {list}). Trace actual code across worktrees for integration gaps before merging.
-
-IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: {public_ref}. Persistence rejects bodies whose attested epic does not match {public_ref} (exit 16) or that omit the EPIC line entirely (exit 17).
-
-## Worktree-State Authority
-A task's resolved worktree checkout is the authority for that task's actual code whether the item/epic has one worktree or many. Main is the base/integration target, not evidence of unmerged task state. Use the task's `worktree_path` / branch when verifying files; if no worktree path or prompt-supplied diff exists, report evidence missing instead of inspecting main as a substitute.
-
-Read the authoritative item spec from the DB:
-yoke items get {public_ref} spec
-
-## Task Content
-{for each task: task number, title, and body content from yoke workflow-item epic-task body-get}
-
-## Code Changes Per Branch
-{for each branch: git diff main...{branch}}
-
-## Worktree Authorities
-{for each task: task number, branch/worktree, worktree_path}
-
-## Task Statuses
-{output of yoke epic-tasks list --epic PREFIX-N}
-
-## Reviews
-{for each task with a review: output of yoke workflow-item epic-task review-get}
-
-## Context Budget Guidance
-The task content, code changes, and reviews above are already inline in this prompt. Do not re-read them from the DB. You should read the authoritative item spec from the DB.
-
-## Instructions
-Focus on:
-- Actual exports vs interface contracts
-- Naming consistency across tasks
-- Merge sequence and generated-file overlap
-- Combined state validity after merge
-
-## Failure Path Analysis
-For each modified write path in this epic:
-1. What external calls can fail?
-2. Under `set -e`, does failure propagate safely or crash the caller?
-3. Does the new error model match the old one?
-4. Do tests cover the failure case, not just the happy path?
-
-Produce your gap report. Use [CRITICAL], [WARNING], [NOTE] severity prefixes.
+Tasks are complete except these explicitly excluded incomplete tasks: {list}.
+Task worktree_path/branch is actual-code authority in one lane or many;
+main is the base/integration target. Missing lane or supplied diff is missing
+evidence, never a reason to inspect main as if it held unmerged task changes.
+Read authoritative parent spec: yoke items get {public_ref} spec
+Check actual exports against contracts, naming, merge/generated-file overlap
+and combined state validity. Apply the common contract.
 ```
 
-## Compressed Integration Prompt
+## Standard integration mode
 
 ```text
-Simulate the integration for epic "{epic-ref}".
-Item ID: {public_ref}
+Simulate actual integration for {public_ref}.
+Task bodies: {each task number, title and full body}.
+Lane authorities: {each task, branch/worktree, worktree_path}.
+Changes: {full git diff main...branch for each registered task branch}.
+Statuses: {current epic-tasks list}; reviews: {each complete review}.
+Apply the integration authority and common contract; return the report.
+```
 
-## Phase: INTEGRATION (post-execution, pre-merge) — COMPRESSED CONTEXT
+## Compressed integration mode
 
-All tasks are complete (or: the following tasks are incomplete and should be excluded from path tracing: {list}). Trace actual code across worktrees for integration gaps before merging.
+```text
+Simulate actual integration for {public_ref}; task count: {task_count}.
+Interfaces: {contracts per task}; overlaps: {file overlap matrix}.
+Dependencies: {actual dependency edges from the registered task rows}.
+Lane authorities: {each task, branch/worktree, worktree_path}.
+Changes: {per-task summaries and branch git diff main...branch --stat}.
+Statuses: {current task states}; reviews: {verdict and issue lines}.
+Shim exports: {parse every explicit from yoke_core.board.X import (...) list
+for named shim modules; include public and private names such as _BLOCKS.
+The shim import list is the source of truth, not child-module internals}.
+Commit-Boundary Evidence: {for each discrete-commit/NFR requirement, task or
+criterion, affected path and parent-supplied git log --oneline -- path line;
+if no affected path is discoverable: commit evidence unavailable: no affected
+file named}. This supplied evidence is allowed; do not run archaeology.
 
-IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: {public_ref}. Persistence rejects bodies whose attested epic does not match {public_ref} (exit 16) or that omit the EPIC line entirely (exit 17).
-
-## Worktree-State Authority
-A task's resolved worktree checkout is the authority for that task's actual code whether the item/epic has one worktree or many. Main is the base/integration target, not evidence of unmerged task state. Use the task's `worktree_path` / branch when verifying files; if no worktree path or prompt-supplied diff exists, report evidence missing instead of inspecting main as a substitute.
-
-This is a large epic ({_task_count} tasks). To preserve context budget for analysis, this prompt provides compressed context instead of full task bodies and full diffs.
-
-Read the authoritative item spec from the DB:
-yoke items get {public_ref} spec
-
-## Interface Contracts Per Task
-{for each task: extracted contracts only}
-
-## Shim Re-Export Contracts
-{for each shim-style module named in a task contract or diff stat: parse the explicit
-from yoke_core.board.X import (...) block and list every re-exported name,
-including public names and underscore-prefixed names such as _BLOCKS. the shim import list is the source of truth;
-do not infer exports from child module internals.}
-
-## File Overlap Matrix
-{output of overlap query}
-
-## Dependency Edges
-{task_num, title, depends_on for each task}
-
-## Worktree Authorities
-{for each task: task number, branch/worktree, worktree_path}
-
-## Per-Task Change Summaries
-{for each task: one-line summary}
-
-## Diff Stats Per Branch
-{for each branch: git diff main...{branch} --stat}
-
-## Commit-Boundary Evidence
-{for each discrete-commit or NFR-style AC: task or AC identifier, affected
-file path, and one parent-supplied git log --oneline -- {file} line proving
-the commit boundary. If no affected file can be discovered, include
-commit evidence unavailable: no affected file named. This prompt-supplied
-section is allowed evidence; the simulator must not run git log or git blame
-itself unless explicitly instructed.}
-
-## Task Statuses
-{output of yoke epic-tasks list --epic PREFIX-N}
-
-## Review Summaries
-{for each task with a review: verdict line and issue lines only}
-
-## Two-Phase Analysis Protocol
-
-### Phase A — Bounded Preliminary Verdict (no tool calls)
-Using only the compressed context above, produce:
-1. Preliminary verdict
-2. Up to 3 candidate gaps with severity, category, and brief description
-
-### Phase B — Selective Verification (budgeted, max 5 file reads)
-After the Phase A verdict, optionally read up to 5 files to verify or refute your candidate gaps.
-
-Rules:
-- Only read files directly named in the compressed context unless a contradiction is found
-- Use `git diff main...{branch} -- {specific-file}` for individual file diffs
-- Upgrade or downgrade severities based on verification
-- Produce your final verdict and gap report
-
-## Forbidden Operations
-- Broad `git diff` of entire branches
-- `ls`, `find`, or `glob` enumeration of directories
-- Reading files not named in the compressed context
-- Systematic exploration of all branch files
-- Git archaeology unless explicitly requested. Parent-supplied
-  Commit-Boundary Evidence in this prompt is allowed evidence; do not run
-  git log or git blame yourself.
-
-If uncertain about a gap, report GAPS FOUND with the uncertainty noted.
-
-Focus on:
-- Actual exports vs interface contracts
-- Naming consistency across tasks
-- Merge sequence and generated-file overlap
-- Combined state validity after merge
-
-## Failure Path Analysis
-For each modified write path in this epic:
-1. What external calls can fail?
-2. Under `set -e`, does failure propagate safely or crash the caller?
-3. Does the new error model match the old one?
-4. Do tests cover the failure case, not just the happy path?
-
-Produce your gap report. Use [CRITICAL], [WARNING], [NOTE] severity prefixes.
+Phase A: no tools; preliminary verdict and at most 3 candidate gaps with
+severity/category/description. Phase B: at most 5 selective file reads to
+verify/refute those candidates. Read only named files; a contradiction needs
+explicit evidence before widening. Individual diff: git diff main...branch
+-- specific-file. Adjust severity based on verification, then final report.
+Forbidden: broad branch diffs, ls/find/glob enumeration, unnamed file reads,
+systematic branch exploration, git log/blame unless explicitly requested.
+Apply integration authority and common contract; uncertainty remains GAPS FOUND.
 ```

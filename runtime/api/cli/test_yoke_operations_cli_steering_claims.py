@@ -126,6 +126,53 @@ def test_acquire_without_doc_takes_the_whole_project_seat() -> None:
     assert "inherited 0 steering message(s)" in out
 
 
+def test_handoff_is_bounded_and_json_keeps_the_digest() -> None:
+    from yoke_cli.commands.adapters.claims_steering import _print_acquired
+    from types import SimpleNamespace
+
+    claim = _claim(41)
+    digest = "Inherited body. " * 200
+    claim["message_handoff"] = {
+        "drained_count": 2,
+        "parked_count": 1,
+        "stranded_count": 1,
+        "digest": digest,
+    }
+    output = io.StringIO()
+    _print_acquired(SimpleNamespace(result={"claim": claim}), output, io.StringIO())
+    assert len(output.getvalue()) <= 350
+    assert "2 steering message(s): 1 parked, 1 unacknowledged" in output.getvalue()
+    assert "yoke messages list --state unacknowledged" in output.getvalue()
+    assert digest not in output.getvalue()
+    assert claim["message_handoff"]["digest"] == digest
+    response = _stub_response(
+        FunctionCallRequest(
+            function="claims.steering.acquire",
+            actor={"actor_id": "op", "session_id": "steering-session"},
+            target={"kind": "global"},
+            payload={},
+        )
+    )
+    response.result = {"claim": claim}
+    with (
+        patch(
+            "yoke_core.domain.yoke_function_dispatch.dispatch", return_value=response
+        ),
+        patch("yoke_cli.commands._helpers.ensure_handlers_loaded"),
+    ):
+        with redirect_stdout(output := io.StringIO()):
+            assert (
+                cli_main(
+                    ["claims", "steering", "acquire", "--project", "alpha", "--json"]
+                )
+                == 0
+            )
+    assert (
+        json.loads(output.getvalue())["result"]["claim"]["message_handoff"]["digest"]
+        == digest
+    )
+
+
 def test_acquire_with_plan_doc_keeps_the_whole_project_seat() -> None:
     """A project-wide seat still locks the standing plan it writes."""
     rc, out, err = _run(

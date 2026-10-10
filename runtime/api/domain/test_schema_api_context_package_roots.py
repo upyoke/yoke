@@ -16,7 +16,7 @@ from yoke_core.domain import schema_api_context_seed as seed
 from yoke_core.domain.architecture_model_sections import PACKAGE_LAYOUTS
 from yoke_core.domain.schema_api_context_render import render_package_roots_block
 
-BLOCK_HEADING = "**Package roots (where a module actually lives):**"
+BLOCK_HEADING = "**Package roots:**"
 
 
 class TestRenderedBlock:

@@ -111,6 +111,50 @@ class TestItemsListingDispatch:
         assert req.function == "items.search.run"
         assert req.payload == {"keywords": "dedup keywords"}
 
+    def test_items_search_forwards_explicit_limit(self):
+        assert (
+            _run_with_dispatch(
+                _stub_dispatch_ok, "items", "search", "wibble", "--limit", "60"
+            )
+            == 0
+        )
+        assert _CAPTURED_REQUESTS[-1].payload == {"keywords": "wibble", "limit": 60}
+
+    def test_search_human_output_retains_status_and_more_count(self):
+        import io
+        from types import SimpleNamespace
+        from yoke_cli.commands.adapters.listing import _write_search
+
+        rows = [
+            {
+                "id": f"EX-{n}",
+                "title": f"Match {n}",
+                "status": "done" if n % 2 else "implementing",
+            }
+            for n in range(60, 40, -1)
+        ]
+        result = {"matches": rows, "total_count": 60}
+        output = io.StringIO()
+        _write_search(
+            SimpleNamespace(success=True, result=result), output, io.StringIO()
+        )
+        assert len(output.getvalue()) <= 750
+        assert len(output.getvalue().splitlines()) == 22
+        assert "40 more; add --limit N" in output.getvalue()
+        assert "EX-60\timplementing\tMatch 60" in output.getvalue()
+        assert result["matches"] == rows
+        import json
+        from runtime.api.cli.test_yoke_operations_cli_dispatch import _run_capture
+
+        def stub(request):
+            response = _stub_dispatch_ok(request)
+            response.result = result
+            return response
+
+        rc, stdout, stderr = _run_capture(stub, "items", "search", "match", "--json")
+        assert rc == 0, stderr
+        assert json.loads(stdout)["result"] == result
+
     def test_items_search_defaults_scope_to_checkout_project(self, monkeypatch) -> None:
         # 13468: search defaults to the checkout's project, mirroring list.
         monkeypatch.setattr(

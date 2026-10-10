@@ -32,9 +32,7 @@ class TestLegacySurfaceRetired(unittest.TestCase):
         )
 
     def test_legacy_session_hooks_front_door_absent(self) -> None:
-        self.assertFalse(
-            (REPO_ROOT / "runtime/harness/session_hooks.py").exists()
-        )
+        self.assertFalse((REPO_ROOT / "runtime/harness/session_hooks.py").exists())
 
     def test_legacy_codex_session_start_absent(self) -> None:
         self.assertFalse(
@@ -49,16 +47,69 @@ class TestLegacySurfaceRetired(unittest.TestCase):
 class TestOrientationProjectAuthority(unittest.TestCase):
     """Session orientation must not teach DB repo paths as client checkouts."""
 
+    def test_first_prompt_keeps_one_orientation_and_lifecycle_effects(self) -> None:
+        from yoke_contracts.session_model_facts import SessionModelFacts
+        from yoke_core.domain.session_orientation import CLIENT_ORIENTATION_PRESENT_KEY
+        from yoke_core.hooks.types import HookContext
+
+        orientation = "## Yoke Orientation\nYour Session: sess-orient\n"
+        for supplied in (False, True):
+            with self.subTest(client_supplied=supplied):
+                ctx = HookContext(
+                    event_name="UserPromptSubmit",
+                    executor_family="claude",
+                    executor_surface="claude",
+                    payload={CLIENT_ORIENTATION_PRESENT_KEY: supplied},
+                )
+                with (
+                    mock.patch(
+                        "yoke_core.hooks.telemetry.resolve_session_id_from_env_and_payload",
+                        return_value=("sess-orient", True),
+                    ),
+                    mock.patch(
+                        "yoke_core.hooks.registration._register_from_hook",
+                        return_value=("", "claude", "", SessionModelFacts(), ""),
+                    ) as register,
+                    mock.patch.object(
+                        session_dispatch,
+                        "_first_prompt",
+                        return_value=True,
+                    ),
+                    mock.patch(
+                        "yoke_core.hooks.telemetry.emit_harness_session_sent_first_user_prompt_submit",
+                    ) as prompt,
+                    mock.patch.object(
+                        session_dispatch,
+                        "_render_claude_orientation",
+                        return_value=orientation,
+                    ) as render,
+                    mock.patch.object(
+                        session_dispatch,
+                        "_render_resume_block",
+                        return_value="resume\n",
+                    ),
+                ):
+                    rendered = session_dispatch._run_claude_prompt_submit(ctx, "/repo")
+                combined = (orientation if supplied else "") + rendered
+                self.assertEqual(combined.count("## Yoke Orientation"), 1)
+                self.assertIn("resume", combined)
+                self.assertEqual(render.call_count, int(not supplied))
+                register.assert_called_once()
+                prompt.assert_called_once_with("", "sess-orient")
+
     def test_orientation_does_not_render_project_repo_path_map(self) -> None:
         from yoke_contracts.session_model_facts import SessionModelFacts
         from yoke_core.hooks import session_dispatch_orientation as orientation
 
-        with mock.patch(
-            "yoke_core.hooks.session_dispatch_orientation._bootstrap_lines",
-            return_value=["Read before editing:", "- AGENTS.md"],
-        ), mock.patch(
-            "yoke_core.hooks.session_dispatch_orientation._git_line",
-            return_value="",
+        with (
+            mock.patch(
+                "yoke_core.hooks.session_dispatch_orientation._bootstrap_lines",
+                return_value=["Read before editing:", "- AGENTS.md"],
+            ),
+            mock.patch(
+                "yoke_core.hooks.session_dispatch_orientation._git_line",
+                return_value="",
+            ),
         ):
             rendered = orientation._render_claude_orientation(
                 "sess-orient",
@@ -89,8 +140,12 @@ class TestEndSessionCommand(unittest.TestCase):
             captured["session_id"] = session_id
 
         ok = session_end_cleanup.run_session_end_cleanup(
-            "/repo", "sess-stop", executor="codex", event_source="Stop",
-            _connect=lambda _timeout_ms: FakeConn(), _cleanup=fake_cleanup,
+            "/repo",
+            "sess-stop",
+            executor="codex",
+            event_source="Stop",
+            _connect=lambda _timeout_ms: FakeConn(),
+            _cleanup=fake_cleanup,
         )
 
         self.assertTrue(ok)
@@ -109,29 +164,36 @@ class TestEndSessionCommand(unittest.TestCase):
                 "transcript_path": "/tmp/transcript.jsonl",
             },
         )
-        with mock.patch(
-            "yoke_core.hooks.session_dispatch._root_and_db",
-            return_value=("/Users/x/yoke", "/Users/x/yoke/data/yoke.db"),
-        ), mock.patch(
-            "yoke_core.hooks.session_dispatch._is_yoke_target",
-            return_value=True,
-        ), mock.patch(
-            "yoke_core.hooks.telemetry.resolve_direct_session_id",
-            return_value="sess-stop",
-        ), mock.patch(
-            "yoke_core.hooks.telemetry.attest_served_model_facts",
-        ) as refresh, mock.patch(
-            "yoke_core.hooks.session_dispatch._end_session_if_empty",
-        ) as cleanup:
+        with (
+            mock.patch(
+                "yoke_core.hooks.session_dispatch._root_and_db",
+                return_value=("/Users/x/yoke", "/Users/x/yoke/data/yoke.db"),
+            ),
+            mock.patch(
+                "yoke_core.hooks.session_dispatch._is_yoke_target",
+                return_value=True,
+            ),
+            mock.patch(
+                "yoke_core.hooks.telemetry.resolve_direct_session_id",
+                return_value="sess-stop",
+            ),
+            mock.patch(
+                "yoke_core.hooks.telemetry.attest_served_model_facts",
+            ) as refresh,
+            mock.patch(
+                "yoke_core.hooks.session_dispatch._end_session_if_empty",
+            ) as cleanup,
+        ):
             decision = session_dispatch.evaluate(ctx)
 
         self.assertEqual(decision.audit_fields["stdout"], "{}\n")
         refresh.assert_not_called()
         cleanup.assert_called_once_with(
-            "/Users/x/yoke", "sess-stop",
-            executor="codex", event_source="Stop",
+            "/Users/x/yoke",
+            "sess-stop",
+            executor="codex",
+            event_source="Stop",
         )
-
 
     def test_session_start_syncs_the_main_checkout(self) -> None:
         from yoke_core.hooks import session_dispatch
@@ -143,16 +205,21 @@ class TestEndSessionCommand(unittest.TestCase):
             executor_surface="claude",
             payload={"session_id": "sess-start"},
         )
-        with mock.patch(
-            "yoke_core.hooks.session_dispatch._root_and_db",
-            return_value=("/Users/x/yoke", "/Users/x/yoke/data/yoke.db"),
-        ), mock.patch(
-            "yoke_core.hooks.session_dispatch._is_yoke_target",
-            return_value=True,
-        ), mock.patch(
-            "yoke_core.engines.main_checkout_sync.sync_main_checkout_at_session_start",
-        ) as sync, mock.patch(
-            "yoke_core.hooks.session_dispatch._run_claude_session_start",
+        with (
+            mock.patch(
+                "yoke_core.hooks.session_dispatch._root_and_db",
+                return_value=("/Users/x/yoke", "/Users/x/yoke/data/yoke.db"),
+            ),
+            mock.patch(
+                "yoke_core.hooks.session_dispatch._is_yoke_target",
+                return_value=True,
+            ),
+            mock.patch(
+                "yoke_core.engines.main_checkout_sync.sync_main_checkout_at_session_start",
+            ) as sync,
+            mock.patch(
+                "yoke_core.hooks.session_dispatch._run_claude_session_start",
+            ),
         ):
             session_dispatch.evaluate(ctx)
         sync.assert_called_once_with("/Users/x/yoke")
@@ -181,7 +248,9 @@ class TestResumeBlockDispatchSubprocess(unittest.TestCase):
             side_effect=_fake_run,
         ):
             result = resume_block_dispatch.render(
-                "/repo", "sess-r", "UserPromptSubmit",
+                "/repo",
+                "sess-r",
+                "UserPromptSubmit",
             )
         self.assertEqual(result, "> resume block\n")
         self.assertTrue(captured_cmd)
@@ -199,7 +268,9 @@ class TestResumeBlockDispatchSubprocess(unittest.TestCase):
             "yoke_core.hooks.resume_block_dispatch.subprocess.run",
         ) as mocked:
             result = resume_block_dispatch.render(
-                "/repo", "", "SessionStart",
+                "/repo",
+                "",
+                "SessionStart",
             )
         self.assertEqual(result, "")
         mocked.assert_not_called()
@@ -217,7 +288,9 @@ class TestResumeBlockDispatchSubprocess(unittest.TestCase):
             return_value=_R(),
         ):
             result = resume_block_dispatch.render(
-                "/repo", "sess-r", "UserPromptSubmit",
+                "/repo",
+                "sess-r",
+                "UserPromptSubmit",
             )
         self.assertEqual(result, "")
 

@@ -59,14 +59,18 @@ def test_resolve_target_help_teaches_verify_destination() -> None:
     _assert_itemless_recipe(out)
 
 
-def test_create_help_teaches_itemless_release_recipe() -> None:
+def test_create_help_keeps_one_description_and_targets_the_recipe_read() -> None:
     rc, out, err = _help("deployment-runs", "create", "--help")
     assert rc == 0, err
     assert "yoke watch deploy" in out
     assert "provisionally composes membership" in out
     assert "validate-composition" in out
     assert "start-for-item" not in out
-    _assert_itemless_recipe(out)
+    assert "Itemless environment release" not in out
+    assert len(out) <= 5600
+    recipe_rc, recipe, recipe_err = _help("deployment-runs", "--help")
+    assert recipe_rc == 0, recipe_err
+    _assert_itemless_recipe(recipe)
 
 
 def test_deployment_runs_group_help_includes_itemless_recipe() -> None:

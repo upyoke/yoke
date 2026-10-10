@@ -76,14 +76,11 @@ def test_codex_smoke_matrix_expects_implement_path():
 def test_hook_parity_map_matches_codex_shared_registry_summary():
     text = _read("docs/hook-parity-map.md")
 
-    assert ("The skill registry supplies both capability views.") in text
-    assert "safe operator surface" in text
-    assert "downstream registry" in text
-    assert "rather than copying either registry view" in text
+    assert "runtime/harness/<harness-dir>/manifest.json" in text
+    assert "shared registry owns command and stage-skill availability" in text
+    assert "manifest" in text and "limitations" in text
     assert "/yoke implement" in text
     assert "/yoke conduct" in text
-    assert "`implement`" in text
-    assert "Conduct is a stage skill" in text
     assert "five entrypoints" not in text
     assert "four downstream paths" not in text
 

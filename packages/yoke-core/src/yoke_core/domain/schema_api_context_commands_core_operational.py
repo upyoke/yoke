@@ -42,6 +42,7 @@ from yoke_contracts.session_control.teaching import (
 
 OPERATIONAL_COMMANDS: list[dict] = [
     {
+        "startup_roles": ("main_agent",),
         "topic": "core",
         "purpose": "Cancel / stop / fail a work item (terminal-exceptional)",
         "recipe": (
@@ -61,6 +62,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "core",
         "purpose": (
             "Move a work item forward in lifecycle (claim → transition → release)"
@@ -79,6 +81,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "core",
         "purpose": "Append to a work item's Progress Log (canonical agent shape)",
         "recipe": (
@@ -101,8 +104,8 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "purpose": "Find or request the CLI adapter for a function id",
         "recipe": "yoke <family> --help",
         "notes": (
-            "`.yoke/docs/reference/db-reference/functions.md` lists the registered "
-            "function ids per family, and the matching `yoke <subcommand> "
+            "`.yoke/docs/reference/db-reference/functions.md` links the registered "
+            "function catalogs per family, and the matching `yoke <subcommand> "
             "--help` carries that adapter's variants and flag matrix. The "
             "CLI grammar is reversible — dots become spaces, underscores "
             "become hyphens, a terminal `.run`/`.execute` drops — so a "
@@ -127,6 +130,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (),
         "topic": "core",
         "purpose": "Operator-mode lifecycle repair after authoritative drift",
         "recipe": (
@@ -144,6 +148,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (),
         "topic": "core",
         "purpose": "Branch / commit / CI inspection (read-only)",
         "recipe": (
@@ -211,6 +216,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "engineer_agent"),
         "topic": "core",
         "purpose": "Apply a structural patch without duplicate or stale hunks",
         "recipe": (
@@ -251,6 +257,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "engineer_agent"),
         "topic": "core",
         "purpose": "Where to put a project Python script",
         "recipe": "# put it under the project's tracked tools directory — never /tmp/*.py",
@@ -263,6 +270,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "engineer_agent", "tester_agent"),
         "topic": "core",
         "purpose": "Verify Python imports/tests against linked worktree source",
         "recipe": (
@@ -279,6 +287,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "core",
         "purpose": "Re-render agent files after editing packet seeds",
         "recipe": (
@@ -299,6 +308,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent", "engineer_agent"),
         "topic": "core",
         "purpose": "authored-file line limit (file_line_check)",
         "recipe": "yoke check file-line --staged",

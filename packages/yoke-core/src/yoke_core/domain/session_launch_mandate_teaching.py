@@ -1,13 +1,13 @@
-"""The fixed paragraphs every composed worker mandate carries.
+"""Worker phase teaching shared with role instructions.
 
 Split out of :mod:`session_launch_mandate` to stay under the authored-file
 line budget. The routing module decides WHICH mandate a launch gets; these
 are the teachings every one of them carries regardless of route, each
 answering a failure a launched worker actually had.
 
-They live together because they are read together: a worker meets them as
-one block at the end of its mandate, and a change to one that contradicts
-another is the defect this module exists to make visible.
+Launches point at the bound skill's phase instructions. These expanded
+contracts remain available to teaching verification without being appended
+to every launch body.
 """
 
 from __future__ import annotations
@@ -113,27 +113,6 @@ HEADLESS_TOOL_CONTINUATION_TEACHING = (
 )
 
 
-_DELIBERATE_CLOSE = (
-    "Ending a turn sends no Fleet message. When those legs are complete, "
-    "message the orchestrator "
-    '(printf %s "DONE {ref} <one-line summary>" | yoke say --stdin '
-    "--steering) and END your session — do not pick up further work, do not "
-    "chain into other items. Send that report before releasing any claim you "
-    "still hold; after a close-out that already released it, --steering "
-    "resolves from the item you last held in this session. The PREFIX-N in "
-    "the DONE heading is the report identity and must name work this session "
-    "holds or released; a repeat of the same DONE is deduplicated rather "
-    "than delivered twice. A completion you are later RESUMED to do is its "
-    "own leg and reaches the seat on its own, whether or not that resume "
-    "hands you a fresh claim — never release an unfinished lane to force "
-    "one through. A send answering `Collapsed into an earlier message` did "
-    "NOT deliver your body; read it rather than assume you reported. "
-    "Complete means the item reached its own terminal status: a close-out "
-    "that stopped at a pinned release wait has NOT completed those legs, "
-    "and neither the report nor the END is owed yet."
-)
-
-
 CANDIDATE_REVIEW_TEACHING = (
     "An item whose posture selects merge_candidate_review may not land "
     "until a person has cleared the exact commit. `yoke merge item` refuses "
@@ -166,7 +145,7 @@ STEERING_REWORK_TEACHING = (
 )
 
 
-#: Appended to every composed mandate, in the order a worker meets them.
+#: Expanded obligations checked against the worker's phase instructions.
 STANDING_TEACHINGS = (
     # First: a successor launched onto an in-flight item must resume from
     # the predecessor's checkpoint before it commits or merges anything.

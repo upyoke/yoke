@@ -7,7 +7,7 @@ grounding a claim-overlap question have a single landing page.
 
 ## Behaviour
 
-Deterministic rendered agent adapters (the installed Claude and Codex agent files)
+Deterministic generated outputs in the source inventory
 are registered as `FAMILY_RENDER_TARGET` with their seed sources. When
 two claims overlap solely on render-target paths AND their non-render
 coverage is disjoint at the seed-source layer, the classifier consults
@@ -58,22 +58,24 @@ Three outcomes:
 
 ## Registration
 
-The renderer self-registers every Yoke agent packet's
+The renderer registers each known generated output's
 target/source relationship via
 `yoke_core.domain.agents_render_path_context.record_render_relationships`.
 Idempotent across re-runs (the unique key on `path_context_values`
-overwrites in place). Triggered by `python3 -m
-yoke_core.domain.agents_render render` and the `agents.render.run`
-function-call surface. The client resolves an explicit project, `YOKE_PROJECT`,
+overwrites in place). Use `yoke agents render`; read its `--help` for target
+root and dry-run options. The client resolves an explicit project, `YOKE_PROJECT`,
 or its registered checkout and sends that project with the relationship refresh.
 The server refuses a missing project as `project_required` before writing; it
 never attributes relationships using its own checkout. An unattributed client
 skips this advisory registration while still rendering the requested files.
 
-Scope (v0): the 16 rendered packet outputs for the eight canonical
-agents (8 Claude `.md` + 8 Codex `.toml`). Non-packet generated
-surfaces (BOARD, event-catalog, and function inventory) are not
-in scope for this slice.
+`yoke_core.domain.render_relationship_inventory` owns the complete map:
+agent adapters for each declared harness, Atlas, event catalog and tracked
+install-bundle mirrors. Tracked inputs determine their seed sets. A generator
+preserving authored content self-seeds that output, including the event
+catalog appendix, so it cannot receive the output-only escape. An install
+target without a tracked source also self-seeds. Do not infer independence
+from a generated-looking filename or a fixed adapter count.
 
 ## Integrity check
 

@@ -274,17 +274,14 @@ Yoke's authority shape — `authoritative_db.kind="postgres"` with the
 provisioning surface; the authoritative DB location names a Postgres
 stack/output source:
 
-See that file for the full `migration_model_defaults` JSON shape (sqlite_file authoritative DB + worktree_local_sqlite validation surface).
-
-
 The validator keeps this shape generic: it validates stack/output/database
 references, not Yoke-only endpoint literals.
 Local proof commands can bind the
 resolved DSN via `YOKE_PG_DSN_FILE` so secret-bearing DSNs stay in a
-restricted file instead of shell-expanded arguments. The polished connected-env
-switch UX remains a later cloud-runtime capability; this pairing only declares where
-authority lives after cutover. Other runner kinds are schema-reserved and
-rejected.
+restricted file instead of shell-expanded arguments. This pairing declares
+authority and validation bindings; other runner kinds are schema-reserved and
+rejected. The SQLite `migration_model_defaults` payload appears below under
+[Webapp Pack Configuration](#webapp-pack-configuration).
 
 ## Webapp Pack Configuration
 

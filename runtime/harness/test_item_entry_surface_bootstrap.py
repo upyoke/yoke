@@ -34,15 +34,19 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 def test_main_agent_compact_block_includes_item_entry_rule() -> None:
     block = render_main_agent_block()
     assert block, "compact main_agent block rendered empty"
+    assert "yoke packets render --role main_agent --topic T" in block
+    from yoke_core.domain.schema_api_context import render_topic_packet
+
+    depth = render_topic_packet("core", detail="full")
     for token in _ENTRY_TOKENS:
-        assert token in block, f"compact main_agent block missing token {token!r}"
+        assert token in depth
 
 
 def test_main_agent_full_block_includes_item_entry_rule() -> None:
     block = render_main_agent_block_full()
     assert block, "full main_agent block rendered empty"
-    for token in _ENTRY_TOKENS:
-        assert token in block, f"full main_agent block missing token {token!r}"
+    assert "yoke packets render --role main_agent --topic T" in block
+    assert "--detail full" in block
 
 
 def test_main_agent_bootstrap_distinguishes_receipt_from_body_authority() -> None:

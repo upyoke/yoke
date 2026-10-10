@@ -147,17 +147,7 @@ SKILLS_ROOT = REPO_ROOT / ".agents" / "skills" / "yoke"
 #: for output capture (binary files, test harness output, multi-step pipelines).
 #: Any mktemp usage outside this set is a regression — content writes should
 #: use ``--stdin`` or ``--body-file`` instead.
-_MKTEMP_ALLOWLIST: frozenset = frozenset(
-    {
-        "implement/implementing/implementation.md",
-        "conduct/dispatch-context-prompts.md",
-        "conduct/dispatch-context-verify.md",
-        "conduct/engineer-tester-dispatch.md",
-        "conduct/entry-activation.md",
-        "conduct/entry-gates.md",
-        "usher/collect.md",
-    }
-)
+_MKTEMP_ALLOWLIST: frozenset = frozenset()
 
 
 def _skill_files() -> List[Path]:

@@ -1,133 +1,66 @@
-# Usher — Finalize
+# Usher — finalize
 
-Step 9: Completion report, idempotency rules, pipeline failure recovery, and operational notes.
+Read live item/run state, then print per-item done, paused or halted with
+actual PR/run, stage, failure/approval reason and completed/paused/halted/run
+counts. A halt row keeps its halt-class audit reason; never call it completed.
+List each created run's project, flow, target, members, status and exact resume.
+Terminal success alone permits completed; merge or push is not release proof.
 
----
+## Resume and recovery
 
-## Step 9: Completion Report
+Done skips. Already-landed items skip landing and enter declared delivery;
+resume approvals/failures from the existing run's authoritative stage.
+Partial batches retain each landed/completed receipt rather than replaying it.
 
-```
-===================================================================
-USHER COMPLETE
-===================================================================
-
-Results:
- PREFIX-{id} "{title}" -- done (run-{date}-{seq})
- PREFIX-{id} "{title}" -- done (internal, no run)
- PREFIX-{id} "{title}" -- paused (run-{date}-{seq}, awaiting approval)
- PREFIX-{id} "{title}" -- halted (usher-halt-deploy-stage-failure)
- PREFIX-{id} "{title}" -- halted (usher-halt-deploy-infra-failure)
- PREFIX-{id} "{title}" -- halted (usher-halt-merge-failure)
- PREFIX-{id} "{title}" -- halted (usher-halt-unexpected, exit {code})
-
-Deployment runs created:
- {run-id}: project={project}, flow={flow}, target={target}, items={count}, status={status}
-
-{If paused runs:}
-Paused runs (awaiting approval):
- {run-id}: stage {stage} -- /yoke usher --resume PREFIX-{N}
-
-{count} items completed. {paused_count} awaiting approval. {halted_count} halted. {run_count} deployment run(s) created.
+```text
+yoke deployment-runs get RUN-ID
+yoke deployment-flows stages FLOW-ID
 ```
 
-For halt rows, name the halt-class reason that the halt branch already released the work claim with. Do NOT label a halted row "completed" — the halt-class string is the audit signal downstream doctor/Ouroboros consume.
+Classify the actual failed stage/log. External infrastructure signals include
+Actions secrets/dispatch/offline runners/App credentials, SSH host/key/network,
+third-party credentials, and provider permissions/throttling/DNS/outage.
+Name the specific component and capture the underlying issue through /yoke idea
+or field-note as authorized, alongside current-run recovery. A code-class failure
+belongs to the current item; no external-infra follow-up replaces its fix.
 
-## Idempotency
+Resolved/transient failures retry the same run:
 
-- Re-run on `done` items: silently skipped.
-- Re-run on `release` items: skip merge, proceed to deployment routing.
-- Re-run after approval: `--deploy-only` picks up from approved stage. Step 8c3b finds existing run.
-- Re-run after failure: merges skipped for merged items; existing run found, deployment resumes.
-- Partial batch: succeeded items at `done`/`release` skipped on re-run.
-
-## Pipeline Failure Recovery
-
-### Diagnose
-
-```bash
-yoke deployment-runs get {run-id}
-yoke deployment-flows stages {flow-id}
+```text
+yoke --env CONTROL_PLANE watch deploy -- RUN-ID
 ```
 
-Key fields: `status` (overall), `current_stage` (where stopped, `-failed` suffix = failure point).
+A serving-API self-deploy refusal goes to its control-plane operator with
+named recovery. Abort through the registered run writer:
 
-### Classify halt cause
-
-After diagnosing the failure point, classify the cause. If the halt cause matches an **infrastructure class** — operator action on systems outside the repo's diff — surface a follow-up suggestion before the recovery options below. Suggesting a follow-up does not replace the recovery options; it ensures the underlying infra issue is captured as its own backlog item so the operator does not have to remember both "fix the secret" and "resume usher" at the same time.
-
-Infrastructure-class signals (string-match against the failing stage's logs, the run's `deploy_log` field, or the operator's recall of the live failure):
-
-- **GitHub Actions / CI runner** — `deploy_key`, `Actions secret`, `workflow_dispatch`, `runner offline`, `GitHub token`, `permission denied (publickey)` against a CI host.
-- **SSH / external host** — `ssh:`, `Permission denied`, `Host key verification failed`, `Connection refused` against a deploy target.
-- **External secret / credential** — `Bad credentials`, `401 Unauthorized` against a third-party API the deploy stage calls, missing env var named in a stage script.
-- **Cloud provider / AWS / network** — `AccessDenied`, `RequestLimitExceeded`, `DNS lookup failed`, regional outages.
-
-When the halt cause classifies as infrastructure, render this suggestion alongside the recovery options:
-
-```
-INFRA-CLASS HALT DETECTED
-Component: {component-name, e.g., "GitHub Actions deploy_key", "AWS S3 credentials"}
-
-File a follow-up so the underlying infra issue is tracked separately from this run:
-
-  /yoke idea "Fix {component-name} blocking PREFIX-{N} deploy"
-
-Then return here and pick a recovery option below to unstick the current run.
+```text
+yoke deployment-runs update RUN-ID status failed
 ```
 
-Pick `{component-name}` to name the failing surface specifically (for example,
-`"repository Actions deploy credential"`, `"production SSH host key"`, or
-`"cloud deploy credentials"`) — generic phrasing like `"CI"` or `"infra"` does
-not help the operator recognize what to fix. Code-class halts (a stage script
-raising an exception against this repo's code) are NOT infrastructure-class;
-surface no suggestion for those and fall through to the recovery options.
+Items remain at delivery wait unless a declared authorized rollback is taken.
+Preserve failed run history; never mutate it to succeeded as a shortcut.
 
-### Option A: Retry failed stage
+## Claim release and close
 
-When: transient failure, cause resolved. Re-run pipeline (reads `current_stage`, strips `-failed`, retries):
-```bash
-yoke --env {control-plane} deployment-runs execute {run-id}
+Successful terminal items release only claims still held by this session,
+reason completed. Halt branches already released with
+usher-halt-merge-failure, usher-halt-deploy-infra-failure,
+usher-halt-deploy-stage-failure or usher-halt-unexpected; do not release again
+or overwrite release_reason_intent. Contention uses handoff-to-usher.
+
+```text
+yoke claims work release --item PREFIX-N --reason completed --json
 ```
 
-Escalate a serving-API self-deploy refusal to the control-plane operator,
-including its named recovery.
+Attempt each owed release even if another fails; name failures/holders in the
+report. Release waits retain claim/park under the current worker mandate.
+Before any nonterminal stop, checkpoint live stage, committed/dirty state,
+receipts and next command. A level_change handoff takes precedence over wait.
+Send Fleet DONE/END only at actual terminal when the mandate requires it,
+with DONE before releasing a claim still held. Never create a run when the
+mandate reserves batching to the orchestrator.
 
-### Option B: Abort the run
-
-```bash
-yoke deployment-runs update {run-id} status failed
-```
-
-Items remain at `release`. Re-attempt later or pull back to `implemented`.
-
-## Release Manual Work Claims
-
-Release reasons split by exit class. The four halt-class strings are terminal release intents per `yoke_core.domain.release_intent_classification.TERMINAL_RELEASE_INTENTS`; `completed` is reserved for the successful finalize path.
-
-- **Complete exits (item reached `done`):** release the work claim with `reason: "completed"`.
-- **Halt exits (merge halt, deploy infra failure, deploy stage failure, unexpected exit):** the halt branch in `merge.md` / `deploy.md` already released the work claim with the matching halt-class reason (`usher-halt-merge-failure`, `usher-halt-deploy-infra-failure`, `usher-halt-deploy-stage-failure`, `usher-halt-unexpected`) BEFORE control returned to finalize. Finalize MUST NOT re-release a claim it does not hold and MUST NOT overwrite the halt-class `release_reason_intent` audit value with `completed`. Skip the release loop for any item the halt branch already released.
-
-For each `_usher_item` in `{collected_items}` whose claim is still held by this session (complete exits only):
-
-```json
-{
-  "function": "claims.work.release",
-  "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "claim", "claim_id": <claim_id>},
-  "intent": "usher_complete",
-  "payload": {"claim_id": <claim_id>, "reason": "completed"}
-}
-```
-
-Release failures surface as response errors but do not block the next item's release; the next-turn doctor surfaces orphaned claims if any slip through.
-
-## Notes
-
-- **Run-based deployment.** Multiple items with same project+flow grouped into single run. Pipeline called once per run.
-- **LLM-based dependency ordering.** Usher uses LLM reasoning for ordering, operator for conflict resolution.
-- **Lock management.** No weave lock. Merge serialization handled by the retained merge watcher (`yoke watch merge merge-worktree`).
-- **Push to origin.** Route A's `yoke watch merge done-transition` runs preserve the underlying done-transition push behavior; Route B members close out through `yoke merge item`, which owns its own push.
-- **Cold-start capable.** All state read from DB.
-- **Pre-merge ephemeral verification.** For flows with `ephemeral-verify`, verification runs before merge (Step 7c). After merge, pipeline skips it via `--from-stage`.
-- **Preview-environment targeting.** Multiple targets → operator selection. Release lineage tracking for preview-to-prod progression.
-- **Run-level QA.** At run creation, materializes blocking QA requirements from flow defaults.
+Run-based groups execute once under project DEPLOY holds, seed QA automatically
+and close members through selected-flow evidence. Proven premerge ephemeral
+stage alone allows from-stage continuation; unresolved preview/environment/
+lineage/occupancy choices remain explicit operator decisions.

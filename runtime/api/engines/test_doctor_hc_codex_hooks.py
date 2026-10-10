@@ -139,13 +139,13 @@ def test_user_facing_hook_floor_matches_manifest() -> None:
     )
     floor = mod._parse_floor(manifest["runtime_minimums"]["hook_enhanced"])
     assert floor is not None
-    for relative_path in (
-        "docs/OVERVIEW.md",
-        "docs/hook-parity-map.md",
-        "runtime/harness/codex/SMOKE-TEST.md",
-    ):
-        text = (root / relative_path).read_text(encoding="utf-8")
-        assert f">= {floor}" in text, relative_path
+    smoke = (root / "runtime/harness/codex/SMOKE-TEST.md").read_text(encoding="utf-8")
+    assert f">= {floor}" in smoke
+    overview = (root / "docs/OVERVIEW.md").read_text(encoding="utf-8")
+    assert "runtime/harness/{claude,codex,cursor}/manifest.json" in overview
+    parity = (root / "docs/hook-parity-map.md").read_text(encoding="utf-8")
+    assert "runtime/harness/<harness-dir>/manifest.json" in parity
+    assert "runtime minima" in parity
 
 
 # ---------------------------------------------------------------------------

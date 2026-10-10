@@ -47,6 +47,11 @@ def test_item_recipe_skill_uses_prefix_neutral_public_examples(
 ) -> None:
     content = (CANONICAL / relative_path).read_text()
 
+    if relative_path == Path("polish/review.md"):
+        assert "parse-and-claim.md" in (CANONICAL / "polish/SKILL.md").read_text()
+        content += (CANONICAL / "polish/parse-and-claim.md").read_text()
+    elif relative_path == Path("refine/review-rubric.md"):
+        content += (CANONICAL / "refine/workflow-context.md").read_text()
     assert "PREFIX-N" in content
     for legacy_pattern in LEGACY_ARGUMENT_PATTERNS:
         assert legacy_pattern.search(content) is None
@@ -54,9 +59,11 @@ def test_item_recipe_skill_uses_prefix_neutral_public_examples(
 
 def test_done_transition_and_event_recipes_pass_public_item_refs() -> None:
     deploy = (CANONICAL / "usher/deploy.md").read_text()
-    merge = (CANONICAL / "usher/merge.md").read_text()
-    simulate = (CANONICAL / "simulate/SKILL.md").read_text()
+    merge = (CANONICAL / "usher/merge-conflicts.md").read_text()
+    simulate = (CANONICAL / "simulate/epic-flow.md").read_text()
 
     assert "done-transition -- PREFIX-N --skip-deploy" in deploy
-    assert "yoke events query --event-name MergeEngineFailed --item PREFIX-N" in merge
-    assert "yoke events query --item PREFIX-N" in simulate
+    assert "exact phase and lane" in merge
+    diagnostics = (CANONICAL / "polish/doctrine.md").read_text()
+    assert 'yoke events query --item "$ITEM_REF"' in diagnostics
+    assert "yoke workflow-item epic-task simulation-get --epic {epic-ref}" in simulate

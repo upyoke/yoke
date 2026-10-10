@@ -157,25 +157,18 @@ def unwritten_capture_refusal(
             f"{grace_seconds:g}s, and nothing has been written to it.\n"
             f"#   Cause: run {driver.run_id} has a live driver in phase "
             f"{driver.phase} since {driver.attached_at} (session "
-            f"{driver.session_id}, pid {driver.pid}{capture}). The freeze "
-            "that pins a self-deploy driver is the worked case — it is "
-            "silent until it finishes, and the capture flags were not the "
-            "problem.\n"
+            f"{driver.session_id}, pid {driver.pid}{capture}); capture flags "
+            "are not the problem.\n"
             "#   Fix: wait for that driver, or inspect that process; do "
             "not start a second execute of the same run.\n"
         )
     return (
         f"# watch_tail refusing: no watcher claimed {path} within "
         f"{grace_seconds:g}s, and nothing has been written to it.\n"
-        "#   Cause: this tail was armed on a capture the run never used. A "
-        "wrapper run WITHOUT\n"
-        "#   --raw-capture/--progress-capture mints a fresh capture pair and "
-        "writes there instead.\n"
-        "#   Fix: paste the background command from --print-streaming-pair "
-        "verbatim -- its\n"
-        "#   --raw-capture/--progress-capture flags are what bind the run to "
-        "this tail -- then\n"
-        "#   arm this tail once against the printed progress capture.\n"
+        "#   Cause: this tail names a capture the run never used.\n"
+        "#   Fix: run the --print-streaming-pair background command verbatim, "
+        "including --raw-capture/--progress-capture, then arm its printed "
+        "progress tail once.\n"
     )
 
 
@@ -184,11 +177,9 @@ def dead_writer_refusal(path: Path, *, pid: int) -> str:
     return (
         f"# watch_tail refusing: watcher pid {pid} owning {path} exited "
         "without writing an exit sentinel.\n"
-        "#   Cause: watcher interrupted; the process died before it could report "
-        "'# watch_<kind> exit=<rc>'.\n"
-        "#   Fix: inspect the raw capture named in this file's header line, "
-        "then re-run the\n"
-        "#   background command printed by --print-streaming-pair.\n"
+        "#   Cause: watcher interrupted before '# watch_<kind> exit=<rc>'.\n"
+        "#   Fix: inspect the header's raw capture, then re-run the "
+        "--print-streaming-pair background command.\n"
     )
 
 

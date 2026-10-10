@@ -1,170 +1,83 @@
-# Polish — Parse And Claim
+# Polish — Parse, Claim, Validate
 
-Covers polish steps 1, 2, and 3: parse the item argument, locate the existing worktree lane set, and activate polish (hard gate).
-
-**Context variables** (consumed by later phases): `ITEM_REF`, `ITEM_REF`,
-`ITEM_WORKFLOW_ID`, `ITEM_STATUS`, `ITEM_TITLE`, `WORKTREE_SCOPE`,
-`WORKTREE_COUNT`, `WORKTREE_BRANCH`, `WORKTREE_BRANCHES`, `WORKTREE_PATH`,
-`WORKTREE_PATHS`, `WORKTREE_EXISTS`, `WORKTREE_MISSING`, `ITEM_PROJECT`,
-`REPO_ROOT`, `POLISH_ENTRY_STAGE`, `POLISH_THROUGH_STAGE`, `LIVE_STAGE`,
-`NEXT_STAGE`.
-
----
-
-## 1. Parse And Lookup
-
-Resolve the item metadata through the unified DB router.
+## 1. Resolve identity and pin
 
 ```bash
-MAIN_ROOT=$(git rev-parse --show-toplevel)
 ITEM_REF="{arg}"
-ITEM_PIN_JSON=$(yoke workflows item get "$ITEM_REF" --json 2>/dev/null) || ITEM_PIN_JSON=""
-# ITEM_REF — public PREFIX-N for every yoke CLI item argument.
-ITEM_WORKFLOW_ID=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["workflow_id"])' 2>/dev/null) || ITEM_WORKFLOW_ID=""
-ITEM_STATUS=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["status"])' 2>/dev/null) || ITEM_STATUS=""
-ITEM_TITLE=$(yoke items get "$ITEM_REF" title 2>/dev/null) || ITEM_TITLE=""
+ITEM_PIN_JSON=$(yoke workflows item get "$ITEM_REF" --json)
+# ITEM_REF — public PREFIX-N for every item argument.
 ```
 
-If any of those reads come back empty, stop with:
-> Item PREFIX-{N} not found.
+Require complete public identity, title, status, project, workflow id and
+version. Read title/project through `yoke items get` if absent from the pin.
+A failed, empty or malformed read halts with its actual error; do not turn it
+into a missing-item or zero-lane fallback.
 
-Read the item's exact immutable version before selecting a stage:
-
+Read that exact immutable version:
 ```text
-yoke workflows version get WORKFLOW VERSION --json
+yoke workflows version get <workflow-id> <workflow-version> --json
 ```
 
-Use `workflow_id` and `workflow_version` from the item pin for `WORKFLOW`
-and `VERSION`. In `definition.stages` order, find the half-open
-`definition.skill_bindings` interval containing `ITEM_STATUS`. Require its
-`skill_id` to be `polish`; set `POLISH_ENTRY_STAGE` to `from_stage_id` and
-`POLISH_THROUGH_STAGE` to `through_stage_id`. Never branch on workflow name.
-If no such interval exists or another skill owns it, stop with
-`polish_binding_mismatch`, name the live stage and its bound skill, and
-resolve re-entry through [the shared handoff recipe](../shared/stage-handoff.md).
+Using `definition.stages` order, find the half-open
+`definition.skill_bindings` interval containing the returned status. Require
+`skill_id=polish`; retain its `from_stage_id` as `POLISH_ENTRY_STAGE` and
+`through_stage_id` as `POLISH_THROUGH_STAGE`. Never route by workflow name.
+No matching polish binding is `polish_binding_mismatch`: name the live stage
+and owner and use the [shared handoff recipe](../shared/stage-handoff.md).
 
-## 2. Locate The Worktree Lane Set
+## 2. Claim — HARD GATE
 
-Use the registered item-worktree adapters so polish resolves the same
-repo and definition-selected implementation lane set over https. The
-module form `python3 -m yoke_core.domain.worktree resolve` is not an
-agent recipe: ambient python3 has no `yoke_core`, and the module opens
-local Postgres. Do not collapse those lanes back into `PREFIX-{N}`.
-
-Run these as bare registered commands and parse the JSON in prompt
-context — do not capture adapter stdout into a shell variable:
-
-```text
-yoke items get PREFIX-N project
-yoke item-worktrees list PREFIX-N --json
-yoke item-worktrees get PREFIX-N --field path
-yoke item-worktrees get PREFIX-N --field branch
-```
-
-From that output set:
-
-- `ITEM_PROJECT` — `items get` project slug
-- `WORKTREE_COUNT` — number of `worktrees` rows from `item-worktrees list`
-- `WORKTREE_PATHS` / `WORKTREE_BRANCHES` — each row's `path` / `branch`
-- `WORKTREE_PATH` / `WORKTREE_BRANCH` — `item-worktrees get` for the
-  implementation lane when `WORKTREE_COUNT` is 1; leave empty when
-  there are multiple lanes and iterate `WORKTREE_PATHS` instead
-- `WORKTREE_EXISTS` — `yes` only when every listed path is a directory
-- `WORKTREE_MISSING` — listed paths that are not directories
-- `WORKTREE_SCOPE` — `item` when one lane, `epic` when more than one
-- `REPO_ROOT` — the checkout that owns the first lane (the parent of
-  `.worktrees/` when the path contains that segment)
-
-If list or get fails, stop with that command's error. Do not treat a
-failed read as zero lanes.
-
-If `WORKTREE_COUNT` is `0` or `WORKTREE_PATHS` is empty, stop:
-> **Cannot polish PREFIX-{N}:** No implementation worktree lanes found.
-> Issue items need their item worktree; epic items need task-level `worktree_path` rows from conduct.
-> Run the appropriate implementation entry command before polish.
-
-If `WORKTREE_EXISTS` is not `yes`, stop:
-> **Cannot polish PREFIX-{N}:** One or more recorded worktree lanes are missing.
-> Missing lanes:
-> `{WORKTREE_MISSING}`
-> Re-enter the implementation/conduct flow to recreate or repair the recorded lanes before polish.
-
-All subsequent file operations MUST use absolute paths from `WORKTREE_PATHS`. For a single-lane item, `WORKTREE_PATH` is also set for compatibility with existing snippets. For a multi-lane epic, iterate every non-empty line in `WORKTREE_PATHS`; never substitute `/.../.worktrees/PREFIX-{N}` or reuse one task lane for its siblings.
-
-## 3. Activate Polish — HARD GATE
-
-**This step is mandatory and must execute immediately after worktree validation.** No context gathering, diff review, test execution, or exploration of any kind may happen before this step completes. The claim and status transition are the first executable actions after confirming the item and worktree exist.
-
-**3a. Stamp session mode and claim the item** (claim-before-status ordering). The session stamp uses the registered session wrapper. Then run the work-claim CLI; it acquires the typed claim and touches the session row in the same transaction. The active harness session is resolved from the environment — do not pass `--session-id`.
-
+Acquire before filesystem lane validation, context, diff review, tests, or
+exploration. Claim before any status mutation. Stamp the session's mode:
 ```bash
 yoke sessions touch --mode polish
-yoke claims work acquire \
-    --item "$ITEM_REF" \
-    --reason polish_run
+yoke claims work acquire --item "$ITEM_REF" --reason polish_run
 ```
 
-After `claim-work`, verify the session holds an active claim on `$ITEM_REF` before proceeding. Use the registered holder command — never construct a DB path manually or use worktree-local paths:
-
+This claim-work operation is `claims.work.acquire`; it
+**touches the session row in the same transaction**. The active session comes from ambient identity.
+A `claim_conflict` stops immediately. Verify the returned claim/registered
+holder belongs to that session before continuing:
 ```bash
-_claim_holder=$(yoke claims work holder-get --item "$ITEM_REF" --json 2>/dev/null | python3 -c \
- 'import json,sys; print((json.load(sys.stdin)["result"].get("holder") or {}).get("session_id", ""))' 2>/dev/null) || _claim_holder=""
-if [ "$_claim_holder" != "${YOKE_SESSION_ID}" ]; then
-    echo "HALT: polish — no active work_claims row for ${ITEM_REF} held by this session."
-    echo "Recovery: re-run 'yoke claims work acquire --item ${ITEM_REF} --reason polish_run'."
-    exit 1
-fi
+yoke claims work holder-get --item "$ITEM_REF" --json
+yoke sessions identity --json
 ```
 
-If `claim-work` reports `error.code="claim_conflict"` (item held by another live session), **stop immediately**. Do not proceed to context gathering or review.
+If holder verification fails, halt and name the failed condition and acquire
+recovery. Never construct a DSN or use a worktree-local control plane.
 
-Function-call equivalent (for dispatch-surface callers — the CLI above builds this envelope internally):
+## 3. Validate lanes and activate
 
-```jsonc
-{
-  "function": "claims.work.acquire",
-  "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "public_ref": "$ITEM_REF"},
-  "payload": {"target": {"kind": "item", "public_ref": "$ITEM_REF"}, "reason": "polish_run"}
-}
+Use the existing registered lane set:
+```bash
+yoke item-worktrees list "$ITEM_REF" --json
+yoke item-worktrees get "$ITEM_REF" --field path
+yoke item-worktrees get "$ITEM_REF" --field branch
 ```
 
-**3b. Activate the bound working stage.** Refresh the item pin and its
-definition after claiming. Confirm the live interval still belongs to polish.
-Set `LIVE_STAGE` to the returned status. When it equals `POLISH_ENTRY_STAGE`,
-set `NEXT_STAGE` to the unique declared forward target in
-`definition.transitions` whose `from_stage_id` is `LIVE_STAGE`, using
-`definition.stages` order to exclude rework edges. Require that target to
-remain inside the polish interval, before `POLISH_THROUGH_STAGE`.
+Retain project, every path/branch and count; a single lane also supplies
+`WORKTREE_PATH`/`WORKTREE_BRANCH`. Multiple lanes supply
+`WORKTREE_PATHS`/`WORKTREE_BRANCHES`; do not collapse them into a parent-ref
+path or borrow one sibling's lane. Resolve `REPO_ROOT` from their owning
+checkout and validate every path as an existing directory. Zero/empty rows,
+failed reads or missing directories halt with the actual missing lane and
+implementation/conduct re-entry recovery. Every file operation uses these
+absolute lane paths.
+
+Refresh the pin/version after claiming and recheck polish ownership.
+Set `LIVE_STAGE` to its status. At `POLISH_ENTRY_STAGE`, select the unique
+declared forward edge from `definition.transitions`, using
+`definition.stages` order to exclude rework. Its target `NEXT_STAGE` must be
+strictly before `POLISH_THROUGH_STAGE` and inside the interval.
 No unique edge is `workflow_next_stage_ambiguous`; no working stage before
-the boundary is `polish_segment_invalid`. Stop and ask the workflow owner
-to repair or select the declared route; do not invent a stage.
+the boundary is `polish_segment_invalid`. Stop for workflow-owner repair or
+declared-route selection; do not invent a stage.
 
-Use `lifecycle.transition.execute` to run the target gates:
-
+`lifecycle.transition.execute` runs the target gates:
 ```bash
 yoke lifecycle transition "$ITEM_REF" --from "$LIVE_STAGE" --to "$NEXT_STAGE" --reason "Polish started"
 ```
 
-After success, refresh `ITEM_STATUS` from the item pin. When resuming at a
-working stage inside the interval, skip the entry transition and retain that
-stage; never repeat an already completed transition.
-
-Function-call equivalent (the CLI above builds this envelope internally):
-
-```jsonc
-{
-  "function": "lifecycle.transition.execute",
-  "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "public_ref": "$ITEM_REF"},
-  "intent": "enter_polish",
-  "payload": {"source_status": "$LIVE_STAGE", "target_status": "$NEXT_STAGE"}
-}
-```
-
-**3c. Verification checkpoint:** The item must be at a working stage inside
-the polish interval and this session must hold the work claim. If either
-condition is not met, stop with the failed condition and its recovery above.
-Only then proceed to [`context.md`](context.md).
+On resumed working stages, **skip the entry transition**. Refresh status after
+success; require both this session's active work claim and a working stage
+inside the polish interval before [context.md](context.md).

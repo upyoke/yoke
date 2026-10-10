@@ -18,5 +18,7 @@ def test_simulate_operator_classification_is_consistent():
 
 def test_epic_simulation_leaves_reflection_persistence_to_hook():
     text = _read(SKILLS / "simulate" / "epic-flow.md")
-    assert "PostToolUse Agent hook" in text
+    assert "reflections through the active harness contract" in text
+    assert "do not duplicate automatic\nhook capture" in text
+    assert "Manual recovery/backfill first verifies capture was absent" in text
     assert "yoke ouroboros entry insert" not in text

@@ -37,7 +37,9 @@ def test_profile_confirms_exactly_one_named_delivery_outcome() -> None:
     assert "Every profile names exactly one delivery outcome" in delivery
     assert "**Persistent environment**" in delivery
     assert "**Merge-only**" in delivery
-    assert "local merge with no environment and no deployment pipeline or run" in delivery
+    assert (
+        "local merge with no environment and no deployment pipeline or run" in delivery
+    )
     assert "**No default**" in delivery
     assert "offer only merge-only or no default" in delivery
     assert "delivery {persistent-environment|merge-only|no-default}" in confirmation
@@ -61,9 +63,9 @@ def test_no_host_merge_only_branch_creates_a_runless_default() -> None:
     assert "no deployment run" in merge_only
     assert "yoke projects site create" not in merge_only
     assert "yoke projects environment create" not in merge_only
-    create_command = merge_only.split(
-        "yoke deployment-flows create", 1
-    )[1].split("yoke deployment-flows get", 1)[0]
+    create_command = merge_only.split("yoke deployment-flows create", 1)[1].split(
+        "yoke deployment-flows get", 1
+    )[0]
     assert "--target-tier" not in create_command
     assert "--environment" not in create_command
 
@@ -78,21 +80,24 @@ def test_no_default_branch_clears_and_verifies_the_attachment() -> None:
 
     assert "confirmed delivery outcome is **no default**" in no_default
     assert '"op":"remove","family":"deploy_defaults"' in no_default
-    assert no_default.count(
-        "yoke project-structure deploy-defaults get --project {project}"
-    ) == 2
+    assert (
+        no_default.count(
+            "yoke project-structure deploy-defaults get --project {project}"
+        )
+        == 2
+    )
     assert "delivery-setup=not-needed" in no_default
 
 
 def test_usher_routes_registered_empty_tier_without_starting_a_run() -> None:
     text = _read(USHER / "deploy.md")
-    grouping = _between(text, "## Step 8a", "## Step 8b")
-    route_a = _between(text, "## Step 8b", "## Step 8c")
+    grouping = text.split("## Route A", 1)[0]
+    route_a = _between(text, "## Route A", "## Route B")
 
-    assert "registered `deployment_flows.get` function" in grouping
-    assert "successful empty target tier is merge-only" in grouping
-    assert "names a registered flow whose\n  `target_tier` is empty" in grouping
-    assert "registered merge-only items (no run)" in text
+    assert "Read actual flow target_tier and status" in grouping
+    assert "Successful empty/no flow" in grouping
+    assert "Route A" in grouping
+    assert "unresolved Route B, never guessed" in grouping
     assert "deployment-runs start-for-item" not in route_a
     assert "done-transition -- PREFIX-N --skip-deploy" in route_a
 
@@ -133,7 +138,9 @@ def test_archetypes_teach_current_merge_only_delivery() -> None:
         "A12-agency-greenfield.md": "confirms **merge-only**",
     }
 
-    assert "any registered empty-tier flow" in overview
+    assert "carry `target_tier` NULL, create no deployment run" in " ".join(
+        overview.split()
+    )
     assert "G-no-merge-only-default" not in ledger
     assert "any registered flow whose `target_tier` is\nempty" in ledger
     for name, phrase in expected.items():

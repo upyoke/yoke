@@ -16,7 +16,7 @@ ITEMS_TABLE: dict[str, dict] = {
             ("project_id", "INTEGER"),
             ("public_ref", "TEXT"),
         ],
-        "notes": "Read-only view of current project prefixes. Join item_refs.item_id to items.id for unambiguous public refs; prefix updates are reflected immediately.",
+        "notes": "Read-only view of current project prefixes. Join item_refs.item_id to items.id and read item_refs.public_ref; there is no item_refs.ref column. Prefix updates are reflected immediately.",
     },
     "items": {
         "columns": [

@@ -34,9 +34,13 @@ Before filing, read `yoke workflow execution-instruction resolve --workflow W
 `--execution-instructions-considered` attestation covers only those instructions.
 Creation receipts describe that same set. The web form uses the same resolver.
 
-Individual item field, body, section-projection, and detail reads always attach
-On every read instructions plus stage-entry instructions targeting the live
-bucket, independent of whether narrative content was requested. A successful
+Item reads resolve On every read instructions plus stage-entry instructions
+targeting the live bucket. Full item reads print one full copy; narrow field,
+section and Progress Log reads print one line naming the applicable rules and
+the exact full-read command. Work-claim acquisition and composed worker launch
+mandates deliver the full instructions for the item. Delivery is stateless,
+tied to these existing events; no session tracking is added. JSON reads retain
+the complete instruction facts. A successful
 `lifecycle.transition.execute` returns `execution_instructions` containing
 stage-entry instructions for its entered bucket. Failed transitions return none.
 Instructions remain separate from item content and never round-trip into it.
@@ -55,8 +59,8 @@ clears it. Disable stage delivery in the same edit when clearing an enabled targ
 
 ```text
 yoke workflow execution-instruction create --content "Run implementation checks." --no-before-creation --no-on-every-read --when-entering-stage --stage-bucket implementing
-yoke workflow execution-instruction set-scope ID --all-workflows --all-projects
-yoke workflow execution-instruction update ID --content "Run review checks." --stage-bucket reviewing
+yoke workflow execution-instruction set-scope {instruction_id} --all-workflows --all-projects
+yoke workflow execution-instruction update {instruction_id} --content "Run review checks." --stage-bucket reviewing
 ```
 
 Read each operation's `--help` before changing scope or delivery. Delivery and

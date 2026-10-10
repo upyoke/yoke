@@ -76,6 +76,11 @@ references retain their separate owners and canonical relative paths.
 
 ## Verify native discovery
 
+Startup orientation is composed on the client and confirmed only after it
+reaches an allow response. HTTPS skips the server lifecycle renderer. Local
+universes mark supplied client context so lifecycle dispatch keeps registration
+and resume handling without emitting a second orientation.
+
 After fresh install and repeated refresh, inspect the native skills menu:
 each native Yoke entry should appear once. For Codex, open the skill picker and search
 Onboard. For Cursor, type `/onboard` without submitting it; distinguish Yoke's

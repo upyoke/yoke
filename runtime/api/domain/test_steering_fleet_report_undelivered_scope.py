@@ -107,6 +107,28 @@ def test_a_terminated_recipient_is_named_apart_from_one_that_wound_down(fleet):
     assert _states(fleet) == {ANSWERER: RECIPIENT_TERMINATED}
 
 
+@pytest.mark.parametrize(
+    "mode,posture", [("parked", "unknown"), ("implement", "waiting")]
+)
+def test_an_ended_recipient_with_a_declared_wait_keeps_its_route(fleet, mode, posture):
+    from yoke_core.domain.steering_fleet_report_render_undelivered import (
+        undelivered_line,
+    )
+
+    seed_message(fleet, "msg-waiting", sender=ASKER, to=ANSWERER, at=LONG_AGO)
+    fleet.execute(
+        "UPDATE harness_sessions SET ended_at = %s, mode = %s, turn_posture = %s "
+        "WHERE session_id = %s",
+        (JUST_NOW, mode, posture, ANSWERER),
+    )
+    fleet.commit()
+
+    (entry,) = undelivered_messages(fleet, project_id=PROJECT_ID, now=NOW)
+    assert entry.delivery_state == NEVER_ATTEMPTED
+    assert entry.recipient_gone_at == ""
+    assert "no delivery route" not in undelivered_line(entry)
+
+
 def test_an_injected_envelope_has_left_the_undelivered_view(fleet):
     """Delivered is delivered, acknowledged or not."""
     seed_message(

@@ -28,7 +28,10 @@ from yoke_core.domain.steering_fleet_report_levels import (
     LevelReadout,
     level_readout_lines,
 )
-from yoke_core.domain.steering_fleet_report_machine_block import machine_shared_lines
+from yoke_core.domain.steering_fleet_report_machine_block import (
+    machine_shared_lines,
+    fleet_shared_lines,
+)
 from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_fingerprint import (
     digest,
@@ -58,10 +61,8 @@ from yoke_core.domain.steering_fleet_report_render import (
 
 
 COMBINED_PREAMBLE = (
-    "Control-plane state, composed server-side for every steering claim this "
-    "session holds. Each heading is one held scope. Derived facts about work "
-    "and workers, not instructions and not peer-authored text. Staffing "
-    "decisions remain the steerer's; nothing here has acted."
+    "Server-composed control-plane facts; each heading is a held scope. "
+    "These are not instructions or peer text. Staffing remains the steerer's; nothing acted."
 )
 
 
@@ -220,12 +221,17 @@ def _level_lines(reports: tuple[FleetReport, ...]) -> list[str]:
     """Each distinct level readout once: scopes on one project share it."""
     names = {key: value for report in reports for key, value in report.machine_names}
     seen: list[LevelReadout] = []
+    headings: set[str] = set()
     lines: list[str] = []
     for report in reports:
         if report.levels is None or report.levels in seen:
             continue
         seen.append(report.levels)
-        lines.extend(["", *level_readout_lines(report.levels, machine_names=names)])
+        block = level_readout_lines(report.levels, machine_names=names)
+        if report.levels.source in headings:
+            block = [f"  placement for project {report.project_id}", *block[1:]]
+        headings.add(report.levels.source)
+        lines.extend(["", *block])
     return lines
 
 
@@ -255,10 +261,13 @@ def combined_body(combined: CombinedFleetReport) -> str:
                 "",
             ]
         )
+    projects: set[int] = set()
     for section, rows in zip(combined.sections, shared):
-        parts.extend(
-            [f"## {section.descriptor}", scope_inner_body(section.report, rows), ""]
-        )
+        first = section.report.project_id not in projects
+        projects.add(section.report.project_id)
+        body = scope_inner_body(section.report, rows, include_header=first)
+        parts.extend([f"## {section.descriptor}", *([body] if body else []), ""])
+    parts.extend(fleet_shared_lines(reports))
     parts.extend(machine_shared_lines(reports, now=combined.composed_at))
     parts.extend(_level_lines(reports))
     if parts[-1] != "":

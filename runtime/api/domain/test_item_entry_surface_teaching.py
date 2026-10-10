@@ -44,7 +44,7 @@ def test_item_entry_block_renders_before_function_call_surface() -> None:
     """The rule appears before lower-level API affordances."""
     body = _core_body()
     intake_pos = body.find("Work-item entry surfaces")
-    fn_call_pos = body.find("Function-call surface")
+    fn_call_pos = body.find("Registered writes")
     assert intake_pos != -1
     assert fn_call_pos != -1
     assert intake_pos < fn_call_pos, (
@@ -53,10 +53,16 @@ def test_item_entry_block_renders_before_function_call_surface() -> None:
     )
 
 
-def test_every_role_packet_inherits_item_entry_doctrine() -> None:
-    """The main agent and every role packet contain the rule."""
+def test_authoring_role_packets_inherit_entry_and_other_roles_discover_depth() -> None:
+    """Creation guidance precedes authoring; other roles inspect it on demand."""
     for role in seed.ROLE_TOPICS:
         body = schema_api_context.render_role_packet(role)
+        if role not in ("main_agent", "architect_agent"):
+            assert "Work-item entry surfaces" not in body
+            assert (
+                f"yoke packets render --role {role} --topic core --detail full" in body
+            )
+            body = schema_api_context.render_topic_packet("core", role=role)
         for token in _ENTRY_TOKENS:
             assert token in body, f"role {role!r} packet missing token: {token}"
 

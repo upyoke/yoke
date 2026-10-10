@@ -43,10 +43,8 @@ def refusal_message(
         f"this build{build} carries {len(missing)} migration history "
         f"entr{'y' if len(missing) == 1 else 'ies'} no passing fleet preflight "
         f"has covered for {target_environment_for_admin_env(environment)}: "
-        f"{listed}. Receipts are per environment — a receipt for one is not "
-        "coverage for another. An entry exists for the databases that are "
-        "behind it, and nothing here has yet run it against one. Rehearse "
-        f"the fleet, then re-run this release:\n  {command}"
+        f"{listed}. Receipts are per environment. Release refused; rehearse "
+        f"this fleet, then retry:\n  {command}"
     )
 
 
@@ -63,10 +61,8 @@ def schema_shape_refusal_message(
     return (
         f"this build{build} carries a schema-shape digest no passing fleet "
         f"preflight has covered for {target_environment_for_admin_env(environment)}: "
-        f"{digest}. Additive schema converges on boot without a history entry, "
-        "and CI only ever creates fresh databases, so an unrehearsed shape "
-        "reaches the fleet as a missing column. Receipts are per environment. "
-        f"Rehearse the fleet, then re-run this release:\n  {command}"
+        f"{digest}. Receipts are per environment. Release refused; rehearse "
+        f"this fleet, then retry:\n  {command}"
     )
 
 
@@ -137,9 +133,7 @@ def unreadable_message(environment: str, reason: str) -> str:
         "could not read fleet preflight receipts for "
         f"{target_environment_for_admin_env(environment)}, so whether this "
         f"build was rehearsed is unknown rather than answered: {reason}. "
-        "Refusing, because a gate that passes when it cannot check is not a "
-        "gate. Coverage lives on that environment's own settings document, so "
-        "a refused read usually means the identity running this gate lacks "
-        "the project read that projection authorizes on; grant it that read "
-        "on the project, then re-run."
+        "Refusing release. Restore this identity's project read permission "
+        "for the environment's receipt settings, then re-run the preflight:\n  "
+        f"{_DEFAULT_REHEARSE_COMMAND}"
     )

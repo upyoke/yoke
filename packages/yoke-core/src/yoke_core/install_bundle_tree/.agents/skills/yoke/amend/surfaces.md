@@ -1,29 +1,21 @@
-# /yoke amend — function-call surfaces
+# Amend — Typed Surfaces
 
-## Function-call surfaces
+Read [common envelopes](../idea/body-and-sync-functions.md) and
+[task catalog](../../../../.yoke/docs/reference/db-reference/functions-tasks.md)
+before calling an operation.
 
-All task mutations route through the `workflow_item.epic_task.*`
-function family. See
-[`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)
-for the universal envelope shape and the per-function payload
-contracts. The functions amend uses:
+Task mutations:
+`workflow_item.epic_task.add`, `body_replace`, `split`, `reassign`,
+`remove`, `metadata_update`. Use `metadata_update` for scalar fields such as
+github_issue/dependencies. [steps.md](steps.md) owns their action payloads.
+Parent worktree_plan writes use `items.structured_field.replace`.
 
-- `workflow_item.epic_task.add` — create a new task on the epic.
-- `workflow_item.epic_task.body_replace` — write or replace a task's
-  body content (the function-call replacement for the prior
-  `epic task-update-body` choreography).
-- `workflow_item.epic_task.split` — split one task into N children
-  with rewritten dependencies.
-- `workflow_item.epic_task.reassign` — move a task to a different
-  worktree.
-- `workflow_item.epic_task.remove` — close + retire a task that is at
-  `planning` or `planned`.
-- `workflow_item.epic_task.metadata_update` — update one or more
-  scalar fields (`github_issue`, `dependencies`, etc.) atomically.
+Simulation and dispatch-chain reads/writes use registered
+`yoke workflow-item epic-task simulation-get` and
+`yoke workflow-item epic-dispatch-chain ...`.
 
-Worktree-plan edits route through
-`items.structured_field.replace` (`field: "worktree_plan"`) on the
-parent epic. Browser-QA remains on retained operator-debug reads; epic
-simulation and dispatch-chain reads use the registered
-`yoke workflow-item ...` wrappers below.
-
+Resolve/create registered lanes through
+[worktree catalog](../../../../.yoke/docs/reference/db-reference/functions-worktrees.md);
+preserve policy-required roles, verified-current upstream, work/path claims,
+absolute path recording and stale-state preconditions. Browser QA retains its
+existing operator-debug reads.

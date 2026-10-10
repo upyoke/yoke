@@ -1,24 +1,6 @@
-"""Bootstrap helper — shared startup-read renderer for Yoke harnesses.
+"""Shared startup rendering and canonical repo-local skill discovery.
 
-Extracted from the inline Python heredoc in ``bootstrap-helper.sh``.
-Reads the neutral bootstrap spec and renders the common startup context for
-wrapper bootstraps and compact startup hooks.
-
-Also exposes the Yoke-owned repo-local skill discovery contract:
-wrapper-only harnesses and thin docs cannot reliably guess the canonical
-skill location, so this module is the single authoritative surface for
-``skill-list`` and ``skill-path`` against the hidden ``.agents/skills/yoke``
-tree. The resolver deliberately never falls back to home-directory paths —
-``.claude/skills/yoke`` remains a native discovery symlink, but the canonical
-return value is always the ``.agents/...`` path.
-
-Can be used as a module (import functions) or invoked via CLI::
-
-    python3 -m yoke_core.hooks.bootstrap required-files --spec spec.json --root /repo
-    python3 -m yoke_core.hooks.bootstrap render-compact --spec spec.json --root /repo
-    python3 -m yoke_core.hooks.bootstrap render-full --spec spec.json --root /repo
-    python3 -m yoke_core.hooks.bootstrap skill-list --root /repo
-    python3 -m yoke_core.hooks.bootstrap skill-path <skill-name> --root /repo
+Source-tool invocation and authority: docs/harness-bootstrap.md.
 """
 
 from __future__ import annotations
@@ -47,8 +29,8 @@ ROOT_SKILL_NAME = "yoke"
 
 CRITICAL_RUNTIME_INVARIANTS = [
     "Yoke control-plane authority is Postgres: use "
-    "`python3 -m yoke_core.cli.db_router ...` or a registered "
-    "`yoke <subcommand>`.",
+    "registered `yoke <subcommand>` operations; "
+    "diagnostic SELECTs use `yoke db read`.",
     "Never construct DB file paths from `$PWD`, `CLAUDE_PROJECT_DIR`, "
     "or linked worktree paths; worktree-local DBs are validation surfaces "
     "only when explicit env bindings surface them.",

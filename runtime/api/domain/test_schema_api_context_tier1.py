@@ -80,12 +80,12 @@ def test_section_name_appears_adjacent_to_item_sections() -> None:
     )
 
 
-def test_function_call_surface_stanza_names_canonical_models() -> None:
+def test_packet_names_registered_cli_writes_without_internal_dispatch() -> None:
     body = main_body()
-    assert "FunctionCallRequest" in body
-    assert "FunctionCallResponse" in body
-    assert "yoke_contracts.api.function_call" in body
-    assert "yoke_core.domain.yoke_function_dispatch" in body
+    assert "items.structured_field.replace" in body
+    assert "CLI grammar" in body
+    assert "yoke_core.domain.yoke_function_dispatch" not in body
+    assert "FunctionCallRequest" not in body
 
 
 def test_json_nested_field_schemas_appear_for_enumerated_columns() -> None:
@@ -120,8 +120,7 @@ def test_cli_cheat_sheet_contains_canonical_flag_sets() -> None:
     body = main_body()
     for anchor in CLI_ANCHORS_REQUIRED:
         assert anchor in body, (
-            f"CLI cheat sheet must teach canonical flag set anchor "
-            f"{anchor!r}."
+            f"CLI cheat sheet must teach canonical flag set anchor {anchor!r}."
         )
 
 
@@ -148,7 +147,7 @@ def test_harness_id_enum_names_claude_code_and_codex() -> None:
     body = main_body()
     assert "claude-code" in body
     assert "codex" in body
-    assert "`harness_id` enum" in body
+    assert "`harness_sessions.executor`:" in body
 
 
 def test_raw_diagnostic_read_entry_and_ad_hoc_warning_present() -> None:
@@ -193,26 +192,14 @@ def test_no_known_confabulations() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_minimal_envelope_names_session_id_preconditions_options() -> None:
-    """The function-call surface stanza must name ``session_id``, dict
-    ``preconditions``, and dict ``options`` so agents see the full
-    envelope shape without re-deriving it."""
-    body = main_body()
-    assert "session_id" in body
-    assert "preconditions" in body
-    assert "options" in body
-    # The text "dicts (default `{}`)" anchors the dict-default semantics.
-    assert "default `{}`" in body
+def test_role_packet_does_not_teach_internal_envelopes_or_scratch_imports() -> None:
+    from yoke_core.domain.schema_api_context import render_role_packet
 
-
-def test_scratch_python_note_names_pythonpath_not_tmp_imports() -> None:
-    """The guidance must NOT direct agents at scratch `/tmp`
-    Python imports as the normal path. If scratch Python is named, the
-    repo-root/PYTHONPATH requirement must be explicit."""
-    body = main_body()
-    assert "PYTHONPATH" in body
-    assert "/tmp" in body  # surfaced only as the negative-example anchor
-    assert "are not the agent path" in body
+    body = render_role_packet("main_agent")
+    assert "FunctionCallRequest" not in body
+    assert "{function, request_id, actor:" not in body
+    assert "sys.path" not in body
+    assert "prepend the repo root" not in body
 
 
 # ---------------------------------------------------------------------------

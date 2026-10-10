@@ -2,9 +2,11 @@
 
 ## CLI
 
-After install, `yoke` is on PATH and always runs the **main checkout's**
-installed packages (not a linked worktree's source), unless you re-point the
-editable install for source-dev.
+After install, `yoke` is on PATH and runs the installed product. A source-checkout
+installation has its own launcher binding; changing directories does not select
+a linked worktree's build. For pre-merge source development, use
+`yoke dev run -- <command>` to resolve the claimed checkout and verify its
+locked environment before running candidate code.
 
 Common operators:
 
@@ -102,9 +104,10 @@ Launch model choice does not live in machine config. A launch names a level
 [launching by level](reference/session-level-routing.md#launching-by-level) —
 or names an exact selection with `--surface` and the knobs below, recorded as
 an override. A knob an explicit launch leaves unnamed takes the surface's
-vendor default. Preview shows the raw request and the effective selection with
-the source of each knob (`level SENIOR option`, `explicit launch request`, or
-`vendor default`); the launch record retains both, and the bound session shows
+vendor default. Preview combines equal requested/effective settings and shows
+both when they differ, with each knob's source (`level SENIOR option`,
+`explicit launch request`, or `vendor default`). Empty rows are omitted;
+`--json` retains the complete record. The bound session shows
 the effective ask beside provider-attested served facts. A machine file that
 still carries a retired launch-default key keeps loading; `yoke status` warns
 `machine_config_key_retired`, and the next config write removes the key.
@@ -112,6 +115,8 @@ still carries a retired launch-default key keeps loading; `yoke status` warns
 `yoke session-control launch preview --model M` reports each machine's quota
 in the pool `M` actually bills to, under `REQUESTED MODEL POOL`, and ranks
 machines by that pool's meter rather than by whichever window reads lowest.
+The human machine table appears when placement, eligibility or pool readings
+decided the outcome; all candidates and relays remain available in `--json`.
 
 `yoke session-control launch preview` and `create` accept `--level LEVEL`, or
 `--surface S` with the three flags. On an item-bound `create`, `--level` also

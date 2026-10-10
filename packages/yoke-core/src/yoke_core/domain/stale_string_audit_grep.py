@@ -7,6 +7,7 @@ Python-fallback executors.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from typing import Any, Dict, List
 
@@ -50,7 +51,9 @@ def grep_surfaces(
 
 
 def _run_rg(
-    search_root: str, pattern: str, surface: str,
+    search_root: str,
+    pattern: str,
+    surface: str,
 ) -> List[Dict[str, Any]]:
     """Use ripgrep if available."""
     surface_path = os.path.join(search_root, surface)
@@ -63,13 +66,22 @@ def _run_rg(
         glob_args.extend(["--glob", g])
 
     cmd = [
-        "rg", "--no-heading", "--line-number", "--fixed-strings",
-        *exclude_args, *glob_args,
-        pattern, surface_path,
+        "rg",
+        "--no-heading",
+        "--line-number",
+        "--fixed-strings",
+        *(["--word-regexp"] if pattern.isidentifier() else []),
+        *exclude_args,
+        *glob_args,
+        pattern,
+        surface_path,
     ]
     try:
         proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=30,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
     except FileNotFoundError:
         raise  # Let caller fall back to Python grep
@@ -88,17 +100,21 @@ def _run_rg(
                 content = parts[2]
                 # Make path relative to search_root
                 rel = os.path.relpath(filepath, search_root)
-                matches.append({
-                    "file": rel,
-                    "line": lineno,
-                    "content": content.strip(),
-                    "string": pattern,
-                })
+                matches.append(
+                    {
+                        "file": rel,
+                        "line": lineno,
+                        "content": content.strip(),
+                        "string": pattern,
+                    }
+                )
     return matches
 
 
 def _python_grep(
-    search_root: str, pattern: str, surface: str,
+    search_root: str,
+    pattern: str,
+    surface: str,
 ) -> List[Dict[str, Any]]:
     """Pure-Python fallback grep."""
     matches: List[Dict[str, Any]] = []
@@ -107,6 +123,11 @@ def _python_grep(
         return matches
 
     extensions = {".ts", ".tsx", ".js", ".jsx", ".py"}
+    word = (
+        re.compile(r"(?<!\w)" + re.escape(pattern) + r"(?!\w)")
+        if pattern.isidentifier()
+        else None
+    )
     for root, dirs, files in os.walk(surface_path):
         # Prune excluded dirs
         dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
@@ -118,14 +139,16 @@ def _python_grep(
             try:
                 with open(fpath, "r", errors="replace") as f:
                     for i, line in enumerate(f, 1):
-                        if pattern in line:
+                        if word.search(line) if word is not None else pattern in line:
                             rel = os.path.relpath(fpath, search_root)
-                            matches.append({
-                                "file": rel,
-                                "line": i,
-                                "content": line.strip(),
-                                "string": pattern,
-                            })
+                            matches.append(
+                                {
+                                    "file": rel,
+                                    "line": i,
+                                    "content": line.strip(),
+                                    "string": pattern,
+                                }
+                            )
             except OSError:
                 continue
     return matches

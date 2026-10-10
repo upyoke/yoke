@@ -1,6 +1,6 @@
 """Compact fleet-report body for hook context.
 
-The full combined body stays on ``yoke steering report get``. Hook injection
+The full combined body stays on ``yoke steering report get --full``. Hook injection
 gets the actionable sections, this session's unacked inbox, and a pull
 command so a harness inline cap cannot hide the delivery behind a live-claims
 dump.
@@ -22,7 +22,7 @@ from yoke_core.domain.steering_fleet_report_render import (
 #: what each section means are answered by the commands it names.
 DIGEST_PREAMBLE = (
     "Hook digest — machines, surfaces, balances and live claims: "
-    "`yoke steering report get`; sections explained: "
+    "`yoke steering report get --full`; sections explained: "
     "`yoke steering report get --help`."
 )
 

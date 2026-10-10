@@ -1,7 +1,6 @@
 """Doc regressions for engineer agent + conduct submission-checks gate.
 
-Ports ``test-engineer-submission-gate.sh`` plus the related conduct
-dispatch-context wiring assertions.
+Pins durable submission receipts, task attempt watermarks and review blocking.
 """
 
 from __future__ import annotations
@@ -33,13 +32,19 @@ class TestEngineerSubmissionGate:
         return {
             "engineer": AGENTS / "yoke-engineer.md",
             "engineer_tester_loop": SKILLS / "conduct" / "engineer-tester-loop.md",
-            "engineer_tester_dispatch": SKILLS / "conduct" / "engineer-tester-dispatch.md",
+            "engineer_tester_dispatch": SKILLS
+            / "conduct"
+            / "engineer-tester-dispatch.md",
             "cleanup_report": SKILLS / "conduct" / "cleanup-report.md",
             "dispatch_context": SKILLS / "conduct" / "dispatch-context.md",
+            "submission_gates": SKILLS / "conduct" / "dispatch-context-gates.md",
             "hooks_doc": REPO / "docs" / "hooks.md",
             "event_contract": REPO / "docs" / "event-contract.md",
             "event_catalog": REPO / "docs" / "event-catalog.md",
-            "logging_standard": REPO / "docs" / "structured-logging-standard" / "agent-session-pattern.md",
+            "logging_standard": REPO
+            / "docs"
+            / "structured-logging-standard"
+            / "agent-session-pattern.md",
         }
 
     def test_engineer_defines_submission_checks_block(self, docs):
@@ -61,26 +66,37 @@ class TestEngineerSubmissionGate:
 
     def test_engineer_tester_loop_requires_submission_checks_block(self, docs):
         # Content split to engineer-tester-dispatch.md
-        text = _read_bundle(docs["engineer_tester_loop"], docs["engineer_tester_dispatch"])
-        assert "write a final progress note containing the required" in text
+        text = _read_bundle(
+            docs["engineer_tester_loop"],
+            docs["engineer_tester_dispatch"],
+            docs["submission_gates"],
+        )
+        assert "---SUBMISSION-CHECKS-START---" in text
+        assert "epic_progress_notes row; tool-result summary is insufficient" in text
 
     def test_engineer_tester_loop_blocks_safety_net_commits(self, docs):
         # Content split to engineer-tester-dispatch.md
-        text = _read_bundle(docs["engineer_tester_loop"], docs["engineer_tester_dispatch"])
-        assert "Do NOT advance to" in text
+        text = _read_bundle(
+            docs["engineer_tester_loop"], docs["engineer_tester_dispatch"]
+        )
+        assert "no Tester/advance until clean" in text
 
     def test_engineer_tester_loop_records_note_count_baseline(self, docs):
         # Content split to engineer-tester-dispatch.md
-        text = _read_bundle(docs["engineer_tester_loop"], docs["engineer_tester_dispatch"])
-        assert "_progress_note_count_before=" in text
+        text = _read_bundle(
+            docs["engineer_tester_loop"], docs["engineer_tester_dispatch"]
+        )
+        assert "progress-note count before each attempt" in text
 
     def test_cleanup_report_resets_unmerged_generated_views(self, docs):
         text = _read(docs["cleanup_report"])
         assert "reset --quiet HEAD -- .yoke/BOARD.md" in text
 
-    def test_cleanup_report_cleans_ignored_generated_views(self, docs):
+    def test_cleanup_report_protects_generated_view_and_unrelated_files(self, docs):
         text = _read(docs["cleanup_report"])
-        assert "clean -fdX -- .yoke/BOARD.md" in text
+        assert "Generated .yoke/BOARD.md is untracked" in text
+        assert "normalize only this generated-view index entry" in text
+        assert "clean -fdX" not in text
 
     def test_dispatch_context_requires_submission_checks_block(self, docs):
         text = _read_dispatch_context(docs["dispatch_context"])
@@ -88,11 +104,12 @@ class TestEngineerSubmissionGate:
 
     def test_dispatch_context_records_per_item_baseline(self, docs):
         text = _read_dispatch_context(docs["dispatch_context"])
-        assert "_progress_note_count_before_{_id}=" in text
+        assert "attempt's progress-note watermark" in text
+        assert "--after-note-count {NOTE_COUNT}" in text
 
     def test_dispatch_context_blocks_safety_net_commits(self, docs):
         text = _read_dispatch_context(docs["dispatch_context"])
-        assert "Do NOT advance the item to" in text
+        assert "rescue remains a blocker, never automatic review readiness" in text
 
     def test_engineer_deterministic_submission_trigger(self, docs):
         """Engineer defines a concrete numeric cutoff.
@@ -125,7 +142,10 @@ class TestEngineerSubmissionGate:
     def test_dispatch_context_submit_only_remediation(self, docs):
         """Conduct defines submit-only remediation contract."""
         text = _read_dispatch_context(docs["dispatch_context"])
-        assert "submit-only remediation contract" in text.lower() or "Submit-only remediation contract" in text
+        assert (
+            "submit-only remediation contract" in text.lower()
+            or "Submit-only remediation contract" in text
+        )
 
     def test_dispatch_context_remediation_bounded(self, docs):
         """Remediation bounded to 20 turns."""

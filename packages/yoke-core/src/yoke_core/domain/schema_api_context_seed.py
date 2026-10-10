@@ -70,8 +70,8 @@ STALE_TERMS: tuple[str, ...] = (
 # - ``main_agent`` is the top-level Yoke agent running inline skills /
 #   ad-hoc investigation. It receives ``core`` + ``claims`` plus ``qa`` and
 #   the compact Pack projection topic;
-#   deployment-run raw-query diagnostics are taught as a compact role hint
-#   so the main packet does not inherit the full project topic:
+#   deployment/run diagnostics and release obligations stay in an explicit
+#   project-topic read, linked from the main packet:
 #   conduct / polish / advance main sessions orchestrate engineer +
 #   tester loops and routinely inspect tester-review state ahead of
 #   re-dispatch, so the ``qa_requirements`` / ``qa_runs`` surface

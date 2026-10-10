@@ -7,8 +7,6 @@ argument-hint: ""
 
 # /yoke help
 
-Display the Yoke command reference.
-
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
@@ -17,12 +15,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Output
 
-Show the following reference:
-
-```
-Yoke -- Your operating system for software delivery
-
-```
+Show this registry and reference:
 
 <!-- BEGIN GENERATED: skill-registry -->
 Skill metadata is generated from `yoke_contracts.skill_registry`.
@@ -57,53 +50,49 @@ yoke_core.tools.render_skill_registry_inline --target-root CHECKOUT`.
 ```text
 LOCAL TERMINAL HELPERS
  yoke setup
-  Machine setup wizard; picks where the Yoke lives (local / team server / upyoke.com).
+  Machine setup: local, team server or upyoke.com.
  yoke project create
-  Create a new project/repo and bind it to Yoke.
+  Create and bind a project/repo.
  yoke project import
-  Clone/import an existing repo and bind it to Yoke.
+  Clone/import and bind a repo.
  yoke onboard project
-  Bind an existing local checkout after machine setup.
+  Bind a local checkout after setup.
  yoke project install [CHECKOUT]
-  Install or repair the project-local Yoke operating layer.
+  Install/repair the project-local operating layer.
  yoke status
-  Verify machine, env, credential, and checkout bindings.
+  Verify machine/env/credential/checkout bindings.
  yoke dev setup [CHECKOUT]
   Explicit Yoke source-dev/admin setup.
  yoke dash TITLE INSTRUCTION / yoke task TITLE INSTRUCTION
-  File direct work; Task is the laneless, merge-free alternative to Dash.
+  File direct work; Task is laneless and merge-free.
  /yoke idea --workflow issue|epic|blitz|task {title}
-  Select the workflow when filing new work; `/yoke blitz` executes document-led work.
+  Select the filing workflow; `/yoke blitz` executes document-led work.
  yoke items freeze PREFIX-N / yoke items thaw PREFIX-N
-  Park an item off the active board, or return it. Lifecycle status is kept.
-  Work that will never resume is `yoke items cancel`, not freeze.
+  Park/return an item, preserving lifecycle status. Cancel work that will never resume.
  yoke items cancel PREFIX-N --reason TEXT [--ref PREFIX-M]
-  Cancel an item that will never resume. Takes the claim; frozen items cancel in one step.
+  Takes the claim; frozen items cancel in one step.
  yoke items block PREFIX-N --reason TEXT / yoke items unblock PREFIX-N
-  Set or clear the blocked flag and its reason. Lifecycle status is kept.
-  The command takes the item claim for you; refuses if someone holds it.
+  Set/clear blocked flag/reason, preserving lifecycle. Takes the claim; refuses another holder.
  yoke board art variant create --ascii
-  Generate, preview, and optionally apply .yoke/board-art variants.
+  Generate/preview/optionally apply .yoke/board-art variants.
   Use `--mixed` or `--image PATH` for the other variant families.
-  Runs directly in a terminal; no harness session is required.
+  Terminal-only; no harness session required.
  yoke models lookup MODEL_ID / get / validate / diff / publish / revisions / restore
-  Sourced effective-dated catalog reads, review, and publication. Use `/yoke models` for the full recipe.
+  Sourced effective-dated catalog reads/review/publication; full recipe: `/yoke models`.
 
 WORKFLOW ROUTING
  yoke workflows item get PREFIX-N --json
-  Read the item's pinned workflow version, live stage, and next bound skill.
+  Read pinned workflow/version, live stage and next bound skill.
  yoke workflows version get <workflow> <version> --json
-  Read that immutable definition's stages, transitions, gates, and skill bindings.
-  The binding's half-open interval owns the live stage; its through_stage_id
-  is the next command and claim handoff. Use the returned next_skill_id.
-  Lifecycle flows come from this definition, including the release wait.
+  Read immutable stages/transitions/gates/skill bindings. The half-open binding
+  owns the live stage; through_stage_id is the command/claim handoff. Use returned
+  next_skill_id. The definition owns lifecycle flows, including the release wait.
 
 DEPENDENCY INSPECTION
- Authoritative dependency data lives in the item_dependencies table.
+ Authority: item_dependencies.
  yoke items dependency list PREFIX-N
- Show the full dependency graph for an item (both directions).
- Dependencies are enforced by implement (before implementing) and usher (before merge).
- usher --dry-run shows the dependency edges driving merge order.
+  Full graph, both directions; enforced before implementation and merge.
+  /yoke usher --dry-run shows dependency-driven merge order.
 
 For full documentation, see README.md
 ```

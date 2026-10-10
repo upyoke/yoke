@@ -1,118 +1,84 @@
 # Implement — Worktree Preflight + Re-entry
 
-> **Orchestrator role:** For implementation entry, the implementation-entry orchestrator (`yoke_core.engines.advance_implementation_entry`) calls `worktree_preflight.run_preflight` directly and emits the outcome as `AdvancePhaseCompleted{phase="worktree"}`. The doc below remains the canonical contract for the worktree-preflight envelope and exit codes — the orchestrator's reference. The CLI invocation below remains valid for operators reconciling worktree state outside the orchestrator.
+The implementation-entry engine composes `worktree_preflight.run_preflight`
+once: identity probe, claim, path activation, verified upstream and lane.
+It emits `AdvancePhaseCompleted{phase="worktree"}`. This is the engine's
+contract; normal entry uses [entry.md](entry.md), with no manual relaunch.
+Standalone preparation is an operator reconciliation boundary.
 
-Composed by the implementation-entry engine when `/yoke implement` enters a
-segment the pinned definition binds to `implement` with a single
-implementation lane. Owns
-collision detection, dirty-main protection, canonical/legacy worktree
-recognition, and worktree creation. The session's write authority over the new
-worktree is its work-claim (acquired by preflight after the implementation-entry
-identity probe), validated per tool call by `lint_session_cwd`.
+The item owns its project and registered checkout; a disagreeing project
+cross-check refuses. Same-session claim acquisition is idempotent, a live
+holder conflict blocks. A launch-mandated claim already held remains valid.
+Write authority is the work-claim, validated per call by `lint_session_cwd`.
 
-This phase is **Python-owned** through `yoke_core.domain.worktree_preflight`; use the registered preparation command below.
+## Outcome contract
 
-**Context variables** (set by `entry.md`): `{N}`, `_worktree_policy`,
-`_current_executor`, `--no-worktree` flag, `--force` flag
+| Exit | Meaning |
+|---|---|
+| 0 | JSON envelope: `ok`, `public_ref`, branch/path, `semantic_scope`, `physical_cwd_mode`, actions and notes |
+| 1 | Sanctioned block: work/path claim conflict, unreadable or stale upstream, overlapping dirt, creation failure; do not advance |
+| 2 | Missing or malformed public item ref |
 
-**Enforcement owner:** `yoke_core.domain.worktree_preflight` (orchestrator + CLI), with step helpers in `yoke_core.domain.worktree_preflight_steps`.
+`physical_cwd_mode=matched` means cwd is inside the lane; `static` means
+it stayed at main. Both support writes under the claim.
+The canonical first action for sticky-cwd harnesses is the Step 0
+`cd` in [Implementation Re-Anchor](implementing/implementation.md#implementation-re-anchor).
+Static-cwd tools must inline absolute lane paths and `git -C`; test wrappers
+must collect from that lane. Read the project's source-dev and verification
+rules before choosing a test invocation.
 
----
+For known targets, use narrow reads and `rg` with absolute lane paths.
+Recursive discovery excludes git, worktrees, caches, virtualenvs, vendored
+dependencies and build output. Do not let a main-checkout cwd silently select
+another tree.
 
-## Invocation
+## Preparation invariants
 
-Normal implementation entry invokes `worktree_preflight.run_preflight`
-in-process through the orchestrator. The standalone worktree-preflight CLI is a
-Yoke source-dev/admin boundary for operators reconciling worktree state outside
-the orchestrator; no registered product CLI wrapper exists, so do not teach it
-as normal product flow.
+- Identity is corroborated before mutation. A live work-holder conflict is
+  coordination; widening cannot cure it.
+- Activation runs once inside preflight; [activation.md](activation.md)
+  owns its result. Blocked claims and diverged integration refs propagate.
+- Upstream is the project's declared default branch and recorded tracking
+  remote, never an assumed name or the checked-out branch. A failed fetch,
+  missing tracking remote, unreadable ref or comparison is
+  `upstream-unverified`; remote-backed work has no offline fallback.
+  A project with no remote is the distinct verified local-only case.
+- With verified upstream, a local default with no extra commits can
+  fast-forward. Dirt preventing that update, or a default checked out
+  elsewhere, stays untouched and the new lane takes the fetched revision.
+  Ahead-only local already contains upstream and may start a lane.
+  Divergence is `upstream-stale`: preserve and report local commits, never
+  reset, replay or rebase them through preparation. Freshness is read per
+  preparation, not cached for the whole process. Actions include
+  `upstream:<state>`; actionable notes begin `upstream freshness:`.
+- Existing canonical lanes are reused without resetting, rebasing or touching
+  in-progress work. Reentry still reports freshness.
+- Dirty-main checks run only for a new lane. Tracked/staged dirt blocks when
+  it overlaps the conflict survey, nonterminal claims or File Budget.
+  Untracked, nongitignored files under source/package roots always block;
+  repo-root scratch outside those roots is a named warning. Existing lanes
+  do not touch main and are not blocked by main dirt.
+- Creation provisions the item's own project and records branch, absolute
+  path and implementation role in `item_worktrees`. Unresolved project
+  refuses. The same session continues into environment/finalize; its claim
+  is the authority, not a scope-change event or relaunch.
 
-Optional flags:
+## Recover a refusal
 
-- `--project <id>` — optional cross-check. The item's own project owns both the checkout its lane is created in and the project that lane is provisioned as (dependency setup, validation surfaces, browser cache), resolved from the item row; a flag that disagrees with the item's project refuses rather than winning.
-- `--no-worktree` — evidence-only items: skip worktree creation but still resolve the work claim, activate path claims, and emit the envelope (with `semantic_scope=main`).
-- `--session-id <id>` — override the session id (defaults to the canonical ambient chain, `yoke_contracts.session_identity`).
+Surface the narrative verbatim; do not advance status or force/widen past it.
+Coordinate with a named work holder, or follow actual dependency direction for
+blocked paths using the [claim rules](../../../../.yoke/docs/reference/agent-rules/lanes-and-claims.md).
+Only real dependents wait. Ask a dirty-main holder to preserve changes by
+commit or correctly named stash; never discard another holder's files.
+Restore remote readability for `upstream-unverified`. Diverged commits need
+owner reconciliation that preserves them; preparation supplies no automatic
+rebase/reset. Surface the git creation error for `worktree-create-failed`.
+Retry only after the underlying condition is resolved.
 
-Exit codes:
-
-| Exit | Meaning                                                                  |
-|---   |---                                                                       |
-| 0    | Success. The execution envelope is on stdout as JSON.                    |
-| 1    | Sanctioned block (`work-claim-conflict`, `path-claim-blocked`, `upstream-unverified`, `upstream-stale`, `dirty-tracked`, `dirty-untracked`, `worktree-create-failed`). Narrative on stderr; do NOT advance status. |
-| 2    | Bad input (missing / malformed `--item`).                                |
-
-The envelope shape is the operator-defined shape — see the Operator Handoff Addendum for the contract:
-
-```json
-{
-  "ok": true,
-  "public_ref": "PREFIX-1234",
-  "branch": "PREFIX-N",
-  "worktree_path": "/Users/.../.worktrees/PREFIX-N",
-  "semantic_scope": "worktree",
-  "physical_cwd_mode": "static",
-  "actions_taken": ["work-claim:already-owned", "path-claim:activated=[39]", "worktree:reused"],
-  "notes": ["..."]
-}
-```
-
-## Harness cwd is independent of write authority
-
-A harness may keep its physical cwd at the main checkout even after the worktree is provisioned. The envelope reports `physical_cwd_mode=matched` when cwd is inside the worktree and `physical_cwd_mode=static` when cwd stayed at main. Yoke treats both as supported — write authority comes from the session's work-claim, not from cwd.
-
-**`cd "<worktree>"` is the canonical first action after worktree provisioning** when the harness supports a sticky cwd. The implementation sub-skill teaches it as Step 0 of [`implementing/implementation.md`](implementing/implementation.md); read that step verbatim. On sticky-cwd harnesses (Claude Code / Claude Desktop), the `cd` silently persists across subsequent Bash tool calls because `.worktrees/<branch>/` lives inside the declared project root — every later Read/Edit/Write/Grep/Glob and every later `pytest` / `python3 -m pytest` / `yoke watch pytest` invocation resolves relative paths against the worktree automatically. Without the `cd`, sticky cwd stays at the main checkout, pytest's positional collection path resolves under main, and the wrong tree gets exercised silently. `watch_pytest` hard-refuses wrong-cwd invocations under a worktree-bearing claim — `cd` once at the top of the session and the refusal never fires.
-
-On static-cwd harnesses (Codex's terminal — `physical_cwd_mode=static` AND no sticky cwd between Bash calls), the `cd` does not persist between calls. Use absolute paths for worktree-bound tool calls — `git -C <worktree> ...` for git ops, absolute paths under `<worktree>/...` for Edit/Read/Write, and `python3 -m pytest --rootdir <worktree> <test-target>` for pytest (run directly as a foreground command since Codex relies on native PTY streaming).
-
-Either way, `lint_session_cwd` validates each call's target paths against the session's claimed worktree set; mismatched targets are denied with a clear "no active claim covering this path" reason.
-
-## Recursive discovery in the bound worktree
-
-Broad relative `grep -r` against the bound worktree is correctly suspicious
-when the harness's physical cwd is at main — the helper below is the
-canonical shape for recursive discovery so agents do not need to author
-relative recursive commands that the per-call target-path validator would
-flag as ambiguous:
-
-```bash
-python3 -m yoke_core.tools.search_code --item PREFIX-{N} --pattern PATTERN \
-    --scope worktree   # default — searches the bound worktree(s)
-python3 -m yoke_core.tools.search_code --item PREFIX-{N} --pattern PATTERN \
-    --scope main       # searches the project repo root only when explicit
-```
-
-The helper resolves absolute roots via `yoke_core.domain.worktree_item_resolve`,
-applies safe default excludes (`.git`, `.worktrees`, cache dirs, virtualenvs,
-`node_modules`, `dist`, `build`), prefers `rg` when present and falls back
-to a tested Python implementation. Output shape is `<path>:<line>:<match>`;
-multi-lane task-graph items prefix each match with the worktree root.
-
-Single-file `grep PATTERN /absolute/path/file` and other single-target
-read-only inspection pass `lint_session_cwd` because their target paths
-are absolute and land under the claimed worktree — use those shapes when
-the discovery target is already known. Reach for `search_code --scope
-worktree` when the recursive walk is the point.
-
-## What preflight handles internally
-
-- **Step 1 — Work claim.** Runs only after the implementation-entry identity probe corroborates the session. Idempotent for same-session re-claim. A live conflict surfaces a `work-claim-conflict` block with a narrative that explicitly disclaims claim-widening as the wrong remediation.
-- **Step 2 — Path-claim activation.** Delegates to `yoke_core.domain.advance_path_claim_activation` (the path-claim activation CLI). Diverged refs and blocked claims propagate to the caller verbatim.
-- **Step 2.5 — Upstream freshness.** `yoke_cli.config.repo_upstream_freshness` fetches the branch the item's project declares as its default, from the remote git records as tracking it — neither name is assumed, and the checked-out branch is never a substitute for an unknown default. **Either freshness is established or preparation refuses:** a remote-backed project whose remote cannot be read (failed fetch, no remote recorded as tracking the branch, unreadable branch or comparison) blocks as `upstream-unverified` rather than falling back to the local branch, which would be the stale start this step exists to prevent; a project with no remote at all is the different, verified answer and stays silent local-only work. On an established reading, a local branch with no commits the remote lacks is fast-forwarded and the lane below cut from that verified revision. An uncommitted change that blocks the fast-forward, or a default branch checked out elsewhere, leaves everything untouched and still hands the lane the fetched upstream revision. A **diverged** branch refuses as `upstream-stale` pending reconciliation: its local commits are preserved and reported, never replayed, but the only base a lane could take there is local — missing the commits just fetched — so no stale lane is created. Ahead-only local is not divergence and still starts a lane, because it already holds every upstream commit. Deduplication is scoped to one preparation rather than to the process, so a long-running process reads the remote again for the next one. The outcome is always in `actions_taken` as `upstream:<state>`, and anything worth acting on is a note beginning `upstream freshness:`.
-- **Step 3 — Worktree resolution.** Canonical `PREFIX-N` is reused idempotently. Re-entry reports freshness exactly as a first entry does, and never resets, rebases, or otherwise touches an existing lane's in-progress work.
-- **Step 3 — Dirty-main guard.** Runs **only** when this call would create a new worktree. `git worktree add` copies HEAD and does not require a clean main. Tracked/staged dirt (`dirty-tracked`) blocks only when it overlaps the paths the new lane needs (conflict-survey touch set, non-terminal path claims, File Budget). Untracked non-gitignored files under source/package roots (`dirty-untracked`) always block — a new module on main can collide. Untracked files outside those roots (repo-root scratch scripts) are a named envelope warning, not a block. When the guard refuses, the narrative names likely holders (live sessions on this machine whose work claim has no implementation lane) and includes an ask-the-holder `yoke say --session` recipe. Re-entry into an existing worktree never touches main and is never blocked by main dirt.
-- **Step 4 — Worktree creation + DB write.** `create_worktree` provisions the lane as the item's own project and records the branch, path, and implementation role in `item_worktrees`; an item whose project cannot be resolved refuses with that reason instead of provisioning under a default project; implementation entry records status on the item. The session continues — no scope envelope, no parent-stop, no claim release, no relaunch. The work-claim acquired in Step 1 is the session's authority over the new worktree, validated per tool call by `lint_session_cwd`.
-- **Step 5 — Envelope rendering.** Emits descriptive `semantic_scope`, `physical_cwd_mode`, and an optional advisory note if the harness cwd is static at main (informational only — the work-claim is what authorizes writes).
-
-## Failure handling
-
-`worktree_preflight` returning a non-zero exit code is **always** a sanctioned block. Surface the stderr narrative verbatim and stop the skill — do not write the status, do not retry, and do not paper over the block with `--force` or path-claim widening.
-
-For `work-claim-conflict`, the right remediation is to coordinate with the holder or wait. For `path-claim-blocked`, follow the `BLOCKED:` / `DIVERGED:` rows to the upstream coordination work item. For `dirty-tracked` / `dirty-untracked`, ask the named holder to commit / stash / drop the files (recipe in the narrative includes their session id), or do that yourself if you are the holder, then retry. Untracked repo-root scratch is not a block. For `upstream-stale`, follow the narrative's own recovery — commit or stash the named local changes, or rebase a diverged branch, then re-run — rather than forcing the update. For `upstream-unverified`, restore whatever kept the remote from being read (network, credentials, a recorded tracking remote) and re-run; preparing offline against a remote-backed project is not an available shortcut. For `worktree-create-failed`, surface the `git worktree add` error verbatim and stop.
-
-## --no-worktree
-
-Pass `--no-worktree` only for evidence-only items that intentionally make no repo changes. Laneless work commits onto the default branch itself, so it blocks as `upstream-stale` whenever the branch is behind its remote at all, diverged included, naming what stood in the way and the recovery (commit or stash, then re-run; or rebase, where the branch has diverged). `upstream-unverified` blocks both branches alike. The envelope sets `semantic_scope=main`, omits `physical_cwd_mode`, and records `worktree:skipped` in `actions_taken`. The downstream done-transition empty-branch guard is satisfied because no active implementation lane is recorded in `item_worktrees`.
-
----
-
-After preflight returns `ok=true`, return to the router to continue with the environment phase and finalize. The session does NOT stop and does NOT relaunch.
+`--no-worktree` is permitted only when explicitly requested by the operator.
+It still resolves the claim and activation; the envelope has
+`semantic_scope=main`, no cwd mode and `worktree:skipped`. A laneless default
+behind its remote (including divergence) blocks as `upstream-stale`;
+unverified upstream also blocks. An empty-branch recovery belongs to
+[evidence-only.md](evidence-only.md). After `ok=true`, continue the engine's
+environment/finalize phases in the same session.

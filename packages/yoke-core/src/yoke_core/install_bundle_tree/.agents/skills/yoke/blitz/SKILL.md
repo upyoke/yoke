@@ -7,11 +7,9 @@ argument-hint: "{PREFIX-N}"
 
 # /yoke blitz {PREFIX-N}
 
-Execute one refined Blitz directly from its single linked strategy
-document. The document remains the live plan, progress log, handoff
-surface, completion record, and parent-reconciliation record. The item
-supplies identity, ownership, lifecycle, claims, worktrees, QA, and
-delivery associations.
+Execute one refined Blitz from its single linked strategy document: the live
+plan, progress log, handoff, completion and parent-reconciliation record.
+The item owns identity, claims, lifecycle, worktrees, QA and delivery.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -19,49 +17,32 @@ yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evide
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
-## Phase map — read one file, at the phase it governs
+## Phase map
 
-| Phase | You are here when | Read before acting |
-|---|---|---|
-| 1–3. Read, survey, isolate | `/yoke blitz PREFIX-N` was just invoked | [`read-and-survey.md`](read-and-survey.md) |
-| 4–5. Map and execute slices | The lane is active and the item is `implementing` | [`integrate.md`](integrate.md) |
-| 6–7. Review and complete | Every slice is integrated | [`review-and-complete.md`](review-and-complete.md) |
-| — Look up a function id | You need a Blitz operation's exact envelope | [`function-reference.md`](function-reference.md) |
+| Phase | Read when reached |
+|---|---|
+| Read, bounded survey, isolate | [read-and-survey.md](read-and-survey.md) |
+| Map and integrate slices | [integrate.md](integrate.md) |
+| Whole review and close | [review-and-complete.md](review-and-complete.md) |
+| Exact operation lookup | [function-reference.md](function-reference.md) |
 
-## Input and invariants
+## Invariants
 
-- `{PREFIX-N}` must resolve to a Blitz at `refined-idea`, `implementing`,
+- Complete public ref, resolving to Blitz at `refined-idea`, `implementing`,
   `reviewing-implementation`, or `release`.
-- Exactly one execution strategy document must already be linked by the
-  refine flow. Do not copy it into an item body or generate child items.
-- The item claim owns execution. The item-owned document claim owns plan
-  revision. Other sessions may use only the append-only `Slice Log` and
-  `Live Status` coordination surface.
-- The default Blitz has File Budget and path claims off. It still obeys the
-  universal 350-line authored-file limit, surveys before activation and every
-  slice merge, judges each survey contact (proceed or yield), and runs every
-  write in a registered isolated worktree.
-- Keep the survey in step 2 minimal: enough to name candidate paths from the
-  document's affected areas, not to read them end to end. Prepare and
-  activate the worktree (step 3) immediately afterward, before any deeper
-  reading or edit.
-- The main session owns slice boundaries, integration order, full
-  verification, document completion, and parent reconciliation.
-- Core invariants run on every action. A continuous delivery model never
-  bypasses migration, capability, security, approval, or run-record rules.
+- Refine must already link exactly one execution document. Keep it authoritative;
+  create no child items or copy into the item body.
+- The item work claim owns execution; its item-owned document claim owns revision.
+  Other sessions use only append-only `Slice Log` and `Live Status`.
+- Default File Budget/path claims are off; read their independent effective
+  policies. Always obey the 350-line limit, survey before activation and every
+  slice merge, judge each contact proceed/yield, and write only in registered
+  isolated lanes. Prepare immediately after minimal path discovery, before
+  deeper reading or edits.
+- Main session owns slice boundaries/order, full verification, document
+  completion and parent reconciliation. Migration, capability, security,
+  approval and run-record invariants hold on every action.
 
-
-## Start
-
-Stamp the session mode on entry so a claimed item at the binding's handoff
-stage paints its first working stage active:
-
-```text
-yoke sessions touch --mode blitz
-```
-
-Read [`read-and-survey.md`](read-and-survey.md) and follow it.
-
-A `handoff` with `reason=level_change` takes precedence over a release wait.
-Follow the harness-neutral Stage-level handoff rule in
-`.yoke/docs/reference/session-level-routing.md`; workers may launch their own successor.
+Start: `yoke sessions touch --mode blitz`, then follow the first phase.
+A `handoff` with `reason=level_change` takes precedence over release wait:
+follow `.yoke/docs/reference/session-level-routing.md`; workers may launch successors.

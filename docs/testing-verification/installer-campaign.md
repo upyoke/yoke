@@ -14,7 +14,7 @@ export it from the current Yoke source checkout using the plan's own registered
 ```text
 yoke qa plan get installer-campaign --project P --full --json > /tmp/installer-plan.json
 yoke dev run -- python3 -m yoke_core.tools.installer_campaign_plan --plan-file /tmp/installer-plan.json --cases-file /tmp/installer-cases.json
-yoke qa plan-cases replace --project P --plan-id PLAN_ID --cases-file /tmp/installer-cases.json --json
+yoke qa plan-cases replace --project P --plan-id {plan_id} --cases-file /tmp/installer-cases.json --json
 yoke qa plan get installer-campaign --project P --full --json > /tmp/installer-plan-after.json
 yoke dev run -- python3 -m yoke_core.tools.installer_campaign_plan --plan-file /tmp/installer-plan-after.json --check
 ```

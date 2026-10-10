@@ -1,92 +1,64 @@
 # Engineer — DB Schema Changes Migration Protocol
 
-Reference material for the Engineer agent. Read it before any task that modifies the database schema (ALTER TABLE, CREATE TABLE, DROP TABLE, ADD COLUMN, etc.).
+Read before schema changes. First discover this project's fresh-schema creator,
+additive converger, column helper and expectation registry in verified source.
+Common Yoke names `create_core_tables`, `apply_additive_schema`,
+`_add_column_if_not_exists`, `_EXPECTED_SCHEMA_STR` are search hints, not paths.
 
-**Schema discovery first:** locate the project's fresh-schema creator, additive-schema converger, column helper, and schema expectation registry. In Yoke-like projects these are commonly named `create_core_tables`, `apply_additive_schema`, `_add_column_if_not_exists`, and `_EXPECTED_SCHEMA_STR`; search the active source tree for the names rather than assuming any repository layout.
+## Classify before writing
 
-**Boot-propagation doctrine:** additive schema (net-new tables, columns, or indexes) should use the project's idempotent boot-time convergence path when one exists. Data-transforming migrations (backfills, drops, column removals, table rewrites) use the governed migration path. Never assume that a source path from another project owns either behavior.
+Pure-additive CREATE TABLE/ADD COLUMN/CREATE INDEX follows verified idempotent
+boot convergence; no manual live DDL or governed apply when it handles the change.
+Backfills/drops/column removals/table rewrites are data transformations and use
+governed history. Never borrow another project's owner or convergence assumptions.
 
-## Routing: additive schema vs data-transforming migration
+## Data-transforming history
 
-**First classify the change.** Pure-additive schema (net-new `CREATE TABLE`, `ADD COLUMN`, `CREATE INDEX`) follows the project's verified idempotent convergence mechanism and does not need live DDL when that mechanism applies. Data-transforming migrations (backfills, drops, column removals, table rewrites) are the ONLY class that uses the governed path below.
+Author and rehearse; do not apply live. Serving boot applies after merge/deploy,
+before serving. Read AGENTS databases depth for all governed requirements.
 
-## For a data-transforming migration
+1. Add next ordered `NNNN_slug.py` in model migrations: `apply(conn)`, optional
+   `invariants(conn)`. Entries are permanent; never delete a module a universe
+   might not yet have received. **Never delete it afterwards.**
+2. Guard every statement (IF EXISTS/IF NOT EXISTS/state checks) for restored
+   pre-ledger archive replay. **Never commit inside apply**: applier atomically
+   commits mutation plus ledger, avoiding applied-but-unrecorded state.
+3. PostgreSQL parameterized execute/executemany escapes literal percent as `%%`;
+   keep `%s`, `%b`, `%t`, `%(name)s` unchanged. Without placeholders omit params,
+   rather than empty params. Historical JSON text is untrusted: valid JSON can
+   contain escaped NUL unsuitable for jsonb. Parse rows independently or prove
+   each value convertible before casting; retain row keys in diagnosis/skips.
+   Never cast whole historical text column blindly.
+4. Rehearse before merge from item's configured local-Postgres authority:
+   `yoke migration rehearse PREFIX-N`. Missing authority goes to control-plane
+   operator. Receipt proves validation surface and evidence gate; migration
+   territory lease remains held against competing work. Required live-universe
+   rehearsals and fleet receipts remain governed by databases depth.
+5. Already at/beyond target means finished. Do not reject newer schema versions:
+   permanent entries must continue booting after their original shape changes.
 
-You author the change; you do not apply it. A server brings its own database
-up to the code it runs before it serves, so the apply happens on the boot
-converge after your work merges and deploys.
+## Additive schema owners
 
-1. **Add an entry to the ordered history.** Name it `NNNN_slug.py` in the
-   model's migrations package, next sequence number. It exposes `apply(conn)`
-   and optionally `invariants(conn)`.
-2. **The body must be safe to re-run and must NOT commit.** The applier
-   commits your entry together with its ledger row, which is what makes
-   "applied but unrecorded" impossible; committing inside `apply()` splits
-   that transaction and gives the guarantee back. Guard every statement
-   (`IF EXISTS` / `IF NOT EXISTS`, or an explicit state check) — a database
-   restored from a pre-ledger archive replays its history.
-   - For PostgreSQL, parameterized `execute(sql, params)` or `executemany(...)`
-     calls write literal percent characters as `%%`. Keep psycopg placeholders
-     (`%s`, `%b`, `%t`, and `%(name)s`) unchanged. If the statement has no
-     placeholders, omit the params argument instead of passing an empty value.
-   - Treat historical JSON-shaped text as untrusted input. Do not cast an
-     entire historical text column to `jsonb` for a diagnostic or migration
-     probe: escaped NUL and other legacy text can be valid JSON text but not
-     representable as PostgreSQL `jsonb`. Parse rows independently, or isolate
-     each cast behind a check that proves `jsonb` conversion for that value,
-     and retain the row key when reporting or skipping a non-convertible
-     document.
-3. **Never delete it afterwards.** Entries are permanent. A module that is
-   gone cannot be applied by a universe that never received it.
-4. **Rehearse before merging:** `yoke migration rehearse PREFIX-N` from a
-   configured local-Postgres authority that owns the item. If none is
-   configured, escalate to the control-plane operator. That runs
-   the entry against the model's validation surface and records the receipt
-   the evidence gate reads. It also takes the migration-territory lease and
-   holds it, so a second work item cannot start a migration on the same model
-   while yours is in flight.
-5. **Treat "already at or beyond my target" as finished, not as an error.**
-   A permanent entry outlives the shape it was written against. An entry that
-   pins a version constant and rejects anything newer will start failing boots
-   the moment the schema moves on — it has not become wrong, it has become
-   done.
+For new columns update all five:
+- Fresh-schema CREATE statement.
+- Idempotent additive declaration via project's column helper, never legacy
+  data/one-shot wrapper. Added column must populate existing rows safely:
+  nullable or NOT NULL DEFAULT.
+- Drift/schema expectation registry.
+- Shipped schema/table documentation.
+- Enumerated domain fields, serializers and projections.
 
-## For new columns (ADD COLUMN)
+New tables/indexes likewise update their verified creation/convergence/docs/
+expectation owners. No raw destructive live ALTER. Drop/rebuild/removal uses
+guarded permanent history with row-count validation and rehearsal support.
 
-A pure-additive column needs no manual live `ALTER TABLE` or governed migration apply when the project's boot convergence is verified to handle it. Update every project-specific surface that defines the schema:
+## Verify after convergence
 
-1. **Fresh-schema creator** — add the column to the table's creation statement in the function located during discovery (often `create_core_tables`).
-2. **Additive convergence step** — add the idempotent column declaration to the additive converger (often `apply_additive_schema`) through the project's column helper (often `_add_column_if_not_exists`). Do not put an additive change in a legacy-data or one-shot migration wrapper. The new column must be self-sufficient on add — nullable, or `NOT NULL DEFAULT` where the database can populate existing rows.
-3. **Schema expectation registry** — extend the expected table shape in the project's drift check (often `_EXPECTED_SCHEMA_STR`).
-4. **Project documentation** — update the schema reference and the table-specific documentation that the project actually ships.
-5. **Domain field projections** — update any field lists, serializers, or domain wrappers that enumerate the table's columns.
-
-## For destructive operations (DROP TABLE, table rebuild, column removal)
-
-Write a history entry with row-count validation and rehearsal support, then
-rehearse it. Never use raw ALTER TABLE for destructive live operations. These
-are data-transforming migrations, not additive schema, so they always take the
-history path above — they do not self-propagate on boot.
-
-## After migration
-
-Run doctor through the canonical watcher wrapper to verify the schema matches expectations (per AGENTS.md `## Command Output — Hard Rule`):
 ```bash
 yoke watch doctor -- --only HC-schema-drift
 ```
 
-## Checklist summary
-
-- [ ] Change classified: additive schema (self-propagates on boot) vs data-transforming migration (governed path)
-- [ ] (Data-transforming migrations only) Entry added to the ordered history as `NNNN_slug.py`, guarded, safe to re-run, and not committing inside `apply()`
-- [ ] PostgreSQL parameterized SQL escapes literal percent characters as `%%`
-- [ ] Historical JSON diagnostics tolerate text that cannot convert to `jsonb`
-- [ ] (Data-transforming migrations only) Rehearsal run and its receipt recorded; the entry is NOT deleted afterwards
-- [ ] (Additive schema) Additive converger updated so the column reaches existing environments on deploy or boot
-- [ ] Fresh-schema creator updated
-- [ ] Idempotent column helper used in the additive converger, not a legacy-data or one-shot migration wrapper
-- [ ] Schema expectation registry updated
-- [ ] Project schema documentation updated
-- [ ] Relevant domain field projections updated
-- [ ] Dedicated history entry with row-count verification for destructive operations
-- [ ] Doctor passes after migration (`yoke watch doctor -- --only HC-schema-drift`)
+Before submission confirm classification, permanent guarded/noncommitting
+history and receipt where required, PostgreSQL percent/JSON handling,
+fresh/additive/helper/expectation/docs/projection updates, destructive row-count
+proof and post-migration doctor result. Source authoring is not live application.

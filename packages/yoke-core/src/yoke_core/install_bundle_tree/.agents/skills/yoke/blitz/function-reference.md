@@ -1,52 +1,51 @@
-# /yoke blitz — registered operation authority
+# Blitz — operation authority
 
-Strategy document writes: read the selected command’s `--help` for required fields and limits; the canonical contract is `.yoke/docs/reference/db-reference/functions-strategy.md`.
+Use registered function ids; command adapters build those envelopes.
+Exact target/payload contracts are in the existing catalog:
 
-Read this when you need a Blitz operation's function id or exact adapter
-shape. It is a lookup, not a phase step.
+- [Items/workflow runtime](../../../../.yoke/docs/reference/db-reference/functions-items.md):
+  `items.detail.get`; use `--include ''` for posture/`content_index`, or request
+  `narrative`, `body`, `progress_log`. Lifecycle transitions use
+  `lifecycle.transition.execute`.
+- [Workflows](../../../../.yoke/docs/reference/db-reference/functions-workflows.md):
+  `workflows.item.get`, `direct_workflow.blitz.survey`.
+- [Project configuration](../../../../.yoke/docs/reference/db-reference/functions-project-configuration.md):
+  `strategy.execution.get`, `strategy.doc.get`, `strategy.coordination.append`,
+  `strategy.doc.replace`, `strategy.claim.release`.
+  Read the selected command's `--help` before a strategy write.
+- [Claims](../../../../.yoke/docs/reference/db-reference/functions-claims.md):
+  `claims.work.release`.
 
-## Registered operation authority
+| Function id | Short adapter lookup |
+|---|---|
+| `items.detail.get` | `yoke items detail get` |
+| `strategy.execution.get` | `yoke strategy execution get` |
+| `strategy.doc.get` | `yoke strategy doc get` |
+| `direct_workflow.blitz.survey` | `yoke direct-workflow blitz survey` |
+| `lifecycle.transition.execute` | `yoke lifecycle transition` |
+| `strategy.coordination.append` | `yoke strategy coordination append` |
+| `strategy.doc.replace` | `yoke strategy doc replace` |
+| `strategy.claim.release` | `yoke strategy claim release` |
+| `claims.work.release` | `yoke claims work release` |
 
-Use the registered function id as the operation authority. The `yoke`
-commands taught later are adapters for these envelopes:
+Survey has no item-claim precondition. Strategy reads/writes, coordination,
+lifecycle and claim release remain separate operations, rather than hidden
+survey payloads. Execution-document linking is Refine's `strategy.execution.link`.
 
-| Function id | Target and payload | CLI adapter |
-|---|---|---|
-| `items.detail.get` | Item target; optional `include` naming content sections (`narrative`, `body`, `progress_log`) — omit for the posture plus `content_index`, which names each stored section and the read that returns it | `yoke items detail get ITEM --json` |
-| `workflows.item.get` | Item target; empty payload; centrally resolved effective policies | `yoke workflows item get ITEM --json` |
-| `strategy.execution.get` | Blitz item target; empty payload | `yoke strategy execution get ITEM --json` |
-| `strategy.doc.get` | Project target; `slug` | `yoke strategy doc get SLUG --project PROJECT --json` |
-| `direct_workflow.blitz.survey` | Item target; `paths` plus optional `integration_target` | `yoke direct-workflow blitz survey ITEM --path PATH --json` |
-| `lifecycle.transition.execute` | Item target; `source_status`, `target_status`, and `reason` | `yoke lifecycle transition ITEM --from STATUS --to STATUS --reason TEXT` |
-| `strategy.coordination.append` | Project target; `slug`, `section`, and `entry` | `yoke strategy coordination append SLUG --section NAME --entry TEXT --project PROJECT` |
-| `strategy.doc.replace` | Project target; `slug`, full `content`, `base_updated_at`, and shrink-guard posture | `yoke strategy doc replace SLUG --base-updated-at TS --content-file PATH --project PROJECT` |
-| `strategy.claim.release` | Blitz item target; optional `reason` | `yoke strategy claim release ITEM --reason TEXT` |
-| `claims.work.release` | Current item or claim target; `reason` | `yoke claims work release --item ITEM --reason TEXT` |
+Local preparation and slice merge are each a retained tool-shaped operation:
 
-The survey has no item-claim precondition. Strategy reads, coordination
-appends, document replacement, lifecycle transitions, and claim release
-remain their own registered operation families; they are not hidden
-Blitz-survey payloads. Execution-document linking belongs to `/yoke refine`
-through `strategy.execution.link`, before this skill begins.
-
-Worktree preparation and slice merging are each a
-retained tool-shaped operation, because both act on the local checkout
-rather than on control-plane state alone:
-
-```text
+```sh
 yoke direct-workflow worktree prepare ITEM --workflow blitz
 yoke watch merge --print-streaming-pair merge-item -- ITEM --skip-status --wait
 ```
 
-The first delegates to the local engine worktree preflight. The second is the
-standalone-item merge boundary shared with Dash. With `--print-streaming-pair`
-its watcher prints — and never runs — the shape the caller's manifest
-capability selects: a verified route gets the background subscription, while
-no route or an unknown answer gets one foreground invocation you run. Inspect
-queue liveness with `yoke github merge-queue readiness ITEM --json`, never a
-bare automerge field, and clear a live candidate with
-`yoke github merge-queue hold ITEM` before correcting it. Non-queue routes
-still land inline. Each command has no registered `direct_workflow.*` function
-id — use them verbatim; do not invent function ids for them. Run
-`yoke merge item --help` for the flag matrix.
+Use them verbatim; each has no registered `direct_workflow.*` function id.
+Preparation delegates to local preflight. The watcher prints — and never runs — the shape
+selected by the manifest: a verified route gets the background subscription;
+no route or an unknown answer gets one foreground invocation. Run and hold that command
+through its result. Non-queue routes land inline.
 
+For queue liveness use `yoke github merge-queue readiness ITEM --json`;
+before correcting a live candidate, use `yoke github merge-queue hold ITEM`.
+The automerge flag does not prove queue readiness.
+Read `yoke merge item --help` for the flag matrix.

@@ -63,14 +63,15 @@ wt=/Users/dev/yoke/.worktrees/example-worktree
 branch=codex/example-branch
 
 test -z "$(git -C "$wt" status --porcelain --ignored=matching --untracked-files=all)"
-python3 -m yoke_core.hooks.sessions_cli who-claims 0
+yoke claims work holder-get --path "$wt" --json
 git -C "$repo" merge-base --is-ancestor "$branch" "$base_ref"
 git -C "$repo" worktree remove "$wt"
 git -C "$repo" branch -d "$branch"
 ```
 
-Replace `0` in the claim lookup with the item id for item worktrees, or inspect
-the active work claim rows before deleting non-item source-dev worktrees.
+Inspect the registered holder read before running the removal commands. A named
+active holder, an unavailable claim read, or unresolved ownership preserves the
+worktree; a successful read alone is not permission to remove it.
 
 `git branch -d` is not the right safety check when the intended base is not the
 current `HEAD`; it checks merge status relative to the current checkout. Use

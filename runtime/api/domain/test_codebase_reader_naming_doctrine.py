@@ -30,8 +30,11 @@ def test_root_and_shared_prompt_doctrine_teach_codebase_reader_naming() -> None:
     assert "name live code/docs by current function" in prompt_text
 
     docs_text = _read(ROOT / "docs" / "agents.md")
-    assert "codebase-reader complete" in docs_text
-    assert "name every live surface by its current function" in docs_text
+    assert "complete durable artifacts" in docs_text
+    assert (
+        "codebase-reader names that explain function without planning provenance"
+        in docs_text
+    )
 
 
 def test_canonical_authoring_agents_receive_naming_feedforward() -> None:
@@ -67,8 +70,15 @@ def test_core_skill_handoffs_carry_codebase_reader_rule() -> None:
         SKILLS / "polish" / "review.md",
     ):
         text = _read(path)
-        assert "codebase-reader" in text.lower(), f"{path} lost the doctrine"
-        assert "planning artifact" in text.lower() or "task/spec/plan" in text.lower()
+        if path.name == "engineer-tester-dispatch.md":
+            assert "naming/350/simplify" in text
+            assert "dispatch-context-prompts.md" in text
+        elif path == SKILLS / "conduct" / "SKILL.md":
+            assert "Naming describes current" in text
+            assert "never planning provenance" in text
+        else:
+            assert "codebase-reader" in text.lower(), f"{path} lost the doctrine"
+            assert "planning artifact" in text.lower() or "provenance" in text.lower()
 
 
 def test_rendered_adapters_inherit_canonical_reader_doctrine() -> None:
@@ -83,7 +93,12 @@ def test_rendered_adapters_inherit_canonical_reader_doctrine() -> None:
         ROOT / "runtime" / "harness" / "codex" / "agents" / "yoke-architect.toml",
         ROOT / "runtime" / "harness" / "codex" / "agents" / "yoke-boss.toml",
         ROOT / "runtime" / "harness" / "codex" / "agents" / "yoke-engineer.toml",
-        ROOT / "runtime" / "harness" / "codex" / "agents" / "yoke-product-designer.toml",
+        ROOT
+        / "runtime"
+        / "harness"
+        / "codex"
+        / "agents"
+        / "yoke-product-designer.toml",
         ROOT / "runtime" / "harness" / "codex" / "agents" / "yoke-product-manager.toml",
         ROOT / "runtime" / "harness" / "codex" / "agents" / "yoke-simulator.toml",
         ROOT / "runtime" / "harness" / "codex" / "agents" / "yoke-tester.toml",
@@ -101,13 +116,26 @@ def test_codebase_reader_rule_enumerates_full_provenance_token_set() -> None:
     marker = "Codebase-reader naming"
     assert marker in agents_text
     start = agents_text.index(marker)
-    rule = agents_text[start:start + 2600]
+    rule = agents_text[start : start + 2600]
     for term in (
-        "tier", "stage", "slice", "track", "wave", "batch", "milestone",
-        "field-note", "PREFIX-1234", "AC-7", "FR-3", "functional requirement",
-        "acceptance criterion", "epic", "§7",
+        "tier",
+        "stage",
+        "slice",
+        "track",
+        "wave",
+        "batch",
+        "milestone",
+        "field-note",
+        "PREFIX-1234",
+        "AC-7",
+        "FR-3",
+        "functional requirement",
+        "acceptance criterion",
+        "epic",
+        "§7",
         # the rule must make clear it also governs FILE and DIRECTORY names
-        "directory", "FILE and DIRECTORY",
+        "directory",
+        "FILE and DIRECTORY",
     ):
         assert term in rule, f"codebase-reader rule must explicitly name '{term}'"
 

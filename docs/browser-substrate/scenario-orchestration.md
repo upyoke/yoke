@@ -2,7 +2,7 @@
 
 The shared QA case runner is the canonical entry point for executing a
 materialized Browser method case against a running ephemeral environment.
-Direct Advance and Conduct/Tester use the same per-requirement path.
+Pinned stage executors and Conduct/Tester use the same per-requirement path.
 
 The Browser daemon and evidence capture run on the invoking machine. Control
 plane reads and writes use registered function calls, so execution works from
@@ -76,8 +76,7 @@ Browser cases use one of two method IDs:
   halts the item until a project owner/operator resolves its review request.
 
 The case's `method_config` is a JSON object with a non-empty `steps` array and
-an optional `base_url`. Execution consumes this snapshot as-is. Tester and
-Advance flows must not refine or replace it after materialization.
+an optional `base_url`. Execution consumes this snapshot as-is. Callers must not refine or replace it after materialization.
 
 ## What the runner does
 
@@ -136,23 +135,15 @@ without changing its materialized `method_config`. The transition gate accepts
 the union of current blocking requirements: every requirement must have a
 passing run or an explicit waiver.
 
-## Execution paths
+## Attached-plan execution
 
-### Direct Advance
-
-The gate in
-[`.agents/skills/yoke/dash/verify.md`](../../.agents/skills/yoke/dash/verify.md)
-materializes the transition plan, selects unsatisfied Browser method cases,
-resolves the ephemeral URL and deployed code identity, then invokes `yoke qa
-case run` once per requirement.
-
-### Conduct / Tester
-
-Conduct resolves the same URL, worktree branch, and worktree HEAD SHA before
-dispatch. The Tester reads materialized requirements, selects unsatisfied
-`browser-check` and `browser-inspection` cases, and invokes `yoke qa case run`
-once per requirement with all freshness inputs. The Tester's overall review
-and each requirement's recorded Browser evidence are separate gate inputs.
+The pinned stage skill reads and runs its immutable attached plan through
+the registered plan runner. That runner owns the complete case roster,
+capture/review continuation and outcome writes; callers do not extract its
+command and substitute a smaller execution. `yoke qa case run` is the
+registered focused rerun for a failed materialized case. Conduct's Tester
+review and each case's own Browser evidence remain independent gate inputs.
+See [QA plan ownership](../public/reference/qa-platform.md).
 
 ## Artifact storage
 

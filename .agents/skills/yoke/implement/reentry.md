@@ -1,48 +1,31 @@
-# /yoke implement phase 2 — re-enter the lane
+# /yoke implement — re-enter the lane
 
-Read this when the live stage is inside the `implement` segment but past its
-entry stage — for an issue, `implementing` or `reviewing-implementation`. It
-recovers the lane, sets `WORKTREE_PATH`, and resumes the loop. Do **not** stop
-after surfacing the path.
+After the claim-first step in [entry.md](entry.md), recover the registered
+lane. Never compose its path from the current project root.
 
 ```bash
 if [ "$_worktree_policy" = "none" ]; then
- # Laneless workflow: there is no worktree to re-enter. The work happens
- # in place under the session's existing write authority.
- _wt_branch=""
  WORKTREE_PATH=""
+ _wt_branch=""
 elif [ "$_worktree_policy" = "single_implementation_lane" ]; then
- # The registered lane row carries its own absolute path. Read it rather
- # than composing one from a project root: the lane may live in another
- # project's checkout, and a composed path is a guess either way.
- _wt_branch=$(yoke item-worktrees get PREFIX-N \
-  --lane-role implementation --field branch 2>/dev/null)
- _wt_path=$(yoke item-worktrees get PREFIX-N \
-  --lane-role implementation --field path 2>/dev/null)
+ _wt_branch=$(yoke item-worktrees get PREFIX-N --lane-role implementation --field branch)
+ _wt_path=$(yoke item-worktrees get PREFIX-N --lane-role implementation --field path)
 else
- echo "CONTRACT ERROR: implement owns only single-lane or laneless policies; PREFIX-N pins $_worktree_policy."
- echo "Run the skill its pinned binding names for that stage."
+ echo "CONTRACT ERROR: live binding does not belong to single-lane Implement."
  exit 1
 fi
 ```
 
-- Policy `none` → leave `WORKTREE_PATH` empty and continue; never create a lane
-  for a laneless workflow.
-- `_wt_path` set and the directory exists → set `WORKTREE_PATH` to it and
-  continue.
-- `_wt_path` set but the directory is missing, or `_wt_branch` empty under a
-  lane-bearing policy → re-run the engine entry,
-  `yoke advance implementation-entry --item PREFIX-N`, which reuses or
-  recreates the registered lane without repeating the status write. A lane row
-  with no `path` is a broken record, not a path to compose: repair it with
-  `yoke item-worktrees path-record`.
+On that contract error, stop this segment. Run the skill its pinned binding
+names for the live stage; never choose a remembered workflow command.
 
-After `WORKTREE_PATH` is ready, resume where the live stage says:
+| Registered state | Action |
+|---|---|
+| none policy | No lane; continue under existing write authority |
+| Path exists | Set WORKTREE_PATH to that exact path |
+| Path directory missing or branch empty | Re-run implementation-entry engine; reuse/recreate without repeating status |
+| Lane row missing path | Repair through `yoke item-worktrees path-record`; do not guess a path |
 
-- The implementation stage (`implementing` for an issue) → continue
-  [`implementing/SKILL.md`](implementing/SKILL.md) in the recovered lane.
-- The review stage (`reviewing-implementation` for an issue) → continue the
-  review loop in [`review.md`](review.md) in the same lane.
-
-Never stop with "Want me to review now?" or a numbered handoff menu unless a
-real blocker prevents continued work.
+The pinned implementation stage resumes [implementing](implementing/SKILL.md);
+its review stage resumes [review](review.md). Continue in this session without
+a menu or turn-ending checkpoint unless a real blocker prevents work.

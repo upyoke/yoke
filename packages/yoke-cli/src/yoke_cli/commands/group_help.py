@@ -14,7 +14,6 @@ from yoke_cli.commands.registry import (
     SUBCOMMAND_REGISTRY,
 )
 from yoke_cli.commands.tool_shaped import TOOL_SHAPED_SUBCOMMANDS, TOOL_SHAPED_USAGE
-from yoke_contracts.adapter_read_recipes import FOOTER as READ_RECIPE_FOOTER
 from yoke_contracts.connection_authority_teaching import DB_GROUP_TEACHING
 from yoke_contracts.deployment_itemless_teaching import (
     ITEMLESS_RELEASE_RECIPE,
@@ -22,7 +21,6 @@ from yoke_contracts.deployment_itemless_teaching import (
 from yoke_contracts.deployment_release_roles_teaching import (
     RELEASE_ROLE_RECIPE,
 )
-from yoke_contracts.field_note_text import FOOTER as FIELD_NOTE_FOOTER
 
 GROUP_ROUTES: dict[tuple[str, ...], tuple[tuple[str, ...], ...]] = {
     ("deployments",): (("deployment-flows",), ("deployment-runs",)),
@@ -167,10 +165,6 @@ def emit_group_help_if_available(
     if teaching:
         print(file=out)
         print(teaching.rstrip("\n"), file=out)
-    print(file=out)
-    print(READ_RECIPE_FOOTER, file=out)
-    print(file=out)
-    print(FIELD_NOTE_FOOTER, file=out)
     return 0
 
 

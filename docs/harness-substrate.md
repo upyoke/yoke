@@ -1,231 +1,229 @@
 # Harness Substrate
 
-Yoke runs on multiple harnesses (Claude Code, Codex, future runtimes) without forking the per-agent prompt body, the per-skill phase prose, or the dispatch contract. This document describes the universal-source + per-harness-renderer model that makes that possible.
+Yoke shares canonical role bodies, situational skills and dispatch contracts
+across Claude, Codex and Cursor. Harness-specific renderers/manifests define
+native syntax and supported primitives; this optional contributor reference
+explains their boundaries. Read the installed release manifest before asserting
+live capability. [Bootstrap](harness-bootstrap.md) and
+[native discovery](public/reference/harness-discovery.md) own loading.
 
-## One canonical body, two rendered adapters
+## Canonical bodies and adapters
 
-Every Yoke agent has exactly one source-of-truth body file under `runtime/agents/{agent}.md`. The substrate renderer fans that body into harness-native adapter files:
+Each agent body lives once at `runtime/agents/{agent}.md`, with phase support in
+its role directory. `agents.render.run` (`yoke agents render`) expands supported
+conditional blocks and dispatch metadata into native adapters:
 
-- **Claude:** `runtime/harness/claude/agents/yoke-{agent}.md` — Markdown with YAML frontmatter (name, description, tools, model, hooks). The runtime `.claude/agents/` path is a symlink into this directory, so Claude Code reads the rendered file directly.
-- **Codex:** `runtime/harness/codex/agents/yoke-{agent}.toml` — TOML custom-agent definition in the current Codex subagent schema: required `name` / `description` / `developer_instructions` (the canonical body inlined) plus the optional fields Codex inherits from the parent session when omitted. `model` is omitted by default so each subagent follows the parent session/default model, and is pinned only when the sidecar opts in via `model_policy="pinned"`; role posture is expressed with `sandbox_mode` (`read-only` for the read-only roles, `workspace-write` for the engineer). The Claude-style string tool allowlist and turn-budget field are not Codex subagent fields and are never emitted. The runtime `.codex/agents/` path is a symlink into this directory, so Codex Desktop reads the rendered TOML files as registered custom agents.
+| Harness | Output and native discovery |
+|---|---|
+| Claude | Markdown/YAML `runtime/harness/claude/agents/yoke-{agent}.md`, reached by `.claude/agents`. |
+| Codex | TOML `runtime/harness/codex/agents/yoke-{agent}.toml`, reached by `.codex/agents`. |
+| Cursor | Markdown `runtime/harness/cursor/agents/yoke-{agent}.md`, reached by `.cursor/agents`. |
 
-The renderer is owned by the `agents.render.run` function family and exposed to operators as `yoke agents render`. Both adapter directories regenerate from the same canonical body in a single pass; drift is caught by `HC-agent-canonical-drift` in doctor.
+Claude sidecars own its tools/model/hooks/turn fields. Codex emits required
+`name`, `description`, `developer_instructions` and supported optional fields;
+model inherits when omitted and is pinned only by explicit sidecar
+`model_policy="pinned"`. Role posture uses native sandbox settings; Claude tool
+strings and turn fields never become Codex fields. Read actual source/sidecar
+and renderer before changing grants. Canonical responsibility survives
+conditional omission of unsupported native primitives.
 
-The shared manifest schema for agent registration lives at `runtime/harness/bootstrap-spec.json#canonical_agents` and `runtime/harness/codex/manifest.json`. These entries point at the canonical body path; they never inline the body. New harnesses describe their adapter shape in their manifest and add a renderer pass — they never duplicate the prompt text.
+`bootstrap-spec.json#canonical_agents` and generated manifests point to bodies
+without embedding them. `yoke agents render check` / `HC-agent-canonical-drift`
+verify parity. Render canonical changes before syncing the install bundle;
+never hand-edit generated adapters. [Agent reference](agents.md) points to
+role/phase owners; [manifest schema](../runtime/harness/manifest-schema.md)
+defines maintainer contracts.
 
-## Shared dispatch descriptors
+### Shared dispatch
 
-Skill phase files (under `.agents/skills/yoke/{command}/`) name agents through dispatch descriptors rather than harness-specific tool calls. A descriptor is a small structured object that names the agent (`yoke-engineer`, `yoke-tester`, `yoke-architect`, `yoke-simulator`, etc.), supplies the task envelope (prompt body, file routing context, claim metadata), and declares result-ingestion expectations.
+Skills author a `DispatchDescriptor`: role identity, task prompt, file routing,
+claim context and result-ingestion contract. Claude maps it to its Agent tool;
+Codex/Cursor consume their supported native adapters. Structured verdicts,
+reflections, progress and QA land in the same durable owners regardless of
+harness. The capability registry's `HARNESS_UNIVERSE` identifies registered
+shapes; branch only where a real supported primitive differs.
 
-Both harnesses consume the same descriptor:
+Inline Shepherd/Conduct/Usher are skills, not new personas. Their immutable
+item workflow binding owns the active segment, staffing, retry ceilings and
+fresh handoffs. Worktree preparation continues in the same session; it is not
+claim release, session end or relaunch. Separate-session workers take their
+assigned claim. In-process subagent tools use the actual parent session identity
+and its live claims; do not infer independent ownership from a role name.
 
-- **Claude** translates the descriptor into an `Agent(subagent_type=...)` tool call.
-- **Codex** translates the same descriptor into a Codex custom-agent dispatch.
+## Recorded lane authority
 
-Result ingestion is parseable on both sides — verdicts, reflections, progress notes, and structured outputs land in the same Yoke-core DB tables (`shepherd_verdicts`, `epic_progress_notes`, `qa_runs`, `events`) regardless of which harness ran the agent. Phase files write the descriptor once; the harness adapter handles the call.
+Cwd is execution convenience. Every workspace-sensitive call uses the session's
+active `work_claims`, with explicit absolute paths and source import anchors.
+Sticky main-shell cwd and subagent tool cwd can differ; neither grants authority.
+Use the registered lane returned by preparation, never compose it from a branch
+slug or a machine checkout mapping. Read [lanes and claims](public/reference/agent-rules/lanes-and-claims.md)
+before overlap/recovery and [source-dev doctrine](source-dev-doctrine.md) before
+source execution/render/verification.
 
-The capability registry exports `HARNESS_UNIVERSE` (the set of supported harnesses with their adapter shapes), so phase files and skills can branch on substrate-level capability without reading harness-specific manifests inline.
+`session_claimed_worktrees.claimed_worktrees` reads recorded
+`item_worktrees.path`. An item claim covers every active registered lane of that
+item, in lane-id order, without role/first-lane filtering. An epic-task claim
+covers only its `epic_tasks.item_worktree_id` lane. Released/no-lane claims
+contribute no path. This remains valid over HTTPS when the evaluator machine
+has no checkout. Holder reads and guards must agree.
 
-## Session cwd binding
-
-Sessions running in `implement` / `conduct` / `polish` mode bind the harness cwd to the item's worktree at session start. The binding is structural: the harness session-start hook reads the active item from the session row (cross-reference: see your `harness_sessions` packet stanza for active-item attribution columns), resolves the absolute worktree path via `_resolve_item_worktree` (composed from the item's worktree branch slug under this machine's registered checkout for the numeric project id; cross-reference: see your `items` and `projects` packet stanzas), and chdir's the harness shell into that directory before any tool call fires.
-
-This is the **first line of defense** against silent wrong-tree reads. With cwd structurally pinned, relative-path Bash reads resolve inside the worktree by default; the agent doesn't need to remember the worktree path to stay safe.
-
-The Bash absolute-path rule (in `AGENTS.md`'s `## Code Conventions` section) is the **second line of defense**. Even with cwd bound, agents author absolute paths in Bash commands as defense-in-depth: parallel-batched Bash calls have shown shell cwd drift in practice, and the absolute-path rule survives that drift. Python import-root anchoring (PYTHONPATH set to the worktree root by the harness adapter) is a third defense-in-depth layer for Python module commands that resolve sibling imports from cwd.
-
-#### Work-claim authority — writers, readers, and cwd lint
-
-The **primary writer guard** is `yoke_core.domain.workspace_authority.assert_target_under_session_work_authority(target)`, which reads the calling session's live `work_claims` rows and refuses targets outside the claimed worktree (or the free-path allowlist `/tmp`, `/var/folders/...`). Sessions with no worktree claim (orchestrator / maintenance posture) fall through to no-op, matching the per-tool-call `lint_session_cwd` policy. The work-claim row is the live authority for every workspace-sensitive surface.
-
-Tracked-source writers call the helper before their hot-path `.write_text` / `.write_bytes` / `os.replace`:
-
-- `yoke_core.domain.agents_render._atomic_write` (substrate renderer)
-- `yoke_core.tools.atlas_integrity_audit.write_report`
-- `yoke_core.tools.atlas_render_docs.write`
-- `yoke_core.domain.populate_registry_render._render_catalog`
-
-`HC-workspace-anchored-writer-authority` enforces this against the canonical list at `.yoke/doctor/check_workspace_anchored_writer_authority.py:IN_SCOPE_WRITERS`; add new tracked-source writers there to bring them under the guard.
-
-`yoke_core.domain.rebuild_board.rebuild_one` is intentionally **out of scope** for the work-claim authority helper. Its only write targets are project-local `.yoke/BOARD.md` plus the sibling timestamp file, both untracked generated views rendered from DB state when the operator asks for a refresh. The operator may run `yoke board rebuild` from any session, including one holding an item's worktree work-claim; refusing those writes would break the explicit rebuild without addressing the incident shape: worktree-claim-bound writes of TRACKED rendered source files into main. `rebuild_board` still calls `assert_seed_source_under_target_root(schema.__file__, repo_root, ...)` to catch Coupling B (the schema module loaded from a different checkout than the resolved `repo_root`), as does `agents_render` for its imported seed module.
-
-The shared `yoke_core.domain.workspace_authority.resolve_session_worktree_paths` lookup supplies the two reader-side consumers:
-
-- **Reader-root fallback.** `yoke_core.domain.agents_render_workspace.require_reader_root` uses the first active worktree when no explicit `target_root` is supplied, before raising. The resolver follows the canonical ambient session identity chain and the live `work_claims` rows, so a rotated claim is reflected on the next read.
-- **Cross-checkout PreToolUse lint.** `packages/yoke-core/src/yoke_core/domain/lint_workspace_cwd_match.py` denies writer-class Bash commands (`pytest`, `python3 -m pytest`, `yoke agents render`, and the `yoke_core.tools.run_tests` helper) when the command's cwd is outside every active worktree claim. Mode resolves from the project-local `.yoke/lint-config` (guard key `lint_workspace_cwd_match`, default `deny`). The suppression token `# lint:no-workspace-cwd-check` is recorded as `outcome=suppression_attempted` audit evidence and does NOT unblock — symmetric with the path-claim guard's audit-only token shape.
-
-When the ambient session has no active worktree claims (operator/maintenance mode, sessions outside Yoke recognition), the reader fallback and the lint both no-op; the writer-authority helper continues to enforce against live work-claims and the writer-API contract (`target_root` required keyword on `write_all` / `write_all_claude`) remains the unconditional API-shape defense.
-
-Worktree creation is a pure filesystem + DB operation, not a session boundary. The harness session that runs `/yoke implement ...` (or the conduct task-lane equivalent) records the worktree branch slug on the item (cross-reference: see your `items` packet stanza), activates path claims, and continues into worktree-bound implementation/review work in the same session — no claim release, no `HarnessSessionEnded`, no relaunch block. (See `docs/event-catalog.md` for the registry's retired-event rows that document the prior session-end and session-envelope behaviors.)
-
-### Session cwd binding: per-call claim-based authority
-
-The session's authority to write under any given path is its **active work-claims** (cross-reference: see your `work_claims` packet stanza). `packages/yoke-core/src/yoke_core/domain/lint_session_cwd.py` validates this per tool call: for each target path extracted from the call's payload (file_path for Edit/Read/Write; -C / --rootdir / leading absolute path args for Bash), the target must land under (a) a worktree the session holds a claim on, (b) the main control plane checkout excluding `.worktrees/`, or (c) the free-path allowlist (`/tmp`, `/var/folders/...`). The validator resolves the claimed worktree's branch slug (for item or epic-task targets; cross-reference: see your `items` and `epic_tasks` packet stanzas) and composes the absolute path via `_compose_worktree_path` under this machine's registered checkout for the numeric project id, all through `yoke_core.domain.session_claimed_worktrees.claimed_worktrees`. Sessions with no claims AND no resolvable parent (orchestrator one-offs, operator REPL sessions) pass unconditionally — the unconstrained control-plane shape needs no enforcement.
-
-Parallel fan-out works without a race: each subagent dispatch acquires its own `work_claim` covering the lane it operates in, and the lint authorizes each subagent's writes against its own claim. The orchestrator's control-plane reads (`epic_progress_notes`, `db_router events list`, GitHub mutations) always pass because they target control plane, which is always allowed.
-
-Codex subagent dispatch runs in-process inside the parent harness session — same `session_id`, same hook chain, same `cwd`. Yoke's claim-aware lookups (`work_claims`, `path_claims`, `claimed_worktrees`, `_default_actor_id_resolver`, dispatcher claim verification) therefore land on the parent's row directly without any per-subagent identity propagation. Claude's `Agent`-tool subagents reuse the orchestrator's `session_id` for the same reason; in both harnesses the parent's claims are the subagent's claims by virtue of session-identity sharing.
-
-The Claude Code / Claude Desktop main session keeps a sticky cwd between Bash tool calls (cross-reference: AGENTS.md `## Code Conventions` Bash bullet), so a `cd <worktree>` to an in-scope path persists across subsequent calls; subagent dispatch contexts behave differently, with each tool call reverting to the parent checkout. Yoke treats either shape as a supported substrate, not a failure: `packages/yoke-core/src/yoke_core/domain/lint_session_cwd.py` validates each call's target paths against the session's active `work_claims` (not against cwd), so claim-based authority is the per-call authority signal regardless of which harness tier issued the call.
-
-Inspect what the current session is authorized to write via the work-claim holder read:
-
-```bash
-yoke claims work holder-get YOK-N
+```text
+yoke claims work holder-get PREFIX-N
 ```
 
-Anything whose extracted target lands outside (a) / (b) / (c) above is denied by `lint_session_cwd`. The deny narrative names the offending target plus the session's active claims so the operator can fix the call by acquiring a claim on the intended worktree, correcting the target path, or routing through control plane.
+`lint_session_cwd_target_extract`, `lint_session_cwd_validate` and
+`lint_session_cwd` extract targets, validate them and render outcomes. Edit/Read/
+Write carry explicit targets; Bash uses parsed operands such as `-C`, rootdir
+and absolute paths, with declared cwd as a synthetic target when none are found.
+Claimed calls admit held lanes, control-plane roots excluding `.worktrees/`,
+free paths and declared read-only exceptions. Known capacity operands inspect
+totals without granting content/mutation. Unresolved home operands and missing
+session identity refuse. Ordinary home/reference reads use executing-machine
+facts and must earn their read-shaped exemption.
 
-For recursive discovery — the shape that broad relative `grep -r` /
-`rg <pattern>` would normally fit — use the worktree-aware
-`yoke_core.tools.search_code` helper instead of authoring `grep -r
-./` against the worktree. Its default scope searches the claimed
-worktree(s); callers must explicitly request main-checkout search when
-that is the intended root.
+Foreign lane occupancy is checked before own-claim scope. Reads/plain sanctioned
+Git inspection can inspect another holder's lane; writes, redirects, compound
+mutations and state moves refuse. A claimed pre-implementation lane refuses
+mutation by its pinned workflow/status gate. No-claim operator/maintenance
+contexts retain their defined posture after identity/foreign-lane checks; this
+is not a permission to enter another item's live lane. Client-evidenced machine
+roots and session-scoped watcher scratch preserve the same authority over relay.
 
-The helper resolves absolute roots through the canonical Yoke resolvers
-(`yoke_core.domain.worktree_item_resolve`), applies safe default excludes
-(`.git`, `.worktrees`, `__pycache__`, cache dirs, `.venv` / `venv`,
-`node_modules`, `dist`, `build`), prefers `rg` when present and uses a
-tested Python fallback otherwise. The output mirrors `rg --line-number
---no-heading` (`<path>:<line>:<match>`); multi-worktree epic items prefix each
-match with the worktree root so callers can disambiguate. The helper is
-read-only — it does not touch claim, lifecycle, or session state.
+Denials name the offending target/claims and recovery: correct the path, acquire
+the intended assigned claim or use its registered control-plane operation.
+Destructive shell/Git remains independently guarded by `lint_destructive_git`.
 
-The target extractor lives in `yoke_core.domain.lint_session_cwd_target_extract`; the validator lives in `yoke_core.domain.lint_session_cwd_validate`; the policy glue + deny envelope rendering live in `yoke_core.domain.lint_session_cwd`. Destructive shell shapes (`xargs rm`, `git reset --hard`, `git clean -f`) are still blocked by the separate `yoke_core.domain.lint_destructive_git` guard.
+For broad search, the read-only `yoke_core.tools.search_code` resolves claimed
+roots (explicit main opt-in), uses canonical worktree resolvers, prefers `rg`
+with a tested Python fallback and excludes Git/worktrees/cache/venv/node_modules/
+dist/build. Output is path:line:match; multi-lane results identify their root.
+It changes no claims, lifecycle or session state. Ordinary `rg` reads should name
+the exact absolute intended scope.
 
-## Native resume model selection
+### Writer and reader anchors
 
-A wake always targets the existing native conversation identity. Model
-selection follows the thin per-surface contract exposed by
-`launch_model_selection_manifest` as `resume_selection`:
+`workspace_authority.assert_target_under_session_work_authority` protects
+tracked-source writers before write/atomic rename. Through transport-aware
+`verification_tree_binding.resolve_claim_worktrees` / `claims.work.holder_list`,
+it requires a held lane or shared free path, with the owner-defined
+pre-implementation planning-scratch carve-out. It resolves explicit/ambient
+identity; no identity, unavailable lookup or no worktree claims keeps its
+operator/maintenance/test posture. Those helper behaviors do not replace the
+separate per-tool/permission guards.
 
-- Claude CLI uses `native`: its resume command restores the conversation's
-  latest model selection, so Yoke omits model, effort, and context selectors.
-- Codex CLI and Cursor CLI use `explicit`: Yoke passes the target session's
-  current attested model and the effort/context knobs the surface can express.
-  Codex reads ambient user config again. Cursor restores last-used-model
-  metadata written by interactive turns but not by print-mode turns, and its
-  parameter restoration reads shared configuration. Omission therefore cannot
-  preserve selection for every relay-owned conversation. Codex has no resume
-  context-window knob, so that fact is not sent.
+Covered writers include `agents_render._atomic_write`, Atlas audit/render and
+registry-catalog rendering. `HC-workspace-anchored-writer-authority` uses the
+canonical `IN_SCOPE_WRITERS` list in `.yoke/doctor/check_workspace_anchored_writer_authority.py`;
+register new tracked-source writers there. Board rebuild is outside this helper:
+it writes only untracked `.yoke/BOARD.md` and its timestamp on explicit request,
+so it remains available to an item holder.
 
-Before a provider has attested any served fact, explicit replay may use the
-stored launch request. After the first attestation, omissions are part of the
-current truth: Yoke never fills them from the older request or from relay
-machine preferences. Unsupported fields stay absent rather than being
-silently translated into a different selection.
+`assert_seed_source_under_target_root` independently refuses mixed-checkout
+seed/schema imports before writing. Renderers and board rebuild use it; check/
+dry-run can require it even without a session. Installed release modules and
+legitimate external-project/test scratch targets follow the explicit owner
+exemptions, not guessed source layout.
 
-Claude Desktop, Codex Desktop, and Cursor Desktop declare operator-owned
-wakes and no native stopped-session resume. Their pending messages arrive
-through a hook when the operator continues the existing chat; Yoke does not
-start a separate native turn or apply a model selector to those windows.
+Renderer writers require `target_root` as a keyword. `agents_render_workspace`
+readers prefer explicit root, then first active claimed worktree; missing both
+raises unless `allow_ambient=True` explicitly opts into CLI cwd. CLI resolution
+prefers argument, then `YOKE_RENDER_TARGET_ROOT`; repo-root fallback is permitted
+only outside a linked worktree. Linked cwd without an anchor refuses. The
+source-binding entrypoint re-execs mixed source before rendering.
 
-## SessionEnd defense: holdings and delivery protection
+`lint_workspace_cwd_match` separately refuses writer-class Bash/test/render
+commands whose cwd is outside all held lanes. Its machine-config key is
+`lint_workspace_cwd_match_mode` (dogfood defaults deny); warn audits. Its token
+`# lint:no-workspace-cwd-check` records `suppression_attempted` and does not unblock.
 
-Claude Desktop fires `SessionEnd` on transient signals (laptop sleep, app reload,
-brief disconnect, idle timeout) — not only on permanent termination. The hook
-runner therefore never asserts the agent is gone on its own:
+## Resume, end and reactivation
 
-- Both the Stop and SessionEnd hooks route through the non-destructive
-  `end_session_if_empty`, which ends a session only when it holds nothing
-  at all. A session holding any of these is reported as skipped and stays
-  live, so a transient signal cannot discard mid-flight ownership state:
-  `has_claims`, `has_document_locks`, `keepalive_held`,
-  `launch_delivery_pending`, `wake_delivery_in_flight`.
-- `keepalive_held` is the one a session does not hold for itself. A broker
-  or other pure wake target holds no claim by design, so idle cleanup would
-  end it the moment its turn stopped; the caller that needs it alive takes
-  a bounded lease instead (`yoke sessions keepalive hold <session-id>
-  --reason ... [--seconds N]`, released by `yoke sessions keepalive
-  release` or by expiry). The lease is control-plane state, so the held
-  session's own tool calls neither set nor clear it — unlike `parked` mode,
-  which a session declares about itself and its next tool call takes back.
-  It guards only idle reaping: an explicit terminate still ends the session.
-  Relay-verified process death ends a claimless session, but records evidence
-  and spares a session with any open claim or lock.
-- Destructive ends are explicit operator/CLI calls
-  (`session-end --release-claims` through
-  `sessions_render_end.end_session`). When the release runs,
-  `yoke_core.domain.sessions_lifecycle_destructive_guard` releases every
-  active claim with `release_reason='session_ended'` and the terminal
-  `HarnessSessionEnded` carries a structured `agent_presence_evidence`
-  payload recording the explicit claim release. Checkpoint budget does not
-  block session ending.
+Wakes target the existing native conversation. Manifest
+`launch_model_selection_manifest.resume_selection` owns per-surface selection:
 
-`last_heartbeat` is not consulted by the destructive branch. After
-the keepalive daemon was eliminated it became a tool-activity recency
-signal rather than a liveness signal, conflating idle-but-alive sessions
-with permanent ends. `last_heartbeat` survives only for the
-stale-session reclaim sweep in `yoke_core.domain.sessions_cleanup`
-(short TTL from `session_stale_ttl_minutes` when empty; the holdings TTL
-for strategy-document locks). Active work claims have no inactivity reclaim
-deadline. The sweep reads persisted claims before startup and periodic cleanup,
-so a relay restart cannot end a holder before it reattaches.
+- Claude CLI `native` omits model/effort/context so native resume restores it.
+- Codex/Cursor CLI `explicit` replays current attested model and expressible
+  knobs. Codex re-reads user config and has no resume context-window selector.
+  Cursor interactive last-model metadata differs from print-mode/shared config;
+  omission cannot preserve every relay-owned selection.
+- Desktop surfaces have operator-owned wakes and no stopped-session native
+  resume. Pending messages inject when the operator continues the same chat;
+  Yoke launches no separate turn or selector into those windows.
 
-## Reactivation: conditional auto-reacquire + slim resume block
+Before served attestation, explicit replay may use stored launch request.
+Afterward, omissions are current truth: never fill them from old requests or
+machine preferences, and never translate unsupported knobs silently.
 
-`register_session` reactivation now runs conditional auto-reacquire alongside
-the existing advisory. When the prior `release_reason='session_ended'` is
-inside `session_reactivation_reacquire_window_s` (default 300s, configured
-in machine config) AND no other session currently holds an active claim on the
-same target, a new active `work_claims` row is inserted in the same
-transaction. `SessionReactivationReacquiredClaims` records the receipt with
-per-target reacquired / conflict outcomes.
+`Stop`/`SessionEnd` use non-destructive `end_session_if_empty`. Transient sleep,
+reload/disconnect/idle signals cannot release ownership. Holds include claims,
+document locks, keepalive, pending launch delivery and in-flight wake delivery.
+A caller can keep a claimless wake target alive with a bounded
+`yoke sessions keepalive hold <session-id> --reason R [--seconds N]`, released
+by `yoke sessions keepalive release` or expiry. The target's own tools do not
+clear it; it protects idle reaping, not explicit termination. Relay-verified
+process death records evidence and spares open claims/locks.
 
-The hook runner renders a slim resume block on the next `UserPromptSubmit`
-(Claude) or `SessionStart` (Codex) for the reactivating session. The block
-names the prior released targets, the auto-reacquire outcome, and the
-explicit operator commands. `HarnessSessionResumeBlockShown` marks the
-once-per-cycle render; a subsequent reactivation re-arms the block.
+Explicit destructive session end with `--release-claims` follows
+`sessions_render_end.end_session` / `sessions_lifecycle_destructive_guard`.
+Released claims record `release_reason=session_ended`; `HarnessSessionEnded`
+retains `agent_presence_evidence`. Checkpoint budget never prevents ending.
+Heartbeat is tool recency, not proof of death. `sessions_cleanup` uses the empty
+session TTL (`session_stale_ttl_minutes`) and document-lock holdings TTL, while
+active work claims have no inactivity reclaim deadline. Persisted holdings are
+read before startup/periodic cleanup, including relay restart.
 
-## Path-claim enforcement boundary
+`register_session` can atomically auto-reacquire previously session-ended claims
+inside `session_reactivation_reacquire_window_s` (default 300s, machine config)
+when no competing holder exists. `SessionReactivationReacquiredClaims` records
+per-target reacquired/conflict outcomes. The next supported prompt/start event
+renders prior targets, actual outcomes and explicit recovery once;
+`HarnessSessionResumeBlockShown` marks the cycle and later reactivation re-arms
+it. Hook registration is automatic; do not manually register a launch session.
 
-Every Yoke item's worktree carries a path-claim — the explicit set of directories and files that worktree may modify. The path-claim is enforced at three structural layers:
+## Path-claim guard surfaces
 
-1. **Edit / Write tool guards (Claude):** `PreToolUse(Edit)` and `PreToolUse(Write)` hooks deny tool calls whose target file path is outside the active item's path-claim coverage. Same hook covers Codex's `PreToolUse(apply_patch)` matcher — `apply_patch` is Codex's structural equivalent to Claude's Write/Edit tools.
-2. **Bash mutation guard (both harnesses):** `PreToolUse(Bash)` denies mutating shell commands (`>`, `>>`, `tee`, `mv`, `cp`, `rm`, `git checkout --`, `sed -i`, etc.) whose effective target path is outside path-claim coverage. Read-only inspection commands (`cat`, `grep PATTERN FILE`, `sed -n ... FILE`, `ls`, `head`, `tail`, `rg`, `diff`, `git show`, `git diff --name-only`, `python3 -m ... --help`, file-existence probes) are allowed without claim widening or suppression tokens. The parser treats the grep pattern operand as a pattern, not as a path-claim target. If a read command also performs a write, such as `grep needle file > out.txt`, the write target is still guarded through the redirect mutation.
+Path claims and file budget are independent effective policies; required scope
+never shrinks to current coverage. Reconcile overlap before override. Coverage
+protects edits at three boundaries:
 
-   When an out-of-claim failure target lives **inside the active claim's bound worktree**, the deny narrative pivots away from the generic widen headline and toward the worktree preflight re-entry path owned by `yoke_core.domain.worktree_preflight`. The `yoke claims path widen --claim-id <claim-id> --add-paths <path> --reason R --item YOK-N` template stays as a secondary option for paths the claim does not cover by design. The narrative builders live in `yoke_core.domain.path_claim_bash_guard_narrative` (`format_narrative`, `target_under_active_worktree`, `worktree_preflight_template`, `ambiguous_narrative`); the guard module owns the verdict factory.
-3. **Pre-commit path-claim coverage check:** A pre-commit hook refuses commits whose staged file list contains paths outside the path-claim. This catches the residual class where a tool-level guard missed a path (for example, a multi-file `apply_patch` whose subset edits crossed the claim boundary). Suppression token `[no-path-claim-check]` in the commit message is honored as audit evidence only — the rule still denies; the token does not unblock. The audit event records the suppression attempt for reviewer grep.
+1. Native Edit/Write/apply_patch PreToolUse validates target coverage.
+2. Bash guard parses redirect/copy/move/remove/in-place mutations. Plain reads
+   need no widening; patterns are not targets. A read with redirect still guards
+   its output. An in-lane unexpected coverage failure names worktree preflight
+   re-entry; designed new scope uses `yoke claims path widen --claim-id ID
+   --add-paths PATH --reason R --item PREFIX-N`. Narrative owners are
+   `path_claim_bash_guard_narrative` and `worktree_preflight`.
+3. Pre-commit checks all staged files. `[no-path-claim-check]` records audit
+   evidence but retains denial; missed tool-level coverage cannot land a commit.
 
-The companion suppression token at the tool level is `# lint:no-worktree-path-check` on the Bash command body (also audit-evidence only). Both tokens are documented here so any agent troubleshooting a guardrail denial can find them in one place.
+Rewrite ambiguous shell into parseable operations first. The Bash parser's
+`# lint:no-worktree-path-check` sentinel records `suppression_attempted` and allows
+that parser verdict, as defined by `path_claim_bash_parser` / `path_claim_bash_guard`.
+It does not grant claim, lane, filesystem or destructive-operation authority.
+Do not conflate its effect with the strict workspace-cwd or commit tokens.
 
-## Renderer outputs and regeneration
+## Regeneration and installation ownership
 
-The substrate renderer produces:
+`yoke agents render` regenerates Claude/Codex/Cursor agents and Cursor hook/
+manifest outputs. Bootstrap canonical discovery and harness manifests have their
+source/renderer owners; inspect generated markers before editing them. Doctor
+checks canonical drift. Current definitions, bootstrap and exact tool/event
+surfaces come from manifests, not a prose copy.
 
-| Output | Purpose | Regeneration command |
-|---|---|---|
-| `runtime/harness/claude/agents/yoke-*.md` | Claude Code adapter files | `yoke agents render` |
-| `runtime/harness/codex/agents/yoke-*.toml` (surfaced as `.codex/agents/yoke-*.toml`) | Codex custom-agent files | Same |
-| `runtime/harness/bootstrap-spec.json#canonical_agents` | Shared canonical-body discovery | Manual (operator-authored manifest) |
-| `runtime/harness/codex/manifest.json` | Codex affordances and limitations | Manual (operator-authored manifest) |
-| `runtime/harness/cursor/agents/yoke-*.md` (surfaced as `.cursor/agents/yoke-*.md`) | Cursor custom-agent files | Same |
-| `runtime/harness/cursor/hooks.json` (materialized as `.cursor/hooks.json`) + `runtime/harness/cursor/manifest.json` | Cursor hook config and manifest | `yoke agents render` |
+Cursor `.cursor/cli.json` / `.cursor/sandbox.json` are installer-owned unions of
+Yoke's region, preserving operator entries and resolving network origins from
+the installing machine config. They are not byte-exact renderer outputs;
+`HC-cursor-permission-config` checks the region. Read current install ownership
+before updating these settings.
 
-Regeneration is idempotent. Doctor's `HC-agent-canonical-drift` health check fails when any rendered adapter body diverges from its canonical source.
+A new harness needs a manifest, renderer shape, shared-descriptor consumer,
+capability-registry membership, smoke runbook and applicable Doctor checks.
+Canonical responsibility and skill semantics remain shared; native-specific
+conditional blocks and enumeration sites may require source changes. Inventory
+executor labels, identity/ancestry, decision wires, dispatch, install constants
+and checks before claiming parity. [Cursor assessment](harness-cursor-assessment.md)
+provides an integration inventory; the current manifest is live authority.
 
-`.cursor/cli.json` and `.cursor/sandbox.json` are deliberately absent from that table. They are not rendered outputs: the install pass in `yoke_cli.project_install.cursor_permissions` unions Yoke's region into each file, so operator entries survive and there is no byte-exact drift to check. Their network origins also resolve from the installing machine's config, which a renderer running anywhere else cannot know. `HC-cursor-permission-config` checks the region rather than the bytes.
-
-## Adding a new harness
-
-To add a third harness adapter:
-
-1. Author `runtime/harness/{harness_id}/manifest.json` (identity, affordances, substrate limitations).
-2. Add a renderer pass for the harness's adapter shape (Markdown, TOML, YAML, etc.) in `yoke_core.domain.agents_render`.
-3. Implement the dispatch-descriptor consumer for the harness's native subagent / custom-agent / tool-call primitive.
-4. Add the harness to `HARNESS_UNIVERSE` in the capability registry.
-5. Author a smoke-test runbook (mirror `runtime/harness/codex/SMOKE-TEST.md`).
-6. Run `/yoke doctor` and confirm the harness-specific health checks pass.
-
-The canonical bodies under `runtime/agents/` never change. The skill phase files never change. The adapter directory, the renderer pass, the manifest, and the smoke-test runbook are new — and the steps above additionally touch the core enumeration sites where harness identity is hardcoded (executor labels, `HARNESS_UNIVERSE`, conditional-block ids, identity predicates, process-ancestry classification, decision wire formats, session-dispatch branches, project-install constants, and the doctor checks that read them). The [Cursor Harness Integration Assessment](harness-cursor-assessment.md) inventories those sites and maps every per-harness axis for a candidate third harness.
-
-## Related docs
-
-- [Harness Bootstrap Contract](harness-bootstrap.md) — neutral startup expectations
-- [Harness Adapter Template](harness-adapter-template.md) — five-part adapter template
-- [Hook Parity Map](hook-parity-map.md) — three-tier hook classification across harnesses
-- [Cursor Harness Integration Assessment](harness-cursor-assessment.md) — measured substrate mapping and enumeration-site inventory for a candidate third harness
-- [Subagent Reference](agents.md) — agent-by-agent behavior
-- [Harness README](../runtime/harness/README.md) — adapter directory convention
+Related: [adapter template](harness-adapter-template.md),
+[hook parity](hook-parity-map.md), [agents](agents.md),
+[harness directory convention](../runtime/harness/README.md).

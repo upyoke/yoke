@@ -58,12 +58,13 @@ def test_named_section_and_progress_log_reads_attach_stage_delivery(monkeypatch)
         assert outcome.result_payload["content"] == "Stored section content"
 
 
-def test_section_renderer_delivers_instructions_before_the_requested_content():
+def test_section_renderer_describes_instructions_before_requested_content():
     stdout = io.StringIO()
     write_item_content(
         SimpleNamespace(
             success=True,
             result={
+                "public_ref": "EX-1",
                 "content": "Section text",
                 "execution_instructions": [{"content": "Read rule"}],
             },
@@ -72,5 +73,6 @@ def test_section_renderer_delivers_instructions_before_the_requested_content():
         io.StringIO(),
     )
     rendered = stdout.getvalue()
-    assert rendered.index("Read rule") < rendered.index("Section text")
+    assert "Read rule" not in rendered
+    assert rendered.index("yoke items get EX-1 --json") < rendered.index("Section text")
     assert rendered.endswith("Section text\n")

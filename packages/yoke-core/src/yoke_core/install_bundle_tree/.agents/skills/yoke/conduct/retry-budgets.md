@@ -1,35 +1,39 @@
-# /yoke conduct — retry budgets and output-gate fallback chains
+# Conduct — bounded output retries
 
-Read this when a Tester or Simulator dispatch returns no parseable
-verdict, or when you need the retry constants. The loop and simulation
-phase files name this file at the step that consumes it.
+These counters are separate from entry-gates.md's configurable implementation
+attempt budget. A real FAIL increments the implementation attempt; missing
+output increments only the appropriate output counter.
 
-## Constants
-
-```
+```text
 MAX_TESTER_REPROMPTS=2
 MAX_SIMULATOR_REPROMPTS=2
 ```
 
-The Architect iteration limit is owned by `simulate/autofix-loop.md`; Conduct
-delegates to that loop rather than defining another budget.
+## Tester
 
-**Tester output gate fallback chain:** When the Tester returns no parseable verdict, `MAX_TESTER_REPROMPTS` controls the escalation chain:
-- **Initial attempt:** Full prompt with diff (inlined if <=300 lines, externalized to temp file if >300 lines). See `engineer-tester-loop.md` step 7. If verdict found, done.
-- **Retry 1** (`_tester_output_failures == 1`): Minimal prompt variant (no inline diff, file list only) with default model. See `dispatch-context.md` step 5i-minimal.
-- **Retry 2** (`_tester_output_failures == 2`): Minimal prompt variant + `model: "opus"`.
-- **After retry 2** (`_tester_output_failures > MAX_TESTER_REPROMPTS`): Conduct direct verification fallback -- run tests in the worktree directly. See `dispatch-context.md` step 5i-conduct-verify. This is a documented exception to the Thin Conduct Principle.
+Initial full shared prompt uses complete size-gated diffs. No durable review
+and no clear text verdict: retry1 minimal shared variant/default model, retry2
+minimal/shared descriptor escalation. Preserve task/lane/QA and file-backed
+diffs; capture reflections/artifacts and parse after each return. After both
+retries, [dispatch-context-verify.md](dispatch-context-verify.md) is the explicit
+Thin Conduct exception. It still requires a truthful durable verdict; an
+inconclusive or blocked check cannot become PASS.
 
-The constant controls when to escalate model (retry 2) and when to fall back to conduct verification (after all retries exhausted). It does not control when to give up entirely -- the conduct skill always produces a verdict.
+## Simulator
 
-**Simulator output gate:** When the Simulator returns no parseable result (neither `SIMULATION: CLEAN` / `SIMULATION: GAPS FOUND` nor fallback `CLEAN` / `GAPS FOUND`), the gate first classifies the failure mode, then selects a recovery strategy. `MAX_SIMULATOR_REPROMPTS` controls the retry budget via a three-tier retry chain:
-- **Initial attempt (Tier 1):** Compressed two-phase integration simulation by default, unless `sim_force_standard_integration=true` overrides it back to the standard full-context prompt. If result found, done.
-- **Classification:** If no result found, classify output as `context_exhaustion` (< 500 chars, mid-thought fragment, tool-call reasoning without report structure) or `formatting_omission` (structured report content present, but the two-line verdict block — `SIMULATION:` line and/or `EPIC: PREFIX-{N}` attestation line — is missing). Ambiguous cases default to `formatting_omission` (conservative).
-- **Retry 1 (Tier 2) — formatting_omission** (`_simulator_output_failures == 1`): Re-invoke with escalated instructions demanding the full two-line verdict block as the first two lines of the response.
-- **Retry 1 (Tier 2) — context_exhaustion** (`_simulator_output_failures == 1`): Re-invoke with compressed context + two-phase protocol + aggressive constraints (verdict-first, max 3 gaps, forbidden-operations list). See `simulation-gate.md` S6h for the full retry prompt.
-- **Retry 2 (Tier 3) — ultra-compressed no-tool fallback** (`_simulator_output_failures == 2`): Re-invoke with ultra-compressed context (overlap matrix + dependency edges + one-line task summaries only — no interface contracts, no review summaries, no diff stats) and a hard no-tool mandate. The Simulator must produce its verdict from prompt content alone. This trades depth for guaranteed completion. See `simulation-gate.md` S6h for the full ultra-compressed prompt.
-- **After retry 2** (`_simulator_output_failures > MAX_SIMULATOR_REPROMPTS`): HALT (safe default). Unlike the Tester gate, there is no conduct direct-verification fallback -- the conduct skill cannot simulate integration paths itself.
-- **Ouroboros logging:** All gate exhaustion entries include the failure mode classification and tier for pattern tracking.
+Default compressed two-phase; standard only sim_force_standard_integration=true.
+Require both verdict and public EPIC attestation. Missing result classifies as
+context_exhaustion when <500 chars, mid-thought/tool fragments or exploration
+without report; structured content missing either header is formatting_omission.
+Ambiguous defaults to formatting_omission.
 
-The three-tier chain guarantees that at least one tier produces a parseable verdict for any epic size, trading depth for completion as tiers escalate. The Simulator already runs on opus, so no model escalation is needed.
+Retry1 formatting omission demands the two-line block first; context exhaustion
+uses compressed context with aggressive two-phase constraints. Retry2 uses
+ultra-compressed overlap/dependency/one-line-task context, required shim/commit
+evidence, hard no-tool and maximum3 gaps. Every attempt retains exact epic,
+resolved worktree authorities and before-dispatch identity check. After two
+retries HALT with classification/tier evidence and Ouroboros; never manufacture
+CLEAN or simulate directly. Read [simulation-gate-criteria.md](simulation-gate-criteria.md).
 
+Architect iteration budget belongs solely to
+[Simulate's auto-fix loop](../simulate/autofix-loop.md); do not define another.

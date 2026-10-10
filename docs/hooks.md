@@ -1,6 +1,7 @@
 # Hooks Reference
 
-Yoke uses harness-native hook points to keep orchestration deterministic — startup orientation, tool guardrails, post-tool telemetry, and session end are all Python-owned code paths that fire without operator intervention.
+Harness-native startup, guardrails, telemetry and session end run through Python
+owners. Load this contributor reference when changing or diagnosing hooks.
 
 ## Canonical owners
 
@@ -30,287 +31,264 @@ responsibility: it can safety-net auto-commit uncommitted work in a `YOK-N`
 item worktree and then emits `HarnessSessionStopped`; it does not terminate
 the parent session or release its claims.
 
-## Transport
+## Transport and resident
 
-`yoke hook evaluate <event>` is a thin Unix-socket client. For every non-dry
-invocation it sends the event, payload, caller pid/ppid, cwd, environment, and
-installed revision to one resident evaluator for the machine user. The
-resident keeps the canonical engine imported and uses one persistent HTTPS
-connection pool. It applies the caller context while evaluating, so session
-identity and policy behavior remain those of the originating harness process.
-The short-lived client reads the interpreter process start from the operating
-system and stops its monotonic clock immediately before final stdout. It sends
-that completion to the resident on the existing Unix socket; the resident then
-adds `client_wall_ms` to the matching `HookDispatchTelemetry` context without
-putting a second network request on the hook's decision path. The canonical
-in-process path records the same field directly for a configured local universe
-or relays it over HTTPS. An unconfigured thin client leaves this disposable
-telemetry unrecorded and never imports the engine to report it.
-Inside that resident, the canonical evaluator branches on the machine config's
-active connection (`yoke_cli.transport.https.resolve_https_connection`):
+Project hook configs call `yoke hook evaluate <event>`. Each non-dry invocation
+sends event/payload, pid/ppid, cwd, environment and installed revision over a Unix
+socket to one evaluator per machine user. The resident imports the engine once,
+reuses an HTTPS pool and isolates each concurrent caller's context. Dry runs stay
+local. The active machine connection selects in-process or HTTPS evaluation.
 
-- **local transport** (or `--dry-run`, which always stays local): the in-process shared hook runner (`yoke_core.hooks`) dispatches the chain exactly as before.
-- **https transport**: one policy chain evaluates split across the two sides. The CLI reads the hook payload once, detects the executor client-side, then (1) evaluates the `LOCAL_STATE_POLICIES` subset **client-side** via `yoke_harness.hooks.local_subset.evaluate_local_subset` — the packaged client-side policy evaluators — and (2) POSTs `{hook_schema, event_name, stdin, executor, agent_type, entrypoint, model, execution_level, deadline_ms}` with the machine credential to the active env's `POST /v1/hooks/evaluate`, which evaluates everything else via `evaluate_remote`. The three identity fields are client-owned: the server cannot read the caller's local transcript/cache, entrypoint env, or no-project machine fallback routing inputs. Verdicts compose with **any deny wins, regardless of side**: a client deny renders immediately and skips the POST (the server verdict could not flip it); a server `outcome=denied` relays verbatim and drops client advisories (deny text is never diluted — the in-chain renderer's own rule); two allows merge stdouts via `decision_render.merge_allow_stdout` (sibling advisory envelopes join into one).
+On HTTPS, the client reads the payload and detects executor/agent identity once.
+It evaluates `LOCAL_STATE_POLICIES` through
+`yoke_harness.hooks.local_subset.evaluate_local_subset`, then sends the remaining
+chain to `POST /v1/hooks/evaluate` with machine credentials, hook schema, event,
+stdin, executor, agent type, entrypoint, model, execution level and remaining
+deadline. Identity fields are client-owned: the server cannot inspect local
+transcripts, caches or launch inputs.
 
-**Duplicate lifecycle dispatches collapse.** A harness may deliver one
-lifecycle event twice: Claude Desktop drove `SessionStart`,
-`UserPromptSubmit`, and `Stop` from two driver processes for a single
-conversation while the project settings declared one command per event.
-`yoke_core.hooks.dispatch_dedup` collapses the repeat before the chain
-runs — same session, same event, byte-identical payload, inside
-`DISPATCH_DEDUP_WINDOW_SECONDS` — and records
-`HookDispatchDeduplicated`. The marker is machine-local because the
-duplicate arrives in a different process, and it is scoped by run half so
-the relay's client-side subset and the server's own run never read each
-other's. Tool events (`PreToolUse`, `PostToolUse`, `PostToolUseFailure`,
-`PermissionRequest`) are never deduplicated: each carries its own
-`tool_use_id` and must run its own guardrails.
+Any deny wins. A client deny returns immediately without posting; a server deny
+relays verbatim and discards client advisories. Two allows join sibling advisory
+envelopes through `decision_render.merge_allow_stdout`. Local-state delegation
+is recorded in the server's `degraded` list; it means delegated, not disabled.
+The same chain machinery preserves each policy's fail-open/fail-closed behavior.
 
-**Resident lifecycle and recovery.** The client starts the singleton on first
-use. It exits after ten idle minutes, and a request from a different installed
-revision makes it leave the accept loop and re-exec; the restart handshake
-names both the loaded and the requested revision so a stuck upgrade reads from
-one line. **Neither exit consults the telemetry queue.** Retained observations
-are drained once at shutdown under their own two-second bound, and a drain that
-times out warns rather than cancelling the upgrade — telemetry is disposable,
-and one undeliverable batch must never pin a machine to an old revision or keep
-an idle resident alive. In-flight evaluations still finish first: handler
-threads are non-daemon and are joined on close. Concurrent connections evaluate
-in isolated caller contexts. An unreachable socket, protocol error, startup
-refusal, or mid-request crash falls back to the same canonical in-process
-evaluator for that invocation. The named stderr warning is limited to once
-every five minutes across hook processes using one timestamp in the existing
-evaluator state directory; suppression never skips evaluation. If that state
-cannot be written, the diagnostic stays quiet and evaluation continues.
-`yoke watch doctor -- --only hook-resident` independently reports a down
-resident as WARN, including its log path and startup recovery guidance; the
-check runs on the client machine for local and HTTPS control planes, and is
-N/A on server/hosted runtimes. An idle resident may have retired normally;
-the next hook invocation retries startup. `HookDispatchTelemetry`
-records `evaluator=inprocess` and the fallback reason. Absence of the resident
-can therefore never manufacture an allow verdict.
+`yoke_core.hooks.remote_policy.LOCAL_STATE_POLICIES` classifies policies requiring
+local Git, workspace, file or script-directory state. Payload/DB policies,
+including command-shape, path-claim/session-cwd, heartbeat and telemetry, remain
+server-side. Narrow `payload_extra` supplies staged Git facts to main-commit and
+the effective scratch root to session-cwd; watcher captures must nest under the
+calling session. Client agent type (`YOKE_HOOK_AGENT_TYPE`) and identity fields
+merge into both payloads. The server binds verified bearer actors to registered
+session rows (`actor_id` matches local machine-actor resolution).
 
-**The connect grace is a total budget.** `RESIDENT_CONNECT_GRACE_SECONDS`
-(2s) bounds the whole phase of reaching a usable resident — connecting,
-starting one, and re-trying after a restart handshake — as an absolute
-deadline imposed on every socket operation those attempts make, not a glance
-taken at the top of the retry loop. Once a request is under way the response
-wait keeps the hook's own deadline (`YOKE_HOOK_TOTAL_TIMEOUT_MS` plus two
-seconds of slack for the resident to stop itself first), measured from the
-client process start so retries can never push one invocation past its own
-budget. A legitimate evaluation is unaffected: at send time a healthy hook has
-spent milliseconds.
+The client starts the resident on demand. It retires after ten idle minutes;
+a request for a different installed revision closes acceptance and re-execs,
+with both revisions named in the handshake. In-flight non-daemon handlers join
+before close. Neither retirement nor upgrade waits indefinitely for telemetry:
+shutdown drains retained observations once for two seconds, warns on timeout,
+and continues.
 
-**Read-only hot path.** After an HTTPS server advertises
-`read_only_observation_batch_v1`, tool events whose complete canonical chains
-contain no decision-making guard run locally in the resident. The classifier
-comes from canonical chain ordering, not a separate allowlist; guarded tools
-such as Bash, Write, and Edit remain synchronous. The first read-only event for
-a session, and another at least every two seconds, still relays so pending
-messages can be injected. Events between those probes return locally and queue
-their unchanged `HarnessToolCallStarted`/`HarnessToolCallCompleted` and
-`HookDispatchTelemetry` effects. The resident flushes the ordered queue every
-two seconds or 32 observations. Session heartbeat and tool-activity state
-advance when the batch commits, so their lag is bounded by the same flush
-interval. An older server does not advertise the capability, leaving every
-hook on the established synchronous path throughout a rolling upgrade.
+Socket/protocol/startup/crash failures use the canonical in-process evaluator
+for that invocation. A named stderr warning is rate-limited across processes to
+once per five minutes in the existing evaluator state directory. An unwritable
+warning marker stays quiet without skipping evaluation. `HookDispatchTelemetry`
+names `evaluator=inprocess` and the fallback reason. A missing resident never
+manufactures an allow. Inspect with:
 
-**A rejected batch is dropped, not retried forever.** Delivery is ordered, so
-whatever sits at the head of the queue decides whether anything behind it is
-ever sent. A 4xx other than 408 or 429 means the control plane understood the
-batch and will not take it, so resending the same bytes cannot succeed: the
-batch is discarded and `YOKE_HOOK_TELEMETRY_BATCH_REJECTED` names the HTTP
-status, the server's rejection code, and the step that fixes it. A transient
-failure is retried with geometric backoff to a thirty-second ceiling for a
-bounded number of attempts and then dropped the same way, and the queue length
-is capped so one unreachable endpoint cannot grow the resident without limit.
-While work is retained, `YOKE_HOOK_TELEMETRY_FLUSH_FAILED` carries the queue
-depth and the age of its oldest entry; anything discarded is summarized as
-`YOKE_HOOK_TELEMETRY_DROPPED`. Events are disposable and operational state has
-its own durable owners, so no observation is worth stalling the hooks of every
-session on the machine.
+```text
+yoke watch doctor -- --only hook-resident
+```
 
-**One identity gate serves both hook routes.** `POST /v1/hooks/evaluate` and
-`POST /v1/hooks/telemetry/batch` decide "may this payload's `session_id` act as
-a Yoke session?" through the single predicate in
-`yoke_core.hooks.relayed_session_identity`. They must agree, because the batch
-carries payloads a live hook already relayed: when the batch route additionally
-applied the conversation-alias shape test, it refused with HTTP 400 the very
-payloads evaluate had accepted. Only the client can answer the question — the
-machine-local Cursor session map legitimately records a conversation as its own
-session, so a canonical id can equal the alias beside it — and the client
-already refuses the raw case, folding an unmapped conversation to empty, which
-never sets `identity_stamped`. The shape test therefore applies to unstamped
-payloads only. The batch route then proves the stamp it trusts: a stamped id
-whose `harness_sessions` row belongs to another actor is refused
-`HOOK_OBSERVATION_SESSION_DENIED`, while an id with no row yet is accepted,
-because that observation is what registers the session. That authorization is
-batch-only on purpose — a false refusal there costs one disposable telemetry
-batch, where the same refusal on the evaluate route would block a live tool
-call on every machine at once.
+The check runs on client machines for local/HTTPS, reports down as WARN with log
+and startup recovery, and is N/A on server/hosted runtimes. An idle retirement is
+normal; the next hook retries startup.
 
-**A degraded hook says which phase was slow.** When the resident cannot answer
-and the canonical in-process fallback runs, the hook writes one
-`YOKE_HOOK_PHASE_TIMING` line to stderr carrying `resident_wait_ms` (connect,
-restart handshakes, and response wait), `fallback_ms` (the in-process
-evaluation, including any synchronous telemetry reporting it performs on
-completion), `client_wall_ms` (the hook process end to end), and
-`fallback_reason`. A phase that was not measured reads `not-measured` rather
-than zero, so a coverage gap cannot pass for an instant phase. Set
-`YOKE_HOOK_PHASE_TIMING=1` to get the same line on healthy invocations. It
-carries durations and one refusal code only — never a payload, an environment,
-or a credential — and rendering cannot delay or fail the tool call.
+### Deadlines and degradation
 
-Inspect the resulting timing and coverage split with `yoke sessions
-hook-overhead [--hours N] [--json]`. The hook table reports PreToolUse and
-PostToolUse client p50/p90/mean, evaluator p50, client-minus-evaluator
-remainder, and timed/total coverage. “Evaluator” is deliberate: on hosted
-transport it includes server work, while local and admin execution can happen
-in-process. The tool table reports completed-call mean/p95 beside timed/total
-coverage globally and per harness. It re-reads repaired `session_tool_calls`
-owner timestamps rather than the event's ingest snapshot, so a late start
-that corrected the row is timed even when the event still says missing.
-Missing duration outside the 15-minute pending-delivery window is unknown
-and excluded from latency statistics; a measured zero remains timed; a start
-or client wall still inside that window is `pending`, not incomplete. The
-observation cutoff is the `--hours` window. Cursor shell completions with no
-`tool_use_id` are `unknown_no_call_identity` (native
-`beforeShellExecution` / `afterShellExecution` omit correlation and
-duration — see `yoke_contracts.cursor_shell_timing`); hook-overhead keeps
-them in the denominator as unsupported timing and excludes them from
-mean/p95. `ACTIVE*` is the
-number of distinct sessions emitting telemetry in the fixed hour, not a live
-roster or proof of simultaneous execution.
+`RESIDENT_CONNECT_GRACE_SECONDS` (2s) is one absolute budget for connect, startup
+and restart handshakes, enforced on every socket operation. Once sending begins,
+response wait uses `YOKE_HOOK_TOTAL_TIMEOUT_MS` plus two seconds for resident
+settlement, measured from client process start; retries never extend the budget.
 
-For a comparable on-demand sample, run `yoke hook benchmark --samples 5
-[--json]`. It executes the harmless system `true` command between normal
-PreToolUse and PostToolUse evaluations, so policy checks remain active. The
-report records the harness and surface, available client/server revisions,
-exact time window, run count, timing coverage, per-hook phase lines from
-the durable `HookDispatchTelemetry` context, actual command time, and
-whole-envelope time. The durable phase read preserves missing
-`client_wall_ms` as pending delivery while the completing report is still
-in flight; it does not infer it from the opt-in stderr line or mark the
-run incomplete. A phase with no row after the query filled its limit is
-incomplete. Its concurrency evidence labels the live roster separately from
-the running-session bucket proxy. Save `--json` output and pass it back with
-`--compare REPORT.json`; differing harnesses, surfaces, revisions, commands,
-or sample counts, pending delivery, and incomplete evaluator/client-wall
-coverage, are marked incomparable rather than blended.
+The shared `hook_runner_total_timeout_ms` ceiling (default 10000ms;
+`yoke_core.domain.hook_runner_deadline`) spans both chain halves. Client policies
+consume it in order; POST uses the remainder and passes `deadline_ms`; the server
+clamps that remainder to its ceiling and stops launching policies at exhaustion.
+A computed deny survives expiry. Otherwise `degraded` includes
+`deadline_exhausted` and `deadline_skipped:N:a,b,c`. Server metrics are
+`yoke.hook.wait_ms` and `yoke.hook.requests`, with
+`outcome=completed|timeout|denied` also in the response.
 
-**Deadline contract.** One shared ceiling — `hook_runner_total_timeout_ms`, default 10000ms (`yoke_core.domain.hook_runner_deadline`) — spans both halves: the client-side subset fits within the remaining budget (head-starves-tail, identical to one in-process chain), the client's POST socket timeout is the remainder after it, `deadline_ms` propagates that same remainder, and the server stops launching further chain policies once it is exhausted (clamped to its own ceiling). A deny computed before expiry is preserved on either side; otherwise the response marks `deadline_exhausted` in `degraded` and names every skipped guard as `deadline_skipped:N:a,b,c`. Server-side latency telemetry: `yoke.hook.wait_ms` histogram + `yoke.hook.requests` counter with `outcome ∈ completed|timeout|denied` (the same `outcome` field rides the response for the client's composition).
+Timeout, unreachable host, non-200 or invalid response degrades only the server
+half to empty stdout/exit 0 plus one stderr diagnostic. Already-computed client
+allow context survives; a client deny never enters that path. Claude's output
+writer sends exit-2 denial reasons and guard/environment notices to stderr,
+reducing a local deny envelope to reason text. Codex/Cursor retain stdout verdict
+envelopes; allow context uses stdout.
 
-**Claude blocking output.** The shared client output writer emits exit-2 reasons on stderr for both local and relayed denials, including guard-version and environment notices. A local deny envelope is reduced to its reason text. Codex and Cursor retain their stdout verdict envelopes; allow context still travels on stdout.
+### Lifecycle deduplication and orientation
 
-**Failure is never harness-visible.** Timeout, unreachable host, non-200, or a non-contract body all degrade the SERVER half client-side to the event's no-op success (empty stdout, exit 0 — the same allow render the in-process runner emits) plus one stderr line naming the degradation. The client half's already-computed allow-stdout (advisories, orientation) is preserved through that degradation; a client deny never reaches it.
+`yoke_core.hooks.dispatch_dedup` collapses lifecycle repeats with the same
+session/event and byte-identical payload inside `DISPATCH_DEDUP_WINDOW_SECONDS`,
+recording `HookDispatchDeduplicated`. Machine-local markers are scoped by run
+half so client/server cannot consume each other's markers. `PreToolUse`,
+`PostToolUse`, `PostToolUseFailure` and `PermissionRequest` always evaluate
+individually with their tool-use identities.
 
-**A session that misses its orientation gets it on the next event.** Composing the orientation block is not the same as delivering it: a deny prints its own message in place of the merged allow stdout, and a hook the harness kills on its own timeout prints nothing at all. Either way the session has no second startup, so `yoke_core.domain.session_orientation_delivery` records the two facts separately — an *attempt* when the block is composed, a *delivery* only when the composing process survived to return an allow. An attempt with no delivery means the session is still un-oriented, and the next context-bearing event for that harness re-delivers the block once: Claude and Codex reuse their per-prompt channel, while Cursor's prompt hook answers block/allow only and moves the repair to the tool-result event (`session_orientation_redelivery_event`, following each harness manifest's `inject_events`). The repeat is labelled for the agent and named on stderr as `YOKE_ORIENTATION_REDELIVERED`, because a session that started without its bearings is otherwise invisible. The degradation path itself is unchanged — its preserved allow stdout counts as delivery.
+`session_orientation_delivery` records composition attempts separately from
+actual allow-response delivery. A deny or killed process leaves orientation
+undelivered, so the next context-bearing event repairs it once. Claude/Codex
+use their per-prompt channel; Cursor's block/allow prompt channel uses its
+tool-result event selected by `session_orientation_redelivery_event` and the
+manifest's `inject_events`. Repair labels context and emits
+`YOKE_ORIENTATION_REDELIVERED` on stderr. Preserved allow stdout during server
+degradation counts as delivery. See [native discovery](public/reference/harness-discovery.md).
 
-**Local-state policies always evaluate client-side; the server evaluates the rest.** Policies whose verdict needs the client machine (client git state, bound-workspace env, on-disk file content, the hook script dir) cannot run on the server: `yoke_core.hooks.remote_policy.LOCAL_STATE_POLICIES` classifies them, the relay client evaluates exactly that subset before posting, and server-side evaluation skips each one with its module id recorded in the response's `degraded` list — the marker means "delegated to the client", not "protection off". Per-policy fail-open/fail-closed semantics are byte-identical to local transport because the client subset runs the same chain machinery. Payload-only and DB-backed policies (command-shape lints, path-claim and session-cwd guards, heartbeat, telemetry) still run server-side so the control-plane DB remains authoritative. Policies that also need one client-local fact receive a narrow `payload_extra`: main-commit gets staged Git facts, while session-cwd gets the effective client scratch root and accepts only watcher captures nested under the calling session's path. The request's `agent_type` (from `YOKE_HOOK_AGENT_TYPE` on the client) and client-owned identity fields (`entrypoint`, real `model`, `execution_level`) merge into the payload on both sides so subagent-context detection and session registration keep working. The server binds the verified bearer-token actor to relay-registered `harness_sessions` rows (`actor_id` mirrors what local registration resolves from the machine actor).
+### Read-only observation batches
 
-**SubagentStop disposition.** SubagentStop is registered per-subagent in agent adapter frontmatter and invokes the `yoke_core.domain.agent_stop` owner directly — it does not route through `yoke hook evaluate`, so the https transport does not carry it. It stays local on purpose: its load-bearing work is the auto-commit of the subagent's item worktree, which is client-machine git state no server can act on. The chain registry's `SubagentStop -> session_dispatch` entry is the runner-side fallback for harnesses that route it through the shared runner; `session_dispatch` is itself classified local-state, so over https it evaluates client-side like the rest of the subset.
+An HTTPS server advertising `read_only_observation_batch_v1` permits resident
+local evaluation of tool events whose complete canonical chain contains no
+decision-making guard. Classification follows chain ordering, not an allowlist;
+Bash/Write/Edit guards remain synchronous. The session's first read-only event
+and another at least every two seconds still relay for message injection. Other
+events return locally and queue unchanged started/completed/dispatch telemetry.
+The queue flushes in order every two seconds or 32 observations; heartbeat and
+tool-activity state advance on commit with that bounded lag. Older servers keep
+the synchronous path until they advertise support.
 
-## Tool-call timing semantics
+A 4xx other than 408/429 drops the rejected batch and emits
+`YOKE_HOOK_TELEMETRY_BATCH_REJECTED` with HTTP status, rejection code and recovery.
+Transient failures retry with geometric backoff to a 30-second ceiling for a
+bounded attempt count, then drop. Queue length is capped. While retained,
+`YOKE_HOOK_TELEMETRY_FLUSH_FAILED` reports depth and oldest age; discarded work
+emits `YOKE_HOOK_TELEMETRY_DROPPED`. Disposable observations never block sessions
+or pin residents/revisions; operational state has durable owners.
 
-**`duration_ms` is the interval between two captured endpoints, never against
-ingest time.** The start is the instant the PreToolUse hook observed the call
-opening, stored on the call's own `session_tool_calls` row; the end is the
-instant the caller observed it closing. The lookup is scoped by
-`(session_id, tool_use_id)`, because a tool-use id is unique only within its
-session.
+Evaluate and batch share `yoke_core.hooks.relayed_session_identity`. Unstamped
+payloads receive conversation-alias shape checks. The client folds unmapped raw
+conversation identities to empty and sets no stamp; a valid machine-local Cursor
+mapping can legitimately use the conversation id as canonical session id.
+Batch authorization additionally refuses a stamped session row belonging to
+another actor with `HOOK_OBSERVATION_SESSION_DENIED`. A stamped id with no row
+yet is accepted so its observation can register it. This actor check is
+batch-only; do not add it to evaluate and block live tools during registration.
 
-Ingest time is not one of those endpoints. Read-only hook evaluations are
-answered from warm local state and their observations are delivered afterwards
-in bounded batches, so the database sees a call seconds after it finished.
-Measuring a duration from a captured start to "now" at ingest charges that
-delivery delay to the tool — matched Read calls once recorded 4079ms against a
-real 1649ms. Because both endpoints are captured, a redelivered observation
-reports the same duration as the first.
+## Timing and diagnostics
 
-**A start that arrives after its own completion is reconciled, not
-dropped.** Delivery reorders observations as well as delaying them, so a
-completion can reach the database first. It has no open row to close, so it
-inserts one already closed and stamps its own instant into both endpoints,
-keeping the call counted exactly once. When the genuine opening observation
-turns up afterwards it corrects that row's `started_at` — matched on the
-call's own `(session_id, tool_use_id)` identity, keeping the earlier of two
-valid starts, and writing that one column only, so the completion, outcome,
-and activity count the call already has are untouched and finished work is
-never reopened. A duplicate or replayed start carries the instant it always
-carried and changes nothing. Owner:
-`yoke_core.domain.session_tool_call_start_reconcile`.
+The client captures interpreter process start and final stdout time. It sends
+completion over the existing resident socket, adding `client_wall_ms` to matching
+`HookDispatchTelemetry` without another network request on the decision path.
+The configured in-process path records or relays the same field. An unconfigured
+thin client leaves disposable telemetry unrecorded and never imports the engine
+solely to report it.
 
-**The delay itself is recorded beside the duration.** Every observation
-delivered through the batch path carries `ingest_lag_ms` in its
-`context.detail`: how long it waited between capture and ingest. Deliberate
-batching therefore stays distinguishable from a slow tool without either
-number contaminating the other.
+Fallback writes `YOKE_HOOK_PHASE_TIMING` to stderr with `resident_wait_ms`,
+`fallback_ms`, `client_wall_ms` and `fallback_reason`; unmeasured phases say
+`not-measured`, never zero. Set `YOKE_HOOK_PHASE_TIMING=1` for healthy calls too.
+The line contains durations and a refusal code, never payload/environment/secret;
+rendering cannot delay or fail the tool. Resident wait includes connect/restart/
+response; fallback includes its synchronous completion telemetry.
 
-**A duration that could not be measured is named, not dropped.** Each tool-call
-event carries `timing_status` in `context.detail`, and `ingest_lag_status`
-beside the lag. `measured` means `duration_ms` is a real interval. Every other
-value carries a null duration and says why:
+```text
+yoke sessions hook-overhead [--hours N] [--json]
+yoke hook benchmark --samples 5 [--json]
+yoke hook benchmark --samples 5 --compare REPORT.json
+```
+
+Hook overhead reports Pre/Post client p50/p90/mean, evaluator p50, remainder and
+timed/total coverage. Evaluator includes hosted server or local/admin in-process
+work. Tool mean/p95 and coverage use repaired owner timestamps, globally and per
+harness. `ACTIVE*` counts distinct telemetry-emitting sessions in a fixed hour;
+it is neither a live roster nor simultaneous execution. `--hours` sets the
+observation cutoff.
+
+The benchmark runs harmless `true` between normal guarded Pre/Post evaluations.
+It records harness/surface, available revisions, exact window/count/coverage,
+durable phase context, command and envelope times. Save JSON for comparison.
+Different harnesses/surfaces/revisions/commands/counts, pending delivery or missing
+coverage are incomparable. A phase missing after a limit-filled query is
+incomplete; client-wall completion still in flight is pending, not inferred
+from stderr. Live roster and running-session bucket proxy are separate evidence.
+See [performance diagnostics](public/reference/performance-diagnostics.md).
+
+### Captured endpoints and unknowns
+
+Tool `duration_ms` is captured end minus captured start, scoped by
+`(session_id, tool_use_id)`, never ingest time. Batch delivery records its separate
+`ingest_lag_ms` and `ingest_lag_status` in `context.detail`; replay retains the
+same duration.
+
+A completion arriving first inserts one closed call with its end in both
+endpoints. `session_tool_call_start_reconcile` later updates only `started_at`,
+keeping the earlier valid start; outcome, completion/activity count remain and
+finished work never reopens. Duplicate/replayed starts change nothing.
+`observe_timing` owns vocabulary/classification; `observe_db_reads` resolves start.
+
+Every completion carries `timing_status`; only `measured` has a real duration,
+including measured zero. Other statuses have null duration:
 
 | Status | Meaning |
 |---|---|
-| `unknown_no_call_identity` | No session or tool-use id to look the call up by. Cursor `beforeShellExecution` / `afterShellExecution` omit `tool_use_id`. |
-| `unknown_no_recorded_start` | The call has no captured start after the pending-delivery window: no `session_tool_calls` row, or a row whose start is still the placeholder its own completion stamped. |
-| `pending_start_delivery` | The opening observation has not landed yet and the completion is still inside the 15-minute pending-delivery window. Reports name this pending, not incomplete. |
-| `unknown_no_captured_end` | The caller captured no completion instant. |
-| `unknown_lookup_failed` | The start lookup failed; hooks stay fail-open and never block a tool on telemetry. |
-| `invalid_endpoint_format` | An endpoint could not be read as a timestamp. |
-| `invalid_negative_elapsed` | The end precedes the start — clock skew between the writers. |
-| `invalid_implausible_elapsed` | The interval exceeds a day, so the two endpoints do not belong to the same call. A genuinely long-running tool call is measured, not capped. |
+| `unknown_no_call_identity` | Missing session/tool-use id; native Cursor shell hooks omit correlation/duration (`yoke_contracts.cursor_shell_timing`). Count as unsupported coverage, omit latency statistics. |
+| `unknown_no_recorded_start` | Missing start or completion placeholder after the 15-minute delivery window. |
+| `pending_start_delivery` | Missing opening observation while completion is inside that window; pending, not incomplete. |
+| `unknown_no_captured_end` | No captured completion instant. |
+| `unknown_lookup_failed` | Lookup failed; telemetry never blocks the tool. |
+| `invalid_endpoint_format` | Timestamp unreadable. |
+| `invalid_negative_elapsed` | End before start: writer clock skew. |
+| `invalid_implausible_elapsed` | More than a day indicates unrelated endpoints; genuinely long calls are measured, not capped. |
 
-Owner: `yoke_core.domain.observe_timing` holds the vocabulary, the interval
-classification, and which of two captured starts a call began at;
-`yoke_core.domain.observe_db_reads` resolves the start endpoint.
+Reports exclude unknown durations from statistics while retaining coverage
+counts. Starts or client wall inside the delivery window remain pending.
 
-## Where hooks are configured
+## Configuration and trust
 
-- **Claude:** `runtime/harness/claude/settings.json` — materialized as a regular `.claude/settings.json` file at the repo root. Claude composes multiple hooks on the same event; ordering in the file is preserved. Cursor can safely scan this regular file, but the entries carry their Claude-config owner marker and no-op under Cursor because `.cursor/hooks.json` is Yoke's sole Cursor hook owner.
-- **Codex:** `runtime/harness/codex/hooks.json` — read via the `.codex/hooks.json` symlink at the repo root.
+- Claude: `runtime/harness/claude/settings.json` materializes as a regular
+  `.claude/settings.json`. Hook ordering is preserved. Claude owner markers
+  make those entries no-op when Cursor scans them; `.cursor/hooks.json` is
+  Cursor's sole Yoke hook owner.
+- Codex: `runtime/harness/codex/hooks.json` is reached by `.codex/hooks.json`.
+  Install/refresh mints normalized hashes for the authored file or refuses with
+  Hooks → Trust recovery. Preparation mirrors exact trust to each literal lane
+  path; relay workers carry native bypass for their opening registration hook.
+  Teardown removes lane hook/project records. Inspect deleted-path residue with
+  `yoke codex hook-trust sweep --dry-run`; `yoke codex hook-trust sweep` removes
+  only that residue. Doctor checks current hashes for main/all lanes and sweep need.
 
-`yoke project install` and refresh mint Codex's normalized trust hashes for the
-Yoke-authored `.codex/hooks.json`; they refuse with the Hooks → Trust recovery
-when Codex config cannot be updated. Worktree preparation mirrors that exact
-trust onto the lane's literal path, while relay-launched Codex workers carry
-the native hook-trust bypass needed for their opening registration hook.
-Worktree teardown removes the lane's hook and project records. Inspect stale
-deleted-path residue with `yoke codex hook-trust sweep --dry-run`, then remove
-only that residue with `yoke codex hook-trust sweep`. Doctor verifies the main
-checkout and every lane against current hashes and warns when a sweep is due.
+Per-agent lifecycle hooks belong to adapter frontmatter: canonical bodies in
+`runtime/agents/`, generated Claude adapters in `runtime/harness/claude/agents/`,
+exposed by `.claude/agents`. Use `yoke agents render`; never hand-edit adapters.
 
-Per-agent hook wiring (for subagents with their own lifecycle hooks) lives in agent adapter frontmatter: canonical bodies in `runtime/agents/{agent}.md`, Claude-rendered adapters in `runtime/harness/claude/agents/yoke-{agent}.md` (generated by `yoke agents render`), surfaced to Claude at runtime via the `.claude/agents` symlink.
+Claude hook schema is all-or-nothing: malformed entries disable the entire
+settings file. Use nested `{hooks: [{type, command}]}`, not flat `{type, command}`.
+If hooks appear dead, inspect CLI startup for `Settings Error`.
 
-The all-or-nothing schema rule for `settings.json` still holds: any malformed entry silently disables every hook in the file. The nested `{hooks: [{type, command}]}` form is required; the flat `{type, command}` form breaks the entire file. If hooks appear dead, inspect `claude` CLI startup for `Settings Error`.
+`SubagentStop` frontmatter invokes local `yoke_core.domain.agent_stop` directly,
+so HTTPS does not carry that auto-commit of client Git state. Harnesses using the
+shared runner fall back through `SubagentStop -> session_dispatch`, which is
+local-state and therefore still client-side on HTTPS.
 
-## Fleet message delivery
+## Fleet delivery
 
-A hook on a model-visible event leases whatever fleet messages are pending for its session and renders them into that harness's context channel; settlement marks the receipt `injected` only once the aggregated output actually carries the lease token. There is exactly one such path, and it is told the event and the session but never whether the session is opening for the first time or reopening — which is why a woken session takes delivery on the same lease a first turn does.
+On a model-visible event, the hook leases pending messages for its session.
+Opening and woken sessions use the same path. Settlement marks `injected` only
+when aggregated output actually contains the authenticated lease token.
 
-**Whole messages that fit are injected; oversized messages are injected as stubs.** Fitting is decided where the reply is composed: on the envelope channel by the decision renderer, and on raw stdout by the delivery module. A stub carries the sender, a bounded first-line preview, and `yoke messages get MESSAGE-ID` to read the full body, which remains stored unchanged. Its authenticated message envelope settles as `injected` and satisfies the wake just like a full body. A message deferred only because siblings spent the current budget stays `pending` (`deferred_for_budget`) for the next hook. There is no overflow-drop retry limit. A hook that already attempted an envelope is not an absent operator, so a budget deferral does not raise a desktop wake notice.
+Whole bodies that fit are injected; oversized bodies use a stub with sender,
+bounded first-line preview and `yoke messages get MESSAGE-ID`. Stored full body
+is unchanged. A stub settles its envelope and wake like a full body. Sibling
+budget deferral stays pending as `deferred_for_budget` for later hooks, has no
+overflow-drop retry limit and raises no desktop absent-operator wake notice.
+Envelope fitting belongs to decision render; raw stdout fitting to delivery.
 
-Automatic deployment member close-out failure notices share a compact summary: unsatisfied requirement ids and `yoke qa gate-summary --item PREFIX-N --target implemented` for the full gate. Missing landing evidence instead names the missing fields, the `yoke merge item` recovery with `--result` and `--verification`, and `yoke items get PREFIX-N body` to read the evidence. They carry recovery without embedding the full refusal text.
+Composition orders messages, hints, then fleet report, capped by
+`yoke_contracts.hook_inline_context` and each manifest's
+`session_control.inline_context_bytes`. Successive hooks drain backlog, and
+file-overflow top previews cannot hide messages behind Monitor reminders.
 
-Composed hook context is not chain order. Message delivery leads, hints follow, and the fleet report is last. The joined body is then capped to the harness inline ceiling in `yoke_contracts.hook_inline_context` (echoed on each harness manifest as `session_control.inline_context_bytes`). A backlog therefore drains across successive hooks instead of deadlocking on a shared composition. A harness that persists overflow to a file and previews from the top therefore cannot hide a delivered body behind a Monitor reminder.
+Automatic deployment close-out failure notices name unsatisfied ids and
+`yoke qa gate-summary --item PREFIX-N --target implemented`. Missing landing
+notices name fields, `yoke merge item` recovery with `--result`/`--verification`,
+and `yoke items get PREFIX-N body`; they avoid embedding the full refusal.
 
-**A delivery that attaches nothing says which step declined.** Attaching no message is the ordinary outcome, so an evaluation that finds an empty inbox writes nothing. But when a receipt is `pending` for that exact session and the evaluation still attaches nothing, it records a `session_message_attempts` row against that receipt carrying the reason — `probe_session_not_deliverable` (the lease refused this session for this event), `probe_no_leasable_receipt` (a lease opened and carried nothing), `probe_lease_failed` (the lease raised, recorded by exception class, never its message). The row appears in `yoke messages get <id>` beside the wake and injection attempts, and its identity is derived from the receipt, session, event, and reason, so a repeated decline folds into the row it already wrote. Two exits stay silent by design: a session the hook process cannot name, and an event the capability table already says the harness cannot inject on. Owner: `yoke_core.domain.session_message_delivery_probe`; rationale in [`docs/archive/decisions/undelivered-envelope-records-its-reason.md`](archive/decisions/undelivered-envelope-records-its-reason.md).
+An empty inbox writes nothing. If an exact-session receipt remains pending but
+nothing attaches, `session_message_delivery_probe` records the refusal phase:
+`probe_session_not_deliverable`, `probe_no_leasable_receipt`, or
+`probe_lease_failed` (exception class only, never message). Receipt/session/event/
+reason identity folds repeated declines into the existing attempt row visible in
+`yoke messages get <id>`. Unresolved hook session and non-injectable harness event
+remain silent. Rationale: [undelivered envelope records its reason](archive/decisions/undelivered-envelope-records-its-reason.md).
 
-## Cross-harness parity
+## Parity and events
 
-`docs/hook-parity-map.md` classifies every hook by harness availability. Codex and Claude do not have identical hook surfaces — for example, Codex has no separate `PostToolUseFailure` event, so Bash failure telemetry is recovered from the `PostToolUse` payload directly. Consult the parity map before assuming a Claude hook also runs on Codex.
+Consult [hook parity](hook-parity-map.md) before assuming equivalent surfaces.
+Codex has no distinct `PostToolUseFailure`; its PostToolUse payload supplies Bash
+failure telemetry. Events use `yoke_core.domain.events`; guardrails refuse
+unregistered names with registry-add recovery. See [event contract](event-contract.md)
+and [generated event catalog](event-catalog.md).
 
-## Event emission
-
-Hooks produce structured events in the `events` table via `yoke_core.domain.events`. Registration of new event names is enforced — the pre-tool guardrail denies unregistered event emissions and the error payload names the registry-add operation needed to register the event. See `docs/event-contract.md` for the event envelope and `docs/event-catalog.md` for the current registry (auto-generated from the DB).
-
-### `HarnessSessionStopped`
-
-The agent stop hook (`yoke_core.domain.agent_stop`) emits `HarnessSessionStopped` with a `stop_reason` context field. The values are:
-
-- `completed` — the agent finished its task cleanly.
-- `auto_committed` — the hook detected uncommitted work and committed it as a safety net before the agent exited.
-- `unexpected_stop` — the agent exited without reaching a clean terminal state and no auto-commit fired.
-
-Work-unit identity (`item_id` plus optional `task_num`), final task status, and auto-commit metadata ride along on the same event so session reconstruction has everything it needs in one row.
+`agent_stop` emits `HarnessSessionStopped` with `stop_reason=completed`,
+`auto_committed` (safety-net commit), or `unexpected_stop` (no clean terminal state
+and no auto-commit). The same event carries item/optional task identity, final
+task status and auto-commit metadata.

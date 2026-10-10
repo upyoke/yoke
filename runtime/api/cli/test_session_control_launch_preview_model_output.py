@@ -30,11 +30,15 @@ def test_launch_preview_says_selection_is_verified_at_registration() -> None:
     )
 
     rendered = output.getvalue()
-    assert "Requested model" in rendered
+    assert len(rendered) <= 1500
+    assert rendered.count("gpt-5.6-sol") == 1
+    assert "ELIGIBLE RELAYS" not in rendered
+    assert "MACHINES WEIGHED" not in rendered
+    assert "Model" in rendered
     assert "gpt-5.6-sol" in rendered
-    assert "Requested effort" in rendered
+    assert "Effort" in rendered
     assert "high" in rendered
-    assert "Requested context tokens" in rendered
+    assert "Context tokens" in rendered
     assert "1000000" in rendered
     assert "Selection verification" in rendered
     assert "at session registration" in rendered
@@ -96,13 +100,13 @@ def test_launch_preview_names_where_each_carried_knob_came_from() -> None:
     )
 
     rendered = output.getvalue()
-    assert "Model this launch would carry" in rendered
+    assert "Effective model" in rendered
     assert "gpt-5.6-sol" in rendered
     assert "level SENIOR option" in rendered
-    assert "Effort this launch would carry" in rendered
+    assert "Effective effort" in rendered
     assert "xhigh" in rendered
     assert "vendor default" in rendered
-    assert "Context tokens this launch would carry" in rendered
+    assert "Effective context tokens" in rendered
     assert "1000000" in rendered
     assert "at session registration" in rendered
     assert "MACHINES WEIGHED" in rendered

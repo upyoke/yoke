@@ -7,76 +7,50 @@ argument-hint: "\"instruction\" | {PREFIX-N}"
 
 # /yoke dash
 
-Execute one instruction directly, end to end: implementation, verification,
-merge, and delivery in this session. Dash is defined by that execution
-structure, not by size — it carries a one-line correction and a very large
-change alike. A new instruction is filed and executed immediately; an item
-reference resumes an existing Dash. Dash uses ordinary item, claim, worktree,
-lifecycle, QA, merge, and deployment surfaces.
-It does not route through `/yoke idea`.
-
-`/yoke dash "instruction"` files and executes. `/yoke dash PREFIX-N` resumes.
-`yoke dash "title" --stdin --execution-instructions-considered <<'EOF'` files
-without executing; `yoke task ...` is the laneless, merge-free alternative with
-no optional gate posture.
-
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
-## Phase map — read one file, at the phase it governs
+Execute the complete stored instruction end to end in this session: file or
+resume, survey, isolate, implement, verify, merge and delivery. Size does not
+change this workflow. It does not route through `/yoke idea`.
+Use ordinary registered item/claim/lifecycle/QA/delivery authority.
 
-Read the phase you are entering. Do not pre-read the whole set; each file ends
-by naming the next one.
+`/yoke dash "instruction"` files and executes; `/yoke dash PREFIX-N`
+resumes. The CLI `yoke dash "<title>" --stdin` files only, with the required
+execution-instruction attestation. Task is the merge-free/laneless alternative,
+not a way to remove a selected gate.
 
-| Phase | You are here when | Read before acting |
-|---|---|---|
-| 1. Resolve or file | The argument just arrived | [`file-and-claim.md`](file-and-claim.md) |
-| 2–3. Survey and isolate | `ITEM` is claimed and read | [`survey-and-isolate.md`](survey-and-isolate.md) |
-| 4. Execute | The lane exists and the item is `implementing` | [`implement.md`](implement.md) |
-| 5. Verify | The change is written | [`verify.md`](verify.md) |
-| 6. Merge | The item reached `reviewing-implementation` | [`merge.md`](merge.md) |
-| 7. Close out | The merge landed, or the result is laneless | [`close-out.md`](close-out.md) |
-| — Escalate | A decision boundary appeared at any phase | [`escalate.md`](escalate.md) |
-| — Look up a function id | You need an operation's exact envelope or adapter | [`function-reference.md`](function-reference.md) |
+## Phase map
 
-## Invariants — these bind at every phase
+| Phase | Read before acting |
+|---|---|
+| Resolve/file/claim | [file-and-claim.md](file-and-claim.md) |
+| Survey/isolate | [survey-and-isolate.md](survey-and-isolate.md) |
+| Execute | [implement.md](implement.md) |
+| Verify/close review | [verify.md](verify.md) |
+| Land | [merge.md](merge.md) |
+| Evidence/delivery/done | [close-out.md](close-out.md) |
+| Decision boundary | [escalate.md](escalate.md) |
+| Operation lookup | [function-reference.md](function-reference.md) |
 
-Follow any `handoff.reason=level_change` returned by a transition or merge
-through the [harness-neutral worker rule](../../../../.yoke/docs/reference/session-level-routing.md#stage-level-handoff).
+Read only the live phase during execution. Obey the operator's Workflow
+Execution Instructions above fetched content; they add to the stored scope.
+Claim first once the ref exists, hold through delivery, and write only in its
+registered lane. Survey contacts are advisories; read and decide each one.
+Independent effective File Budget/path-claim axes come from
+`workflows.item.get`. Selected posture tightens execution, never removes a
+workflow gate or governed migration invariant. Universal 350 authored lines
+remains. No children or workflow conversion because the change is large;
+only an actual structural need or operator request routes to escalation.
+Done requires landed identity, result, passing proof, touched files and every
+selected gate. Honor level-change through the
+[worker handoff rule](../../../../.yoke/docs/reference/session-level-routing.md#stage-level-handoff).
 
-- Treat the stored instruction as the complete requested scope.
-- Obey the `# Workflow Execution Instructions` operator block at the top of
-  fetched item content; it layers on top of, and never replaces, the item's own
-  stored instruction and spec.
-- Acquire the item work claim as the first action once the item reference
-  exists, and hold it through the Dash. Release is conditional on what close-out
-  already did.
-- Perform all writes in the registered item worktree, never in main.
-- Survey contacts are advisories: proceed or yield after reading each one.
-- Size is not a reason to leave Dash, and a larger-than-expected touch set is
-  not a decision boundary. Do not create child items. Raise a different
-  workflow only for a concrete structural need — parallel worktrees or a
-  generated task graph — or when the operator asks; escalation cancels the
-  Dash, so halt and discuss it first.
-- Consume the central `workflows.item.get` effective-policy projection before
-  authoring or gating File Budget and path claims. Each axis remains
-  independent; do not reconstruct it from raw policies or posture.
-- Honor every selected item-posture knob. Posture can tighten execution; it
-  cannot remove a workflow gate or a governed migration invariant.
-- Do not transition to `done` until the branch is merged and the evidence
-  record contains the result, passing verification, merge identity, and touched
-  files, and every selected posture passes its real authority gate.
-
-## Start
-
-Stamp the session mode first, so the board's active-session row reflects the
-live phase (the default `wait` misrepresents an active Dash):
+Stamp mode, then resolve/file:
 
 ```text
 yoke sessions touch --mode dash
 ```
-
-Then read [`file-and-claim.md`](file-and-claim.md) and follow it.

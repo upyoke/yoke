@@ -42,11 +42,21 @@ REPO_LAYOUT_PATTERNS = (
     ("runtime/api/", re.compile(r"runtime/api/")),
     ("packages/yoke-", re.compile(r"packages/yoke-")),
     ("top-level tests/", re.compile(r"(?<![A-Za-z0-9_./-])tests/")),
-    ("runtime.* package", re.compile(r"\bruntime\.[A-Za-z_][A-Za-z0-9_.]*")),
+    (
+        "runtime.* package",
+        re.compile(r"(?<![A-Za-z0-9_/-])runtime\.[A-Za-z_][A-Za-z0-9_.]*"),
+    ),
 )
 SOURCE_REPO_ONLY_LABEL = "yoke source repo only"
 REPO_ITEM_PREFIX = "YOK-"
 GENERIC_ITEM_PLACEHOLDER = "PREFIX-"
+
+
+def test_module_detection_distinguishes_document_links():
+    pattern = dict(REPO_LAYOUT_PATTERNS)["runtime.* package"]
+    assert pattern.search("Import runtime.api.engine")
+    assert pattern.search("`runtime.harness.hooks`")
+    assert pattern.search("[Runtime](functions-runtime.md)") is None
 
 
 def _shipped_files():

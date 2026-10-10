@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -234,12 +235,19 @@ def test_message_human_output_keeps_recipient_evidence(capsys) -> None:
     assert capsys.readouterr().out == ""
 
 
-def test_say_help_teaches_the_complete_top_level_workflow(capsys) -> None:
+def test_say_help_points_to_the_complete_top_level_workflow(capsys) -> None:
+    from yoke_core.api.repo_root import find_repo_root
+
     with pytest.raises(SystemExit) as exit_info:
         messages.say(["--help"])
 
     assert exit_info.value.code == 0
     rendered = capsys.readouterr().out
+    assert ".yoke/docs/items-and-sessions.md" in rendered
+    assert len(rendered) <= 4300
+    rendered = (
+        find_repo_root(Path(__file__)) / "docs/public/items-and-sessions.md"
+    ).read_text()
     assert "yoke sessions list --liveness active" in rendered
     assert "yoke say --preview --item PREFIX-N" in rendered
     assert "yoke say --item PREFIX-N --stdin" in rendered
@@ -265,7 +273,7 @@ def test_sent_message_output_points_to_its_delivery_receipt() -> None:
     )()
     output = io.StringIO()
     messages.write_message_result(response, output, io.StringIO())
-    assert f"Track delivery: yoke messages get {FULL_MESSAGE_ID}" in output.getvalue()
+    assert f"track: yoke messages get {FULL_MESSAGE_ID}" in output.getvalue()
 
 
 def test_message_list_has_an_explicit_empty_state() -> None:

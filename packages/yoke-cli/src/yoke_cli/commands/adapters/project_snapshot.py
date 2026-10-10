@@ -11,7 +11,6 @@ from yoke_cli.commands._helpers import (
     add_json_arg,
     add_project_arg,
     add_session_arg,
-    attach_help_trailer,
     client_project_context,
     ensure_handlers_loaded,
     parse_or_usage_error,
@@ -46,6 +45,7 @@ PROJECT_SNAPSHOT_SYNC_USAGE = (
 
 def project_snapshot_sync(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke project snapshot sync",
         description=(
             "Scan committed git tree state in this checkout and sync "
@@ -72,7 +72,6 @@ def project_snapshot_sync(args: List[str]) -> int:
     )
     add_session_arg(parser)
     add_json_arg(parser)
-    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, PROJECT_SNAPSHOT_SYNC_USAGE)
     if parsed is None:
         return 2

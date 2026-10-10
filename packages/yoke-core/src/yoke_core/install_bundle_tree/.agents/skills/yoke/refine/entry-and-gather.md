@@ -1,84 +1,53 @@
-# /yoke refine steps 1–2 — parse, claim, gather
+# Refine — Claim, Enter, Gather
 
-## 1. Parse And Lookup
+## 1b. Claim before status or artifact work
 
-Read and follow [`workflow-context.md`](workflow-context.md). It resolves the
-exact pin and exports `ITEM_*`, `REFINE_SOURCE_STATUS`,
-`REFINE_ACTIVE_STATUS`, `REFINE_TARGET_STATUS`, and
-`REFINE_ARTIFACT_SCOPE`. Do not continue unless its skill guard passes.
-
-## 1b. Claim and Set Entry Status
-
-The workflow-context interpreter already proved the current stage belongs to
-exactly one pinned `refine` binding:
-
-- At `REFINE_SOURCE_STATUS`, transition to `REFINE_ACTIVE_STATUS` before work.
-- At `REFINE_ACTIVE_STATUS`, proceed without a status write (re-entry).
-- Any other stage was rejected in step 1.
-
-Register the work claim BEFORE the status transition (claim-before-status ordering). The session stamp uses the registered session wrapper. This prevents the scheduler from offering the same item while refine is actively working on it, and ensures the subsequent status mutation passes claim verification:
+The supported pin is resolved first. At REFINE_SOURCE_STATUS, enter
+REFINE_ACTIVE_STATUS; at the active stage resume without a no-op transition.
+Other stages were rejected by the context interpreter.
 
 ```bash
-# Reuse ITEM_REF from step 1. The items.get dispatcher already
-# requires a complete public ref, including its project prefix.
-# Session touch + claim
 yoke sessions touch --mode refine
-yoke claims work acquire \
- --item "$ITEM_REF"
+yoke claims work acquire --item "$ITEM_REF" --reason refine_run
 ```
 
-For `REFINE_ARTIFACT_SCOPE=item_artifact`, run the internal pre-handoff
-readiness gate before the entry status mutation. The effective flags resolved
-from the immutable pin control its checks: File Budget validation runs only
-when `ITEM_FILE_BUDGET_POLICY` is non-`optional`, path-claim required checks run only when
-`ITEM_PATH_CLAIMS_POLICY` is non-`optional`, and coverage parity runs only when both are
-true. Read and follow
-[`readiness-repair.md`](readiness-repair.md) for the full classifier
-table (`pass` / `pure_stale_count` auto-fix / `FILE_BUDGET_NOT_IN_CLAIM`
-auto-widen / `mixed_stale_count` continuation / `unrecoverable`
-terminal block), the routing rationale, exact registered commands, claim
-release behavior.  Run it only when
-`REFINE_ARTIFACT_SCOPE=item_artifact` and
-`ITEM_STATUS=REFINE_SOURCE_STATUS`.
+`claims.work.acquire` resolves ambient session authority. Stop on conflict.
+For item_artifact scope at source entry only, run the pre-handoff readiness
+gate **before** transition. Read [`readiness-repair.md`](readiness-repair.md):
+pure_stale_count is repaired with the claim held; recoverable coverage gaps
+continue through critique, while unrecoverable/unavailable branches checkpoint
+and release as taught there. Checks follow independent effective axes; parity
+applies only when both are enabled.
 
-Then set the entry status, when needed, via the
-`lifecycle.transition.execute`
-function call (envelope in
-[`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)):
-
-- At `REFINE_SOURCE_STATUS`, use `payload = {target_status:
-  REFINE_ACTIVE_STATUS, source_status: REFINE_SOURCE_STATUS}`.
-- At `REFINE_ACTIVE_STATUS`, do not emit a no-op transition.
-
-## 2. Gather Artifacts
-
-Read all available structured fields. Empty fields are normal; refinement should still inspect them and decide whether a light structural improvement is warranted.
-
+Then use `lifecycle.transition.execute` with source/active statuses:
 ```bash
-MAIN_ROOT=$(git rev-parse --show-toplevel)
-# Reuse ITEM_REF from step 1.
-BODY=$(yoke items get "$ITEM_REF" body 2>/dev/null) || true
-SPEC=$(yoke items get "$ITEM_REF" spec 2>/dev/null) || true
-DESIGN_SPEC=$(yoke items get "$ITEM_REF" design_spec 2>/dev/null) || true
-TECHNICAL_PLAN=$(yoke items get "$ITEM_REF" technical_plan 2>/dev/null) || true
-WORKTREE_PLAN=$(yoke items get "$ITEM_REF" worktree_plan 2>/dev/null) || true
-SHEPHERD_CAVEATS=$(yoke items get "$ITEM_REF" shepherd_caveats 2>/dev/null) || true
+yoke lifecycle transition "$ITEM_REF" --from "$REFINE_SOURCE_STATUS" --to "$REFINE_ACTIVE_STATUS" --reason "Refinement started"
 ```
+Skip this command on active-stage re-entry.
 
-When `REFINE_ARTIFACT_SCOPE=generated_task_plan`, also inspect the persisted
-child decomposition selected by `ITEM_GENERATED_CHILDREN=epic_tasks`:
+## 2. Gather applicable artifacts
 
+Read named structured fields; use rendered body only when no substantive
+structured artifact supplies the intended content:
 ```bash
-MAIN_ROOT=$(git rev-parse --show-toplevel)
-EPIC_TASKS=$(yoke epic-tasks list --epic "$ITEM_REF" 2>/dev/null) || true
+yoke items get "$ITEM_REF" spec
+yoke items get "$ITEM_REF" design_spec
+yoke items get "$ITEM_REF" technical_plan
 ```
 
-If all fields are empty or trivial, emit:
-> **Advisory:** PREFIX-N has minimal content. Populate the missing structured
-> artifacts through its pinned authoring segment before refining. Read
-> `yoke items detail get PREFIX-N --json` to resolve that workflow pin.
+Only generated-task-plan scope reads graph-authoritative fields and tasks:
+```bash
+yoke items get "$ITEM_REF" worktree_plan
+yoke items get "$ITEM_REF" shepherd_caveats
+yoke epic-tasks list --epic "$ITEM_REF"
+```
 
-Proceed anyway — refinement can still add structure to sparse items.
+Fallback:
+```bash
+yoke items get "$ITEM_REF" body
+```
 
-
-Next: [`survey-and-focus.md`](survey-and-focus.md).
+Empty fields are normal; failed reads halt rather than masquerading as empty.
+If all applicable content is sparse, advise populating its missing structured
+artifacts through the pinned authoring segment, then proceed with useful
+structural additions. Continue with [survey-and-focus.md](survey-and-focus.md).

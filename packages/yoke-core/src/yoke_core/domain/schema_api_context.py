@@ -18,6 +18,7 @@ from yoke_core.domain.schema_api_context_main_agent_hints import (
 )
 from yoke_core.domain.schema_api_context_render import (
     PACKET_DETAIL_COMPACT,
+    _validate_detail,
     packet_detail_pointer,
     render_command_block,
     render_function_call_surface_block,
@@ -233,11 +234,6 @@ def has_command(module: str, fragment: str) -> bool:
     return fragment in text
 
 
-# ---------------------------------------------------------------------------
-# Packet rendering
-# ---------------------------------------------------------------------------
-
-
 _TOPIC_HEADERS = {
     "core": "DB Quick Reference — core (control plane + structured fields)",
     "claims": "DB Quick Reference — claims (sessions, work, paths)",
@@ -253,6 +249,7 @@ def render_topic_packet(
     *,
     role: str = "main_agent",
     detail: str = PACKET_DETAIL_COMPACT,
+    include_schema: bool = True,
 ) -> str:
     """Return the role-aware markdown body for a single topic packet.
 
@@ -266,6 +263,7 @@ def render_topic_packet(
         raise ValueError(f"unknown topic: {topic}")
     if role not in seed.ROLE_TOPICS:
         raise ValueError(f"unknown role: {role}")
+    _validate_detail(detail)
     header = _TOPIC_HEADERS[topic]
     parts: list[str] = [f"### {header}", ""]
     if topic == "core":
@@ -273,34 +271,49 @@ def render_topic_packet(
         parts.append("")
         parts.extend(render_package_roots_block())
         parts.append("")
-        parts.extend(render_item_entry_surface_block())
-        parts.append("")
-        parts.extend(render_function_call_surface_block())
-        parts.append("")
-    parts.extend(render_command_block(topic, role=role, detail=detail))
+        if include_schema or role in ("main_agent", "architect_agent"):
+            parts.extend(render_item_entry_surface_block())
+            parts.append("")
+        if include_schema or role in (
+            "main_agent",
+            "architect_agent",
+            "engineer_agent",
+            "tester_agent",
+        ):
+            parts.extend(render_function_call_surface_block())
+            parts.append("")
+    parts.extend(
+        render_command_block(
+            topic,
+            role=role,
+            detail=detail if include_schema else PACKET_DETAIL_COMPACT,
+            startup=not include_schema,
+        )
+    )
     parts.append("")
-    parts.extend(render_table_block(topic, _resolve_columns, detail=detail))
-    json_block = render_json_nested_schema_block(topic)
+    if include_schema:
+        parts.extend(render_table_block(topic, _resolve_columns, detail=detail))
+    json_block = render_json_nested_schema_block(topic) if include_schema else []
     if json_block:
         parts.append("")
         parts.extend(json_block)
-    if detail == PACKET_DETAIL_COMPACT:
+    if topic == "project" and role == "main_agent" and include_schema:
+        parts.extend(["", *MAIN_AGENT_HINTS])
+    if detail == PACKET_DETAIL_COMPACT or not include_schema:
         parts.extend(["", packet_detail_pointer(role, topic)])
     return "\n".join(parts).rstrip() + "\n"
 
 
-def render_role_packet(
-    role: str, *, detail: str = PACKET_DETAIL_COMPACT
-) -> str:
-    """Return the concatenated packet body for *role*'s assigned topics."""
+def render_role_packet(role: str, *, detail: str = PACKET_DETAIL_COMPACT) -> str:
+    """Return role action recipes; explicit topic reads carry schema detail."""
     if role not in seed.ROLE_TOPICS:
         raise ValueError(f"unknown role: {role}")
     chunks = [
-        render_topic_packet(t, role=role, detail=detail)
+        render_topic_packet(t, role=role, detail=detail, include_schema=False)
         for t in seed.ROLE_TOPICS[role]
     ]
     if role == "main_agent":
-        chunks[-1] = "\n".join([chunks[-1].rstrip(), *MAIN_AGENT_HINTS])
+        chunks.append(packet_detail_pointer(role, "project"))
     return "\n".join(chunks).rstrip() + "\n"
 
 

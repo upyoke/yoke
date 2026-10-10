@@ -1,9 +1,8 @@
 """Regression guards for AGENTS.md workflow-version routing doctrine.
 
-The harness-neutral lifecycle truth lives in AGENTS.md (`## Lifecycle &
-Routing` plus the discipline sections), not in a harness-specific session
-file. These checks prevent routing from drifting back to copied command
-families or a flat status progression.
+AGENTS.md binds the operation home before acting; that home owns exact
+workflow-version routing. These checks preserve both the loading directive
+and the pin contract without duplicating the operation recipe in startup.
 """
 
 from __future__ import annotations
@@ -39,8 +38,16 @@ class TestLifecycleRoutingSection:
 
     @pytest.fixture
     def section_body(self, text: str) -> str:
-        match = re.search(r"## Lifecycle & Routing\b(.*?)(?=\n## |\Z)", text, re.DOTALL)
-        assert match, "AGENTS.md missing `## Lifecycle & Routing` section"
+        assert (
+            "Read the applicable `.yoke/docs/reference/agent-rules/` home first" in text
+        )
+        assert "`lanes-and-claims.md`" in text
+        assert "live pinned workflow's half-open binding" in text
+        home = _read(REPO / ".yoke/docs/reference/agent-rules/lanes-and-claims.md")
+        match = re.search(
+            r"## Lifecycle and routing\b(.*?)(?=\n## |\Z)", home, re.DOTALL
+        )
+        assert match, "operation home missing lifecycle routing contract"
         return match.group(1)
 
     def test_no_flat_advance_to_done(self, section_body: str) -> None:

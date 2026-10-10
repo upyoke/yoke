@@ -20,7 +20,7 @@ from runtime.api.skill_doc_regressions_test_helpers import (
 class TestRefineRecoverableReadinessRepair:
     """`/yoke refine` distinguishes recoverable claim-coverage readiness
     failures from unrecoverable ones, routing the recoverable ones to
-    canonical claim widen / `path-claims narrow` rather than releasing the
+    canonical claim widen / amendment rather than releasing the
     work claim and exiting. Adjacent gates (idea-time readiness, implementation-time
     spec coverage, pre-edit/pre-bash path-claim guards) are classified
     `auto-repair`, `repair-before-block`, or `block-by-design` with rationale.
@@ -62,27 +62,18 @@ class TestRefineRecoverableReadinessRepair:
         # CLI item args use ITEM_REF (PREFIX-N), never ITEM_NUM (global DB id).
         assert '--item "$ITEM_REF"' in repair
         assert '--item "$ITEM_NUM"' not in repair
-        # Step 4b's narrow remediation must name the explicit keep/drop
-        # flag pair, not the bare `--paths` form. `--keep-paths` is the
-        # safe default for File Budget reconciliation; `--drop-paths`
-        # remains documented for explicit removal.
-        assert "path-claims narrow" in skill
-        assert "--keep-paths" in skill
-        assert "--drop-paths" in skill
-        # Anti-regression: the legacy phrasing that taught operators to
-        # put kept paths into a drop flag must not return.
-        assert "narrow <id> --paths <kept>" not in skill
-        assert "narrow <id> --paths <" not in skill
+        # Registered narrowing removes only named paths and binds the
+        # integration branch so retained coverage proves committed edits.
+        assert "yoke claims path amend" in skill
+        assert "--remove-paths" in skill
+        assert "--integration-target" in skill
+        assert "retained coverage" in skill
 
-    def test_idea_body_and_sync_names_explicit_narrow_flags(self, docs):
+    def test_idea_body_and_sync_names_registered_removal_adapter(self, docs):
         text = _read(docs["idea_body_and_sync"])
-        # Idea body-and-sync's recoverable-readiness guidance must point
-        # operators at the explicit flag pair so the convention is taught
-        # at the first place readers learn it.
-        assert "path-claims narrow --keep-paths" in text
-        # Anti-regression: the bare `path-claims narrow` reference (no
-        # flag) should no longer appear in this file's recoverable
-        # guidance — operators learn the explicit flags first.
+        # Intake points to the same registered removal authority as Refine.
+        assert "claims.path.amend" in text
+        assert "removed paths and integration target" in text
         assert "narrow <id> --paths <" not in text
 
     def test_refine_does_not_unconditionally_release_on_readiness(self, docs):

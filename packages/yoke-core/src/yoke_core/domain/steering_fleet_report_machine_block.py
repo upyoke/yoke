@@ -10,11 +10,16 @@ comparing rendered text.
 from __future__ import annotations
 
 from typing import Sequence
+from dataclasses import replace
 
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
 from yoke_core.domain.session_launch_capacity import MachineCapacity
 from yoke_core.domain.steering_fleet_report import FleetReport
-from yoke_core.domain.steering_fleet_report_balance import aggregate_session_counts
+from yoke_core.domain.steering_fleet_report_balance import (
+    aggregate_session_counts,
+    launch_balance_lines,
+)
+from yoke_core.domain.steering_fleet_report_test_machines import test_machine_lines
 from yoke_core.domain.steering_fleet_report_capacity import (
     SurfaceReadiness,
     capacity_line,
@@ -35,6 +40,8 @@ def _distinct_machine_ids(reports: Sequence[FleetReport]) -> list[str]:
         for entry in report.machine_capacity:
             ids.add(entry.machine_id)
         for entry in report.relay_health:
+            ids.add(entry.machine_id)
+        for entry in report.native_models:
             ids.add(entry.machine_id)
     return sorted(ids)
 
@@ -93,7 +100,7 @@ def machine_shared_lines(reports: Sequence[FleetReport], *, now: str) -> list[st
         for machine_id, name in report.machine_names
     }
     lines: list[str] = []
-    counts = aggregate_session_counts(reports)
+    counts = aggregate_session_counts(_project_reports(reports))
     for index, machine_id in enumerate(machine_ids):
         if index:
             lines.append("")
@@ -114,6 +121,7 @@ def machine_shared_lines(reports: Sequence[FleetReport], *, now: str) -> list[st
             _plan_limits.plan_limit_lines(
                 _machine_plan_limits(reports, machine_id),
                 now=now,
+                with_legend=False,
                 session_counts=tuple(
                     row for row in counts if row.machine_id == machine_id
                 ),
@@ -122,14 +130,59 @@ def machine_shared_lines(reports: Sequence[FleetReport], *, now: str) -> list[st
         lines.extend(
             native_model_lines(
                 tuple(
-                    row
-                    for report in reports
-                    for row in report.native_models
-                    if row.machine_id == machine_id
+                    {
+                        (row.machine_id, row.surface): row
+                        for report in reports
+                        for row in report.native_models
+                        if row.machine_id == machine_id
+                    }.values()
                 )
             )
         )
+    if any(report.plan_limits for report in reports):
+        lines.append(_plan_limits.HEADROOM_LEGEND)
     return lines
 
 
-__all__ = ["machine_shared_lines"]
+def _project_reports(reports: Sequence[FleetReport]) -> tuple[FleetReport, ...]:
+    """Counts are project-wide, so document seats must not add them again."""
+    by_project = {}
+    for report in reports:
+        by_project.setdefault(report.project_id, report)
+    return tuple(by_project.values())
+
+
+def fleet_shared_lines(reports: Sequence[FleetReport]) -> list[str]:
+    """Test hosts and launch balance once, with counts from each project once."""
+    if not reports:
+        return []
+    projects = _project_reports(reports)
+    origins = {}
+    for report in projects:
+        for name, count in report.origin_counts:
+            origins[name] = origins.get(name, 0) + count
+    balance = replace(
+        projects[0],
+        session_counts=aggregate_session_counts(projects),
+        launchable=tuple(
+            {
+                (row.machine_id, row.surface): row
+                for report in projects
+                for row in report.launchable
+            }.values()
+        ),
+        origin_counts=tuple(sorted(origins.items())),
+        machine_names=tuple(
+            dict(row for report in projects for row in report.machine_names).items()
+        ),
+    )
+    hosts = tuple(
+        dict.fromkeys(row for report in projects for row in report.test_machines)
+    )
+    return [
+        *test_machine_lines(hosts),
+        *launch_balance_lines(balance, with_capacity=False),
+    ]
+
+
+__all__ = ["machine_shared_lines", "fleet_shared_lines"]

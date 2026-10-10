@@ -89,7 +89,7 @@ def test_driver_wait_counts_member_without_selected_cases(
     report = capsys.readouterr().err
     assert "1 blocking QA obligation(s)" in report
     assert f"member {member}:" in report
-    assert "Settle or waive each" in report
+    assert "Blocking QA remains:" in report
     assert "remove-item" in report
     assert "Nothing is outstanding" not in report
 

@@ -48,8 +48,8 @@ def _run_in_subprocess(script: str) -> subprocess.CompletedProcess:
     env = {**os.environ}
     # Ensure subprocess can import runtime.* — sys.path[0] becomes the
     # repo root when we pass ``-c`` from this cwd.
-    env["PYTHONPATH"] = (
-        f"{REPO_ROOT}{os.pathsep}{env.get('PYTHONPATH', '')}".rstrip(os.pathsep)
+    env["PYTHONPATH"] = f"{REPO_ROOT}{os.pathsep}{env.get('PYTHONPATH', '')}".rstrip(
+        os.pathsep
     )
     return subprocess.run(
         [sys.executable, "-c", textwrap.dedent(script)],
@@ -63,6 +63,27 @@ def _run_in_subprocess(script: str) -> subprocess.CompletedProcess:
 class TestPathOnlyImportIsolation:
     """Importing the worktree facade for path-only use must not pull in
     the heavy provisioning siblings."""
+
+    @pytest.mark.parametrize("subcommand", [[], ["paths"]])
+    @pytest.mark.parametrize("flag", ["-h", "--help"])
+    def test_help_succeeds_without_provisioning_imports(self, subcommand, flag):
+        script = f"""
+            import sys
+            sys.argv = ['worktree', *{subcommand!r}, {flag!r}]
+            from yoke_core.domain import worktree as wt
+            rc = wt.main()
+            assert not any(name in sys.modules for name in {HEAVY_SIBLINGS!r})
+            sys.exit(rc)
+        """
+        result = _run_in_subprocess(script)
+        assert result.returncode == 0, result.stderr
+        assert result.stderr == ""
+        assert "Usage:" in result.stdout
+        assert (
+            "Modes:"
+            if subcommand
+            else "{create,resolve,install,paths,playwright-cache}"
+        ) in result.stdout
 
     def test_connect_does_not_import_worktree_create(self) -> None:
         script = """
@@ -114,7 +135,8 @@ class TestPathOnlyResolverSurvivesBrokenSibling:
 
     @pytest.mark.parametrize("broken_sibling", HEAVY_SIBLINGS)
     def test_connect_import_survives_broken_sibling(
-        self, broken_sibling: str,
+        self,
+        broken_sibling: str,
     ) -> None:
         script = f"""
             import sys
@@ -148,7 +170,8 @@ class TestPathOnlyResolverSurvivesBrokenSibling:
 
     @pytest.mark.parametrize("broken_sibling", HEAVY_SIBLINGS)
     def test_paths_db_cli_survives_broken_sibling(
-        self, broken_sibling: str,
+        self,
+        broken_sibling: str,
     ) -> None:
         script = f"""
             import sys

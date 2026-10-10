@@ -14,12 +14,42 @@ from yoke_core.domain.handlers import items_search
 
 
 class TestItemsSearch:
+    def test_default_limit_keeps_statuses_and_reports_all_matches(self, test_db):
+        for item_id in range(1, 61):
+            insert_item(
+                test_db,
+                id=item_id,
+                title=f"bounded match {item_id}",
+                status="done" if item_id % 2 else "implementing",
+            )
+        test_db.commit()
+        outcome = items_search.handle_items_search(
+            request_for("items.search.run", {"keywords": "bounded match"})
+        )
+        assert outcome.primary_success
+        assert outcome.result_payload["total_count"] == 60
+        rows = outcome.result_payload["matches"]
+        assert len(rows) == 20
+        assert rows[0]["id"] == f"YOK-{60}"
+        assert {row["status"] for row in rows} == {"done", "implementing"}
+        expanded = items_search.handle_items_search(
+            request_for("items.search.run", {"keywords": "bounded match", "limit": 60})
+        )
+        assert len(expanded.result_payload["matches"]) == 60
+        assert expanded.result_payload["total_count"] == 60
+
     def test_matches_title_and_structured_fields(self, test_db):
         insert_item(
-            test_db, id=1, title="Wibble feature", spec="nothing here",
+            test_db,
+            id=1,
+            title="Wibble feature",
+            spec="nothing here",
         )
         insert_item(
-            test_db, id=2, title="Other", spec="mentions wibble deep in spec",
+            test_db,
+            id=2,
+            title="Other",
+            spec="mentions wibble deep in spec",
         )
         insert_item(test_db, id=3, title="Unrelated")
         test_db.commit()
@@ -32,14 +62,22 @@ class TestItemsSearch:
         # The universe app's global search reads a match by these names —
         # `id` is the public ref, and there is no `public_ref` alias.
         assert set(matches[0].keys()) == {
-            "id", "internal_id", "title", "status", "project", "project_id",
+            "id",
+            "internal_id",
+            "title",
+            "status",
+            "project",
+            "project_id",
         }
 
     def test_matches_a_bare_sequence_the_item_text_never_mentions(
-        self, test_db,
+        self,
+        test_db,
     ):
         insert_item(
-            test_db, id=1, title="Nothing about that number",
+            test_db,
+            id=1,
+            title="Nothing about that number",
             project_sequence=1991,
         )
         insert_item(test_db, id=2, title="Mentions 1991 in its title")
@@ -58,8 +96,11 @@ class TestItemsSearch:
     def test_matches_a_prefixed_public_ref(self, test_db):
         project_id = insert_prefixed_project(test_db, project_id=120, prefix="ABC")
         insert_item(
-            test_db, id=1, title="Nothing about that number",
-            project_id=project_id, project_sequence=1991,
+            test_db,
+            id=1,
+            title="Nothing about that number",
+            project_id=project_id,
+            project_sequence=1991,
         )
         test_db.commit()
 
@@ -72,16 +113,23 @@ class TestItemsSearch:
         assert [m["id"] for m in matches] == ["ABC-1991"]
 
     def test_prefixed_ref_ignores_the_same_sequence_in_another_project(
-        self, test_db,
+        self,
+        test_db,
     ):
         wanted = insert_prefixed_project(test_db, project_id=120, prefix="ABC")
         other = insert_prefixed_project(test_db, project_id=121, prefix="XYZ")
         insert_item(
-            test_db, id=1, title="Wanted", project_id=wanted,
+            test_db,
+            id=1,
+            title="Wanted",
+            project_id=wanted,
             project_sequence=1991,
         )
         insert_item(
-            test_db, id=2, title="Same sequence elsewhere", project_id=other,
+            test_db,
+            id=2,
+            title="Same sequence elsewhere",
+            project_id=other,
             project_sequence=1991,
         )
         test_db.commit()
@@ -94,19 +142,26 @@ class TestItemsSearch:
         assert [m["id"] for m in outcome.result_payload["matches"]] == ["ABC-1991"]
 
     def test_prefixed_ref_outranks_a_newer_same_sequence_keyword_match(
-        self, test_db,
+        self,
+        test_db,
     ):
         wanted = insert_prefixed_project(test_db, project_id=120, prefix="ABC")
         other = insert_prefixed_project(test_db, project_id=121, prefix="XYZ")
         insert_item(
-            test_db, id=1, title="Wanted", project_id=wanted,
+            test_db,
+            id=1,
+            title="Wanted",
+            project_id=wanted,
             project_sequence=1991,
         )
         # Newer, and shares the sequence, but is only a keyword match: the
         # query names the other project.
         insert_item(
-            test_db, id=2, title="Mentions ABC-1991 in passing",
-            project_id=other, project_sequence=1991,
+            test_db,
+            id=2,
+            title="Mentions ABC-1991 in passing",
+            project_id=other,
+            project_sequence=1991,
         )
         test_db.commit()
 
@@ -128,7 +183,10 @@ class TestItemsSearch:
         )
 
         assert outcome.primary_success
-        assert [m["id"] for m in outcome.result_payload["matches"]] == ["YOK-3", "YOK-2"]
+        assert [m["id"] for m in outcome.result_payload["matches"]] == [
+            "YOK-3",
+            "YOK-2",
+        ]
 
     def test_rejects_limit_out_of_bounds(self):
         outcome = items_search.handle_items_search(
@@ -153,11 +211,18 @@ class TestItemsSearch:
         out_all = items_search.handle_items_search(
             request_for("items.search.run", {"keywords": "zorp"})
         )
-        assert [m["id"] for m in out_all.result_payload["matches"]] == ["EXT-2", "YOK-1"]
+        assert [m["id"] for m in out_all.result_payload["matches"]] == [
+            "EXT-2",
+            "YOK-1",
+        ]
         out_externalwebapp = items_search.handle_items_search(
-            request_for("items.search.run", {"keywords": "zorp", "project": "externalwebapp"})
+            request_for(
+                "items.search.run", {"keywords": "zorp", "project": "externalwebapp"}
+            )
         )
-        assert [m["id"] for m in out_externalwebapp.result_payload["matches"]] == ["EXT-2"]
+        assert [m["id"] for m in out_externalwebapp.result_payload["matches"]] == [
+            "EXT-2"
+        ]
 
     def test_numeric_actor_unscoped_search_sees_only_granted_projects(self, test_db):
         insert_item(test_db, id=1, title="shared zorp alpha", project="yoke")
@@ -171,9 +236,7 @@ class TestItemsSearch:
         assert outcome.primary_success
         assert [m["id"] for m in outcome.result_payload["matches"]] == ["EXT-2"]
 
-    def test_numeric_actor_explicit_ungranted_project_sees_zero_matches(
-        self, test_db
-    ):
+    def test_numeric_actor_explicit_ungranted_project_sees_zero_matches(self, test_db):
         insert_item(test_db, id=1, title="shared zorp alpha", project="yoke")
         insert_item(test_db, id=2, title="shared zorp beta", project="externalwebapp")
         actor_id = grant_project_viewer(test_db, "externalwebapp")

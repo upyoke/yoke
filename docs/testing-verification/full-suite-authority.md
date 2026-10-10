@@ -1,7 +1,10 @@
 # Full-suite authority: CI
 
-How verification is scoped, the one full execution per tree, and widening telemetry.
-Companion to [`docs/testing-verification.md`](../testing-verification.md).
+CI owns full-suite evidence; local execution stays targeted. Read the
+[source-dev doctrine](../source-dev-doctrine.md) for candidate-source wrappers
+and [verification rules](../public/reference/agent-rules/verification.md)
+before selecting or re-entering a run. This source reference owns the CI
+adoption, queue and reachability mechanics.
 
 The full suite — the project's Project Structure `test_roots` attachments,
 not a yoke-only path triple — runs off-machine in CI on both the pull request
@@ -66,23 +69,18 @@ Local verification stays change-scoped:
   take their xdist workers from one machine-wide budget rather than each
   claiming the machine (see below).
 
-  Selection is reverse-import reachability, hardened several ways: dotted module
-  paths in string literals (subprocess `-m` targets, patch targets, registry
-  keys, digit-prefixed migration modules) are edges; so is a `.py` path named
-  (`ROOT / "pkg" / "thing.py"`) when it names one file; an imported
-  NAME resolves through re-export chains to its defining module (aliases and
-  star re-exports too); a conftest or `pytest_plugins` module selects the tests requesting its affected fixtures (every test in its scope for an affected autouse fixture or hook) and keeps a collection probe; a function-registry handler reached by the change selects the tests naming its function id; bounded runs follow those two edges from modules within three import hops of the change;
-  and an always-run floor of contract tests runs on
-  every selection (CLI registry, operation inventory, adapter parity, Atlas
-  integrity, generated-artifact parity/drift, plus a fresh-universe birth from
-  the published engine wheel). CLI changes also select the product-wheel project
-  install/refresh/uninstall subprocess smoke. Changed tests are always selected,
-  including when a bounded run defers a near-total remainder, so the branch's
-  own tests cannot be dropped for the floor alone. Every floor member but the last is fast; that one builds an
-  artifact and boots a database, and is on the floor because a deferred test
-  is how the engine last shipped unable to make one. Pack payloads also select catalog/prerequisite contracts and structured-events its installed Python/Node contract, even under bounded deferral. The conservative
-  full-sweep fallback (non-Python changes, test tooling, an unloadable
-  function registry) still catches what reachability cannot bound.
+  Reverse-import selection follows dotted module strings, single-file paths,
+  aliases/re-export chains, requested conftest/plugin fixtures and scoped
+  autouse/hooks, plus registered handler function-id references. Bounded runs
+  follow fixture/handler edges within three import hops. Changed tests always
+  remain selected; bounded deferral cannot drop them for the contract floor.
+
+  The always-run floor covers CLI/operation/adapter/Atlas and artifact parity,
+  fresh-universe birth from the published wheel, and product-wheel installation
+  smoke for CLI changes. Pack edits select catalog/prerequisite and installed
+  Python/Node structured-events contracts. Non-Python/tooling changes or an
+  unloadable registry can make selection unbounded; retain that verdict and
+  judge the relevant remaining checks rather than claiming full coverage.
 - **At the review gate** — the project-default plan case blocks the
   transition when verification fails. Because this project declares a
   `ci_workflow_file` capability, that case registers on the `command-ci`
@@ -117,11 +115,8 @@ instead of racing a duplicate. Only an unexamined commit is
 evidence and printed on the `# qa case run:` outcome line, so an adopted
 verdict never reads like one this invocation paid for.
 
-The lookup asks about the commit rather than about how a run started,
-because a run this gate dispatched earlier is evidence about this tree
-however it was triggered. Matching is exact-sha and nothing looser: a run
-on any other commit checked out a different tree. Queue projects narrow it
-to the entry run (see *Queue projects verify pull-request-first*).
+Matching is exact-sha: another commit is not this candidate's evidence.
+Queue projects additionally require their pull-request entry run.
 
 A run that stopped short of a verdict (`cancelled`, `timed_out`,
 `startup_failure`) proved nothing and is not adopted: the gate dispatches
@@ -129,14 +124,10 @@ instead, which is what lets the same commit reach green after a run was
 cancelled. Adopting it would wedge the gate there, because every retry
 finds that same completed run at that same head sha.
 
-**Adoption is the recovery when a gate invocation dies mid-poll.** A
-watcher killed at a turn boundary — `interrupted by signal 15` in its raw
-capture — leaves the CI run going and records no verdict. The run itself
-is not lost, because GitHub holds it, so re-running `yoke qa case run` on
-the same commit adopts its conclusion, or rejoins it while it is still
-running, for the cost of one lookup instead of another 13-14 minute
-suite. A silent watcher is not evidence that CI is still going: grep its
-capture for that signal, then re-run the gate.
+**Recover a killed watcher through the same gate command.** A capture ending
+`interrupted by signal 15` is incomplete and records no verdict; GitHub's run
+continues. On the same commit, `yoke qa case run` adopts its settled conclusion
+or rejoins it while running. Silence alone does not establish run state.
 
 **A stopped turn is woken with the verdict rather than left to notice
 it.** Every CI dispatch — the QA case gate and `yoke watch pytest`'s
@@ -203,23 +194,11 @@ cannot auto-merge without the gate recording a new verdict, and `yoke merge
 item --wait` returns that terminal failure immediately instead of spending the
 wait budget.
 
-The floor this reaches: a solo item costs one suite end to end; a batch of
-N costs N entry suites plus one shared train.
-
-Two honest trades. The pull request becomes visible on GitHub during
-review and polish rather than at merge, and a polish-phase push
-re-triggers entry CI — which it would have re-gated anyway.
-
-Why: the local machine runs one heavy gate at a time behind the
-admission slot, where the suite has been measured at 35–55 minutes under
-fleet contention; CI runs the same suite across duration-balanced shards
-per Python version — the count lives in `yoke_core.tools.ci_shards`, which
-also runs them, so the matrix and the split cannot disagree — with
-disposable Postgres containers and freshly provisioned capacity, and then
-re-runs it post-merge unless same-tree reuse applies.
-Two items gating at once both route to CI and run there in parallel —
-the admission slot is a local-machine resource and never serializes CI
-runs.
+A solo same-tree landing can reuse its entry proof; a batch or changed base
+needs the combined train proof. The pull request is visible during review and
+polish, and a later polish push requires fresh entry evidence. CI runs
+independently across duration-balanced shards and Python versions owned by
+`yoke_core.tools.ci_shards`; the local admission slot does not serialize it.
 
 `worktree_run` stays the local runner for the same Command method and
 remains the fallback for offline or local-only operation. Choosing it is
@@ -245,14 +224,9 @@ final QA gate` and runs the subset reachability could still compute. Mid
 iteration that verdict means *keep testing what you judge relevant* — the
 gate run covers the rest. The verdict itself is never suppressed.
 
-What must not happen twice on one tree is the **full** run. The review
-gate re-executes the identical registered command, and that execution is
-the one that produces the recorded verdict — so proving the same tree by
-hand first is pure duplicate compute. Both invocations also sit in the
-shared cluster's admission queue, so a fleet of sessions each doubling up
-multiplies the wait for everyone: one observed session paid 8m16s and
-21,371 tests twice for a single tree. Let `yoke qa case run` be the run
-that closes the loop.
+The registered QA gate is the one full execution per tree. A hand-run full
+sweep beforehand duplicates its work without replacing the native verdict.
+Use the targeted iteration layers above, then `yoke qa case run`.
 
 That run is watchable rather than opaque, which is what made the
 hand-run-first habit tempting. The case runner streams the command's
@@ -278,16 +252,10 @@ watch_pytest impacted-selection scope=full_sweep rule=test_tooling_module trigge
 of `FALLBACK_RULES` — `test_tooling_module`, `unmapped_file_kind`,
 `no_importable_module`, `effectively_full_selection`,
 `dispatch_registry_unloadable` — and `triggers` names the
-exact changed files that fired it. The identifiers are stable because
-they are the grouping key: sweeping a period of run captures for
-`impacted-selection ` answers whether widening is legitimate core churn
-or a file kind reachability never modelled. A docs- or skills-only edit
-widening to 21,000 tests is the second kind. A docs file sitting beside
-Python in the same diff excludes only itself: bounded selection still
-walks the Python remainder, and a near-total Python path in that remainder
-does not empty reachability computed from the others. Tune the selector against
-what that data indicts rather than against intuition — a rule that fires
-constantly on genuinely central files is working correctly.
+exact changed files that fired it. Stable rule and trigger identifiers let capture analysis distinguish real
+central-code widening from missing reachability. Mixed docs/Python changes
+retain the Python remainder; one near-total path does not erase reachability
+from other changed paths. Use that evidence when extending the selector.
 
 `files=N of M` always counts pytest file paths, never collected test items.
 The pre-run line reports `items=unknown of unknown` when collection data is
@@ -322,7 +290,7 @@ anything else:
   selector's own tests in the same fix**.
   The selector only stays trustworthy if every counterexample tightens it.
 - **The failing test was selected and passed locally** — an environment
-  difference, not a selection miss: CI runs Python 3.11 and 3.14 shards
+  difference, not a selection miss: CI runs its declared Python-version matrix
   on Linux while local runs one interpreter on macOS, plus concurrency,
   ordering, and neighbor-merge interactions. No local selection can catch
   this class; it is exactly why CI is the authority.

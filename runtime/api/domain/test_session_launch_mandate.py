@@ -27,6 +27,14 @@ from yoke_core.domain.session_launch_types import SessionLaunchError
 
 def _stub_route(monkeypatch) -> None:
     monkeypatch.setattr(
+        "yoke_core.domain.session_launch_mandate.resolve_item_ref_or_none",
+        lambda *_args, **_kwargs: 12,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.workflow_execution_instructions.resolve_for_item",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
         "yoke_core.domain.session_launch_mandate._route_for_item",
         lambda *_args, **_kwargs: (
             "/yoke dash YOK-12",
@@ -44,26 +52,49 @@ def _mandate(*, extras: str = "") -> str:
     )
 
 
-def test_composed_mandate_names_item_entrypoint_and_the_routed_legs() -> None:
+def test_composed_launch_delivers_full_item_instructions(monkeypatch):
+    _stub_route(monkeypatch)
+    monkeypatch.setattr(
+        "yoke_core.domain.workflow_execution_instructions.resolve_for_item",
+        lambda conn, item_id: [{"id": 7, "content": "Required operator instruction"}],
+    )
+    parsed = LaunchCreateRequest(
+        project="yoke",
+        executor_surface="cursor-cli",
+        item="YOK-12",
+        compose_mandate=True,
+        instructions="",
+        idempotency_key="instruction-launch",
+    )
+    body = compose_item_launch_instructions(SimpleNamespace(), parsed, 1)
+    assert body.startswith(
+        "Operator execution instructions (obey these):\nRequired operator instruction"
+    )
+    assert body.count("Required operator instruction") == 1
+    assert "acquire the YOK-12 work claim" in body
+
+
+def test_composed_mandate_claims_first_then_follows_the_live_bound_skill() -> None:
     body = _mandate()
     assert body.startswith("/yoke dash YOK-12\n")
     assert "acquire the YOK-12 work claim" in body
+    assert (
+        'yoke claims work acquire --item YOK-12 --reason "<why you are claiming it>"'
+        in body
+    )
     assert "the Dash leg to its merge/evidence close" in body
-    assert "do not chain into other items" in body
-    assert "NEVER send progress: no percentages" in body
+    assert body.index("as your FIRST action") < body.index("next live bound skill")
+    assert "read its phase instructions before verification, merge or delivery" in body
+    assert "Do NOT create or dispatch any deployment run" in body
 
 
-def test_composed_mandate_keeps_the_item_resumable_by_a_restaffed_successor() -> None:
+def test_composed_mandate_keeps_the_item_resumable() -> None:
     body = _mandate()
-    assert PROGRESS_CHECKPOINT_TEACHING in body
-    teaching = PROGRESS_CHECKPOINT_TEACHING
-    assert "restaff it onto a different model" in teaching
-    assert "leaves the lane, its branch, and any uncommitted work" in teaching
-    assert "before any stop short of done" in teaching
-    assert "yoke items progress-log append PREFIX-N" in teaching
-    assert "yoke items section get PREFIX-N --section 'Progress Log'" in teaching
-    assert "keep the uncommitted work you find" in teaching
-    assert "rather than repeating transitions" in teaching
+    assert "read the Progress Log and lane status/log" in body
+    assert "preserve existing work" in body
+    assert "Before stopping short of done, append a Progress Log checkpoint" in body
+    assert "stage, committed and dirty work, and next action" in body
+    assert "If your claim is swept, reacquire and continue" in body
 
 
 def test_the_level_handoff_steps_are_inline_not_a_pointer_to_a_doc() -> None:
@@ -91,122 +122,45 @@ def test_the_level_handoff_steps_are_inline_not_a_pointer_to_a_doc() -> None:
 def test_the_level_handoff_precedes_the_release_wait_it_overrides() -> None:
     body = _mandate()
     assert body.index(LEVEL_HANDOFF_TEACHING) < body.index(
-        RELEASE_WAIT_RETENTION_TEACHING
+        "A release wait retains the claim and park"
     )
 
 
 def test_a_successor_reads_the_checkpoint_before_any_gate_or_merge() -> None:
     body = _mandate()
-    assert body.index(PROGRESS_CHECKPOINT_TEACHING) < body.index(
-        COMMITTED_GATE_TEACHING
+    assert body.index("read the Progress Log and lane status/log") < body.index(
+        LEVEL_HANDOFF_TEACHING
     )
 
 
-def test_composed_mandate_tells_workers_to_leave_the_only_push_to_the_gate() -> None:
+def test_composed_mandate_delivers_operation_depth_when_the_skill_is_read() -> None:
     body = _mandate()
-    assert COMMITTED_GATE_TEACHING in body
-    assert "rebases onto the base branch, pushes once, and runs CI" in body
-    assert "do not push the lane by hand" in body
+    assert "read its phase instructions before verification, merge or delivery" in body
+    for teaching in (
+        CANDIDATE_REVIEW_TEACHING,
+        COMMITTED_GATE_TEACHING,
+        HEADLESS_TOOL_CONTINUATION_TEACHING,
+        PROGRESS_CHECKPOINT_TEACHING,
+        RELEASE_WAIT_RETENTION_TEACHING,
+    ):
+        assert teaching not in body
 
 
-def test_composed_mandate_names_the_candidate_review_a_merge_can_refuse() -> None:
+def test_composed_mandate_reports_substantive_facts_and_closes_only_at_terminal() -> (
+    None
+):
     body = _mandate()
-    assert CANDIDATE_REVIEW_TEACHING in body
-    assert "merge_candidate_review" in CANDIDATE_REVIEW_TEACHING
-    assert "refuses an uncleared candidate by name" in CANDIDATE_REVIEW_TEACHING
-    assert "a blocker, not a retry" in CANDIDATE_REVIEW_TEACHING
-    assert "needs its own review" in CANDIDATE_REVIEW_TEACHING
-
-
-def test_the_candidate_review_precedes_the_merge_wait_teaching() -> None:
-    """A worker learns the merge can refuse before it learns how to wait."""
-    body = _mandate()
-    assert body.index(CANDIDATE_REVIEW_TEACHING) < body.index(
-        "headless command that cannot be prompted again"
-    )
-
-
-def test_composed_mandate_tells_workers_to_continue_a_handed_back_call() -> None:
-    body = _mandate()
-    assert HEADLESS_TOOL_CONTINUATION_TEACHING in body
-    teaching = HEADLESS_TOOL_CONTINUATION_TEACHING
-    assert "A tool call that outlives its yield is still running" in teaching
-    assert "moves a long command to a background task" in teaching
-    assert "hands back a continuation handle" in teaching
-    assert "not an interruption" in teaching
-    assert "Continue that same call through your harness's continuation" in teaching
-    assert "reading the background task's output continues the call" in teaching
-    assert "only ending the turn kills the watcher" in teaching
-    assert "Never start a second invocation beside a live one" in teaching
-    # Sanctioned early stops stay named: landing handoff, plus the taught
-    # local-check interrupt on a project with declared CI.
-    assert "a merge that returned landing_pending has its landing notice" in teaching
-    assert (
-        "when a *local* test check on a project with declared CI has already "
-        "exceeded about one minute" in teaching
-    )
-    assert "a machine-specific diagnostic" in teaching
-    assert "a project without CI" in teaching
-
-
-def test_composed_mandate_keeps_a_release_wait_owner_holding_its_item() -> None:
-    """The close it carries says report and END when the legs are complete,
-    and a merge that stopped at a release wait has not completed them."""
-    body = _mandate()
-    assert RELEASE_WAIT_RETENTION_TEACHING in body
-    teaching = RELEASE_WAIT_RETENTION_TEACHING
-    assert "completed merge that is NOT a finished item" in teaching
-    assert "keeps your work claim and parks your session" in teaching
-    assert "Do NOT release the claim and do NOT end your session" in teaching
-    assert "deployment wake re-enters you, on a natively wakeable" in teaching
-    assert "wake authority is operator (a desktop app) is never woken" in teaching
-    assert "When it owes nothing, delivery closes the item itself" in teaching
-    assert "no run QA or run approval closes" in teaching
-    assert (
-        "accepted or explicitly discharged by `post_deploy_no_obligation`" in teaching
-    )
-    assert "even while sibling QA holds the run open" in teaching
-    assert "run QA or run approval holds every member" in teaching
-    assert "all item gates and shared gates pass and the run succeeds" in teaching
-    assert "Do not re-run merge solely for that acceptance" in teaching
-    assert "automatic close-out could not finish" in teaching
-    assert "Only once the item reaches done do you send the DONE report" in teaching
-    assert "active work claim protects the session" in teaching
-
-
-def test_the_done_report_step_names_the_release_wait_as_incomplete() -> None:
-    body = _mandate()
-    assert "Complete means the item reached its own terminal status" in body
-    assert "stopped at a pinned release wait has NOT completed those legs" in body
-
-
-def test_the_retention_rule_precedes_the_landing_handoff() -> None:
-    """Order is the teaching: what "complete" means, before the two waits a
-    worker may legitimately stop on."""
-    body = _mandate()
-    assert body.index(RELEASE_WAIT_RETENTION_TEACHING) < body.index(
-        "headless command that cannot be prompted again"
-    )
-
-
-def test_the_landing_handoff_precedes_the_continuation_rule() -> None:
-    """Order is the teaching: stop only where the command handed the wait off."""
-    body = _mandate()
-    landing = body.index("headless command that cannot be prompted again")
-    assert landing < body.index(HEADLESS_TOOL_CONTINUATION_TEACHING)
-
-
-def test_worker_sends_its_done_deliberately_before_releasing() -> None:
-    body = _mandate()
-    assert "Ending a turn sends no Fleet message" in body
+    assert "failures, blockers, conflicts, outside-scope defects or decisions" in body
+    assert "Keep progress in your own output" in body
+    assert "Only at the item's terminal status" in body
+    assert "A release wait retains the claim and park" in body
+    assert "it owes no DONE or END" in body
     assert (
         'printf %s "DONE YOK-12 <one-line summary>" | yoke say --stdin --steering'
         in body
     )
-    assert "before releasing any claim you still hold" in body
-    assert "the item you last held in this session" in body
-    assert "The PREFIX-N in the DONE heading is the report identity" in body
-    assert "END your session" in body
+    assert "before releasing a claim you still hold, then END your session" in body
+    assert "Ending a turn sends no Fleet message" in body
 
 
 def test_composed_mandate_embeds_no_session_id() -> None:

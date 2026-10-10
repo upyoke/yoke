@@ -1,132 +1,81 @@
-# /yoke refine steps 3–4b — survey, focus, budget and claim re-check
+# Refine — Survey, Focus, Policy Re-check
 
-## 3. Contextual Survey
+## 3. Survey the actual landscape
 
-**This step is critical.** Refinement in isolation produces stale, duplicated, or conflicting artifacts. Before critiquing the item, survey the surrounding landscape to ground the critique in reality.
-
-**Recent commits** — What has actually landed recently? The item's assumptions about current codebase state may be outdated.
-
+Inspect last20 commits in the owning project checkout:
 ```bash
-MAIN_ROOT=$(git rev-parse --show-toplevel)
-git -C "$MAIN_ROOT" log --oneline -20
+git -C "<absolute-project-checkout>" log --oneline -20
+yoke items list --project "$ITEM_PROJECT" --fields "id,title,status,workflow_id" --limit 1000
+yoke items list --project "$ITEM_PROJECT" --status done --fields "id,title,status" --limit 15
+yoke items dependency list "$ITEM_REF"
 ```
 
-Scan for commits that touch the same files, functions, or subsystems as this item. If recent work has already addressed part of this item's scope, note it — the spec may need descoping or the item may be partially done.
+Identify actual pipeline stages from relevant pinned definitions. Read only
+needed scope/paths for overlapping rows. Verify recent changes for renamed,
+removed or changed APIs, already-solved symptoms, obsolete assumptions, reuse,
+supersession and directional dependencies. Any physical-file/behavior overlap
+needs evidence-backed coordination or ordering, absorption or operator scope
+decision. Carry **all** findings into critique; never silently subtract intent.
 
-**Active and pipeline work items** — What else is in flight or queued that overlaps?
+## 4. Select focus
 
-```bash
-MAIN_ROOT=$(git rev-parse --show-toplevel)
-yoke db read --format lines "SELECT id, status, title FROM items WHERE status IN ('implementing','reviewing-implementation','reviewed-implementation','polishing-implementation','refining-idea','refined-idea','planning','refining-plan','planned') ORDER BY id DESC"
-```
+Item-artifact scope: spec first, then existing UX/design detail.
+Generated-task-plan scope: technical_plan/worktree_plan and persisted tasks
+must agree. Refine substantive caveats only where that graph policy permits.
+When next skill is Blitz, identify its execution document—not a copied body.
+Sparse items use the authoritative rendered fallback as input, with additions
+routed into structured fields.
 
-Look for:
-- **Overlap** — another work item targeting the same files, functions, or behavior. Flag it in the critique and ensure the spec acknowledges the overlap or deconflicts.
-- **Supersession** — a broader work item that subsumes this one. If so, recommend absorbing or cancelling.
-- **Dependencies** — a work item that must land first for this item's assumptions to hold, or vice versa.
+## 4b. File Budget and path claims are independent
 
-**Recently done work items** — What just shipped that might affect this item's assumptions?
+| Enabled axes | Required action |
+|---|---|
+| Both | Refined budget and claim coverage must match |
+| Claims only | Derive claim paths from spec/execution document; no proxy budget |
+| Budget only | Size/conflict evidence; do not register a claim |
+| Neither | Skip both artifacts/gates |
 
-```bash
-MAIN_ROOT=$(git rev-parse --show-toplevel)
-yoke db read --format lines "SELECT id, title FROM items WHERE status='done' ORDER BY id DESC LIMIT 15"
-```
-
-Check whether recently completed work has:
-- Already solved part of this item's problem (descope needed).
-- Changed the codebase in ways that invalidate the item's spec, file references, or approach.
-- Created new capabilities that this item should leverage instead of building from scratch.
-
-**Staleness check** — Synthesize findings from the three queries above. An item is stale when:
-- Its spec references files, functions, or behaviors that have been renamed, removed, or significantly refactored since the spec was written.
-- Its problem statement describes a symptom that has already been fixed.
-- Its approach assumes codebase state that no longer exists.
-- Its scope overlaps with another active or recently-done work item in any way — same files, same behavior, same problem from a different angle. Any overlap must be resolved: descope, absorb, dependency-link, or cancel.
-
-Carry ALL survey findings into the critique in step 5. Staleness and overlap are first-class refinement issues, not optional observations.
-
-## 4. Choose The Refinement Focus
-
-Pick the field(s) to refine based on the current status and whatever structured content actually exists:
-
-- For `REFINE_ARTIFACT_SCOPE=item_artifact`, focus on `spec` first, then
-  `design_spec` if the item already has UX or flow detail.
-- When `ITEM_NEXT_SKILL=blitz`, also identify the one strategy document that will remain the
-  live execution plan. Apply the document-readiness rubric in
-  `review-rubric.md`; do not treat the item body as the execution document.
-- For `REFINE_ARTIFACT_SCOPE=generated_task_plan`, focus on `technical_plan`
-  and `worktree_plan`, and cross-check stored `epic_tasks` against the written
-  plan.
-- Any status with substantive `shepherd_caveats`: refine `shepherd_caveats` so open questions and deferrals are crisp and actionable.
-- If no structured field exists yet, refine the authoritative fallback (`body`) but keep the resulting content ready to migrate into structured fields later.
-
-## 4b. Effective File Budget And Path-Claim Re-Check
-
-Use `ITEM_FILE_BUDGET_POLICY`, `ITEM_PATH_CLAIMS_POLICY`, and their scoped
-policies resolved from the immutable pin in step 1:
-
-- Both enabled: confirm path-claim coverage matches the refined File Budget.
-- Budget off / claims on: derive claim paths from the item spec or linked
-  execution document; do not create a File Budget as a proxy.
-- Budget on / claims off: refine the budget for sizing and conflict evidence;
-  do not register a claim.
-- Both off: skip artifact/gate requirements for both axes.
-
-The universal 350-line authored-file limit remains enforced in every posture.
-Run the path-claim gate only when effective path claims are enabled:
-
+Universal350 authored lines still applies. When claims are enabled:
 ```bash
 yoke claims path required-gate PREFIX-N
 ```
 
-Branch on the result:
+Pass continues. A required_per_task pre-task deferral is not permission to
+mint a parent claim; Shepherd materializes persisted task budgets. Existing
+generated tasks require a claim repair for each failing task, not a parent
+substitute. Block stops advancement until repair.
 
-- **verdict=pass** — no action required; continue to step 5. When both axes
-  are enabled and refine narrows the File Budget, record the planned claim
-  narrow-down as a critique item; the actual `path-claims narrow` runs in
-  step 6.
-- **verdict=pass with pre-task deferral** — for a
-  `required_per_task` Epic with no generated tasks, do not register or widen an
-  item-level claim. Shepherd owns materialization from persisted task budgets.
-- **verdict=block** — STOP. Author or amend the claim before proceeding. Three options, picked from the same decision matrix as idea. The canonical product CLI is `yoke claims path register …`; checkout-local db-router registration is operator-debug fallback only.
-  1. Register a new exclusive claim (`yoke claims path register --paths …`)
-     from the enabled File Budget or, when budget is off, the derived
-     execution touch set.
-  2. Register with `--allow-planned` when that source names future files.
-  3. Register a no-claim exception (`--mode exception --reason "..."`) when refine determines the item legitimately touches no repo surface.
+Register missing exclusive coverage from the applicable touch set, using
+--allow-planned for future files; an actual no-repo-surface exception uses
+the registered exception flag:
+```bash
+yoke claims path register --item PREFIX-N --paths <repo-relative-paths> --allow-planned
+yoke claims path register --item PREFIX-N --task-num <task-number> --paths <repo-relative-paths>
+yoke claims path register --item PREFIX-N --mode exception --exception-reason "<verified-no-surface-reason>"
+```
 
-  For `required_per_task` with generated tasks, repair each failing task with
-  `yoke claims path register --item PREFIX-N --task-num <N> ...`; an unbound
-  parent claim never satisfies this verdict.
+Amend an existing claim rather than replacing its audit history:
+```bash
+yoke claims path widen --claim-id <claim-id> --add-paths <added-paths> --reason "<verified-scope-expansion>" --item PREFIX-N
+yoke claims path amend --claim-id <claim-id> --remove-paths <removed-paths> --reason "<verified-scope-narrowing>" --item PREFIX-N --integration-target <integration-branch>
+```
 
-  When registration fails due to overlap with a non-terminal claim owned by another item, classify the overlap via `yoke claims path coordination-decision-build` and author either `--gate-point coordination_only` (compatible overlap with no lifecycle gate, default for independent same-file edits) or explicit `--gate-point activation` with directional rationale (order-dependent edits). See [`readiness-repair.md`](readiness-repair.md) `## Cross-item overlap repair`.
+Narrow only after an authorized real scope change; retained coverage must
+contain every committed change, with a synced lane head. Follow the exact
+snapshot recovery in a refusal; never remove required files to dodge a holder.
+With both axes enabled, update budget and claims together.
 
-When both axes are enabled and refine widens the File Budget mid-pass
-(discovers additional files), use `yoke claims path widen --claim-id <id>
---add-paths <added> --reason "<why widening>" --item PREFIX-N` rather than
-registering a fresh claim — widen preserves the audit trail in
-`path_claim_amendments`. If refine narrows, use the checkout-local
-`path-claims narrow` operator-debug/refine disposition; no public narrow
-wrapper is registered yet. Prefer the `--keep-paths` form because it names
-the paths that stay (`--reason` is required); use `--drop-paths` when the goal
-is to remove specific files from a wider claim instead.
-
-The claim re-check is **blocking**: refine MUST NOT advance the item past
-`REFINE_ACTIVE_STATUS` while the gate returns `block`. The lifecycle event
-gate `GATE_DB_CLAIM_PROSE_MISMATCH` only covers DB-mutation claims; this gate
-is the path-claim equivalent and runs alongside it.
-
+Classify overlap **before** attesting: use
+`yoke claims path coordination-decision-build` and both specs.
+Independent disjoint edits use coordination_only; order-dependent edits need
+explicit directional activation evidence. Ambiguity escalates. The exact
+recipes/release behavior are in
+[readiness-repair.md](readiness-repair.md#cross-item-overlap-repair).
+No unattested overlap is compatible by assertion alone.
 
 ## 5. Critique
 
-Read [`doctrine.md`](doctrine.md) for the corollaries and operating principles,
-then [`review-rubric.md`](review-rubric.md) for the full critique dimensions,
-mandatory checks, and artifact-specific rubrics. Emit its structured critique.
-When effective File Budget is enabled, its rubric is first-class: an
-implementation-bearing item must not advance to `REFINE_TARGET_STATUS` with a
-missing, vague, or unresolved File Budget; see `update-protocol.md`'s
-**File Budget escalation**. When disabled, skip section authoring while still
-critiquing the plan against the universal 350-line cap.
-
-Next: [`update-protocol.md`](update-protocol.md) for steps 6–12, then
-[`closure.md`](closure.md) before the status advance.
+Read doctrine, then the full rubric. A required budget cannot stay missing,
+vague or unresolved at handoff; update-protocol owns escalation. Skip budget
+authoring when disabled, but critique against350. Path-claim block prevents
+advance just as DB prose mismatch blocks its separate axis.

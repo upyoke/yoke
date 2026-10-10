@@ -1,350 +1,78 @@
 # Yoke Function Call Reference
-The Yoke function-call surface is the **agent-facing** mutation surface for the Yoke control plane. Agents call typed function ids through one envelope shape; the dispatcher routes to a handler, verifies the calling session's claim, writes through the canonical domain owner, and emits structured events. Shell-quoted JSON payloads are not the operator path: the `python3 -m yoke_core.cli.db_router ...` and `python3 -m yoke_core.api.service_client ...` CLI commands remain as **retained operator/debug adapters** that build a typed `FunctionCallRequest` internally and dispatch through the same registry.
 
-This file is the per-family function reference. Strategy document writes and authored card fields are detailed in [functions-strategy.md](functions-strategy.md). The Actors family (`actors.roster`, `actors.state.set`, `actors.role.set`) is detailed in [functions-actors.md](functions-actors.md). Render the operator-readable Atlas (one row per `yoke` subcommand with function id + help status, plus the tool-shaped CLI, permanent, and pending rosters and live promise-vs-live contradictions) locally with `python3 -m yoke_core.tools.atlas_render_docs render`. Cross-link back from [db-reference.md](../db-reference.md) for the entry-point CLI, the domain catalog, and the structured-field discipline.
+Registered function ids are the typed control-plane interface. Use their
+`yoke <subcommand>` adapters; Git, gh and external tools remain command-shaped.
+Read the operation's `--help` for payload, target, authorization and recovery.
+The dispatcher verifies claims before the canonical domain handler executes.
+Live startup recipes: `yoke packets render --role main_agent`; request a topic
+with `--detail full` for its complete schema and recipes.
+
+## Operation families
+
+Each registered id has one catalog owner:
+
+| Work | Catalog |
+|---|---|
+| Work/path/coordination claims and decisions | [Claims](functions-claims.md) |
+| Items, sections, progress, readiness and lifecycle | [Items](functions-items.md) |
+| Projects, settings, strategy, Packs and environments | [Project configuration](functions-project-configuration.md) |
+| QA cases, evidence and test machines | [QA](functions-qa.md) |
+| Sessions, actors, deployment, messaging and live services | [Runtime](functions-runtime.md) |
+| Generated tasks, dispatch and reviews | [Tasks](functions-tasks.md) |
+| Pinned definitions, canon updates and routing | [Workflows](functions-workflows.md) |
+| Lane preparation, landing, merge and close-out | [Worktrees](functions-worktrees.md) |
 
 ## Envelope
 
-Every function call accepts and returns the same envelope shape, defined in `yoke_contracts.api.function_call`:
+Models: `yoke_contracts.api.function_call`. Client item selectors are complete
+public refs; the serving engine alone resolves internal item keys. Task targets
+also carry `task_num`. Other record ids retain their own domain meaning.
 
-```jsonc
-// Request
-{
-  "function": "<family>.<subfamily>.<operation>",   // registered function id
-  "version": 1,                                       // optional; defaults to current
-  "request_id": "<uuid>",                             // dedup key; reusing returns the original response
-  "actor": {                                          // who is calling
-    "session_id": "<harness_sessions.session_id>",
-    "actor_id": "<harness_sessions.actor_id>"
-  },
-  "target": {                                         // typed target ref; shape depends on function
-    "kind": "item | epic_task | section | claim | process | none",
-    "public_ref": "PREFIX-N",                          // client-supplied PREFIX-N
-    "public_ref": "PREFIX-1234",                                  // public item identity
-    "public_ref": "PREFIX-833",
-    "task_num": 5,
-    "section_name": "Progress Log",
-    "process_key": "...",
-    "conflict_group": "..."
-  },
-  "payload": { /* function-specific typed body */ },
-  "preconditions": { /* optional invariant assertions, e.g. allow_empty + reason */ },
-  "options": { /* sync_github_body, ... */ }
-}
-
-// Response
-{
-  "function": "...",
-  "version": 1,
-  "request_id": "...",
-  "success": true,
-  "result": { /* function-specific typed result */ },
-  "warnings": [{"code": "...", "step": "..."}],
-  "errors":   [{"code": "...", "message": "..."}],
-  "event_ids": ["..."]
-}
+```json
+{"function":"<registered id>","version":"v1","request_id":"<uuid>",
+ "actor":{"session_id":"<session>"},
+ "target":{"kind":"item","public_ref":"PREFIX-N"},
+ "payload":{},"preconditions":{},"options":{}}
 ```
 
-### Public item identity
+Responses carry `success`, `function`, `version`, `request_id`, `result`,
+`warnings[]`, one optional `error` (`code`, `message`, `jsonpath`,
+`recovery_hint`) and `event_ids[]`. Consume typed fields. Primary mutation
+failure and downstream-degraded warnings are different outcomes; inspect both.
+Post-write verification marked degraded is partial-state evidence, never green.
 
-Every client sends `target.public_ref` as a complete `PREFIX-N` token.
-Payload identities use `public_ref`, `epic_public_ref`, or corresponding
-role-prefixed/plural ref fields. Bare numbers and internal keys are refused.
-The dispatcher resolves refs to integers only inside the serving engine.
-Responses project item joins and item-shaped text in nested result strings and error messages to public refs; unresolved items are named without their internal number. Other record ids, including QA requirements, retain their domain meaning. The CI real-tree message scan also rejects unrendered item, epic, and member interpolations; applied migration content remains immutable.
-JSON and human CLI output share this contract. Clients tolerate absent optional
-identity fields from an older serving build without ID lookup. Transport dispatch
-redacts secrets while preserving machine-consumed responses; identity display
-filtering runs only when CLI output is emitted. Outgoing requests are forwarded
-without response projection or client DB reads; their producers compose public
-selectors. The digest-bound `candidate_containment_basis` and its
-`candidate_containment` answer retain owned IDs unchanged. The local driver
-answers the server's exact question set; these IDs are attested engine facts,
-never client-supplied item selectors.
+## Claim verification
 
-Clients also tolerate the previous released response shape without accepting
-internal keys as public selectors. Merge CI sends the context's resolved public
-ref. A legacy claim holder's owned key must match the item detail read in the
-same operation; session ownership still applies. Landing observations missing
-a ref use the complete ref on the request, while conflicting refs refuse. QA
-plan readers copy that known subject into legacy roster rows after checking
-their owned keys against the execution; the target and digest stay as issued.
-
-
-## Registry, schema, and dispatch endpoints
-
-The FastAPI app exposes three routes mounted under `/v1/functions/`:
-
-| Route | Purpose |
+| Catalog value | Dispatcher obligation |
 |---|---|
-| `POST /v1/functions/call` | Dispatch a `FunctionCallRequest`; returns the typed `FunctionCallResponse`. |
-| `GET  /v1/functions/registry` | Enumerate every registered function id (per family) plus metadata (`stability`, `target_kinds`, `claim_required_kind`, `adapter_status`). |
-| `GET  /v1/functions/schema/{function_id}` | Return the JSON Schema for one function id's request body. |
+| `none` | No work-claim check; handler/project/org authorization still applies. |
+| `item` | Active target item claim belongs to calling session. |
+| `epic` | Calling session holds the target task's parent item claim. |
+| `qa_subject` | Verify the case's item/run/project subject and recording authority. |
+| `self_only` | Target claim belongs to calling session. |
+| `steering` | Require a live steering seat covering the target project/document; refusal names `steering_seat_required`, seat acquisition or `yoke say --steering`. |
 
-The same registry is enumerable in-process via `yoke_core.domain.yoke_function_registry.list_entries()`.
+These six values come from `yoke_core.domain.yoke_function_registry`; `none`
+means Python `None`. Claim policy never grants project/org permissions.
 
-**Compatibility surfaces.** `POST /v1/functions/call` and `GET /v1/health` are compatibility surfaces: clients and servers may run different engine versions, and both endpoints stay answerable across that skew. The server advertises its engine version in the health payload (`engine_version`, distinct from the constant API-contract `version`) and as an `X-Yoke-Engine-Version` response header on API responses; the CLI's https relay compares the header against the locally installed version and prints one advisory stderr warning per process on mismatch — it never blocks. Skew is expected mid-rollout; align the older side when behavior looks off.
+## Identity, replay and rollout
 
-## Claim verification matrix
+Use a stable request id for one intended write. Same function/id replays its
+ledger response; cross-function reuse refuses. After ledger expiry a call is new.
+Never repeat a mutation merely to request `--json`; request its receipt initially.
+Mutations remain committed when a separately reported downstream side effect
+degrades. Required operational facts belong to durable owners, not event history.
 
-Every registered function declares one of five `claim_required_kind` values; the dispatcher verifies before the handler runs.
+The registry owns ids, request schemas, handler/claim metadata, adapter status
+and minimum serving versions. New ids declare their serving floor; below-floor
+calls refuse with a served recovery or operator escalation. Clients tolerate
+absent optional response fields from older builds without inventing selectors.
+HTTP dispatch/health remain cross-version infrastructure boundaries; agents use
+registered adapters. `internal` adapter status grants no access by itself.
 
-| Value | When the dispatcher enforces |
-|---|---|
-| `None` | No work-claim verification. Reads, `claims.work.acquire`, and project-wide operator-requested operations (`board.rebuild`, `agents.render.run`, `project_structure.patch.apply`). Project/org permission checks remain independently enforced. |
-| `"item"` | Resolves the active work-claim row for `target.public_ref`. The calling session's `session_id` must match. Otherwise `error.code="claim_required"` (HTTP 409). |
-| `"epic"` | Same as `"item"` but resolves the parent epic id from `target.kind="epic_task"` (`target.public_ref`). |
-| `"self_only"` | The claim itself is the target (e.g. `claims.work.release`). The handler reads the claim row by target and asserts `actor.session_id == row.session_id`. |
-| `"steering"` | Requires a live steering seat covering the target project or document. Otherwise `error.code="steering_seat_required"`; acquire the seat with `yoke claims steering acquire --project P --reason TEXT` or route via `yoke say --steering`. |
-
-The five values are the closed enum; the registry rejects any other string at import time.
-
-## Function families
-
-The function id grammar is `<family>.<subfamily>.<operation>` validated by `yoke_contracts.api.function_call.validate_function_id`. Families today include the catalog's [model reference functions](model-reference.md):
-
-### `items.*` — creation, structured field, section, and progress-log writes
-
-Replaces every hand-authored `printf '%s' "$content" | python3 -m yoke_core.cli.db_router items update <id> <field> --stdin` / `item_field_transform` / `sections upsert` recipe.
-
-| Function id | claim_required_kind | Handler | Result shape |
-|---|---|---|---|
-| `items.structured_field.replace` | `"item"` | `yoke_core.domain.handlers.items_structured_field` → `execute_structured_write` | `{old_lines, new_lines, verification_status}` |
-| `items.structured_field.append_addendum` | `"item"` | same handler → `item_field_transform.append_addendum` | same shape |
-| `items.structured_field.section_upsert` | `"item"` | `handlers.items_structured_field_sections` → `item_field_transform_sections.section_upsert` | Optional `field`, `heading_level` (2–6, default 2; requires field); one-line `section`, non-empty `content`; `ordering` refused with field. Targeted receipt echoes field/depth. Refusals: `section_ambiguous`, `structured_field_stale`, CLI `section_upsert_field_unsupported` (inspect possible top-level write; serving floor next-release). |
-| `items.structured_field.section_append` | `"item"` | same handler → `item_field_transform_sections.section_append` | same shape |
-| `items.section.upsert` | `"item"` | `yoke_core.domain.handlers.items_section` → `sections_cli.upsert` | `{section_name, content_lines}` |
-| `items.section.delete` | `"item"` | same handler → `sections_cli.delete` | `{section_name, deleted}` |
-| `items.section.get` (read) | `None` | same handler → `sections_cli.get` | `{section_name, content}` |
-| `items.progress_log.append` | `"item"` | `yoke_core.domain.handlers.items_progress_log` | `{old_lines, new_lines, entry_count}` (read-then-upsert with `ordering=200`) |
-| `items.scalar.update` | `"item"` | `yoke_core.domain.handlers.items_scalar` → `prepare_update` | `{field, old, new}` |
-| `items.get` (read) | `None` | `yoke_core.domain.handlers.reads.items_get` | typed item payload (optional `fields[]`) |
-| `items.dependency.list` | `None` (read) | `yoke_core.domain.handlers.item_dependency_reads` | Returns both-direction edge rows and `integration_gate: {evaluated: true, is_blocked: bool, blockers: [{public_ref, reason}]}` for depends-on integration edges only. Evaluation failure preserves rows with `{evaluated: false, is_blocked: null, error_code: "integration_dependency_evaluation_failed"}` and no raw exception text. |
-| `items.create` | `None` | `yoke_core.domain.handlers.items_create` → `backlog_create_op.execute_create` | `{public_ref, dry_run, log, execution_instructions, execution_instructions_considered}` |
-
-**Canonical create — a non-web filer attests the operator instructions:**
-
-```jsonc
-{
-  "function": "items.create",
-  "target":   {"kind": "global", "project_id": "yoke"},
-  "payload":  {
-    "title": "Fix the footer",
-    "workflow": "dash",
-    "instruction": "Correct the footer and verify every link.",
-    "entry_surface": "cli",
-    "execution_instructions_considered": true
-  }
-}
-```
-
-`execution_instructions_considered` is a bare boolean attestation — no content hash, no staleness window — that this filer ran `yoke workflow execution-instruction resolve --workflow W --project P --full` before authoring, reading only Before creation instructions. Delivery settings and stage-bucket behavior are documented in [execution instructions](../execution-instructions.md). Every non-web entry surface (`cli`, `harness_skill`) must send it `true`; without it the create refuses with `execution_instructions_not_considered` and a message naming that exact retrieval command for the target. `web_form` renders the blocks in its own UI and `promotion` carries an already-filed item forward, so both stay exempt, as do `dry_run` previews and disposable test databases. CLI adapters (`yoke dash`, `yoke task`, `yoke items create`) expose `--execution-instructions-considered` and pass it through; they never set it for the caller, and the create receipt echoes the value it was accepted under.
-
-**Canonical write — full-field replace:**
-
-```jsonc
-{
-  "function": "items.structured_field.replace",
-  "request_id": "<uuid>",
-  "actor":  {"session_id": "...", "actor_id": "..."},
-  "target": {"kind": "item", "public_ref": "PREFIX-42"},
-  "payload": {"field": "spec", "content": "# Spec\n\n..."},
-  "options": {"sync_github_body": true}
-}
-```
-
-**Canonical write — additive transform (preserves prior content, appends a `## heading`-led block):**
-
-```jsonc
-{
-  "function": "items.structured_field.append_addendum",
-  "target":   {"kind": "item", "public_ref": "PREFIX-42"},
-  "payload":  {
-    "field":   "spec",
-    "heading": "Refinement Addendum (2026-05-13)",
-    "source":  "refine",
-    "content": "..."
-  }
-}
-```
-
-The same handler accepts `items.structured_field.section_upsert` (replace a `## heading`-led block, or a named field subtree at `heading_level`; other bytes preserved, duplicate targets refused, no-op unchanged, stale precondition checked under a row lock) and `items.structured_field.section_append` (append after the block). All variants preserve the empty/shrinkage/freeze guards on `execute_structured_write` and report old/new line counts plus a verification status.
-
-**Canonical write — Progress Log entry:**
-
-```jsonc
-{
-  "function": "items.progress_log.append",
-  "target":   {"kind": "item", "public_ref": "PREFIX-42"},
-  "payload":  {"headline": "kicked off engineer dispatch", "content": "..." }
-}
-```
-
-The handler reads the existing `Progress Log` section, appends a timestamped entry, and upserts at `ordering=200` (the canonical Progress Log convention — see `AGENTS.md` § Progress Log). CLI adapter: `yoke items progress-log append PREFIX-N --headline TEXT --content TEXT` (or `--content-file PATH`).
-
-### `item_worktrees.*` — explicit additional lanes, reads, and recovery
-
-| Function id | claim_required_kind | Handler | Notes |
-|---|---|---|---|
-| `item_worktrees.create` | `"item"` | `yoke_core.domain.handlers.item_worktree_create.handle_create` | With an empty payload, idempotently ensures the sole policy-required default lane (`PREFIX-N`); with `lane_role` + `branch`, registers one explicit `worker` or `integration` lane. The item must be active and claimed, the path-claim worktree gate must pass, and the branch must be valid and project-unique. Multiple workers remain allowed; a second integration lane and branch-role reuse are refused. |
-| `item_worktrees.get` | `None` (read) | `yoke_core.domain.handlers.item_worktrees.handle_get` | Returns one active lane selected by `payload.lane_role`; `result.worktree` is null when no matching lane exists. |
-| `item_worktrees.inventory` | `None` (read) | `yoke_core.domain.handlers.item_worktree_inventory.handle_inventory` | Project-wide read: every registered lane in `payload.project` with its owning item's `public_ref`, `status`, `target_branch` and lane `state`. Released lanes are included, because a lane released in the registry but still on disk is the residue callers hunt. Lets a machine holding only a checkout decide lane hygiene over any transport; an unknown project refuses rather than reporting an empty inventory. |
-| `item_worktrees.list` | `None` (read) | `yoke_core.domain.handlers.item_worktree_paths.handle_list` | Returns every active lane in `result.worktrees`, preserving repeated worker lanes instead of collapsing by role. |
-| `item_worktrees.path_record` | `"item"` | `yoke_core.domain.handlers.item_worktree_paths.handle_path_record` | Records an absolute machine-local path after provisioning. Requires the active item claim plus `preconditions.worktree_id` and `preconditions.branch`; a released/replaced lane or changed branch fails stale instead of updating another row. |
-| `item_worktrees.release` | `"item"` | `yoke_core.domain.handlers.item_worktrees.handle_release` | Evidence-only review-stage recovery for a single-implementation-lane item not yet merged. Requires the fixed `evidence-only-recovery` reason and a fresh clean-lane attestation matching the sole active lane; any other stage refuses `recovery_status_invalid`, naming the accepted stages. A merged item awaiting delivery at its pinned release stage refuses `lane_owned_by_release_closeout`: its delivery close-out releases the lane and claim, so the holder parks instead. |
-
-Ensure the policy-required default lane with `yoke item-worktrees create PREFIX-N`; register an additional branch with `yoke item-worktrees create PREFIX-N --lane-role worker --branch BRANCH` (use `integration` for the one optional integration lane). Inspect one item's active set with `yoke item-worktrees list PREFIX-N --json`, or a whole project's lanes with `yoke item-worktrees inventory --project P --json`. Ordinary worktree preparation consumes that authoritative list over either local Postgres or HTTPS, provisions every lane locally, then records each exact path through `yoke item-worktrees path-record PREFIX-N --worktree-id ID --branch BRANCH --path ABSOLUTE_PATH`; the path-record adapter requires the item claim and sends lane-id/branch stale-state preconditions. The read and recovery adapters are `yoke item-worktrees get PREFIX-N --lane-role implementation --field branch` and `yoke item-worktrees release PREFIX-N --all-active --reason evidence-only-recovery`. Release first verifies that the registered path is on the registered branch and has no modified tracked or untracked files; ignored-only residue is not dirt. Any dirt or unverifiable path fails closed.
-
-### `workflows.*` — immutable version and item-pin operations
-
-| Function id | claim_required_kind | Handler | Notes |
-|---|---|---|---|
-| `workflows.definition.get` | `None` (read) | `yoke_core.domain.handlers.workflows_definition` | Lists selected immutable definitions, version history, gate catalog, and deployment flows (with description, `supersedes_flow_id`, and `flow_actor_names` for the people their stages name). |
-| `workflows.item.get` | `None` (read) | `yoke_core.domain.handlers.workflows_versioning` | Returns the item's exact pin, digest, stage, posture, interpreted lane policy, and active lanes. |
-| `workflows.current.set` | `None` | same module | Selects an already-published version for subsequently created items; existing pins do not change. |
-| `workflows.item.migrate` | `"steering"` | same module | Atomically migrates one item when stage/posture, active lanes and claims, approval/QA gates, and delivery bindings remain representable; label-only changes are compatible, while retroactive unsatisfied gates are refused. |
-| `workflows.item_posture.amend` | `"item"` | `yoke_core.domain.handlers.workflows_item_posture` | Sets, replaces, or clears ONE posture key on an already-filed item. The amendable roster is the item's pinned `item_posture_allowlist`; each key declares its own guard, so a key with none refuses as unamendable rather than stranding records. Refuses at a terminal stage, over a verification selection whose requirement already carries a recorded run, while path claims are registered under a selection being cleared, and while an owner decision is open on a cleared approval selection. Replacing a verification selection waives its unexecuted requirement snapshots, detaches the superseded plan, and attaches the new one in the same transaction. |
-
-The operator adapters are `yoke workflows item get PREFIX-N`, `yoke workflows current set WORKFLOW VERSION`, `yoke workflows item migrate PREFIX-N [--version N]`, and `yoke workflows item-posture amend PREFIX-N --verification-plan ID_OR_SLUG --reason TEXT` (`--help` carries the per-key decision tree). Full immutable definition publication (`workflows.version.publish`), plus listing, previewing, taking, and following published canon updates (`workflows.canon_status.list`, `workflows.canon_update.*`, `workflows.canon_follow.set`), is in [functions-workflow-canon.md](functions-workflow-canon.md).
-
-### `workflow_item.epic_task.*` and `workflow_item.epic_progress_note.*` — epic-task amendment
-
-Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body <epic-id> <task-num>` / `task-upsert` / direct `epic_progress_notes` choreography in `/yoke amend` and related skills.
-
-| Function id | claim_required_kind | Handler | Notes |
-|---|---|---|---|
-| `workflow_item.epic_task.body_replace` | `"epic"` | `yoke_core.domain.handlers.workflow_item_epic_task.body_replace` | Wraps `epic_task_crud.task_update_body`; returns `{old_lines, new_lines}`. |
-| `workflow_item.epic_task.split` | `"epic"` | same handler → `epic_amend.task_split` | Preserves dependencies; renumbers downstream tasks atomically; returns `new_task_num`. |
-| `workflow_item.epic_task.reassign` | `"epic"` | same handler → `epic_amend.task_reassign` | Updates the `worktree` column; returns `{old_worktree, new_worktree}`. |
-| `workflow_item.epic_task.add` | `"epic"` | same handler → `epic_amend.task_add` | Typed payload (title, body, dependencies, …); writes via `task_upsert`. |
-| `workflow_item.epic_task.remove` | `"epic"` | same handler → `epic_amend.task_remove` | Cascade-removes dependency edges. |
-| `workflow_item.epic_task.metadata_update` | `"epic"` | same handler → `epic_amend.task_metadata_update` | Accepts `title`, `context_estimate`, `dependencies`, and other epic-task scalar fields. |
-| `workflow_item.epic_task.review_seed` | `"epic"` | `yoke_core.domain.handlers.workflow_item_epic_task_review.handle_review_seed` | Wraps `epic.review_seed`; idempotent requirement seed; auto-advances `implementing → reviewing-implementation`. |
-| `workflow_item.epic_task.review_insert` | `"epic"` | same module → `epic.review_insert` | Payload `{verdict: pass/fail (case-insensitive), body}`; a pass auto-advances `reviewing-implementation → reviewed-implementation`. |
-| `workflow_item.epic_task.review_get` | `None` (read) | same module → `epic.review_get` | Most recent review as a pipe row (`id`, `epic_public_ref`, `task_num`, `verdict`, `body`, `created_at`); `target_not_found` when none. |
-| `workflow_item.epic_task.review_list` | `None` (read) | same module → `epic.review_list` | Review history newest-first; `{reviews, count}` where `count` is review ROWS (bodies are multi-line); empty list is success. |
-| `workflow_item.epic_task.body_get` | `None` (read) | `yoke_core.domain.handlers.workflow_item_epic_task_state.handle_body_get` | Wraps `epic.task_get_body`; returns the body verbatim. |
-| `workflow_item.epic_task.update_status` | `"epic"` | same module → `epic.task_update_status` | Non-pipeline status write + GitHub label sync; terminal success statuses refuse with `pipeline_required`. |
-| `workflow_item.epic_task.simulation_upsert` | `"epic"` | same module → `epic.simulation_upsert` | Epic-level target (no `task_num`); payload `{phase, body, head_sha?}`; optional CLI `--head-sha` binds the verified code commit when no clean epic lane supplies it; validates canonical SIMULATION / EPIC headers; retains every actual attempt for the phase without binding the report to a named environment. Phase selection uses JSON field values, independent of whitespace; simulation-get returns the latest exact phase attempt. Returns public_ref, phase, message, requirement_id, run_id, verdict, verified=true after exact-run readback (no body). Refuses simulation_identity_missing, simulation_identity_mismatch, simulation_verdict_invalid before writing; simulation_readback_failed returns known ids without retrying; simulation_requirement_create_failed and simulation_run_create_failed preserve the underlying refusal and recovery. |
-| `workflow_item.epic_dispatch_chain.get` | `None` (read) | `yoke_core.domain.handlers.workflow_item_epic_task_ops` | Payload `{worktree}`; returns pipe `body` plus `head_dispatch` rows: `{task_num, decision, reason, holder_session_id}`. In-flight heads report `resumable`, `busy`, `blocked`, or `unknown` on inconsistent/unavailable evidence; empty/exhausted/not-in-flight chains have no diagnostics. Read-only; task acquire is the final gate. |
-| `workflow_item.epic_dispatch_chain.list` | `None` (read) | same module | Returns pipe `body` plus at most one `head_dispatch` row per eligible chain, evaluated for the authenticated caller. Default CLI appends `head task N: decision — reason[; holder SESSION]`; `--json` prints the complete envelope. Holder is observed ownership, not liveness proof. |
-| `workflow_item.epic_task.submission_receipt_get` | `None` (read) | same module → `epic.submission_receipt_get` | Payload `{after_note_count}`; returns the validated `PASS` receipt line; `receipt_invalid` on failing fields. |
-| `workflow_item.epic_progress_note.append` | `"epic"` | `yoke_core.domain.handlers.workflow_item_epic_progress_note.append` | Wraps `yoke_core.domain.epic.progress_note_insert`. |
-
-**Canonical write — epic task body replace:**
-
-```jsonc
-{
-  "function": "workflow_item.epic_task.body_replace",
-  "target":   {"kind": "epic_task", "public_ref": "PREFIX-833", "task_num": 5},
-  "payload":  {"content": "..."}
-}
-```
-
-**Canonical write — epic progress note:**
-
-```jsonc
-{
-  "function": "workflow_item.epic_progress_note.append",
-  "target":   {"kind": "epic_task", "public_ref": "PREFIX-833", "task_num": 5},
-  "payload":  {"note_num": 3, "body": "..."}
-}
-```
-### `lifecycle.*` — typed lifecycle transitions
-| Function id | claim_required_kind | Handler |
-|---|---|---|
-| `lifecycle.transition` | `"item"` | `yoke_core.domain.handlers.items_scalar.lifecycle_transition` — enforces the pinned definition and its target-stage gates. |
-
-```jsonc
-{
-  "function": "lifecycle.transition",
-  "target":   {"kind": "item", "public_ref": "PREFIX-42"},
-  "payload":  {"from_status": "implementing", "to_status": "reviewing-implementation", "reason": "..." }
-}
-```
-
-### `claims.*` — work and path claim mutation
-
-| Function id | claim_required_kind | Handler |
-|---|---|---|
-| `claims.work.acquire` | `None` (chicken-and-egg — handler asserts no active claim) | `yoke_core.domain.handlers.claims_work.handle_acquire` — process targets resolve the authorized project id or slug to its canonical slug before building the conflict group. |
-| `claims.work.release` | `"self_only"` | `yoke_core.domain.handlers.claims_work.handle_release` — process release by name resolves the project reference to the same canonical conflict group as acquisition. |
-| `claims.steering.acquire` | `None` (payload `document` narrows the seat to one strategy document and atomically pairs its lock; omit it for the whole project) | `yoke_core.domain.handlers.claims_steering.handle_acquire`; a seat or document conflict rolls back both |
-| `claims.steering.release` | `"self_only"` | same handler; releases the steering claim and its paired document lock together |
-| `claims.steering.list` | `None` (project-scoped read) | same handler; project/holder/active filters |
-| `steering.report.get` | `None` (handler requires the caller's live steering claim) | `yoke_core.domain.handlers.steering_report.handle_get` — composes one report covering every held steering claim, or a single scope when `--project` is set. Payload `deliver: true` (the fleet watcher) stamps the combined report onto the session's delivery record shared with the hook and returns `delivered` — false when the session already received this content; see [steering-fleet-report.md](steering-fleet-report.md). |
-| `claims.path.register` | `"item"` | `yoke_core.domain.handlers.claims_path.register` (routes through `path_claims_resolve`) |
-| `claims.path.widen` | `"item"` | same handler → `claims_path.widen` |
-| `claims.path.release` | `"item"` | same handler → `claims_path.release` |
-| `claims.path.amend` | `"item"` | same handler → `claims_path.amend` |
-| `claims.path.override` | `"steering"` | same handler → existing path-claim override gate |
-| `claims.coordination_claim.acquire` | `None` | `yoke_core.domain.handlers.claims_coordination_claim.acquire` |
-| `claims.coordination_claim.heartbeat` | `"self_only"` | same handler |
-| `claims.coordination_claim.release` | `"self_only"` | same handler |
-| `claims.coordination_claim.list` | `None` (read) | same handler |
-| `db_claim.amend` | `"item"` | `yoke_core.domain.handlers.db_claim.amend` — writes the `db_mutation_profile` and `db_compatibility_attestation` columns atomically through the unified payload described in [items-and-epics.md § DB Claim](items-and-epics.md). |
-| `db_claim.prose_check` | `None` (read) | `yoke_core.domain.handlers.db_claim.handle_prose_check` — prose-vs-claim detector for a stored item; https-relayable. CLI: `yoke db-claim prose-check PREFIX-N`. Idea intake prefers the local stdin mode `yoke db-claim prose-check --stdin` (no DB) via the same adapter. |
-
-### `ephemeral_env.*` — ephemeral environment lifecycle updates
-
-| Function id | claim_required_kind | Handler |
-|---|---|---|
-| `ephemeral_env.update` | `None` (project-role auth requires `items.write` on the environment row's project) | `yoke_core.domain.handlers.ephemeral_env` — updates one `ephemeral_environments` field by id via the authoritative `ephemeral_env.cmd_update` behavior. Terminal `status` values preserve the existing `stopped_at` auto-set. CLI adapter: `yoke ephemeral-env update ENV-ID FIELD VALUE`. Error codes: `payload_invalid`, `not_found`, `invalid_field`. |
-
-### `qa.*`, `project_structure.*`, orchestration, reads
-
-| Function id | claim_required_kind | Handler |
-|---|---|---|
-| `qa.requirement.update` | `"item"` | `yoke_core.domain.handlers.qa.handle_qa_requirement_update` |
-| `qa.run.record_verdict` | `"item"` | `yoke_core.domain.handlers.qa_run` |
-| `qa.browser_context.get` (read) | `None` | `yoke_core.domain.handlers.qa_browser` — one requirement-scoped read for the shared case runner: the named unwaived `browser-check` / `browser-inspection` case plus whichever deployment that case is about. Scoped to the subject the case names — an `item`, `deployment_run`, or standalone `qa_requirement` target, exactly one — and echoes the resolved subject so ref-shaped callers learn it. An item case is about the branch preview, so (with `expected_branch`) it returns the latest `ephemeral_environments.deployed_sha` and preview url. A deployment-run case is about the environment that run targeted, returned as `deployment_target`: environment name, its registered url as the sole authorized origin, and the project's configured served-revision path — where to ask it, never a stored answer. The preview fields stay empty there, because a run's deployment is not found by slugifying a branch. No revision is carried: the lineage a run REQUESTED would let it vouch for itself, and a ready stage receipt records what was served when that run deployed, which a later release to the same environment silently outdates. Internal CLI adapter: `yoke qa browser-context get (--item PREFIX-N | --deployment-run RUN-ID) --requirement-id N`. | See [standalone project QA protocol](../qa-platform/standalone-plans.md).
-| `qa.run.add` / `qa.run.complete` | `"item"` | `yoke_core.domain.handlers.qa_browser_writes` — the two-phase capture shape (`add` lands started/captured rows, `complete` finalizes in place); both verify the run belongs to the targeted requirement and emit `QARunStarted`/`QARunCaptured`/`QARunCompleted` by field presence. A captured case whose verdict comes from a reviewer records `case_outcome='needs_review'`, even when the capture write also reports a provisional verdict — that is how the release proof gate pairs the capture with its later linked review. CLI adapters: `yoke qa run add` / `yoke qa run complete`. |
-| `qa.artifact.add` | `"item"` | `yoke_core.domain.handlers.qa_artifact_add` — records one `qa_artifacts` row against a run from either a typed `artifact_handle` or mutually exclusive inline `content_base64` plus `filename`. This and `qa.artifact.presign` use the configured evidence plane (`yoke_contracts.qa_evidence_plane`), whose store hosted reviewers read; a door with no paired plane refuses `evidence_plane_unresolved`, and a local write through one refuses `evidence_not_portable`. CLI adapter: `yoke qa artifact add`. |
-| `qa.artifact.rehome` | `"item"` | `yoke_core.domain.handlers.qa_artifact_rehome` — stores one local-handle artifact's recorded bytes (`content_base64`, sent from the capture machine) through the serving build's artifact store and swaps the handle on the SAME `qa_artifacts` row by compare-and-set, keeping the run, verdict, and any pending review request; the replaced handle and the bytes' sha256 land in `metadata.rehomed_from`. An object-store artifact answers `rehomed=false`. `qa.artifact.read` reports `recorded_path` for local evidence it cannot serve, which is what the adapter reads. Serving floor: next release. CLI adapter: `yoke qa artifact rehome --requirement-id N --artifact-id N [--artifact-id N ...]`. |
-| Start-bound recording authority | — | All three recording legs accept `execution_claim_id`: the item claim the run pinned at `qa.case_execution.begin`, where the dispatcher verified it. The `qa_subject` check accepts that claim when the live one is gone, so an hour-long gate records the verdict it earned even after explicit claim release or item handoff mid-run. Owner: `yoke_core.domain.qa_start_bound_authority`; the window is `AUTHORITY_WINDOW_SECONDS`, sized to the longest permitted case command. |
-| Browser method execution | — | The tool-shaped `yoke qa case run --requirement-id N` fetches one immutable case through `qa.case_execution.get`, then uses the Browser context/run/artifact ids above when its registered runner is `browser_substrate`. There is no aggregate Browser execution entry. |
-| `qa.requirement.list` / `qa.requirement.get` / `qa.run.list` (reads) | `None` | `yoke_core.domain.handlers.qa_reads` — typed qa reads over the canonical column rosters (`qa_constants.REQ_COLUMNS` / `RUN_COLUMNS`; run rows include `execution_status`). `requirement.list` filters by item target (relay shape), payload `epic_public_ref`, or payload `deployment_run_id`. CLI adapters: `yoke qa requirement list` / `yoke qa requirement get` / `yoke qa run list`. |
-| `qa.gate_summary.run` (read) | `None` | `yoke_core.domain.handlers.qa_reads.handle_qa_gate_summary` — wraps `yoke_core.domain.qa_gate_summary.render_gate_summary` for an item or `epic_task` target with payload `transition` ∈ (`reviewed-implementation`, `implemented`); the dispatcher-backed replacement for the checkout-shaped `db_router qa gate-summary` agent leg. CLI adapter: `yoke qa gate-summary`. |
-| `qa.requirement.add` / `qa.requirement.add_batch` | `"item"` | `yoke_core.domain.handlers.qa_requirement_create` — item-attached requirement creation mirroring `cmd_requirement_add`/`add_batch` (shared validators from `qa_requirement_policy_validation`, pinned-workflow transition validation, per-row `QARequirementCreated`). Single adds require `workflow_transition_id`; every `add_batch` row requires it and targets the function-call item (one claim verifies one batch). Epic-task attachment stays on the operator-debug domain CLI and also requires a valid transition; deployment-run attachment stays operator-debug and may omit it. CLI adapters: `yoke qa requirement add` / `add-batch`. |
-| `project_structure.patch.apply` | `None` (project-role auth requires `project.admin` on the target project) | `yoke_core.domain.handlers.project_structure.handle_project_structure_patch_apply` — atomically applies project configuration ops. An optional item target supplies provenance context, never write authority. CLI adapter: `yoke project-structure patch apply --project P --ops-json JSON [--item ITEM]`. |
-| `project_structure.architecture_health.get` (read) | `None` | `yoke_core.domain.handlers.project_structure.handle_architecture_health_get` — coverage and violations for the project's declared architecture map from the shared computer (`yoke_core.domain.architecture_health`); `{"declared": false}` when no map exists. Serves the workbench Architecture page, and the board section shows the same coverage. CLI adapter: `yoke project-structure architecture-health get --project P`. |
-| `project_structure.architecture_draft.get` (read) | `None` | `yoke_core.domain.handlers.project_structure.handle_architecture_draft_get` — scan-derived draft map proposal (`yoke_core.domain.architecture_map_survey`) for operator review; an empty tree proposes the minimal vocabulary-only map. Apply the edited payload via `project_structure.patch.apply`. CLI adapter: `yoke project-structure architecture-draft get --project P`. |
-| `projects.site.create` / `projects.environment.create` / `projects.environment.update` | `None` | `yoke_core.domain.handlers.projects_infrastructure_create` and `projects_infrastructure_update` — idempotent site/environment registration plus in-place name and url update. Create keys a `sites` row by slug and an `environments` row by id under a project-owned site. Re-creating an existing identity reports `outcome="already_present"` and touches nothing (settings updates go through the settings surfaces; url updates go through `projects.environment.update --url`); a slug/id owned by a different project or site refuses with a mismatch error. Update keeps the id/site stable and writes `name` and/or `url` (`environments.url` is the origin identity probes). CLI adapters: `yoke projects site create` / `yoke projects environment create` / `yoke projects environment update`. |
-| `board.rebuild` | `None` | `yoke_core.domain.handlers.orchestration.board_rebuild` — the operator-requested `.yoke/BOARD.md` refresh. Nothing dispatches it automatically; item, lifecycle, merge, and deploy operations never rebuild the board. |
-| `board.data.get` (read) | `None` | `yoke_core.domain.handlers.orchestration.handle_board_data_get` — server half of the board rebuild: runs the board's full DB query plan (`yoke_core.board.data.collect_board_data`) for the payload's query-shaping inputs (`scope`, `config_values` from DB `project-policy.settings.board`, `zen_vision_count`, `repo_root_token`, optional `code_days` upsert into `project_code_days`) and returns the recorded plan plus `vision_project` — the slug of `settings_project_id`, the checkout's own project, the only timeline that draws the client's VISION zone (a payload without it draws none). The client (`yoke board rebuild` composition) renders markdown locally from this payload plus client-local inputs (board art, VISION entries) and writes `.yoke/BOARD.md` itself, so board rebuilds work identically over https and in-process. CLI adapter: `yoke board data get`. |
-| `overview.activation.get` (read + latch) / `overview.module.dismiss` / `overview.module.restore` | `None` | `yoke_core.domain.handlers.overview_activation` — the workbench's navigation Setup control and its module stack. The get derives every module/submodule state from universe signals in one dispatch (payload `{host_facts: {machine_connected?: bool}}`) and latches newly satisfied universe modules into `overview_activation_facts`. The wizard's `machine_universe` submodule and the `connect_harness` module answer per registered machine (`yoke_core.domain.overview_machine_activation`, the one machine-identity read: `session_relays` plus `harness_sessions.machine_id` today, the machine registry row once it lands): the submodule counts and names the machines, the module carries a `machines` list — each with its own `state`, `activated_at`, `connected`, `harnesses`, `surfaces`, `last_seen_at`, and hook-health `targets` (`hit`, `hook_health`, per-target `last_seen_at`, and approval remediation) — latched per `(machine_id, module_key)` in `overview_machine_activation_facts`, and reads activated only when every listed machine has connected a harness. The `run_onboard` module carries an `onboard` object (`yoke_core.domain.overview_onboard_progress`) with the latest checklist run's live `run_status`, `superseded_by`, `steps_done`/`steps_total`, `next`, `blocker`, and the `scaffold_installed` / `strategy_docs` / `environments` outcomes its card is written from; that run must have no open rows to activate the module, or be closed as `superseded` by its project's deployments (`yoke_core.domain.project_onboarding_run_supersede` writes that status and the overtaking deployment onto the run row), and the facts stay live under the monotone latch. CLI adapter: `yoke overview activation get`. The dismiss/restore pair remains browser-proxied. A hidden module leaves the stack entirely (no count, no show-again); the way back is `profile.onboarding.reset`. The Profile page (`yoke_core.domain.handlers.profile`, reached from the actor menu, all browser-proxied, every one refusing without a bound actor) is `profile.get` (read) — the caller's own identity (`actors` name, kind, id, plus the newest `actor_external_identities` email and sign-in issuer when linked), org and project roles, live `api_tokens` rows (a machine-bound token names its machine and is ended by retiring the machine, never here), the `profile.time_zone` preference, and the hidden-module count — with `profile.token.create` (raw value returned exactly once), `profile.token.revoke` and `profile.preference.set` acting only on the caller's rows, and `profile.onboarding.reset` deleting every `overview.module.dismissed.*` preference for the caller and nothing else. |
-| `machine_authorization.get` / `machine_authorization.resolve` | `None` | Personal device-code read and approval (`{code}`, plus `action: approve|deny` for resolve). Signed-in org membership and machine ownership are enforced by `yoke_core.domain.handlers.machine_authorization`. CLI: `yoke machine-authorization get CODE`; `yoke machine-authorization resolve CODE --action approve`. On a hosted connection Platform answers both and an org admin decides; `organizations.create` and `identity.invite.*` follow the same hosted path ([hosted org administration](../hosted-org-admin.md)). Serving floor: next release. Read [machine authorization](../machine-authorization.md) before acting. |
-| `harness.machine_report.upsert` | `None` | `yoke_core.domain.handlers.harness_machine_report` — persist client-collected harness presence and approval state for one project on one machine into `harness_machine_reports` (payload requires `machine_id`). CLI adapter: `yoke harness machine-report upsert --project-id N`. |
-| `packets.render` / `packets.check` | `None` | same |
-| `packets.budget.get` (read) | `None` | `yoke_core.domain.handlers.orchestration_packet_budget.handle_packets_budget_get` — each packet role's configured line budget, its current rendered usage, and the remaining headroom, plus the same figures for the aggregate corpus. Reports the usage the size caps enforce, so trimming a packet or raising a budget starts from a measured number; character counts are usage only, since no character limit is enforced. Named by every budget-exceeded message. Client-local like its siblings: it measures the packets this checkout renders. CLI adapter: `yoke packets budget get`. |
-| `agents.render.run` / `agents.render.check` | `None` | same (routes through `yoke_core.domain.agents_render`) |
-| `doctor.run.run` (read) | `None` | `yoke_core.domain.handlers.reads_misc.handle_doctor_run` — machine Doctor surface: takes `{project, db_path, fix, only, quick, full, runtime}`, returns structured `{results[], scope, project, runtime, fail_count, warn_count, pass_count, na_count}`. `project` is required in the request; the CLI supplies an explicit project, `YOKE_PROJECT`, or its caller checkout binding. Missing context refuses as `project_required` and lists accessible projects on the caller authority. `runtime` names the deployment destination executing the checks (`local` / `server` / `hosted`); omitted, the handler derives it from the runner's own evidence. Checks outside the applicable set for that project and runtime come back with `severity="N/A"` and the reason in `detail` — they are never counted as passes and never dropped. Callers must pick exactly one scope (`quick`, `full`, or `only`); a JSON caller missing the scope flag receives `error.code="scope_required"`. Unknown HC slugs in `only` return `error.code="invalid_check"`. The retained human CLI is `yoke doctor run --json`, with byte-shape parity against this function. |
-| `events.query` (read) | `None` | same |
-| `items.get` (read) | `None` | same |
-| `merge_queue.landing_pull_request.record` / `merge_queue.landing_pending.mark` / `merge_queue.landing.observe` / `merge_queue.landing_pending.clear` | `None` | Internal, session-optional item functions owned by `yoke merge item`: record the pull request/admission; make one cadence-limited server GitHub sweep across the project's pending landings; return this lane's durable `state`, `queue_holding`, `queue_entry_state`, `merge_when_ready`, check evidence, and refresh/change times; then clear it after terminal close-out. |
-| `session_ci_wait.record` / `session_ci_wait.resolve` | `None` | Internal, session-required global functions: gates call `record` the moment a run id exists (`yoke watch pytest` remote selection, QA `command-ci`, merge verification) so `session_ci_wait_observer` can wake a stopped turn; the watcher that already received success or failure calls `resolve` so that sweep does not repeat the verdict. Re-recording one run for one session is a no-op; `supersedes_run_id` drops a re-dispatch's abandoned wait; `resolve` matches `(session_id, run_id)` only. |
-| `github.merge_queue.readiness` (read) / `github.merge_queue.hold` | `None` / `item` | `yoke_core.domain.handlers.github_merge_queue_readiness` — item-scoped, non-mutating landing liveness read. It composes the pull request with `mergeQueue(branch).entries`, returns the exact `queue_entry_state`, and reports null arming as `consumed` while an entry exists rather than as `cleared`. CLI adapter: `yoke github merge-queue readiness PREFIX-N --json`. `github_merge_queue_hold` is the mutating sibling the item's claim holder calls before correcting a defective candidate: it clears merge-when-ready AND removes the queue entry — disabling auto-merge alone never removes an entry GitHub already formed — then re-reads until both are gone, acting once more on what that readback shows so a candidate enqueued mid-hold is still dequeued. It reports `held` only from that readback, returns `already_landed` / `landed_during_hold` with the commit GitHub actually merged, and never re-arms: correct the lane, re-run the verification gate, then `yoke merge item`. Every lane publish refuses while its candidate is still armed or queued (`yoke_core.domain.merge_queue_push_safety`), so a correction cannot be pushed out from under a live landing. CLI adapter: `yoke github merge-queue hold PREFIX-N --json`. |
-| `epic_tasks.list` (read) | `None` | same |
-| `path_claims.conflicts.list` (read) | `None` | same |
-| `checks.file_line.run` / `checks.idea_readiness.run` / `checks.path_claim_coverage.run` / `checks.schema_api_context.run` / `checks.agents_render.run` / `checks.event_registry.run` / `checks.migration_governance.run` | `None` | `yoke_core.domain.handlers.reads.*` |
-
-## Adapter status
-
-The CLI surfaces (`db_router items update`, `service_client db-claim-amend`, `item_field_transform`, `epic task-update-body`, etc.) remain **live** adapters — they construct a `FunctionCallRequest` internally and dispatch through the same registry. The adapter status (`live`, `deprecated`, `retired`, or `internal`) is recorded per registry entry and surfaced in the operator-readable Atlas; render it locally with `python3 -m yoke_core.tools.atlas_render_docs render`. An `internal` function is a typed service-to-service boundary without a retained operator CLI adapter, so it is excluded from CLI-adapter parity. That adapter classification does not authorize access; the function's authorization scope and guardrails enforce who may dispatch it. Skill prose, packet prose, and agent docs reference the function id; operator/debug invocations of the CLI adapter remain valid and clearly labelled.
-
-## Authoring conventions
-
-- **Idempotency.** Always set `request_id` from a stable id (the calling agent's turn id, a hash of the (item, field, content), etc.). Replaying with the same `(function, request_id)` returns the cached response from `function_call_ledger` and emits `DispatcherIdempotencyReplay`; reusing a `request_id` across different function ids rejects with `idempotency_key_collision`. Ledger rows expire after the replay TTL (`function_call_ledger.LEDGER_TTL_DAYS`), after which the same `request_id` dispatches fresh.
-- **Atomicity of mutation + side effect.** Functions that mutate state plus emit downstream events (sync GitHub body, rebuild board) wrap the side effect in `options`. Side-effect failures degrade to warnings via `DispatcherDownstreamDegraded`; the primary mutation either fully committed or fully rolled back.
-- **Reads return typed payloads.** Function-call reads (`items.get`, `events.query`, `doctor.run.run`) return structured objects, not parseable terminal text. Agents that branch on read output should consume the typed fields, not regex the prior CLI's stdout.
-- **Verification status.** Mutation handlers run a post-write re-read and report `verification_status`. Treat `verification_status="degraded"` as the same severity as a partial-state warning.
-
-## Cross-links
-
-- `docs/event-catalog.md` (a yoke source-repo doc) — `YokeFunctionCalled`, `DispatcherIdempotencyReplay`, `DispatcherDownstreamDegraded` envelope schemas.
-- `python3 -m yoke_core.tools.atlas_render_docs render` — render the operator-readable Atlas of the agent-facing surfaces locally.
-- [items-and-epics.md § DB Claim — unified amendment workflow](items-and-epics.md) — the `db_claim.amend` payload shape.
-- `yoke_contracts.api.function_call` — Pydantic envelope models.
-- `yoke_core.domain.yoke_function_dispatch` — dispatcher entry point.
-- `yoke_core.domain.yoke_function_registry` — registry.
-- `yoke_core.domain.handlers` — handler registration (idempotent).
+Source maintainers enumerate the catalog with
+`yoke_core.domain.handlers.__init_register__.register_all_handlers` and
+`yoke_core.domain.yoke_function_registry.list_entries`; request schemas come
+from `schema_for`. The source Atlas renderer is
+`python3 -m yoke_core.tools.atlas_render_docs render`.
+See [DB reference](../db-reference.md) for domain contracts and the CLI entrypoint.

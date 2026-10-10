@@ -1,328 +1,279 @@
 # Subagent Reference (internal)
 
-Canonical agent behavior bodies live in `runtime/agents/{agent}.md`. These are the source-of-truth persona definitions — one per agent, containing the full system prompt body. The substrate renderer fans each canonical body into per-harness adapters: Claude adapters at `runtime/harness/claude/agents/yoke-{agent}.md`, Codex custom agents at `runtime/harness/codex/agents/yoke-{agent}.toml`. The runtime `.claude/agents` and `.codex/agents` paths are symlinks into those adapter directories, so each harness reads the rendered files from its native location. Codex Desktop reads the rendered TOML adapters as custom agents and dispatches them through Codex-native primitives. Each adapter combines harness-specific metadata with the same canonical body, so the prompt text stays identical across harnesses. Claude adapters carry Markdown YAML frontmatter (`name`, `description`, `tools`, `model`, `hooks`); Codex custom agents carry the current Codex subagent schema — required `name` / `description` / `developer_instructions` plus optional config (`model`, `sandbox_mode`) that Codex inherits from the parent session when omitted. The Claude `tools` allowlist and `model` pin are Claude-only and are not emitted into the Codex TOML. The `canonical_agents` entries in `runtime/harness/bootstrap-spec.json` and `runtime/harness/codex/manifest.json` document where the canonical bodies live without inlining them into bootstrap output. Shared dispatch descriptors emit one task envelope per agent and feed both harness call paths, so phase files name agents by descriptor rather than hardcoding Claude's `subagent_type`. The drift check `HC-agent-canonical-drift` in doctor verifies adapter bodies stay in sync with their canonical sources. The full universal-source + per-harness-renderer model is documented in [`harness-substrate.md`](harness-substrate.md).
-
-> **Note:** Shepherd and Conduct are orchestration skills (`SKILL.md` files), not agents. They run inline in the main session and invoke the 8 agents below as needed. Usher is also a skill (post-merge pipeline), not an agent. See [lifecycle.md](../.yoke/docs/reference/lifecycle.md) for the canonical state machine. Per-project test-surface docs live in each managed project at `.yoke/test-inventory.md`.
-
-### Lane Reversal
-
-Lane reversal preserves one canonical prompt body. Whichever harness owns a lane, the adapter file is generated from the same `runtime/agents/{agent}.md` source. Claude dispatches the Architect through `runtime/harness/claude/agents/yoke-architect.md` (surfaced as `.claude/agents/yoke-architect.md` via symlink); Codex dispatches the same Architect through `runtime/harness/codex/agents/yoke-architect.toml` (surfaced as `.codex/agents/yoke-architect.toml`). Both adapters carry the identical body from `runtime/agents/architect.md`. The shared dispatch descriptor module names the agent by descriptor, so `/yoke refine`, `/yoke conduct`, and any future lane reversal continue working without per-harness branches in skill prose. The moving parts are the adapter surface and the lane owner — not the persona text.
-
-## Shared Prompt Doctrine
-
-Yoke uses a shared prompt doctrine across agents and skills. The canonical source is [prompt-philosophy.md](prompt-philosophy.md).
-
-The headline idea is `Be the giant`: we stand on inherited shoulders and owe the next agent a leg up. Durable specs, plans, verdicts, and code should be complete for the current work so the next reader does not re-investigate the basics. Active plans, progress, handoffs, and resume notes are current-state checkpoints, not accumulated cold-start essays: keep the live objective, standing decisions/holds, active work, blockers, next actions, and links to durable evidence. Live code and current-state docs must also be codebase-reader complete: assume future readers cannot see the work item, strategy doc, plan, phase, task, or acceptance criterion that produced the change, and name every live surface by its current function, purpose, and mechanics.
-
-## Agent Summary
-
-| Agent | File | Model | Max Turns | Permission Mode | Tools | observe-tool |
-|---|---|---|---|---|---|---|
-| Product Manager | `yoke-product-manager.md` | opus | 300 | default | Read, Grep, Glob | Yes |
-| Product Designer | `yoke-product-designer.md` | opus | 300 | default | Read, Grep, Glob | Yes |
-| Architect | `yoke-architect.md` | opus | 300 | default | Read, Grep, Glob, Bash | Yes |
-| Engineer | `yoke-engineer.md` | opus | 300 | bypassPermissions | Read, Write, Edit, Bash, Grep, Glob | Yes |
-| Tester | `yoke-tester.md` | opus | 300 | default | Read, Grep, Glob, Bash | Yes |
-| QA Walker | `yoke-qa-walker.md` | opus | 300 | default | Read, Grep, Glob, Bash | Yes |
-| Simulator | `yoke-simulator.md` | opus | 300 | default | Read, Grep, Glob, Bash | Yes |
-| Boss | `yoke-boss.md` | opus | 300 | default | Read, Grep, Glob, Bash | No |
-
-## Product Manager
-
-**Tools:** Read, Grep, Glob (no Write, Edit, Bash)
-**Hooks:** PreToolUse(all tools) -> observe hook (PreToolUse), PostToolUse -> observe hook with `agent=product-manager`, PostToolUseFailure -> observe hook with `agent=product-manager`, SubagentStop -> `yoke_core.domain.agent_stop`
-
-Single-pass spec generator. Receives feature description + codebase context + user clarifications. Cannot interact with users (subagent). Infers what it can, flags genuinely ambiguous decisions in "Open Questions" section. Outputs structured spec with: problem statement, users, goals, non-goals, functional/non-functional requirements, user stories, technical considerations. The spec is written to the item's structured fields and then read back through the rendered item body.
-
-**Key rules:**
-- PM is invoked during shepherd's `refined_idea_to_planning` transition as a prerequisite gate when the spec lacks required PRD sections. PM never asks questions -- it generates the best spec from available input.
-- **Never replace existing rendered item content.** If the item's structured spec fields or rendered body already contain substantive operator notes, PM must enrich them (fill gaps, add sections, clarify) rather than rewrite from scratch. The operator's structure and decisions take precedence over PM's template.
-
-## Product Designer
-
-**Tools:** Read, Grep, Glob (no Write, Edit, Bash)
-**Hooks:** PreToolUse(all tools) -> observe hook (PreToolUse), PostToolUse -> observe hook with `agent=product-designer`, PostToolUseFailure -> observe hook with `agent=product-designer`, SubagentStop -> `yoke_core.domain.agent_stop`
-
-Optional phase. Produces UX spec from item spec + existing UI patterns. Outputs: user flows, screen/component specs, interaction patterns, accessibility requirements, existing patterns to reuse. Recommends skipping for non-UI work. The invoking workflow stores design output in the item's `design_spec` structured field.
-
-**Key rules:**
-- Never replace existing rendered item content. If the item's structured spec/design content already contains substantive operator decisions, the Designer must enrich it rather than rewrite from scratch.
-- Output goes to `items.design_spec`, not the filesystem. The invoking workflow owns the structured-field write.
-
-## Architect
-
-**Tools:** Read, Grep, Glob, Bash (no Write, Edit)
-**Hooks:** PreToolUse(Bash) -> `yoke_core.domain.lint_db_cmd` + observe hook (PreToolUse), PreToolUse(Write/Edit/Read) -> observe hook (PreToolUse), PostToolUse -> observe hook with `agent=architect`, PostToolUseFailure -> observe hook with `agent=architect`, SubagentStop -> `yoke_core.domain.agent_stop`
-
-The most critical review gate. Produces three artifacts:
-1. `technical_plan` structured field on the item
-2. `epic_tasks` / `epic_task_files` rows with DB-backed task bodies and file manifests
-3. `worktree_plan` structured field on the item
-
-**Hard constraints enforced:**
-1. Session-fit sizing (XS/S/M/L, never XL >100k tokens)
-2. Worktree independence (no cross-worktree file overlap)
-3. Sequential within worktree, parallel across worktrees
-4. Tests, docs, and interface contracts mandatory
-5. FR-to-task traceability matrix (every FR mapped to task(s) in `### FR Traceability` section)
-6. Epic size limit (~20 tasks, propose split if exceeded)
-7. All DB access goes through registered `yoke ...` commands or a registered Yoke function -- never direct database-client calls
-8. Exact downstream consumer identification for every interface
-9. One-direction data flow (DB is source of truth, .md files are generated views)
-10. Cross-Script Contracts -- when a task adds subprocess calls, it must document the environment variable propagation pattern
-11. Documentation File Checklist -- tasks that change behavior must update the relevant docs
-12. Read-tool size discipline -- never read entire large files; use offset/limit
-13. File discovery -- exclude noise directories from Glob/Grep
-
-**Task metadata fields:**
-- `worktree` — target worktree/branch assignment (for example `YOK-N`)
-- `context_estimate` — expected task size (`XS`, `S`, `M`, `L`)
-- `dependencies` — `none` or a comma-separated list of prerequisite task numbers
-
-### Fix Mode
-
-The Architect can also operate in **fix mode**, where it revises existing task specs based on a simulation gap report rather than creating them from an item spec. Fix mode is invoked by the `/yoke simulate` command's auto-fix flow -- it is not triggered directly by users.
-
-**Trigger:** Fix mode activates when the invoking prompt contains a gap report and the phrase "Fix mode". This is a prompt-based trigger, not a configuration setting.
-
-**Inputs:** The gap report (from plan or integration simulation), the rendered item body / structured plan fields (contains spec + `technical_plan`), the `worktree_plan` field, and all task specs from the `epic_tasks` DB table.
-
-**Outputs:** Modified task files (full content, each preceded by a file-path header like `### tasks/001.md`), modified `worktree-plan.md` (full content, preceded by `### worktree-plan.md`), and a change summary table with columns: Gap #, Severity, File Modified, Change Description.
-
-**Process:**
-- Parse each gap from the report (severity, tasks involved, root cause, fix guidance)
-- For `[CRITICAL]` and `[WARNING]` gaps, apply the fix guidance to the relevant task files (acceptance criteria, test plans, files-touched lists, interface contracts)
-- For `[NOTE]` gaps, include in the change summary but only modify files if the fix is trivial (e.g., a count update)
-- Update `worktree-plan.md` if files-touched lists changed
-- Re-verify the file overlap check after modifications
-
-**Constraints:**
-- Only modify files referenced in the gap report's fix guidance
-- No task restructuring, splitting, or worktree reassignment
-- No changes to the `technical_plan` structured field
-- Skip gaps that require code changes (noted as "requires `/yoke amend`" in the change summary)
-- Preserve all existing content not targeted by a gap fix
-
-## Engineer
-
-**Tools:** Read, Write, Edit, Bash, Grep, Glob (all tools)
-**Permission Mode:** `bypassPermissions` (required for unattended dispatch)
-**Hooks:** PreToolUse(Bash) -> `yoke_core.domain.lint_db_cmd` + observe hook (PreToolUse), PreToolUse(Write/Edit/Read) -> observe hook (PreToolUse), PostToolUse(Bash) -> observe hook (Bash PostToolUse), PostToolUse(all tools) -> observe hook with `agent=engineer`, PostToolUseFailure -> observe hook with `agent=engineer`, SubagentStop -> `yoke_core.domain.agent_stop`
-
-Implements exactly what the task specifies. Commits incrementally. Writes progress notes to the `epic_progress_notes` DB table via `yoke workflow-item epic-progress-note append`. Progress notes auto-synced to GitHub issue comments via hook. Uses the registered reflection path for ouroboros entries so writes land on the main repo root regardless of worktree CWD.
-
-**Key rules:**
-- Implement exactly what's specified -- don't improvise
-- Follow interface contracts precisely
-- Commit after each meaningful unit (not at the end)
-- Stay in assigned worktree
-- Don't modify files outside task scope
-- If blocked by missing/mismatched interface, stop and report
-- Dual-path awareness: uses repo-root-aware Python owners so shared-state writes land on the main repo root even from worktrees
-
-**Root-Cause Analysis Protocol:** When the Engineer encounters a test failure or unexpected error, it must diagnose before fixing. The protocol requires: (1) read the failing assertion, (2) trace the code path, (3) identify the discrepancy, (4) write down the root cause before writing any fix, (5) only then write the fix. This prevents multi-attempt guessing cycles.
-
-**Large Output Handling:** The Engineer follows strict discipline around oversized outputs: capture test suite output once to a temp file and inspect it multiple ways (rather than rerunning), never pipe a live test run directly through `tail`/`head`, use `wc -l` before reading temp files, recover from Read tool token-limit failures with offset/limit parameters, and prefer targeted extraction over full reads.
-
-## Tester
-
-**Tools:** Read, Grep, Glob, Bash (no Write, Edit -- 3-layer enforcement)
-**Hooks:** PreToolUse(Bash) -> `yoke_core.domain.lint_db_cmd` + observe hook (PreToolUse), PreToolUse(Write/Edit) -> block commands + observe hook (PreToolUse), PreToolUse(Read) -> observe hook (PreToolUse), PostToolUse -> observe hook with `agent=tester`, PostToolUseFailure -> observe hook with `agent=tester`, SubagentStop -> `yoke_core.domain.agent_stop`
-
-Validates Engineer's work. Its structured reflection block is captured by the
-PostToolUse Agent-tool hook in
-`packages/yoke-core/src/yoke_core/domain/reflection_capture_hook.py`, so no
-worktree-local log write is needed. Process:
-1. Check acceptance criteria
-2. Review code changes
-3. Verify interface contracts
-4. **Path tracing** -- export accuracy, runtime assumptions, downstream compatibility (warnings don't affect PASS/FAIL)
-4a. **Prose-only detection** -- if all changed files are `.md`, skip the test suite (regressions structurally impossible)
-4b. **Project test command selection** -- use project-provided commands when available (step 4b)
-4c. **E2E execution against ephemeral URL** -- runs after unit/integration tests pass (step 4c)
-5. Run tests (risk-scoped selection)
-6. Verify documentation
-7. Produce validation report
-
-**3 layers of Write/Edit enforcement:**
-1. `tools` allowlist excludes Write/Edit
-2. `disallowedTools` explicitly blocks them
-3. `PreToolUse` hooks reject attempts at runtime
-
-**Change-scope triage:** The Tester performs change-scope analysis early to determine which test suites are relevant. Changes to docs-only files skip test execution entirely. Changes to specific script domains trigger only the related test suites rather than the full suite.
-
-**Enhanced baseline validation with trust levels:** The Tester applies trust-level-based validation intensity. Higher trust levels (e.g., well-tested scripts with existing coverage) receive lighter review, while lower trust levels (new code, complex changes) receive deeper inspection.
-
-**Portable timeout wrapper:** The Tester uses a portable timeout mechanism for test execution that works across BSD (macOS) and GNU (Linux) environments, preventing runaway test processes from consuming the entire turn budget.
-
-**Browser Scenario Execution:** The Tester selects unsatisfied materialized
-cases whose `method_id` is `browser-check` or `browser-inspection` and executes
-each requirement through `yoke qa case run`. The case's `expected_outcome` and
-immutable `method_config` are the execution contract. Against an ephemeral
-environment, every invocation includes the resolved URL, expected worktree
-branch, and expected HEAD SHA. The shared runner records accessibility,
-screenshot, trace, and verdict evidence; the Tester never rewrites the case or
-adds a parallel Browser run manually.
-
-**Diff externalization:** When a per-task diff exceeds 300 lines, the conduct writes it to a temp file and passes a `--stat` summary plus file path in the Tester prompt instead of inlining the full diff. The Tester reads the file directly for line-level detail. This prevents context saturation that causes timeouts and no-verdict failures on large diffs. Diffs of 300 lines or fewer are still inlined as before.
-
-**Key rule:** Binary PASS/FAIL verdict. No conditional pass. Path-tracing warnings are informational.
-
-**Project-aware verification:** Conduct attaches the project's QA plans at
-their declared workflow transitions. The Tester executes the materialized
-method cases, so command, Browser, and machine checks use one auditable model
-without hardcoded assumptions about a project's test runner or layout.
-
-**E2E vs. smoke vs. browser integration:** The `e2e` scope is a *real* end-to-end suite that exercises a deployed backend and requires `BASE_URL` injection. Browser integration tests that mock APIs (e.g., Playwright `page.route()` intercepts) live under the `full` scope, not `e2e`. Shallow real-stack checks live under the `smoke` scope and can run from both the developer shell and the deploy pipeline's smoke stage.
-
-**E2E execution against ephemeral URLs:** For external project items with ephemeral environments, the Conduct injects an `Ephemeral URL` and an `E2E` test command into the Tester's dispatch prompt. The Tester runs E2E tests after unit/integration tests pass, injecting the URL via `BASE_URL={ephemeral_url} {e2e_command}`. Both an ephemeral URL and an E2E command must be present to proceed; if either is missing, E2E is skipped gracefully. When E2E tests fail, the Tester collects failing test names, error messages, and Playwright artifact paths (screenshots, traces, videos from `test-results/` or `playwright-report/`). E2E failures produce a **FAIL** verdict even if all unit/integration tests passed.
-
-## QA Walker
-
-**Tools:** Read, Grep, Glob, Bash (no repository Write or Edit; Cursor declares
-`readonly: false` so state-changing mission substrate commands remain available)
-**Hooks:** The normal Bash-capable observe, policy, and SubagentStop hooks.
-
-Walks one exploratory mission whose sequence is chosen at run time. The main
-agent retains ownership of the item, Progress Log, human-request route, report,
-and final verdict; the walker returns ranked findings and unverified areas.
-Each case chooses either an informed subagent or a target-naive agent session.
-
-A walker turn is atomic. At a permission dialog, interactive sign-in, or
-approval, it returns `WALK_STATUS: HUMAN_GATE` with the exact needed action and
-resume state, and does not send Fleet mail. The main agent records the handoff,
-asks a live covering steering seat or else the item's human owner, and
-dispatches a fresh walker. Acknowledgement is not sign-in proof.
-Routine screen perception is discarded; only deliberate proof of a finding is
-attached, within the runtime-supplied artifact limit. On macOS, commands
-requiring the window server or login keychain use the Terminal GUI-session
-bridge. Screenshot display failure, audit-session denial, and misleading OAuth
-expiry over SSH are all treated as wrong-session signals.
-
-## Simulator
-
-**Tools:** Read, Grep, Glob, Bash (no Write, Edit -- 3-layer enforcement)
-**Hooks:** PreToolUse(Bash) -> `yoke_core.domain.lint_db_cmd` + observe hook (PreToolUse), PreToolUse(Write/Edit) -> block commands + observe hook (PreToolUse), PreToolUse(Read) -> observe hook (PreToolUse), PostToolUse -> observe hook with `agent=simulator`, PostToolUseFailure -> observe hook with `agent=simulator`, SubagentStop -> `yoke_core.domain.agent_stop`
-
-Epic-level integration gap detection. Runs at two optional points:
-- **Plan simulation** (after plan, before sync) -- traces planned architecture for structural gaps
-- **Integration simulation** (after all tasks complete, before merge) -- traces actual code for cross-branch mismatches
-
-**"Always Do" steps (both phases):** FR coverage preamble check, contract matching, worktree visibility, dependency ordering, environment assumptions, gap categories.
-**"If Given Actual Code" steps (integration only):** Export verification against real code, naming consistency, merge sequence simulation, validation report review.
-
-**Gap report severity levels:** `[CRITICAL]` (blocks proceeding), `[WARNING]` (should fix, not blocking), `[NOTE]` (informational). Bracket prefixes are machine-parseable.
-
-**VERDICT-FIRST rule:** The Simulator begins with `SIMULATION: CLEAN` or `SIMULATION: GAPS FOUND`, followed by `EPIC: PREFIX-N` for an epic simulation or `SCOPE: SYSTEM` for a system-wide audit. This keeps both the verdict and dispatched scope ahead of a potentially long report.
-
-**Construct Verification:** The Simulator verifies that cross-task constructs (shared types, helper functions, configuration structures) are defined consistently across all tasks that reference them. Mismatches in type shapes, function signatures, or config keys between producer and consumer tasks generate `[CRITICAL]` gaps.
-
-**Context Budget Awareness:** The Simulator follows a two-phase protocol to manage its own context window. Phase 1 (planning) inventories all files to examine and estimates token costs. Phase 2 (execution) reads files in priority order, stopping before context exhaustion. This prevents the Simulator from running out of context mid-analysis.
-
-**Failure Path Analysis:** The Simulator traces error handling paths across task boundaries -- what happens when a shared service returns an error, when a DB query fails, or when an API call times out. Missing or inconsistent error handling across producer/consumer boundaries generates `[WARNING]` gaps.
-
-**Recommendation Contract with Conduct:** The Simulator's gap report includes a `fix_level` classification for each gap: `plan`, `code`, or `mixed`. Conduct uses that classification to route plan-only corrections to the Architect and any code-bearing correction through implementation.
-
-**Key rule:** All DB access goes through registered `yoke ...` commands or a registered Yoke function -- never direct database-client calls. When running scripts that may call GitHub, set `YOKE_DRY_RUN=1` to prevent creating real issues/labels.
-
-### System-Wide Simulation (Ouroboros)
-
-The Simulator also supports system-wide consistency auditing via `/yoke simulate --system`. Instead of tracing per-epic integration paths, it audits all of Yoke's components for internal consistency -- checking 5 gap categories: stale agent references, stale SKILL.md references, cross-agent assumption mismatches, stale hook references, and rule-implementation contradictions. Auto-fix is not available for system-wide simulation.
-
-## Boss
-
-**Tools:** Read, Grep, Glob, Bash (no Write, Edit)
-**Hooks:** PreToolUse(Bash) -> `yoke_core.domain.lint_db_cmd`, PreToolUse(Write/Edit) -> block commands, SubagentStop -> `yoke_core.domain.agent_stop`
-
-Quality gate agent. Reviews worker artifacts (specs, plans, designs) at pipeline transition points and produces a structured verdict: `VERDICT: READY`, `VERDICT: NOT_READY`, or `VERDICT: CAVEATS`. Used by the Shepherd to gate transitions in the item lifecycle.
-
-**Key rules:**
-- Produces exactly one verdict per invocation
-- Cannot write files -- verdict is returned as text output
-- Returns the verdict as text only; the Shepherd persists the `shepherd_verdicts` row after parsing. Boss must not call `shepherd verdict` itself.
-- Reviews against a configurable rubric provided in the invocation prompt
-- **Self-serves item body from DB** via `yoke items get YOK-N body` -- never relies on inline content from the caller's prompt, which may be stale or summarized
-- **Lifecycle-aware evaluation:** Boss `scope=plan` reviews are shepherd-epic-only (`refined_idea_to_planning`, `planning_to_plan_drafted`). It should not expect epic plan artifacts when reviewing issue or bug work outside shepherd.
-- **FR coverage validation:** At `scope=plan`, Boss must verify the `### FR Traceability` section exists and covers all spec FRs. Missing section or unmapped FRs trigger NOT_READY. Specs without FR-N notation get softer CAVEATS check.
-- All DB access goes through registered `yoke ...` commands or a registered Yoke function -- never direct database-client calls
-
-> **Note:** Boss does not have agent-specific `python3 -m yoke_core.domain.observe --agent ... --hook-event ...` PostToolUse telemetry in its frontmatter. Its explicit frontmatter hooks are the shell/SQL lint guard (PreToolUse/Bash), Write/Edit block hooks (PreToolUse), and `yoke_core.domain.agent_stop` (SubagentStop).
-
-## Common Patterns
-
-### Tool Access Tiers
-
-- **Read-only agents** (PM, Designer): Read, Grep, Glob only. No Bash, Write, or Edit.
-- **Read + Bash agents** (Architect, Boss, Simulator, Tester, QA Walker): Read, Grep, Glob, Bash. Write and Edit blocked by `disallowedTools` + PreToolUse hooks.
-- **Full-access agent** (Engineer): All tools. `bypassPermissions` for unattended dispatch.
-
-### Hook Coverage
-
-All 8 agents have SubagentStop -> `yoke_core.domain.agent_stop` (item-worktree
-auto-commit safety net plus `HarnessSessionStopped` event emission; it does
-not drain claims or set task lifecycle state).
-
-**Agent-frontmatter observe attribution** (PostToolUse + PostToolUseFailure -> observe hook with `--agent ... --hook-event ...`): Present on 7 agents -- Product Manager, Product Designer, Architect, Engineer, Simulator, Tester, and QA Walker. Boss does not add agent-specific `--agent` wiring in frontmatter.
-
-**Agent-frontmatter `observe-tool-pre` wiring** (PreToolUse -> observe hook): Present on the same 7 agents. Boss does not add extra frontmatter wiring for this hook.
-
-**lint_db_cmd** (PreToolUse/Bash): Present on all 6 Bash-capable agents -- Architect, Engineer, Tester, Simulator, Boss, QA Walker. The hook owner is `yoke_core.domain.lint_db_cmd`; telemetry/check id `lint-sqlite-cmd` remains stable for audit-history compatibility.
-
-**Write/Edit block hooks** (PreToolUse): Present on 3 agents -- Tester, Simulator, and Boss. Architect relies on `disallowedTools` only (no runtime block hook). PM and Designer lack Bash entirely, so the block is moot.
-
-**PostToolUse observation**: Engineer tool completion is recorded by the
-Python observe hook; no separate shell completion hook owns progress.
-
-### Shared Prompt Sections
-
-All 8 agents include the following sections in their system prompts:
-
-- **Turn Budget Discipline:** Role-specific rules for reserving enough time to hand off cleanly. Implementation agents commit partial work; read-only roles return a complete final report, and QA Walker returns its status and mission report rather than another tool call.
-- **Path Resolution and Disambiguation:** Canonical path resolution rules, including the instruction to always use absolute paths, never double the `yoke/` prefix, and use `$(git rev-parse --show-toplevel)` for path resolution.
-- **Ouroboros End-of-Session Reflection:** All agents produce reflections answering 4 questions: problems encountered, process improvement ideas, game-changing feature ideas, and **cross-critique observations about other agents' work**. Reflections use the `---REFLECTION-START---` / `---REFLECTION-END---` delimited block format with `---BEGIN ENTRY---` / `---END ENTRY---` per observation. Categories: `problem`, `friction`, `idea`, `cross-critique`.
-
-**DB Quick Reference (generated packet chain):** Present on the 6 Bash-capable subagents (Architect, Engineer, Tester, Simulator, Boss, QA Walker) and on the top-level Yoke session via the `main_agent` packet injected by `yoke_core.hooks.bootstrap`. The section is generated: each canonical prompt under `runtime/agents/<role>.md` carries `<!-- YOKE:DB-PACKET role=<role>_agent topic=T start --> ... <!-- YOKE:DB-PACKET end -->` marker pairs that `yoke_core.domain.agents_render` expands at render time using `yoke_core.domain.schema_api_context`. The expander reconciles the curated seed (the facade `yoke_core.domain.schema_api_context_seed` plus its sibling data modules `schema_api_context_tables` and `schema_api_context_commands`) against live schema introspection and CLI `--help` surfaces, so the packet stays current with schema changes. The `agents.render.check` function id (CLI adapter: `yoke agents render check`) rejects rendered adapters whose body has drifted from the freshly generated packet, malformed marker pairs in canonical prompts, seed/live schema disagreements, and stale hand-authored DB/API examples that coexist with packet markers in canonical bodies. Topics today: `core` (control plane + structured fields plus item-dependency wrappers — `epic_tasks`, `epic_progress_notes`, `events`, `yoke items dependency list|add|update|remove`), `claims` (`harness_sessions`, `work_claims`, `path_claims`, `who-claims` recipe), `qa` (`qa_requirements`, `qa_runs`, QA plans, discovery + reviewed-implementation gate preview), and `project` (Project Structure declarations, deployment defaults, and project QA plans).
-
-**Layer-explicit packet names.** Every LLM-facing packet role uses an `*_agent` suffix so the audience layer is unambiguous:
-
-- `main_agent` — the top-level Yoke session running inline skills / ad-hoc investigation. Receives `core` + `claims` + `qa` via `yoke_core.domain.main_agent_packet` so main-session DB/API work has live packet truth alongside subagent dispatches. `qa` is included because conduct / polish / advance main sessions orchestrate engineer + tester loops and routinely inspect tester-review state (`qa_requirements` / `qa_runs` joined on `qa_kind='implementation_review'`) ahead of re-dispatch; without it the main session confabulates plausible `epic_*`-shaped names that do not exist.
-- `architect_agent`, `engineer_agent`, `tester_agent`, `simulator_agent`, `boss_agent`, `qa_walker_agent` — the six Bash-capable subagents. The marker pair role attribute in each canonical prompt uses these names; the renderer expands them via `schema_api_context.render_topic_packet`.
-- `harness_contract` — the substrate manifest contract documented in [`docs/harness-bootstrap.md`](harness-bootstrap.md) and [`runtime/harness/manifest-schema.md`](../runtime/harness/manifest-schema.md). Substrate capability truth (hooks, env / session identity, cwd binding, adapter render format, supported commands, parity limits). `harness_contract` is deliberately NOT a `schema_api_context` role; it lives in the manifest layer, not in the LLM-facing packet layer.
-
-**Per-role topic assignment (`ROLE_TOPICS`):**
-
-- **`engineer_agent`**, **`tester_agent`**, and **`qa_walker_agent`** receive every topic — `core`, `claims`, `qa`, `project`. They run or explore execution surfaces and read project and QA contracts at execution time.
-- **`main_agent`** receives `core` + `claims` + `qa`. The QA topic is included because conduct / polish / advance main sessions orchestrate engineer + tester loops and inspect case/run state ahead of re-dispatch.
-- **`architect_agent`**, **`simulator_agent`**, and **`boss_agent`** receive `core` + `claims` only. Architect plans work, Simulator traces contracts, and Boss reviews artifacts without recording QA runs. If a future role assignment needs another topic, add the role key to `seed.ROLE_TOPICS` plus marker pairs in the canonical prompt.
-
-PM and Designer do not have this section because they have no Bash tool and cannot run DB queries. The invariant is that **Bash-capable actor implies packet-capable actor** — when those roles eventually gain Bash, adding their role keys to `ROLE_TOPICS` plus marker pairs in their canonical prompts is sufficient; no parallel hand-authored cheat sheet should ever be reintroduced. The current Yoke design keeps Product Manager and Product Designer non-Bash — their tool grant is `Read, Grep, Glob` only, and orchestrators pass them backlog/spec context through dispatch prompts.
-
-**The reviewed-implementation gate is the authority — passing tests are not.** The Engineer and Tester packet now teaches `yoke qa gate-summary --item PREFIX-N --target reviewed-implementation` as the preview (or `--epic-id E --task-num K` for an epic task), and instructs that the only sanctioned way to advance to `reviewed-implementation` is through `yoke lifecycle transition PREFIX-N --to reviewed-implementation`. Direct status writes are rejected by the gate even when the test suite is green.
-
-### CLI Prohibition
-
-All 6 Bash-capable agents (Engineer, Tester, Boss, Simulator, Architect, QA Walker) include a prominent `**CRITICAL: NEVER invoke claude as a CLI/Bash command**` rule in their system prompt. This is a belt-and-suspenders defense alongside Check 5 in `yoke_core.domain.lint_db_cmd`, which reports local refusals as `lint-nested-claude-cli`. Nested Claude Code sessions crash the parent process, so the hook refuses the invocations that would actually nest one: the classifier (`yoke_core.domain.lint_nested_claude_cli`) reads the caller's harness family — carried in the hook payload by the relay so the evaluating server classifies on the request's executor rather than its own process tree — and refuses a Claude-family caller. A Codex or Cursor caller starts a first session and is allowed, as is any invocation whose only arguments are the sessionless flags (`-h`, `--help`, `--version`). A caller Yoke cannot identify stays refused: unknown ancestry cannot rule out a Claude session. Two independent project-local settings configure the exceptions — `lint_db_cmd_nested_claude_cli=warn` frees an operator-attended canary from an unidentified caller, and `lint_db_cmd_remote_claude_cli=warn` allows operator-attended remote SSH smoke tests (denied remote invocations report `lint-remote-claude-cli`). Neither softens the `lint_db_cmd` DB-command guard, which keeps its own setting. The Shepherd and Conduct SKILL.md files also include this rule for inline execution.
-
-### Work-item Entry Convention
-
-Interactive agent filing goes through `/yoke idea`. It handles duplicate search, confirmation, workflow selection, GitHub sync, and body updates. No skill or agent should call lower-level create adapters from ad hoc tooling.
-
-**Yoke-owned noninteractive filing:** Bulk import, curate, and conduct simulation-gap filing are workflow-owned exceptions to the interactive prompt shape. Every create selects a workflow and supplies the workflow-authorized `harness_skill` entry surface, passes project scope explicitly when needed, and writes a full body immediately. Ad hoc sessions and dispatched agents still file through `/yoke idea` or report the discovered work to a parent session.
-
-**Subagent guidance:** Dispatched subagents that cannot invoke `/yoke idea` (e.g., Engineer, Tester, Simulator) should report discovered issues in their structured output (reflections, progress notes, or final response). The parent session (Conduct or main session) is responsible for filing work items via `/yoke idea` on behalf of the subagent.
-
-**Enforcement:** The `idea/SKILL.md` dedup search runs before interactive creation. The selected immutable workflow version authorizes each typed entry surface. AGENTS.md documents the rule so agents inherit it through standard context loading.
-
-### Turn Ceiling and Main-Session Execution
-
-Agents invoked as subagents (via the Agent tool) are subject to their configured `maxTurns` ceiling (300 for all Yoke agents). Conduct and Shepherd now run inline via their SKILL.md files in the main session, which has no turn ceiling. Engineer enters submission mode at 30 turns remaining.
-
-### Ouroboros Reflection
-
-All 8 agents have an `## Ouroboros -- End-of-Session Reflection` section at the bottom of their system prompt. This is part of Ouroboros -- Yoke's self-improvement system.
-
-**How it works:**
-- Each agent answers 4 reflection questions at session end: problems encountered, process improvement ideas, game-changing feature ideas, and cross-critique observations about other agents' work
-- **All agents use hook-captured reflection semantics.** Each agent includes reflections in its final response using `---REFLECTION-START---` / `---REFLECTION-END---` delimiters with `---BEGIN ENTRY---` / `---END ENTRY---` blocks inside. The PostToolUse Agent-tool hook (`packages/yoke-core/src/yoke_core/domain/reflection_capture_hook.py`) captures these blocks automatically when the subagent's `Agent` tool call returns and persists them to `ouroboros_entries`. No agent writes directly to the DB.
-- **`yoke/ouroboros/log.md` has been removed** — all observations go to the DB via the hook-captured reflection surface.
-- `/yoke curate` reads from the `ouroboros_entries` table -- clustering, promoting field-notes to Dashes, filing work items for root causes, and archiving
+Canonical behavior lives in `runtime/agents/{role}.md`, with phase support in each
+role directory. Read those owners before dispatch/review; this is contributor
+discovery, not a second prompt registry. [Prompt philosophy](prompt-philosophy.md)
+owns shared doctrine: complete durable artifacts, current-state checkpoints and
+codebase-reader names that explain function without planning provenance.
+
+## Bodies, adapters and dispatch
+
+The substrate renderer expands one canonical body into each harness adapter:
+
+| Harness | Rendered adapter | Native discovery |
+|---|---|---|
+| Claude | `runtime/harness/claude/agents/yoke-{role}.md` | `.claude/agents` symlink |
+| Codex | `runtime/harness/codex/agents/yoke-{role}.toml` | `.codex/agents` symlink |
+
+Claude YAML metadata comes from `runtime/agents/{role}.claude.json`. Codex TOML
+uses `name`, `description`, `developer_instructions`; optional `model` is emitted
+only for a sidecar's explicit pinned policy, otherwise inherited. Claude tool
+allowlists/model nicknames/turn fields do not become Codex config. Harness
+conditional expansion selects declared primitives while retaining the same
+canonical responsibility. Details: [harness substrate](harness-substrate.md),
+[manifest schema](../runtime/harness/manifest-schema.md) and actual manifests.
+`canonical_agents` in bootstrap/manifest points to bodies without embedding them.
+
+Shared `DispatchDescriptor` envelopes own role identity/context and harness call
+shape. Lane reversal changes adapter and lane owner, preserving canonical persona;
+skills use descriptors rather than Claude `subagent_type` branches. Codex Desktop
+dispatches rendered custom agents through native primitives. `/yoke conduct` is
+supported on Claude and Codex; capability truth is the installed release manifest.
+`yoke agents render check` and `HC-agent-canonical-drift` check rendered parity.
+
+Shepherd and Conduct run inline as skills, invoking roles; Usher owns delivery
+inline too. They are not agents. The item's immutable workflow pin selects phase,
+gates and bindings: [lifecycle](../.yoke/docs/reference/lifecycle.md). Project
+verification anchors are its `.yoke/test-inventory.md`, never a copied repo layout.
+
+## Role owners and tool boundaries
+
+| Role | Canonical body | Responsibility |
+|---|---|---|
+| Product Manager | [product-manager](../runtime/agents/product-manager.md) | Complete missing PRD/spec sections from supplied context |
+| Product Designer | [product-designer](../runtime/agents/product-designer.md) | UX patterns, flows, interactions, accessibility and reuse |
+| Architect | [architect](../runtime/agents/architect.md) | Technical plan, task specs and lane plan |
+| Engineer | [engineer](../runtime/agents/engineer.md) | Implementation, incremental commits and durable submission |
+| Tester | [tester](../runtime/agents/tester.md) | Read-only completeness/contract/test/doc review and binary verdict |
+| QA Walker | [qa-walker](../runtime/agents/qa-walker.md) | One exploratory mission, ranked findings or human gate |
+| Simulator | [simulator](../runtime/agents/simulator.md) | Cross-task plan/integration gap tracing |
+| Boss | [boss](../runtime/agents/boss.md) | Parameterized spec/PRD/plan quality gate |
+
+Claude sidecars currently grant PM/Designer Read/Grep/Glob, no Bash/Write/Edit;
+Architect/Tester/QA Walker/Simulator/Boss also Bash, no code Write/Edit; Engineer
+code Write/Edit/Bash plus read tools. Engineer, Tester and QA Walker also grant
+Monitor. All eight Claude sidecars currently declare opus and maxTurns300;
+Engineer uses bypassPermissions for unattended dispatch. These are Claude facts,
+not universal model/tool settings. Read sidecars, rendered hooks and active
+manifest before changing grants. Cursor QA Walker has `readonly: false` to permit
+mission substrate state changes while repository writes remain forbidden.
+
+### Product Manager and Product Designer
+
+PM is a single-pass prerequisite on the binding-derived plan-production edge
+when required PRD sections are missing. It receives description/codebase/context
+and clarifications, infers available answers, records real ambiguity in Open
+Questions, and returns structured problem/users/goals/non-goals/requirements/
+stories/technical considerations. It cannot ask the user itself.
+
+Designer is optional for UI work; it may recommend skipping non-UI work. It
+returns flows, screens/components, interactions, accessibility and existing
+patterns. Parent persists `design_spec`; PM's parent persists typed spec fields.
+Both enrich substantive operator content/structure/decisions instead of replacing
+the rendered item or writing a filesystem draft as authority.
+
+### Architect
+
+Produces `technical_plan`, full `epic_tasks`/file manifests and `worktree_plan`
+for parent persistence through registered surfaces. Read
+[hard constraints](../runtime/agents/architect/hard-constraints.md) before planning:
+session-fit XS/S/M/L (no XL), independent lanes/ordered tasks, FR-to-task coverage,
+epic-size review, tests/docs, exact downstream contracts, DB→rendered views,
+subprocess environment/cwd/error contracts, discovery and bounded reads.
+Effective File Budget and path claims are independent; all required scope stays.
+Task metadata names lane, context estimate and dependency task numbers.
+
+Read [decomposition](../runtime/agents/architect/worktree-decomposition.md),
+[lane template](../runtime/agents/architect/worktree-plan-template.md) and
+[cross-script contracts](../runtime/agents/architect/cross-script-contracts.md)
+at their actions. Verified shared-file overlap gets an attested independence or
+directional dependency; ambiguity routes to Refine/operator, not runtime guesses.
+
+Fix mode requires a gap report AND the phrase `fix mode`; spec-only input is
+normal planning. [Fix-mode owner](../runtime/agents/architect/fix-mode.md) retains
+CRITICAL/ WARNING/ NOTE dispositions, exact affected-task scope and full-artifact
+output. Preserve unrelated content, numbering/order/lane assignments; no task
+splitting/restructuring or code edits. File changes update lane manifest and
+overlap check. Code fixes require `/yoke amend`; epic-wide changes require manual
+epic update. Only explicitly missing FR Traceability permits regenerating that
+section from corrected task mapping. Parent writes returned task bodies and
+changed lane plan through structured commands, never task Markdown files as DB
+authority. Every gap appears in the summary, including summary-only/manual routes.
+
+### Engineer
+
+Implement the exact task/interface scope in its registered lane. Commit each
+completed unit, record progress through `yoke workflow-item epic-progress-note append`,
+and return the durable six-key submission receipt newer than the
+attempt's note watermark. Registered owners sync notes to GitHub; control-plane
+writes use the main authority despite lane cwd. Missing/mismatched interfaces
+report a blocker; discovered work goes to parent, not a new item from Engineer.
+
+Root-cause protocol: read failing assertion, trace path, identify discrepancy,
+record root cause, then fix. Capture large command output once; inspect retained
+capture by targeted ranges/counts, never live-pipe to tail/head or rerun for lost
+output. Role definition owns path grants, Pack-first behavior, naming, claim
+widen-before-write and test selection. At ≤30 turns remaining, or uncertain
+budget, enter submission mode: finish current deliverable/commit/notes, no new
+implementation, optional cleanup or broad exploration.
+
+### Tester
+
+Tester never edits code, widens/overrides claims or waives required scope. Claude
+tool allowlist, disallowedTools and PreToolUse enforcement protect read-only
+review; authorized report/registered verdict writes do not grant source edits.
+Review every AC, expected error/empty path, contracts, blast radius, test
+co-modification, docs and cleanup; persist proof with concrete file/line failures.
+Binary PASS/FAIL only, no conditional pass; informational path warnings do not
+change verdict. Missing final structured verdict is failure.
+
+Read [path tracing](../runtime/agents/tester/path-tracing.md) before tracing
+exports/runtime/consumers/E2E, [test selection](../runtime/agents/tester/test-selection.md)
+before tests, and [regression detection](../runtime/agents/tester/regression-detection.md)
+for no-regression ACs. All AC-listed/matching changed-command tests and selected
+tests must pass. Scope by risk/project commands and dependent callers; explain
+exclusions, broaden for shared/core/schema risk, and never treat equal failure
+totals as regression proof. Unexpected untracked test artifacts are a leak/FAIL.
+The current selection owner does not grant a blanket documentation-only waiver.
+
+Conduct externalizes the complete relevant diff above300 lines to captured file
+plus `--stat`; at/below300 it inlines the whole diff. Task-start and retry diffs
+stay distinct; Tester reads actual file for detail. Budget reserves reporting
+before exhaustion; use foreground watcher continuation, not a detached atomic
+turn. Project QA plans materialize cases at declared workflow transitions.
+
+Browser execution selects unsatisfied non-waived browser-check/browser-inspection
+cases and immutable method_config, then `yoke qa case run` with resolved URL,
+expected branch and deployed HEAD SHA. Missing freshness/runner failure is not
+review evidence; inspected undetermined outcome waits for owner/operator. The
+runner records artifacts/verdict; no rewritten case or parallel manual Browser run.
+Real E2E uses deployed backend and BASE_URL, after unit/integration success;
+requires both URL and command, otherwise skip with reason. E2E failures are FAIL
+even if units pass, with failing tests/errors/screenshots/traces/videos. Mocked
+Browser integration belongs to full, shallow real-stack smoke to smoke.
+
+### QA Walker
+
+Walk one mission sequence chosen at runtime as an informed subagent or target-
+naive session. Main retains item/Progress Log/human-request/report/final verdict.
+Walker returns ranked findings and unverified areas; its turn is atomic.
+Permission dialog, interactive sign-in or approval returns `WALK_STATUS: HUMAN_GATE`
+with exact needed action/resume state, no Fleet mail. Main records handoff, routes
+to live covering steering or human owner and dispatches a fresh walker;
+acknowledgement is not sign-in proof. Discard routine screen perception, attach
+only deliberate finding proof within runtime artifact limit. macOS window-server/
+login-keychain commands use Terminal GUI-session bridge; display failures,
+audit-session denial and misleading SSH OAuth expiry are wrong-session signals.
+
+### Simulator
+
+Read-only plan simulation checks architecture before sync; integration checks
+actual code before merge. Verify FR coverage, contracts/construct shapes,
+visibility, dependency order, environment assumptions and error boundaries.
+Actual-code mode additionally verifies exports/names/merge sequence/review proof.
+Inventory/prioritize reads within context budget; missing producer/consumer
+type/signature/config consistency is CRITICAL, error-path mismatch WARNING.
+
+Begin with `SIMULATION: CLEAN` or `SIMULATION: GAPS FOUND`, then exact
+`EPIC: PREFIX-N` or `SCOPE: SYSTEM`. Machine prefixes `[CRITICAL]` block, `[WARNING]`
+should fix, `[NOTE]` informs. Each gap classifies fix_level plan/code/mixed;
+shared [auto-fix loop](../.agents/skills/yoke/simulate/autofix-loop.md) owns
+classification, three Architect iterations and code-bearing amend routing.
+Use registered readers, never direct DB clients; test side effects use isolated
+fixtures/dry-run (`YOKE_DRY_RUN=1` where a source script may call GitHub).
+
+System-wide Ouroboros audit is source-checkout-only, with five categories:
+stale agents, stale skills, cross-agent assumptions, stale hooks and rule/runtime
+contradictions. [System owner](source-dev/system-simulation.md) governs the source
+guard and scope; no automatic system fix.
+
+### Boss
+
+Review one scope=spec|prd|plan against the supplied rubric and pinned transition.
+Return exactly one READY/NOT_READY/CAVEATS verdict; parent parses/persists
+shepherd_verdicts, Boss never calls shepherd verdict or writes source. Self-read
+current item fields/body through registered commands even if caller inlines
+content. Plan scope is Shepherd epic planning, not assumed issue/bug artifacts.
+Verify FR Traceability covers every explicit FR: missing/unmapped gives NOT_READY;
+spec without FR notation may receive softer CAVEATS. Respect agreed scope and
+return actionable contradictions/completeness/naming/quality findings.
+
+## Hook ownership and execution safety
+
+[Subagent hook composer](../packages/yoke-core/src/yoke_core/domain/agents_render_subagent_hooks.py)
+injects six Bash-capable Claude roles' hooks. PreToolUse is one matcherless
+`yoke hook evaluate PreToolUse`, with role/config-owner identity; universal chain
+selects guards by tool_name. PostToolUse/PostToolUseFailure use role-attributed
+observe; SubagentStop uses agent_stop. This includes Boss. PM/Designer retain
+their sidecar hooks; all eight have reflection/stop observation. Read actual
+generated frontmatter rather than reproduce per-tool choreography here.
+
+`agent_stop` is an item-lane auto-commit safety net and HarnessSessionStopped
+telemetry; it neither drains claims nor completes a task. Safety-net/rescue is
+not valid clean submission. The live shared hook registry owns SQL/shell, denied
+Write/Edit, subagent backgrounding and telemetry ordering; stable audit id
+lint-sqlite-cmd remains compatible with history. Hooks are Python-owned.
+
+All six Bash role prompts prohibit nested Claude CLI and use native dispatch.
+Runtime `lint_nested_claude_cli` evaluates requesting harness identity (relayed
+executor, not server process): Claude-family nesting refused; Codex/Cursor first
+session allowed; solely -h/--help/--version sessionless invocations allowed;
+unknown ancestry refused. Operator-attended local canary may set
+`lint_db_cmd_nested_claude_cli=warn`; remote SSH smoke exception is independent
+`lint_db_cmd_remote_claude_cli=warn` (remote refusal lint-remote-claude-cli).
+Neither weakens the DB-command guard. Skill dispatch authorization still binds.
+
+## Packet compositions
+
+Canonical Bash roles carry DB-PACKET topic marker pairs; renderer expands them
+through schema_api_context. Explicit `yoke packets render --role R --topic T --detail full`
+retains full schema/nested shapes/catalog/drift notes before
+diagnostic SQL. Startup points to reads; no duplicate hand-authored cheat sheet.
+`yoke agents render check` validates marker syntax, seed/live and adapter parity.
+
+| Role | Current ROLE_TOPICS |
+|---|---|
+| main_agent | core, claims, auth, qa, packs; project depth pointer |
+| engineer_agent, tester_agent, qa_walker_agent | core, claims, qa, project |
+| architect_agent, simulator_agent, boss_agent | core, claims |
+
+Authority is `schema_api_context_seed.ROLE_TOPICS`, not this snapshot. Main QA
+recipes support case/run/tester-review inspection before re-dispatch. Engineer
+progress/submission/verification, Tester review/verdict, Main/Architect authoring
+coordination are needed at action; Boss/Simulator read, QA Walker follows mission.
+Lifecycle repair, raw SQL, Pulumi state migration and expanded delivery remain
+explicit topics. Retained startup recipes also exist in full depth.
+PM/Designer have no Bash/packet section; a future Bash grant adds role topic key
+and markers, not another cheat sheet. `harness_contract` is the manifest audience
+layer, not a schema_api_context role: [bootstrap](harness-bootstrap.md).
+
+Reviewed-implementation gate is authoritative: preview
+`yoke qa gate-summary --item PREFIX-N --target reviewed-implementation`, then Main's registered
+`yoke lifecycle transition PREFIX-N --to reviewed-implementation`. Direct status
+writes are rejected even after tests pass; Engineer reads QA depth when required.
+
+## Filing, continuity and reflections
+
+Interactive/ad hoc filing uses `/yoke idea`: duplicate search, workflow and
+authorized typed entry, GitHub sync and full structured content. Workflow-owned
+bulk import/curate/simulation-gap filing may use their governed noninteractive
+path with explicit project/workflow/authorized harness_skill and immediate full
+definition. Dispatched roles report discovered issues to parent via reflections,
+notes or final result; parent files through Idea. No harness task suggestions.
+
+Claude subagents obey configured300-turn ceiling; inline Shepherd/Conduct carry
+the segment without that subagent ceiling. Reserve role-specific reporting time:
+read-only roles end with complete report, Engineer commits/submits, QA Walker
+returns status/mission report. Absolute paths/active claims own access; independent
+calls anchor git/test/source paths. Durable current-state checkpoints retain
+live decisions/holds/blockers/actions and evidence links without historical essays.
+
+**All agents use hook-captured reflection semantics.** Answer four questions:
+problems, process improvements, game-changing ideas and cross-critique. Use
+`---REFLECTION-START---` / `---REFLECTION-END---`, each entry delimited by
+`---BEGIN ENTRY---` / `---END ENTRY---`, categories problem/friction/idea/cross-critique.
+The PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`)
+captures final output into ouroboros_entries. No agent writes directly to the DB.
+Role phase owner/shared Pre-Submit Checklist governs exact shape and timing;
+Tester reflection precedes its mandatory final binary verdict. `/yoke curate`
+clusters/promotes/files observations from DB; no filesystem reflection log.

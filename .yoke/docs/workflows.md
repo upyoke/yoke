@@ -81,7 +81,7 @@ yoke workflows canon-follow set <workflow> auto
 ```
 
 The Workbench **Workflows** page offers the same actions. Detail:
-[reference/db-reference/functions-workflow-canon.md](reference/db-reference/functions-workflow-canon.md).
+[reference/db-reference/functions-workflows.md](reference/db-reference/functions-workflows.md).
 
 ## Defaults
 

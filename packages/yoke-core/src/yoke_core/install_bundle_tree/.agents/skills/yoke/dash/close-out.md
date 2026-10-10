@@ -1,350 +1,186 @@
-# Dash phase 7 — record evidence and finish
+# Dash — record evidence and finish
 
-## The merged close-out
+## Merged close-out and delivery custody
 
-Issue the merge-and-close-out command. Non-queue projects and an explicit
-`--wait` finish inline; the default queue route follows the handoff in
-[`merge.md`](merge.md). The operation resolves the touched files from the
-branch itself, so no path list is needed. Dash close-out is evidence-gated on
-this same command — pass `--result` and `--verification` even when the merge
-queue already landed the branch. Do not substitute
-a direct terminal lifecycle transition; that path cannot restore the work claim
-the landing handoff retains.
+Use the same evidence-gated merge command, even after a queue landing:
 
 ```text
-yoke merge item ITEM \
-  --result "<what changed or was learned>" \
-  --verification "<checks and evidence>" \
-  --json
+yoke merge item ITEM --result "<result>" --verification "<checks/evidence>" --json
 ```
 
-The status the command reports is the pinned definition's, not a fixed `done`.
-When the item's registered deployment flow still owes a delivery, the close-out
-lands the item at that definition's release wait, keeps the lane and claim for
-the later close-out, and parks this session on that wait with a concrete
-deployment-wait reason; the envelope's `status` names that stage, the
-`release_wait` block names the park, and this is a completed merge, not a
-failure. **You stay the owner through delivery.** Do not release the claim and
-do not end the session there: the outcome block prints `awaiting delivery`,
-and the legs a worker mandate calls complete are not complete until the item
-reaches `done`. Report what landed in your own output, say you are waiting on
-delivery, and stop deliberately. If the block reports the park `unconfirmed`,
-stamp it yourself so wake and recovery routing can find the delivery wait:
+It resolves actual touched files and merge identity. Do not substitute a
+terminal scalar/lifecycle write for a landed Dash. Read the pinned status and
+[close-out] block, not exit0 alone.
+
+If delivery is still owed, the command retains the claim and registered Dash worktree lane,
+lands at the declared release wait and parks this session.
+You stay the owner through delivery. Do not release the claim and do not end
+the session there; no early DONE or terminal steering report.
+Read what the item owes (exact stage/member requirements) and verified wake
+authority, and report them. If park is unconfirmed, stamp it:
 
 ```text
 yoke sessions touch --mode parked --reason "awaiting ITEM delivery: deployment run, then post-deploy validation and the done close-out"
 ```
 
-The outcome block derives what follows from two facts it read: what the item
-owes delivery (`owes delivery:` — an item-scoped QA stage with its requirement
-ids and the exact `--stage ... --member ...` run that stage credits, or
-nothing of its own) and whether this session can be woken (`wake:`, from the
-surface's session-control wake route). Report both. An item that owes nothing
-closes on delivery with no re-entry: say so and stop. A surface whose wake
-authority is operator (a desktop app) is never resumed by Yoke: say that the
-operator or a steering seat must re-enter this session when the stage opens.
+Any prompt that wakes you clears the park. If the item remains short of done
+and you go quiet, re-park first with the command above. The active work claim
+retains the session through idle sweeps; never release the unfinished claim. An operator-wake desktop needs
+its operator/steering seat to reenter; do not promise a native wake.
+An item owing nothing closes on actual delivery without reentry.
 
-On a natively wakeable surface the deployment wake re-enters you: a QA stage that needs your evidence, a
-verdict on one you supplied, the notice that your own item-scoped QA is
-accepted (the run may still be executing; other members' outstanding item QA
-does not block you), or the notice that your run succeeded and the
-wait is over — that last one fires only for the run that actually discharges
-this item's delivery, so a stage run in a stage-and-production pair will not
-call you. Re-run the same `yoke merge item` command with `--result` and
-`--verification` then, and it finishes the close-out. Never poll the run.
-A member that recorded `post_deploy_no_obligation` or a waiver-backed
-declaration before it landed, with no outstanding run-bound blocking
-obligation, does not get that wake: the same close-out runs after its final
-delivery on a flow with no shared gate, or when the completion run succeeds.
-For a final member on a selected flow without run QA or run approval, accepted
-or explicitly discharged final production item QA closes that member while the
-run may still execute for siblings. Run QA or run approval holds every final
-member through all item and shared gates and run success.
-After an item QA acceptance wake, check whether your item reached done and
-re-park only while it remains at release wait.
+Only completion authority discharges delivery: the item's selected flow,
+or another project's run recording this project's bound source and carrying
+the item as a member. Carried code alone, a same-project unrelated flow or a
+failed run does not close it. Bound code may already serve while closure
+waits; say only what evidence proves. A close-out refusal keeps the run
+executing/settling and claim/lane intact for named repair.
 
-Only a run with completion authority for your item finishes this close-out:
-a run of your item's own selected flow, or a run in ANOTHER project that
-recorded a bound source commit for your project and carries you as a member.
-Carried code alone is not that authority. A flow stage may bind a second
-project's branch tip through `input_bindings` and deploy that commit alongside
-its own candidate, so your merged change can already be live before any run
-that closes you exists. Neither a same-project run of another flow nor a
-failed run discharges the item. Keep waiting for a run that does, and when you
-report, say your code may already be serving so the reader does not read your
-open wait as an unshipped change. That run's success stamps your delivery
-evidence itself, so do not re-run the merge just to record it. If your
-close-out refuses, the run does not succeed without you: it stays executing
-and settling, you keep your claim and lane, and the refusal names what to
-repair before the run is re-driven.
+With no shared run QA/approval, accepted or discharged final production item
+QA may close a final member while siblings still run, provided no run-bound
+blocking obligation remains. Shared run QA/approval holds all final members
+through their item cases, shared gates and success. An item still owing stage
+QA remains open; production acceptance cannot hide it.
 
-A stage that wants your evidence is run by naming that stage AND your item.
-When you attached an item QA plan at verify, the stage has already resolved it
-and `--plan` is refused there unless a failed admitted case is being corrected
-with `--replaces CASE_KEY=FAILED_REQUIREMENT_ID` for every case in a
-correction-only plan. An unrelated plan adds duplicate obligations. `--plan`
-belongs only to the wake that says the stage names no cases:
+Native wakes cover this item's outstanding QA, review result, acceptance or
+its actual completion-run success; a supplemental stage run does not claim
+final completion. Check actual done after acceptance, otherwise repark.
+Ordinary success stamps delivery itself, so do not rerun merely to duplicate
+a record. When close-out is still required, resume the same merge with
+result/verification; it restores needed claim/evidence. There is no separate
+Usher leg or done-transition skip-deploy shortcut.
+
+## Exact deployment QA subject and review
+
+Run the stage and member together:
 
 ```text
 yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
 ```
 
-That is the long, prod-touching step, so it runs under its own wrapper —
-`yoke watch qa-plan`, not `yoke watch qa-case`, which wraps the narrower
-`qa case run --requirement-id N` and refuses these flags.
+The attached plan is already resolved. Do not substitute --plan except when
+the wake explicitly names no cases, or for the sanctioned correction-only
+replacement of failed admitted cases with every CASE_KEY=FAILED_REQUIREMENT_ID.
+An unrelated replacement adds duplicate obligations.
+The long step uses qa-plan; qa-case wraps only a requirement and refuses these
+subject flags. An item stage credits exact stage/member binding, never a
+run-wide pass. Requirement-case execution credits its stored binding and does
+not substitute for stage execution.
 
-Exit `12` (`state="awaiting_agent_review"`, `review_status="pending"`) means
-the capture is complete and its independent review is pending: no QA verdict
-exists, so do not report QA complete or passed. Dispatch the returned
-`review_bundle.dispatch` reviewer and submit its batch with the exact returned
-`yoke qa plan review-submit` command; a verdict of your own on that capture
-(`yoke qa run complete --verdict`, `record-verdict`) is refused by name. Report
-the stage's QA only once that reviewer verdict exists; if another session owns
-the review, re-park on the stage, which reads `awaiting review` until then.
+Exit12 awaiting_agent_review/review_status=pending is capture only, no pass.
+Dispatch the returned independent review_bundle.dispatch and submit its full
+batch with the exact returned command. Own complete/record-verdict is refused.
+If another session owns review, repark until accepted evidence exists.
 
-Every QA stage credits only requirements bound to its own name — an
-item-scoped one to the member too — so the run-wide form is refused rather
-than recording a pass the stage ignores, and `yoke qa case run
---requirement-id N` credits that requirement's binding rather than the stage.
-Depth: `yoke qa plan run --help` for the subject/scope matrix, `yoke merge
-item --help` for the close-out routes. Materialization stamps the member project's
-deployed target (or the run project's for run QA) onto cases, so a plan authored before this release still
-verifies it. A `command` deployment case is bound to the candidate the run deployed, not
-to your lane: the runner checks that revision out into a disposable tree for
-each case and removes it afterwards, so no `--checkout-path` or flag is needed
-when main has moved on; `--allow-tree-mismatch` declares the case reads
-nothing from the checkout. `command-ci` refuses deployment-bound cases as
-`deployment_ci_candidate_unverified`; use `command` to check the pinned candidate.
+Deployment Command cases execute the pinned deployed candidate in disposable
+trees; main/lane movement does not change their source. No checkout-path
+override is needed. allow-tree-mismatch means the case reads no checkout.
+command-ci refuses deployed binding as deployment_ci_candidate_unverified.
+Use Command for that pinned proof. Read qa.plan.run help for scope/methods.
 
-**Any prompt that wakes you clears the park**, including one that does not
-finish the item. The close-out re-stamps it for you when it refuses, but a
-wake you handled some other way does not: whenever you go quiet still short
-of `done`, re-park first with the command above. The active work claim retains
-the session through idle sweeps, process exit, and restart; the park records
-the wait for wake and recovery routing. When the resolved flow discharges delivery at
-the merge — a flow with no target tier — the close-out transitions through
-every declared stage to `done`, so the release stage runs its own gates on the
-way. Read the `[close-out]` block and the envelope's `status` rather than
-assuming either outcome, and never start a deployment run to move an item that
-its own flow says needs none.
+## Convergent landing and correction
 
-Add `--no-changes` for a genuine no-change result. When the merge is already
-recorded and only the close-out remains — after a deployment run, after
-approval, or after a queue landing that has not reached `done` — re-run the
-same merge command with `--result` and `--verification`. It restores the work
-claim close-out needs and records evidence if the merge identity is not yet on
-the item. Use this merge close-out route for a landed Dash.
+A no-target flow walks every declared gate to done; do not invent a deployment.
+No-changes flag is only for a grounded no-edit outcome.
 
-A delivery-required item finishes through that same command. Re-entering at
-the release wait once the deploy has succeeded IS the done ceremony: the
-close-out asks whether a succeeded run of the item's selected flow delivered
-it, and performs the ceremony when the answer is yes. So there is no second
-command to reach for and no usher leg to jump to — if the transition still
-refuses, read the named reason rather than switching routes.
+The queue's durable merge-group proof survives release wait. If missing
+derivation is a provider read error, retry the named route; an anchored complete
+search finding no run will repeat forever and needs its repair.
+Do not use skip-deploy to record an already selected-flow delivery out of band.
 
-A queue landing's merge-group proof is recorded when the train lands, and the
-close-out at the deployment wake reads that record rather than asking GitHub
-again — so parking across a release wait costs the evidence nothing. When no
-record exists and the derivation itself fails, read whether the refusal says
-a retry can help: a provider that failed to answer is worth re-running, while
-an anchored search that completed and found no run returns the same answer
-forever and says so. Do not answer the second kind by re-running the command,
-and do not reach for `done-transition --skip-deploy` — that flag records
-delivery as out-of-band, and the done engine now refuses it outright when the
-item's own selected flow already delivered it.
+Resume converges only when the current lane is the recorded landing, a
+fast-forward/squash-contained candidate, or adds no tree change to base.
+The no-change containment check accounts for foreign SHAs, lane merges and
+deletions. PR/landed_at alone is not current-candidate proof.
+Unverifiable containment refuses. Later uncontained commits take a new
+candidate landing, preserving receipts, even after a false release close-out.
+A genuine same-item correction stays on this lane/item through a declared
+release wait: reverify, independent candidate review where selected, remerge
+and fresh selected-flow delivery. No prescribed stage reset or discard.
+Already-closed/no-release-wait mismatch preserves the lane and names refusal;
+the command does not clean or declare corrections delivered.
 
-Re-entry converges only when the current lane candidate is the recorded landing
-identity, a fast-forward onto that merge — including a squash whose original
-head is not an ancestor of the base — or a lane that adds nothing to the base
-branch at all. That last one covers both a rebase after a landing and a lane
-whose commits reached the base under a companion item's landing: it is asked
-by merging the lane into the base and comparing the result to the base's own
-tree, so foreign shas and lane-side merges do not defeat it, and a lane still
-carrying anything — a deletion included — still takes the candidate merge
-path. A merge-queue `landed_at` / PR record is not that proof by
-itself: close-out reuses it only when Git containment (or a lane that adds
-nothing) shows the current candidate already landed. An earlier
-landing plus later uncontained commits takes the candidate merge path — also
-from a release stage entered by a false close-out — and does not erase
-receipts. Unverifiable containment refuses rather than succeeding. This is
-installed-client merge-boundary code; a serving rollout is not required. New
-commits after a genuine landing: same-item correction continues through a
-declared release wait on the same item and lane — re-verify, review, and run
-the governed merge again, then a fresh selected-flow delivery. Do not
-prescribe a stage change. The mismatch refusal preserves the lane when the
-item is already closed out, or when the pinned workflow declares no release
-wait. Do not reset unlanded corrections as recovery.
-The command does not clean the lane or declare those commits delivered.
-
-## A steering rework request
-
-Read the live item pin with `yoke workflows item get ITEM --json`, then
-`yoke workflows version get WORKFLOW_ID WORKFLOW_VERSION --json`. Resolve
-`LIVE_STAGE` from the status and `REWORK_STAGE` from the requested implementation
-stage (`implementing` in the current Dash pin). Verify that the target exists,
-precedes `LIVE_STAGE` in `definition.stages`, and belongs to Dash's bound
-interval. A backward rework move needs no edge in `definition.transitions`:
-`yoke_core.domain.workflow_declared_transitions.undeclared_forward_transition`
-only checks forward moves, as classified by
-`WorkflowRuntime.is_forward_transition` in `yoke_core.domain.workflow_runtime`.
-Use the ordinary transition below; retain its claim, frozen-item, source-status,
-and target-stage checks. If it refuses, report the named reason and recovery
-to steering; absence of a backward edge is not a refusal.
-
-Steering does not gate your landing; it vets the work after it lands and
-before the item is admitted to a release. When that vetting finds a problem,
-steering names what to correct and asks you to move the item back to
-the definition's `REWORK_STAGE` — that transition is yours, because
-`lifecycle.transition.execute`
-requires the calling session to hold the item's work claim and steering
-holds no claim on a lane you are working:
+For steering-requested rework, refresh the exact pin. Verify REWORK_STAGE
+exists, precedes LIVE_STAGE and belongs to Dash's interval.
+Backward rework need not have a forward transition edge; ordinary claim,
+frozen-item, source and target checks remain:
 
 ```text
-yoke lifecycle transition ITEM --from LIVE_STAGE --to REWORK_STAGE --reason "steering rework: <what to correct>"
+yoke lifecycle transition ITEM --from LIVE_STAGE --to REWORK_STAGE --reason "steering rework: <correction>"
 ```
 
-That is a rework leg on this same item: correct it in the same lane,
-re-verify, re-land through the same `yoke merge item` command, and re-enter
-the release wait. Evidence recorded against the earlier revision does not
-carry over to the corrected one, so the verification gate runs again. Do not
-file a new item, and do not close this one out on the superseded evidence.
-Escalate only when you cannot make the correction, naming what blocks you.
+Correct the same item, rerun evidence, re-land, reenter wait. Old proof does not
+cover the new revision. Steering vets after landing/before release admission;
+its lack of work claim does not authorize it to make the worker's rework
+transition. A refusal reports its real recovery; no new item.
 
-## Approval, claim release, and the steering report
+## Approval, claim release and terminal report
 
-When approval-on-done is selected, the terminal transition creates the owner
-decision request without moving the item. Let an authorized owner resolve it,
-then retry the transition.
+Approval-on-done creates the authorized owner's request without transition.
+Wait for that decision, then resume. Uncleared candidate review never landed:
+report its exact request, wait, and rerun only after independent clearance
+without intervening commits.
 
-A merge refused for an uncleared merge candidate never got as far as a
-landing, so nothing here has happened yet. The refusal names the open
-decision request an authorized reviewer answers; report it to the steering
-seat with that request id and stop, rather than re-running the merge. When
-the clearance lands, re-run the same `yoke merge item` command — but commit
-nothing in between, because a new commit is a new candidate and needs its
-own review.
-
-A successful standalone merge (or the terminal transition it drives)
-may already release the item work claim and remove the
-registered Dash worktree lane, then sweeps lanes earlier landings on this
-machine preserved: the
-envelope's `lane_sweep` names what it removed and kept (with the reason), and a
-refusal on the item's own lane is recorded as a `LandedLanePreserved` event.
-Only release when a claim remains AND the item is finished — a terminal status,
-or an exit before merge (including escalation). A claim retained at a release
-wait is not a leftover to tidy up; releasing it there is the abandonment this
-step exists to prevent:
+Successful merge/done may already release the item work claim and sweep its
+lane; read lane_sweep kept/removed reasons and LandedLanePreserved evidence.
+Only release when a claim remains AND the item is finished, or on an actual
+premerge exit. Skip an already-released claim and skip it entirely while the item sits at a release wait.
 
 ```text
 yoke claims work release --item ITEM --reason "Dash completed"
 ```
 
-Skip that call when merge or `done` already released the claim, and skip it
-entirely while the item sits at a release wait. Do not treat an
-already-released claim as a close-out failure.
-
-When a report to the steering seat is still owed, send it BEFORE that release.
-`yoke say --steering` addresses the seat covering the item you hold, and falls
-back to the item you last held in this session, so the report resolves either
-side of close-out; sending first keeps the live claim as the address. One
-terminal report per work leg reaches the seat once, so a reworded retry of the
-same completion deduplicates rather than arriving twice, and a send answering
-`Collapsed into an earlier message` did not deliver the body you just sent. A
-completion you are resumed to do is its own leg and is delivered, whether or
-not the resume hands you a fresh claim; never release an unfinished lane merely
-to be heard. Ending a turn sends no Fleet message; every worker uses this
-deliberate route regardless of launch origin. A close-out that stopped at a
-release wait owes no terminal report yet: the leg completes at `done`, and
-reporting early is how an item with a live owner gets read as finished.
+A terminal report still owed goes to yoke say --steering before release.
+It addresses the covering role from held/last-held work, not a copied seat
+session. One terminal report per leg deduplicates; Collapsed into an earlier
+message means the new body was discarded. A resumed completion is its own
+leg. Never release unfinished work merely to be heard.
+Ending a turn sends no Fleet mail; release wait owes no terminal report yet.
 
 ## Surface this session's guardrail denials
 
-After evidence is recorded, report this episode's PreToolUse denials. Close-out
-reports; it does not block. An empty result is silence: say nothing extra.
-
-Read `session_id` from registered `sessions.identity`
-(`yoke sessions identity`); do not invent it. `--session` filters
-`events.session_id`. Do not pass `--session-id` — that flag overrides caller
-identity. Then run registered `events.query.run`:
+Reporting does not block close-out. Empty means say nothing extra.
+Read sessions.identity through yoke sessions identity; --session filters
+event ownership while --session-id would override caller identity.
+Use events.query.run:
 
 ```text
 yoke events query --session SESSION_ID --event-name HarnessToolCallDenied --current-episode --json
 ```
 
-When `result.elided_prior_episode_rows` is present, this session crossed an
-episode boundary mid-Dash — a sleep, a reload, a brief disconnect — and that
-many denials sit in the previous episode. Re-run the same query without
-`--current-episode` and report the whole session's denials. An empty `rows`
-beside a non-zero count is not a clean run.
+If elided_prior_episode_rows is nonzero, rerun without current-episode and
+report the entire session; empty current rows is not a clean history.
+List check_id and command_snippet from envelope.context.detail (parse string
+envelope). File an immediate field-note for unrecorded denials or state why
+none is warranted. Do not correlate denials to field-notes in storage.
 
-When `result.rows` is non-empty, print a short list of each row's `check_id`
-and `command_snippet` from `envelope.context.detail` (parse `envelope` when it
-is a JSON string). File a field-note for any denial not already recorded, or
-state why none is warranted:
+## Laneless and no-change close-out
 
-```text
-yoke ouroboros field-note append --kind observation --evidence '...'
-```
-
-Do not correlate denials to field-notes in storage. Visibility is the entire
-ask.
-
-## Laneless and evidence-only close-out
-
-Two closes record no merge SHA, and both are first-class rather than a bypass.
-
-A genuine no-changes finding edited nothing. After a skipped lane, do not run
-CI, merge, or a deployment unless explicit policy still requires it:
+A genuine no-change finding after skipped preparation records:
 
 ```text
-yoke direct-workflow dash evidence ITEM --result "<account>" \
-  --verification "<what you observed>" --no-changes --json
+yoke direct-workflow dash evidence ITEM --result "<finding>" --verification "<observed proof>" --no-changes --json
 ```
 
-Then walk the pinned definition one declared forward edge at a time through
-`lifecycle.transition.execute`. Before each step, refresh
-`yoke workflows item get ITEM --json` and read
-`yoke workflows version get WORKFLOW_ID WORKFLOW_VERSION --json`. Resolve
-`LIVE_STAGE` from status and `NEXT_STAGE` from the unique forward edge whose
-`from_stage_id` equals `LIVE_STAGE` in `definition.transitions`, ordered by
-`definition.stages`; stop when status is
-in `definition.terminal_stage_ids`. If the edge is absent or ambiguous, stop
-with `workflow_next_stage_ambiguous` and ask the workflow owner to repair or
-select the route. Confirm the live binding still belongs to Dash; a binding
-boundary is a handoff, not permission to continue. With no lane, this walk is
-the whole close-out ceremony. Every declared gate still applies.
+No fabricated SHA, CI, merge or deployment; explicit selected gates remain.
+Walk the exact pin one unique declared forward edge at a time, refreshing
+status/version and verifying the live Dash binding before each step, until a
+terminal_stage_id. Missing/ambiguous edge refuses workflow_next_stage_ambiguous.
+A binding boundary is a fresh handoff, not permission to cross it.
 
 ```text
-yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE \
-  --reason "Laneless attestation recorded; advancing the declared stage"
+yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE --reason "Laneless attestation recorded; advancing the declared stage"
 ```
 
-When the item's flow owes delivery, the release wait holds until a run with completion authority for it
-succeeds, and that success usually closes the item automatically.
-`yoke merge item --no-changes` is only for a lane that already exists; a
-no-change Dash with a lane closes through that command, not the transition.
-
-An item whose pinned workflow delivers merge-free — `worktrees=none`,
-`delivery=merge_free`, the floor Task shape — did change things, and names them
-as the observed changes:
+No-change with an existing lane uses merge item --no-changes, not this walk.
+A merge-free/none-policy item that changed files records those paths instead:
 
 ```text
-yoke direct-workflow dash evidence ITEM --result "<account>" \
-  --verification "<what you observed>" --path notes/readme.txt --json
+yoke direct-workflow dash evidence ITEM --result "<result>" --verification "<observed proof>" --path notes/readme.txt --json
 ```
 
-Do not reach for `--no-changes` to skip the SHAs on a laneless item that did
-change files: the floor rung comes from the item's own delivery policy, so the
-SHAs are already optional and `--no-changes` would record the wrong fact. A
-merging workflow that omits its SHAs is refused, and the refusal names both
-routes.
-
-Use the same pinned-definition walk for merge-free items once their
-attestation is recorded; no workflow-name branch or fixed stage pair is needed:
-
-```text
-yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE \
-  --reason "Floor attestation recorded"
-```
-
-Outward-action approval gating is a future seam; do not invent one here.
+Its floor policy makes SHAs optional; no-changes would assert a false fact.
+A merging workflow without identity refuses and names both routes.
+Use the same pinned walk after honest evidence. Delivery waits for a run
+with completion authority; success normally closes it.
+Do not invent future outward-action approval gating.

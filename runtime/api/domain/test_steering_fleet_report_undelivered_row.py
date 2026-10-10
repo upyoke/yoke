@@ -53,7 +53,7 @@ def test_a_row_says_who_owes_the_next_move():
     operator = _row(wake_escalation="starved_hook_route", operator_wake=True)
 
     assert "wake escalated (starved_hook_route)" in escalated
-    assert "waiting for the operator to wake it" in operator
+    assert "operator wake needed" in operator
     assert "wake escalated" not in operator
 
 
@@ -82,7 +82,7 @@ def test_a_queued_unattempted_wake_says_so_and_names_its_recovery():
 
     assert "wake queued but unattempted" in queued
     assert f"yoke session-control session wake {SESSION}" in queued
-    assert "release the queued wake and retry" in queued
+    assert "release and retry the queued wake" in queued
     assert "no delivery attempted" not in queued
 
 
@@ -110,8 +110,8 @@ def test_a_queued_hook_on_a_desktop_recipient_does_not_ask_the_operator():
     """Firing hooks is not an operator who has not typed."""
     queued = _row(delivery_state=AWAITING_ATTEMPT, operator_wake=True)
 
-    assert "queued for the recipient's next hook — waiting" in queued
-    assert "waiting for the operator to wake it" not in queued
+    assert "queued for next hook — waiting" in queued
+    assert "operator wake needed" not in queued
 
 
 def test_a_failed_attempt_on_a_desktop_recipient_does_not_ask_the_operator():
@@ -123,14 +123,14 @@ def test_a_failed_attempt_on_a_desktop_recipient_does_not_ask_the_operator():
     )
 
     assert "last attempt failed (hook_lease_expired ×127)" in failed
-    assert "waiting for the operator to wake it" not in failed
+    assert "operator wake needed" not in failed
 
 
 def test_a_queued_wake_on_a_desktop_recipient_still_asks_its_operator():
     """Yoke never resumes a desktop chat, so no release recipe applies."""
     desktop = _row(delivery_state=NEVER_ATTEMPTED, queued_wake=True, operator_wake=True)
 
-    assert "waiting for the operator to wake it" in desktop
+    assert "operator wake needed" in desktop
     assert "yoke session-control session wake" not in desktop
 
 
@@ -139,8 +139,8 @@ def test_a_delivery_still_under_way_reads_as_waiting_not_as_a_failure():
     in_flight = _row(delivery_state=ATTEMPT_IN_FLIGHT)
     queued = _row(delivery_state=AWAITING_ATTEMPT)
 
-    assert "delivery attempt in flight — waiting" in in_flight
-    assert "queued for the recipient's next hook — waiting" in queued
+    assert "delivery in flight — waiting" in in_flight
+    assert "queued for next hook — waiting" in queued
     for line in (in_flight, queued):
         assert "failed" not in line
         assert "no delivery attempted" not in line
@@ -205,7 +205,7 @@ def test_a_held_wake_names_the_native_holding_it_and_how_to_end_it():
         delivery_state=WAKE_HELD_FOR_NATIVE_TURN, wake_escalation="starved_hook_route"
     )
     assert "wake held" in line
-    assert "a native turn is already running" in line
+    assert "native turn running" in line
     assert f"yoke sessions terminate {SESSION}" in line
     # The escalation note would read as a wake still on its way, which is
     # the exact misreading this state exists to end.
@@ -229,4 +229,4 @@ def test_an_unmeasured_silence_claims_nothing():
     """No capture to read must not render as a native that just spoke."""
     line = _row(delivery_state=WAKE_HELD_FOR_NATIVE_TURN)
     assert "silent for" not in line
-    assert "a native turn is already running" in line
+    assert "native turn running" in line

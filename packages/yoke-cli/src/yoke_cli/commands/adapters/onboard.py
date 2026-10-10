@@ -6,7 +6,7 @@ import argparse
 import sys
 from typing import List
 
-from yoke_cli.commands._helpers import attach_help_trailer, parse_or_usage_error
+from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.commands.adapters import onboard_apply
 from yoke_cli.commands.adapters import onboard_destination_args
 from yoke_cli.commands.adapters import onboard_hosted_authorization as hosted_auth
@@ -47,7 +47,9 @@ ONBOARD_USAGE = (
 
 
 def onboard(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke setup")
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter, prog="yoke setup"
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--quick", action="store_true")
     mode.add_argument("--advanced", action="store_true")
@@ -94,7 +96,6 @@ def onboard(args: List[str]) -> int:
         ),
     )
     onboard_project_args.add_project_args(parser)
-    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, ONBOARD_USAGE)
     if parsed is None:
         return 2

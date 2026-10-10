@@ -1,36 +1,24 @@
-# Refine — Pinned Workflow Context
+# Refine — Exact Pinned Context
 
-Called by `SKILL.md` before claim acquisition. Registered
-`workflows.item.get` resolves the immutable item pin and central effective
-policies; the exact definition supplies the active `refine` binding and
-child/lane policies.
-
+Read once through registered `workflows.item.get`:
 ```bash
-MAIN_ROOT=$(git rev-parse --show-toplevel)
 ITEM_REF="{arg}"
-ITEM_PIN_JSON=$(yoke workflows item get "$ITEM_REF" --json 2>/dev/null) || ITEM_PIN_JSON=""
-# ITEM_REF — public PREFIX-N for every yoke CLI item argument.
-ITEM_WORKFLOW_ID=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["workflow_id"])' 2>/dev/null) || ITEM_WORKFLOW_ID=""
-ITEM_WORKFLOW_VERSION=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["workflow_version"])' 2>/dev/null) || ITEM_WORKFLOW_VERSION=""
-ITEM_STATUS=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["status"])' 2>/dev/null) || ITEM_STATUS=""
-ITEM_FILE_BUDGET_POLICY=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["effective_policies"]["file_budget"])' 2>/dev/null) || ITEM_FILE_BUDGET_POLICY=""
-ITEM_PATH_CLAIMS_POLICY=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["effective_policies"]["path_claims"])' 2>/dev/null) || ITEM_PATH_CLAIMS_POLICY=""
-ITEM_TITLE=$(yoke items get "$ITEM_REF" title 2>/dev/null) || ITEM_TITLE=""
-ITEM_PROJECT=$(yoke items get "$ITEM_REF" project 2>/dev/null) || ITEM_PROJECT=""
-ITEM_DEFINITION_JSON=$(yoke workflows version get \
- "$ITEM_WORKFLOW_ID" "$ITEM_WORKFLOW_VERSION" --json 2>/dev/null) || ITEM_DEFINITION_JSON=""
+ITEM_PIN_JSON=$(yoke workflows item get "$ITEM_REF" --json)
+# ITEM_REF — public PREFIX-N for every item argument.
+yoke items get "$ITEM_REF" title
+yoke items get "$ITEM_REF" project
+ITEM_DEFINITION_JSON=$(yoke workflows version get "$ITEM_WORKFLOW_ID" "$ITEM_WORKFLOW_VERSION" --json)
 ```
 
-If any read is empty, stop with `Item PREFIX-{N} not found.` Never substitute the
-registry's current version for `ITEM_WORKFLOW_VERSION`.
+Before the last command, take ITEM_WORKFLOW_ID, ITEM_WORKFLOW_VERSION and
+ITEM_STATUS from that pin. Never substitute the registry's current version or
+parse a numeric tail/global id. Empty, malformed or failed reads halt with
+the actual error. Retain title/project and independent effective values
+ITEM_FILE_BUDGET_POLICY and ITEM_PATH_CLAIMS_POLICY from
+`result.effective_policies`, not raw policy or posture. Optional is off;
+required and required_per_task apply at their reported scopes.
 
-Interpret the active binding and policy shape in one pass:
-
+Interpret the returned definition and status:
 ```bash
 REFINE_CONTEXT_JSON=$(printf '%s' "$ITEM_DEFINITION_JSON" | python3 -c '
 import json,sys
@@ -75,28 +63,16 @@ print(json.dumps({
     "next_skill": next_skill,
 }))
 ' "$ITEM_STATUS") || {
- echo "Cannot refine PREFIX-{N}: the current stage is not supported by its pinned refine binding."
+ echo "Cannot refine PREFIX-N: the current stage is not supported by its pinned refine binding."
  exit 1
 }
-REFINE_SOURCE_STATUS=$(printf '%s' "$REFINE_CONTEXT_JSON" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["source_status"])')
-REFINE_ACTIVE_STATUS=$(printf '%s' "$REFINE_CONTEXT_JSON" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["active_status"])')
-REFINE_TARGET_STATUS=$(printf '%s' "$REFINE_CONTEXT_JSON" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["target_status"])')
-REFINE_ARTIFACT_SCOPE=$(printf '%s' "$REFINE_CONTEXT_JSON" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["artifact_scope"])')
-ITEM_GENERATED_CHILDREN=$(printf '%s' "$REFINE_CONTEXT_JSON" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["generated_children"])')
-ITEM_NEXT_SKILL=$(printf '%s' "$REFINE_CONTEXT_JSON" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["next_skill"])')
 ```
 
-The interpreter deliberately uses the runtime's half-open interval
-(`from_stage_id <= current < through_stage_id`). `workflow_id` is only the
-registry key for the exact version read; no behavior branches on its value.
-`ITEM_FILE_BUDGET_POLICY` and `ITEM_PATH_CLAIMS_POLICY` are independent
-effective values from `workflows.item.get`. Do not reconstruct them from
-the raw definition or posture: historical schema compatibility and allowed
-posture tightening belong to the runtime projection. `optional` is off;
-`required` and `required_per_task` apply at their reported scopes.
+The interpreter uses ordered stages and the half-open interval. It requires
+exactly one refine binding with one active stage, and selects generated-task
+scope only for epic_tasks with a Shepherd binding ending at this entry.
+No workflow-id branch is allowed. Retain source_status, active_status,
+target_status as REFINE_SOURCE_STATUS, REFINE_ACTIVE_STATUS,
+REFINE_TARGET_STATUS; artifact_scope as REFINE_ARTIFACT_SCOPE, generated_children
+as ITEM_GENERATED_CHILDREN, worktrees policy and next_skill as ITEM_NEXT_SKILL.
+The next-skill value must be refreshed after advancement, not carried to handoff.
