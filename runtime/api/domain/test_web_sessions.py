@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from typing import Any, Iterator
 
 import pytest
@@ -81,8 +83,8 @@ def test_expired_session_is_refused(conn):
     actor_id = seed_human_actor(conn)
     created = mint_web_session(conn, actor_id=actor_id)
     conn.execute(
-        "UPDATE web_sessions SET expires_at = '2000-01-01T00:00:00Z' WHERE id = %s",
-        (created.web_session_id,),
+        "UPDATE web_sessions SET expires_at = %s WHERE id = %s",
+        (parse_instant("2000-01-01T00:00:00Z"), created.web_session_id),
     )
     conn.commit()
     with pytest.raises(WebSessionExpired):
@@ -103,8 +105,8 @@ def test_mint_prunes_expired_rows(conn):
     actor_id = seed_human_actor(conn)
     stale = mint_web_session(conn, actor_id=actor_id)
     conn.execute(
-        "UPDATE web_sessions SET expires_at = '2000-01-01T00:00:00Z' WHERE id = %s",
-        (stale.web_session_id,),
+        "UPDATE web_sessions SET expires_at = %s WHERE id = %s",
+        (parse_instant("2000-01-01T00:00:00Z"), stale.web_session_id),
     )
     conn.commit()
     # Minting a fresh session sweeps the already-expired row so the table

@@ -81,7 +81,7 @@ Path-claim CLI JSON and body renderers format owned instants; worktree lane
 responses normalize declared clocks before model validation. Doctor receipts bind
 native run clocks and format only their response projection. Done bookkeeping
 and merge marker writes retain native landing facts, including null unknowns; queue adapters parse local and relayed clock ingress, preserve native arming episodes, and format only request payloads and human landing text;
-provider corrections accept qualified RFC3339 and compare native instants. Queue
+provider corrections accept qualified RFC3339 and compare native instants. Claim contention, run terminalization and minted web-session models retain native clocks; claim reports and terminalization responses format only their owned output leaves. Queue
 refresh cadence keeps native cutoffs and facts across database timezones.
 
 New dispatcher result digests and public/CLI payloads apply the shared native

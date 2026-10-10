@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_state import require_actor_active
@@ -53,7 +53,10 @@ class CreatedWebSession:
     web_session_id: int
     actor_id: int
     raw_token: str
-    expires_at: str
+    expires_at: datetime
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "expires_at", parse_instant(self.expires_at))
 
 
 @dataclass(frozen=True)
@@ -64,10 +67,6 @@ class VerifiedWebSession:
 
 def _now_dt() -> datetime:
     return utc_now()
-
-
-def _fmt(moment: datetime) -> str:
-    return format_instant(moment)
 
 
 def _p(conn: Any) -> str:
@@ -134,7 +133,7 @@ def mint_web_session(
         web_session_id=int(row[0]),
         actor_id=int(actor_id),
         raw_token=raw,
-        expires_at=_fmt(expires_at),
+        expires_at=expires_at,
     )
 
 

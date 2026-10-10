@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from yoke_contracts.timestamps import InvalidInstant, format_instant
+from yoke_contracts.timestamps import InvalidInstant
 from yoke_core.domain import (
     api_token_audit,
     api_tokens,
@@ -97,7 +97,8 @@ def test_web_session_expiry_and_prune_are_exact(test_db, monkeypatch, zone):
     monkeypatch.setattr(web_sessions, "_now_dt", lambda: clock[0])
     session = web_sessions.mint_web_session(test_db, actor_id=actor, ttl_s=1)
     expiry = START + timedelta(seconds=1)
-    assert session.expires_at == format_instant(expiry)
+    assert session.expires_at == expiry
+    assert isinstance(session.expires_at, datetime)
     stored = test_db.execute(
         "SELECT created_at,expires_at FROM web_sessions WHERE id=%s",
         (session.web_session_id,),

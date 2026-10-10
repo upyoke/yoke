@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 
 import pytest
 
-from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.timestamps import format_instant
 
 from yoke_core.domain import deployment_run_terminalization as terminalization
 
@@ -77,7 +78,8 @@ def test_terminalization_updates_run_and_appends_permanent_audit(
         (result.run_id,),
     ).fetchone()
     assert run[0] == "cancelled"
-    assert run[1] == parse_instant(result.terminalized_at)
+    assert isinstance(result.terminalized_at, datetime)
+    assert run[1] == result.terminalized_at
     event = test_db.execute(
         "SELECT source_type, severity, actor_id, envelope FROM events "
         "WHERE event_id=%s",
@@ -94,7 +96,7 @@ def test_terminalization_updates_run_and_appends_permanent_audit(
         "final_status": "cancelled",
         "current_stage": "hosted-release",
         "reason": "External workflow no longer exists",
-        "terminalized_at": result.terminalized_at,
+        "terminalized_at": format_instant(result.terminalized_at),
         "terminalized_by_actor_id": None,
         "terminalized_by_session_id": "terminalization-session",
     }

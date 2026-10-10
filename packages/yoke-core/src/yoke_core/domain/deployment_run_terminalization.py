@@ -43,10 +43,13 @@ class RunTerminalization:
     prior_status: str
     final_status: str
     reason: str
-    terminalized_at: str
+    terminalized_at: datetime
     terminalized_by_actor_id: Optional[int]
     terminalized_by_session_id: str
     event_id: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "terminalized_at", parse_instant(self.terminalized_at))
 
 
 class RunTerminalizationRejected(ValueError):
@@ -172,7 +175,7 @@ def terminalize_run_on(
         prior_status=prior_status,
         final_status=final_status,
         reason=clean_reason,
-        terminalized_at=format_instant(stamp),
+        terminalized_at=stamp,
         terminalized_by_actor_id=actor_id,
         terminalized_by_session_id=session_id,
         event_id=event_id,

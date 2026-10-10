@@ -7,6 +7,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.handlers.deployment_common import error, run_id
 
 
@@ -82,7 +83,7 @@ def handle_deployment_run_terminalize(
             "prior_status": result.prior_status,
             "final_status": result.final_status,
             "reason": result.reason,
-            "terminalized_at": result.terminalized_at,
+            "terminalized_at": format_instant(result.terminalized_at),
             "terminalized_by_actor_id": result.terminalized_by_actor_id,
             "terminalized_by_session_id": result.terminalized_by_session_id,
             "event_id": result.event_id,

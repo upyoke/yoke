@@ -38,12 +38,17 @@ class ClaimContention:
     project_id: int
     key: str
     holder_label: str
-    acquired_at: str
-    heartbeat_at: str | None
+    acquired_at: datetime
+    heartbeat_at: datetime | None
     heartbeat_age_seconds: int | None
     effective_stale_ttl_minutes: int
     holder_stale: bool
     operator_release_command: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "acquired_at", parse_instant(self.acquired_at))
+        if self.heartbeat_at is not None:
+            object.__setattr__(self, "heartbeat_at", parse_instant(self.heartbeat_at))
 
     @property
     def message(self) -> str:
@@ -54,7 +59,7 @@ class ClaimContention:
         )
         return (
             f"{lead} {self.key} (project {self.project_id}): already held by "
-            f"{self.holder_label} since {self.acquired_at}; "
+            f"{self.holder_label} since {format_instant(self.acquired_at)}; "
             f"heartbeat age {_age_label(self.heartbeat_age_seconds)} "
             f"(stale TTL {self.effective_stale_ttl_minutes}m). Human-only "
             f"operator release: `{self.operator_release_command}`."
@@ -65,8 +70,10 @@ class ClaimContention:
             "id": self.claim_id,
             "key": self.key,
             "holder_session_id": self.holder_label,
-            "acquired_at": self.acquired_at,
-            "heartbeat_at": self.heartbeat_at,
+            "acquired_at": format_instant(self.acquired_at),
+            "heartbeat_at": None
+            if self.heartbeat_at is None
+            else format_instant(self.heartbeat_at),
             "heartbeat_age_seconds": self.heartbeat_age_seconds,
             "effective_stale_ttl_minutes": self.effective_stale_ttl_minutes,
             "holder_stale": self.holder_stale,
@@ -114,8 +121,8 @@ def describe_claim_contention(
         project_id=int(claim.project_id or 0),
         key=claim.key,
         holder_label=holder,
-        acquired_at=format_instant(claim.claimed_at),
-        heartbeat_at=format_instant(heartbeat_at) if heartbeat_at is not None else None,
+        acquired_at=claim.claimed_at,
+        heartbeat_at=heartbeat_at,
         heartbeat_age_seconds=heartbeat_age,
         effective_stale_ttl_minutes=ttl,
         holder_stale=stale,
