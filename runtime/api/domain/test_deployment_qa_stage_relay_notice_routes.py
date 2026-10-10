@@ -3,14 +3,14 @@
 ``test_deployment_qa_stage_dispatch_wake.py`` and
 ``..._dispatch_result_report.py`` drive the server-side function directly,
 which proves the routing but not that the registered path reaches it: the
-relay handler resolves the run, takes the deploy lock, re-derives the
+relay handler resolves the run, checks its live driver, re-derives the
 stage from the run's own stored flow, and only then calls it. A wake that
 works when called directly and never fires through
 ``deployment_runs.qa_stage.dispatch`` would look healthy in those files
 and deliver nothing in production.
 
 So these cases go through ``handle_deployment_qa_stage_dispatch`` with a
-real request, a real deploy lock, a real claim holder and a real item
+real request, a real driver attachment, a real claim holder and a real item
 owner, and assert the rows that actually reach people.
 """
 
@@ -41,14 +41,14 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain import coordination_claims
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.deployment_qa_stage_wake import stage_wait_idempotency_key
-from yoke_core.domain.handlers import deployment_qa_stage_relay as relay
-from yoke_core.domain.work_claim_targets import (
-    make_deploy_serialization_target,
-    make_item_target,
+from yoke_core.domain.deployment_run_driver_attachment import (
+    PHASE_EXECUTING,
+    attach_driver,
 )
+from yoke_core.domain.handlers import deployment_qa_stage_relay as relay
+from yoke_core.domain.work_claim_targets import make_item_target
 
 DRIVER_SESSION = "relay-driver-session"
 RUN_ID = "run-relay-notice"
@@ -128,22 +128,19 @@ def _seed(conn: Any, stages_json: str | None = None) -> None:
         target_kind="item",
         scope_json=make_item_target(ITEM_ID).scope_json(),
     )
-    # The driver session holds the project's deploy lock, which the relay
-    # handler requires before it will evaluate anything.
+    # The driver session is the run's live driver: run-scoped notices reach
+    # it, and the relay handler answers no other session while it is live.
     seed_session(conn, DRIVER_SESSION)
-    coordination_claims.acquire(
-        conn,
-        make_deploy_serialization_target(PROJECT_YOKE, "yoke"),
-        DRIVER_SESSION,
-        reason="relay notice route test",
+    attach_driver(
+        conn, RUN_ID, session_id=DRIVER_SESSION, pid=4242, phase=PHASE_EXECUTING
     )
     conn.commit()
 
 
-def _request() -> FunctionCallRequest:
+def _request(session_id: str = DRIVER_SESSION) -> FunctionCallRequest:
     return FunctionCallRequest(
         function=relay.DISPATCH_FUNCTION_ID,
-        actor=ActorContext(actor_id=str(SESSION_ACTOR_ID), session_id=DRIVER_SESSION),
+        actor=ActorContext(actor_id=str(SESSION_ACTOR_ID), session_id=session_id),
         target=TargetRef(kind="workflow_run", workflow_run_id=RUN_ID),
         payload={"stage_name": STAGE},
     )
@@ -234,20 +231,17 @@ def test_the_relay_refuses_a_stage_the_runs_own_flow_does_not_declare(
     assert "has no stage named" in outcome.error.message
 
 
-def test_the_relay_refuses_without_the_deploy_lock(test_db: Any) -> None:
+def test_the_relay_refuses_a_session_other_than_the_live_driver(
+    test_db: Any,
+) -> None:
     _seed(test_db)
-    claim = coordination_claims.active_claim(
-        test_db, make_deploy_serialization_target(PROJECT_YOKE, "yoke")
-    )
-    assert claim is not None
-    coordination_claims.release(test_db, claim.id, "relay notice route test teardown")
-    test_db.commit()
 
-    outcome = relay.handle_deployment_qa_stage_dispatch(_request())
+    outcome = relay.handle_deployment_qa_stage_dispatch(_request("relay-bystander"))
 
     assert outcome.primary_success is False
     assert outcome.error is not None
-    assert outcome.error.code == "deploy_lock_required"
+    assert outcome.error.code == "run_driven_elsewhere"
+    assert DRIVER_SESSION in outcome.error.message
 
 
 def _stages_without_cases(scope: str) -> str:
@@ -315,7 +309,7 @@ def test_a_run_scoped_stage_with_no_configured_cases_waits_and_wakes_the_driver(
     assert int(outcome.result_payload["code"]) == -4
     assert "no pinned cases" in outcome.result_payload["message"]
     assert "run:" in outcome.result_payload["message"]
-    # Run scope has no member, so the deploy-lock driver is the recipient.
+    # Run scope has no member, so the run's live driver is the recipient.
     rows = test_db.execute(
         "SELECT r.session_id FROM session_messages m "
         "JOIN session_message_recipients r ON r.message_id = m.message_id "

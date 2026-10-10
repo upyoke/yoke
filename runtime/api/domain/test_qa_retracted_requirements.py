@@ -9,9 +9,6 @@ from runtime.api.domain.test_deployment_qa_admission_execution import (
     _original_requirement,
 )
 from runtime.api.domain.test_deployment_qa_stage_execution import _plan
-from runtime.api.domain.test_shared_gate_settlement_atomicity import (
-    _driver_holds_deploy_lock,
-)
 from runtime.api.domain.test_status_transition_preflight import _isolate_status_effects
 from runtime.api.fixtures.backlog_inserts import (
     insert_item,
@@ -23,7 +20,6 @@ from yoke_core.domain.deployment_requirement_snapshots import (
     snapshot_member_requirements,
 )
 from yoke_core.domain.deployment_qa_source_obligation import unsatisfied_blocking
-from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
 from yoke_core.domain.qa_browser_checkout_free_proof import _latest_qualifying_captures
 from yoke_core.domain.qa_browser_evidence_check import (
     check_browser_artifact_disk,
@@ -199,15 +195,12 @@ def test_run_settlement_closes_retracted_source_with_accepted_replacement(
         "UPDATE deployment_runs SET current_stage='run-qa' WHERE id=%s", (run_id,)
     )
     test_db.commit()
-    delivery._settle(test_db, run_id=run_id, stage="run-qa", member=None)
-    test_db.execute(
-        "UPDATE deployment_runs SET current_stage='complete' WHERE id=%s", (run_id,)
-    )
-    test_db.commit()
-    _driver_holds_deploy_lock(test_db, monkeypatch)
-
     assert delivery._status(test_db, member) == "release"
-    assert cmd_update(run_id, "status", "succeeded") is None
+    # Accepting the last gate finishes the detached run on that same event.
+    delivery._settle(
+        test_db, run_id=run_id, stage="run-qa", member=None, may_complete_run=True
+    )
+
     assert delivery._status(test_db, member) == "done"
     assert (
         unsatisfied_blocking(test_db, item_id=member, target_status="done").count == 0

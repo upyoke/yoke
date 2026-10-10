@@ -10,16 +10,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from runtime.api.domain.coordination_claim_test_support import (
-    PROJECT_YOKE,
-    deploy_target,
-)
+from runtime.api.domain.coordination_claim_test_support import PROJECT_YOKE
 from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
     _bodies,
     _claim,
     _project,
     _recipients,
     seed_session,
+)
+from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.deployment_run_driver_attachment import (
+    PHASE_EXECUTING,
+    attach_driver,
 )
 from yoke_core.domain.deployment_qa_stage_wake import (
     notify_run_scoped_qa_wait,
@@ -30,16 +32,28 @@ STEERING_SESSION = "sess-steering"
 DRIVER_SESSION = "sess-driver"
 
 
-def test_run_scoped_wake_reaches_the_deploy_lock_driver(test_db: Any) -> None:
+def _driven_run(conn: Any, run_id: str, session_id: str) -> None:
+    """An executing run whose live driver is *session_id*."""
+    conn.execute(
+        "INSERT INTO deployment_runs (id,project_id,flow,status,created_at) "
+        "VALUES (%s,%s,'flow-wake','executing',%s)",
+        (run_id, PROJECT_YOKE, iso8601_now()),
+    )
+    attach_driver(conn, run_id, session_id=session_id, pid=4242, phase=PHASE_EXECUTING)
+    conn.commit()
+
+
+def test_run_scoped_wake_reaches_the_runs_live_driver(test_db: Any) -> None:
     _project(test_db)
     seed_session(test_db, DRIVER_SESSION)
-    target = deploy_target(PROJECT_YOKE, "yoke")
+    seed_session(test_db, STEERING_SESSION)
     _claim(
         test_db,
-        session_id=DRIVER_SESSION,
-        target_kind=target.kind,
-        scope_json=target.scope_json(),
+        session_id=STEERING_SESSION,
+        target_kind="steering",
+        scope_json='{"project_id": %d}' % PROJECT_YOKE,
     )
+    _driven_run(test_db, "run-wd-4", DRIVER_SESSION)
 
     result = notify_run_scoped_qa_wait(
         test_db,
@@ -112,4 +126,6 @@ def test_run_scoped_wake_does_not_guess_among_document_scoped_seats(
     )
 
     assert result == ""
-    assert _recipients(test_db, run_stage_wait_idempotency_key("run-wd-6", "run-qa")) == []
+    assert (
+        _recipients(test_db, run_stage_wait_idempotency_key("run-wd-6", "run-qa")) == []
+    )

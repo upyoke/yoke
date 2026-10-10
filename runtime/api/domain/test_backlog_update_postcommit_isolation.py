@@ -163,4 +163,4 @@ def test_continuation_failure_cannot_skip_terminal_cleanup(monkeypatch) -> None:
         in out.getvalue()
     )
     assert "item 72" not in out.getvalue()
-    assert "re-drive it under the project deploy lock" in out.getvalue()
+    assert "read its completion run and re-drive it." in out.getvalue()

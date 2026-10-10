@@ -1,4 +1,4 @@
-"""Operator waiver recording uses a covering seat or the requirement's run lock."""
+"""Operator waivers are recorded by a covering seat or the run's live driver."""
 
 from __future__ import annotations
 
@@ -7,8 +7,6 @@ from unittest.mock import patch
 import pytest
 
 from runtime.api.domain.steering_claim_test_support import (
-    PROJECT_ALPHA,
-    seed_project,
     seed_session,
     seed_strategy_doc,
 )
@@ -22,20 +20,23 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.coordination_claims import acquire as acquire_lock
 from yoke_core.domain.deployment_qa_stage_dispatch import (
     materialize_and_gate_deployment_qa_stage,
 )
 from yoke_core.domain.deployment_qa_stage_contract import deployment_qa_stage_subject
+from yoke_core.domain.deployment_run_driver_attachment import (
+    PHASE_EXECUTING,
+    attach_driver,
+)
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
 from yoke_core.domain.handlers.qa_requirement_waive import handle_qa_requirement_waive
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
 from yoke_core.domain.steering_claims import acquire as acquire_seat
-from yoke_core.domain.work_claim_targets import make_deploy_serialization_target
 from yoke_core.domain.yoke_function_dispatch_claims import verify_claim
 from yoke_core.domain.yoke_function_registry import lookup
 
 MEMBER = 9801
+RUN_ID = "run-member-waiver"
 RECORDER = "waiver-recorder"
 WORKER = "member-worker"
 RATIONALE = "operator accepted the release without this case"
@@ -62,9 +63,7 @@ class _BorrowedConnection:
 
 @pytest.fixture
 def waiver_world(test_db):
-    requirement_id = seed_member_qa_case(
-        test_db, run_id="run-member-waiver", member_item_id=MEMBER
-    )
+    requirement_id = seed_member_qa_case(test_db, run_id=RUN_ID, member_item_id=MEMBER)
     test_db.execute("UPDATE items SET status='release' WHERE id=%s", (MEMBER,))
     test_db.commit()
     seed_session(test_db, RECORDER, 1)
@@ -86,12 +85,20 @@ def _request(requirement_id, *, source="operator", function="qa.requirement.waiv
     )
 
 
+def _drive(conn, session_id, *, now=None):
+    """Attach *session_id* as the run's driver; an old *now* leaves it stale."""
+    attach_driver(
+        conn, RUN_ID, session_id=session_id, pid=4242, phase=PHASE_EXECUTING, now=now
+    )
+    conn.commit()
+
+
 def _gate(request):
     register_all_handlers()
     return verify_claim(lookup(request.function), request)
 
 
-@pytest.mark.parametrize("authority", ["steering", "deploy_lock"])
+@pytest.mark.parametrize("authority", ["steering", "run_driver"])
 def test_operator_waiver_keeps_worker_claim_and_settles_run_stage(
     waiver_world, authority
 ):
@@ -99,7 +106,7 @@ def test_operator_waiver_keeps_worker_claim_and_settles_run_stage(
     if authority == "steering":
         acquire_seat(conn, session_id=RECORDER, project_id=1, reason="drive release")
     else:
-        acquire_lock(conn, make_deploy_serialization_target(1, "yoke"), RECORDER)
+        _drive(conn, RECORDER)
     request = _request(requirement_id)
     assert _gate(request) is None
     with patch(
@@ -125,18 +132,19 @@ def test_operator_waiver_keeps_worker_claim_and_settles_run_stage(
     with patch("yoke_core.domain.deployment_qa_stage_dispatch.report_stage_result"):
         subject = deployment_qa_stage_subject(
             conn,
-            run_id="run-member-waiver",
+            run_id=RUN_ID,
             stage_name=ITEM_QA_STAGE,
             member_item_id=MEMBER,
         )
         code, output = materialize_and_gate_deployment_qa_stage(
-            conn, subject["stage"], run_id="run-member-waiver"
+            conn, subject["stage"], run_id=RUN_ID
         )
     assert code == 0, output
 
 
 @pytest.mark.parametrize(
-    "authority", ["none", "other_seat", "other_lock", "released_seat"]
+    "authority",
+    ["none", "other_seat", "other_driver", "stale_driver", "released_seat"],
 )
 def test_uncovered_recorder_is_refused_with_recovery(waiver_world, authority):
     conn, requirement_id, _ = waiver_world
@@ -157,11 +165,10 @@ def test_uncovered_recorder_is_refused_with_recovery(waiver_world, authority):
                 ("2026-10-01T00:00:00Z", seat["id"]),
             )
         conn.commit()
-    elif authority == "other_lock":
-        seed_project(conn, PROJECT_ALPHA, "other")
-        acquire_lock(
-            conn, make_deploy_serialization_target(PROJECT_ALPHA, "other"), RECORDER
-        )
+    elif authority == "other_driver":
+        _drive(conn, WORKER)
+    elif authority == "stale_driver":
+        _drive(conn, RECORDER, now="2026-01-01T00:00:00Z")
     refusal = _gate(_request(requirement_id))
     assert refusal.error.code == "claim_required"
     assert "ask that holder" in refusal.error.message
@@ -187,7 +194,7 @@ def test_seat_does_not_bypass_other_qa_claim_checks(waiver_world, source, functi
     assert refusal.error.code == "claim_required"
 
 
-def test_deploy_lock_does_not_cover_item_requirement_outside_a_run(waiver_world):
+def test_run_driver_does_not_cover_item_requirement_outside_a_run(waiver_world):
     conn, requirement_id, _ = waiver_world
     conn.execute(
         "UPDATE qa_requirements SET item_id=%s,deployment_run_id=NULL,"
@@ -195,7 +202,7 @@ def test_deploy_lock_does_not_cover_item_requirement_outside_a_run(waiver_world)
         (MEMBER, requirement_id),
     )
     conn.commit()
-    acquire_lock(conn, make_deploy_serialization_target(1, "yoke"), RECORDER)
+    _drive(conn, RECORDER)
     assert _gate(_request(requirement_id)).error.code == "claim_required"
 
 

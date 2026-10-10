@@ -140,7 +140,7 @@ def settle_subject(
             f"Run {run_id} stage {stage!r} settled {outcome}, but no deploy "
             "driver or covering steering seat could be reached. The QA "
             f"blockers are {status.get('reasons') or 'none reported'}. "
-            "The outcome is durable; re-drive the same run with `yoke watch deploy -- {run_id}`."
+            f"The outcome is durable; re-drive the same run with `yoke watch deploy -- {run_id}`."
         )
     return status
 

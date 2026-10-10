@@ -12,10 +12,7 @@ import sqlite3
 from datetime import datetime, timezone
 from typing import Any
 
-from runtime.api.domain.coordination_claim_test_support import (
-    PROJECT_YOKE,
-    deploy_target,
-)
+from runtime.api.domain.coordination_claim_test_support import PROJECT_YOKE
 from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
     HOLDER_A,
     HOLDER_B,
@@ -29,6 +26,10 @@ from yoke_core.domain.deployment_qa_stage_wake import (
     notify_run_scoped_qa_wait,
     run_stage_wait_idempotency_key,
     stage_wait_idempotency_key,
+)
+from yoke_core.domain.deployment_run_driver_attachment import (
+    PHASE_EXECUTING,
+    attach_driver,
 )
 from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
     withdraw_deployment_qa_wait_wakes,
@@ -64,7 +65,9 @@ def _recipient_state(conn: Any, message_id: str) -> str:
     return str(row[0])
 
 
-def _seed_member(conn: Any, item_id: int, session_id: str, *, status: str = "idea") -> None:
+def _seed_member(
+    conn: Any, item_id: int, session_id: str, *, status: str = "idea"
+) -> None:
     insert_item(
         conn,
         id=item_id,
@@ -189,14 +192,9 @@ def test_a_done_member_loses_its_wait_while_the_run_is_still_live(
 def test_a_run_scoped_wait_withdraws_when_the_run_is_terminal(test_db: Any) -> None:
     _project(test_db)
     seed_session(test_db, HOLDER_A)
-    target = deploy_target(PROJECT_YOKE, "yoke")
-    _claim(
-        test_db,
-        session_id=HOLDER_A,
-        target_kind=target.kind,
-        scope_json=target.scope_json(),
-    )
     _executing_run(test_db)
+    attach_driver(test_db, RUN_ID, session_id=HOLDER_A, pid=4242, phase=PHASE_EXECUTING)
+    test_db.commit()
     result = notify_run_scoped_qa_wait(
         test_db,
         run_id=RUN_ID,
@@ -207,9 +205,7 @@ def test_a_run_scoped_wait_withdraws_when_the_run_is_terminal(test_db: Any) -> N
     )
     assert result in ("delivered", "undelivered")
     key = run_stage_wait_idempotency_key(RUN_ID, STAGE)
-    test_db.execute(
-        "UPDATE deployment_runs SET status='failed' WHERE id=%s", (RUN_ID,)
-    )
+    test_db.execute("UPDATE deployment_runs SET status='failed' WHERE id=%s", (RUN_ID,))
     test_db.commit()
     assert withdraw_deployment_qa_wait_wakes(test_db, now=NOW) == 1
     _, cancelled_at, reason = _message(test_db, key)

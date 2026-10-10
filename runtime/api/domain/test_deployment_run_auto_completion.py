@@ -23,23 +23,6 @@ def _run_status(conn: Any, run_id: str) -> str:
     )
 
 
-def _held_lock(monkeypatch) -> None:
-    from yoke_core.domain import coordination_claims
-
-    from yoke_core.domain.coordination_claim_record import CoordinationClaim
-
-    monkeypatch.setattr(
-        coordination_claims,
-        "active_claim",
-        lambda _conn, target: CoordinationClaim(
-            id=1,
-            target=target,
-            session_id="deployment-driver",
-            claimed_at="2026-10-01T00:00:00Z",
-        ),
-    )
-
-
 def test_independent_members_finish_run_after_both_close(
     test_db: Any, monkeypatch
 ) -> None:
@@ -51,11 +34,10 @@ def test_independent_members_finish_run_after_both_close(
     assert _status(test_db, MEMBER_B) == "release"
     assert _run_status(test_db, run_id) == "executing"
 
-    _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_B)
-    _held_lock(monkeypatch)
-    result = finish_ready_run(test_db, run_id)
+    _settle(
+        test_db, run_id=run_id, stage="item-qa", member=MEMBER_B, may_complete_run=True
+    )
 
-    assert result.completed, result
     assert _run_status(test_db, run_id) == "succeeded"
     assert (_status(test_db, MEMBER_A), _status(test_db, MEMBER_B)) == (
         "done",
@@ -72,7 +54,6 @@ def test_shared_qa_keeps_members_until_all_subjects_pass(
     _seed_final_run(test_db, run_id, shared_qa=True)
     _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
     _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_B)
-    _held_lock(monkeypatch)
 
     waiting = finish_ready_run(test_db, run_id)
     assert not waiting.completed
@@ -103,7 +84,6 @@ def test_approval_and_live_driver_prevent_parallel_completion(
     _seed_final_run(test_db, run_id, shared_qa=False, shared_approval=True)
     _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
     _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_B)
-    _held_lock(monkeypatch)
 
     approval = finish_ready_run(test_db, run_id)
     assert "approve-release" in approval.waiting
@@ -125,15 +105,14 @@ def test_failed_blocking_qa_does_not_complete_run(test_db: Any, monkeypatch) -> 
     _isolate_status_effects(monkeypatch)
     run_id = "run-failed-qa-auto-hold"
     _seed_final_run(test_db, run_id, shared_qa=False)
-    _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
-    _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_B)
     test_db.execute(
         "INSERT INTO deployment_run_qa(run_id,check_name,source,blocking,status) "
         "VALUES (%s,'smoke','flow_default',1,'failed')",
         (run_id,),
     )
     test_db.commit()
-    _held_lock(monkeypatch)
+    _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
+    _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_B)
 
     result = finish_ready_run(test_db, run_id)
 

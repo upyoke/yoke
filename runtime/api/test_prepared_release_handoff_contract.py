@@ -7,7 +7,7 @@ consume them rather than against a mock that accepts anything.
 The recipient selector is built by :class:`RecipientSelector` itself and its
 steering scope by the same resolver the send path runs, so a scope shaped for
 a reader that does not exist fails here instead of at the one moment the
-hand-off matters — when no session holds the deploy lock and the message is
+hand-off matters — when no driver is attached to the run and the message is
 the only thing left carrying the release.
 
 The execute recipe is checked for the two mistakes that make it useless. The
@@ -33,7 +33,12 @@ from yoke_contracts.session_control.recipient_selector import (
 from yoke_core.domain.deploy_pipeline_environment import (
     CONTROL_PLANE_ENV_PLACEHOLDER,
 )
-from yoke_core.engines.runs_release_handoff import compose_handoff_body
+from yoke_core.engines import runs_release_handoff
+from yoke_core.engines.runs_release_handoff import (
+    RECIPIENT_STEERING,
+    compose_handoff_body,
+    hand_off_prepared_run,
+)
 
 
 PROJECT_ID = 1
@@ -82,6 +87,54 @@ class TestTheNoHolderSelector:
         selector = RecipientSelector.model_validate({"session_ids": [holder]})
         assert selector.session_ids == [holder]
         assert selector.steering is False
+
+
+class TestTheRecipient:
+    """The run's live driver is addressed by session; otherwise steering is."""
+
+    @staticmethod
+    def _sent_selector(monkeypatch: pytest.MonkeyPatch, driver: str | None):
+        sent: list[dict] = []
+        monkeypatch.setattr(
+            runs_release_handoff, "_live_driver", lambda _conn, _run_id: driver
+        )
+        monkeypatch.setattr(
+            "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
+            lambda **kwargs: (
+                sent.append(kwargs["payload"]["selector"])
+                or type(
+                    "Sent", (), {"success": True, "result": {"message_id": "m-1"}}
+                )()
+            ),
+        )
+        result = hand_off_prepared_run(
+            object(),
+            run_id=RUN_ID,
+            release_lineage=MERGE_COMMIT,
+            project=(PROJECT_ID, PROJECT_SLUG),
+        )
+        [selector] = sent
+        RecipientSelector.model_validate(selector)
+        return result, selector
+
+    def test_a_live_driver_is_addressed_directly(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        driver = "112bd83c-b07b-4204-b8e5-29dcd0aa4e7d"
+        result, selector = self._sent_selector(monkeypatch, driver)
+        assert selector == {"session_ids": [driver]}
+        assert result.recipient == driver
+        assert result.delivered
+
+    def test_an_undriven_run_reaches_the_project_steering_seat(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        result, selector = self._sent_selector(monkeypatch, None)
+        assert selector == {
+            "steering": True,
+            "steering_scope": {STEERING_SCOPE_PROJECT_KEY: PROJECT_ID},
+        }
+        assert result.recipient == RECIPIENT_STEERING
 
 
 RELAYED_CONTROL_PLANE = "prod"

@@ -8,7 +8,10 @@ from runtime.api.domain.test_dash_post_deploy_done_consumption import (
 from runtime.api.domain.test_post_deploy_original_pass_needs_admission import (
     _record_evidence,
 )
-from runtime.api.domain.test_release_member_target_enrollment import _pair
+from runtime.api.domain.test_release_member_target_enrollment import (
+    _pair,
+    release_pair_driver,
+)
 from runtime.api.domain.test_status_transition_preflight import (
     _isolate_status_effects,
 )
@@ -158,7 +161,6 @@ def test_member_closes_when_its_stage_obligation_passes(test_db, monkeypatch):
 def test_auto_completion_does_not_wait_on_another_targets_obligation(
     test_db, monkeypatch
 ):
-    from runtime.api.domain.test_deployment_run_auto_completion import _held_lock
     from yoke_core.domain.deployment_run_auto_completion import _readiness
 
     item_id = 9755
@@ -167,7 +169,7 @@ def test_auto_completion_does_not_wait_on_another_targets_obligation(
         "UPDATE deployment_runs SET current_stage='member-qa' WHERE id='run-prod'"
     )
     test_db.commit()
-    _held_lock(monkeypatch)
+    release_pair_driver(test_db, "run-prod")
 
     ready, reason = _readiness(test_db, "run-prod")
 
