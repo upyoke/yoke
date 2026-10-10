@@ -18,7 +18,7 @@ from datetime import datetime
 from typing import Any, Callable
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+from yoke_contracts.timestamps import as_utc, format_instant, parse_instant, utc_now
 
 
 def _response_error(response: Any, fallback: str) -> str:
@@ -57,7 +57,7 @@ def mark_landing_pending(
     preserve_existing: bool = False,
 ) -> tuple[datetime | None, str]:
     """Record an arming episode, preserving it when GitHub is already armed."""
-    enqueued_at = utc_now() if now is None else parse_instant(now)
+    enqueued_at = utc_now() if now is None else as_utc(now)
     if preserve_existing:
         response = dispatch(
             function_id="items.detail.get",

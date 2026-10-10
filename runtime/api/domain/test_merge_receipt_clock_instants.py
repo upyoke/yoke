@@ -5,7 +5,7 @@ from datetime import timedelta, timezone
 import pytest
 
 from yoke_contracts.api.function_call import FunctionCallResponse
-from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain.merge_queue_landing_outcome import recorded_landing
 from yoke_core.domain.merge_queue_landing_pending import mark_landing_pending
 
@@ -93,3 +93,27 @@ def test_ambiguous_preserved_episode_refuses_before_write(clock):
             "ITEM-101", "42", dispatch=dispatch, now=INSTANT, preserve_existing=True
         )
     assert calls == ["items.detail.get"]
+
+
+@pytest.mark.parametrize(
+    "clock",
+    [
+        "1969-12-31T23:59:59.123456Z",
+        "1970-01-01T05:29:59.123456+05:30",
+        "",
+        "1969-12-31",
+        INSTANT.replace(tzinfo=None),
+    ],
+)
+def test_injected_episode_requires_native_clock_before_any_dispatch(clock):
+    calls = []
+
+    def dispatch(**kwargs):
+        calls.append(kwargs)
+        raise AssertionError("non-Native clock must refuse before any dispatch")
+
+    with pytest.raises(InvalidInstant):
+        mark_landing_pending(
+            "ITEM-101", "42", dispatch=dispatch, now=clock, preserve_existing=True
+        )
+    assert calls == []

@@ -15,7 +15,7 @@ from yoke_core.domain.public_item_target import public_item_target
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.timestamps import as_utc, parse_instant
 from typing import Any, Callable, Optional
 
 from yoke_core.domain import standalone_item_merge_git as git
@@ -44,7 +44,7 @@ class QueueLandingOutcome:
 
     def __post_init__(self) -> None:
         if self.enqueued_at is not None:
-            object.__setattr__(self, "enqueued_at", parse_instant(self.enqueued_at))
+            object.__setattr__(self, "enqueued_at", as_utc(self.enqueued_at))
 
 
 def fail_landing(

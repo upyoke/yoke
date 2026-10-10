@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from pathlib import Path
@@ -45,7 +45,7 @@ def test_pending_landing_exits_without_evidence_or_terminal_transition(
             commit_sha="1" * 40,
             landing_pending=True,
             pr_num="42",
-            enqueued_at="2026-08-27T18:00:00Z",
+            enqueued_at=parse_instant("2026-08-27T18:00:00Z"),
         ), ""
 
     monkeypatch.setattr(merge_cli.verify, "verify_and_land", enqueue)
@@ -115,13 +115,22 @@ def test_wait_flag_reaches_the_landing_route(monkeypatch):
 @pytest.mark.parametrize(
     "clock",
     [
-        "2026-10-09T10:11:12.345678Z",
-        "2026-10-09T15:56:12.345678+05:45",
+        *[
+            datetime(1969, 12, 31, 23, 59, 59, microsecond, timezone.utc).astimezone(
+                zone
+            )
+            for microsecond in (0, 123456)
+            for zone in (
+                timezone.utc,
+                timezone(timedelta(hours=5, minutes=30)),
+                timezone(timedelta(hours=-4)),
+            )
+        ],
         None,
     ],
 )
 def test_queue_outcomes_keep_native_clock_until_pending_json(clock):
-    instant = None if clock is None else parse_instant(clock)
+    instant = None if clock is None else clock.astimezone(timezone.utc)
     queued = QueueLandingOutcome(ok=True, exit_code=0, enqueued_at=clock)
     outcome = StandaloneMergeOutcome(
         ok=True,
@@ -162,6 +171,9 @@ def test_queue_outcomes_keep_native_clock_until_pending_json(clock):
         "2026-10-09",
         "2026-10-09T10:11:12",
         "2026-10-09T10:11:12-00:00",
+        "1969-12-31T23:59:59.123456Z",
+        "1970-01-01T05:29:59.123456+05:30",
+        datetime(1969, 12, 31, 23, 59, 59, 123456),
     ],
 )
 def test_queue_outcome_constructor_refuses_unqualified_clock(clock):

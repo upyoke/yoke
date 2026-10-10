@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.timestamps import as_utc
 
 
 @dataclass(frozen=True)
@@ -29,4 +29,4 @@ class StandaloneMergeOutcome:
 
     def __post_init__(self) -> None:
         if self.enqueued_at is not None:
-            object.__setattr__(self, "enqueued_at", parse_instant(self.enqueued_at))
+            object.__setattr__(self, "enqueued_at", as_utc(self.enqueued_at))
