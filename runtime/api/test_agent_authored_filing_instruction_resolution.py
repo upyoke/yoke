@@ -40,14 +40,14 @@ def _ordered(text: str, first: str, second: str) -> None:
 
 def test_dash_resolves_before_filing_and_before_escalation_authoring() -> None:
     text = _read("dash/file-and-claim.md")
-    filing = text.split("## If the argument is not an item reference", 1)[1].split(
-        "## If the argument is a reference", 1
+    filing = text.split("## New instruction", 1)[1].split(
+        "## Existing reference and first claim", 1
     )[0]
     _ordered(
         filing,
         f"{RESOLVER} --workflow dash --project PROJECT",
-        'yoke dash "<title>" --stdin '
-        f'{ATTESTATION} --json',
+        'yoke dash "<specific title>" --project PROJECT --content-file /tmp/dash-instruction.txt '
+        f"{ATTESTATION} --json",
     )
 
     # Escalation is its own phase file; the entrypoint only routes to it.
@@ -55,7 +55,7 @@ def test_dash_resolves_before_filing_and_before_escalation_authoring() -> None:
     _ordered(
         escalation,
         f"{RESOLVER} --workflow issue --project PROJECT",
-        "present to the operator:",
+        "Apply instructions; present grounded findings",
     )
     assert FUNCTION_ID in filing
     assert FUNCTION_ID in escalation
@@ -82,8 +82,8 @@ def test_feed_resolves_each_materialized_item_before_create() -> None:
 
 def test_curate_resolves_both_cluster_outputs_and_quick_promotion() -> None:
     cluster = _read("curate/cluster-and-work-item.md")
-    filing = cluster.split("### d. Resolve the filing contract", 1)[1]
-    _ordered(filing, RESOLVER, "### e. Present the cluster")
+    filing = cluster.split("## 3. Validate and propose", 1)[1]
+    _ordered(filing, RESOLVER, "## 4. Produce approved outputs")
     _ordered(
         filing,
         f"{RESOLVER} --workflow dash --project {{project}}",
@@ -95,7 +95,9 @@ def test_curate_resolves_both_cluster_outputs_and_quick_promotion() -> None:
         'yoke items create "{title}" issue',
     )
 
-    quick = _read("curate/SKILL.md")
+    router = _read("curate/SKILL.md")
+    assert "[cluster-and-work-item.md](cluster-and-work-item.md)" in router
+    quick = cluster
     _ordered(
         quick,
         f"{RESOLVER} --workflow dash --project {{project}}",
@@ -113,13 +115,12 @@ def test_onboard_and_conduct_resolve_before_seed_or_gap_filing() -> None:
         'yoke items create "{title}" issue',
     )
     conduct = _read("conduct/simulation-gate-escalation.md")
-    _ordered(
-        conduct,
-        f'{RESOLVER} --workflow issue --project "$_project"',
-        "_add_output=$(yoke items create",
-    )
+    assert "[Idea](../idea/SKILL.md)" in conduct
+    assert "exact target project" in conduct
+    idea = _read("idea/infer-and-create.md")
+    _ordered(idea, RESOLVER, "## 5. Create The Item")
     assert FUNCTION_ID in onboard
-    assert FUNCTION_ID in conduct
+    assert FUNCTION_ID in idea
 
 
 @pytest.mark.parametrize("recipe", FILING_RECIPES)
@@ -127,7 +128,7 @@ def test_every_filing_recipe_attests_the_resolved_instructions(recipe) -> None:
     text = _read(recipe)
     for line in text.splitlines():
         stripped = line.strip()
-        if stripped.startswith(("yoke items create", "yoke dash \"")) or (
+        if stripped.startswith(("yoke items create", 'yoke dash "')) or (
             "$(yoke items create" in stripped
         ):
             assert ATTESTATION in stripped, (recipe, stripped)

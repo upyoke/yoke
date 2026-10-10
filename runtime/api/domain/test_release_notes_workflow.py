@@ -125,7 +125,9 @@ def test_release_creation_retries_only_http_server_errors():
 
 def test_public_operator_doc_teaches_current_release_and_verification():
     text = _DOC.read_text(encoding="utf-8")
-    assert "yoke-hosted-production" in text
+    assert "source-dev release rules](../source-dev-doctrine.md)" in text
+    source_rules = (_ROOT / "docs/source-dev-doctrine.md").read_text()
+    assert "yoke-hosted-production-release-qa" in source_rules
     assert "Treat release tags as immutable" in text
     assert "gh attestation verify ./yoke_core-*.whl" in text
     assert "oci://ghcr.io/upyoke/yoke-server@sha256:<digest>" in text

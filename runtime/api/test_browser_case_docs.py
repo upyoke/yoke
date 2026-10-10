@@ -43,13 +43,14 @@ def test_canonical_browser_docs_use_method_case_contract() -> None:
         AGENT_OVERVIEW,
         BROWSER_SUBSTRATE,
         CASE_ORCHESTRATION,
+        REPO / "docs/public/reference/browser-scenarios.md",
     )
     text = "\n".join(_read(path) for path in paths)
 
     assert "browser-check" in text
     assert "browser-inspection" in text
     assert "immutable `method_config`" in text
-    assert "`expected_outcome`" in text
+    assert "instructions, expected outcome, and `method_config`" in text
     assert "yoke qa case run" in text
     for retired in (
         "success_policy",

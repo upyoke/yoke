@@ -17,10 +17,10 @@ anchors alongside drifting line numbers.
 
 - **End-to-end:** trace trigger through UI/CLI/workflow to outcome, defaults,
   errors and help/docs. Add obvious missing requirements without redesigning.
-- **Blast radius:** actual search of callers, imports, tests/environments,
+- **Blast radius:** actual search of callers, imports, tests and environments,
   configs/scripts/docs and downstream consumers; include zero-residue ACs
   for removal/rename instead of remembered file lists.
-- **Cleanup/recovery:** identify obsolete code/tests/config/docs/shims and
+- **Cleanup/recovery:** identify obsolete code, tests, config, docs and shims and
   partial-state/failure/rollback recovery. Retain permanent migration modules.
 - **Open questions:** resolve or explicitly default decisions affecting
   interfaces, files, model or user behavior before item-artifact handoff.

@@ -22,7 +22,7 @@ active and printed recovery calls for integration, fetch verified current
 project upstream first and merge/rebase the actual declared default branch.
 No guessed main, discarded state or generated-file union without validation.
 
-Hard exit1 (tests/push/CI/other failure) retains engine cleanup/outcome. Read
+Hard exit1 (tests, push, CI or other failure) retains engine cleanup/outcome. Read
 exact phase and lane, fix current-item verification/conflict, commit, then
 resume; successful prior lanes skip. Complex/uncertain intent stops with
 paths, evidence and required operator decision, not a guessed resolution.

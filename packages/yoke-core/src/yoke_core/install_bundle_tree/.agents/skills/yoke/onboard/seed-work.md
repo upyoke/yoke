@@ -6,7 +6,7 @@ Rows: work-seeding, lifecycle-readiness, verification.
 
 ## Propose, confirm, then file
 
-Resolve issue-workflow operator instructions for the target project **before**
+Use `workflow.execution_instruction.resolve` for issue-workflow operator instructions for the target project **before**
 titles/proposals and apply them to the whole batch:
 
 ```bash

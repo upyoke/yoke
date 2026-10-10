@@ -1,6 +1,6 @@
 # Onboard Step 5: Bind The Confirmed Verification Command
 
-Independent of hosting; execute after scaffold tests/workflow actually exist.
+Independent of hosting; execute after scaffold tests and workflow actually exist.
 This applies step 2's accepted box, not a descriptive policy entry.
 
 ## Real or scaffold suite

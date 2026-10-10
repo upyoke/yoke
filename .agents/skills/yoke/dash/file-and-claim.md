@@ -54,7 +54,7 @@ yoke workflows item get ITEM --json
 Require the live Dash pin/stage; retain the stored instruction and operator
 block. Detail's content_index names exact reads for body/Progress Log rather
 than carrying duplicate narrative; use --full only for needed full sections.
-Effective required is item-scoped, required_per_task generated-task-scoped,
+Read workflows.item.get result.effective_policies. Required is item-scoped, required_per_task generated-task-scoped,
 optional off. Central compatibility/posture projection owns the answer;
 File Budget and path claims remain independent, 350 always on.
 

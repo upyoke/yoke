@@ -60,7 +60,7 @@ def test_dash_skill_carries_the_end_to_end_execution_contract():
         # Merging is a named operation, never a hand-authored git merge.
         "yoke merge item ITEM",
     ):
-        assert required in content
+        assert " ".join(required.split()) in " ".join(content.split())
     # The unnamed "merge it through the project's merge path" instruction is
     # what sent agents to hand-authored git merges; it must not come back.
     assert "through the project's normal protected merge path" not in content

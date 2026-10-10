@@ -12,12 +12,13 @@ efficiency (cheapest valuable path, no speculative temporary work), future-conce
 (shared-state primitive or absorption), codebase-reader naming (current-purpose
 surfaces without planning artifact). One-line no concerns is valid first intake.
 
-Read effective file_budget/path_claims once through workflows.item.get:
+Read result.effective_policies.file_budget and .path_claims once through workflows.item.get:
 required item, required_per_task tasks, optional off; no raw-policy reconstruction.
 Universal350 still applies. Follow [file-budget.md](file-budget.md) for the
 sole complete budget structure and current counts/sibling rules. Pair axes only
 when both enabled; claims alone derive full scope, budget alone has no claim,
 neither creates neither. Required overlapping files never disappear.
+When File Budget is off, omit that section.
 
 Enabled implementation-bearing budget follows pre-check before ACs:
 known exact file shape, UNRESOLVED unknown shape (Refine must resolve before
@@ -37,7 +38,7 @@ yoke items structured-field replace "$ITEM_REF" --field spec --source idea --std
 
 No inline payload or direct rendered-body write. Read back spec, rather than
 duplicate body+spec. Empty/title-only unexpected result retries once after
-checking live state. Standalone normalize_ac_labels reads stdin/file, not --item;
+checking live state. Standalone normalize_ac_labels reads stdin/file only;
 DB normalization belongs to the pinned planning procedure.
 
 ## 8b. Finished-spec DB claim

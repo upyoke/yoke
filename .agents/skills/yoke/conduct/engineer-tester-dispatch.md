@@ -38,7 +38,7 @@ Rehydrate through [dispatch-context-rehydrate.md](dispatch-context-rehydrate.md)
 Render the Engineer descriptor with the complete cold prompt from
 [dispatch-context-prompts.md](dispatch-context-prompts.md); use the registered
 lane, no isolation. Exact task spec and parent spec, retry feedback, QA commands,
-effective scope axes, naming/350/simplify and durable submission rules travel
+effective File Budget/path-claim axes, naming/350/simplify and durable submission rules travel
 with it. Continue immediately on return.
 
 Run [dispatch-context-gates.md](dispatch-context-gates.md)'s receipt, dirty-exit,

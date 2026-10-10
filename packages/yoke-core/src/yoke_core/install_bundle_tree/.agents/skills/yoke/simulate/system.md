@@ -2,7 +2,7 @@
 
 `--system` audits Yoke's own agents, skills, Python owners, rules, hooks and
 docs. It requires a Yoke source checkout: verify the checkout contains
-`runtime/agents/`, `packages/yoke-core/src/yoke_core/` and
+Yoke source repo only: `runtime/agents/`, `packages/yoke-core/src/yoke_core/` and
 `docs/source-dev/system-simulation.md` before reading that guide.
 
 In an installed project, stop with “--system requires a Yoke source checkout”;

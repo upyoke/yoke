@@ -63,7 +63,7 @@ print(json.dumps({
     "next_skill": next_skill,
 }))
 ' "$ITEM_STATUS") || {
- echo "Cannot refine PREFIX-{N}: the current stage is not supported by its pinned refine binding."
+ echo "Cannot refine PREFIX-N: the current stage is not supported by its pinned refine binding."
  exit 1
 }
 ```

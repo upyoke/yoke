@@ -12,6 +12,7 @@ from runtime.api.skill_doc_regressions_test_helpers import (
     SKILLS,
     _read,
     _read_bundle,
+    _read_refine_skill,
 )
 
 
@@ -70,7 +71,7 @@ class TestFileBudgetCommandsDoc:
         text = _read(commands_md)
         assert "File Budget" in text
         assert "350" in text
-        assert "file_line_check" in text
+        assert "yoke check file-line --help" in text
 
 
 class TestFileBudgetPreservesLateStageProse:
@@ -94,23 +95,31 @@ class TestFileBudgetPreservesLateStageProse:
     def test_each_file_still_invokes_file_line_check(self, files):
         for path in files:
             text = _read(path)
-            assert "file_line_check" in text, f"{path} dropped file_line_check"
+            assert "file_line_check" in text or "yoke check file-line" in text, (
+                f"{path} dropped the registered file-line checker"
+            )
 
 
 class TestFileBudgetRenderedAdaptersInSync:
     """Source agent files render cleanly to harness adapters."""
 
     def test_rendered_engineer_carries_file_budget_line(self):
-        text = _read(REPO / "runtime" / "harness" / "claude" / "agents" / "yoke-engineer.md")
+        text = _read(
+            REPO / "runtime" / "harness" / "claude" / "agents" / "yoke-engineer.md"
+        )
         assert "file_budget: PASS | SKIP" in text
 
     def test_rendered_tester_carries_backup_language(self):
-        text = _read(REPO / "runtime" / "harness" / "claude" / "agents" / "yoke-tester.md")
+        text = _read(
+            REPO / "runtime" / "harness" / "claude" / "agents" / "yoke-tester.md"
+        )
         assert "backup" in text.lower()
         assert "file_line_check" in text
 
     def test_rendered_architect_carries_file_budget_constraint(self):
-        text = _read(REPO / "runtime" / "harness" / "claude" / "agents" / "yoke-architect.md")
+        text = _read(
+            REPO / "runtime" / "harness" / "claude" / "agents" / "yoke-architect.md"
+        )
         assert "File Budget" in text
 
 
@@ -145,7 +154,10 @@ class TestFileBudgetUpstreamPropagationBundle:
         ]
         bundle = _read_bundle(*chain)
         for path in chain:
-            text = _read(path)
+            if path == SKILLS / "refine" / "SKILL.md":
+                text = _read_refine_skill(path)
+            else:
+                text = _read(path)
             assert "File Budget" in text or "file_budget" in text, (
                 f"{path} is part of the File Budget chain but does not mention it"
             )

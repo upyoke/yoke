@@ -36,7 +36,7 @@ mode threshold. Exact code authority travels through every prompt:
 Compressed bundle contains Interface Contracts Per Task, Shim Re-Export
 Contracts, File Overlap Matrix, Dependency Edges, ## Worktree Authorities
 (_worktree_list), Diff Stats Per Branch and Task Statuses. Dependencies are
-actual epic_tasks.dependencies, never a fabricated depends_on column:
+actual epic_tasks.dependencies:
 
 ```text
 yoke epic-tasks list --epic PREFIX-N --json
@@ -93,7 +93,7 @@ repair, then readback. Never use a retired source helper or repeat write for a
 different output format.
 
 `simulation_identity_mismatch` diagnoses a wrong-epic body;
-`simulation_identity_missing` diagnoses absent leading headers. Retain the
+`simulation_identity_missing` diagnoses a missing-epic body or absent leading headers. Retain the
 intended ref and report's attested ref; recover with the required leading
 SIMULATION and EPIC headers for the exact intended item. Readback failure
 retains any returned ids:

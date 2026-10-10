@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from yoke_core.domain import schema_api_context as sac
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -37,6 +39,9 @@ def test_runner_packet_creation_recipes_are_transition_bound(
     relative_path: str,
 ) -> None:
     body = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
+    role = "engineer_agent" if "engineer" in relative_path else "tester_agent"
+    assert f"yoke packets render --role {role} --topic qa --detail full" in body
+    body = sac.render_topic_packet("qa", role=role, detail="full")
     assert _REQUIRED_ADD_RECIPE in body
     assert "every row must include `workflow_transition_id`" in body
     assert (
@@ -59,13 +64,11 @@ def test_runner_packet_creation_recipes_are_transition_bound(
         ),
         (
             ".agents/skills/yoke/shepherd/boss-verdict-transitions.md",
-            '--qa-phase "verification" \\\n'
-            ' --workflow-transition "$_qa_verification_stage"',
+            "--qa-phase verification --workflow-transition QA_STAGE",
         ),
         (
             ".agents/skills/yoke/onboard/seed-work.md",
-            "--requirement-source explicit \\\n"
-            "  --workflow-transition reviewed-implementation",
+            "--requirement-source explicit --workflow-transition reviewed-implementation",
         ),
         (
             ".yoke/docs/reference/browser-scenarios.md",
@@ -78,7 +81,7 @@ def test_runner_packet_creation_recipes_are_transition_bound(
             " --workflow-transition reviewed-implementation",
         ),
         (
-            ".yoke/docs/reference/db-reference.md",
+            ".yoke/docs/reference/db-reference/qa-cli-and-body-write.md",
             "--qa-phase verification --workflow-transition reviewed-implementation",
         ),
         (
@@ -93,7 +96,11 @@ def test_authored_creation_recipes_are_transition_bound(
     required_text: str,
 ) -> None:
     body = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
-    assert required_text in body
+
+    def normalize(text: str) -> str:
+        return " ".join(text.replace("\\\n", " ").split())
+
+    assert normalize(required_text) in normalize(body)
 
 
 def test_public_batch_recipe_requires_a_binding_in_every_row() -> None:

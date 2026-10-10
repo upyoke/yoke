@@ -10,7 +10,7 @@ from typing import Iterable, Sequence
 
 
 _FENCED_RE = re.compile(
-    r"^[ \t]*```(?:bash|sh|shell)?\s*\n(.*?)^[ \t]*```",
+    r"^[ \t]*```(?:bash|sh|shell|text)?\s*\n(.*?)^[ \t]*```",
     re.MULTILINE | re.DOTALL,
 )
 _INLINE_CODE_RE = re.compile(r"`([^`\n]+)`")

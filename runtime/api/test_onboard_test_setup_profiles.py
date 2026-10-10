@@ -52,14 +52,14 @@ def test_public_map_covers_non_pytest_and_multi_suite_realities() -> None:
     archetypes = _read(REPO / "docs" / "install-onboard-archetypes" / "test-setup.md")
 
     for reality in (
-        "Maven / JUnit",
+        "Maven/JUnit",
         "PHPUnit",
         "XCTest",
         "Containerized",
         "Monorepo",
     ):
         assert reality in archetypes
-    assert "Known-red / flaky" in archetypes
+    assert "Known-red/flaky" in archetypes
     assert "quick command may intentionally cover" in qa
     assert "non-blocking `command` case" in qa
 

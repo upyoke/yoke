@@ -31,7 +31,7 @@ Read/apply before technical plan, task specs or worktree plan.
    exclude generated output from authored overlap checks.
 10. **Single responsibility.** One primary concern per task. Split unrelated
     subsystem/concern conjunctions: migrations, substantial test suite and
-    independent documentation batch need coherent ownership. Required tests/docs
+    independent documentation batch need coherent ownership. Required tests and docs
     remain covered; splitting does not silently omit them.
 11. **Semantic anchors.** Reference functions/classes/headings/variables/markers/
     unique literals, never changing source line numbers.
@@ -57,6 +57,7 @@ Read/apply before technical plan, task specs or worktree plan.
     owners and decide split or bounded additions BEFORE planning concludes. Pair
     explicit edit paths with claims only when claims enabled. Claims-off budgets
     still size/check conflict evidence; disabled budgets do not create contracts.
+    Both off: plan the full execution scope without inventing either artifact.
 
 ## Documentation File Checklist
 

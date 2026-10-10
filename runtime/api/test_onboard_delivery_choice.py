@@ -138,7 +138,9 @@ def test_archetypes_teach_current_merge_only_delivery() -> None:
         "A12-agency-greenfield.md": "confirms **merge-only**",
     }
 
-    assert "any registered empty-tier flow" in overview
+    assert "carry `target_tier` NULL, create no deployment run" in " ".join(
+        overview.split()
+    )
     assert "G-no-merge-only-default" not in ledger
     assert "any registered flow whose `target_tier` is\nempty" in ledger
     for name, phrase in expected.items():

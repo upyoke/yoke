@@ -60,10 +60,12 @@ Inconclusive with evidence. One repair executable from a complete instruction
 is Dash; acceptance agreement or generated parallel lanes calls for an item.
 Volume alone does not change that choice.
 
-Resolve the target project and read all filing instructions before drafting:
+Resolve the target project and use `workflow.execution_instruction.resolve`
+to read all filing instructions for the selected output before drafting:
 
 ```sh
-yoke workflow execution-instruction resolve --workflow {dash|issue} --project {project} --full
+yoke workflow execution-instruction resolve --workflow dash --project {project} --full
+yoke workflow execution-instruction resolve --workflow issue --project {project} --full
 ```
 
 Apply every returned instruction before the effect; the create receipt is

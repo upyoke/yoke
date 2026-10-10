@@ -63,7 +63,7 @@ gate. A descriptive `verification_profiles.test_command` is never a binding.
 1. **A surveyed command** (surveyed-command): exact native argv, e.g.
    mvn -q -DskipITs test, vendor/bin/phpunit, xcodebuild or container tests.
    Reliable quick, genuinely broader full; every tree gets a separate `test_roots` entry.
-2. **A scaffold suite** (scaffold-suite): use Pack tests/command.
+2. **A scaffold suite** (scaffold-suite): use Pack test command.
    Webapp-scaffold supplies FastAPI/Vitest/Playwright examples and ci.yml.
 3. **A review-only suite** (review-only-suite): known-red/flaky legacy roots,
    exact argv and condition retained. No quick/full/command-ci default;

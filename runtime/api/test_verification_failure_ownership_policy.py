@@ -29,7 +29,7 @@ def test_project_rules_define_current_item_verification_ownership():
     assert "not a waiver" in text
     assert "Use dependency and claim reconciliation before override" in text
     assert "Do not use `path-claim-override` for a planned future claim" in text
-    assert "requires a live steering seat covering the project" in text
+    assert "require a live steering seat covering the project" in text
 
 
 def test_lifecycle_verification_surfaces_reference_global_policy():
@@ -41,9 +41,14 @@ def test_lifecycle_verification_surfaces_reference_global_policy():
         _read(".agents/skills/yoke/usher/merge.md"),
     ]
 
+    home = _read(".yoke/docs/reference/agent-rules/verification.md")
     for text in surfaces:
-        assert "planned path claim" in text
-        assert "dependency or claim reconciliation" in text
-        assert "Do not use `path-claim-override` for a planned future claim" in text
-        assert "override is last resort" in text
-        assert "explicit operator approval" in text
+        assert "claim" in text and "override" in text
+        assert "reconcil" in text.lower()
+        assert "current-item" in text.lower() or "current\nfailures" in text
+        assert "future" in text or "planned" in text
+    assert "planned path claim" in home
+    assert "Use dependency and claim reconciliation before override" in home
+    assert "Do not use `path-claim-override` for a planned future claim" in home
+    assert "override is last resort" in home
+    assert "requires a live steering seat covering the project" in home

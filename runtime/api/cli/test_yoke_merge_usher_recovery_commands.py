@@ -174,7 +174,7 @@ def test_skills_teach_yoke_commands_not_internal_modules() -> None:
         row.source == CONDUCT_VERIFY and "timeout_portable" in row.recipe
         for row in rows.values()
     )
-    assert rows[(MERGE_SKILL, "yoke merge audit {epic-id-if-provided}")].resolution == (
+    assert rows[(MERGE_SKILL, "yoke merge audit PREFIX-N")].resolution == (
         "tool_shaped"
     )
     assert rows[(USHER_COLLECT, "yoke usher reconcile-github PREFIX-N")].resolution == (

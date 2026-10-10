@@ -34,7 +34,7 @@ resolution lost intended content. Operator investigation/current-item fix is
 required before later lanes. Report pass_count/verifiable_count and runtime
 skip count. Missing criteria skips postcheck silently after preflight's warning.
 
-Failure after rebase belongs here: halt, report failing tests/reason, resolve
+Failure after rebase belongs here: halt, report failing tests and reason, resolve
 under this item/claim, commit and resume same procedure. Future/planned owners
 do not waive it; a live conflict/decision is reported before proceeding.
 Conflict3 uses [recovery](merge-conflicts.md). Already-landed lanes reuse receipts

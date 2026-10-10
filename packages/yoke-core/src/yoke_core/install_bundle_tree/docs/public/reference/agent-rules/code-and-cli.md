@@ -7,6 +7,9 @@ teaching prose helps discovery, while registered results establish live state.
 
 ## Code conventions
 
+- Commit every completed change. Never fabricate or expand a full commit hash:
+  resolve with `git -C <checkout> rev-parse HEAD`, then verify with
+  `git -C <checkout> cat-file -e '<sha>^{commit}'`.
 - Describe failed commands systemically: missing dispatch context, stale
   references, truncated context or a teaching gap. Never attribute failure to
   "agent error/mistake" in items, commits, reflections or reports. Name the

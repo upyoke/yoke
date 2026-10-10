@@ -57,7 +57,8 @@ Both axes enabled: budget and claims must cover every required file.
 Budget off/claims on: claim the execution artifact/survey scope.
 Budget on/claims off: budget sizing and conflict evidence remains.
 Both off: neither artifact gate applies; the universal limit remains.
-Repair missing coverage before edits with `claims.path.widen`, or the
+Missing coverage is block-by-design: the worktree cannot authorize uncovered
+edits. Repair with `yoke claims path widen`, or the
 pinned authoring segment's budget repair. Required paths cannot disappear
 because another holder claims them; follow dependency and coordination rules.
 

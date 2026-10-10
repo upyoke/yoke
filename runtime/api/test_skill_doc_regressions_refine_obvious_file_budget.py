@@ -11,8 +11,12 @@ UPDATE_PROTOCOL = ROOT / ".agents" / "skills" / "yoke" / "refine" / "update-prot
 
 def test_refine_teaches_obvious_file_budget_repair_before_escalation() -> None:
     text = UPDATE_PROTOCOL.read_text(encoding="utf-8")
-    assert "Obvious File Budget repair" in text
-    assert "one obvious live owner" in text
-    assert "widen the path claim" in text
-    assert "Escalate only" in text
-    assert "multiple plausible owners" in text
+    assert (
+        "single verified missing live owner in the same project/target/behavior scope"
+        in text
+    )
+    assert "obvious repair: add budget row and widen only if claims enabled" in text
+    assert (
+        "Multiple plausible owners, changed scope or ambiguous overlap escalates"
+        in text
+    )

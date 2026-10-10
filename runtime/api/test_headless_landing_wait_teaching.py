@@ -299,8 +299,8 @@ def test_watcher_teaching_surfaces_name_the_split_not_a_blanket_ban():
 
 def test_command_reference_conditions_any_later_completion_message():
     for path in (COMMAND_REFERENCE, BUNDLE_COMMAND_REFERENCE):
-        content = _words(_read(path))
-        assert "The shared selector reads the caller's manifest wake capability" in (
+        content = _words(_read(path)).lower()
+        assert "the shared selector reads the caller's manifest wake capability" in (
             content
         )
         assert "a native idle-wake primitive gets the background subscription" in (

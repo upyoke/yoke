@@ -8,7 +8,8 @@ Target harness manifests own available tools/hooks. Source maintainers use
 `docs/harness-bootstrap.md` and `docs/hook-parity-map.md` for those contracts.
 
 The universal authored-file limit is 350 lines, enforced where files are
-readable by pre-commit, survey and Doctor. File Budget and path claims are
+readable by pre-commit, survey and Doctor. Active work-claim rows authorize
+registered lanes. File Budget and path claims are
 independent effective workflow policies; parity applies only when both are
 enabled. Turning either off does not waive the file limit. Read
 `yoke check file-line --help` for its classified source checks.
@@ -155,7 +156,10 @@ Queue projects require the PR's exact combined merge-group proof. A headless
 landing handoff preserves claim and evidence for the control-plane notice;
 re-enter the same merge boundary after wake. Other callers use the manifest
 selected streaming/wait command and keep its handle through exit. No local
-GitHub polling or unchanged failed-train retries. See
+GitHub polling or unchanged failed-train retries. The shared selector reads the
+caller's manifest wake capability: a native idle-wake primitive gets the
+background subscription; no or unverified idle wake gets one foreground command.
+Rely on a later completion message only when the selector chose background-wake. See
 [queue recovery](merge-queue-landings.md) and `usher/merge.md` before merging.
 
 Deploy-free routes complete without a run. Managed routes hold the deployment

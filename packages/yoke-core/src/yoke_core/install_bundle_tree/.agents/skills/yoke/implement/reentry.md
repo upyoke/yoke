@@ -11,10 +11,13 @@ elif [ "$_worktree_policy" = "single_implementation_lane" ]; then
  _wt_branch=$(yoke item-worktrees get PREFIX-N --lane-role implementation --field branch)
  _wt_path=$(yoke item-worktrees get PREFIX-N --lane-role implementation --field path)
 else
- echo "Blocked: live binding does not belong to single-lane Implement."
+ echo "CONTRACT ERROR: live binding does not belong to single-lane Implement."
  exit 1
 fi
 ```
+
+On that contract error, stop this segment. Run the skill its pinned binding
+names for the live stage; never choose a remembered workflow command.
 
 | Registered state | Action |
 |---|---|

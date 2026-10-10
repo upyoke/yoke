@@ -36,7 +36,7 @@ Execution levels decide launches, with operator approval for every change.
 
 ## Entry
 
-Registered function ids and claim policy: [runtime catalog](../../../../.yoke/docs/reference/db-reference/functions-runtime.md).
+Registered function ids and claim policy: [service catalog](../../../../.yoke/docs/reference/db-reference/functions-runtime.md).
 
 Read-only lookup/get/validate/diff/revisions needs no Dash:
 

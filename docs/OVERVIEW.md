@@ -59,7 +59,8 @@ sections. Read `yoke items get PREFIX-N body`; use registered structured writes.
 Session checkpoints belong in Progress Log, not generated task-graph fields on
 a workflow with no children. `.yoke/BOARD.md` is a generated view; rebuild it
 explicitly with `yoke board rebuild` (`--print` / `--print-only`). Never edit it
-or rendered strategy views as authoritative content.
+or rendered strategy views as authoritative content. Board appearance and scope
+are governed by `project-policy.settings.board`, not the generated view.
 
 ## Project adoption and reusable capabilities
 

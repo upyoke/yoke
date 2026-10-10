@@ -9,7 +9,7 @@ a reasonable operator would expect even when the AC omitted them.
 Code and documentation describe the present. Keep non-obvious WHY comments;
 remove historical amendments, completed TODOs and zero-consumer compatibility
 shims, aliases and reexports. Delete orphaned helpers, obsolete fixtures,
-dead tests/config/flags/docs, unreachable branches and impossible-state or
+dead tests, config, flags and docs, unreachable branches and impossible-state or
 imaginary fallbacks. **Permanent ordered migration modules remain:** an
 installation that never received one still needs it. Read the governed
 database contract before migration changes; remove unused compatibility code
