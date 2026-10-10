@@ -1,4 +1,4 @@
-# Structured Events Pack 4.2.0
+# Structured Events Pack 4.3.0
 
 Python and TypeScript envelopes, first/last-touch attribution,
 a signed server-set visitor cookie, SPA views, retrying batches, and an anonymous
@@ -24,6 +24,11 @@ page_url, page_path and referrer.
 
 Referrers from the own site domain or a sign-in provider listed in
 excluded_referrer_domains are internal and never become a touch.
+
+The collector stamps each accepted event with its own receipt time; store
+received_at as the row time and keep the client event_time as a claim. An
+optional recordRefusal sink receives each refusal kind at most once per minute
+as disposable diagnostics.
 
 Verified cookie reads and signed, one-time cross-origin sign-in hand-offs are
 server-only APIs; supply durable atomic nonce storage. See the integration

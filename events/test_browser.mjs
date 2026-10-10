@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAttributionHandler, createCollector } from './api-route.ts';
+import { CLIENT_TIME_TOLERANCE_SECONDS, createAttributionHandler, createCollector } from './api-route.ts';
 import rules from './attribution_rules.json' with { type: 'json' };
 import { sanitizeUrl, isBot } from './events_attribution.ts';
 
@@ -199,6 +199,43 @@ test('anonymous collector rejects wrong key/origin, honors rate limits and sanit
   assert.equal((await handler(request('public', 'https://app.example.com', [null]))).status, 400);
   assert.equal(sanitizeUrl('https://user:password@example.com/?TOKEN=x&tab=all#secret'), 'https://example.com/?tab=all');
   assert.equal(isBot('Mozilla/5.0'), false);
+});
+
+test('collector stamps receipt time and records each refusal kind once per minute', async () => {
+  const writes = [], refusals = [];
+  const handler = createCollector({ ...base, rateLimit: async () => 0,
+    writeEvents: async events => { writes.push(events); }, recordRefusal: async refusal => { refusals.push(refusal); } });
+  const event = (time, extra = {}) => ({ event_id: crypto.randomUUID(), event_name: 'PageViewed', event_kind: 'analytics',
+    event_type: 'page_view', event_time: time, session_id: 'session', source_type: 'frontend', ...extra });
+  const send = (events, origin = 'https://app.example.com') => handler(new Request('https://app.example.com/api/events', {
+    method: 'POST', headers: { Origin: origin, 'X-Events-Key': 'public', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ events }),
+  }));
+  const before = Date.now();
+  const forged = event('2020-01-01T00:00:00Z', { received_at: '1999-01-01T00:00:00Z', client_time_skewed: false });
+  assert.equal((await send([event(new Date().toISOString()), forged])).status, 200);
+  const [current, skewed] = writes[0];
+  assert.ok(Date.parse(skewed.received_at) >= before - 1000);
+  assert.equal(skewed.event_time, '2020-01-01T00:00:00Z');
+  assert.equal(skewed.client_time_skewed, true);
+  assert.ok(skewed.client_time_offset_seconds < -CLIENT_TIME_TOLERANCE_SECONDS);
+  assert.equal(current.client_time_skewed, false);
+  for (let index = 0; index < 20; index += 1) assert.equal((await send([event(new Date().toISOString())], `https://evil-${index}.com`)).status, 403);
+  assert.equal((await send([null])).status, 400);
+  assert.deepEqual(refusals.map(r => [r.reason, r.status, r.route]), [['origin_not_allowed', 403, '/api/events'], ['envelope_invalid', 400, '/api/events']]);
+  assert.equal(refusals[0].origin, 'https://evil-0.com');
+  assert.equal(refusals[0].host, 'app.example.com');
+  const warn = console.warn, warnings = [];
+  console.warn = (...values) => warnings.push(values.join(' '));
+  try {
+    const failing = createCollector({ ...base, rateLimit: async () => 0, writeEvents: async () => {},
+      recordRefusal: async () => { throw new Error('sink down'); } });
+    const refused = await failing(new Request('https://app.example.com/api/events', { method: 'POST',
+      headers: { Origin: 'https://app.example.com', 'X-Events-Key': 'wrong' }, body: '{}' }));
+    assert.equal(refused.status, 401);
+    assert.equal((await refused.json()).error, 'publishable_key_invalid');
+    assert.ok(warnings.some(line => line.includes('collector_refusal_record_failed')));
+  } finally { console.warn = warn; }
 });
 
 

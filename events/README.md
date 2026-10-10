@@ -96,6 +96,13 @@ createAttributionHandler. Wire POST /api/events and GET/POST
   deletes client actor/org ids. Client attribution is untrusted telemetry.
 - signingSecret and siteDomain for attribution. Capture requires a site URL
   and referrer. Cookies require HTTPS.
+- Optional recordRefusal, a disposable diagnostic sink. Every handler passes it
+  {refusal_id, reason, status, route, origin, host, window_start} at most once
+  per refusal kind (reason, status, route) per minute in each process; store it
+  deduplicated by refusal_id so all processes keep one row per kind per minute.
+  It never receives a request body, cookie, key or client address, the Origin
+  is truncated to 200 characters, and a failing sink logs
+  collector_refusal_record_failed while the caller still gets its refusal.
 
 Anonymous frontend analytics need no bearer token. Origin/key checks prevent
 accidental and drive-by writes, not forged non-browser requests. Backend/audit/
@@ -108,6 +115,13 @@ envelope, session_id and ISO event_time. Refusals include publishable_key_invali
 envelope_invalid (400), payload_too_large/event_too_large (413),
 collector_unavailable (503). Each names recovery. Failed sinks return failure,
 never accepted. Retry with the same event ids for dedupe.
+
+The collector stamps every accepted envelope with received_at (its own receipt
+time), client_time_offset_seconds (event_time minus receipt; negative when the
+event was queued or the client clock runs behind) and client_time_skewed (true
+beyond CLIENT_TIME_TOLERANCE_SECONDS, 300). Store received_at as the row time
+so ordering and time-based reports never depend on a browser clock; event_time
+stays in the envelope as the client's claim. Skewed events are still accepted.
 
 ## Delivery and privacy
 

@@ -1,6 +1,6 @@
 # JS/TS frontend template
 
-Install [Structured Events Pack 4.2.0](../../packs/structured-events/versions/4.2.0/files/events/README.md),
+Install [Structured Events Pack 4.3.0](../../packs/structured-events/versions/4.3.0/files/events/README.md),
 including all sibling modules and attribution_rules.json. The executable Pack
 is the template; this standard does not duplicate its code.
 
