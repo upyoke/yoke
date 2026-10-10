@@ -104,10 +104,15 @@ def test_python_matches_browser_rules():
 
 
 def test_first_touch_never_overwritten_and_last_touch_updates():
-    direct = capture_touch("https://example.com", "", "example.com", "first")
+    direct = capture_touch(
+        "https://example.com", "", "example.com", "2026-01-01T00:00:00.000001Z"
+    )
     first = update_attribution(None, direct, "visitor")
     organic = capture_touch(
-        "https://example.com", "https://google.co.uk", "example.com", "second"
+        "https://example.com",
+        "https://google.co.uk",
+        "example.com",
+        "2026-01-01T00:00:00.000002Z",
     )
     second = update_attribution(first, organic, "ignored")
     assert second["visitor_id"] == "visitor"

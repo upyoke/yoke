@@ -9,7 +9,7 @@ from yoke_core.domain.builtin_workflow_canon import (
     canon_generations,
     recognize,
 )
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.workflow_definition_codec import (
     WorkflowRegistryError,
     decode_definition,
@@ -83,7 +83,7 @@ def set_current_workflow_version(
         f"UPDATE workflows SET current_version_id = {bind}, {stop_following}"
         f"canon_adopted_from_version = NULL, updated_at = {bind} "
         f"WHERE id = {bind}",
-        (int(target["id"]), iso8601_now(), workflow_id),
+        (int(target["id"]), instant_parameter(conn, utc_now()), workflow_id),
     )
     conn.commit()
     return {

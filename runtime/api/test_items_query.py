@@ -3,6 +3,8 @@ insert_item, and update_item_field."""
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import os
 import sys
 
@@ -120,26 +122,26 @@ class TestQueryItem:
         try:
             conn.execute(
                 "UPDATE items SET merge_queue_enqueued_at = %s WHERE id = %s",
-                ("2026-08-27T18:00:00Z", 1),
+                (parse_instant("2026-08-27T18:00:00.123456Z"), 1),
             )
             conn.commit()
         finally:
             conn.close()
         assert query_item(1, "merge_queue_status", db_path=db_with_item) == (
-            "in merge queue since 2026-08-27T18:00:00Z"
+            "in merge queue since 2026-08-27T18:00:00.123456Z"
         )
 
         conn = connect_test_db(db_with_item)
         try:
             conn.execute(
                 "UPDATE items SET merge_queue_landed_at = %s WHERE id = %s",
-                ("2026-08-27T18:05:00Z", 1),
+                (parse_instant("2026-08-27T18:05:00.654321Z"), 1),
             )
             conn.commit()
         finally:
             conn.close()
         assert query_item(1, "merge_queue_status", db_path=db_with_item) == (
-            "merge queue landed at 2026-08-27T18:05:00Z; close-out pending"
+            "merge queue landed at 2026-08-27T18:05:00.654321Z; close-out pending"
         )
 
 

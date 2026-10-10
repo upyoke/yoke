@@ -30,7 +30,7 @@ from __future__ import annotations
 import json
 
 from yoke_core.domain.db_backend import connection_is_postgres
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 
 CI_WORKFLOW_CAPABILITY_TYPE = "ci_workflow_file"
@@ -68,8 +68,8 @@ CI_WORKFLOW_CAPABILITY_TEMPLATE: tuple[str, str, str, str, str] = (
                 "key": "scope_workflows",
                 "description": (
                     "Optional map of verification scope to the workflow "
-                    "filename that runs it (e.g. {\"smoke\": "
-                    "\"post-deploy.yml\"}). Naming a workflow for a scope "
+                    'filename that runs it (e.g. {"smoke": '
+                    '"post-deploy.yml"}). Naming a workflow for a scope '
                     "declares that scope reachable from CI for this project, "
                     "which is how a deployed-environment suite runs where its "
                     "credentials live. Scopes left unmapped keep their "
@@ -114,8 +114,14 @@ def _insert_template(conn, template: tuple[str, str, str, str, str]) -> None:
         "(id, name, description, required_config, requires, created_at) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}) "
         "ON CONFLICT(id) DO NOTHING",
-        (tmpl_id, tmpl_name, tmpl_desc, tmpl_config, tmpl_requires,
-         iso8601_now()),
+        (
+            tmpl_id,
+            tmpl_name,
+            tmpl_desc,
+            tmpl_config,
+            tmpl_requires,
+            instant_parameter(conn, utc_now()),
+        ),
     )
     conn.commit()
 

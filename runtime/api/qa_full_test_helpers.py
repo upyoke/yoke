@@ -40,8 +40,8 @@ _QA_SUPPORT_SCHEMA = """
         priority TEXT NOT NULL DEFAULT 'medium',
         project_id INTEGER NOT NULL DEFAULT 1,
         project_sequence INTEGER NOT NULL,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL,
         source TEXT NOT NULL DEFAULT '2'
     );
     INSERT INTO items (id, title, status, project_id, project_sequence, created_at, updated_at)

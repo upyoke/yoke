@@ -13,6 +13,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
+from yoke_contracts.timestamps import InvalidInstant
+from yoke_core.engines.merge_worktree_landing_state import PrLandingState
+
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS as PR_READ,
     GITHUB_PULL_REQUESTS_WRITE_PERMISSION_LEVELS as PR_WRITE,
@@ -232,21 +235,6 @@ def dequeue_pull_request(
     )
 
 
-@dataclass(frozen=True)
-class PrLandingState:
-    """Merged/closed facts for one PR, read for queue-outcome polling."""
-
-    merged: bool
-    closed: bool
-    auto_merge_active: bool
-    merge_state_status: str = ""
-    head_sha: str = ""
-    #: When GitHub merged it, so a reader that arrives late records the
-    #: landing's own moment rather than the moment it noticed.
-    merged_at: str = ""
-    merge_commit_sha: str = ""
-
-
 def read_pr_landing_state(
     ctx: MergeContext, pr_num: str
 ) -> tuple[Optional[PrLandingState], Optional[str]]:
@@ -268,18 +256,21 @@ def read_pr_landing_state(
     body = response.body if isinstance(response.body, dict) else {}
     head = body.get("head")
     head_sha = str(head.get("sha") or "").strip() if isinstance(head, dict) else ""
-    return (
-        PrLandingState(
+    try:
+        state = PrLandingState(
             merged=bool(body.get("merged")),
             closed=str(body.get("state") or "") == "closed",
             auto_merge_active=body.get("auto_merge") is not None,
             merge_state_status=str(body.get("mergeable_state") or "").lower(),
             head_sha=head_sha,
-            merged_at=str(body.get("merged_at") or "").strip(),
+            merged_at=None
+            if body.get("merged_at") in (None, "")
+            else body["merged_at"],
             merge_commit_sha=str(body.get("merge_commit_sha") or "").strip(),
-        ),
-        None,
-    )
+        )
+    except InvalidInstant:
+        return None, "github pr read contains an invalid merge clock"
+    return state, None
 
 
 def read_queue_members(

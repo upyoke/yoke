@@ -1,12 +1,7 @@
-"""Seed an already-frozen deployment run for scoped (schema-2) QA stages.
+"""Seed an already-admitted, frozen schema-2 deployment run for scoped QA.
 
-The serving runtime's own creation-time gate (``require_supported_defini
-tion_schema``) refuses to START a new run against a schema-2 (QA-stage)
-flow through ``deployment_runs.create`` at all — a deliberate gate: "keep
-the definition disabled until the matching runtime is deployed." Tests
-that execute a real scoped-QA stage (``deploy_pipeline.run_pipeline`` or the
-materialize/gate calls directly) seed an already-admitted, already-frozen
-run instead, as this module and ``test_deployment_qa_stage_execution.py`` do.
+Creation refuses disabled definitions; these fixtures test execution of a run
+that was admitted before the runtime gate, retaining its frozen stage binding.
 """
 
 from __future__ import annotations
@@ -15,8 +10,9 @@ import json
 from typing import Any
 
 from runtime.api.fixtures.backlog_inserts import insert_item
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from runtime.api.fixtures.deployment_run_driver_fixture import attach_seeded_driver
-from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.deployment_requirement_snapshots import (
     requirement_selection,
     snapshot_flow_requirements,
@@ -64,11 +60,11 @@ def seed_frozen_scoped_qa_run(
     "executing" transition, so the seeded row is indistinguishable from
     one that arrived here through the normal execution lifecycle.
     """
+    now = instant_parameter(conn, utc_now())
     project_id = resolve_project_id(conn, project)
     flow_snapshot = snapshot_flow_requirements(
         conn, flow_id=flow, project_id=project_id, stages=stages
     )
-    now = iso8601_now()
     conn.execute(
         "INSERT INTO deployment_runs("
         "id,project_id,flow,release_lineage,status,current_stage,created_at,"
@@ -130,8 +126,8 @@ def seed_run_standing_on_qa_stage(
         complete_deployment_stage_receipt,
     )
 
+    now = instant_parameter(conn, utc_now())
     project_id = resolve_project_id(conn, project)
-    now = iso8601_now()
     conn.execute(
         "INSERT INTO environments(site,project_id,name,url,settings,created_at) "
         "SELECT id,%s,%s,%s,'{}',%s FROM sites "
@@ -303,7 +299,6 @@ def record_case_verdict(
     """Record one verdict through the production write path, with or without
     the evidence the gate looks for."""
     from yoke_core.domain.qa_run_verdict_record import insert_qa_run
-
     from yoke_core.domain.qa_requirement_pass_currency import (
         stamp_executed_method_config,
     )
@@ -317,7 +312,7 @@ def record_case_verdict(
         requirement["method_config"],
         execution_target_digest=requirement["execution_target_digest"],
     )
-    now = "2026-09-18T00:02:00Z"
+    now = parse_instant("2026-09-18T00:02:00Z")
     qa_run_id = insert_qa_run(
         conn,
         qa_requirement_id=int(requirement_id),
@@ -333,7 +328,11 @@ def record_case_verdict(
         conn.execute(
             "INSERT INTO qa_artifacts(qa_run_id,artifact_type,content_type,"
             "artifact_handle,created_at) VALUES (%s,'log','application/json',%s,%s)",
-            (qa_run_id, f"evidence://requirement-{requirement_id}", now),
+            (
+                qa_run_id,
+                f"evidence://requirement-{requirement_id}",
+                instant_parameter(conn, now),
+            ),
         )
     conn.commit()
     return qa_run_id

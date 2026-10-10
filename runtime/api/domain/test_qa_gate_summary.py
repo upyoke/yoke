@@ -227,7 +227,7 @@ def test_waived_requirement_treated_as_satisfied(qa_db):
     assert summary["satisfied"] is True
     [req] = summary["requirements"]
     assert req["satisfied"] is True
-    assert req["waived_at"] == "2026-05-07T02:00:00Z"
+    assert req["waived_at"] == "2026-05-07T02:00:00.000000Z"
 
 
 def test_non_blocking_unsat_does_not_count_in_blocking_total(qa_db):

@@ -17,10 +17,11 @@ import sys
 from typing import List, Optional
 
 from yoke_contracts.machine_qa_execution import AGENT_MISSION_ARTIFACT_LIMIT
+from yoke_contracts.timestamps import utc_now
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import (
     connect,
-    iso8601_now,
+    instant_parameter,
     query_one,
     query_rows,
 )
@@ -135,7 +136,7 @@ def attach_linked_screenshot(
             _SCREENSHOT_CONTENT_TYPES.get(extension, "application/octet-stream"),
             handle,
             None,
-            iso8601_now(),
+            instant_parameter(conn, utc_now()),
         ),
     )
 
@@ -221,7 +222,14 @@ def cmd_artifact_add(
         cur = conn.execute(
             """INSERT INTO qa_artifacts (qa_run_id, artifact_type, content_type, artifact_handle, metadata, created_at)
                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
-            (run_id, artifact_type, content_type, handle_text, metadata, iso8601_now()),
+            (
+                run_id,
+                artifact_type,
+                content_type,
+                handle_text,
+                metadata,
+                instant_parameter(conn, utc_now()),
+            ),
         )
         inserted_id = int(cur.fetchone()[0])
         conn.commit()

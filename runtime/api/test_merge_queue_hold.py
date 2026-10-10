@@ -51,7 +51,7 @@ def _readiness(
         closed=merged,
         auto_merge_active=armed,
         head_sha=LANE_HEAD,
-        merged_at="2026-09-15T00:00:00Z" if merged else "",
+        merged_at="2026-09-15T00:00:00Z" if merged else None,
         merge_commit_sha=MERGE_COMMIT if merged else "",
     )
     members = [QueueMember(pr_num=PR, head_ref="PRJ-9", state="AWAITING_CHECKS")]

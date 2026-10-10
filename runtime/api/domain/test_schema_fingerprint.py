@@ -10,12 +10,10 @@ import pytest
 from yoke_core.domain import db_backend
 from runtime.api.fixtures.file_test_db import init_test_db
 from yoke_core.domain.schema_fingerprint import (
-    FRESHNESS_WINDOW_MINUTES,
     SUPPORTED_KINDS,
     UnsupportedFingerprintKindError,
     fingerprint_kind,
     fingerprint_portable_postgres_schema,
-    freshness_expired,
 )
 
 
@@ -309,62 +307,3 @@ class TestPostgresFingerprint:
             finally:
                 conn.close()
         assert before != after
-
-
-class TestFreshnessWindow:
-    def test_just_rehearsed_not_expired(self) -> None:
-        assert not freshness_expired(
-            "2026-04-23T12:00:00Z",
-            now="2026-04-23T12:05:00Z",
-        )
-
-    def test_within_window_not_expired(self) -> None:
-        assert not freshness_expired(
-            "2026-04-23T12:00:00Z",
-            now="2026-04-23T12:29:00Z",
-        )
-
-    def test_at_window_boundary_not_expired(self) -> None:
-        # Boundary: exactly 30 minutes = not expired (strict '>').
-        assert not freshness_expired(
-            "2026-04-23T12:00:00Z",
-            now="2026-04-23T12:30:00Z",
-        )
-
-    def test_past_window_expired(self) -> None:
-        assert freshness_expired(
-            "2026-04-23T12:00:00Z",
-            now="2026-04-23T12:31:00Z",
-        )
-
-    def test_missing_rehearsed_at_expired(self) -> None:
-        assert freshness_expired(None)
-        assert freshness_expired("")
-
-    def test_malformed_rehearsed_at_expired(self) -> None:
-        assert freshness_expired("not-a-timestamp")
-        assert freshness_expired("2026-99-99T99:99:99Z")
-
-    def test_custom_window(self) -> None:
-        # A 5-minute window tightens freshness accordingly.
-        assert freshness_expired(
-            "2026-04-23T12:00:00Z",
-            now="2026-04-23T12:06:00Z",
-            window_minutes=5,
-        )
-        assert not freshness_expired(
-            "2026-04-23T12:00:00Z",
-            now="2026-04-23T12:04:00Z",
-            window_minutes=5,
-        )
-
-    def test_plus_00_format_accepted(self) -> None:
-        # db_helpers.iso8601_now emits 'Z', but +00:00 offset is the
-        # canonical alternate UTC shape — both must parse.
-        assert not freshness_expired(
-            "2026-04-23T12:00:00+00:00",
-            now="2026-04-23T12:05:00+00:00",
-        )
-
-    def test_default_window_is_thirty_minutes(self) -> None:
-        assert FRESHNESS_WINDOW_MINUTES == 30

@@ -8,7 +8,10 @@ place, without that place having to ship its logs anywhere.
 
 from __future__ import annotations
 
-from datetime import timedelta
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+
+from datetime import datetime, timedelta
 from time import monotonic, sleep
 from typing import Any, Mapping
 from uuid import uuid4
@@ -29,7 +32,6 @@ from yoke_core.domain.actor_permissions import (
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
     row_dict,
-    timestamp,
 )
 from yoke_core.domain.session_relay_storage import marker
 from yoke_core.domain.session_relay_types import SessionRelayError
@@ -60,7 +62,7 @@ def _live_row(
     return row_dict(row) if row is not None else None
 
 
-def expire_stale_evidence_requests(conn: Any, *, now: str) -> None:
+def expire_stale_evidence_requests(conn: Any, *, now: datetime | str) -> None:
     """Release dead leases and retire requests nobody is waiting on any more."""
     p = marker(conn)
     current = parse_timestamp(now)
@@ -71,15 +73,17 @@ def expire_stale_evidence_requests(conn: Any, *, now: str) -> None:
     conn.execute(
         "UPDATE session_evidence_fetches SET state='pending',lease_id=NULL,"
         f"lease_expires_at=NULL WHERE state='leased' AND lease_expires_at<={p}",
-        (now,),
+        (instant_parameter(conn, parse_instant(now)),),
     )
     conn.execute(
         "UPDATE session_evidence_fetches SET state='expired',completed_at="
         + p
         + f",result_code='not_found' WHERE state='pending' AND requested_at<={p}",
         (
-            now,
-            timestamp(current - timedelta(seconds=EVIDENCE_REQUEST_TTL_SECONDS)),
+            instant_parameter(conn, parse_instant(now)),
+            instant_parameter(
+                conn, current - timedelta(seconds=EVIDENCE_REQUEST_TTL_SECONDS)
+            ),
         ),
     )
 
@@ -94,7 +98,7 @@ def request_evidence_fetch(
     file_name: str | None,
     evidence_id: str | None,
     tail_lines: int,
-    now: str,
+    now: datetime | str,
 ) -> dict[str, Any]:
     """Record one bounded read for the machine that owns the target session."""
     from yoke_core.domain.session_steering_authority import session_control_target
@@ -156,7 +160,7 @@ def request_evidence_fetch(
             diagnostic_ref,
             int(tail_lines),
             "pending",
-            now,
+            instant_parameter(conn, parse_instant(now)),
             int(actor_id),
             caller_session_id,
         ),

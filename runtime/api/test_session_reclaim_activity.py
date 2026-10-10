@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain.session_reclaim_activity import (
     REASON_ENDED,
     REASON_FRESH,
@@ -22,7 +24,7 @@ from yoke_core.domain.session_reclaim_progress import (
 from runtime.api.test_sessions import _register, conn  # noqa: F401  (pytest fixture)
 from runtime.api.sessions_api_stale_test_helpers import (
     _ago_minutes,
-    _now_literal,
+    _now_instant,
 )
 from yoke_core.domain.work_claim_targets import make_item_target
 
@@ -43,7 +45,7 @@ def _seed_session(
 ):
     _register(conn, session_id=session_id, executor=executor)
     heartbeat_ts = (
-        _ago_minutes(heartbeat_ago_min) if heartbeat_ago_min > 0 else _now_literal()
+        _ago_minutes(heartbeat_ago_min) if heartbeat_ago_min > 0 else _now_instant()
     )
     conn.execute(
         """UPDATE harness_sessions
@@ -93,7 +95,9 @@ def test_episode_progress_requires_tool_activity_and_uses_current_boundary():
     current_episode = "2026-08-24T14:00:00Z"
 
     assert current_episode_progress_stamp(None, current_episode) is None
-    assert current_episode_progress_stamp(old_tool, current_episode) == current_episode
+    assert current_episode_progress_stamp(old_tool, current_episode) == parse_instant(
+        current_episode
+    )
 
 
 class TestReadActivitySignals:
@@ -139,7 +143,7 @@ class TestReadActivitySignals:
 class TestClassifyReclaimable:
     def test_ended_session_is_reclaimable(self, conn_with_events):
         c = conn_with_events
-        _seed_session(c, "ended-sess", heartbeat_ago_min=2, ended_at=_now_literal())
+        _seed_session(c, "ended-sess", heartbeat_ago_min=2, ended_at=_now_instant())
         _emit_tool_event(c, "ended-sess", ago_minutes=1)
 
         result = classify_reclaimable(c, "ended-sess")

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import format_instant, iso8601_now, parse_instant
 import json
 from typing import Any
 
@@ -51,7 +51,11 @@ def queued_host_turns(conn: Any, machine: str) -> list[dict[str, Any]]:
         if wait and wait.get("machine") == machine:
             queued.append({**dict(row), "wait": wait})
     return sorted(
-        queued, key=lambda row: (row["wait"]["queued_at"], row["execution_order"])
+        queued,
+        key=lambda row: (
+            parse_instant(row["wait"]["queued_at"]),
+            row["execution_order"],
+        ),
     )
 
 
@@ -148,9 +152,9 @@ def record_host_wait(
         "machine": machine,
         "rationale": rationale,
         "queued_at": (
-            previous["queued_at"]
+            format_instant(parse_instant(previous["queued_at"]))
             if previous and previous["machine"] == machine
-            else datetime.now(timezone.utc).isoformat()
+            else iso8601_now()
         ),
         "resume_command": continuation_recipe(conn, execution).removesuffix(
             " --continue-mission"

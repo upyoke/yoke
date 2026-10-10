@@ -32,16 +32,16 @@ CREATE TABLE harness_sessions (
     executor_version TEXT, machine_id TEXT,
     workspace TEXT,
     mode TEXT NOT NULL DEFAULT 'wait',
-    offered_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    ended_at TEXT,
+    offered_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    ended_at TIMESTAMPTZ,
     offer_envelope TEXT,
     current_item_id TEXT DEFAULT NULL,
-    current_item_set_at TEXT DEFAULT NULL,
+    current_item_set_at TIMESTAMPTZ DEFAULT NULL,
     recent_item_id TEXT DEFAULT NULL,
     recent_item_status TEXT DEFAULT NULL,
-    recent_item_recorded_at TEXT DEFAULT NULL,
-    native_process_gone_at TEXT DEFAULT NULL,
+    recent_item_recorded_at TIMESTAMPTZ DEFAULT NULL,
+    native_process_gone_at TIMESTAMPTZ DEFAULT NULL,
     native_process_gone_evidence TEXT DEFAULT NULL,
     actor_id INTEGER DEFAULT NULL
 );
@@ -54,9 +54,9 @@ CREATE TABLE work_claims (
     target_kind TEXT NOT NULL CHECK({TARGET_KIND_CHECK_SQL}),
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
-    claimed_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    released_at TEXT,
+    claimed_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    released_at TIMESTAMPTZ,
     release_reason TEXT CHECK(release_reason IS NULL OR release_reason IN ('completed','released','reclaimed','handed_off','expired','session_ended')),
     reason TEXT DEFAULT NULL,
     reason_intent TEXT DEFAULT NULL,
@@ -71,7 +71,7 @@ CREATE TABLE events (
     event_type TEXT NOT NULL DEFAULT '',
     event_outcome TEXT NOT NULL DEFAULT '',
     source_type TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
     client_timing_id TEXT,
     envelope TEXT NOT NULL DEFAULT '{}'
 );
@@ -96,7 +96,7 @@ CREATE TABLE path_claims (
     owner_kind TEXT,
     owner_item_id INTEGER,
     integration_target TEXT NOT NULL DEFAULT '',
-    registered_at TEXT NOT NULL DEFAULT ''
+    registered_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 """
 
@@ -110,8 +110,8 @@ CREATE TABLE strategy_docs (
     project_id INTEGER NOT NULL,
     slug TEXT NOT NULL,
     content TEXT NOT NULL DEFAULT '',
-    updated_at TEXT NOT NULL,
-    archived_at TEXT
+    updated_at TIMESTAMPTZ NOT NULL,
+    archived_at TIMESTAMPTZ
 );
 """
 
@@ -200,7 +200,9 @@ def scheduler_db(tmp_path):
                    (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                     project_sequence, created_at, updated_at, source, frozen)
                    VALUES ({p}, {p}, {p}, {p}, {p}, {p}, 1,
-                           {p}, '2026-03-01', '2026-03-01', 'user', 0)""".format(p=p),
+                           {p}, '2026-03-01T00:00:00.000000Z', '2026-03-01T00:00:00.000000Z', 'user', 0)""".format(
+                    p=p
+                ),
                 (
                     item_id,
                     title,
@@ -228,6 +230,8 @@ def seed_strategy_docs(conn, project_id: int) -> None:
         conn.execute(
             """INSERT INTO strategy_docs
                (id, project_id, slug, content, updated_at)
-               VALUES ({p}, {p}, {p}, {p}, '2026-03-01')""".format(p=p),
+               VALUES ({p}, {p}, {p}, {p}, '2026-03-01T00:00:00.000000Z')""".format(
+                p=p
+            ),
             (project_id * 100 + offset, project_id, slug, f"# {slug}\n"),
         )

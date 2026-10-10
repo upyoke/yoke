@@ -37,7 +37,7 @@ _MINIMAL_SCHEMA_DDL = """
         id INTEGER PRIMARY KEY,
         project_id INTEGER NOT NULL REFERENCES projects(id),
         name TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
         settings TEXT DEFAULT '{}',
         UNIQUE(id, project_id),
         UNIQUE(project_id, name)
@@ -49,8 +49,8 @@ _MINIMAL_SCHEMA_DDL = """
         project_id INTEGER NOT NULL REFERENCES projects(id),
         name TEXT NOT NULL,
         url TEXT,
-        last_deployed_at TEXT,
-        created_at TEXT NOT NULL DEFAULT '',
+        last_deployed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
         settings TEXT DEFAULT '{}',
         UNIQUE(project_id, name),
         FOREIGN KEY(site, project_id) REFERENCES sites(id, project_id)
@@ -86,7 +86,7 @@ _MINIMAL_SCHEMA_DDL = """
         project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),
         project_sequence INTEGER NOT NULL DEFAULT 0,
         deployment_flow TEXT,
-        merged_at TEXT
+        merged_at TIMESTAMPTZ
     );
 
     CREATE TABLE IF NOT EXISTS item_dependencies (

@@ -11,6 +11,8 @@ from typing import Any, Dict, Optional
 
 from fastapi import Query
 from fastapi.responses import JSONResponse
+
+from yoke_contracts.timestamps import temporal_wire
 from fastapi.routing import APIRouter
 from pydantic import BaseModel
 
@@ -92,7 +94,7 @@ def api_register_session(req: RegisterSessionRequest) -> JSONResponse:
             mode=req.mode,
             offer_envelope=req.offer_envelope,
         )
-        return JSONResponse(status_code=201, content=result)
+        return JSONResponse(status_code=201, content=temporal_wire(result))
     except SessionError as e:
         return _main._error_response(409, e.code, e.message)
     except db_backend.operational_error_types(conn) as exc:
@@ -110,7 +112,7 @@ def api_heartbeat(session_id: str) -> JSONResponse:
     conn = _main.get_db_readwrite()
     try:
         result = heartbeat(conn, session_id)
-        return JSONResponse(status_code=200, content=result)
+        return JSONResponse(status_code=200, content=temporal_wire(result))
     except SessionError as e:
         status = 404 if e.code == "NOT_FOUND" else 409
         return _main._error_response(status, e.code, e.message)
@@ -136,7 +138,7 @@ def api_end_session(
             session_id,
             force=force,
         )
-        return JSONResponse(status_code=200, content=result)
+        return JSONResponse(status_code=200, content=temporal_wire(result))
     except SessionError as e:
         status = 404 if e.code == "NOT_FOUND" else 409
         return _main._error_response(status, e.code, e.message)
@@ -162,7 +164,7 @@ def api_reclaim_stale(
             stale_threshold_minutes=threshold_minutes,
             progress_threshold_minutes=progress_threshold_minutes,
         )
-        return JSONResponse(status_code=200, content=result)
+        return JSONResponse(status_code=200, content=temporal_wire(result))
     except db_backend.operational_error_types(conn) as exc:
         if "database is locked" in str(exc).lower():
             return _main._error_response(503, "DB_BUSY", "Database is locked.")

@@ -29,6 +29,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from yoke_contracts.board.query_key import canonicalize_sql
+from yoke_contracts.timestamps import format_instant, parse_instant
 
 BOARD_DATA_VERSION = 2
 
@@ -52,7 +53,7 @@ def _encode_value(value: Any) -> Any:
     if isinstance(value, Decimal):
         return {"__t": "decimal", "v": str(value)}
     if isinstance(value, datetime):
-        return {"__t": "datetime", "v": value.isoformat()}
+        return {"__t": "datetime", "v": format_instant(value)}
     if isinstance(value, date):
         return {"__t": "date", "v": value.isoformat()}
     raise BoardDataError(
@@ -68,7 +69,7 @@ def _decode_value(value: Any) -> Any:
         if tag == "decimal":
             return Decimal(str(raw))
         if tag == "datetime":
-            return datetime.fromisoformat(str(raw))
+            return parse_instant(raw)
         if tag == "date":
             return date.fromisoformat(str(raw))
         raise BoardDataError(f"board data carries unknown value tag {tag!r}")
@@ -129,11 +130,10 @@ class ReplayBoardDB:
             kind = str(entry.get("kind"))
             sql = str(entry.get("sql"))
             params = entry.get("params")
-            key = (
-                kind,
-                canonicalize_sql(sql),
-                json.dumps(params, sort_keys=True),
+            decoded_params = (
+                None if params is None else [_decode_value(v) for v in params]
             )
+            key = entry_key(kind, sql, decoded_params)
             if kind == "scalar":
                 lookup[key] = _decode_value(entry.get("value"))
             else:
@@ -206,7 +206,7 @@ class ReplayBoardDB:
     def _describe_miss(self, kind: str, sql: str, params: Any) -> str:
         """Name the query-key component that differs from recorded data."""
         requested_sql = canonicalize_sql(sql)
-        requested_params = json.dumps(params, sort_keys=True)
+        requested_params = json.dumps(_encode_params(params), sort_keys=True)
         candidates = [
             (recorded_sql, recorded_params)
             for recorded_kind, recorded_sql, recorded_params in self._lookup
@@ -284,6 +284,10 @@ class ReplayBoardDB:
     def has_query_quiet(self, sql: str, params: Optional[Sequence[Any]] = None) -> bool:
         """Return whether a payload can serve a quiet query."""
         return entry_key("query_quiet", sql, params) in self._lookup
+
+    def has_scalar(self, sql: str, params: Optional[Sequence[Any]] = None) -> bool:
+        """Return whether the archived payload owns this scalar figure."""
+        return entry_key("scalar", sql, params) in self._lookup
 
     def scalar(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
         return self._serve("scalar", sql, params)

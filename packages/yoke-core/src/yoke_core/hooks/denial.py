@@ -132,7 +132,7 @@ def _close_denied_call(
     from yoke_core.domain import db_backend
     from yoke_core.domain.control_plane_transport import local_connection_or_none
     from yoke_core.domain.session_activity_state import record_tool_call_finished
-    from yoke_core.domain.session_message_types import timestamp, utc_now
+    from yoke_core.domain.session_message_types import utc_now
 
     conn = local_connection_or_none(db_backend.connect)
     if conn is None:
@@ -145,7 +145,7 @@ def _close_denied_call(
             tool_name=tool_name or None,
             event_name=DENIAL_EVENT_NAME,
             outcome=outcome,
-            completed_at=timestamp(utc_now()),
+            completed_at=utc_now(),
             bump_activity=False,
         )
         conn.commit()

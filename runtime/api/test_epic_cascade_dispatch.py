@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import pytest
 
 from yoke_core.domain import epic
@@ -36,7 +38,8 @@ class TestCascadeTaskStatus:
             "plan-drafted",
             "plan-drafted",
         ]
-        assert all(row["last_heartbeat"].endswith("Z") for row in rows)
+        assert all(isinstance(row["last_heartbeat"], datetime) for row in rows)
+        assert all(row["last_heartbeat"].utcoffset() is not None for row in rows)
 
     def test_exceptional_states_are_preserved(self, db):
         insert_item(db, id=42, workflow_id="epic", status="planned", project="yoke")

@@ -167,6 +167,7 @@ async function testStateFileShape() {
     assertIncludes(state.endpoint, `http://127.0.0.1:${port}`, 'endpoint contains host and port');
     assertEqual(state.browserType, 'chromium', 'browserType is chromium');
     assert(typeof state.startedAt === 'string', 'startedAt is a string');
+    assert(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(state.startedAt), 'owned clock is fixed-six UTC');
     assertEqual(state.health, 'healthy', 'health is healthy');
     assertEqual(state.port, port, 'port matches');
   } finally {

@@ -15,9 +15,11 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from yoke_core.domain import standalone_item_merge as merge_boundary
 from yoke_core.domain import standalone_item_merge_git as git
-from yoke_core.domain.item_merge_provenance_operator import MERGED_AT_FORMAT
+from yoke_contracts.timestamps import format_instant
 
 LANDING_EPOCH = 1789790000
 
@@ -58,7 +60,7 @@ def test_commit_time_reads_the_commits_own_moment(tmp_path: Path) -> None:
 
     assert git.commit_time(str(repo), sha) == datetime.fromtimestamp(
         LANDING_EPOCH, timezone.utc
-    ).strftime(MERGED_AT_FORMAT)
+    )
 
 
 def test_an_unreadable_commit_has_no_time_rather_than_a_wrong_one(
@@ -66,8 +68,8 @@ def test_an_unreadable_commit_has_no_time_rather_than_a_wrong_one(
 ) -> None:
     repo, _sha = _repo_with_dated_commit(tmp_path)
 
-    assert git.commit_time(str(repo), "f" * 40) == ""
-    assert git.commit_time(str(repo), "") == ""
+    assert git.commit_time(str(repo), "f" * 40) is None
+    assert git.commit_time(str(repo), "") is None
 
 
 def test_a_resolved_landing_time_supersedes_what_the_item_recorded(
@@ -90,8 +92,8 @@ def test_a_resolved_landing_time_supersedes_what_the_item_recorded(
     )
     assert sent == [
         {
-            "merged_at": datetime.fromtimestamp(LANDING_EPOCH, timezone.utc).strftime(
-                MERGED_AT_FORMAT
+            "merged_at": format_instant(
+                datetime.fromtimestamp(LANDING_EPOCH, timezone.utc)
             ),
             "supersedes_prior_landing": True,
         }
@@ -117,3 +119,17 @@ def test_a_landing_with_no_readable_merge_commit_keeps_the_earlier_answer(
 
     assert sent[0]["supersedes_prior_landing"] is False
     assert sent[0]["merged_at"]
+
+
+@pytest.mark.parametrize("epoch", ["invalid-clock", "1.5", "999999999999999999999"])
+def test_nonempty_invalid_git_clock_refuses_without_a_landing_guess(monkeypatch, epoch):
+    monkeypatch.setattr(git, "git_out", lambda *_args: epoch)
+    with pytest.raises((ValueError, OverflowError, OSError)):
+        git.commit_time("/repo", "a" * 40)
+
+
+def test_git_clock_keeps_pre_epoch_native_fact_until_owned_wire_projection(monkeypatch):
+    monkeypatch.setattr(git, "git_out", lambda *_args: "-1")
+    instant = git.commit_time("/repo", "a" * 40)
+    assert instant == datetime(1969, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+    assert format_instant(instant) == "1969-12-31T23:59:59.000000Z"

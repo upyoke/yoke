@@ -4,14 +4,8 @@ Composes available work, idle holders, five silent failure classes,
 launchable surfaces, level capacity and live session counts into one report.
 It decides nothing and launches nothing.
 
-Two thresholds, because two different questions
------------------------------------------------
-``staffing_after_seconds`` answers "how long may runnable work sit unclaimed
-before the report calls that a failure rather than an opportunity". For a
-seat whose standing instruction is to keep the frontier staffed the honest
-answer is nearly zero; it is not zero only because every lifecycle segment
-boundary releases a claim and reacquires moments later, and a report that
-fires on that window teaches the seat to ignore it.
+The staffing threshold bounds how long runnable work may sit unclaimed.
+It allows the brief claim handoff at lifecycle boundaries.
 
 ``idle_after_seconds`` answers "how long must a claim holder be quiet before
 it is presumed stuck" — a judgment about a worker mid-task, not a queue, and
@@ -42,6 +36,10 @@ freeze. Inferring a hold from age would hide real unstaffed work.
 """
 
 from __future__ import annotations
+
+from yoke_contracts.timestamps import parse_instant
+
+from datetime import datetime
 
 from dataclasses import dataclass
 from typing import Any, Mapping
@@ -100,7 +98,7 @@ class FleetReport:
     """One steering scope's available work, quiet workers, and silent failures."""
 
     project_id: int
-    composed_at: str
+    composed_at: datetime
     staffing_after_seconds: int
     idle_after_seconds: int
     available: tuple[FrontierEntry, ...]
@@ -247,6 +245,7 @@ def compose_report(
     for the whole request and every scope narrows the same values; a caller
     composing one scope passes nothing and reads them for itself.
     """
+    now = parse_instant(now)
     request = reads if reads is not None else FleetReportReads()
     facts = request.project_facts(
         conn, project_id=project_id, session_id=session_id, now=now

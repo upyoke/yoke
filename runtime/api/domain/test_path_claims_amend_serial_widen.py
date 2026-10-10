@@ -15,9 +15,11 @@ import json
 
 import pytest
 
-from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (
+    DEPENDENCY_FIXTURE_DDL as _DEP_DDL,
+    seed_item as _seed_item,
     SNAP,
-    conn,
+    conn,  # noqa: F401
     local_human,
     seed_target,
 )
@@ -32,31 +34,6 @@ from yoke_core.domain.path_claims_amend_overlap import (
     WidenOverlapDecision,
     classify_widen_overlap,
 )
-
-
-_DEP_DDL = (
-    "CREATE TABLE IF NOT EXISTS item_dependencies ("
-    "id INTEGER PRIMARY KEY, dependent_item_id INTEGER NOT NULL, "
-    "blocking_item_id INTEGER NOT NULL, "
-    "gate_point TEXT NOT NULL DEFAULT 'activation', "
-    "satisfaction TEXT NOT NULL DEFAULT 'status:done', "
-    "source TEXT NOT NULL, session_id INTEGER, "
-    "rationale TEXT NOT NULL DEFAULT '', "
-    "evidence_json TEXT NOT NULL DEFAULT '{}', "
-    "created_at TEXT NOT NULL)"
-)
-
-
-def _seed_item(conn, item_id: int) -> int:
-    conn.execute(
-        "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
-        "created_at, updated_at, project_id, project_sequence) "
-        "VALUES (%s, 'item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', "
-        "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, %s)",
-        (item_id, item_id),
-    )
-    conn.commit()
-    return item_id
 
 
 def _add_dep_edge(
@@ -84,23 +61,38 @@ def _add_dep_edge(
 
 
 def _register_candidate(
-    conn, *, item_id: int, target_ids, human_id: int,
+    conn,
+    *,
+    item_id: int,
+    target_ids,
+    human_id: int,
     integration_target: str = "main",
 ) -> int:
     return register(
-        conn, actor_id=human_id, target_ids=list(target_ids),
-        integration_target=integration_target, mode="exclusive",
+        conn,
+        actor_id=human_id,
+        target_ids=list(target_ids),
+        integration_target=integration_target,
+        mode="exclusive",
         item_id=item_id,
     )
 
 
 def _register_upstream(
-    conn, *, item_id: int, target_ids, human_id: int,
-    activate_it: bool = True, integration_target: str = "main",
+    conn,
+    *,
+    item_id: int,
+    target_ids,
+    human_id: int,
+    activate_it: bool = True,
+    integration_target: str = "main",
 ) -> int:
     claim_id = register(
-        conn, actor_id=human_id, target_ids=list(target_ids),
-        integration_target=integration_target, mode="exclusive",
+        conn,
+        actor_id=human_id,
+        target_ids=list(target_ids),
+        integration_target=integration_target,
+        mode="exclusive",
         item_id=item_id,
     )
     if activate_it:
@@ -123,7 +115,10 @@ def test_widen_serial_dependent_blocks_candidate_with_chosen_upstream(
     shared = seed_target(conn, path_string="a/shared.py")
     extra = seed_target(conn, path_string="a/extra.py")
     upstream_claim = _register_upstream(
-        conn, item_id=upstream_item, target_ids=[shared], human_id=human,
+        conn,
+        item_id=upstream_item,
+        target_ids=[shared],
+        human_id=human,
     )
     candidate_other = seed_target(conn, path_string="b/other.py")
     candidate_claim = _register_candidate(
@@ -166,7 +161,10 @@ def test_widen_no_edge_rejects_without_inserting_targets(conn):
     candidate_item = _seed_item(conn, item_id=4102)
     shared = seed_target(conn, path_string="c/shared.py")
     upstream_claim = _register_upstream(
-        conn, item_id=upstream_item, target_ids=[shared], human_id=human,
+        conn,
+        item_id=upstream_item,
+        target_ids=[shared],
+        human_id=human,
     )
     candidate_other = seed_target(conn, path_string="d/other.py")
     candidate_claim = _register_candidate(
@@ -273,7 +271,10 @@ def test_widen_coordination_only_does_not_block_candidate(conn):
     )
     shared = seed_target(conn, path_string="f/shared.py")
     upstream_claim = _register_upstream(
-        conn, item_id=upstream_item, target_ids=[shared], human_id=human,
+        conn,
+        item_id=upstream_item,
+        target_ids=[shared],
+        human_id=human,
     )
     candidate_other = seed_target(conn, path_string="g/other.py")
     candidate_claim = _register_candidate(
@@ -317,7 +318,10 @@ def test_classify_widen_overlap_returns_no_overlap_when_disjoint(conn):
     target_a = seed_target(conn, path_string="h/a.py")
     target_b = seed_target(conn, path_string="h/b.py")
     _register_upstream(
-        conn, item_id=other_item, target_ids=[target_b], human_id=human,
+        conn,
+        item_id=other_item,
+        target_ids=[target_b],
+        human_id=human,
     )
     candidate_claim = _register_candidate(
         conn,

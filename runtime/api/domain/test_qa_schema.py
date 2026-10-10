@@ -30,10 +30,10 @@ CREATE TABLE qa_requirements (
     success_policy TEXT,
     capability_requirements TEXT,
     suite_id TEXT,
-    waived_at TEXT,
+    waived_at TIMESTAMPTZ,
     waiver_rationale TEXT,
     waiver_source TEXT,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 CREATE TABLE qa_runs (
     id INTEGER PRIMARY KEY,

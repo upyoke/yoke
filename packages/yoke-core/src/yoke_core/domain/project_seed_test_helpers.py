@@ -13,7 +13,7 @@ Test-fixture surface only; production init chains must not import it.
 from __future__ import annotations
 
 from yoke_core.domain.db_backend import connection_is_postgres
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.project_identity import DEFAULT_PUBLIC_ITEM_PREFIX
 
 #: Fixture project-identity map shared by test databases. Production
@@ -29,15 +29,37 @@ def seed_project_identities(conn) -> None:
     """Seed the two baseline test-project identity rows (idempotent)."""
     p = "%s" if connection_is_postgres(conn) else "?"
     rows = (
-        (SEED_PROJECT_IDS["yoke"], "yoke", "Yoke", "🐂", "upyoke/yoke", DEFAULT_PUBLIC_ITEM_PREFIX),
-        (SEED_PROJECT_IDS["externalwebapp"], "externalwebapp", "ExternalWebapp", "\U0001f9e9", "example-org/externalwebapp", "EXT"),
+        (
+            SEED_PROJECT_IDS["yoke"],
+            "yoke",
+            "Yoke",
+            "🐂",
+            "upyoke/yoke",
+            DEFAULT_PUBLIC_ITEM_PREFIX,
+        ),
+        (
+            SEED_PROJECT_IDS["externalwebapp"],
+            "externalwebapp",
+            "ExternalWebapp",
+            "\U0001f9e9",
+            "example-org/externalwebapp",
+            "EXT",
+        ),
     )
     for project_id, slug, name, emoji, github_repo, prefix in rows:
         conn.execute(
             "INSERT INTO projects "
             "(id, slug, name, emoji, github_repo, public_item_prefix, created_at) "
             f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}) ON CONFLICT(id) DO NOTHING",
-            (project_id, slug, name, emoji, github_repo, prefix, iso8601_now()),
+            (
+                project_id,
+                slug,
+                name,
+                emoji,
+                github_repo,
+                prefix,
+                instant_parameter(conn, utc_now()),
+            ),
         )
         conn.execute(
             f"UPDATE projects SET public_item_prefix={p} WHERE id={p}",
@@ -63,7 +85,7 @@ def seed_externalwebapp_site_environments(conn) -> None:
     conn.execute(
         "INSERT INTO sites (project_id, name, created_at) "
         f"VALUES ({p}, {p}, {p}) ON CONFLICT(project_id, name) DO NOTHING",
-        (project_id, "ExternalWebapp Web", iso8601_now()),
+        (project_id, "ExternalWebapp Web", instant_parameter(conn, utc_now())),
     )
     site_row = conn.execute(
         f"SELECT id FROM sites WHERE project_id={p} AND name={p}",
@@ -75,7 +97,7 @@ def seed_externalwebapp_site_environments(conn) -> None:
             "INSERT INTO environments (site, project_id, name, created_at) "
             f"VALUES ({p}, {p}, {p}, {p}) "
             "ON CONFLICT(project_id, name) DO NOTHING",
-            (site_id, project_id, env_name, iso8601_now()),
+            (site_id, project_id, env_name, instant_parameter(conn, utc_now())),
         )
     conn.commit()
 

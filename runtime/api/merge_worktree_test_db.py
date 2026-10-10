@@ -170,8 +170,8 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
             session_id TEXT NOT NULL,
             branch TEXT NOT NULL,
             epic_id TEXT,
-            acquired_at TEXT NOT NULL,
-            expires_at TEXT NOT NULL
+            acquired_at TIMESTAMPTZ NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL
         );
         CREATE TABLE IF NOT EXISTS epic_tasks (
             id INTEGER PRIMARY KEY,
@@ -185,7 +185,7 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
             dispatch_attempts INTEGER DEFAULT 0,
             body TEXT, github_issue TEXT,
             max_attempts INTEGER DEFAULT 5,
-            agent_id TEXT, last_heartbeat TEXT,
+            agent_id TEXT, last_heartbeat TIMESTAMPTZ,
             UNIQUE(epic_id, task_num)
         );
         CREATE TABLE IF NOT EXISTS item_worktrees (
@@ -195,9 +195,9 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
             path TEXT,
             lane_role TEXT NOT NULL,
             state TEXT NOT NULL DEFAULT 'active',
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            released_at TEXT
+            created_at TIMESTAMPTZ NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL,
+            released_at TIMESTAMPTZ
         );
         CREATE TABLE IF NOT EXISTS qa_requirements (
             id INTEGER PRIMARY KEY,
@@ -206,7 +206,7 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
             qa_phase TEXT NOT NULL, target_env TEXT,
             blocking_mode TEXT NOT NULL DEFAULT 'blocking',
             requirement_source TEXT NOT NULL DEFAULT 'explicit',
-            success_policy TEXT, created_at TEXT NOT NULL,
+            success_policy TEXT, created_at TIMESTAMPTZ NOT NULL,
             plan_case_key TEXT, deployment_member_item_id INTEGER
         );
         CREATE TABLE IF NOT EXISTS qa_runs (
@@ -215,8 +215,8 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
             performed_by TEXT,
             qa_kind TEXT,
             verdict TEXT, verdict_reason TEXT, raw_result TEXT,
-            created_at TEXT NOT NULL,
-            started_at TEXT, completed_at TEXT
+            created_at TIMESTAMPTZ NOT NULL,
+            started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ
         );
     """,
     )
@@ -239,7 +239,7 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
             github_sync_mode TEXT NOT NULL DEFAULT 'enabled',
             public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
             breakage_policy TEXT NOT NULL DEFAULT 'founder_cutover',
-            created_at TEXT NOT NULL DEFAULT '2026-01-01T00:00:00Z'
+            created_at TIMESTAMPTZ NOT NULL DEFAULT '2026-01-01T00:00:00Z'
         );
         """
     )
@@ -249,7 +249,7 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
             project_id INTEGER NOT NULL,
             type TEXT NOT NULL,
             settings TEXT NOT NULL DEFAULT '{}',
-            created_at TEXT NOT NULL DEFAULT '2026-01-01T00:00:00Z',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT '2026-01-01T00:00:00Z',
             PRIMARY KEY (project_id, type)
         );
         """
@@ -268,8 +268,8 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
             project_id INTEGER NOT NULL DEFAULT 1,
             project_sequence INTEGER NOT NULL DEFAULT 42,
             test_results TEXT,
-            created_at TEXT NOT NULL DEFAULT '2026-01-01T00:00:00Z',
-            updated_at TEXT NOT NULL DEFAULT '2026-01-01T00:00:00Z'
+            created_at TIMESTAMPTZ NOT NULL DEFAULT '2026-01-01T00:00:00Z',
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT '2026-01-01T00:00:00Z'
         );
         """
     )

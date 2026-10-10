@@ -21,7 +21,12 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now, query_one, query_scalar
+from yoke_core.domain.db_helpers import (
+    instant_parameter,
+    utc_now,
+    query_one,
+    query_scalar,
+)
 from yoke_core.domain.qa_events import emit_qa_requirement_event
 from yoke_core.domain.project_verification_posture import (
     REGISTERED_COMMAND_PLAN_PREFIX,
@@ -165,7 +170,7 @@ def ensure_no_tests_review_requirement(
                 attested=attested,
             ),
             str(transition_id),
-            iso8601_now(),
+            instant_parameter(conn, utc_now()),
         ),
     ).fetchone()
     requirement_id = int(row["id"] if hasattr(row, "keys") else row[0])

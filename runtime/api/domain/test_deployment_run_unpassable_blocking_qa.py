@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.fixtures.backlog import (
     insert_deployment_run,
     insert_item,
@@ -35,6 +37,7 @@ RUN_ID = "run-pin-qa"
 PIN = "11c1487ec8543ef47c04458bac85a5645382563b"
 FIX = "7ff9dad000000000000000000000000000000001"
 ITEM_ID = 8801
+PROJECT_SEEDED_AT = parse_instant("2026-09-27T00:00:00Z")
 
 
 def _walk(state: str, reason: str = "", built: list | None = None):
@@ -64,7 +67,7 @@ def _seed_failed_member(
     conn, *, run_id: str = RUN_ID, item_id: int = ITEM_ID, project: str = "yoke"
 ):
     if project != "yoke":
-        ensure_project_id(conn, project, ts="2026-09-27T00:00:00Z")
+        ensure_project_id(conn, project, ts=PROJECT_SEEDED_AT)
     insert_item(
         conn, id=item_id, title="failed member", status="release", project=project
     )
@@ -256,7 +259,7 @@ PLATFORM_FIX = "8aaebe1000000000000000000000000000000002"
 
 
 def _bind_platform(conn, pin: str = PLATFORM_PIN) -> int:
-    platform_id = ensure_project_id(conn, "platform", ts="2026-09-27T00:00:00Z")
+    platform_id = ensure_project_id(conn, "platform", ts=PROJECT_SEEDED_AT)
     bound = {
         "schema": 1,
         "projects": [

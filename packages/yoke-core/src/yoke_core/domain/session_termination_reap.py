@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Mapping
 from uuid import uuid4
 
@@ -11,7 +13,6 @@ from yoke_contracts.session_control.liveness import LIVENESS_ENDED
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
     row_dict,
-    timestamp,
 )
 from yoke_core.domain.session_relay_evidence import redacted_evidence
 from yoke_core.domain.session_relay_storage import (
@@ -42,12 +43,12 @@ TERMINATION_REAP_RESULT_CODES = frozenset(
 _SUCCESS_RESULTS = frozenset({"terminated", "killed", "already_exited"})
 
 
-def release_expired_termination_leases(conn: Any, *, now: str) -> int:
+def release_expired_termination_leases(conn: Any, *, now: datetime | str) -> int:
     cursor = conn.execute(
         "UPDATE session_termination_reaps SET state='pending',lease_id=NULL,"
         "lease_expires_at=NULL WHERE state='leased' AND lease_expires_at<="
         + marker(conn),
-        (now,),
+        (instant_parameter(conn, parse_instant(now)),),
     )
     return max(0, int(cursor.rowcount or 0))
 
@@ -56,7 +57,7 @@ def claim_termination_reap(
     conn: Any,
     heartbeat: RelayHeartbeat,
     *,
-    now: str,
+    now: datetime | str,
 ) -> RelayJob | None:
     projects = tuple(sorted({int(value) for value in heartbeat.project_ids}))
     if not projects:
@@ -80,14 +81,18 @@ def claim_termination_reap(
         raise SessionRelayError(
             "clock_invalid", "relay termination lease time is invalid"
         )
-    expires_at = timestamp(current + timedelta(seconds=WAKE_LEASE_SECONDS))
+    expires_at = current + timedelta(seconds=WAKE_LEASE_SECONDS)
     cursor = conn.execute(
         "UPDATE session_termination_reaps SET state='leased',lease_id="
         + p
         + ",lease_expires_at="
         + p
         + f" WHERE target_session_id={p} AND state='pending'",
-        (lease_id, expires_at, str(selected["target_session_id"])),
+        (
+            lease_id,
+            instant_parameter(conn, parse_instant(expires_at)),
+            str(selected["target_session_id"]),
+        ),
     )
     if cursor.rowcount != 1:
         return None
@@ -133,7 +138,7 @@ def report_termination_reap(
     result_code: str,
     adapter_revision: str | None,
     evidence: Mapping[str, Any] | None,
-    now: str,
+    now: datetime | str,
 ) -> dict[str, Any]:
     if result_code not in TERMINATION_REAP_RESULT_CODES:
         raise SessionRelayError("result_invalid", "unknown termination result code")
@@ -170,7 +175,7 @@ def report_termination_reap(
         + f" WHERE target_session_id={p}",
         (
             state,
-            now,
+            instant_parameter(conn, parse_instant(now)),
             result_code,
             json.dumps(
                 {

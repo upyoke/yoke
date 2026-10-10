@@ -13,6 +13,8 @@ header advance, and the in-process composition
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant, parse_instant
+
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from yoke_contracts.project_contract.strategy_docs_header import (
@@ -22,12 +24,10 @@ from yoke_contracts.project_contract.strategy_docs_header import (
 from yoke_contracts.project_contract.strategy_docs_io import write_rendered_files
 
 
-def _known_by_slug(known: Optional[Iterable[Mapping[str, Any]]]) -> Dict[str, Mapping[str, Any]]:
-    return {
-        str(entry["slug"]): entry
-        for entry in (known or ())
-        if entry.get("slug")
-    }
+def _known_by_slug(
+    known: Optional[Iterable[Mapping[str, Any]]],
+) -> Dict[str, Mapping[str, Any]]:
+    return {str(entry["slug"]): entry for entry in (known or ()) if entry.get("slug")}
 
 
 def _row_from_sql(row: Mapping[str, Any]) -> Dict[str, Any]:
@@ -36,17 +36,19 @@ def _row_from_sql(row: Mapping[str, Any]) -> Dict[str, Any]:
     return {
         "slug": str(row["slug"]),
         "content": str(row["content"]),
-        "updated_at": str(row["updated_at"]),
+        "updated_at": format_instant(row["updated_at"]),
         "updated_by_actor_id": int(actor) if actor is not None else None,
-        "archived_at": str(archived_at) if archived_at is not None else None,
+        "archived_at": format_instant(archived_at) if archived_at is not None else None,
     }
 
 
 def _row_matches_known(row: Mapping[str, Any], known: Mapping[str, Any]) -> bool:
     archived = row.get("archived_at") is not None
     return (
-        str(known.get("updated_at") or "") == str(row["updated_at"])
-        and str(known.get("content_sha256") or "") == content_sha256(str(row["content"]))
+        known.get("updated_at") is not None
+        and parse_instant(known["updated_at"]) == parse_instant(row["updated_at"])
+        and str(known.get("content_sha256") or "")
+        == content_sha256(str(row["content"]))
         and bool(known.get("archived", False)) is archived
     )
 
@@ -115,9 +117,7 @@ def render_file_map(
     known_map = _known_by_slug(known)
     if slugs:
         wanted = tuple(_require_valid_slug(slug) for slug in slugs)
-        rows_by_slug = {
-            slug: get_doc(conn, project_id, slug) for slug in wanted
-        }
+        rows_by_slug = {slug: get_doc(conn, project_id, slug) for slug in wanted}
         ordered = wanted
     else:
         ordered = tuple(project_doc_slugs(conn, project_id))
@@ -135,21 +135,20 @@ def render_file_map(
                 "WHERE project_id = %s",
                 (project_id,),
             ).fetchall()
-        rows_by_slug = {
-            str(row["slug"]): _row_from_sql(row) for row in rows
-        }
+        rows_by_slug = {str(row["slug"]): _row_from_sql(row) for row in rows}
         if not include_archives:
             _add_known_active_archives(
-                conn, project_id, rows_by_slug, known_map,
+                conn,
+                project_id,
+                rows_by_slug,
+                known_map,
                 get_doc=get_doc,
                 missing_error=StrategyDocMissingError,
                 unknown_error=UnknownStrategyDocError,
             )
         ordered = tuple(slug for slug in ordered if slug in rows_by_slug)
     if not ordered:
-        raise StrategyDocMissingError(
-            missing_doc_teaching(conn, project_id, "<any>")
-        )
+        raise StrategyDocMissingError(missing_doc_teaching(conn, project_id, "<any>"))
     files: List[Dict[str, Any]] = []
     for slug in ordered:
         doc = rows_by_slug[slug]
@@ -175,7 +174,10 @@ def render_file_map(
         updated_by = render_actor_name(conn, doc.get("updated_by_actor_id"))
         entry["unchanged"] = False
         entry["file_text"] = render_file_text(
-            slug, doc["updated_at"], body, updated_by=updated_by,
+            slug,
+            doc["updated_at"],
+            body,
+            updated_by=updated_by,
         )
         files.append(entry)
     return files

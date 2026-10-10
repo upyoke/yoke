@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import base64
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Any, Collection, Optional, Sequence
 
 from yoke_contracts.session_control.liveness import (
@@ -13,8 +12,17 @@ from yoke_contracts.session_control.liveness import (
     ended_session_sql,
     live_session_sql,
 )
-from yoke_core.domain.json_helper import dumps_compact, loads_text
-from yoke_core.domain.model_reference_store import revision_from_schedule, revision_schedule
+from yoke_contracts.timestamps import temporal_wire, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.session_history_cursor import (
+    encode as _cursor_encode,
+    decode as _cursor_decode,
+)
+from yoke_core.domain.session_history_facets import _MACHINE_NAME, _facet_rows
+from yoke_core.domain.model_reference_store import (
+    revision_from_schedule,
+    revision_schedule,
+)
 from yoke_core.domain.project_identity import placeholder, row_value
 from yoke_core.domain.session_list_fields import (
     USAGE_PROJECTION_FIELDS,
@@ -28,59 +36,43 @@ MAX_HISTORY_LIMIT = 100
 #: How far back a machine tile's 24-hour usage figures reach.
 RECENT_USAGE_WINDOW = timedelta(hours=24)
 RECENT_USAGE_FIELDS = (
-    "session_id", "machine_id", "project_id", *USAGE_PROJECTION_FIELDS,
+    "session_id",
+    "machine_id",
+    "project_id",
+    *USAGE_PROJECTION_FIELDS,
 )
 HISTORY_FIELDS = (
-    "session_id", "project_id", "project", "focus", "recent_item",
-    "recent_item_title", "actor_id", "actor_kind", "actor_label",
-    "executor", "executor_surface", "model", "requested_model",
-    "machine_id", "machine_name", "activity_at", "ended_at",
-    "terminated_at", "ended_cause", "termination_reason",
+    "session_id",
+    "project_id",
+    "project",
+    "focus",
+    "recent_item",
+    "recent_item_title",
+    "actor_id",
+    "actor_kind",
+    "actor_label",
+    "executor",
+    "executor_surface",
+    "model",
+    "requested_model",
+    "machine_id",
+    "machine_name",
+    "activity_at",
+    "ended_at",
+    "terminated_at",
+    "ended_cause",
+    "termination_reason",
     *USAGE_PROJECTION_FIELDS,
 )
 
 _ACTIVITY = (
-    "GREATEST(COALESCE(s.last_tool_call_at, ''), "
-    "COALESCE(s.last_heartbeat, ''), COALESCE(s.ended_at, ''), "
-    "COALESCE(s.terminated_at, ''))"
-)
-_MACHINE_NAME = (
-    "(SELECT sr.hostname FROM session_relays sr "
-    "WHERE sr.machine_id = s.machine_id AND sr.hostname IS NOT NULL "
-    "ORDER BY sr.last_seen_at DESC LIMIT 1)"
+    "GREATEST(s.last_tool_call_at, s.last_heartbeat, s.ended_at, s.terminated_at)"
 )
 
 
 def _actor_label() -> str:
     """SQL rendering the session's actor to the name every surface shows."""
     return "COALESCE(NULLIF(a.name, ''), a.system_component, '')"
-
-
-def _cursor_encode(activity_at: str, session_id: str) -> str:
-    raw = dumps_compact({"activity_at": activity_at, "session_id": session_id})
-    return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
-
-
-def _cursor_decode(value: Optional[str]) -> Optional[tuple[str, str]]:
-    if value is None:
-        return None
-    try:
-        padding = "=" * (-len(value) % 4)
-        decoded = base64.urlsafe_b64decode((value + padding).encode()).decode()
-        payload = loads_text(decoded)
-        activity = payload["activity_at"]  # type: ignore[index]
-        session_id = payload["session_id"]  # type: ignore[index]
-        if not isinstance(activity, str) or not activity:
-            raise ValueError
-        if not isinstance(session_id, str) or not session_id:
-            raise ValueError
-        if set(payload) != {"activity_at", "session_id"}:  # type: ignore[arg-type]
-            raise ValueError
-        return activity, session_id
-    except (KeyError, TypeError, UnicodeError, ValueError):
-        raise ValueError(
-            "history.cursor is invalid; clear it and reload the first history page"
-        ) from None
 
 
 def _scope(
@@ -102,45 +94,6 @@ def _scope(
 
 def _where(clauses: Sequence[str]) -> str:
     return "WHERE " + " AND ".join(clauses)
-
-
-def _facet_rows(conn: Any, clauses: Sequence[str], params: Sequence[Any]) -> dict:
-    where = _where(clauses)
-    projects = conn.execute(
-        "SELECT DISTINCT pr.id, pr.slug FROM harness_sessions s "
-        "LEFT JOIN projects pr ON pr.id = s.project_id "
-        f"{where} AND pr.id IS NOT NULL ORDER BY pr.slug",
-        tuple(params),
-    ).fetchall()
-    harness_rows = conn.execute(
-        "SELECT DISTINCT s.executor, s.executor_surface FROM harness_sessions s "
-        f"{where}", tuple(params),
-    ).fetchall()
-    machines = conn.execute(
-        "SELECT DISTINCT s.machine_id, " + _MACHINE_NAME + " AS machine_name "
-        "FROM harness_sessions s " + where + " AND s.machine_id IS NOT NULL "
-        "ORDER BY s.machine_id", tuple(params),
-    ).fetchall()
-    harnesses = sorted({
-        str(value)
-        for raw in harness_rows
-        for value in (row_value(raw, "executor", 0), row_value(raw, "executor_surface", 1))
-        if value
-    })
-    return {
-        "projects": [
-            {"id": int(row_value(raw, "id", 0)), "slug": str(row_value(raw, "slug", 1))}
-            for raw in projects
-        ],
-        "harnesses": harnesses,
-        "machines": [
-            {
-                "id": str(row_value(raw, "machine_id", 0)),
-                "label": str(row_value(raw, "machine_name", 1) or row_value(raw, "machine_id", 0)),
-            }
-            for raw in machines
-        ],
-    }
 
 
 def read_ended_session_history(
@@ -165,20 +118,28 @@ def read_ended_session_history(
     if normalized_search:
         searchable = (
             "LOWER(COALESCE(s.session_id, '') || ' ' || COALESCE(pr.slug, '') || ' ' || "
-            "COALESCE(fi.title, '') || ' ' || COALESCE(" + actor_label + ", '') || ' ' || "
+            "COALESCE(fi.title, '') || ' ' || COALESCE("
+            + actor_label
+            + ", '') || ' ' || "
             "COALESCE(s.model, '') || ' ' || COALESCE(s.requested_model, ''))"
         )
         clauses.append(f"{searchable} LIKE {marker}")
         params.extend([*actor_params, f"%{normalized_search}%"])
-    normalized_harnesses = sorted({str(value).strip() for value in harnesses if str(value).strip()})
+    normalized_harnesses = sorted(
+        {str(value).strip() for value in harnesses if str(value).strip()}
+    )
     if normalized_harnesses:
         clauses.append(
-            "(s.executor IN (" + ", ".join(marker for _ in normalized_harnesses)
+            "(s.executor IN ("
+            + ", ".join(marker for _ in normalized_harnesses)
             + ") OR s.executor_surface IN ("
-            + ", ".join(marker for _ in normalized_harnesses) + "))"
+            + ", ".join(marker for _ in normalized_harnesses)
+            + "))"
         )
         params.extend([*normalized_harnesses, *normalized_harnesses])
-    normalized_machines = sorted({str(value).strip() for value in machines if str(value).strip()})
+    normalized_machines = sorted(
+        {str(value).strip() for value in machines if str(value).strip()}
+    )
     if normalized_machines:
         clauses.append(
             "s.machine_id IN (" + ", ".join(marker for _ in normalized_machines) + ")"
@@ -189,8 +150,11 @@ def read_ended_session_history(
     decoded_cursor = _cursor_decode(cursor)
     if decoded_cursor is not None:
         activity_at, session_id = decoded_cursor
-        clauses.append(f"({_ACTIVITY} < {marker} OR ({_ACTIVITY} = {marker} AND s.session_id < {marker}))")
-        params.extend([activity_at, activity_at, session_id])
+        clauses.append(
+            f"({_ACTIVITY} < {marker} OR ({_ACTIVITY} = {marker} AND s.session_id < {marker}))"
+        )
+        bound = instant_parameter(conn, activity_at)
+        params.extend([bound, bound, session_id])
 
     joins = (
         "FROM harness_sessions s "
@@ -212,10 +176,16 @@ def read_ended_session_history(
         "SELECT s.session_id, s.project_id, pr.slug AS project, "
         "fi.title AS recent_item_title, fi.project_sequence, "
         "fpr.public_item_prefix, s.actor_id, a.kind AS actor_kind, "
-        + actor_label + " AS actor_label, s.executor, s.executor_surface, "
-        "s.model, s.requested_model, s.machine_id, " + _MACHINE_NAME + " AS machine_name, "
-        + _ACTIVITY + " AS activity_at, s.ended_at, s.terminated_at, "
-        "s.termination_reason, s.usage_totals, s.offered_at " + joins + where
+        + actor_label
+        + " AS actor_label, s.executor, s.executor_surface, "
+        "s.model, s.requested_model, s.machine_id, "
+        + _MACHINE_NAME
+        + " AS machine_name, "
+        + _ACTIVITY
+        + " AS activity_at, s.ended_at, s.terminated_at, "
+        "s.termination_reason, s.usage_totals, s.offered_at "
+        + joins
+        + where
         + f" ORDER BY {_ACTIVITY} DESC, s.session_id DESC LIMIT {marker}",
         tuple(query_params),
     ).fetchall()
@@ -227,41 +197,53 @@ def read_ended_session_history(
         row = dict(raw)
         prefix = row.get("public_item_prefix")
         sequence = row.get("project_sequence")
-        recent_item = f"{prefix}-{sequence}" if prefix and sequence is not None else None
-        rendered.append({
-            "session_id": str(row["session_id"]),
-            "project_id": row.get("project_id"),
-            "project": row.get("project"),
-            "focus": row.get("recent_item_title") or row.get("project"),
-            "recent_item": recent_item,
-            "recent_item_title": row.get("recent_item_title"),
-            "actor_id": row.get("actor_id"),
-            "actor_kind": row.get("actor_kind"),
-            "actor_label": row.get("actor_label"),
-            "executor": row.get("executor"),
-            "executor_surface": row.get("executor_surface"),
-            "model": row.get("model"),
-            "requested_model": row.get("requested_model"),
-            "machine_id": row.get("machine_id"),
-            "machine_name": row.get("machine_name"),
-            "activity_at": row.get("activity_at"),
-            "ended_at": row.get("ended_at"),
-            "terminated_at": row.get("terminated_at"),
-            "ended_cause": ENDED_CAUSE_KILLED if row.get("terminated_at") else ENDED_CAUSE_WOUND_DOWN,
-            "termination_reason": row.get("termination_reason"),
-            **usage_fields(row, revision_from_schedule(schedule, row.get("offered_at"))),
-        })
+        recent_item = (
+            f"{prefix}-{sequence}" if prefix and sequence is not None else None
+        )
+        rendered.append(
+            {
+                "session_id": str(row["session_id"]),
+                "project_id": row.get("project_id"),
+                "project": row.get("project"),
+                "focus": row.get("recent_item_title") or row.get("project"),
+                "recent_item": recent_item,
+                "recent_item_title": row.get("recent_item_title"),
+                "actor_id": row.get("actor_id"),
+                "actor_kind": row.get("actor_kind"),
+                "actor_label": row.get("actor_label"),
+                "executor": row.get("executor"),
+                "executor_surface": row.get("executor_surface"),
+                "model": row.get("model"),
+                "requested_model": row.get("requested_model"),
+                "machine_id": row.get("machine_id"),
+                "machine_name": row.get("machine_name"),
+                "activity_at": row.get("activity_at"),
+                "ended_at": row.get("ended_at"),
+                "terminated_at": row.get("terminated_at"),
+                "ended_cause": ENDED_CAUSE_KILLED
+                if row.get("terminated_at")
+                else ENDED_CAUSE_WOUND_DOWN,
+                "termination_reason": row.get("termination_reason"),
+                **usage_fields(
+                    row, revision_from_schedule(schedule, row.get("offered_at"))
+                ),
+            }
+        )
     next_cursor = None
     if has_more and rendered:
         last = rendered[-1]
-        next_cursor = _cursor_encode(str(last["activity_at"]), str(last["session_id"]))
-    return {
-        "fields": list(HISTORY_FIELDS),
-        "rows": rendered,
-        "matched_count": int(row_value(count_row, "matched_count", 0)) if count_row else 0,
-        "next_cursor": next_cursor,
-        "facets": facets,
-    }
+        next_cursor = _cursor_encode(last["activity_at"], str(last["session_id"]))
+    return temporal_wire(
+        {
+            "fields": list(HISTORY_FIELDS),
+            "rows": rendered,
+            "matched_count": int(row_value(count_row, "matched_count", 0))
+            if count_row
+            else 0,
+            "next_cursor": next_cursor,
+            "facets": facets,
+        }
+    )
 
 
 def read_recent_session_usage_by_machine(
@@ -297,9 +279,7 @@ def read_recent_session_usage_by_machine(
         else:
             clauses.append(f"s.project_id IN ({', '.join(marker for _ in ids)})")
             params.extend(ids)
-    cutoff = (datetime.now(timezone.utc) - RECENT_USAGE_WINDOW).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    cutoff = instant_parameter(conn, utc_now() - RECENT_USAGE_WINDOW)
     clauses.append(
         f"(({ended_session_sql('s')} AND {ended_at_sql('s')} >= {marker})"
         f" OR (({live_session_sql('s')}) AND s.offered_at >= {marker}))"
@@ -318,7 +298,8 @@ def read_recent_session_usage_by_machine(
             "machine_id": str(row_value(raw, "machine_id", 1)),
             "project_id": row_value(raw, "project_id", 2),
             **usage_fields(
-                dict(raw), revision_from_schedule(schedule, row_value(raw, "offered_at", 4))
+                dict(raw),
+                revision_from_schedule(schedule, row_value(raw, "offered_at", 4)),
             ),
         }
         for raw in rows
@@ -327,7 +308,11 @@ def read_recent_session_usage_by_machine(
 
 
 __all__ = [
-    "DEFAULT_HISTORY_LIMIT", "HISTORY_FIELDS", "MAX_HISTORY_LIMIT",
-    "RECENT_USAGE_FIELDS", "RECENT_USAGE_WINDOW",
-    "read_ended_session_history", "read_recent_session_usage_by_machine",
+    "DEFAULT_HISTORY_LIMIT",
+    "HISTORY_FIELDS",
+    "MAX_HISTORY_LIMIT",
+    "RECENT_USAGE_FIELDS",
+    "RECENT_USAGE_WINDOW",
+    "read_ended_session_history",
+    "read_recent_session_usage_by_machine",
 ]

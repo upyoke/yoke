@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
+
+from yoke_contracts.timestamps import as_utc as as_utc
+from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_contracts.timestamps import utc_now as utc_now
 
 
 class SessionMessageError(ValueError):
@@ -59,30 +63,14 @@ class ResolvedRecipient:
         }
 
 
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def as_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
-
-
 def parse_timestamp(value: Any) -> datetime | None:
-    text = str(value or "").strip()
-    if not text:
-        return None
-    if text.endswith("Z"):
-        text = f"{text[:-1]}+00:00"
-    try:
-        return as_utc(datetime.fromisoformat(text))
-    except ValueError:
-        return None
+    """Read an optional instant without guessing or hiding malformed state."""
+    return None if value is None else parse_instant(value)
 
 
 def timestamp(value: datetime) -> str:
-    return as_utc(value).strftime("%Y-%m-%dT%H:%M:%SZ")
+    """Project an aware instant at the owned message wire boundary."""
+    return format_instant(value)
 
 
 def row_dict(row: Any) -> dict[str, Any]:

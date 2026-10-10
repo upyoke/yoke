@@ -1,7 +1,7 @@
 """Review orchestration, progress notes, and proceed triage handoff.
 
 Split from ``yoke_core.domain.epic`` to keep that file under the
-800-line target.  All public names remain callable on the ``epic`` module object
+350-line limit.  All public names remain callable on the ``epic`` module object
 via lazy wrapper re-exports so that existing callers (``epic_cli.py``) and
 ``mock.patch("yoke_core.domain.epic.X")`` tests are unaffected.
 
@@ -27,8 +27,9 @@ import os
 import sys
 from typing import List, Optional
 
-from yoke_core.domain.db_helpers import query_one, query_scalar
-from yoke_core.domain.epic_parsing import _now_iso, _placeholder
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter, query_one, query_scalar
+from yoke_core.domain.epic_parsing import _placeholder
 from yoke_core.domain.epic_review_qa import (
     _auto_transition_review_task,
     _ensure_implementation_review_requirement,
@@ -167,7 +168,7 @@ def progress_note_insert(
     commit_hash: str = "",
 ) -> str:
     """Insert a progress note."""
-    ts = _now_iso()
+    ts = utc_now()
     p = _placeholder(conn)
     conn.execute(
         f"""INSERT INTO epic_progress_notes
@@ -176,7 +177,14 @@ def progress_note_insert(
            ON CONFLICT(epic_id, task_num, note_num) DO UPDATE SET
              body=excluded.body,
              commit_hash=excluded.commit_hash""",
-        (str(epic_id), task_num, note_num, body, commit_hash or None, ts),
+        (
+            str(epic_id),
+            task_num,
+            note_num,
+            body,
+            commit_hash or None,
+            instant_parameter(conn, ts),
+        ),
     )
     from yoke_core.domain.claim_chain_state import touch_epic_task_activity
     from yoke_core.domain.item_activity import touch_item_activity

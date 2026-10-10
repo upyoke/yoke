@@ -1,23 +1,7 @@
-"""Coverage for the canonical liveness helper.
+"""Canonical native activity selection for registration, tools and claims.
 
-The new public surface is ``latest_activity`` in
-:mod:`yoke_core.domain.session_reclaim_activity` (FR-1 Strategy A —
-extends the existing helper module instead of creating a new
-``sessions_liveness`` module). The four frontline readers
-(``sessions_cleanup``, ``frontier_recent_owner``, ``scheduler_claims``,
-``sessions_lifecycle_destructive_guard``) route through it.
-
-This file groups two test layers:
-
-1. Unit tests for ``latest_activity`` across registration-only,
-   tool-call-only, both-fresh, and both-stale cases plus a missing-
-   session case (no new event names).
-2. A structural-grep assertion that no production source under
-   ``runtime/api/domain/`` opens an SQL string reading
-   ``harness_sessions.last_heartbeat`` for READ outside the helper,
-   the registration / heartbeat writer, and the ``epic_tasks`` table
-   readers (different table, out of scope). Mirrors the structured
-   check.
+Frontier, scheduler, cleanup and destructive-release decisions share these
+facts. The source checks also constrain direct heartbeat reads and event names.
 """
 
 from __future__ import annotations
@@ -30,6 +14,8 @@ from typing import Any
 
 import pytest
 
+from yoke_contracts.timestamps import format_instant, parse_instant
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_reclaim_activity import latest_activity
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
@@ -38,7 +24,7 @@ from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
 
 def _now_iso(delta_minutes: int = 0) -> str:
     moment = datetime.now(timezone.utc) + timedelta(minutes=delta_minutes)
-    return moment.strftime("%Y-%m-%dT%H:%M:%S.") + f"{moment.microsecond // 1000:03d}Z"
+    return format_instant(moment)
 
 
 @pytest.fixture()
@@ -62,17 +48,17 @@ _LIVENESS_SCHEMA = """
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY,
     executor TEXT,
-    last_heartbeat TEXT,
-    last_tool_call_at TEXT,
+    last_heartbeat TIMESTAMPTZ,
+    last_tool_call_at TIMESTAMPTZ,
     tool_call_count INTEGER NOT NULL DEFAULT 0,
-    ended_at TEXT
+    ended_at TIMESTAMPTZ
 );
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id TEXT,
-    last_heartbeat TEXT,
-    claimed_at TEXT,
-    released_at TEXT,
+    last_heartbeat TIMESTAMPTZ,
+    claimed_at TIMESTAMPTZ,
+    released_at TIMESTAMPTZ,
     target_kind TEXT,
     scope TEXT NOT NULL
 );
@@ -86,7 +72,11 @@ def _insert_session(
     conn.execute(
         "INSERT INTO harness_sessions(session_id, executor, last_heartbeat, ended_at)"
         f" VALUES ({p}, {p}, {p}, NULL)",
-        (sid, executor, last_heartbeat),
+        (
+            sid,
+            executor,
+            parse_instant(last_heartbeat) if last_heartbeat is not None else None,
+        ),
     )
 
 
@@ -97,7 +87,7 @@ def _stamp_tool_call(conn: Any, sid: str, at: str):
         "UPDATE harness_sessions SET last_tool_call_at = "
         f"{p}, tool_call_count = COALESCE(tool_call_count, 0) + 1 "
         f"WHERE session_id = {p}",
-        (at, sid),
+        (parse_instant(at), sid),
     )
 
 
@@ -109,7 +99,7 @@ def test_latest_activity_registration_only(conn: Any):
     sid = str(uuid.uuid4())
     hb = _now_iso(-5)
     _insert_session(conn, sid, last_heartbeat=hb)
-    assert latest_activity(conn, sid) == hb
+    assert latest_activity(conn, sid) == parse_instant(hb)
 
 
 def test_latest_activity_tool_event_only(conn: Any):
@@ -117,7 +107,7 @@ def test_latest_activity_tool_event_only(conn: Any):
     _insert_session(conn, sid, last_heartbeat=None)
     when = _now_iso(-1)
     _stamp_tool_call(conn, sid, when)
-    assert latest_activity(conn, sid) == when
+    assert latest_activity(conn, sid) == parse_instant(when)
 
 
 def test_latest_activity_picks_max_when_both_fresh(conn: Any):
@@ -127,7 +117,7 @@ def test_latest_activity_picks_max_when_both_fresh(conn: Any):
     event_at = _now_iso(-1)
     _stamp_tool_call(conn, sid, event_at)
     # event_at is later than hb (closer to now)
-    assert latest_activity(conn, sid) == event_at
+    assert latest_activity(conn, sid) == parse_instant(event_at)
 
 
 def test_latest_activity_picks_heartbeat_when_newer(conn: Any):
@@ -135,15 +125,15 @@ def test_latest_activity_picks_heartbeat_when_newer(conn: Any):
     hb = _now_iso(-1)
     _insert_session(conn, sid, last_heartbeat=hb)
     _stamp_tool_call(conn, sid, _now_iso(-10))
-    assert latest_activity(conn, sid) == hb
+    assert latest_activity(conn, sid) == parse_instant(hb)
 
 
 def test_latest_activity_executor_kwarg_does_not_change_outcome(conn: Any):
     sid = str(uuid.uuid4())
     hb = _now_iso(-2)
     _insert_session(conn, sid, last_heartbeat=hb, executor="codex")
-    assert latest_activity(conn, sid, executor="codex") == hb
-    assert latest_activity(conn, sid, executor=None) == hb
+    assert latest_activity(conn, sid, executor="codex") == parse_instant(hb)
+    assert latest_activity(conn, sid, executor=None) == parse_instant(hb)
 
 
 def test_latest_activity_ignores_non_tool_events(conn: Any):
@@ -158,7 +148,7 @@ def test_latest_activity_ignores_non_tool_events(conn: Any):
     # No tool-call stamp: activity_at stays the heartbeat from -30m.
     activity_at = latest_activity(conn, sid)
     assert activity_at is not None
-    parsed = datetime.fromisoformat(activity_at.replace("Z", "+00:00"))
+    parsed = activity_at
     delta = datetime.now(timezone.utc) - parsed
     assert delta.total_seconds() >= 60 * 25  # ~30 minutes old
 
@@ -185,7 +175,7 @@ _HEARTBEAT_READ_RE = re.compile(
 
 
 _ALLOWED = {
-    # canonical helper + private state readers (FR-1 producer)
+    # canonical helper and private state readers
     "session_reclaim_activity.py",
     # registration / heartbeat writer
     "sessions_lifecycle_registry.py",

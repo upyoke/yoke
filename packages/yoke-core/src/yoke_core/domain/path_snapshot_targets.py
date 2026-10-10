@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from yoke_contracts.timestamps import as_utc
+
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
@@ -35,7 +38,7 @@ def _p(conn: Any) -> str:
 
 def _chunks(values: Sequence[Any]) -> Iterable[Sequence[Any]]:
     for idx in range(0, len(values), _QUERY_CHUNK_SIZE):
-        yield values[idx: idx + _QUERY_CHUNK_SIZE]
+        yield values[idx : idx + _QUERY_CHUNK_SIZE]
 
 
 def _get(row: Any, key: str, index: int) -> Any:
@@ -75,9 +78,7 @@ def _latest_targets_by_path(
                 generation=int(_get(row, "generation", 2)),
                 kind=str(_get(row, "kind", 3)),
                 parent_target_id=None if parent is None else int(parent),
-                materialization_state=str(
-                    _get(row, "materialization_state", 5)
-                ),
+                materialization_state=str(_get(row, "materialization_state", 5)),
             )
     return latest
 
@@ -153,7 +154,7 @@ def resolve_snapshot_target_ids(
     *,
     project_id: int,
     targets: Sequence[Tuple[str, str]],
-    now_iso: str,
+    observed_at: datetime,
 ) -> SnapshotTargetResolution:
     """Resolve or mint target ids for a whole snapshot in bulk.
 
@@ -170,6 +171,7 @@ def resolve_snapshot_target_ids(
     back-references (each child mint needs its parent's freshly minted
     id from earlier in the walk).
     """
+    observed_at = as_utc(observed_at)
     latest_by_path = _latest_targets_by_path(
         conn,
         project_id=project_id,
@@ -207,7 +209,7 @@ def resolve_snapshot_target_ids(
             kind,
             parent_id,
             1 if latest is None else latest.generation + 1,
-            now_iso,
+            observed_at,
         )
     return SnapshotTargetResolution(
         target_ids=target_ids,

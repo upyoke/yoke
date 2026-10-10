@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Mapping
+
+from yoke_contracts.timestamps import format_instant
 from urllib.parse import quote, urljoin, urlsplit, urlunsplit
 
 from yoke_core.domain.migration_content_identity import SHA256_PATTERN
@@ -29,7 +32,7 @@ def channel_payload(
     version: str,
     index_url: str,
     release_base_url: str,
-    generated_at: str,
+    generated_at: str | datetime,
     migration_manifest_sha256: str,
     source_commit: str,
     site_root: str | None = None,
@@ -45,7 +48,7 @@ def channel_payload(
         "schema_version": CONTENT_CHANNEL_SCHEMA_VERSION,
         "channel": channel,
         "version": version,
-        "generated_at": generated_at,
+        "generated_at": format_instant(generated_at),
         "index_url": index_url,
         "release_base_url": release_base_url,
         "migration_history": {

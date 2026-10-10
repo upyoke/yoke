@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Sequence
 
 import psycopg
@@ -33,8 +35,8 @@ class ImportedCredential:
     revoked_web_session_count: int
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _now() -> datetime:
+    return utc_now()
 
 
 def _resolve_import_admin(conn: psycopg.Connection) -> int:
@@ -71,7 +73,9 @@ def _resolve_import_admin(conn: psycopg.Connection) -> int:
     return int(rows[0][0])
 
 
-def _resolve_authority(conn: psycopg.Connection, *, now: str) -> tuple[str, int]:
+def _resolve_authority(
+    conn: psycopg.Connection, *, now: datetime | str
+) -> tuple[str, int]:
     organizations = conn.execute(
         "SELECT id, slug FROM organizations ORDER BY id"
     ).fetchall()
@@ -98,7 +102,13 @@ def _resolve_authority(conn: psycopg.Connection, *, now: str) -> tuple[str, int]
         "(actor_id, org_id, role_id, granted_at, granted_by_actor_id) "
         "VALUES (%s, %s, %s, %s, %s) "
         "ON CONFLICT(actor_id, org_id, role_id) DO NOTHING",
-        (actor_id, org_id, int(role_row[0]), now, actor_id),
+        (
+            actor_id,
+            org_id,
+            int(role_row[0]),
+            instant_parameter(conn, parse_instant(now)),
+            actor_id,
+        ),
     )
     return org_slug, actor_id
 
@@ -110,7 +120,7 @@ def _revoke_selected_tokens(
     where_params: Sequence[object],
     actor_id: int,
     metadata: str,
-    now: str,
+    now: datetime | str,
 ) -> int:
     revoked_row = conn.execute(
         "WITH revoked AS ("
@@ -124,7 +134,13 @@ def _revoke_selected_tokens(
         "SELECT id, %s, NULL, 'revoked', 'success', NULL, %s, %s FROM revoked "
         "RETURNING 1"
         ") SELECT COUNT(*) FROM audited",
-        (now, *where_params, actor_id, metadata, now),
+        (
+            instant_parameter(conn, parse_instant(now)),
+            *where_params,
+            actor_id,
+            metadata,
+            instant_parameter(conn, parse_instant(now)),
+        ),
     ).fetchone()
     return int(revoked_row[0]) if revoked_row is not None else 0
 
@@ -136,7 +152,7 @@ def _mint_replacement(
     actor_id: int,
     token_name: str,
     metadata: str,
-    now: str,
+    now: datetime | str,
     revoked_token_count: int,
     revoked_web_session_count: int,
 ) -> ImportedCredential:
@@ -146,7 +162,13 @@ def _mint_replacement(
         "(token_hash, actor_id, name, status, created_at, expires_at, "
         "diagnostic_metadata) "
         "VALUES (%s, %s, %s, 'active', %s, NULL, %s) RETURNING id",
-        (hash_token(raw_token), actor_id, token_name, now, metadata),
+        (
+            hash_token(raw_token),
+            actor_id,
+            token_name,
+            instant_parameter(conn, parse_instant(now)),
+            metadata,
+        ),
     ).fetchone()
     if token_row is None:
         raise UniverseImportCredentialError(
@@ -158,7 +180,7 @@ def _mint_replacement(
         "(api_token_id, actor_id, project_id, event_type, outcome, "
         "permission_key, diagnostic_metadata, created_at) "
         "VALUES (%s, %s, NULL, 'issued', 'success', NULL, %s, %s)",
-        (token_id, actor_id, metadata, now),
+        (token_id, actor_id, metadata, instant_parameter(conn, parse_instant(now))),
     )
     return ImportedCredential(
         org_slug=org_slug,
@@ -197,7 +219,7 @@ def _rotate(
             "UPDATE web_sessions SET revoked_at = %s "
             "WHERE revoked_at IS NULL RETURNING 1"
             ") SELECT COUNT(*) FROM revoked",
-            (now,),
+            (instant_parameter(conn, parse_instant(now)),),
         ).fetchone()
         revoked_web_session_count = (
             int(session_row[0]) if session_row is not None else 0

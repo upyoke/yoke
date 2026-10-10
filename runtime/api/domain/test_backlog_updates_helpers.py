@@ -33,8 +33,8 @@ CREATE TABLE IF NOT EXISTS project_capabilities (
     type TEXT NOT NULL,
 
     settings TEXT DEFAULT '{}',
-    verified_at TEXT,
-    created_at TEXT NOT NULL,
+    verified_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL,
     UNIQUE(project_id, type)
 );
 
@@ -167,6 +167,7 @@ class TestJointGateAutoStampAc18:
         # path no longer writes it. (Amendment workflow is the sole
         # forward writer.)
         assert parsed.get("frozen_at") == "2026-04-23T22:01:29Z"
+
 
 # ---------------------------------------------------------------------------
 # Prose-vs-claim gate dispatch

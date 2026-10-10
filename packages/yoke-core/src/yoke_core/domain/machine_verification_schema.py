@@ -15,10 +15,10 @@ CREATE TABLE IF NOT EXISTS test_machine_verifications (
     capability_type TEXT NOT NULL,
     status TEXT NOT NULL
         CHECK(status IN ('configured_unverified','verified','error')),
-    checked_at TEXT,
+    checked_at TIMESTAMPTZ,
     receipt_json TEXT NOT NULL DEFAULT '{}',
     error_code TEXT,
-    updated_at TEXT NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
     PRIMARY KEY(project_id, capability_type),
     FOREIGN KEY(project_id, capability_type)
         REFERENCES project_capabilities(project_id, type) ON DELETE CASCADE
@@ -37,12 +37,12 @@ CREATE TABLE IF NOT EXISTS test_machine_operation_receipts (
     operation TEXT NOT NULL
         CHECK(operation IN (OPERATION_VALUES)),
     status TEXT NOT NULL CHECK(status IN ('verified','error')),
-    performed_at TEXT NOT NULL,
+    performed_at TIMESTAMPTZ NOT NULL,
     receipt_json TEXT NOT NULL DEFAULT '{}',
     error_code TEXT,
     lease_id INTEGER,
     contract_digest TEXT,
-    updated_at TEXT NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
     PRIMARY KEY(project_id, capability_type, operation),
     FOREIGN KEY(project_id, capability_type)
         REFERENCES project_capabilities(project_id, type) ON DELETE CASCADE

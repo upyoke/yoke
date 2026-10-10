@@ -72,7 +72,7 @@ def dispose_ended_decision_requests(
         require_decision_request_subject_ended,
     )
     from yoke_core.domain.decision_requests import _request_row
-    from yoke_core.domain.db_helpers import iso8601_now
+    from yoke_contracts.timestamps import utc_now
     from yoke_core.domain.qa_plan_execution_lifecycle import (
         reap_stale_plan_executions,
     )
@@ -81,7 +81,7 @@ def dispose_ended_decision_requests(
     withdrawn: list[dict[str, Any]] = []
     retained = 0
     for request_id in pending_request_ids(conn, project_ids=project_ids):
-        stamp = iso8601_now()
+        stamp = utc_now()
         try:
             request = _request_row(conn, request_id)
             evidence = require_decision_request_subject_ended(

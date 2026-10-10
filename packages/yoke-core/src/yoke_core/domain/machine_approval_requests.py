@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, get_args, Literal, Mapping, Optional
+
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+from yoke_core.domain.decision_machine_clocks import machine_context_wire
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -94,10 +98,12 @@ def ensure_machine_approval(
     context: Mapping[str, Any],
     originator_actor_id: Optional[int] = None,
     session_id: str = "",
-    created_at: Optional[str] = None,
+    created_at: datetime | str | None = None,
     self_approval_actor_id: Optional[int] = None,
 ) -> tuple[dict[str, Any], bool]:
     """Record an org-admin approval, or a named user approving their own machine."""
+    stamp = parse_instant(created_at) if created_at is not None else utc_now()
+    context = machine_context_wire(context)
     history = list_subject_requests(
         conn,
         MACHINE_AUTH_SUBJECT,
@@ -119,7 +125,7 @@ def ensure_machine_approval(
         named_actor_ids=[self_approval_actor_id] if self_approval_actor_id else [],
         subject_context=dict(context),
         session_id=session_id,
-        created_at=created_at,
+        created_at=stamp,
     )
 
 
@@ -129,13 +135,15 @@ def apply_machine_approval_lifecycle(
     auth_request_id: str,
     org_id: int,
     state: str,
-    occurred_at: str,
+    occurred_at: datetime | str,
     actor_id: int,
     context: Mapping[str, Any],
     reason: Optional[str] = None,
     session_id: str = "",
 ) -> tuple[Optional[dict[str, Any]], bool, bool]:
     """Apply one hosted authorization state without duplicating decisions."""
+    occurred_at = parse_instant(occurred_at)
+    context = machine_context_wire(context)
     state = str(state).strip().lower()
     if state not in MACHINE_APPROVAL_LIFECYCLE_STATES:
         raise ValueError(f"unsupported machine authorization state {state!r}")
@@ -169,7 +177,7 @@ def apply_machine_approval_lifecycle(
     if request is None:
         initial_context = dict(context)
         initial_context["status"] = "pending" if state == "pending" else state
-        initial_context["occurred_at"] = occurred_at
+        initial_context["occurred_at"] = format_instant(occurred_at)
         request, created = ensure_machine_approval(
             conn,
             auth_request_id=auth_request_id,
@@ -250,7 +258,7 @@ def apply_machine_approval_lifecycle_request(
         )
     context: dict[str, Any] = {}
     if model.expires_at is not None:
-        context["expires_at"] = model.expires_at.isoformat()
+        context["expires_at"] = format_instant(model.expires_at)
     if model.code is not None:
         context["code"] = model.code
     if model.machine is not None:
@@ -269,7 +277,7 @@ def apply_machine_approval_lifecycle_request(
             auth_request_id=str(model.authorization_id),
             org_id=org_id,
             state=model.state,
-            occurred_at=model.occurred_at.isoformat(),
+            occurred_at=model.occurred_at,
             actor_id=int(actor_text),
             context=context,
             reason=model.reason,

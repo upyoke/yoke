@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.item_ref_resolution import resolve_item_ref_or_none
 from yoke_core.domain.schema_common import _table_exists
@@ -152,7 +152,7 @@ def stop_item_environments(conn: Any, *, item_id: int) -> int:
         f"AND item IN ({placeholders}) "
         f"AND status NOT IN ({status_placeholders})",
         (
-            iso8601_now(),
+            instant_parameter(conn, utc_now()),
             project_id,
             *labels,
             *sorted(INACTIVE_ENVIRONMENT_STATUSES),

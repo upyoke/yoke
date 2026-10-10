@@ -221,7 +221,7 @@ class TestHandleRunGet:
 
         assert outcome.primary_success is True
         assert outcome.result_payload["jobs_count"] == 0
-        assert outcome.result_payload["updated_at"] == "2999-01-01T00:00:00Z"
+        assert outcome.result_payload["updated_at"] == "2999-01-01T00:00:00.000000Z"
         assert outcome.result_payload["message"].startswith("pending run=123")
         assert calls[-1].endswith("/actions/runs/123/attempts/2/jobs")
 

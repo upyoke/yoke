@@ -13,10 +13,13 @@ delivery about a live authorization is refused by name.
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Any, Mapping, Optional
 
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+from yoke_core.domain.decision_machine_clocks import machine_context_wire
+
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.decision_request_resolution import (
     withdraw_decision_request,
     withdraw_for_ended_subject,
@@ -36,18 +39,21 @@ def _record_terminal_context(
     request: Mapping[str, Any],
     *,
     status: str,
-    observed_at: str,
+    observed_at: datetime | str,
     reason: str,
 ) -> None:
     context = request.get("subject_context")
     updated = dict(context) if isinstance(context, Mapping) else {}
     updated["status"] = status
-    updated[f"{status}_at"] = observed_at
+    updated[f"{status}_at"] = format_instant(observed_at)
     updated["reason"] = reason
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     conn.execute(
         f"UPDATE decision_requests SET subject_context = {p} WHERE id = {p}",
-        (json.dumps(updated, separators=(",", ":")), int(request["id"])),
+        (
+            json.dumps(machine_context_wire(updated), separators=(",", ":")),
+            int(request["id"]),
+        ),
     )
 
 
@@ -93,7 +99,7 @@ def _require_recorded_end(
     engine's clock, or the requesting member has left the org.
     """
     try:
-        require_decision_request_subject_ended(conn, request, observed_at=iso8601_now())
+        require_decision_request_subject_ended(conn, request, observed_at=utc_now())
         return
     except ValueError as exc:
         live_evidence = str(exc)
@@ -115,7 +121,7 @@ def withdraw_machine_approval(
     *,
     org_id: int,
     state: str,
-    occurred_at: str,
+    occurred_at: datetime | str,
     actor_id: int,
     reason: Optional[str],
     session_id: str,
@@ -126,6 +132,7 @@ def withdraw_machine_approval(
     A request this same delivery opened carried no prior live approval, so
     there is nothing a false claim could cancel and no stored evidence to read.
     """
+    occurred_at = parse_instant(occurred_at)
     service = int(org_id) in hosted_service_org_ids(conn, actor_id)
     if service and not opened_by_this_delivery:
         _require_recorded_end(conn, request, org_id=org_id, state=state)

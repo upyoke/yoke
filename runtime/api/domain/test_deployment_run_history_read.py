@@ -52,7 +52,7 @@ def _database() -> sqlite3.Connection:
     for number in range(53):
         run_id = f"run-20260908-{number:03d}"
         created = (
-            "2026-09-08T12:00:00Z"
+            "2026-09-08T12:00:00.000000Z"
             if number >= 50
             else (f"2026-09-08T11:{number:02d}:00Z")
         )
@@ -65,21 +65,21 @@ def _database() -> sqlite3.Connection:
     conn.execute(
         "INSERT INTO deployment_runs VALUES "
         "('run-live-1', 1, 'release', 'persistent', 1, 'executing', "
-        "'deploy', '2026-09-08T13:00:00Z', '', '', '{}')"
+        "'deploy', '2026-09-08T13:00:00.000000Z', NULL, NULL, '{}')"
     )
     conn.execute(
         "INSERT INTO deployment_runs VALUES "
         "('run-live-2', 1, 'release', 'persistent', 2, 'created', "
-        "'build', '2026-09-08T12:59:00Z', '', '', '{}')"
+        "'build', '2026-09-08T12:59:00.000000Z', NULL, NULL, '{}')"
     )
     conn.execute(
         "INSERT INTO deployment_runs VALUES "
         "('run-hidden', 2, 'hidden-release', 'persistent', 1, 'failed', "
-        "'build', '2026-09-08T14:00:00Z', '', '', '{}')"
+        "'build', '2026-09-08T14:00:00.000000Z', NULL, NULL, '{}')"
     )
     conn.execute(
         "INSERT INTO deployment_run_items VALUES "
-        "('run-20260908-052', 1, ''), ('run-live-1', 2, '')"
+        "('run-20260908-052', 1, '2026-09-08T12:00:00.000000Z'), ('run-live-1', 2, '2026-09-08T12:00:00.000000Z')"
     )
     conn.execute(
         "UPDATE deployment_flows SET stages = ? WHERE id = 'release'",

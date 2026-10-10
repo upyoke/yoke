@@ -6,7 +6,10 @@ Imported by ``test_strategize_carry.py`` and
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+
+from yoke_contracts.timestamps import as_utc, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -20,17 +23,13 @@ CREATE TABLE projects (
     slug TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
-    created_at TEXT NOT NULL DEFAULT '2026-01-01T00:00:00Z'
+    created_at TIMESTAMPTZ NOT NULL DEFAULT '2026-01-01T00:00:00.000000Z'
 );
 INSERT INTO projects (id, slug, name, public_item_prefix, created_at)
 VALUES
-    (1, 'yoke', 'Yoke', 'YOK', '2026-01-01T00:00:00Z'),
-    (2, 'externalwebapp', 'ExternalWebapp', 'EXT', '2026-01-01T00:00:00Z');
+    (1, 'yoke', 'Yoke', 'YOK', '2026-01-01T00:00:00.000000Z'),
+    (2, 'externalwebapp', 'ExternalWebapp', 'EXT', '2026-01-01T00:00:00.000000Z');
 """
-
-
-def _iso(dt: datetime) -> str:
-    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _p(conn: Any) -> str:
@@ -55,7 +54,7 @@ def _make_db() -> Any:
             priority TEXT DEFAULT 'medium',
             project_id INTEGER DEFAULT 1,
             project_sequence INTEGER,
-            merged_at TEXT
+            merged_at TIMESTAMPTZ
         )
         """
     )
@@ -75,8 +74,7 @@ def _seed_landed_items(
     title_prefix: str = "Landed",
 ) -> list[int]:
     """Insert ``count`` items with merged_at ``days_ago`` days before now."""
-    now = datetime.now(timezone.utc)
-    merged = now - timedelta(days=days_ago)
+    merged = instant_parameter(conn, as_utc(utc_now()) - timedelta(days=days_ago))
     ids: list[int] = []
     p = _p(conn)
     project_id = 2 if project == "externalwebapp" else 1
@@ -91,7 +89,7 @@ def _seed_landed_items(
                 priority,
                 project_id,
                 item_id,
-                _iso(merged),
+                merged,
             ),
         )
         ids.append(item_id)

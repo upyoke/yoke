@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Mapping, Optional, Sequence, Set, Tuple
 
 from yoke_core.domain import db_backend
@@ -32,9 +34,9 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def now_stamp() -> str:
-    """The timestamp format every migration row is written in."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def now_stamp() -> datetime:
+    """Produce the native instant for a migration audit row."""
+    return utc_now()
 
 
 def write_receipt(
@@ -42,8 +44,8 @@ def write_receipt(
     entry: MigrationEntry,
     *,
     state: str,
-    started_at: str,
-    completed_at: str,
+    started_at: datetime | str,
+    completed_at: datetime | str,
     restore_point: str,
     attribution: Mapping[str, str],
     model_name: str,
@@ -57,6 +59,8 @@ def write_receipt(
     worth failing a boot — but missing session, actor, branch, or commit
     is a refused apply, not a bookkeeping miss.
     """
+    started_at = instant_parameter(conn, parse_instant(started_at))
+    completed_at = instant_parameter(conn, parse_instant(completed_at))
     fields = require_attribution(attribution)
     model = refuse_level_as_model_name(model_name)
     p = _p(conn)

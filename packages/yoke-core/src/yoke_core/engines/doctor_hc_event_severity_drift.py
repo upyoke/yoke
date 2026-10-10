@@ -19,6 +19,8 @@ Outcomes:
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from typing import Any, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
@@ -56,9 +58,7 @@ def _non_canonical_counts(
     return [(str(row[0]), int(row[1])) for row in cursor.fetchall()]
 
 
-def _sample_event_ids(
-    conn: Any, limit: int = 5
-) -> List[Tuple[str, str, str]]:
+def _sample_event_ids(conn: Any, limit: int = 5) -> List[Tuple[str, str, str]]:
     p = _p(conn)
     placeholders = ",".join(p for _ in VALID_SEVERITIES)
     cursor = conn.execute(
@@ -68,13 +68,13 @@ def _sample_event_ids(
         (*VALID_SEVERITIES, limit),
     )
     return [
-        (str(row[0]), str(row[1]), str(row[2])) for row in cursor.fetchall()
+        (str(row[0]), str(row[1]), format_instant(row[2])) for row in cursor.fetchall()
     ]
 
 
 def _most_recent_severity_migration(
     conn: Any,
-) -> Optional[Tuple[str, str]]:
+) -> Optional[Tuple[str, Optional[str]]]:
     """Return ``(migration_name, completed_at)`` for the most recently
     completed severity-normalization migration, or ``None`` when no
     completed row exists. Defensive against the validation surface
@@ -94,13 +94,11 @@ def _most_recent_severity_migration(
     if row is None:
         return None
     name = str(row[0])
-    completed_at = str(row[1]) if row[1] else ""
+    completed_at = format_instant(row[1]) if row[1] is not None else None
     return name, completed_at
 
 
-def hc_event_severity_drift(
-    conn: Any, args: DoctorArgs, rec: RecordCollector
-) -> None:
+def hc_event_severity_drift(conn: Any, args: DoctorArgs, rec: RecordCollector) -> None:
     if not _events_table_present(conn):
         rec.record(
             f"HC-{HC_ID}",
@@ -147,15 +145,13 @@ def hc_event_severity_drift(
         migration_name, completed_at = audit
         suffix = f" (completed_at={completed_at})" if completed_at else ""
         lines.append(
-            f"Most recent severity-normalization migration: "
-            f"{migration_name}{suffix}."
+            f"Most recent severity-normalization migration: {migration_name}{suffix}."
         )
     if samples:
         lines.append("Sample rows:")
         for event_id, severity, created_at in samples:
             lines.append(
-                f"- event_id={event_id} severity={severity} "
-                f"created_at={created_at}"
+                f"- event_id={event_id} severity={severity} created_at={created_at}"
             )
     rec.record(f"HC-{HC_ID}", HC_NAME, "FAIL", "\n".join(lines))
 

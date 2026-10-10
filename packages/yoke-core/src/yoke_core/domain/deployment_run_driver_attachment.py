@@ -16,11 +16,11 @@ driver on another machine is still judged by its heartbeat alone.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import as_utc, format_instant, parse_instant, utc_now
 from yoke_core.domain.json_helper import dumps_compact, loads_text
 from yoke_core.domain.schema_common import _column_exists
 
@@ -50,19 +50,23 @@ class DriverAttachment:
     run_id: str
     session_id: str
     pid: int
-    attached_at: str
-    heartbeat_at: str
+    attached_at: datetime
+    heartbeat_at: datetime
     phase: str
     progress_capture: str
     machine_id: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "attached_at", as_utc(self.attached_at))
+        object.__setattr__(self, "heartbeat_at", as_utc(self.heartbeat_at))
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "run_id": self.run_id,
             "session_id": self.session_id,
             "pid": self.pid,
-            "attached_at": self.attached_at,
-            "heartbeat_at": self.heartbeat_at,
+            "attached_at": format_instant(self.attached_at),
+            "heartbeat_at": format_instant(self.heartbeat_at),
             "phase": self.phase,
             "progress_capture": self.progress_capture,
             "machine_id": self.machine_id,
@@ -86,7 +90,7 @@ def format_refusal(run_id: str, current: DriverAttachment) -> str:
     return (
         f"deployment run {run_id} already has a live driver: session "
         f"{current.session_id}, pid {current.pid}, attached at "
-        f"{current.attached_at}, phase {current.phase}{capture}. "
+        f"{format_instant(current.attached_at)}, phase {current.phase}{capture}. "
         "Wait for that driver to finish or stop it; do not start a second "
         "one. An interrupted driver is recovered by re-driving this same "
         "run id: from the machine it ran on, as soon as that process is gone; "
@@ -94,23 +98,10 @@ def format_refusal(run_id: str, current: DriverAttachment) -> str:
     )
 
 
-def _parse_time(value: str) -> datetime | None:
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed
-
-
-def is_live(attachment: DriverAttachment, *, now: str) -> bool:
-    """True when the recorded heartbeat is still inside the live window."""
-    stamped = _parse_time(attachment.heartbeat_at)
-    current = _parse_time(now)
-    if stamped is None or current is None:
-        return False
-    return current - stamped <= LIVE_HEARTBEAT
+def is_live(attachment: DriverAttachment, *, now: datetime) -> bool:
+    """True at the inclusive native heartbeat window boundary."""
+    current = as_utc(now)
+    return current - attachment.heartbeat_at <= LIVE_HEARTBEAT
 
 
 def parse_attachment(run_id: str, raw: Any) -> DriverAttachment | None:
@@ -135,8 +126,8 @@ def parse_attachment(run_id: str, raw: Any) -> DriverAttachment | None:
         run_id=run_id,
         session_id=session_id,
         pid=pid,
-        attached_at=str(payload.get("attached_at") or ""),
-        heartbeat_at=str(payload.get("heartbeat_at") or ""),
+        attached_at=parse_instant(payload.get("attached_at")),
+        heartbeat_at=parse_instant(payload.get("heartbeat_at")),
         phase=str(payload.get("phase") or ""),
         progress_capture=str(payload.get("progress_capture") or ""),
         machine_id=str(payload.get("machine_id") or ""),
@@ -148,8 +139,8 @@ def _serialize(attachment: DriverAttachment) -> str:
         {
             "session_id": attachment.session_id,
             "pid": attachment.pid,
-            "attached_at": attachment.attached_at,
-            "heartbeat_at": attachment.heartbeat_at,
+            "attached_at": format_instant(attachment.attached_at),
+            "heartbeat_at": format_instant(attachment.heartbeat_at),
             "phase": attachment.phase,
             "progress_capture": attachment.progress_capture,
             "machine_id": attachment.machine_id,
@@ -194,7 +185,7 @@ def attach_driver(
     progress_capture: str = "",
     machine_id: str = "",
     exited_driver_pid: int = 0,
-    now: str | None = None,
+    now: datetime | None = None,
 ) -> DriverAttachment | None:
     """Record this process as the run's driver, or refuse a live other one.
 
@@ -209,7 +200,7 @@ def attach_driver(
     """
     if phase not in VALID_PHASES:
         raise ValueError(f"driver phase {phase!r} is not registered")
-    clock = now or iso8601_now()
+    clock = utc_now() if now is None else as_utc(now)
     locked = _locked_row(conn, run_id_value)
     if locked is None:
         raise LookupError(f"deployment run {run_id_value!r} not found")
@@ -272,9 +263,10 @@ def release_driver(
 
 
 def live_attachment_for_run(
-    conn: Any, *, run_id_value: str, now: str
+    conn: Any, *, run_id_value: str, now: datetime
 ) -> DriverAttachment | None:
     """Return the live driver on *run_id_value*, or None."""
+    now = as_utc(now)
     if not _column_ready(conn):
         return None
     row = conn.execute(
@@ -291,9 +283,10 @@ def live_attachment_for_run(
 
 
 def live_attachment_for_capture(
-    conn: Any, *, progress_capture: str, now: str
+    conn: Any, *, progress_capture: str, now: datetime
 ) -> DriverAttachment | None:
     """Return the live driver that claimed *progress_capture*, or None."""
+    now = as_utc(now)
     wanted = str(progress_capture or "").strip()
     if not wanted or not _column_ready(conn):
         return None

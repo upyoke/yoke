@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+
+from yoke_contracts.timestamps import as_utc
 import sys
 from typing import Any, Callable, Mapping
 
@@ -117,20 +119,10 @@ def _log_token_rejection(auth: ProjectGithubAuth) -> None:
     )
 
 
-def _token_age_seconds(issued_at: str) -> int | None:
-    raw = str(issued_at or "").strip()
-    if not raw:
+def _token_age_seconds(issued_at: datetime | None) -> int | None:
+    if issued_at is None:
         return None
-    try:
-        issued = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if issued.tzinfo is None:
-        issued = issued.replace(tzinfo=timezone.utc)
-    observed = clock()
-    if observed.tzinfo is None:
-        observed = observed.replace(tzinfo=timezone.utc)
-    return max(0, int((observed.astimezone(timezone.utc) - issued).total_seconds()))
+    return max(0, int((as_utc(clock()) - as_utc(issued_at)).total_seconds()))
 
 
 __all__ = ["graphql_with_auth"]

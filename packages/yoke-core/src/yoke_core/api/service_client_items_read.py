@@ -22,6 +22,7 @@ from yoke_core.api.service_client_items_parsing import (
 )
 from yoke_core.domain.project_identity import item_project_join_select, render_item_ref
 from yoke_core.domain.items_constants import CANONICAL_COLUMNS, _DB_COLUMNS
+from yoke_core.domain.items_projection import item_text_expression
 
 
 def _view_exists(conn, view_name: str) -> bool:
@@ -105,7 +106,7 @@ def cmd_item_get(args: list[str]) -> int:
         else:
             # Fetch the field value from DB
             row = conn.execute(
-                f"SELECT COALESCE(CAST({field} AS TEXT), '') AS value FROM items WHERE id = %s",
+                f"SELECT {item_text_expression(field)} AS value FROM items WHERE id = %s",
                 (item_id,),
             ).fetchone()
             value = row["value"] if row else ""

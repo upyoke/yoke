@@ -11,12 +11,14 @@ from __future__ import annotations
 from yoke_contracts.machine_config.directories import create_private_directory
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 import hashlib
 import os
 from pathlib import Path
 import stat
 import time
 from uuid import UUID
+from yoke_contracts.timestamps import as_utc
 
 from yoke_contracts.session_control.evidence import (
     NATIVE_DIAGNOSTIC_REFERENCE_PATTERN,
@@ -75,7 +77,10 @@ class NativeDiagnosticError(RuntimeError):
 class NativeDiagnosticReceipt:
     reference: str
     fingerprint_sha256: str
-    expires_at: int
+    expires_at: datetime
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "expires_at", as_utc(self.expires_at))
 
 
 def diagnostic_reference(identifier: str) -> str:
@@ -271,7 +276,8 @@ def store_native_diagnostic(
     return NativeDiagnosticReceipt(
         reference,
         hashlib.sha256(payload).hexdigest(),
-        int(current) + NATIVE_DIAGNOSTIC_TTL_SECONDS,
+        datetime.fromtimestamp(current, timezone.utc)
+        + timedelta(seconds=NATIVE_DIAGNOSTIC_TTL_SECONDS),
     )
 
 

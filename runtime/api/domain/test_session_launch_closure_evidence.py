@@ -27,9 +27,9 @@ MACHINE_ID = "11111111-1111-4111-8111-111111111111"
 RELAY_ID = f"machine:{MACHINE_ID}"
 # Past the launch lease but inside the relay's connection horizon, so the
 # relay is provably still talking to the control plane at expiry.
-LEASE_EXPIRED_AT = "2026-08-22T12:05:01Z"
+LEASE_EXPIRED_AT = "2026-08-22T12:05:01.000000Z"
 # Past the relay connection horizon too: the machine has gone quiet.
-RELAY_SILENT_AT = "2026-08-22T12:25:00Z"
+RELAY_SILENT_AT = "2026-08-22T12:25:00.000000Z"
 
 
 def _heartbeat() -> RelayHeartbeat:
@@ -87,7 +87,7 @@ def _open_lease(conn, launch_id: str) -> str:
 def test_lease_expiry_records_phase_and_diagnostics_on_the_open_attempt() -> None:
     conn = relay_connection()
     launch = _claimed_launch(conn, key="lease-expiry-evidence")
-    _relay_connected_through(conn, "2026-08-22T12:10:00Z")
+    _relay_connected_through(conn, "2026-08-22T12:10:00.000000Z")
 
     settle_launch_deadlines(conn, now=LEASE_EXPIRED_AT)
 
@@ -123,7 +123,7 @@ def test_lease_expiry_surfaces_the_terminal_result_code_on_the_launch_row() -> N
 def test_a_connected_relay_at_expiry_reads_as_an_adapter_stall() -> None:
     conn = relay_connection()
     launch = _claimed_launch(conn, key="connected-relay-expiry")
-    _relay_connected_through(conn, "2026-08-22T12:10:00Z")
+    _relay_connected_through(conn, "2026-08-22T12:10:00.000000Z")
 
     settle_launch_deadlines(conn, now=LEASE_EXPIRED_AT)
 
@@ -160,7 +160,7 @@ def test_a_late_native_report_lands_on_top_of_the_expiry_document() -> None:
         result_code="native_created",
         native_session_id="native-1",
         evidence={"surface": "codex-cli", "native_launch_phase": "native_running"},
-        now="2026-08-22T12:05:30Z",
+        now="2026-08-22T12:05:30.000000Z",
     )
 
     evidence = json.loads(_attempt(conn, launch.launch_id)[2])
@@ -210,12 +210,12 @@ def test_a_cancelled_launch_still_closes_with_phase_and_transport() -> None:
 
     conn = relay_connection()
     launch = _claimed_launch(conn, key="cancelled-then-expired")
-    _relay_connected_through(conn, "2026-08-22T12:10:00Z")
+    _relay_connected_through(conn, "2026-08-22T12:10:00.000000Z")
     cancel_launch(
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
-        now="2026-08-22T12:01:00Z",
+        now="2026-08-22T12:01:00.000000Z",
     )
 
     settle_expired_relay_leases(conn, now=LEASE_EXPIRED_AT)
@@ -242,7 +242,7 @@ def test_lease_expiry_keeps_what_the_relay_already_reported() -> None:
 
     conn = relay_connection()
     launch = _claimed_launch(conn, key="expiry-keeps-relay-report")
-    _relay_connected_through(conn, "2026-08-22T12:10:00Z")
+    _relay_connected_through(conn, "2026-08-22T12:10:00.000000Z")
     report_relay_job(
         conn,
         actor_id=1,
@@ -253,7 +253,7 @@ def test_lease_expiry_keeps_what_the_relay_already_reported() -> None:
         result_code="progress",
         adapter_revision="codex-relay-v4",
         evidence={"result_code": "transport_exception", "native_launch_phase": "spawn"},
-        now="2026-08-22T12:00:20Z",
+        now="2026-08-22T12:00:20.000000Z",
     )
 
     settle_launch_deadlines(conn, now=LEASE_EXPIRED_AT)

@@ -32,6 +32,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+
+from yoke_contracts.timestamps import temporal_wire
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.api.observability import debug_detail_allowed, service_name
@@ -61,7 +63,9 @@ _TYPE = "function_call"
 
 def serialize_payload(payload: Dict[str, Any]) -> Tuple[int, str]:
     """Return ``(byte_count, sha256_hex)`` for the canonical-JSON form."""
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    canonical = json.dumps(
+        temporal_wire(payload), sort_keys=True, separators=(",", ":")
+    )
     encoded = canonical.encode("utf-8")
     return len(encoded), hashlib.sha256(encoded).hexdigest()
 
@@ -107,12 +111,14 @@ def detailed_capture_context(
     per dispatch, because a true answer consumes one unit of the
     campaign's record budget.
     """
-    if not debug_detail_allowed({
-        "function": entry.function_id,
-        "session_id": request.actor.session_id,
-        "request_id": request.request_id,
-        "service": service_name(),
-    }):
+    if not debug_detail_allowed(
+        {
+            "function": entry.function_id,
+            "session_id": request.actor.session_id,
+            "request_id": request.request_id,
+            "service": service_name(),
+        }
+    ):
         return {}
     return {"result": dict(response.result)}
 
@@ -159,9 +165,7 @@ def emit_called(
         "claim_required_kind": entry.claim_required_kind,
         "claim_verification": dict(claim_verification),
         "guardrail_outcomes": list(entry.guardrails),
-        "verification_status": (
-            "ok" if outcome.primary_success else "failed"
-        ),
+        "verification_status": ("ok" if outcome.primary_success else "failed"),
         "sync_status": "degraded" if response.warnings else "ok",
         "event_ids": list(outcome.handler_event_ids),
         "request_id": request.request_id,
@@ -190,7 +194,9 @@ def emit_called(
         and "handler_managed_idempotency" not in entry.guardrails
     ):
         record_call(
-            request.request_id, entry.function_id, dict(response.result),
+            request.request_id,
+            entry.function_id,
+            dict(response.result),
             actor_id=str(request.actor.actor_id or ""),
             authorization_scope=authorization_scope,
             payload_checksum=idempotency_payload_checksum,

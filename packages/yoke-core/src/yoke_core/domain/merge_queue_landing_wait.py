@@ -7,6 +7,8 @@ from yoke_core.domain.public_item_target import public_item_target
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
+from yoke_contracts.timestamps import format_instant
+
 from yoke_core.domain import control_plane_function_degradation
 from yoke_core.domain.github_poll_schedule import (
     PollSchedule,
@@ -74,6 +76,10 @@ def _read_server_record(
     return record, result, ""
 
 
+def _clock_label(value: Any) -> str:
+    return "never" if value is None else format_instant(value)
+
+
 def _stale_refusal(
     *,
     pr_num: str,
@@ -81,8 +87,8 @@ def _stale_refusal(
     record: PublicLandingRecord | None,
 ) -> WaitRefusal:
     refresh = result.get("refresh") or {}
-    observed_at = record.observed_at if record is not None else "never"
-    completed_at = str(refresh.get("completed_at") or "never")
+    observed_at = _clock_label(record.observed_at if record is not None else None)
+    completed_at = _clock_label(refresh.get("completed_at"))
     last_error = str(refresh.get("last_error") or "none")
     return WaitRefusal(
         "landing_record_stale: the server-side record for pull request "
@@ -202,7 +208,7 @@ def wait_for_queue_landing(
                 last_announced = narrative
                 emit(
                     f"{POLL_LINE_PREFIX} {narrative} "
-                    f"(recorded: {record.observed_at}; elapsed: "
+                    f"(recorded: {_clock_label(record.observed_at)}; elapsed: "
                     f"{int(now - started)}s)"
                 )
         refusal = _record_refusal(record, pr_num=pr_num, target=target)

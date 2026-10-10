@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import json
 from dataclasses import replace
 
@@ -61,7 +63,7 @@ def test_worker_that_ended_without_claiming_flips_its_launch() -> None:
     assert flipped is not None
     assert flipped.state == "failed"
     assert flipped.result_code == ABANDONED_RESULT_CODE
-    assert flipped.completed_at == "2026-08-22T12:09:00Z"
+    assert flipped.completed_at == parse_instant("2026-08-22T12:09:00Z")
     evidence = json.loads(flipped.result_evidence)
     assert evidence["result_code"] == ABANDONED_RESULT_CODE
     assert evidence["closure_reason"] == "session_empty_auto_ended"

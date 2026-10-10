@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-import math
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import as_utc
 from collections import defaultdict
 from typing import Any
 
@@ -13,22 +15,34 @@ MAX_POINTS = 800
 MIN_BUCKET_SECONDS = 60
 
 
-def bucket_seconds(start: float, end: float, points: int) -> int:
-    # A minute is useful for event-level timings; never invent observations
-    # between buckets. Round upwards, preserving the requested point bound.
-    return max(MIN_BUCKET_SECONDS, math.ceil((end - start) / points / 60) * 60)
+def bucket_seconds(start: datetime, end: datetime, points: int) -> int:
+    # Round upward in whole minutes using exact timedelta arithmetic. Numeric
+    # seconds describe bucket resolution, never the observation's instant.
+    start, end = as_utc(start), as_utc(end)
+    if start >= end or points <= 0:
+        raise ValueError("performance_range_invalid")
+    minutes, remainder = divmod(
+        end - start, timedelta(seconds=MIN_BUCKET_SECONDS) * points
+    )
+    return max(1, minutes + bool(remainder)) * MIN_BUCKET_SECONDS
 
 
 def aggregate(
-    observations: list[dict[str, Any]], start: float, end: float, points: int
+    observations: list[dict[str, Any]], start: datetime, end: datetime, points: int
 ) -> dict[str, Any]:
+    start, end = as_utc(start), as_utc(end)
     seconds = bucket_seconds(start, end, points)
-    count = math.ceil((end - start) / seconds)
+    width = timedelta(seconds=seconds)
+    count, remainder = divmod(end - start, width)
+    count += bool(remainder)
     groups: dict[tuple[int, str], list[dict[str, Any]]] = defaultdict(list)
+    retained = []
     for value in observations:
-        index = int((value["timestamp"] - start) // seconds)
-        if 0 <= index < count:
+        observed = as_utc(value["observed_at"])
+        if start <= observed < end:
+            index = (observed - start) // width
             groups[index, value["family"]].append(value)
+            retained.append(observed)
     buckets = []
     for index in range(count):
         metrics = {}
@@ -54,14 +68,14 @@ def aggregate(
             }
         buckets.append(
             {
-                "start": start + index * seconds,
-                "end": min(end, start + (index + 1) * seconds),
+                "start": start + index * width,
+                "end": min(end, start + (index + 1) * width),
                 "metrics": metrics,
             }
         )
     return {
         "buckets": buckets,
         "bucket_seconds": seconds,
-        "observation_count": len(observations),
-        "last_observation": max((v["observed_at"] for v in observations), default=None),
+        "observation_count": len(retained),
+        "last_observation": max(retained, default=None),
     }

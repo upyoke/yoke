@@ -152,7 +152,7 @@ def handle_items_list(request: FunctionCallRequest) -> HandlerOutcome:
         project=None,
     )
     where_clause, params = queries.build_where_clause(filt, table_prefix="i.")
-    select_cols, needs_project = item_project_join_select(fields)
+    select_cols, needs_project = item_project_join_select(fields, native_instants=True)
     join = " JOIN projects p ON p.id = i.project_id" if needs_project else ""
     if "deployment_flow" in fields:
         select_cols += ", i.id"

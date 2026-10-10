@@ -16,9 +16,10 @@ prompt will still appear.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from yoke_contracts.timestamps import format_instant, utc_now
 
 from yoke_contracts.harness_folder_trust import (
     CLAUDE_PROJECTS_KEY,
@@ -121,9 +122,7 @@ def _grant_cursor(path: str, trust_file: Optional[Path]) -> List[str]:
     if target.is_file():
         return []
     payload: Dict[str, Any] = {
-        "trustedAt": datetime.now(timezone.utc)
-        .isoformat(timespec="milliseconds")
-        .replace("+00:00", "Z"),
+        "trustedAt": format_instant(utc_now()),
         "workspacePath": path,
     }
     try:

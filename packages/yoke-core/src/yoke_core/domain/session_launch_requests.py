@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
 from typing import Any
 from uuid import uuid4
 
@@ -60,13 +62,13 @@ def create_launch(
     request: LaunchRequest,
     max_body_bytes: int = DEFAULT_MAX_BODY_BYTES,
     surface_fallback_enabled: bool = False,
-    now: str | None = None,
+    now: datetime | str | None = None,
     eligibility: LaunchEligibilityPort = derive_launch_eligibility,
 ) -> LaunchCreateOutcome:
     ensure_operator(auth)
     from yoke_core.domain.workflow_stage_levels import default_launch_level
 
-    current = now or utc_now()
+    current = utc_now() if now is None else parse_instant(now)
     begin_mutation(conn)
     try:
         if request.item:
@@ -191,9 +193,9 @@ def cancel_launch(
     *,
     launch_id: str,
     auth: LaunchAuthorization,
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> LaunchRecord:
-    current = now or utc_now()
+    current = utc_now() if now is None else parse_instant(now)
     begin_mutation(conn)
     try:
         launch = get_launch(conn, launch_id, for_update=True)
@@ -246,13 +248,13 @@ def retry_launch(
     auth: LaunchAuthorization,
     deadline_seconds: int = DEFAULT_LAUNCH_DEADLINE_SECONDS,
     surface_fallback_enabled: bool = False,
-    now: str | None = None,
+    now: datetime | str | None = None,
     eligibility: LaunchEligibilityPort = derive_launch_eligibility,
 ) -> LaunchRecord:
     ensure_operator(auth)
     if not 60 <= deadline_seconds <= MAX_LAUNCH_DEADLINE_SECONDS:
         raise SessionLaunchError("deadline_invalid", "retry deadline is out of bounds")
-    current = now or utc_now()
+    current = utc_now() if now is None else parse_instant(now)
     begin_mutation(conn)
     try:
         launch = get_launch(conn, launch_id, for_update=True)

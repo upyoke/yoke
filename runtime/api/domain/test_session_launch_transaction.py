@@ -39,7 +39,7 @@ def test_message_completion_can_share_the_callers_transaction() -> None:
         lease_id=claim.lease_id,
         result_code="native_created",
         native_session_id="session-shared-transaction",
-        now="2026-08-22T12:00:30Z",
+        now="2026-08-22T12:00:30.000000Z",
     )
     conn.execute(
         "INSERT INTO harness_sessions "
@@ -54,7 +54,7 @@ def test_message_completion_can_share_the_callers_transaction() -> None:
         launch_id=launch.launch_id,
         attestation=claim.attestation,
         session_id="session-shared-transaction",
-        now="2026-08-22T12:00:31Z",
+        now="2026-08-22T12:00:31.000000Z",
     )
     conn.execute(
         "UPDATE session_message_recipients SET state='acknowledged' WHERE message_id=?",
@@ -64,7 +64,7 @@ def test_message_completion_can_share_the_callers_transaction() -> None:
         conn,
         message_id=launch.message_id,
         session_id="session-shared-transaction",
-        now="2026-08-22T12:00:32Z",
+        now="2026-08-22T12:00:32.000000Z",
         commit=False,
     )
     assert completed and completed.state == "succeeded"
@@ -96,7 +96,7 @@ def test_first_launch_instruction_records_append_only_attempt_evidence(
         lease_id=claim.lease_id,
         result_code="native_created",
         native_session_id="session-first-instruction-evidence",
-        now="2026-08-22T12:00:30Z",
+        now="2026-08-22T12:00:30.000000Z",
     )
     conn.execute(
         "INSERT INTO harness_sessions "
@@ -111,7 +111,7 @@ def test_first_launch_instruction_records_append_only_attempt_evidence(
         launch_id=launch.launch_id,
         attestation=claim.attestation,
         session_id="session-first-instruction-evidence",
-        now="2026-08-22T12:00:31Z",
+        now="2026-08-22T12:00:31.000000Z",
     )
 
     complete_launch_injection(
@@ -119,7 +119,7 @@ def test_first_launch_instruction_records_append_only_attempt_evidence(
         launch_id=launch.launch_id,
         session_id="session-first-instruction-evidence",
         injected=injected,
-        now="2026-08-22T12:00:32Z",
+        now="2026-08-22T12:00:32.000000Z",
     )
 
     attempt = conn.execute(
@@ -130,8 +130,8 @@ def test_first_launch_instruction_records_append_only_attempt_evidence(
     assert tuple(attempt[:5]) == (
         "hook",
         "session-launch-attestation-v1",
-        "2026-08-22T12:00:32Z",
-        "2026-08-22T12:00:32Z",
+        "2026-08-22T12:00:32.000000Z",
+        "2026-08-22T12:00:32.000000Z",
         expected_result,
     )
     assert json.loads(attempt[5]) == {"delivery_path": "launch_attestation"}

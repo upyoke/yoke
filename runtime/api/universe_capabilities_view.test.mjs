@@ -158,7 +158,7 @@ test(`Capabilities shows stored types and scoped row navigation at ${basePath ||
     allNodes(root)
       .filter((node) => node.tagName === "TIME")
       .map((node) => node.attributes.get("datetime")),
-    ["2026-07-15T12:10:00.000Z", "2026-07-15T12:00:00.000Z"],
+    ["2026-07-15T12:10:00.000000Z", "2026-07-15T12:00:00.000000Z"],
   );
   for (const key of [null, "Enter", " "]) {
     const row = allNodes(root).find(node => node.classList?.contains("capability-route-row"));

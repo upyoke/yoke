@@ -255,7 +255,9 @@ class TestHarnessBootstrapClassifiesImplement:
         )
         assert "/yoke " + "advance" not in section
 
-    def test_classification_teaches_registered_lifecycle_writes(self, harness_bootstrap_md):
+    def test_classification_teaches_registered_lifecycle_writes(
+        self, harness_bootstrap_md
+    ):
         match = re.search(
             r"## Command Classification\b(.*?)(?=\n## )",
             harness_bootstrap_md,

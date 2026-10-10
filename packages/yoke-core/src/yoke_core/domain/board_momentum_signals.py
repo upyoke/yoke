@@ -73,7 +73,7 @@ def project_age_days(conn: Any, project_ids: list[int]) -> int:
     if not project_ids:
         return 0
     row = conn.execute(
-        "SELECT MIN(SUBSTRING(created_at, 1, 10)) AS first_day "
+        "SELECT MIN((created_at AT TIME ZONE 'UTC')::date) AS first_day "
         f"FROM projects WHERE id IN ({_markers(project_ids)})",
         tuple(project_ids),
     ).fetchone()
@@ -103,8 +103,10 @@ def build_momentum_series(
     activity = activity_units_by_day(db, project_ids, days=days)
     issues = issues_done_by_day(db, project_ids, days=days)
     strategy = strategy_bytes_by_day(db, project_ids, days=days)
-    code = dict(code_by_day) if code_by_day is not None else (
-        lines_changed_by_day(db, project_ids, days=days)
+    code = (
+        dict(code_by_day)
+        if code_by_day is not None
+        else (lines_changed_by_day(db, project_ids, days=days))
     )
     # The activity series already carries commit days, so activity presence
     # IS the board streak formula (activity ∪ commits).

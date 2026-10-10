@@ -11,6 +11,8 @@ recorded refusal into something an operator can act on.
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+
 from datetime import datetime
 from typing import Any, Mapping
 from uuid import NAMESPACE_URL, uuid5
@@ -24,7 +26,6 @@ from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
     surface_version_supported,
 )
-from yoke_core.domain.session_message_types import timestamp
 from yoke_core.domain.session_relay_evidence import redacted_evidence
 from yoke_core.domain.session_relay_storage import marker
 from yoke_core.domain.session_surface_policy import (
@@ -116,8 +117,8 @@ def record_wake_skip(
             session_id,
             "wake_relay",
             _WAKE_SKIP_ADAPTER_REVISION,
-            timestamp(now),
-            timestamp(now),
+            instant_parameter(conn, now),
+            instant_parameter(conn, now),
             result_code,
             redacted_evidence(evidence),
         ),

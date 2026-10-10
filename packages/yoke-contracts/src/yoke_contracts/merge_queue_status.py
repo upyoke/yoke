@@ -2,22 +2,25 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
+from yoke_contracts.timestamps import format_instant
+
 
 def render_merge_queue_status(
-    enqueued_at: object,
-    landed_at: object,
+    enqueued_at: datetime | str | None,
+    landed_at: datetime | str | None,
     *,
     item_status: object = "",
 ) -> str:
     """Describe queue occupancy or landed work awaiting close-out."""
     if str(item_status or "") in {"done", "cancelled"}:
         return ""
-    enqueued = str(enqueued_at or "").strip()
-    if not enqueued:
+    if enqueued_at in (None, ""):
         return ""
-    landed = str(landed_at or "").strip()
-    if landed:
-        return f"merge queue landed at {landed}; close-out pending"
+    enqueued = format_instant(enqueued_at)
+    if landed_at not in (None, ""):
+        return f"merge queue landed at {format_instant(landed_at)}; close-out pending"
     return f"in merge queue since {enqueued}"
 
 

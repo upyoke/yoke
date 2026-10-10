@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from yoke_contracts.timestamps import parse_instant
 
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_harness.session_relay_runtime import RelayAdapterResult
@@ -42,7 +43,9 @@ def diagnostic_outcome_fields(
         "machine_id": machine_id,
         "native_diagnostic_ref": reference if isinstance(reference, str) else None,
         "native_diagnostic_command": evidence.get("native_diagnostic_command"),
-        "diagnostic_expires_at": evidence.get("diagnostic_expires_at"),
+        "diagnostic_expires_at": None
+        if evidence.get("diagnostic_expires_at") is None
+        else parse_instant(evidence["diagnostic_expires_at"]),
         "diagnostic_availability": availability,
         "native_error_class": failure_class,
         "native_error_step": evidence.get("native_error_step"),

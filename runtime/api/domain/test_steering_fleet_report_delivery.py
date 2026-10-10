@@ -19,7 +19,7 @@ from yoke_core.domain.steering_fleet_report_delivery import (
 
 
 NOW = datetime(2026, 8, 26, 12, 0, 0, tzinfo=timezone.utc)
-LONG_AGO = "2026-08-26T09:00:00Z"
+LONG_AGO = "2026-08-26T09:00:00.000000Z"
 STEERING_SESSION = "steering-holder"
 PLAIN_SESSION = "ordinary-worker"
 PROJECT_ID = 1
@@ -45,7 +45,7 @@ def _seed_session(conn, session_id: str) -> None:
     )
 
 
-def _last_report(conn, session_id: str) -> tuple[str, str]:
+def _last_report(conn, session_id: str) -> tuple[datetime | None, str]:
     row = dict(
         conn.execute(
             "SELECT last_steering_report_at, last_steering_report_fingerprint "
@@ -54,7 +54,7 @@ def _last_report(conn, session_id: str) -> tuple[str, str]:
         ).fetchone()
     )
     return (
-        str(row["last_steering_report_at"] or ""),
+        row["last_steering_report_at"],
         str(row["last_steering_report_fingerprint"] or ""),
     )
 
@@ -117,7 +117,7 @@ def test_an_unconfirmed_candidate_does_not_take_the_interval(steering_scope):
     assert first is not None
     assert "=== BEGIN YOKE FLEET REPORT ===" in first.text
     stamped_at, fingerprint = _last_report(steering_scope, STEERING_SESSION)
-    assert stamped_at == ""
+    assert stamped_at is None
     assert fingerprint == ""
 
     second = steering_report_candidate(
@@ -185,7 +185,7 @@ def test_unchanged_quiet_content_is_suppressed_but_still_takes_the_interval(
     )
     stamped_at, unchanged = _last_report(steering_scope, STEERING_SESSION)
     assert unchanged == fingerprint
-    assert stamped_at == "2026-08-26T12:30:00Z"
+    assert stamped_at == later
 
 
 def test_changed_content_reports_again_after_the_interval(steering_scope):
@@ -308,7 +308,7 @@ def test_hook_and_watcher_share_one_delivery_record(steering_scope):
             steering_scope,
             session_id=STEERING_SESSION,
             fingerprint=fingerprint,
-            now="2026-08-26T12:05:00Z",
+            now="2026-08-26T12:05:00.000000Z",
         )
 
     assert watcher(candidate.fingerprint) is False

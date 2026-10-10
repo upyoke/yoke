@@ -1,4 +1,4 @@
-"""Task 004 — release-precondition test spine."""
+"""Release preconditions retain live work through nonterminal checkpoints."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import json
 import os
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import parse_instant, utc_now
 
 from yoke_core.domain.sessions_handler_outcome import (
     OUTCOME_BLOCKED,
@@ -49,7 +49,7 @@ from runtime.api.test_constants import TEST_MODEL_ID
 SESSION_ID = "019e1f0d-7f82-72d2-85ee-b46947b2a6fd"
 ITEM_ID = 9999
 EPIC_ID = 9998
-_TS = "2026-05-13T01:58:26+00:00"
+_TS = parse_instant("2026-05-13T01:58:26.123456Z")
 
 
 def _make_db():
@@ -77,12 +77,12 @@ def _make_db():
 
 
 def _seed_session(conn) -> None:
-    now = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+    now = utc_now()
     conn.execute(
         "INSERT INTO harness_sessions (session_id, executor, provider, model,"
         " execution_level, executor_version, machine_id, workspace, mode, offered_at,"
         " last_heartbeat) VALUES (%s, 'claude-code', 'anthropic',"
-        f" '{TEST_MODEL_ID}', 'primary', NULL, NULL, '/tmp/yok1674', 'wait', %s, %s)",
+        f" '{TEST_MODEL_ID}', 'primary', NULL, NULL, '/tmp/release-precondition-fixture', 'wait', %s, %s)",
         (SESSION_ID, now, now),
     )
     conn.commit()

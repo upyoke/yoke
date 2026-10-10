@@ -20,11 +20,11 @@ from runtime.api.domain.session_launch_test_support import add_relay, launch_con
 
 #: Three and a half days after the fixture clock, so a weekly window's
 #: headroom is exactly twice its remaining percent.
-HALF_WEEK_RESET = "2026-08-26T00:00:00Z"
+HALF_WEEK_RESET = "2026-08-26T00:00:00.000000Z"
 #: Five hours after the fixture clock: a rolling 5h window's headroom equals
 #: its remaining percent.
-FIVE_HOUR_RESET = "2026-08-22T17:00:00Z"
-MONTH_RESET = "2026-09-10T00:00:00Z"
+FIVE_HOUR_RESET = "2026-08-22T17:00:00.000000Z"
+MONTH_RESET = "2026-09-10T00:00:00.000000Z"
 LEVEL = "SENIOR"
 #: Every machine is shared capacity, so placement is decided by the meters.
 SHARED_ACCESS = {"use": {"mode": "universe"}}

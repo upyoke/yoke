@@ -1,3 +1,4 @@
+import { instantMicros } from "./timestamps.js";
 import { callFunction } from "./universe_view_support.js";
 import { SEARCH_DEBOUNCE_MS } from "./universe_shell_controls.js";
 
@@ -44,21 +45,17 @@ function failureFrom(callResult) {
 }
 
 // Buckets are read independently, so their pages have to be ordered against
-// each other here. Time decides; a tie falls back to the raw stamp and then
+// each other here. Exact instants decide; equal instants fall back
 // to bucket and arrival order, so the same pages always merge the same way.
 function mergeLanes(lanes) {
   const entries = lanes.flatMap((lane, bucket) => lane.rows.map((row, arrival) => ({
     row,
+    clock: row.created_at ? instantMicros(row.created_at) : 0n,
     bucket,
     arrival,
   })));
   entries.sort((left, right) => {
-    const byTime = (Date.parse(right.row.created_at) || 0)
-      - (Date.parse(left.row.created_at) || 0);
-    if (byTime) return byTime;
-    const leftStamp = String(left.row.created_at || "");
-    const rightStamp = String(right.row.created_at || "");
-    if (leftStamp !== rightStamp) return leftStamp < rightStamp ? 1 : -1;
+    if (left.clock !== right.clock) return right.clock > left.clock ? 1 : -1;
     return left.bucket - right.bucket || left.arrival - right.arrival;
   });
   return entries.map((entry) => entry.row);

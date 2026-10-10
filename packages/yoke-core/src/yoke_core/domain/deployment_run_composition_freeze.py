@@ -18,6 +18,8 @@ to preserve.
 from __future__ import annotations
 
 from yoke_core.domain.schema_read_scope import composition_operation
+from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 import json
 from typing import Any
@@ -226,7 +228,7 @@ def _require_schema(conn: Any) -> None:
 def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
     """Freeze member intent/requirements and candidate evidence once."""
     if not requires_release_admission(conn, run_id):
-        return {"run_id": run_id, "frozen_at": "", "legacy": True}
+        return {"run_id": run_id, "frozen_at": None, "legacy": True}
     _require_schema(conn)
     marker = _p(conn)
     row = conn.execute(
@@ -238,9 +240,9 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
     ).fetchone()
     if row is None:
         raise LookupError(f"deployment run {run_id!r} not found")
-    frozen_at = str(_cell(row, "composition_frozen_at", 2) or "")
-    if frozen_at:
-        return {"run_id": run_id, "frozen_at": frozen_at}
+    frozen_at = _cell(row, "composition_frozen_at", 2)
+    if frozen_at is not None:
+        return {"run_id": run_id, "frozen_at": format_instant(frozen_at)}
     from yoke_core.domain.deployment_run_lineage_rebind import is_full_commit
     from yoke_core.domain.deployment_run_carried_membership_refusal import (
         carried_membership_refusal,
@@ -335,12 +337,10 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
             f"WHERE run_id={marker} AND item_id={marker}",
             (intent, selection, snapshot, run_id, item_id),
         )
-    from yoke_core.domain.db_helpers import iso8601_now
-
-    frozen_at = iso8601_now()
+    frozen_at = parse_instant(utc_now())
     conn.execute(
         f"UPDATE deployment_runs SET composition_frozen_at={marker},"
         f"requirement_snapshot={marker} WHERE id={marker}",
-        (frozen_at, flow_snapshot, run_id),
+        (instant_parameter(conn, frozen_at), flow_snapshot, run_id),
     )
-    return {"run_id": run_id, "frozen_at": frozen_at}
+    return {"run_id": run_id, "frozen_at": format_instant(frozen_at)}

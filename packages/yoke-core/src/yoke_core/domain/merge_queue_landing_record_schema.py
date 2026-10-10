@@ -23,15 +23,15 @@ CREATE TABLE IF NOT EXISTS merge_queue_landing_records (
   failed_checks TEXT NOT NULL DEFAULT '[]',
   narrative TEXT NOT NULL DEFAULT '',
   disarm_note TEXT NOT NULL DEFAULT '',
-  observed_at TEXT NOT NULL,
-  changed_at TEXT NOT NULL
+  observed_at TIMESTAMPTZ NOT NULL,
+  changed_at TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_merge_queue_landing_records_project
   ON merge_queue_landing_records(project_id, observed_at);
 CREATE TABLE IF NOT EXISTS merge_queue_landing_refreshes (
   project_id INTEGER PRIMARY KEY REFERENCES projects(id),
-  started_at TEXT NOT NULL,
-  completed_at TEXT,
+  started_at TIMESTAMPTZ NOT NULL,
+  completed_at TIMESTAMPTZ,
   last_error TEXT NOT NULL DEFAULT ''
 );
 """

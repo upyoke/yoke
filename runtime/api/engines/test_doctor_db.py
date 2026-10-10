@@ -26,7 +26,7 @@ from yoke_core.engines.doctor import (
 from runtime.api.engines._doctor_db_test_helpers import (
     _default_args,
     _get_result,
-    _iso_offset,
+    _instant_offset,
     _p,
     conn,
 )
@@ -179,7 +179,7 @@ class TestHCBlockedItems:
         conn.execute(
             "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, updated_at, blocked, blocked_reason) "
             f"VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low', {p}, 1, 'paused')",
-            (_iso_offset(days=-3),),
+            (_instant_offset(days=-3),),
         )
         rec = RecordCollector()
         hc_blocked_items(conn, _default_args(), rec)
@@ -192,7 +192,7 @@ class TestHCBlockedItems:
         conn.execute(
             "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, updated_at, blocked, blocked_reason) "
             f"VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low', {p}, 1, 'paused')",
-            (_iso_offset(days=-45),),
+            (_instant_offset(days=-45),),
         )
         rec = RecordCollector()
         hc_blocked_items(conn, _default_args(), rec)

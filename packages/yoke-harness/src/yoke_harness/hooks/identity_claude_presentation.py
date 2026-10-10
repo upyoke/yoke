@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import iso8601_now
 from typing import Any
 from uuid import UUID
 
@@ -56,9 +56,7 @@ def observe_claude_presentation(
         ),
         "presentation_mode": mode,
         "presentation_source": PRESENTATION_SOURCE_CLAUDE_JOB_STATE,
-        "presentation_observed_at": datetime.now(timezone.utc).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        ),
+        "presentation_observed_at": iso8601_now(),
     }
 
 

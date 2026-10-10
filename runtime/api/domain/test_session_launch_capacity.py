@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
+
 from yoke_core.domain.session_launch_capacity import (
     MACHINE_AT_CAPACITY,
+    live_lane_count,
     machine_capacity,
 )
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
@@ -53,7 +58,11 @@ def _live_session(conn, session_id: str, *, machine_id: str = MACHINE) -> None:
 
 def _eligibility(conn):
     return derive_launch_eligibility(
-        conn, project_id=10, surface="codex-cli", machine_id=None, now=NOW
+        conn,
+        project_id=10,
+        surface="codex-cli",
+        machine_id=None,
+        now=parse_instant(NOW),
     )
 
 
@@ -113,7 +122,7 @@ def test_a_launch_still_in_flight_occupies_a_lane_before_it_registers() -> None:
     assigned_launch(conn, key="first", machine_id=MACHINE)
 
     reading = machine_capacity(
-        conn, machine_id=MACHINE, capacity_document=None, now=NOW
+        conn, machine_id=MACHINE, capacity_document=None, now=parse_instant(NOW)
     )
     assert reading.live_lanes == 2
     assert _eligibility(conn).relays == ()
@@ -146,3 +155,140 @@ def test_a_relay_that_publishes_no_reading_carries_no_cap_and_says_so() -> None:
     assert reading.at_capacity is False
     assert "capacity unreported" in reading.summary()
     assert "relay_predates_capacity_readings" in reading.summary()
+
+
+@pytest.mark.parametrize(
+    "observed",
+    [
+        "2026-08-22T12:00:00.123456Z",
+        "2026-08-22T17:45:00.123456+05:45",
+        "2026-08-22T08:00:00.123456-04:00",
+    ],
+)
+def test_capacity_keeps_native_observation_until_json_projection(observed) -> None:
+    reading = machine_capacity(
+        launch_connection(),
+        machine_id=MACHINE,
+        capacity_document={"observed_at": observed, "max_worker_lanes": 3},
+        now=parse_instant(NOW),
+    )
+    assert reading.observed_at == datetime(
+        2026, 8, 22, 12, 0, 0, 123456, tzinfo=timezone.utc
+    )
+    payload = json.loads(json.dumps(reading.to_dict()))
+    assert payload["observed_at"] == "2026-08-22T12:00:00.123456Z"
+    assert payload["summary"] == reading.summary()
+    assert payload["at_capacity"] is False
+    assert payload["machine_id"] == MACHINE
+
+
+def test_capacity_projection_keeps_absent_observation_null() -> None:
+    reading = machine_capacity(
+        launch_connection(),
+        machine_id=MACHINE,
+        capacity_document=None,
+        now=parse_instant(NOW),
+    )
+    assert reading.observed_at is None
+    assert json.loads(json.dumps(reading.to_dict()))["observed_at"] is None
+
+
+@pytest.mark.parametrize(
+    "observed", ["", "2026-08-22", "2026-08-22T12:00:00", "2026-08-22T12:00:00-00:00"]
+)
+def test_capacity_constructor_refuses_unverifiable_observation(observed) -> None:
+    reading = machine_capacity(
+        launch_connection(),
+        machine_id=MACHINE,
+        capacity_document=None,
+        now=parse_instant(NOW),
+    )
+    with pytest.raises(InvalidInstant):
+        replace(reading, observed_at=observed)
+
+
+@pytest.mark.parametrize(
+    "clock", [NOW, "2026-08-22T17:30:00+05:30", datetime(2026, 8, 22), None, 0, False]
+)
+def test_internal_capacity_reference_refuses_before_any_sql(clock):
+    from yoke_core.domain.steering_fleet_report_capacity import (
+        launchable_surfaces,
+        machine_capacities,
+    )
+
+    class NoSQL:
+        def execute(self, *_args, **_kwargs):
+            pytest.fail("Native reference clock admission must precede SQL")
+
+    from yoke_core.domain.session_launch_level_placement import place_level
+    from yoke_core.domain.session_launch_level_selection import preview_level_launch
+
+    conn = NoSQL()
+    calls = (
+        lambda: live_lane_count(conn, machine_id=MACHINE, now=clock),
+        lambda: machine_capacity(
+            conn, machine_id=MACHINE, capacity_document=None, now=clock
+        ),
+        lambda: derive_launch_eligibility(
+            conn, project_id=10, surface="codex-cli", machine_id=None, now=clock
+        ),
+        lambda: launchable_surfaces(conn, project_id=10, now=clock),
+        lambda: machine_capacities(conn, project_id=10, now=clock),
+        lambda: place_level(
+            conn,
+            auth=authorization(),
+            project_id=10,
+            level="opaque",
+            machine_id=None,
+            now=clock,
+            eligibility=derive_launch_eligibility,
+        ),
+        lambda: preview_level_launch(
+            conn,
+            auth=authorization(),
+            request=LaunchRequest(
+                project_id=10,
+                executor_surface="",
+                instructions="",
+                idempotency_key="",
+                level="opaque",
+            ),
+            now=clock,
+            eligibility=derive_launch_eligibility,
+        ),
+    )
+    for call in calls:
+        with pytest.raises(InvalidInstant):
+            call()
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("microsecond", [0, 123456])
+def test_native_lane_deadline_comparison_preserves_exact_microseconds(
+    zone, microsecond
+):
+    from runtime.api.fixtures.native_instant_database import blank_database
+
+    anchor = datetime(1969, 12, 31, 23, 59, 59, microsecond, tzinfo=timezone.utc)
+    supplied = anchor.astimezone(timezone(timedelta(minutes=330)))
+    with blank_database() as conn:
+        conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+        conn.execute(
+            "CREATE TABLE harness_sessions (machine_id TEXT, ended_at TIMESTAMPTZ)"
+        )
+        conn.execute(
+            "CREATE TABLE session_launches (assigned_machine_id TEXT, state TEXT, registered_session_id TEXT, deadline_at TIMESTAMPTZ)"
+        )
+        conn.execute("INSERT INTO harness_sessions VALUES (%s, NULL)", (MACHINE,))
+        for delta in (-1, 0, 1):
+            conn.execute(
+                "INSERT INTO session_launches VALUES (%s, 'assigned', NULL, %s)",
+                (MACHINE, anchor + timedelta(microseconds=delta)),
+            )
+        assert live_lane_count(conn, machine_id=MACHINE, now=supplied) == 2
+        assert conn.execute("SHOW TimeZone").fetchone()[0] == zone
+        clocks = conn.execute("SELECT deadline_at FROM session_launches").fetchall()
+        assert all(isinstance(row[0], datetime) and row[0].tzinfo for row in clocks)
+        assert sorted(row[0] for row in clocks) == [
+            anchor + timedelta(microseconds=delta) for delta in (-1, 0, 1)
+        ]

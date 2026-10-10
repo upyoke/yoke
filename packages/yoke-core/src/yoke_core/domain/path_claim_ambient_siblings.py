@@ -23,7 +23,8 @@ titles when they exceed the budget.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant, utc_now
 from typing import Any, List, Optional, Sequence, Tuple
 
 from yoke_core.domain import db_backend
@@ -147,21 +148,15 @@ def _fetch_rows(
         )
         activated_at = row[4] if not hasattr(row, "keys") else row["activated_at"]
         title = str(row[5] if not hasattr(row, "keys") else row["title"])
-        prefix_raw = (
-            row[6] if not hasattr(row, "keys") else row["public_item_prefix"]
-        )
-        sequence_raw = (
-            row[7] if not hasattr(row, "keys") else row["project_sequence"]
-        )
+        prefix_raw = row[6] if not hasattr(row, "keys") else row["public_item_prefix"]
+        sequence_raw = row[7] if not hasattr(row, "keys") else row["project_sequence"]
 
         coverage = _coverage_for_claim(conn, claim_id)
         top, extra = _split_top_extra(coverage, _TOP_PATHS)
         age_hint = _age_hint_for_commit_sha(
-            base_commit_sha=(
-                str(base_commit_sha_raw) if base_commit_sha_raw else None
-            ),
+            base_commit_sha=(str(base_commit_sha_raw) if base_commit_sha_raw else None),
             integration_head_sha=head_sha,
-            activated_at=str(activated_at) if activated_at else None,
+            activated_at=activated_at,
         )
 
         out.append(
@@ -180,9 +175,7 @@ def _fetch_rows(
     return out
 
 
-def _coverage_for_claim(
-    conn: Any, claim_id: int
-) -> List[str]:
+def _coverage_for_claim(conn: Any, claim_id: int) -> List[str]:
     try:
         p = _p(conn)
         rows = conn.execute(
@@ -197,9 +190,7 @@ def _coverage_for_claim(
     return [str(r[0]) for r in rows]
 
 
-def _split_top_extra(
-    paths: Sequence[str], top: int
-) -> Tuple[List[str], int]:
+def _split_top_extra(paths: Sequence[str], top: int) -> Tuple[List[str], int]:
     if not paths:
         return [], 0
     if len(paths) <= top:
@@ -220,7 +211,7 @@ def _age_hint_for_commit_sha(
     *,
     base_commit_sha: Optional[str],
     integration_head_sha: Optional[str],
-    activated_at: Optional[str],
+    activated_at: datetime | str | None,
 ) -> str:
     """Return a one-word hint for the claim's base commit age vs HEAD.
 
@@ -245,15 +236,10 @@ def _age_hint_for_commit_sha(
     return "stale"
 
 
-def _age_hours(timestamp: str) -> Optional[float]:
-    try:
-        ts = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-    except (TypeError, ValueError, AttributeError):
+def _age_hours(timestamp: datetime | str | None) -> Optional[float]:
+    if timestamp is None:
         return None
-    if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=timezone.utc)
-    delta = datetime.now(timezone.utc) - ts
-    return delta.total_seconds() / 3600.0
+    return (utc_now() - parse_instant(timestamp)).total_seconds() / 3600.0
 
 
 def render(
@@ -292,17 +278,14 @@ def _format_row(row: AmbientSiblingRow) -> List[str]:
     from yoke_core.domain.project_identity import format_item_ref
 
     item_label = (
-        format_item_ref(
-            None,
-            row.public_item_prefix or None,
-            row.project_sequence)
+        format_item_ref(None, row.public_item_prefix or None, row.project_sequence)
         if row.item_id is not None
         else "?"
     )
     head = f"claim {row.claim_id:<5} [{row.state:<7}] {item_label}"
     title = (row.item_title or "").strip()
-    title_room = _LINE_BUDGET - len(head) - len(" — ") - len(
-        f" ({row.base_commit_age_hint})"
+    title_room = (
+        _LINE_BUDGET - len(head) - len(" — ") - len(f" ({row.base_commit_age_hint})")
     )
     if title_room < 8:
         title_room = 8
@@ -314,9 +297,7 @@ def _format_row(row: AmbientSiblingRow) -> List[str]:
         else f"{head} ({row.base_commit_age_hint})"
     )
 
-    coverage_str = _format_coverage(
-        row.coverage_paths, row.extra_count, indent="    "
-    )
+    coverage_str = _format_coverage(row.coverage_paths, row.extra_count, indent="    ")
     return [head_line, coverage_str]
 
 

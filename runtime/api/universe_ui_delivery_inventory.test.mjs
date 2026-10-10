@@ -306,3 +306,25 @@ test("Databases renders declared models and labels every unserved steering fact"
     .includes("Migration history and current apply status are unavailable here"));
   mounted.unmount();
 });
+
+
+for (const [label, clocks, winner] of [
+  ["microseconds", ["2060-10-08T00:00:00.123456Z", "2060-10-08T00:00:00.123457Z"], 1],
+  ["offset ties", ["2060-10-08T05:45:00.123456+05:45", "2060-10-08T00:00:00.123456Z"], 0],
+  ["known pre-epoch", [null, "1969-12-31T23:59:59.999999Z"], 1],
+]) {
+  test(`environment status chooses latest exact ${label}`, async (t) => {
+    const base = deliveryClient();
+    const rows = clocks.map((completed_at, id) => ({
+      id: `run-${id}`, project: "yoke", project_id: 1,
+      target_environment: "prod", completed_at, status: id === 0 ? "failed" : "succeeded",
+    }));
+    const client = { call: async (request) => request.function === "deployment_runs.list"
+      ? okEnvelope({ rows }) : base.call(request) };
+    const { root, mounted } = await mountAt(t, "/environments?project=1", client);
+    const cells = allNodes(root).filter((node) => node.tagName === "TD");
+    assert.equal(cellText(cells[3]), rows[winner].status);
+    assert.deepEqual(rows.map((row) => row.completed_at), clocks);
+    mounted.unmount();
+  });
+}

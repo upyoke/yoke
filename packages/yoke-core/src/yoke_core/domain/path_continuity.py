@@ -32,7 +32,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 
 CONTINUITY_UNKNOWN = "continuity_unknown"
@@ -55,10 +55,13 @@ def _verify_provenance_string(event_id: Any) -> None:
 
 
 def _verify_target_exists(
-    conn: Any, target_id: int, role: str,
+    conn: Any,
+    target_id: int,
+    role: str,
 ) -> None:
     row = conn.execute(
-        f"SELECT 1 FROM path_targets WHERE id = {_p(conn)}", (target_id,),
+        f"SELECT 1 FROM path_targets WHERE id = {_p(conn)}",
+        (target_id,),
     ).fetchone()
     if row is None:
         raise PathContinuityError(
@@ -89,7 +92,12 @@ def _record_move(
         "INSERT INTO path_moves "
         "(before_target_id, after_target_id, recorded_event_id, recorded_at) "
         f"VALUES ({_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}) RETURNING id",
-        (before_target_id, after_target_id, recorded_event_id, iso8601_now()),
+        (
+            before_target_id,
+            after_target_id,
+            recorded_event_id,
+            instant_parameter(conn, utc_now()),
+        ),
     )
     return int(cur.fetchone()[0])
 
@@ -150,7 +158,8 @@ def record_operator_adjudicated_move(
 
 
 def latest_successor(
-    conn: Any, target_id: int,
+    conn: Any,
+    target_id: int,
 ) -> Optional[int]:
     """Return the after-target of the most recent move out of *target_id*,
     or ``None`` when no move has been recorded.

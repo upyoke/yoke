@@ -32,7 +32,7 @@ from yoke_core.domain.steering_fleet_report_stranded import (
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
-RESET = "2026-10-07T00:00:00Z"
+RESET = "2026-10-07T00:00:00.000000Z"
 OTHER_METER = "planUsage.apiPercentUsed"
 OPUS = "claude-opus-4-6"
 
@@ -185,7 +185,7 @@ def _still_registering_launch(conn, *, deadline: str) -> None:
 def test_a_session_still_registering_is_not_stranded(test_db) -> None:
     conn = seed_steering_scope(test_db)
     _pin_worker(conn, windows=_exhausted_other_models())
-    _still_registering_launch(conn, deadline="2026-08-26T13:00:00Z")
+    _still_registering_launch(conn, deadline="2026-08-26T13:00:00.000000Z")
 
     assert compose(conn).stranded == ()
 

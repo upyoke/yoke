@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
@@ -26,12 +28,6 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _now() -> str:
-    from datetime import datetime, timezone
-
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def create_org_tables(conn: Any) -> None:
     """Create org tables + ``projects.org_id`` FK, idempotently."""
     execute_schema_script(
@@ -43,14 +39,14 @@ def create_org_tables(conn: Any) -> None:
             name TEXT NOT NULL,
             domain TEXT DEFAULT NULL,
             settings TEXT NOT NULL DEFAULT '{}',
-            created_at TEXT NOT NULL
+            created_at TIMESTAMPTZ NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS actor_org_roles (
             actor_id INTEGER NOT NULL REFERENCES actors(id),
             org_id INTEGER NOT NULL REFERENCES organizations(id),
             role_id INTEGER NOT NULL REFERENCES roles(id),
-            granted_at TEXT NOT NULL,
+            granted_at TIMESTAMPTZ NOT NULL,
             granted_by_actor_id INTEGER REFERENCES actors(id),
             PRIMARY KEY (actor_id, org_id, role_id)
         );
@@ -155,7 +151,7 @@ def seed_default_org(conn: Any) -> int:
             "INSERT INTO organizations (slug, name, created_at) "
             f"VALUES ({p}, {p}, {p}) "
             "ON CONFLICT(slug) DO NOTHING",
-            (DEFAULT_ORG_SLUG, DEFAULT_ORG_NAME, _now()),
+            (DEFAULT_ORG_SLUG, DEFAULT_ORG_NAME, instant_parameter(conn, utc_now())),
         )
         org_id = org_id_by_slug(conn, DEFAULT_ORG_SLUG)
         assert org_id is not None

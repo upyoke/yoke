@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import pytest
 
 from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
@@ -45,7 +47,7 @@ def _registered_launch(conn, *, key: str):
         lease_id=claim.lease_id,
         result_code="native_created",
         native_session_id=session_id,
-        now="2026-08-22T12:00:30Z",
+        now="2026-08-22T12:00:30.000000Z",
     )
     conn.execute(
         "INSERT INTO harness_sessions "
@@ -59,7 +61,7 @@ def _registered_launch(conn, *, key: str):
         launch_id=launch.launch_id,
         attestation=claim.attestation,
         session_id=session_id,
-        now="2026-08-22T12:00:31Z",
+        now="2026-08-22T12:00:31.000000Z",
     )
     return launch, session_id
 
@@ -83,8 +85,8 @@ def test_cancelled_launch_closes_an_active_hook_lease() -> None:
     lease_id = "active-hook-lease"
     conn.execute(
         "UPDATE session_message_recipients SET injection_lease_id=?, "
-        "injection_leased_at='2026-08-22T12:00:31Z', "
-        "injection_lease_expires_at='2026-08-22T12:01:01Z' WHERE message_id=?",
+        "injection_leased_at='2026-08-22T12:00:31.000000Z', "
+        "injection_lease_expires_at='2026-08-22T12:01:01.000000Z' WHERE message_id=?",
         (lease_id, launch.message_id),
     )
     conn.execute(
@@ -98,7 +100,7 @@ def test_cancelled_launch_closes_an_active_hook_lease() -> None:
             "hook",
             "session-message-hook-v1",
             lease_id,
-            "2026-08-22T12:00:31Z",
+            "2026-08-22T12:00:31.000000Z",
             "{}",
         ),
     )
@@ -108,7 +110,7 @@ def test_cancelled_launch_closes_an_active_hook_lease() -> None:
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
-        now="2026-08-22T12:00:32Z",
+        now="2026-08-22T12:00:32.000000Z",
     )
     completed = complete_hook_lease(
         conn,
@@ -146,7 +148,7 @@ def test_cancelled_native_create_reconciliation_binds_the_registered_session() -
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
-        now="2026-08-22T12:00:10Z",
+        now="2026-08-22T12:00:10.000000Z",
     )
     late = report_launch_attempt(
         conn,
@@ -154,7 +156,7 @@ def test_cancelled_native_create_reconciliation_binds_the_registered_session() -
         lease_id=claim.lease_id,
         result_code="native_created",
         native_session_id="late-native-session",
-        now="2026-08-22T12:00:20Z",
+        now="2026-08-22T12:00:20.000000Z",
     )
     conn.execute(
         "INSERT INTO harness_sessions "
@@ -169,7 +171,7 @@ def test_cancelled_native_create_reconciliation_binds_the_registered_session() -
             launch_id=launch.launch_id,
             attestation=claim.attestation,
             session_id="late-native-session",
-            now="2026-08-22T12:00:21Z",
+            now="2026-08-22T12:00:21.000000Z",
         )
 
     assert cancelled.state == "outcome_unknown"
@@ -182,20 +184,22 @@ def test_cancelled_native_create_reconciliation_binds_the_registered_session() -
         "WHERE message_id=?",
         (launch.message_id,),
     ).fetchone()
-    assert tuple(closed) == ("launch_outcome_unknown", "2026-08-22T12:00:10Z")
+    assert tuple(closed) == ("launch_outcome_unknown", "2026-08-22T12:00:10.000000Z")
 
     reconciled = reconcile_launch(
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
         observed_native_id="late-native-session",
-        now="2026-08-22T12:00:22Z",
+        now="2026-08-22T12:00:22.000000Z",
     )
     assert reconciled.state == "awaiting_registration"
     assert reconciled.native_session_id == "late-native-session"
     assert reconciled.registered_session_id == "late-native-session"
     assert reconciled.result_code == "registration_bound"
-    assert reconciled.attestation_consumed_at == "2026-08-22T12:00:22Z"
+    assert reconciled.attestation_consumed_at == parse_instant(
+        "2026-08-22T12:00:22.000000Z"
+    )
     recipient = conn.execute(
         "SELECT session_id,state FROM session_message_recipients WHERE message_id=?",
         (launch.message_id,),
@@ -207,7 +211,7 @@ def test_cancelled_native_create_reconciliation_binds_the_registered_session() -
         launch_id=launch.launch_id,
         attestation=claim.attestation,
         session_id="late-native-session",
-        now="2026-08-22T12:00:23Z",
+        now="2026-08-22T12:00:23.000000Z",
     )
     assert injection.session_id == "late-native-session"
     assert injection.message_id == launch.message_id
@@ -215,10 +219,10 @@ def test_cancelled_native_create_reconciliation_binds_the_registered_session() -
 
 def test_deadline_expiry_closes_launch_instruction() -> None:
     conn = launch_connection()
-    add_relay(conn, connected_until="2026-08-22T12:05:00Z")
+    add_relay(conn, connected_until="2026-08-22T12:05:00.000000Z")
     launch = assigned_launch(conn, key="expire-assigned")
 
-    changed = settle_launch_deadlines(conn, now="2026-08-22T12:11:00Z")
+    changed = settle_launch_deadlines(conn, now="2026-08-22T12:11:00.000000Z")
 
     assert [row.launch_id for row in changed] == [launch.launch_id]
     assert get_launch(conn, launch.launch_id).state == "expired"
@@ -235,33 +239,33 @@ def test_retry_reopens_message_without_reactivating_an_old_recipient() -> None:
     launch, session_id = _registered_launch(conn, key="retry-registration")
     conn.execute(
         "UPDATE session_message_recipients SET state='injected', injection_count=1, "
-        "last_injected_at='2026-08-22T12:00:32Z', wake_attempt_count=2, "
-        "last_wake_at='2026-08-22T12:00:32Z' WHERE message_id=?",
+        "last_injected_at='2026-08-22T12:00:32.000000Z', wake_attempt_count=2, "
+        "last_wake_at='2026-08-22T12:00:32.000000Z' WHERE message_id=?",
         (launch.message_id,),
     )
     conn.commit()
-    settle_launch_deadlines(conn, now="2026-08-22T12:11:00Z")
+    settle_launch_deadlines(conn, now="2026-08-22T12:11:00.000000Z")
     assert _delivery_state(conn, launch.message_id) == ("launch_failed", "cancelled")
     reconcile_launch(
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
         observed_native_id=None,
-        now="2026-08-22T12:11:00Z",
+        now="2026-08-22T12:11:00.000000Z",
     )
 
     retried = retry_launch(
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
-        now="2026-08-22T12:11:01Z",
+        now="2026-08-22T12:11:01.000000Z",
     )
     claim = claim_assigned_launch(
         conn,
         launch_id=retried.launch_id,
         relay_id="relay-1",
         machine_id="machine-1",
-        now="2026-08-22T12:11:02Z",
+        now="2026-08-22T12:11:02.000000Z",
     )
     rebound = report_launch_attempt(
         conn,
@@ -269,7 +273,7 @@ def test_retry_reopens_message_without_reactivating_an_old_recipient() -> None:
         lease_id=claim.lease_id,
         result_code="native_created",
         native_session_id=session_id,
-        now="2026-08-22T12:11:03Z",
+        now="2026-08-22T12:11:03.000000Z",
     )
 
     assert rebound.registered_session_id == session_id
@@ -282,9 +286,9 @@ def test_retry_reopens_message_without_reactivating_an_old_recipient() -> None:
         (launch.message_id,),
     ).fetchone()
     assert tuple(reset[:4]) == (0, None, 0, None)
-    assert reset[4] == "2026-08-22T12:11:03Z"
+    assert reset[4] == "2026-08-22T12:11:03.000000Z"
     assert reset[4] != retried.deadline_at
-    assert rebound.deadline_at == "2026-08-22T12:21:02Z"
+    assert rebound.deadline_at == parse_instant("2026-08-22T12:21:02.000000Z")
 
 
 @pytest.mark.parametrize("terminal_state", ["failed", "expired", "outcome_unknown"])
@@ -302,7 +306,7 @@ def test_late_message_completion_cannot_resurrect_terminal_launch(
         conn,
         launch.launch_id,
         state=terminal_state,
-        completed_at="2026-08-22T12:00:32Z",
+        completed_at="2026-08-22T12:00:32.000000Z",
         result_code=f"test_{terminal_state}",
     )
     conn.commit()
@@ -311,7 +315,7 @@ def test_late_message_completion_cannot_resurrect_terminal_launch(
         conn,
         message_id=launch.message_id,
         session_id=session_id,
-        now="2026-08-22T12:00:33Z",
+        now="2026-08-22T12:00:33.000000Z",
     )
 
     assert completed and completed.state == terminal_state

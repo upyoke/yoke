@@ -1,30 +1,5 @@
-"""Vocabulary + activation-filter tests for the ``coordination_only`` gate.
+"""Dependency vocabulary, activation filtering and refresh-hook behavior."""
 
-Covers two slices:
-
-Task 001 — vocabulary:
-* ``GatePoint.COORDINATION_ONLY`` enum membership and ``from_db`` resolution.
-* ``is_coordination_only`` / ``is_activation_gate`` predicate behavior.
-* ``item_dependency.VALID_GATE_POINTS`` accepts the new value.
-* ``item_dependency._DEFAULT_SATISFACTION`` maps ``coordination_only``
-  to ``fact:merged``.
-* ``cmd_dependency_add`` writes a ``coordination_only`` row with the
-  defaulted satisfaction against a fresh in-memory schema.
-
-Task 002 — activation-filter regression:
-* ``evaluate_batch_gates(gate_point='activation')`` ignores
-  ``coordination_only`` rows.
-* ``evaluate_batch_gates(gate_point='coordination_only')`` returns them.
-* ``evaluate_item_gate(gate_point='activation')`` is not blocked by an
-  item whose only edge is ``coordination_only``.
-* ``compute_frontier``'s ``_UNBLOCKS_COUNT_SQL`` count is unchanged when
-  a ``coordination_only`` row is added — the SQL hard-codes
-  ``gate_point = 'activation'``.
-
-These regression tests pin existing correct behavior; both
-``dependency_planning.py`` and ``frontier_compute.py`` are intentionally
-unchanged for Task 002 (architect-verified zero-line diff).
-"""
 from __future__ import annotations
 
 from typing import Any, Iterator
@@ -67,7 +42,7 @@ def conn() -> Iterator[Any]:
             "source TEXT NOT NULL, session_id INTEGER, "
             "rationale TEXT NOT NULL DEFAULT '', "
             "evidence_json TEXT NOT NULL DEFAULT '{}', "
-            "created_at TEXT NOT NULL, "
+            "created_at TIMESTAMPTZ NOT NULL, "
             "UNIQUE(dependent_item_id, blocking_item_id, gate_point))"
         )
         # Edge writes resolve their public refs through project identity.
@@ -82,7 +57,8 @@ def conn() -> Iterator[Any]:
         )
         for item_id in (1, 2, 3, 10, 11, 99, *range(1701, 1710)):
             c.execute(
-                "INSERT INTO items VALUES (%s, 1, %s)", (item_id, item_id),
+                "INSERT INTO items VALUES (%s, 1, %s)",
+                (item_id, item_id),
             )
         # Empty stub so the edge-write refresh hook's blocked-claims probe
         # finds the table; a failed probe would poison the Postgres
@@ -131,13 +107,16 @@ def test_valid_sources_include_idea_and_refine_authoring_paths(
     assert "idea" in item_dependency.VALID_SOURCES
     assert "refine" in item_dependency.VALID_SOURCES
     for idx, source in enumerate(("idea", "refine"), start=10):
-        assert cmd_dependency_add(
-            conn,
-            f"YOK-{idx}",
-            "YOK-99",
-            source,
-            gate_point="coordination_only",
-        ) == "OK"
+        assert (
+            cmd_dependency_add(
+                conn,
+                f"YOK-{idx}",
+                "YOK-99",
+                source,
+                gate_point="coordination_only",
+            )
+            == "OK"
+        )
 
 
 def test_default_satisfaction_coordination_only_is_fact_merged() -> None:
@@ -256,55 +235,80 @@ class TestRefreshHookWiring:
         return calls
 
     def test_cmd_dependency_add_triggers_refresh(
-        self, monkeypatch, conn: Any,
+        self,
+        monkeypatch,
+        conn: Any,
     ) -> None:
         calls = self._install_spy(monkeypatch)
         cmd_dependency_add(
-            conn, "YOK-1701", "YOK-1702", "refine",
+            conn,
+            "YOK-1701",
+            "YOK-1702",
+            "refine",
             gate_point="activation",
         )
         assert (1701, 1702) in calls
 
     def test_cmd_dependency_update_triggers_refresh(
-        self, monkeypatch, conn: Any,
+        self,
+        monkeypatch,
+        conn: Any,
     ) -> None:
         calls = self._install_spy(monkeypatch)
         cmd_dependency_add(
-            conn, "YOK-1703", "YOK-1704", "refine",
+            conn,
+            "YOK-1703",
+            "YOK-1704",
+            "refine",
             gate_point="activation",
         )
         calls.clear()
         from yoke_core.domain.item_dependency import cmd_dependency_update
+
         cmd_dependency_update(
-            conn, "YOK-1703", "YOK-1704",
+            conn,
+            "YOK-1703",
+            "YOK-1704",
             gate_point="coordination_only",
             satisfaction="fact:merged",
         )
         assert (1703, 1704) in calls
 
     def test_cmd_dependency_remove_triggers_refresh(
-        self, monkeypatch, conn: Any,
+        self,
+        monkeypatch,
+        conn: Any,
     ) -> None:
         calls = self._install_spy(monkeypatch)
         cmd_dependency_add(
-            conn, "YOK-1705", "YOK-1706", "refine",
+            conn,
+            "YOK-1705",
+            "YOK-1706",
+            "refine",
             gate_point="coordination_only",
         )
         calls.clear()
         from yoke_core.domain.item_dependency import cmd_dependency_remove
+
         cmd_dependency_remove(conn, "YOK-1705", "YOK-1706")
         assert (1705, 1706) in calls
 
     def test_cmd_dependency_reconcile_triggers_refresh_for_deleted_and_inserted(
-        self, monkeypatch, conn: Any,
+        self,
+        monkeypatch,
+        conn: Any,
     ) -> None:
         calls = self._install_spy(monkeypatch)
         cmd_dependency_add(
-            conn, "YOK-1707", "YOK-1708", "refine",
+            conn,
+            "YOK-1707",
+            "YOK-1708",
+            "refine",
             gate_point="activation",
         )
         calls.clear()
         from yoke_core.domain.item_dependency import cmd_dependency_reconcile
+
         cmd_dependency_reconcile(
             conn,
             "refine",

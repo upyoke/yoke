@@ -21,7 +21,7 @@ from yoke_core.domain.work_claim_targets import make_item_target
 from yoke_core.domain.workflow_registry import converge_builtin_workflows
 from yoke_core.domain.workflow_schema import ensure_workflow_schema
 from runtime.api.sessions_api_stale_test_helpers import (
-    _now_literal,
+    _now_instant,
     apply_ddl_statements,
 )
 
@@ -103,7 +103,7 @@ class TestReleaseItemClaimForExecution:
 
         apply_ddl_statements(conn, ITEMS_SCHEMA)
         _seed_issue_workflow(conn)
-        _ts = _now_literal()
+        _ts = _now_instant()
         conn.execute(
             "INSERT INTO items "
             "(id, title, workflow_id, workflow_version_id, status, "
@@ -140,7 +140,7 @@ class TestReleaseItemClaimForExecution:
 
         apply_ddl_statements(conn, ITEMS_SCHEMA)
         _seed_issue_workflow(conn)
-        _ts = _now_literal()
+        _ts = _now_instant()
         conn.execute(
             "INSERT INTO items "
             "(id, title, workflow_id, workflow_version_id, status, "

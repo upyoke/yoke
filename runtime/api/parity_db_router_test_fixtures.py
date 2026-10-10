@@ -1,9 +1,12 @@
 """Shared schema, helpers, and the ``item_query_env`` / ``parity_env`` fixtures
 for the parity db_router + render test sibling modules. Imported, not
 pytest-collected."""
+
 from __future__ import annotations
 
 import json
+
+from yoke_contracts.timestamps import parse_instant
 import tempfile
 from pathlib import Path
 
@@ -24,14 +27,15 @@ _LARGE_SPEC_TEXT = "This is a large spec text. " * 500  # ~13KB
 # Tables precede the view that references them: Postgres validates a view's
 # referenced relations at CREATE time (SQLite is lazy), so deployment_flows /
 # deployment_runs / deployment_run_items must exist before item_progress_view.
-_ITEM_QUERY_SCHEMA = """
+_ITEM_QUERY_SCHEMA = (
+    """
 CREATE TABLE projects (
     id INTEGER PRIMARY KEY,
     slug TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     github_repo TEXT,
     public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
-    created_at TEXT NOT NULL DEFAULT ''
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE sites (
     id INTEGER PRIMARY KEY,
@@ -46,7 +50,9 @@ CREATE TABLE environments (
     name TEXT NOT NULL,
     UNIQUE(project_id, name)
 );
-""" + _ITEMS_DDL + """
+"""
+    + _ITEMS_DDL
+    + """
 CREATE TABLE deployment_flows (
     id TEXT PRIMARY KEY,
     project_id INTEGER NOT NULL,
@@ -54,7 +60,7 @@ CREATE TABLE deployment_flows (
     description TEXT,
     stages TEXT NOT NULL,
     on_failure TEXT DEFAULT 'halt',
-    created_at TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     target_tier TEXT DEFAULT NULL,
     target_environment_id INTEGER DEFAULT NULL,
     done_description TEXT DEFAULT NULL,
@@ -71,16 +77,16 @@ CREATE TABLE deployment_runs (
     status TEXT NOT NULL DEFAULT 'created'
       CHECK(status IN ('created','executing','succeeded','failed','cancelled')),
     current_stage TEXT,
-    created_at TEXT NOT NULL DEFAULT '',
-    started_at TEXT,
-    completed_at TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
     created_by TEXT DEFAULT 'operator'
 );
 
 CREATE TABLE deployment_run_items (
     run_id TEXT NOT NULL,
     item_id INTEGER NOT NULL,
-    added_at TEXT NOT NULL DEFAULT '',
+    added_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (run_id, item_id)
 );
 
@@ -103,6 +109,7 @@ LEFT JOIN deployment_runs dr ON dr.id = dri.run_id AND dr.status = 'executing'
 LEFT JOIN environments e
   ON e.id = COALESCE(dr.target_environment_id, df.target_environment_id);
 """
+)
 
 
 def _apply_item_query_schema() -> None:
@@ -113,7 +120,7 @@ def _apply_item_query_schema() -> None:
     apply_inline_ddl(_ITEM_QUERY_SCHEMA)
     conn = db_backend.connect()
 
-    ts = "2026-03-01T00:00:00Z"
+    ts = parse_instant("2026-03-01T00:00:00.123456Z")
 
     # Item 1: implementing, yoke, with spec and large technical_plan
     conn.execute(
@@ -123,9 +130,7 @@ def _apply_item_query_schema() -> None:
                   (2, 'externalwebapp', 'ExternalWebapp', 'org/externalwebapp', 'EXT', %s)""",
         (ts, ts),
     )
-    conn.execute(
-        "INSERT INTO sites (id, project_id, name) VALUES (10, 1, 'api')"
-    )
+    conn.execute("INSERT INTO sites (id, project_id, name) VALUES (10, 1, 'api')")
     conn.execute(
         "INSERT INTO environments (id, site, project_id, name) "
         "VALUES (101, 10, 1, 'prod')"
@@ -185,10 +190,12 @@ def _apply_item_query_schema() -> None:
     )
 
     # Deployment flow for progress view test
-    flow_stages = json.dumps([
-        {"name": "merged", "step_runner": "auto"},
-        {"name": "prod-deploy", "step_runner": "github-actions-workflow"},
-    ])
+    flow_stages = json.dumps(
+        [
+            {"name": "merged", "step_runner": "auto"},
+            {"name": "prod-deploy", "step_runner": "github-actions-workflow"},
+        ]
+    )
     conn.execute(
         """INSERT INTO deployment_flows
            (id, project_id, name, stages, target_tier,

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.project_identity import resolve_project
 
 
@@ -26,9 +28,9 @@ def _json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
-def _next_updated_at() -> str:
+def _next_updated_at() -> datetime:
     """Mint a precise token for compare-and-swap protected plan writes."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    return utc_now()
 
 
 def _row_dict(cursor: Any, row: Any) -> Optional[dict[str, Any]]:
@@ -142,8 +144,8 @@ def create_plan(
                 success_policy_id,
                 _json(success_policy_params or {}),
                 target_environment_id,
-                now,
-                now,
+                instant_parameter(conn, now),
+                instant_parameter(conn, now),
             ),
         )
         row = _row_dict(cursor, cursor.fetchone())
@@ -326,7 +328,7 @@ def replace_plan_cases(
     now = _next_updated_at()
     conn.execute(
         f"UPDATE qa_plans SET updated_at={marker} WHERE id={marker}",
-        (now, plan_id),
+        (instant_parameter(conn, now), plan_id),
     )
     from yoke_core.domain.qa_plan_case_store import insert_plan_cases
 

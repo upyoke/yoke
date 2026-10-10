@@ -7,7 +7,7 @@ import re
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now, query_one
+from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_one
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.qa_method_definitions import method_metadata_for_runner
 from yoke_core.domain.qa_method_capabilities import (
@@ -26,9 +26,7 @@ _RUNNER_CONTRACTS = {
     "browser_substrate": {
         # A project-authored browser method may declare exactly what this
         # runner provisions where it executes, so the two never drift apart.
-        "capabilities": RUNNER_HOST_PROVISIONED_CAPABILITY_KINDS[
-            "browser_substrate"
-        ],
+        "capabilities": RUNNER_HOST_PROVISIONED_CAPABILITY_KINDS["browser_substrate"],
         "verdict_paths": {"automatic", "agent"},
     },
 }
@@ -111,7 +109,7 @@ def register_project_method(
     )
     if existing is not None and int(existing["project_id"] or 0) != int(identity.id):
         raise QaMethodError(f"QA method {method_id!r} is already registered")
-    stamp = iso8601_now()
+    stamp = instant_parameter(conn, utc_now())
     metadata = method_metadata_for_runner(runner_id, verdict_path)
     columns = (
         "id",

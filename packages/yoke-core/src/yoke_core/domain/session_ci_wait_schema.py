@@ -41,10 +41,10 @@ CREATE TABLE IF NOT EXISTS session_ci_run_waits (
   head_sha TEXT NOT NULL DEFAULT '',
   kind TEXT NOT NULL CHECK(kind IN ({_KIND_SQL})),
   continue_command TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL,
-  read_at TEXT,
+  created_at TIMESTAMPTZ NOT NULL,
+  read_at TIMESTAMPTZ,
   conclusion TEXT NOT NULL DEFAULT '',
-  notified_at TEXT,
+  notified_at TIMESTAMPTZ,
   UNIQUE(session_id, run_id)
 );
 CREATE INDEX IF NOT EXISTS idx_session_ci_run_waits_pending

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_contracts.session_holdings import (
     SESSION_PATH_HOLDING_KEY,
     coordination_holding_key,
@@ -12,6 +14,10 @@ from yoke_contracts.session_holdings import (
     strategy_document_holding_key,
     work_holding_key,
 )
+
+
+def _item(number: int) -> str:
+    return f"YOK-{number}"
 
 
 def _holding(target: str, *, released: str | None) -> dict[str, str | None]:
@@ -25,29 +31,29 @@ def _holding(target: str, *, released: str | None) -> dict[str, str | None]:
 def test_current_target_displaces_all_previous_occurrences() -> None:
     grouped = group_session_holdings(
         [
-            _holding("YOK-4", released="2026-08-28T12:00:00Z"),
-            _holding("YOK-4", released=None),
-            _holding("YOK-4", released="2026-08-27T12:00:00Z"),
+            _holding(_item(4), released="2026-08-28T12:00:00Z"),
+            _holding(_item(4), released=None),
+            _holding(_item(4), released="2026-08-27T12:00:00Z"),
         ],
         previous_limit=4,
     )
 
-    assert [row["target"] for row in grouped["current"]] == ["YOK-4"]
+    assert [row["target"] for row in grouped["current"]] == [_item(4)]
     assert grouped["previous"] == []
 
 
 def test_previous_targets_deduplicate_before_truncation() -> None:
     grouped = group_session_holdings(
         [
-            _holding("YOK-3", released="newest"),
-            _holding("YOK-3", released="older"),
-            _holding("YOK-2", released="old"),
-            _holding("YOK-1", released="oldest"),
+            _holding(_item(3), released="2026-08-28T12:00:00Z"),
+            _holding(_item(3), released="2026-08-28T11:00:00Z"),
+            _holding(_item(2), released="2026-08-27T12:00:00Z"),
+            _holding(_item(1), released="2026-08-26T12:00:00Z"),
         ],
         previous_limit=2,
     )
 
-    assert [row["target"] for row in grouped["previous"]] == ["YOK-3", "YOK-2"]
+    assert [row["target"] for row in grouped["previous"]] == [_item(3), _item(2)]
     assert grouped["previous_remainder"] == 1
 
 
@@ -56,7 +62,7 @@ def test_previous_claims_prioritize_steering_and_keep_latest_release_count() -> 
         "holding_kind": "work_claim",
         "target_kind": "item",
         "target_key": "work:item:3",
-        "target": "YOK-3",
+        "target": _item(3),
     }
     steering = {
         "holding_kind": "work_claim",
@@ -70,18 +76,21 @@ def test_previous_claims_prioritize_steering_and_keep_latest_release_count() -> 
             {**steering, "released_at": "2026-08-28T11:00:00Z"},
             {**item, "released_at": "2026-08-28T13:00:00Z"},
             {**steering, "released_at": "2026-08-28T12:30:00Z"},
-            {**_holding("work:item:2", released="old"), "target_kind": "item"},
+            {
+                **_holding("work:item:2", released="2026-08-27T12:00:00Z"),
+                "target_kind": "item",
+            },
         ],
         previous_limit=2,
     )
 
     assert [row["target"] for row in grouped["previous"]] == [
         "steering yoke",
-        "YOK-3",
+        _item(3),
     ]
     assert [row["released_at"] for row in grouped["previous"]] == [
-        "2026-08-28T12:30:00Z",
-        "2026-08-28T13:00:00Z",
+        parse_instant("2026-08-28T12:30:00Z"),
+        parse_instant("2026-08-28T13:00:00Z"),
     ]
     assert [row["occurrence_count"] for row in grouped["previous"]] == [2, 2]
     assert grouped["previous_remainder"] == 1
@@ -90,16 +99,16 @@ def test_previous_claims_prioritize_steering_and_keep_latest_release_count() -> 
 def test_duplicate_target_facets_merge_into_one_row() -> None:
     grouped = group_session_holdings(
         [
-            {**_holding("YOK-8", released=None), "item_title": "Eight"},
-            {**_holding("YOK-8", released=None), "path_count": 3},
+            {**_holding(_item(8), released=None), "item_title": "Eight"},
+            {**_holding(_item(8), released=None), "path_count": 3},
         ],
         previous_limit=2,
     )
 
     assert grouped["current"] == [
         {
-            "target_key": "YOK-8",
-            "target": "YOK-8",
+            "target_key": _item(8),
+            "target": _item(8),
             "released_at": None,
             "item_title": "Eight",
             "path_count": 3,
@@ -135,17 +144,17 @@ def test_previous_limit_is_a_required_render_parameter() -> None:
 def test_none_previous_limit_keeps_every_distinct_row() -> None:
     grouped = group_session_holdings(
         [
-            _holding("YOK-3", released="newest"),
-            _holding("YOK-2", released="old"),
-            _holding("YOK-1", released="oldest"),
+            _holding(_item(3), released="2026-08-28T12:00:00Z"),
+            _holding(_item(2), released="2026-08-27T12:00:00Z"),
+            _holding(_item(1), released="2026-08-26T12:00:00Z"),
         ],
         previous_limit=None,
     )
 
     assert [row["target"] for row in grouped["previous"]] == [
-        "YOK-3",
-        "YOK-2",
-        "YOK-1",
+        _item(3),
+        _item(2),
+        _item(1),
     ]
     assert grouped["previous_remainder"] == 0
 

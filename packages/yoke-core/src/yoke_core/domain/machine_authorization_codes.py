@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -13,6 +13,8 @@ from yoke_contracts.machine_authorization import (
     CODE_TTL_SECONDS,
     POLL_INTERVAL_SECONDS,
 )
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_state import ActorDisabledError, require_actor_active
 from yoke_core.domain.external_identities import default_org_id
@@ -34,8 +36,8 @@ class MachineAuthorizationError(ValueError):
         super().__init__(f"{code}: {detail}")
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _now() -> datetime:
+    return utc_now()
 
 
 def _p(conn: Any) -> str:
@@ -62,7 +64,8 @@ def start(
             "SELECT pg_advisory_xact_lock(hashtext('machine_authorization_codes'))"
         )
     conn.execute(
-        f"DELETE FROM machine_authorization_codes WHERE expires_at <= {p}", (now,)
+        f"DELETE FROM machine_authorization_codes WHERE expires_at <= {p}",
+        (instant_parameter(conn, now),),
     )
     # The same transaction lock covers both capacity checks and insertion.
     count = conn.execute(
@@ -87,9 +90,7 @@ def start(
     device = secrets.token_urlsafe(32)
     code = secrets.token_hex(5).upper()
     code = code[:5] + "-" + code[5:]
-    expires = (
-        datetime.now(timezone.utc) + timedelta(seconds=CODE_TTL_SECONDS)
-    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    expires = now + timedelta(seconds=CODE_TTL_SECONDS)
     conn.execute(
         "INSERT INTO machine_authorization_codes (device_hash,user_code,org_id,expires_at,machine_id,machine_name,client_key) "
         f"VALUES ({p},{p},{p},{p},{p},{p},{p})",
@@ -97,7 +98,7 @@ def start(
             _hash(device),
             code,
             default_org_id(conn),
-            expires,
+            instant_parameter(conn, expires),
             machine_id,
             machine_name,
             client_key,
@@ -132,7 +133,7 @@ def _row(conn: Any, key: str, value: str, *, lock: bool = False) -> dict[str, An
         f"SELECT {','.join(names)} FROM machine_authorization_codes WHERE {key}={_p(conn)}{suffix}",
         (value,),
     ).fetchone()
-    if row is None or str(row[3]) <= _now():
+    if row is None or parse_instant(row[3]) <= _now():
         raise MachineAuthorizationError(
             "authorization_expired", "start a fresh connection code", 410
         )
@@ -183,7 +184,7 @@ def inspect(conn: Any, *, code: str, actor_id: int) -> dict[str, Any]:
         "code": row["user_code"],
         "machine": row["machine_name"],
         "machine_id": row["machine_id"],
-        "expires_at": row["expires_at"],
+        "expires_at": format_instant(row["expires_at"]),
         "decision": machine_approval_decision(conn, auth_request_id=row["device_hash"]),
     }
 
@@ -221,7 +222,7 @@ def resolve(conn: Any, *, code: str, actor_id: int, action: str) -> dict[str, An
         context={
             "code": row["user_code"],
             "machine": row["machine_name"] or "Connecting machine",
-            "expires_at": row["expires_at"],
+            "expires_at": format_instant(row["expires_at"]),
         },
     )
     resolve_decision_request(conn, request["id"], actor_id=actor_id, action=action)
@@ -268,7 +269,7 @@ def poll(
     # commits: concurrent polls cannot rotate or receive a second credential.
     conn.execute(
         f"UPDATE machine_authorization_codes SET consumed_at={p} WHERE device_hash={p}",
-        (now, row["device_hash"]),
+        (instant_parameter(conn, now), row["device_hash"]),
     )
     _, _, credential = register_with_credential(
         conn,

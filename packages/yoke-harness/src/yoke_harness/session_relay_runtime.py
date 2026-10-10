@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, cast
 
 from yoke_cli.config import machine_config
+from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.session_control.private_route_qualification import (
     PrivateRouteQualificationGrant,
 )
@@ -56,7 +58,7 @@ class RelayExecutionContext:
     requested_context_window_tokens: int | None = None
     presentation: str | None = None
     session_name: str | None = None
-    launch_deadline_at: str | None = None
+    launch_deadline_at: datetime | None = None
     target_liveness: str | None = None
     wake_mode: WakeMode | None = None
     wake_route: str | None = None
@@ -74,6 +76,12 @@ class RelayExecutionContext:
         default=None,
         repr=False,
     )
+
+    def __post_init__(self) -> None:
+        if self.launch_deadline_at is not None:
+            object.__setattr__(
+                self, "launch_deadline_at", parse_instant(self.launch_deadline_at)
+            )
 
 
 def native_instruction_targets_job(context: RelayExecutionContext) -> bool:
@@ -236,9 +244,7 @@ def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
         ),
         presentation=(str(job["presentation"]) if job.get("presentation") else None),
         session_name=(str(job["session_name"]) if job.get("session_name") else None),
-        launch_deadline_at=(
-            str(job["deadline_at"]) if job.get("deadline_at") else None
-        ),
+        launch_deadline_at=job.get("deadline_at"),
         target_liveness=(
             str(job["target_liveness"]) if job.get("target_liveness") else None
         ),

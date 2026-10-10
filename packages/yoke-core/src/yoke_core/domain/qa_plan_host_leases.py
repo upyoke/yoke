@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from datetime import datetime
 
 from yoke_core.domain.coordination_claims import get_claim, heartbeat, release
 from yoke_core.domain.db_helpers import query_rows
@@ -31,7 +32,7 @@ def execution_host_leases(conn: Any, execution: dict[str, Any]) -> list[Any]:
 
 
 def heartbeat_execution_hosts(
-    conn: Any, execution: dict[str, Any], *, now: str
+    conn: Any, execution: dict[str, Any], *, now: datetime
 ) -> None:
     for claim in execution_host_leases(conn, execution):
         if claim.id != execution.get("machine_lease_id"):

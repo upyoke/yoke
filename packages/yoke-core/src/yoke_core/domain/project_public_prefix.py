@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.db_helpers import query_rows
 
 
@@ -47,9 +48,11 @@ def assert_prefix_available(
 
 
 def typed_project_field(name: str, value: Any) -> Any:
-    """Keep ``id`` numeric on every project surface that projects a row."""
+    """Normalize native clock facts and numeric ids on project row surfaces."""
     if value is None or value == "":
         return None
+    if name in {"created_at", "retired_at"}:
+        return parse_instant(value)
     if name == "id":
         return int(value)
     return value

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+from yoke_contracts.timestamps import format_instant, utc_now
 from typing import Any, Optional
 
-from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.db_helpers import connect, instant_parameter
 from yoke_core.domain.deployment_run_member_presentation import (
     _member_items,
     removed_member_items,
@@ -20,7 +21,10 @@ from yoke_core.domain.deployment_run_contained_items import (
 )
 from yoke_core.domain.deployment_run_item_delivery import candidate_delivery_items
 from yoke_core.domain.deployment_run_gates import run_gates
-from yoke_core.domain.deployment_runs_schema import _run_named_columns
+from yoke_core.domain.deployment_runs_schema import (
+    RUN_INSTANT_FIELDS,
+    _run_named_columns,
+)
 from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
@@ -33,14 +37,14 @@ OVERVIEW_RUN_WINDOW = timedelta(hours=24)
 def append_overview_run_window(
     clauses: list[str],
     params: list[Any],
+    *,
+    conn: Any,
 ) -> None:
     """Keep every non-terminal run plus terminals completed in the last 24h."""
-    cutoff = (datetime.now(timezone.utc) - OVERVIEW_RUN_WINDOW).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    cutoff = instant_parameter(conn, utc_now() - OVERVIEW_RUN_WINDOW)
     statuses = tuple(sorted(TERMINAL_RUN_STATUSES))
     markers = ", ".join("%s" for _ in statuses)
-    finished = "NULLIF(dr.completed_at, '')"
+    finished = "dr.completed_at"
     clauses.append(f"(dr.status NOT IN ({markers}) OR {finished} >= %s)")
     params.extend([*statuses, cutoff])
 
@@ -216,7 +220,12 @@ def present_deployment_runs(
             )
         result.append(
             {
-                **{key: ("" if value is None else value) for key, value in row.items()},
+                **{
+                    key: (format_instant(value) if value is not None else None)
+                    if key in RUN_INSTANT_FIELDS
+                    else ("" if value is None else value)
+                    for key, value in row.items()
+                },
                 **presentation,
             }
         )
@@ -262,7 +271,7 @@ def list_deployment_runs(
             clauses.append("dr.status = %s")
             params.append(status)
         if relevance == "overview":
-            append_overview_run_window(clauses, params)
+            append_overview_run_window(clauses, params, conn=conn)
         where = f"WHERE {' AND '.join(clauses)} " if clauses else ""
         run_columns, env_join = _run_named_columns(conn)
         priority_order = ""

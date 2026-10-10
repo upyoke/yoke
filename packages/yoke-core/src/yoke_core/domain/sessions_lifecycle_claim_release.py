@@ -15,6 +15,10 @@ parent ``WorkReleased`` event ``context.linked_path_claim_ids``.
 
 from __future__ import annotations
 
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now
+from .db_helpers import instant_parameter
+
 from typing import Any, Dict, List, Optional
 
 from . import db_backend
@@ -27,7 +31,6 @@ from .sessions_lifecycle_release_events import (
     emit_work_release_post_commit,
 )
 from .sessions_lifecycle_registry import _get_claim
-from .sessions_queries import _now_iso
 from .work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
@@ -72,7 +75,7 @@ def build_claim_release_post_commit_receipt(
     claim_id: int,
     canonical_reason: str,
     reason: str,
-    released_at: str,
+    released_at: datetime | str,
 ) -> Dict[str, Any]:
     """Build deferred telemetry for either generic or steering release."""
     if target.kind != TARGET_KIND_STEERING:
@@ -129,7 +132,7 @@ def release_claim_by_id(
     from .sessions_render_attribution import release_item_focus_if_current
     from .idea_claim_events import emit_if_idea_release
 
-    now = _now_iso()
+    now = utc_now()
     canonical_reason = _canonical_release_reason(reason)
 
     discovered = conn.execute(
@@ -173,7 +176,7 @@ def release_claim_by_id(
     conn.execute(
         f"UPDATE work_claims SET released_at = {_p(conn)}, "
         f"release_reason = {_p(conn)} WHERE id = {_p(conn)}",
-        (now, canonical_reason, claim_id),
+        (instant_parameter(conn, now), canonical_reason, claim_id),
     )
     # The caller's release intent is first-class claim state — the
     # released row persists and the frontier defense reads it from here.

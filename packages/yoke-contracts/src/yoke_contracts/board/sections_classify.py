@@ -8,7 +8,10 @@ section-keyed structure the renderer consumes.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Dict, List, NamedTuple, Optional
+
+from yoke_contracts.timestamps import parse_instant
 
 from yoke_contracts.project_contract.board_art.emoji import (
     STATUS_EMOJI as _STATUS_EMOJI_PREFIX,
@@ -38,7 +41,7 @@ class ItemRow(NamedTuple):
     progress: str
     epic_id: Optional[int]  # numeric epic_id (or None)
     project: str
-    updated_at: str
+    updated_at: datetime | None
     status_glyph: Optional[str] = None
     merge_queue_status: str = ""
 
@@ -224,10 +227,7 @@ def classify_items(
             merge_queue_landed_at,
             generated_children,
         ) = row
-        yok_id = format_item_ref(
-            project_slug,
-            public_item_prefix,
-            project_sequence)
+        yok_id = format_item_ref(project_slug, public_item_prefix, project_sequence)
 
         eff_epic: Optional[int] = (
             int(numid) if generated_children == "epic_tasks" else None
@@ -254,7 +254,7 @@ def classify_items(
             progress=progress,
             epic_id=eff_epic,
             project=project_display,
-            updated_at=updated_at,
+            updated_at=parse_instant(updated_at) if updated_at is not None else None,
             status_glyph=str(status_glyph) if status_glyph else None,
             merge_queue_status=render_merge_queue_status(
                 merge_queue_enqueued_at,
@@ -285,6 +285,8 @@ def classify_items(
     ):
         sections[section_name].sort(key=lambda r: (r.rank, r.id))
 
-    sections["done"].sort(key=lambda r: (r.updated_at, r.id), reverse=True)
+    sections["done"].sort(
+        key=lambda r: (r.updated_at is not None, r.updated_at, r.id), reverse=True
+    )
 
     return sections

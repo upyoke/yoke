@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any
 
 from yoke_contracts.cursor_shell_timing import (
@@ -51,7 +53,7 @@ _TOOL_COMPLETION_EVENTS = (
 )
 
 
-def _tool_metric_rows(conn: Any, cutoff: str) -> list[Any]:
+def _tool_metric_rows(conn: Any, cutoff: datetime) -> list[Any]:
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     placeholders = ",".join(marker for _ in _TOOL_COMPLETION_EVENTS)
     return conn.execute(
@@ -63,7 +65,7 @@ def _tool_metric_rows(conn: Any, cutoff: str) -> list[Any]:
         "LEFT JOIN session_tool_calls stc "
         "ON stc.session_id=e.session_id AND stc.tool_use_id=e.tool_use_id "
         f"WHERE e.event_name IN ({placeholders}) AND e.created_at >= {marker}",
-        (*_TOOL_COMPLETION_EVENTS, cutoff),
+        (*_TOOL_COMPLETION_EVENTS, instant_parameter(conn, cutoff)),
     ).fetchall()
 
 
@@ -143,9 +145,9 @@ def tool_latency_rows(hours: int) -> list[dict[str, Any]]:
     denominator. Pending start delivery is named separately from unknown.
     Duplicate completion events for one call identity count once.
     """
-    now = datetime.now(timezone.utc)
-    cutoff = (now - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    grouped: dict[tuple[str, str, str], dict[str, Any]] = defaultdict(
+    now = utc_now()
+    cutoff = now - timedelta(hours=hours)
+    grouped: dict[tuple[datetime, str, str], dict[str, Any]] = defaultdict(
         lambda: {
             "total": 0,
             "durations": [],
@@ -164,9 +166,7 @@ def tool_latency_rows(hours: int) -> list[dict[str, Any]]:
         observed = _timestamp(_value(row, "created_at", 2))
         if observed is None:
             continue
-        hour_key = observed.replace(minute=0, second=0, microsecond=0).strftime(
-            "%Y-%m-%dT%H:00:00Z"
-        )
+        hour = observed.replace(minute=0, second=0, microsecond=0)
         envelope = _value(row, "envelope", 1)
         harness = str(_value(row, "executor", 4) or "").strip() or _executor(envelope)
         surface = str(_value(row, "executor_surface", 5) or "").strip()
@@ -183,7 +183,7 @@ def tool_latency_rows(hours: int) -> list[dict[str, Any]]:
             tool_use_id=tool_use_id,
         )
         for scope, group_harness in (("global", "all"), ("harness", harness)):
-            bucket = grouped[(hour_key, scope, group_harness)]
+            bucket = grouped[(hour, scope, group_harness)]
             bucket["total"] += 1
             if kind == "timed" and duration is not None:
                 bucket["durations"].append(duration)

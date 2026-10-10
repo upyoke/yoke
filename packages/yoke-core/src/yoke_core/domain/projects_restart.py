@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from yoke_core.domain.db_backend import connection_is_postgres
 from yoke_core.domain import db_helpers
-from yoke_core.domain.db_helpers import iso8601_now, query_rows
+from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_rows
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.project_github_capability_settings import (
     normalize_github_capability_type,
@@ -147,7 +147,7 @@ def _migrate_config_split(conn) -> None:
                 "(project_id, type, key, value, source, created_at) "
                 f"VALUES ({p}, {p}, {p}, {p}, 'literal', {p}) "
                 "ON CONFLICT(project_id, type, key) DO NOTHING",
-                (proj, ctype, sk, str(sv), iso8601_now()),
+                (proj, ctype, sk, str(sv), instant_parameter(conn, utc_now())),
             )
 
     conn.commit()

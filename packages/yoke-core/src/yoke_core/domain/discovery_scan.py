@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
 from yoke_core.domain import db_backend, db_helpers
+from yoke_core.domain.ouroboros_entries import ENTRY_LIST_COLUMNS
+from yoke_core.domain.ouroboros_entry_presentation import entry_wire_value
 
 
 def _repo_root(explicit_root: Optional[str] = None) -> Path:
@@ -30,7 +32,11 @@ def _item_context_matcher(public_ref: str) -> Callable[[str], bool]:
 
 
 def _format_ouroboros_row(row: Any) -> str:
-    return "|".join("" if value is None else str(value) for value in tuple(row))
+    return "|".join(
+        "" if cell is None else str(cell)
+        for name, value in zip(ENTRY_LIST_COLUMNS, tuple(row))
+        for cell in [entry_wire_value(name, value)]
+    )
 
 
 def _read_ouroboros_unreviewed(
@@ -52,7 +58,7 @@ def _read_ouroboros_unreviewed(
             public_ref = render_item_ref(conn, item_num)
             rows = conn.execute(
                 "SELECT o.id, o.timestamp, o.agent, COALESCE(o.context,''), o.category, "
-                "replace(o.body, chr(10), ' '), COALESCE(o.reviewed_at,''), "
+                "replace(o.body, chr(10), ' '), o.reviewed_at, "
                 "COALESCE(p.slug,'') "
                 "FROM ouroboros_entries o "
                 "LEFT JOIN projects p ON p.id = o.project_id "

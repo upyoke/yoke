@@ -27,9 +27,7 @@ def fake_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (source / "tests" / "daemon.test.js").write_text("// test\n")
     (source / "package.json").write_text('{"name": "yoke-browser"}\n')
     (source / "package-lock.json").write_text('{"lockfileVersion": 3}\n')
-    monkeypatch.setattr(
-        browser_runtime_home, "package_source_root", lambda: source
-    )
+    monkeypatch.setattr(browser_runtime_home, "package_source_root", lambda: source)
     return source
 
 
@@ -42,9 +40,7 @@ def machine_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 class TestRuntimeDir:
     def test_honors_machine_home_env(self, machine_home: Path) -> None:
-        assert browser_runtime_home.runtime_dir() == (
-            machine_home / "browser-runtime"
-        )
+        assert browser_runtime_home.runtime_dir() == (machine_home / "browser-runtime")
 
 
 class TestEnsureMaterialized:
@@ -54,9 +50,7 @@ class TestEnsureMaterialized:
         dest = browser_runtime_home.ensure_materialized()
 
         assert dest == machine_home / "browser-runtime"
-        assert (dest / "src" / "daemon.js").read_text() == (
-            "console.log('daemon');\n"
-        )
+        assert (dest / "src" / "daemon.js").read_text() == ("console.log('daemon');\n")
         assert (dest / "src" / "routes" / "exec-routes.js").is_file()
         assert (dest / "tests" / "daemon.test.js").is_file()
         assert (dest / "package.json").is_file()
@@ -114,9 +108,7 @@ class TestEnsureMaterialized:
             browser_runtime_home.source_hash(fake_source)
         )
 
-    def test_hash_changes_with_content_and_relpath(
-        self, fake_source: Path
-    ) -> None:
+    def test_hash_changes_with_content_and_relpath(self, fake_source: Path) -> None:
         before = browser_runtime_home.source_hash(fake_source)
         (fake_source / "src" / "daemon.js").write_text("// changed\n")
         after = browser_runtime_home.source_hash(fake_source)
@@ -139,3 +131,20 @@ class TestPackageSourceRoot:
 
 def test_harness_browser_client_uses_materializer_owner() -> None:
     assert harness_browser_client.browser_runtime_home is browser_runtime_home
+
+
+def test_actual_materialized_runtime_includes_pinned_clock_kernel(
+    tmp_path, monkeypatch
+):
+    from yoke_contracts import timestamps
+
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    source = browser_runtime_home.package_source_root()
+    dest = browser_runtime_home.ensure_materialized()
+    expected = Path(timestamps.__file__).with_suffix(".mjs").read_bytes()
+    assert (source / "src/timestamps.mjs").read_bytes() == expected
+    assert (dest / "src/timestamps.mjs").read_bytes() == expected
+    assert (dest / "tests/clock-instants.test.js").is_file()
+    assert (
+        dest / browser_runtime_home.HASH_MARKER_NAME
+    ).read_text().strip() == browser_runtime_home.source_hash(source)

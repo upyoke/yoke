@@ -13,6 +13,7 @@ from runtime.api.api_items_test_helpers import (
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_contracts.hook_evaluator_protocol import attach_evaluator_metadata
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.schema_harness_session_columns import (
     apply_harness_session_columns,
 )
@@ -160,16 +161,16 @@ def test_batch_persists_ordered_events_activity_and_evaluator(
         "HarnessToolCallCompleted",
     ]
     assert [row["created_at"] for row in tool_events] == [
-        FIRST_OBSERVED_AT,
-        LAST_OBSERVED_AT,
+        parse_instant(FIRST_OBSERVED_AT),
+        parse_instant(LAST_OBSERVED_AT),
     ]
     assert len(dispatches) == 2
     contexts = [json.loads(row["envelope"])["context"] for row in dispatches]
     assert [context["evaluator"] for context in contexts] == ["resident", "resident"]
     assert [context["resident_warm_duration_ms"] for context in contexts] == [125, 125]
     assert session == {
-        "last_heartbeat": LAST_OBSERVED_AT,
-        "last_tool_call_at": LAST_OBSERVED_AT,
+        "last_heartbeat": parse_instant(LAST_OBSERVED_AT),
+        "last_tool_call_at": parse_instant(LAST_OBSERVED_AT),
         "tool_call_count": 1,
     }
 

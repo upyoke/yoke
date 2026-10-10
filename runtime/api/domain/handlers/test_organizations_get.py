@@ -37,26 +37,21 @@ class TestOrganizationsGet:
 
     def test_slug_addresses_specific_org(self, test_db):
         test_db.execute(
-            "INSERT INTO organizations (slug, name, created_at) "
-            "VALUES (%s, %s, %s)",
+            "INSERT INTO organizations (slug, name, created_at) VALUES (%s, %s, %s)",
             ("second", "Second Org", "2026-02-02T00:00:00Z"),
         )
         test_db.commit()
-        outcome = org_handler.handle_organizations_get(
-            _request({"slug": "second"})
-        )
+        outcome = org_handler.handle_organizations_get(_request({"slug": "second"}))
         assert outcome.primary_success
         assert outcome.result_payload == {
             "slug": "second",
             "name": "Second Org",
             "domain": None,
-            "created_at": "2026-02-02T00:00:00Z",
+            "created_at": "2026-02-02T00:00:00.000000Z",
         }
 
     def test_unknown_slug_not_found(self, test_db):
-        outcome = org_handler.handle_organizations_get(
-            _request({"slug": "nope"})
-        )
+        outcome = org_handler.handle_organizations_get(_request({"slug": "nope"}))
         assert not outcome.primary_success
         assert outcome.error.code == "not_found"
 
@@ -90,6 +85,8 @@ class TestRegistration:
         )
 
         spec = classify(
-            "organizations.get", side_effects=False, project_permission=None,
+            "organizations.get",
+            side_effects=False,
+            project_permission=None,
         )
         assert spec.scope == ACTOR_SESSION

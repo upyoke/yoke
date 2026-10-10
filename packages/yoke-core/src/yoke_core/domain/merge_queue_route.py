@@ -6,6 +6,8 @@ import sys
 import time
 from typing import Any, Callable, Optional
 
+from yoke_contracts.timestamps import format_instant
+
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.github_poll_schedule import (
     PollSchedule,
@@ -100,7 +102,7 @@ def land_item_through_merge_queue(
                 recorded_pr,
                 (
                     f"pull request {recorded_pr} is recorded as landed at "
-                    f"{recorded_landed_at}, but whether candidate {short} "
+                    f"{format_instant(recorded_landed_at)}, but whether candidate {short} "
                     f"is on {target!r} could not be verified. Re-run "
                     "`yoke merge item` from a readable checkout of the "
                     "lane; close-out will not declare this candidate "
@@ -111,7 +113,7 @@ def land_item_through_merge_queue(
         if coverage == "landed":
             emit(
                 f"[phase:landing] pull request {recorded_pr} landed at "
-                f"{recorded_landed_at}; closing out from the recorded landing"
+                f"{format_instant(recorded_landed_at)}; closing out from the recorded landing"
             )
             return close_out(
                 ctx,
@@ -255,7 +257,7 @@ def land_item_through_merge_queue(
                 warnings=tuple(warnings),
             )
     else:
-        enqueued_at = ""
+        enqueued_at = None
 
     if not already_merged and not wait_for_landing:
         emit(

@@ -1,13 +1,19 @@
 """Tests for project-owned flow initialization and migration stages."""
+
 from __future__ import annotations
+
+from yoke_contracts.timestamps import parse_instant
 
 
 from yoke_core.domain.schema_common import _get_columns
 
 
 def _insert_projects(conn):
-    created_at = "2026-04-20T00:00:00Z"
-    for pid, slug, name in [(1, "yoke", "Yoke"), (2, "externalwebapp", "ExternalWebapp")]:
+    created_at = parse_instant("2026-04-20T00:00:00.123456Z")
+    for pid, slug, name in [
+        (1, "yoke", "Yoke"),
+        (2, "externalwebapp", "ExternalWebapp"),
+    ]:
         conn.execute(
             "INSERT INTO projects (id, slug, name, "
             "public_item_prefix, created_at) "
@@ -23,6 +29,7 @@ def _seed_yoke_capability(conn, models=("primary",)):
     from runtime.api.fixtures.migration_model_test import (
         governed_postgres_test_seed,
     )
+
     # The shared test_db fixture only includes items-table schema; seed
     # the capabilities table on demand so the flow-save validator can
     # cross-reference declared migration models.
@@ -31,43 +38,46 @@ def _seed_yoke_capability(conn, models=("primary",)):
         "id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES projects(id), "
         "type TEXT NOT NULL, "
         "settings TEXT DEFAULT '{}', "
-        "verified_at TEXT, created_at TEXT NOT NULL, "
+        "verified_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL, "
         "UNIQUE(project_id, type))"
     )
     if tuple(models) == ("primary",):
         raw = json.dumps(governed_postgres_test_seed(), sort_keys=True)
     else:
-        raw = json.dumps({
-            "models": {
-                m: {
-                    "authoritative_db": {
-                        "kind": "postgres",
-                        "location": {
-                            "stack": f"test-app-{m}",
-                            "database_name": f"test_app_{m}",
-                            "endpoint_output": "databaseClusterEndpoint",
-                            "secret_arn_output": "databaseSecretArn",
+        raw = json.dumps(
+            {
+                "models": {
+                    m: {
+                        "authoritative_db": {
+                            "kind": "postgres",
+                            "location": {
+                                "stack": f"test-app-{m}",
+                                "database_name": f"test_app_{m}",
+                                "endpoint_output": "databaseClusterEndpoint",
+                                "secret_arn_output": "databaseSecretArn",
+                            },
                         },
-                    },
-                    "validation_surface": {
-                        "kind": "external_validation",
-                        "provisioning": {
-                            "trigger": "postgres_authority",
-                            "evidence_contract": "aurora_connected_environment",
+                        "validation_surface": {
+                            "kind": "external_validation",
+                            "provisioning": {
+                                "trigger": "postgres_authority",
+                                "evidence_contract": "aurora_connected_environment",
+                            },
                         },
-                    },
-                    "runner": {
-                        "kind": "governed_migration_module",
-                        "config": {
-                            "modules_dir": "runtime/api/domain/migrations",
-                            "connection_env_var": "YOKE_PG_DSN",
+                        "runner": {
+                            "kind": "governed_migration_module",
+                            "config": {
+                                "modules_dir": "runtime/api/domain/migrations",
+                                "connection_env_var": "YOKE_PG_DSN",
+                            },
                         },
-                    },
-                }
-                for m in models
+                    }
+                    for m in models
+                },
+                "default_model": models[0],
             },
-            "default_model": models[0],
-        }, sort_keys=True)
+            sort_keys=True,
+        )
     conn.execute(
         "INSERT INTO project_capabilities "
         "(project_id, type, settings, created_at) "
@@ -75,7 +85,7 @@ def _seed_yoke_capability(conn, models=("primary",)):
         "ON CONFLICT(project_id, type) DO UPDATE SET "
         "settings=excluded.settings, "
         "created_at=excluded.created_at",
-        (1, "migration_model", raw, "2026-04-23T00:00:00Z"),
+        (1, "migration_model", raw, parse_instant("2026-04-23T00:00:00Z")),
     )
     conn.commit()
 
@@ -102,17 +112,28 @@ class TestFlowInitializationOwnership:
         from yoke_core.domain.flow import cmd_init, cmd_stages
 
         _insert_projects(test_db)
-        project_stages = json.dumps([
-            {"name": "merged", "step_runner": "auto"},
-            {"name": "complete", "step_runner": "auto"},
-        ])
+        project_stages = json.dumps(
+            [
+                {"name": "merged", "step_runner": "auto"},
+                {"name": "complete", "step_runner": "auto"},
+            ]
+        )
         test_db.execute(
             "INSERT INTO deployment_flows "
             "(id, project_id, name, description, stages, on_failure, "
             "target_tier, target_environment_id, "
             " created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            ("project-owned-flow", 1, "Project owned", "Repository declaration",
-             project_stages, "halt", None, None, "2024-01-01T00:00:00Z"),
+            (
+                "project-owned-flow",
+                1,
+                "Project owned",
+                "Repository declaration",
+                project_stages,
+                "halt",
+                None,
+                None,
+                parse_instant("2024-01-01T00:00:00Z"),
+            ),
         )
         test_db.commit()
 
@@ -178,6 +199,7 @@ class TestItemProgressViewRefresh:
         from yoke_core.domain.flow_init import (
             create_or_replace_item_progress_view,
         )
+
         self._install_stale_view(test_db)
         before = self._view_columns(test_db)
         assert "blocked_reason" in before
@@ -193,6 +215,7 @@ class TestItemProgressViewRefresh:
         # Fresh DB initialization creates the view with
         # pipeline_blocked_reason.
         from yoke_core.domain.flow import cmd_init
+
         _insert_projects(test_db)
         cmd_init(test_db)
         cols = self._view_columns(test_db)
@@ -204,6 +227,7 @@ class TestItemProgressViewRefresh:
         from yoke_core.domain.flow_init import (
             create_or_replace_item_progress_view,
         )
+
         _insert_projects(test_db)
         cmd_init(test_db)
         create_or_replace_item_progress_view(test_db)

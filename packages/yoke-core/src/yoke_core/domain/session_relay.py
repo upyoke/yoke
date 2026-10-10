@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
+from datetime import datetime
+
 import logging
 import time
 from typing import Any, Callable, Mapping
@@ -63,7 +67,7 @@ def claim_relay_job(
     broker_only: bool = False,
     broker_lease_id: str | None = None,
     broker_session_id: str | None = None,
-    now_provider: Callable[[], str] = utc_now,
+    now_provider: Callable[[], datetime | str] = utc_now,
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> RelayClaimOutcome:
@@ -89,7 +93,7 @@ def claim_relay_job(
         else max(0, min(int(wait_seconds), MAX_RELAY_LONG_POLL_SECONDS))
     )
     policy = relay_policy()
-    current = now_provider()
+    current = parse_instant(now_provider())
     connected = heartbeat_relay(
         conn,
         heartbeat,
@@ -148,7 +152,7 @@ def claim_relay_job(
     live_batch = relay_has_live_batch(conn, relay_id=heartbeat.relay_id, now=current)
     started = monotonic()
     while True:
-        current = now_provider()
+        current = parse_instant(now_provider())
         termination = (
             None
             if broker_only or live_batch
@@ -251,13 +255,13 @@ def report_relay_job(
     adapter_revision: str | None = None,
     evidence: Mapping[str, Any] | None = None,
     document: Mapping[str, Any] | None = None,
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> dict[str, Any]:
     """Persist one bounded native result without logging job payloads."""
     from yoke_core.domain.session_relay_storage import require_relay_actor
 
     require_relay_actor(conn, relay_id=relay_id, actor_id=actor_id)
-    current = now or utc_now()
+    current = utc_now() if now is None else parse_instant(now)
     if job_kind == "launch":
         return report_launch_job(
             conn,

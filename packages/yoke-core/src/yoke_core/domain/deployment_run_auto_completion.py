@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import utc_now
 
 
 @dataclass(frozen=True)
@@ -103,7 +103,7 @@ def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
     if status != "executing":
         return None, f"run status is {status}, not executing"
     current_stage = str(_row_value(row, "current_stage", 2) or "")
-    attached = live_attachment_for_run(conn, run_id_value=run_id, now=iso8601_now())
+    attached = live_attachment_for_run(conn, run_id_value=run_id, now=utc_now())
     if attached is not None and current_stage != "complete":
         return None, f"live driver {attached.session_id} is already continuing this run"
     try:

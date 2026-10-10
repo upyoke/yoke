@@ -2,7 +2,8 @@
 
 Materializes named substrate states that the path-integrity verifier
 must catch. Per-fixture seeding implementations live in
-:mod:`yoke_core.domain.path_integrity_fixtures_seed`; this module is
+:mod:`yoke_core.domain.path_integrity_fixtures_seed` and
+:mod:`yoke_core.domain.path_integrity_continuity_fixtures`; this module is
 the only sanctioned import path for callers (tests, CLIs).
 
 Each fixture writes its substrate rows directly and records a row in
@@ -33,11 +34,13 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional, Tuple
 
-from yoke_core.domain.path_integrity_fixtures_seed import (
+from yoke_core.domain.path_integrity_continuity_fixtures import (
     fixture_ambiguous_continuity_v1,
+    fixture_conflicting_context_inheritance_v1,
+)
+from yoke_core.domain.path_integrity_fixtures_seed import (
     fixture_broken_snapshot_idempotency_v1,
     fixture_clean_v1,
-    fixture_conflicting_context_inheritance_v1,
     fixture_duplicate_identity_v1,
     fixture_incoherent_parent_child_v1,
     fixture_substrate_drift_v1,
@@ -58,8 +61,7 @@ _FIXTURES: Dict[str, Callable[[Any, str], int]] = {
     "incoherent_parent_child_v1": fixture_incoherent_parent_child_v1,
     "broken_snapshot_idempotency_v1": fixture_broken_snapshot_idempotency_v1,
     "ambiguous_continuity_v1": fixture_ambiguous_continuity_v1,
-    "conflicting_context_inheritance_v1":
-        fixture_conflicting_context_inheritance_v1,
+    "conflicting_context_inheritance_v1": fixture_conflicting_context_inheritance_v1,
     "substrate_drift_v1": fixture_substrate_drift_v1,
 }
 
@@ -96,8 +98,7 @@ def load_fixture(
     """
     if name not in _FIXTURES:
         raise KeyError(
-            f"unknown fixture {name!r}; available: "
-            f"{', '.join(available_fixtures())}"
+            f"unknown fixture {name!r}; available: {', '.join(available_fixtures())}"
         )
     func = _FIXTURES[name]
     if project_id is None:

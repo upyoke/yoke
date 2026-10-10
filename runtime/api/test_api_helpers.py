@@ -52,12 +52,9 @@ def _p(conn) -> str:
 
 CAPABILITIES_SCHEMA = """
 CREATE TABLE project_capabilities (
-    id INTEGER PRIMARY KEY,
-    project_id INTEGER NOT NULL,
-    type TEXT NOT NULL,
+    id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, type TEXT NOT NULL,
     settings TEXT DEFAULT '{}',
-    verified_at TEXT,
-    created_at TEXT NOT NULL,
+    verified_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL,
     UNIQUE(project_id, type)
 );
 """
@@ -70,9 +67,8 @@ CREATE TABLE deployment_flows (
     description TEXT,
     stages TEXT NOT NULL,
     on_failure TEXT DEFAULT 'halt',
-    created_at TEXT NOT NULL,
-    target_tier TEXT DEFAULT NULL,
-    target_environment_id TEXT DEFAULT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    target_tier TEXT DEFAULT NULL, target_environment_id TEXT DEFAULT NULL,
     done_description TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'active',
     UNIQUE(project_id, name)
@@ -82,7 +78,7 @@ CREATE TABLE deployment_flows (
 DEPLOYMENT_RUNS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS environments (
     id TEXT PRIMARY KEY, site TEXT, name TEXT NOT NULL, url TEXT,
-    last_deployed_at TEXT, created_at TEXT NOT NULL DEFAULT '', settings TEXT
+    last_deployed_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, settings TEXT
 );
 CREATE TABLE deployment_runs (
     id TEXT PRIMARY KEY,
@@ -94,18 +90,17 @@ CREATE TABLE deployment_runs (
     status TEXT NOT NULL DEFAULT 'created'
       CHECK(status IN ('created','executing','succeeded','failed','cancelled')),
     current_stage TEXT,
-    created_at TEXT NOT NULL,
-    started_at TEXT,
-    completed_at TEXT,
+    created_at TIMESTAMPTZ NOT NULL,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
     created_by TEXT DEFAULT 'operator'
 );
 """
 
 DEPLOYMENT_RUN_ITEMS_SCHEMA = """
 CREATE TABLE deployment_run_items (
-    run_id TEXT NOT NULL,
-    item_id INTEGER NOT NULL,
-    added_at TEXT NOT NULL,
+    run_id TEXT NOT NULL, item_id INTEGER NOT NULL,
+    added_at TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (run_id, item_id)
 );
 """
@@ -125,10 +120,7 @@ CREATE TABLE epic_tasks (
 QA_REQUIREMENTS_SCHEMA = """
 CREATE TABLE qa_requirements (
     id INTEGER PRIMARY KEY,
-    item_id INTEGER,
-    epic_id INTEGER,
-    task_num INTEGER,
-    deployment_run_id TEXT,
+    item_id INTEGER, epic_id INTEGER, task_num INTEGER, deployment_run_id TEXT,
     qa_kind TEXT NOT NULL,
     qa_phase TEXT NOT NULL DEFAULT 'verification',
     target_env TEXT,
@@ -137,7 +129,7 @@ CREATE TABLE qa_requirements (
     success_policy TEXT NOT NULL DEFAULT 'blocking',
     capability_requirements TEXT,
     suite_id TEXT,
-    waived_at TEXT, waiver_rationale TEXT, created_at TEXT NOT NULL,
+    waived_at TIMESTAMPTZ, waiver_rationale TEXT, created_at TIMESTAMPTZ NOT NULL,
     plan_case_key TEXT, deployment_member_item_id INTEGER
 );
 """
@@ -146,11 +138,9 @@ QA_RUNS_SCHEMA = """
 CREATE TABLE qa_runs (
     id INTEGER PRIMARY KEY,
     qa_requirement_id INTEGER NOT NULL,
-    performed_by TEXT,
-    verdict TEXT,
-    verdict_reason TEXT,
+    performed_by TEXT, verdict TEXT, verdict_reason TEXT,
     raw_result TEXT,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 """
 
@@ -238,15 +228,22 @@ def _apply_schema_and_seed_on_conn(conn) -> None:
     from runtime.api.api_decision_schema_test_support import (
         create_decision_schema,
     )
+
     create_decision_schema(conn)
 
     # Seed deployment flow with a human-approval stage
-    _test_flow_stages = json.dumps([
-        {"name": "merged", "step_runner": "auto"},
-        {"name": "approve-deploy", "step_runner": "human-approval"},
-        {"name": "prod-deploy", "step_runner": "github-actions-workflow", "workflow": "deploy.yml"},
-        {"name": "complete", "step_runner": "auto"},
-    ])
+    _test_flow_stages = json.dumps(
+        [
+            {"name": "merged", "step_runner": "auto"},
+            {"name": "approve-deploy", "step_runner": "human-approval"},
+            {
+                "name": "prod-deploy",
+                "step_runner": "github-actions-workflow",
+                "workflow": "deploy.yml",
+            },
+            {"name": "complete", "step_runner": "auto"},
+        ]
+    )
     p = _p(conn)
     conn.execute(
         f"""INSERT INTO deployment_flows (id, project_id, name, description, stages, created_at)
@@ -275,7 +272,9 @@ def test_db():
     """Fixture that creates a Postgres test DB and overrides FastAPI deps."""
     tmp_dir = tempfile.mkdtemp()
     try:
-        with init_test_db(Path(tmp_dir), apply_schema=_apply_schema_and_seed) as db_path:
+        with init_test_db(
+            Path(tmp_dir), apply_schema=_apply_schema_and_seed
+        ) as db_path:
             with _install_overrides(db_path):
                 yield {"db_path": db_path, "tmp_dir": tmp_dir}
     finally:
@@ -298,6 +297,7 @@ def client(test_db):
 @contextmanager
 def _install_overrides(db_path: str):
     """Bind FastAPI dependency overrides to a backend-routed test DB."""
+
     def _override_db_path() -> str:
         return db_path
 

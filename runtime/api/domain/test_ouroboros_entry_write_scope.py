@@ -45,8 +45,7 @@ def _entry(conn, body: str, project: str | None = None) -> int:
         )
     )
     conn.execute(
-        "UPDATE ouroboros_entries SET created_at='2026-07-01T00:00:00Z' "
-        "WHERE id=%s",
+        "UPDATE ouroboros_entries SET created_at='2026-07-01T00:00:00Z' WHERE id=%s",
         (entry_id,),
     )
     conn.commit()
@@ -89,7 +88,9 @@ class TestBulkReviewRequiresAProject:
 
     def test_all_reviewed_archive_leaves_other_projects_entries_alone(self, test_db):
         mine = _entry(test_db, "reviewed under the named project", project="yoke")
-        theirs = _entry(test_db, "reviewed under another project", project="externalwebapp")
+        theirs = _entry(
+            test_db, "reviewed under another project", project="externalwebapp"
+        )
         cmd_mark_reviewed(test_db, mine)
         cmd_mark_reviewed(test_db, theirs)
 
@@ -228,3 +229,37 @@ class TestHandlerSurface:
         assert outcome.primary_success is False
         assert outcome.error.code == "permission_denied"
         assert not _is_archived(test_db, entry_id)
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_calendar_review_cutoff_is_utc_midnight_and_retains_native_review_clock(
+    test_db, monkeypatch, zone
+):
+    from datetime import timedelta
+    from yoke_contracts.timestamps import parse_instant
+    from yoke_core.domain import ouroboros_entry_review as owner
+
+    cutoff = parse_instant("2026-08-01T00:00:00.000000Z")
+    stamp = parse_instant("2026-08-01T12:34:56.123456Z")
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    ids = [_entry(test_db, f"UTC cutoff {i}", project="yoke") for i in range(3)]
+    for entry_id, created_at in zip(
+        ids,
+        [
+            cutoff - timedelta(microseconds=1),
+            cutoff,
+            cutoff + timedelta(microseconds=1),
+        ],
+    ):
+        test_db.execute(
+            "UPDATE ouroboros_entries SET created_at=%s WHERE id=%s",
+            (created_at, entry_id),
+        )
+    test_db.commit()
+    monkeypatch.setattr(owner, "utc_now", lambda: stamp)
+    batch = owner.mark_entries_reviewed_before(test_db, before=CUTOFF, project="yoke")
+    assert batch.reviewed_count == 1 and batch.remaining_count == 0
+    assert batch.reviewed_at == stamp
+    assert [_row(test_db, entry_id)[0] for entry_id in ids] == [stamp, None, None]
+    empty = owner.mark_entries_reviewed_before(test_db, before=CUTOFF, project="yoke")
+    assert empty.reviewed_at is None and empty.reviewed_count == 0

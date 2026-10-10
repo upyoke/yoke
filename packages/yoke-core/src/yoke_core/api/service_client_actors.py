@@ -21,6 +21,8 @@ from __future__ import annotations
 import json
 import sys
 
+from yoke_contracts.timestamps import temporal_wire
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect
 
@@ -63,7 +65,7 @@ def cmd_actors_list(args: list[str]) -> int:
         p = _p(conn)
         rows = conn.execute(_select_actors_sql(placeholder=p)).fetchall()
         payload = [_row_to_actor_dict(r) for r in rows]
-        print(json.dumps(payload))
+        print(json.dumps(temporal_wire(payload)))
     finally:
         conn.close()
     return 0
@@ -99,7 +101,7 @@ def cmd_actors_get(args: list[str]) -> int:
                 file=sys.stderr,
             )
             return 1
-        print(json.dumps(_row_to_actor_dict(row)))
+        print(json.dumps(temporal_wire(_row_to_actor_dict(row))))
     finally:
         conn.close()
     return 0

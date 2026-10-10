@@ -38,6 +38,10 @@ test("session activity copy keeps server liveness authoritative", (t) => {
 
   const documentNode = new FakeDocument();
   assert.equal(
+    renderedActivityAge(documentNode, "2026-08-27T11:59:00.000001Z"),
+    "active now",
+  );
+  assert.equal(
     renderedActivityAge(documentNode, new Date(now - 59_999).toISOString()),
     "active now",
   );
@@ -113,6 +117,19 @@ test("session activity copy keeps server liveness authoritative", (t) => {
     renderedActivityAge(documentNode, "now"),
     "idle recently",
   );
+  for (const activityAt of [
+    "2026-08-27", "2026-08-27T11:59:00", "2026-08-27T11:59:00-00:00",
+  ]) {
+    const body = documentNode.createElement("div");
+    const row = { activity_at: activityAt, liveness: "stale", mode: "wait", claims: [] };
+    appendSessionAge(documentNode, body, row);
+    assert.equal(body.textContent, "idle recently");
+    assert.equal(row.activity_at, activityAt);
+    assert.equal(row.liveness, "stale");
+    const time = byClass(body, "ago")[0];
+    assert.equal(time.attributes.has("datetime"), false);
+    assert.equal(time.attributes.has("data-ms"), false);
+  }
 });
 
 test("session status line leads with total age from offered_at", (t) => {

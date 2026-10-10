@@ -1,4 +1,5 @@
-import { sanitizePath, sanitizeUrl, isBot } from './events_attribution.ts';
+import { instantFromDate } from "./events_timestamps.mjs";
+import { sanitizePath, sanitizeUrl, isBot } from "./events_attribution.ts";
 
 let sessionId: string | null = null;
 let started: string | null = null;
@@ -6,7 +7,7 @@ export function getSystemProps(): Record<string, unknown> {
   return { project: 'yoke', service: 'web' };
 }
 export function getSessionProps(): Record<string, unknown> {
-  if (!sessionId) { sessionId = crypto.randomUUID(); started = new Date().toISOString(); }
+  if (!sessionId) { sessionId = crypto.randomUUID(); started = instantFromDate(new Date(Date.now())); }
   return { session_id: sessionId, session_start_time: started };
 }
 export function getOrgProps(orgId?: string): Record<string, unknown> {

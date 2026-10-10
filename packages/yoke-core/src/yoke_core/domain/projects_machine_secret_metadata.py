@@ -10,7 +10,7 @@ from yoke_contracts.machine_config.capability_secrets import (
 )
 
 from yoke_core.domain import json_helper
-from yoke_core.domain.db_helpers import iso8601_now, query_one
+from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_one
 
 
 def sync_machine_secret_metadata(
@@ -42,7 +42,7 @@ def _set_ssh_key_path(conn, project_id: int, key_path: Path) -> None:
                 project_id,
                 SSH_CAPABILITY,
                 json_helper.dumps_compact(settings),
-                iso8601_now(),
+                instant_parameter(conn, utc_now()),
             ),
         )
         return
@@ -52,8 +52,7 @@ def _set_ssh_key_path(conn, project_id: int, key_path: Path) -> None:
         raise ValueError("ssh capability settings must be a JSON object")
     loaded["key_path"] = str(key_path)
     conn.execute(
-        "UPDATE project_capabilities SET settings=%s "
-        "WHERE project_id=%s AND type=%s",
+        "UPDATE project_capabilities SET settings=%s WHERE project_id=%s AND type=%s",
         (json_helper.dumps_compact(loaded), project_id, SSH_CAPABILITY),
     )
 

@@ -257,7 +257,7 @@ def compute_schedule(
                 next_step=NextStep.WAIT,
                 project=project_slug_or_id(conn, ei.get("project_id")),
                 explanation=f"Exceptional: item is in {ei.get('status', 'failed')} status",
-                created_at=ei.get("created_at", ""),
+                created_at=ei.get("created_at"),
             )
         )
 

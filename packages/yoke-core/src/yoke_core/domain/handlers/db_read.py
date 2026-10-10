@@ -7,6 +7,8 @@ bounded, read-only diagnostic runner with dispatcher authorization.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 import base64
 import math
 import re
@@ -176,7 +178,9 @@ def _json_safe(value: Any, *, column_name: str = "") -> Any:
         return value if math.isfinite(value) else str(value)
     if isinstance(value, Decimal):
         return str(value)
-    if isinstance(value, (datetime, date, time, UUID)):
+    if isinstance(value, datetime):
+        return format_instant(value)
+    if isinstance(value, (date, time, UUID)):
         return value.isoformat() if hasattr(value, "isoformat") else str(value)
     if isinstance(value, bytes):
         try:

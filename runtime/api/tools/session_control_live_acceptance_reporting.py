@@ -4,10 +4,46 @@ from __future__ import annotations
 
 from typing import Any
 
-from runtime.api.tools.session_control_live_acceptance_contract import AcceptanceCell
+from runtime.api.tools.session_control_live_acceptance_contract import (
+    AcceptanceCell,
+    AcceptanceContractError,
+)
+from yoke_contracts.timestamps import InvalidInstant, format_instant
 
 
 FAILED_STATUS = "failed"
+
+
+def _receipt_instant(value: Any, *, surface: str) -> str | None:
+    """Project an owned receipt clock; absent clocks are null, never empty text."""
+    if value is None:
+        return None
+    try:
+        return format_instant(value)
+    except InvalidInstant as exc:
+        raise AcceptanceContractError("receipt_clock_invalid", surface=surface) from exc
+
+
+def receipt_clocks(row: dict[str, Any], *, surface: str) -> dict[str, str | None]:
+    return {
+        key: _receipt_instant(row.get(key), surface=surface)
+        for key in ("acknowledged_at", "last_wake_at")
+    }
+
+
+def attempt_summary(attempt: dict[str, Any]) -> dict[str, Any]:
+    """Keep body-free diagnostics useful even when a clock caused the refusal."""
+    summary = {
+        key: value if isinstance((value := attempt.get(key)), str) else None
+        for key in ("attempt_id", "attempt_kind", "result_code")
+    }
+    for key in ("started_at", "completed_at"):
+        value = attempt.get(key)
+        try:
+            summary[key] = None if value is None else format_instant(value)
+        except InvalidInstant:
+            summary[key] = None
+    return summary
 
 
 def _cell_identity(cell: AcceptanceCell) -> dict[str, Any]:

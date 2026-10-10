@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS item_landings (
   pr_number TEXT NOT NULL DEFAULT '',
   target_branch TEXT NOT NULL DEFAULT '',
   route TEXT NOT NULL CHECK(route IN ({_ROUTE_SQL})),
-  landed_at TEXT NOT NULL,
+  landed_at TIMESTAMPTZ NOT NULL,
   origin TEXT NOT NULL DEFAULT '{ORIGIN_RECORDED}'
     CHECK(origin IN ({_ORIGIN_SQL})),
   UNIQUE(item_id, merge_sha)

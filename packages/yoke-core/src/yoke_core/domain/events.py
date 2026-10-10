@@ -5,13 +5,16 @@ Sibling modules own isolation, INSERT construction, and argv compatibility.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import json
 import logging
 import os
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any, Dict, Optional
+
+from yoke_contracts.timestamps import format_instant, iso8601_now
 
 from .auth_context import StandardAuthContext, merge_context
 from .events_crud import (
@@ -49,6 +52,7 @@ logger = logging.getLogger(__name__)
 
 MAX_ENVELOPE_BYTES = 65536
 MAX_CONTEXT_FIELD_BYTES = 2048
+
 
 @dataclass(frozen=True)
 class EmitResult:
@@ -96,15 +100,14 @@ def build_envelope(
     hook_event_name: Optional[str] = None,
     auth_context: Optional[StandardAuthContext] = None,
     context: Optional[Dict[str, Any]] = None,
-    created_at: Optional[str] = None,
+    created_at: str | datetime | None = None,
 ) -> Dict[str, Any]:
     """Build the canonical event envelope stored in ``events.envelope``."""
     # Reject unknown / normalize known; severity_num still defaults at read-side.
     severity = normalize_severity(severity)
 
     event_id = str(uuid.uuid4())
-    if created_at is None:
-        created_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    created_at = iso8601_now() if created_at is None else format_instant(created_at)
 
     # Enforce context field size limits
     safe_context: Dict[str, Any] = {}
@@ -203,7 +206,7 @@ def emit_event(
     hook_event_name: Optional[str] = None,
     auth_context: Optional[StandardAuthContext] = None,
     context: Optional[Dict[str, Any]] = None,
-    created_at: Optional[str] = None,
+    created_at: str | datetime | None = None,
     db_path: Optional[str] = None,
     conn: Optional[Any] = None,
     transactional: bool = False,

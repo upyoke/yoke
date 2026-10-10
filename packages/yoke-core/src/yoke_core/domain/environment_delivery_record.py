@@ -9,9 +9,17 @@ and successful completion writes
 
 from __future__ import annotations
 
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
 from typing import Any, Optional
 
-from yoke_core.domain.db_helpers import iso8601_now, query_rows, query_scalar
+from yoke_core.domain.db_helpers import (
+    instant_parameter,
+    utc_now,
+    query_rows,
+    query_scalar,
+)
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
@@ -28,10 +36,7 @@ def require_delivery_env_name(name: str) -> str:
     """Return a closed delivery name, or raise ``ValueError``."""
     normalized = str(name or "").strip()
     if normalized not in DELIVERY_ENV_NAMES:
-        raise ValueError(
-            "environment name must be prod or stage; "
-            f"got {normalized!r}"
-        )
+        raise ValueError(f"environment name must be prod or stage; got {normalized!r}")
     return normalized
 
 
@@ -87,6 +92,7 @@ def resolve_environment_id(
         EnvironmentReferenceError,
         resolve,
     )
+
     try:
         return resolve(conn, project_id=project_id, name=token).id
     except EnvironmentReferenceError:
@@ -98,7 +104,9 @@ def environment_name(conn: Any, environment_id: Optional[int]) -> Optional[str]:
     if environment_id is None or not _table_exists(conn, "environments"):
         return None
     name = query_scalar(
-        conn, "SELECT name FROM environments WHERE id = %s", (environment_id,),
+        conn,
+        "SELECT name FROM environments WHERE id = %s",
+        (environment_id,),
     )
     return str(name) if name else None
 
@@ -107,14 +115,15 @@ def stamp_environment_last_deployed(
     conn: Any,
     environment_id: int,
     *,
-    when: Optional[str] = None,
+    when: datetime | str | None = None,
 ) -> None:
     """Write ``last_deployed_at`` on one environment row."""
+    instant = utc_now() if when is None else parse_instant(when)
     if not _column_exists(conn, "environments", "last_deployed_at"):
         return
     conn.execute(
         "UPDATE environments SET last_deployed_at = %s WHERE id = %s",
-        (when or iso8601_now(), environment_id),
+        (instant_parameter(conn, instant), environment_id),
     )
 
 
@@ -122,7 +131,7 @@ def stamp_run_environment(
     conn: Any,
     run_id: str,
     *,
-    when: Optional[str] = None,
+    when: datetime | str | None = None,
 ) -> Optional[int]:
     """Stamp the run's referenced environment; return the id or ``None``."""
     row = query_rows(

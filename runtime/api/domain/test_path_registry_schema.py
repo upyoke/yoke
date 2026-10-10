@@ -34,7 +34,7 @@ def _apply_path_registry_schema() -> None:
             "name TEXT NOT NULL, "
             "default_branch TEXT NOT NULL DEFAULT 'main', github_repo TEXT, "
             "public_item_prefix TEXT NOT NULL DEFAULT 'YOK', "
-            "created_at TEXT NOT NULL)"
+            "created_at TIMESTAMPTZ NOT NULL)"
         )
         conn.execute(
             "INSERT INTO projects (id, slug, name, created_at) "
@@ -70,10 +70,17 @@ class TestSchema:
     def test_path_targets_columns(self, fresh_db):
         names = set(_get_columns(fresh_db, "path_targets"))
         assert set(names) == {
-            "id", "project_id", "kind", "path_string",
-            "generation", "parent_target_id", "created_at",
-            "materialization_state", "materialization_updated_at",
-            "planned_by_item_id", "planned_by_claim_id",
+            "id",
+            "project_id",
+            "kind",
+            "path_string",
+            "generation",
+            "parent_target_id",
+            "created_at",
+            "materialization_state",
+            "materialization_updated_at",
+            "planned_by_item_id",
+            "planned_by_claim_id",
         }
 
     def test_path_targets_kind_is_open_text(self, fresh_db):
@@ -205,5 +212,5 @@ class TestSchema:
         assert row[1] is None  # language
         assert row[2] is None  # module_name
         assert row[3] is None  # area
-        assert row[4] == 0     # is_generated
+        assert row[4] == 0  # is_generated
         assert row[5] == "[]"  # dependency_edges

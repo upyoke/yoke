@@ -6,6 +6,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_execution_proof import qa_run_outcome
@@ -110,7 +111,10 @@ def _ordered_plans(plans: list[dict[str, Any]]) -> list[dict[str, Any]]:
         ),
     )
     ordered.sort(
-        key=lambda plan: str(plan["outcome_summary"]["last_at"] or ""),
+        key=lambda plan: (
+            plan["outcome_summary"]["last_at"] is not None,
+            plan["outcome_summary"]["last_at"],
+        ),
         reverse=True,
     )
     ordered.sort(key=lambda plan: not plan["method_is_complete_plan"])
@@ -198,9 +202,13 @@ def read_method_related_plans(
             outcome = qa_run_outcome(latest) if latest is not None else "not_run"
             counts = plan["_counts"]
             counts[outcome] = counts.get(outcome, 0) + 1
-            happened_at = latest["happened_at"] if latest is not None else None
+            happened_at = (
+                parse_instant(latest["happened_at"])
+                if latest is not None and latest["happened_at"] is not None
+                else None
+            )
             if happened_at is not None and (
-                plan["_last_at"] is None or str(happened_at) > str(plan["_last_at"])
+                plan["_last_at"] is None or happened_at > plan["_last_at"]
             ):
                 plan["_last_at"] = happened_at
     result = []
@@ -214,7 +222,13 @@ def read_method_related_plans(
             "last_at": last_at,
         }
         result.append(plan)
-    return _ordered_plans(result)
+    ordered = _ordered_plans(result)
+    for plan in ordered:
+        stamp = plan["outcome_summary"]["last_at"]
+        plan["outcome_summary"]["last_at"] = (
+            format_instant(stamp) if stamp is not None else None
+        )
+    return ordered
 
 
 __all__ = ["read_method_related_plans"]

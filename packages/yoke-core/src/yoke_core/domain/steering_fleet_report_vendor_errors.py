@@ -15,6 +15,10 @@ going to resume it, or whether nobody is coming.
 
 from __future__ import annotations
 
+from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
+
+from datetime import datetime
+
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
@@ -38,12 +42,12 @@ class VendorErrorSession:
     public_ref: str
     signature_id: str
     error_message: str
-    observed_at: str
+    observed_at: datetime | None
     stopped_seconds: int
     status: str
     reason: str
-    #: When the next resume comes due, empty when none is coming.
-    due_at: str
+    #: When the next resume comes due, null when none is coming.
+    due_at: datetime | None
     attempts: int
     budget: int
     executor_surface: str
@@ -87,7 +91,7 @@ def _row(
     public_ref: str,
     now: str,
 ) -> VendorErrorSession:
-    observed_at = str(state.get("observed_at") or "")
+    observed_at = parse_stamp(state.get("observed_at"))
     return VendorErrorSession(
         session_id=str(state.get("session_id") or ""),
         item_id=item_id,
@@ -98,7 +102,7 @@ def _row(
         stopped_seconds=age_seconds(observed_at, now) or 0,
         status=str(state.get("status") or ""),
         reason=str(state.get("reason") or ""),
-        due_at=str(state.get("due_at") or ""),
+        due_at=parse_stamp(state.get("due_at")),
         attempts=int(state.get("attempts") or 0),
         budget=int(state.get("budget") or 0),
         executor_surface=str(state.get("executor_surface") or ""),
@@ -139,7 +143,16 @@ def vendor_error_sessions(
         )
         for state in states
     ]
-    return tuple(sorted(rows, key=lambda entry: (entry.observed_at, entry.session_id)))
+    return tuple(
+        sorted(
+            rows,
+            key=lambda entry: (
+                entry.observed_at is None,
+                entry.observed_at,
+                entry.session_id,
+            ),
+        )
+    )
 
 
 __all__ = ["SEAT_OWNED_STATUSES", "VendorErrorSession", "vendor_error_sessions"]

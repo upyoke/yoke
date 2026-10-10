@@ -29,6 +29,7 @@ When two live seats both cover, the most specific wins; none means park.
 from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
+from yoke_contracts.timestamps import parse_instant
 
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.strategy_docs_defaults import NEAR_TERM_PLAN_SLUG
@@ -97,9 +98,7 @@ def _other_refinements_match(
     return True
 
 
-def steering_scope_covers(
-    scope: Mapping[str, Any], target: Mapping[str, Any]
-) -> bool:
+def steering_scope_covers(scope: Mapping[str, Any], target: Mapping[str, Any]) -> bool:
     """Whether a seat holding ``scope`` is the one addressed by ``target``.
 
     ``target`` always names the item's execution ``project_id``. When the
@@ -112,10 +111,9 @@ def steering_scope_covers(
         return False
     scope_document = _scope_document_identity(scope_values)
     if scope_document is not None:
-        return (
-            target_document_identity(target_values) == scope_document
-            and _other_refinements_match(scope_values, target_values)
-        )
+        return target_document_identity(
+            target_values
+        ) == scope_document and _other_refinements_match(scope_values, target_values)
     if int(scope_values[PROJECT_KEY]) != int(target_values[PROJECT_KEY]):
         return False
     linked = target_document_identity(target_values)
@@ -218,7 +216,7 @@ def covering_claims(
     covering.sort(
         key=lambda claim: (
             -scope_specificity(claim["scope"]),
-            str(claim.get("claimed_at") or ""),
+            parse_instant(claim["claimed_at"]),
             int(claim["claim_id"]),
         )
     )

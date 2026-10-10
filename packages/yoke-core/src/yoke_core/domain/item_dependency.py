@@ -1,13 +1,15 @@
 """Item-dependency graph commands for ``item_dependencies`` rows."""
+
 from __future__ import annotations
 
 import sys
+from datetime import datetime
 from typing import List, Optional
 
 from yoke_contracts.dependency_values import VALID_GATE_POINTS, VALID_SOURCES
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_scalar
+from yoke_core.domain.db_helpers import instant_parameter, query_scalar
 from yoke_core.domain.dependency_satisfaction import require_authorable_satisfaction
 from yoke_core.domain.item_ref_resolution import resolve_item_ref
 from yoke_core.domain.path_claims_blocked_reason_refresh import (
@@ -28,6 +30,7 @@ def _refresh_blocked_reasons(conn, dep_id: int, blk_id: int) -> None:
         dependent_item_id=dep_id,
         blocking_item_id=blk_id,
     )
+
 
 HARD_BLOCK_GATE_POINTS = VALID_GATE_POINTS - {"coordination_only"}
 
@@ -80,7 +83,7 @@ def cmd_dependency_add(
             session_id,
             rationale,
             evidence_json,
-            now_iso(),
+            instant_parameter(conn, now_iso()),
         ),
     )
     conn.commit()
@@ -108,7 +111,9 @@ def cmd_dependency_update(
     rationale: Optional[str] = None,
 ) -> str:
     dep_id, blk_id = _edge_ids(conn, dependent, blocking)
-    _validate_dependency_update_inputs(match_gate_point, gate_point, satisfaction, rationale)
+    _validate_dependency_update_inputs(
+        match_gate_point, gate_point, satisfaction, rationale
+    )
     if satisfaction:
         require_authorable_satisfaction(
             conn,
@@ -123,8 +128,12 @@ def cmd_dependency_update(
         where_parts.append(f"gate_point={p}")
         params.append(match_gate_point)
     where = " AND ".join(where_parts)
-    _ensure_single_dependency_match(conn, where, params, dependent, blocking, match_gate_point)
-    _ensure_gate_point_update_is_available(conn, where, params, dependent, blocking, gate_point)
+    _ensure_single_dependency_match(
+        conn, where, params, dependent, blocking, match_gate_point
+    )
+    _ensure_gate_point_update_is_available(
+        conn, where, params, dependent, blocking, gate_point
+    )
 
     set_parts = []
     set_params: list = []
@@ -154,7 +163,9 @@ def _validate_dependency_update_inputs(
     rationale: Optional[str],
 ) -> None:
     if not any([gate_point, satisfaction, rationale]):
-        raise ValueError("at least one of --gate-point, --satisfaction, --rationale required")
+        raise ValueError(
+            "at least one of --gate-point, --satisfaction, --rationale required"
+        )
     if match_gate_point and match_gate_point not in VALID_GATE_POINTS:
         raise ValueError(f"invalid match gate_point: {match_gate_point}")
     if gate_point and gate_point not in VALID_GATE_POINTS:
@@ -212,7 +223,9 @@ def _ensure_gate_point_update_is_available(
         (params[0], params[1], gate_point),
     )
     if conflict:
-        raise ValueError(f"cannot change gate_point to {gate_point} — edge already exists")
+        raise ValueError(
+            f"cannot change gate_point to {gate_point} — edge already exists"
+        )
 
 
 def cmd_dependency_reconcile(
@@ -241,6 +254,7 @@ def cmd_dependency_reconcile(
 
     edges = []
     ts = now_iso()
+    clock_parameter = instant_parameter(conn, ts)
     for line in stdin_lines:
         edge = _parse_dependency_edge(conn, line, source, ts)
         if edge is not None:
@@ -254,14 +268,16 @@ def cmd_dependency_reconcile(
         ).fetchall()
     }
     conn.execute("BEGIN")
-    conn.execute(f"DELETE FROM item_dependencies WHERE {delete_where}", tuple(delete_params))
+    conn.execute(
+        f"DELETE FROM item_dependencies WHERE {delete_where}", tuple(delete_params)
+    )
     for edge in edges:
         conn.execute(
             "INSERT INTO item_dependencies "
             "(dependent_item_id, blocking_item_id, gate_point, satisfaction, source, "
             f"rationale, evidence_json, created_at) VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
             "ON CONFLICT(dependent_item_id, blocking_item_id, gate_point) DO NOTHING",
-            edge,
+            (*edge[:-1], clock_parameter),
         )
     conn.execute("COMMIT")
     refreshed_pairs = prior_pairs | {(int(edge[0]), int(edge[1])) for edge in edges}
@@ -270,7 +286,7 @@ def cmd_dependency_reconcile(
     return "OK"
 
 
-def _parse_dependency_edge(conn, line: str, source: str, ts: str) -> tuple | None:
+def _parse_dependency_edge(conn, line: str, source: str, ts: datetime) -> tuple | None:
     parts = line.split()
     if len(parts) < 4:
         return None

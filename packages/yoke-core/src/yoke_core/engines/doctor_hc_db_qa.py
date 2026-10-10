@@ -9,11 +9,12 @@ HC functions covering QA-related deployment-run integrity:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+from yoke_contracts.timestamps import utc_now
 from typing import List
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.db_helpers import instant_parameter, query_rows
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.time_parse import age_hours_since
 
@@ -32,8 +33,12 @@ def _p(conn) -> str:
 def hc_run_qa_unsatisfied(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-run-qa-unsatisfied: Succeeded runs with pending blocking QA."""
     if not _base._table_exists(conn, "deployment_run_qa"):
-        rec.record("HC-run-qa-unsatisfied", "Succeeded runs with pending blocking QA", "PASS",
-                    "deployment_run_qa table does not exist — skipping")
+        rec.record(
+            "HC-run-qa-unsatisfied",
+            "Succeeded runs with pending blocking QA",
+            "PASS",
+            "deployment_run_qa table does not exist — skipping",
+        )
         return
 
     issues: List[str] = []
@@ -53,19 +58,30 @@ def hc_run_qa_unsatisfied(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         )
 
     if issues:
-        rec.record("HC-run-qa-unsatisfied", "Succeeded runs with pending blocking QA", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-run-qa-unsatisfied",
+            "Succeeded runs with pending blocking QA",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
-        rec.record("HC-run-qa-unsatisfied", "Succeeded runs with pending blocking QA", "PASS", "")
-
+        rec.record(
+            "HC-run-qa-unsatisfied",
+            "Succeeded runs with pending blocking QA",
+            "PASS",
+            "",
+        )
 
 
 def hc_validation_no_qa_reqs(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-validation-no-qa-reqs: Items in reviewing-implementation without QA requirements."""
     if not _base._table_exists(conn, "qa_requirements"):
-        rec.record("HC-validation-no-qa-reqs",
-                    "Items in reviewing-implementation without QA requirements", "PASS",
-                    "qa_requirements table does not exist yet — skipping")
+        rec.record(
+            "HC-validation-no-qa-reqs",
+            "Items in reviewing-implementation without QA requirements",
+            "PASS",
+            "qa_requirements table does not exist yet — skipping",
+        )
         return
 
     issues: List[str] = []
@@ -99,26 +115,34 @@ def hc_validation_no_qa_reqs(conn, args: DoctorArgs, rec: RecordCollector) -> No
         )
 
     if issues:
-        rec.record("HC-validation-no-qa-reqs",
-                    "Items in reviewing-implementation without QA requirements", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-validation-no-qa-reqs",
+            "Items in reviewing-implementation without QA requirements",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
-        rec.record("HC-validation-no-qa-reqs",
-                    "Items in reviewing-implementation without QA requirements", "PASS", "")
-
+        rec.record(
+            "HC-validation-no-qa-reqs",
+            "Items in reviewing-implementation without QA requirements",
+            "PASS",
+            "",
+        )
 
 
 def hc_smoke_failure_stale(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-smoke-failure-stale: Stale smoke QA requirements."""
     if not _base._table_exists(conn, "qa_requirements"):
-        rec.record("HC-smoke-failure-stale", "Stale smoke QA requirements", "PASS",
-                    "qa_requirements table does not exist yet — skipping")
+        rec.record(
+            "HC-smoke-failure-stale",
+            "Stale smoke QA requirements",
+            "PASS",
+            "qa_requirements table does not exist yet — skipping",
+        )
         return
 
     issues: List[str] = []
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    cutoff = utc_now() - timedelta(hours=24)
     rows = query_rows(
         conn,
         "SELECT qr.id, qr.deployment_run_id, qr.created_at "
@@ -129,7 +153,7 @@ def hc_smoke_failure_stale(conn, args: DoctorArgs, rec: RecordCollector) -> None
         "AND NOT EXISTS ("
         "  SELECT 1 FROM qa_runs qrun WHERE qrun.qa_requirement_id = qr.id AND qrun.verdict = 'pass'"
         ") ORDER BY qr.created_at ASC",
-        (cutoff,),
+        (instant_parameter(conn, cutoff),),
     )
     for row in rows:
         issues.append(
@@ -138,18 +162,25 @@ def hc_smoke_failure_stale(conn, args: DoctorArgs, rec: RecordCollector) -> None
         )
 
     if issues:
-        rec.record("HC-smoke-failure-stale", "Stale smoke QA requirements", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-smoke-failure-stale",
+            "Stale smoke QA requirements",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
         rec.record("HC-smoke-failure-stale", "Stale smoke QA requirements", "PASS", "")
-
 
 
 def hc_smoke_artifact_orphan(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-smoke-artifact-orphan: Orphaned QA artifacts."""
     if not _base._table_exists(conn, "qa_artifacts"):
-        rec.record("HC-smoke-artifact-orphan", "Orphaned QA artifacts", "PASS",
-                    "qa_artifacts table does not exist yet — skipping")
+        rec.record(
+            "HC-smoke-artifact-orphan",
+            "Orphaned QA artifacts",
+            "PASS",
+            "qa_artifacts table does not exist yet — skipping",
+        )
         return
 
     issues: List[str] = []
@@ -170,8 +201,12 @@ def hc_smoke_artifact_orphan(conn, args: DoctorArgs, rec: RecordCollector) -> No
         )
 
     if issues:
-        rec.record("HC-smoke-artifact-orphan", "Orphaned QA artifacts", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-smoke-artifact-orphan",
+            "Orphaned QA artifacts",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
         rec.record("HC-smoke-artifact-orphan", "Orphaned QA artifacts", "PASS", "")
 

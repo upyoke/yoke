@@ -77,8 +77,8 @@ def test_message_get_projects_safe_attempt_facts_without_lease_or_native_payload
             "broker_session_id": "s2",
             "attempt_kind": "wake_broker",
             "adapter_revision": "broker-adapter-v1",
-            "started_at": "2026-08-22T16:01:00Z",
-            "completed_at": "2026-08-22T16:01:01Z",
+            "started_at": "2026-08-22T16:01:00.000000Z",
+            "completed_at": "2026-08-22T16:01:01.000000Z",
             "result_code": "accepted",
             "evidence": {
                 "machine_id": "machine-1",

@@ -1,26 +1,15 @@
-"""Plan exact future paths through the Canonical Path Registry.
+"""Plan canonical exact file and directory paths with their ancestors.
 
-Required Behavior #1 + #7 + Planned-Ancestor Creation Rule from the
-path-target materialization contract spec. Lives in its own module so the larger
-:mod:`yoke_core.domain.path_targets_materialization` stays focused
-on the snapshot-time observation flip; together they replace the
-single overgrown file an earlier draft attempted.
-
-``plan_path_target`` accepts an exact ``(project_id, path_string,
-kind)`` and an optional attribution ``(item_id, claim_id)`` and
-returns the canonical ``path_targets.id``. It walks ancestors leaf to
-root, reusing observed/planned rows verbatim, re-planning abandoned
-rows in place, and minting fresh planned rows for paths not yet in
-the registry. Each newly minted or re-planned row emits
-``PathTargetPlanned``.
-
-Pure SQL plus event emission. No git reads, no overlap checks, no
-claim insertion.
+Reuse observed/planned rows, replan abandoned rows, and mint missing rows
+with caller attribution. New and replanned rows emit ``PathTargetPlanned``.
+This module owns SQL planning and event emission.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now as _utc_now_iso
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, List, Optional, Tuple
 
 from yoke_core.domain import path_targets_events as _events
@@ -38,10 +27,6 @@ from yoke_core.domain.path_targets_states import (
 )
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def _ancestor_chain_paths(path_string: str) -> List[str]:
     chain: List[str] = []
     parent = _parent_path_string(path_string)
@@ -52,7 +37,9 @@ def _ancestor_chain_paths(path_string: str) -> List[str]:
 
 
 def _latest_target_row(
-    conn: Any, project_id: int, path_string: str,
+    conn: Any,
+    project_id: int,
+    path_string: str,
 ) -> Optional[Tuple[int, str, int, Optional[int], str]]:
     row = conn.execute(
         "SELECT id, kind, generation, parent_target_id, materialization_state "
@@ -77,7 +64,7 @@ def _mint_pre_observation_row(
     item_id: Optional[int],
     claim_id: Optional[int],
     generation: int,
-    now_iso: str,
+    now_iso: datetime | str,
     state: str,
 ) -> int:
     cur = conn.execute(
@@ -87,8 +74,16 @@ def _mint_pre_observation_row(
         "  planned_by_item_id, planned_by_claim_id"
         ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
         (
-            project_id, kind, path_string, generation, parent_target_id,
-            now_iso, state, now_iso, item_id, claim_id,
+            project_id,
+            kind,
+            path_string,
+            generation,
+            parent_target_id,
+            now_iso,
+            state,
+            now_iso,
+            item_id,
+            claim_id,
         ),
     )
     return int(cur.fetchone()[0])
@@ -100,7 +95,7 @@ def _re_plan_row(
     target_id: int,
     item_id: Optional[int],
     claim_id: Optional[int],
-    now_iso: str,
+    now_iso: datetime | str,
     state: str,
 ) -> None:
     conn.execute(
@@ -142,7 +137,7 @@ def _resolve_or_plan_single(
     item_id: Optional[int],
     claim_id: Optional[int],
     session_id: Optional[str],
-    now_iso: str,
+    now_iso: datetime | str,
     target_state: str = _PLANNED,
 ) -> int:
     latest = _latest_target_row(conn, project_id, path_string)
@@ -152,42 +147,68 @@ def _resolve_or_plan_single(
             return target_id
         if state == _PLANNED:
             _attribution_backfill(
-                conn, target_id=target_id,
-                item_id=item_id, claim_id=claim_id,
+                conn,
+                target_id=target_id,
+                item_id=item_id,
+                claim_id=claim_id,
             )
             return target_id
         if state == _TENTATIVE:
             _attribution_backfill(
-                conn, target_id=target_id,
-                item_id=item_id, claim_id=claim_id,
+                conn,
+                target_id=target_id,
+                item_id=item_id,
+                claim_id=claim_id,
             )
             return target_id
         if state == _ABANDONED:
             _re_plan_row(
-                conn, target_id=target_id,
-                item_id=item_id, claim_id=claim_id, now_iso=now_iso,
+                conn,
+                target_id=target_id,
+                item_id=item_id,
+                claim_id=claim_id,
+                now_iso=now_iso,
                 state=target_state,
             )
             _events.emit_pre_observation(
-                conn=conn, target_id=target_id, project_id=project_id,
-                path_string=path_string, kind=latest_kind,
-                generation=generation, parent_target_id=latest_parent,
-                item_id=item_id, claim_id=claim_id,
-                old_state=_ABANDONED, new_state=target_state,
+                conn=conn,
+                target_id=target_id,
+                project_id=project_id,
+                path_string=path_string,
+                kind=latest_kind,
+                generation=generation,
+                parent_target_id=latest_parent,
+                item_id=item_id,
+                claim_id=claim_id,
+                old_state=_ABANDONED,
+                new_state=target_state,
                 session_id=session_id,
             )
             return target_id
     new_id = _mint_pre_observation_row(
-        conn, project_id=project_id, path_string=path_string, kind=kind,
-        parent_target_id=parent_target_id, item_id=item_id,
-        claim_id=claim_id, generation=1, now_iso=now_iso,
+        conn,
+        project_id=project_id,
+        path_string=path_string,
+        kind=kind,
+        parent_target_id=parent_target_id,
+        item_id=item_id,
+        claim_id=claim_id,
+        generation=1,
+        now_iso=now_iso,
         state=target_state,
     )
     _events.emit_pre_observation(
-        conn=conn, target_id=new_id, project_id=project_id,
-        path_string=path_string, kind=kind, generation=1,
-        parent_target_id=parent_target_id, item_id=item_id,
-        claim_id=claim_id, old_state=None, new_state=target_state,
+        conn=conn,
+        target_id=new_id,
+        project_id=project_id,
+        path_string=path_string,
+        kind=kind,
+        generation=1,
+        parent_target_id=parent_target_id,
+        item_id=item_id,
+        claim_id=claim_id,
+        old_state=None,
+        new_state=target_state,
         session_id=session_id,
     )
     return new_id
@@ -201,7 +222,7 @@ def _ensure_ancestor_chain(
     item_id: Optional[int],
     claim_id: Optional[int],
     session_id: Optional[str],
-    now_iso: str,
+    now_iso: datetime | str,
 ) -> Optional[int]:
     ancestors = _ancestor_chain_paths(path_string)
     if not ancestors:
@@ -210,10 +231,15 @@ def _ensure_ancestor_chain(
     grandparent_id: Optional[int] = None
     for anc_path in reversed(ancestors):
         anc_id = _resolve_or_plan_single(
-            conn, project_id=project_id, path_string=anc_path,
-            kind=KIND_DIRECTORY, parent_target_id=grandparent_id,
-            item_id=item_id, claim_id=claim_id,
-            session_id=session_id, now_iso=now_iso,
+            conn,
+            project_id=project_id,
+            path_string=anc_path,
+            kind=KIND_DIRECTORY,
+            parent_target_id=grandparent_id,
+            item_id=item_id,
+            claim_id=claim_id,
+            session_id=session_id,
+            now_iso=now_iso,
         )
         if anc_path == immediate_parent:
             return anc_id
@@ -260,13 +286,9 @@ def plan_tentative_path_target(
 ) -> int:
     """Resolve or mint a tentative ``path_targets`` row for an exact path.
 
-    Tentative coverage is the operator's "I might touch this" — a
-    weaker reservation than ``planned``. The path participates in
-    overlap detection and renders distinctly, but its absence from the
-    eventual implementation is not a missed promise. Existing observed
-    or planned rows are reused verbatim (planned is a stronger claim
-    and is never downgraded). Existing tentative rows backfill
-    attribution. Existing abandoned rows re-plan as tentative.
+    Tentative coverage participates in overlap detection without promising
+    implementation. Reuse observed/planned rows without downgrading them;
+    backfill tentative attribution and replan abandoned rows as tentative.
     """
     return _plan_with_state(
         conn,
@@ -301,16 +323,26 @@ def _plan_with_state(
             "plan_path_target: path_string must be project-relative, "
             f"got {path_string!r}"
         )
-    now_iso = _utc_now_iso()
+    now_iso = instant_parameter(conn, _utc_now_iso())
     parent_target_id = _ensure_ancestor_chain(
-        conn, project_id=project_id, path_string=path_string,
-        item_id=item_id, claim_id=claim_id,
-        session_id=session_id, now_iso=now_iso,
+        conn,
+        project_id=project_id,
+        path_string=path_string,
+        item_id=item_id,
+        claim_id=claim_id,
+        session_id=session_id,
+        now_iso=now_iso,
     )
     return _resolve_or_plan_single(
-        conn, project_id=project_id, path_string=path_string, kind=kind,
-        parent_target_id=parent_target_id, item_id=item_id,
-        claim_id=claim_id, session_id=session_id, now_iso=now_iso,
+        conn,
+        project_id=project_id,
+        path_string=path_string,
+        kind=kind,
+        parent_target_id=parent_target_id,
+        item_id=item_id,
+        claim_id=claim_id,
+        session_id=session_id,
+        now_iso=now_iso,
         target_state=target_state,
     )
 

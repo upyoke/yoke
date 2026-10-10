@@ -1,16 +1,14 @@
-"""Shape-specific entry parsers for :mod:`reflection_capture_shapes`.
+"""Parse declared reflection shapes, trying specific shapes before freeform."""
 
-Each ``try_shape_*`` helper parses one block under one of the documented
-reflection shapes; returns ``None`` when the shape does not match. The
-orchestrator in :mod:`reflection_capture_shapes` chains them in priority
-order and stops at the first shape that yields entries.
-"""
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant, utc_now
 from typing import List, Optional
+
+from yoke_core.domain.reflection_capture_segments import _split_by_header
 
 
 CANONICAL_REFLECTION_CATEGORIES = (
@@ -24,11 +22,15 @@ CANONICAL_REFLECTION_CATEGORIES = (
 @dataclass
 class ReflectionEntry:
     """One parsed reflection entry; defined here so orchestrator + CLI import without cycles."""
-    timestamp: str
+
+    timestamp: datetime
     agent: str
     context: str
     category: str
     body: str
+
+    def __post_init__(self):
+        self.timestamp = parse_instant(self.timestamp)
 
 
 _SHAPE_A_ENTRY_RE = re.compile(
@@ -50,10 +52,12 @@ _CANONICAL_FIELD_RE = re.compile(
     re.MULTILINE,
 )
 _CATEGORY_KEY_RE = re.compile(
-    r"^category\s*:\s*(\S+.*)$", re.IGNORECASE | re.MULTILINE,
+    r"^category\s*:\s*(\S+.*)$",
+    re.IGNORECASE | re.MULTILINE,
 )
 _KIND_FIELD_RE = re.compile(
-    r"^kind\s*:\s*(\S+.*)$", re.IGNORECASE | re.MULTILINE,
+    r"^kind\s*:\s*(\S+.*)$",
+    re.IGNORECASE | re.MULTILINE,
 )
 _UPPERCASE_FIELD_RE = re.compile(r"^([A-Z][A-Z0-9_]+)\s*:\s*(.+)$", re.MULTILINE)
 _BULLET_FIELD_RE = re.compile(r"^[-*]\s+\*\*([^*]+):\*\*\s*(.+)$", re.MULTILINE)
@@ -73,35 +77,13 @@ _TYPED_FIELD_RE = re.compile(
 )
 
 
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _now_instant() -> datetime:
+    return parse_instant(utc_now())
 
 
 def _normalize_category(raw: str) -> str:
     out = raw.strip().lower().rstrip(":")
     return re.sub(r"[\s_]+", "-", out)
-
-
-def _split_by_header(
-    block: str, header_re: re.Pattern, end_re: Optional[re.Pattern],
-) -> List[str]:
-    """Split a block into entry segments by header (and optional end-marker) lines."""
-    starts = [m.start() for m in header_re.finditer(block)]
-    if not starts:
-        return []
-    segments: list[str] = []
-    for i, start in enumerate(starts):
-        next_start = starts[i + 1] if i + 1 < len(starts) else len(block)
-        seg = block[start:next_start]
-        if end_re is not None:
-            end_match = end_re.search(seg)
-            if end_match:
-                seg = seg[: end_match.start()]
-        seg_lines = seg.split("\n")
-        if seg_lines:
-            seg = "\n".join(seg_lines[1:])
-        segments.append(seg.strip())
-    return segments
 
 
 _OBSERVATION_BODY_PREFIX_RE = re.compile(r"^observation\s*:\s*", re.IGNORECASE)
@@ -139,12 +121,14 @@ def _normalize_bold_field_lines(raw: str) -> str:
 
 
 def _make_entry(
-    category: str, body: str, default_agent: str,
+    category: str,
+    body: str,
+    default_agent: str,
     fields: Optional[dict] = None,
 ) -> ReflectionEntry:
     f = fields or {}
     return ReflectionEntry(
-        timestamp=f.get("timestamp", _now_iso()),
+        timestamp=f["timestamp"] if "timestamp" in f else _now_instant(),
         agent=f.get("agent", default_agent),
         context=f.get("context", ""),
         category=_normalize_category(category),
@@ -161,7 +145,7 @@ def _parse_singular_entry(raw: str, default_agent: str) -> Optional[ReflectionEn
         stripped = line.strip()
         if not in_body and stripped.startswith("body:"):
             in_body = True
-            tail = stripped[len("body:"):].strip()
+            tail = stripped[len("body:") :].strip()
             if tail and tail != "|":
                 body_lines.append(tail)
             continue
@@ -215,7 +199,9 @@ def _parse_bullet_entry(raw: str, default_agent: str) -> Optional[ReflectionEntr
     if not fields:
         return None
     body = "\n".join(f"{k}: {v}" for k, v in fields.items())
-    category = "observation" if "observation" in fields else next(iter(fields), "freeform")
+    category = (
+        "observation" if "observation" in fields else next(iter(fields), "freeform")
+    )
     return _make_entry(category, body, default_agent)
 
 
@@ -235,18 +221,24 @@ def _parse_uppercase_entry(raw: str, default_agent: str) -> Optional[ReflectionE
 
 
 def _filter_entries(
-    parts: List[str], parser, default_agent: str,
+    parts: List[str],
+    parser,
+    default_agent: str,
 ) -> Optional[List[ReflectionEntry]]:
     valid = [e for e in (parser(p, default_agent) for p in parts) if e is not None]
     return valid if valid else None
 
 
 def try_shape_a(block: str, default_agent: str) -> Optional[List[ReflectionEntry]]:
-    return _filter_entries(_SHAPE_A_ENTRY_RE.findall(block), _parse_canonical_entry, default_agent)
+    return _filter_entries(
+        _SHAPE_A_ENTRY_RE.findall(block), _parse_canonical_entry, default_agent
+    )
 
 
 def try_shape_b(block: str, default_agent: str) -> Optional[List[ReflectionEntry]]:
-    return _filter_entries(_SHAPE_B_ENTRY_RE.findall(block), _parse_singular_entry, default_agent)
+    return _filter_entries(
+        _SHAPE_B_ENTRY_RE.findall(block), _parse_singular_entry, default_agent
+    )
 
 
 def try_shape_c(block: str, default_agent: str) -> Optional[List[ReflectionEntry]]:
@@ -254,7 +246,8 @@ def try_shape_c(block: str, default_agent: str) -> Optional[List[ReflectionEntry
         return None
     return _filter_entries(
         _split_by_header(block, _SHAPE_C_HEADER_RE, _SHAPE_C_END_RE),
-        _parse_typed_entry, default_agent,
+        _parse_typed_entry,
+        default_agent,
     )
 
 
@@ -263,16 +256,20 @@ def try_shape_d(block: str, default_agent: str) -> Optional[List[ReflectionEntry
         return None
     return _filter_entries(
         _split_by_header(block, _SHAPE_D_HEADER_RE, None),
-        _parse_bullet_entry, default_agent,
+        _parse_bullet_entry,
+        default_agent,
     )
 
 
 def try_shape_e(block: str, default_agent: str) -> Optional[List[ReflectionEntry]]:
     if not _SHAPE_E_OPENER_RE.search(block):
         return None
-    parts = (_split_by_header(block, _SHAPE_E_OPENER_RE, _SHAPE_C_END_RE)
-             or _split_by_header(block, _SHAPE_E_OPENER_RE, None))
-    return _filter_entries(parts, _parse_singular_entry, default_agent) if parts else None
+    parts = _split_by_header(
+        block, _SHAPE_E_OPENER_RE, _SHAPE_C_END_RE
+    ) or _split_by_header(block, _SHAPE_E_OPENER_RE, None)
+    return (
+        _filter_entries(parts, _parse_singular_entry, default_agent) if parts else None
+    )
 
 
 def try_shape_g(block: str, default_agent: str) -> Optional[List[ReflectionEntry]]:
@@ -280,7 +277,8 @@ def try_shape_g(block: str, default_agent: str) -> Optional[List[ReflectionEntry
         return None
     return _filter_entries(
         _split_by_header(block, _SHAPE_G_HEADER_RE, None),
-        _parse_uppercase_entry, default_agent,
+        _parse_uppercase_entry,
+        default_agent,
     )
 
 
@@ -324,16 +322,29 @@ def get_shape_parsers_in_priority() -> tuple:
         try_shape_generic_freeform,
         try_shape_markdown_freeform,
     )
+
     return (
-        try_shape_a, try_shape_b, try_shape_c, try_shape_e,
-        try_shape_g, try_shape_d, try_shape_freeform_multi,
-        try_shape_markdown_freeform, try_shape_bold_header_freeform,
-        try_shape_f_or_h, try_shape_generic_freeform,
+        try_shape_a,
+        try_shape_b,
+        try_shape_c,
+        try_shape_e,
+        try_shape_g,
+        try_shape_d,
+        try_shape_freeform_multi,
+        try_shape_markdown_freeform,
+        try_shape_bold_header_freeform,
+        try_shape_f_or_h,
+        try_shape_generic_freeform,
     )
 
 
 __all__ = [
     "get_shape_parsers_in_priority",
-    "try_shape_a", "try_shape_b", "try_shape_c", "try_shape_d",
-    "try_shape_e", "try_shape_g", "try_shape_f_or_h",
+    "try_shape_a",
+    "try_shape_b",
+    "try_shape_c",
+    "try_shape_d",
+    "try_shape_e",
+    "try_shape_g",
+    "try_shape_f_or_h",
 ]

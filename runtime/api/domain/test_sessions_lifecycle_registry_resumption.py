@@ -1,19 +1,4 @@
-"""Tests: register_session reacquire path emits HarnessSessionResumed.
-
-Covers lock inheritance through resume and verifies the resumption
-marker is queryable with a single ``event_name`` predicate. Every
-reactivation emits it — a claim-free one included, since that session
-crossed the same episode boundary — while the existing
-``SessionReactivatedWithReleasedClaims`` /
-``SessionReactivationReacquiredClaims`` events stay claim-conditional
-and must still emit alongside it; the resumption marker is additive,
-not a replacement.
-
-The reactivation reads/writes under test now issue native ``%s`` SQL, so
-:class:`TestEmitSessionResumedFromReactivation` runs against a disposable
-per-test Postgres database (the Yoke authority) instead of an in-memory
-SQLite double. The pure-function and fully-mocked cases need no database.
-"""
+"""Session reactivation emits resumption markers and preserves claim inheritance."""
 
 from __future__ import annotations
 
@@ -25,6 +10,7 @@ from pathlib import Path
 from unittest import mock
 
 from yoke_core.domain import db_backend
+from yoke_contracts.timestamps import parse_instant
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
 from yoke_core.domain.sessions_lifecycle_reactivation import (
@@ -37,6 +23,8 @@ from yoke_core.domain.sessions_lifecycle_resumption_emit import (
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
+SESSION_END_INSTANT = parse_instant("2026-01-01T01:00:00.123456Z")
+
 _CREATE_SESSIONS = """
 CREATE TABLE IF NOT EXISTS harness_sessions (
     session_id TEXT PRIMARY KEY,
@@ -48,14 +36,14 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL DEFAULT '',
     mode TEXT NOT NULL DEFAULT 'wait',
-    offered_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    ended_at TEXT,
+    offered_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    ended_at TIMESTAMPTZ,
     offer_envelope TEXT,
     actor_id INTEGER,
-    last_tool_call_at TEXT,
+    last_tool_call_at TIMESTAMPTZ,
     tool_call_count INTEGER NOT NULL DEFAULT 0,
-    episode_started_at TEXT,
+    episode_started_at TIMESTAMPTZ,
     pending_resume_notice TEXT
 );
 """
@@ -67,9 +55,9 @@ CREATE TABLE IF NOT EXISTS work_claims (
     target_kind TEXT NOT NULL,
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
-    claimed_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    released_at TEXT,
+    claimed_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    released_at TIMESTAMPTZ,
     release_reason TEXT
 );
 """
@@ -88,7 +76,7 @@ CREATE TABLE IF NOT EXISTS events (
     context TEXT,
     outcome TEXT,
     severity TEXT,
-    created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP::text)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 """
 
@@ -111,9 +99,7 @@ def _apply_resumption_schema() -> None:
     """``init_test_db`` strategy: build the session/claim/event tables.
 
     Applied through the backend factory against the repointed per-test
-    Postgres DSN; the facade translates the SQLite-shaped fixture DDL so the
-    reactivation reads and the best-effort telemetry emits both target the
-    live authority.
+    PostgreSQL DSN so reactivation and telemetry share one authority.
     """
     conn = db_backend.connect()
     try:
@@ -135,7 +121,7 @@ def _insert_session(conn, session_id: str, ended: bool = False) -> None:
         "(session_id, executor, provider, model, workspace, offered_at, last_heartbeat, ended_at) "
         "VALUES (%s, 'claude-code', 'anthropic', 'test', '/tmp', '2026-01-01T00:00:00Z', "
         "'2026-01-01T00:00:00Z', %s)",
-        (session_id, "2026-01-01T01:00:00Z" if ended else None),
+        (session_id, SESSION_END_INSTANT if ended else None),
     )
     conn.commit()
 
@@ -156,7 +142,7 @@ def _insert_claim(
         (
             session_id,
             make_item_target(item_id).scope_json(),
-            "2026-01-01T01:00:00Z" if released else None,
+            SESSION_END_INSTANT if released else None,
             release_reason if released else None,
         ),
     )

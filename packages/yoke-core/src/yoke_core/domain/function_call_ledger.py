@@ -19,8 +19,14 @@ retention surface (``events_prune.cmd_prune``); after the TTL a reused
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+from yoke_contracts.timestamps import utc_now, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+
 import json
 from typing import Any, Dict, Optional, Tuple
+
+from yoke_contracts.timestamps import temporal_wire
 
 LEDGER_TABLE = "function_call_ledger"
 
@@ -37,7 +43,7 @@ CREATE TABLE IF NOT EXISTS {LEDGER_TABLE} (
   authorization_scope TEXT NOT NULL DEFAULT '',
   payload_checksum TEXT NOT NULL DEFAULT '',
   result TEXT, -- → JSONB on Postgres
-  created_at TEXT NOT NULL
+  created_at TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_function_call_ledger_created
   ON {LEDGER_TABLE}(created_at)
@@ -46,17 +52,15 @@ CREATE INDEX IF NOT EXISTS idx_function_call_ledger_created
 
 def serialize_result(result: Dict[str, Any]) -> str:
     """Canonical-JSON form for the stored response result."""
-    return json.dumps(dict(result), sort_keys=True, separators=(",", ":"))
-
-
-def ttl_cutoff_iso(now: Optional[Any] = None) -> str:
-    """Return the ISO-8601 UTC cutoff below which ledger rows expire."""
-    from datetime import datetime, timedelta, timezone
-
-    base = now or datetime.now(timezone.utc)
-    return (base - timedelta(days=LEDGER_TTL_DAYS)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
+    return json.dumps(
+        temporal_wire(dict(result)), sort_keys=True, separators=(",", ":")
     )
+
+
+def ttl_cutoff_iso(now: datetime | str | None = None) -> datetime:
+    """Return the native instant below which retained rows expire."""
+    base = utc_now() if now is None else parse_instant(now)
+    return base - timedelta(days=LEDGER_TTL_DAYS)
 
 
 def record_call(
@@ -67,7 +71,7 @@ def record_call(
     actor_id: str,
     authorization_scope: str,
     payload_checksum: str,
-    created_at: Optional[str] = None,
+    created_at: datetime | str | None = None,
     conn: Optional[Any] = None,
 ) -> bool:
     """Insert one ledger row; first write wins. Returns True when written.
@@ -84,7 +88,7 @@ def record_call(
         return False
     from yoke_core.domain import db_helpers
 
-    stamp = created_at or db_helpers.iso8601_now()
+    stamp = utc_now() if created_at is None else parse_instant(created_at)
     sql = (
         f"INSERT INTO {LEDGER_TABLE} "
         "(request_id, function_id, actor_id, authorization_scope, "
@@ -102,7 +106,10 @@ def record_call(
         stamp,
     )
     if conn is not None:
-        return conn.execute(sql, params).rowcount > 0
+        return (
+            conn.execute(sql, (*params[:-1], instant_parameter(conn, stamp))).rowcount
+            > 0
+        )
     # Own-connection path is non-fatal and must not bare-connect on an
     # https client (client-context guard). Prefer local authority; else
     # skip the ledger write — dispatch already committed its mutation.
@@ -112,7 +119,9 @@ def record_call(
     if own is None:
         return False
     try:
-        written = own.execute(sql, params).rowcount > 0
+        written = (
+            own.execute(sql, (*params[:-1], instant_parameter(own, stamp))).rowcount > 0
+        )
         own.commit()
         return written
     except Exception:
@@ -188,7 +197,7 @@ def count_expired(conn: Any) -> int:
         return 0
     row = conn.execute(
         f"SELECT COUNT(*) FROM {LEDGER_TABLE} WHERE created_at < %s",
-        (ttl_cutoff_iso(),),
+        (instant_parameter(conn, ttl_cutoff_iso()),),
     ).fetchone()
     if row is None:
         return 0
@@ -207,7 +216,7 @@ def prune_expired(conn: Any) -> int:
         return 0
     return conn.execute(
         f"DELETE FROM {LEDGER_TABLE} WHERE created_at < %s",
-        (ttl_cutoff_iso(),),
+        (instant_parameter(conn, ttl_cutoff_iso()),),
     ).rowcount
 
 

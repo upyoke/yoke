@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from yoke_contracts.timestamps import temporal_wire
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any, Literal, Mapping, Sequence
@@ -10,6 +12,9 @@ from yoke_contracts.session_control.private_route_qualification import (
     PrivateRouteQualificationGrant,
 )
 
+
+LAUNCH_REPORT_CODES = frozenset({"native_created", "not_created", "outcome_unknown"})
+LAUNCH_PROGRESS_CODE = "progress"
 
 RelayJobKind = Literal["launch", "wake", "terminate", "evidence"]
 WAKE_LEASE_SECONDS = 90
@@ -84,7 +89,7 @@ class RelayJob:
     requested_context_window_tokens: int | None = None
     presentation: str | None = None
     session_name: str | None = None
-    deadline_at: str | None = None
+    deadline_at: datetime | None = None
     wake_mode: WakeMode | None = None
     target_liveness: str | None = None
     wake_route: str | None = None
@@ -109,7 +114,7 @@ class RelayJob:
             payload["private_route_qualification"] = (
                 self.private_route_qualification.model_dump(mode="json")
             )
-        return payload
+        return temporal_wire(payload)
 
 
 @dataclass(frozen=True)
@@ -119,7 +124,7 @@ class RelayClaimOutcome:
     relay_id: str
     machine_id: str
     state: Literal["active", "idle"]
-    connected_until: str
+    connected_until: datetime
     next_poll_seconds: int
     jobs: tuple[RelayJob, ...] = ()
 
@@ -128,7 +133,7 @@ class RelayClaimOutcome:
             "relay_id": self.relay_id,
             "machine_id": self.machine_id,
             "state": self.state,
-            "connected_until": self.connected_until,
+            "connected_until": temporal_wire(self.connected_until),
             "next_poll_seconds": self.next_poll_seconds,
             "jobs": [job.to_dict() for job in self.jobs],
         }

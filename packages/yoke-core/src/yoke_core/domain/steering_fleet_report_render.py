@@ -7,6 +7,8 @@ noise. The machine-readable projection of the same report lives in
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from yoke_core.domain.steering_fleet_report_test_machines import test_machine_lines
 
 from yoke_core.domain.machine_registry import display_name
@@ -165,7 +167,7 @@ def _project_header(report: FleetReport) -> str:
     staffing = minutes(report.staffing_after_seconds)
     idle = minutes(report.idle_after_seconds)
     return (
-        f"project {report.project_id} · composed {report.composed_at} · "
+        f"project {report.project_id} · composed {format_instant(report.composed_at)} · "
         f"staffing {staffing} · idle {idle}"
     )
 

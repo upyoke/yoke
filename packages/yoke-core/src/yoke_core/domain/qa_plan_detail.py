@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from yoke_contracts.timestamps import format_instant
 
 from yoke_contracts.qa_case_starting_state import stored_fan_out
 from yoke_core.domain.db_helpers import query_one, query_rows
@@ -148,9 +149,11 @@ def get_plan(
         "description": str(row["description"]),
         "success_policy_id": str(row["success_policy_id"]),
         "success_policy_params": _decode(row["success_policy_params"], {}),
-        "created_at": str(row["created_at"]),
-        "updated_at": str(row["updated_at"]),
-        "retired_at": row["retired_at"],
+        "created_at": format_instant(row["created_at"]),
+        "updated_at": format_instant(row["updated_at"]),
+        "retired_at": format_instant(row["retired_at"])
+        if row["retired_at"] is not None
+        else None,
         "deployment_run_id": deployment_run_id,
         "target_environment": row["target_environment"],
         "execution_target": execution_target,

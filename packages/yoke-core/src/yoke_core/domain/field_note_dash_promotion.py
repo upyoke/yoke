@@ -10,7 +10,7 @@ from yoke_contracts.public_ref import format_item_ref
 from yoke_contracts.title_policy import title_length_error
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_title_policy import resolve_title_max_length
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.field_note_dash_promotion_reads import (
     promoted_dash_by_field_note_ids,
     source_field_note_for_dash,
@@ -52,8 +52,8 @@ CREATE TABLE IF NOT EXISTS ouroboros_entry_dispositions (
   requested_by_session_id TEXT,
   project_override TEXT,
   failure_reason TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ouroboros_entry_dispositions_item
   ON ouroboros_entry_dispositions(item_id);
@@ -100,9 +100,8 @@ def _completed(row: dict[str, Any], *, created: bool) -> FieldNotePromotion:
         entry_id=int(row["entry_id"]),
         dash_item_id=int(row["dash_item_id"]),
         dash_item_ref=format_item_ref(
-            row["project_slug"],
-            row["public_item_prefix"],
-            row["project_sequence"]),
+            row["project_slug"], row["public_item_prefix"], row["project_sequence"]
+        ),
         created=created,
     )
 
@@ -138,7 +137,7 @@ def _reserve(
     project_override: Optional[str] = None,
 ) -> bool:
     marker = _p(conn)
-    now = iso8601_now()
+    now = utc_now()
     inserted = conn.execute(
         "INSERT INTO ouroboros_entry_dispositions "
         "(entry_id, disposition_kind, state, title, instruction, "
@@ -155,8 +154,8 @@ def _reserve(
             actor_id,
             session_id,
             project_override,
-            now,
-            now,
+            instant_parameter(conn, now),
+            instant_parameter(conn, now),
         ),
     ).fetchone()
     if inserted is not None:
@@ -177,7 +176,7 @@ def _reserve(
                 actor_id,
                 session_id,
                 project_override,
-                now,
+                instant_parameter(conn, now),
                 int(entry_id),
             ),
         )
@@ -189,7 +188,7 @@ def _reserve(
             f"SET requested_by_actor_id = {marker}, "
             f"requested_by_session_id = {marker}, "
             f"updated_at = {marker} WHERE entry_id = {marker}",
-            (actor_id, session_id, now, int(entry_id)),
+            (actor_id, session_id, instant_parameter(conn, now), int(entry_id)),
         )
         conn.commit()
         return True
@@ -202,7 +201,7 @@ def _mark_failed(conn: Any, entry_id: int, reason: str) -> None:
         "UPDATE ouroboros_entry_dispositions "
         f"SET state = 'failed', failure_reason = {marker}, "
         f"updated_at = {marker} WHERE entry_id = {marker}",
-        (reason, iso8601_now(), int(entry_id)),
+        (reason, instant_parameter(conn, utc_now()), int(entry_id)),
     )
     conn.commit()
 
@@ -302,7 +301,7 @@ def promote_field_note_to_dash(
         orphan_id = find_unlinked_promoted_dash(
             conn,
             title=str(current["title"]),
-            created_at=str(current["created_at"]),
+            created_at=current["created_at"],
         )
         if orphan_id is not None:
             return _finish(conn, entry_id, orphan_id, created=False)

@@ -20,6 +20,9 @@ fields the report needs, so one pull request is one upstream call.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from typing import Any, Optional
 
 from yoke_contracts.github_app_installation_permissions import (
@@ -171,7 +174,7 @@ def read_landing_checks(
     return tuple(checks), None
 
 
-def _rollup_context(node: Any) -> Optional[tuple[LandingCheck, str]]:
+def _rollup_context(node: Any) -> Optional[tuple[LandingCheck, datetime | None]]:
     """One required rollup node and when it started, or ``None``.
 
     The timestamp is what orders same-named entries; it is read from the
@@ -191,7 +194,9 @@ def _rollup_context(node: Any) -> Optional[tuple[LandingCheck, str]]:
                 required=True,
                 url=str(node.get("targetUrl") or "").strip(),
             ),
-            str(node.get("createdAt") or ""),
+            parse_instant(node["createdAt"])
+            if node.get("createdAt") is not None
+            else None,
         )
     return (
         LandingCheck(
@@ -201,7 +206,7 @@ def _rollup_context(node: Any) -> Optional[tuple[LandingCheck, str]]:
             required=True,
             url=str(node.get("detailsUrl") or "").strip(),
         ),
-        str(node.get("startedAt") or ""),
+        parse_instant(node["startedAt"]) if node.get("startedAt") is not None else None,
     )
 
 
@@ -211,14 +216,17 @@ def _parse_required_checks(pull_request: dict[str, Any]) -> tuple[LandingCheck, 
     head = (nodes[-1] or {}).get("commit") if nodes else None
     rollup = (head or {}).get("statusCheckRollup") if isinstance(head, dict) else None
     contexts = ((rollup or {}).get("contexts") or {}).get("nodes") or []
-    latest: dict[str, tuple[str, LandingCheck]] = {}
+    latest: dict[str, tuple[datetime | None, LandingCheck]] = {}
     for node in contexts:
         resolved = _rollup_context(node)
         if resolved is None:
             continue
         check, started = resolved
         previous = latest.get(check.name)
-        if previous is None or started >= previous[0]:
+        if previous is None or (started is not None, started) >= (
+            previous[0] is not None,
+            previous[0],
+        ):
             latest[check.name] = (started, check)
     return tuple(check for _started, check in latest.values())
 
@@ -234,11 +242,13 @@ def _parse_landing_state(pull_request: dict[str, Any]) -> PrLandingState:
         merged=bool(pull_request.get("merged")),
         closed=bool(pull_request.get("closed")) or state in _CLOSED_PR_STATES,
         auto_merge_active=pull_request.get("autoMergeRequest") is not None,
-        merge_state_status=str(
-            pull_request.get("mergeStateStatus") or ""
-        ).strip().lower(),
+        merge_state_status=str(pull_request.get("mergeStateStatus") or "")
+        .strip()
+        .lower(),
         head_sha=str(pull_request.get("headRefOid") or "").strip(),
-        merged_at=str(pull_request.get("mergedAt") or "").strip(),
+        merged_at=None
+        if pull_request.get("mergedAt") in (None, "")
+        else pull_request["mergedAt"],
         merge_commit_sha=merge_oid,
     )
 
@@ -281,10 +291,13 @@ def read_pr_landing_and_required_checks(
             f"repository {owner}/{name} returned no pull request {pr_num}; "
             "its landing status and required checks could not be read"
         )
-    return PrLandingProjection(
-        state=_parse_landing_state(pull_request),
-        required_checks=_parse_required_checks(pull_request),
-    )
+    try:
+        return PrLandingProjection(
+            state=_parse_landing_state(pull_request),
+            required_checks=_parse_required_checks(pull_request),
+        )
+    except InvalidInstant:
+        return _unreadable("pull-request landing read contains an invalid clock")
 
 
 def read_required_checks(

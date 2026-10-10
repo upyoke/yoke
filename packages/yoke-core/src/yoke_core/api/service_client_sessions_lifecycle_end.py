@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import json
+from yoke_core.domain.json_helper import dumps_compact
 import sys
 
 from yoke_core.api.service_client_shared import (
@@ -55,10 +55,10 @@ def cmd_session_end(args: list[str]) -> int:
             response = {"success": True, "session": result}
             if released_claims:
                 response["released_claims"] = released_claims
-            print(json.dumps(response, default=str))
+            print(dumps_compact(response))
         except SessionError as exc:
             print(
-                json.dumps(
+                dumps_compact(
                     {
                         "success": True,
                         "already_ended": True,
@@ -103,7 +103,7 @@ def cmd_session_end_if_empty(args: list[str]) -> int:
     conn = _get_db_readwrite()
     try:
         result = domain_end_session_if_empty(conn, parsed.session_id)
-        print(json.dumps({"success": True, **result}, default=str))
+        print(dumps_compact({"success": True, **result}))
         return 0
     finally:
         conn.close()

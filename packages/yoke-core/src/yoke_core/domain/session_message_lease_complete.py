@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
@@ -10,7 +12,7 @@ from yoke_contracts.session_control.wake_delivery import (
     HOOK_DEFERRED_FOR_BUDGET_RESULT,
     HOOK_INJECTED_RESULT,
 )
-from yoke_core.domain.session_message_types import row_dict, timestamp
+from yoke_core.domain.session_message_types import row_dict
 
 
 HOOK_RESULT_CODES = frozenset(
@@ -34,7 +36,7 @@ def _complete_launches(conn: Any, rows: list[dict[str, Any]], *, now: datetime) 
             conn,
             message_id=str(row["message_id"]),
             session_id=str(row["target_session_id"]),
-            now=timestamp(now),
+            now=now,
             commit=False,
         )
 
@@ -56,7 +58,7 @@ def complete_hook_lease(
     )
 
     current = utc_now()
-    stamp = timestamp(current)
+    stamp = instant_parameter(conn, current)
     marker = _p(conn)
     completed: list[dict[str, Any]] = []
     per_message = dict(message_results or {})

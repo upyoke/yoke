@@ -6,6 +6,8 @@ import hashlib
 import json
 from typing import Any
 
+from yoke_contracts.timestamps import format_instant
+
 
 PROJECT_CAPABILITIES_SCHEMA = "yoke.project-capabilities/v1"
 CAPABILITY_SECRETS_SCHEMA = "yoke.capability-secrets/v1"
@@ -19,7 +21,9 @@ def project_capabilities_receipt(conn: object) -> dict[str, Any]:
     )
     types: dict[str, dict[str, Any]] = {}
     for row in batched_server_cursor_rows(
-        conn, "source_project_capabilities", query,
+        conn,
+        "source_project_capabilities",
+        query,
     ):
         project_id = int(row[0])
         capability_type = str(row[1])
@@ -27,11 +31,12 @@ def project_capabilities_receipt(conn: object) -> dict[str, Any]:
             "project_id": project_id,
             "type": capability_type,
             "settings": _canonical_json_value(row[2]),
-            "verified_at": None if row[3] is None else str(row[3]),
-            "created_at": str(row[4]),
+            "verified_at": None if row[3] is None else format_instant(row[3]),
+            "created_at": format_instant(row[4]),
         }
         entry = types.setdefault(
-            capability_type, {"count": 0, "projects": {}},
+            capability_type,
+            {"count": 0, "projects": {}},
         )
         entry["count"] += 1
         entry["projects"][str(project_id)] = _digest(canonical)
@@ -66,11 +71,14 @@ def capability_secrets_receipt(conn: object) -> dict[str, Any]:
         entry = types.setdefault(secret_type, {"count": 0, "projects": {}})
         entry["count"] += current_count
         entry["projects"][project_id] = {
-            "count": current_count, "sha256": current_digest.hexdigest(),
+            "count": current_count,
+            "sha256": current_digest.hexdigest(),
         }
 
     for row in batched_server_cursor_rows(
-        conn, "source_capability_secrets", query,
+        conn,
+        "source_capability_secrets",
+        query,
     ):
         project_id = int(row[0])
         secret_type = str(row[1])
@@ -87,7 +95,7 @@ def capability_secrets_receipt(conn: object) -> dict[str, Any]:
             "key": str(row[2]),
             "value": str(row[3]),
             "source": str(row[4]),
-            "created_at": str(row[5]),
+            "created_at": format_instant(row[5]),
         }
         if current_count:
             current_digest.update(b",")
@@ -105,7 +113,8 @@ def capability_secrets_receipt(conn: object) -> dict[str, Any]:
 
 
 def filter_typed_receipt(
-    receipt: dict[str, Any], included_types: set[str] | frozenset[str],
+    receipt: dict[str, Any],
+    included_types: set[str] | frozenset[str],
 ) -> dict[str, Any]:
     """Select named types and recompute the exact parent receipt digest."""
     types = {
@@ -132,7 +141,9 @@ def _digest(value: Any) -> str:
 
 def _canonical_bytes(value: Any) -> bytes:
     return json.dumps(
-        value, sort_keys=True, separators=(",", ":"),
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
     ).encode("utf-8")
 
 
@@ -164,8 +175,10 @@ def batched_server_cursor_rows(
 
 
 __all__ = [
-    "CAPABILITY_SECRETS_SCHEMA", "PROJECT_CAPABILITIES_SCHEMA",
-    "batched_server_cursor_rows", "capability_secrets_receipt",
+    "CAPABILITY_SECRETS_SCHEMA",
+    "PROJECT_CAPABILITIES_SCHEMA",
+    "batched_server_cursor_rows",
+    "capability_secrets_receipt",
     "filter_typed_receipt",
     "project_capabilities_receipt",
 ]

@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import os
 import subprocess
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now, format_instant
 from pathlib import Path
 from typing import List, Optional
 
@@ -102,15 +102,19 @@ def _render_catalog(db_path: Optional[str], repo_root: Path) -> Path:
 
     appendix = _extract_appendix(catalog_path)
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    timestamp = format_instant(utc_now())
 
     lines: List[str] = []
     lines.append("# Event Catalog")
     lines.append("")
     lines.append(f"> Auto-generated on {timestamp}")
-    lines.append("> Regenerate through the source-dev registry workflow from a Yoke checkout.")
+    lines.append(
+        "> Regenerate through the source-dev registry workflow from a Yoke checkout."
+    )
     lines.append("")
-    lines.append("| Event Name | Kind | Type | Owner Service | Description | Severity | Status |")
+    lines.append(
+        "| Event Name | Kind | Type | Owner Service | Description | Severity | Status |"
+    )
     lines.append("|---|---|---|---|---|---|---|")
 
     conn = connect(db_path)

@@ -29,7 +29,7 @@ from yoke_core.domain.execution_instruction_projection import (
     instruction_descriptors,
 )
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.workflow_execution_instructions_schema import (
     INSTRUCTION_PROJECTS_TABLE,
     INSTRUCTION_WORKFLOWS_TABLE,
@@ -161,14 +161,14 @@ def create_instruction(
             "an execution instruction requires non-empty content"
         )
     InstructionDelivery.model_validate(delivery or {})
-    now = iso8601_now()
+    now = utc_now()
     p = _p(conn)
     row = conn.execute(
         f"INSERT INTO {WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE} "
         "(content, applies_to_all_workflows, applies_to_all_projects, "
         "updated_by_actor_id, created_at, updated_at) "
         f"VALUES ({p}, 0, 0, {p}, {p}, {p}) RETURNING id",
-        (content, actor_id, now, now),
+        (content, actor_id, instant_parameter(conn, now), instant_parameter(conn, now)),
     ).fetchone()
     save_delivery(conn, int(row[0]), delivery)
     return int(row[0])
@@ -194,7 +194,7 @@ def update_instruction(
         f"UPDATE {WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE} "
         f"SET content = {p}, updated_by_actor_id = {p}, updated_at = {p} "
         f"WHERE id = {p}",
-        (content, actor_id, iso8601_now(), instruction_id),
+        (content, actor_id, instant_parameter(conn, utc_now()), instruction_id),
     )
 
 
@@ -246,7 +246,7 @@ def set_instruction_scope(
             1 if applies_to_all_workflows else 0,
             1 if applies_to_all_projects else 0,
             actor_id,
-            iso8601_now(),
+            instant_parameter(conn, utc_now()),
             instruction_id,
         ),
     )

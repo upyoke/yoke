@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from yoke_contracts.timestamps import format_instant
+
 from runtime.api.domain.session_launch_test_support import (
     add_relay,
     relay_connection,
@@ -41,7 +43,7 @@ LIVE_ERROR = (
 
 
 def stamp(moment: datetime) -> str:
-    return moment.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return format_instant(moment)
 
 
 def worker_connection():
@@ -119,12 +121,12 @@ def record_resume(conn, *, at: datetime) -> None:
     conn.commit()
 
 
-def _last_tool_call_at(conn) -> str:
+def _last_tool_call_at(conn) -> datetime | str | None:
     row = conn.execute(
         "SELECT last_tool_call_at FROM harness_sessions WHERE session_id=?",
         (SESSION_ID,),
     ).fetchone()
-    return str(row["last_tool_call_at"] or "") if row is not None else ""
+    return row["last_tool_call_at"] if row is not None else None
 
 
 def states(conn, *, now: datetime):

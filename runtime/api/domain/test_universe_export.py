@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 
 from yoke_contracts.machine_config import runtime as machine_runtime
+from yoke_contracts.timestamps import parse_instant, format_instant
 from yoke_core.domain import universe_archive
 from yoke_core.domain import universe_export as ux
 from yoke_core.domain.source_freeze_intent import file_sha256
@@ -169,7 +170,8 @@ def test_resolve_destination_routes_directory_vs_file(tmp_path):
     # Trailing separator on a nonexistent directory -> directory mode,
     # created with parents.
     dest = ux.resolve_export_destination(
-        f"{tmp_path / 'made' / 'deep'}/", "default",
+        f"{tmp_path / 'made' / 'deep'}/",
+        "default",
     )
     assert (tmp_path / "made" / "deep").is_dir()
     assert dest.parent == tmp_path / "made" / "deep"
@@ -231,11 +233,23 @@ def test_export_prefers_embedded_pg_dump_and_cleans_failed_staging(
 
 
 def test_export_binds_dump_and_receipt_to_one_exported_snapshot(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ):
     """The engine derives the snapshot itself and hands pg_dump exactly
     that snapshot; the receipt is computed on the same frozen view."""
     observed: dict[str, object] = {}
+    moment = parse_instant("2026-10-09T15:00:00.123456Z")
+    monkeypatch.setattr(ux, "utc_now", lambda: moment)
+    compose = universe_archive.build_freeze_receipt
+
+    def receipt_owner(**kwargs):
+        observed["receipt_inputs"] = kwargs
+        assert kwargs["frozen_at"] == moment
+        assert isinstance(kwargs["frozen_at"], type(moment))
+        return compose(**kwargs)
+
+    monkeypatch.setattr(universe_archive, "build_freeze_receipt", receipt_owner)
 
     def fake_dump(dsn, destination, **kwargs):
         observed.update(
@@ -261,13 +275,14 @@ def test_export_binds_dump_and_receipt_to_one_exported_snapshot(
         report = ux.export_universe(dsn=dsn, out=dest)
 
     assert observed["dsn"] == dsn
-    assert re.fullmatch(
-        r"[0-9A-Fa-f]+(?:-[0-9A-Fa-f]+)+", str(observed["snapshot"])
-    )
+    assert re.fullmatch(r"[0-9A-Fa-f]+(?:-[0-9A-Fa-f]+)+", str(observed["snapshot"]))
     assert observed["timeout_s"] == ux.DEFAULT_EXPORT_TIMEOUT_S
     dump, receipt = _unpack(dest, tmp_path / "unpacked")
     assert dump.read_bytes() == b"PGDMP"
     assert receipt["freeze_intent"]["archive"]["sha256"] == report["sha256"]
+    assert receipt["freeze_intent"]["frozen_at"] == format_instant(moment)
+    wire_inputs = {**observed["receipt_inputs"], "frozen_at": format_instant(moment)}
+    assert compose(**wire_inputs) == receipt
 
 
 def test_export_refuses_when_universe_changes_mid_dump(monkeypatch, tmp_path):
@@ -313,7 +328,9 @@ def test_export_refuses_when_universe_changes_mid_dump(monkeypatch, tmp_path):
 
     monkeypatch.setattr(ux.universe_portability, "dump_universe", mutating_dump)
     monkeypatch.setattr(
-        source_authority_receipts, "authority_receipt", tracking_receipt,
+        source_authority_receipts,
+        "authority_receipt",
+        tracking_receipt,
     )
     out_dir = tmp_path / "exports"
     out_dir.mkdir()

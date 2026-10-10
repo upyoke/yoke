@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import io
 import json
-from pathlib import Path
 
 from yoke_core.domain.json_helper import dumps_compact, run_command
 
@@ -11,7 +10,12 @@ def test_get_and_set_round_trip(tmp_path):
     target = tmp_path / "sample.json"
     target.write_text('{"name":"old","count":1}\n')
 
-    assert run_command(["set", str(target), "name", "new"], out=io.StringIO(), err=io.StringIO()) == 0
+    assert (
+        run_command(
+            ["set", str(target), "name", "new"], out=io.StringIO(), err=io.StringIO()
+        )
+        == 0
+    )
 
     out = io.StringIO()
     err = io.StringIO()
@@ -24,8 +28,18 @@ def test_set_int_and_increment(tmp_path):
     target = tmp_path / "sample.json"
     target.write_text('{"count":1}\n')
 
-    assert run_command(["set-int", str(target), "count", "5"], out=io.StringIO(), err=io.StringIO()) == 0
-    assert run_command(["increment", str(target), "count"], out=io.StringIO(), err=io.StringIO()) == 0
+    assert (
+        run_command(
+            ["set-int", str(target), "count", "5"], out=io.StringIO(), err=io.StringIO()
+        )
+        == 0
+    )
+    assert (
+        run_command(
+            ["increment", str(target), "count"], out=io.StringIO(), err=io.StringIO()
+        )
+        == 0
+    )
 
     data = json.loads(target.read_text())
     assert data["count"] == 6
@@ -33,12 +47,22 @@ def test_set_int_and_increment(tmp_path):
 
 def test_append_and_create(tmp_path):
     target = tmp_path / "sample.json"
-    assert run_command(["create", str(target), '{"items": []}'], out=io.StringIO(), err=io.StringIO()) == 0
-    assert run_command(
-        ["append", str(target), "items", '{"id": 1, "title": "one"}'],
-        out=io.StringIO(),
-        err=io.StringIO(),
-    ) == 0
+    assert (
+        run_command(
+            ["create", str(target), '{"items": []}'],
+            out=io.StringIO(),
+            err=io.StringIO(),
+        )
+        == 0
+    )
+    assert (
+        run_command(
+            ["append", str(target), "items", '{"id": 1, "title": "one"}'],
+            out=io.StringIO(),
+            err=io.StringIO(),
+        )
+        == 0
+    )
     data = json.loads(target.read_text())
     assert data["items"] == [{"id": 1, "title": "one"}]
 
@@ -47,7 +71,12 @@ def test_invalid_append_json_fails(tmp_path):
     target = tmp_path / "sample.json"
     target.write_text('{"items":[]}\n')
     err = io.StringIO()
-    assert run_command(["append", str(target), "items", "{oops"], out=io.StringIO(), err=err) == 1
+    assert (
+        run_command(
+            ["append", str(target), "items", "{oops"], out=io.StringIO(), err=err
+        )
+        == 1
+    )
     assert "invalid JSON for append value" in err.getvalue()
 
 
@@ -61,3 +90,35 @@ def test_dumps_compact_escapes_json_values():
     assert dumps_compact(["self-hosted", 'label"quoted']) == (
         '["self-hosted","label\\"quoted"]'
     )
+
+
+def test_native_json_instants_are_canonical_and_opaque_strings_stay_exact(tmp_path):
+    from datetime import datetime, timedelta, timezone
+    from yoke_core.domain.json_helper import dump_path, dumps_pretty
+
+    instant = datetime(
+        1969,
+        12,
+        31,
+        18,
+        29,
+        59,
+        123456,
+        tzinfo=timezone(timedelta(hours=-5, minutes=-30)),
+    )
+    value = {"at": instant, "opaque": "1969-12-31 18:29:59.123456", "missing": None}
+    expected = {**value, "at": "1969-12-31T23:59:59.123456Z"}
+    assert json.loads(dumps_compact(value)) == expected
+    assert json.loads(dumps_pretty(value)) == expected
+    target = tmp_path / "native.json"
+    dump_path(target, value)
+    assert json.loads(target.read_text()) == expected
+
+
+def test_native_json_refuses_naive_datetimes():
+    from datetime import datetime
+    import pytest
+    from yoke_contracts.timestamps import InvalidInstant
+
+    with pytest.raises(InvalidInstant, match="invalid_instant"):
+        dumps_compact({"at": datetime(2026, 10, 8)})

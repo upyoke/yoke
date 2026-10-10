@@ -92,7 +92,7 @@ def test_a_silent_relay_stops_being_reported(fleet) -> None:
     _publish(fleet, {"codex-cli": _reading("gpt-5.5")})
     fleet.execute(
         "UPDATE session_relays SET connected_until=%s WHERE relay_id='relay-1'",
-        ("2026-08-01T00:00:00Z",),
+        ("2026-08-01T00:00:00.000000Z",),
     )
     fleet.commit()
 

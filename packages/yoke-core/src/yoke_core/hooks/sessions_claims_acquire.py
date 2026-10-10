@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 
+from yoke_contracts.timestamps import format_instant, utc_now
+
 from yoke_core.domain import db_backend
 from yoke_core.domain import workflow_item_binding_lock as binding_lock
-from yoke_core.domain.db_helpers import query_rows, query_scalar
+from yoke_core.domain.db_helpers import instant_parameter, query_rows, query_scalar
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
 from yoke_core.domain.sessions_claim_lifecycle_lock import (
     lock_session_rows_for_claim_lifecycle,
@@ -34,7 +36,6 @@ from yoke_core.hooks.sessions_claim_reclaim import (
     reclaim_stale_conflicts,
 )
 from yoke_core.hooks.sessions_focus import (
-    _now_iso,
     _require_active_session,
     _set_current_item,
 )
@@ -120,7 +121,7 @@ def _claim_typed(
     *,
     reason: str | None = None,
 ) -> str:
-    now = _now_iso()
+    now = utc_now()
     _require_active_session(conn, session_id)
     target_label = target.render()
 
@@ -220,8 +221,8 @@ def _claim_typed(
             session_id,
             target.kind,
             target.scope_json(),
-            now,
-            now,
+            instant_parameter(conn, now),
+            instant_parameter(conn, now),
         ),
     )
     new_claim_id = int(cursor.fetchone()[0])
@@ -253,7 +254,7 @@ def _claim_typed(
         "target_label": target_label,
         "claim_type": "exclusive",
         "claim_id": new_claim_id,
-        "claimed_at": now,
+        "claimed_at": format_instant(now),
     }
     if reason:
         event_ctx["claim_reason_intent"] = reason

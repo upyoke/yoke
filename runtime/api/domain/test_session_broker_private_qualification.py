@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from datetime import timedelta
 
 import pytest
@@ -19,7 +21,7 @@ from yoke_core.domain.session_private_route_qualification import (
 from yoke_core.domain.session_relay_storage import heartbeat_relay
 from yoke_core.domain.session_relay import claim_relay_job
 from yoke_core.domain.session_relay_types import RelayHeartbeat
-from runtime.api.domain.test_session_broker_wake import MACHINE_ID, _seed
+from runtime.api.domain.session_broker_test_support import MACHINE_ID, _seed
 from runtime.api.domain.test_session_message_support import (
     NOW,
     NOW_TEXT,
@@ -53,7 +55,7 @@ def _candidate_connection(monkeypatch, *, route: str):
     # Route-scoped grants only arbitrate where a grant is still required, so
     # the target is idle rather than ended: a stopped wake needs no grant now.
     # Day-old activity keeps it idle under any staleness window.
-    idle_since = str(NOW - timedelta(days=1))
+    idle_since = format_instant(NOW - timedelta(days=1))
     conn.execute(
         "UPDATE harness_sessions SET executor='claude-code',"
         "executor_surface='claude-cli',executor_version='2.1.241',"
@@ -158,7 +160,7 @@ def test_broker_scoped_grant_does_not_claim_direct_availability(monkeypatch) -> 
         broker_only=True,
         broker_lease_id=lease.lease_id,
         broker_session_id="broker-a",
-        now_provider=lambda: "2026-08-22T16:00:03Z",
+        now_provider=lambda: "2026-08-22T16:00:03.000000Z",
     )
 
     assert len(outcome.jobs) == 1
@@ -168,5 +170,5 @@ def test_broker_scoped_grant_does_not_claim_direct_availability(monkeypatch) -> 
         "SELECT released_at,release_reason_intent FROM work_claims WHERE id=?",
         (grant.lease_id,),
     ).fetchone()
-    assert row["released_at"] == "2026-08-22T16:00:03Z"
+    assert row["released_at"] == "2026-08-22T16:00:03.000000Z"
     assert row["release_reason_intent"] == QUALIFICATION_RELEASE_REASON

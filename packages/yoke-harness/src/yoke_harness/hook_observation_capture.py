@@ -14,9 +14,9 @@ import json
 import time
 import urllib.request
 import uuid
-from datetime import datetime, timezone
 from typing import Any
 
+from yoke_contracts.timestamps import utc_now
 from yoke_contracts.hook_evaluator_protocol import HOOK_CLIENT_WALL_PATH
 from yoke_harness.hook_resident_observations import (
     OBSERVATION_PATH,
@@ -60,7 +60,7 @@ class DeferredObservationOpener:
         self._endpoint = ""
         self._authorization = ""
         self._body: dict[str, Any] | None = None
-        self._observed_at = datetime.now(timezone.utc).isoformat()
+        self._observed_at = utc_now()
         self._client_wall_supported = client_wall_supported
 
     def __call__(

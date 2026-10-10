@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now, format_instant, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Dict
 
 from yoke_core.domain import db_backend
@@ -71,10 +72,7 @@ def build_envelope(rec: EventRecord) -> Dict[str, Any]:
             severity = "WARN"
 
     event_id = str(uuid.uuid4())
-    event_time = (
-        datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.")
-        + f"{datetime.now(timezone.utc).microsecond // 1000:03d}Z"
-    )
+    event_time = format_instant(utc_now())
 
     # Context JSON — enriched during task 005
     context: Dict[str, Any] = {"tool_name": rec.tool_name}
@@ -230,7 +228,7 @@ def insert_event(conn: Any, envelope: Dict[str, Any]) -> None:
         envelope.get("turn_id"),
         envelope.get("hook_event_name"),
         envelope_json,
-        envelope["event_time"],
+        instant_parameter(conn, parse_instant(envelope["event_time"])),
     )
 
     placeholders = ", ".join([_p(conn)] * len(values))

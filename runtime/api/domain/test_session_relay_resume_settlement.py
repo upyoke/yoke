@@ -22,10 +22,10 @@ from runtime.api.domain.test_session_relay import (
 )
 
 
-SPAWNED_AT = "2026-08-22T12:00:05Z"
+SPAWNED_AT = "2026-08-22T12:00:05.000000Z"
 # Long past the batch horizon the spawn was leased under: a resumed turn runs
 # for minutes, which is the whole reason its outcome arrives on a later poll.
-SETTLED_AT = "2026-08-22T12:40:00Z"
+SETTLED_AT = "2026-08-22T12:40:00.000000Z"
 
 
 def _spawned(conn):
@@ -112,7 +112,7 @@ def test_a_settled_resume_refuses_a_second_conflicting_outcome() -> None:
         result_code=RESUME_EXITED_NONZERO_RESULT,
         adapter_revision=None,
         evidence={"exit_code": 3},
-        now="2026-08-22T12:41:00Z",
+        now="2026-08-22T12:41:00.000000Z",
     )
     with pytest.raises(SessionRelayError) as conflict:
         report_relay_job(
@@ -124,7 +124,7 @@ def test_a_settled_resume_refuses_a_second_conflicting_outcome() -> None:
             lease_id=job.lease_id,
             result_code="accepted",
             adapter_revision=None,
-            now="2026-08-22T12:42:00Z",
+            now="2026-08-22T12:42:00.000000Z",
         )
 
     assert repeated["result_code"] == RESUME_EXITED_NONZERO_RESULT
@@ -160,7 +160,7 @@ def test_a_delivered_wake_absorbs_a_later_native_exit() -> None:
     conn.execute(
         "UPDATE session_message_attempts SET completed_at=?, result_code=? "
         "WHERE attempt_id=?",
-        ("2026-08-22T12:01:00Z", WAKE_DELIVERED_RESULT, job.job_id),
+        ("2026-08-22T12:01:00.000000Z", WAKE_DELIVERED_RESULT, job.job_id),
     )
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN native_process_gone_at TEXT")
     conn.execute(

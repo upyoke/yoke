@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.item_worktree_resolution import ACTIVE_LANE_ORDER_SQL
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_behavior import (
@@ -121,7 +121,7 @@ def record_item_worktree(
                 f"{render_item_ref(conn, owner['item_id'])} branch {owner['branch']!r}"
             )
 
-    now = iso8601_now()
+    stored_now = instant_parameter(conn, utc_now())
     existing_cursor = conn.execute(
         "SELECT id FROM item_worktrees "
         f"WHERE item_id = {marker} AND branch = {marker} "
@@ -135,7 +135,7 @@ def record_item_worktree(
             f"SET path = {marker}, "
             f"lane_role = {marker}, updated_at = {marker} "
             f"WHERE id = {marker}",
-            (clean_path, lane_role, now, int(existing["id"])),
+            (clean_path, lane_role, stored_now, int(existing["id"])),
         )
     else:
         if lane_role in {LANE_IMPLEMENTATION, LANE_INTEGRATION}:
@@ -144,7 +144,7 @@ def record_item_worktree(
                 f"released_at = {marker}, updated_at = {marker} "
                 f"WHERE item_id = {marker} AND lane_role = {marker} "
                 "AND state = 'active'",
-                (now, now, int(item_id), lane_role),
+                (stored_now, stored_now, int(item_id), lane_role),
             )
         conn.execute(
             "INSERT INTO item_worktrees "
@@ -157,8 +157,8 @@ def record_item_worktree(
                 clean_branch,
                 clean_path,
                 lane_role,
-                now,
-                now,
+                stored_now,
+                stored_now,
             ),
         )
 
@@ -183,7 +183,7 @@ def record_released_item_worktree_history(
         raise ValueError(f"unknown item worktree lane role {lane_role!r}")
     lock_item_workflow_bindings(conn, (int(item_id),))
     marker = _placeholder(conn)
-    now = iso8601_now()
+    stored_now = instant_parameter(conn, utc_now())
     existing = _dict_row(
         conn.execute(
             "SELECT id FROM item_worktrees "
@@ -205,9 +205,9 @@ def record_released_item_worktree_history(
                 clean_branch,
                 clean_path,
                 lane_role,
-                now,
-                now,
-                now,
+                stored_now,
+                stored_now,
+                stored_now,
             ),
         )
         lane_id = int(cursor.fetchone()[0])
@@ -217,7 +217,7 @@ def record_released_item_worktree_history(
             "UPDATE item_worktrees SET path="
             f"{marker}, lane_role={marker}, state='released', "
             f"updated_at={marker}, released_at={marker} WHERE id={marker}",
-            (clean_path, lane_role, now, now, lane_id),
+            (clean_path, lane_role, stored_now, stored_now, lane_id),
         )
     return next(
         row
@@ -235,7 +235,8 @@ def release_item_worktrees(
     """Release one branch or every active lane owned by an item."""
     lock_item_workflow_bindings(conn, (int(item_id),))
     marker = _placeholder(conn)
-    params: list[Any] = [iso8601_now(), iso8601_now(), int(item_id)]
+    stored_now = instant_parameter(conn, utc_now())
+    params: list[Any] = [stored_now, stored_now, int(item_id)]
     branch_clause = ""
     if branch is not None:
         branch_clause = f" AND branch = {marker}"

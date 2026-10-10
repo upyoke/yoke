@@ -251,8 +251,7 @@ def test_hooks_evaluate_session_start_reaps_stale_actives(client, hooks_db) -> N
             (stale_id,),
         )
         conn.execute(
-            "UPDATE events SET created_at = "
-            "to_char(NOW() - INTERVAL '2 hours', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') "
+            "UPDATE events SET created_at = NOW() - INTERVAL '2 hours' "
             "WHERE session_id = %s",
             (stale_id,),
         )

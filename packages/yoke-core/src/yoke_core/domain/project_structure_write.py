@@ -13,7 +13,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import (
-    iso8601_now,
+    instant_parameter,
+    utc_now,
     query_one,
 )
 from yoke_core.domain.project_structure import (
@@ -45,9 +46,7 @@ def _normalize_op(op: Dict[str, Any]) -> Dict[str, Any]:
         raise UsageError(f"Each op must be a JSON object (got {type(op).__name__}).")
     op_name = op.get("op")
     if op_name not in ("put", "remove"):
-        raise UsageError(
-            f"Op verb must be 'put' or 'remove' (got {op_name!r})."
-        )
+        raise UsageError(f"Op verb must be 'put' or 'remove' (got {op_name!r}).")
     family = op.get("family")
     if not isinstance(family, str) or not family:
         raise UsageError("Each op must declare a non-empty 'family'.")
@@ -58,20 +57,14 @@ def _normalize_op(op: Dict[str, Any]) -> Dict[str, Any]:
         )
     attachment_kind = op.get("attachment_kind") or EMPTY_SLOT
     if not isinstance(attachment_kind, str):
-        raise UsageError(
-            f"Op on family '{family}' attachment_kind must be a string."
-        )
+        raise UsageError(f"Op on family '{family}' attachment_kind must be a string.")
     entry_key = op.get("entry_key") or EMPTY_SLOT
     if not isinstance(entry_key, str):
-        raise UsageError(
-            f"Op on family '{family}' entry_key must be a string."
-        )
+        raise UsageError(f"Op on family '{family}' entry_key must be a string.")
     payload = op.get("payload")
     if op_name == "put" and payload is None:
         # Allow missing payload only for remove. Put demands explicit payload.
-        raise UsageError(
-            f"Put on family '{family}' must declare a 'payload' object."
-        )
+        raise UsageError(f"Put on family '{family}' must declare a 'payload' object.")
     return {
         "op": op_name,
         "family": family,
@@ -117,15 +110,23 @@ def _apply_put(
     )
     before: Optional[Dict[str, Any]] = None
     payload_json = json.dumps(payload, sort_keys=True)
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     if existing is None:
         conn.execute(
             "INSERT INTO project_structure "
             "(project_id, family, attachment_value, attachment_kind, entry_key, "
             " payload, created_at, updated_at) "
             f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
-            (project_id, family, attachment_value, attachment_kind, entry_key,
-             payload_json, now, now),
+            (
+                project_id,
+                family,
+                attachment_value,
+                attachment_kind,
+                entry_key,
+                payload_json,
+                now,
+                now,
+            ),
         )
     else:
         try:
@@ -137,7 +138,15 @@ def _apply_put(
             f"SET attachment_kind={p}, payload={p}, "
             f"    updated_at={p} "
             f"WHERE project_id={p} AND family={p} AND attachment_value={p} AND entry_key={p}",
-            (attachment_kind, payload_json, now, project_id, family, attachment_value, entry_key),
+            (
+                attachment_kind,
+                payload_json,
+                now,
+                project_id,
+                family,
+                attachment_value,
+                entry_key,
+            ),
         )
     return before, payload
 
@@ -158,9 +167,7 @@ def _apply_remove(
     )
     if existing is None:
         ident = _format_identity(project_id, family, attachment_value, entry_key)
-        raise ValidationError(
-            f"Cannot remove nonexistent entry: {ident}."
-        )
+        raise ValidationError(f"Cannot remove nonexistent entry: {ident}.")
     try:
         before = json.loads(existing["payload"] or "{}")
     except (TypeError, ValueError):
@@ -179,7 +186,11 @@ def _format_identity(
     attachment_value: str,
     entry_key: str,
 ) -> str:
-    parts = [f"project={project_id}", f"family={family}", f"attachment={attachment_value}"]
+    parts = [
+        f"project={project_id}",
+        f"family={family}",
+        f"attachment={attachment_value}",
+    ]
     if entry_key:
         parts.append(f"entry_key={entry_key}")
     return "(" + ", ".join(parts) + ")"
@@ -271,7 +282,9 @@ def apply_patch(
 
     conn = _connect(db_path)
     try:
-        conn.execute("BEGIN" if db_backend.connection_is_postgres(conn) else "BEGIN IMMEDIATE")
+        conn.execute(
+            "BEGIN" if db_backend.connection_is_postgres(conn) else "BEGIN IMMEDIATE"
+        )
         result = _apply_normalized_ops(conn, project_id, normalized)
         conn.commit()
         return result

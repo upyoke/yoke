@@ -1,31 +1,15 @@
-"""The item-owned document carrying every merge receipt for one item.
+"""Durable item-owned merge receipts survive branch and lane retirement.
 
-A merge's bookkeeping has to outlive the things it describes. Once the branch
-is contained by its target the engine deletes the branch ref and removes the
-lane, and from then on ``merge-base`` reports an empty diff and the lane
-directory is gone. Everything a retry, a terminal QA gate, a lane retirement,
-or a release attribution still needs to know about that merge has to already
-be written down somewhere cleanup does not reach.
-
-That home is the item's own ``item_sections`` row — the same durable owner the
-item's execution evidence uses — so a receipt lasts exactly as long as the item
-does. Entries are keyed by the merge identity (branch and target), and one
-merge writes its entry more than once: a pre-merge entry carrying the
-implementation commit, the commits it contributes, and changed files, then a
-completed entry carrying the merge commit and the checks observed after the
-push. Each write folds into the
-entry already stored, so a crash between the two still leaves the earlier facts
-intact.
-
-An entry also carries the merge's current failure, when the last attempt on
-that identity failed. It is *current* rather than historical: a landed merge
-settles it, so a reader sees the state the merge is in now instead of
-reconstructing it from the order telemetry happened to arrive in.
+The item's structured section retains implementation and contributed commits,
+changed files, merge identity, and checks. Writes fold into the same entry so
+retries preserve earlier facts. A completed merge settles the entry's current
+failure; readers use this document for cleanup, QA and delivery attribution.
 """
 
 from __future__ import annotations
 
 from typing import Any, Iterable, Mapping, Optional, Sequence
+from yoke_contracts.timestamps import parse_instant
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
@@ -68,24 +52,22 @@ def _entries(document: Optional[Mapping[str, Any]]) -> dict[str, dict[str, Any]]
 def read_entries(conn: Any, item_id: int) -> dict[str, dict[str, Any]]:
     """Every merge entry recorded on ``item_id``, keyed by merge identity."""
     return _entries(
-        read_json_section(
-            conn, item_id=int(item_id), section=MERGE_RECEIPTS_SECTION
-        )
+        read_json_section(conn, item_id=int(item_id), section=MERGE_RECEIPTS_SECTION)
     )
 
 
 def newest_first(
     entries: Mapping[str, Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Entries ordered newest write first.
-
-    The document is stored with sorted keys so JSON diffs stay readable, which
-    means insertion order does not survive a round trip. ``updated_at`` is the
-    order that does.
+    """Order by each present instant, leaving absent clocks last.
+    Stored JSON sorts keys, so insertion order cannot prove clock order.
     """
     return sorted(
         (dict(entry) for entry in entries.values()),
-        key=lambda entry: str(entry.get("updated_at") or ""),
+        key=lambda entry: (
+            (stamp := entry.get("updated_at")) is not None,
+            parse_instant(stamp) if stamp is not None else None,
+        ),
         reverse=True,
     )
 
@@ -113,7 +95,10 @@ def _clean_check_runs(value: Any) -> list[dict[str, str]]:
 
 
 def build_failure(
-    *, label: str, phase: str = "", reason: str = "",
+    *,
+    label: str,
+    phase: str = "",
+    reason: str = "",
 ) -> dict[str, str]:
     """One merge attempt's failure, as the document stores it."""
     return {
@@ -155,11 +140,11 @@ def record_entry(
     entry["target"] = target
     entry["commit_sha"] = str(commit_sha or entry.get("commit_sha") or "")
     entry["merge_sha"] = str(merge_sha or entry.get("merge_sha") or "")
-    entry["touched_files"] = (
-        _clean_paths(touched_files) or _clean_paths(entry.get("touched_files"))
+    entry["touched_files"] = _clean_paths(touched_files) or _clean_paths(
+        entry.get("touched_files")
     )
-    entry["check_runs"] = (
-        _clean_check_runs(check_runs) or _clean_check_runs(entry.get("check_runs"))
+    entry["check_runs"] = _clean_check_runs(check_runs) or _clean_check_runs(
+        entry.get("check_runs")
     )
     entry["contributed_commits"] = _clean_paths(contributed_commits) or _clean_paths(
         entry.get("contributed_commits")
@@ -181,7 +166,11 @@ def record_entry(
 
 
 def find_entry(
-    conn: Any, item_id: int, *, branch: str, target: str = "",
+    conn: Any,
+    item_id: int,
+    *,
+    branch: str,
+    target: str = "",
 ) -> Optional[dict[str, Any]]:
     """The newest entry for ``branch``, narrowed to ``target`` when given.
 
@@ -225,7 +214,9 @@ def merge_shas(conn: Any, item_id: int) -> list[str]:
 
 
 def _documents_for(
-    conn: Any, sql: str, params: Sequence[Any],
+    conn: Any,
+    sql: str,
+    params: Sequence[Any],
 ) -> list[tuple[int, dict[str, dict[str, Any]]]]:
     documents: list[tuple[int, dict[str, dict[str, Any]]]] = []
     for row in conn.execute(sql, tuple(params)).fetchall():
@@ -252,7 +243,9 @@ def current_failures(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
     marker = _placeholder(conn)
     sql = (
         "SELECT item_id,content FROM item_sections "
-        "WHERE section_name = " + marker + " AND item_id IN ("
+        "WHERE section_name = "
+        + marker
+        + " AND item_id IN ("
         + ",".join(marker for _ in item_ids)
         + ")"
     )
@@ -269,7 +262,8 @@ def current_failures(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
 
 
 def merge_shas_for_items(
-    conn: Any, item_ids: Sequence[int],
+    conn: Any,
+    item_ids: Sequence[int],
 ) -> dict[int, list[str]]:
     """:func:`merge_shas` for many items, in one read.
 
@@ -283,7 +277,9 @@ def merge_shas_for_items(
     marker = _placeholder(conn)
     sql = (
         "SELECT item_id,content FROM item_sections "
-        "WHERE section_name = " + marker + " AND item_id IN ("
+        "WHERE section_name = "
+        + marker
+        + " AND item_id IN ("
         + ",".join(marker for _ in item_ids)
         + ")"
     )
@@ -301,7 +297,8 @@ def merge_shas_for_items(
 
 
 def merge_identities(
-    conn: Any, project_id: int,
+    conn: Any,
+    project_id: int,
 ) -> Iterable[tuple[int, str]]:
     """Every ``(item_id, sha)`` this project's receipts recorded.
 
@@ -322,8 +319,11 @@ def merge_identities(
         for entry in entries.values():
             shas = [entry.get("merge_sha"), entry.get("commit_sha")]
             shas += _clean_paths(entry.get("contributed_commits"))
-            shas += [attested.get("commit_sha") for attested in
-                     entry.get(ATTESTED_COMMITS_KEY) or [] if isinstance(attested, Mapping)]
+            shas += [
+                attested.get("commit_sha")
+                for attested in entry.get(ATTESTED_COMMITS_KEY) or []
+                if isinstance(attested, Mapping)
+            ]
             for sha in shas:
                 if str(sha or "").strip():
                     yield item_id, str(sha).strip()

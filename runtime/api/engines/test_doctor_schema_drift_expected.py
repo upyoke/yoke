@@ -18,12 +18,12 @@ def test_expected_catalog_includes_ordered_migration_ledger() -> None:
 
     assert expected["applied_migrations"] == {
         "migration_name": "TEXT",
-        "applied_at": "TEXT",
+        "applied_at": "TIMESTAMPTZ",
         "applied_by": "TEXT",
         "minimum_serving_version": "TEXT",
         "content_sha256": "TEXT",
     }
-    assert expected["doctor_runs"]["ran_at"] == "TEXT"
+    assert expected["doctor_runs"]["ran_at"] == "TIMESTAMPTZ"
     assert expected["doctor_runs"]["results"] == "TEXT"
     assert expected["migration_content_adoptions"]["source_sha256"] == "TEXT"
 
@@ -45,14 +45,14 @@ def test_expected_catalog_includes_additive_workflow_and_lane_columns() -> None:
         "resolution_action": "TEXT",
         "resolution_actor_id": "INTEGER",
         "resolution_note": "TEXT",
-        "resolved_at": "TEXT",
+        "resolved_at": "TIMESTAMPTZ",
         "withdrawal_reason": "TEXT",
-        "withdrawn_at": "TEXT",
-        "consumed_at": "TEXT",
+        "withdrawn_at": "TIMESTAMPTZ",
+        "consumed_at": "TIMESTAMPTZ",
         "consumed_from_stage": "TEXT",
         "consumed_to_stage": "TEXT",
         "consumed_workflow_version_id": "INTEGER",
-        "created_at": "TEXT",
+        "created_at": "TIMESTAMPTZ",
     }
     assert expected["item_worktrees"]["commit_sha"] == "TEXT"
     assert expected["workflow_versions"]["derived_from_canon_version"] == "INTEGER"

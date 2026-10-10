@@ -12,12 +12,20 @@ from __future__ import annotations
 import json
 import shutil
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now, format_instant
 from pathlib import Path
-from typing import Any, List, Optional, Sequence
+from typing import List, Optional
 
-from yoke_core.domain.db_helpers import connect, iso8601_now, query_one, query_rows, query_scalar
+from yoke_core.domain.db_helpers import (
+    connect,
+    instant_parameter,
+    query_one,
+    query_rows,
+    query_scalar,
+)
 from yoke_core.domain.qa_artifact_handle import local_handle, serialize_handle
+from yoke_core.domain.qa_constants import _coalesce as _coalesce, _pipe_row as _pipe_row
 from yoke_core.domain.sql_json import json_get
 
 
@@ -25,25 +33,15 @@ from yoke_core.domain.sql_json import json_get
 # Shared helpers (tiny, duplicated to avoid circular imports)
 # ---------------------------------------------------------------------------
 
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-
-def _coalesce(val: Any, default: str = "") -> str:
-    if val is None:
-        return default
-    return str(val)
-
-
-def _pipe_row(row, cols: Optional[Sequence[str]] = None) -> str:
-    if cols:
-        return "|".join(_coalesce(row[c]) for c in cols)
-    return "|".join(_coalesce(row[i]) for i in range(len(row)))
+def _now_iso() -> datetime:
+    return utc_now()
 
 
 # ---------------------------------------------------------------------------
 # Baseline path helpers
 # ---------------------------------------------------------------------------
+
 
 def _route_slug(route: str) -> str:
     """Convert a route path to a slug: strip leading /, replace / with -, lowercase."""
@@ -59,6 +57,7 @@ def _baseline_path(route: str, width: int, height: int) -> str:
 # ---------------------------------------------------------------------------
 # Baseline management
 # ---------------------------------------------------------------------------
+
 
 def cmd_baseline_record(
     *,
@@ -89,13 +88,15 @@ def cmd_baseline_record(
     storage = _baseline_path(route, width, height)
     now = _now_iso()
 
-    meta = json.dumps({
-        "route": route,
-        "viewport": f"{width}x{height}",
-        "captured_at": now,
-        "branch": branch,
-        "commit": commit,
-    })
+    meta = json.dumps(
+        {
+            "route": route,
+            "viewport": f"{width}x{height}",
+            "captured_at": format_instant(now),
+            "branch": branch,
+            "commit": commit,
+        }
+    )
 
     # Determine artifact type
     art_type = "candidate_baseline"
@@ -125,7 +126,12 @@ def cmd_baseline_record(
         cur = conn.execute(
             """INSERT INTO qa_artifacts (qa_run_id, artifact_type, content_type, artifact_handle, metadata, created_at)
                VALUES (NULL, %s, 'image/png', %s, %s, %s) RETURNING id""",
-            (art_type, serialize_handle(local_handle(storage)), meta, iso8601_now()),
+            (
+                art_type,
+                serialize_handle(local_handle(storage)),
+                meta,
+                instant_parameter(conn, now),
+            ),
         )
         inserted_id = int(cur.fetchone()[0])
         conn.commit()
@@ -194,7 +200,10 @@ def cmd_baseline_get(
         conn.close()
 
     if row is None:
-        print(f"Error: no baseline found for route='{route}' viewport='{viewport}'", file=sys.stderr)
+        print(
+            f"Error: no baseline found for route='{route}' viewport='{viewport}'",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     line = _pipe_row(row)
@@ -215,16 +224,23 @@ def cmd_baseline_promote(
     conn = connect(path=db_path)
     try:
         # Verify it is a candidate_baseline
-        art_type = query_scalar(conn, "SELECT artifact_type FROM qa_artifacts WHERE id = %s", (artifact_id,))
+        art_type = query_scalar(
+            conn, "SELECT artifact_type FROM qa_artifacts WHERE id = %s", (artifact_id,)
+        )
         if art_type is None:
             print(f"Error: artifact {artifact_id} not found", file=sys.stderr)
             sys.exit(1)
         if art_type != "candidate_baseline":
-            print(f"Error: artifact {artifact_id} is '{art_type}', not 'candidate_baseline'", file=sys.stderr)
+            print(
+                f"Error: artifact {artifact_id} is '{art_type}', not 'candidate_baseline'",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
         # Get metadata to derive the baseline storage path
-        meta_str = query_scalar(conn, "SELECT metadata FROM qa_artifacts WHERE id = %s", (artifact_id,))
+        meta_str = query_scalar(
+            conn, "SELECT metadata FROM qa_artifacts WHERE id = %s", (artifact_id,)
+        )
         meta = json.loads(meta_str) if meta_str else {}
         route = meta.get("route", "")
         viewport = meta.get("viewport", "")

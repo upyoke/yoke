@@ -246,7 +246,7 @@ def test_method_rollup_expands_baselines_without_repeating_case_keys() -> None:
     assert related["outcome_summary"] == {
         "state": "passed",
         "counts": {"waived": 1, "passed": 1},
-        "last_at": "2026-07-27T11:03:00Z",
+        "last_at": "2026-07-27T11:03:00.000000Z",
     }
 
 

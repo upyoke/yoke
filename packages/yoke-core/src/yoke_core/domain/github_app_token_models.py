@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import json
 from typing import Any, Mapping
+
+from yoke_contracts.timestamps import InvalidInstant, as_utc, parse_instant, utc_now
 
 
 class GitHubAppTokenError(RuntimeError):
@@ -58,8 +60,8 @@ class InstallationToken:
         *,
         skew_seconds: int = 60,
     ) -> bool:
-        selected = ensure_utc(at or utc_now())
-        return self.expires_at > selected + timedelta(seconds=skew_seconds)
+        selected = ensure_utc(utc_now() if at is None else at)
+        return ensure_utc(self.expires_at) > selected + timedelta(seconds=skew_seconds)
 
 
 @dataclass(frozen=True)
@@ -74,14 +76,8 @@ class UserAccessToken:
     token_type: str = "bearer"
 
 
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
 def ensure_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+    return as_utc(value)
 
 
 def require_nonempty_string(value: Any, label: str) -> str:
@@ -92,12 +88,12 @@ def require_nonempty_string(value: Any, label: str) -> str:
 
 
 def parse_github_datetime(value: Any, label: str) -> datetime:
-    raw = require_nonempty_string(value, label)
     try:
-        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError as exc:
-        raise GitHubAppTokenError(f"{label} is not a valid GitHub timestamp") from exc
-    return ensure_utc(parsed)
+        return parse_instant(value)
+    except InvalidInstant as exc:
+        raise GitHubAppTokenError(
+            f"{label} is not a valid GitHub timestamp: {exc}"
+        ) from exc
 
 
 def expires_at_from_seconds(value: Any, *, now: datetime, label: str) -> datetime:

@@ -59,7 +59,7 @@ CREATE TABLE item_status_transitions (
     session_id TEXT,
     actor_id INTEGER,
     project_id INTEGER,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 -- The compact mirror names its subject by reference, so the identity that
 -- reference is read from is part of the fixture. The sequence differs from

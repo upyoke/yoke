@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant, utc_now
+from .db_helpers import instant_parameter
+
 from typing import Any, Dict, Optional
 
 from . import db_backend
@@ -10,7 +14,7 @@ from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_ended_recovery import session_ended_message
 from .sessions_lifecycle_claim_events import emit_work_claimed
 from .sessions_lifecycle_registry import _get_claim
-from .sessions_queries import _now_iso, normalize_claim_item_id
+from .sessions_queries import normalize_claim_item_id
 from .work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
@@ -45,7 +49,7 @@ def _insert_typed_claim(
     conn: Any,
     session_id: str,
     target: WorkClaimTarget,
-    now: str,
+    now: datetime | str,
 ) -> int:
     """Atomic INSERT-with-conflict-check guard against late-racing claims.
 
@@ -76,8 +80,8 @@ def _insert_typed_claim(
             session_id,
             target.kind,
             target.scope_json(),
-            now,
-            now,
+            instant_parameter(conn, parse_instant(now)),
+            instant_parameter(conn, parse_instant(now)),
             *conflict_params,
             session_id,
         ),
@@ -150,7 +154,7 @@ def claim_work(
             "Steering requires the project-serialized steering acquisition path.",
         )
 
-    now = _now_iso()
+    now = utc_now()
     p = _p(conn)
     self_clause, self_params = _self_claim_clause(conn, target)
     conflict_clause, conflict_params = _conflict_clause(conn, target)

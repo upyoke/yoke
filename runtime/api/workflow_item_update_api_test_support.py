@@ -36,7 +36,7 @@ CREATE TABLE projects (
 INSERT INTO projects (id, slug, name) VALUES (1, 'yoke', 'Yoke');
 CREATE TABLE project_capabilities (
     id INTEGER PRIMARY KEY, project_id INTEGER, type TEXT, settings TEXT,
-    created_at TEXT
+    created_at TIMESTAMPTZ
 );
 CREATE TABLE items (
     id INTEGER PRIMARY KEY, workflow_id TEXT, workflow_version_id INTEGER,
@@ -46,7 +46,7 @@ CREATE TABLE item_worktrees (
     id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL, branch TEXT NOT NULL,
     path TEXT, commit_sha TEXT, lane_role TEXT NOT NULL,
     state TEXT NOT NULL DEFAULT 'active',
-    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, released_at TEXT
+    created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL, released_at TIMESTAMPTZ
 );
 CREATE TABLE epic_tasks (
     id INTEGER PRIMARY KEY, epic_id INTEGER NOT NULL, task_num INTEGER NOT NULL,
@@ -54,13 +54,13 @@ CREATE TABLE epic_tasks (
     status TEXT DEFAULT 'planning',
     dispatch_attempts INTEGER DEFAULT 0, body TEXT, github_issue TEXT,
     branch TEXT, worktree_path TEXT,
-    max_attempts INTEGER DEFAULT 5, agent_id TEXT, last_heartbeat TEXT,
+    max_attempts INTEGER DEFAULT 5, agent_id TEXT, last_heartbeat TIMESTAMPTZ,
     UNIQUE(epic_id, task_num)
 );
 CREATE TABLE epic_progress_notes (
     id INTEGER PRIMARY KEY, epic_id INTEGER NOT NULL, task_num INTEGER NOT NULL,
     note_num INTEGER NOT NULL, body TEXT, commit_hash TEXT,
-    synced_to_github INTEGER DEFAULT 0, created_at TEXT NOT NULL,
+    synced_to_github INTEGER DEFAULT 0, created_at TIMESTAMPTZ NOT NULL,
     UNIQUE(epic_id, task_num, note_num)
 );
 """

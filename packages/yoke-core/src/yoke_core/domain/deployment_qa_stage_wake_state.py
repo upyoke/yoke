@@ -24,6 +24,7 @@ stage, and at most two addressability reads.
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import datetime
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -51,7 +52,7 @@ def _get(row: Any, key: str, index: int) -> Any:
 
 def _clock(raw: Any) -> str:
     stamp = parse_timestamp(raw)
-    return stamp.strftime("%H:%MZ") if stamp is not None else str(raw or "")
+    return stamp.strftime("%H:%MZ") if stamp is not None else "unknown"
 
 
 def _member_of(key: str, prefixes: dict[str, str]) -> tuple[int, str] | None:
@@ -67,7 +68,7 @@ def _member_of(key: str, prefixes: dict[str, str]) -> tuple[int, str] | None:
 
 def _latest_notices(
     conn: Any, *, run_id: str, stage_name: str
-) -> dict[int, tuple[str, str, str, str]]:
+) -> dict[int, tuple[str, datetime | None, str, str]]:
     """Per member: notice kind, sent time, recipient state, wake escalation.
 
     The newest uncancelled notice of either kind is the one the owner would
@@ -96,7 +97,7 @@ def _latest_notices(
         tuple(f"{prefix}%" for prefix in prefixes),
     ).fetchall()
     newest: dict[int, str] = {}
-    best: dict[int, tuple[tuple[int, str], tuple[str, str, str, str]]] = {}
+    best: dict[int, tuple[tuple[int, str], tuple[str, datetime | None, str, str]]] = {}
     for row in rows:
         parsed = _member_of(str(_get(row, "idempotency_key", 1) or ""), prefixes)
         if parsed is None:
@@ -113,7 +114,7 @@ def _latest_notices(
                 rank,
                 (
                     kind,
-                    str(_get(row, "sent_at", 2) or ""),
+                    parse_timestamp(_get(row, "sent_at", 2)),
                     state,
                     str(_get(row, "escalation", 5) or ""),
                 ),
@@ -121,7 +122,7 @@ def _latest_notices(
     return {member: notice for member, (_rank, notice) in best.items()}
 
 
-def _describe(notice: tuple[str, str, str, str]) -> str:
+def _describe(notice: tuple[str, datetime | None, str, str]) -> str:
     kind, sent_at, state, escalation = notice
     sent = _clock(sent_at)
     by = f" by {_FAILURE_HANDOFF}" if kind == _FAILURE_HANDOFF else ""

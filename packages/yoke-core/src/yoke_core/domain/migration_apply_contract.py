@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from datetime import datetime
+
+from yoke_contracts.timestamps import as_utc
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import db_helpers
@@ -82,11 +85,15 @@ class RehearseResult:
     model_name: str
     validation_db_path: str
     source_fingerprint: Optional[str]
-    rehearsed_at: Optional[str]
+    rehearsed_at: Optional[datetime]
     #: The migration-territory lease this rehearsal opened. A passing
     #: rehearsal leaves it held; a failing one releases it.
     lease_id: Optional[int] = None
     modules: List[ModuleAttemptResult] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if self.rehearsed_at is not None:
+            self.rehearsed_at = as_utc(self.rehearsed_at)
 
     @property
     def all_succeeded(self) -> bool:
@@ -98,8 +105,8 @@ class RehearseResult:
 # ---------------------------------------------------------------------------
 
 
-def _now() -> str:
-    return db_helpers.iso8601_now()
+def _now() -> datetime:
+    return db_helpers.utc_now()
 
 
 def _safe_parse_json_dict(raw: Any) -> Dict[str, Any]:
@@ -114,7 +121,6 @@ def _safe_parse_json_dict(raw: Any) -> Dict[str, Any]:
     except json.JSONDecodeError:
         return {}
     return parsed if isinstance(parsed, dict) else {}
-
 
 
 __all__ = [

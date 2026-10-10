@@ -36,7 +36,8 @@ claim pair currently overridden?" — gating never scans the ledger.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now, format_instant
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import path_claims_events as _base_events
@@ -52,7 +53,7 @@ _VALID_CONFLICT_REASONS = (
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return format_instant(utc_now())
 
 
 def emit_override(
@@ -66,7 +67,7 @@ def emit_override(
     blocking_claim_id: Optional[int] = None,
     blocking_path_targets: Optional[List[int]] = None,
     conflict_reason: Optional[str] = None,
-    invoked_at: Optional[str] = None,
+    invoked_at: datetime | str | None = None,
     item_id: Optional[int] = None,
     project: Optional[str] = None,
     session_id: Optional[str] = None,
@@ -87,8 +88,7 @@ def emit_override(
         and not (conflict_reason or "").strip()
     ):
         raise ValueError(
-            "conflict_reason is required when override_point="
-            "'revalidation_conflict'"
+            "conflict_reason is required when override_point='revalidation_conflict'"
         )
     if conflict_reason and conflict_reason not in _VALID_CONFLICT_REASONS:
         raise ValueError(
@@ -96,9 +96,7 @@ def emit_override(
             f"got {conflict_reason!r}"
         )
     if not (actor_reason or "").strip():
-        raise ValueError(
-            "actor_reason is required and must be non-empty"
-        )
+        raise ValueError("actor_reason is required and must be non-empty")
 
     context: Dict[str, Any] = {
         "path_claim_id": int(path_claim_id),
@@ -106,7 +104,7 @@ def emit_override(
         "integration_target": integration_target,
         "actor_id": int(actor_id),
         "actor_reason": actor_reason,
-        "invoked_at": invoked_at or _now_iso(),
+        "invoked_at": _now_iso() if invoked_at is None else format_instant(invoked_at),
         "blocking_path_targets": list(blocking_path_targets or []),
     }
     if blocking_claim_id is not None:

@@ -9,7 +9,10 @@ from __future__ import annotations
 import argparse
 
 from yoke_core.domain.yok_n_parser import parse_item_argument
-import json
+from datetime import datetime
+
+from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_core.domain.json_helper import dumps_pretty
 import sys
 from typing import Any, Dict, Optional, Sequence
 
@@ -41,7 +44,7 @@ def _phase_filter(transition_name: str) -> Optional[str]:
 
 def _is_satisfied(
     *,
-    waived_at: Optional[str],
+    waived_at: datetime | str | None,
     has_substrate_run: bool,
     has_pass_run: bool,
     method_id: Optional[str] = None,
@@ -63,7 +66,9 @@ def _format_run(row: Optional[Any]) -> Optional[Dict[str, Any]]:
         "verdict": str(verdict) if verdict else None,
         "verdict_reason": row["verdict_reason"],
         "performed_by": str(row["performed_by"]),
-        "created_at": str(row["created_at"]) if row["created_at"] else None,
+        "created_at": format_instant(parse_instant(row["created_at"]))
+        if row["created_at"] is not None
+        else None,
     }
 
 
@@ -185,9 +190,11 @@ def render_gate_summary(
                     "method_id": method_id,
                     "qa_phase": str(r["qa_phase"]),
                     "blocking_mode": blocking_mode,
-                    "waived_at": str(waived_at) if waived_at else None,
-                    "retracted_at": str(r["retracted_at"])
-                    if r["retracted_at"]
+                    "waived_at": format_instant(parse_instant(waived_at))
+                    if waived_at is not None
+                    else None,
+                    "retracted_at": format_instant(parse_instant(r["retracted_at"]))
+                    if r["retracted_at"] is not None
                     else None,
                     "satisfied": satisfied,
                     "triage_discharge": triage,
@@ -246,7 +253,7 @@ def cmd_gate_summary(
     summary = render_gate_summary(gate_target, resolved_db, transition_name=target)
 
     if as_json:
-        print(json.dumps(summary, indent=2, sort_keys=True))
+        print(dumps_pretty(summary), end="")
     else:
         print(_format_text(summary))
     return 0

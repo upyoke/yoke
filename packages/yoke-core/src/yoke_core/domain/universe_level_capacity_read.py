@@ -12,7 +12,8 @@ listed with what their override changes.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now, format_instant
 from typing import Any, Callable
 
 from yoke_contracts.levels import Level
@@ -31,8 +32,8 @@ from yoke_core.domain.universe_level_next_launch import Authorize, next_launches
 from yoke_core.domain.universe_levels import effective_levels
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _now() -> datetime:
+    return utc_now()
 
 
 def _projects(conn: Any) -> list[tuple[int, str, str]]:
@@ -132,7 +133,7 @@ def read_level_capacity(conn: Any, *, authorize: Authorize) -> dict[str, Any]:
     for level in levels:
         level["next_launches"] = placed[level["name"]]
     return {
-        "read_at": now,
+        "read_at": format_instant(now),
         "source": source,
         "usable_machines": len({machine for machine, _ in offered}),
         "live_workers": live_workers,

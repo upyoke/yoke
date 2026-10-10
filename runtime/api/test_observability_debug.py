@@ -204,7 +204,10 @@ def test_configured_child_logger_mismatch_keeps_info(
 ) -> None:
     stream = io.StringIO()
     child = _configure_child_capture(
-        monkeypatch, stream, scope="function:items.get.run", until=_until(),
+        monkeypatch,
+        stream,
+        scope="function:items.get.run",
+        until=_until(),
     )
     child.debug("dispatch.debug", extra={"function": "items.list.run"})
     child.info("still-info", extra={"function": "items.list.run"})
@@ -242,15 +245,9 @@ def test_configured_child_logger_expiry_keeps_info(
     live = datetime(2026, 9, 16, 12, 0, tzinfo=timezone.utc)
     clock = {"now": live}
 
-    class _FrozenDateTime:
-        @staticmethod
-        def now(tz=None):
-            current = clock["now"]
-            if tz is not None:
-                return current.astimezone(tz)
-            return current
-
-    monkeypatch.setattr("yoke_core.api.observability_debug.datetime", _FrozenDateTime)
+    monkeypatch.setattr(
+        "yoke_core.api.observability_debug.utc_now", lambda: clock["now"]
+    )
     stream = io.StringIO()
     child = _configure_child_capture(
         monkeypatch,

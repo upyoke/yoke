@@ -11,6 +11,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from yoke_contracts.timestamps import format_instant
+
 from yoke_core.domain import db_backend, universe_archive, universe_portability
 from yoke_core.domain.schema_fingerprint import fingerprint_portable_postgres_schema
 from yoke_core.domain.schema_readiness import missing_readiness_tables
@@ -68,8 +70,7 @@ def validate_archive_roundtrip(
         missing = missing_readiness_tables(conn)
         if missing:
             raise ArchiveValidationError(
-                "restored universe is missing readiness tables: "
-                + ", ".join(missing)
+                "restored universe is missing readiness tables: " + ", ".join(missing)
             )
         projects = [
             {"id": int(row[0]), "slug": str(row[1])}
@@ -80,7 +81,8 @@ def validate_archive_roundtrip(
         fingerprint = fingerprint_portable_postgres_schema(conn)
         content_counts = universe_portability.user_content_counts(conn)
         restored_authority = authority_receipt(
-            conn, include_content_digests=True,
+            conn,
+            include_content_digests=True,
         )
     finally:
         conn.close()
@@ -101,6 +103,7 @@ def _archive_receipt(
     receipt: dict[str, Any],
 ) -> dict[str, object]:
     intent = receipt.get("freeze_intent") or {}
+    frozen_at = format_instant(intent.get("frozen_at"))
     return {
         "ok": True,
         "archive": str(artifact.resolve()),
@@ -114,7 +117,7 @@ def _archive_receipt(
         "receipt": {
             "receipt_id": str(intent.get("receipt_id") or ""),
             "org": str((intent.get("database") or {}).get("org") or ""),
-            "frozen_at": str(intent.get("frozen_at") or ""),
+            "frozen_at": frozen_at,
         },
     }
 

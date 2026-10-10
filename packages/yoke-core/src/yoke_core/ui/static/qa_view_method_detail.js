@@ -1,3 +1,5 @@
+import { elapsedSeconds, SECONDS_PER_DAY } from "./universe_time.js";
+import { instantMicros } from "./timestamps.js";
 import { el } from "./universe_view_support.js";
 import {
   capabilityLabel,
@@ -154,13 +156,10 @@ function planCaseSummaryNode(documentNode, plan, method) {
 }
 
 function planResultAge(documentNode, value) {
-  const age = relativeTimeNode(documentNode, value);
-  const elapsed = Date.now() - new Date(value).getTime();
-  if (
-    Number.isFinite(elapsed)
-    && elapsed >= 24 * 60 * 60 * 1000
-    && elapsed < 48 * 60 * 60 * 1000
-  ) {
+  const now = Date.now();
+  const age = relativeTimeNode(documentNode, value, now);
+  const seconds = elapsedSeconds(value, now);
+  if (seconds !== null && seconds >= SECONDS_PER_DAY && seconds < SECONDS_PER_DAY * 2) {
     age.textContent = "yesterday";
   } else if (age.textContent !== "now") {
     age.textContent = `${age.textContent} ago`;
@@ -276,9 +275,13 @@ function combinedPlans(details) {
       right.method_is_complete_plan === true,
     ) - Number(left.method_is_complete_plan === true);
     if (relationOrder !== 0) return relationOrder;
-    const leftTime = new Date(leftSummary.last_at || 0).getTime() || 0;
-    const rightTime = new Date(rightSummary.last_at || 0).getTime() || 0;
-    if (leftTime !== rightTime) return rightTime - leftTime;
+    const leftTime = leftSummary.last_at == null ? null : instantMicros(leftSummary.last_at);
+    const rightTime = rightSummary.last_at == null ? null : instantMicros(rightSummary.last_at);
+    if (leftTime !== rightTime) {
+      if (leftTime === null) return 1;
+      if (rightTime === null) return -1;
+      return leftTime < rightTime ? 1 : -1;
+    }
     return String(left.project || "").localeCompare(
       String(right.project || ""),
     ) || String(left.slug || "").localeCompare(

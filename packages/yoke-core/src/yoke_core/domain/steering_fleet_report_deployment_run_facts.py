@@ -5,6 +5,10 @@ Facts are retrieved once for the live set; scoped QA uses qa_stage_outstanding.
 
 from __future__ import annotations
 
+from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
+
+from datetime import datetime
+
 from dataclasses import dataclass
 from typing import Any
 
@@ -39,7 +43,7 @@ class LiveRunFactMaps:
     """One report request's live-run status facts, keyed by run id."""
 
     qa_stage_run_ids: frozenset[str]
-    entered_at: dict[str, str]
+    entered_at: dict[str, datetime]
     red: dict[str, tuple[dict[str, Any], ...]]
     decisions: dict[str, dict[str, Any]]
     unresolved: dict[str, tuple[str, ...]]
@@ -98,7 +102,7 @@ def load_live_run_facts(
     return LiveRunFactMaps(
         qa_stage_run_ids=qa_stage_run_ids,
         entered_at={
-            str(run["id"]): str(run["current_stage_entered_at"])
+            str(run["id"]): parse_stamp(run["current_stage_entered_at"])
             for run in runs
             if run.get("current_stage_entered_at")
         },
@@ -211,14 +215,19 @@ def _resolved_decisions(
                AND status = 'resolved'""",
         params,
     ).fetchall()
-    best: dict[str, tuple[str, int, dict[str, Any]]] = {}
+    best: dict[str, tuple[datetime | None, int, dict[str, Any]]] = {}
     for raw in rows:
         row = row_dict(raw)
         key = str(row["subject_key"])
-        resolved_at = str(row.get("resolved_at") or "")
+        resolved_at = parse_stamp(row.get("resolved_at"))
         request_id = int(row["id"])
         previous = best.get(key)
-        if previous is None or (resolved_at, request_id) > previous[:2]:
+        key_order = (resolved_at is not None, resolved_at, request_id)
+        if previous is None or key_order > (
+            previous[0] is not None,
+            previous[0],
+            previous[1],
+        ):
             best[key] = (
                 resolved_at,
                 request_id,

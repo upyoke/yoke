@@ -69,7 +69,7 @@ def test_a_dead_launched_native_reports_its_launch_and_its_last_words(
     assert evidence["launch_id"] == LAUNCH_ID
     assert evidence["native_diagnostic_ref"] == f"nd-{LAUNCH_ID}"
     assert evidence["exit_code"] == 1
-    assert evidence["native_exit_at"] == "2026-09-03T16:12:03Z"
+    assert evidence["native_exit_at"] == "2026-09-03T16:12:03.000000Z"
     # The last line the native said, so the reason survives the machine that
     # produced it; the rest of the stream never leaves.
     assert evidence["native_stderr_tail"] == REFUSAL

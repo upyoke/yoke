@@ -29,6 +29,14 @@ def _day_filter(column_sql: str, days: Optional[int]) -> str:
     return f" AND {column_sql} >= {days_ago_text_expr(int(days))}"
 
 
+def _available_rows(db: BoardDBLike, sql: str, params: Tuple):
+    """Read only the figures the recorded payload can actually supply."""
+    probe = getattr(db, "has_query", None)
+    if callable(probe) and not probe(sql, params):
+        return []
+    return db.query(sql, params)
+
+
 # These series are heavy-tailed by nature: one repository-import commit or
 # one bulk document rewrite can be a hundred times an ordinary day. Scaling
 # against the raw maximum lets that single day flatten the other hundred and
@@ -68,7 +76,8 @@ def display_fraction(value: float, bound: float) -> float:
 
 
 def activity_items_query(
-    project_ids: Sequence[int], days: Optional[int],
+    project_ids: Sequence[int],
+    days: Optional[int],
 ) -> Tuple[str, Tuple]:
     """(sql, params) for the distinct-items activity component.
 
@@ -107,7 +116,8 @@ def activity_units_by_day(
         if row and row[0]:
             series[str(row[0])] += int(row[1] or 0)
     transition_day = day_text_expr("t.created_at")
-    for row in db.query(
+    for row in _available_rows(
+        db,
         "SELECT day, COUNT(*) AS total FROM ("
         f"  SELECT {transition_day} AS day, t.item_id AS item_id, "
         "         t.task_num AS task_num "
@@ -139,7 +149,8 @@ def issues_done_by_day(
         return {}
     transition_day = day_text_expr("t.created_at")
     counts: Dict[str, int] = {}
-    for row in db.query(
+    for row in _available_rows(
+        db,
         "SELECT day, COUNT(*) AS total FROM ("
         f"  SELECT {transition_day} AS day, t.item_id AS item_id, "
         "         COALESCE(CAST(t.task_num AS TEXT), '-') AS task_num "
@@ -199,7 +210,8 @@ def strategy_bytes_by_day(
 
 
 def _strategy_query(
-    project_ids: Sequence[int], days: Optional[int],
+    project_ids: Sequence[int],
+    days: Optional[int],
 ) -> Tuple[str, Tuple]:
     # The window runs over each document's whole saved history, and the day
     # cutoff is applied to the computed changes afterwards. Filtering first
@@ -207,7 +219,7 @@ def _strategy_query(
     # document's baseline and drop the change that revision actually made.
     revision_day = day_text_expr("created_at")
     adjacent = (
-        f"SELECT {revision_day} AS day, revision, byte_length, "
+        "SELECT created_at, revision, byte_length, "
         "LAG(byte_length) OVER "
         "(PARTITION BY project_id, slug ORDER BY revision) "
         "AS previous_byte_length "
@@ -215,7 +227,8 @@ def _strategy_query(
         f"WHERE project_id IN ({_markers(project_ids)})"
     )
     measured = (
-        "SELECT day, ABS(byte_length - COALESCE(previous_byte_length, 0)) "
+        f"SELECT {revision_day} AS day, "
+        "ABS(byte_length - COALESCE(previous_byte_length, 0)) "
         "AS size_change "
         f"FROM ({adjacent}) adjacent "
         "WHERE previous_byte_length IS NOT NULL OR revision = 1"
@@ -238,7 +251,8 @@ def _code_series(
     if not project_ids:
         return {}
     counts: Dict[str, int] = {}
-    for row in db.query(
+    for row in _available_rows(
+        db,
         f"SELECT day, SUM({column}) AS total "
         "FROM project_code_days "
         f"WHERE project_id IN ({_markers(project_ids)})"

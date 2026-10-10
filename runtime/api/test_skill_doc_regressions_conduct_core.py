@@ -1,10 +1,6 @@
-"""Doc regressions for conduct router activation, phased read, and sync cleanup.
+"""Conduct activation, contextual reads and sync-cleanup teaching contracts.
 
-Covers ``test-conduct-activation-gate.sh`` plus the phased-read and
-sync-cleanup regressions that share the conduct skill directory. The
-simulation-readback class lives in
-``test_skill_doc_regressions_conduct_simulation.py`` to keep this file under
-the 350-line cap.
+Simulation readback contracts live in test_skill_doc_regressions_conduct_simulation.
 """
 
 from __future__ import annotations
@@ -176,8 +172,15 @@ class TestConductSyncCleanupRegressions:
 
     def test_dispatch_context_uses_implementing_lifecycle(self):
         """dispatch-context.md auto-sync must use 'implementing', not 'ready'."""
-        text = " ".join((_read_dispatch_context(self.CONDUCT / "dispatch-context.md") + _read(self.CONDUCT / "entry-activation-resolution.md")).split())
-        assert "yoke lifecycle transition" in text and "--to {IMPLEMENTING_STAGE}" in text, (
+        text = " ".join(
+            (
+                _read_dispatch_context(self.CONDUCT / "dispatch-context.md")
+                + _read(self.CONDUCT / "entry-activation-resolution.md")
+            ).split()
+        )
+        assert (
+            "yoke lifecycle transition" in text and "--to {IMPLEMENTING_STAGE}" in text
+        ), (
             "dispatch-context.md auto-sync should use the lifecycle transition to implementing"
         )
 
@@ -197,7 +200,12 @@ class TestConductSyncCleanupRegressions:
 
     def test_dispatch_context_documents_no_diff_success(self):
         """dispatch-context.md must document that no tracked diff is a valid sync outcome."""
-        text = " ".join((_read_dispatch_context(self.CONDUCT / "dispatch-context.md") + _read(self.CONDUCT / "entry-activation-resolution.md")).split())
+        text = " ".join(
+            (
+                _read_dispatch_context(self.CONDUCT / "dispatch-context.md")
+                + _read(self.CONDUCT / "entry-activation-resolution.md")
+            ).split()
+        )
         assert "no tracked" in text.lower() or "nothing to commit" in text.lower(), (
             "dispatch-context.md must document that DB-only sync with no tracked diff is valid"
         )

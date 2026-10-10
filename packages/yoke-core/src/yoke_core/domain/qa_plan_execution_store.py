@@ -7,7 +7,8 @@ import json
 from typing import Any, Mapping
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import temporal_wire, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 
 # The unique live owner wins; history follows execution allocation, not snapshots.
@@ -26,7 +27,7 @@ def marker(conn: Any) -> str:
 
 
 def canonical(value: Any) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+    return json.dumps(temporal_wire(value), sort_keys=True, separators=(",", ":"))
 
 
 def roster_digest(roster: list[dict[str, Any]]) -> str:
@@ -219,11 +220,11 @@ def resume_owned_plan_execution(
         )
     if execution["state"] == "waiting":
         placeholder = marker(conn)
-        now = iso8601_now()
+        now = utc_now()
         conn.execute(
             "UPDATE qa_plan_executions SET state='active',"
             f"heartbeat_at={placeholder} WHERE id={placeholder}",
-            (now, str(execution["id"])),
+            (instant_parameter(conn, now), str(execution["id"])),
         )
         conn.commit()
         return select_plan_execution(conn, str(execution["id"]), lock=False)

@@ -15,7 +15,7 @@ from yoke_core.domain.dash_execution import (
     evaluate_dash_evidence,
     record_dash_evidence,
 )
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.direct_workflow_activation_gate import (
     evaluate_work_claim_activation,
 )
@@ -47,7 +47,7 @@ def _item_sections_contract(test_db):
         "item_id INTEGER NOT NULL REFERENCES items(id), "
         "section_name TEXT NOT NULL, content TEXT NOT NULL, "
         "ordering INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL, "
-        "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, "
+        "created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL, "
         "PRIMARY KEY(item_id, section_name))"
     )
     test_db.commit()
@@ -174,7 +174,7 @@ def test_task_activation_does_not_require_a_worktree(tmp_path, monkeypatch) -> N
         conn = connect_test_db(db_path)
         try:
             insert_item(conn, id=26822, workflow_id="task", status="idea")
-            now = iso8601_now()
+            now = utc_now()
             conn.execute(
                 "INSERT INTO harness_sessions "
                 "(session_id, executor, provider, model, workspace, "

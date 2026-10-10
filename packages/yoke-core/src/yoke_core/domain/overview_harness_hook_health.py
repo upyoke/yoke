@@ -19,7 +19,9 @@ deck's job, one line per status token.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import as_utc, format_instant, utc_now
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from yoke_contracts.harness_hook_approval import hook_approval
@@ -66,7 +68,8 @@ HARNESS_TARGETS: Tuple[Tuple[str, str, str, str], ...] = (
 #: installed when any of its own surfaces reported a version.
 FAMILY_SURFACES: Dict[str, Tuple[str, ...]] = {
     harness_id: tuple(
-        key for key, _label, family, rule in HARNESS_TARGETS
+        key
+        for key, _label, family, rule in HARNESS_TARGETS
         if family == harness_id and rule == MATCH_SURFACE_ALIAS
     )
     for _key, _label, harness_id, _rule in HARNESS_TARGETS
@@ -74,7 +77,9 @@ FAMILY_SURFACES: Dict[str, Tuple[str, ...]] = {
 
 
 def _matches(
-    target: Tuple[str, str, str, str], executor: str, display: str,
+    target: Tuple[str, str, str, str],
+    executor: str,
+    display: str,
 ) -> bool:
     key, _label, harness_id, rule = target
     if rule == MATCH_SURFACE_ALIAS:
@@ -85,7 +90,8 @@ def _matches(
 
 
 def _installed_version(
-    target: Tuple[str, str, str, str], installed: Mapping[str, Any],
+    target: Tuple[str, str, str, str],
+    installed: Mapping[str, Any],
 ) -> Optional[str]:
     """The relay-reported version for this target, when it reported one.
 
@@ -102,7 +108,8 @@ def _installed_version(
 
 
 def _is_installed(
-    target: Tuple[str, str, str, str], installed: Mapping[str, Any],
+    target: Tuple[str, str, str, str],
+    installed: Mapping[str, Any],
 ) -> bool:
     key, _label, harness_id, rule = target
     if rule == MATCH_SURFACE_ALIAS:
@@ -138,7 +145,7 @@ def _in_telemetry_window(row: Mapping[str, Any], *, now: datetime) -> bool:
 
 def _last_seen_at(matched: Sequence[Mapping[str, Any]]) -> Optional[str]:
     seen = [
-        (parsed, str(value))
+        (parsed, format_instant(parsed))
         for row in matched
         if (value := row.get("seen_at")) is not None
         if (parsed := parse_timestamp_utc(value)) is not None
@@ -147,7 +154,8 @@ def _last_seen_at(matched: Sequence[Mapping[str, Any]]) -> Optional[str]:
 
 
 def _report_for(
-    reports: Sequence[Mapping[str, Any]], harness_id: str,
+    reports: Sequence[Mapping[str, Any]],
+    harness_id: str,
 ) -> Optional[Mapping[str, Any]]:
     matched = [row for row in reports if row.get("harness_id") == harness_id]
     if not matched:
@@ -247,38 +255,49 @@ def harness_targets(
     ``harness_id``; ``installed_surfaces`` maps a relay-reported surface
     alias on this machine to the version it reported.
     """
-    clock = now or datetime.now(timezone.utc)
+    clock = as_utc(now) if now is not None else utc_now()
     stored = list(reports or ())
     installed = dict(installed_surfaces or {})
     targets: List[Dict[str, Any]] = []
     for target in HARNESS_TARGETS:
         key, label, harness_id, _rule = target
         matched = [
-            row for row in identities
-            if _matches(target, str(row.get("executor") or ""), str(row.get("display") or ""))
+            row
+            for row in identities
+            if _matches(
+                target, str(row.get("executor") or ""), str(row.get("display") or "")
+            )
         ]
         report = _report_for(stored, harness_id)
         surface_installed = _is_installed(target, installed)
         last_seen = _last_seen_at(matched)
         gate = hook_approval(harness_id)
         unapproved = _approval(report) == "unapproved"
-        targets.append({
-            "key": key,
-            "label": label,
-            "hit": bool(matched),
-            "version": _installed_version(target, installed),
-            "status": _status(
-                matched, report, installed=surface_installed,
-                last_seen=last_seen, now=clock,
-            ),
-            "hook_health": _health(
-                matched, report, installed=surface_installed, now=clock,
-            ),
-            "last_seen_at": last_seen,
-            "trust_surface": (
-                gate["trust_surface"] if gate is not None and unapproved else None
-            ),
-        })
+        targets.append(
+            {
+                "key": key,
+                "label": label,
+                "hit": bool(matched),
+                "version": _installed_version(target, installed),
+                "status": _status(
+                    matched,
+                    report,
+                    installed=surface_installed,
+                    last_seen=last_seen,
+                    now=clock,
+                ),
+                "hook_health": _health(
+                    matched,
+                    report,
+                    installed=surface_installed,
+                    now=clock,
+                ),
+                "last_seen_at": last_seen,
+                "trust_surface": (
+                    gate["trust_surface"] if gate is not None and unapproved else None
+                ),
+            }
+        )
     return targets
 
 
@@ -286,14 +305,16 @@ def session_identities(rows: Iterable[Sequence[Any]]) -> List[Dict[str, Any]]:
     """Normalize executor, surface, telemetry, episode, tool, and seen rows."""
     identities: List[Dict[str, Any]] = []
     for row in rows:
-        identities.append({
-            "executor": str(row[0]),
-            "display": str(row[1] or ""),
-            "hook_fed": int(row[2] or 0),
-            "episode_started_at": row[3] if len(row) > 3 else None,
-            "last_tool_call_at": row[4] if len(row) > 4 else None,
-            "seen_at": row[5] if len(row) > 5 else None,
-        })
+        identities.append(
+            {
+                "executor": str(row[0]),
+                "display": str(row[1] or ""),
+                "hook_fed": int(row[2] or 0),
+                "episode_started_at": row[3] if len(row) > 3 else None,
+                "last_tool_call_at": row[4] if len(row) > 4 else None,
+                "seen_at": row[5] if len(row) > 5 else None,
+            }
+        )
     return identities
 
 

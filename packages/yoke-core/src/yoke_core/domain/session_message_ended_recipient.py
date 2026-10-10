@@ -13,12 +13,13 @@ recovery is for the sender or seat to cancel it, never an automatic ack.
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+
 from datetime import datetime
 from typing import Any, Mapping
 from uuid import NAMESPACE_URL, uuid5
 
 from yoke_core.domain.session_mode import session_is_parked
-from yoke_core.domain.session_message_types import timestamp
 from yoke_core.domain.session_relay_evidence import redacted_evidence
 from yoke_core.domain.session_relay_storage import marker
 
@@ -104,8 +105,8 @@ def _record(
             session_id,
             "wake_relay",
             _ADAPTER_REVISION,
-            timestamp(now),
-            timestamp(now),
+            instant_parameter(conn, now),
+            instant_parameter(conn, now),
             result_code,
             redacted_evidence(evidence),
         ),

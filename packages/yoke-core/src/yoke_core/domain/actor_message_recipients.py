@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
+
+from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.domain import db_backend
@@ -14,7 +18,6 @@ from yoke_contracts.fleet_policy import MESSAGE_EXPIRY_HOURS, MAX_BODY_BYTES
 from yoke_core.domain.session_message_types import (
     SessionMessageError,
     row_dict,
-    timestamp,
     utc_now,
 )
 
@@ -163,7 +166,7 @@ def insert_actor_recipient_rows(
     created_at: datetime,
 ) -> None:
     marker = _p(conn)
-    stamp = timestamp(created_at)
+    stamp = instant_parameter(conn, created_at)
     for recipient in recipients:
         conn.execute(
             "INSERT INTO actor_message_recipients "
@@ -197,8 +200,9 @@ def actor_recipients_for_message(conn: Any, message_id: str) -> list[dict[str, A
 
 
 def expire_due_actor_recipients(conn: Any, *, now: datetime | None = None) -> int:
+    now = parse_instant(utc_now() if now is None else now)
     marker = _p(conn)
-    stamp = timestamp(now or utc_now())
+    stamp = instant_parameter(conn, now)
     cursor = conn.execute(
         "UPDATE actor_message_recipients SET state='expired',expired_at="
         + marker
@@ -218,6 +222,7 @@ def acknowledge_actor_recipient(
     actor_id: int,
     read_at: datetime | None = None,
 ) -> None:
+    read_at = parse_instant(utc_now() if read_at is None else read_at)
     from yoke_core.domain.session_message_store import begin_message_mutation
 
     begin_message_mutation(conn)
@@ -249,7 +254,7 @@ def acknowledge_actor_recipient(
         "UPDATE actor_message_recipients SET state='read',read_at="
         + marker
         + f" WHERE message_id={marker} AND actor_id={marker} AND state='pending'",
-        (timestamp(read_at or utc_now()), message_id, actor_id),
+        (instant_parameter(conn, read_at), message_id, actor_id),
     )
     if cursor.rowcount != 1:
         raise SessionMessageError(
@@ -266,7 +271,7 @@ def expire_actor_recipients_for_cancel(
         + marker
         + f" WHERE message_id={marker} AND recipient_kind={marker} "
         "AND state='pending'",
-        (timestamp(expired_at), message_id, ACTOR_KIND),
+        (instant_parameter(conn, expired_at), message_id, ACTOR_KIND),
     )
 
 
@@ -292,7 +297,7 @@ def actor_message_ids(
         + f" AND m.cancelled_at IS NULL AND m.expires_at>{marker}"
         + " ORDER BY m.created_at DESC,m.message_id LIMIT "
         + marker,
-        tuple([*params[:-1], timestamp(utc_now()), params[-1]]),
+        tuple([*params[:-1], instant_parameter(conn, utc_now()), params[-1]]),
     ).fetchall()
     return [str(row[0]) for row in rows]
 

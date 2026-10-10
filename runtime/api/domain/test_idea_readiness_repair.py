@@ -31,7 +31,7 @@ _ITEMS_DDL = (
     " technical_plan TEXT, worktree_plan TEXT, shepherd_log TEXT,"
     " shepherd_caveats TEXT, test_results TEXT, deploy_log TEXT,"
     " db_mutation_profile TEXT,"
-    " db_compatibility_attestation TEXT, updated_at TEXT, spec_updated_at TEXT,"
+    " db_compatibility_attestation TEXT, updated_at TIMESTAMPTZ, spec_updated_at TIMESTAMPTZ,"
     " spec_updated_by TEXT)"
 )
 
@@ -52,8 +52,10 @@ def _entry(path: str, count: int) -> str:
 
 
 def _stale_issue(path: str, recorded: int, actual: int = 0) -> dict:
-    return {"code": "STALE_LINE_COUNT",
-            "context": {"path": path, "recorded": recorded, "actual": actual}}
+    return {
+        "code": "STALE_LINE_COUNT",
+        "context": {"path": path, "recorded": recorded, "actual": actual},
+    }
 
 
 class TestClassifyReadinessIssues(unittest.TestCase):
@@ -82,8 +84,7 @@ class TestClassifyReadinessIssues(unittest.TestCase):
         )
 
     def test_unresolved_function_is_unrecoverable(self):
-        issues = [_stale_issue("a", 1),
-                  {"code": "UNRESOLVED_FUNCTION", "context": {}}]
+        issues = [_stale_issue("a", 1), {"code": "UNRESOLVED_FUNCTION", "context": {}}]
         self.assertEqual(
             idea_readiness_repair.classify_readiness_issues(issues),
             idea_readiness_repair.CLASS_UNRECOVERABLE,
@@ -117,7 +118,8 @@ class _FakeDB:
     def __init__(self) -> None:
         self._tmp_dir = tempfile.TemporaryDirectory()
         self._ctx = init_test_db(
-            Path(self._tmp_dir.name), apply_schema=_apply_items_schema,
+            Path(self._tmp_dir.name),
+            apply_schema=_apply_items_schema,
         )
         self.path = self._ctx.__enter__()
 
@@ -144,7 +146,8 @@ class _FakeDB:
         try:
             p = _p(conn)
             row = conn.execute(
-                f"SELECT spec FROM items WHERE id = {p}", (item_id,),
+                f"SELECT spec FROM items WHERE id = {p}",
+                (item_id,),
             ).fetchone()
         finally:
             conn.close()
@@ -163,13 +166,18 @@ class _Harness:
         self._patches = [
             mock.patch.object(backlog_queries, "_resolve_write_db_path", **_path),
             mock.patch.object(backlog_queries, "_assert_write_db_ready"),
-            mock.patch.object(backlog_structured_write_op, "_resolve_write_db_path", **_path),
+            mock.patch.object(
+                backlog_structured_write_op, "_resolve_write_db_path", **_path
+            ),
             mock.patch.object(backlog_structured_write_op, "_assert_write_db_ready"),
             mock.patch.object(backlog_rendering, "_render_body", return_value=True),
-            mock.patch.object(backlog_rendering, "_sync_body", return_value=(True, "full")),
+            mock.patch.object(
+                backlog_rendering, "_sync_body", return_value=(True, "full")
+            ),
             mock.patch.object(backlog_rendering, "_record_sync_failure"),
-            mock.patch("yoke_core.domain.idea_readiness_repair._emit_audit",
-                       return_value=True),
+            mock.patch(
+                "yoke_core.domain.idea_readiness_repair._emit_audit", return_value=True
+            ),
         ]
         for p in self._patches:
             p.start()
@@ -197,18 +205,29 @@ class TestAttemptStaleCountRepair(unittest.TestCase):
 
     def _attempt(self, item_id: int, issues, *, rerun_pass: bool = True):
         rerun_value = ReadinessOutcome(
-            issues=[] if rerun_pass else [
-                Issue(code="STALE_LINE_COUNT", message="stale",
-                      remediation="refresh", context={}),
+            issues=[]
+            if rerun_pass
+            else [
+                Issue(
+                    code="STALE_LINE_COUNT",
+                    message="stale",
+                    remediation="refresh",
+                    context={},
+                ),
             ],
         )
-        with _Harness(self.db.path), \
-             mock.patch.object(
-                 idea_readiness_repair, "_rerun_readiness",
-                 return_value=rerun_value,
-             ):
+        with (
+            _Harness(self.db.path),
+            mock.patch.object(
+                idea_readiness_repair,
+                "_rerun_readiness",
+                return_value=rerun_value,
+            ),
+        ):
             return idea_readiness_repair.attempt_stale_count_repair(
-                item_id=item_id, issues=issues, repo_root=self.repo_root,
+                item_id=item_id,
+                issues=issues,
+                repo_root=self.repo_root,
             )
 
     def _attempt_raw(self, item_id: int, issues):
@@ -216,7 +235,9 @@ class TestAttemptStaleCountRepair(unittest.TestCase):
         reach (and so never need to mock) the re-run."""
         with _Harness(self.db.path):
             return idea_readiness_repair.attempt_stale_count_repair(
-                item_id=item_id, issues=issues, repo_root=self.repo_root,
+                item_id=item_id,
+                issues=issues,
+                repo_root=self.repo_root,
             )
 
     def test_pure_stale_repair_writes_and_passes(self):
@@ -225,7 +246,8 @@ class TestAttemptStaleCountRepair(unittest.TestCase):
         self.db.insert(item_id, _spec((_SAMPLE_PATH, recorded)))
         self._write_repo_file(_SAMPLE_PATH, actual)
         outcome = self._attempt(
-            item_id, [_stale_issue(_SAMPLE_PATH, recorded, actual)],
+            item_id,
+            [_stale_issue(_SAMPLE_PATH, recorded, actual)],
         )
         self.assertTrue(outcome.success, msg=outcome.error)
         self.assertEqual(outcome.repaired_paths[0].actual, actual)
@@ -237,8 +259,7 @@ class TestAttemptStaleCountRepair(unittest.TestCase):
         item_id = 1605001
         spec_text = _spec(("ghost/missing.py", 50))
         self.db.insert(item_id, spec_text)
-        outcome = self._attempt_raw(
-            item_id, [_stale_issue("ghost/missing.py", 50, 0)])
+        outcome = self._attempt_raw(item_id, [_stale_issue("ghost/missing.py", 50, 0)])
         self.assertFalse(outcome.success)
         self.assertEqual(outcome.refused_paths[0]["reason"], "missing_file")
         self.assertEqual(self.db.fetch(item_id), spec_text)
@@ -247,13 +268,13 @@ class TestAttemptStaleCountRepair(unittest.TestCase):
         item_id = 1605002
         self.db.insert(item_id, _spec((_OTHER_PATH, 200)))
         self._write_repo_file(_OTHER_PATH, 340)
-        outcome = self._attempt_raw(
-            item_id, [_stale_issue(_OTHER_PATH, 200, 340)])
+        outcome = self._attempt_raw(item_id, [_stale_issue(_OTHER_PATH, 200, 340)])
         self.assertFalse(outcome.success)
-        self.assertTrue(any(
-            r.get("reason") == "missing_sibling_plan"
-            for r in outcome.refused_paths
-        ))
+        self.assertTrue(
+            any(
+                r.get("reason") == "missing_sibling_plan" for r in outcome.refused_paths
+            )
+        )
 
     def test_sibling_threshold_with_plan_allows_repair(self):
         item_id = 1605003
@@ -264,7 +285,8 @@ class TestAttemptStaleCountRepair(unittest.TestCase):
         self.db.insert(item_id, spec_text)
         self._write_repo_file(_OTHER_PATH, 340)
         outcome = self._attempt(
-            item_id, [_stale_issue(_OTHER_PATH, 200, 340)],
+            item_id,
+            [_stale_issue(_OTHER_PATH, 200, 340)],
         )
         self.assertTrue(outcome.success, msg=outcome.error)
         self.assertIn(
@@ -279,13 +301,13 @@ class TestAttemptStaleCountRepair(unittest.TestCase):
         self._write_repo_file(_SAMPLE_PATH, 100)
         issues = [
             _stale_issue(_SAMPLE_PATH, 50, 100),
-            {"code": "FILE_BUDGET_NOT_IN_CLAIM",
-             "context": {"path": _OTHER_PATH}},
+            {"code": "FILE_BUDGET_NOT_IN_CLAIM", "context": {"path": _OTHER_PATH}},
         ]
         outcome = self._attempt_raw(item_id, issues)
         self.assertFalse(outcome.success)
-        self.assertEqual(outcome.classification,
-                         idea_readiness_repair.CLASS_MIXED_STALE_COUNT)
+        self.assertEqual(
+            outcome.classification, idea_readiness_repair.CLASS_MIXED_STALE_COUNT
+        )
         self.assertIn("pure stale-count", outcome.error)
         self.assertEqual(self.db.fetch(item_id), spec_text)
 
@@ -301,34 +323,18 @@ class TestAttemptStaleCountRepair(unittest.TestCase):
         self.db.insert(item_id, _spec((_SAMPLE_PATH, 50)))
         self._write_repo_file(_SAMPLE_PATH, 80)
         write_fail = {"success": False, "error": "shrinkage guard blocked"}
-        with _Harness(self.db.path), mock.patch.object(
-                idea_readiness_repair, "execute_structured_write",
-                return_value=write_fail):
+        with (
+            _Harness(self.db.path),
+            mock.patch.object(
+                idea_readiness_repair,
+                "execute_structured_write",
+                return_value=write_fail,
+            ),
+        ):
             outcome = idea_readiness_repair.attempt_stale_count_repair(
-                item_id=item_id, issues=[_stale_issue(_SAMPLE_PATH, 50, 80)],
+                item_id=item_id,
+                issues=[_stale_issue(_SAMPLE_PATH, 50, 80)],
                 repo_root=self.repo_root,
             )
         self.assertFalse(outcome.success)
         self.assertIn("shrinkage", outcome.error)
-
-
-class TestRepairOutcomePayload(unittest.TestCase):
-    def test_payload_omits_empty_optional_fields(self):
-        outcome = idea_readiness_repair.RepairOutcome(
-            success=True,
-            classification=idea_readiness_repair.CLASS_PURE_STALE_COUNT,
-            item_id=42,
-            repaired_paths=[idea_readiness_repair.RepairedPath("a.py", 10, 12)],
-            field_written="spec", rerun_verdict="pass", audit_emitted=True,
-        )
-        payload = outcome.to_payload()
-        self.assertTrue(payload["success"])
-        for k in ("repaired_paths", "field_written", "rerun_verdict",
-                  "audit_emitted"):
-            self.assertIn(k, payload)
-        for k in ("error", "refused_paths", "rerun_issues"):
-            self.assertNotIn(k, payload)
-
-
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()

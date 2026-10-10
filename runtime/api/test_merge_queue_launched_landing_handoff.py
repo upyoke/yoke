@@ -1,5 +1,7 @@
 """A launched worker arms the landing and closes out on the notice."""
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.merge_queue_landing_test_helpers import (
     LANE_SHA,
     MERGED,
@@ -19,7 +21,8 @@ def test_launched_session_arms_and_returns_even_when_wait_was_asked_for(monkeypa
         route_mod,
         "mark_landing_pending",
         lambda item_id, pr_num, **_kw: (
-            marked.append((item_id, pr_num)) or ("2026-09-04T20:00:00Z", "")
+            marked.append((item_id, pr_num))
+            or (parse_instant("2026-09-04T20:00:00Z"), "")
         ),
     )
     monkeypatch.setattr(
@@ -36,7 +39,7 @@ def test_launched_session_arms_and_returns_even_when_wait_was_asked_for(monkeypa
     assert outcome.ok
     assert outcome.landing_pending
     assert outcome.pr_num == "42"
-    assert outcome.enqueued_at == "2026-09-04T20:00:00Z"
+    assert outcome.enqueued_at == parse_instant("2026-09-04T20:00:00Z")
     assert marked == [("YOK-200", "42")]
     assert "landing_pending=true" in announced[0]
     assert "waiting on landing" in announced[0]

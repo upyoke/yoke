@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+
+from datetime import datetime
+
 from typing import Any
 
 from yoke_core.domain.session_launch_binding_evidence import (
@@ -83,7 +88,7 @@ def adopt_attested_session_identity(
     launch: LaunchRecord,
     session_id: str,
     facts: dict[str, Any],
-    now: str,
+    now: datetime | str,
 ) -> LaunchRecord:
     """Recover a missing native id from a validated launch attestation."""
     if (
@@ -128,8 +133,8 @@ def _insert_pending_recipient(
     launch: LaunchRecord,
     session_id: str,
     facts: dict[str, Any],
-    now: str,
-    wake_after: str,
+    now: datetime | str,
+    wake_after: datetime,
 ) -> None:
     p = marker(conn)
     resolution = canonical_json({"anchor": "launch", "launch_id": launch.launch_id})
@@ -150,8 +155,8 @@ def _insert_pending_recipient(
         facts["version"],
         facts["machine_id"],
         "pending",
-        now,
-        wake_after,
+        instant_parameter(conn, parse_instant(now)),
+        instant_parameter(conn, parse_instant(wake_after)),
     )
     conn.execute(
         "INSERT INTO session_message_recipients "
@@ -179,8 +184,8 @@ def bind_launch_to_session(
     launch: LaunchRecord,
     session_id: str,
     facts: dict[str, Any],
-    now: str,
-    wake_after: str,
+    now: datetime | str,
+    wake_after: datetime,
 ) -> LaunchRecord:
     """Bind one exact session and make its launch instruction deliverable.
 
@@ -220,7 +225,7 @@ def bind_existing_registered_session(
     conn: Any,
     *,
     launch: LaunchRecord,
-    now: str,
+    now: datetime | str,
 ) -> LaunchRecord:
     """Bind a native session that registered before relay correlation finished."""
     session_id = str(launch.native_session_id or "").strip()

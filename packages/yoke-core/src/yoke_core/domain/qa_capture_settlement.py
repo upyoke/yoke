@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from typing import Any, Mapping
+from datetime import datetime
 
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import parse_instant, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.qa_constants import case_outcome_for_verdict
 from yoke_core.domain.qa_plan_execution_store import marker, result_rows
 from yoke_core.domain.qa_run_verdict_record import (
@@ -29,7 +31,7 @@ def stamp_reviewed_capture(
     *,
     verdict: str,
     rationale: str,
-    created_at: str,
+    created_at: datetime | str,
 ) -> QaRunWrite:
     """Judge the actual capture while retaining its start and proof payload.
 
@@ -108,7 +110,7 @@ def settle_unreviewed_execution_captures(
         f"AND performed_by IN ({runners}) AND verdict IS NULL ORDER BY id",
         (*(value for binding in captures for value in binding), *CAPTURE_RUNNERS),
     ).fetchall()
-    now = iso8601_now()
+    now = utc_now()
     for row in unjudged:
         update_qa_run(
             conn,
@@ -161,15 +163,15 @@ def record_inflight_case_failure(
     if requirement_id is None:
         return
     placeholder = marker(conn)
-    started_at = str(execution.get("created_at") or "")
+    started_at = parse_instant(execution.get("created_at"))
     existing = conn.execute(
         f"SELECT id FROM qa_runs WHERE qa_requirement_id={placeholder} "
         f"AND created_at >= {placeholder} LIMIT 1",
-        (int(requirement_id), started_at),
+        (int(requirement_id), instant_parameter(conn, started_at)),
     ).fetchone()
     if existing is not None:
         return
-    now = iso8601_now()
+    now = utc_now()
     insert_qa_run(
         conn,
         qa_requirement_id=int(requirement_id),
@@ -181,7 +183,7 @@ def record_inflight_case_failure(
         # execution_status rather than a capture outcome.
         execution_status=None,
         case_outcome=case_outcome_for_verdict(INFLIGHT_CASE_FAILURE_VERDICT),
-        started_at=started_at or now,
+        started_at=started_at,
         completed_at=now,
         created_at=now,
     )

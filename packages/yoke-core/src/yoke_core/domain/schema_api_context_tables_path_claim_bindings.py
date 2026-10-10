@@ -9,7 +9,7 @@ PATH_CLAIM_BINDING_TABLES: dict[str, dict] = {
             ("id", "INTEGER"),
             ("claim_id", "INTEGER"),
             ("target_id", "INTEGER"),
-            ("declared_at", "TEXT"),
+            ("declared_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Join table: path_claims (claim_id) -> path_targets "
@@ -23,7 +23,7 @@ PATH_CLAIM_BINDING_TABLES: dict[str, dict] = {
             ("claim_id", "INTEGER"),
             ("epic_id", "INTEGER"),
             ("task_num", "INTEGER"),
-            ("bound_at", "TEXT"),
+            ("bound_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Durable task scope for item-owned path claims. A row binds "

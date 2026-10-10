@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.timestamps import parse_instant
+
 import pytest
 
 from yoke_contracts.github_app_installation_permissions import (
@@ -59,8 +61,8 @@ class TestHappyPath:
         assert not hasattr(result, "env")
         assert result.installation_id == "12345"
         assert result.token_source == "github_app_installation"
-        assert result.token_issued_at == "2026-07-09T17:00:00+00:00"
-        assert result.token_expires_at == "2026-07-09T18:00:00+00:00"
+        assert result.token_issued_at == parse_instant("2026-07-09T17:00:00Z")
+        assert result.token_expires_at == parse_instant("2026-07-09T18:00:00Z")
         assert "ghs_install" not in repr(result)
         assert seen["issuer"] == "Iv1.local"
         assert seen["private_key_pem"] == "test-private-key"

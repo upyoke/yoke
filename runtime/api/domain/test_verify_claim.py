@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import io
 import json
 import os
@@ -192,8 +194,8 @@ class TestVerify(unittest.TestCase):
 _WORK_CLAIMS_DDL = (
     "CREATE TABLE work_claims ("
     "id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT, "
-    "scope TEXT, claim_type TEXT, claimed_at TEXT, "
-    "released_at TEXT)"
+    "scope TEXT, claim_type TEXT, claimed_at TIMESTAMPTZ, "
+    "released_at TIMESTAMPTZ)"
 )
 
 
@@ -256,7 +258,7 @@ class TestFetchClaimIdForms(unittest.TestCase):
                         "sid-a",
                         make_item_target(42).scope_json(),
                         "exclusive",
-                        "2026-01-01T00:00:00Z",
+                        parse_instant("2026-01-01T00:00:00Z"),
                     ),
                 )
                 seed.commit()
@@ -291,8 +293,8 @@ class TestFetchClaimIdForms(unittest.TestCase):
                         "sid-a",
                         make_item_target(42).scope_json(),
                         "exclusive",
-                        "2026-01-01T00:00:00Z",
-                        "2026-01-02T00:00:00Z",
+                        parse_instant("2026-01-01T00:00:00Z"),
+                        parse_instant("2026-01-02T00:00:00Z"),
                     ),
                 )
                 seed.commit()

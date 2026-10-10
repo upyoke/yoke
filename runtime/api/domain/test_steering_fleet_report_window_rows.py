@@ -15,7 +15,7 @@ from yoke_core.domain.steering_fleet_plan_capacity import (
 )
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 
-_NOW = "2026-09-01T13:20:00Z"
+_NOW = "2026-09-01T13:20:00.000000Z"
 _HOST = PLAN_LIMIT_HOST
 _row = plan_limit_row
 
@@ -28,14 +28,14 @@ def _fleet_windows() -> tuple[MachinePlanLimit, ...]:
             plan_tier="max",
             window_kind="rolling_5h",
             remaining_percent=79.0,
-            resets_at="2026-09-01T22:50:00Z",
+            resets_at="2026-09-01T22:50:00.000000Z",
         ),
         _row(
             surface="claude-cli",
             plan_tier="max",
             window_kind="rolling_7d",
             remaining_percent=96.0,
-            resets_at="2026-09-04T01:00:00Z",
+            resets_at="2026-09-04T01:00:00.000000Z",
         ),
         _row(
             surface="claude-cli",
@@ -43,7 +43,7 @@ def _fleet_windows() -> tuple[MachinePlanLimit, ...]:
             window_kind="rolling_7d",
             scope="Fable",
             remaining_percent=55.0,
-            resets_at="2026-09-04T01:00:00Z",
+            resets_at="2026-09-04T01:00:00.000000Z",
         ),
         _row(
             surface="codex-cli",
@@ -51,14 +51,14 @@ def _fleet_windows() -> tuple[MachinePlanLimit, ...]:
             window_kind="rolling_5h",
             scope="GPT-5.3-Codex-Spark",
             remaining_percent=100.0,
-            resets_at="2026-09-02T00:30:00Z",
+            resets_at="2026-09-02T00:30:00.000000Z",
         ),
         _row(
             surface="codex-cli",
             plan_tier="pro",
             window_kind="rolling_7d",
             remaining_percent=81.0,
-            resets_at="2026-09-07T13:06:00Z",
+            resets_at="2026-09-07T13:06:00.000000Z",
         ),
         _row(),
     )
@@ -111,12 +111,12 @@ def test_headroom_is_computed_from_each_window_own_length() -> None:
                 window_kind="rolling_7d",
                 scope="Fable",
                 remaining_percent=50.0,
-                resets_at="2026-09-02T13:20:00Z",
+                resets_at="2026-09-02T13:20:00.000000Z",
             ),
             now=_NOW,
         ),
         compute_plan_limit(
-            _row(remaining_percent=50.0, resets_at="2026-09-02T13:20:00Z"),
+            _row(remaining_percent=50.0, resets_at="2026-09-02T13:20:00.000000Z"),
             now=_NOW,
         ),
     )

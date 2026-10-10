@@ -6,6 +6,8 @@ shared seeds/builders live in ``_strategy_docs_test_helpers``.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from pathlib import Path
 from unittest.mock import patch
 
@@ -52,7 +54,10 @@ def checkout(tmp_db: str, tmp_path: Path) -> Path:
 
 def _ingest_request(payload: dict, session_id: str = SESSION_WITHOUT_CLAIM):
     return build_request(
-        "strategy.ingest.run", payload, session_id=session_id, actor_id="42",
+        "strategy.ingest.run",
+        payload,
+        session_id=session_id,
+        actor_id="42",
     )
 
 
@@ -66,11 +71,15 @@ class TestForeignClaimRefusal:
             conn.close()
 
     def test_terminal_session_may_ingest_without_live_claim(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         edit_rendered_body(checkout, "PAD", SEED_CONTENT["PAD"] + "Edit.\n")
         with patch.object(
-            doc_handlers._events, "emit_event", return_value=ok_emit(),
+            doc_handlers._events,
+            "emit_event",
+            return_value=ok_emit(),
         ) as emit:
             outcome = handlers.handle_ingest(
                 _ingest_request(
@@ -84,7 +93,9 @@ class TestForeignClaimRefusal:
         assert emit.call_args.kwargs["session_id"] == ""
 
     def test_bounces_when_another_session_holds_the_claim(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         self._claim_held_by(tmp_db, SESSION_WITH_CLAIM)
         edit_rendered_body(checkout, "PAD", SEED_CONTENT["PAD"] + "Edit.\n")
@@ -106,10 +117,12 @@ class TestForeignClaimRefusal:
             ).fetchone()
         finally:
             conn.close()
-        assert str(row["updated_at"]) == SEED_UPDATED_AT
+        assert format_instant(row["updated_at"]) == SEED_UPDATED_AT
 
     def test_terminal_session_bounces_when_any_session_holds_claim(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         self._claim_held_by(tmp_db, SESSION_WITH_CLAIM)
         edit_rendered_body(checkout, "PAD", SEED_CONTENT["PAD"] + "Edit.\n")
@@ -124,12 +137,16 @@ class TestForeignClaimRefusal:
         assert SESSION_WITH_CLAIM in outcome.error.message
 
     def test_claim_holder_session_may_ingest(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         self._claim_held_by(tmp_db, SESSION_WITH_CLAIM)
         edit_rendered_body(checkout, "PAD", SEED_CONTENT["PAD"] + "Edit.\n")
         with patch.object(
-            doc_handlers._events, "emit_event", return_value=ok_emit(),
+            doc_handlers._events,
+            "emit_event",
+            return_value=ok_emit(),
         ):
             outcome = handlers.handle_ingest(
                 _ingest_request(
@@ -141,7 +158,9 @@ class TestForeignClaimRefusal:
         assert outcome.result_payload["docs"][0]["status"] == "written"
 
     def test_dry_run_previews_under_a_foreign_claim(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         self._claim_held_by(tmp_db, SESSION_WITH_CLAIM)
         edit_rendered_body(checkout, "PAD", SEED_CONTENT["PAD"] + "Edit.\n")
@@ -153,4 +172,3 @@ class TestForeignClaimRefusal:
         )
         assert outcome.primary_success is True
         assert outcome.result_payload["docs"][0]["status"] == "changed"
-

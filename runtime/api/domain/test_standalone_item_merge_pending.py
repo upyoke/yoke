@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
+
+import pytest
 from pathlib import Path
 
+from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_pending as pending
+from yoke_core.domain.merge_queue_landing_outcome import QueueLandingOutcome
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
 
 
@@ -39,7 +45,7 @@ def test_pending_landing_exits_without_evidence_or_terminal_transition(
             commit_sha="1" * 40,
             landing_pending=True,
             pr_num="42",
-            enqueued_at="2026-08-27T18:00:00Z",
+            enqueued_at=parse_instant("2026-08-27T18:00:00Z"),
         ), ""
 
     monkeypatch.setattr(merge_cli.verify, "verify_and_land", enqueue)
@@ -66,6 +72,7 @@ def test_pending_landing_exits_without_evidence_or_terminal_transition(
     assert payload["landing_pending"] is True
     assert payload["pr_number"] == "42"
     assert payload["evidence_recorded"] is False
+    assert payload["enqueued_at"] == "2026-08-27T18:00:00.000000Z"
 
 
 def test_wait_flag_reaches_the_landing_route(monkeypatch):
@@ -103,3 +110,76 @@ def test_wait_flag_reaches_the_landing_route(monkeypatch):
         )
         == 1
     )
+
+
+@pytest.mark.parametrize(
+    "clock",
+    [
+        *[
+            datetime(1969, 12, 31, 23, 59, 59, microsecond, timezone.utc).astimezone(
+                zone
+            )
+            for microsecond in (0, 123456)
+            for zone in (
+                timezone.utc,
+                timezone(timedelta(hours=5, minutes=30)),
+                timezone(timedelta(hours=-4)),
+            )
+        ],
+        None,
+    ],
+)
+def test_queue_outcomes_keep_native_clock_until_pending_json(clock):
+    instant = None if clock is None else clock.astimezone(timezone.utc)
+    queued = QueueLandingOutcome(ok=True, exit_code=0, enqueued_at=clock)
+    outcome = StandaloneMergeOutcome(
+        ok=True,
+        exit_code=0,
+        already_merged=False,
+        enqueued_at=queued.enqueued_at,
+        commit_sha="opaque sha",
+        pr_num="opaque pr",
+        warnings=("opaque warning",),
+    )
+    assert queued.enqueued_at == outcome.enqueued_at == instant
+    if instant is not None:
+        assert outcome.enqueued_at.utcoffset() == timedelta(0)
+    payload = json.loads(
+        json.dumps(
+            pending.envelope(
+                item_id=7,
+                public_ref="ITEM-1",
+                branch="opaque branch",
+                target="main",
+                status="review",
+                outcome=outcome,
+            )
+        )
+    )
+    assert payload["enqueued_at"] == (
+        None if instant is None else format_instant(instant)
+    )
+    assert payload["commit_sha"] == "opaque sha"
+    assert payload["pr_number"] == "opaque pr"
+    assert payload["warnings"] == ["opaque warning"]
+
+
+@pytest.mark.parametrize(
+    "clock",
+    [
+        "",
+        "2026-10-09",
+        "2026-10-09T10:11:12",
+        "2026-10-09T10:11:12-00:00",
+        "1969-12-31T23:59:59.123456Z",
+        "1970-01-01T05:29:59.123456+05:30",
+        datetime(1969, 12, 31, 23, 59, 59, 123456),
+    ],
+)
+def test_queue_outcome_constructor_refuses_unqualified_clock(clock):
+    with pytest.raises(InvalidInstant):
+        QueueLandingOutcome(ok=True, exit_code=0, enqueued_at=clock)
+    with pytest.raises(InvalidInstant):
+        StandaloneMergeOutcome(
+            ok=True, exit_code=0, already_merged=False, enqueued_at=clock
+        )

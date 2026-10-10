@@ -13,7 +13,12 @@ the split files thin.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+from runtime.api.events_crud_test_fixtures import _instant_offset_days
+from runtime.api.fixtures.backlog_insert_support import placeholder
 from typing import Any, Optional
 
 import pytest
@@ -26,14 +31,8 @@ from yoke_core.domain.migration_audit_schema import ensure_migration_audit_table
 from runtime.api.fixtures.file_test_db import init_test_db
 
 
-def _iso_offset_days(days: int) -> str:
-    return (datetime.now(timezone.utc) + timedelta(days=days)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
-
-
-_SEVEN_DAYS_AGO = _iso_offset_days(-7)
-_THIRTY_DAYS_AGO = _iso_offset_days(-30)
+_SEVEN_DAYS_AGO = _instant_offset_days(-7)
+_THIRTY_DAYS_AGO = _instant_offset_days(-30)
 
 
 # Synthetic test item ID — not a real backlog item reference.
@@ -58,7 +57,7 @@ def _insert_event_direct(
     project: str = "yoke",
     anomaly_flags: Optional[str] = None,
     envelope: Optional[str] = None,
-    created_at: Optional[str] = None,
+    created_at: str | datetime | None = None,
     **kwargs,
 ) -> Any:
     """Insert an event row directly into the test DB."""
@@ -81,11 +80,14 @@ def _insert_event_direct(
 
 def _setup_severity_config(conn: Any) -> None:
     """Insert default severity_config row."""
+    clock = instant_parameter(conn, parse_instant("2026-01-01T00:00:00Z"))
+    p = placeholder(conn)
     conn.execute(
         "INSERT INTO severity_config "
         "(event_name, source_type, min_severity, created_at) "
-        "VALUES ('*', '*', 'INFO', '2026-01-01T00:00:00Z') "
-        "ON CONFLICT DO NOTHING"
+        f"VALUES ('*', '*', 'INFO', {p}) "
+        "ON CONFLICT DO NOTHING",
+        (clock,),
     )
     conn.commit()
 
@@ -171,7 +173,7 @@ def empty_db_path(tmp_path):
 
 
 __all__ = [
-    "_iso_offset_days",
+    "_instant_offset_days",
     "_SEVEN_DAYS_AGO",
     "_THIRTY_DAYS_AGO",
     "TEST_ITEM_ID",

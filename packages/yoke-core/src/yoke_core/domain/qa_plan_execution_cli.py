@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-import json
+from yoke_core.domain.json_helper import dumps_compact
 import os
 import shlex
 import sys
@@ -276,7 +276,7 @@ def run(args: List[str]) -> int:
             print(f"yoke qa plan run: {exc}", file=sys.stderr)
             return 2
     _report_case_failures(result)
-    print(json.dumps(result, sort_keys=True))
+    print(dumps_compact(result))
     state = result.get("state")
     if state == "waiting":
         return WAITING_RETRY_EXIT

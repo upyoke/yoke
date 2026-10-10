@@ -29,7 +29,8 @@ from __future__ import annotations
 import os
 import re
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now, parse_instant
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
 
@@ -59,7 +60,8 @@ def default_artifact_name(
     now: Optional[datetime] = None,
 ) -> str:
     """``<org-slug>-universe-<utc-timestamp>.tar``."""
-    stamp = (now or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%SZ")
+    now = parse_instant(utc_now() if now is None else now)
+    stamp = now.strftime("%Y%m%dT%H%M%SZ")
     cleaned = _FILENAME_SAFE_RE.sub("-", org_slug).strip("-.")
     return f"{cleaned or 'universe'}-universe-{stamp}{ARTIFACT_SUFFIX}"
 
@@ -151,7 +153,7 @@ def export_universe(
             selected_org = str(identity["org"])
             dest = resolve_export_destination(out, selected_org)
             emit(f"  [universe-export] dumping org {selected_org!r} universe -> {dest}")
-            frozen_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            frozen_at = utc_now()
             snapshot_id = str(conn.execute("SELECT pg_export_snapshot()").fetchone()[0])
             before = authority_receipt(conn)
             staged_dump = _staged_dump_path(dest)

@@ -6,6 +6,8 @@ files stay under the 350-line authored cap.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import pytest
 
 from yoke_core.domain import db_backend, json_helper
@@ -48,8 +50,8 @@ def _ensure_attempts_table(connection) -> None:
             attempt_kind TEXT NOT NULL,
             adapter_revision TEXT,
             lease_id TEXT,
-            started_at TEXT NOT NULL,
-            completed_at TEXT,
+            started_at TIMESTAMPTZ NOT NULL,
+            completed_at TIMESTAMPTZ,
             result_code TEXT,
             evidence TEXT
         )
@@ -71,7 +73,7 @@ def _insert_open_wake_attempt(connection, session_id: str) -> None:
             "message-1",
             session_id,
             "wake_relay",
-            "2026-08-25T15:00:00Z",
+            parse_instant("2026-08-25T15:00:00Z"),
             json_helper.dumps_compact({"native_instruction_sha256": _KEPT_DIGEST}),
         ),
     )

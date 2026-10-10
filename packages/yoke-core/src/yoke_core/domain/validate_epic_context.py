@@ -2,14 +2,15 @@
 
 Split out from ``validate_epic`` so the entry-point module stays focused on
 orchestration and CLI plumbing. Contains pure-state types and side-effect-free
-helpers (plus `_connect`, which opens a sqlite connection) that the
+helpers (plus `_connect`, which opens the configured backend connection) that the
 orchestrator and any future per-check carve-outs can share.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
 from pathlib import Path
 from typing import Any, Optional, TextIO
 
@@ -52,9 +53,7 @@ def _int_scalar(conn: Any, sql: str, params: tuple = ()) -> int:
     return int(value)
 
 
-def _resolve_epic(
-    conn: Any, epic_ref: str
-) -> tuple[str, str]:
+def _resolve_epic(conn: Any, epic_ref: str) -> tuple[str, str]:
     """Return ``(public_ref, canonical_epic_id)``.
 
     ``PREFIX-N`` resolves via the project's ``public_item_prefix`` +
@@ -76,23 +75,8 @@ def _resolve_epic(
     return public_ref, resolved
 
 
-def _parse_timestamp(value: str) -> Optional[datetime]:
-    if not value:
-        return None
-    text = value.strip()
-    if not text:
-        return None
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
-    if " " in text and "T" not in text:
-        text = text.replace(" ", "T", 1)
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+def _parse_timestamp(value: datetime | str | None) -> Optional[datetime]:
+    return None if value is None else parse_instant(value)
 
 
 def _result(out: TextIO, icon: str, message: str) -> None:

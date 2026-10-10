@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS events (
     hook_event_name TEXT,
     client_timing_id TEXT,
     envelope TEXT,
-    created_at TEXT
+    created_at TIMESTAMPTZ
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_events_tool_use_id_dedup
     ON events(tool_use_id, event_name) WHERE tool_use_id IS NOT NULL;

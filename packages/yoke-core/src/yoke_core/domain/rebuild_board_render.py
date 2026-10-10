@@ -8,7 +8,7 @@ render markdown locally, then merge it with any existing BOARD.md wrapper.
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from yoke_contracts.timestamps import utc_now, format_instant
 from pathlib import Path
 from typing import Any, Dict
 
@@ -21,7 +21,7 @@ class BoardDataFetchError(RuntimeError):
 
 
 def timestamp() -> str:
-    return datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S %Z")
+    return format_instant(utc_now())
 
 
 def parse_seed() -> int | None:
@@ -51,8 +51,7 @@ def fetch_board_data(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not response.success:
         error = response.error
         detail = (
-            f"{error.code}: {error.message}" if error is not None
-            else "unknown error"
+            f"{error.code}: {error.message}" if error is not None else "unknown error"
         )
         raise BoardDataFetchError(f"board.data.get failed - {detail}")
     return dict(response.result or {})
@@ -87,7 +86,8 @@ def fetch_and_render(
         request_payload["scope"] = scope
     with measure_phase(phase_recorder, "publish_code_days"):
         request_payload = publish_code_days_via_board_payload(
-            request_payload, repo_root=repo_root,
+            request_payload,
+            repo_root=repo_root,
         )
     with measure_phase(phase_recorder, "fetch_board_data"):
         payload = fetch_board_data(request_payload)

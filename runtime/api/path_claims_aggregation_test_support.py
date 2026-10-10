@@ -85,8 +85,8 @@ def _make_branch_apply_schema(repo_root: Path):
                 "CREATE TABLE item_worktrees ("
                 "id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL, "
                 "branch TEXT NOT NULL, path TEXT, lane_role TEXT NOT NULL, "
-                "state TEXT NOT NULL, created_at TEXT NOT NULL, "
-                "updated_at TEXT NOT NULL, released_at TEXT)"
+                "state TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL, "
+                "updated_at TIMESTAMPTZ NOT NULL, released_at TIMESTAMPTZ)"
             )
             conn.execute(
                 "CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT UNIQUE)"

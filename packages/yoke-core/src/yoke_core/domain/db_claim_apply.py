@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import copy
 import json
+from datetime import datetime
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
@@ -85,9 +86,7 @@ def _apply(
         (item_id,),
     ).fetchone()
     if row is None:
-        raise DbClaimAmendmentError(
-            f"Item {render_item_ref(conn, item_id)} not found"
-        )
+        raise DbClaimAmendmentError(f"Item {render_item_ref(conn, item_id)} not found")
 
     raw_profile = row["db_mutation_profile"] if hasattr(row, "keys") else row[0]
     raw_attestation = (
@@ -110,7 +109,7 @@ def _apply(
             f"db_compatibility_attestation (composed): {exc}"
         ) from exc
 
-    now = db_helpers.iso8601_now()
+    now = db_helpers.utc_now()
     # Reviewed-negative attestation lives ON the profile: every amendment
     # that lands state="none" is, by construction, a validated operator
     # decision (validation already passed above), so the stamp records
@@ -134,7 +133,12 @@ def _apply(
             f"UPDATE items SET db_mutation_profile = {placeholder}, "
             f"db_compatibility_attestation = {placeholder}, "
             f"updated_at = {placeholder} WHERE id = {placeholder}",
-            (profile_json, attestation_json, now, item_id),
+            (
+                profile_json,
+                attestation_json,
+                db_helpers.instant_parameter(conn, now),
+                item_id,
+            ),
         )
         _emit_amended_event(
             conn=conn,
@@ -223,7 +227,7 @@ def _emit_amended_event(
     project: str,
     session_id: str,
     context: Dict[str, Any],
-    now: str,
+    now: datetime,
 ) -> None:
     """Record ``DbClaimAmended`` correlation without risking the amendment.
 

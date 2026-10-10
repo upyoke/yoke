@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
@@ -58,7 +60,7 @@ def handle_workflows_version_list(
                 "version": int(row[3]),
                 "version_id": int(row[4]),
                 "definition_digest": str(row[5]),
-                "published_at": str(row[6]),
+                "published_at": format_instant(row[6]),
                 "current": bool(row[7]),
             }
             for row in cursor.fetchall()

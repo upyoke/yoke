@@ -128,11 +128,11 @@ def test_payload_uses_stamped_session_project_identity(populated_db, config_file
                 mode TEXT DEFAULT 'wait',
                 workspace TEXT DEFAULT '',
                 project_id INTEGER NOT NULL REFERENCES projects(id),
-                offered_at TEXT NOT NULL,
-                last_heartbeat TEXT,
-                last_tool_call_at TEXT,
-                ended_at TEXT,
-                terminated_at TEXT
+                offered_at TIMESTAMPTZ NOT NULL,
+                last_heartbeat TIMESTAMPTZ,
+                last_tool_call_at TIMESTAMPTZ,
+                ended_at TIMESTAMPTZ,
+                terminated_at TIMESTAMPTZ
             )
         """)
         conn.execute("""
@@ -141,8 +141,8 @@ def test_payload_uses_stamped_session_project_identity(populated_db, config_file
                 session_id TEXT,
                 scope TEXT NOT NULL,
                 claim_type TEXT,
-                claimed_at TEXT,
-                released_at TEXT,
+                claimed_at TIMESTAMPTZ,
+                released_at TIMESTAMPTZ,
                 release_reason TEXT,
                 target_kind TEXT
             )
@@ -156,8 +156,8 @@ def test_payload_uses_stamped_session_project_identity(populated_db, config_file
                 owner_work_claim_id INTEGER,
                 registered_by_actor_id INTEGER,
                 registered_by_session_id TEXT,
-                released_at TEXT,
-                cancelled_at TEXT,
+                released_at TIMESTAMPTZ,
+                cancelled_at TIMESTAMPTZ,
                 release_reason TEXT,
                 cancel_reason TEXT
             )

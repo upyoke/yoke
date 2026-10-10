@@ -25,7 +25,7 @@ from yoke_project_checks.check_docs import (
 )
 
 from runtime.api.engines._doctor_hc_meta_full_test_helpers import (
-    _NOW_ISO,
+    _NOW_INSTANT,
     _make_conn,
     _result,
     _run_hc,
@@ -58,11 +58,17 @@ class TestDoctorProjectDispatch:
         """Universal HC slugs stay in the engine roster."""
         slugs = {hc.slug for hc in HEALTH_CHECKS}
         for expected in [
-            "schema-drift", "backlog-quality",
-            "worktree-health", "stale-remote-branches", "orphaned-gh-issues",
-            "gh-orphan-detection", "wrong-repo-issues", "size-bloat",
+            "schema-drift",
+            "backlog-quality",
+            "worktree-health",
+            "stale-remote-branches",
+            "orphaned-gh-issues",
+            "gh-orphan-detection",
+            "wrong-repo-issues",
+            "size-bloat",
             "file-line-limit",
-            "config-validation", "epic-task-worktree",
+            "config-validation",
+            "epic-task-worktree",
         ]:
             assert expected in slugs, f"{expected} not in HEALTH_CHECKS"
 
@@ -108,10 +114,7 @@ class TestStaleBody:
 
     def test_pass_no_spec_updated_at(self):
         conn = _make_conn()
-        conn.execute(
-            "INSERT INTO items (id, title, status) "
-            "VALUES (1, 'Test', 'idea')"
-        )
+        conn.execute("INSERT INTO items (id, title, status) VALUES (1, 'Test', 'idea')")
         rec = _run_hc(hc_stale_body, conn)
         assert _result(rec).result == "PASS"
 
@@ -159,7 +162,7 @@ class TestDeployStageIntegrity:
         conn.execute(
             "INSERT INTO deployment_run_items (run_id, item_id, added_at) "
             "VALUES ('run-1', 1, %s)",
-            (_NOW_ISO,),
+            (_NOW_INSTANT,),
         )
         rec = _run_hc(hc_deploy_stage_integrity, conn)
         assert _result(rec).result == "PASS"
@@ -196,7 +199,7 @@ def _ensure_migration_audit_table(conn: Any) -> None:
             failure_reason TEXT,
             exception_reason TEXT,
             source_fingerprint TEXT,
-            rehearsed_at TEXT,
+            rehearsed_at TIMESTAMPTZ,
             lease_id INTEGER,
             test_copy_path TEXT,
             baseline_verify_result TEXT,
@@ -204,8 +207,8 @@ def _ensure_migration_audit_table(conn: Any) -> None:
             session_id TEXT,
             model_name TEXT,
             project_id TEXT,
-            started_at TEXT NOT NULL,
-            completed_at TEXT,
+            started_at TIMESTAMPTZ NOT NULL,
+            completed_at TIMESTAMPTZ,
             duration_ms INTEGER
         )
     """)

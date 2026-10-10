@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS workflows (
     CHECK(canon_follow IN ('auto','manual')),
   canon_adopted_from_version INTEGER,
   current_version_id INTEGER,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL
 );
 """
 
@@ -38,9 +38,9 @@ CREATE TABLE IF NOT EXISTS workflow_versions (
   definition_schema_version INTEGER NOT NULL CHECK(definition_schema_version > 0),
   definition_json TEXT NOT NULL,
   definition_digest TEXT NOT NULL,
-  published_at TEXT NOT NULL,
+  published_at TIMESTAMPTZ NOT NULL,
   published_by_actor_id INTEGER,
-  immutable_at TEXT NOT NULL,
+  immutable_at TIMESTAMPTZ NOT NULL,
   derived_from_canon_version INTEGER,
   published_reason TEXT,
   UNIQUE(workflow_id, version),

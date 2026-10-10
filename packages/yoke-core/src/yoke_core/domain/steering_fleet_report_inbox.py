@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 from yoke_contracts.fleet_policy import WAKE_ACK_GRACE_SECONDS
@@ -16,7 +18,7 @@ class UnackedInjectedMessage:
     """One injected receipt on this session still waiting for acknowledgement."""
 
     message_id: str
-    last_injected_at: str
+    last_injected_at: datetime
     age_seconds: int
 
 
@@ -45,7 +47,7 @@ def load_unacked_injected(
     grace_seconds: int,
 ) -> tuple[UnackedInjectedMessage, ...]:
     """Injected receipts for *session_id* past the acknowledgement grace."""
-    moment = parse_timestamp(now) or datetime.now(timezone.utc)
+    moment = parse_instant(now)
     rows = conn.execute(
         "SELECT r.message_id, r.last_injected_at "
         "FROM session_message_recipients r "
@@ -66,7 +68,7 @@ def load_unacked_injected(
         found.append(
             UnackedInjectedMessage(
                 message_id=str(row["message_id"]),
-                last_injected_at=str(row.get("last_injected_at") or ""),
+                last_injected_at=injected_at,
                 age_seconds=age,
             )
         )

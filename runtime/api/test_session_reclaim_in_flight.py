@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.sessions_api_stale_test_helpers import _ago_minutes, _now_literal
+from runtime.api.sessions_api_stale_test_helpers import _ago_minutes, _now_instant
 from runtime.api.test_session_reclaim_activity import (
     _emit_tool_event,
     _seed_claim,
@@ -264,7 +264,7 @@ class TestReclaimedClaimReactivation:
         _insert_claimable_item(c, 9102)
         _seed_session(c, "resume-worker", heartbeat_ago_min=1)
         claim_id = _seed_claim(c, "resume-worker", item_id=9102, ago_minutes=1)
-        now = _now_literal()
+        now = _now_instant()
         c.execute(
             "UPDATE work_claims SET released_at = %s, release_reason = 'reclaimed' "
             "WHERE id = %s",

@@ -18,6 +18,8 @@ starter corpus and an existing install tops up on refresh.
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+
 from typing import Any, Dict, List
 
 from yoke_contracts.project_contract.strategy_doc_fields import (
@@ -193,7 +195,12 @@ def seed_default_docs(
             f"INSERT INTO {STRATEGY_DOCS_TABLE} "
             "(project_id, slug, content, updated_at) "
             f"VALUES ({p}, {p}, {p}, {p})",
-            (project_id, slug, placeholder_content(slug, display_name), updated_at),
+            (
+                project_id,
+                slug,
+                placeholder_content(slug, display_name),
+                instant_parameter(conn, updated_at),
+            ),
         )
         seeded.append(slug)
     if seeded:

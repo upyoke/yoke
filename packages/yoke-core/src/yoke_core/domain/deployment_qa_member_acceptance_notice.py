@@ -19,7 +19,9 @@ is isolated so it cannot undo the acceptance that just committed.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import parse_instant, utc_now
+
+from datetime import datetime
 from typing import Any, Optional
 
 from yoke_core.domain.deployment_close_out_failure_summary import (
@@ -129,6 +131,7 @@ def notify_item_qa_accepted(
     :func:`push_member_notice`. A send failure is ``"failed: ..."`` and
     never reverses the acceptance.
     """
+    now = parse_instant(utc_now() if now is None else now)
     if not run_id or not item_id:
         return ""
     from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
@@ -173,7 +176,7 @@ def notify_item_qa_accepted(
         close_out_failure = closed.detail
     if recorded_no_obligation(conn, int(item_id)) and not close_out_failure:
         return ""
-    stamp = now or datetime.now(timezone.utc)
+    stamp = now
     try:
         conn.execute(f"SAVEPOINT {_SEND_SAVEPOINT}")
     except Exception as exc:  # noqa: BLE001 - reported, never reverses acceptance

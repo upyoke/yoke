@@ -8,6 +8,8 @@ snapshot-builder tests in ``test_path_snapshots.py``.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 
 from yoke_core.domain import path_registry
@@ -25,11 +27,12 @@ from yoke_core.domain.schema_init_tables import (
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
-NOW = "2026-04-29T00:00:00Z"
+NOW = datetime(2026, 4, 29, tzinfo=timezone.utc)
 
 
 def _p(conn) -> str:
     from yoke_core.domain import db_backend
+
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
@@ -46,7 +49,7 @@ def _apply_path_registry_schema() -> None:
             "name TEXT NOT NULL, "
             "default_branch TEXT NOT NULL DEFAULT 'main', github_repo TEXT, "
             "public_item_prefix TEXT NOT NULL DEFAULT 'YOK', "
-            "created_at TEXT NOT NULL)"
+            "created_at TIMESTAMPTZ NOT NULL)"
         )
         conn.execute(
             "INSERT INTO projects (id, slug, name, created_at) "
@@ -70,8 +73,7 @@ def fresh_db(tmp_path):
             conn.close()
 
 
-def _snapshot(conn, sha: str, *, project_id: int = 4,
-              present: tuple = ()) -> int:
+def _snapshot(conn, sha: str, *, project_id: int = 4, present: tuple = ()) -> int:
     cur = conn.execute(
         "INSERT INTO path_snapshots (project_id, commit_sha, built_at) "
         f"VALUES ({_p(conn)}, {_p(conn)}, {_p(conn)}) RETURNING id",
@@ -97,7 +99,7 @@ def test_bulk_snapshot_resolution_preserves_reappearance_generation(
             (ROOT_PATH_SENTINEL, KIND_DIRECTORY),
             ("x.py", KIND_FILE),
         ],
-        now_iso=NOW,
+        observed_at=NOW,
     ).target_ids["x.py"]
     _snapshot(fresh_db, "sha1", present=(first,))
     _snapshot(fresh_db, "sha2")
@@ -109,7 +111,7 @@ def test_bulk_snapshot_resolution_preserves_reappearance_generation(
             (ROOT_PATH_SENTINEL, KIND_DIRECTORY),
             ("x.py", KIND_FILE),
         ],
-        now_iso=NOW,
+        observed_at=NOW,
     ).target_ids["x.py"]
 
     assert second != first
@@ -129,9 +131,7 @@ class TestBulkDisappearanceQuery:
     """
 
     def _mint(self, conn, path_string: str) -> int:
-        return path_registry._mint_target(
-            conn, 4, path_string, KIND_FILE, None, 1, NOW
-        )
+        return path_registry._mint_target(conn, 4, path_string, KIND_FILE, None, 1, NOW)
 
     def _disappeared(self, conn, target_ids) -> set:
         return _targets_with_observed_disappearance(
@@ -151,9 +151,7 @@ class TestBulkDisappearanceQuery:
 
         assert self._disappeared(fresh_db, [tid]) == set()
 
-    def test_never_present_target_is_degenerate_not_disappeared(
-        self, fresh_db
-    ):
+    def test_never_present_target_is_degenerate_not_disappeared(self, fresh_db):
         # First-scan trajectory: snapshots exist but the target was never
         # in one (e.g. a planned target) — reuse, never a generation bump.
         tid = self._mint(fresh_db, "planned.py")
@@ -161,9 +159,7 @@ class TestBulkDisappearanceQuery:
 
         assert self._disappeared(fresh_db, [tid]) == set()
 
-    def test_reappearance_in_newest_snapshot_clears_disappearance(
-        self, fresh_db
-    ):
+    def test_reappearance_in_newest_snapshot_clears_disappearance(self, fresh_db):
         tid = self._mint(fresh_db, "flicker.py")
         _snapshot(fresh_db, "s1", present=(tid,))
         _snapshot(fresh_db, "s2")
@@ -191,9 +187,7 @@ class TestBulkDisappearanceQuery:
         _snapshot(fresh_db, "s1", present=(gone, alive))
         _snapshot(fresh_db, "s2", present=(alive,))
 
-        assert self._disappeared(
-            fresh_db, [gone, alive, never, gone]
-        ) == {gone}
+        assert self._disappeared(fresh_db, [gone, alive, never, gone]) == {gone}
 
     def test_empty_input_returns_empty_set(self, fresh_db):
         assert self._disappeared(fresh_db, []) == set()

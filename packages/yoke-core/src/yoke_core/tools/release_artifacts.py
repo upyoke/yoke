@@ -30,10 +30,12 @@ from __future__ import annotations
 
 import shutil
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Sequence
 from urllib.parse import quote
 
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import json_helper
 from yoke_core.tools import (
     distribution_channel,
@@ -82,18 +84,21 @@ class ReleasePaths:
 class ReleaseBuild:
     version: str
     channel: str
-    generated_at: str
+    generated_at: datetime
     index_url: str
     paths: ReleasePaths
     release_records: list[dict[str, object]]
     migration_history_manifest_sha256: str
     channel_payload: dict[str, object]
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "generated_at", parse_instant(self.generated_at))
+
     def to_json(self) -> dict[str, object]:
         return {
             "version": self.version,
             "channel": self.channel,
-            "generated_at": self.generated_at,
+            "generated_at": format_instant(self.generated_at),
             "index_url": self.index_url,
             "output_root": str(self.paths.output_root),
             "release_dir": str(self.paths.release_dir),
@@ -127,11 +132,12 @@ def materialize_release_artifacts(
     version: str,
     channel: str,
     base_url: str,
-    generated_at: str,
+    generated_at: datetime | str,
     source_commit: str,
     installer_asset_dir: Path,
     aws_bootstrap_asset_dir: Path,
 ) -> ReleaseBuild:
+    generated_at = parse_instant(generated_at)
     paths = _prepare_release_paths(
         output_root=output_root,
         version=version,
@@ -249,7 +255,7 @@ def _channel_payload(
     *,
     channel: str,
     version: str,
-    generated_at: str,
+    generated_at: datetime | str,
     release_base_url: str,
     index_url: str,
     migration_manifest_sha256: str,

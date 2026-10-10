@@ -12,6 +12,8 @@ import json
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.steering_fleet_test_helpers import (
     ACTOR_ID,
     NOW,
@@ -108,7 +110,7 @@ def test_launches_already_assigned_there_count_against_the_cap(fleet):
         "(message_id, sender_actor_id, body, body_sha256, selector_snapshot, "
         "created_at, expires_at) "
         "VALUES ('msg-inflight', %s, 'launch instruction', 'sha', '{}', %s, %s)",
-        (ACTOR_ID, NOW, "2026-08-26T23:00:00Z"),
+        (ACTOR_ID, NOW, "2026-08-26T23:00:00.000000Z"),
     )
     fleet.execute(
         "INSERT INTO session_launches "
@@ -117,7 +119,7 @@ def test_launches_already_assigned_there_count_against_the_cap(fleet):
         "deadline_at, created_at, origin, assigned_machine_id) "
         "VALUES ('launch-inflight', %s, %s, 'codex-cli', 'codex-cli', 0, "
         "'msg-inflight', 'assigned', %s, %s, 'steering', %s)",
-        (ACTOR_ID, PROJECT_ID, "2026-08-26T13:00:00Z", NOW, MACHINE),
+        (ACTOR_ID, PROJECT_ID, "2026-08-26T13:00:00.000000Z", NOW, MACHINE),
     )
     fleet.commit()
 
@@ -147,7 +149,13 @@ def test_a_machine_serving_another_project_is_not_reported_here(fleet):
         "project_checkouts, first_seen_at, last_seen_at, connected_until, state) "
         "VALUES ('relay-2', %s, 'machine-2', 'other-host', '{}', %s, %s, %s, %s, "
         "'active')",
-        (ACTOR_ID, json.dumps([PROJECT_ID + 1]), NOW, NOW, "2026-08-26T23:00:00Z"),
+        (
+            ACTOR_ID,
+            json.dumps([PROJECT_ID + 1]),
+            NOW,
+            NOW,
+            "2026-08-26T23:00:00.000000Z",
+        ),
     )
     fleet.commit()
 
@@ -170,7 +178,7 @@ def test_launchable_surfaces_read_relay_rows_once(fleet, monkeypatch):
         "yoke_core.domain.steering_fleet_report_capacity.load_relay_eligibility_rows",
         counting,
     )
-    launchable_surfaces(fleet, project_id=PROJECT_ID, now=NOW)
+    launchable_surfaces(fleet, project_id=PROJECT_ID, now=parse_instant(NOW))
     assert calls["n"] == 1
 
 

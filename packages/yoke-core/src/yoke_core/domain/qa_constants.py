@@ -12,6 +12,9 @@ sibling. Shared verdict values live in the client contract package.
 from __future__ import annotations
 
 from typing import Any, Optional, Sequence
+from datetime import datetime
+
+from yoke_contracts.timestamps import format_instant
 
 from yoke_contracts.qa_verdicts import (
     UNDETERMINED_VERDICT,
@@ -109,7 +112,7 @@ def _coalesce(val: Any, default: str = "") -> str:
     """Return *val* as a string, or *default* when None."""
     if val is None:
         return default
-    return str(val)
+    return format_instant(val) if isinstance(val, datetime) else str(val)
 
 
 def _normalize_qa_phase(qa_phase: str) -> str:
@@ -186,7 +189,7 @@ _REQ_SELECT_TEMPLATE = (
     "qa_kind, qa_phase, COALESCE(target_env,''), "
     "blocking_mode, requirement_source, COALESCE(success_policy,''), "
     "COALESCE(capability_requirements,''), COALESCE(suite_id,''), "
-    "COALESCE(waived_at,''), COALESCE(waiver_rationale,''), "
+    "waived_at, COALESCE(waiver_rationale,''), "
     "COALESCE(waiver_source,''), COALESCE(CAST(plan_id AS TEXT),''), "
     "COALESCE(plan_case_key,''), "
     "COALESCE(CAST(case_position AS TEXT),''), "

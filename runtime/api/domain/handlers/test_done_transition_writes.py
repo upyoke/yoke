@@ -1,16 +1,8 @@
-"""In-process integration coverage for the done-transition finalize writes.
-
-Exercises the two ``done_transition.*`` internal write handlers against a
-seeded Postgres authority. Each handler is a thin wrapper over the
-unchanged engine/domain write; these tests prove the wrapper writes real
-DB rows server-side (deployed_to set, release_entries upserted, merged_at
-set) and returns the declared response shape. This is the local /
-in-process leg of the ALL-MODES contract; the relay leg is covered by
-``test_done_transition_writes_transport``. The merge-queue landing marker
-writes are covered by ``test_merge_queue_marker_writes``.
-"""
+"""Server-side done bookkeeping preserves native clocks and wire projections."""
 
 from __future__ import annotations
+
+from yoke_contracts.timestamps import parse_instant
 
 from pathlib import Path
 
@@ -164,7 +156,7 @@ class TestPopulateMergedAt:
         finally:
             conn.close()
 
-        stamp = "2026-02-03T04:05:06Z"
+        stamp = "2026-02-03T04:05:06.000000Z"
         outcome = writes.handle_populate_merged_at(
             _item_envelope(
                 "done_transition.populate_merged_at",
@@ -175,10 +167,9 @@ class TestPopulateMergedAt:
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload["merged_at"] == stamp
         writes.PopulateMergedAtResponse(**outcome.result_payload)
-        assert (
-            _scalar(db, "SELECT merged_at FROM items WHERE id = %s", (item_id,))
-            == stamp
-        )
+        assert _scalar(
+            db, "SELECT merged_at FROM items WHERE id = %s", (item_id,)
+        ) == parse_instant(stamp)
 
     def test_missing_stamp_is_payload_invalid(self, db):
         outcome = writes.handle_populate_merged_at(
@@ -194,7 +185,7 @@ class TestPopulateMergedAt:
         outcome = writes.handle_populate_merged_at(
             _global_envelope(
                 "done_transition.populate_merged_at",
-                payload={"merged_at": "2026-01-01T00:00:00Z"},
+                payload={"merged_at": "2026-01-01T00:00:00.000000Z"},
             )
         )
         assert outcome.primary_success is False
@@ -215,7 +206,7 @@ class TestPopulateMergedAt:
             insert_item(conn, id=item_id, source=str(seed_human_actor(conn)))
             conn.execute(
                 "UPDATE items SET merged_at = %s WHERE id = %s",
-                ("2026-09-03T15:05:46Z", item_id),
+                ("2026-09-03T15:05:46.000000Z", item_id),
             )
             conn.commit()
         finally:
@@ -225,16 +216,15 @@ class TestPopulateMergedAt:
             _item_envelope(
                 "done_transition.populate_merged_at",
                 item_id=item_id,
-                payload={"merged_at": "2026-09-03T15:20:00Z"},
+                payload={"merged_at": "2026-09-03T15:20:00.000000Z"},
             )
         )
 
         assert outcome.primary_success, outcome.error
-        assert outcome.result_payload["merged_at"] == "2026-09-03T15:05:46Z"
-        assert (
-            _scalar(db, "SELECT merged_at FROM items WHERE id = %s", (item_id,))
-            == "2026-09-03T15:05:46Z"
-        )
+        assert outcome.result_payload["merged_at"] == "2026-09-03T15:05:46.000000Z"
+        assert _scalar(
+            db, "SELECT merged_at FROM items WHERE id = %s", (item_id,)
+        ) == parse_instant("2026-09-03T15:05:46.000000Z")
 
     def test_a_resolved_landing_time_replaces_a_prior_landings(self, db):
         """A second landing must stop the item reporting the first one's date.
@@ -250,7 +240,7 @@ class TestPopulateMergedAt:
             insert_item(conn, id=item_id, source=str(seed_human_actor(conn)))
             conn.execute(
                 "UPDATE items SET merged_at = %s WHERE id = %s",
-                ("2026-09-03T15:05:46Z", item_id),
+                ("2026-09-03T15:05:46.000000Z", item_id),
             )
             conn.commit()
         finally:
@@ -261,18 +251,17 @@ class TestPopulateMergedAt:
                 "done_transition.populate_merged_at",
                 item_id=item_id,
                 payload={
-                    "merged_at": "2026-09-19T04:08:11Z",
+                    "merged_at": "2026-09-19T04:08:11.000000Z",
                     "supersedes_prior_landing": True,
                 },
             )
         )
 
         assert outcome.primary_success, outcome.error
-        assert outcome.result_payload["merged_at"] == "2026-09-19T04:08:11Z"
-        assert (
-            _scalar(db, "SELECT merged_at FROM items WHERE id = %s", (item_id,))
-            == "2026-09-19T04:08:11Z"
-        )
+        assert outcome.result_payload["merged_at"] == "2026-09-19T04:08:11.000000Z"
+        assert _scalar(
+            db, "SELECT merged_at FROM items WHERE id = %s", (item_id,)
+        ) == parse_instant("2026-09-19T04:08:11.000000Z")
 
     def test_an_observed_queue_landing_outranks_the_commits_own_time(self, db):
         """A queue merge commit is made when the group forms, not when it lands.
@@ -283,14 +272,14 @@ class TestPopulateMergedAt:
         must not replace it with the commit's.
         """
         item_id = 9515
-        landed_at = "2026-09-19T13:39:45Z"
+        landed_at = "2026-09-19T13:39:45.000000Z"
         conn = connect_test_db(db)
         try:
             insert_item(conn, id=item_id, source=str(seed_human_actor(conn)))
             conn.execute(
                 "UPDATE items SET merged_at = %s, merge_queue_pr_number = %s, "
                 "merge_queue_landed_at = %s WHERE id = %s",
-                ("2026-09-17T15:25:31Z", "1323", landed_at, item_id),
+                ("2026-09-17T15:25:31.000000Z", "1323", landed_at, item_id),
             )
             conn.commit()
         finally:
@@ -301,7 +290,7 @@ class TestPopulateMergedAt:
                 "done_transition.populate_merged_at",
                 item_id=item_id,
                 payload={
-                    "merged_at": "2026-09-19T13:26:50Z",
+                    "merged_at": "2026-09-19T13:26:50.000000Z",
                     "supersedes_prior_landing": True,
                 },
             )
@@ -309,14 +298,11 @@ class TestPopulateMergedAt:
 
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload["merged_at"] == landed_at
-        assert (
-            _scalar(db, "SELECT merged_at FROM items WHERE id = %s", (item_id,))
-            == landed_at
-        )
+        assert _scalar(
+            db, "SELECT merged_at FROM items WHERE id = %s", (item_id,)
+        ) == parse_instant(landed_at)
 
-    def test_without_an_observed_landing_the_resolved_time_still_supersedes(
-        self, db
-    ):
+    def test_without_an_observed_landing_the_resolved_time_still_supersedes(self, db):
         """A standalone merge has no queue landing, and its commit time is the landing."""
         item_id = 9516
         conn = connect_test_db(db)
@@ -324,7 +310,7 @@ class TestPopulateMergedAt:
             insert_item(conn, id=item_id, source=str(seed_human_actor(conn)))
             conn.execute(
                 "UPDATE items SET merged_at = %s WHERE id = %s",
-                ("2026-09-17T18:32:44Z", item_id),
+                ("2026-09-17T18:32:44.000000Z", item_id),
             )
             conn.commit()
         finally:
@@ -335,11 +321,11 @@ class TestPopulateMergedAt:
                 "done_transition.populate_merged_at",
                 item_id=item_id,
                 payload={
-                    "merged_at": "2026-09-19T04:08:11Z",
+                    "merged_at": "2026-09-19T04:08:11.000000Z",
                     "supersedes_prior_landing": True,
                 },
             )
         )
 
         assert outcome.primary_success, outcome.error
-        assert outcome.result_payload["merged_at"] == "2026-09-19T04:08:11Z"
+        assert outcome.result_payload["merged_at"] == "2026-09-19T04:08:11.000000Z"

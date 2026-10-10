@@ -194,7 +194,7 @@ def test_grant_rechecks_owner_and_expiry_after_open(monkeypatch) -> None:
     assert expired.value.code == "qualification_grant_expired"
 
     conn.execute(
-        "UPDATE harness_sessions SET ended_at='2026-08-23T01:00:00Z' "
+        "UPDATE harness_sessions SET ended_at='2026-08-23T01:00:00.000000Z' "
         "WHERE session_id='s1'"
     )
     with pytest.raises(PrivateRouteQualificationError) as inactive:
@@ -211,7 +211,7 @@ def test_expired_grant_is_settled_and_same_scope_can_be_rearmed(monkeypatch) -> 
         sender_session_id="s1",
         operator_actor_id=10,
         scope=_scope(),
-        now="2099-01-01T00:00:00Z",
+        now="2099-01-01T00:00:00.000000Z",
     )
 
     second = open_qualification_grant(
@@ -220,7 +220,7 @@ def test_expired_grant_is_settled_and_same_scope_can_be_rearmed(monkeypatch) -> 
         sender_session_id="s1",
         operator_actor_id=10,
         scope=_scope(),
-        now="2099-01-01T00:30:00Z",
+        now="2099-01-01T00:30:00.000000Z",
     )
 
     assert second.lease_id != first.lease_id
@@ -231,7 +231,7 @@ def test_expired_grant_is_settled_and_same_scope_can_be_rearmed(monkeypatch) -> 
     ).fetchall()
     assert rows[0]["release_reason_intent"] == QUALIFICATION_ABANDONED_REASON
     assert rows[0]["release_reason"] == "expired"
-    assert rows[0]["released_at"] == "2099-01-01T00:30:00Z"
+    assert rows[0]["released_at"] == "2099-01-01T00:30:00.000000Z"
     assert rows[1]["released_at"] is None
 
 
@@ -289,8 +289,8 @@ def test_message_lookup_binds_run_sender_project_operation_and_route(
         "VALUES ('message-1',10,'s1','body','digest','{}',?, ?, ?)",
         (
             "fleet-live:stage-proof-other:claude-cli:wake",
-            "2026-08-23T01:00:00Z",
-            "2026-08-23T02:00:00Z",
+            "2026-08-23T01:00:00.000000Z",
+            "2026-08-23T02:00:00.000000Z",
         ),
     )
     conn.commit()

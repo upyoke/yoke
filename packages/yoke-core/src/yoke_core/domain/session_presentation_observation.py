@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 import json
 from typing import Any
 
@@ -30,7 +32,9 @@ def _marker(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _observation(payload_json: str) -> tuple[str | None, ...] | None:
+def _observation(
+    payload_json: str,
+) -> tuple[str | None, str, str | None, str, datetime] | None:
     try:
         payload = json.loads(payload_json)
     except (TypeError, ValueError):
@@ -49,7 +53,7 @@ def _observation(payload_json: str) -> tuple[str | None, ...] | None:
     if not isinstance(observed_at, str):
         return None
     try:
-        datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+        observed_at = parse_instant(observed_at)
     except ValueError:
         return None
     if state == PRESENTATION_STATE_ATTACHED:
@@ -83,12 +87,12 @@ def record_session_presentation(
     existing = tuple(row[index] for index in range(len(_FIELDS)))
     if existing[:4] == observation[:4]:
         return False
-    if existing[4] is not None and str(observation[4]) < str(existing[4]):
+    if existing[4] is not None and observation[4] < parse_instant(existing[4]):
         return False
     assignments = ",".join(f"{field}={marker}" for field in _FIELDS)
     conn.execute(
         f"UPDATE harness_sessions SET {assignments} WHERE session_id={marker}",
-        (*observation, session_id),
+        (*observation[:4], instant_parameter(conn, observation[4]), session_id),
     )
     conn.commit()
     return True

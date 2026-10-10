@@ -32,7 +32,7 @@ from yoke_core.domain.work_claim_targets import make_item_target
 
 
 #: Ten minutes before ``NOW``: quiet, but nowhere near :data:`IDLE_SECONDS`.
-BELOW_THRESHOLD = "2026-08-26T11:50:00Z"
+BELOW_THRESHOLD = "2026-08-26T11:50:00.000000Z"
 
 MERGE_WAIT = "cd /repo && yoke watch merge merge-item -- YOK-2 --wait"
 
@@ -94,7 +94,7 @@ def test_a_holder_inside_a_long_call_is_named_only_in_the_in_flight_section(flee
         fleet,
         WORKER_SESSION,
         tool_use_id="call-1",
-        started_at="2026-08-26T11:40:00Z",
+        started_at="2026-08-26T11:40:00.000000Z",
         command_summary=MERGE_WAIT,
     )
     fleet.commit()

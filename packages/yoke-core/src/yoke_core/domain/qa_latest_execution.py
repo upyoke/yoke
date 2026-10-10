@@ -3,6 +3,7 @@
 from datetime import datetime
 from typing import Any, Iterable
 
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
 
@@ -26,15 +27,14 @@ def actual_execution_sql(alias: str) -> str:
 def latest_execution_id_sql(requirement_id: str) -> str:
     """Newest actual start, with id breaking equal starts, on PostgreSQL.
 
-    Cast qualified historical aware strings to native instants while the
-    temporal migration owns storage conversion. NULL starts sort first so an
+    Starts are native instants. NULL starts sort first so an
     ambiguous attempt cannot be hidden by an older passing attempt.
     """
     return (
         "SELECT latest.id FROM qa_runs latest "
         f"WHERE latest.qa_requirement_id = {requirement_id} "
         f"AND {actual_execution_sql('latest')} "
-        "ORDER BY CAST(latest.started_at AS TIMESTAMPTZ) DESC NULLS FIRST, "
+        "ORDER BY latest.started_at DESC NULLS FIRST, "
         "latest.id DESC LIMIT 1"
     )
 
@@ -43,12 +43,8 @@ def execution_start(run: dict[str, Any]) -> datetime:
     """Require authoritative aware start evidence; never invent a fallback."""
     value = run.get("started_at")
     try:
-        instant = (
-            value if isinstance(value, datetime) else datetime.fromisoformat(value)
-        )
-        if instant.tzinfo is None or instant.utcoffset() is None:
-            raise ValueError("naive start")
-    except (TypeError, ValueError) as exc:
+        instant = parse_instant(value)
+    except InvalidInstant as exc:
         raise ValueError(
             f"qa_execution_order_ambiguous: run {run['id']} has no valid aware "
             "started_at; correct authoritative start evidence through a registered "

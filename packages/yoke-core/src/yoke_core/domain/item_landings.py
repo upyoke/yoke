@@ -18,8 +18,11 @@ a timestamp.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Iterable
 
+from yoke_contracts.timestamps import parse_instant, temporal_wire
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.item_landings_schema import ORIGIN_RECORDED
 from yoke_core.domain.schema_common import _table_exists
@@ -46,7 +49,7 @@ class ItemLanding:
     item_id: int
     merge_sha: str
     route: str
-    landed_at: str
+    landed_at: datetime
     candidate_sha: str = ""
     pr_number: str = ""
     target_branch: str = ""
@@ -54,18 +57,23 @@ class ItemLanding:
     #: Assigned by the database on append; zero on a row not yet written.
     id: int = 0
 
+    def __post_init__(self):
+        object.__setattr__(self, "landed_at", parse_instant(self.landed_at))
+
     def payload(self) -> dict[str, Any]:
-        return {
-            "id": self.id,
-            "item_id": self.item_id,
-            "merge_sha": self.merge_sha,
-            "candidate_sha": self.candidate_sha,
-            "pr_number": self.pr_number,
-            "target_branch": self.target_branch,
-            "route": self.route,
-            "landed_at": self.landed_at,
-            "origin": self.origin,
-        }
+        return temporal_wire(
+            {
+                "id": self.id,
+                "item_id": self.item_id,
+                "merge_sha": self.merge_sha,
+                "candidate_sha": self.candidate_sha,
+                "pr_number": self.pr_number,
+                "target_branch": self.target_branch,
+                "route": self.route,
+                "landed_at": self.landed_at,
+                "origin": self.origin,
+            }
+        )
 
 
 def _p(conn: Any) -> str:
@@ -81,7 +89,7 @@ def _from_row(value: dict[str, Any]) -> ItemLanding:
         pr_number=str(value.get("pr_number") or ""),
         target_branch=str(value.get("target_branch") or ""),
         route=str(value["route"]),
-        landed_at=str(value.get("landed_at") or ""),
+        landed_at=value["landed_at"],
         origin=str(value.get("origin") or ORIGIN_RECORDED),
     )
 
@@ -108,7 +116,7 @@ def append_landing(conn: Any, landing: ItemLanding) -> bool:
             landing.pr_number,
             landing.target_branch,
             landing.route,
-            landing.landed_at,
+            instant_parameter(conn, landing.landed_at),
             landing.origin,
         ),
     )
@@ -119,8 +127,7 @@ def landings_for_item(conn: Any, item_id: int) -> tuple[ItemLanding, ...]:
     """Every landing this item has made, oldest first."""
     p = _p(conn)
     rows = conn.execute(
-        f"SELECT {','.join(_COLUMNS)} FROM item_landings "
-        f"WHERE item_id={p} ORDER BY id",
+        f"SELECT {','.join(_COLUMNS)} FROM item_landings WHERE item_id={p} ORDER BY id",
         (int(item_id),),
     ).fetchall()
     return tuple(_from_row(row_dict(row)) for row in rows)

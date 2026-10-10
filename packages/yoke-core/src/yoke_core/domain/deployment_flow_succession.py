@@ -8,14 +8,13 @@ so the retirement does not strand them.
 
 from typing import Any, Iterable
 
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
 from yoke_core.domain.schema_common import _column_exists
 
 
-def succession_chains(
-    conn: Any, flow_ids: Iterable[str]
-) -> dict[str, tuple[str, ...]]:
+def succession_chains(conn: Any, flow_ids: Iterable[str]) -> dict[str, tuple[str, ...]]:
     """Map each named flow to its supersession chain, pin first.
 
     An active flow, or one this database does not know, is a one-flow chain.
@@ -32,9 +31,7 @@ def succession_chains(
     """
     wanted = tuple(dict.fromkeys(str(f).strip() for f in flow_ids if str(f).strip()))
     chains = {flow_id: (flow_id,) for flow_id in wanted}
-    if not wanted or not _column_exists(
-        conn, "deployment_flows", "supersedes_flow_id"
-    ):
+    if not wanted or not _column_exists(conn, "deployment_flows", "supersedes_flow_id"):
         return chains
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     target = ", ".join(
@@ -45,14 +42,19 @@ def succession_chains(
     )
     rows = conn.execute(
         "SELECT id, project_id, status, supersedes_flow_id, "
-        f"COALESCE(created_at, ''), {target} "
+        f"created_at, {target} "
         "FROM deployment_flows WHERE project_id IN ("
         "SELECT project_id FROM deployment_flows "
         f"WHERE id IN ({','.join(marker for _ in wanted)}))",
         wanted,
     ).fetchall()
     flows = {
-        str(row[0]): (row[1], str(row[2] or ""), str(row[4] or ""), (row[5], row[6]))
+        str(row[0]): (
+            row[1],
+            str(row[2] or ""),
+            parse_instant(row[4]) if row[4] is not None else None,
+            (row[5], row[6]),
+        )
         for row in rows
     }
     predecessor: dict[str, str] = {}
@@ -83,7 +85,7 @@ def succession_chains(
             frontier.extend(successors.get(current, ()))
         if not active:
             continue
-        chain = [max(active, key=lambda f: (flows[f][2], f))]
+        chain = [max(active, key=lambda f: (flows[f][2] is not None, flows[f][2], f))]
         while chain[-1] != flow_id:
             chain.append(predecessor[chain[-1]])
         chains[flow_id] = tuple(reversed(chain))

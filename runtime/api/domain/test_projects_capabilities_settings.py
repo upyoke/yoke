@@ -55,8 +55,8 @@ def _apply_capability_schema() -> None:
                 project_id BIGINT NOT NULL REFERENCES projects(id),
                 type TEXT NOT NULL,
                 settings TEXT DEFAULT '{}',
-                verified_at TEXT,
-                created_at TEXT NOT NULL,
+                verified_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL,
                 UNIQUE(project_id, type)
             )
             """

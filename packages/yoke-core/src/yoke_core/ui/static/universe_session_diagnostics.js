@@ -1,5 +1,6 @@
 import { attachTooltip, infoTooltip } from "./universe_tooltip.js";
 import { relativeAge } from "./universe_time.js";
+import { instantFromDate, instantMicros } from "./timestamps.js";
 import { el, statePill } from "./universe_view_support.js";
 
 // The not-ended liveness states, exactly as the server classifies them. A
@@ -49,8 +50,8 @@ export function killExplanation(row) {
 function pastStalenessWindow(row, now) {
   if (!row.stale_eligible_at) return false;
   if (String(row.liveness || "") === "stale") return true;
-  const eligible = new Date(row.stale_eligible_at).getTime();
-  return !Number.isNaN(eligible) && eligible <= now;
+  const eligible = instantMicros(row.stale_eligible_at);
+  return eligible <= instantMicros(instantFromDate(new Date(now)));
 }
 
 // A declared wait is a state, not a footnote to one. Gating behind another

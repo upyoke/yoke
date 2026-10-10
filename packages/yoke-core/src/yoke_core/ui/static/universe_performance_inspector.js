@@ -16,7 +16,7 @@ export function inspectBucket(context, scopePayload, bucket, trigger) {
   const status = el(documentNode, "p", "performance-status");
   status.setAttribute("role", "status");
   dialog.append(title, close, el(documentNode, "p", null,
-    `${new Date(bucket.start * 1000).toLocaleString()} – ${new Date(bucket.end * 1000).toLocaleString()}`), filters, status, body);
+    `${new Date(bucket.start).toLocaleString()} – ${new Date(bucket.end).toLocaleString()}`), filters, status, body);
   let family = null, sequence = 0;
   const current = () => !signal?.aborted && dialog.open;
   function callRow(row) {
@@ -44,8 +44,8 @@ export function inspectBucket(context, scopePayload, bucket, trigger) {
     status.textContent = "Loading contributing observations…";
     try {
       const response = await callFunction(context.client, "events.performance.detail", {
-        ...scopePayload, since: new Date(bucket.start * 1000).toISOString(),
-        until: new Date(bucket.end * 1000).toISOString(), family, offset, limit: 50,
+        ...scopePayload, since: bucket.start,
+        until: bucket.end, family, offset, limit: 50,
       }, null, { signal });
       if (!current() || token !== sequence) return;
       if (!response.envelope.success) throw new Error(response.envelope.error?.message || "performance_detail_failed: retry inspection");

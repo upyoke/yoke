@@ -18,7 +18,7 @@ from yoke_core.domain.qa_execution_proof import (
 )
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.qa_run_conclusion import run_conclusion_fields
-from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.db_helpers import instant_parameter, query_rows
 from yoke_core.domain.qa_activity_selection import (
     ACTIVITY_SOURCE,
     EXECUTABLE_REQUIREMENT,
@@ -224,7 +224,7 @@ def _activity_summary(
     day: Optional[date],
 ) -> dict[str, Any]:
     activity_day = day or datetime.now(timezone.utc).date()
-    next_day = activity_day + timedelta(days=1)
+    day_start = datetime.combine(activity_day, datetime.min.time(), timezone.utc)
     marker = _placeholder(conn)
     params: list[Any] = []
     where = f"WHERE {EXECUTABLE_REQUIREMENT}"
@@ -236,7 +236,12 @@ def _activity_summary(
         params.append(deployment_run_id)
     where += item_filter(marker, params, item_ids)
     where += f" AND {HAPPENED_AT}>={marker} AND {HAPPENED_AT}<{marker}"
-    params.extend([activity_day.isoformat(), next_day.isoformat()])
+    params.extend(
+        [
+            instant_parameter(conn, day_start),
+            instant_parameter(conn, day_start + timedelta(days=1)),
+        ]
+    )
     rows = query_rows(
         conn,
         # The same source the row read uses, so a day's counts cover exactly

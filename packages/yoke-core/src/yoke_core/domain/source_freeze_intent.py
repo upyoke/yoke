@@ -12,16 +12,22 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+from yoke_contracts.timestamps import format_instant, parse_instant
 
 
 FREEZE_INTENT_SCHEMA = "yoke.source-freeze/v2"
 
 
 def freeze_intent(
-    *, database: dict[str, Any], frozen_at: str,
-    authority: dict[str, Any], archive: dict[str, Any],
+    *,
+    database: dict[str, Any],
+    frozen_at: str | datetime,
+    authority: dict[str, Any],
+    archive: dict[str, Any],
     zero_writable_app_sessions: bool,
 ) -> dict[str, Any]:
     """Build the exact compact raw-JSON freeze-receipt intent contract.
@@ -31,14 +37,19 @@ def freeze_intent(
     ``True``; a machine-local export cannot prove session absence and
     passes ``False``.
     """
+    frozen_at = format_instant(frozen_at)
     updated_values = [
-        str(receipt["max_updated_at"])
+        parse_instant(receipt["max_updated_at"])
         for receipt in authority.get("tables", {}).values()
         if receipt.get("max_updated_at") is not None
     ]
-    strategy_sha = _sha256_text(json.dumps(
-        authority.get("strategy_rows", []), sort_keys=True, separators=(",", ":"),
-    ))
+    strategy_sha = _sha256_text(
+        json.dumps(
+            authority.get("strategy_rows", []),
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    )
     body: dict[str, Any] = {
         "schema": FREEZE_INTENT_SCHEMA,
         # This is the frozen SOURCE identity, never the target CAS identity.
@@ -51,7 +62,9 @@ def freeze_intent(
         "authority_digest": str(authority["receipt_digest"]),
         "project_capabilities": authority["project_capabilities"],
         "capability_secrets": authority["capability_secrets"],
-        "updated_at_watermark": max(updated_values) if updated_values else None,
+        "updated_at_watermark": (
+            format_instant(max(updated_values)) if updated_values else None
+        ),
         "strategy_sha256": strategy_sha,
         "archive": {
             "sha256": str(archive["sha256"]),

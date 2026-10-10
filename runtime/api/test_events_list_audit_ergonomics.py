@@ -13,6 +13,7 @@ Uses the existing ``db_path`` / ``_insert_event`` fixtures from
 ``events_crud_test_fixtures.py`` so the events table DDL matches
 production.
 """
+
 from __future__ import annotations
 
 import io
@@ -23,11 +24,12 @@ import pytest
 from yoke_core.domain import events_crud  # noqa: F401 — load order breaks circular import with events_queries
 from yoke_core.domain import events_queries as eq
 from yoke_core.domain.events_relative_time import parse_since
+from yoke_contracts.timestamps import parse_instant
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.events_crud_test_fixtures import (  # noqa: F401
-    _insert_event,
-    db_path,
-)
+from runtime.api import events_crud_test_fixtures
+
+_insert_event = events_crud_test_fixtures._insert_event
+db_path = events_crud_test_fixtures.db_path
 
 
 def _run_list(db_path: str, args: list[str]) -> tuple[int, str, str]:
@@ -52,46 +54,46 @@ class TestSessionAlias:
 
 
 class TestRelativeSinceParsing:
-    def test_iso_timestamp_passthrough(self) -> None:
+    def test_qualified_timestamp_is_an_aware_native_bound(self) -> None:
         iso = "2026-05-01T00:00:00Z"
-        assert parse_since(iso) == iso
+        assert parse_since(iso) == parse_instant(iso)
 
     def test_relative_hours_resolves_against_injected_now(self) -> None:
         now = datetime(2026, 5, 19, 12, 0, 0, tzinfo=timezone.utc)
         resolved = parse_since("2 hours ago", now=now)
-        assert resolved == "2026-05-19T10:00:00Z"
+        assert resolved == parse_instant("2026-05-19T10:00:00Z")
 
     def test_relative_days_resolves_against_injected_now(self) -> None:
         now = datetime(2026, 5, 19, 12, 0, 0, tzinfo=timezone.utc)
-        assert parse_since("3 days ago", now=now) == "2026-05-16T12:00:00Z"
+        assert parse_since("3 days ago", now=now) == parse_instant(
+            "2026-05-16T12:00:00Z"
+        )
 
     def test_singular_unit_accepted(self) -> None:
         now = datetime(2026, 5, 19, 12, 0, 0, tzinfo=timezone.utc)
-        assert parse_since("1 hour ago", now=now) == "2026-05-19T11:00:00Z"
+        assert parse_since("1 hour ago", now=now) == parse_instant(
+            "2026-05-19T11:00:00Z"
+        )
 
     def test_case_insensitive(self) -> None:
         now = datetime(2026, 5, 19, 12, 0, 0, tzinfo=timezone.utc)
-        assert parse_since("30 MINUTES AGO", now=now) == "2026-05-19T11:30:00Z"
+        assert parse_since("30 MINUTES AGO", now=now) == parse_instant(
+            "2026-05-19T11:30:00Z"
+        )
 
     def test_unparseable_value_fails_closed(self) -> None:
         with pytest.raises(ValueError, match="unparseable"):
             parse_since("recently")
 
-    def test_since_filter_uses_relative_anchor(
-        self, db_path: str, monkeypatch
-    ) -> None:
+    def test_since_filter_uses_relative_anchor(self, db_path: str, monkeypatch) -> None:
         now = datetime(2026, 5, 19, 12, 0, 0, tzinfo=timezone.utc)
         old = (now - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        recent = (now - timedelta(minutes=30)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        recent = (now - timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
         _insert_event(db_path, event_id="old", session_id="s")
         _insert_event(db_path, event_id="recent", session_id="s")
         # Stamp deterministic timestamps so the relative window matches.
         conn = connect_test_db(db_path)
-        conn.execute(
-            "UPDATE events SET created_at=%s WHERE event_id='old'", (old,)
-        )
+        conn.execute("UPDATE events SET created_at=%s WHERE event_id='old'", (old,))
         conn.execute(
             "UPDATE events SET created_at=%s WHERE event_id='recent'",
             (recent,),
@@ -101,34 +103,16 @@ class TestRelativeSinceParsing:
 
         from yoke_core.domain import events_relative_time as ert
 
-        monkeypatch.setattr(
-            ert, "datetime", _FrozenDatetime(now), raising=True
-        )
+        monkeypatch.setattr(ert, "utc_now", lambda: now, raising=True)
         rc, out, _ = _run_list(db_path, ["--since", "2 hours ago"])
         assert rc == 0
         assert "recent" in out
         assert "old" not in out
 
 
-class _FrozenDatetime:
-    """Patch shim for ``datetime.now(timezone.utc)`` used in parse_since."""
-
-    def __init__(self, anchor: datetime) -> None:
-        self._anchor = anchor
-
-    def now(self, tz):  # noqa: D401 - matches datetime.now signature
-        return self._anchor
-
-    @classmethod
-    def fromisoformat(cls, value: str):  # pragma: no cover - parity
-        return datetime.fromisoformat(value)
-
-
 class TestFailedOnlyPreset:
     def test_filters_to_failed_class(self, db_path: str) -> None:
-        _insert_event(
-            db_path, event_id="evt-ok-1", session_id="s", event_outcome="ok"
-        )
+        _insert_event(db_path, event_id="evt-ok-1", session_id="s", event_outcome="ok")
         _insert_event(
             db_path, event_id="evt-fail-1", session_id="s", event_outcome="failed"
         )
@@ -143,20 +127,24 @@ class TestFailedOnlyPreset:
 
     def test_composes_with_session_filter(self, db_path: str) -> None:
         _insert_event(
-            db_path, event_id="evt-alpha-fail",
-            session_id="alpha", event_outcome="failed",
+            db_path,
+            event_id="evt-alpha-fail",
+            session_id="alpha",
+            event_outcome="failed",
         )
         _insert_event(
-            db_path, event_id="evt-beta-fail",
-            session_id="beta", event_outcome="failed",
+            db_path,
+            event_id="evt-beta-fail",
+            session_id="beta",
+            event_outcome="failed",
         )
         _insert_event(
-            db_path, event_id="evt-alpha-ok",
-            session_id="alpha", event_outcome="ok",
+            db_path,
+            event_id="evt-alpha-ok",
+            session_id="alpha",
+            event_outcome="ok",
         )
-        rc, out, _ = _run_list(
-            db_path, ["--failed-only", "--session", "alpha"]
-        )
+        rc, out, _ = _run_list(db_path, ["--failed-only", "--session", "alpha"])
         assert rc == 0
         assert "evt-alpha-fail" in out
         assert "evt-beta-fail" not in out  # filtered by session

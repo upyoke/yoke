@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+
 import json
 import uuid
 from typing import Any
@@ -18,7 +23,7 @@ def record_launch_instruction_attempt(
     message_id: str,
     session_id: str,
     injected: bool,
-    occurred_at: str,
+    occurred_at: datetime | str,
 ) -> None:
     """Record the special first hook through the ordinary attempt ledger."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -28,8 +33,8 @@ def record_launch_instruction_attempt(
         session_id,
         "hook",
         ATTESTATION_ADAPTER_REVISION,
-        occurred_at,
-        occurred_at,
+        instant_parameter(conn, parse_instant(occurred_at)),
+        instant_parameter(conn, parse_instant(occurred_at)),
         "injected" if injected else "render_output_missing",
         json.dumps({"delivery_path": "launch_attestation"}, sort_keys=True),
     )

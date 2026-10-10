@@ -12,7 +12,7 @@ DISPATCH_TABLES: dict[str, dict] = {
             ("authorization_scope", "TEXT"),
             ("payload_checksum", "TEXT"),
             ("result", "TEXT"),
-            ("created_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Bounded successful-call replay state. request_id is globally "
@@ -32,8 +32,8 @@ DISPATCH_TABLES: dict[str, dict] = {
             ("correlation_id", "TEXT"),
             ("state", "TEXT"),
             ("workflow_run_id", "TEXT"),
-            ("created_at", "TEXT"),
-            ("updated_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
+            ("updated_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Application state for GitHub workflow dispatch. A pending row is "

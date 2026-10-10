@@ -11,7 +11,8 @@ override the universe definition with a ``levels`` document in its
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Optional
 
 from yoke_contracts.levels import (
@@ -44,7 +45,7 @@ def create_universe_settings_table(conn: Any) -> None:
         CREATE TABLE IF NOT EXISTS {TABLE} (
           key TEXT PRIMARY KEY,
           value TEXT NOT NULL,
-          updated_at TEXT NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL,
           updated_by_actor_id INTEGER
         );
         """,
@@ -120,7 +121,7 @@ def write_universe_levels(
     """Validate and store the universe levels document, replacing any prior one."""
     levels = parse_levels(raw)
     marker = _p(conn)
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = instant_parameter(conn, utc_now())
     conn.execute(
         f"INSERT INTO {TABLE} (key, value, updated_at, updated_by_actor_id) "
         f"VALUES ({marker}, {marker}, {marker}, {marker}) "

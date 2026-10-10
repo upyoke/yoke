@@ -83,7 +83,7 @@ def test_restore_backfills_requirement_snapshots_from_an_older_archive(tmp_path)
                 "'flow_derived', %s, 'portable-command', 'command', "
                 "'legacy-host', 'implemented', 'Run the portable command.', "
                 "'The portable command passes.', '{\"command\":\"true\"}', "
-                "'then') RETURNING id",
+                "'2026-10-01T00:00:00Z') RETURNING id",
                 (item_id, plan_id),
             ).fetchone()[0]
         )
@@ -141,7 +141,7 @@ def test_restore_acceptance_rejects_invalid_requirement_snapshot() -> None:
             "'flow_derived', %s, 'portable-command', 0, 1, 'command', "
             "'Command', 'worktree_run', 'automatic', 'implemented', "
             "'Run the command.', 'The command passes.', "
-            "'{\"command\":\"true\"}', 'then')",
+            "'{\"command\":\"true\"}', '2026-10-01T00:00:00Z')",
             (item_id, plan_id),
         )
         conn.commit()

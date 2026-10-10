@@ -10,7 +10,8 @@ single runaway log cannot become an unbounded control-plane write.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from yoke_contracts.timestamps import format_instant
 import os
 from pathlib import Path
 import stat
@@ -47,23 +48,21 @@ class EvidenceFile:
     kind: EvidenceKind
     path: Path
     size_bytes: int
-    modified_at: str
+    modified_at: datetime
 
     def as_entry(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "kind": self.kind,
             "size_bytes": self.size_bytes,
-            "modified_at": self.modified_at,
+            "modified_at": format_instant(self.modified_at),
         }
 
 
-def _stamp(seconds: float) -> str:
-    return (
-        datetime.fromtimestamp(seconds, tz=timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
+def _modified_instant(nanoseconds: int) -> datetime:
+    seconds, fraction = divmod(nanoseconds, 1_000_000_000)
+    return datetime.fromtimestamp(seconds, tz=timezone.utc) + timedelta(
+        microseconds=fraction // 1000
     )
 
 
@@ -82,7 +81,7 @@ def _describe(path: Path, kind: EvidenceKind, name: str) -> EvidenceFile | None:
         kind=kind,
         path=path,
         size_bytes=int(details.st_size),
-        modified_at=_stamp(details.st_mtime),
+        modified_at=_modified_instant(details.st_mtime_ns),
     )
 
 

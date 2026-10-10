@@ -80,10 +80,11 @@ def test_strategy_windows_the_whole_history_before_cutting_off_days() -> None:
 
     sql, _ = _strategy_query([1], 120)
     window_end = sql.index(") adjacent")
-    assert "to_char" not in sql[:window_end], (
-        "the day cutoff must not filter the rows the window reads"
-    )
-    assert "to_char" in sql[window_end:]
+    # UTC day projection is not a row predicate. Inspect the window's
+    # actual WHERE clause rather than function names in outer SELECTs.
+    window_where = sql[sql.index("FROM strategy_doc_revisions") : window_end]
+    assert window_where == "FROM strategy_doc_revisions WHERE project_id IN (%s)"
+    assert "AND day >=" in sql[window_end:]
 
 
 def test_strategy_serves_a_payload_recorded_before_this_measure() -> None:
@@ -107,9 +108,14 @@ def test_strategy_serves_a_payload_recorded_before_this_measure() -> None:
         def query(self, sql: str, params=None):
             raise AssertionError("must not issue an unrecorded query")
 
-    assert strategy_bytes_by_day(
-        _PayloadWithoutTheMeasure(), project_ids, days=120,
-    ) == {}
+    assert (
+        strategy_bytes_by_day(
+            _PayloadWithoutTheMeasure(),
+            project_ids,
+            days=120,
+        )
+        == {}
+    )
 
 
 def test_strategy_serves_a_payload_that_carries_the_measure() -> None:
@@ -130,7 +136,9 @@ def test_strategy_serves_a_payload_that_carries_the_measure() -> None:
             return [("2026-07-05", 17)]
 
     assert strategy_bytes_by_day(
-        _PayloadWithTheMeasure(), project_ids, days=120,
+        _PayloadWithTheMeasure(),
+        project_ids,
+        days=120,
     ) == {"2026-07-05": 17}
 
 

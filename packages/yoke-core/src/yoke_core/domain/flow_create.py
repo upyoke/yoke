@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_core.domain.db_helpers import iso8601_now, query_scalar
+from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_scalar
 from yoke_core.domain.deployment_flow_state import (
     FLOW_STATUS_ACTIVE,
     validate_flow_status,
@@ -107,7 +107,7 @@ def cmd_create(
             description,
             stages_json,
             on_failure,
-            iso8601_now(),
+            instant_parameter(conn, utc_now()),
             target_tier,
             target_environment_id,
             done_description,

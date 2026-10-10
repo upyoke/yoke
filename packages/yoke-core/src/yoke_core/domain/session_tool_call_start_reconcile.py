@@ -20,7 +20,11 @@ a counter, moves a heartbeat, or reopens finished work.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
+
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_core.domain.observe_timing import arriving_start_supersedes
 
@@ -31,7 +35,7 @@ def adopt_earlier_start(
     placeholder: str,
     session_id: str,
     tool_use_id: str,
-    started_at: str,
+    started_at: datetime | str,
 ) -> bool:
     """Move one call's ``started_at`` back to a genuine earlier capture.
 
@@ -45,6 +49,7 @@ def adopt_earlier_start(
     what makes a duplicate or replayed start a no-op: it carries the instant
     it always carried.
     """
+    started_at = parse_instant(started_at)
     row = conn.execute(
         "SELECT started_at FROM session_tool_calls "
         f"WHERE session_id = {placeholder} AND tool_use_id = {placeholder}",
@@ -55,7 +60,7 @@ def adopt_earlier_start(
     conn.execute(
         f"UPDATE session_tool_calls SET started_at = {placeholder} "
         f"WHERE session_id = {placeholder} AND tool_use_id = {placeholder}",
-        (started_at, session_id, tool_use_id),
+        (instant_parameter(conn, started_at), session_id, tool_use_id),
     )
     return True
 

@@ -97,7 +97,7 @@ def test_waiting_wake_spawns_exact_yoke_session_and_returns_running(
         "native_binary_source": "path",
         "native_capture_path": "/private/captures/resume.capture",
         "native_diagnostic_ref": "nd-00000000-0000-4000-8000-000000004321",
-        "native_started_at": "2026-08-25T12:00:00Z",
+        "native_started_at": "2026-08-25T12:00:00.000000Z",
         "surface": "claude-cli",
     }
 

@@ -268,3 +268,48 @@ def test_delivery_stamp_storage_failure_rolls_back_without_refusing_the_gate(tes
         recorded_by_session_id="test-session",
     )
     assert conn.rolled_back
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("microsecond", [0, 123456])
+def test_completion_recorded_clock_is_native_at_the_sql_owner(
+    test_db, monkeypatch, zone, microsecond
+):
+    from datetime import datetime, timezone
+    from yoke_core.domain import completed_item_delivery as owner
+
+    _seed_final_run(test_db, "clock-completion", shared_qa=False)
+    assert (
+        test_db.execute(
+            "SELECT 1 FROM item_gate_satisfactions WHERE item_id=%s AND obligation='delivery_evidence'",
+            (MEMBER_A,),
+        ).fetchone()
+        is None
+    )
+    test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
+    test_db.commit()
+    stamp = datetime(1969, 12, 31, 23, 59, 59, microsecond, tzinfo=timezone.utc)
+    monkeypatch.setattr(owner, "utc_now", lambda: stamp)
+    bind = owner.instant_parameter
+    seen = []
+
+    def record_binding(conn, value):
+        assert isinstance(value, datetime) and value.tzinfo is timezone.utc
+        seen.append(value)
+        return bind(conn, value)
+
+    monkeypatch.setattr(owner, "instant_parameter", record_binding)
+    entry = {
+        "run_id": "clock-completion",
+        "environment_id": 1,
+        "candidate": "opaque+offset",
+    }
+    owner._store(test_db, MEMBER_A, [entry])
+    test_db.commit()
+    recorded, facts = test_db.execute(
+        "SELECT recorded_at,facts FROM item_gate_satisfactions WHERE item_id=%s AND obligation='delivery_evidence'",
+        (MEMBER_A,),
+    ).fetchone()
+    assert seen == [stamp] and recorded == stamp
+    assert json.loads(facts)["completed_deliveries"] == [entry]
+    assert test_db.execute("SHOW TimeZone").fetchone()[0] == zone

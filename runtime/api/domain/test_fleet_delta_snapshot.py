@@ -10,6 +10,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import pytest
+
+from yoke_contracts.timestamps import InvalidInstant
+
 from yoke_core.domain.fleet_delta_snapshot import (
     envelope_rows,
     item_rows,
@@ -147,8 +151,10 @@ def test_timestamps_normalize_to_utc_and_tolerate_absence() -> None:
     assert parse_timestamp("2026-08-28T19:00:00+02:00") == datetime(
         2026, 8, 28, 17, 0, tzinfo=timezone.utc
     )
-    assert parse_timestamp("2026-08-28T17:00:00") == datetime(
-        2026, 8, 28, 17, 0, tzinfo=timezone.utc
+    assert parse_timestamp(datetime(2026, 8, 28, 17, tzinfo=timezone.utc)) == datetime(
+        2026, 8, 28, 17, tzinfo=timezone.utc
     )
-    for absent in (None, "", "   ", "not-a-timestamp", 17):
-        assert parse_timestamp(absent) is None
+    assert parse_timestamp(None) is None
+    for invalid in ("2026-08-28T17:00:00", "", "   ", "not-a-timestamp", 17):
+        with pytest.raises(InvalidInstant):
+            parse_timestamp(invalid)

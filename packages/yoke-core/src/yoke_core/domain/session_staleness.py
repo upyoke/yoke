@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any, Mapping, Optional
 
 from yoke_contracts.session_control.liveness import (
@@ -12,26 +12,14 @@ from yoke_contracts.session_control.liveness import (
     LIVENESS_WAITING,
 )
 from yoke_contracts.session_queue_posture import SESSION_MODE_PARKED
+from yoke_contracts.timestamps import as_utc, parse_instant, utc_now
 
 from .sessions_analytics_core import DEFAULT_STALE_THRESHOLD_MINUTES
 from .sessions_render_reclaim import _resolve_effective_ttl
 
 
 def _parse_timestamp(value: object) -> Optional[datetime]:
-    if value is None:
-        return None
-    text = str(value).strip()
-    if not text:
-        return None
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+    return parse_instant(value) if value is not None else None
 
 
 def activity_is_stale(
@@ -46,15 +34,13 @@ def activity_is_stale(
     parsed = _parse_timestamp(activity_at)
     if parsed is None:
         return True
-    now_dt = now or datetime.now(timezone.utc)
-    if now_dt.tzinfo is None:
-        now_dt = now_dt.replace(tzinfo=timezone.utc)
+    now_dt = utc_now() if now is None else as_utc(now)
     ttl = _resolve_effective_ttl(
         executor,
         base_ttl_minutes,
         dict(executor_ttl_overrides) if executor_ttl_overrides is not None else None,
     )
-    return parsed < now_dt.astimezone(timezone.utc) - timedelta(minutes=ttl)
+    return parsed < now_dt - timedelta(minutes=ttl)
 
 
 #: The row column :func:`session_liveness` reads the claim fact from; select
@@ -72,11 +58,12 @@ def activity_liveness(row: Mapping[str, Any], *, now: Optional[datetime] = None)
     """
     if row.get("terminated_at") or row.get("ended_at"):
         return LIVENESS_ENDED
-    activity_at = max(
-        str(row.get("last_heartbeat") or ""),
-        str(row.get("last_tool_call_at") or ""),
-        str(row.get("activity_at") or ""),
-    )
+    candidates = [
+        parse_instant(row[key])
+        for key in ("last_heartbeat", "last_tool_call_at", "activity_at")
+        if row.get(key) is not None
+    ]
+    activity_at = max(candidates) if candidates else None
     if activity_is_stale(activity_at, executor=row.get("executor"), now=now):
         return LIVENESS_STALE
     return LIVENESS_ACTIVE

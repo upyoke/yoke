@@ -20,6 +20,7 @@ from typing import Any
 from yoke_core.domain.deployment_run_pipe_format import pipe_row, pipe_rows
 from yoke_core.domain.deployment_runs_schema_init import cmd_init as cmd_init
 from yoke_core.domain.runs import RunStatus
+from yoke_core.domain.stored_instant_columns import STORED_INSTANT_COLUMNS
 from yoke_core.domain.schema_common import (
     _column_exists,
 )
@@ -70,6 +71,9 @@ VALID_QA_STATUSES = ("pending", "passed", "failed", "waived")
 VALID_ENV_TYPES = ("shared", "adhoc")
 
 _RUN_TABLE = "deployment_runs"
+RUN_INSTANT_FIELDS = frozenset(
+    column for table, column in STORED_INSTANT_COLUMNS if table == _RUN_TABLE
+)
 
 # Pipe-format fields whose live table column may be absent during the
 # merge-to-deploy window (additive converge has not yet run on the plane
@@ -120,9 +124,8 @@ def _compose_run_select(
     )
 
 
-# Standard SELECT fragment for full run rows (COALESCE NULLs to empty strings
-# to match the shell pipe-delimited output). Live readers use `_run_select`
-# so a declared additive column missing from the plane projects empty.
+# Full run rows retain native clocks; the pipe formatter owns blank nulls.
+# Live readers use `_run_select` for declared additive columns.
 _RUN_SELECT = _compose_run_select(
     target_tier="COALESCE(target_tier,'')",
     target_environment=(
@@ -131,14 +134,14 @@ _RUN_SELECT = _compose_run_select(
     ),
     release_lineage="COALESCE(release_lineage,'')",
     current_stage="COALESCE(current_stage,'')",
-    started_at="COALESCE(started_at,'')",
-    completed_at="COALESCE(completed_at,'')",
+    started_at="started_at",
+    completed_at="completed_at",
     created_by="COALESCE(created_by,'')",
     carried_work="COALESCE(carried_work,'')",
     bound_sources="COALESCE(bound_sources,'')",
     artifact_identity="COALESCE(artifact_identity,'')",
     composition_resolution="COALESCE(composition_resolution,'')",
-    composition_frozen_at="COALESCE(composition_frozen_at,'')",
+    composition_frozen_at="composition_frozen_at",
     requirement_snapshot="COALESCE(requirement_snapshot,'')",
 )
 
@@ -153,7 +156,8 @@ def _run_column_sql(
     """Return *present_sql* when the live table has *column*, else empty."""
     if _column_exists(conn, _RUN_TABLE, column):
         return present_sql
-    return f"'' AS {alias or column}"
+    missing = "NULL" if column in RUN_INSTANT_FIELDS else "''"
+    return f"{missing} AS {alias or column}"
 
 
 def _run_select(conn: Any) -> str:
@@ -172,8 +176,8 @@ def _run_select(conn: Any) -> str:
         current_stage=_run_column_sql(
             conn, "current_stage", "COALESCE(current_stage,'')"
         ),
-        started_at=_run_column_sql(conn, "started_at", "COALESCE(started_at,'')"),
-        completed_at=_run_column_sql(conn, "completed_at", "COALESCE(completed_at,'')"),
+        started_at=_run_column_sql(conn, "started_at", "started_at"),
+        completed_at=_run_column_sql(conn, "completed_at", "completed_at"),
         created_by=_run_column_sql(conn, "created_by", "COALESCE(created_by,'')"),
         carried_work=_run_column_sql(conn, "carried_work", "COALESCE(carried_work,'')"),
         bound_sources=_run_column_sql(
@@ -186,7 +190,7 @@ def _run_select(conn: Any) -> str:
             conn, "composition_resolution", "COALESCE(composition_resolution,'')"
         ),
         composition_frozen_at=_run_column_sql(
-            conn, "composition_frozen_at", "COALESCE(composition_frozen_at,'')"
+            conn, "composition_frozen_at", "composition_frozen_at"
         ),
         requirement_snapshot=_run_column_sql(
             conn, "requirement_snapshot", "COALESCE(requirement_snapshot,'')"

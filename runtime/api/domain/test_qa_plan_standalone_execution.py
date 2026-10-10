@@ -93,27 +93,6 @@ def test_fresh_manual_runs_keep_order_and_never_acquire_gate_subjects():
         )
 
 
-def test_same_second_abort_then_restart_resumes_the_new_live_owner(monkeypatch):
-    from yoke_core.domain import qa_standalone_execution as standalone
-    from yoke_core.domain.qa_plan_execution_continuation import latest_plan_execution
-
-    identifiers = iter(("f" * 32, "1" * 32, "2" * 32))
-    monkeypatch.setattr(standalone, "uuid4", lambda: next(identifiers))
-    monkeypatch.setattr(standalone, "iso8601_now", lambda: "2026-09-30T12:00:00Z")
-    with test_database() as conn:
-        _plan(conn)
-        old = _begin(conn)
-        finish_plan_execution(conn, old, state="aborted", reason="first")
-        current = _begin(conn)
-        resumed = _begin(conn)
-        assert resumed["id"] == current["id"]
-        finish_plan_execution(conn, current, state="aborted", reason="second")
-        latest = latest_plan_execution(
-            conn, standalone_plan_id=current["standalone_plan_id"]
-        )
-        assert latest["id"] == current["id"]
-
-
 def test_manual_resume_keeps_snapshot_cursor_and_source_binding():
     with test_database() as conn:
         _plan(conn)

@@ -17,10 +17,10 @@ def has_frozen_composition(conn: Any, run_id: str) -> bool:
     if not _column_exists(conn, "deployment_runs", "composition_frozen_at"):
         return False
     row = conn.execute(
-        "SELECT COALESCE(composition_frozen_at, '') FROM deployment_runs WHERE id=%s",
+        "SELECT composition_frozen_at IS NOT NULL FROM deployment_runs WHERE id=%s",
         (run_id,),
     ).fetchone()
-    return bool(row and str(row[0] or ""))
+    return bool(row and row[0])
 
 
 def frozen_mutation_refusal(run_id: str, subject: str) -> str:

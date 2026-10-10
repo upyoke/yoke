@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import os
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import format_instant, utc_now
 from pathlib import Path
 from typing import Iterator
 
@@ -109,7 +109,7 @@ def human_gate(
         "pid": os.getpid(),
         "project": project,
         "identity": identity,
-        "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "started_at": format_instant(utc_now()),
     }
     try:
         descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)

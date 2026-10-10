@@ -61,9 +61,10 @@ def run_transfer(
     timeout: int,
     env: Optional[Mapping[str, str]] = None,
     progress_file: Optional[Path] = None,
+    resource_guard: Optional[Callable[[], None]] = None,
 ) -> subprocess.CompletedProcess:
     try:
-        if progress_file is None:
+        if progress_file is None and resource_guard is None:
             result = migration_rehearsal_copy_lock.run_child(
                 list(argv),
                 text=True,
@@ -80,9 +81,15 @@ def run_transfer(
                 env=None if env is None else dict(env),
             ) as process:
                 try:
-                    size = progress_file.stat().st_size if progress_file.exists() else 0
+                    size = (
+                        progress_file.stat().st_size
+                        if progress_file and progress_file.exists()
+                        else 0
+                    )
                     last_progress = time.monotonic()
                     while True:
+                        if resource_guard is not None:
+                            resource_guard()
                         idle = time.monotonic() - last_progress
                         try:
                             stdout, stderr = process.communicate(
@@ -95,13 +102,17 @@ def run_transfer(
                         except subprocess.TimeoutExpired:
                             current_size = (
                                 progress_file.stat().st_size
-                                if progress_file.exists()
+                                if progress_file and progress_file.exists()
                                 else 0
                             )
                             if current_size > size:
                                 size = current_size
                                 last_progress = time.monotonic()
                             elif time.monotonic() - last_progress >= timeout:
+                                if progress_file is None:
+                                    raise RuntimeError(
+                                        f"{Path(argv[0]).name} timed out after {timeout}s"
+                                    )
                                 raise RuntimeError(
                                     f"{Path(argv[0]).name} stalled: no dump output for {timeout}s; "
                                     "check the source database and SSH tunnel, then rerun preflight"
@@ -152,6 +163,7 @@ def dump_database(
     *,
     source_environment: str,
     emit: Optional[Callable[[str], None]] = None,
+    resource_guard: Optional[Callable[[], None]] = None,
 ) -> None:
     argv = [
         postgres_cluster.binary(spec, "pg_dump"),
@@ -171,6 +183,7 @@ def dump_database(
                 timeout=DUMP_STALL_TIMEOUT_SECONDS,
                 env=dump_env(postgres_client_env(source_dsn)),
                 progress_file=dump,
+                resource_guard=resource_guard,
             )
             return
         except RuntimeError as exc:
@@ -213,6 +226,7 @@ def restore_copy(
     dump: Path,
     *,
     use_list: Optional[Path] = None,
+    resource_guard: Optional[Callable[[], None]] = None,
 ) -> None:
     argv = [
         postgres_cluster.binary(spec, "pg_restore"),
@@ -228,7 +242,7 @@ def restore_copy(
     if use_list is not None:
         argv += ["-L", str(use_list)]
     argv.append(str(dump))
-    run_transfer(argv, timeout=RESTORE_TIMEOUT_SECONDS)
+    run_transfer(argv, timeout=RESTORE_TIMEOUT_SECONDS, resource_guard=resource_guard)
 
 
 def restore_list_omitting_schemas(

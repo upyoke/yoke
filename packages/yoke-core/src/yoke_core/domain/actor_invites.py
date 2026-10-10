@@ -15,9 +15,11 @@ keeps the operator's original casing for display.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, List, Optional
 
+from yoke_contracts.timestamps import utc_now, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.external_identity_events import (
     EVENT_ACTOR_INVITE_ACCEPTED,
@@ -62,19 +64,20 @@ class Invite:
     actor_id: Optional[int]
     status: str
     invited_by_actor_id: int
-    created_at: str
-    accepted_at: Optional[str]
+    created_at: datetime
+    accepted_at: Optional[datetime]
     accepted_by_actor_id: Optional[int]
+
+    def __post_init__(self):
+        object.__setattr__(self, "created_at", parse_instant(self.created_at))
+        if self.accepted_at is not None:
+            object.__setattr__(self, "accepted_at", parse_instant(self.accepted_at))
 
 
 _INVITE_COLUMNS = (
     "id, email, org_id, role_id, actor_id, status, invited_by_actor_id, "
     "created_at, accepted_at, accepted_by_actor_id"
 )
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _p(conn: Any) -> str:
@@ -90,8 +93,8 @@ def _row_to_invite(row: Any) -> Invite:
         actor_id=int(row[4]) if row[4] is not None else None,
         status=str(row[5]),
         invited_by_actor_id=int(row[6]),
-        created_at=str(row[7]),
-        accepted_at=str(row[8]) if row[8] is not None else None,
+        created_at=row[7],
+        accepted_at=row[8],
         accepted_by_actor_id=int(row[9]) if row[9] is not None else None,
     )
 
@@ -131,7 +134,7 @@ def create_invite(
             actor_id,
             INVITE_STATUS_PENDING,
             int(invited_by_actor_id),
-            _now(),
+            instant_parameter(conn, utc_now()),
         ),
     )
     invite_id = int(cur.fetchone()[0])
@@ -205,19 +208,25 @@ def pending_invite_for_email(conn: Any, *, email: str) -> Optional[Invite]:
 
 
 def mark_invite_accepted(
-    conn: Any, *, invite_id: int, accepted_by_actor_id: int,
+    conn: Any,
+    *,
+    invite_id: int,
+    accepted_by_actor_id: int,
 ) -> Invite:
     """Transition a pending invite to accepted, recording who accepted it."""
     invite = get_invite(conn, invite_id)
     if invite.status != INVITE_STATUS_PENDING:
-        raise InviteNotPending(
-            f"invite {invite_id} is {invite.status!r}, not pending"
-        )
+        raise InviteNotPending(f"invite {invite_id} is {invite.status!r}, not pending")
     p = _p(conn)
     conn.execute(
         f"UPDATE actor_invites SET status = {p}, accepted_at = {p}, "
         f"accepted_by_actor_id = {p} WHERE id = {p}",
-        (INVITE_STATUS_ACCEPTED, _now(), int(accepted_by_actor_id), int(invite_id)),
+        (
+            INVITE_STATUS_ACCEPTED,
+            instant_parameter(conn, utc_now()),
+            int(accepted_by_actor_id),
+            int(invite_id),
+        ),
     )
     conn.commit()
     emit_identity_event(
@@ -235,14 +244,15 @@ def mark_invite_accepted(
 
 
 def revoke_invite(
-    conn: Any, *, invite_id: int, revoked_by_actor_id: Optional[int] = None,
+    conn: Any,
+    *,
+    invite_id: int,
+    revoked_by_actor_id: Optional[int] = None,
 ) -> Invite:
     """Transition a pending invite to revoked."""
     invite = get_invite(conn, invite_id)
     if invite.status != INVITE_STATUS_PENDING:
-        raise InviteNotPending(
-            f"invite {invite_id} is {invite.status!r}, not pending"
-        )
+        raise InviteNotPending(f"invite {invite_id} is {invite.status!r}, not pending")
     p = _p(conn)
     conn.execute(
         f"UPDATE actor_invites SET status = {p} WHERE id = {p}",

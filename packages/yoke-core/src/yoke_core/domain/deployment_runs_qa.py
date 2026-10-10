@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from yoke_core.domain.db_helpers import connect, iso8601_now, query_rows
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import connect, instant_parameter, query_rows
 from yoke_core.domain.deployment_runs_schema import VALID_QA_STATUSES, _pipe_rows
 
 
@@ -39,7 +40,7 @@ def cmd_qa_list(run_id: str, db_path: Optional[str] = None) -> str:
     try:
         rows = query_rows(
             conn,
-            "SELECT id, run_id, check_name, source, blocking, status, COALESCE(updated_at,'') "
+            "SELECT id, run_id, check_name, source, blocking, status, updated_at "
             "FROM deployment_run_qa WHERE run_id=%s ORDER BY id ASC",
             (run_id,),
         )
@@ -61,7 +62,7 @@ def cmd_qa_update(
     try:
         conn.execute(
             "UPDATE deployment_run_qa SET status=%s, updated_at=%s WHERE run_id=%s AND check_name=%s",
-            (status, iso8601_now(), run_id, check_name),
+            (status, instant_parameter(conn, utc_now()), run_id, check_name),
         )
         conn.commit()
         if status in {"passed", "waived"}:

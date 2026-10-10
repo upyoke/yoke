@@ -50,7 +50,7 @@ CREATE TABLE path_targets (
     path_string TEXT NOT NULL,
     generation INTEGER NOT NULL DEFAULT 1,
     parent_target_id INTEGER,
-    created_at TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
     materialization_state TEXT NOT NULL DEFAULT 'observed'
 );
 CREATE TABLE path_claims (
@@ -64,16 +64,16 @@ CREATE TABLE path_claims (
     registered_by_actor_id INTEGER,
     registered_by_session_id TEXT,
     integration_target TEXT NOT NULL,
-    registered_at TEXT NOT NULL,
-    activated_at TEXT,
-    released_at TEXT,
-    cancelled_at TEXT
+    registered_at TIMESTAMPTZ NOT NULL,
+    activated_at TIMESTAMPTZ,
+    released_at TIMESTAMPTZ,
+    cancelled_at TIMESTAMPTZ
 );
 CREATE TABLE path_claim_targets (
     id INTEGER PRIMARY KEY,
     claim_id INTEGER NOT NULL REFERENCES path_claims(id),
     target_id INTEGER NOT NULL REFERENCES path_targets(id),
-    declared_at TEXT NOT NULL
+    declared_at TIMESTAMPTZ NOT NULL
 );
 CREATE TABLE item_dependencies (
     id INTEGER PRIMARY KEY,
@@ -83,7 +83,7 @@ CREATE TABLE item_dependencies (
     satisfaction TEXT,
     source TEXT,
     rationale TEXT,
-    created_at TEXT
+    created_at TIMESTAMPTZ
 );
 CREATE TABLE path_claim_overrides (
     id INTEGER PRIMARY KEY,
@@ -98,7 +98,7 @@ CREATE TABLE path_claim_overrides (
     item_id INTEGER,
     project TEXT,
     session_id TEXT,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 -- Required by the probe's transitive call into classify_overlap →
 -- _is_render_target_only_overlap → read_render_source_for →
@@ -111,7 +111,7 @@ CREATE TABLE path_context_values (
     entry_key TEXT NOT NULL DEFAULT '',
     value TEXT NOT NULL DEFAULT '{}',
     recorded_event_id TEXT NOT NULL,
-    recorded_at TEXT NOT NULL
+    recorded_at TIMESTAMPTZ NOT NULL
 );
 """
 

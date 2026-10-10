@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
+from yoke_contracts.timestamps import parse_instant, temporal_wire
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.api_tokens import generate_token, hash_token
 from yoke_core.domain.machine_registry import (
     MachineRecord,
@@ -19,15 +22,17 @@ class MachineCredential:
     token_id: int
     token: str
     status: str
-    created_at: str
+    created_at: datetime
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "token_id": self.token_id,
-            "token": self.token,
-            "status": self.status,
-            "created_at": self.created_at,
-        }
+        return temporal_wire(
+            {
+                "token_id": self.token_id,
+                "token": self.token,
+                "status": self.status,
+                "created_at": self.created_at,
+            }
+        )
 
 
 def _audit(
@@ -37,18 +42,26 @@ def _audit(
     actor_id: int,
     event_type: str,
     outcome: str,
-    now: str,
+    now: datetime | str,
 ) -> None:
     p = marker(conn)
     conn.execute(
         "INSERT INTO api_token_audit "
         "(api_token_id,actor_id,event_type,outcome,created_at) "
         f"VALUES ({p},{p},{p},{p},{p})",
-        (token_id, actor_id, event_type, outcome, now),
+        (
+            token_id,
+            actor_id,
+            event_type,
+            outcome,
+            instant_parameter(conn, parse_instant(now)),
+        ),
     )
 
 
-def _revoke_active(conn: Any, *, machine_id: str, actor_id: int, now: str) -> None:
+def _revoke_active(
+    conn: Any, *, machine_id: str, actor_id: int, now: datetime | str
+) -> None:
     p = marker(conn)
     rows = conn.execute(
         f"SELECT id FROM api_tokens WHERE machine_id={p} AND status='active'",
@@ -58,7 +71,7 @@ def _revoke_active(conn: Any, *, machine_id: str, actor_id: int, now: str) -> No
         token_id = int(row[0])
         conn.execute(
             f"UPDATE api_tokens SET status='revoked',revoked_at={p} WHERE id={p}",
-            (now, token_id),
+            (instant_parameter(conn, parse_instant(now)), token_id),
         )
         _audit(
             conn,
@@ -78,9 +91,10 @@ def register_with_credential(
     actor_id: int,
     access: Any = None,
     is_admin: bool = False,
-    now: str,
+    now: datetime | str,
 ) -> tuple[MachineRecord, bool, MachineCredential]:
     """Register a machine and return its new raw bearer exactly once."""
+    now = parse_instant(now)
     try:
         record, created = register_machine(
             conn,
@@ -112,7 +126,7 @@ def register_with_credential(
                 record.owner_actor_id,
                 record.machine_id,
                 f"machine:{record.machine_id}",
-                now,
+                instant_parameter(conn, now),
             ),
         ).fetchone()
         credential = MachineCredential(
@@ -139,9 +153,10 @@ def retire_with_credentials(
     machine_id: str,
     actor_id: int,
     is_admin: bool = False,
-    now: str,
+    now: datetime | str,
 ) -> MachineRecord:
     """Retire a machine and revoke only credentials bound to it."""
+    now = parse_instant(now)
     try:
         record = retire_machine(
             conn,

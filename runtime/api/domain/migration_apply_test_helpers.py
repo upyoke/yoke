@@ -9,6 +9,8 @@ DB/worktree setup is authored exactly once.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import json
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -35,8 +37,8 @@ CREATE TABLE IF NOT EXISTS project_capabilities (
     type TEXT NOT NULL,
     
     settings TEXT DEFAULT '{}',
-    verified_at TEXT,
-    created_at TEXT NOT NULL,
+    verified_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL,
     UNIQUE(project_id, type)
 );
 
@@ -53,13 +55,13 @@ CREATE TABLE IF NOT EXISTS migration_audit (
     backup_path TEXT,
     status TEXT,
     failure_reason TEXT,
-    started_at TEXT,
-    completed_at TEXT,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
     duration_ms INTEGER,
     state TEXT,
     exception_reason TEXT,
     source_fingerprint TEXT,
-    rehearsed_at TEXT,
+    rehearsed_at TIMESTAMPTZ,
     lease_id INTEGER,
     test_copy_path TEXT,
     baseline_verify_result TEXT,
@@ -185,7 +187,7 @@ def apply_env(tmp_db: str, tmp_path: Path, monkeypatch):
                 "yoke",
                 "Yoke",
                 "YOK",
-                "2026-04-23T00:00:00Z",
+                parse_instant("2026-04-23T00:00:00Z"),
             ),
         )
         seed = governed_postgres_test_seed()
@@ -198,7 +200,7 @@ def apply_env(tmp_db: str, tmp_path: Path, monkeypatch):
                 SEED_PROJECT_IDS["yoke"],
                 "migration_model",
                 seed_json,
-                "2026-04-23T00:00:00Z",
+                parse_instant("2026-04-23T00:00:00Z"),
             ),
         )
         conn.commit()
@@ -236,7 +238,7 @@ def _seed_postgres_validation_db(validation_dsn: str) -> None:
             "CREATE TABLE IF NOT EXISTS items ("
             " id INTEGER PRIMARY KEY,"
             " title TEXT,"
-            " created_at TEXT"
+            " created_at TIMESTAMPTZ"
             ")"
         )
         conn.commit()

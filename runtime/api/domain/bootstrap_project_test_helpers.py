@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
+
 import contextlib
 import json
 import subprocess
@@ -13,6 +16,8 @@ from yoke_core.domain.project_github_auth import MissingPermission, ProjectGithu
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
+
+_FIXTURE_INSTANT = parse_instant("2026-01-01T00:00:00.123456Z")
 
 
 class _FakeRestResponse:
@@ -112,7 +117,7 @@ _BOOTSTRAP_SCHEMA_DDL = """
       project_id INTEGER NOT NULL REFERENCES projects(id),
       type TEXT NOT NULL,
       settings TEXT DEFAULT '{}',
-      created_at TEXT,
+      created_at TIMESTAMPTZ,
       UNIQUE(project_id, type)
     );
     CREATE TABLE sites (
@@ -120,7 +125,7 @@ _BOOTSTRAP_SCHEMA_DDL = """
       project_id INTEGER NOT NULL REFERENCES projects(id),
       name TEXT NOT NULL,
       settings TEXT DEFAULT '{}',
-      created_at TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL,
       UNIQUE(id, project_id),
       UNIQUE(project_id, name)
     );
@@ -130,7 +135,7 @@ _BOOTSTRAP_SCHEMA_DDL = """
       project_id INTEGER NOT NULL REFERENCES projects(id),
       name TEXT NOT NULL,
       settings TEXT DEFAULT '{}',
-      created_at TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL,
       UNIQUE(project_id, name),
       FOREIGN KEY(site, project_id) REFERENCES sites(id, project_id)
     );
@@ -174,7 +179,7 @@ def _apply_bootstrap_seed(
                         "domains": [{"domain_name": "externalwebapp.example.com"}],
                     }
                 ),
-                "2026-01-01T00:00:00Z",
+                _FIXTURE_INSTANT,
             ),
         )
         conn.execute(
@@ -191,7 +196,7 @@ def _apply_bootstrap_seed(
                         "servers": [{"host": "45.55.157.144"}],
                     }
                 ),
-                "2026-01-01T00:00:00Z",
+                _FIXTURE_INSTANT,
                 2,
                 "ExternalWebapp Web",
             ),

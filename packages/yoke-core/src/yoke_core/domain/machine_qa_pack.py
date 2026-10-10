@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.pack_catalog import load_pack_descriptor, packs_root
 from yoke_core.domain.qa_catalog_schema import ensure_qa_method_metadata_columns
 from yoke_core.domain.qa_method_capabilities import capability_kinds
@@ -97,9 +97,7 @@ def _method(raw: Any) -> dict[str, Any]:
         if not row[key]:
             raise MachineQaPackError(f"machine-qa method {row['id']} lacks {key}")
     if row["runner_id"] not in {"host_control", "agent_mission"}:
-        raise MachineQaPackError(
-            f"machine-qa method {row['id']} has an invalid runner"
-        )
+        raise MachineQaPackError(f"machine-qa method {row['id']} has an invalid runner")
     if "test-machine" not in row["required_capability_kinds"]:
         raise MachineQaPackError(
             f"machine-qa method {row['id']} must require test-machine"
@@ -170,7 +168,7 @@ def sync_machine_qa_pack_methods(
     _, methods = load_machine_qa_methods()
     ensure_qa_method_metadata_columns(conn)
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    now = iso8601_now()
+    now = utc_now()
     columns = (
         "id",
         "name",
@@ -229,8 +227,8 @@ def sync_machine_qa_pack_methods(
                 method["config_contract_id"],
                 method["proof_kind"],
                 method["runner_gloss"],
-                now,
-                now,
+                instant_parameter(conn, now),
+                instant_parameter(conn, now),
             ),
         )
     if commit:

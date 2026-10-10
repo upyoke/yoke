@@ -15,7 +15,10 @@ log handling out of this REST-helper file.
 from __future__ import annotations
 
 import sys
+from datetime import datetime
 from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
+
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
 
 from yoke_core.domain.gh_rest_transport import (
     RestNotFoundError,
@@ -222,11 +225,20 @@ def _integer_field(run: Dict[str, Any], field: str) -> int:
         return 0
 
 
-def _newest_key(run: Dict[str, Any]) -> Tuple[int, int, str, int]:
+def _newest_key(
+    run: Dict[str, Any],
+) -> Tuple[int, int, tuple[bool, datetime | None], int]:
+    created_at = run.get("created_at")
+    try:
+        created = None if created_at is None else parse_instant(created_at)
+    except InvalidInstant as exc:
+        raise RestTransportError(
+            "GitHub workflow run contained an invalid created_at"
+        ) from exc
     return (
         _integer_field(run, "run_number"),
         _integer_field(run, "run_attempt"),
-        str(run.get("created_at") or ""),
+        (created is not None, created),
         _integer_field(run, "id"),
     )
 

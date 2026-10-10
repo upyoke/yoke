@@ -17,6 +17,8 @@ still places work.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import Any, Sequence
 
 from yoke_contracts.session_control.model_billing_pools import (
@@ -50,7 +52,7 @@ def _percent(value: float | None) -> str:
 
 
 def _meters(
-    conn: Any, *, project_id: int, now: str, model: str | None
+    conn: Any, *, project_id: int, now: datetime | str, model: str | None
 ) -> tuple[
     dict[tuple[str, str], tuple[float, str]], dict[tuple[str, str], dict[str, Any]]
 ]:
@@ -94,7 +96,7 @@ def _meters(
 
 
 def surface_headroom(
-    conn: Any, *, project_id: int, now: str, model: str | None = None
+    conn: Any, *, project_id: int, now: datetime | str, model: str | None = None
 ) -> dict[tuple[str, str], tuple[float, str]]:
     """Return the binding readable headroom per (machine, surface).
 
@@ -116,7 +118,7 @@ def _candidates(
     relays: Sequence[EligibleRelay],
     actor_id: int,
     project_id: int,
-    now: str,
+    now: datetime | str,
     snapshot_capacity: Sequence[Any] = (),
     model: str | None = None,
 ) -> list[tuple[EligibleRelay, MachineCandidate]]:
@@ -214,7 +216,7 @@ def place_launch(
     machine_id: str | None,
     actor_id: int,
     project_id: int,
-    now: str,
+    now: datetime | str,
     fallback: bool = False,
     model: str | None = None,
 ) -> LaunchPreview:

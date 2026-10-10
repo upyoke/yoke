@@ -7,7 +7,7 @@ from yoke_contracts.machine_config.directories import create_private_directory
 import json
 import os
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import iso8601_now
 from pathlib import Path
 from typing import Iterator
 
@@ -37,6 +37,11 @@ def lock_path() -> Path:
 
 
 def _open_lock(path: Path, run_id: str) -> int:
+    payload = {
+        "pid": os.getpid(),
+        "run_id": str(run_id or ""),
+        "created_at": iso8601_now(),
+    }
     try:
         fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     except FileExistsError as exc:
@@ -45,14 +50,6 @@ def _open_lock(path: Path, run_id: str) -> int:
         raise onboard_apply_report.OnboardApplyReportError(
             f"another onboarding apply is already running{detail}; try again later"
         ) from exc
-    payload = {
-        "pid": os.getpid(),
-        "run_id": str(run_id or ""),
-        "created_at": datetime.now(timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z"),
-    }
     os.write(fd, (json.dumps(payload, sort_keys=True) + "\n").encode("utf-8"))
     return fd
 

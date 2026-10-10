@@ -27,7 +27,7 @@ def _make_conn() -> Any:
         " id INTEGER PRIMARY KEY, slug TEXT UNIQUE NOT NULL);"
         "CREATE TABLE qa_plans ("
         " id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, "
-        " retired_at TEXT);"
+        " retired_at TIMESTAMPTZ);"
         "CREATE TABLE qa_plan_cases ("
         " id INTEGER PRIMARY KEY, plan_id INTEGER NOT NULL, "
         " method_id TEXT NOT NULL, method_config TEXT NOT NULL);"

@@ -14,10 +14,13 @@ launches arrive because it names a position rather than an offset.
 
 from __future__ import annotations
 
-import base64
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.session_launch_cursor import (
+    decode_launch_cursor,
+    encode_launch_cursor,
+)
 from typing import Any, Optional, Sequence
 
-from yoke_core.domain.json_helper import dumps_compact, loads_text
 from yoke_core.domain.project_identity import resolve_project_slug
 from yoke_core.domain.session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
 from yoke_core.domain.session_launch_projection import compact_launch_records
@@ -27,7 +30,7 @@ from yoke_core.domain.session_launch_store import (
     row_to_launch,
     value,
 )
-from yoke_core.domain.session_launch_types import LaunchRecord, SessionLaunchError
+from yoke_core.domain.session_launch_types import LaunchRecord
 
 
 #: States the Session launches view offers a retry or a reconcile for. They are
@@ -40,40 +43,6 @@ OPERATIONAL_LAUNCH_STATES = frozenset(
 
 DEFAULT_HISTORY_LIMIT = 50
 MAX_HISTORY_LIMIT = 100
-
-
-def encode_launch_cursor(created_at: str, launch_id: str) -> str:
-    raw = dumps_compact({"created_at": created_at, "launch_id": launch_id})
-    return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
-
-
-def decode_launch_cursor(cursor: Optional[str]) -> Optional[tuple[str, str]]:
-    """Return the cursor position, or refuse with the step that clears it."""
-    if cursor is None:
-        return None
-    try:
-        padding = "=" * (-len(cursor) % 4)
-        payload = loads_text(
-            base64.urlsafe_b64decode((cursor + padding).encode()).decode()
-        )
-        if not isinstance(payload, dict) or set(payload) != {
-            "created_at",
-            "launch_id",
-        }:
-            raise ValueError
-        created_at = payload["created_at"]
-        launch_id = payload["launch_id"]
-        if not isinstance(created_at, str) or not created_at:
-            raise ValueError
-        if not isinstance(launch_id, str) or not launch_id:
-            raise ValueError
-        return created_at, launch_id
-    except (TypeError, UnicodeError, ValueError):
-        raise SessionLaunchError(
-            "cursor_invalid",
-            "the launch history cursor is unreadable; clear it and load the "
-            "first history page again",
-        ) from None
 
 
 def _criteria(
@@ -186,7 +155,13 @@ def read_launch_page(
         paged_where.append(
             f"(created_at < {p} OR (created_at = {p} AND launch_id < {p}))"
         )
-        paged_values.extend([created_at, created_at, launch_id])
+        paged_values.extend(
+            [
+                instant_parameter(conn, created_at),
+                instant_parameter(conn, created_at),
+                launch_id,
+            ]
+        )
     p = marker(conn)
     paged_values.append(page_size + 1)
     history = _select(
@@ -198,7 +173,7 @@ def read_launch_page(
     has_more = len(history) > page_size
     history = history[:page_size]
     next_cursor = (
-        encode_launch_cursor(str(history[-1].created_at), str(history[-1].launch_id))
+        encode_launch_cursor(history[-1].created_at, history[-1].launch_id)
         if has_more and history
         else None
     )

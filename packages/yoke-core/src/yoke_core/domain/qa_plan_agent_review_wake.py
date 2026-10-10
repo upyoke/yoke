@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import shlex
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now
 from typing import Any, Mapping
 
 from yoke_core.domain.merge_queue_landing_notice import HOLDER, push_notice
@@ -74,5 +74,5 @@ def notify_scoped_agent_review(conn: Any, execution: Mapping[str, Any]) -> str:
         owner_session_id=owner,
         body_for_route=body_for_route,
         idempotency_key=f"qa-plan-agent-review:{execution_id}",
-        now=datetime.now(timezone.utc),
+        now=utc_now(),
     )

@@ -16,11 +16,17 @@ from yoke_core.domain.actor_permissions import (
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.org_schema import org_id_by_slug
 from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
     TargetRef,
 )
+
+
+_FIXTURE_CREATED_AT = parse_instant("2026-01-01T00:00:00Z")
 
 
 def request_for(function_id: str, payload=None, actor_id="op") -> FunctionCallRequest:
@@ -56,8 +62,15 @@ def insert_prefixed_project(conn, *, project_id: int, prefix: str) -> int:
     conn.execute(
         "INSERT INTO projects "
         "(id, org_id, slug, name, public_item_prefix, created_at) "
-        "VALUES (%s, %s, %s, %s, %s, '2026-01-01T00:00:00Z')",
-        (project_id, default_org, slug, slug, prefix),
+        "VALUES (%s, %s, %s, %s, %s, %s)",
+        (
+            project_id,
+            default_org,
+            slug,
+            slug,
+            prefix,
+            instant_parameter(conn, _FIXTURE_CREATED_AT),
+        ),
     )
     return project_id
 
@@ -67,16 +80,22 @@ def insert_shared_slug_items(conn) -> tuple[int, int]:
     assert default_org is not None
     other_org = conn.execute(
         "INSERT INTO organizations (slug, name, created_at) "
-        "VALUES ('other', 'Other Org', '2026-01-01T00:00:00Z') "
-        "RETURNING id"
+        "VALUES ('other', 'Other Org', %s) "
+        "RETURNING id",
+        (instant_parameter(conn, _FIXTURE_CREATED_AT),),
     ).fetchone()[0]
     conn.execute(
         "INSERT INTO projects "
         "(id, org_id, slug, name, public_item_prefix, created_at) "
         "VALUES "
-        "(110, %s, 'shared', 'Default Shared', 'DSH', '2026-01-01T00:00:00Z'), "
-        "(111, %s, 'shared', 'Other Shared', 'OSH', '2026-01-01T00:00:00Z')",
-        (default_org, other_org),
+        "(110, %s, 'shared', 'Default Shared', 'DSH', %s), "
+        "(111, %s, 'shared', 'Other Shared', 'OSH', %s)",
+        (
+            default_org,
+            instant_parameter(conn, _FIXTURE_CREATED_AT),
+            other_org,
+            instant_parameter(conn, _FIXTURE_CREATED_AT),
+        ),
     )
     insert_item(conn, id=910, title="shared zorp default", project_id=110)
     insert_item(conn, id=911, title="shared zorp other", project_id=111)

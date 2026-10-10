@@ -42,9 +42,12 @@ needs to see that.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import Any, Dict, List, Optional, Tuple
 
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.harness_machine_state import read_harness_machine_reports
 from yoke_core.domain.overview_machine_activation import (
     every_machine_has_harness,
@@ -86,6 +89,7 @@ STATE_ACTIVATED = "activated"
 #: ``actor_ui_preferences.pref_key`` prefix for per-module dismissals.
 DISMISS_PREF_PREFIX = "overview.module.dismissed."
 
+
 def _exists(conn: Any, sql: str, params: tuple = ()) -> bool:
     row = conn.execute(f"SELECT EXISTS({sql})", params).fetchone()
     return bool(row[0]) if row is not None else False
@@ -108,7 +112,9 @@ def read_signals(conn: Any, actor_id: Optional[int] = None) -> Dict[str, Any]:
     machines = machine_module_rows(
         conn,
         read_registered_machines(
-            conn, read_harness_machine_reports(conn), actor_id=actor_id,
+            conn,
+            read_harness_machine_reports(conn),
+            actor_id=actor_id,
         ),
     )
     directories = [
@@ -125,27 +131,30 @@ def read_signals(conn: Any, actor_id: Optional[int] = None) -> Dict[str, Any]:
     return {
         "projects_exist": bool(directories),
         "github_connected": _guarded_exists(
-            conn, "project_github_repo_bindings",
-            "SELECT 1 FROM project_github_repo_bindings "
-            "WHERE status <> 'revoked'",
+            conn,
+            "project_github_repo_bindings",
+            "SELECT 1 FROM project_github_repo_bindings WHERE status <> 'revoked'",
         ),
         "hosting_declared": _guarded_exists(
-            conn, "project_capabilities",
+            conn,
+            "project_capabilities",
             "SELECT 1 FROM project_capabilities WHERE type = 'aws-admin'",
         ),
         "machines": machines,
         "project_directories": directories,
         "onboard_progress": read_onboard_progress(conn),
         "deploy_succeeded": _guarded_exists(
-            conn, "deployment_runs",
+            conn,
+            "deployment_runs",
             "SELECT 1 FROM deployment_runs WHERE status = 'succeeded'",
         ),
     }
 
 
 def latch_activations(
-    conn: Any, satisfied: Dict[str, bool],
-) -> Dict[str, str]:
+    conn: Any,
+    satisfied: Dict[str, bool],
+) -> Dict[str, datetime]:
     """Latch newly satisfied universe modules; return ``{module_key: activated_at}``.
 
     Monotone and idempotent: an existing fact row is never touched, a
@@ -154,22 +163,21 @@ def latch_activations(
     that has since moved to the per-machine latch is inert.
     """
     latched = {
-        str(row[0]): row[1]
+        str(row[0]): parse_instant(row[1])
         for row in conn.execute(
             "SELECT module_key, activated_at FROM overview_activation_facts"
         ).fetchall()
         if str(row[0]) in UNIVERSE_LATCH_KEYS
     }
-    now = iso8601_now()
+    now = utc_now()
     missing = [
-        key for key in UNIVERSE_LATCH_KEYS
-        if satisfied.get(key) and key not in latched
+        key for key in UNIVERSE_LATCH_KEYS if satisfied.get(key) and key not in latched
     ]
     for key in missing:
         conn.execute(
             "INSERT INTO overview_activation_facts (module_key, activated_at) "
             "VALUES (%s, %s) ON CONFLICT (module_key) DO NOTHING",
-            (key, now),
+            (key, instant_parameter(conn, now)),
         )
         latched[key] = now
     if missing:
@@ -185,22 +193,25 @@ def read_dismissed_modules(conn: Any, actor_id: Optional[int]) -> set:
         "WHERE actor_id = %s AND pref_key LIKE %s",
         (actor_id, DISMISS_PREF_PREFIX + "%"),
     ).fetchall()
-    keys = {str(row[0])[len(DISMISS_PREF_PREFIX):] for row in rows}
+    keys = {str(row[0])[len(DISMISS_PREF_PREFIX) :] for row in rows}
     return {key for key in keys if key in MODULE_KEYS}
 
 
 def _wizard_submodules(
-    signals: Dict[str, Any], machine_connected: Optional[bool],
+    signals: Dict[str, Any],
+    machine_connected: Optional[bool],
 ) -> List[Dict[str, Any]]:
     """The installation-wizard checklist rows, in wizard order."""
     machines = signals["machines"]
     machine_detail = (
-        None if machine_connected is not None or machines
+        None
+        if machine_connected is not None or machines
         else "no host machine fact supplied"
     )
     return [
         {
-            "key": "machine_universe", "label_key": "machine_universe",
+            "key": "machine_universe",
+            "label_key": "machine_universe",
             "done": machine_connected is True or bool(machines),
             "detail": machine_detail,
             "machines": [
@@ -213,16 +224,22 @@ def _wizard_submodules(
             ],
         },
         {
-            "key": "github", "label_key": "github",
-            "done": signals["github_connected"], "detail": None,
+            "key": "github",
+            "label_key": "github",
+            "done": signals["github_connected"],
+            "detail": None,
         },
         {
-            "key": "first_project", "label_key": "first_project",
-            "done": signals["projects_exist"], "detail": None,
+            "key": "first_project",
+            "label_key": "first_project",
+            "done": signals["projects_exist"],
+            "detail": None,
         },
         {
-            "key": "hosting", "label_key": "hosting",
-            "done": signals["hosting_declared"], "detail": None,
+            "key": "hosting",
+            "label_key": "hosting",
+            "done": signals["hosting_declared"],
+            "detail": None,
         },
     ]
 
@@ -266,7 +283,7 @@ def compute_activation(
     latched = latch_activations(conn, satisfied)
     if every_machine_has_harness(signals["machines"]):
         latched[MODULE_CONNECT_HARNESS] = max(
-            str(row["harness_activated_at"]) for row in signals["machines"]
+            row["harness_activated_at"] for row in signals["machines"]
         )
     dismissed = read_dismissed_modules(conn, actor_id)
 
@@ -275,8 +292,10 @@ def compute_activation(
     for key in MODULE_KEYS:
         activated = key in latched
         state = (
-            STATE_ACTIVATED if activated
-            else STATE_IN_PROGRESS if earlier_all_activated
+            STATE_ACTIVATED
+            if activated
+            else STATE_IN_PROGRESS
+            if earlier_all_activated
             else STATE_NOT_STARTED
         )
         module: Dict[str, Any] = {
@@ -288,9 +307,7 @@ def compute_activation(
         }
         if key == MODULE_FINISH_INSTALLATION_WIZARD:
             module["submodules"] = submodules
-            module["fully_complete"] = all(
-                row["done"] for row in submodules
-            )
+            module["fully_complete"] = all(row["done"] for row in submodules)
         if key == MODULE_RUN_ONBOARD:
             module["onboard"] = signals["onboard_progress"]
         if key == MODULE_CONNECT_HARNESS:

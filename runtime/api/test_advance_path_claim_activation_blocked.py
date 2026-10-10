@@ -46,9 +46,7 @@ def conn(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(config_path))
     name = pg_testdb.create_test_database()
-    monkeypatch.setenv(
-        db_backend.PG_DSN_ENV, pg_testdb.dsn_for_test_database(name)
-    )
+    monkeypatch.setenv(db_backend.PG_DSN_ENV, pg_testdb.dsn_for_test_database(name))
     c = pg_testdb.connect_test_database(name)
     create_core_tables(c)
     converge_builtin_workflows(c)
@@ -126,8 +124,7 @@ def _set_state(conn, claim_id: int, state: str, blocked_reason=None):
         )
     else:
         conn.execute(
-            "UPDATE path_claims SET state = %s, blocked_reason = %s "
-            "WHERE id = %s",
+            "UPDATE path_claims SET state = %s, blocked_reason = %s WHERE id = %s",
             (state, blocked_reason, claim_id),
         )
     conn.commit()
@@ -142,6 +139,7 @@ def stub_resolver(monkeypatch):
         return "snap-base"
 
     from yoke_core.domain import advance_path_claim_activation_retry as _retry
+
     monkeypatch.setattr(
         _retry,
         "resolve_integration_head_with_divergence_check",
@@ -190,7 +188,7 @@ def _seed_real_upstream_block(conn, *, downstream_item_id, target_id):
         "source TEXT NOT NULL, session_id INTEGER, "
         "rationale TEXT NOT NULL DEFAULT '', "
         "evidence_json TEXT NOT NULL DEFAULT '{}', "
-        "created_at TEXT NOT NULL)",
+        "created_at TIMESTAMPTZ NOT NULL)",
     )
     conn.execute(
         "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, "
@@ -210,26 +208,35 @@ class TestBlocked:
         item_id = _seed_item(conn)
         target_id = _seed_target(conn)
         claim_id = _seed_planned_claim(
-            conn, item_id=item_id, actor_id=actor,
+            conn,
+            item_id=item_id,
+            actor_id=actor,
             target_id=target_id,
         )
         upstream_claim = _seed_real_upstream_block(
-            conn, downstream_item_id=item_id, target_id=target_id,
+            conn,
+            downstream_item_id=item_id,
+            target_id=target_id,
         )
         _set_state(
-            conn, claim_id, "blocked",
+            conn,
+            claim_id,
+            "blocked",
             blocked_reason=(
                 f"serial-via-dependency on path_claims.id={upstream_claim}"
             ),
         )
         result = run_activation_phase(
-            conn, item_id=item_id, actor_id=actor,
+            conn,
+            item_id=item_id,
+            actor_id=actor,
         )
         assert result.is_blocked is True
         assert any("blocked" in m for m in result.blocked_errors)
         # Did not advance state.
         state = conn.execute(
-            "SELECT state FROM path_claims WHERE id = %s", (claim_id,),
+            "SELECT state FROM path_claims WHERE id = %s",
+            (claim_id,),
         ).fetchone()[0]
         assert state == "blocked"
 
@@ -238,20 +245,28 @@ class TestBlocked:
         item_id = _seed_item(conn)
         target_id = _seed_target(conn)
         claim_id = _seed_planned_claim(
-            conn, item_id=item_id, actor_id=actor,
+            conn,
+            item_id=item_id,
+            actor_id=actor,
             target_id=target_id,
         )
         upstream_claim = _seed_real_upstream_block(
-            conn, downstream_item_id=item_id, target_id=target_id,
+            conn,
+            downstream_item_id=item_id,
+            target_id=target_id,
         )
         _set_state(
-            conn, claim_id, "blocked",
+            conn,
+            claim_id,
+            "blocked",
             blocked_reason=(
                 f"serial-via-dependency on path_claims.id={upstream_claim}"
             ),
         )
         result = run_activation_phase(
-            conn, item_id=item_id, actor_id=actor,
+            conn,
+            item_id=item_id,
+            actor_id=actor,
         )
         message = result.blocked_errors[0]
         assert str(upstream_claim) in message

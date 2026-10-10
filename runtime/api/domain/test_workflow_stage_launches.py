@@ -5,6 +5,8 @@ import json
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_contracts.level_defaults import DEFAULT_LEVELS
 from yoke_core.domain.session_launch_requests import create_launch
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
@@ -72,7 +74,7 @@ def test_effective_default_preview_matches_create_without_double_shift(monkeypat
         conn,
         auth=authorization(),
         request=default_launch_level(conn, request),
-        now=NOW,
+        now=parse_instant(NOW),
         eligibility=derive_launch_eligibility,
     )
     assert preview.launchable

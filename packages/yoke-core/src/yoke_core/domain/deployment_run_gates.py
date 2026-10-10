@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from yoke_contracts.timestamps import temporal_wire
 from yoke_core.domain import db_backend
 from yoke_core.domain.actors import actor_name
 from yoke_core.domain.decision_request_authority import (
@@ -162,7 +163,7 @@ def run_gates(
         )
     for gates in result.values():
         gates.sort(key=lambda gate: gate["request_id"])
-    return result
+    return temporal_wire(result)
 
 
 __all__ = ["run_gates"]

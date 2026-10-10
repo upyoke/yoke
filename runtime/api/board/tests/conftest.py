@@ -49,13 +49,13 @@ _SCHEMA_DDL = textwrap.dedent("""\
         progress TEXT DEFAULT '',
         project_id INTEGER DEFAULT 1,
         project_sequence INTEGER,
-        updated_at TEXT DEFAULT '2025-01-01',
-        created_at TEXT DEFAULT '2025-01-01',
+        updated_at TIMESTAMPTZ DEFAULT '2025-01-01T00:00:00.000000Z',
+        created_at TIMESTAMPTZ DEFAULT '2025-01-01T00:00:00.000000Z',
         frozen INTEGER DEFAULT 0,
         blocked INTEGER DEFAULT 0,
         blocked_reason TEXT,
-        merge_queue_enqueued_at TEXT,
-        merge_queue_landed_at TEXT
+        merge_queue_enqueued_at TIMESTAMPTZ,
+        merge_queue_landed_at TIMESTAMPTZ
     );
 
     CREATE TABLE projects (
@@ -66,7 +66,7 @@ _SCHEMA_DDL = textwrap.dedent("""\
         default_branch TEXT DEFAULT 'main',
         github_repo TEXT DEFAULT '',
         public_item_prefix TEXT DEFAULT 'YOK',
-        created_at TEXT DEFAULT '2025-01-01'
+        created_at TIMESTAMPTZ DEFAULT '2025-01-01T00:00:00.000000Z'
     );
 
     CREATE TABLE workflow_versions (
@@ -112,7 +112,7 @@ _SCHEMA_DDL = textwrap.dedent("""\
         slug TEXT NOT NULL,
         revision INTEGER NOT NULL,
         byte_length INTEGER NOT NULL,
-        created_at TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
         UNIQUE(project_id, slug, revision)
     );
 
@@ -126,7 +126,7 @@ _SCHEMA_DDL = textwrap.dedent("""\
         session_id TEXT,
         actor_id INTEGER,
         project_id INTEGER,
-        created_at TEXT NOT NULL
+        created_at TIMESTAMPTZ NOT NULL
     );
 
     CREATE TABLE deployment_runs (
@@ -135,8 +135,8 @@ _SCHEMA_DDL = textwrap.dedent("""\
         current_stage TEXT,
         status TEXT DEFAULT 'running',
         created_by TEXT DEFAULT '',
-        created_at TEXT DEFAULT '',
-        completed_at TEXT DEFAULT ''
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        completed_at TIMESTAMPTZ
     );
 
     CREATE TABLE deployment_run_items (
@@ -151,7 +151,7 @@ _SCHEMA_DDL = textwrap.dedent("""\
         project_id INTEGER,
         client_timing_id TEXT,
         envelope TEXT,
-        created_at TEXT
+        created_at TIMESTAMPTZ
     );
 
     INSERT INTO projects (id, slug, name, emoji, public_item_prefix)
@@ -228,7 +228,7 @@ _ZEN_DDL = textwrap.dedent("""\
         project_sequence INTEGER,
         status TEXT,
         workflow_id TEXT DEFAULT 'issue',
-        created_at TEXT DEFAULT '2025-01-15',
+        created_at TIMESTAMPTZ DEFAULT '2025-01-15',
         frozen INTEGER DEFAULT 0
     );
     INSERT INTO projects (id, slug, name, emoji, public_item_prefix)

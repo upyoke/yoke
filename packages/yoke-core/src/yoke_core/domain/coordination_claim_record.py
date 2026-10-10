@@ -10,8 +10,10 @@ second copy of it.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Optional
 
+from yoke_contracts.timestamps import parse_instant, temporal_wire
 from yoke_core.domain.coordination_claim_keys import key_for_target
 from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_MIGRATION_SERIALIZATION,
@@ -26,8 +28,7 @@ SELECT_COLUMNS = (
     "wc.release_reason_intent, wc.reason, hs.actor_id"
 )
 FROM_CLAUSE = (
-    "FROM work_claims wc "
-    "LEFT JOIN harness_sessions hs ON hs.session_id = wc.session_id"
+    "FROM work_claims wc LEFT JOIN harness_sessions hs ON hs.session_id = wc.session_id"
 )
 
 
@@ -38,10 +39,10 @@ class CoordinationClaim:
     id: int
     target: WorkClaimTarget
     session_id: str
-    claimed_at: str
-    last_heartbeat: Optional[str] = None
+    claimed_at: datetime
+    last_heartbeat: Optional[datetime] = None
     actor_id: Optional[str] = None
-    released_at: Optional[str] = None
+    released_at: Optional[datetime] = None
     release_reason: Optional[str] = None
     release_reason_intent: Optional[str] = None
     reason: Optional[str] = None
@@ -84,10 +85,14 @@ def row_to_claim(row: Any) -> CoordinationClaim:
             scope=decode_scope(row["scope"]),
         ),
         session_id=str(row["session_id"]),
-        claimed_at=str(row["claimed_at"]),
-        last_heartbeat=row["last_heartbeat"],
+        claimed_at=parse_instant(row["claimed_at"]),
+        last_heartbeat=None
+        if row["last_heartbeat"] is None
+        else parse_instant(row["last_heartbeat"]),
         actor_id=str(actor) if actor is not None else None,
-        released_at=row["released_at"],
+        released_at=None
+        if row["released_at"] is None
+        else parse_instant(row["released_at"]),
         release_reason=row["release_reason"],
         release_reason_intent=row["release_reason_intent"],
         reason=row["reason"],
@@ -96,22 +101,24 @@ def row_to_claim(row: Any) -> CoordinationClaim:
 
 def claim_as_dict(claim: CoordinationClaim) -> dict[str, Any]:
     """Return the JSON boundary shape for one coordination claim."""
-    return {
-        "id": int(claim.id),
-        "key": claim.key,
-        "target_kind": claim.target.kind,
-        "scope": dict(claim.target.scope),
-        "project_id": claim.project_id,
-        "session_id": claim.session_id,
-        "actor_id": claim.actor_id,
-        "owner_item_id": claim.owner_item_id,
-        "sticky": claim.sticky,
-        "claimed_at": claim.claimed_at,
-        "last_heartbeat": claim.last_heartbeat,
-        "released_at": claim.released_at,
-        "release_reason": claim.release_reason,
-        "release_reason_intent": claim.release_reason_intent,
-    }
+    return temporal_wire(
+        {
+            "id": int(claim.id),
+            "key": claim.key,
+            "target_kind": claim.target.kind,
+            "scope": dict(claim.target.scope),
+            "project_id": claim.project_id,
+            "session_id": claim.session_id,
+            "actor_id": claim.actor_id,
+            "owner_item_id": claim.owner_item_id,
+            "sticky": claim.sticky,
+            "claimed_at": claim.claimed_at,
+            "last_heartbeat": claim.last_heartbeat,
+            "released_at": claim.released_at,
+            "release_reason": claim.release_reason,
+            "release_reason_intent": claim.release_reason_intent,
+        }
+    )
 
 
 __all__ = [

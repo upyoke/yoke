@@ -17,6 +17,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from yoke_contracts.timestamps import parse_instant
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.domain.standalone_merge_simulation_support import (
@@ -204,7 +205,7 @@ def _answers(*, status="done", merged_at="2026-09-03T18:27:22Z", record=None):
 def test_recorded_landing_needs_all_three_facts(monkeypatch) -> None:
     for answers in (
         _answers(status="reviewing-implementation", record=RECORD),
-        _answers(merged_at="", record=RECORD),
+        _answers(merged_at=None, record=RECORD),
         _answers(record=None),
         _answers(record={**RECORD, "commit_sha": "", "merge_sha": ""}),
     ):
@@ -214,7 +215,7 @@ def test_recorded_landing_needs_all_three_facts(monkeypatch) -> None:
     monkeypatch.setattr(evidence, "call_dispatcher", _dispatch(_answers(record=RECORD)))
     landing = evidence.recorded_landing("ITEM-7")
     assert landing is not None
-    assert landing["merged_at"] == "2026-09-03T18:27:22Z"
+    assert landing["merged_at"] == parse_instant("2026-09-03T18:27:22Z")
     assert landing["merge_sha"] == "2" * 40
 
 

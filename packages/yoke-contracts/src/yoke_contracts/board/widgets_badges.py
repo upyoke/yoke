@@ -64,6 +64,9 @@ def render_age_heatmap(
         "  COUNT(*) AS total"
         " FROM aged"
     )
+    probe = getattr(db, "has_query_quiet", None)
+    if callable(probe) and not probe(sql, params):
+        return None
     row = db.query_quiet(sql, params)
     if not row or not row[0]:
         return None

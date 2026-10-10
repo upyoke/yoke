@@ -8,6 +8,8 @@ are present.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import iso8601_now, temporal_wire
+
 import json
 import logging
 import os
@@ -17,7 +19,6 @@ import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
 
 from yoke_core.api.observability_debug import (
@@ -80,7 +81,7 @@ class JsonLogFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
-            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "timestamp": iso8601_now(),
             "severity": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -92,7 +93,7 @@ class JsonLogFormatter(logging.Formatter):
                     payload[field] = value
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
-        return json.dumps(payload, separators=(",", ":"), default=str)
+        return json.dumps(temporal_wire(payload), separators=(",", ":"), default=str)
 
 
 def configure_structured_logging(

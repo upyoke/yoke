@@ -48,7 +48,7 @@ def _apply_environments_schema() -> None:
                 site INTEGER NOT NULL,
                 name TEXT NOT NULL,
                 settings TEXT DEFAULT '{}',
-                created_at TEXT NOT NULL
+                created_at TIMESTAMPTZ NOT NULL
             )
             """
         )
@@ -80,9 +80,10 @@ def _settings(db_path: str) -> dict:
 
 class TestEnvironmentSettings:
     def test_get_returns_settings_json(self, env_db: str) -> None:
-        assert pes.cmd_environment_get_settings(
-            _STAGE_ID, db_path=env_db
-        ) == _STAGE_SETTINGS
+        assert (
+            pes.cmd_environment_get_settings(_STAGE_ID, db_path=env_db)
+            == _STAGE_SETTINGS
+        )
 
     def test_get_set_round_trip_full_replace(self, env_db: str) -> None:
         # Full replace with the as-read text as base — the prior payload is
@@ -92,9 +93,10 @@ class TestEnvironmentSettings:
             _STAGE_ID, _ACTIVE_SETTINGS, base, db_path=env_db
         )
         assert msg == "Set environment settings"
-        assert pes.cmd_environment_get_settings(
-            _STAGE_ID, db_path=env_db
-        ) == _ACTIVE_SETTINGS
+        assert (
+            pes.cmd_environment_get_settings(_STAGE_ID, db_path=env_db)
+            == _ACTIVE_SETTINGS
+        )
 
     def test_set_without_base_is_usage_error(self, env_db: str) -> None:
         with pytest.raises(ValueError, match="--base is required"):
@@ -108,9 +110,7 @@ class TestEnvironmentSettings:
 
     def test_set_missing_row_is_loud(self, env_db: str) -> None:
         with pytest.raises(LookupError, match="not found"):
-            pes.cmd_environment_set_settings(
-                999, "{}", "{}", db_path=env_db
-            )
+            pes.cmd_environment_set_settings(999, "{}", "{}", db_path=env_db)
 
     def test_set_invalid_json_is_loud(self, env_db: str) -> None:
         with pytest.raises(ValueError, match="invalid settings JSON"):
@@ -131,17 +131,13 @@ class TestEnvironmentSettings:
 
 
 class TestInterleavedWriters:
-    def test_second_full_replace_on_stale_base_conflicts(
-        self, env_db: str
-    ) -> None:
+    def test_second_full_replace_on_stale_base_conflicts(self, env_db: str) -> None:
         # A reads, B reads the same document, A writes, B writes — the
         # incident shape. B must get the typed conflict, never silent loss.
         base_a = pes.cmd_environment_get_settings(_STAGE_ID, db_path=env_db)
         base_b = pes.cmd_environment_get_settings(_STAGE_ID, db_path=env_db)
         a_doc = '{"pulumi": {"encrypted_key": "k1"}}'
-        pes.cmd_environment_set_settings(
-            _STAGE_ID, a_doc, base_a, db_path=env_db
-        )
+        pes.cmd_environment_set_settings(_STAGE_ID, a_doc, base_a, db_path=env_db)
         with pytest.raises(SettingsConflictError, match="settings_conflict"):
             pes.cmd_environment_set_settings(
                 _STAGE_ID,
@@ -150,9 +146,7 @@ class TestInterleavedWriters:
                 db_path=env_db,
             )
         # A's write survived untouched; B's clobber never landed.
-        assert pes.cmd_environment_get_settings(
-            _STAGE_ID, db_path=env_db
-        ) == a_doc
+        assert pes.cmd_environment_get_settings(_STAGE_ID, db_path=env_db) == a_doc
 
     def test_conflict_message_teaches_reget(self, env_db: str) -> None:
         pes.cmd_environment_set_settings(
@@ -226,9 +220,7 @@ class TestMergeSettings:
 
     def test_merge_missing_row_is_loud(self, env_db: str) -> None:
         with pytest.raises(LookupError, match="not found"):
-            pes.cmd_environment_merge_settings(
-                999, {"a": 1}, db_path=env_db
-            )
+            pes.cmd_environment_merge_settings(999, {"a": 1}, db_path=env_db)
 
     def test_merge_refuses_non_object_intermediate(self, env_db: str) -> None:
         with pytest.raises(ValueError, match="non-object"):

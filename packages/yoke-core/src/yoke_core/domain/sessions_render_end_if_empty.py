@@ -11,7 +11,7 @@ from .sessions_analytics import EVENT_HARNESS_SESSION_ENDED
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_lifecycle_registry import _get_session
 from .session_message_types import parse_timestamp, row_dict, timestamp, utc_now
-from .sessions_queries import _now_iso
+from .db_helpers import instant_parameter
 from .sessions_render_attribution import clear_current_item
 from .session_keepalive import session_keepalive_holds
 from .session_launch_pending_delivery import pending_launch_deliveries
@@ -82,7 +82,7 @@ def wake_deliveries_in_flight(
              AND m.cancelled_at IS NULL
              AND m.expires_at > %s
            ORDER BY r.last_wake_at DESC""",
-        (*targets, timestamp(now)),
+        (*targets, instant_parameter(conn, now)),
         savepoint="_yoke_wake_delivery_probe",
     )
     in_flight: Dict[str, Dict[str, Any]] = {}
@@ -227,7 +227,7 @@ def end_session_if_empty(
     clear_current_item(conn, session_id, commit=False)
     conn.execute(
         "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
-        (_now_iso(), session_id),
+        (instant_parameter(conn, utc_now()), session_id),
     )
     conn.commit()
     _sa._emit_session_event(

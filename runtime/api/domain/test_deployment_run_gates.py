@@ -126,11 +126,13 @@ def test_a_run_with_nothing_pending_reports_no_gate(test_db):
 
 
 @pytest.mark.parametrize("action", ["approve", "reject"])
-def test_resolved_stage_approval_keeps_its_human_record_without_actions(test_db, action):
+def test_resolved_stage_approval_keeps_its_human_record_without_actions(
+    test_db, action
+):
     create_decision_request_tables(test_db)
     owner, _originator = _seed_run_awaiting_approval(test_db)
     request_id = run_gates(test_db, [RUN_ID], actor_id=owner)[RUN_ID][0]["request_id"]
-    decided_at = "2026-07-26T01:02:03Z"
+    decided_at = "2026-07-26T01:02:03.000000Z"
     test_db.execute(
         "UPDATE decision_requests SET status='resolved', resolution_action=%s, "
         "resolution_actor_id=%s, resolved_at=%s WHERE id=%s",
@@ -142,9 +144,12 @@ def test_resolved_stage_approval_keeps_its_human_record_without_actions(test_db,
     assert gate["status"] == "resolved"
     assert gate["resolution_action"] == action
     assert gate["resolved_at"] == decided_at
-    assert gate["resolved_by"] == test_db.execute(
-        "SELECT name FROM actors WHERE id=%s", (owner,)
-    ).fetchone()[0]
+    assert (
+        gate["resolved_by"]
+        == test_db.execute("SELECT name FROM actors WHERE id=%s", (owner,)).fetchone()[
+            0
+        ]
+    )
     assert gate["actions"] == []
     assert gate["can_act"] is False
 
@@ -152,82 +157,107 @@ def test_resolved_stage_approval_keeps_its_human_record_without_actions(test_db,
 @pytest.mark.parametrize("member_scoped", [False, True])
 @pytest.mark.parametrize("action", ["approve", "reject"])
 def test_qa_review_stays_on_run_card_after_human_decision(
-    test_db, member_scoped, action,
+    test_db,
+    member_scoped,
+    action,
 ):
     create_decision_request_tables(test_db)
     owner, originator = _seed_run_awaiting_approval(test_db)
     create_qa_catalog_tables(test_db)
     member_id = None
     if member_scoped:
-        workflow_version = int(test_db.execute(
-            "SELECT current_version_id FROM workflows WHERE id='issue'"
-        ).fetchone()[0])
-        next_sequence = int(test_db.execute(
-            "SELECT COALESCE(MAX(project_sequence), 0) + 1 FROM items "
-            "WHERE project_id=1"
-        ).fetchone()[0])
-        member_id = int(test_db.execute(
-            "INSERT INTO items "
-            "(title, status, priority, created_at, updated_at, source, owner, "
-            "project_id, project_sequence, workflow_id, workflow_version_id) "
-            "VALUES ('Member QA review', 'implementing', 'medium', "
-            "'2026-07-26T00:00:00Z', '2026-07-26T00:00:00Z', %s, %s, "
-            "1, %s, 'issue', %s) RETURNING id",
-            (str(originator), str(owner), next_sequence, workflow_version),
-        ).fetchone()[0])
+        workflow_version = int(
+            test_db.execute(
+                "SELECT current_version_id FROM workflows WHERE id='issue'"
+            ).fetchone()[0]
+        )
+        next_sequence = int(
+            test_db.execute(
+                "SELECT COALESCE(MAX(project_sequence), 0) + 1 FROM items "
+                "WHERE project_id=1"
+            ).fetchone()[0]
+        )
+        member_id = int(
+            test_db.execute(
+                "INSERT INTO items "
+                "(title, status, priority, created_at, updated_at, source, owner, "
+                "project_id, project_sequence, workflow_id, workflow_version_id) "
+                "VALUES ('Member QA review', 'implementing', 'medium', "
+                "'2026-07-26T00:00:00Z', '2026-07-26T00:00:00Z', %s, %s, "
+                "1, %s, 'issue', %s) RETURNING id",
+                (str(originator), str(owner), next_sequence, workflow_version),
+            ).fetchone()[0]
+        )
         test_db.execute(
             "INSERT INTO deployment_run_items (run_id, item_id, added_at) "
             "VALUES (%s, %s, '2026-07-26T00:00:00Z')",
             (RUN_ID, member_id),
         )
-    requirement_id = int(test_db.execute(
-        "INSERT INTO qa_requirements "
-        "(deployment_run_id, deployment_stage, deployment_member_item_id, "
-        "expected_outcome, "
-        "qa_kind, qa_phase, blocking_mode, verdict_path, created_at) "
-        "VALUES (%s, %s, %s, 'The deployed release is verified.', "
-        "'deployment_stage_acceptance', 'post_deploy', 'blocking', 'agent', "
-        "'2026-07-26T00:00:00Z') RETURNING id",
-        (RUN_ID, "item-qa" if member_scoped else "run-visual-qa", member_id),
-    ).fetchone()[0])
-    qa_run_id = int(test_db.execute(
-        "INSERT INTO qa_runs "
-        "(qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, "
-        "created_at) VALUES (%s, 'agent', 'deployment_stage_acceptance', "
-        "'undetermined', 'Human acceptance required', '2026-07-26T00:00:00Z') "
-        "RETURNING id",
-        (requirement_id,),
-    ).fetchone()[0])
+    requirement_id = int(
+        test_db.execute(
+            "INSERT INTO qa_requirements "
+            "(deployment_run_id, deployment_stage, deployment_member_item_id, "
+            "expected_outcome, "
+            "qa_kind, qa_phase, blocking_mode, verdict_path, created_at) "
+            "VALUES (%s, %s, %s, 'The deployed release is verified.', "
+            "'deployment_stage_acceptance', 'post_deploy', 'blocking', 'agent', "
+            "'2026-07-26T00:00:00Z') RETURNING id",
+            (RUN_ID, "item-qa" if member_scoped else "run-visual-qa", member_id),
+        ).fetchone()[0]
+    )
+    qa_run_id = int(
+        test_db.execute(
+            "INSERT INTO qa_runs "
+            "(qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, "
+            "created_at) VALUES (%s, 'agent', 'deployment_stage_acceptance', "
+            "'undetermined', 'Human acceptance required', '2026-07-26T00:00:00Z') "
+            "RETURNING id",
+            (requirement_id,),
+        ).fetchone()[0]
+    )
     test_db.commit()
     request, created = ensure_qa_review_request(
-        test_db, requirement_id=requirement_id, run_id=qa_run_id,
+        test_db,
+        requirement_id=requirement_id,
+        run_id=qa_run_id,
         originator_actor_id=originator,
     )
     assert created is True
     assert request["kind"] == "qa_needs_review"
-    assert request["subject_context"]["subject"]["deployment_member_item_id"] == member_id
+    assert (
+        request["subject_context"]["subject"]["deployment_member_item_id"] == member_id
+    )
 
-    pending = next(gate for gate in run_gates(test_db, [RUN_ID], actor_id=owner)[RUN_ID]
-                   if gate["request_id"] == request["id"])
+    pending = next(
+        gate
+        for gate in run_gates(test_db, [RUN_ID], actor_id=owner)[RUN_ID]
+        if gate["request_id"] == request["id"]
+    )
     assert pending["status"] == "pending"
     assert pending["can_act"] is True
     assert "approve" in pending["actions"]
 
-    decided_at = "2026-07-26T01:02:03Z"
+    decided_at = "2026-07-26T01:02:03.000000Z"
     test_db.execute(
         "UPDATE decision_requests SET status='resolved', resolution_action=%s, "
         "resolution_actor_id=%s, resolved_at=%s WHERE id=%s",
         (action, owner, decided_at, request["id"]),
     )
     test_db.commit()
-    resolved = next(gate for gate in run_gates(test_db, [RUN_ID], actor_id=owner)[RUN_ID]
-                    if gate["request_id"] == request["id"])
+    resolved = next(
+        gate
+        for gate in run_gates(test_db, [RUN_ID], actor_id=owner)[RUN_ID]
+        if gate["request_id"] == request["id"]
+    )
     assert resolved["status"] == "resolved"
     assert resolved["resolution_action"] == action
     assert resolved["resolved_at"] == decided_at
-    assert resolved["resolved_by"] == test_db.execute(
-        "SELECT name FROM actors WHERE id=%s", (owner,)
-    ).fetchone()[0]
+    assert (
+        resolved["resolved_by"]
+        == test_db.execute("SELECT name FROM actors WHERE id=%s", (owner,)).fetchone()[
+            0
+        ]
+    )
     assert resolved["actions"] == []
     assert resolved["can_act"] is False
 
@@ -242,10 +272,16 @@ def test_run_list_exposes_settlement_marker_without_claiming_success(test_db):
     )
     test_db.commit()
 
-    row = next(row for row in list_deployment_runs(
-        project=None, status=None, limit=100,
-    ) if row["id"] == RUN_ID)
-    assert row["settling_at"] == "2026-07-26T01:00:00Z"
+    row = next(
+        row
+        for row in list_deployment_runs(
+            project=None,
+            status=None,
+            limit=100,
+        )
+        if row["id"] == RUN_ID
+    )
+    assert row["settling_at"] == "2026-07-26T01:00:00.000000Z"
     assert row["current_stage"] == "complete"
     assert row["status"] == "executing"
 

@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import json
 import unittest
-from datetime import datetime, timedelta, timezone
 from unittest import mock
 
 from runtime.api.fixtures import pg_testdb
+from yoke_contracts.timestamps import utc_now
 from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
 from yoke_core.domain.work_claim_targets import make_item_target
 
@@ -29,9 +29,9 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL DEFAULT '',
     mode TEXT NOT NULL DEFAULT 'wait',
-    offered_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    ended_at TEXT,
+    offered_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    ended_at TIMESTAMPTZ,
     offer_envelope TEXT,
     actor_id INTEGER
 );
@@ -44,9 +44,9 @@ CREATE TABLE IF NOT EXISTS work_claims (
     target_kind TEXT NOT NULL,
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
-    claimed_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    released_at TEXT,
+    claimed_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    released_at TIMESTAMPTZ,
     release_reason TEXT
 );
 """
@@ -65,17 +65,9 @@ CREATE TABLE IF NOT EXISTS events (
     context TEXT,
     outcome TEXT,
     severity TEXT,
-    created_at TEXT NOT NULL DEFAULT (now()::text)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 """
-
-
-def _now_iso(delta_s: int = 0) -> str:
-    return (
-        (datetime.now(timezone.utc) + timedelta(seconds=delta_s))
-        .isoformat(timespec="microseconds")
-        .replace("+00:00", "Z")
-    )
 
 
 def _build_conn():
@@ -115,8 +107,8 @@ def _insert_session(
         "VALUES (%s, 'claude-code', 'anthropic', 'm', '/tmp', %s, %s, NULL, %s)",
         (
             session_id,
-            _now_iso(),
-            _now_iso(),
+            utc_now(),
+            utc_now(),
             json.dumps(envelope),
         ),
     )
@@ -128,7 +120,7 @@ def _insert_active_claim(
     session_id: str,
     item_id: int,
 ) -> int:
-    ts = _now_iso()
+    ts = utc_now()
     cursor = conn.execute(
         "INSERT INTO work_claims "
         "(session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat) "

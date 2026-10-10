@@ -40,26 +40,27 @@ _SESSION_SCHEMA_DDL = f"""
         workspace TEXT,
         project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),
         mode TEXT NOT NULL DEFAULT 'wait',
-        offered_at TEXT NOT NULL,
-        last_heartbeat TEXT NOT NULL,
-        ended_at TEXT,
-        terminated_at TEXT,
+        offered_at TIMESTAMPTZ NOT NULL,
+        last_heartbeat TIMESTAMPTZ NOT NULL,
+        ended_at TIMESTAMPTZ,
+        terminated_at TIMESTAMPTZ,
         terminated_by_actor_id INTEGER,
         terminated_by_session_id TEXT,
         termination_reason TEXT,
         offer_envelope TEXT,
         current_item_id TEXT DEFAULT NULL,
-        current_item_set_at TEXT DEFAULT NULL,
+        current_item_set_at TIMESTAMPTZ DEFAULT NULL,
         recent_item_id TEXT DEFAULT NULL,
         recent_item_status TEXT DEFAULT NULL,
-        recent_item_recorded_at TEXT DEFAULT NULL,
+        recent_item_recorded_at TIMESTAMPTZ DEFAULT NULL,
         actor_id INTEGER DEFAULT NULL,
-        last_tool_call_at TEXT DEFAULT NULL,
+        last_tool_call_at TIMESTAMPTZ DEFAULT NULL,
         tool_call_count INTEGER NOT NULL DEFAULT 0,
-        episode_started_at TEXT DEFAULT NULL,
+        episode_started_at TIMESTAMPTZ DEFAULT NULL,
         pending_resume_notice TEXT DEFAULT NULL,
         last_chain_step INTEGER DEFAULT NULL,
-        last_checkpoint_at TEXT DEFAULT NULL
+        turn_posture_at TIMESTAMPTZ DEFAULT NULL,
+        last_checkpoint_at TIMESTAMPTZ DEFAULT NULL
     );
 
     CREATE TABLE work_claims (
@@ -68,9 +69,9 @@ _SESSION_SCHEMA_DDL = f"""
     target_kind TEXT NOT NULL CHECK({TARGET_KIND_CHECK_SQL}),
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
-    claimed_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    released_at TEXT,
+    claimed_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    released_at TIMESTAMPTZ,
     release_reason TEXT CHECK(release_reason IS NULL OR release_reason IN ('completed','released','reclaimed','handed_off','expired','session_ended')),
     reason TEXT DEFAULT NULL,
     reason_intent TEXT DEFAULT NULL,
@@ -85,8 +86,8 @@ _SESSION_SCHEMA_DDL = f"""
         owner_session_id TEXT,
         owner_work_claim_id INTEGER,
         state TEXT,
-        released_at TEXT,
-        cancelled_at TEXT,
+        released_at TIMESTAMPTZ,
+        cancelled_at TIMESTAMPTZ,
         release_reason TEXT
     );
 
@@ -118,7 +119,7 @@ _SESSION_SCHEMA_DDL = f"""
         hook_event_name TEXT,
         client_timing_id TEXT,
         envelope TEXT,
-        created_at TEXT NOT NULL
+        created_at TIMESTAMPTZ NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS actors (status TEXT NOT NULL DEFAULT 'active',
@@ -126,7 +127,7 @@ _SESSION_SCHEMA_DDL = f"""
         kind TEXT NOT NULL CHECK(kind IN ('human','system')),
         system_component TEXT,
         name TEXT NOT NULL DEFAULT '',
-        created_at TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
         CHECK (
             (kind = 'system' AND system_component IS NOT NULL)
             OR

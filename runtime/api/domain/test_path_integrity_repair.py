@@ -22,7 +22,8 @@ from yoke_core.domain import db_backend
 from runtime.api.domain._path_integrity_test_helpers import path_integrity_db
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain import (
-    path_integrity, path_integrity_fixtures,
+    path_integrity,
+    path_integrity_fixtures,
 )
 from yoke_core.domain.path_integrity_repair import (
     OP_DELETE_DUPLICATE_TARGET,
@@ -31,7 +32,9 @@ from yoke_core.domain.path_integrity_repair import (
     mark_failure_abandoned,
 )
 from yoke_core.domain.path_integrity_repair_audit import (
-    FAILURE_ABANDONED, FAILURE_REPAIRED, STATUS_APPLIED,
+    FAILURE_ABANDONED,
+    FAILURE_REPAIRED,
+    STATUS_APPLIED,
 )
 
 
@@ -43,7 +46,8 @@ def _p(conn) -> str:
 def db_with_dupe(tmp_path):
     with path_integrity_db(tmp_path) as conn:
         path_integrity_fixtures.load_fixture(
-            conn, "duplicate_identity_v1",
+            conn,
+            "duplicate_identity_v1",
         )
         run_id = path_integrity.verify_project(conn, "fix_dupe")
         yield conn, run_id
@@ -53,7 +57,8 @@ def db_with_dupe(tmp_path):
 def db_with_parent_child(tmp_path):
     with path_integrity_db(tmp_path) as conn:
         path_integrity_fixtures.load_fixture(
-            conn, "incoherent_parent_child_v1",
+            conn,
+            "incoherent_parent_child_v1",
         )
         run_id = path_integrity.verify_project(conn, "fix_pc")
         yield conn, run_id
@@ -72,7 +77,9 @@ def _failure_for_kind(conn, run_id, kind):
 def test_apply_repair_for_duplicate_identity(db_with_dupe):
     conn, run_id = db_with_dupe
     failure = _failure_for_kind(
-        conn, run_id, path_integrity.INVARIANT_DUPLICATE_IDENTITY,
+        conn,
+        run_id,
+        path_integrity.INVARIANT_DUPLICATE_IDENTITY,
     )
     failure_id = int(failure[0])
     repair_id = apply_repair(conn, failure_id=failure_id)
@@ -95,8 +102,7 @@ def test_apply_repair_for_duplicate_identity(db_with_dupe):
     assert failure_row[0] == FAILURE_REPAIRED
 
     run_row = conn.execute(
-        "SELECT unrepaired_failure_count FROM path_integrity_runs "
-        f"WHERE id={p}",
+        f"SELECT unrepaired_failure_count FROM path_integrity_runs WHERE id={p}",
         (run_id,),
     ).fetchone()
     assert run_row[0] >= 0
@@ -110,12 +116,13 @@ def test_apply_repair_for_duplicate_identity(db_with_dupe):
 def test_apply_repair_emits_repair_applied_event(db_with_dupe):
     conn, run_id = db_with_dupe
     failure = _failure_for_kind(
-        conn, run_id, path_integrity.INVARIANT_DUPLICATE_IDENTITY,
+        conn,
+        run_id,
+        path_integrity.INVARIANT_DUPLICATE_IDENTITY,
     )
     apply_repair(conn, failure_id=int(failure[0]))
     row = conn.execute(
-        "SELECT event_name FROM events "
-        "WHERE event_name='PathIntegrityRepairApplied'",
+        "SELECT event_name FROM events WHERE event_name='PathIntegrityRepairApplied'",
     ).fetchone()
     assert row is not None
 
@@ -123,7 +130,9 @@ def test_apply_repair_emits_repair_applied_event(db_with_dupe):
 def test_dry_run_does_not_mutate_substrate(db_with_dupe):
     conn, run_id = db_with_dupe
     failure = _failure_for_kind(
-        conn, run_id, path_integrity.INVARIANT_DUPLICATE_IDENTITY,
+        conn,
+        run_id,
+        path_integrity.INVARIANT_DUPLICATE_IDENTITY,
     )
     failure_id = int(failure[0])
     target_id = int(failure[1])
@@ -134,7 +143,9 @@ def test_dry_run_does_not_mutate_substrate(db_with_dupe):
     ).fetchone()[0]
 
     repair_id = apply_repair(
-        conn, failure_id=failure_id, dry_run=True,
+        conn,
+        failure_id=failure_id,
+        dry_run=True,
     )
 
     post_count = conn.execute(
@@ -160,7 +171,9 @@ def test_dry_run_does_not_mutate_substrate(db_with_dupe):
 def test_apply_repair_for_parent_child(db_with_parent_child):
     conn, run_id = db_with_parent_child
     failure = _failure_for_kind(
-        conn, run_id, path_integrity.INVARIANT_PARENT_CHILD,
+        conn,
+        run_id,
+        path_integrity.INVARIANT_PARENT_CHILD,
     )
     failure_id = int(failure[0])
     target_id = int(failure[1])
@@ -190,7 +203,9 @@ def test_apply_repair_for_parent_child(db_with_parent_child):
 def test_re_apply_already_repaired_is_noop(db_with_dupe):
     conn, run_id = db_with_dupe
     failure = _failure_for_kind(
-        conn, run_id, path_integrity.INVARIANT_DUPLICATE_IDENTITY,
+        conn,
+        run_id,
+        path_integrity.INVARIANT_DUPLICATE_IDENTITY,
     )
     failure_id = int(failure[0])
     first_id = apply_repair(conn, failure_id=failure_id)
@@ -218,16 +233,19 @@ def test_unknown_invariant_kind_refuses(db_with_dupe):
 def test_mark_failure_abandoned_records_reason(db_with_dupe):
     conn, run_id = db_with_dupe
     failure = _failure_for_kind(
-        conn, run_id, path_integrity.INVARIANT_DUPLICATE_IDENTITY,
+        conn,
+        run_id,
+        path_integrity.INVARIANT_DUPLICATE_IDENTITY,
     )
     failure_id = int(failure[0])
     repair_id = mark_failure_abandoned(
-        conn, failure_id=failure_id, reason="duplicate is benign",
+        conn,
+        failure_id=failure_id,
+        reason="duplicate is benign",
     )
     p = _p(conn)
     repair_row = conn.execute(
-        "SELECT status, abandon_reason FROM path_integrity_repairs "
-        f"WHERE id={p}",
+        f"SELECT status, abandon_reason FROM path_integrity_repairs WHERE id={p}",
         (repair_id,),
     ).fetchone()
     assert repair_row[0] == "abandoned"
@@ -243,9 +261,37 @@ def test_mark_failure_abandoned_records_reason(db_with_dupe):
 def test_abandon_refuses_empty_reason(db_with_dupe):
     conn, run_id = db_with_dupe
     failure = _failure_for_kind(
-        conn, run_id, path_integrity.INVARIANT_DUPLICATE_IDENTITY,
+        conn,
+        run_id,
+        path_integrity.INVARIANT_DUPLICATE_IDENTITY,
     )
     with pytest.raises(PathIntegrityRepairError):
         mark_failure_abandoned(
-            conn, failure_id=int(failure[0]), reason="   ",
+            conn,
+            failure_id=int(failure[0]),
+            reason="   ",
         )
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_abandon_audit_uses_one_native_microsecond_fact(
+    db_with_dupe, monkeypatch, zone
+):
+    from yoke_contracts.timestamps import parse_instant
+    from yoke_core.domain import path_integrity_repair_audit as owner
+
+    conn, run_id = db_with_dupe
+    conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    stamp = parse_instant("1969-12-31T23:59:59.123456Z")
+    monkeypatch.setattr(owner, "utc_now", lambda: stamp)
+    failure = _failure_for_kind(
+        conn, run_id, path_integrity.INVARIANT_DUPLICATE_IDENTITY
+    )
+    repair_id = owner.write_abandon_row(
+        conn, failure_id=int(failure[0]), reason="retain observed substrate"
+    )
+    row = conn.execute(
+        "SELECT requested_at,applied_at FROM path_integrity_repairs WHERE id=%s",
+        (repair_id,),
+    ).fetchone()
+    assert tuple(row) == (stamp, stamp)

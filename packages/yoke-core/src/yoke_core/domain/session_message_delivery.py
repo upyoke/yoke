@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
+from yoke_core.domain.db_helpers import instant_parameter
+
 import json
 import uuid
 from datetime import datetime, timedelta
@@ -15,7 +19,6 @@ from yoke_core.domain.session_message_delivery_projection import (
 from yoke_core.domain.session_message_lease_complete import complete_hook_lease
 from yoke_core.domain.session_message_types import (
     row_dict,
-    timestamp,
     utc_now,
 )
 
@@ -47,7 +50,7 @@ def _eligible_hook_event(conn: Any, session_id: str, hook_event: str) -> bool:
 
 def _expire_rows(conn: Any, *, now: datetime) -> int:
     marker = _p(conn)
-    stamp = timestamp(now)
+    stamp = instant_parameter(conn, now)
     lock = " FOR UPDATE OF r" if db_backend.connection_is_postgres(conn) else ""
     leases = conn.execute(
         "SELECT r.injection_lease_id FROM session_message_recipients r "
@@ -81,9 +84,10 @@ def _expire_rows(conn: Any, *, now: datetime) -> int:
 
 def expire_due_recipients(conn: Any, *, now: datetime | None = None) -> int:
     """Converge every due, unacknowledged receipt through one mutation."""
+    now = parse_instant(utc_now() if now is None else now)
     _begin_mutation(conn)
     try:
-        stamp = now or utc_now()
+        stamp = now
         count = _expire_rows(conn, now=stamp)
         from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
             withdraw_deployment_qa_wait_wakes,
@@ -105,7 +109,7 @@ def _lease_candidates(
     limit: int,
 ) -> list[dict[str, Any]]:
     marker = _p(conn)
-    stamp = timestamp(now)
+    stamp = instant_parameter(conn, now)
     lock = (
         " FOR UPDATE OF r SKIP LOCKED"
         if db_backend.connection_is_postgres(conn)
@@ -139,7 +143,7 @@ def _pending_receipt_count(conn: Any, *, session_id: str, now: datetime) -> int:
         "JOIN session_messages m ON m.message_id=r.message_id "
         f"WHERE r.session_id={marker} AND r.state='pending' "
         f"AND m.cancelled_at IS NULL AND m.expires_at>{marker}",
-        (session_id, timestamp(now)),
+        (session_id, instant_parameter(conn, now)),
     ).fetchone()
     return int(row[0])
 
@@ -168,8 +172,10 @@ def lease_for_hook(
             now=current,
             limit=limit,
         )
-        leased_at = timestamp(current)
-        lease_expires = timestamp(current + timedelta(seconds=HOOK_LEASE_SECONDS))
+        leased_at = instant_parameter(conn, current)
+        lease_expires = instant_parameter(
+            conn, current + timedelta(seconds=HOOK_LEASE_SECONDS)
+        )
         for row in rows:
             old_lease = str(row.get("injection_lease_id") or "")
             if old_lease:

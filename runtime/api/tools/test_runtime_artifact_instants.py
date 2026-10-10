@@ -1,0 +1,187 @@
+"""Runtime telemetry and artifact metadata share one strict instant boundary."""
+
+from dataclasses import fields
+from datetime import datetime
+import json
+import logging
+from pathlib import Path
+
+import pytest
+
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
+from yoke_core.api import observability
+from yoke_core.cli import board_rebuild_timing_events as board
+from yoke_core.tools import (
+    build_release,
+    distribution_channel,
+    distribution_publish,
+    release_artifacts,
+)
+
+STAMP = parse_instant("1970-01-01T05:29:59.123456+05:30")
+WIRE = "1969-12-31T23:59:59.123456Z"
+
+
+def test_log_clock_is_fixed_six_without_rewriting_opaque_context(monkeypatch):
+    monkeypatch.setattr(observability, "iso8601_now", lambda: WIRE)
+    record = logging.LogRecord("clock", logging.INFO, __file__, 1, "observed", (), None)
+    record.context = {"opaque": "1970-01-01T00:00:00Z", "native_clock": STAMP}
+    payload = json.loads(observability.JsonLogFormatter().format(record))
+    assert payload["timestamp"] == WIRE
+    assert payload["context"] == {
+        "opaque": "1970-01-01T00:00:00Z",
+        "native_clock": WIRE,
+    }
+
+
+def _board_event(clock):
+    return board.emit_board_command_event(
+        "BoardRebuildCommandStarted",
+        repo_root=Path("/tmp"),
+        board_path=Path("/tmp/board.md"),
+        force=False,
+        output_name=None,
+        scope=None,
+        session_id="",
+        trace_id="trace",
+        started_at=clock,
+    )
+
+
+def test_board_clock_is_native_and_event_boundary_is_canonical(monkeypatch):
+    emitted = []
+    monkeypatch.setattr(
+        board, "emit_event", lambda *args, **kwargs: emitted.append(kwargs)
+    )
+    _board_event(STAMP)
+    assert emitted[0]["context"]["started_at"] == WIRE
+    assert "completed_at" not in emitted[0]["context"]
+    assert isinstance(board.utc_now(), datetime)
+
+
+@pytest.mark.parametrize(
+    "bad",
+    ["", "1970-01-01", "1970-01-01T00:00:00", 0, True, "1970-01-01T00:00:00.1234567Z"],
+)
+def test_board_invalid_clock_refuses_before_event(monkeypatch, bad):
+    monkeypatch.setattr(
+        board, "emit_event", lambda *args, **kwargs: pytest.fail("event emitted")
+    )
+    with pytest.raises(InvalidInstant):
+        _board_event(bad)
+
+
+@pytest.mark.parametrize(
+    "bad",
+    ["", "1970-01-01", "1970-01-01T00:00:00", 0, True, "1970-01-01T00:00:00.1234567Z"],
+)
+def test_build_clock_refuses_before_output_replacement(tmp_path, monkeypatch, bad):
+    output = tmp_path / "release"
+    output.mkdir()
+    sentinel = output / "existing"
+    sentinel.write_text("retained")
+    monkeypatch.setattr(
+        build_release,
+        "build_product_wheelhouse",
+        lambda **kwargs: pytest.fail("wheel build started"),
+    )
+    with pytest.raises(InvalidInstant):
+        build_release.build_release(
+            repo_root=tmp_path,
+            output_root=output,
+            base_url="https://example.test",
+            source_commit="a" * 40,
+            generated_at=bad,
+        )
+    assert sentinel.read_text() == "retained"
+
+
+def _channel(clock):
+    return distribution_channel.channel_payload(
+        channel="latest",
+        version="1.0.0",
+        index_url="https://example.test/simple/",
+        release_base_url="https://example.test/dist/releases/1.0.0/",
+        generated_at=clock,
+        migration_manifest_sha256="b" * 64,
+        source_commit="a" * 40,
+    )
+
+
+@pytest.mark.parametrize("clock", [STAMP, "1970-01-01T05:29:59.123456+05:30"])
+def test_new_channel_clock_is_canonical_without_changing_content_identity(clock):
+    payload = _channel(clock)
+    assert payload["generated_at"] == WIRE
+    assert payload["migration_history"]["manifest_sha256"] == "b" * 64
+    assert payload["migration_history"]["source_commit"] == "a" * 40
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        None,
+        "then",
+        "1970-01-01",
+        "1970-01-01T00:00:00",
+        "1970-01-01T00:00:00-00:00",
+        True,
+        0,
+    ],
+)
+def test_invalid_channel_clock_retains_existing_output(tmp_path, bad):
+    source = _channel(STAMP)
+    source["generated_at"] = bad
+    channel_input = tmp_path / "input.json"
+    channel_input.write_text(json.dumps(source))
+    before = channel_input.read_bytes()
+    output = tmp_path / "channel.json"
+    output.write_text("existing pointer bytes")
+    with pytest.raises(InvalidInstant):
+        distribution_publish._write_channel("latest", channel_input, output)
+    assert output.read_text() == "existing pointer bytes"
+    assert channel_input.read_bytes() == before
+
+
+@pytest.mark.parametrize("clock", [STAMP, "1970-01-01T05:29:59.123456+05:30"])
+def test_release_result_retains_native_clock_until_json(tmp_path, clock):
+    paths = release_artifacts.ReleasePaths(
+        **{
+            field.name: tmp_path / field.name
+            for field in fields(release_artifacts.ReleasePaths)
+        }
+    )
+    build = release_artifacts.ReleaseBuild(
+        "1.0.0",
+        "latest",
+        clock,
+        "https://example.test/1970-01-01T00:00:00Z/",
+        paths,
+        [],
+        "b" * 64,
+        {},
+    )
+    assert build.generated_at == STAMP
+    assert isinstance(build.generated_at, datetime)
+    assert build.to_json()["generated_at"] == WIRE
+    assert build.to_json()["index_url"] == build.index_url
+
+
+@pytest.mark.parametrize(
+    "bad",
+    ["then", "1970-01-01T00:00:00", "1970-01-01T00:00:00-00:00", datetime(1970, 1, 1)],
+)
+def test_artifact_materialization_invalid_clock_refuses_before_output(tmp_path, bad):
+    output = tmp_path / "release"
+    with pytest.raises(InvalidInstant):
+        release_artifacts.materialize_release_artifacts(
+            records=[],
+            output_root=output,
+            version="1.0.0",
+            channel="latest",
+            base_url="https://example.test/",
+            generated_at=bad,
+            source_commit="a" * 40,
+            installer_asset_dir=tmp_path,
+            aws_bootstrap_asset_dir=tmp_path,
+        )
+    assert not output.exists()

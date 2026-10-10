@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import json
 
 import pytest
@@ -61,7 +63,7 @@ def test_reconciliation_refuses_an_unexpired_relay_lease() -> None:
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
-        now="2026-08-22T12:00:10Z",
+        now="2026-08-22T12:00:10.000000Z",
     )
 
     with pytest.raises(SessionLaunchError) as refused:
@@ -70,7 +72,7 @@ def test_reconciliation_refuses_an_unexpired_relay_lease() -> None:
             launch_id=launch.launch_id,
             auth=authorization(),
             observed_native_id=None,
-            now="2026-08-22T12:00:11Z",
+            now="2026-08-22T12:00:11.000000Z",
         )
 
     assert refused.value.code == "relay_lease_active"
@@ -94,14 +96,14 @@ def test_reconciliation_refuses_an_unexpired_relay_lease() -> None:
 def test_expired_reconciliation_releases_relay_for_the_next_launch() -> None:
     conn = relay_connection()
     launch, _job = _claimed_launch(conn, key="expired-reconcile-lease")
-    settle_launch_deadlines(conn, now="2026-08-22T12:05:01Z")
+    settle_launch_deadlines(conn, now="2026-08-22T12:05:01.000000Z")
 
     reconciled = reconcile_launch(
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
         observed_native_id=None,
-        now="2026-08-22T12:05:02Z",
+        now="2026-08-22T12:05:02.000000Z",
     )
 
     assert reconciled.result_code == "reconciled_not_created"
@@ -110,7 +112,7 @@ def test_expired_reconciliation_releases_relay_for_the_next_launch() -> None:
         "WHERE launch_id=?",
         (launch.launch_id,),
     ).fetchone()
-    assert tuple(attempt[:2]) == ("2026-08-22T12:05:02Z", "not_created")
+    assert tuple(attempt[:2]) == ("2026-08-22T12:05:02.000000Z", "not_created")
     # A reconciliation closes an attempt the relay never reported, so the
     # document says how far the launch got and what the transport was doing
     # rather than only naming the reconciliation itself.
@@ -136,7 +138,7 @@ def test_expired_reconciliation_releases_relay_for_the_next_launch() -> None:
         conn,
         _heartbeat(),
         wait_seconds=0,
-        now_provider=lambda: "2026-08-22T12:05:03Z",
+        now_provider=lambda: "2026-08-22T12:05:03.000000Z",
     )
     assert (
         len(next_claim.jobs) == 1 and next_claim.jobs[0].job_id == next_launch.launch_id
@@ -150,12 +152,12 @@ def test_native_reconciliation_refuses_multiple_open_attempts() -> None:
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
-        now="2026-08-22T12:00:10Z",
+        now="2026-08-22T12:00:10.000000Z",
     )
     conn.execute(
         "INSERT INTO session_launch_attempts "
         "(attempt_id,launch_id,relay_id,machine_id,lease_id,attempt_number,started_at) "
-        "VALUES ('attempt-2',?,'relay-2',?,'lease-2',2,'2026-08-22T12:00:01Z')",
+        "VALUES ('attempt-2',?,'relay-2',?,'lease-2',2,'2026-08-22T12:00:01.000000Z')",
         (launch.launch_id, MACHINE_ID),
     )
     conn.commit()
@@ -166,7 +168,7 @@ def test_native_reconciliation_refuses_multiple_open_attempts() -> None:
             launch_id=launch.launch_id,
             auth=authorization(),
             observed_native_id="native-session",
-            now="2026-08-22T12:06:00Z",
+            now="2026-08-22T12:06:00.000000Z",
         )
 
     assert refused.value.code == "reconciliation_attempt_ambiguous"
@@ -181,16 +183,16 @@ def test_native_reconciliation_refuses_multiple_open_attempts() -> None:
 def test_repeat_reconciliation_repairs_a_legacy_attempt_once() -> None:
     conn = relay_connection()
     launch, _job = _claimed_launch(conn, key="legacy-reconcile-lease")
-    settle_launch_deadlines(conn, now="2026-08-22T12:05:01Z")
+    settle_launch_deadlines(conn, now="2026-08-22T12:05:01.000000Z")
     conn.execute(
         "UPDATE session_launches SET state='failed',attestation_hash=NULL,"
-        "completed_at='2026-08-22T12:05:02Z',"
+        "completed_at='2026-08-22T12:05:02.000000Z',"
         "result_code='reconciled_not_created' WHERE launch_id=?",
         (launch.launch_id,),
     )
     conn.execute(
         "UPDATE session_relays SET lease_id='newer-lease',"
-        "lease_expires_at='2026-08-22T12:10:00Z' WHERE relay_id=?",
+        "lease_expires_at='2026-08-22T12:10:00.000000Z' WHERE relay_id=?",
         (RELAY_ID,),
     )
     conn.commit()
@@ -200,14 +202,14 @@ def test_repeat_reconciliation_repairs_a_legacy_attempt_once() -> None:
         launch_id=launch.launch_id,
         auth=authorization(),
         observed_native_id=None,
-        now="2026-08-22T12:06:00Z",
+        now="2026-08-22T12:06:00.000000Z",
     )
     second = reconcile_launch(
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
         observed_native_id=None,
-        now="2026-08-22T12:07:00Z",
+        now="2026-08-22T12:07:00.000000Z",
     )
 
     attempt = conn.execute(
@@ -219,9 +221,13 @@ def test_repeat_reconciliation_repairs_a_legacy_attempt_once() -> None:
         "SELECT lease_id,lease_expires_at FROM session_relays WHERE relay_id=?",
         (RELAY_ID,),
     ).fetchone()
-    assert first.completed_at == second.completed_at == "2026-08-22T12:05:02Z"
-    assert tuple(attempt) == ("2026-08-22T12:06:00Z", "not_created")
-    assert tuple(relay) == ("newer-lease", "2026-08-22T12:10:00Z")
+    assert (
+        first.completed_at
+        == second.completed_at
+        == parse_instant("2026-08-22T12:05:02.000000Z")
+    )
+    assert tuple(attempt) == ("2026-08-22T12:06:00.000000Z", "not_created")
+    assert tuple(relay) == ("newer-lease", "2026-08-22T12:10:00.000000Z")
 
 
 def test_cancelled_native_creation_can_be_reconciled_then_retried() -> None:
@@ -233,14 +239,14 @@ def test_cancelled_native_creation_can_be_reconciled_then_retried() -> None:
         lease_id=job.lease_id,
         result_code="native_created",
         native_session_id="native-session",
-        now="2026-08-22T12:00:10Z",
+        now="2026-08-22T12:00:10.000000Z",
     )
     assert pending.state == "awaiting_registration"
     cancelled = cancel_launch(
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
-        now="2026-08-22T12:00:11Z",
+        now="2026-08-22T12:00:11.000000Z",
     )
     assert cancelled.result_code == "cancelled_after_native_create"
 
@@ -249,7 +255,7 @@ def test_cancelled_native_creation_can_be_reconciled_then_retried() -> None:
         launch_id=launch.launch_id,
         auth=authorization(),
         observed_native_id=None,
-        now="2026-08-22T12:00:12Z",
+        now="2026-08-22T12:00:12.000000Z",
     )
     assert reconciled.state == "failed"
     assert reconciled.result_code == "reconciled_not_created"
@@ -258,6 +264,6 @@ def test_cancelled_native_creation_can_be_reconciled_then_retried() -> None:
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
-        now="2026-08-22T12:00:13Z",
+        now="2026-08-22T12:00:13.000000Z",
     )
     assert retried.state == "assigned"

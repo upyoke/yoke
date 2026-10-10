@@ -23,6 +23,8 @@ from __future__ import annotations
 import sys
 from typing import Iterable, Optional, Sequence, TextIO
 
+from yoke_contracts.timestamps import format_instant
+
 from . import db_backend
 
 
@@ -45,11 +47,14 @@ UPSERT_USAGE = (
 )
 GET_USAGE = "Usage: python3 -m yoke_core.domain.sections get <PREFIX-N> <section-name>"
 LIST_USAGE = "Usage: python3 -m yoke_core.domain.sections list <PREFIX-N>"
-DELETE_USAGE = "Usage: python3 -m yoke_core.domain.sections delete <PREFIX-N> <section-name>"
+DELETE_USAGE = (
+    "Usage: python3 -m yoke_core.domain.sections delete <PREFIX-N> <section-name>"
+)
 
 
 # Deferred imports inside ``cmd_*`` handlers are load-bearing: top-level imports
 # cycle through ``sections.py -> sections_cli.py -> sections.py`` under ``-m``.
+
 
 def _coerce_item_id(raw: str, err: TextIO, db_path: Optional[str]) -> Optional[int]:
     """Resolve the operator's item argument (``PREFIX-N``) to its row id."""
@@ -158,7 +163,12 @@ def cmd_upsert(
         print("Error: section upsert failed: {}".format(exc), file=err)
         return 1
 
-    print("Upserted section: {} for item {}".format(section_name, _public_item_ref(item_id, db_path)), file=out)
+    print(
+        "Upserted section: {} for item {}".format(
+            section_name, _public_item_ref(item_id, db_path)
+        ),
+        file=out,
+    )
     render_ok = _rerender_body(item_id, "upsert", db_path, out, err)
     _emit_section_event("SectionUpserted", item_id, section_name)
     if render_ok:
@@ -166,12 +176,14 @@ def cmd_upsert(
         # never leaks into the caller's stderr; on degraded outcome the
         # caller prints a single structured warning instead.
         sync_ok, sync_reason = sync_body_after_section_mutation(
-            item_id, "upsert",
+            item_id,
+            "upsert",
         )
         if not sync_ok:
             print(
                 "Warning: github_sync_degraded for {}: {}".format(
-                    _public_item_ref(item_id, db_path), sync_reason,
+                    _public_item_ref(item_id, db_path),
+                    sync_reason,
                 ),
                 file=err,
             )
@@ -223,7 +235,11 @@ def cmd_list(
 
     rows = list_sections(item_id, db_path=db_path)
     for name, ordering, created_at, updated_at in rows:
-        print("{}|{}|{}|{}".format(name, ordering, created_at, updated_at), file=out)
+        created_wire = format_instant(created_at) if created_at is not None else ""
+        updated_wire = format_instant(updated_at) if updated_at is not None else ""
+        print(
+            "{}|{}|{}|{}".format(name, ordering, created_wire, updated_wire), file=out
+        )
     return 0
 
 
@@ -256,17 +272,24 @@ def cmd_delete(
         print("Error: section delete failed: {}".format(exc), file=err)
         return 1
 
-    print("Deleted section: {} for item {}".format(section_name, _public_item_ref(item_id, db_path)), file=out)
+    print(
+        "Deleted section: {} for item {}".format(
+            section_name, _public_item_ref(item_id, db_path)
+        ),
+        file=out,
+    )
     render_ok = _rerender_body(item_id, "delete", db_path, out, err)
     _emit_section_event("SectionDeleted", item_id, section_name)
     if render_ok:
         sync_ok, sync_reason = sync_body_after_section_mutation(
-            item_id, "delete",
+            item_id,
+            "delete",
         )
         if not sync_ok:
             print(
                 "Warning: github_sync_degraded for {}: {}".format(
-                    _public_item_ref(item_id, db_path), sync_reason,
+                    _public_item_ref(item_id, db_path),
+                    sync_reason,
                 ),
                 file=err,
             )

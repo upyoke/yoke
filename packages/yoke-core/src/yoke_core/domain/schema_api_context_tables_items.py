@@ -25,7 +25,7 @@ ITEMS_TABLE: dict[str, dict] = {
             ("workflow_id", "TEXT"),
             ("workflow_version_id", "INTEGER"),
             ("workflow_posture", "TEXT"),
-            (MEMBERSHIP_FINALIZED_COLUMN, "TEXT"),
+            (MEMBERSHIP_FINALIZED_COLUMN, "TIMESTAMPTZ"),
             ("status", "TEXT"),
             ("priority", "TEXT"),
             ("project_id", "INTEGER"),
@@ -38,8 +38,8 @@ ITEMS_TABLE: dict[str, dict] = {
             ("deploy_stage", "TEXT"),
             ("source", "TEXT"),
             ("owner", "TEXT"),
-            ("created_at", "TEXT"),
-            ("updated_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
+            ("updated_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Backlog row keyed by global bare-integer id for internal joins. "

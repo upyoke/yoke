@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -242,17 +242,21 @@ def stored_access_token(github: Mapping[str, Any]) -> dict[str, Any]:
     path = credential_ref(github)
     if not path:
         return {"expires_at": None, "stale": False}
-    now = datetime.now(timezone.utc)
+    now = utc_now()
     try:
         document = credential_store.read_credential_document(path)
         expires_at = access_cache.access_state(
-            document, error_type=credential_store.GitHubCredentialStoreError,
-        ).get(access_cache.ACCESS_EXPIRES_AT_KEY)
-        stale = access_cache.usable_token_state(
             document,
-            now=now,
             error_type=credential_store.GitHubCredentialStoreError,
-        ) is None
+        ).get(access_cache.ACCESS_EXPIRES_AT_KEY)
+        stale = (
+            access_cache.usable_token_state(
+                document,
+                now=now,
+                error_type=credential_store.GitHubCredentialStoreError,
+            )
+            is None
+        )
     except credential_store.GitHubCredentialStoreError:
         # An unreadable document is already reported by the authorization
         # binding; this half only answers for a token it can actually read.

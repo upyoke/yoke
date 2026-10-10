@@ -52,7 +52,7 @@ CREATE TABLE epic_tasks (
   status TEXT,
   item_worktree_id INTEGER,
   github_issue TEXT,
-  last_heartbeat TEXT
+  last_heartbeat TIMESTAMPTZ
 );
 CREATE TABLE item_worktrees (
   id INTEGER PRIMARY KEY,
@@ -61,9 +61,9 @@ CREATE TABLE item_worktrees (
   path TEXT,
   lane_role TEXT NOT NULL,
   state TEXT NOT NULL DEFAULT 'active',
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  released_at TEXT
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
+  released_at TIMESTAMPTZ
 );
 """
 
@@ -117,7 +117,8 @@ def _seed_repo(root: Path):
 
 
 def test_validation_uses_postgres_authority_without_file_marker(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     with _seed_repo(tmp_path) as conn:
         assert not (tmp_path / "runtime").exists()
@@ -129,7 +130,7 @@ def test_validation_uses_postgres_authority_without_file_marker(
               (epic_id, task_num, title, status, item_worktree_id,
                github_issue, last_heartbeat)
             VALUES ('42', 1, 'Task one', 'implemented', NULL, '', NULL);
-            """
+            """,
         )
         conn.commit()
 
@@ -142,7 +143,9 @@ def test_validation_uses_postgres_authority_without_file_marker(
         )
         monkeypatch.setattr(
             "yoke_core.domain.validate_epic.subprocess.run",
-            lambda cmd, cwd, text, capture_output, env=None: CompletedProcess(cmd, 0, stdout="", stderr=""),
+            lambda cmd, cwd, text, capture_output, env=None: CompletedProcess(
+                cmd, 0, stdout="", stderr=""
+            ),
         )
 
         out = io.StringIO()
@@ -152,7 +155,9 @@ def test_validation_uses_postgres_authority_without_file_marker(
     assert err.getvalue() == ""
 
 
-def test_numeric_epic_validation_passes_with_github_auth_missing(tmp_path, monkeypatch, capsys):
+def test_numeric_epic_validation_passes_with_github_auth_missing(
+    tmp_path, monkeypatch, capsys
+):
     """When the canonical resolver raises (no project capability), the
     GitHub-checks subsection is skipped cleanly. Replaces the previous
     ``shutil.which("gh") is None`` skip path."""
@@ -165,7 +170,7 @@ def test_numeric_epic_validation_passes_with_github_auth_missing(tmp_path, monke
               (epic_id, task_num, title, status, item_worktree_id,
                github_issue, last_heartbeat)
             VALUES ('42', 1, 'Task one', 'implemented', NULL, '', NULL);
-            """
+            """,
         )
         conn.commit()
 
@@ -178,7 +183,9 @@ def test_numeric_epic_validation_passes_with_github_auth_missing(tmp_path, monke
         )
         monkeypatch.setattr(
             "yoke_core.domain.validate_epic.subprocess.run",
-            lambda cmd, cwd, text, capture_output, env=None: CompletedProcess(cmd, 0, stdout="", stderr=""),
+            lambda cmd, cwd, text, capture_output, env=None: CompletedProcess(
+                cmd, 0, stdout="", stderr=""
+            ),
         )
 
         out = io.StringIO()
@@ -253,18 +260,15 @@ def test_reports_missing_worktree_and_stale_heartbeat(tmp_path, monkeypatch, cap
         )
         monkeypatch.setattr(
             "yoke_core.domain.validate_epic.subprocess.run",
-            lambda cmd, cwd, text, capture_output, env=None: CompletedProcess(cmd, 0, stdout="", stderr=""),
+            lambda cmd, cwd, text, capture_output, env=None: CompletedProcess(
+                cmd, 0, stdout="", stderr=""
+            ),
         )
 
-        rc = run_validation(
-            tmp_path, TEST_EPIC_REF, out=_Writer(out), err=_Writer(err)
-        )
+        rc = run_validation(tmp_path, TEST_EPIC_REF, out=_Writer(out), err=_Writer(err))
     assert rc == 1, "".join(out)
     text = "".join(out)
-    assert (
-        f"Worktree missing: {tmp_path / '.worktrees' / TEST_WORKTREE}"
-        in text
-    )
+    assert f"Worktree missing: {tmp_path / '.worktrees' / TEST_WORKTREE}" in text
     assert "may be stale" in text
 
 
@@ -298,14 +302,13 @@ def test_cross_project_github_checks_use_rest(tmp_path, monkeypatch):
               (epic_id, task_num, title, status, item_worktree_id,
                github_issue, last_heartbeat)
             VALUES ('42', 1, 'Task one', 'implemented', NULL, '#123', NULL);
-            """
+            """,
         )
         conn.commit()
 
         def fake_auth(project, **kwargs):
             assert (
-                kwargs["required_permissions"]
-                is GITHUB_ISSUES_READ_PERMISSION_LEVELS
+                kwargs["required_permissions"] is GITHUB_ISSUES_READ_PERMISSION_LEVELS
             )
             return ProjectGithubAuth(
                 project=project,

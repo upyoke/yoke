@@ -12,8 +12,10 @@ portable DDL so explicitly provisioned SQLite validation surfaces can exercise
 the same schema; those validation surfaces are never control-plane authority.
 The DDL has no implicit-id auto-increment clauses or SQLite-only timestamp
 default clauses.
-Callers supply ``created_at`` / ``updated_at`` explicitly via
-:func:`yoke_core.domain.db_helpers.iso8601_now`.  JSON-payload ``TEXT``
+Callers supply aware native ``created_at`` / ``updated_at`` facts via
+:func:`yoke_core.domain.db_helpers.utc_now`; the owned SQL boundary uses
+:func:`yoke_core.domain.db_helpers.instant_parameter` for backend adaptation.
+JSON-payload ``TEXT``
 columns carry a ``-- → JSONB on Postgres`` annotation for backend-aware schema
 rendering; the enumeration lives in
 :data:`yoke_core.domain.sql_json.JSONB_COLUMNS`.
@@ -42,8 +44,11 @@ from typing import List, Optional
 
 from yoke_core.domain.schema_common import (
     _USAGE,
-    _cli_error, _cli_usage_error, _connect_raw,
-    _resolve_db_path, _resolve_db_root,
+    _cli_error,
+    _cli_usage_error,
+    _connect_raw,
+    _resolve_db_path,
+    _resolve_db_root,
 )
 from yoke_core.domain.schema_orphans import (
     _check_sibling_state_collision,
@@ -62,10 +67,15 @@ def cmd_init() -> None:
     _schema_init._resolve_db_root = _resolve_db_root
     return _schema_init.cmd_init()
 
+
 __all__ = [
-    "check_sibling_state_collision", "guard_state_dir_creation",
-    "_check_sibling_state_collision", "_resolve_db_path",
-    "_resolve_db_root", "cmd_init", "main",
+    "check_sibling_state_collision",
+    "guard_state_dir_creation",
+    "_check_sibling_state_collision",
+    "_resolve_db_path",
+    "_resolve_db_root",
+    "cmd_init",
+    "main",
 ]
 
 
@@ -88,10 +98,12 @@ def main(argv: Optional[List[str]] = None) -> None:
     # migration audit commands
     if subcmd == "migration-audit-list":
         from yoke_core.domain.migration_harness import cmd_audit_list
+
         cmd_audit_list(_resolve_db_path())
         return
     if subcmd == "migration-verify":
         from yoke_core.domain.migration_harness import cmd_verify
+
         cmd_verify(_resolve_db_path())
         return
 

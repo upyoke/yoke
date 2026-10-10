@@ -11,7 +11,7 @@ from runtime.api.fixtures.backlog_inserts import (
     insert_item_worktree,
 )
 from runtime.api.domain._path_claims_test_helpers import local_human
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.work_claim_targets import make_epic_task_target, make_item_target
 
 
@@ -94,7 +94,7 @@ def seed_target(
         "INSERT INTO path_targets "
         "(project_id, kind, path_string, generation, created_at) "
         "VALUES (%s, %s, %s, 1, %s) RETURNING id",
-        (project_id, kind, path, iso8601_now()),
+        (project_id, kind, path, instant_parameter(conn, utc_now())),
     ).fetchone()
     conn.commit()
     return int(row[0])
@@ -108,7 +108,7 @@ def seed_item_claim(
     state: str = "active",
 ) -> int:
     """Insert an item-owned claim, targets, and activation facts."""
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     row = conn.execute(
         "INSERT INTO path_claims "
         "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
@@ -141,7 +141,7 @@ def bind_claim(conn: Any, *, claim_id: int, item_id: int, task_num: int) -> None
     conn.execute(
         "INSERT INTO path_claim_task_bindings "
         "(claim_id, epic_id, task_num, bound_at) VALUES (%s, %s, %s, %s)",
-        (claim_id, item_id, task_num, iso8601_now()),
+        (claim_id, item_id, task_num, instant_parameter(conn, utc_now())),
     )
     conn.commit()
 
@@ -154,7 +154,7 @@ def seed_session(
     task_num: int | None = None,
 ) -> None:
     """Insert a current-item session plus parent and optional task work claims."""
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     conn.execute(
         "INSERT INTO harness_sessions "
         "(session_id, executor, provider, model, project_id, execution_level, "

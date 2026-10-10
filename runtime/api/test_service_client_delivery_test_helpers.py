@@ -41,9 +41,9 @@ _SCHEMA_DDL = """
         frozen INTEGER DEFAULT 0,
         github_issue TEXT,
         deployed_to TEXT,
-        merged_at TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
+        merged_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL,
         source TEXT NOT NULL DEFAULT '2',
         project_id INTEGER NOT NULL DEFAULT 1,
         project_sequence INTEGER,
@@ -58,7 +58,7 @@ _SCHEMA_DDL = """
         description TEXT,
         stages TEXT NOT NULL,
         on_failure TEXT DEFAULT 'halt',
-        created_at TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
         target_env TEXT DEFAULT NULL,
         done_description TEXT DEFAULT NULL,
         status TEXT NOT NULL DEFAULT 'active',
@@ -87,7 +87,7 @@ _SCHEMA_DDL = """
         qa_phase TEXT NOT NULL DEFAULT 'verification',
         deployment_run_id TEXT,
         blocking_mode TEXT NOT NULL DEFAULT 'blocking',
-        waived_at TEXT,
+        waived_at TIMESTAMPTZ,
         success_policy TEXT NOT NULL DEFAULT 'blocking',
         plan_case_key TEXT,
         deployment_member_item_id INTEGER
@@ -100,7 +100,7 @@ _SCHEMA_DDL = """
         verdict TEXT,
         verdict_reason TEXT,
         raw_result TEXT,
-        created_at TEXT
+        created_at TIMESTAMPTZ
     );
 
     CREATE TABLE deployment_runs (
@@ -109,9 +109,9 @@ _SCHEMA_DDL = """
         flow TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'created',
         current_stage TEXT,
-        created_at TEXT NOT NULL,
-        started_at TEXT,
-        completed_at TEXT,
+        created_at TIMESTAMPTZ NOT NULL,
+        started_at TIMESTAMPTZ,
+        completed_at TIMESTAMPTZ,
         created_by TEXT,
         target_env TEXT,
         release_lineage TEXT
@@ -120,7 +120,7 @@ _SCHEMA_DDL = """
     CREATE TABLE deployment_run_items (
         run_id TEXT NOT NULL,
         item_id INTEGER NOT NULL,
-        added_at TEXT NOT NULL,
+        added_at TIMESTAMPTZ NOT NULL,
         PRIMARY KEY (run_id, item_id)
     );
 
@@ -183,19 +183,19 @@ def _seed(db_path: str) -> None:
                                   created_at, updated_at, source, frozen)
                VALUES (10, 'Release item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'release', 'high', 1, 10,
                        'test-flow', 'approve-deploy',
-                       '2026-01-01', '2026-01-01', 'user', 0)"""
+                       '2026-01-01T00:00:00.123456Z', '2026-01-01T00:00:00.123456Z', 'user', 0)"""
         )
         conn.execute(
             """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                                   created_at, updated_at, source, frozen)
                VALUES (11, 'Active issue', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'medium', 1, 11,
-                       '2026-01-01', '2026-01-01', 'user', 0)"""
+                       '2026-01-01T00:00:00.123456Z', '2026-01-01T00:00:00.123456Z', 'user', 0)"""
         )
         conn.execute(
             """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                                   created_at, updated_at, source, frozen)
                VALUES (12, 'Test epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high', 1, 12,
-                       '2026-01-01', '2026-01-01', 'user', 0)"""
+                       '2026-01-01T00:00:00.123456Z', '2026-01-01T00:00:00.123456Z', 'user', 0)"""
         )
         issue_id, issue_version_id = resolve_current_workflow_pin(conn, "issue")
         epic_id, epic_version_id = resolve_current_workflow_pin(conn, "epic")
@@ -211,7 +211,7 @@ def _seed(db_path: str) -> None:
 
         conn.execute(
             """INSERT INTO deployment_runs (id, project_id, flow, status, current_stage, created_at)
-               VALUES ('run-1', 1, 'test-flow', 'executing', 'approve-deploy', '2026-01-01')"""
+               VALUES ('run-1', 1, 'test-flow', 'executing', 'approve-deploy', '2026-01-01T00:00:00.123456Z')"""
         )
         conn.execute(
             """INSERT INTO deployment_run_items (run_id, item_id, added_at)

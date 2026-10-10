@@ -218,7 +218,7 @@ test('collector stamps receipt time and records each refusal kind once per minut
   assert.equal((await send([event(new Date().toISOString()), forged])).status, 200);
   const [current, skewed] = writes[0];
   assert.ok(Date.parse(skewed.received_at) >= before - 1000);
-  assert.equal(skewed.event_time, '2020-01-01T00:00:00Z');
+  assert.equal(skewed.event_time, '2020-01-01T00:00:00.000000Z');
   assert.equal(skewed.client_time_skewed, true);
   assert.ok(skewed.client_time_offset_seconds < -CLIENT_TIME_TOLERANCE_SECONDS);
   assert.equal(current.client_time_skewed, false);

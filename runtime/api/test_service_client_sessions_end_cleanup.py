@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+
+from yoke_contracts.timestamps import format_instant, parse_instant
 from datetime import datetime, timedelta, timezone
 
 from runtime.api.fixtures.file_test_db import connect_test_db
@@ -111,6 +113,9 @@ class TestSessionHeartbeatCommand:
             "SELECT last_heartbeat FROM work_claims WHERE session_id = %s AND released_at IS NULL",
             (sid,),
         ).fetchone()
-        assert session_row["last_heartbeat"] != "2026-04-03T15:00:00Z"
-        assert claim_row["last_heartbeat"] != "2026-04-03T15:00:00Z"
+        assert session_row["last_heartbeat"] > parse_instant("2026-04-03T15:00:00Z")
+        assert claim_row["last_heartbeat"] == session_row["last_heartbeat"]
+        assert data["session"]["last_heartbeat"] == format_instant(
+            session_row["last_heartbeat"]
+        )
         conn.close()

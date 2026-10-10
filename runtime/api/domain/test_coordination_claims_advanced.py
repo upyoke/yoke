@@ -6,6 +6,8 @@ stays under the file-line cap.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import pytest
 
 from yoke_core.domain import coordination_claims
@@ -114,7 +116,7 @@ class TestHeartbeat:
             refreshed = coordination_claims.heartbeat(
                 conn, claim.id, now="2099-01-01T00:00:00Z"
             )
-            assert refreshed.last_heartbeat == "2099-01-01T00:00:00Z"
+            assert refreshed.last_heartbeat == parse_instant("2099-01-01T00:00:00Z")
             assert refreshed.claimed_at == claim.claimed_at
         finally:
             conn.close()

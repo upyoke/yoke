@@ -1,26 +1,12 @@
-"""Epic domain logic (invoked via ``python3 -m yoke_core.domain.epic``).
+"""Epic task data and CLI facade.
 
-Manages epic task data: CRUD for ``epic_tasks``, ``epic_task_files``,
-``epic_dispatch_chains``, ``epic_progress_notes``, plus QA-backed
-review/simulation and cascade helpers.
+Task CRUD, dispatch chains, files, progress notes, reviews, simulations and
+parent-status cascades live in the sibling owners imported below. Their public
+names remain available here; lazy review wrappers preserve the ``epic.*``
+patch targets used by callers and tests.
 
-Implementations live in sibling modules and are re-exported here so existing
-callers and ``mock.patch("yoke_core.domain.epic.X")`` fixtures continue to
-intercept calls:
-
-* ``epic_task_crud`` — task CRUD: ``task_upsert``, ``task_update_status``,
-  ``task_update_body``, ``task_update_field``.
-* ``epic_dispatch`` — dispatch-chain CRUD/advance: ``dispatch_chain_upsert``,
-  ``dispatch_chain_update``, ``dispatch_chain_advance``,
-  ``dispatch_chain_refresh_for_activation``.
-* ``epic_cascade`` — parent-status cascade: ``_CASCADE_MAP``,
-  ``_resolve_session_id``, ``_cascade_project``, ``_emit_task_status_changed``,
-  ``cascade_task_status``.
-* ``epic_review`` — review/progress-notes/simulation/proceed-triage (lazy
-  wrappers below).
-* ``epic_resolution`` — read helpers (``task_get``, ``task_list``, etc.).
-* ``epic_parsing`` — column lists, validation, and parse helpers.
-
+The CLI delegates to ``epic_cli``. Output follows the pipe-delimited contract;
+exit codes are 0 for success, 1 for error/not-found, and 2 for usage errors.
 """
 
 from __future__ import annotations
@@ -39,7 +25,6 @@ from yoke_core.domain.epic_parsing import (  # noqa: F401
     DISPATCH_CHAIN_COLUMNS,
     TASK_COLUMNS,
     TASK_FIELD_WHITELIST,
-    _now_iso,
     _placeholder,
     _parse_epic_id,
     _parse_simulation_result,

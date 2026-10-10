@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_contracts.path_snapshot import (
@@ -33,10 +34,6 @@ class PayloadMaterializeResult:
     symlink_count: int
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
@@ -47,8 +44,7 @@ def find_existing_snapshot_id(
     """Return the existing snapshot id for a project commit, when present."""
     p = _p(conn)
     row = conn.execute(
-        "SELECT id FROM path_snapshots "
-        f"WHERE project_id = {p} AND commit_sha = {p}",
+        f"SELECT id FROM path_snapshots WHERE project_id = {p} AND commit_sha = {p}",
         (project_id, commit_sha),
     ).fetchone()
     if row is None:
@@ -64,7 +60,9 @@ def materialize_snapshot_payload(
 ) -> PayloadMaterializeResult:
     resolved_project_id = resolve_project_id(conn, project_id)
     existing = find_existing_snapshot_id(
-        conn, resolved_project_id, payload.commit_sha,
+        conn,
+        resolved_project_id,
+        payload.commit_sha,
     )
     if existing is not None:
         return PayloadMaterializeResult(
@@ -78,12 +76,14 @@ def materialize_snapshot_payload(
 
     targets = all_paths_with_kinds(entry.path for entry in payload.files)
     files = {entry.path: entry for entry in payload.files}
-    now_iso = _utc_now_iso()
+    observed_at = utc_now()
     p = _p(conn)
     try:
         conn.execute("BEGIN")
         existing = find_existing_snapshot_id(
-            conn, resolved_project_id, payload.commit_sha,
+            conn,
+            resolved_project_id,
+            payload.commit_sha,
         )
         if existing is not None:
             conn.execute("ROLLBACK")
@@ -96,27 +96,40 @@ def materialize_snapshot_payload(
                 symlink_count=0,
             )
         resolution = resolve_snapshot_target_ids(
-            conn, project_id=resolved_project_id,
-            targets=targets, now_iso=now_iso,
+            conn,
+            project_id=resolved_project_id,
+            targets=targets,
+            observed_at=observed_at,
         )
         cur = conn.execute(
             "INSERT INTO path_snapshots "
             f"(project_id, commit_sha, built_at) VALUES ({p}, {p}, {p}) "
             "RETURNING id",
-            (resolved_project_id, payload.commit_sha, now_iso),
+            (
+                resolved_project_id,
+                payload.commit_sha,
+                instant_parameter(conn, observed_at),
+            ),
         )
         snapshot_id = int(cur.fetchone()[0])
         _write_entries(
-            conn, snapshot_id=snapshot_id, targets=targets,
-            target_ids=resolution.target_ids, files=files,
+            conn,
+            snapshot_id=snapshot_id,
+            targets=targets,
+            target_ids=resolution.target_ids,
+            files=files,
         )
         _write_symlink_facts(
-            conn, snapshot_id=snapshot_id, target_ids=resolution.target_ids,
+            conn,
+            snapshot_id=snapshot_id,
+            target_ids=resolution.target_ids,
             payload=payload,
         )
         for target_id in resolution.materialize_target_ids:
             materialize_planned_target(
-                conn, target_id=target_id, commit_sha=payload.commit_sha,
+                conn,
+                target_id=target_id,
+                commit_sha=payload.commit_sha,
             )
         conn.commit()
         return PayloadMaterializeResult(
@@ -141,23 +154,27 @@ def _write_entries(
     files: Dict[str, SnapshotFileEntry],
 ) -> None:
     context_cache = build_snapshot_context_cache(
-        conn, targets=targets, target_ids=target_ids,
+        conn,
+        targets=targets,
+        target_ids=target_ids,
     )
     rows: List[Tuple] = []
     for path_string, kind in targets:
         target_id = target_ids[path_string]
         if kind == KIND_FILE:
             entry = files[path_string]
-            rows.append((
-                snapshot_id,
-                target_id,
-                entry.line_count,
-                entry.language,
-                entry.module_name,
-                context_cache.area_for(target_id),
-                context_cache.is_generated(target_id),
-                json.dumps(entry.dependency_edges, sort_keys=True),
-            ))
+            rows.append(
+                (
+                    snapshot_id,
+                    target_id,
+                    entry.line_count,
+                    entry.language,
+                    entry.module_name,
+                    context_cache.area_for(target_id),
+                    context_cache.is_generated(target_id),
+                    json.dumps(entry.dependency_edges, sort_keys=True),
+                )
+            )
         else:
             rows.append((snapshot_id, target_id) + _DEFAULT_DIRECTORY_TUPLE)
     p = _p(conn)
@@ -182,15 +199,17 @@ def _write_symlink_facts(
     _ensure_symlink_fact_table(conn)
     rows = []
     for fact in payload.symlinks:
-        rows.append((
-            snapshot_id,
-            fact.path,
-            target_ids.get(fact.path),
-            fact.reason,
-            fact.target_attempt,
-            fact.canonical_path,
-            target_ids.get(fact.canonical_path or ""),
-        ))
+        rows.append(
+            (
+                snapshot_id,
+                fact.path,
+                target_ids.get(fact.path),
+                fact.reason,
+                fact.target_attempt,
+                fact.canonical_path,
+                target_ids.get(fact.canonical_path or ""),
+            )
+        )
     p = _p(conn)
     _executemany(
         conn,

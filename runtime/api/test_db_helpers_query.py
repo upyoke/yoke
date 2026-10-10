@@ -101,15 +101,11 @@ class TestQueryRows:
         assert rows[2]["name"] == "gamma"
 
     def test_with_params(self, mem_conn: Any) -> None:
-        rows = query_rows(
-            mem_conn, "SELECT * FROM items WHERE val > %s", (15,)
-        )
+        rows = query_rows(mem_conn, "SELECT * FROM items WHERE val > %s", (15,))
         assert len(rows) == 2
 
     def test_empty_result(self, mem_conn: Any) -> None:
-        rows = query_rows(
-            mem_conn, "SELECT * FROM items WHERE val > %s", (100,)
-        )
+        rows = query_rows(mem_conn, "SELECT * FROM items WHERE val > %s", (100,))
         assert rows == []
 
 
@@ -134,15 +130,11 @@ class TestQueryScalar:
         assert result == 3
 
     def test_returns_none_when_no_match(self, mem_conn: Any) -> None:
-        result = query_scalar(
-            mem_conn, "SELECT name FROM items WHERE id = %s", (999,)
-        )
+        result = query_scalar(mem_conn, "SELECT name FROM items WHERE id = %s", (999,))
         assert result is None
 
     def test_returns_string_scalar(self, mem_conn: Any) -> None:
-        result = query_scalar(
-            mem_conn, "SELECT name FROM items WHERE id = %s", (1,)
-        )
+        result = query_scalar(mem_conn, "SELECT name FROM items WHERE id = %s", (1,))
         assert result == "alpha"
 
 
@@ -154,11 +146,11 @@ class TestIso8601Now:
     """
 
     def test_format_matches_canonical(self) -> None:
-        """Returns ``YYYY-MM-DDTHH:MM:SSZ`` — sortable, round-trips cleanly."""
+        """Returns fixed-six UTC RFC3339 — sortable, round-trips cleanly."""
         import re
 
         value = iso8601_now()
-        assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", value), value
+        assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$", value), value
 
     def test_returns_str(self) -> None:
         assert isinstance(iso8601_now(), str)
@@ -174,21 +166,21 @@ class TestIso8601Now:
         assert parsed.utcoffset().total_seconds() == 0
 
     def test_utc_when_system_tz_is_not_utc(self) -> None:
-        """Value reflects UTC even when the clock mock reports a non-UTC
-        wall-clock — we assert formatter UTC-correctness by monkeypatching
-        ``datetime.now`` to return a fixed UTC-aware value and checking the
-        exact output string."""
-        from datetime import datetime as real_datetime, timezone
+        """The shared clock formatter retains microseconds across qualified offsets."""
+        from datetime import datetime, timedelta, timezone
 
-        frozen = real_datetime(2026, 6, 15, 12, 34, 56, tzinfo=timezone.utc)
-
-        class _FrozenDT:
-            @staticmethod
-            def now(tz=None):  # noqa: D401 - mimic datetime.now signature
-                return frozen.astimezone(tz) if tz is not None else frozen
-
-        with mock.patch("yoke_core.domain.db_helpers.datetime", _FrozenDT):
-            assert iso8601_now() == "2026-06-15T12:34:56Z"
+        frozen = datetime(
+            2026,
+            6,
+            15,
+            18,
+            19,
+            56,
+            123456,
+            tzinfo=timezone(timedelta(hours=5, minutes=45)),
+        )
+        with mock.patch("yoke_contracts.timestamps.utc_now", return_value=frozen):
+            assert iso8601_now() == "2026-06-15T12:34:56.123456Z"
 
 
 class TestConftest:
@@ -247,9 +239,7 @@ class TestConftest:
         assert row["id"] == "run-1"
         assert row["project_id"] > 0
 
-    def test_insert_qa_requirement_and_run(
-        self, test_db: Any
-    ) -> None:
+    def test_insert_qa_requirement_and_run(self, test_db: Any) -> None:
         """insert_qa_requirement + insert_qa_run round-trip."""
         from runtime.api.conftest import (
             insert_item,
@@ -261,7 +251,5 @@ class TestConftest:
         req = insert_qa_requirement(test_db, item_id=1, qa_kind="smoke")
         assert req["qa_kind"] == "smoke"
 
-        run = insert_qa_run(
-            test_db, qa_requirement_id=req["id"], verdict="pass"
-        )
+        run = insert_qa_run(test_db, qa_requirement_id=req["id"], verdict="pass")
         assert run["verdict"] == "pass"

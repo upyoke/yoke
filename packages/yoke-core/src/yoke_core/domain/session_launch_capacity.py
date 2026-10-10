@@ -13,6 +13,12 @@ not a roomy machine, and the reading says so rather than passing silently.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import as_utc, parse_instant, temporal_wire
+
+from yoke_core.domain.db_helpers import instant_parameter
+
+from datetime import datetime
+
 from dataclasses import asdict, dataclass
 import json
 from typing import Any, Iterable, Mapping
@@ -43,7 +49,11 @@ class MachineCapacity:
     total_memory_bytes: int | None
     load_average_1m: float | None
     core_count: int | None
-    observed_at: str | None
+    observed_at: datetime | None
+
+    def __post_init__(self) -> None:
+        if self.observed_at is not None:
+            object.__setattr__(self, "observed_at", parse_instant(self.observed_at))
 
     @property
     def at_capacity(self) -> bool:
@@ -56,7 +66,7 @@ class MachineCapacity:
         return self.max_worker_lanes is None
 
     def to_dict(self) -> dict[str, Any]:
-        payload = asdict(self)
+        payload = temporal_wire(asdict(self))
         payload["at_capacity"] = self.at_capacity
         payload["summary"] = self.summary()
         return payload
@@ -98,8 +108,9 @@ def _document(value: Any) -> dict[str, Any]:
         return {}
 
 
-def live_lane_count(conn: Any, *, machine_id: str, now: str) -> int:
+def live_lane_count(conn: Any, *, machine_id: str, now: datetime) -> int:
     """Sessions running on the machine plus launches still on their way there."""
+    current = as_utc(now)
     p = _marker(conn)
     sessions = conn.execute(
         f"SELECT COUNT(*) FROM harness_sessions WHERE machine_id = {p} "
@@ -111,7 +122,11 @@ def live_lane_count(conn: Any, *, machine_id: str, now: str) -> int:
         "SELECT COUNT(*) FROM session_launches "
         f"WHERE assigned_machine_id = {p} AND state IN ({states}) "
         f"AND registered_session_id IS NULL AND deadline_at > {p}",
-        (machine_id, *IN_FLIGHT_LAUNCH_STATES, now),
+        (
+            machine_id,
+            *IN_FLIGHT_LAUNCH_STATES,
+            instant_parameter(conn, current),
+        ),
     ).fetchone()[0]
     return int(sessions or 0) + int(launches or 0)
 
@@ -121,13 +136,14 @@ def machine_capacity(
     *,
     machine_id: str,
     capacity_document: Any,
-    now: str,
+    now: datetime,
 ) -> MachineCapacity:
     """Pair the relay's published reading with the lanes the plane can see."""
+    current = as_utc(now)
     reading = _document(capacity_document)
     return MachineCapacity(
         machine_id=machine_id,
-        live_lanes=live_lane_count(conn, machine_id=machine_id, now=now),
+        live_lanes=live_lane_count(conn, machine_id=machine_id, now=current),
         max_worker_lanes=reading.get("max_worker_lanes"),
         cap_source=reading.get("cap_source"),
         free_memory_bytes=reading.get("free_memory_bytes"),

@@ -23,7 +23,10 @@ moment is the transition that put it into the status it currently holds.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import parse_instant, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Dict, FrozenSet, List, Tuple
 
 from yoke_core.domain import db_backend
@@ -79,9 +82,9 @@ def is_finished(runtime: WorkflowRuntime, status: str) -> bool:
     return str(status or "").strip().lower() in finished_stage_ids(runtime)
 
 
-def window_cutoff(window: timedelta = FINISHED_WINDOW) -> str:
-    """Return the ISO instant a finished-recently reading starts from."""
-    return (datetime.now(timezone.utc) - window).strftime("%Y-%m-%dT%H:%M:%SZ")
+def window_cutoff(window: timedelta = FINISHED_WINDOW) -> datetime:
+    """Return the native instant a finished-recently reading starts from."""
+    return utc_now() - window
 
 
 def finished_status_clause(
@@ -142,13 +145,13 @@ def finished_window_clause(
         "WHERE t.item_id = i.id AND t.task_num IS NULL "
         f"AND t.to_status = i.status AND t.created_at >= {marker}))"
     )
-    return clause, [*finished_params, window_cutoff(window)]
+    return clause, [*finished_params, instant_parameter(conn, window_cutoff(window))]
 
 
 def finished_times_in_window(
     conn: Any,
     window: timedelta = FINISHED_WINDOW,
-) -> Dict[int, str]:
+) -> Dict[int, datetime]:
     """Return ``item_id -> finishing instant`` for the window, in one query.
 
     The read is bounded by the window rather than by the roster, so a board
@@ -160,13 +163,13 @@ def finished_times_in_window(
         return {}
     cursor = conn.execute(
         _FINISHING_TRANSITION_SQL.format(marker=_marker(conn)),
-        (window_cutoff(window),),
+        (instant_parameter(conn, window_cutoff(window)),),
     )
-    times: Dict[int, str] = {}
+    times: Dict[int, datetime] = {}
     for row in cursor.fetchall():
         values = dict(row) if hasattr(row, "keys") else None
         item_id = int(values["item_id"] if values else row[0])
-        finished_at = str(values["finished_at"] if values else row[1])
+        finished_at = parse_instant(values["finished_at"] if values else row[1])
         times[item_id] = finished_at
     return times
 

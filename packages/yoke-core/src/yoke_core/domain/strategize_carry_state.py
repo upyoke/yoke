@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from yoke_contracts.timestamps import utc_now, parse_instant, format_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set
 
 from yoke_core.domain import db_backend
@@ -18,41 +20,27 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _iso_utc_now() -> str:
-    """Return an ISO 8601 UTC timestamp (``Z`` suffix)."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _iso_utc_now() -> datetime:
+    return utc_now()
 
 
-def _parse_iso(value: str) -> datetime:
-    """Parse an ISO 8601 timestamp (``Z`` suffix tolerated)."""
-    if value.endswith("Z"):
-        value = value[:-1] + "+00:00"
-    return datetime.fromisoformat(value)
+def _parse_iso(value: datetime | str) -> datetime:
+    return parse_instant(value)
 
 
-def _horizon_cutoff(now_iso: str, horizon_days: int) -> str:
-    """Return the horizon cutoff ISO timestamp for ``register_new_landings``."""
-    now = _parse_iso(now_iso)
-    cutoff = now - timedelta(days=max(horizon_days, 0))
-    return cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")
+def _horizon_cutoff(now_iso: datetime | str, horizon_days: int) -> datetime:
+    return parse_instant(now_iso) - timedelta(days=max(horizon_days, 0))
 
 
-def _age_days(first_seen_at: str, now_iso: str) -> int:
-    """Return integer days between ``first_seen_at`` and ``now_iso`` (>=0)."""
-    try:
-        seen = _parse_iso(first_seen_at)
-        now = _parse_iso(now_iso)
-    except ValueError:
-        return 0
-    delta = now - seen
-    return max(delta.days, 0)
+def _age_days(first_seen_at: datetime | str, now_iso: datetime | str) -> int:
+    return max((parse_instant(now_iso) - parse_instant(first_seen_at)).days, 0)
 
 
 def register_new_landings(
     conn: Any,
     project: str,
     horizon_days: int = DEFAULT_HORIZON_DAYS,
-    now_iso: Optional[str] = None,
+    now_iso: datetime | str | None = None,
 ) -> List[int]:
     """Register any landed items within ``horizon_days`` that are not yet tracked.
 
@@ -66,7 +54,7 @@ def register_new_landings(
     pending on every refresh.
     """
     project_id = resolve_project_id(conn, project)
-    now_iso = now_iso or _iso_utc_now()
+    now_iso = _iso_utc_now() if now_iso is None else parse_instant(now_iso)
     cutoff = _horizon_cutoff(now_iso, horizon_days)
     project_id = resolve_project_id(conn, project)
     p = _p(conn)
@@ -77,7 +65,7 @@ def register_new_landings(
             f" WHERE project_id = {p} "
             "   AND merged_at IS NOT NULL "
             f"   AND merged_at >= {p}",
-            (project_id, cutoff),
+            (project_id, instant_parameter(conn, cutoff)),
         ).fetchall()
     except db_backend.operational_error_types(conn):
         conn.rollback()
@@ -93,7 +81,12 @@ def register_new_landings(
             "(item_id, project_id, state, first_seen_at, last_updated_at) "
             f"VALUES ({p}, {p}, 'pending', {p}, {p}) "
             "ON CONFLICT(project_id, item_id) DO NOTHING",
-            (int(item_id), project_id, now_iso, now_iso),
+            (
+                int(item_id),
+                project_id,
+                instant_parameter(conn, now_iso),
+                instant_parameter(conn, now_iso),
+            ),
         )
         if cur.rowcount > 0:
             new_ids.append(int(item_id))
@@ -106,12 +99,12 @@ def get_candidate_set(
     project: str,
     horizon_days: int = DEFAULT_HORIZON_DAYS,
     carry_limit: int = DEFAULT_CARRY_LIMIT,
-    now_iso: Optional[str] = None,
+    now_iso: datetime | str | None = None,
     new_ids: Optional[Iterable[int]] = None,
 ) -> Dict[str, Any]:
     """Return the classified bounded carry-forward candidate set."""
     project_id = resolve_project_id(conn, project)
-    now_iso = now_iso or _iso_utc_now()
+    now_iso = _iso_utc_now() if now_iso is None else parse_instant(now_iso)
     horizon_cutoff = _horizon_cutoff(now_iso, horizon_days)
     new_set: Set[int] = set(int(i) for i in (new_ids or []))
     project_id = resolve_project_id(conn, project)
@@ -152,13 +145,13 @@ def get_candidate_set(
             "item_id": item_id,
             "yok_id": render_item_ref(conn, item_id),
             "state": row[1],
-            "first_seen_at": row[2] or "",
-            "last_updated_at": row[3] or "",
+            "first_seen_at": format_instant(row[2]) if row[2] is not None else None,
+            "last_updated_at": format_instant(row[3]) if row[3] is not None else None,
             "last_session_id": row[4] or "",
             "reason": row[5] or "",
             "title": row[6] or "",
             "priority": (row[7] or "low"),
-            "delivered_at": row[8] or "",
+            "delivered_at": format_instant(row[8]) if row[8] is not None else None,
             "age_days": _age_days(row[2] or now_iso, now_iso),
         }
         state = entry["state"]
@@ -175,9 +168,9 @@ def get_candidate_set(
     return {
         "project": project,
         "horizon_days": horizon_days,
-        "horizon_cutoff": horizon_cutoff,
+        "horizon_cutoff": format_instant(horizon_cutoff),
         "carry_limit": carry_limit,
-        "now": now_iso,
+        "now": format_instant(now_iso),
         "new": bucket_new,
         "carry_forward": bucket_carry,
         "reflected": bucket_reflected,
@@ -194,7 +187,7 @@ def mark_items(
     state: str,
     session_id: Optional[str] = None,
     reason: Optional[str] = None,
-    now_iso: Optional[str] = None,
+    now_iso: datetime | str | None = None,
 ) -> int:
     """Update the carry state for a set of items."""
     if state not in VALID_STATES:
@@ -203,7 +196,7 @@ def mark_items(
             f"expected one of {sorted(VALID_STATES)}"
         )
     project_id = resolve_project_id(conn, project)
-    now_iso = now_iso or _iso_utc_now()
+    now_iso = _iso_utc_now() if now_iso is None else parse_instant(now_iso)
     project_id = resolve_project_id(conn, project)
     changed = 0
     p = _p(conn)
@@ -217,7 +210,14 @@ def mark_items(
             f"   SET state = {p}, last_updated_at = {p}, "
             f"       last_session_id = {p}, reason = {p} "
             f" WHERE project_id = {p} AND item_id = {p}",
-            (state, now_iso, session_id, reason, project_id, item_id),
+            (
+                state,
+                instant_parameter(conn, now_iso),
+                session_id,
+                reason,
+                project_id,
+                item_id,
+            ),
         )
         if cur.rowcount == 0:
             conn.execute(
@@ -225,7 +225,15 @@ def mark_items(
                 "(item_id, project_id, state, first_seen_at, "
                 " last_updated_at, last_session_id, reason) "
                 f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p})",
-                (item_id, project_id, state, now_iso, now_iso, session_id, reason),
+                (
+                    item_id,
+                    project_id,
+                    state,
+                    instant_parameter(conn, now_iso),
+                    instant_parameter(conn, now_iso),
+                    session_id,
+                    reason,
+                ),
             )
             changed += 1
         else:

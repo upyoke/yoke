@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
 from yoke_core.domain.session_launch_requests import create_launch
 from yoke_core.domain.session_launch_types import LaunchRequest, SessionLaunchError
@@ -62,7 +64,7 @@ def test_eligibility_excludes_a_disabled_machine_surface() -> None:
         project_id=10,
         surface="codex-cli",
         machine_id=None,
-        now=NOW,
+        now=parse_instant(NOW),
     )
 
     assert snapshot.relays == ()

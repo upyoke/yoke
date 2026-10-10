@@ -11,7 +11,9 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
 
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.migration_apply_attribution import refuse_level_as_model_name
 from yoke_core.domain.migration_apply_contract import (
     STATE_PLANNED,
@@ -33,6 +35,14 @@ PROVENANCE_COLUMNS = (
 
 DESCRIPTION_BASE = "two-unit apply contract (governed)"
 
+_AUDIT_INSTANT_FIELDS = frozenset({"started_at", "rehearsed_at", "completed_at"})
+
+
+def _audit_parameter(conn: Any, column: str, value: Any) -> Any:
+    if column not in _AUDIT_INSTANT_FIELDS:
+        return value
+    return instant_parameter(conn, parse_instant(value) if value is not None else None)
+
 
 def _operational_error_types(conn) -> tuple:
     return db_backend.operational_error_types(conn)
@@ -53,7 +63,7 @@ def _insert_audit_row(
     tables: List[str],
     description: Optional[str] = None,
 ) -> int:
-    now = _now()
+    now = instant_parameter(audit_conn, _now())
     model = refuse_level_as_model_name(model_name)
     p = _placeholder(audit_conn)
     expected_deltas_json = json.dumps({t: 0 for t in tables})
@@ -96,7 +106,7 @@ def _update_audit_state(
     values: List[Any] = [state]
     for column, value in (extra or {}).items():
         sets.append(f"{column} = {p}")
-        values.append(value)
+        values.append(_audit_parameter(audit_conn, column, value))
     values.append(audit_id)
     audit_conn.execute(
         f"UPDATE migration_audit SET {', '.join(sets)} WHERE id = {p}",

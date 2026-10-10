@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from yoke_contracts.machine_config.test_machine import (
@@ -16,6 +17,7 @@ from yoke_contracts.machine_config.test_machine import (
 )
 
 from yoke_core.domain import db_backend
+from yoke_contracts.timestamps import parse_instant
 
 
 @dataclass(frozen=True)
@@ -28,8 +30,8 @@ class TestMachineCapabilityRow:
     machine: str
     settings: dict[str, str]
     settings_token: str
-    verified_at: str | None
-    created_at: str
+    verified_at: datetime | None
+    created_at: datetime
 
 
 def test_machine_capability_rows(
@@ -79,8 +81,8 @@ def test_machine_capability_rows(
                 machine=machine,
                 settings=settings,
                 settings_token=settings_token,
-                verified_at=(str(raw[4]) if raw[4] is not None else None),
-                created_at=str(raw[5]),
+                verified_at=(parse_instant(raw[4]) if raw[4] is not None else None),
+                created_at=parse_instant(raw[5]),
             )
         )
     return result

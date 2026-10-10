@@ -1,0 +1,62 @@
+name: runner-fleet-smoke
+run-name: "runner fleet smoke @ ${{ github.ref_name }} [yoke-dispatch:${{ inputs.yoke_dispatch_id }}]"
+
+on:
+  workflow_call:
+    inputs:
+      yoke_dispatch_id:
+        description: "Opaque Yoke dispatch correlation token"
+        required: false
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      yoke_dispatch_id:
+        description: "Opaque Yoke dispatch correlation token; blank for manual runs"
+        required: false
+        type: string
+        default: ""
+
+# This checks routing only. It does not check out code, receive a token, assume
+# a cloud role, or call a deployment surface.
+permissions: {}
+
+concurrency:
+  group: runner-fleet-smoke-${{ inputs.yoke_dispatch_id || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  verify-runner:
+    name: verify autoscaled self-hosted runner
+    # Fixed fleet labels let this job wake a zero-runner fleet even while the
+    # repository's ordinary delivery variable routes elsewhere.
+    runs-on: {{runner_fleet_labels_json}}
+    timeout-minutes: 15
+    steps:
+      - name: Verify runner identity
+        env:
+          ROUTE: ${{ vars.{{runner_fleet_variable_name}} }}
+          ACTUAL_ENVIRONMENT: ${{ runner.environment }}
+          ACTUAL_OS: ${{ runner.os }}
+          ACTUAL_ARCH: ${{ runner.arch }}
+          ACTUAL_NAME: ${{ runner.name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "{{runner_fleet_architecture}}" in
+            arm64|aarch64) EXPECTED_ARCH=ARM64 ;;
+            amd64|x86_64) EXPECTED_ARCH=X64 ;;
+            *)
+              echo "unsupported configured runner architecture: {{runner_fleet_architecture}}" >&2
+              exit 1
+              ;;
+          esac
+          if [ "$ACTUAL_ENVIRONMENT" != "self-hosted" ]; then
+            echo "expected a self-hosted runner; got $ACTUAL_ENVIRONMENT" >&2
+            exit 1
+          fi
+          if [ "$ACTUAL_OS" != "Linux" ] || [ "$ACTUAL_ARCH" != "$EXPECTED_ARCH" ]; then
+            echo "expected Linux/$EXPECTED_ARCH; got $ACTUAL_OS/$ACTUAL_ARCH" >&2
+            exit 1
+          fi
+          echo "runner-fleet-smoke-ok name=$ACTUAL_NAME route=$ROUTE"

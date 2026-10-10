@@ -1,7 +1,8 @@
 """Actual-attempt read substrate for deliberately narrow QA test databases.
 
-These fixtures never run plan executions. They still need the durable
-judgment association so real readers cannot classify runs from runner labels.
+These native PostgreSQL fixtures never run plan executions. They still need
+the durable judgment association so real readers cannot classify runs from
+runner labels.
 No execution or evidence is seeded by this schema helper.
 """
 
@@ -22,21 +23,21 @@ def ensure_qa_attempt_history(conn: Any) -> None:
             verdict TEXT,
             rationale TEXT,
             decision_request_id INTEGER,
-            created_at TEXT
+            created_at TIMESTAMPTZ
         );
     """,
     )
-    for column in (
-        "started_at",
-        "completed_at",
-        "raw_result",
-        "verdict_reason",
-        "case_outcome",
+    for column, kind in (
+        ("started_at", "TIMESTAMPTZ"),
+        ("completed_at", "TIMESTAMPTZ"),
+        ("raw_result", "TEXT"),
+        ("verdict_reason", "TEXT"),
+        ("case_outcome", "TEXT"),
     ):
-        _add_column_if_not_exists(conn, "qa_runs", column, "TEXT")
+        _add_column_if_not_exists(conn, "qa_runs", column, kind)
     for column, kind in (
         ("superseded_by_requirement_id", "INTEGER"),
         ("replacement_requirement_id", "INTEGER"),
-        ("retracted_at", "TEXT"),
+        ("retracted_at", "TIMESTAMPTZ"),
     ):
         _add_column_if_not_exists(conn, "qa_requirements", column, kind)

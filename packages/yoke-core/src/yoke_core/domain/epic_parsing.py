@@ -6,7 +6,7 @@ orchestration, mutations, and the CLI surface.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import format_instant
 from typing import Any, List
 
 from yoke_core.domain import db_backend
@@ -74,15 +74,6 @@ CHAIN_FIELD_WHITELIST = frozenset(
 )
 
 
-# ---------------------------------------------------------------------------
-# Timestamp helper
-# ---------------------------------------------------------------------------
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
@@ -100,6 +91,11 @@ def _pipe_row(row, columns: List[str]) -> str:
             val = row[col]
         except (IndexError, KeyError):
             val = None
+        if (
+            col in ("started_at", "last_updated", "created_at", "last_heartbeat")
+            and val is not None
+        ):
+            val = format_instant(val)
         parts.append("" if val is None else str(val))
     return "|".join(parts)
 

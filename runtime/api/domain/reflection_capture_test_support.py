@@ -24,16 +24,16 @@ REFLECTION_DB_DDL = """\
     VALUES (1, 'yoke', 'Yoke', 'YOK');
     CREATE TABLE ouroboros_entries (
         id INTEGER PRIMARY KEY,
-        timestamp TEXT NOT NULL,
+        timestamp TIMESTAMPTZ NOT NULL,
         agent TEXT NOT NULL,
         context TEXT,
         category TEXT NOT NULL,
         body TEXT NOT NULL,
-        reviewed_at TEXT,
-        archived_at TEXT,
+        reviewed_at TIMESTAMPTZ,
+        archived_at TIMESTAMPTZ,
         project_id INTEGER,
         target_project_id INTEGER,
-        created_at TEXT NOT NULL DEFAULT ''
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 """
 

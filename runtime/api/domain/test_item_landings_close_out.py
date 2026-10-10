@@ -11,6 +11,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain import item_landings_close_out as landings
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
@@ -26,8 +28,8 @@ from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
 
 LANE_SHA = "1" * 40
 MERGE_SHA = "2" * 40
-QUEUE_LANDED_AT = "2026-09-19T23:04:11Z"
-COMMIT_TIME = "2026-09-19T22:58:02Z"
+QUEUE_LANDED_AT = "2026-09-19T23:04:11.000000Z"
+COMMIT_TIME = "2026-09-19T22:58:02.000000Z"
 
 
 def _outcome(**overrides) -> StandaloneMergeOutcome:
@@ -52,7 +54,9 @@ def _recorded(monkeypatch) -> list:
         return SimpleNamespace(success=True, result={}, error=None)
 
     monkeypatch.setattr(landings, "call_dispatcher", dispatch)
-    monkeypatch.setattr(landings.git, "commit_time", lambda *_a: COMMIT_TIME)
+    monkeypatch.setattr(
+        landings.git, "commit_time", lambda *_a: parse_instant(COMMIT_TIME)
+    )
     return sent
 
 
@@ -169,7 +173,9 @@ def test_a_landing_with_no_commit_at_all_names_why_and_does_not_write(
 
 def test_a_refused_record_warns_and_never_unwinds_the_merge(monkeypatch):
     """The audit trail losing a row must not cost the item its close-out."""
-    monkeypatch.setattr(landings.git, "commit_time", lambda *_a: COMMIT_TIME)
+    monkeypatch.setattr(
+        landings.git, "commit_time", lambda *_a: parse_instant(COMMIT_TIME)
+    )
     monkeypatch.setattr(
         landings,
         "call_dispatcher",

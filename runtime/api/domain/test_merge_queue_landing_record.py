@@ -1,6 +1,7 @@
 """Durable landing records preserve both freshness and semantic change time."""
 
 from dataclasses import replace
+from yoke_contracts.timestamps import parse_instant
 
 from runtime.api.domain.merge_queue_observer_test_helpers import observer_connection
 from yoke_core.domain.merge_queue_enqueue_verification import LandingReadback
@@ -57,8 +58,8 @@ def test_repeated_facts_refresh_observed_at_without_faking_a_state_change():
     record = read_landing_record(conn, 101)
 
     assert record is not None
-    assert record.observed_at == "2026-08-22T16:01:00Z"
-    assert record.changed_at == "2026-08-22T16:00:00Z"
+    assert record.observed_at == parse_instant("2026-08-22T16:01:00Z")
+    assert record.changed_at == parse_instant("2026-08-22T16:00:00Z")
 
 
 def test_a_changed_fact_advances_the_state_change_time():
@@ -81,7 +82,7 @@ def test_a_changed_fact_advances_the_state_change_time():
 
     assert record is not None
     assert record.state == CONFLICTED
-    assert record.changed_at == "2026-08-22T16:01:00Z"
+    assert record.changed_at == parse_instant("2026-08-22T16:01:00Z")
 
 
 def test_a_changed_queue_outcome_advances_the_state_change_time():
@@ -113,7 +114,7 @@ def test_a_changed_queue_outcome_advances_the_state_change_time():
 
     assert record is not None
     assert record.queue_holding == ENQUEUED
-    assert record.changed_at == "2026-08-22T16:01:00Z"
+    assert record.changed_at == parse_instant("2026-08-22T16:01:00Z")
 
 
 def test_queue_entry_outcomes_are_structured_with_readiness_names():

@@ -70,13 +70,16 @@ def _ensure_item_dependencies_table(conn) -> None:
         "source TEXT NOT NULL, session_id INTEGER, "
         "rationale TEXT NOT NULL DEFAULT '', "
         "evidence_json TEXT NOT NULL DEFAULT '{}', "
-        "created_at TEXT NOT NULL)"
+        "created_at TIMESTAMPTZ NOT NULL)"
     )
     conn.commit()
 
 
 def _add_dep_edge(
-    conn, *, dependent: int, blocking: int,
+    conn,
+    *,
+    dependent: int,
+    blocking: int,
 ) -> None:
     _ensure_item_dependencies_table(conn)
     conn.execute(
@@ -140,7 +143,8 @@ class TestNoDepEdgeStillIncompatible:
         candidate = _seed_item(conn, item_id=51002)
         _ensure_item_dependencies_table(conn)
         _seed_active_claim_for_path(
-            conn, item_id=upstream,
+            conn,
+            item_id=upstream,
             path_string="runtime/api/domain/no_edge_target.py",
         )
 
@@ -162,7 +166,8 @@ class TestSingleDepEdgeAutoResolves:
         upstream = _seed_item(conn, item_id=51011)
         candidate = _seed_item(conn, item_id=51012)
         upstream_claim, _ = _seed_active_claim_for_path(
-            conn, item_id=upstream,
+            conn,
+            item_id=upstream,
             path_string="runtime/api/domain/single_edge_target.py",
         )
         _add_dep_edge(conn, dependent=candidate, blocking=upstream)
@@ -194,7 +199,9 @@ class TestMultiOverlapAllEdges:
             (u2, "runtime/api/domain/partial_path_b.py"),
         ]:
             _seed_active_claim_for_path(
-                conn, item_id=upstream, path_string=path,
+                conn,
+                item_id=upstream,
+                path_string=path,
             )
         _add_dep_edge(conn, dependent=candidate, blocking=u1)
 
@@ -223,7 +230,9 @@ class TestMultiOverlapAllEdges:
             (u3, "runtime/api/domain/multi_path_c.py"),
         ]:
             cid, _ = _seed_active_claim_for_path(
-                conn, item_id=upstream, path_string=path,
+                conn,
+                item_id=upstream,
+                path_string=path,
             )
             upstream_claims.append(cid)
             _add_dep_edge(conn, dependent=candidate, blocking=upstream)
@@ -258,7 +267,8 @@ class TestExplicitUpstreamWithoutDepEdge:
         candidate = _seed_item(conn, item_id=51032)
         _ensure_item_dependencies_table(conn)
         upstream_claim, _ = _seed_active_claim_for_path(
-            conn, item_id=upstream,
+            conn,
+            item_id=upstream,
             path_string="runtime/api/domain/explicit_upstream_target.py",
         )
 
@@ -304,7 +314,9 @@ class TestYok1619Reproduction:
             (u_c, "AGENTS.md"),
         ]:
             cid, _ = _seed_active_claim_for_path(
-                conn, item_id=upstream, path_string=path,
+                conn,
+                item_id=upstream,
+                path_string=path,
             )
             upstream_claims.append(cid)
             _add_dep_edge(conn, dependent=candidate, blocking=upstream)

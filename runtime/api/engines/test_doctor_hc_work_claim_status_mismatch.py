@@ -21,7 +21,7 @@ _FULL_DDL = """
 CREATE TABLE work_claims (
  id INTEGER PRIMARY KEY, session_id TEXT NOT NULL, target_kind TEXT NOT NULL,
  scope TEXT NOT NULL,
- claimed_at TEXT, last_heartbeat TEXT, released_at TEXT
+ claimed_at TIMESTAMPTZ, last_heartbeat TIMESTAMPTZ, released_at TIMESTAMPTZ
 );
 CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT, public_item_prefix TEXT);
 INSERT INTO projects (id, slug, public_item_prefix) VALUES (1, 'yoke', 'YOK');
@@ -32,7 +32,7 @@ CREATE TABLE items (
     status TEXT NOT NULL
 );
 CREATE TABLE harness_sessions (
- session_id TEXT PRIMARY KEY, mode TEXT, ended_at TEXT, last_heartbeat TEXT
+ session_id TEXT PRIMARY KEY, mode TEXT, ended_at TIMESTAMPTZ, last_heartbeat TIMESTAMPTZ
 );
 """
 
@@ -215,3 +215,27 @@ def test_warns_for_mismatched_claims(
     assert expected in result.detail
     assert "yoke claims work release --item YOK-N" in result.detail
     assert "service_client" not in result.detail
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_native_holder_heartbeat_keeps_exact_freshness_boundary(
+    conn, monkeypatch, zone
+):
+    from yoke_contracts.timestamps import parse_instant
+    from yoke_core.engines import doctor_hc_work_claim_status_mismatch as owner
+
+    stamp = parse_instant("1969-12-31T23:59:59.123456Z")
+    conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    _seed(conn)
+    monkeypatch.setattr(owner, "utc_now", lambda: stamp)
+    monkeypatch.setattr(owner, "get_int", lambda *args: 20)
+    boundary = stamp - timedelta(minutes=20)
+    conn.execute("UPDATE harness_sessions SET last_heartbeat=%s", (boundary,))
+    conn.commit()
+    assert _result(conn).result == "PASS"
+    conn.execute(
+        "UPDATE harness_sessions SET last_heartbeat=%s",
+        (boundary - timedelta(microseconds=1),),
+    )
+    conn.commit()
+    assert _result(conn).result == "WARN"

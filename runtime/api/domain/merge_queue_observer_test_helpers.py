@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from yoke_contracts.timestamps import format_instant
+
 from runtime.api.domain.test_session_message_support import NOW, message_connection
 from yoke_core.domain.merge_queue_landing_observer import observe_pending_landings
 from yoke_core.domain.merge_queue_landing_record_schema import (
@@ -24,7 +26,7 @@ from yoke_core.engines.merge_worktree_pr_queue import PrLandingState
 #: When a queued notification is taken to have reached its recipient. Later
 #: than the observation that queued it, so the two are never confused.
 INJECTED_AT = datetime(2026, 8, 27, 17, 5, tzinfo=timezone.utc)
-INJECTED_TEXT = "2026-08-27T17:05:00Z"
+INJECTED_TEXT = format_instant(INJECTED_AT)
 
 #: What GitHub reports for a pull request the queue has merged. The merge
 #: time is deliberately earlier than any observation, so a test can tell a
@@ -110,14 +112,14 @@ def observer_connection():
     conn.executescript(
         """
         ALTER TABLE items ADD COLUMN status TEXT DEFAULT 'reviewing-implementation';
-        ALTER TABLE items ADD COLUMN merged_at TEXT;
+        ALTER TABLE items ADD COLUMN merged_at TIMESTAMPTZ;
         ALTER TABLE items ADD COLUMN merge_queue_pr_number TEXT;
-        ALTER TABLE items ADD COLUMN merge_queue_enqueued_at TEXT;
-        ALTER TABLE items ADD COLUMN merge_queue_landed_at TEXT;
-        ALTER TABLE items ADD COLUMN merge_queue_notified_at TEXT;
+        ALTER TABLE items ADD COLUMN merge_queue_enqueued_at TIMESTAMPTZ;
+        ALTER TABLE items ADD COLUMN merge_queue_landed_at TIMESTAMPTZ;
+        ALTER TABLE items ADD COLUMN merge_queue_notified_at TIMESTAMPTZ;
         UPDATE harness_sessions SET actor_id=10;
         UPDATE items SET merge_queue_pr_number='42',
-          merge_queue_enqueued_at='2026-08-27T17:00:00Z' WHERE id=101;
+          merge_queue_enqueued_at='2026-08-27T17:00:00.000000Z' WHERE id=101;
         """
     )
     ensure_merge_queue_landing_record_schema(conn)

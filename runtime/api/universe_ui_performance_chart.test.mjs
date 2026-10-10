@@ -28,7 +28,7 @@ test("hover, toggles, bucket inspection and disposal preserve raw spike values",
   const metrics = Object.fromEntries(SERIES.map(([family]) => [family, {
     avg_ms: 100, p95_ms: 427424, count: 8, timed_count: 8, resolution_seconds: 300,
   }]));
-  const bucket = { start: 1791378000, end: 1791378300, metrics }, inspected = [];
+  const bucket = { start: "2026-10-07T13:00:00.123456Z", end: "2026-10-07T13:05:00.123457Z", metrics }, inspected = [];
   const dispose = await drawPerformanceChart({ documentNode: document, host,
     result: { buckets: [bucket] }, inspect: value => inspected.push(value), Plot });
   assert.equal(plot.options.scales.y.distr, 4);
@@ -55,6 +55,7 @@ test("hover, toggles, bucket inspection and disposal preserve raw spike values",
   assert.match(tip.textContent, /Watcher/);
   plot.over.dispatchEvent(new Event("click"));
   assert.equal(inspected[0], bucket);
+  assert.equal(inspected[0].end, "2026-10-07T13:05:00.123457Z");
   plot.over.dispatchEvent(new Event("mouseleave"));
   assert.equal(tip.hidden, true);
   dispose(); assert.equal(plot.destroyed, true);

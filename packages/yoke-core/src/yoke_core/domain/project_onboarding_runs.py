@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 from typing import Any, Mapping
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
 from uuid import uuid4
 
 from yoke_contracts.onboard_checklist import (
@@ -14,8 +16,14 @@ from yoke_contracts.onboard_checklist import (
     SCHEMA_VERSION,
     STATUS_NEEDED,
 )
-from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect, iso8601_now
+from yoke_core.domain.project_onboarding_schema import (
+    _ensure_columns,
+    _p,
+    PROJECT_ONBOARDING_RUNS_CREATE_SQL,
+    PROJECT_ONBOARDING_RUN_FOREIGN_KEY_SQL,
+    PROJECT_ONBOARDING_CHECKLIST_ROWS_CREATE_SQL,
+)
+from yoke_core.domain.db_helpers import connect, instant_parameter, utc_now
 from yoke_core.domain.project_onboarding_run_records import (
     ProjectOnboardingRunError,
     apply_row_updates,
@@ -32,46 +40,6 @@ from yoke_core.domain.project_onboarding_run_records import (
 )
 
 OPERATION_RUN = f"{OPERATION}.run"
-
-
-PROJECT_ONBOARDING_RUNS_CREATE_SQL = """
-CREATE TABLE IF NOT EXISTS project_onboarding_runs (
-    run_id TEXT PRIMARY KEY,
-    schema_version INTEGER NOT NULL,
-    project_id INTEGER,
-    branch TEXT NOT NULL,
-    checkout_path TEXT,
-    machine_config_path TEXT,
-    github_repo TEXT,
-    status TEXT NOT NULL,
-    metadata_json TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-)
-"""
-
-PROJECT_ONBOARDING_RUN_FOREIGN_KEY_SQL = (
-    "FOREIGN KEY (run_id) REFERENCES project_onboarding_runs(run_id)"
-)
-
-PROJECT_ONBOARDING_CHECKLIST_ROWS_CREATE_SQL = f"""
-CREATE TABLE IF NOT EXISTS project_onboarding_checklist_rows (
-    run_id TEXT NOT NULL,
-    row_id TEXT NOT NULL,
-    step TEXT NOT NULL,
-    title TEXT NOT NULL,
-    layer TEXT NOT NULL,
-    owner TEXT NOT NULL,
-    status TEXT NOT NULL,
-    hint TEXT,
-    evidence_json TEXT NOT NULL,
-    blocker TEXT NOT NULL DEFAULT '',
-    note TEXT NOT NULL DEFAULT '',
-    updated_at TEXT NOT NULL,
-    PRIMARY KEY (run_id, row_id),
-    {PROJECT_ONBOARDING_RUN_FOREIGN_KEY_SQL}
-)
-"""
 
 
 def create_project_onboarding_tables(conn: Any) -> None:
@@ -153,7 +121,7 @@ def update_run(
             existing["branch"] if existing is not None else BRANCH_LOCAL_CHECKOUT
         )
         validate_branch(selected_branch)
-        now = iso8601_now()
+        now = utc_now()
         p = _p(selected)
         _upsert_run(
             selected,
@@ -227,8 +195,8 @@ def get_run(run_id: str, *, conn: Any | None = None) -> dict[str, Any]:
             "metadata": metadata,
             "doctor": doctor,
             "secret_free": True,
-            "created_at": run["created_at"],
-            "updated_at": run["updated_at"],
+            "created_at": parse_instant(run["created_at"]),
+            "updated_at": parse_instant(run["updated_at"]),
             "rows": row_payloads,
             "summary": run_summary,
         }
@@ -245,7 +213,7 @@ def _upsert_run(
     checkout_path: str | None,
     machine_config_path: str | None,
     github_repo: str | None,
-    now: str,
+    now: datetime,
 ) -> None:
     p = _p(conn)
     metadata = json_dumps(base_metadata())
@@ -262,20 +230,29 @@ def _upsert_run(
         "github_repo = COALESCE(EXCLUDED.github_repo, project_onboarding_runs.github_repo), "
         "updated_at = EXCLUDED.updated_at",
         (
-            run_id, SCHEMA_VERSION, project_id, branch, checkout_path,
-            machine_config_path, github_repo, STATUS_NEEDED, metadata, now, now,
+            run_id,
+            SCHEMA_VERSION,
+            project_id,
+            branch,
+            checkout_path,
+            machine_config_path,
+            github_repo,
+            STATUS_NEEDED,
+            metadata,
+            instant_parameter(conn, now),
+            instant_parameter(conn, now),
         ),
     )
 
 
 def _set_run_status_and_metadata(
-    conn: Any, run_id: str, status: str, metadata: Mapping[str, Any], now: str
+    conn: Any, run_id: str, status: str, metadata: Mapping[str, Any], now: datetime
 ) -> None:
     p = _p(conn)
     conn.execute(
         "UPDATE project_onboarding_runs "
         f"SET status = {p}, metadata_json = {p}, updated_at = {p} WHERE run_id = {p}",
-        (status, json_dumps(metadata), now, run_id),
+        (status, json_dumps(metadata), instant_parameter(conn, now), run_id),
     )
 
 
@@ -296,42 +273,6 @@ def _normalize_run_id(run_id: str) -> str:
     if not selected:
         raise ProjectOnboardingRunError("run_id is required")
     return selected
-
-
-def _ensure_columns(conn: Any) -> None:
-    row_columns = {
-        "evidence_json": "TEXT NOT NULL DEFAULT '{}'",
-        "blocker": "TEXT NOT NULL DEFAULT ''",
-        "note": "TEXT NOT NULL DEFAULT ''",
-    }
-    for column, definition in row_columns.items():
-        _ensure_column(conn, "project_onboarding_checklist_rows", column, definition)
-
-
-def _ensure_column(conn: Any, table: str, column: str, definition: str) -> None:
-    if _column_exists(conn, table, column):
-        return
-    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
-
-
-def _column_exists(conn: Any, table: str, column: str) -> bool:
-    if db_backend.connection_is_postgres(conn):
-        p = _p(conn)
-        return conn.execute(
-            "SELECT 1 FROM information_schema.columns "
-            f"WHERE table_name = {p} AND column_name = {p}",
-            (table, column),
-        ).fetchone() is not None
-    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
-    return any(_column_name(row) == column for row in rows)
-
-
-def _column_name(row: Any) -> str:
-    return row["name"] if hasattr(row, "keys") else row[1]
-
-
-def _p(conn: Any) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 __all__ = [

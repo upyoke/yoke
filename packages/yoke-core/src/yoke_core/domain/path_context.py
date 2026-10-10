@@ -34,7 +34,7 @@ import json
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 
 FAMILY_POSTURE = "posture"
@@ -60,30 +60,35 @@ FAMILY_PACK_SOURCE = "architecture_pack_source"
 FAMILY_RENDER_TARGET = "render_target"
 FAMILY_RENDER_SOURCE = "render_source"
 
-ARCHITECTURE_CLASSIFICATION_FAMILIES = frozenset({
-    FAMILY_ARCHITECTURE_LAYER,
-    FAMILY_ARCHITECTURE_DOMAIN,
-    FAMILY_DEPENDENCY_RULE,
-    FAMILY_CROSS_CUTTING_ENTRYPOINT,
-})
-
-ARCHITECTURE_EXEMPTION_FAMILIES = frozenset({
-    FAMILY_GENERATED,
-    FAMILY_FIXTURE,
-    FAMILY_ARCHIVE,
-    FAMILY_TEST_SURFACE,
-    FAMILY_PACK_SOURCE,
-})
-
-ARCHITECTURE_FAMILIES = (
-    ARCHITECTURE_CLASSIFICATION_FAMILIES
-    | ARCHITECTURE_EXEMPTION_FAMILIES
+ARCHITECTURE_CLASSIFICATION_FAMILIES = frozenset(
+    {
+        FAMILY_ARCHITECTURE_LAYER,
+        FAMILY_ARCHITECTURE_DOMAIN,
+        FAMILY_DEPENDENCY_RULE,
+        FAMILY_CROSS_CUTTING_ENTRYPOINT,
+    }
 )
 
-RENDER_RELATIONSHIP_FAMILIES = frozenset({
-    FAMILY_RENDER_TARGET,
-    FAMILY_RENDER_SOURCE,
-})
+ARCHITECTURE_EXEMPTION_FAMILIES = frozenset(
+    {
+        FAMILY_GENERATED,
+        FAMILY_FIXTURE,
+        FAMILY_ARCHIVE,
+        FAMILY_TEST_SURFACE,
+        FAMILY_PACK_SOURCE,
+    }
+)
+
+ARCHITECTURE_FAMILIES = (
+    ARCHITECTURE_CLASSIFICATION_FAMILIES | ARCHITECTURE_EXEMPTION_FAMILIES
+)
+
+RENDER_RELATIONSHIP_FAMILIES = frozenset(
+    {
+        FAMILY_RENDER_TARGET,
+        FAMILY_RENDER_SOURCE,
+    }
+)
 
 # Open family vocabulary; additions land alongside their consumers.
 KNOWN_FAMILIES = frozenset(
@@ -120,12 +125,11 @@ def _verify_provenance_string(event_id: Any) -> None:
 def _verify_target_exists(conn: Any, target_id: int) -> None:
     p = _p(conn)
     row = conn.execute(
-        f"SELECT 1 FROM path_targets WHERE id = {p}", (target_id,),
+        f"SELECT 1 FROM path_targets WHERE id = {p}",
+        (target_id,),
     ).fetchone()
     if row is None:
-        raise PathContextError(
-            f"target_id={target_id} not found in path_targets"
-        )
+        raise PathContextError(f"target_id={target_id} not found in path_targets")
 
 
 def put_context_value(
@@ -166,7 +170,7 @@ def put_context_value(
     _verify_provenance_string(recorded_event_id)
 
     payload = json.dumps(value, sort_keys=True)
-    now = iso8601_now()
+    now = utc_now()
     p = _p(conn)
     existing = conn.execute(
         "SELECT id FROM path_context_values "
@@ -175,12 +179,18 @@ def put_context_value(
     ).fetchone()
     if existing is None:
         cur = conn.execute(
-        "INSERT INTO path_context_values "
-        "(target_id, context_family, entry_key, value, "
-        " recorded_event_id, recorded_at) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}) RETURNING id",
-        (target_id, context_family, entry_key, payload,
-             recorded_event_id, now),
+            "INSERT INTO path_context_values "
+            "(target_id, context_family, entry_key, value, "
+            " recorded_event_id, recorded_at) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}) RETURNING id",
+            (
+                target_id,
+                context_family,
+                entry_key,
+                payload,
+                recorded_event_id,
+                instant_parameter(conn, now),
+            ),
         )
         return int(cur.fetchone()[0])
     row_id = int(existing[0])
@@ -188,7 +198,7 @@ def put_context_value(
         "UPDATE path_context_values "
         f"SET value={p}, recorded_event_id={p}, recorded_at={p} "
         f"WHERE id={p}",
-        (payload, recorded_event_id, now, row_id),
+        (payload, recorded_event_id, instant_parameter(conn, now), row_id),
     )
     return row_id
 
@@ -216,7 +226,8 @@ def remove_context_value(
 
 
 def _ancestor_chain(
-    conn: Any, target_id: int,
+    conn: Any,
+    target_id: int,
 ) -> List[Tuple[int, int]]:
     """Return [(target_id, depth)] for *target_id* and every ancestor.
 
@@ -286,14 +297,15 @@ def read_context_value(
         if not rows:
             continue
         if len(rows) == 1:
-            value_text = rows[0][1] if not hasattr(rows[0], "keys") else rows[0]["value"]
+            value_text = (
+                rows[0][1] if not hasattr(rows[0], "keys") else rows[0]["value"]
+            )
             try:
                 return json.loads(value_text or "{}")
             except (TypeError, ValueError):
                 return {}
         distinct_values = {
-            (r[1] if not hasattr(r, "keys") else r["value"])
-            for r in rows
+            (r[1] if not hasattr(r, "keys") else r["value"]) for r in rows
         }
         if len(distinct_values) == 1:
             value_text = next(iter(distinct_values))

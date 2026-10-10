@@ -30,7 +30,7 @@ from yoke_core.domain.builtin_workflow_definitions import (
     BUILTIN_WORKFLOW_IDS,
     builtin_workflow_definitions,
 )
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.workflow_definition_codec import (
     WorkflowRegistryError,
     definition_digest,
@@ -136,9 +136,9 @@ def _adopts_automatically(
         return False
     if str(workflow.get("canon_follow") or "auto") != "auto":
         return False
-    return recognize(
-        str(workflow["id"]), str(selected["definition_digest"])
-    ) is not None
+    return (
+        recognize(str(workflow["id"]), str(selected["definition_digest"])) is not None
+    )
 
 
 def unrecognized_builtin_versions(conn: Any) -> list[dict]:
@@ -177,7 +177,7 @@ def converge_builtin_workflows(
     insert_version: InsertVersion,
 ) -> None:
     """Register the built-in workflows and make current definitions available."""
-    now = iso8601_now()
+    now = utc_now()
     bind = marker(conn)
     for current_fixture in builtin_workflow_definitions():
         workflow = current_fixture["workflow"]
@@ -195,8 +195,8 @@ def converge_builtin_workflows(
                     workflow["name"],
                     workflow["description"],
                     workflow["source"],
-                    now,
-                    now,
+                    instant_parameter(conn, now),
+                    instant_parameter(conn, now),
                 ),
             )
         elif existing_workflow["source"] != "built_in":
@@ -212,7 +212,7 @@ def converge_builtin_workflows(
                 (
                     workflow["name"],
                     workflow["description"],
-                    now,
+                    instant_parameter(conn, now),
                     workflow_id,
                 ),
             )
@@ -223,9 +223,7 @@ def converge_builtin_workflows(
             raise WorkflowRegistryError(f"workflow {workflow_id!r} is missing")
         current_id = current.get("current_version_id")
         selected = (
-            version_by_id(conn, int(current_id))
-            if current_id is not None
-            else None
+            version_by_id(conn, int(current_id)) if current_id is not None else None
         )
         if selected is not None and selected["workflow_id"] != workflow_id:
             raise WorkflowRegistryError(
@@ -244,7 +242,7 @@ def converge_builtin_workflows(
             conn.execute(
                 f"UPDATE workflows SET current_version_id = {bind}, "
                 f"updated_at = {bind} WHERE id = {bind}",
-                (int(desired["id"]), now, workflow_id),
+                (int(desired["id"]), instant_parameter(conn, now), workflow_id),
             )
         elif _adopts_automatically(current, selected, desired):
             # A universe running an unmodified published generation has nothing
@@ -258,7 +256,7 @@ def converge_builtin_workflows(
                 (
                     int(desired["id"]),
                     int(selected["version"]),
-                    now,
+                    instant_parameter(conn, now),
                     workflow_id,
                 ),
             )
@@ -287,7 +285,7 @@ def select_current_builtin_workflow_versions(
         conn.execute(
             f"UPDATE workflows SET current_version_id = {bind}, "
             f"updated_at = {bind} WHERE id = {bind}",
-            (int(target["id"]), iso8601_now(), workflow_id),
+            (int(target["id"]), instant_parameter(conn, utc_now()), workflow_id),
         )
         selected[workflow_id] = int(target["version"])
     return selected

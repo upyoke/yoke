@@ -8,10 +8,11 @@ no publishable key or cookie value is logged.
 """
 
 import argparse
-from datetime import datetime, timezone
 from uuid import uuid4
 
 import httpx
+
+from yoke_contracts.timestamps import format_instant, utc_now
 
 from ops.qa.attribution_transfer import target
 
@@ -51,7 +52,7 @@ def page_view(origin):
                 "event_name": "PageViewed",
                 "event_kind": "analytics",
                 "event_type": "page_view",
-                "event_time": datetime.now(timezone.utc).isoformat(),
+                "event_time": format_instant(utc_now()),
                 "session_id": str(uuid4()),
                 "source_type": "frontend",
                 "service": "web",

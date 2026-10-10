@@ -14,6 +14,8 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from yoke_contracts.timestamps import format_instant
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.frontier_recent_owner import routed_ownership_exclusions
 from yoke_core.domain.work_claim_targets import make_item_target
@@ -30,15 +32,15 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     reasoning_effort TEXT DEFAULT NULL, context_window_tokens INTEGER DEFAULT NULL, requested_model TEXT DEFAULT NULL, requested_reasoning_effort TEXT DEFAULT NULL, requested_context_window_tokens INTEGER DEFAULT NULL,
     execution_level TEXT NOT NULL DEFAULT 'primary', executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL DEFAULT '', mode TEXT NOT NULL DEFAULT 'wait',
-    offered_at TEXT NOT NULL, last_heartbeat TEXT NOT NULL,
-    ended_at TEXT, offer_envelope TEXT, actor_id INTEGER
+    offered_at TIMESTAMPTZ NOT NULL, last_heartbeat TIMESTAMPTZ NOT NULL,
+    ended_at TIMESTAMPTZ, offer_envelope TEXT, actor_id INTEGER
 );
 CREATE TABLE IF NOT EXISTS work_claims (
     id INTEGER PRIMARY KEY, session_id TEXT NOT NULL,
     target_kind TEXT NOT NULL, scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
-    claimed_at TEXT NOT NULL, last_heartbeat TEXT NOT NULL,
-{intent_columns}    released_at TEXT, release_reason TEXT
+    claimed_at TIMESTAMPTZ NOT NULL, last_heartbeat TIMESTAMPTZ NOT NULL,
+{intent_columns}    released_at TIMESTAMPTZ, release_reason TEXT
 );
 """
 
@@ -49,12 +51,12 @@ def _schema(*, with_intent_columns: bool = True) -> str:
     )
 
 
+def _instant(delta_s: int = 0) -> datetime:
+    return datetime.now(timezone.utc) + timedelta(seconds=delta_s)
+
+
 def _iso(delta_s: int = 0) -> str:
-    return (
-        (datetime.now(timezone.utc) + timedelta(seconds=delta_s))
-        .isoformat(timespec="microseconds")
-        .replace("+00:00", "Z")
-    )
+    return format_instant(_instant(delta_s))
 
 
 def _insert_session(
@@ -72,9 +74,9 @@ def _insert_session(
         "VALUES (%s, 'claude-code', 'anthropic', 'm', '/tmp', %s, %s, %s, %s)",
         (
             session_id,
-            _iso(-heartbeat_age_s),
-            _iso(-heartbeat_age_s),
-            _iso() if ended else None,
+            _instant(-heartbeat_age_s),
+            _instant(-heartbeat_age_s),
+            _instant() if ended else None,
             json.dumps(offer_envelope) if offer_envelope is not None else None,
         ),
     )
@@ -100,9 +102,9 @@ def _insert_released_claim(
             session_id,
             target.kind,
             target.scope_json(),
-            _iso(-released_age_s - 60),
-            _iso(-released_age_s),
-            _iso(-released_age_s),
+            _instant(-released_age_s - 60),
+            _instant(-released_age_s),
+            _instant(-released_age_s),
             release_reason,
         ),
     )

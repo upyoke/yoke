@@ -6,7 +6,7 @@ import re
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 _COMMIT_SHA = re.compile(r"^[0-9a-fA-F]{40,64}$")
 
@@ -49,7 +49,7 @@ def record_head_for_checkout(
         "UPDATE item_worktrees "
         f"SET commit_sha = {marker}, updated_at = {marker} "
         f"WHERE id = {marker}",
-        (clean_sha, iso8601_now(), lane_id),
+        (clean_sha, instant_parameter(conn, utc_now()), lane_id),
     )
     return lane_id
 

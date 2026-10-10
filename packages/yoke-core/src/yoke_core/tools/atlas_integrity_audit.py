@@ -18,9 +18,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
+
+from yoke_contracts.timestamps import format_instant, utc_now
 
 from yoke_core.domain.workspace_authority import (
     assert_target_under_session_work_authority,
@@ -204,10 +206,11 @@ def _summary(
 def build_report(
     target_root: Path,
     *,
-    generated_at: str | None = None,
+    generated_at: datetime | str | None = None,
     help_collector=None,
 ) -> Dict[str, Any]:
     """Collect every live surface and return the stable JSON report dict."""
+    generated_at = format_instant(utc_now() if generated_at is None else generated_at)
     function_registry = collect_function_registry()
     yoke_cli = collect_subcommand_registry()
     operation_tracker = collect_operation_tracker()
@@ -228,8 +231,6 @@ def build_report(
         field_notes=field_notes,
         recipes=recipes,
     )
-    if generated_at is None:
-        generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return {
         "generated_at": generated_at,
         "function_registry": function_registry,

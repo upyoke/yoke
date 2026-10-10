@@ -27,6 +27,9 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from yoke_contracts.timestamps import format_instant
+from yoke_core.domain.item_field_parameters import ITEM_INSTANT_FIELDS
+
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -71,7 +74,7 @@ class ItemFieldRequest(BaseModel):
 
 
 class ItemFieldResponse(BaseModel):
-    value: str
+    value: str | None
 
 
 class BlockedGateRequest(BaseModel):
@@ -215,7 +218,11 @@ def handle_item_field(request: FunctionCallRequest) -> HandlerOutcome:
     except Exception as exc:  # noqa: BLE001 - surfaced so the caller aborts
         return _err("item_field_read_failed", str(exc))
 
-    value = "" if row is None or row[0] is None else str(row[0])
+    raw = None if row is None else row[0]
+    if field in ITEM_INSTANT_FIELDS:
+        value = format_instant(raw) if raw is not None else None
+    else:
+        value = "" if raw is None else str(raw)
     return HandlerOutcome(result_payload={"value": value}, primary_success=True)
 
 

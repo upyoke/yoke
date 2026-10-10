@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant, utc_now
+
 import os
 import re
 import shutil
@@ -169,7 +171,9 @@ def _lock(path: Path, *, enabled: bool) -> Iterator[None]:
                     attempt = 0
                     continue
             if attempt > retries:
-                raise RuntimeError(f"Error: Could not acquire lock after {retries} retries: {lockdir}")
+                raise RuntimeError(
+                    f"Error: Could not acquire lock after {retries} retries: {lockdir}"
+                )
             time.sleep(sleep_ms / 1000.0)
     try:
         yield
@@ -193,7 +197,7 @@ def cmd_set(file_path: Path, field: str, value: str, *, no_lock: bool) -> int:
     if not lines or lines[0].strip() != "---":
         raise ValueError("Error: file has no YAML frontmatter")
 
-    timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    timestamp = format_instant(utc_now())
     temp = Path(f"{file_path}.tmp.{os.getpid()}")
     with _lock(file_path, enabled=not no_lock):
         result: list[str] = []
@@ -297,7 +301,9 @@ def run_command(argv: Sequence[str], *, out: TextIO, err: TextIO) -> int:
                 no_lock = True
                 args = args[1:]
             if len(args) < 3:
-                err.write("Usage: yaml-helper.sh set [--no-lock] <file> <field> <value>\n")
+                err.write(
+                    "Usage: yaml-helper.sh set [--no-lock] <file> <field> <value>\n"
+                )
                 return 1
             return cmd_set(_resolve_path(args[0]), args[1], args[2], no_lock=no_lock)
         if cmd == "strip":
@@ -317,7 +323,9 @@ def run_command(argv: Sequence[str], *, out: TextIO, err: TextIO) -> int:
             return cmd_first_heading(_resolve_path(args[0]), out=out)
         if cmd == "create":
             if len(args) < 1:
-                err.write("Usage: yaml-helper.sh create <file> <field1=value1> [field2=value2] ...\n")
+                err.write(
+                    "Usage: yaml-helper.sh create <file> <field1=value1> [field2=value2] ...\n"
+                )
                 return 1
             return cmd_create(_resolve_path(args[0]), args[1:])
     except (FileNotFoundError, RuntimeError, ValueError) as exc:

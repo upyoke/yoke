@@ -25,7 +25,7 @@ from yoke_core.domain.work_claim_targets import make_item_target
 
 #: A version the codex-cli capability proves for ``message_stopped``.
 RESUMABLE_VERSION = "0.200.0"
-EXITED_AT = "2026-08-26T11:30:00Z"
+EXITED_AT = "2026-08-26T11:30:00.000000Z"
 
 
 @pytest.fixture
@@ -114,7 +114,7 @@ def test_a_wake_from_before_the_exit_does_not_read_as_resuming(steering_scope):
         "message-earlier",
         sender=STEERING_SESSION,
         to=WORKER_SESSION,
-        at="2026-08-26T11:00:00Z",
+        at="2026-08-26T11:00:00.000000Z",
         state="injected",
     )
     seed_delivery_attempt(
@@ -123,7 +123,7 @@ def test_a_wake_from_before_the_exit_does_not_read_as_resuming(steering_scope):
         message_id="message-earlier",
         to=WORKER_SESSION,
         result_code="wake_delivered",
-        started_at="2026-08-26T11:00:00Z",
+        started_at="2026-08-26T11:00:00.000000Z",
     )
     _record_exit(steering_scope)
 

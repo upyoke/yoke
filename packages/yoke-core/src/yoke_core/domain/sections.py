@@ -8,6 +8,9 @@ their dedicated workflow owner rather than generic section mutations.
 from __future__ import annotations
 
 import sys
+from datetime import datetime
+
+from yoke_contracts.timestamps import utc_now
 from io import StringIO
 from typing import Callable, List, Optional, TextIO, Tuple
 
@@ -182,7 +185,7 @@ def upsert_section(
     conn = db_helpers.connect(db_path, busy_timeout_ms=BUSY_TIMEOUT_MS)
     try:
         p = _placeholder(conn)
-        now_iso = db_helpers.iso8601_now()
+        stamp = db_helpers.instant_parameter(conn, utc_now())
         if source:
             conn.execute(
                 f"""
@@ -203,9 +206,9 @@ def upsert_section(
                     content,
                     ordering,
                     source,
-                    now_iso,
-                    now_iso,
-                    now_iso,
+                    stamp,
+                    stamp,
+                    stamp,
                 ),
             )
         else:
@@ -221,7 +224,7 @@ def upsert_section(
                     ordering = COALESCE(excluded.ordering, item_sections.ordering),
                     updated_at = {p}
                 """,
-                (item_id, section_name, content, ordering, now_iso, now_iso, now_iso),
+                (item_id, section_name, content, ordering, stamp, stamp, stamp),
             )
         # Section writes (incl. Progress Log appends, which route through
         # this upsert) are real item activity (R1 board-activity semantics).
@@ -264,7 +267,7 @@ def list_sections(
     item_id: int,
     *,
     db_path: Optional[str] = None,
-) -> List[Tuple[str, str, str, str]]:
+) -> List[Tuple[str, str, datetime | None, datetime | None]]:
     """Return ``(name, ordering, created_at, updated_at)`` tuples for an item.
 
     Ordering column is stringified (empty string when NULL). Row order
@@ -278,8 +281,8 @@ def list_sections(
             f"""
             SELECT section_name,
                    COALESCE(CAST(ordering AS TEXT), ''),
-                   COALESCE(created_at, ''),
-                   COALESCE(updated_at, '')
+                   created_at,
+                   updated_at
             FROM item_sections
             WHERE item_id = {p}
             ORDER BY COALESCE(ordering, {UNSET_ITEM_SECTION_ORDERING}), section_name

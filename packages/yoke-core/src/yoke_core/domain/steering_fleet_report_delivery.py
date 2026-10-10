@@ -22,8 +22,12 @@ then the one that mattered is skimmed too.
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+
+from yoke_contracts.timestamps import parse_instant, utc_now
+
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any
 
 from yoke_contracts.project_contract.project_keys import (
@@ -40,10 +44,6 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _stamp(moment: datetime) -> str:
-    return moment.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def _policy_minutes(conn: Any, project_id: int, key: str, default: int) -> int:
     try:
         return max(1, int(project_policy_value(conn, project_id, key, default)))
@@ -57,17 +57,19 @@ def steered_project_id(conn: Any, session_id: str) -> int | None:
     return held[0] if held else None
 
 
-def _last_report(conn: Any, session_id: str) -> tuple[str, str]:
+def _last_report(conn: Any, session_id: str) -> tuple[datetime | None, str]:
     row = conn.execute(
         "SELECT last_steering_report_at, last_steering_report_fingerprint "
         f"FROM harness_sessions WHERE session_id = {_p(conn)}",
         (session_id,),
     ).fetchone()
     if row is None:
-        return ("", "")
+        return (None, "")
     record = dict(row)
     return (
-        str(record.get("last_steering_report_at") or ""),
+        parse_instant(record["last_steering_report_at"])
+        if record.get("last_steering_report_at") is not None
+        else None,
         str(record.get("last_steering_report_fingerprint") or ""),
     )
 
@@ -76,8 +78,8 @@ def _claim_interval(
     conn: Any,
     *,
     session_id: str,
-    now: str,
-    not_after: str,
+    now: datetime,
+    not_after: datetime,
     fingerprint: str,
 ) -> bool:
     """Take this session's report interval, or report that someone else did.
@@ -86,6 +88,7 @@ def _claim_interval(
     session can lease at the same moment, and the loser must attach nothing
     rather than repeat what the winner is already carrying.
     """
+    now = parse_instant(now)
     marker = _p(conn)
     cursor = conn.execute(
         "UPDATE harness_sessions SET last_steering_report_at = "
@@ -95,9 +98,13 @@ def _claim_interval(
         + " WHERE session_id = "
         + marker
         + " AND (last_steering_report_at IS NULL "
-        "OR last_steering_report_at = '' "
         "OR last_steering_report_at <= " + marker + ")",
-        (now, fingerprint, session_id, not_after),
+        (
+            instant_parameter(conn, now),
+            fingerprint,
+            session_id,
+            instant_parameter(conn, parse_instant(not_after)),
+        ),
     )
     conn.commit()
     return cursor.rowcount == 1
@@ -127,8 +134,8 @@ class SteeringReportCandidate:
     text: str
     session_id: str
     fingerprint: str
-    claimed_at: str
-    not_after: str
+    claimed_at: datetime
+    not_after: datetime
 
 
 def steering_report_candidate(
@@ -147,10 +154,10 @@ def steering_report_candidate(
     is being attached). A genuine report defers its claim to the caller
     confirming the reply actually carried it.
     """
+    current = utc_now() if now is None else parse_instant(now)
     project_ids = _held_project_ids(conn, session_id)
     if not project_ids:
         return None
-    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     interval = min(
         _policy_minutes(
             conn,
@@ -160,7 +167,7 @@ def steering_report_candidate(
         )
         for project_id in project_ids
     )
-    not_after = _stamp(current - timedelta(minutes=interval))
+    not_after = current - timedelta(minutes=interval)
     last_at, last_fingerprint = _last_report(conn, session_id)
     if last_at and last_at > not_after:
         return None
@@ -168,7 +175,7 @@ def steering_report_candidate(
     combined = compose_held_reports(
         conn,
         session_id=session_id,
-        now=_stamp(current),
+        now=current,
     )
     fingerprint = combined.fingerprint()
     if fingerprint == last_fingerprint:
@@ -177,7 +184,7 @@ def steering_report_candidate(
         _claim_interval(
             conn,
             session_id=session_id,
-            now=_stamp(current),
+            now=current,
             not_after=not_after,
             fingerprint=fingerprint,
         )
@@ -186,7 +193,7 @@ def steering_report_candidate(
         text=combined_hook_digest(combined),
         session_id=session_id,
         fingerprint=fingerprint,
-        claimed_at=_stamp(current),
+        claimed_at=current,
         not_after=not_after,
     )
 
@@ -205,7 +212,7 @@ def confirm_steering_report_delivery(
 
 
 def record_report_delivery(
-    conn: Any, *, session_id: str, fingerprint: str, now: str
+    conn: Any, *, session_id: str, fingerprint: str, now: datetime | str
 ) -> bool:
     """Stamp a report onto this session's record unless it already carries it.
 
@@ -220,6 +227,7 @@ def record_report_delivery(
     the shared fingerprint suppresses subsequent deliveries. Different-content
     candidates can similarly race; this record is not a rendering lock.
     """
+    now = parse_instant(now)
     marker = _p(conn)
     cursor = conn.execute(
         "UPDATE harness_sessions SET last_steering_report_at = "
@@ -230,7 +238,7 @@ def record_report_delivery(
         + marker
         + " AND COALESCE(last_steering_report_fingerprint, '') <> "
         + marker,
-        (now, fingerprint, session_id, fingerprint),
+        (instant_parameter(conn, now), fingerprint, session_id, fingerprint),
     )
     conn.commit()
     return cursor.rowcount == 1

@@ -27,6 +27,7 @@ import tarfile
 import tempfile
 import time
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -53,7 +54,7 @@ class UniverseArchiveError(RuntimeError):
 def build_freeze_receipt(
     *,
     database: dict[str, Any],
-    frozen_at: str,
+    frozen_at: str | datetime,
     authority: dict[str, Any],
     inspection: Any,
     zero_writable_app_sessions: bool,

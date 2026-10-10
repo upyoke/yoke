@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from typing import Any, Mapping
+from yoke_contracts.timestamps import format_instant
 
 from yoke_contracts.session_control.launch_registration import (
     NATIVE_LAUNCH_WORKSPACE_FIELD,
@@ -111,7 +112,6 @@ _INTEGER_FIELDS = frozenset(
         "background_agent_lookup_attempts",
         "background_agent_pid",
         "background_agent_stop_duration_ms",
-        "diagnostic_expires_at",
         "duration_ms",
         "exit_code",
         "handles_considered",
@@ -180,6 +180,9 @@ def redacted_evidence_document(
         item = source.get(key)
         if isinstance(item, int) and not isinstance(item, bool):
             clean[key] = item
+    expiry = source.get("diagnostic_expires_at")
+    if expiry is not None:
+        clean["diagnostic_expires_at"] = format_instant(expiry)
     reference = valid_native_diagnostic_reference(source.get("native_diagnostic_ref"))
     if reference is not None:
         clean["native_diagnostic_ref"] = reference

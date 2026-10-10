@@ -12,6 +12,8 @@ import json
 import sys
 from pathlib import Path
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_harness import session_relay_native_supervisor as supervisor
 
 from yoke_harness.session_relay_cursor_cli import cursor_turn_command
@@ -78,7 +80,7 @@ def test_the_native_clock_is_recorded_apart_from_the_file() -> None:
     )
     capture = parse_capture(payload)
     assert capture is not None
-    assert capture.last_output_at == "2026-09-18T14:24:36Z"
+    assert capture.last_output_at == parse_instant("2026-09-18T14:24:36Z")
     assert capture.state == STATE_RUNNING
 
 
@@ -136,7 +138,9 @@ def test_a_silent_native_still_refreshes_its_capture(
 
     monkeypatch.setattr(supervisor, "_write", counted)
 
-    assert supervisor.supervise(tmp_path / "nd-silent.capture", _silent_native(0.4)) == 0
+    assert (
+        supervisor.supervise(tmp_path / "nd-silent.capture", _silent_native(0.4)) == 0
+    )
 
     running = [state for state in writes if state == "running"]
     # The spawn write plus at least one interval write: the file's clock moved

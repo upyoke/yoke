@@ -13,6 +13,8 @@ import json
 
 import pytest
 
+from yoke_contracts.timestamps import format_instant
+
 from runtime.api.sessions_api_stale_test_helpers import _ago_minutes
 from runtime.api.domain.test_session_process_liveness_report import (
     ANCHOR_EVIDENCE,
@@ -138,7 +140,7 @@ def test_a_parked_session_keeps_its_row_and_carries_the_observation(conn):
     assert row["ended_at"] is None
     assert current_native_process_observation(row) == {
         "state": "gone",
-        "observed_at": row["native_process_gone_at"],
+        "observed_at": format_instant(row["native_process_gone_at"]),
         "evidence": EVIDENCE,
     }
 

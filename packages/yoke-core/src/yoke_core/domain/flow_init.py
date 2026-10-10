@@ -7,6 +7,8 @@ deployment runs, and QA status into a single operator-facing projection.
 
 from __future__ import annotations
 
+from yoke_core.domain.stored_instant_columns import STORED_INSTANT_COLUMNS
+
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
     _table_exists,
@@ -39,7 +41,7 @@ def _ensure_flow_schema(conn) -> None:
             description TEXT,
             stages TEXT NOT NULL,
             on_failure TEXT DEFAULT 'halt',
-            created_at TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL,
             status TEXT NOT NULL DEFAULT 'active',
             definition_schema_version INTEGER NOT NULL DEFAULT 1,
             takes_delivery_custody INTEGER NOT NULL DEFAULT 0,
@@ -126,7 +128,12 @@ def _ensure_flow_schema(conn) -> None:
             KEY_COLUMN,
             REQUEST_COLUMN,
         ):
-            _add_column_if_not_exists(conn, "deployment_runs", column, "TEXT")
+            declaration = (
+                "TIMESTAMPTZ"
+                if ("deployment_runs", column) in STORED_INSTANT_COLUMNS
+                else "TEXT"
+            )
+            _add_column_if_not_exists(conn, "deployment_runs", column, declaration)
         conn.execute(KEY_INDEX_SQL)
 
     if _table_exists(conn, "deployment_run_items"):

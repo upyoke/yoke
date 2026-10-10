@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+
+from yoke_contracts.timestamps import format_instant, utc_now
 
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -12,8 +14,7 @@ from yoke_contracts.api.function_call import (
 
 
 def iso_timestamp(minutes_ago: int = 0) -> str:
-    stamp = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
-    return stamp.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return format_instant(utc_now() - timedelta(minutes=minutes_ago))
 
 
 def capabilities_list_request(

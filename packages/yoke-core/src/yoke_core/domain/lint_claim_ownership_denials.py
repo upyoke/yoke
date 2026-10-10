@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Callable, Optional
 
 from yoke_core.domain.db_helpers import connect
@@ -25,7 +27,7 @@ def recent_claim_denial_holder(
     """Return the live foreign holder after a recent same-item claim attempt."""
     if not session_id:
         return None
-    cutoff = datetime.now(timezone.utc) - timedelta(seconds=int(lookback_seconds))
+    cutoff = utc_now() - timedelta(seconds=int(lookback_seconds))
     conn = None
     try:
         conn = connector(db_path or None)
@@ -37,7 +39,7 @@ def recent_claim_denial_holder(
             "WHERE session_id=%s AND tool_name='Bash' "
             "AND command_summary IS NOT NULL "
             "AND started_at > %s ORDER BY started_at DESC LIMIT 100",
-            (session_id, cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")),
+            (session_id, instant_parameter(conn, cutoff)),
         ).fetchall()
         item_tokens = {render_item_ref(conn, item_id), item_ref}
         attempted = any(

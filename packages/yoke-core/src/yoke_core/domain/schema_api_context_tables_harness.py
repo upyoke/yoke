@@ -21,9 +21,9 @@ HARNESS_TABLES: dict[str, dict] = {
             ("name", "TEXT"),
             ("owner_actor_id", "INTEGER"),
             ("access", "TEXT"),
-            ("registered_at", "TEXT"),
-            ("last_seen_at", "TEXT"),
-            ("retired_at", "TEXT"),
+            ("registered_at", "TIMESTAMPTZ"),
+            ("last_seen_at", "TIMESTAMPTZ"),
+            ("retired_at", "TIMESTAMPTZ"),
             ("retired_by_actor_id", "INTEGER"),
         ],
         "notes": (
@@ -60,7 +60,7 @@ HARNESS_TABLES: dict[str, dict] = {
             ("project_entry_present", "INTEGER"),
             ("approval_state", "TEXT"),
             ("unattended_posture", "TEXT"),
-            ("reported_at", "TEXT"),
+            ("reported_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Keyed (project_id, machine_id, harness_id) by unique index "
@@ -84,8 +84,8 @@ HARNESS_TABLES: dict[str, dict] = {
     "model_reference_revisions": {
         "columns": [
             ("revision_id", "TEXT"),
-            ("effective_at", "TEXT"),
-            ("published_at", "TEXT"),
+            ("effective_at", "TIMESTAMPTZ"),
+            ("published_at", "TIMESTAMPTZ"),
             ("published_by_actor_id", "INTEGER"),
             ("catalog_json", "TEXT"),
             ("source_note", "TEXT"),
@@ -105,7 +105,7 @@ HARNESS_TABLES: dict[str, dict] = {
         "columns": [
             ("key", "TEXT"),
             ("value", "TEXT"),
-            ("updated_at", "TEXT"),
+            ("updated_at", "TIMESTAMPTZ"),
             ("updated_by_actor_id", "INTEGER"),
         ],
         "notes": (

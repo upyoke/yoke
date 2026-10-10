@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from yoke_contracts.timestamps import parse_instant
+
 from . import db_backend
 
 FAILED_STATUS = "failed"
@@ -30,7 +32,11 @@ def query_exceptional_items(
                  AND (i.frozen IS NULL OR i.frozen = 0)""",
             (*project_scope, FAILED_STATUS),
         ).fetchall()
-        return [dict(row) for row in rows] if rows else []
+        items = [dict(row) for row in rows] if rows else []
+        for item in items:
+            clock = item.get("created_at")
+            item["created_at"] = None if clock is None else parse_instant(clock)
+        return items
     except db_backend.operational_error_types(conn):
         if db_backend.connection_is_postgres(conn):
             try:

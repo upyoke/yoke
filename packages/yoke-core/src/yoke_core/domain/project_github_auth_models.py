@@ -5,6 +5,9 @@ from __future__ import annotations
 from yoke_core.domain.domain_refusal import DomainRefusal
 
 from dataclasses import dataclass, field
+from datetime import datetime
+
+from yoke_contracts.timestamps import as_utc
 from typing import Callable, Mapping
 
 from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
@@ -133,10 +136,16 @@ class ProjectGithubAuth:
     repo: str
     token: str = field(repr=False)
     installation_id: str = ""
-    token_issued_at: str = ""
-    token_expires_at: str = ""
+    token_issued_at: datetime | None = None
+    token_expires_at: datetime | None = None
     token_source: str = GITHUB_AUTHORITY_INSTALLATION
     permissions: Mapping[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for name in ("token_issued_at", "token_expires_at"):
+            value = getattr(self, name)
+            if value is not None:
+                object.__setattr__(self, name, as_utc(value))
 
 
 @dataclass(frozen=True)

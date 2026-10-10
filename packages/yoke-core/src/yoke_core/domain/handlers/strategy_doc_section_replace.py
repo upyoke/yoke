@@ -23,6 +23,8 @@ never saw.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_contracts.project_contract.strategy_doc_fields import StrategyDocFieldError
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
@@ -103,7 +105,7 @@ def handle_doc_section_replace(request: FunctionCallRequest) -> HandlerOutcome:
         except _docs.StrategyDocMissingError as exc:
             return _err("doc_not_seeded", str(exc))
         base = str(stored.get("updated_at") or "")
-        if payload.base_updated_at != base:
+        if parse_instant(payload.base_updated_at) != parse_instant(base):
             return _err(
                 "replace_conflict",
                 f"strategy document {payload.slug!r} was last written at "

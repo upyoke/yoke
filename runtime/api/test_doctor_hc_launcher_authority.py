@@ -194,7 +194,8 @@ def test_launcher_probe_preserves_unrelated_path_shadows(
     observed = check._machine_launcher_env()["PATH"]
     expected = (
         check.os.pathsep.join(map(str, (other_bin, machine_bin)))
-        if verified_source else original
+        if verified_source
+        else original
     )
     assert observed == expected
 

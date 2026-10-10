@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Mapping, Optional
 
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain import db_backend
 
 
@@ -24,7 +25,7 @@ def _decision_payload(row: Any) -> dict[str, Any]:
         "actor_id": int(row[2]),
         "action": str(row[3]),
         "note": row[4],
-        "decided_at": str(row[5]),
+        "decided_at": format_instant(row[5]),
         # Which surface answered. Empty for a decision recorded before
         # the session was stored, and for one taken with no session.
         "decided_session_id": str(row[6] or ""),

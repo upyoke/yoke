@@ -133,7 +133,7 @@ def _codex_resets_at(value: object) -> str | None:
         return None
     try:
         return iso_from_epoch_seconds(float(value))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError, OSError):
         return None
 
 

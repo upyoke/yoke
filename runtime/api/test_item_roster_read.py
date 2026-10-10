@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import parse_instant
 
 import pytest
 
 from runtime.api.conftest import insert_item
 from runtime.api.item_roster_test_support import (
-    iso_minutes_ago as _iso,
+    instant_minutes_ago as _instant,
     public_refs as _refs,
     read_roster as _roster,
     seed_ladder as _seed_ladder,
@@ -43,8 +43,12 @@ def test_load_more_pages_without_duplicates_or_omissions(test_db):
     seen: list[str] = []
     cursor = None
     for _ in range(10):
-        outcome = _roster(page_size=3, cursor=cursor) if cursor else _roster(
-            page_size=3,
+        outcome = (
+            _roster(page_size=3, cursor=cursor)
+            if cursor
+            else _roster(
+                page_size=3,
+            )
         )
         assert outcome.primary_success
         seen.extend(_refs(outcome))
@@ -68,34 +72,40 @@ def test_final_page_returns_no_cursor(test_db):
     assert outcome.result_payload["next_cursor"] is None
 
 
-def test_paging_is_stable_across_empty_and_unsuffixed_timestamps(test_db):
-    """The sort key is coalesced and the cursor is verbatim.
-
-    ``items.updated_at`` is TEXT: it is empty on some rows and on at least one
-    row omits the trailing ``Z``. Both shapes must page exactly once.
-    """
+def test_paging_is_stable_across_offset_qualified_instants(test_db):
+    """Equivalent UTC instants retain complete pages regardless of input offset."""
     insert_item(
-        test_db, id=781, title="empty updated", status="implementing",
-        created_at=_iso(30), updated_at="",
+        test_db,
+        id=781,
+        title="negative offset",
+        status="implementing",
+        created_at=_instant(30),
+        updated_at="1969-12-31T18:59:59.999998-05:00",
     )
     insert_item(
-        test_db, id=782, title="no zulu suffix", status="implementing",
-        created_at=_iso(40),
-        updated_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
+        test_db,
+        id=782,
+        title="positive offset",
+        status="implementing",
+        created_at=_instant(40),
+        updated_at="1970-01-01T05:29:59.999999+05:30",
     )
     insert_item(
-        test_db, id=783, title="canonical", status="implementing",
-        created_at=_iso(50), updated_at=_iso(20),
+        test_db,
+        id=783,
+        title="canonical",
+        status="implementing",
+        created_at=_instant(50),
+        updated_at=_instant(20),
     )
     test_db.commit()
 
-    targets = {"empty updated", "no zulu suffix", "canonical"}
+    targets = {"negative offset", "positive offset", "canonical"}
     seen: list[str] = []
     cursor = None
     while True:
         outcome = (
-            _roster(page_size=1, cursor=cursor)
-            if cursor else _roster(page_size=1)
+            _roster(page_size=1, cursor=cursor) if cursor else _roster(page_size=1)
         )
         assert outcome.primary_success
         seen.extend(row["title"] for row in outcome.result_payload["rows"])
@@ -110,8 +120,12 @@ def test_paging_is_stable_across_empty_and_unsuffixed_timestamps(test_db):
 def test_search_reaches_history_beyond_the_loaded_page(test_db):
     _seed_ladder(test_db, 5, first_id=800)
     insert_item(
-        test_db, id=899, title="a distinctive needle title",
-        status="done", created_at=_iso(9000), updated_at=_iso(9000),
+        test_db,
+        id=899,
+        title="a distinctive needle title",
+        status="done",
+        created_at=_instant(9000),
+        updated_at=_instant(9000),
     )
     test_db.commit()
     # The needle is the oldest row, so a first page of 1 cannot contain it.
@@ -126,8 +140,13 @@ def test_search_matches_public_ref_and_owner_label(test_db):
     actor_id = seed_human_actor(test_db)
     set_actor_name(test_db, actor_id, "Marguerite")
     insert_item(
-        test_db, id=901, title="owned row", status="implementing",
-        owner=str(actor_id), created_at=_iso(10), updated_at=_iso(10),
+        test_db,
+        id=901,
+        title="owned row",
+        status="implementing",
+        owner=str(actor_id),
+        created_at=_instant(10),
+        updated_at=_instant(10),
     )
     test_db.commit()
     by_owner = _roster(page_size=50, search="marguerite")
@@ -142,19 +161,25 @@ def test_search_matches_public_ref_and_owner_label(test_db):
 
 def test_filters_run_before_the_page_and_stay_complete(test_db):
     insert_item(
-        test_db, id=910, title="planned row", status="planned",
-        created_at=_iso(10), updated_at=_iso(10),
+        test_db,
+        id=910,
+        title="planned row",
+        status="planned",
+        created_at=_instant(10),
+        updated_at=_instant(10),
     )
     insert_item(
-        test_db, id=911, title="implementing row", status="implementing",
-        created_at=_iso(11), updated_at=_iso(11),
+        test_db,
+        id=911,
+        title="implementing row",
+        status="implementing",
+        created_at=_instant(11),
+        updated_at=_instant(11),
     )
     test_db.commit()
     outcome = _roster(page_size=1, status="planned")
     assert outcome.primary_success
-    assert all(
-        row["status"] == "planned" for row in outcome.result_payload["rows"]
-    )
+    assert all(row["status"] == "planned" for row in outcome.result_payload["rows"])
     # Choices describe the scope, not the one row this page happened to serve.
     statuses = {
         choice["id"] for choice in outcome.result_payload["filters"]["statuses"]
@@ -175,7 +200,8 @@ def test_continuing_a_sequence_does_not_recompute_filter_choices(test_db):
     assert first.result_payload["filters"]["workflow_ids"]
 
     following = _roster(
-        page_size=2, cursor=first.result_payload["next_cursor"],
+        page_size=2,
+        cursor=first.result_payload["next_cursor"],
     )
     assert following.primary_success
     assert following.result_payload["filters"] is None
@@ -232,11 +258,13 @@ def test_page_size_bounds_are_enforced(test_db):
     assert not _roster(page_size=0).primary_success
 
 
-def test_cursor_round_trips_its_stored_sort_value_verbatim():
-    # A value with no trailing Z must come back byte-identical: normalizing it
-    # would move the comparison the next page depends on.
-    raw = "2026-09-08T02:19:40"
-    assert decode_cursor(encode_cursor(raw, 42)) == (raw, 42)
+def test_cursor_round_trips_native_instants_and_opaque_text_keys():
+    raw = "1969-12-31T18:59:59.999999-05:00"
+    assert decode_cursor(encode_cursor(raw, 42)) == (parse_instant(raw), 42)
+    assert decode_cursor(encode_cursor("1969-12-31", 42, "title"), "title") == (
+        "1969-12-31",
+        42,
+    )
     with pytest.raises(RosterCursorError):
         decode_cursor("missing-the-id|")
 

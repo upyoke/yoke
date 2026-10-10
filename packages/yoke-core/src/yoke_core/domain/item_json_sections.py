@@ -13,7 +13,7 @@ import json
 from typing import Any, Iterable, Mapping, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.schema_common import _table_exists
 
 SECTION_SOURCE = "direct-workflow"
@@ -54,7 +54,7 @@ def upsert_section(
 ) -> None:
     """Write one section's text, replacing whatever the name held."""
     marker = _placeholder(conn)
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     conn.execute(
         "INSERT INTO item_sections "
         "(item_id, section_name, content, ordering, source, created_at, updated_at) "

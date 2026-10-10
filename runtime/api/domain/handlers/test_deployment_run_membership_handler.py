@@ -10,6 +10,7 @@ from runtime.api.domain.handlers.deployment_handler_test_support import (
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.deployment_run_driver_attachment import DriverAttachment
+from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain.actor_permissions import PERM_ORG_ADMIN
 from yoke_core.domain.function_authz_scope import classify
@@ -48,8 +49,8 @@ def _driven_by(session_id: str):
         run_id=RUN_ID,
         session_id=session_id,
         pid=4242,
-        attached_at="2026-09-09T00:00:00Z",
-        heartbeat_at="2026-09-09T00:00:00Z",
+        attached_at=parse_instant("2026-09-09T00:00:00Z"),
+        heartbeat_at=parse_instant("2026-09-09T00:00:00Z"),
         phase="executing",
         progress_capture="",
     )

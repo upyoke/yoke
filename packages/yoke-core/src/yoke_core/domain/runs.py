@@ -21,6 +21,9 @@ schema. The canonical CLI surface is ``python3 -m yoke_core.cli.db_router runs``
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
 from enum import Enum
 from typing import Optional, Sequence
 
@@ -46,11 +49,13 @@ class RunStatus(str, Enum):
 ACTIVE_RUN_STATUSES = frozenset({RunStatus.CREATED.value, RunStatus.EXECUTING.value})
 
 # Runs in these statuses are considered "terminal" (completed in some way).
-TERMINAL_RUN_STATUSES = frozenset({
-    RunStatus.SUCCEEDED.value,
-    RunStatus.FAILED.value,
-    RunStatus.CANCELLED.value,
-})
+TERMINAL_RUN_STATUSES = frozenset(
+    {
+        RunStatus.SUCCEEDED.value,
+        RunStatus.FAILED.value,
+        RunStatus.CANCELLED.value,
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Data transfer objects
@@ -69,10 +74,16 @@ class DeploymentRun:
     target_tier: Optional[str] = None
     target_environment: Optional[str] = None
     release_lineage: Optional[str] = None
-    created_at: Optional[str] = None
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
+    created_at: datetime | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     created_by: str = "operator"
+
+    def __post_init__(self) -> None:
+        for name in ("created_at", "started_at", "completed_at"):
+            value = getattr(self, name)
+            if value is not None:
+                object.__setattr__(self, name, parse_instant(value))
 
 
 @dataclass(frozen=True)
@@ -81,7 +92,11 @@ class RunItem:
 
     run_id: str
     item_id: int
-    added_at: Optional[str] = None
+    added_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        if self.added_at is not None:
+            object.__setattr__(self, "added_at", parse_instant(self.added_at))
 
 
 # ---------------------------------------------------------------------------

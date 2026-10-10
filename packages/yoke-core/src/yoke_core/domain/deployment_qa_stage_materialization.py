@@ -16,7 +16,7 @@ from yoke_core.domain.qa_deployment_case_content_refresh import (
     declare_refreshed_replacements,
     refreshed_case_keys,
 )
-from yoke_core.domain.db_helpers import iso8601_now, query_rows
+from yoke_core.domain.db_helpers import utc_now, query_rows
 from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
 )
@@ -183,7 +183,7 @@ def materialize_deployment_qa_stage(
     existing: list[int] = []
     declared_none: tuple[str, ...] = ()
     not_required: tuple[str, ...] = ()
-    now = iso8601_now()
+    now = utc_now()
     try:
         # Serializes first materialization without adding another ledger/index.
         conn.execute(

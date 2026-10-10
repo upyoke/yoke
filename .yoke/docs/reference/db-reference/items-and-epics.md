@@ -32,9 +32,9 @@ frozen INTEGER DEFAULT 0
 github_issue TEXT
 deployed_to TEXT
 body TEXT
-merged_at TEXT -- the landing merge commit's own time; a second landing replaces it. Every landing is kept in `item_landings` ([item-landings.md](item-landings.md))
-created_at TEXT NOT NULL
-updated_at TEXT NOT NULL
+merged_at TIMESTAMPTZ -- the landing merge commit's own time; a second landing replaces it. Every landing is kept in `item_landings` ([item-landings.md](item-landings.md))
+created_at TIMESTAMPTZ NOT NULL
+updated_at TIMESTAMPTZ NOT NULL
 source TEXT NOT NULL DEFAULT '2' -- stringified actors.id for who/what originated the item
 owner TEXT -- stringified actors.id for who owns intent, tradeoffs, and acceptance
 project_id INTEGER NOT NULL REFERENCES projects(id) -- explicit attribution; no default
@@ -50,7 +50,7 @@ test_results TEXT -- test/QA results
 deploy_log TEXT -- deployment log
 db_mutation_profile TEXT -- → JSONB on Postgres; validated JSON object declaring governed DB mutation (state, model_name, mutation_intent, migration_modules, compatibility_class, ...); default '{"state":"none"}'. Internal half of the unified DB claim — write through `db-claim-amend`, never raw
 db_compatibility_attestation TEXT -- → JSONB on Postgres; validated JSON object carrying the safety argument (frozen_at, pre_merge_readers_writers, invariants, rehearsal_commands, residual_risk_notes, rehearsal_outcomes, class_escalations); default '{}'. Internal half of the unified DB claim — write through `db-claim-amend`, never raw
-spec_updated_at TEXT -- timestamp of last spec field update
+spec_updated_at TIMESTAMPTZ -- timestamp of last spec field update
 spec_updated_by TEXT -- agent/user that last updated spec
 resolution TEXT -- resolution type (e.g., 'completed', 'duplicate', 'wontfix')
 resolution_ref TEXT -- reference for resolution (e.g., duplicate item ID)
@@ -62,13 +62,8 @@ resolution_comment TEXT -- free-text resolution notes
 > `yoke workflows item get PREFIX-N`, then `yoke workflows version get WORKFLOW VERSION`; transition code loads the item's explicit
 > version pin rather than a status table in this document.
 
-**Structured-field CLI examples** (body renders on next read):
-
-```sh
-yoke items get PREFIX-N spec
-yoke items structured-field replace PREFIX-N --field spec --stdin < /tmp/spec.md
-yoke items structured-field section-upsert PREFIX-N --section "Goals" --content-file /tmp/g.md --ordering 100 --source operator
-```
+Structured item mutations use the registered [function surfaces](functions.md).
+Read `yoke items structured-field --help` before replacing or transforming fields.
 
 > **Blocked is a flag on items.** Columns `items.blocked INTEGER DEFAULT 0` and `items.blocked_reason TEXT` carry the operator-set block; lifecycle status is preserved. The flag is for waits with no blocking item: `items.block` refuses when a live activation/integration/closure edge already carries the wait (`yoke items dependency add`). Legacy `status='blocked'` is retired (`HC-blocked-status-drift`). Operators use `yoke items block PREFIX-N --reason TEXT` / `yoke items unblock PREFIX-N`. Epic-task `blocked` is unchanged. View column `item_progress_view.blocked_reason` is `pipeline_blocked_reason`. Architectural-why: `docs/archive/decisions/blocked-flag-retirement.md`.
 
@@ -148,8 +143,8 @@ item_id INTEGER NOT NULL -- FK → items(id)
 section_name TEXT NOT NULL -- section identifier (e.g., "Goals", "Design Spec")
 content TEXT -- section content (Markdown)
 ordering INTEGER -- render order (lower = earlier)
-created_at TEXT NOT NULL -- ISO 8601 timestamp
-updated_at TEXT NOT NULL -- ISO 8601 timestamp
+created_at TIMESTAMPTZ NOT NULL -- ISO 8601 timestamp
+updated_at TIMESTAMPTZ NOT NULL -- ISO 8601 timestamp
 PRIMARY KEY (item_id, section_name)
 ```
 
@@ -164,7 +159,7 @@ worker TEXT NOT NULL
 verdict TEXT NOT NULL
 caveats TEXT
 attempt INTEGER DEFAULT 1
-created_at TEXT NOT NULL
+created_at TIMESTAMPTZ NOT NULL
 ```
 
 ## Table: caveat_dispositions
@@ -182,7 +177,7 @@ caveat_text TEXT NOT NULL
 disposition TEXT NOT NULL -- RESOLVED | DEFERRED
 resolution_details TEXT
 verdict_id INTEGER -- FK -> shepherd_verdicts(id)
-created_at TEXT NOT NULL
+created_at TIMESTAMPTZ NOT NULL
 FOREIGN KEY (verdict_id) REFERENCES shepherd_verdicts(id)
 UNIQUE(public_ref, transition, attempt, caveat_num)
 ```
@@ -205,7 +200,7 @@ source TEXT NOT NULL -- shepherd | conduct | operator | migration | feed | idea 
 session_id INTEGER -- nullable contextual session ID
 rationale TEXT NOT NULL DEFAULT '' -- human-readable explanation of the edge
 evidence_json TEXT NOT NULL DEFAULT '{}' -- structured provenance payload
-created_at TEXT NOT NULL
+created_at TIMESTAMPTZ NOT NULL
 UNIQUE(dependent_item_id, blocking_item_id, gate_point)
 ```
 
@@ -250,14 +245,14 @@ Python service clients are not an agent recipe.
 
 ```sql
 id INTEGER PRIMARY KEY
-timestamp TEXT NOT NULL
+timestamp TIMESTAMPTZ NOT NULL
 agent TEXT NOT NULL
 context TEXT
 category TEXT NOT NULL
 body TEXT NOT NULL
-reviewed_at TEXT
-archived_at TEXT
-created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
+reviewed_at TIMESTAMPTZ
+archived_at TIMESTAMPTZ
+created_at TIMESTAMPTZ NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
 ```
 
 ## Table: epic_tasks
@@ -278,8 +273,8 @@ scope_state TEXT NOT NULL DEFAULT 'pending' -- pending|paths|no_files|legacy_def
 scope_finalized_at TEXT
 max_attempts INTEGER DEFAULT 5
 agent_id TEXT
-last_heartbeat TEXT
-last_activity_at TEXT
+last_heartbeat TIMESTAMPTZ
+last_activity_at TIMESTAMPTZ
 UNIQUE(epic_id, task_num)
 ```
 
@@ -307,8 +302,8 @@ current_task TEXT
 current_attempt INTEGER DEFAULT 1
 max_attempts INTEGER DEFAULT 5
 no_chain INTEGER DEFAULT 0
-started_at TEXT
-last_updated TEXT
+started_at TIMESTAMPTZ
+last_updated TIMESTAMPTZ
 UNIQUE(epic_id, item_worktree_id)
 ```
 
@@ -344,6 +339,6 @@ note_num INTEGER NOT NULL
 body TEXT
 commit_hash TEXT
 synced_to_github INTEGER DEFAULT 0
-created_at TEXT NOT NULL
+created_at TIMESTAMPTZ NOT NULL
 UNIQUE(epic_id, task_num, note_num)
 ```

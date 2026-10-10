@@ -14,7 +14,9 @@ read first-class claim/chain state (``work_claims.release_reason_intent``,
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
 from typing import Any, Optional
 
 import pytest
@@ -37,13 +39,13 @@ CREATE TABLE harness_sessions (
     executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL DEFAULT '',
     mode TEXT NOT NULL DEFAULT 'wait',
-    offered_at TEXT NOT NULL DEFAULT '',
-    last_heartbeat TEXT NOT NULL DEFAULT '',
-    ended_at TEXT,
+    offered_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_heartbeat TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ended_at TIMESTAMPTZ,
     offer_envelope TEXT,
     actor_id INTEGER,
     last_chain_step INTEGER,
-    last_checkpoint_at TEXT
+    last_checkpoint_at TIMESTAMPTZ
 );
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
@@ -51,9 +53,9 @@ CREATE TABLE work_claims (
     target_kind TEXT NOT NULL,
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
-    claimed_at TEXT NOT NULL DEFAULT '',
-    last_heartbeat TEXT NOT NULL DEFAULT '',
-    released_at TEXT,
+    claimed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_heartbeat TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    released_at TIMESTAMPTZ,
     release_reason TEXT,
     reason TEXT,
     reason_intent TEXT,
@@ -95,9 +97,13 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+def _instant(delta_s: int = 0) -> datetime:
+    return utc_now() + timedelta(seconds=delta_s)
+
+
 def _iso(delta_s: int = 0) -> str:
-    moment = datetime.now(timezone.utc) + timedelta(seconds=delta_s)
-    return moment.isoformat(timespec="microseconds").replace("+00:00", "Z")
+    """Wire clock accepted by existing fixture callers."""
+    return format_instant(_instant(delta_s))
 
 
 @pytest.fixture
@@ -123,7 +129,7 @@ def _insert_session(
     ended: bool = False,
     offer_envelope: Optional[dict] = None,
     last_chain_step: Optional[int] = None,
-    last_checkpoint_at: Optional[str] = None,
+    last_checkpoint_at: str | datetime | None = None,
 ) -> None:
     p = _p(conn)
     conn.execute(
@@ -135,12 +141,14 @@ def _insert_session(
         f"{p}, {p}, {p})",
         (
             session_id,
-            _iso(-heartbeat_age_s),
-            _iso(-heartbeat_age_s),
-            _iso() if ended else None,
+            _instant(-heartbeat_age_s),
+            _instant(-heartbeat_age_s),
+            _instant() if ended else None,
             json.dumps(offer_envelope) if offer_envelope is not None else None,
             last_chain_step,
-            last_checkpoint_at,
+            parse_instant(last_checkpoint_at)
+            if last_checkpoint_at is not None
+            else None,
         ),
     )
     conn.commit()
@@ -170,9 +178,9 @@ def _insert_released_claim(
             session_id,
             target.kind,
             target.scope_json(),
-            _iso(-released_age_s - 60),
-            _iso(-released_age_s),
-            _iso(-released_age_s),
+            _instant(-released_age_s - 60),
+            _instant(-released_age_s),
+            _instant(-released_age_s),
             release_reason,
             release_reason_intent,
         ),

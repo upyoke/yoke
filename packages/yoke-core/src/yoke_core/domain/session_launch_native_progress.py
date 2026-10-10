@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import Any, Mapping
 
 from yoke_contracts.session_control.evidence import redacted_evidence_document
@@ -51,7 +53,7 @@ def _observed_open_native(
     conn: Any,
     launch: LaunchRecord,
     *,
-    now: str,
+    now: datetime | str,
     phases: frozenset[str],
 ) -> bool:
     if (
@@ -75,24 +77,20 @@ def native_spawn_pending(
     conn: Any,
     launch: LaunchRecord,
     *,
-    now: str,
+    now: datetime | str,
 ) -> bool:
     """Return whether one observed live native still owns this launch window."""
-    return _observed_open_native(
-        conn, launch, now=now, phases=LIVE_NATIVE_PHASES
-    )
+    return _observed_open_native(conn, launch, now=now, phases=LIVE_NATIVE_PHASES)
 
 
 def native_attempt_pending(
     conn: Any,
     launch: LaunchRecord,
     *,
-    now: str,
+    now: datetime | str,
 ) -> bool:
     """Keep one supervised attempt authoritative through its terminal report."""
-    return _observed_open_native(
-        conn, launch, now=now, phases=REPORTABLE_NATIVE_PHASES
-    )
+    return _observed_open_native(conn, launch, now=now, phases=REPORTABLE_NATIVE_PHASES)
 
 
 def native_attempt_refusal(launch: LaunchRecord) -> str:
@@ -108,7 +106,7 @@ def retain_pending_native(
     conn: Any,
     launch: LaunchRecord,
     *,
-    now: str,
+    now: datetime | str,
 ) -> LaunchRecord | None:
     """Keep retry attached to its observed process instead of creating another."""
     if not native_attempt_pending(conn, launch, now=now):

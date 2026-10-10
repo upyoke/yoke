@@ -6,7 +6,12 @@ import json
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
+from yoke_core.domain.db_helpers import (
+    instant_parameter,
+    utc_now,
+    query_one,
+    query_rows,
+)
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.workflow_registry import list_current_workflows
 
@@ -101,7 +106,7 @@ def set_testing_default(
         raise WorkflowProjectDefaultError(
             "the selected workflow has no QA verification checkpoint"
         )
-    stamp = iso8601_now()
+    stamp = utc_now()
     selected_ids = [str(row["id"]) for row in selected]
     for selected_id in selected_ids:
         conn.execute(
@@ -121,7 +126,7 @@ def set_testing_default(
                 transition_id,
                 "verification",
                 int(plan_id),
-                stamp,
+                instant_parameter(conn, stamp),
                 actor_id,
             ),
         )

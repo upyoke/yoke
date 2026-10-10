@@ -67,7 +67,7 @@ def require_run_driver(
     driver whose heartbeat lapsed frees the run by itself: no human
     release is ever needed.
     """
-    from yoke_core.domain.db_helpers import connect, iso8601_now, query_scalar
+    from yoke_core.domain.db_helpers import connect, utc_now, query_scalar
     from yoke_core.domain.deployment_run_driver_attachment import (
         format_refusal,
         live_attachment_for_run,
@@ -82,7 +82,7 @@ def require_run_driver(
         if exists is None:
             return error("not_found", f"deployment run {resolved_run_id!r} not found")
         driver = live_attachment_for_run(
-            conn, run_id_value=resolved_run_id, now=iso8601_now()
+            conn, run_id_value=resolved_run_id, now=utc_now()
         )
     caller = str(request.actor.session_id or "").strip()
     if driver is not None and driver.session_id != caller:

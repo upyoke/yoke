@@ -49,9 +49,9 @@ CREATE TABLE IF NOT EXISTS item_worktrees (
       CHECK(lane_role IN ('implementation','worker','integration')),
     state TEXT NOT NULL DEFAULT 'active'
       CHECK(state IN ('active','released')),
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    released_at TEXT
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    released_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_item_worktrees_item_state
   ON item_worktrees(item_id, state);
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS epic_simulations (
     epic_id INTEGER NOT NULL,
     phase TEXT NOT NULL,
     result TEXT,
-    created_at TEXT
+    created_at TIMESTAMPTZ
 );
 """
 

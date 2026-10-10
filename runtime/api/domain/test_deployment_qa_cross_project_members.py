@@ -1,6 +1,7 @@
 """Carried members owe item QA only when their own flow or cases require it."""
 
 import json
+from yoke_contracts.timestamps import parse_instant
 
 import pytest
 
@@ -150,7 +151,9 @@ def test_carried_member_without_own_item_qa_is_settled_and_closes(test_db, monke
     outstanding = qa_stage_outstanding(test_db, run_id=RUN, stage_name="item-qa")
     assert outstanding.waiting == 0 and outstanding.waiting_members == ()
     assert "no item QA obligation" in outstanding.no_obligation_lines[0]
-    [report] = run_progress(test_db, project_id=1, now="2026-10-02T00:00:00Z")
+    [report] = run_progress(
+        test_db, project_id=1, now=parse_instant("2026-10-02T00:00:00Z")
+    )
     assert report.outstanding == 0
     assert report.no_obligation_lines == outstanding.no_obligation_lines
     assert materialize_and_gate_deployment_qa_stage(test_db, stage, run_id=RUN) == (

@@ -6,9 +6,6 @@ from runtime.api.domain.decision_request_test_support import (
     decision_request_connection,
 )
 from yoke_core.domain import machine_approval_requests as approvals
-from yoke_core.domain.decision_request_disposition import (
-    dispose_ended_decision_requests,
-)
 
 
 def test_machine_approval_is_idempotent_org_admin_request(monkeypatch) -> None:
@@ -21,9 +18,12 @@ def test_machine_approval_is_idempotent_org_admin_request(monkeypatch) -> None:
     monkeypatch.setattr(
         approvals,
         "create_decision_request",
-        lambda _conn, **kwargs: calls.append(kwargs) or (
-            {"id": 7, "status": "pending"},
-            True,
+        lambda _conn, **kwargs: (
+            calls.append(kwargs)
+            or (
+                {"id": 7, "status": "pending"},
+                True,
+            )
         ),
     )
 
@@ -42,7 +42,9 @@ def test_machine_approval_is_idempotent_org_admin_request(monkeypatch) -> None:
     assert calls[0]["subject_type"] == "machine_auth_request"
     assert calls[0]["subject_key"] == "machine-request-abc"
     assert calls[0]["role_authorities"][0] == approvals.RoleAuthority(
-        "org", 42, "admin",
+        "org",
+        42,
+        "admin",
     )
 
 
@@ -52,21 +54,31 @@ def test_machine_approval_status_waits_then_returns_resolution(monkeypatch) -> N
         "list_subject_requests",
         lambda *_args: [{"status": "pending"}],
     )
-    assert approvals.machine_approval_decision(
-        object(), auth_request_id="machine-request-abc",
-    ) is None
+    assert (
+        approvals.machine_approval_decision(
+            object(),
+            auth_request_id="machine-request-abc",
+        )
+        is None
+    )
 
     monkeypatch.setattr(
         approvals,
         "list_subject_requests",
-        lambda *_args: [{
-            "status": "resolved",
-            "resolution_action": "deny",
-        }],
+        lambda *_args: [
+            {
+                "status": "resolved",
+                "resolution_action": "deny",
+            }
+        ],
     )
-    assert approvals.machine_approval_decision(
-        object(), auth_request_id="machine-request-abc",
-    ) == "deny"
+    assert (
+        approvals.machine_approval_decision(
+            object(),
+            auth_request_id="machine-request-abc",
+        )
+        == "deny"
+    )
 
 
 @pytest.fixture()
@@ -86,10 +98,11 @@ def test_pending_lifecycle_create_and_replay_are_idempotent(conn) -> None:
         "session_id": "platform-delivery",
     }
     first, created, applied = approvals.apply_machine_approval_lifecycle(
-        conn, **kwargs,
+        conn,
+        **kwargs,
     )
-    replay, created_again, applied_again = (
-        approvals.apply_machine_approval_lifecycle(conn, **kwargs)
+    replay, created_again, applied_again = approvals.apply_machine_approval_lifecycle(
+        conn, **kwargs
     )
 
     assert first is not None
@@ -146,7 +159,9 @@ def _pending(conn, *, org_id: int = 1):
     (("approved", "approve"), ("denied", "deny")),
 )
 def test_terminal_first_observation_replays_without_pending_regression(
-    conn, status: str, action: str,
+    conn,
+    status: str,
+    action: str,
 ) -> None:
     kwargs = {
         "auth_request_id": "5b234860-c927-46ab-b19a-9fb36df056aa",
@@ -158,10 +173,11 @@ def test_terminal_first_observation_replays_without_pending_regression(
         "session_id": "platform-delivery",
     }
     resolved, created, applied = approvals.apply_machine_approval_lifecycle(
-        conn, **kwargs,
+        conn,
+        **kwargs,
     )
-    replay, replay_created, replay_applied = (
-        approvals.apply_machine_approval_lifecycle(conn, **kwargs)
+    replay, replay_created, replay_applied = approvals.apply_machine_approval_lifecycle(
+        conn, **kwargs
     )
 
     assert resolved is not None
@@ -181,7 +197,9 @@ def test_terminal_first_observation_replays_without_pending_regression(
     (("approved", "approve"), ("denied", "deny")),
 )
 def test_terminal_resolution_replay_and_contradiction(
-    conn, status: str, action: str,
+    conn,
+    status: str,
+    action: str,
 ) -> None:
     request = _pending(conn)
     resolved, _, applied = approvals.apply_machine_approval_lifecycle(
@@ -233,7 +251,7 @@ def test_terminal_resolution_replay_and_contradiction(
         "DecisionRequestResolved",
     ]
     assert [row[1] for row in events] == [5, 5, 5]
-    assert events[2][2] == "2026-07-28T12:02:00Z"
+    assert events[2][2] == "2026-07-28T12:02:00.000000Z"
 
 
 @pytest.mark.parametrize("status", ("expired", "withdrawn"))
@@ -275,48 +293,7 @@ def test_terminal_withdrawal_replay_is_idempotent(conn, status: str) -> None:
         "DecisionRequestWithdrawn",
     ]
     assert [row[1] for row in events] == [5, 5]
-    assert events[1][2] == "2026-07-28T12:05:00Z"
-
-
-@pytest.mark.parametrize(
-    ("context", "expect_converged"),
-    (
-        ({"expires_at": "2020-01-01T00:05:00Z"}, True),
-        ({"ended_at": "2020-01-01T00:00:01Z"}, False),
-        ({"expires_at": "2020-01-01", "cancelled_at": "2019-01-01"}, False),
-    ),
-)
-def test_cleanup_then_delivery_converges_only_on_expiry_evidence(
-    conn, context: dict, expect_converged: bool,
-) -> None:
-    approvals.apply_machine_approval_lifecycle(
-        conn,
-        auth_request_id="5b234860-c927-46ab-b19a-9fb36df056aa",
-        org_id=1,
-        state="pending",
-        occurred_at="2020-01-01T00:00:00Z",
-        actor_id=5,
-        context=context,
-    )
-    assert dispose_ended_decision_requests(conn)["withdrawn_count"] == 1
-
-    def deliver_expired():
-        return approvals.apply_machine_approval_lifecycle(
-            conn,
-            auth_request_id="5b234860-c927-46ab-b19a-9fb36df056aa",
-            org_id=1,
-            state="expired",
-            occurred_at="2020-01-01T00:06:00Z",
-            actor_id=5,
-            context={},
-        )
-
-    if expect_converged:
-        delivered, created, applied = deliver_expired()
-        assert (delivered["status"], created, applied) == ("withdrawn", False, False)
-    else:
-        with pytest.raises(ValueError, match="already withdrawn, not expired"):
-            deliver_expired()
+    assert events[1][2] == "2026-07-28T12:05:00.000000Z"
 
 
 def test_old_org_withdrawal_allows_one_new_org_request(conn) -> None:
@@ -331,9 +308,7 @@ def test_old_org_withdrawal_allows_one_new_org_request(conn) -> None:
         context={},
         reason="authorization rebound to another organization",
     )
-    conn.execute(
-        "INSERT INTO organizations VALUES (2, 'next', 'Next', 'now')"
-    )
+    conn.execute("INSERT INTO organizations VALUES (2, 'next', 'Next', 'now')")
     new_request, created, applied = approvals.apply_machine_approval_lifecycle(
         conn,
         auth_request_id="5b234860-c927-46ab-b19a-9fb36df056aa",

@@ -1,8 +1,6 @@
 """Real request consumers use Uvicorn's scheme/client trust boundary."""
 
 import hashlib
-import time
-from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI, Request
@@ -10,6 +8,7 @@ from fastapi.testclient import TestClient
 from uvicorn import Config
 
 from runtime.api.fixtures import pg_testdb
+from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.browser_sign_in import BROWSER_SIGN_IN_REDEEM_PATH
 from yoke_contracts.machine_authorization import START_PATH, POLL_PATH
 from yoke_core.api import server_entrypoint
@@ -234,10 +233,8 @@ def test_collector_requires_actual_or_trusted_https(database, peer, expected):
 def pin_rate_budget(monkeypatch):
     """One request per client, inside one rate window however long the test runs."""
     monkeypatch.setattr(frontend_events_storage, "RATE_REQUESTS", 1)
-    window = frontend_events_storage.RATE_WINDOW_SECONDS
-    middle = time.time() // window * window + window // 2
-    clock = SimpleNamespace(time=lambda: middle)
-    monkeypatch.setattr(frontend_events_storage, "time", clock)
+    middle = parse_instant("1970-01-01T00:00:30.000000Z")
+    monkeypatch.setattr(frontend_events_storage, "utc_now", lambda: middle)
 
 
 @pytest.mark.parametrize("trusted", [PROXY, "192.0.2.0/24", PROXY + ",::1"])

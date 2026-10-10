@@ -3,7 +3,7 @@
 from __future__ import annotations
 from typing import Any, Mapping, Optional
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.workflow_definition_codec import (
     WorkflowRegistryError,
     decode_definition as _decode_definition,
@@ -100,7 +100,7 @@ def publish_workflow_version(
             f"definition already published as version {existing['version']}; select or pin that version"
         )
     if workflow is None:
-        now = iso8601_now()
+        now = instant_parameter(conn, utc_now())
         conn.execute(
             "INSERT INTO workflows (id, name, description, source, status, canon_follow, created_at, updated_at) "
             f"VALUES ({marker}, {marker}, {marker}, 'project', 'active', 'manual', {marker}, {marker})",
@@ -127,7 +127,7 @@ def publish_workflow_version(
             f"UPDATE workflows SET current_version_id = {marker}, "
             "canon_follow = 'manual', canon_adopted_from_version = NULL, "
             f"updated_at = {marker} WHERE id = {marker}",
-            (int(published["id"]), iso8601_now(), workflow_id),
+            (int(published["id"]), instant_parameter(conn, utc_now()), workflow_id),
         )
     conn.commit()
     return {

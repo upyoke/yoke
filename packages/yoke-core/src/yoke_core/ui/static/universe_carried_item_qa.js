@@ -2,12 +2,15 @@
 // Replaced and cancelled attempts remain in that run's folded history.
 
 import { QA_KIND, QA_STATE, classifyQaRow } from "./qa_state.js";
+import { instantMicros } from "./timestamps.js";
 import { effectiveChecks } from "./universe_run_evidence.js";
 
 function newestFirst(rows) {
-  return [...rows].sort((left, right) => (
-    (Date.parse(right.happened_at || "") || 0) - (Date.parse(left.happened_at || "") || 0)
-  ));
+  return [...rows].sort((left, right) => {
+    const leftTime = left.happened_at ? instantMicros(left.happened_at) : 0n;
+    const rightTime = right.happened_at ? instantMicros(right.happened_at) : 0n;
+    return rightTime > leftTime ? 1 : rightTime < leftTime ? -1 : 0;
+  });
 }
 
 function answersForRun(row, rows) {

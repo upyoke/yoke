@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.timestamps import utc_now
+
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -17,7 +19,6 @@ from yoke_core.domain.actor_role import ActorRoleRefused, org_roles_of
 from yoke_core.domain.actor_state import set_actor_enabled
 from yoke_core.domain.actors import seed_human_actor, seed_system_actor
 from yoke_core.domain.control_plane_authority import resolve_control_plane_org_id
-from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.external_identities import link_external_identity
 from yoke_core.domain.handlers.actor_role import handle_actor_role_set
 
@@ -106,7 +107,7 @@ def test_last_active_admin_cannot_be_demoted(test_db):
     admin = _person(test_db, "Admin", "admin", org_id)
     other = _person(test_db, "Other", "admin", org_id)
     set_actor_enabled(
-        test_db, actor_id=other, caller_actor_id=admin, enabled=False, now=iso8601_now()
+        test_db, actor_id=other, caller_actor_id=admin, enabled=False, now=utc_now()
     )
 
     refused = _set(admin, actor_id=admin, role="operator")

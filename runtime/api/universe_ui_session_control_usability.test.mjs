@@ -159,7 +159,7 @@ test("message history leads with readable content and accessible receipts", asyn
   const acknowledged = byClass(root, "session-message-recipient-status").find(
     (node) => node.textContent.includes("Acknowledged"),
   );
-  assert.equal(acknowledged.children[1].getAttribute("datetime"), "2026-08-23T01:04:03.000Z");
+  assert.equal(acknowledged.children[1].getAttribute("datetime"), "2026-08-23T01:04:03.000000Z");
   assert.deepEqual(
     byClass(root, "session-message-delivery-marker").map((node) => node.textContent),
     ["Direct"],

@@ -158,7 +158,7 @@ def test_identity_parse_failure_is_reported_before_the_deadline(fleet):
     _launch(
         fleet,
         "launch-parse-failed",
-        deadline="2026-08-26T12:10:00Z",
+        deadline="2026-08-26T12:10:00.000000Z",
         state="outcome_unknown",
         result_code="identity_parse_failed",
     )
@@ -175,7 +175,7 @@ def test_provider_model_rejection_is_reported_with_bounded_detail(fleet):
     _launch(
         fleet,
         "launch-model-rejected",
-        deadline="2026-08-26T12:10:00Z",
+        deadline="2026-08-26T12:10:00.000000Z",
         state="failed",
         result_code="model_combo_unsupported",
     )
@@ -198,7 +198,7 @@ def test_exact_registered_session_with_missing_launch_binding_is_named(fleet):
     _launch(
         fleet,
         "launch-existing-session",
-        deadline="2026-08-26T12:10:00Z",
+        deadline="2026-08-26T12:10:00.000000Z",
         state="outcome_unknown",
         result_code="late_native_requires_reconciliation",
         native_session_id=ANSWERER,

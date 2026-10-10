@@ -30,10 +30,11 @@ from __future__ import annotations
 
 from yoke_core.domain import db_backend
 import ast
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, Iterable, List, Optional, Set, Tuple
 
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.events_tool_call_outcome import OUTCOMES
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -94,9 +95,7 @@ def _trace_local_string_literals(
             targets = [node.target]
         else:
             continue
-        if not any(
-            isinstance(t, ast.Name) and t.id == var_name for t in targets
-        ):
+        if not any(isinstance(t, ast.Name) and t.id == var_name for t in targets):
             continue
         found_any = True
         for literal in _expression_literals(node.value):
@@ -119,9 +118,7 @@ def _expression_literals(expr: ast.AST) -> List[Optional[str]]:
     if isinstance(expr, ast.Constant) and isinstance(expr.value, str):
         return [expr.value]
     if isinstance(expr, ast.IfExp):
-        return _expression_literals(expr.body) + _expression_literals(
-            expr.orelse
-        )
+        return _expression_literals(expr.body) + _expression_literals(expr.orelse)
     return [None]
 
 
@@ -140,9 +137,7 @@ def _scan_call_outcome(
             break
     if outcome_arg is None:
         return set()
-    if isinstance(outcome_arg, ast.Constant) and isinstance(
-        outcome_arg.value, str
-    ):
+    if isinstance(outcome_arg, ast.Constant) and isinstance(outcome_arg.value, str):
         return {outcome_arg.value}
     if isinstance(outcome_arg, ast.IfExp):
         literals = _expression_literals(outcome_arg)
@@ -234,9 +229,7 @@ def _live_events_scan(conn: Any) -> List[Tuple[str, str, int]]:
     ``event_outcome`` is outside OUTCOMES."""
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     placeholders = ",".join(p for _ in OUTCOMES)
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=3)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    cutoff = instant_parameter(conn, utc_now() - timedelta(days=3))
     params: Tuple = (_TARGET_EVENT_NAME, *sorted(OUTCOMES), cutoff)
     sql = (
         "SELECT event_outcome, MIN(event_id) AS sample, COUNT(*) AS n "
@@ -282,9 +275,7 @@ def hc_event_outcome_enum_coverage(
     if non_enum or live_findings:
         lines: List[str] = []
         if non_enum:
-            lines.append(
-                f"{len(non_enum)} source literal(s) outside OUTCOMES:"
-            )
+            lines.append(f"{len(non_enum)} source literal(s) outside OUTCOMES:")
             lines.extend(f"- {entry}" for entry in non_enum[:10])
             if len(non_enum) > 10:
                 lines.append(f"- ... +{len(non_enum) - 10} more")
@@ -295,8 +286,7 @@ def hc_event_outcome_enum_coverage(
             )
             for outcome, sample, count in live_findings:
                 lines.append(
-                    f"- outcome={outcome!r} count={count} "
-                    f"sample_event_id={sample}"
+                    f"- outcome={outcome!r} count={count} sample_event_id={sample}"
                 )
         if unresolved:
             lines.append(
@@ -329,5 +319,9 @@ from yoke_project_checks._declare import (  # noqa: E402
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('event-outcome-enum-coverage', 'Tool-call outcome enum coverage for HarnessToolCallDenied emitters', hc_event_outcome_enum_coverage),
+    (
+        "event-outcome-enum-coverage",
+        "Tool-call outcome enum coverage for HarnessToolCallDenied emitters",
+        hc_event_outcome_enum_coverage,
+    ),
 )

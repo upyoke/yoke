@@ -37,7 +37,7 @@ import os
 from typing import Any, List, Optional, Sequence
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 
 class PathClaimOverrideError(Exception):
@@ -145,7 +145,7 @@ def invoke_override(
     from yoke_core.domain.path_claims_events_override import emit_override
 
     targets = [int(t) for t in (blocking_path_targets or [])]
-    invoked_at = iso8601_now()
+    invoked_at = utc_now()
     p = _p(conn)
     conn.execute(
         "INSERT INTO path_claim_overrides "
@@ -167,7 +167,7 @@ def invoke_override(
             item_id,
             project,
             session_id,
-            invoked_at,
+            instant_parameter(conn, invoked_at),
         ),
     )
     return emit_override(

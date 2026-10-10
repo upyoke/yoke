@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
 import pytest
 
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
@@ -43,7 +44,7 @@ def test_claim_separates_bootstrap_body_and_stores_only_attestation_hash() -> No
 
     assert claim.bootstrap_prompt == (native_launch_bootstrap(launch.launch_id))
     assert "Sensitive instruction body" not in claim.bootstrap_prompt
-    assert claim.lease_expires_at == "2026-08-22T12:05:00Z"
+    assert claim.lease_expires_at == parse_instant("2026-08-22T12:05:00Z")
     stored = get_launch(conn, launch.launch_id)
     assert stored.attestation_hash.startswith("sha256:")
     assert claim.attestation not in stored.attestation_hash

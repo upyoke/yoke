@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now as _now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Optional, Sequence
 
 from yoke_core.domain import db_backend, workflow_item_binding_lock
@@ -18,25 +19,20 @@ from yoke_core.domain.path_claims_overlap import (
 )
 
 
-class PathClaimError(Exception):
-    """Base class for path-claim domain failures."""
-
-
-class InvalidActor(PathClaimError): ...
-class InvalidMode(PathClaimError): ...
-class InvalidTargetSet(PathClaimError): ...
-class IncompatibleOverlap(PathClaimError): ...
-class UpstreamNotReleased(PathClaimError): ...
-class ClaimNotFound(PathClaimError): ...
-class IllegalTransition(PathClaimError): ...
-class InvalidWorkflowBinding(PathClaimError): ...
+from yoke_core.domain.path_claim_errors import (
+    PathClaimError as PathClaimError,
+    InvalidActor as InvalidActor,
+    InvalidMode as InvalidMode,
+    InvalidTargetSet as InvalidTargetSet,
+    IncompatibleOverlap as IncompatibleOverlap,
+    UpstreamNotReleased as UpstreamNotReleased,
+    ClaimNotFound as ClaimNotFound,
+    IllegalTransition as IllegalTransition,
+    InvalidWorkflowBinding as InvalidWorkflowBinding,
+)
 
 
 _TERMINAL_STATES = ("released", "cancelled")
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _p(conn) -> str:
@@ -174,7 +170,7 @@ def register(
             session_id=session_id,
         )
     )
-    now = _now()
+    now = instant_parameter(conn, _now())
     cur = conn.execute(
         "INSERT INTO path_claims (state, mode, owner_kind, owner_item_id, "
         "owner_session_id, owner_work_claim_id, registered_by_actor_id, "
@@ -273,7 +269,8 @@ def activate(
         state == "planned"
         and classification is OverlapClassification.SERIAL_VIA_DEPENDENCY
         and dep_edges.has_active_serial_claim_dependency(
-            conn, owner_item_id, row["integration_target"], targets)
+            conn, owner_item_id, row["integration_target"], targets
+        )
     ):
         raise UpstreamNotReleased(
             f"claim {claim_id} has an active serial dependency; wait for release"
@@ -305,7 +302,7 @@ def activate(
     conn.execute(
         f"UPDATE path_claims SET state='active', activated_at={_p(conn)}, "
         f"base_commit_sha={_p(conn)}, blocked_reason=NULL WHERE id = {_p(conn)}",
-        (_now(), base_commit_sha, claim_id),
+        (instant_parameter(conn, _now()), base_commit_sha, claim_id),
     )
     conn.commit()
 
@@ -333,7 +330,18 @@ from yoke_core.domain.path_claims_terminal import cancel, release  # noqa: E402
 
 
 __all__ = [
-    "ClaimNotFound", "IllegalTransition", "IncompatibleOverlap", "InvalidActor",
-    "InvalidMode", "InvalidTargetSet", "InvalidWorkflowBinding", "PathClaimError",
-    "UpstreamNotReleased", "activate", "cancel", "get_claim", "register", "release",
+    "ClaimNotFound",
+    "IllegalTransition",
+    "IncompatibleOverlap",
+    "InvalidActor",
+    "InvalidMode",
+    "InvalidTargetSet",
+    "InvalidWorkflowBinding",
+    "PathClaimError",
+    "UpstreamNotReleased",
+    "activate",
+    "cancel",
+    "get_claim",
+    "register",
+    "release",
 ]

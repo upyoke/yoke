@@ -12,6 +12,8 @@ level without re-deriving either from local environment variables.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
 from typing import Any, List, Optional
 
 from yoke_core.domain import db_backend
@@ -54,7 +56,7 @@ class SessionIdentity:
     project_id: Optional[int] = None
     actor_id: Optional[int] = None
     mode: Optional[str] = None
-    ended_at: Optional[str] = None
+    ended_at: Optional[datetime] = None
 
 
 def _text(value: Any) -> str:
@@ -113,7 +115,7 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
         project_id=_optional_int(row[9]),
         actor_id=_optional_int(row[10]),
         mode=(str(row[11]) if row[11] is not None else None),
-        ended_at=(str(row[12]) if row[12] is not None else None),
+        ended_at=(parse_instant(row[12]) if row[12] is not None else None),
     )
 
 

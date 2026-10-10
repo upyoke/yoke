@@ -26,6 +26,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+
+from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 import re
 
 
@@ -53,13 +55,19 @@ class NativeCapture:
     stdout: bytes
     stderr: bytes
     exit_code: int | None = None
-    exit_at: str | None = None
+    exit_at: datetime | None = None
     #: When the native itself last said anything. The envelope's own
     #: modification time cannot answer that once the supervisor refreshes it
     #: on a fixed interval -- that clock reports the supervisor, and this one
     #: reports the native, which is the half a stall is measured against.
     #: Absent on a capture written before this line existed.
-    last_output_at: str | None = None
+    last_output_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        for field in ("exit_at", "last_output_at"):
+            value = getattr(self, field)
+            if value is not None:
+                object.__setattr__(self, field, parse_instant(value))
 
     @property
     def exited(self) -> bool:
@@ -71,30 +79,9 @@ class NativeCapture:
         return capture_tail(self.stderr) or capture_tail(self.stdout)
 
 
-#: The one stamp shape this envelope writes and reads back.
-_STAMP_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
-
-
 def utc_stamp(now: float) -> str:
-    """Render one capture timestamp in the stamp shape evidence carries."""
-    return datetime.fromtimestamp(now, timezone.utc).strftime(_STAMP_FORMAT)
-
-
-def stamp_seconds(value: str | None) -> float | None:
-    """Read one of this envelope's own stamps back, or ``None``.
-
-    The inverse of :func:`utc_stamp` lives beside it because this module owns
-    the shape; a reader that wants the difference between a capture's clock
-    and now would otherwise reimplement the format, or reach across a package
-    boundary for a parser that answers a different question.
-    """
-    if not value:
-        return None
-    try:
-        parsed = datetime.strptime(value.strip(), _STAMP_FORMAT)
-    except (TypeError, ValueError):
-        return None
-    return parsed.replace(tzinfo=timezone.utc).timestamp()
+    """Format the operating system's epoch-seconds clock at the capture boundary."""
+    return format_instant(datetime.fromtimestamp(now, timezone.utc))
 
 
 def capture_tail(stream: bytes) -> str:
@@ -125,18 +112,18 @@ def compose_capture(
     stderr: bytes,
     state: str = STATE_EXITED,
     exit_code: int | None = None,
-    exit_at: str | None = None,
-    last_output_at: str | None = None,
+    exit_at: datetime | str | None = None,
+    last_output_at: datetime | str | None = None,
 ) -> bytes:
     """Render one complete envelope, with both streams capped independently."""
     lines = [CAPTURE_HEADER, f"state: {state}".encode()]
-    if last_output_at:
-        lines.append(f"last-output-at: {last_output_at}".encode())
+    if last_output_at is not None:
+        lines.append(f"last-output-at: {format_instant(last_output_at)}".encode())
     if state == STATE_EXITED:
         code = "unknown" if exit_code is None else str(int(exit_code))
         lines.append(f"exit-code: {code}".encode())
-        if exit_at:
-            lines.append(f"exit-at: {exit_at}".encode())
+        if exit_at is not None:
+            lines.append(f"exit-at: {format_instant(exit_at)}".encode())
     header = b"\n".join(lines) + b"\n"
     return b"".join(
         (
@@ -176,13 +163,22 @@ def parse_capture(payload: bytes) -> NativeCapture | None:
         exit_code = int(raw_code)
     except ValueError:
         exit_code = None
+    try:
+        exit_at = parse_instant(values["exit-at"]) if "exit-at" in values else None
+        last_output_at = (
+            parse_instant(values["last-output-at"])
+            if "last-output-at" in values
+            else None
+        )
+    except InvalidInstant:
+        return None
     return NativeCapture(
         state=values.get("state") or STATE_EXITED,
         stdout=stdout,
         stderr=stderr if stderr_separator else b"",
         exit_code=exit_code,
-        exit_at=values.get("exit-at") or None,
-        last_output_at=values.get("last-output-at") or None,
+        exit_at=exit_at,
+        last_output_at=last_output_at,
     )
 
 
@@ -201,6 +197,5 @@ __all__ = [
     "elision_notice",
     "compose_capture",
     "parse_capture",
-    "stamp_seconds",
     "utc_stamp",
 ]

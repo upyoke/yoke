@@ -8,15 +8,14 @@ import json
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
+from yoke_core.domain.handlers import direct_workflow_execution as execution_handlers
+from yoke_core.domain.handlers import field_note_dash_promotion as promotion_handlers
 from yoke_core.domain import (
     conflict_survey_gate,
     dash_evidence_gate,
     doc_completion_gate,
 )
-from yoke_core.domain.conflict_survey import (
-    record_conflict_survey,
-    survey_conflicts,
-)
+from yoke_core.domain.conflict_survey import record_conflict_survey, survey_conflicts
 from yoke_core.domain.dash_execution import (
     evaluate_dash_evidence,
     record_dash_escalation,
@@ -35,8 +34,7 @@ from yoke_core.domain.strategy_execution_schema import (
 def _item_sections_contract(test_db):
     test_db.execute(
         "CREATE TABLE IF NOT EXISTS item_sections ("
-        "item_id INTEGER NOT NULL REFERENCES items(id), "
-        "section_name TEXT NOT NULL, content TEXT NOT NULL, "
+        "item_id INTEGER NOT NULL REFERENCES items(id), section_name TEXT NOT NULL, content TEXT NOT NULL, "
         "ordering INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL, "
         "created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL, "
         "PRIMARY KEY(item_id, section_name))"
@@ -226,6 +224,26 @@ def test_field_note_promotion_is_idempotent(test_db, monkeypatch):
     assert len(calls) == 1
     assert calls[0]["entry_surface"] == "promotion"
     assert calls[0]["workflow"] == "dash"
+
+
+def test_registered_execution_functions_keep_claim_boundaries_explicit():
+    registrations = {
+        row["function_id"]: row
+        for row in [
+            *execution_handlers.REGISTRATIONS,
+            *promotion_handlers.REGISTRATIONS,
+        ]
+    }
+
+    assert registrations["direct_workflow.dash.survey"]["claim_required_kind"] is None
+    assert registrations["direct_workflow.blitz.survey"]["claim_required_kind"] is None
+    assert (
+        registrations["direct_workflow.dash.evidence"]["claim_required_kind"] == "item"
+    )
+    assert (
+        registrations["direct_workflow.dash.escalate"]["claim_required_kind"] == "item"
+    )
+    assert registrations["ouroboros.field_note.promote"]["claim_required_kind"] is None
 
 
 class _NonClosingConnection:

@@ -32,8 +32,9 @@ from yoke_core.domain.qa_browser_freshness_check import (
 from yoke_core.domain.qa_gate_definitions import GateTarget, LatestCodeRef
 from yoke_core.domain.qa_gate_summary import _format_text, render_gate_summary
 from yoke_core.domain.qa_gates import check_done_gate
+from yoke_contracts.timestamps import parse_instant
 
-RETRACTED_AT = "2026-10-02T04:14:24Z"
+RETRACTED_AT = "2026-10-02T04:14:24.000000Z"
 
 
 def _retire(conn, requirement_id):
@@ -210,7 +211,10 @@ def test_run_settlement_closes_retracted_source_with_accepted_replacement(
     retired = test_db.execute(
         "SELECT retracted_at,waived_at FROM qa_requirements WHERE id=%s", (retired_id,)
     ).fetchone()
-    assert retired["retracted_at"] == RETRACTED_AT and retired["waived_at"] is None
+    assert (
+        retired["retracted_at"] == parse_instant(RETRACTED_AT)
+        and retired["waived_at"] is None
+    )
     assert (
         test_db.execute(
             "SELECT status FROM deployment_runs WHERE id=%s", (run_id,)
@@ -255,7 +259,7 @@ def test_terminal_readers_ignore_retired_pending_runs(test_db):
     insert_qa_run(test_db, qa_requirement_id=retired_id, verdict=None)
     _retire(test_db, retired_id)
     [history] = _blocking_requirement_rows(test_db, item_id)
-    assert history["retracted_at"] == RETRACTED_AT
+    assert history["retracted_at"] == parse_instant(RETRACTED_AT)
     assert find_unsettled_records(test_db, item_id=item_id) == []
     assert (
         blocking_requirement_issues(

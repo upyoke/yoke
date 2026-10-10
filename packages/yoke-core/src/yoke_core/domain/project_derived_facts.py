@@ -25,7 +25,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.schema_common import _column_exists
 
 
@@ -209,7 +209,7 @@ def _write_rows(
     rows: List[Tuple[str, bool, str, str]],
 ) -> bool:
     p = _p(conn)
-    now = iso8601_now()
+    now = utc_now()
     try:
         for fact_key, present, value, observed_from in rows:
             updated = conn.execute(
@@ -220,7 +220,7 @@ def _write_rows(
                 (
                     1 if present else 0,
                     value,
-                    now,
+                    instant_parameter(conn, now),
                     observed_from,
                     project_id,
                     fact_key,
@@ -237,7 +237,7 @@ def _write_rows(
                         fact_key,
                         1 if present else 0,
                         value,
-                        now,
+                        instant_parameter(conn, now),
                         observed_from,
                     ),
                 )

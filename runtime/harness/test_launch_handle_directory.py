@@ -119,9 +119,13 @@ def test_a_live_hook_written_handle_is_not_reported_dead(tmp_path: Path) -> None
     assert dead == ()
 
 
-def test_a_landed_report_prunes_the_hook_written_handle(tmp_path: Path, monkeypatch) -> None:
+def test_a_landed_report_prunes_the_hook_written_handle(
+    tmp_path: Path, monkeypatch
+) -> None:
     assert _hook_written_handle(os.getpid())
-    monkeypatch.setattr("yoke_harness.session_process_custody.group_members", lambda group: {})
+    monkeypatch.setattr(
+        "yoke_harness.session_process_custody.group_members", lambda group: {}
+    )
     dispatcher = _Dispatcher([SESSION_ID])
 
     ended = report_verified_dead_sessions(

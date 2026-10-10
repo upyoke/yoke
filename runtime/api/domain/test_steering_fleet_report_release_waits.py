@@ -25,7 +25,7 @@ from yoke_core.domain.steering_fleet_report_landed_open import (
 from yoke_core.domain.steering_fleet_report_render import report_body
 
 
-NOW = "2026-10-01T18:20:00Z"
+NOW = "2026-10-01T18:20:00.000000Z"
 IDLE_SECONDS = 20 * 60
 
 

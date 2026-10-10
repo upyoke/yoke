@@ -1,110 +1,25 @@
+# ruff: noqa: F811
 """Tests for service_client item-query commands."""
 
 from __future__ import annotations
 
+from runtime.api.service_client_item_query_test_support import test_db  # noqa: F401
+
+
 import json
 
-import pytest
 
-from runtime.api.fixtures.file_test_db import (
-    apply_inline_ddl,
-    connect_test_db,
-    init_test_db,
-)
+from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
-
-_ITEMS_DDL = """
-CREATE TABLE projects (
-    id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
-    public_item_prefix TEXT NOT NULL DEFAULT 'YOK'
-);
-CREATE TABLE items (
-    id INTEGER PRIMARY KEY, title TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'idea', priority TEXT NOT NULL DEFAULT 'medium',
-    frozen INTEGER DEFAULT 0, blocked INTEGER DEFAULT 0, blocked_reason TEXT,
-    github_issue TEXT, deployed_to TEXT, merged_at TEXT,
-    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, source TEXT NOT NULL DEFAULT '2',
-    project_id INTEGER NOT NULL REFERENCES projects(id),
-    project_sequence INTEGER NOT NULL,
-    deployment_flow TEXT, deploy_stage TEXT,
-    UNIQUE(project_id, project_sequence)
-);
-CREATE TABLE deployment_flows (
-    id TEXT PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES projects(id), name TEXT NOT NULL, description TEXT,
-    stages TEXT NOT NULL, on_failure TEXT DEFAULT 'halt', created_at TEXT NOT NULL,
-    target_tier TEXT DEFAULT NULL, target_environment_id TEXT DEFAULT NULL,
-    done_description TEXT DEFAULT NULL,
-    UNIQUE(project_id, name)
-);
-"""
-
-_SEED_ITEMS = [
-    (1, "Active item", "implementing", "high", 1, 1, 0),
-    (2, "Done item", "done", "medium", 1, 2, 0),
-    (3, "Cancelled item", "cancelled", "low", 1, 3, 0),
-    (4, "Frozen item", "idea", "medium", 1, 4, 1),
-    (5, "ExternalWebapp active", "implementing", "medium", 2, 1, 0),
-]
-
-
-def _seed_items_and_flow() -> None:
-    """``apply_schema`` strategy: minimal schema + fixture rows."""
-    from yoke_core.domain import db_backend
-
-    apply_inline_ddl(_ITEMS_DDL)
-    conn = db_backend.connect()
-    try:
-        from yoke_core.domain import workflow_registry, workflow_schema
-
-        workflow_schema.ensure_workflow_schema(conn)
-        workflow_registry.converge_builtin_workflows(conn)
-        workflow_pin = workflow_registry.resolve_current_workflow_pin(conn, "issue")
-        workflow_id, workflow_version_id = workflow_pin
-        stages_json = json.dumps([
-            {"name": "merged", "step_runner": "auto"},
-            {"name": "approve-deploy", "step_runner": "human-approval"},
-            {"name": "prod-deploy", "step_runner": "github-actions-workflow"},
-            {"name": "complete", "step_runner": "auto"},
-        ])
-        conn.execute(
-            "INSERT INTO projects (id, slug, name, public_item_prefix) "
-            "VALUES (1, 'yoke', 'Yoke', 'YOK'), (2, 'externalwebapp', 'ExternalWebapp', 'EXT')"
-        )
-        conn.execute(
-            """INSERT INTO deployment_flows (id, project_id, name, stages, created_at)
-               VALUES ('test-flow', 1, 'TestFlow', %s, %s)""",
-            (stages_json, "2026-04-20T00:00:00Z"),
-        )
-        for item_id, title, status, priority, project_id, project_sequence, frozen in _SEED_ITEMS:
-            conn.execute(
-                """INSERT INTO items (
-                                      id, title, workflow_id, workflow_version_id,
-                                      status, priority, project_id, project_sequence,
-                                      created_at, updated_at, source, frozen)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s,
-                           '2026-01-01', '2026-01-01', 'user', %s)""",
-                (
-                    item_id, title, workflow_id, workflow_version_id,
-                    status, priority, project_id, project_sequence, frozen,
-                ),
-            )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-@pytest.fixture()
-def test_db(tmp_path):
-    """Backend-aware fixture seeding the deployment flow + items."""
-    with init_test_db(tmp_path, apply_schema=_seed_items_and_flow) as db_path:
-        yield {"db_path": db_path}
 
 
 class TestApproveCheck:
     """Regression tests for approve-check (approval semantics via domain layer)."""
 
     def test_valid_approval_returns_next_stage(self, test_db):
-        result = _run_client(["approve-check", "test-flow", "approve-deploy"], db_path=test_db["db_path"])
+        result = _run_client(
+            ["approve-check", "test-flow", "approve-deploy"], db_path=test_db["db_path"]
+        )
         assert result.returncode == 0
         data = json.loads(result.stdout.strip())
         assert data["approved"] is True
@@ -113,17 +28,25 @@ class TestApproveCheck:
         assert data["flow_id"] == "test-flow"
 
     def test_non_approval_stage_rejected(self, test_db):
-        result = _run_client(["approve-check", "test-flow", "merged"], db_path=test_db["db_path"])
+        result = _run_client(
+            ["approve-check", "test-flow", "merged"], db_path=test_db["db_path"]
+        )
         assert result.returncode == 1
         assert "not a human-approval stage" in result.stderr
 
     def test_unknown_stage_rejected(self, test_db):
-        result = _run_client(["approve-check", "test-flow", "nonexistent-stage"], db_path=test_db["db_path"])
+        result = _run_client(
+            ["approve-check", "test-flow", "nonexistent-stage"],
+            db_path=test_db["db_path"],
+        )
         assert result.returncode == 1
         assert "does not match any stage" in result.stderr
 
     def test_unknown_flow_rejected(self, test_db):
-        result = _run_client(["approve-check", "nonexistent-flow", "approve-deploy"], db_path=test_db["db_path"])
+        result = _run_client(
+            ["approve-check", "nonexistent-flow", "approve-deploy"],
+            db_path=test_db["db_path"],
+        )
         assert result.returncode == 1
         assert "not found" in result.stderr
 
@@ -134,10 +57,12 @@ class TestApproveCheck:
     def test_last_stage_approval_returns_complete(self, test_db):
         """Approving the last human-approval stage (if it were last) returns 'complete'."""
         conn = connect_test_db(test_db["db_path"])
-        stages = json.dumps([
-            {"name": "merged", "step_runner": "auto"},
-            {"name": "approve-final", "step_runner": "human-approval"},
-        ])
+        stages = json.dumps(
+            [
+                {"name": "merged", "step_runner": "auto"},
+                {"name": "approve-final", "step_runner": "human-approval"},
+            ]
+        )
         conn.execute(
             """INSERT INTO deployment_flows (id, project_id, name, stages, created_at)
                VALUES ('final-flow', 1, 'FinalFlow', %s, '2026-04-20T00:00:00Z')""",
@@ -146,7 +71,9 @@ class TestApproveCheck:
         conn.commit()
         conn.close()
 
-        result = _run_client(["approve-check", "final-flow", "approve-final"], db_path=test_db["db_path"])
+        result = _run_client(
+            ["approve-check", "final-flow", "approve-final"], db_path=test_db["db_path"]
+        )
         assert result.returncode == 0
         data = json.loads(result.stdout.strip())
         assert data["approved"] is True
@@ -155,8 +82,11 @@ class TestApproveCheck:
 
 class TestActiveQueue:
     """Regression tests for active-queue (query path via domain layer)."""
+
     def test_excludes_done_cancelled_frozen(self, test_db):
-        result = _run_client(["active-queue", "--fields", "id,title,status"], db_path=test_db["db_path"])
+        result = _run_client(
+            ["active-queue", "--fields", "id,title,status"], db_path=test_db["db_path"]
+        )
         assert result.returncode == 0
         lines = [line for line in result.stdout.strip().split("\n") if line]
         # Public refs for active rows are included; terminal/frozen refs are excluded.
@@ -168,14 +98,20 @@ class TestActiveQueue:
         assert "YOK-4" not in ids, "Frozen item should be excluded"
 
     def test_project_filter(self, test_db):
-        result = _run_client(["active-queue", "--project", "externalwebapp", "--fields", "id,title"], db_path=test_db["db_path"])
+        result = _run_client(
+            ["active-queue", "--project", "externalwebapp", "--fields", "id,title"],
+            db_path=test_db["db_path"],
+        )
         assert result.returncode == 0
         lines = [line for line in result.stdout.strip().split("\n") if line]
         assert len(lines) == 1
         assert "ExternalWebapp active" in lines[0]
 
     def test_empty_queue(self, test_db):
-        result = _run_client(["active-queue", "--project", "nonexistent", "--fields", "id"], db_path=test_db["db_path"])
+        result = _run_client(
+            ["active-queue", "--project", "nonexistent", "--fields", "id"],
+            db_path=test_db["db_path"],
+        )
         assert result.returncode == 0
         assert result.stdout.strip() == ""
 
@@ -190,8 +126,15 @@ class TestActiveQueue:
 
 class TestValidateStatus:
     def test_valid_statuses(self):
-        for status in ["idea", "refined-idea", "implementing", "reviewing-implementation",
-                       "implemented", "release", "cancelled"]:
+        for status in [
+            "idea",
+            "refined-idea",
+            "implementing",
+            "reviewing-implementation",
+            "implemented",
+            "release",
+            "cancelled",
+        ]:
             result = _run_client(["validate-status", status])
             assert result.returncode == 0, f"{status} should be valid"
             assert result.stdout.strip() == "valid"
@@ -222,9 +165,15 @@ class TestValidateTransition:
             ("release", "done"),
         ]
         for from_s, to_s in forward_pairs:
-            result = _run_client([
-                "validate-transition", from_s, to_s, "--workflow", "epic",
-            ])
+            result = _run_client(
+                [
+                    "validate-transition",
+                    from_s,
+                    to_s,
+                    "--workflow",
+                    "epic",
+                ]
+            )
             assert result.returncode == 0, f"{from_s}->{to_s} should be forward"
 
     def test_backward_transitions(self):
@@ -236,28 +185,54 @@ class TestValidateTransition:
             ("release", "implementing"),
         ]
         for from_s, to_s in backward_pairs:
-            result = _run_client([
-                "validate-transition", from_s, to_s, "--workflow", "epic",
-            ])
+            result = _run_client(
+                [
+                    "validate-transition",
+                    from_s,
+                    to_s,
+                    "--workflow",
+                    "epic",
+                ]
+            )
             assert result.returncode == 1, f"{from_s}->{to_s} should not be forward"
 
     def test_exceptional_status_not_in_progression(self):
-        result = _run_client([
-            "validate-transition", "implementing", "blocked", "--workflow", "epic",
-        ])
+        result = _run_client(
+            [
+                "validate-transition",
+                "implementing",
+                "blocked",
+                "--workflow",
+                "epic",
+            ]
+        )
         assert result.returncode == 1, "blocked is exceptional, not in progression"
 
     def test_issue_workflow_forward(self):
-        result = _run_client(["validate-transition", "refined-idea", "implementing", "--workflow", "issue"])
-        assert result.returncode == 0, "refined-idea->implementing is forward for issues"
+        result = _run_client(
+            [
+                "validate-transition",
+                "refined-idea",
+                "implementing",
+                "--workflow",
+                "issue",
+            ]
+        )
+        assert result.returncode == 0, (
+            "refined-idea->implementing is forward for issues"
+        )
 
     def test_issue_workflow_rejects_epic_only_stage(self):
         # planning is in the epic progression but not the issue progression
-        result = _run_client(["validate-transition", "refined-idea", "planning", "--workflow", "issue"])
+        result = _run_client(
+            ["validate-transition", "refined-idea", "planning", "--workflow", "issue"]
+        )
         assert result.returncode == 1, "planning is not in the issue progression"
 
     def test_epic_workflow_accepts_planning(self):
-        result = _run_client(["validate-transition", "refined-idea", "planning", "--workflow", "epic"])
+        result = _run_client(
+            ["validate-transition", "refined-idea", "planning", "--workflow", "epic"]
+        )
         assert result.returncode == 0, "refined-idea->planning is forward for epics"
 
     def test_workflow_is_required(self):
@@ -266,7 +241,9 @@ class TestValidateTransition:
         assert "--workflow WORKFLOW" in result.stderr
 
     def test_workflow_flag_uses_current_registry_version(self, test_db):
-        from runtime.api.workflow_version_test_helpers import publish_issue_completion_stage
+        from runtime.api.workflow_version_test_helpers import (
+            publish_issue_completion_stage,
+        )
 
         conn = connect_test_db(test_db["db_path"])
         try:
@@ -280,7 +257,9 @@ class TestValidateTransition:
         assert result.returncode == 0
 
     def test_unknown_argument_returns_2(self):
-        result = _run_client(["validate-transition", "idea", "refining-idea", "--bad-flag"])
+        result = _run_client(
+            ["validate-transition", "idea", "refining-idea", "--bad-flag"]
+        )
         assert result.returncode == 2
 
 
@@ -337,6 +316,7 @@ class TestItemProgressStaleView:
 
     def test_item_progress_works_after_view_refresh(self, test_db):
         from yoke_core.domain.flow_init import create_or_replace_item_progress_view
+
         self._install_stale_view(test_db["db_path"])
         conn = connect_test_db(test_db["db_path"])
         try:

@@ -7,6 +7,9 @@ the mark and names the enable command when a launch or native resume refuses.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+
 from typing import Any
 from uuid import uuid4
 
@@ -47,8 +50,12 @@ def _row(row: Any) -> dict[str, Any]:
         "evidence": record.get("evidence"),
         "set_by_actor_id": int(record["set_by_actor_id"]),
         "set_by_session_id": record.get("set_by_session_id"),
-        "created_at": str(record["created_at"]),
-        "cleared_at": record.get("cleared_at"),
+        "created_at": format_instant(record["created_at"]),
+        "cleared_at": (
+            None
+            if record.get("cleared_at") is None
+            else format_instant(record["cleared_at"])
+        ),
         "cleared_by_actor_id": record.get("cleared_by_actor_id"),
     }
 
@@ -109,7 +116,8 @@ def set_mark(
     now: str | None = None,
 ) -> dict[str, Any]:
     """Disable one (machine, surface), replacing any live mark in place."""
-    current = now or utc_now()
+    now = parse_instant(utc_now() if now is None else now)
+    current = now
     existing = live_mark(conn, machine_id, surface)
     placeholder = marker(conn)
     if existing is not None:
@@ -125,7 +133,14 @@ def set_mark(
             + ", created_at = "
             + placeholder
             + f" WHERE mark_id = {placeholder}",
-            (reason, evidence, int(actor_id), session_id, current, existing["mark_id"]),
+            (
+                reason,
+                evidence,
+                int(actor_id),
+                session_id,
+                instant_parameter(conn, current),
+                existing["mark_id"],
+            ),
         )
         mark = live_mark(conn, machine_id, surface)
         if mark is None:
@@ -147,7 +162,7 @@ def set_mark(
             evidence,
             int(actor_id),
             session_id,
-            current,
+            instant_parameter(conn, current),
         ),
     )
     return {
@@ -159,7 +174,7 @@ def set_mark(
         "evidence": evidence,
         "set_by_actor_id": int(actor_id),
         "set_by_session_id": session_id,
-        "created_at": current,
+        "created_at": format_instant(current),
         "cleared_at": None,
         "cleared_by_actor_id": None,
     }
@@ -173,6 +188,7 @@ def clear_mark(
     actor_id: int,
     now: str | None = None,
 ) -> dict[str, Any]:
+    now = parse_instant(utc_now() if now is None else now)
     existing = live_mark(conn, machine_id, surface)
     if existing is None:
         raise SurfacePolicyError(
@@ -181,7 +197,7 @@ def clear_mark(
             "list with `yoke session-control surface-policy list "
             f"--machine {machine_id}`",
         )
-    current = now or utc_now()
+    current = now
     placeholder = marker(conn)
     conn.execute(
         "UPDATE session_surface_policies SET cleared_at = "
@@ -189,9 +205,9 @@ def clear_mark(
         + ", cleared_by_actor_id = "
         + placeholder
         + f" WHERE mark_id = {placeholder}",
-        (current, int(actor_id), existing["mark_id"]),
+        (instant_parameter(conn, current), int(actor_id), existing["mark_id"]),
     )
-    existing["cleared_at"] = current
+    existing["cleared_at"] = format_instant(current)
     existing["cleared_by_actor_id"] = int(actor_id)
     return existing
 

@@ -29,8 +29,8 @@ CREATE TABLE qa_requirements (
     qa_kind TEXT NOT NULL,
     qa_phase TEXT NOT NULL,
     blocking_mode TEXT NOT NULL DEFAULT 'blocking',
-    waived_at TEXT,
-    created_at TEXT
+    waived_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ
 );
 CREATE TABLE qa_runs (
     id INTEGER PRIMARY KEY,
@@ -39,7 +39,7 @@ CREATE TABLE qa_runs (
     qa_kind TEXT,
     verdict TEXT,
     raw_result TEXT,
-    created_at TEXT
+    created_at TIMESTAMPTZ
 );
 """
 
@@ -52,8 +52,7 @@ ITEMS_ONLY_SCHEMA = "CREATE TABLE items (id INTEGER PRIMARY KEY, title TEXT);"
 def _apply_qa_schema() -> None:
     """``apply_schema`` strategy building ``QA_SCHEMA`` on the resolved test DB.
 
-    Resolves its connection through the backend factory (``YOKE_DB`` on
-    SQLite, the repointed ``YOKE_PG_DSN`` on Postgres).
+    Resolves its disposable PostgreSQL connection through the backend factory.
     """
     _apply_inline_schema(QA_SCHEMA)
     conn = db_backend.connect()
@@ -80,11 +79,7 @@ def _apply_inline_schema(schema_sql: str) -> None:
 
 @pytest.fixture
 def qa_db(tmp_path: Path):
-    # The seam owns the per-test DB lifecycle: a real file under tmp_path on
-    # SQLite, a disposable per-test database (dropped on context exit) on
-    # Postgres. The test body runs while this generator is suspended at the
-    # yield, so the repointed YOKE_PG_DSN init_test_db keeps active selects
-    # the per-test database for the code-under-test on Postgres.
+    # The helper owns a disposable PostgreSQL database while this fixture yields.
     with init_test_db(tmp_path, apply_schema=_apply_qa_schema) as db_path:
         with mock.patch.dict(os.environ, {"YOKE_DB": db_path}, clear=False):
             conn = connect_test_db(db_path)

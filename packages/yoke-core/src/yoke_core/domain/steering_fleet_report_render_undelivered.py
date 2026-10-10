@@ -16,6 +16,8 @@ and stops, because there is no route to suggest and nothing to revive.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from typing import Sequence
 
 from yoke_contracts.session_control.evidence_fetch import evidence_pull_suffix
@@ -84,11 +86,11 @@ def _state_phrase(entry: UndeliveredMessages) -> str:
         # when a release becomes possible rather than offering one.
         return (
             "never injected, wake queued but unattempted — releasable at "
-            f"{entry.wake_releasable_at}"
+            f"{format_instant(entry.wake_releasable_at)}"
         )
     if entry.delivery_state == TURN_IN_FLIGHT:
         return (
-            f"recipient turn in flight since {entry.turn_in_flight_since} — "
+            f"recipient turn in flight since {format_instant(entry.turn_in_flight_since)} — "
             "waits for that call's hook, no resume"
         )
     if entry.delivery_state == ATTEMPT_FAILED:
@@ -111,7 +113,7 @@ def _state_phrase(entry: UndeliveredMessages) -> str:
         # rather than to recruit a successor that cannot acknowledge it.
         settle = cancel_recovery(entry.message_ids[0] if entry.message_ids else None)
         return (
-            f"{phrase} {entry.recipient_gone_at} — no delivery route remains; "
+            f"{phrase} {format_instant(entry.recipient_gone_at)} — no delivery route remains; "
             f"settle with `{settle}`"
         )
     return phrase

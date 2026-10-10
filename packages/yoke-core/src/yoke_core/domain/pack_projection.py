@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+from yoke_contracts.timestamps import parse_instant, utc_now
 from typing import Any, Iterable, Mapping
 
 from yoke_core.domain import db_backend, db_helpers, json_helper
@@ -20,7 +21,7 @@ CREATE TABLE IF NOT EXISTS pack_catalog (
     dependencies_json TEXT NOT NULL, -- -> JSONB on Postgres
     documentation TEXT NOT NULL,
     file_count INTEGER NOT NULL,
-    observed_at TEXT NOT NULL
+    observed_at TIMESTAMPTZ NOT NULL
 )
 """
 
@@ -29,7 +30,7 @@ CREATE TABLE IF NOT EXISTS project_pack_reports (
     project_id INTEGER PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
     receipt_digest TEXT NOT NULL,
     pack_count INTEGER NOT NULL,
-    reported_at TEXT NOT NULL
+    reported_at TIMESTAMPTZ NOT NULL
 )
 """
 
@@ -107,7 +108,7 @@ def converge_pack_catalog(conn: Any) -> None:
     """Project the Pack descriptors shipped by this server build into the DB."""
 
     create_pack_projection_tables(conn)
-    now = db_helpers.iso8601_now()
+    now = db_helpers.utc_now()
     for row in catalog_rows():
         conn.execute(
             "INSERT INTO pack_catalog("
@@ -127,7 +128,7 @@ def converge_pack_catalog(conn: Any) -> None:
                 json_helper.dumps_compact(row["dependencies"]),
                 row["documentation"],
                 row["file_count"],
-                now,
+                db_helpers.instant_parameter(conn, now),
             ),
         )
 
@@ -148,7 +149,7 @@ def report_project_packs(
     slugs = [row["slug"] for row in rows]
     if len(slugs) != len(set(slugs)):
         raise PackProjectionError("Pack report contains duplicate slugs")
-    now = db_helpers.iso8601_now()
+    now = db_helpers.utc_now()
     conn.execute(
         "DELETE FROM project_pack_report_entries WHERE project_id=%s", (identity.id,)
     )
@@ -170,7 +171,12 @@ def report_project_packs(
         ") VALUES(%s,%s,%s,%s) ON CONFLICT(project_id) DO UPDATE SET "
         "receipt_digest=EXCLUDED.receipt_digest, pack_count=EXCLUDED.pack_count, "
         "reported_at=EXCLUDED.reported_at",
-        (identity.id, receipt_digest, len(rows), now),
+        (
+            identity.id,
+            receipt_digest,
+            len(rows),
+            db_helpers.instant_parameter(conn, now),
+        ),
     )
     return {
         "project_id": identity.id,
@@ -279,18 +285,9 @@ def _row(row: Any, key: str) -> Any:
 
 
 def _report_is_fresh(raw: Any) -> bool:
-    if not raw:
+    if raw is None:
         return False
-    try:
-        observed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
-    except ValueError:
-        return False
-    if observed.tzinfo is None:
-        observed = observed.replace(tzinfo=timezone.utc)
-    return (
-        datetime.now(timezone.utc) - observed.astimezone(timezone.utc)
-        <= PACK_REPORT_FRESHNESS
-    )
+    return utc_now() - parse_instant(raw) <= PACK_REPORT_FRESHNESS
 
 
 __all__ = [

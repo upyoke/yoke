@@ -29,8 +29,8 @@ def _projects_table_sql(*, if_not_exists: bool) -> str:
             github_repo TEXT,
             public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
             github_sync_mode {github_sync_mode_column_sql()},
-            retired_at TEXT,
-            created_at TEXT NOT NULL
+            retired_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL
         );
     """
 
@@ -43,7 +43,7 @@ _INIT_TABLES_SQL = f"""
                 project_id INTEGER NOT NULL REFERENCES projects(id),
                 name TEXT NOT NULL,
                 description TEXT,
-                created_at TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL,
                 settings TEXT DEFAULT '{{}}',
                 UNIQUE(id, project_id),
                 UNIQUE(project_id, name)
@@ -59,8 +59,8 @@ _INIT_TABLES_SQL = f"""
                 deploy_command TEXT,
                 health_check_url TEXT,
                 config_notes TEXT,
-                last_deployed_at TEXT,
-                created_at TEXT NOT NULL,
+                last_deployed_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL,
                 settings TEXT DEFAULT '{{}}',
                 UNIQUE(project_id, name),
                 FOREIGN KEY(site, project_id)
@@ -73,7 +73,7 @@ _INIT_TABLES_SQL = f"""
                 description TEXT,
                 required_config TEXT NOT NULL,
                 requires TEXT DEFAULT '[]',
-                created_at TEXT NOT NULL
+                created_at TIMESTAMPTZ NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS project_capabilities (
@@ -81,8 +81,8 @@ _INIT_TABLES_SQL = f"""
                 project_id INTEGER NOT NULL REFERENCES projects(id),
                 type TEXT NOT NULL,
                 settings TEXT DEFAULT '{{}}',
-                verified_at TEXT,
-                created_at TEXT NOT NULL,
+                verified_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL,
                 UNIQUE(project_id, type)
             );
 
@@ -97,11 +97,11 @@ _INIT_TABLES_SQL = f"""
                 port_web INTEGER,
                 url TEXT,
                 status TEXT NOT NULL DEFAULT 'pending',
-                started_at TEXT,
-                stopped_at TEXT,
+                started_at TIMESTAMPTZ,
+                stopped_at TIMESTAMPTZ,
                 health_check_url TEXT,
                 deployed_sha TEXT,
-                created_at TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL,
                 UNIQUE(project_id, branch)
             );
 
@@ -113,7 +113,7 @@ _INIT_TABLES_SQL = f"""
                 value TEXT NOT NULL DEFAULT '',
                 source TEXT NOT NULL DEFAULT 'literal'
                     CHECK(source = 'literal'),
-                created_at TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL,
                 UNIQUE(project_id, type, key)
             );
 

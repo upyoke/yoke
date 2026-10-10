@@ -7,12 +7,15 @@ total memory leaves after a reserve for the operating system, the browser,
 and the operator's own tools; ``max_worker_lanes`` in ``~/.yoke/config.json``
 settings overrides that derivation on the machine it describes.
 
-Values only ever leave the machine. The probe never raises: a platform it
-cannot read reports ``None`` for that field and the control plane treats an
-unknown as "no evidence of room", never as room.
+Values only ever leave the machine. A platform the hardware probe cannot read
+reports ``None`` for that field, which proves no room. The declared observation
+clock is admitted strictly before probing and formatted only at the wire.
 """
 
 from __future__ import annotations
+
+from datetime import datetime
+from yoke_contracts.timestamps import as_utc, format_instant, temporal_wire
 
 from dataclasses import asdict, dataclass
 import os
@@ -52,10 +55,13 @@ class MachineCapacityReading:
     core_count: int | None
     max_worker_lanes: int | None
     cap_source: str
-    observed_at: str
+    observed_at: datetime
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "observed_at", as_utc(self.observed_at))
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return temporal_wire(asdict(self))
 
 
 def free_memory_bytes() -> int | None:
@@ -148,9 +154,10 @@ def configured_lane_cap(settings: Mapping[str, Any] | None) -> int | None:
 def observe_machine_capacity(
     settings: Mapping[str, Any] | None,
     *,
-    observed_at: str,
+    observed_at: datetime,
 ) -> MachineCapacityReading:
     """Read this machine's capacity, resolving the cap from settings or memory."""
+    observed_at = as_utc(observed_at)
     total = total_memory_bytes()
     configured = configured_lane_cap(settings)
     if configured is not None:
@@ -176,6 +183,9 @@ def sanitize_machine_capacity(raw: Any) -> dict[str, Any]:
     cleaned: dict[str, Any] = {}
     for key in CAPACITY_KEYS:
         value = raw.get(key)
+        if key == "observed_at":
+            cleaned[key] = format_instant(value) if value is not None else None
+            continue
         if value is None or isinstance(value, bool):
             cleaned[key] = None
             continue

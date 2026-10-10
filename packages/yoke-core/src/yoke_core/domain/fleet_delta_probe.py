@@ -6,7 +6,9 @@ import argparse
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant, utc_now
 from typing import Any, Callable, Sequence, TextIO
 
 from yoke_core.domain.fleet_delta_alarms import DeltaState
@@ -77,7 +79,7 @@ def delta_wake_tier(line: str) -> str | None:
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return utc_now()
 
 
 def dispatch_call(function_id: str, payload: dict[str, Any]) -> Any:
@@ -122,10 +124,10 @@ def run(
     previous: FleetSnapshot | None = None
     consecutive_failures = 0
     report_state = ReportState()
-    started = clock()
+    started = parse_instant(clock())
 
     while True:
-        pass_at = clock()
+        pass_at = parse_instant(clock())
         try:
             current = read_snapshot(
                 projects,

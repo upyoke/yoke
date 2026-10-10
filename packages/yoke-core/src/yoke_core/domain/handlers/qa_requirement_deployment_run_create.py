@@ -213,7 +213,7 @@ def handle_deployment_run_requirement_add(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     """Insert one run-attached executable case and return its identity."""
-    from yoke_core.domain.db_helpers import connect, iso8601_now
+    from yoke_core.domain.db_helpers import connect, utc_now
     from yoke_core.domain.qa_events import emit_qa_requirement_event
 
     run_id = str(request.target.deployment_run_id or "").strip()
@@ -277,7 +277,7 @@ def handle_deployment_run_requirement_add(
                 refused,
                 jsonpath="$.payload.deployment_stage",
             )
-        cur = execute_insert(conn, subject, row, iso8601_now())
+        cur = execute_insert(conn, subject, row, utc_now())
         inserted_id = int(cur.fetchone()[0])
         conn.commit()
         emit_qa_requirement_event(

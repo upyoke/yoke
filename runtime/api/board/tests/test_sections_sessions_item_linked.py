@@ -37,8 +37,8 @@ CREATE TABLE work_claims (
     target_kind TEXT NOT NULL,
     scope TEXT NOT NULL,
     claim_type TEXT,
-    claimed_at TEXT,
-    released_at TEXT,
+    claimed_at TIMESTAMPTZ,
+    released_at TIMESTAMPTZ,
     release_reason TEXT
 );
 CREATE TABLE path_claims (
@@ -47,8 +47,8 @@ CREATE TABLE path_claims (
     owner_item_id INTEGER,
     owner_session_id TEXT,
     owner_work_claim_id INTEGER,
-    released_at TEXT,
-    cancelled_at TEXT,
+    released_at TIMESTAMPTZ,
+    cancelled_at TIMESTAMPTZ,
     release_reason TEXT,
     cancel_reason TEXT
 );
@@ -61,8 +61,8 @@ CREATE TABLE strategy_doc_claims (
     strategy_doc_slug TEXT,
     owner_kind TEXT,
     owner_session_id TEXT,
-    registered_at TEXT,
-    released_at TEXT
+    registered_at TIMESTAMPTZ,
+    released_at TIMESTAMPTZ
 );
 """
 

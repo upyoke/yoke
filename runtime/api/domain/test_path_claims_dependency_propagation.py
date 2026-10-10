@@ -47,7 +47,7 @@ def _ensure_dep_table(conn):
         "source TEXT NOT NULL, session_id INTEGER, "
         "rationale TEXT NOT NULL DEFAULT '', "
         "evidence_json TEXT NOT NULL DEFAULT '{}', "
-        "created_at TEXT NOT NULL)"
+        "created_at TIMESTAMPTZ NOT NULL)"
     )
     conn.commit()
 

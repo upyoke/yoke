@@ -8,6 +8,7 @@ from runtime.api.domain.handlers.deployment_handler_test_support import (
     deployment_request,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.deployment_run_terminalization import RunTerminalization
 from yoke_core.domain.handlers.deployment_run_terminalization import (
     handle_deployment_run_terminalize,
@@ -18,7 +19,8 @@ def _request(payload, actor_id="1"):
     return deployment_request(
         function="deployment_runs.terminalize",
         target=TargetRef(
-            kind="workflow_run", workflow_run_id="run-20260804-010",
+            kind="workflow_run",
+            workflow_run_id="run-20260804-010",
         ),
         payload=payload,
         actor_id=actor_id,
@@ -32,7 +34,7 @@ def test_handler_calls_the_guarded_domain_authority():
         prior_status="executing",
         final_status="cancelled",
         reason="No external job remains",
-        terminalized_at="2026-08-05T12:00:00Z",
+        terminalized_at=parse_instant("2026-08-05T12:00:00Z"),
         terminalized_by_actor_id=None,
         terminalized_by_session_id="s-1",
         event_id="event-1",
@@ -41,12 +43,20 @@ def test_handler_calls_the_guarded_domain_authority():
         "yoke_core.domain.deployment_run_terminalization.terminalize_run",
         return_value=result,
     ) as terminalize:
-        outcome = handle_deployment_run_terminalize(_request({
-            "disposition": "cancelled",
-            "reason": "No external job remains",
-        }, actor_id="operator"))
+        outcome = handle_deployment_run_terminalize(
+            _request(
+                {
+                    "disposition": "cancelled",
+                    "reason": "No external job remains",
+                },
+                actor_id="operator",
+            )
+        )
     assert outcome.primary_success is True
     assert outcome.result_payload["event_id"] == "event-1"
+    assert outcome.result_payload["terminalized_at"] == format_instant(
+        result.terminalized_at
+    )
     terminalize.assert_called_once_with(
         "run-20260804-010",
         disposition="cancelled",
@@ -57,9 +67,14 @@ def test_handler_calls_the_guarded_domain_authority():
 
 
 def test_handler_requires_reason():
-    missing_reason = handle_deployment_run_terminalize(_request({
-        "disposition": "failed", "reason": "  ",
-    }))
+    missing_reason = handle_deployment_run_terminalize(
+        _request(
+            {
+                "disposition": "failed",
+                "reason": "  ",
+            }
+        )
+    )
     assert missing_reason.error.code == "payload_invalid"
 
 

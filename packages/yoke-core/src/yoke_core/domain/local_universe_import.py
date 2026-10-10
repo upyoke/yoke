@@ -12,7 +12,9 @@ from __future__ import annotations
 import getpass
 import os
 import stat
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from pathlib import Path
 from typing import Optional
 
@@ -156,7 +158,7 @@ def _prepare_local_owner(conn: psycopg.Connection) -> dict[str, object]:
         raise LocalUniverseImportError("the imported universe has no admin role")
 
     name = _machine_owner_name()
-    now = datetime.now(timezone.utc).isoformat()
+    now = utc_now()
     # The imported universe's own human is the owner this machine takes
     # over; a name is not the identity, so an existing human is kept
     # whatever the archive called them and only a universe with none gets
@@ -166,7 +168,7 @@ def _prepare_local_owner(conn: psycopg.Connection) -> dict[str, object]:
         row = conn.execute(
             "INSERT INTO actors (kind, system_component, name, created_at) "
             "VALUES ('human', NULL, %s, %s) RETURNING id",
-            (name, now),
+            (name, instant_parameter(conn, now)),
         ).fetchone()
         if row is None:
             raise LocalUniverseImportError("the local owner actor could not be created")
@@ -179,7 +181,7 @@ def _prepare_local_owner(conn: psycopg.Connection) -> dict[str, object]:
         "(actor_id, org_id, role_id, granted_at, granted_by_actor_id) "
         "VALUES (%s, %s, %s, %s, %s) "
         "ON CONFLICT(actor_id, org_id, role_id) DO NOTHING",
-        (actor_id, org_id, int(role[0]), now, actor_id),
+        (actor_id, org_id, int(role[0]), instant_parameter(conn, now), actor_id),
     )
     metadata = json_helper.dumps_compact({"reason": "local_universe_import"})
     revoked_tokens = _revoke_api_tokens(
@@ -193,7 +195,7 @@ def _prepare_local_owner(conn: psycopg.Connection) -> dict[str, object]:
         "UPDATE web_sessions SET revoked_at = %s "
         "WHERE revoked_at IS NULL RETURNING 1"
         ") SELECT COUNT(*) FROM revoked",
-        (now,),
+        (instant_parameter(conn, now),),
     ).fetchone()
     # This machine now operates the imported universe, so record which
     # actor it does that as. Every later session reads that id instead of
@@ -220,7 +222,7 @@ def _revoke_api_tokens(
     *,
     actor_id: int,
     metadata: str,
-    now: str,
+    now: datetime | str,
 ) -> int:
     row = conn.execute(
         "WITH revoked AS ("
@@ -233,7 +235,12 @@ def _revoke_api_tokens(
         "SELECT id, %s, NULL, 'revoked', 'success', NULL, %s, %s "
         "FROM revoked RETURNING 1"
         ") SELECT COUNT(*) FROM audited",
-        (now, actor_id, metadata, now),
+        (
+            instant_parameter(conn, parse_instant(now)),
+            actor_id,
+            metadata,
+            instant_parameter(conn, parse_instant(now)),
+        ),
     ).fetchone()
     return int(row[0] or 0)
 

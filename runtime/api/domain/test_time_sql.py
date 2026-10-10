@@ -1,97 +1,41 @@
-"""Tests for :mod:`yoke_core.domain.time_sql`.
+"""Native SQL clock windows preserve instants across database session zones."""
 
-The helper never executes SQL; it returns Postgres fragments that are
-interpolated into larger query strings. These tests pin the emitted fragment
-shape.
-"""
-
-from __future__ import annotations
+from datetime import timedelta
 
 import pytest
 
-from yoke_core.domain.time_sql import now_sql
+from yoke_contracts.time_sql import now_sql
 
 
-class TestArgumentValidation:
-    def test_multiple_fixed_offsets_rejected(self) -> None:
-        with pytest.raises(ValueError, match="at most one of"):
-            now_sql(offset_days=-30, offset_hours=-1)
-
-    def test_fixed_and_modifier_rejected(self) -> None:
-        with pytest.raises(ValueError, match="mutually exclusive"):
-            now_sql(offset_days=-30, offset_modifier="%s")
-
-    def test_all_three_fixed_offsets_rejected(self) -> None:
-        with pytest.raises(ValueError, match="at most one of"):
-            now_sql(offset_days=-1, offset_hours=-1, offset_minutes=-1)
+@pytest.mark.parametrize(
+    "kwargs,reason",
+    [
+        ({"offset_days": -30, "offset_hours": -1}, "at most one of"),
+        ({"offset_days": -30, "offset_modifier": "%s"}, "mutually exclusive"),
+    ],
+)
+def test_ambiguous_clock_modifiers_refuse(kwargs, reason):
+    with pytest.raises(ValueError, match=reason):
+        now_sql(**kwargs)
 
 
-class TestPostgresFragments:
-    def test_bare_now(self) -> None:
-        assert now_sql() == (
-            "to_char((now() AT TIME ZONE 'utc'), 'YYYY-MM-DD HH24:MI:SS')"
-        )
-
-    def test_localtime_only(self) -> None:
-        assert now_sql(localtime=True) == (
-            "to_char(LOCALTIMESTAMP, 'YYYY-MM-DD HH24:MI:SS')"
-        )
-
-    def test_negative_days(self) -> None:
-        assert now_sql(offset_days=-30) == (
-            "to_char((now() AT TIME ZONE 'utc') + make_interval(days => -30), "
-            "'YYYY-MM-DD HH24:MI:SS')"
-        )
-
-    def test_positive_days(self) -> None:
-        assert now_sql(offset_days=7) == (
-            "to_char((now() AT TIME ZONE 'utc') + make_interval(days => 7), "
-            "'YYYY-MM-DD HH24:MI:SS')"
-        )
-
-    def test_zero_days(self) -> None:
-        assert now_sql(offset_days=0) == (
-            "to_char((now() AT TIME ZONE 'utc') + make_interval(days => 0), "
-            "'YYYY-MM-DD HH24:MI:SS')"
-        )
-
-    def test_negative_hours(self) -> None:
-        assert now_sql(offset_hours=-24) == (
-            "to_char((now() AT TIME ZONE 'utc') + make_interval(hours => -24), "
-            "'YYYY-MM-DD HH24:MI:SS')"
-        )
-
-    def test_negative_minutes(self) -> None:
-        assert now_sql(offset_minutes=-15) == (
-            "to_char((now() AT TIME ZONE 'utc') + make_interval(mins => -15), "
-            "'YYYY-MM-DD HH24:MI:SS')"
-        )
-
-    def test_placeholder_only(self) -> None:
-        assert now_sql(offset_modifier="%s") == (
-            "to_char((now() AT TIME ZONE 'utc') + (%s)::interval, "
-            "'YYYY-MM-DD HH24:MI:SS')"
-        )
-
-    def test_placeholder_concat_minutes(self) -> None:
-        assert now_sql(offset_modifier="%s || ' minutes'") == (
-            "to_char((now() AT TIME ZONE 'utc') + (%s || ' minutes')::interval, "
-            "'YYYY-MM-DD HH24:MI:SS')"
-        )
-
-    def test_raw_literal_fragment(self) -> None:
-        assert now_sql(offset_modifier="'-45 seconds'") == (
-            "to_char((now() AT TIME ZONE 'utc') + ('-45 seconds')::interval, "
-            "'YYYY-MM-DD HH24:MI:SS')"
-        )
-
-    def test_localtime_plus_fixed_window(self) -> None:
-        assert now_sql(offset_days=-7, localtime=True) == (
-            "to_char(LOCALTIMESTAMP + make_interval(days => -7), "
-            "'YYYY-MM-DD HH24:MI:SS')"
-        )
-
-    def test_localtime_plus_placeholder(self) -> None:
-        assert now_sql(offset_modifier="%s", localtime=True) == (
-            "to_char(LOCALTIMESTAMP + (%s)::interval, 'YYYY-MM-DD HH24:MI:SS')"
-        )
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize(
+    "kwargs,seconds",
+    [
+        ({}, 0),
+        ({"offset_days": -30}, -30 * 86400),
+        ({"offset_hours": 7}, 7 * 3600),
+        ({"offset_minutes": -15}, -15 * 60),
+        ({"offset_modifier": "%s"}, -45),
+    ],
+)
+def test_native_clock_offsets_preserve_elapsed_seconds(test_db, zone, kwargs, seconds):
+    test_db.execute("SELECT set_config('TimeZone', %s, true)", (zone,))
+    fragment = now_sql(**kwargs)
+    params = ("-45 seconds",) if "offset_modifier" in kwargs else ()
+    row = test_db.execute(
+        f"SELECT now(), {fragment}, pg_typeof({fragment})::text", params * 2
+    ).fetchone()
+    assert row[2] == "timestamp with time zone"
+    assert row[1] - row[0] == timedelta(seconds=seconds)

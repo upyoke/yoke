@@ -36,6 +36,7 @@ from datetime import datetime
 from typing import Any, Callable, Iterable
 
 from yoke_contracts.public_ref import format_item_ref
+from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.merge_queue_entry_checks import disarm_merge_when_ready
@@ -55,6 +56,7 @@ from yoke_core.domain.merge_queue_landing_refresh import (
     fail_projects,
 )
 from yoke_core.domain.merge_queue_landing_notice import (
+    arming_notice_key,
     landing_message,
     notice_already_sent,
     push_notice,
@@ -65,7 +67,7 @@ from yoke_core.domain.merge_queue_landing_observation import (
     classify_pending_landing,
     ejection_message,
 )
-from yoke_core.domain.session_message_types import timestamp, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.engines.merge_worktree_pr_check_runs import read_required_checks
 from yoke_core.engines.merge_worktree_pr_membership import read_pr_queue_membership
 from yoke_core.engines.merge_worktree_pr_queue import read_pr_landing_state
@@ -96,8 +98,7 @@ def observe_pending_landings(
     failure is returned under ``notice_errors`` for that item without
     poisoning the rest of the project refresh.
     """
-    current = now or utc_now()
-    current_text = timestamp(current)
+    current = utc_now() if now is None else parse_instant(now)
     projects = claim_due_projects(
         conn,
         project_ids,
@@ -144,12 +145,12 @@ def observe_pending_landings(
                     # Keep this known arming episode until its notice arrives.
                     # Replacing its observation with STALLED must not erase the
                     # evidence needed to retry a failed notice transport.
-                    episode = str(row["previous_observed_at"])
+                    episode = parse_instant(row["previous_observed_at"])
                     updated = conn.execute(
                         f"UPDATE items SET merge_queue_enqueued_at={marker} "
                         f"WHERE id={marker} AND merge_queue_pr_number={marker} "
                         "AND merge_queue_enqueued_at IS NULL",
-                        (episode, item_id, pr_number),
+                        (instant_parameter(conn, episode), item_id, pr_number),
                     )
                     if not updated.rowcount:
                         conn.rollback()
@@ -160,7 +161,7 @@ def observe_pending_landings(
                     project_id=project_id,
                     pr_number=pr_number,
                     readback=readback,
-                    observed_at=current_text,
+                    observed_at=current,
                 )
                 if record.state == ENTRY_CHECKS_FAILED:
                     record = record.with_disarm_note(disarm(ctx, pr_number))
@@ -186,9 +187,12 @@ def observe_pending_landings(
                 # this head; with one, dedupe only that arming's notice.
                 head_sha = readback.state.head_sha if readback.state else ""
                 head_key = f"merge-queue-ejected:{item_id}:{pr_number}:{head_sha}"
-                episode = str(row.get("merge_queue_enqueued_at") or "")
-                key = f"{head_key}:armed:{episode}" if episode else head_key
-                if not episode and notice_already_sent(conn, idempotency_key=head_key):
+                episode = row.get("merge_queue_enqueued_at")
+                episode = parse_instant(episode) if episode is not None else None
+                key = arming_notice_key(conn, head_key=head_key, enqueued_at=episode)
+                if episode is None and notice_already_sent(
+                    conn, idempotency_key=head_key
+                ):
                     conn.commit()
                     continue
                 notice_in_progress = True
@@ -211,12 +215,12 @@ def observe_pending_landings(
                 # Keep the landing visible until this episode's envelope
                 # reaches its recipient. Pending delivery owns the wake;
                 # an old acknowledgement cannot settle a fresh ejection.
-                if episode and delivery == "delivered":
+                if episode is not None and delivery == "delivered":
                     conn.execute(
                         f"UPDATE items SET merge_queue_enqueued_at=NULL "
                         f"WHERE id={marker} AND merge_queue_pr_number={marker} "
                         f"AND merge_queue_enqueued_at={marker}",
-                        (item_id, pr_number, episode),
+                        (item_id, pr_number, instant_parameter(conn, episode)),
                     )
                 result["ejected"] += 1
                 conn.commit()
@@ -225,9 +229,14 @@ def observe_pending_landings(
             # GitHub's own merge time, so a landing first read minutes later
             # ages from when it happened rather than from when it was
             # noticed — which is the number the close-out report shows.
-            landed_at = (state.merged_at if state is not None else "") or current_text
+            # The GitHub reader declares missing mergedAt as native null.
+            merge_clock = state.merged_at if state is not None else None
+            landed_at = current if merge_clock is None else merge_clock
             merge_commit = state.merge_commit_sha if state is not None else ""
-            if not str(row.get("merge_queue_landed_at") or ""):
+            prior_landing = row.get("merge_queue_landed_at")
+            if prior_landing is not None:
+                parse_instant(prior_landing)
+            if prior_landing is None:
                 # merged_at is assigned, not coalesced: the guard below fires
                 # this once per landing, so the only value it could preserve
                 # belongs to a landing this item has already replaced -- an
@@ -238,7 +247,12 @@ def observe_pending_landings(
                     f"merged_at={marker} "
                     f"WHERE id={marker} AND merge_queue_pr_number={marker} "
                     "AND merge_queue_landed_at IS NULL",
-                    (landed_at, landed_at, item_id, pr_number),
+                    (
+                        instant_parameter(conn, landed_at),
+                        instant_parameter(conn, landed_at),
+                        item_id,
+                        pr_number,
+                    ),
                 )
                 if not cursor.rowcount:
                     conn.rollback()
@@ -265,7 +279,7 @@ def observe_pending_landings(
                     f"UPDATE items SET merge_queue_notified_at={marker} "
                     f"WHERE id={marker} AND merge_queue_pr_number={marker} "
                     "AND merge_queue_notified_at IS NULL",
-                    (current_text, item_id, pr_number),
+                    (instant_parameter(conn, current), item_id, pr_number),
                 )
                 result["notified"] += 1
             conn.commit()

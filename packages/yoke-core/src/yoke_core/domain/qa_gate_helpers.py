@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+from datetime import datetime
 from typing import Optional, Tuple
 
 from yoke_core.domain.db_helpers import connect, query_one
@@ -119,9 +120,7 @@ def _resolve_latest_code_ref(
     return recorded_latest_code_ref(target, db_path, branch=resolved.branch)
 
 
-def _git_latest_code_ref(
-    target: GateTarget, db_path: str
-) -> LatestCodeRef:
+def _git_latest_code_ref(target: GateTarget, db_path: str) -> LatestCodeRef:
     """Resolve the latest branch / SHA / timestamp from the project checkout."""
     override_ts = os.environ.get("YOKE_QA_GATE_COMMIT_TS")
     override_sha = os.environ.get("YOKE_QA_GATE_COMMIT_SHA")
@@ -196,10 +195,8 @@ def _git_latest_code_ref(
     return LatestCodeRef(branch=branch)
 
 
-def _resolve_latest_commit_ts(
-    target: GateTarget, db_path: str
-) -> Optional[str]:
-    """Backwards-compatible wrapper returning only the latest commit timestamp."""
+def _resolve_latest_commit_ts(target: GateTarget, db_path: str) -> datetime | None:
+    """Return only the native latest commit instant, when known."""
     return _resolve_latest_code_ref(target, db_path).timestamp
 
 

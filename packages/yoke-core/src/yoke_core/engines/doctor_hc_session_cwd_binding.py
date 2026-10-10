@@ -22,11 +22,12 @@ allows for a diagnostic surface.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+from yoke_contracts.timestamps import utc_now
 from typing import List, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.db_helpers import instant_parameter, query_rows
 from yoke_core.domain.lint_session_cwd_emit import emit_health_check_failed
 from yoke_core.domain.lint_session_cwd_validate import validate_targets
 from yoke_core.domain.project_identity import render_item_ref
@@ -229,9 +230,7 @@ def hc_session_pre_implementing_activity(
     from yoke_core.domain.work_claim_targets import scope_int_sql
 
     item_id_scope = scope_int_sql(conn, "wc.scope", "item_id")
-    cutoff = (
-        datetime.now(timezone.utc) - timedelta(seconds=int(_PRE_IMPL_MIN_AGE_SECONDS))
-    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    cutoff = utc_now() - timedelta(seconds=int(_PRE_IMPL_MIN_AGE_SECONDS))
     try:
         rows = query_rows(
             conn,
@@ -243,7 +242,7 @@ def hc_session_pre_implementing_activity(
             "AND wc.claimed_at IS NOT NULL "
             f"AND wc.claimed_at <= {p} "
             "ORDER BY wc.claimed_at",
-            (cutoff,),
+            (instant_parameter(conn, cutoff),),
         )
     except db_backend.operational_error_types(conn):
         _rollback_quietly(conn)

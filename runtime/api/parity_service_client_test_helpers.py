@@ -68,7 +68,7 @@ WRITE_PARITY_SCHEMA_EXTRAS = """
         qa_kind TEXT NOT NULL,
         qa_phase TEXT NOT NULL DEFAULT 'verification',
         blocking_mode TEXT NOT NULL DEFAULT 'blocking',
-        waived_at TEXT,
+        waived_at TIMESTAMPTZ,
         success_policy TEXT NOT NULL DEFAULT 'blocking',
         plan_case_key TEXT,
         deployment_member_item_id INTEGER
@@ -82,7 +82,7 @@ WRITE_PARITY_SCHEMA_EXTRAS = """
         verdict TEXT,
         verdict_reason TEXT,
         raw_result TEXT,
-        created_at TEXT
+        created_at TIMESTAMPTZ
     );
 """
 
@@ -116,7 +116,9 @@ def _apply_write_parity_schema() -> None:
     """
     conn = db_backend.connect()
     try:
-        apply_fixture_ddl(conn, SERVICE_CLIENT_PARITY_SCHEMA + WRITE_PARITY_SCHEMA_EXTRAS)
+        apply_fixture_ddl(
+            conn, SERVICE_CLIENT_PARITY_SCHEMA + WRITE_PARITY_SCHEMA_EXTRAS
+        )
         _install_workflow_registry(conn)
         _install_decision_substrate(conn)
         seed_service_client_parity_data(conn)
@@ -210,9 +212,11 @@ def _parity_env(apply_schema):
             app.dependency_overrides[get_db_readwrite] = _rw
 
             try:
-                with patch("yoke_core.api.main.get_db_path", _override_db_path), \
-                     patch("yoke_core.api.main.get_db_readonly", _ro), \
-                     patch("yoke_core.api.main.get_db_readwrite", _rw):
+                with (
+                    patch("yoke_core.api.main.get_db_path", _override_db_path),
+                    patch("yoke_core.api.main.get_db_readonly", _ro),
+                    patch("yoke_core.api.main.get_db_readwrite", _rw),
+                ):
                     with TestClient(app) as client:
                         conn = db_backend.connect()
                         try:

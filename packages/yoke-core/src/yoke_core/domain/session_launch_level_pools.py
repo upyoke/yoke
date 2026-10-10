@@ -20,9 +20,12 @@ not place twice.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from dataclasses import asdict, dataclass
 from typing import Any, Sequence
 
+from yoke_contracts.timestamps import parse_instant, temporal_wire
 from yoke_contracts.session_control.model_billing_pools import window_covers_model
 from yoke_core.domain.session_probe import not_probe_session_sql
 from yoke_core.domain.steering_fleet_plan_capacity import (
@@ -44,9 +47,13 @@ class PoolCheck:
     window: str
     remaining_percent: float | None
     headroom_percent: float | None
-    resets_at: str | None
+    resets_at: datetime | None
     status: str
     exhausted: bool
+
+    def __post_init__(self) -> None:
+        if self.resets_at is not None:
+            object.__setattr__(self, "resets_at", parse_instant(self.resets_at))
 
     @property
     def resets_utc(self) -> str | None:
@@ -55,7 +62,7 @@ class PoolCheck:
         return None if text == EMPTY else text
 
     def to_dict(self) -> dict[str, Any]:
-        return {**asdict(self), "resets_utc": self.resets_utc}
+        return {**temporal_wire(asdict(self)), "resets_utc": self.resets_utc}
 
 
 def option_pools(
@@ -64,7 +71,7 @@ def option_pools(
     machine_id: str,
     surface: str,
     model: str,
-    now: str,
+    now: datetime | str,
 ) -> tuple[PoolCheck, ...]:
     """Every published window on this machine and surface covering ``model``."""
     checks: list[PoolCheck] = []

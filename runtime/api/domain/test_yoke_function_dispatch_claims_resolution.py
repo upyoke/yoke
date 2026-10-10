@@ -9,6 +9,8 @@ itself is the self-ownership proof.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import unittest
 from unittest.mock import patch
 
@@ -124,7 +126,7 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
         apply_fixture_ddl(
             self.conn,
             "CREATE TABLE work_claims (id INTEGER PRIMARY KEY, "
-            "session_id TEXT, target_kind TEXT, scope TEXT, released_at TEXT);",
+            "session_id TEXT, target_kind TEXT, scope TEXT, released_at TIMESTAMPTZ);",
         )
         self.conn.execute(
             "CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT, "
@@ -179,7 +181,7 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
                 session_id,
                 target_kind,
                 scope,
-                released_at,
+                parse_instant(released_at) if released_at is not None else None,
             ),
         )
         claim_id = int(cur.fetchone()[0])

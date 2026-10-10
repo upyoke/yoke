@@ -34,7 +34,9 @@ Detection model:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Optional
 
 from yoke_core.domain import db_backend, db_helpers
@@ -96,9 +98,7 @@ def _captures_targeted_in_session(
     except db_backend.operational_error_types() + (RuntimeError,):
         return []
     try:
-        cutoff = (
-            datetime.now(timezone.utc) - timedelta(seconds=int(lookback_seconds))
-        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        cutoff = utc_now() - timedelta(seconds=int(lookback_seconds))
         rows = conn.execute(
             """
             SELECT tool_use_id, command_summary
@@ -110,7 +110,7 @@ def _captures_targeted_in_session(
              ORDER BY started_at ASC
              LIMIT 200
             """,
-            (session_id, cutoff),
+            (session_id, instant_parameter(conn, cutoff)),
         ).fetchall()
     except db_backend.operational_error_types(conn=conn):
         return []
@@ -168,10 +168,11 @@ def evaluate_duplicate_monitor(
     mode = _read_lint_mode(payload)
     suppressed_attempt = _has_monitor_duplicate_suppression(command)
     ctx = _build_context(tool_name, command, candidate_capture)
-    ctx["outcome"] = (
-        "suppression_attempted" if suppressed_attempt else "denied"
-    )
+    ctx["outcome"] = "suppression_attempted" if suppressed_attempt else "denied"
     reason = _format_monitor_duplicate_reason(
-        candidate_capture, prior_tool_use_id, suppressed_attempt, mode,
+        candidate_capture,
+        prior_tool_use_id,
+        suppressed_attempt,
+        mode,
     )
     return (mode, reason, ctx)

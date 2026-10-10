@@ -24,6 +24,10 @@ now, and an approver who has since lost the role no longer stands in for it.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_contracts.timestamps import parse_instant
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
@@ -91,7 +95,7 @@ def record_decision(
     actor_id: int,
     action: str,
     note: Optional[str],
-    decided_at: str,
+    decided_at: datetime | str,
     session_id: str = "",
 ) -> dict[str, Any]:
     """Record one person's answer, refusing a second answer from the same one.
@@ -101,6 +105,7 @@ def record_decision(
     actor; the session is what an audit reads to tell a browser, a steering
     seat, and a worker apart.
     """
+    stamp = instant_parameter(conn, parse_instant(decided_at))
     existing = actor_decision(conn, request_id, actor_id)
     if existing is not None:
         raise ValueError(
@@ -118,7 +123,7 @@ def record_decision(
             int(actor_id),
             str(action),
             note,
-            str(decided_at),
+            stamp,
             str(session_id or "") or None,
         ),
     )

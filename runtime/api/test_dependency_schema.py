@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS projects (
   github_repo TEXT,
   public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
   github_sync_mode TEXT,
-  created_at TEXT NOT NULL DEFAULT '2026-01-01T00:00:00Z'
+  created_at TIMESTAMPTZ NOT NULL DEFAULT '2026-01-01T00:00:00Z'
 );
 INSERT INTO projects (id, slug, name, public_item_prefix, created_at)
 VALUES
@@ -54,15 +54,15 @@ CREATE TABLE IF NOT EXISTS items (
     resolution TEXT,
   github_issue TEXT,
   deployed_to TEXT,
-  merged_at TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
+  merged_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
   source TEXT NOT NULL DEFAULT '2',
   owner TEXT DEFAULT '',
   project_id INTEGER NOT NULL DEFAULT 1,
   project_sequence INTEGER,
   spec TEXT,
-  spec_updated_at TEXT,
+  spec_updated_at TIMESTAMPTZ,
   spec_updated_by TEXT,
   db_mutation_profile TEXT NOT NULL DEFAULT '{"state":"none"}',
   db_compatibility_attestation TEXT NOT NULL DEFAULT '{}',
@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS item_dependencies (
   session_id INTEGER,
   rationale TEXT NOT NULL DEFAULT '',
   evidence_json TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL,
   UNIQUE(dependent_item_id, blocking_item_id, gate_point)
 );
 CREATE INDEX IF NOT EXISTS idx_id_dependent ON item_dependencies(dependent_item_id);
@@ -99,8 +99,8 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
   session_id TEXT PRIMARY KEY,
   executor TEXT NOT NULL DEFAULT 'codex',
   project_id INTEGER NOT NULL DEFAULT 1,
-  last_heartbeat TEXT,
-  ended_at TEXT
+  last_heartbeat TIMESTAMPTZ,
+  ended_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS work_claims (
@@ -109,9 +109,9 @@ CREATE TABLE IF NOT EXISTS work_claims (
   target_kind TEXT NOT NULL DEFAULT 'item',
   scope TEXT NOT NULL,
   claim_type TEXT NOT NULL DEFAULT 'exclusive',
-  claimed_at TEXT NOT NULL,
-  last_heartbeat TEXT,
-  released_at TEXT,
+  claimed_at TIMESTAMPTZ NOT NULL,
+  last_heartbeat TIMESTAMPTZ,
+  released_at TIMESTAMPTZ,
   release_reason TEXT,
   reason TEXT,
   reason_intent TEXT,

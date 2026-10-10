@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+from datetime import datetime
 from typing import Any, Iterable, Mapping, Optional
 
 from yoke_core.domain import db_backend
@@ -12,15 +13,18 @@ from yoke_core.domain.approval_policy import (
     APPROVAL_MODES,
     DEFAULT_APPROVAL_MODE,
 )
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_contracts.timestamps import parse_instant, utc_now
 from yoke_core.domain.decision_request_contract import (
     DECISION_KINDS,
     LIFECYCLE_TRANSITION_APPROVAL,
+    MACHINE_APPROVAL,
     REQUEST_CREATED_EVENT,
 )
 from yoke_core.domain.decision_request_events import append_decision_event
 from yoke_core.domain.decision_request_rows import request_row
 from yoke_core.domain.decision_request_subject_context import validate_subject_context
+from yoke_core.domain.decision_machine_clocks import machine_context_wire
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,
@@ -104,10 +108,15 @@ def create_decision_request(
     approval_mode: str = DEFAULT_APPROVAL_MODE,
     subject_context: Optional[Mapping[str, Any]] = None,
     session_id: str = "",
-    created_at: Optional[str] = None,
+    created_at: datetime | str | None = None,
     commit: bool = True,
 ) -> tuple[dict[str, Any], bool]:
     """Create once per open typed subject; repeated gate attempts reuse it."""
+    stamp = parse_instant(created_at) if created_at is not None else utc_now()
+    stored_stamp = instant_parameter(conn, stamp)
+    context = dict(subject_context or {})
+    if kind == MACHINE_APPROVAL:
+        context = machine_context_wire(context)
     if kind not in DECISION_KINDS:
         raise ValueError(f"unknown decision request kind {kind!r}")
     spec = DECISION_KINDS[kind]
@@ -145,7 +154,6 @@ def create_decision_request(
             )
         lock_item_workflow_bindings(conn, (int(parts[0]),))
     p = _p(conn)
-    stamp = created_at or iso8601_now()
     cursor = conn.execute(
         "INSERT INTO decision_requests "
         "(kind, subject_type, subject_key, subject_context, project_id, org_id, "
@@ -157,14 +165,14 @@ def create_decision_request(
             subject_type,
             subject_key,
             json.dumps(
-                validate_subject_context(kind, subject_context),
+                validate_subject_context(kind, context),
                 separators=(",", ":"),
             ),
             project_id,
             org_id,
             originator_actor_id,
             approval_mode,
-            stamp,
+            stored_stamp,
         ),
     )
     inserted = cursor.fetchone()

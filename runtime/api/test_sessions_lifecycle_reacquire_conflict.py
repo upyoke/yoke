@@ -44,20 +44,20 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL DEFAULT '',
     mode TEXT NOT NULL DEFAULT 'wait',
-    offered_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    ended_at TEXT,
+    offered_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    ended_at TIMESTAMPTZ,
     offer_envelope TEXT,
     actor_id INTEGER,
-    last_tool_call_at TEXT,
+    last_tool_call_at TIMESTAMPTZ,
     tool_call_count INTEGER NOT NULL DEFAULT 0,
-    episode_started_at TEXT,
+    episode_started_at TIMESTAMPTZ,
     pending_resume_notice TEXT,
     current_item_id TEXT,
-    current_item_set_at TEXT,
+    current_item_set_at TIMESTAMPTZ,
     recent_item_id TEXT,
     recent_item_status TEXT,
-    recent_item_recorded_at TEXT
+    recent_item_recorded_at TIMESTAMPTZ
 );
 """
 
@@ -68,9 +68,9 @@ CREATE TABLE IF NOT EXISTS work_claims (
     target_kind TEXT NOT NULL,
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
-    claimed_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    released_at TEXT,
+    claimed_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    released_at TIMESTAMPTZ,
     release_reason TEXT
 );
 """
@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS events (
     envelope TEXT,
     outcome TEXT,
     severity TEXT,
-    created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP::text)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT (CURRENT_TIMESTAMP)
 );
 """
 

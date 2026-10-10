@@ -150,7 +150,11 @@ def _collect_diff_strings(search_root: str) -> tuple[set, set]:
 
 def _normalize_candidate_string(value: str) -> Optional[str]:
     candidate = " ".join(value.split()).strip()
-    if len(candidate) >= 2 and candidate[0] in {"'", '"'} and candidate[-1] == candidate[0]:
+    if (
+        len(candidate) >= 2
+        and candidate[0] in {"'", '"'}
+        and candidate[-1] == candidate[0]
+    ):
         # Markdown backticks can wrap an already-quoted value. Classify the
         # value, so quoting cannot turn a structural identifier into copy.
         candidate = candidate[1:-1].strip()

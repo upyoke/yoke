@@ -50,7 +50,9 @@ REFRESH_MARGIN_SECONDS = (
 
 
 def access_state(
-    payload: Mapping[str, Any], *, error_type: type[RuntimeError],
+    payload: Mapping[str, Any],
+    *,
+    error_type: type[RuntimeError],
 ) -> dict[str, Any]:
     """Return the access half of a credential document, empty when it has none.
 
@@ -70,11 +72,15 @@ def access_state(
         return {}
     return {
         ACCESS_TOKEN_KEY: credential_document.required_string(
-            source.get(ACCESS_TOKEN_KEY), ACCESS_TOKEN_KEY, error_type,
+            source.get(ACCESS_TOKEN_KEY),
+            ACCESS_TOKEN_KEY,
+            error_type,
         ),
         ACCESS_EXPIRES_AT_KEY: credential_document.parse_timestamp(
-            source.get(ACCESS_EXPIRES_AT_KEY), ACCESS_EXPIRES_AT_KEY, error_type,
-        ).isoformat(),
+            source.get(ACCESS_EXPIRES_AT_KEY),
+            ACCESS_EXPIRES_AT_KEY,
+            error_type,
+        ),
         "scope": str(source.get("scope") or ""),
         "token_type": str(source.get("token_type") or "bearer"),
     }
@@ -102,7 +108,12 @@ def persisted_document(
     )
     state = access_state(payload, error_type=error_type)
     if state:
-        document[ACCESS_STATE_KEY] = state
+        document[ACCESS_STATE_KEY] = {
+            **state,
+            ACCESS_EXPIRES_AT_KEY: credential_document.clock_contract.format_instant(
+                state[ACCESS_EXPIRES_AT_KEY]
+            ),
+        }
     return document
 
 
@@ -124,7 +135,9 @@ def usable_token_state(
     if not state:
         return None
     expires_at = credential_document.parse_timestamp(
-        state[ACCESS_EXPIRES_AT_KEY], ACCESS_EXPIRES_AT_KEY, error_type,
+        state[ACCESS_EXPIRES_AT_KEY],
+        ACCESS_EXPIRES_AT_KEY,
+        error_type,
     )
     if expires_at - timedelta(seconds=margin_seconds) <= (
         credential_document.ensure_utc(now)
@@ -133,16 +146,24 @@ def usable_token_state(
     return {
         **state,
         "refresh_token": credential_document.required_string(
-            document.get("refresh_token"), "refresh_token", error_type,
+            document.get("refresh_token"),
+            "refresh_token",
+            error_type,
         ),
         "refresh_expires_at": credential_document.parse_timestamp(
-            document.get("refresh_expires_at"), "refresh_expires_at", error_type,
-        ).isoformat(),
+            document.get("refresh_expires_at"),
+            "refresh_expires_at",
+            error_type,
+        ),
     }
 
 
 def result(
-    payload: Mapping[str, Any], *, path: Any, cached: bool, rotated: bool,
+    payload: Mapping[str, Any],
+    *,
+    path: Any,
+    cached: bool,
+    rotated: bool,
 ) -> dict[str, Any]:
     """Return one token payload naming where it came from."""
 

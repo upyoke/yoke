@@ -145,7 +145,7 @@ def test_merged_landing_retains_idle_holder_even_before_completion_wake(
     _wire(monkeypatch, state=PrLandingState(True, True, False), members=())
     fleet.execute(
         "UPDATE items SET merge_queue_landed_at=%s WHERE id=1",
-        ("2026-08-26T11:00:00Z",),
+        ("2026-08-26T11:00:00.000000Z",),
     )
     fleet.commit()
 
@@ -153,7 +153,7 @@ def test_merged_landing_retains_idle_holder_even_before_completion_wake(
 
     fleet.execute(
         "UPDATE items SET merge_queue_notified_at=%s WHERE id=1",
-        ("2026-08-26T11:01:00Z",),
+        ("2026-08-26T11:01:00.000000Z",),
     )
     fleet.commit()
 

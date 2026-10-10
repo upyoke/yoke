@@ -73,7 +73,8 @@ needed for a normal refresh. Records hold facts only — prices, published
 level-proposal` then proposes the level changes those facts imply; after
 operator approval, `yoke universe levels set` stores them.
 
-Session usage tokens remain stored in `harness_sessions.usage_totals`. Dollar
+Session usage tokens remain stored in `harness_sessions.usage_totals`; its
+observation clock uses fixed-six UTC or null. Dollar
 cost is derived at read time from the catalog revision effective at that
 session's initial `offered_at`, and the result names the revision. Later
 publications leave earlier sessions' estimates stable. Native model

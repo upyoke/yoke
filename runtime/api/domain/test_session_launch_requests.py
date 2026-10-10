@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
 from yoke_core.domain.session_launch_requests import (
     cancel_launch,
@@ -43,7 +45,7 @@ def test_eligibility_uses_live_versions_projects_and_freshest_relay_per_machine(
         project_id=10,
         surface="codex-cli",
         machine_id=None,
-        now=NOW,
+        now=parse_instant(NOW),
     )
 
     assert [relay.relay_id for relay in snapshot.relays] == ["fresh"]
@@ -83,7 +85,7 @@ def test_eligibility_names_surface_version_and_liveness_predicates() -> None:
         project_id=10,
         surface="codex-cli",
         machine_id=None,
-        now=NOW,
+        now=parse_instant(NOW),
     )
 
     assert snapshot.relays == ()
@@ -130,7 +132,7 @@ def test_eligibility_accepts_cursor_build_version() -> None:
         project_id=10,
         surface="cursor-cli",
         machine_id=None,
-        now=NOW,
+        now=parse_instant(NOW),
     )
 
     assert [relay.relay_id for relay in snapshot.relays] == ["relay-1"]

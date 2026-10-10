@@ -15,7 +15,7 @@ import json
 from typing import Any, Optional
 from uuid import uuid4
 
-from yoke_core.domain.db_helpers import iso8601_now, query_one
+from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_one
 from yoke_core.domain.qa_latest_execution import latest_execution_id_sql
 from yoke_core.domain.qa_constants import (
     AGENT_VERDICT_PATH,
@@ -116,7 +116,8 @@ def attach_agent_review_to_capture(
     capture = _reviewable_capture(conn, requirement_id)
     if capture is None:
         raise CapturedInspectionReviewError(CAPTURED_INSPECTION_REVIEW_RECOVERY)
-    now = iso8601_now()
+    now = utc_now()
+    stored_now = instant_parameter(conn, now)
     roster = [
         {"requirement_id": int(requirement_id), "capture_run_id": int(capture["id"])}
     ]
@@ -144,9 +145,9 @@ def attach_agent_review_to_capture(
                 encoded,
                 1,
                 "completed",
-                now,
-                now,
-                now,
+                stored_now,
+                stored_now,
+                stored_now,
             ),
         )
     elif deployment_run_id:
@@ -164,9 +165,9 @@ def attach_agent_review_to_capture(
                 encoded,
                 1,
                 "completed",
-                now,
-                now,
-                now,
+                stored_now,
+                stored_now,
+                stored_now,
             ),
         )
     else:
@@ -186,8 +187,8 @@ def attach_agent_review_to_capture(
             "completed",
             str(actor_id or ""),
             str(session_id or "record-verdict"),
-            now,
-            now,
+            stored_now,
+            stored_now,
         ),
     )
     conn.execute(
@@ -201,7 +202,7 @@ def attach_agent_review_to_capture(
             int(review_run_id),
             verdict,
             rationale or "captured inspection reviewed",
-            now,
+            stored_now,
         ),
     )
     from yoke_core.domain.qa_capture_settlement import stamp_reviewed_capture

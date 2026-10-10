@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.strategy_doc_claim_exclusion import live_execution_refusal
 from yoke_core.domain.strategy_docs import get_doc
@@ -137,7 +137,7 @@ def acquire_session_doc_claim(
                 clean_session,
                 actor_id,
                 clean_session,
-                iso8601_now(),
+                instant_parameter(conn, utc_now()),
                 steering_claim_id,
             ),
         )
@@ -248,7 +248,7 @@ def _release_rows(
     reason: str,
 ) -> list[dict[str, Any]]:
     marker = _marker(conn)
-    released_at = iso8601_now()
+    released_at = utc_now()
     released: list[dict[str, Any]] = []
     for claim_id in claim_ids:
         row = _row(
@@ -259,7 +259,13 @@ def _release_rows(
                 f"release_mode = 'normal', release_reason = {marker} "
                 f"WHERE id = {marker} AND released_at IS NULL "
                 "RETURNING id, project_id, strategy_doc_slug",
-                (actor_id, session_id, released_at, reason, claim_id),
+                (
+                    actor_id,
+                    session_id,
+                    instant_parameter(conn, released_at),
+                    reason,
+                    claim_id,
+                ),
             )
         )
         if row is None:

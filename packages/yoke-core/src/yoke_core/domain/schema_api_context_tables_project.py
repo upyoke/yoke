@@ -28,8 +28,8 @@ PROJECT_TABLES: dict[str, dict] = {
             ("public_item_prefix", "TEXT"),
             ("breakage_policy", "TEXT"),
             ("github_sync_mode", "TEXT"),
-            ("retired_at", "TEXT"),
-            ("created_at", "TEXT"),
+            ("retired_at", "TIMESTAMPTZ"),
+            ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Project registry. Creation time is created_at; there is NO updated_at "
@@ -72,7 +72,7 @@ PROJECT_TABLES: dict[str, dict] = {
             ("id", "INTEGER"),
             ("name", "TEXT"),
             ("description", "TEXT"),
-            ("created_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
             ("settings", "TEXT"),
             ("project_id", "INTEGER"),
         ],
@@ -103,8 +103,8 @@ PROJECT_TABLES: dict[str, dict] = {
             ("deploy_command", "TEXT"),
             ("health_check_url", "TEXT"),
             ("config_notes", "TEXT"),
-            ("last_deployed_at", "TEXT"),
-            ("created_at", "TEXT"),
+            ("last_deployed_at", "TIMESTAMPTZ"),
+            ("created_at", "TIMESTAMPTZ"),
             ("settings", "TEXT"),
         ],
         "notes": (
@@ -154,11 +154,16 @@ PROJECT_TABLES: dict[str, dict] = {
             ("id", "INTEGER"),
             ("project_id", "INTEGER"),
             ("commit_sha", "TEXT"),
-            ("built_at", "TEXT"),
+            ("built_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Path snapshot header keyed by `id`. Snapshot timestamp is "
-            "`built_at`; there is NO `created_at` column on this table."
+            "`built_at`; there is NO `created_at` column on this table. "
+            "Snapshot builders and payload materializers call "
+            "path_snapshot_targets.resolve_snapshot_target_ids with the "
+            "Native aware `observed_at` keyword; `now_iso` is not accepted. "
+            "Keep this clock Native through target resolution, including "
+            "reuse, and format only the explicit SQLite SQL parameter."
         ),
     },
     "project_capabilities": PROJECT_CAPABILITIES_TABLE,
@@ -170,7 +175,7 @@ PROJECT_TABLES: dict[str, dict] = {
             ("key", "TEXT"),
             ("value", "TEXT"),
             ("source", "TEXT"),
-            ("created_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "Secret-value metadata for project capabilities. The "
@@ -208,7 +213,7 @@ PROJECT_TABLES: dict[str, dict] = {
             ("failure_reason", "TEXT"),
             ("exception_reason", "TEXT"),
             ("source_fingerprint", "TEXT"),
-            ("rehearsed_at", "TEXT"),
+            ("rehearsed_at", "TIMESTAMPTZ"),
             ("lease_id", "INTEGER"),
             ("test_copy_path", "TEXT"),
             ("baseline_verify_result", "TEXT"),
@@ -216,8 +221,8 @@ PROJECT_TABLES: dict[str, dict] = {
             ("session_id", "TEXT"),
             ("model_name", "TEXT"),
             ("project_id", "INTEGER"),
-            ("started_at", "TEXT"),
-            ("completed_at", "TEXT"),
+            ("started_at", "TIMESTAMPTZ"),
+            ("completed_at", "TIMESTAMPTZ"),
             ("duration_ms", "INTEGER"),
             ("actor_id", "TEXT"),
             ("worktree", "TEXT"),

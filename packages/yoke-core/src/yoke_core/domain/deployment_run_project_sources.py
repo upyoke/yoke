@@ -18,6 +18,7 @@ for the pin.
 from __future__ import annotations
 
 from typing import Any, Mapping
+from yoke_core.domain.time_parse import parse_timestamp_utc
 
 from yoke_core.domain.deployment_run_bound_sources import (
     BOUND_SOURCES_FIELD,
@@ -176,16 +177,16 @@ def carrying_runs_for_project(
     rows = conn.execute(
         f"SELECT dr.id,dr.project_id,COALESCE(dr.{BOUND_SOURCES_FIELD},'') AS "
         f"{BOUND_SOURCES_FIELD},COALESCE(dr.release_lineage,'') AS release_lineage,"
-        "COALESCE(dr.completed_at,'') AS completed_at,"
+        "dr.completed_at,"
         "COALESCE(dr.carried_work,'') AS carried_work,"
         "COALESCE(e.name,'') AS environment_name,"
         "COALESCE(dr.flow,'') AS flow,"
-        "COALESCE(dr.composition_frozen_at,'') AS composition_frozen_at "
+        "dr.composition_frozen_at "
         "FROM deployment_runs dr "
         "LEFT JOIN environments e ON e.id=dr.target_environment_id "
         f"WHERE dr.status='succeeded' AND dr.project_id<>{marker} "
         f"AND COALESCE(dr.{BOUND_SOURCES_FIELD},'')<>'' "
-        "ORDER BY dr.completed_at DESC,dr.created_at DESC,dr.id DESC",
+        "ORDER BY dr.completed_at DESC NULLS LAST,dr.created_at DESC,dr.id DESC",
         (int(project_id),),
     ).fetchall()
     carrying: list[dict[str, Any]] = []
@@ -210,13 +211,13 @@ def carrying_runs_for_project(
                 "id": str(_cell(row, "id", 0) or ""),
                 "project_id": int(_cell(row, "project_id", 1)),
                 "source_sha": sha,
-                "completed_at": str(_cell(row, "completed_at", 4) or ""),
+                "completed_at": parse_timestamp_utc(_cell(row, "completed_at", 4)),
                 "carried_work": _cell(row, "carried_work", 5),
                 # The flow that ran, so a reader with no flow of its own can
                 # still name the one that shipped it.
                 "flow": str(_cell(row, "flow", 7) or ""),
-                "composition_frozen_at": str(
-                    _cell(row, "composition_frozen_at", 8) or ""
+                "composition_frozen_at": parse_timestamp_utc(
+                    _cell(row, "composition_frozen_at", 8)
                 ),
             }
         )

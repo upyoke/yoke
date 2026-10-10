@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from typing import NamedTuple, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect, iso8601_now
+from yoke_core.domain.db_helpers import connect, utc_now
 from yoke_core.domain.deployment_flow_state import require_flow_for_new_run
 from yoke_core.domain.deployment_run_bound_sources import copy_bound_sources
 from yoke_core.domain import deployment_run_create_idempotency as idempotency
@@ -57,7 +57,7 @@ def cmd_next_id(db_path: Optional[str] = None) -> str:
     """Preview the next run ID for today without reserving it."""
     conn = connect(db_path)
     try:
-        return _next_run_id(conn, datetime.now(timezone.utc))
+        return _next_run_id(conn, utc_now())
     finally:
         conn.close()
 
@@ -218,7 +218,8 @@ def create_run(
 
         # Allocation and insertion share this serialized transaction. The
         # standalone next-id command remains a non-reserving preview.
-        run_id = _next_run_id(conn, datetime.now(timezone.utc))
+        now = utc_now()
+        run_id = _next_run_id(conn, now)
 
         inserted = insert_run(
             conn,
@@ -229,7 +230,7 @@ def create_run(
             target_environment_id=target_environment_id,
             release_lineage=release_lineage,
             created_by=created_by,
-            created_at=iso8601_now(),
+            created_at=now,
             artifact_identity=artifact_identity,
             create_idempotency_key=(
                 idempotency_key if basis == idempotency.BASIS_RECORDED_KEY else None

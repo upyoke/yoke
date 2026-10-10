@@ -26,6 +26,7 @@ from runtime.api.domain.merge_queue_observer_test_helpers import (
     observer_connection,
 )
 from runtime.api.domain.test_session_message_support import NOW
+from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 import yoke_core.domain.merge_queue_landing_observer as landing_observer
 from yoke_core.domain.merge_queue_landing_observer import observe_pending_landings
@@ -61,7 +62,7 @@ def test_a_dirty_pull_request_tells_the_holder_to_rebase_and_regate():
         "SELECT merge_queue_pr_number,merge_queue_enqueued_at FROM items WHERE id=101"
     ).fetchone()
     assert marker[0] == "42"
-    assert marker[1] == "2026-08-27T17:00:00Z"
+    assert parse_instant(marker[1]) == parse_instant("2026-08-27T17:00:00Z")
     record = read_landing_record(conn, 101)
     assert record is not None
     assert record.state == CONFLICTED
@@ -118,12 +119,13 @@ def test_one_notice_failure_does_not_stop_other_items_from_refreshing(monkeypatc
         }
     ]
     markers = {
-        int(row[0]): row[1]
+        int(row[0]): parse_instant(row[1])
         for row in conn.execute(
             "SELECT id,merge_queue_enqueued_at FROM items WHERE id IN (101,102)"
         )
     }
-    assert markers == {101: "2026-08-27T17:00:00Z", 102: "2026-08-27T17:00:00Z"}
+    arming = parse_instant("2026-08-27T17:00:00Z")
+    assert markers == {101: arming, 102: arming}
     refresh = read_refresh(conn, 1)
     assert refresh.completed_at
     assert refresh.last_error == ""
@@ -144,12 +146,11 @@ def test_a_rebased_pull_request_that_merges_after_an_ejection_is_recorded():
     )
 
     assert landed["landed"] == 1
-    assert (
+    assert parse_instant(
         conn.execute("SELECT merge_queue_landed_at FROM items WHERE id=101").fetchone()[
             0
         ]
-        == GITHUB_MERGED_AT
-    )
+    ) == parse_instant(GITHUB_MERGED_AT)
 
 
 def test_an_unreadable_membership_cannot_prove_an_ejection():

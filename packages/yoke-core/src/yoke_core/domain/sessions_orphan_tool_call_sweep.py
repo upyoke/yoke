@@ -6,7 +6,7 @@ state lie ("still running" is indistinguishable from "died silently").
 The source of truth for "orphan" is the ``session_tool_calls`` rolling
 table: open rows (``completed_at IS NULL``) for the ending session.
 
-The sweep maintains BOTH surfaces (operator-locked R3 decision):
+The sweep maintains both operational state and telemetry:
 
 * it closes each open ``session_tool_calls`` row in place
   (``completed_at`` = sweep time, ``outcome='interrupted'``) — the state
@@ -44,10 +44,12 @@ row closes and sentinel inserts share the session-end transaction.
 
 from __future__ import annotations
 
-import json
 import uuid
 from dataclasses import dataclass, asdict
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant, temporal_wire, utc_now
+from .db_helpers import instant_parameter
+from .json_helper import dumps_compact
 from typing import Any, Dict, List
 
 from yoke_core.domain import db_backend
@@ -85,17 +87,12 @@ class OrphanSweepReason:
     """
 
     ending_session_id: str
-    sentinel_emitted_at: str
-    original_started_at: str
+    sentinel_emitted_at: datetime
+    original_started_at: datetime | None
     lifecycle_reason: str
 
-    def as_dict(self) -> Dict[str, str]:
-        return asdict(self)
-
-
-def _iso_now() -> str:
-    now = datetime.now(timezone.utc)
-    return now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
+    def as_dict(self) -> Dict[str, Any]:
+        return temporal_wire(asdict(self))
 
 
 def build_sentinel_reason(
@@ -106,8 +103,12 @@ def build_sentinel_reason(
     """Construct the structured sentinel reason payload from an open row."""
     return OrphanSweepReason(
         ending_session_id=ending_session_id,
-        sentinel_emitted_at=_iso_now(),
-        original_started_at=open_row["started_at"] or "",
+        sentinel_emitted_at=utc_now(),
+        original_started_at=(
+            None
+            if open_row["started_at"] is None
+            else parse_instant(open_row["started_at"])
+        ),
         lifecycle_reason=lifecycle_reason,
     )
 
@@ -129,7 +130,7 @@ def _build_sentinel_envelope(
     open_row: Any,
     session_id: str,
     reason: OrphanSweepReason,
-    event_time: str,
+    event_time: datetime,
     event_id: str,
 ) -> Dict[str, Any]:
     """Construct the sentinel envelope dict for one orphaned tool call."""
@@ -182,7 +183,7 @@ def _insert_sentinel(conn: Any, envelope: Dict[str, Any]) -> bool:
     ``session_tool_calls``, which this function never touches — so neither
     may roll the caller's transaction back.
     """
-    envelope_json = json.dumps(envelope, separators=(",", ":"))
+    envelope_json = dumps_compact(envelope)
     project_id = resolve_envelope_project_id_for_event(conn, None, envelope)
     values = (
         envelope["event_id"],
@@ -206,7 +207,7 @@ def _insert_sentinel(conn: Any, envelope: Dict[str, Any]) -> bool:
         envelope["turn_id"],
         envelope["hook_event_name"],
         envelope_json,
-        envelope["event_time"],
+        instant_parameter(conn, envelope["event_time"]),
     )
     # No conflict target: the sentinel is settled by whichever unique rule
     # already holds it — the ``event_id`` primary key on a replayed insert,
@@ -293,7 +294,7 @@ def sweep_orphaned_tool_calls(
             "UPDATE session_tool_calls "
             "SET completed_at = %s, outcome = %s "
             "WHERE id = %s AND completed_at IS NULL",
-            (event_time, OUTCOME_INTERRUPTED, row["id"]),
+            (instant_parameter(conn, event_time), OUTCOME_INTERRUPTED, row["id"]),
         )
         matched += 1
         if not events_present:

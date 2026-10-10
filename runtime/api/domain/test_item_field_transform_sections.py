@@ -22,7 +22,7 @@ from runtime.api.domain._item_field_transform_test_helpers import (
     _patched_db,
 )
 
-_FROZEN_NOW = datetime(2026, 5, 8, 16, 2, 2, tzinfo=timezone.utc)
+_FROZEN_NOW = datetime(2026, 5, 8, 16, 2, 2, 123456, tzinfo=timezone.utc)
 
 
 def _frozen_now() -> datetime:
@@ -58,9 +58,13 @@ class TestSectionAppendCreates(unittest.TestCase):
 
     def test_creates_missing_section_with_entry(self) -> None:
         result = ifts.section_append(
-            item_id=401, section="Progress Log",
-            headline="kicked off implementation", content="implementation begins",
-            ordering=200, source="advance", now_fn=_frozen_now,
+            item_id=401,
+            section="Progress Log",
+            headline="kicked off implementation",
+            content="implementation begins",
+            ordering=200,
+            source="advance",
+            now_fn=_frozen_now,
         )
         self.assertTrue(result.success)
         self.assertTrue(result.changed)
@@ -71,7 +75,7 @@ class TestSectionAppendCreates(unittest.TestCase):
         persisted = self.db.fetch_section(401, "Progress Log")
         self.assertIsNotNone(persisted)
         self.assertIn(
-            "## 2026-05-08T16:02:02Z entry — kicked off implementation",
+            "## 2026-05-08T16:02:02.123456Z entry — kicked off implementation",
             persisted,
         )
         self.assertIn("implementation begins", persisted)
@@ -79,8 +83,12 @@ class TestSectionAppendCreates(unittest.TestCase):
 
     def test_appends_after_existing_section(self) -> None:
         first = ifts.section_append(
-            item_id=401, section="Progress Log", headline="first",
-            content="line one", ordering=200, source="advance",
+            item_id=401,
+            section="Progress Log",
+            headline="first",
+            content="line one",
+            ordering=200,
+            source="advance",
             now_fn=lambda: datetime(2026, 5, 8, 0, 0, 0, tzinfo=timezone.utc),
         )
         self.assertTrue(first.success)
@@ -88,8 +96,12 @@ class TestSectionAppendCreates(unittest.TestCase):
         self.assertIsNotNone(first_persisted)
 
         second = ifts.section_append(
-            item_id=401, section="Progress Log", headline="second",
-            content="line two", source="advance", now_fn=_frozen_now,
+            item_id=401,
+            section="Progress Log",
+            headline="second",
+            content="line two",
+            source="advance",
+            now_fn=_frozen_now,
         )
         self.assertTrue(second.success)
         self.assertGreater(second.old_line_count, 0)
@@ -98,15 +110,15 @@ class TestSectionAppendCreates(unittest.TestCase):
         persisted = self.db.fetch_section(401, "Progress Log")
         self.assertIsNotNone(persisted)
         # Both entries are present, ordered with first → second.
-        self.assertIn("## 2026-05-08T00:00:00Z entry — first", persisted)
-        self.assertIn("## 2026-05-08T16:02:02Z entry — second", persisted)
-        first_idx = persisted.index("## 2026-05-08T00:00:00Z")
-        second_idx = persisted.index("## 2026-05-08T16:02:02Z")
+        self.assertIn("## 2026-05-08T00:00:00.000000Z entry — first", persisted)
+        self.assertIn("## 2026-05-08T16:02:02.123456Z entry — second", persisted)
+        first_idx = persisted.index("## 2026-05-08T00:00:00.000000Z")
+        second_idx = persisted.index("## 2026-05-08T16:02:02.123456Z")
         self.assertLess(first_idx, second_idx)
         # Original content survives verbatim (preserved bytes).
         self.assertIn(first_persisted, persisted)
         # Blank-line separator between entries.
-        self.assertIn("line one\n\n## 2026-05-08T16:02:02Z", persisted)
+        self.assertIn("line one\n\n## 2026-05-08T16:02:02.123456Z", persisted)
 
 
 class TestSectionAppendRejects(unittest.TestCase):
@@ -117,7 +129,10 @@ class TestSectionAppendRejects(unittest.TestCase):
 
     def test_empty_section_rejected(self) -> None:
         result = ifts.section_append(
-            item_id=402, section="", headline="x", content="y",
+            item_id=402,
+            section="",
+            headline="x",
+            content="y",
         )
         self.assertFalse(result.success)
         self.assertIn("section name is required", result.error)
@@ -125,7 +140,10 @@ class TestSectionAppendRejects(unittest.TestCase):
 
     def test_empty_headline_rejected(self) -> None:
         result = ifts.section_append(
-            item_id=402, section="Progress Log", headline="   ", content="body",
+            item_id=402,
+            section="Progress Log",
+            headline="   ",
+            content="body",
         )
         self.assertFalse(result.success)
         self.assertIn("headline is required", result.error)
@@ -133,7 +151,10 @@ class TestSectionAppendRejects(unittest.TestCase):
 
     def test_empty_content_rejected(self) -> None:
         result = ifts.section_append(
-            item_id=402, section="Progress Log", headline="hi", content="\n\n",
+            item_id=402,
+            section="Progress Log",
+            headline="hi",
+            content="\n\n",
         )
         self.assertFalse(result.success)
         self.assertIn("empty content", result.error)
@@ -141,7 +162,10 @@ class TestSectionAppendRejects(unittest.TestCase):
 
     def test_structured_field_name_rejected(self) -> None:
         result = ifts.section_append(
-            item_id=402, section="spec", headline="x", content="y",
+            item_id=402,
+            section="spec",
+            headline="x",
+            content="y",
         )
         self.assertFalse(result.success)
         self.assertIn("structured field, not a section", result.error)
@@ -156,8 +180,11 @@ class TestSectionAppendVerification(unittest.TestCase):
     def test_render_failure_reports_render_failed(self) -> None:
         with mock.patch.object(sections, "_render_fn", return_value=1):
             result = ifts.section_append(
-                item_id=403, section="Progress Log", headline="hi",
-                content="body", now_fn=_frozen_now,
+                item_id=403,
+                section="Progress Log",
+                headline="hi",
+                content="body",
+                now_fn=_frozen_now,
             )
         self.assertFalse(result.success)
         self.assertEqual(result.verification, "render-failed")
@@ -169,13 +196,19 @@ class TestSectionAppendVerification(unittest.TestCase):
         # Stub get_section so the second call (verification) returns
         # content missing the appended headline; the helper must report
         # `verification="missing"` rather than silent success.
-        with mock.patch.object(
-            sections, "get_section",
-            side_effect=["", "## stale\nold body\n"],
-        ), mock.patch.object(sections, "upsert_section"):
+        with (
+            mock.patch.object(
+                sections,
+                "get_section",
+                side_effect=["", "## stale\nold body\n"],
+            ),
+            mock.patch.object(sections, "upsert_section"),
+        ):
             result = ifts.section_append(
-                item_id=403, section="Progress Log",
-                headline="never persisted", content="ghost body",
+                item_id=403,
+                section="Progress Log",
+                headline="never persisted",
+                content="ghost body",
                 now_fn=_frozen_now,
             )
         self.assertFalse(result.success)
@@ -193,8 +226,11 @@ class TestSectionUpsertViaSibling(unittest.TestCase):
 
     def test_upsert_still_creates_section(self) -> None:
         result = ifts.section_upsert(
-            item_id=404, section="Progress Log", content="full block",
-            ordering=200, source="advance",
+            item_id=404,
+            section="Progress Log",
+            content="full block",
+            ordering=200,
+            source="advance",
         )
         self.assertTrue(result.success)
         self.assertEqual(result.verification, "ok")
@@ -202,23 +238,28 @@ class TestSectionUpsertViaSibling(unittest.TestCase):
 
     def test_upsert_without_ordering_is_body_visible(self) -> None:
         result = ifts.section_upsert(
-            item_id=404, section="Current Refusal Inventory",
+            item_id=404,
+            section="Current Refusal Inventory",
             content="inventory body",
         )
         self.assertTrue(result.success)
         self.assertEqual(result.verification, "ok")
         self.assertTrue(
             ifts.section_visible_in_rendered_body(
-                404, "Current Refusal Inventory",
+                404,
+                "Current Refusal Inventory",
             )
         )
 
     def test_unreadable_body_is_not_verification_ok(self) -> None:
         with mock.patch.object(
-            ifts, "section_visible_in_rendered_body", return_value=False,
+            ifts,
+            "section_visible_in_rendered_body",
+            return_value=False,
         ):
             result = ifts.section_upsert(
-                item_id=404, section="Hidden Section",
+                item_id=404,
+                section="Hidden Section",
                 content="unreachable body",
             )
         self.assertFalse(result.success)
@@ -239,14 +280,27 @@ class TestSectionAppendCli(unittest.TestCase):
         self.db.insert_item(405)
 
     def test_section_append_via_cli_emits_evidence(self) -> None:
-        with mock.patch("sys.stdin", StringIO("body content")), \
-             mock.patch("sys.stdout", new_callable=StringIO) as stdout, \
-             mock.patch.object(ifts, "_utc_now", _frozen_now):
-            rc = item_field_transform.main([
-                "section-append", "--item", "405",
-                "--section", "Progress Log", "--headline", "kicked off",
-                "--ordering", "200", "--source", "advance", "--stdin",
-            ])
+        with (
+            mock.patch("sys.stdin", StringIO("body content")),
+            mock.patch("sys.stdout", new_callable=StringIO) as stdout,
+            mock.patch.object(ifts, "_utc_now", _frozen_now),
+        ):
+            rc = item_field_transform.main(
+                [
+                    "section-append",
+                    "--item",
+                    "405",
+                    "--section",
+                    "Progress Log",
+                    "--headline",
+                    "kicked off",
+                    "--ordering",
+                    "200",
+                    "--source",
+                    "advance",
+                    "--stdin",
+                ]
+            )
         self.assertEqual(rc, 0)
         evidence = json.loads(stdout.getvalue().strip())
         self.assertTrue(evidence["success"])
@@ -259,12 +313,22 @@ class TestSectionAppendCli(unittest.TestCase):
         self.assertGreater(evidence["new_line_count"], 0)
 
     def test_section_append_via_cli_rejects_empty_stdin(self) -> None:
-        with mock.patch("sys.stdin", StringIO("")), \
-             mock.patch("sys.stdout", new_callable=StringIO) as stdout:
-            rc = item_field_transform.main([
-                "section-append", "--item", "405",
-                "--section", "Progress Log", "--headline", "x", "--stdin",
-            ])
+        with (
+            mock.patch("sys.stdin", StringIO("")),
+            mock.patch("sys.stdout", new_callable=StringIO) as stdout,
+        ):
+            rc = item_field_transform.main(
+                [
+                    "section-append",
+                    "--item",
+                    "405",
+                    "--section",
+                    "Progress Log",
+                    "--headline",
+                    "x",
+                    "--stdin",
+                ]
+            )
         self.assertEqual(rc, 1)
         evidence = json.loads(stdout.getvalue().strip())
         self.assertFalse(evidence["success"])

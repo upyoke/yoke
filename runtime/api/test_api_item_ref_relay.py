@@ -45,8 +45,8 @@ CREATE TABLE items (
     status TEXT DEFAULT 'idea',
     priority TEXT DEFAULT 'medium',
     frozen INTEGER DEFAULT 0, github_issue INTEGER,
-    deployed_to TEXT, merged_at TEXT,
-    created_at TEXT, updated_at TEXT, source TEXT,
+    deployed_to TEXT, merged_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ, source TEXT,
     deployment_flow TEXT, deploy_stage TEXT,
     UNIQUE(project_id, project_sequence)
 );

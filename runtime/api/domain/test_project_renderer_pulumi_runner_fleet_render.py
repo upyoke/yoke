@@ -19,12 +19,8 @@ def test_runner_fleet_program_inventory_covers_local_dependencies():
     dependencies: set[str] = set()
     for name in inventory:
         source = _pack_program_source(name).read_text()
-        dependencies.update(
-            re.findall(r'from "\./(webapp_runner_[^"]+)"', source)
-        )
-        dependencies.update(
-            re.findall(r'root / "(webapp_runner_[^"]+)"', source)
-        )
+        dependencies.update(re.findall(r'from "\./(webapp_runner_[^"]+)"', source))
+        dependencies.update(re.findall(r'root / "(webapp_runner_[^"]+)"', source))
 
     assert dependencies - inventory == set()
 
@@ -33,9 +29,7 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     root = tmp_path / "repo"
     infra = root / "infra"
     infra.mkdir(parents=True)
-    (infra / "Pulumi.yaml").write_text(
-        "name: webapp-infra\nruntime:\n  name: python\n"
-    )
+    (infra / "Pulumi.yaml").write_text("name: webapp-infra\nruntime:\n  name: python\n")
     (infra / "Pulumi.runner-fleet-stack.yaml.tmpl").write_text(
         "config:\n"
         "  aws:region: {{runner_fleet_aws_region}}\n"
@@ -53,9 +47,9 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "  webapp-infra:github_private_key_secret_arn: {{runner_fleet_github_private_key_secret_arn}}\n"
         "  webapp-infra:runner_labels: '{{runner_fleet_labels_json}}'\n"
         "  webapp-infra:runner_variable_name: {{runner_fleet_variable_name}}\n"
-        "  webapp-infra:routing_enabled: \"{{runner_fleet_routing_enabled}}\"\n"
+        '  webapp-infra:routing_enabled: "{{runner_fleet_routing_enabled}}"\n'
         "  webapp-infra:instance_type: {{runner_fleet_instance_type}}\n"
-        "  webapp-infra:root_volume_gb: \"{{runner_fleet_root_volume_gb}}\"\n"
+        '  webapp-infra:root_volume_gb: "{{runner_fleet_root_volume_gb}}"\n'
         "  webapp-infra:deployment_ssh_stack_outputs: '{{runner_fleet_deployment_ssh_stack_outputs_json}}'\n"
     )
     (infra / "__main__.py").write_text("# pulumi entrypoint\n")
@@ -69,16 +63,18 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     (infra / "webapp_runner_github_broker_stack.py").write_text("# broker\n")
     (infra / "webapp_runner_github_state.py").write_text("# state\n")
     (infra / "webapp_runner_github_webhook.py").write_text("# webhook\n")
-    (infra / "webapp_github_repository_provider.py").write_text(
-        "# github provider\n"
-    )
+    (infra / "webapp_github_repository_provider.py").write_text("# github provider\n")
+    for name in (
+        "webapp_runner_clock.mjs",
+        "webapp_runner_timestamps.mjs",
+        "webapp_runner_timestamps.py",
+    ):
+        (infra / name).write_text("# timestamp resource\n")
     (infra / "webapp_runner_aws_state.mjs").write_text("// aws state\n")
     (infra / "webapp_runner_github_api.mjs").write_text("// github api\n")
     (infra / "webapp_runner_github_broker.mjs").write_text("// broker\n")
     (infra / "webapp_runner_parallel_reaper.mjs").write_text("// reaper\n")
-    (infra / "webapp_runner_registration.mjs").write_text(
-        "// registration\n"
-    )
+    (infra / "webapp_runner_registration.mjs").write_text("// registration\n")
     (infra / "webapp_runner_termination.mjs").write_text("// termination\n")
     (infra / "requirements.txt").write_text("pulumi>=3.0.0\n")
     proj = root / "projects" / "externalwebapp"
@@ -126,7 +122,11 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     }
 
     project_renderer_pulumi.render_pulumi_artifacts(
-        "externalwebapp", values, root, proj, write=True,
+        "externalwebapp",
+        values,
+        root,
+        proj,
+        write=True,
     )
 
     infra_dst = proj / "infra"
@@ -144,6 +144,9 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
         "webapp_runner_github_broker_stack.py",
         "webapp_runner_github_state.py",
         "webapp_runner_github_webhook.py",
+        "webapp_runner_clock.mjs",
+        "webapp_runner_timestamps.mjs",
+        "webapp_runner_timestamps.py",
         "webapp_runner_aws_state.mjs",
         "webapp_runner_github_api.mjs",
         "webapp_runner_github_broker.mjs",
@@ -166,8 +169,8 @@ def test_writes_runner_fleet_stack_type(tmp_path, monkeypatch):
     assert 'webapp-infra:root_volume_gb: "200"' in rendered
     assert (
         "webapp-infra:deployment_ssh_stack_outputs: "
-        "'{\"externalwebapp-prod\":\"originElasticIpAddress\","
-        "\"externalwebapp-stage\":\"originElasticIpAddress\","
-        "\"yoke-platform-vps\":\"vpsElasticIpAddress\"}'"
+        '\'{"externalwebapp-prod":"originElasticIpAddress",'
+        '"externalwebapp-stage":"originElasticIpAddress",'
+        '"yoke-platform-vps":"vpsElasticIpAddress"}\''
     ) in rendered
     assert "{{" not in rendered

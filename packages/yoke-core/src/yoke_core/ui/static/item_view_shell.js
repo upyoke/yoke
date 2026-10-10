@@ -1,5 +1,6 @@
 import { renderMarkdown } from "./markdown_view.js";
 import { relativeTime } from "./universe_time.js";
+import { formatInstant } from "./timestamps.js";
 import {
   el,
   statePill,
@@ -134,10 +135,17 @@ export function progressPanel(documentNode, item) {
     const entry = el(documentNode, "article", "item-progress-entry");
     const heading = el(documentNode, "div", "item-progress-heading");
     const timestamp = match[1];
-    if (Number.isNaN(new Date(timestamp).getTime())) {
+    let canonical;
+    try {
+      canonical = formatInstant(timestamp);
+    } catch {
+      // Historical narrative headings can be prose or calendar dates.
+      canonical = null;
+    }
+    if (canonical === null) {
       heading.appendChild(el(documentNode, "span", "item-muted", timestamp));
     } else {
-      heading.appendChild(relativeTime(documentNode, timestamp));
+      heading.appendChild(relativeTime(documentNode, canonical));
     }
     entry.appendChild(heading);
     const start = Number(match.index) + match[0].length;

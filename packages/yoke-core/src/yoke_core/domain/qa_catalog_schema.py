@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 from yoke_core.domain import db_backend, qa_plan_requirement_identity
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
     environment_reference_column_sql,
@@ -43,8 +43,8 @@ CREATE TABLE IF NOT EXISTS qa_methods (
     config_contract_id TEXT NOT NULL DEFAULT 'passthrough',
     proof_kind TEXT NOT NULL DEFAULT 'artifact',
     runner_gloss TEXT NOT NULL DEFAULT 'registered runner',
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
     CHECK(
         (source_kind = 'project' AND project_id IS NOT NULL) OR
         (source_kind <> 'project' AND project_id IS NULL)
@@ -59,9 +59,9 @@ CREATE TABLE IF NOT EXISTS qa_plans (
     description TEXT NOT NULL DEFAULT '',
     success_policy_id TEXT NOT NULL DEFAULT 'all-pass',
     success_policy_params TEXT NOT NULL DEFAULT '{}',
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    retired_at TEXT,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    retired_at TIMESTAMPTZ,
     UNIQUE(project_id, slug)
 );
 
@@ -80,8 +80,8 @@ CREATE TABLE IF NOT EXISTS qa_plan_cases (
     target_envs TEXT NOT NULL DEFAULT '[]',
     entry_surface TEXT,
     required_completion TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
     starting_state TEXT,
     starting_state_reason TEXT,
     UNIQUE(plan_id, case_key),
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS qa_plan_project_defaults (
     qa_phase TEXT NOT NULL DEFAULT 'verification'
         CHECK(qa_phase IN ('verification','post_deploy','manual_acceptance')),
     plan_id INTEGER NOT NULL REFERENCES qa_plans(id),
-    attached_at TEXT NOT NULL,
+    attached_at TIMESTAMPTZ NOT NULL,
     attached_by_actor_id INTEGER,
     PRIMARY KEY(project_id, workflow_id, transition_id, plan_id)
 );
@@ -106,9 +106,9 @@ CREATE TABLE IF NOT EXISTS qa_plan_item_attachments (
     qa_phase TEXT NOT NULL DEFAULT 'verification'
         CHECK(qa_phase IN ('verification','post_deploy','manual_acceptance')),
     plan_id INTEGER NOT NULL REFERENCES qa_plans(id),
-    attached_at TEXT NOT NULL,
+    attached_at TIMESTAMPTZ NOT NULL,
     attached_by_actor_id INTEGER,
-    retracted_at TEXT,
+    retracted_at TIMESTAMPTZ,
     retraction_rationale TEXT,
     retraction_source TEXT,
     retracted_by_actor_id INTEGER,
@@ -150,17 +150,17 @@ _REQUIREMENT_COLUMNS = (
     # rationale and when it was drawn, so the broken row survives as
     # history instead of being edited away or waived.
     ("superseded_by_requirement_id", "INTEGER REFERENCES qa_requirements(id)"),
-    ("superseded_at", "TEXT"),
+    ("superseded_at", "TIMESTAMPTZ"),
     ("supersession_rationale", "TEXT"),
     ("supersession_source", "TEXT"),
     # A failed case a corrected one was declared to replace when it was
     # materialized. The row stays blocking until that case passes, then the
     # supersession above is recorded; until then no roster re-runs it.
     ("replacement_requirement_id", "INTEGER REFERENCES qa_requirements(id)"),
-    ("retracted_at", "TEXT"),
+    ("retracted_at", "TIMESTAMPTZ"),
     ("retraction_rationale", "TEXT"),
     ("retraction_source", "TEXT"),
-    ("rebound_at", "TEXT"),
+    ("rebound_at", "TIMESTAMPTZ"),
     ("rebound_from_digest", "TEXT"),
     ("rebind_rationale", "TEXT"),
     ("rebind_actor_id", "INTEGER"),
@@ -169,7 +169,7 @@ _REQUIREMENT_COLUMNS = (
 )
 
 _ATTACHMENT_RETRACT_COLUMNS = (
-    ("retracted_at", "TEXT"),
+    ("retracted_at", "TIMESTAMPTZ"),
     ("retraction_rationale", "TEXT"),
     ("retraction_source", "TEXT"),
     ("retracted_by_actor_id", "INTEGER"),
@@ -209,7 +209,7 @@ def seed_builtin_qa_methods(conn: Any) -> None:
     complete catalog call both, in that order.
     """
     marker = _placeholder(conn)
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     columns = (
         "id",
         "name",

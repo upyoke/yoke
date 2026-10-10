@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 import math
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -46,16 +48,11 @@ def _value(row: Any, key: str, index: int) -> Any:
 
 
 def _timestamp(value: Any) -> datetime | None:
-    text = str(value or "").strip()
-    if not text:
+    if value is None:
         return None
-    try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+    from yoke_contracts.timestamps import parse_instant
+
+    return parse_instant(value)
 
 
 def _percentile(values: list[int], fraction: float) -> int | None:
@@ -70,7 +67,7 @@ def _percentile(values: list[int], fraction: float) -> int | None:
     return int(round(interpolated))
 
 
-def _metric_rows(conn: Any, cutoff: str) -> list[Any]:
+def _metric_rows(conn: Any, cutoff: datetime) -> list[Any]:
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     return conn.execute(
         "SELECT e.hook_event_name, e.duration_ms, e.envelope, e.created_at, "
@@ -79,7 +76,7 @@ def _metric_rows(conn: Any, cutoff: str) -> list[Any]:
         "ON hs.session_id=e.session_id "
         f"WHERE e.event_name={marker} AND e.created_at >= {marker} "
         "AND e.hook_event_name IN ('PreToolUse','PostToolUse')",
-        ("HookDispatchTelemetry", cutoff),
+        ("HookDispatchTelemetry", instant_parameter(conn, cutoff)),
     ).fetchall()
 
 
@@ -134,10 +131,10 @@ def hook_overhead_rows(hours: int) -> list[dict[str, Any]]:
     distinct-session count that emitted a hook in the hour; it is a load
     proxy, not proof those sessions executed simultaneously.
     """
-    now = datetime.now(timezone.utc)
+    now = utc_now()
     cutoff_at = now - timedelta(hours=hours)
-    cutoff = cutoff_at.strftime("%Y-%m-%dT%H:%M:%SZ")
-    grouped: dict[tuple[str, str, str], dict[str, Any]] = defaultdict(_new_bucket)
+    cutoff = cutoff_at
+    grouped: dict[tuple[datetime, str, str], dict[str, Any]] = defaultdict(_new_bucket)
     conn = db_backend.connect()
     try:
         rows = _metric_rows(conn, cutoff)
@@ -149,7 +146,6 @@ def hook_overhead_rows(hours: int) -> list[dict[str, Any]]:
         if observed is None or hook_key is None:
             continue
         hour = observed.replace(minute=0, second=0, microsecond=0)
-        hour_key = hour.strftime("%Y-%m-%dT%H:00:00Z")
         envelope = _value(row, "envelope", 2)
         harness = _executor(envelope)
         surface = str(_value(row, "executor_surface", 5) or "").strip()
@@ -161,7 +157,7 @@ def hook_overhead_rows(hours: int) -> list[dict[str, Any]]:
         except (AttributeError, TypeError, ValueError):
             client_ms = None
         for scope, group_harness in (("global", "all"), ("harness", harness)):
-            bucket = grouped[(hour_key, scope, group_harness)]
+            bucket = grouped[(hour, scope, group_harness)]
             bucket["hook_count"] += 1
             bucket[f"{hook_key}_total"] += 1
             if session_id:

@@ -15,6 +15,8 @@ row in ``release_reason_intent``.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import temporal_wire
+
 import os
 from typing import Any, Dict, Optional
 
@@ -124,16 +126,18 @@ def operator_release(
         released_by_actor_id=int(operator_actor_id),
     )
 
-    return {
-        "released": True,
-        "claim_id": released.id,
-        "project_id": numeric_project_id,
-        "key": key,
-        "prior_session_id": claim.session_id,
-        "operator_actor_id": int(operator_actor_id),
-        "operator_reason": operator_reason,
-        "released_at": released.released_at,
-    }
+    return temporal_wire(
+        {
+            "released": True,
+            "claim_id": released.id,
+            "project_id": numeric_project_id,
+            "key": key,
+            "prior_session_id": claim.session_id,
+            "operator_actor_id": int(operator_actor_id),
+            "operator_reason": operator_reason,
+            "released_at": released.released_at,
+        }
+    )
 
 
 def _emit_operator_release(

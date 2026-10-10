@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from yoke_cli.config import github_git_credential_store as credential_store
+from yoke_contracts.timestamps import parse_instant
 
 
 class GitHubUserTokenError(RuntimeError):
@@ -29,6 +30,7 @@ class LocalUserAccessToken:
     refresh_rotated: bool = False
     refresh_credential_ref: str = ""
     cached: bool = False
+
 
 def access_token_from_machine_config(
     *,
@@ -101,7 +103,9 @@ def store_initial_token(
         )
     try:
         document = credential_store.credential_document_from_token_response(
-            token_response, now=now, config_path=config_path,
+            token_response,
+            now=now,
+            config_path=config_path,
         )
         return credential_store.write_credential_document(path, document)
     except credential_store.GitHubCredentialStoreError as exc:
@@ -111,11 +115,9 @@ def store_initial_token(
 def _local_token(payload: Mapping[str, Any]) -> LocalUserAccessToken:
     return LocalUserAccessToken(
         access_token=str(payload["access_token"]),
-        expires_at=datetime.fromisoformat(str(payload["expires_at"])),
+        expires_at=parse_instant(payload["expires_at"]),
         refresh_token=str(payload["refresh_token"]),
-        refresh_expires_at=datetime.fromisoformat(
-            str(payload["refresh_expires_at"])
-        ),
+        refresh_expires_at=parse_instant(payload["refresh_expires_at"]),
         scope=str(payload.get("scope") or ""),
         token_type=str(payload.get("token_type") or "bearer"),
         refresh_rotated=bool(payload.get("refresh_rotated")),

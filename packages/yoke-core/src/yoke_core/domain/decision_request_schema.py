@@ -43,14 +43,14 @@ def create_decision_request_tables(
             resolution_action TEXT,
             resolution_actor_id INTEGER REFERENCES actors(id),
             resolution_note TEXT,
-            resolved_at TEXT,
+            resolved_at TIMESTAMPTZ,
             withdrawal_reason TEXT,
-            withdrawn_at TEXT,
-            consumed_at TEXT,
+            withdrawn_at TIMESTAMPTZ,
+            consumed_at TIMESTAMPTZ,
             consumed_from_stage TEXT,
             consumed_to_stage TEXT,
             consumed_workflow_version_id INTEGER,
-            created_at TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL,
             CHECK (
                 (project_id IS NOT NULL AND org_id IS NULL)
                 OR (project_id IS NULL AND org_id IS NOT NULL)
@@ -93,7 +93,7 @@ def create_decision_request_tables(
             actor_id INTEGER NOT NULL REFERENCES actors(id),
             action TEXT NOT NULL,
             note TEXT,
-            decided_at TEXT NOT NULL,
+            decided_at TIMESTAMPTZ NOT NULL,
             -- Which session answered, beside which actor did. On a machine
             -- whose surfaces share one operator credential the actor is
             -- the same for every one of them, so the session is the only
@@ -121,7 +121,7 @@ def create_decision_request_tables(
         conn,
         "decision_requests",
         "consumed_at",
-        "TEXT",
+        "TIMESTAMPTZ",
     )
     _add_column_if_not_exists(
         conn,

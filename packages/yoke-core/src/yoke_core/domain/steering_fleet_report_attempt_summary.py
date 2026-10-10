@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
+from yoke_core.domain.db_helpers import instant_parameter
+
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -48,7 +52,7 @@ def last_attempts(
               JOIN session_messages m ON m.message_id = r.message_id
              WHERE {deliverable_receipt(marker)}
              ORDER BY a.started_at, a.attempt_id""",
-        (int(project_id), now),
+        (int(project_id), instant_parameter(conn, parse_instant(now))),
     ).fetchall()
     latest: dict[tuple[str, str], AttemptView] = {}
     for raw in rows:

@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import List
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_identity import render_item_ref
@@ -96,9 +98,8 @@ def hc_lifecycle_continuity(conn, args: DoctorArgs, rec: RecordCollector) -> Non
     # Cutoff suppresses pre-fix historical residue. items.updated_at is the
     # last-status-change timestamp; items whose current status was set before
     # the cutoff predate the writer fix and are grandfathered.
-    min_updated_at = _base._read_str_cutoff(
-        "hc_lifecycle_continuity_min_status_change_at",
-    )
+    cutoff = _base._read_str_cutoff("hc_lifecycle_continuity_min_status_change_at")
+    min_updated_at = parse_instant(cutoff) if cutoff is not None else None
     cutoff_clause = f"AND i.updated_at >= {_p(conn)} " if min_updated_at else ""
     params: tuple = (min_updated_at,) if min_updated_at else ()
 

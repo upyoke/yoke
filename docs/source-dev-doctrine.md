@@ -17,6 +17,20 @@ because none of it is true of a project that merely uses Yoke.
 ## CLA signatures branch — Hard Rule
 - **`origin/cla-signatures` is permanent governance state, not a leftover lane.** Both CLA workflow jobs run only in `upyoke/yoke`; forks and other copies skip upstream's CLA. The CLA Assistant workflow appends signatures there and the required `signature-check` status reads them. Never delete, force-push, reset, or prune it during cleanup — divergence from `main` with no merge-base is expected — and leave it unprotected so the workflow can write.
 
+## Serving catalog regeneration
+
+After changing schema declarations, regenerate the serving catalog from the
+complete source initialization chain in a disposable local test database:
+
+```text
+yoke dev run -- python3 -m runtime.api.tools.schema_catalog_render --target-root <claimed-checkout>
+```
+
+The tool checks every classified instant is native, excludes derived views,
+and writes only the explicit checkout's generated catalog declaration. It
+never reads or changes a live universe. Re-run the born-universe serving check
+and commit the regenerated source alongside the schema change.
+
 ## Repo file layout
 
 Repo-relative paths:
@@ -79,6 +93,12 @@ Rehearse Yoke migrations from the claimed lane through the paired authority:
 ```text
 yoke --env prod-db-admin dev run -- yoke migration rehearse PREFIX-N
 ```
+
+For the native instant cutover, use the installed launcher instead:
+`yoke --env prod-db-admin migration rehearse PREFIX-N`. Its existing lease and
+audit writers retain authority over the pre-cutover control plane; only the
+frozen history body runs on the validation copy, loading its sibling helpers
+without importing candidate runtime packages.
 
 The item and durable lease/audit receipts live on prod. Migration code runs only
 against the separately bound disposable validation database, whose live cluster

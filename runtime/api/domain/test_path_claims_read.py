@@ -40,7 +40,7 @@ def _add_edge(conn, *, dependent: int, blocking: int):
         "source TEXT NOT NULL, session_id INTEGER, "
         "rationale TEXT NOT NULL DEFAULT '', "
         "evidence_json TEXT NOT NULL DEFAULT '{}', "
-        "created_at TEXT NOT NULL)"
+        "created_at TIMESTAMPTZ NOT NULL)"
     )
     conn.execute(
         "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, "
@@ -165,12 +165,18 @@ class TestItemView:
         ta = seed_target(conn, path_string="runtime/api/domain")
         tb = seed_target(conn, path_string="docs/path-claims.md")
         cid_a = register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[ta], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[ta],
+            item_id=item_id,
         )
         cid_b = register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[tb], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[tb],
+            item_id=item_id,
         )
         rows = item_view(conn, item_id)
         assert sorted(r["id"] for r in rows) == sorted([cid_a, cid_b])
@@ -181,8 +187,11 @@ class TestItemView:
         item_id = _seed_item(conn, item_id=4002)
         target = seed_target(conn, path_string="runtime/api/domain")
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[target], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[target],
+            item_id=item_id,
         )
         rows = item_view(conn, item_id, states=["active"])
         assert rows == []
@@ -198,13 +207,19 @@ class TestCrossClaimConflicts:
         item_b = _seed_item(conn, item_id=5002)
         target = seed_target(conn, path_string="runtime/api/domain")
         first = register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[target], item_id=item_a,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[target],
+            item_id=item_a,
         )
         activate(conn, claim_id=first, base_commit_sha=SNAP)
         second = register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[target], item_id=item_b,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[target],
+            item_id=item_b,
             upstream_claim_id=first,
         )
         conflicts = cross_claim_conflicts(conn)
@@ -220,13 +235,19 @@ class TestCrossClaimConflicts:
         item_id = _seed_item(conn, item_id=5003)
         target = seed_target(conn, path_string="runtime/api/domain")
         first = register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[target], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[target],
+            item_id=item_id,
         )
         activate(conn, claim_id=first, base_commit_sha=SNAP)
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[target], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[target],
+            item_id=item_id,
             upstream_claim_id=first,
         )
         # Different integration target — same target, but cross-target
@@ -244,11 +265,17 @@ class TestCrossClaimConflicts:
         ta = seed_target(conn, path_string="runtime/api/domain")
         tb = seed_target(conn, path_string="docs/path-claims.md")
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[ta], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[ta],
+            item_id=item_id,
         )
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[tb], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[tb],
+            item_id=item_id,
         )
         assert cross_claim_conflicts(conn) == []

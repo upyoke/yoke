@@ -64,15 +64,19 @@ class TestAuthoredFields:
 
     def test_rejects_bad_role(self) -> None:
         with pytest.raises(DbCompatibilityAttestationError):
-            validate({
-                "pre_merge_readers_writers": [{"path": "a.py", "role": "overseer"}],
-            })
+            validate(
+                {
+                    "pre_merge_readers_writers": [{"path": "a.py", "role": "overseer"}],
+                }
+            )
 
     def test_rejects_missing_path(self) -> None:
         with pytest.raises(DbCompatibilityAttestationError):
-            validate({
-                "pre_merge_readers_writers": [{"role": "reader"}],
-            })
+            validate(
+                {
+                    "pre_merge_readers_writers": [{"role": "reader"}],
+                }
+            )
 
     def test_rejects_non_list_invariants(self) -> None:
         with pytest.raises(DbCompatibilityAttestationError):
@@ -88,6 +92,38 @@ class TestFrozenAt:
         out = validate({"frozen_at": "2026-04-22T17:52:49Z"})
         assert out["frozen_at"] == "2026-04-22T17:52:49Z"
 
+    @pytest.mark.parametrize(
+        "stamp",
+        [
+            "not-an-instantZ",
+            "2026-02-30T17:52:49Z",
+            "2026-04-22T25:52:49Z",
+            "2026-04-22T17:52:60Z",
+            "2026-04-22T17:52:49.1234567Z",
+            "2026-04-22Z",
+            " 2026-04-22T17:52:49Z",
+        ],
+    )
+    def test_rejects_invalid_utc_stamps_with_instant_recovery(self, stamp) -> None:
+        with pytest.raises(DbCompatibilityAttestationError, match="invalid_instant"):
+            validate({"frozen_at": stamp})
+
+    @pytest.mark.parametrize(
+        "stamp",
+        [
+            "2026-04-22T17:52:49Z",
+            "1969-12-31T23:59:59.123456Z",
+            "0042-02-03T04:05:06.000000Z",
+            "2024-02-29T00:00:00.1Z",
+        ],
+    )
+    def test_validates_frozen_stamps_without_changing_identity(self, stamp) -> None:
+        payload = {"frozen_at": stamp, "invariants": ["keep frozen evidence"]}
+        before = canonical_json(payload)
+        assert validate(payload)["frozen_at"] == stamp
+        assert validate_json_string(before) == before
+        assert check_authored_fields_frozen(before, before) is None
+
     def test_accepts_null(self) -> None:
         out = validate({"frozen_at": None})
         assert out["frozen_at"] is None
@@ -99,19 +135,31 @@ class TestFrozenAt:
 
 class TestAppendOnlyCompanions:
     def test_accepts_rehearsal_outcomes(self) -> None:
-        out = validate({
-            "rehearsal_outcomes": [
-                {"command": "pytest", "verdict": "pass", "observed_at": "2026-04-22T17:52:49Z"},
-            ],
-        })
+        out = validate(
+            {
+                "rehearsal_outcomes": [
+                    {
+                        "command": "pytest",
+                        "verdict": "pass",
+                        "observed_at": "2026-04-22T17:52:49Z",
+                    },
+                ],
+            }
+        )
         assert out["rehearsal_outcomes"][0]["verdict"] == "pass"
 
     def test_accepts_class_escalations(self) -> None:
-        out = validate({
-            "class_escalations": [
-                {"from": "pre_merge_safe", "to": "pre_merge_breaking", "reason": "scanner hit"},
-            ],
-        })
+        out = validate(
+            {
+                "class_escalations": [
+                    {
+                        "from": "pre_merge_safe",
+                        "to": "pre_merge_breaking",
+                        "reason": "scanner hit",
+                    },
+                ],
+            }
+        )
         assert out["class_escalations"][0]["to"] == "pre_merge_breaking"
 
     def test_rejects_non_list_outcomes(self) -> None:
@@ -157,7 +205,11 @@ class TestFreezeImmutability:
     _FROZEN = {
         "frozen_at": "2026-04-22T17:52:49Z",
         "pre_merge_readers_writers": [
-            {"path": "runtime/api/domain/projects.py", "symbol": "load", "role": "reader"}
+            {
+                "path": "runtime/api/domain/projects.py",
+                "symbol": "load",
+                "role": "reader",
+            }
         ],
         "invariants": ["items.status in canonical lifecycle enum"],
         "rehearsal_commands": ["python3 -m pytest runtime/api/"],

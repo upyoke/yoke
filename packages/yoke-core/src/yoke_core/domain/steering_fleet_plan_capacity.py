@@ -13,7 +13,7 @@ and window; under 100% is the only value that can hit a wall before reset.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from yoke_contracts.session_control.plan_limit_unreadable_guidance import (
@@ -26,7 +26,7 @@ from yoke_core.domain.steering_fleet_report_balance import (
     plan_meter_selection_labels,
 )
 from yoke_core.domain.steering_fleet_report_capacity import SessionCount
-from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 
 
@@ -92,7 +92,7 @@ class PlanLimitComputation:
     scope: str
     meter: str
     remaining_percent: float | None
-    resets_at: str | None
+    resets_at: datetime | None
     status: str
     reason: str | None
     window: timedelta | None
@@ -113,13 +113,11 @@ def remaining_capacity(
     return timedelta(seconds=window.total_seconds() * (remaining_percent / 100.0))
 
 
-def time_until_reset(resets_at: str | None, now: str) -> timedelta | None:
-    if not resets_at:
-        return None
-    try:
-        return parse_stamp(resets_at) - parse_stamp(now)
-    except (TypeError, ValueError):
-        return None
+def time_until_reset(
+    resets_at: datetime | str | None, now: datetime | str
+) -> timedelta | None:
+    current = parse_instant(now)
+    return parse_instant(resets_at) - current if resets_at is not None else None
 
 
 def headroom_percent(
@@ -149,13 +147,10 @@ def format_capacity_duration(value: timedelta) -> str:
     return sign + " ".join(parts)
 
 
-def format_reset_utc(resets_at: str | None) -> str:
-    if not resets_at:
+def format_reset_utc(resets_at: datetime | str | None) -> str:
+    if resets_at is None:
         return EMPTY
-    try:
-        stamp = parse_stamp(resets_at)
-    except (TypeError, ValueError):
-        return EMPTY
+    stamp = parse_instant(resets_at)
     return f"{stamp.strftime('%b')} {stamp.day} {stamp.strftime('%H:%M')}"
 
 
@@ -294,7 +289,9 @@ def plan_limit_dicts(
             "meter": row.meter,
             "window_label": window_label(row.window_kind, row.scope),
             "remaining_percent": row.remaining_percent,
-            "resets_at": row.resets_at,
+            "resets_at": format_instant(row.resets_at)
+            if row.resets_at is not None
+            else None,
             "status": row.status,
             "reason": row.reason,
             "guidance": (

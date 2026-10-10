@@ -35,16 +35,14 @@ def _unconstrained_priority_conn():
     """Items table without the priority CHECK constraint, simulating
     legacy rows with NULL/invalid priority values."""
     name = pg_testdb.create_test_database()
-    conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    conn = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     apply_fixture_ddl(
         conn,
         """
         CREATE TABLE items (
             id INTEGER PRIMARY KEY, title TEXT, workflow_id TEXT,
             workflow_version_id INTEGER, status TEXT,
-            priority TEXT, spec TEXT, created_at TEXT, updated_at TEXT,
+            priority TEXT, spec TEXT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ,
             project_id INTEGER NOT NULL DEFAULT 1, project_sequence INTEGER
         );
         CREATE TABLE projects (
@@ -68,8 +66,14 @@ class TestHCBacklogQualityFull:
 
     def test_stale_idea_triggers_warn(self, test_db):
         """Test 1: Stale idea (older than 30 days) triggers WARN."""
-        insert_item(test_db, id=1, title="A stale old idea item for testing",
-                    status="idea", created_at="2025-12-01T00:00:00Z", spec="Some body content")
+        insert_item(
+            test_db,
+            id=1,
+            title="A stale old idea item for testing",
+            status="idea",
+            created_at="2025-12-01T00:00:00Z",
+            spec="Some body content",
+        )
         rec = _run_hc(hc_backlog_quality, test_db)
         r = _result(rec)
         assert r.result in ("WARN", "FAIL")
@@ -77,16 +81,28 @@ class TestHCBacklogQualityFull:
 
     def test_recent_idea_no_stale_warn(self, test_db):
         """Test 2: Recent idea does NOT trigger stale WARN."""
-        insert_item(test_db, id=1, title="A very recent idea item",
-                    status="idea", created_at="2099-01-01T00:00:00Z", spec="Some body content")
+        insert_item(
+            test_db,
+            id=1,
+            title="A very recent idea item",
+            status="idea",
+            created_at="2099-01-01T00:00:00Z",
+            spec="Some body content",
+        )
         rec = _run_hc(hc_backlog_quality, test_db)
         r = _result(rec)
         assert "stale idea" not in r.detail
 
     def test_short_title_triggers_warn(self, test_db):
         """Test 3: Title too short (< 10 chars) triggers WARN."""
-        insert_item(test_db, id=1, title="Fix bug",
-                    status="implementing", created_at="2026-02-24T00:00:00Z", spec="Some body content")
+        insert_item(
+            test_db,
+            id=1,
+            title="Fix bug",
+            status="implementing",
+            created_at="2026-02-24T00:00:00Z",
+            spec="Some body content",
+        )
         rec = _run_hc(hc_backlog_quality, test_db)
         r = _result(rec)
         assert r.result in ("WARN", "FAIL")
@@ -94,8 +110,14 @@ class TestHCBacklogQualityFull:
 
     def test_bodyless_active_triggers_fail(self, test_db):
         """Test 4: Body-less active item triggers FAIL."""
-        insert_item(test_db, id=1, title="A perfectly good title for testing",
-                    status="implementing", created_at="2026-02-24T00:00:00Z", spec="")
+        insert_item(
+            test_db,
+            id=1,
+            title="A perfectly good title for testing",
+            status="implementing",
+            created_at="2026-02-24T00:00:00Z",
+            spec="",
+        )
         rec = _run_hc(hc_backlog_quality, test_db)
         r = _result(rec)
         assert r.result == "FAIL"
@@ -129,10 +151,19 @@ class TestHCBacklogQualityFull:
         yoke_dir.mkdir()
         (yoke_dir / "config").write_text("backlog_stale_days=5\n")
 
-        insert_item(test_db, id=1, title="An idea older than custom threshold",
-                    status="idea", created_at="2026-02-14T00:00:00Z", spec="Some body content")
+        insert_item(
+            test_db,
+            id=1,
+            title="An idea older than custom threshold",
+            status="idea",
+            created_at="2026-02-14T00:00:00Z",
+            spec="Some body content",
+        )
 
-        with patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value=str(tmp_path)):
+        with patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(tmp_path),
+        ):
             rec = _run_hc(hc_backlog_quality, test_db)
 
         r = _result(rec)
@@ -142,11 +173,23 @@ class TestHCBacklogQualityFull:
 
     def test_pass_when_all_healthy(self, test_db):
         """Test 7: HC-backlog-quality PASS when all items are healthy."""
-        insert_item(test_db, id=1, title="A perfectly healthy backlog item",
-                    status="implementing", created_at="2026-02-24T00:00:00Z", spec="Has a proper body")
-        insert_item(test_db, id=2, title="Another healthy completed item",
-                    status="done", priority="high",
-                    created_at="2026-02-20T00:00:00Z", spec="Also has a body")
+        insert_item(
+            test_db,
+            id=1,
+            title="A perfectly healthy backlog item",
+            status="implementing",
+            created_at="2026-02-24T00:00:00Z",
+            spec="Has a proper body",
+        )
+        insert_item(
+            test_db,
+            id=2,
+            title="Another healthy completed item",
+            status="done",
+            priority="high",
+            created_at="2026-02-20T00:00:00Z",
+            spec="Also has a body",
+        )
         rec = _run_hc(hc_backlog_quality, test_db)
         r = _result(rec)
         assert r.result == "PASS"
@@ -170,8 +213,14 @@ class TestHCBacklogQualityFull:
 
     def test_bodyless_defined_triggers_fail(self, test_db):
         """Test 9: Body-less defined item triggers FAIL."""
-        insert_item(test_db, id=1, title="A defined item without body content",
-                    status="refined-idea", created_at="2026-02-24T00:00:00Z", spec="")
+        insert_item(
+            test_db,
+            id=1,
+            title="A defined item without body content",
+            status="refined-idea",
+            created_at="2026-02-24T00:00:00Z",
+            spec="",
+        )
         rec = _run_hc(hc_backlog_quality, test_db)
         r = _result(rec)
         assert r.result == "FAIL"
@@ -179,8 +228,14 @@ class TestHCBacklogQualityFull:
 
     def test_bodyless_idea_triggers_warn_not_fail(self, test_db):
         """Test 10: Body-less idea item triggers WARN not FAIL."""
-        insert_item(test_db, id=1, title="An idea item without body content",
-                    status="idea", created_at="2026-02-24T00:00:00Z", spec="")
+        insert_item(
+            test_db,
+            id=1,
+            title="An idea item without body content",
+            status="idea",
+            created_at="2026-02-24T00:00:00Z",
+            spec="",
+        )
         rec = _run_hc(hc_backlog_quality, test_db)
         r = _result(rec)
         assert r.result == "WARN"
@@ -188,9 +243,14 @@ class TestHCBacklogQualityFull:
 
     def test_default_only_body_detected_as_empty(self, test_db):
         """Test 11: Default-only body (just '# Title') detected as empty."""
-        insert_item(test_db, id=1, title="A defined item with default body",
-                    status="refined-idea", created_at="2026-02-24T00:00:00Z",
-                    spec="# A defined item with default body")
+        insert_item(
+            test_db,
+            id=1,
+            title="A defined item with default body",
+            status="refined-idea",
+            created_at="2026-02-24T00:00:00Z",
+            spec="# A defined item with default body",
+        )
         rec = _run_hc(hc_backlog_quality, test_db)
         r = _result(rec)
         assert r.result == "FAIL"
@@ -198,9 +258,14 @@ class TestHCBacklogQualityFull:
 
     def test_real_body_passes(self, test_db):
         """Test 12: Item with real body content beyond default heading passes."""
-        insert_item(test_db, id=1, title="A defined item with real body",
-                    status="refined-idea", created_at="2026-02-24T00:00:00Z",
-                    spec="# A defined item with real body\n\nThis has actual content explaining what needs to be done.")
+        insert_item(
+            test_db,
+            id=1,
+            title="A defined item with real body",
+            status="refined-idea",
+            created_at="2026-02-24T00:00:00Z",
+            spec="# A defined item with real body\n\nThis has actual content explaining what needs to be done.",
+        )
         rec = _run_hc(hc_backlog_quality, test_db)
         r = _result(rec)
         assert "no body content" not in r.detail

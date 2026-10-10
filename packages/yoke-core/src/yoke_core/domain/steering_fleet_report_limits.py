@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+
 from dataclasses import dataclass
 import json
 from typing import Any, Mapping
@@ -29,9 +34,13 @@ class MachinePlanLimit:
     scope: str
     meter: str
     remaining_percent: float | None
-    resets_at: str | None
+    resets_at: datetime | None
     status: str
     reason: str | None
+
+    def __post_init__(self) -> None:
+        if self.resets_at is not None:
+            object.__setattr__(self, "resets_at", parse_instant(self.resets_at))
 
 
 def _p(conn: Any) -> str:
@@ -78,7 +87,7 @@ def load_plan_limits(
     conn: Any,
     *,
     project_id: int,
-    now: str,
+    now: datetime | str,
     registered_names: Mapping[str, str] | None = None,
 ) -> tuple[MachinePlanLimit, ...]:
     """Connected relays' cached readings for machines serving this project.
@@ -94,7 +103,7 @@ def load_plan_limits(
         "SELECT machine_id, hostname, project_checkouts, surface_plan_limits "
         f"FROM session_relays WHERE connected_until>={marker} "
         "ORDER BY hostname, machine_id",
-        (now,),
+        (instant_parameter(conn, parse_instant(now)),),
     ).fetchall()
     found: list[MachinePlanLimit] = []
     for row in rows:
@@ -128,9 +137,7 @@ def load_plan_limits(
                         remaining_percent=float(remaining)
                         if isinstance(remaining, (int, float))
                         else None,
-                        resets_at=window.get("resets_at")
-                        if isinstance(window.get("resets_at"), str)
-                        else None,
+                        resets_at=window.get("resets_at"),
                         status=str(window.get("status") or "unknown"),
                         reason=window.get("reason")
                         if isinstance(window.get("reason"), str)

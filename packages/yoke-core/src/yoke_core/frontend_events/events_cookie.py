@@ -5,10 +5,10 @@ import base64
 import hashlib
 import hmac
 import json
-import time
 import uuid
 import warnings
-from datetime import datetime, timezone
+from datetime import timedelta
+from .events_timestamps import format_instant, parse_instant, utc_now
 from http.cookies import SimpleCookie
 from urllib.parse import urlsplit
 
@@ -43,6 +43,12 @@ def validate_record(record):
         )
     ):
         raise ValueError("attribution_invalid: capture attribution again")
+    for key in ("first_touch", "last_touch"):
+        value = record[key].get("captured_at")
+        if not isinstance(value, str) or format_instant(value) != value:
+            raise ValueError(
+                "attribution_invalid: capture attribution again with canonical UTC instants"
+            )
     return {k: record[k] for k in RECORD_KEYS}
 
 
@@ -69,8 +75,9 @@ class AttributionCookie:
                 raise ValueError()
             decoded = json.loads(_decode(payload))
             if (
-                not isinstance(decoded.get("expires"), (int, float))
-                or decoded["expires"] <= time.time()
+                not isinstance(decoded.get("expires"), str)
+                or format_instant(decoded["expires"]) != decoded["expires"]
+                or parse_instant(decoded["expires"]) <= utc_now()
             ):
                 raise ValueError()
             return validate_record(decoded["record"])
@@ -102,7 +109,12 @@ class AttributionCookie:
         record = validate_record(record)
         payload = _encode(
             json.dumps(
-                {"record": record, "expires": int(time.time()) + COOKIE_SECONDS},
+                {
+                    "record": record,
+                    "expires": format_instant(
+                        utc_now() + timedelta(seconds=COOKIE_SECONDS)
+                    ),
+                },
                 separators=(",", ":"),
             ).encode()
         )
@@ -121,7 +133,7 @@ class AttributionCookie:
             raise ValueError(
                 "attribution_site_mismatch: send a URL belonging to the configured site domain"
             )
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now = format_instant(utc_now())
         existing = self.read(cookie)
         touch = capture_touch(url, referrer, self.site_domain, now)
         record = update_attribution(existing, touch, str(uuid.uuid4()))

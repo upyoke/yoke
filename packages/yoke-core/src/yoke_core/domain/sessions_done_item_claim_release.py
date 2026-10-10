@@ -9,12 +9,15 @@ finished item as the work those sessions are on.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import utc_now
+from .db_helpers import instant_parameter
+
 from typing import Any, List
 
 from . import sessions_analytics as _sa
 from .sessions_analytics import EVENT_WORK_RELEASED
 from .sessions_item_focus_release import release_item_focus_for_sessions
-from .sessions_queries import _now_iso, normalize_claim_item_id
+from .sessions_queries import normalize_claim_item_id
 from .work_claim_targets import (
     from_row as work_claim_target_from_row,
     scope_int_sql,
@@ -40,7 +43,7 @@ def release_claims_for_done_item(
 
     Returns the number of claims released.
     """
-    now = _now_iso()
+    now = instant_parameter(conn, utc_now())
     normalized = normalize_claim_item_id(item_id)
     if not normalized.isdigit():
         return 0

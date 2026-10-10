@@ -8,7 +8,10 @@ half lives in :mod:`yoke_core.domain.session_evidence_fetch`.
 
 from __future__ import annotations
 
-from datetime import timedelta
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+
+from datetime import datetime, timedelta
 from typing import Any, Mapping, Sequence
 from uuid import uuid4
 
@@ -26,7 +29,6 @@ from yoke_core.domain.session_evidence_fetch import read_evidence_fetch
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
     row_dict,
-    timestamp,
 )
 from yoke_core.domain.session_relay_storage import (
     clear_relay_batch_when_drained,
@@ -85,7 +87,7 @@ def claim_evidence_fetch(
     conn: Any,
     heartbeat: RelayHeartbeat,
     *,
-    now: str,
+    now: datetime | str,
 ) -> RelayJob | None:
     """Lease this machine's oldest pending read; a seat is blocked on it."""
     projects = tuple(sorted({int(value) for value in heartbeat.project_ids}))
@@ -109,14 +111,14 @@ def claim_evidence_fetch(
     current = parse_timestamp(now)
     if current is None:
         raise SessionRelayError("clock_invalid", "relay evidence lease time is invalid")
-    expires_at = timestamp(current + timedelta(seconds=EVIDENCE_LEASE_SECONDS))
+    expires_at = current + timedelta(seconds=EVIDENCE_LEASE_SECONDS)
     cursor = conn.execute(
         "UPDATE session_evidence_fetches SET state='leased',lease_id="
         + p
         + ",lease_expires_at="
         + p
         + f" WHERE fetch_id={p} AND state='pending'",
-        (lease_id, expires_at, fetch_id),
+        (lease_id, instant_parameter(conn, parse_instant(expires_at)), fetch_id),
     )
     if cursor.rowcount != 1:
         return None
@@ -160,7 +162,7 @@ def report_evidence_fetch(
     lease_id: str,
     result_code: str,
     document: Mapping[str, Any] | None,
-    now: str,
+    now: datetime | str,
 ) -> dict[str, Any]:
     """Store the bounded listing and tail this machine read back."""
     if result_code not in EVIDENCE_RESULT_CODES:
@@ -197,7 +199,7 @@ def report_evidence_fetch(
         + f" WHERE fetch_id={p}",
         (
             "succeeded" if evidence_result_succeeded(result_code) else "failed",
-            now,
+            instant_parameter(conn, parse_instant(now)),
             result_code,
             json_helper.dumps_compact(list(files)),
             str(source.get("selected_file") or "") or None,

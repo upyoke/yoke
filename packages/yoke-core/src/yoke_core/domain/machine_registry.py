@@ -9,6 +9,7 @@ in :mod:`yoke_core.domain.machine_credentials`.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, Mapping, Sequence
 import uuid
 
@@ -17,6 +18,8 @@ from yoke_contracts.machine_config.machine_access import (
     normalize_access,
     validate_access,
 )
+from yoke_contracts.timestamps import parse_instant, temporal_wire
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend, json_helper
 
 
@@ -38,23 +41,25 @@ class MachineRecord:
     machine_id: str
     name: str
     owner_actor_id: int
-    registered_at: str
-    last_seen_at: str | None = None
-    retired_at: str | None = None
+    registered_at: datetime
+    last_seen_at: datetime | None = None
+    retired_at: datetime | None = None
     retired_by_actor_id: int | None = None
     access: dict[str, Any] = field(default_factory=lambda: dict(DEFAULT_ACCESS))
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "machine_id": self.machine_id,
-            "name": self.name,
-            "owner_actor_id": self.owner_actor_id,
-            "registered_at": self.registered_at,
-            "last_seen_at": self.last_seen_at,
-            "retired_at": self.retired_at,
-            "retired_by_actor_id": self.retired_by_actor_id,
-            "access": normalize_access(self.access),
-        }
+        return temporal_wire(
+            {
+                "machine_id": self.machine_id,
+                "name": self.name,
+                "owner_actor_id": self.owner_actor_id,
+                "registered_at": self.registered_at,
+                "last_seen_at": self.last_seen_at,
+                "retired_at": self.retired_at,
+                "retired_by_actor_id": self.retired_by_actor_id,
+                "access": normalize_access(self.access),
+            }
+        )
 
 
 def marker(conn: Any) -> str:
@@ -86,9 +91,9 @@ def _record(row: Any) -> MachineRecord:
         name=str(_cell(row, "name", 1)),
         owner_actor_id=int(_cell(row, "owner_actor_id", 2)),
         access=normalize_access(access),
-        registered_at=str(_cell(row, "registered_at", 4)),
-        last_seen_at=str(last_seen) if last_seen else None,
-        retired_at=str(retired_at) if retired_at else None,
+        registered_at=parse_instant(_cell(row, "registered_at", 4)),
+        last_seen_at=parse_instant(last_seen) if last_seen is not None else None,
+        retired_at=parse_instant(retired_at) if retired_at is not None else None,
         retired_by_actor_id=int(retired_by) if retired_by is not None else None,
     )
 
@@ -181,7 +186,7 @@ def register_machine(
     actor_id: int,
     access: Any = None,
     is_admin: bool = False,
-    now: str,
+    now: datetime | str,
     commit: bool = True,
 ) -> tuple[MachineRecord, bool]:
     """Record or refresh one machine, returning the row and whether it is new.
@@ -226,8 +231,8 @@ def register_machine(
                 chosen_name,
                 owner,
                 json_helper.dumps_compact(document),
-                now,
-                now,
+                instant_parameter(conn, parse_instant(now)),
+                instant_parameter(conn, parse_instant(now)),
             ),
         )
     else:
@@ -237,7 +242,7 @@ def register_machine(
             (
                 chosen_name,
                 json_helper.dumps_compact(document),
-                now,
+                instant_parameter(conn, parse_instant(now)),
                 canonical,
             ),
         )
@@ -252,7 +257,7 @@ def retire_machine(
     machine_id: str,
     actor_id: int,
     is_admin: bool = False,
-    now: str,
+    now: datetime | str,
     commit: bool = True,
 ) -> MachineRecord:
     """Retire one machine without deleting any history."""
@@ -268,7 +273,11 @@ def retire_machine(
         conn.execute(
             f"UPDATE machines SET retired_at={p},retired_by_actor_id={p} "
             f"WHERE machine_id={p}",
-            (now, int(actor_id), record.machine_id),
+            (
+                instant_parameter(conn, parse_instant(now)),
+                int(actor_id),
+                record.machine_id,
+            ),
         )
         if commit:
             conn.commit()
@@ -282,7 +291,7 @@ def set_machine_access(
     access: Any,
     actor_id: int,
     is_admin: bool = False,
-    now: str,
+    now: datetime | str,
 ) -> MachineRecord:
     """Replace the access document; the owner or an administrator may."""
     record = require_machine(conn, machine_id)
@@ -310,12 +319,12 @@ def set_machine_access(
     return require_machine(conn, record.machine_id)
 
 
-def touch_machine_seen(conn: Any, *, machine_id: str, now: str) -> None:
+def touch_machine_seen(conn: Any, *, machine_id: str, now: datetime | str) -> None:
     """Stamp liveness from the relay poll that just proved this machine."""
     p = marker(conn)
     conn.execute(
         f"UPDATE machines SET last_seen_at={p} WHERE machine_id={p}",
-        (now, str(machine_id)),
+        (instant_parameter(conn, parse_instant(now)), str(machine_id)),
     )
 
 

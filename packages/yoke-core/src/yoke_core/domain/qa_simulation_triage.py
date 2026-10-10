@@ -10,6 +10,7 @@ import hashlib
 import json
 import re
 from typing import Any
+from yoke_contracts.timestamps import format_instant
 
 from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
 from yoke_core.domain.item_json_sections import (
@@ -220,8 +221,8 @@ def record_simulation_triage(
         "session_id": identity.session_id,
         "claim_id": int(claim["id"]),
         "report_raw_result": str(attempt["raw_result"]),
-        "capture_started_at": str(attempt["started_at"]),
-        "capture_completed_at": str(attempt["completed_at"]),
+        "capture_started_at": format_instant(attempt["started_at"]),
+        "capture_completed_at": format_instant(attempt["completed_at"]),
         "rationale": reason,
         "recorded_at": iso8601_now(),
         "run_id": int(attempt["id"]),

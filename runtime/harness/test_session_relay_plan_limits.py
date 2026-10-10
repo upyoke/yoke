@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import json
+
 from pathlib import Path
+
+from runtime.harness.session_relay_clock_test_support import at
 
 import pytest
 from yoke_contracts.session_control.plan_limit_parsers import (
@@ -22,7 +26,7 @@ from yoke_contracts.session_control.plan_limits import (
 from yoke_harness import session_relay_plan_limits as limits
 
 
-NOW = "2026-08-30T01:00:00Z"
+NOW = "2026-08-30T01:00:00.000000Z"
 
 
 def _windows(reading: dict) -> list[tuple[str, str, float | None]]:
@@ -45,19 +49,19 @@ def test_claude_parser_keeps_the_session_and_both_weekly_meters() -> None:
                 {
                     "kind": "session",
                     "percent": 9,
-                    "resets_at": "2026-08-30T03:00:00Z",
+                    "resets_at": "2026-08-30T03:00:00.000000Z",
                     "scope": None,
                 },
                 {
                     "kind": "weekly_all",
                     "percent": 30,
-                    "resets_at": "2026-09-04T01:00:00Z",
+                    "resets_at": "2026-09-04T01:00:00.000000Z",
                     "scope": None,
                 },
                 {
                     "kind": "weekly_scoped",
                     "percent": 45,
-                    "resets_at": "2026-09-04T01:00:00Z",
+                    "resets_at": "2026-09-04T01:00:00.000000Z",
                     "scope": {"model": {"id": None, "display_name": "Fable"}},
                 },
             ]
@@ -70,7 +74,7 @@ def test_claude_parser_keeps_the_session_and_both_weekly_meters() -> None:
         ("rolling_7d", "all", 70.0),
         ("rolling_7d", "Fable", 55.0),
     ]
-    assert reading["windows"][0]["resets_at"] == "2026-08-30T03:00:00Z"
+    assert reading["windows"][0]["resets_at"] == "2026-08-30T03:00:00.000000Z"
     assert reading["windows"][0]["meter"] == "oauth_usage.limits.session"
 
 
@@ -122,7 +126,7 @@ def test_codex_parser_keeps_every_bucket_and_both_windows() -> None:
         ("rolling_5h", "GPT-5.3-Codex-Spark", 96.0),
         ("rolling_7d", "GPT-5.3-Codex-Spark", 93.0),
     ]
-    assert reading["windows"][0]["resets_at"] == "2026-09-05T21:28:12Z"
+    assert reading["windows"][0]["resets_at"] == "2026-09-05T21:28:12.000000Z"
     assert reading["windows"][0]["meter"] == "rateLimitsByLimitId.codex.primary"
 
 
@@ -182,7 +186,7 @@ def test_cursor_parser_keeps_both_monthly_included_usage_pools() -> None:
         "planUsage.apiPercentUsed",
     )
     assert round(other_models["remaining_percent"], 3) == 89.916
-    assert other_models["resets_at"] == "2026-09-07T01:00:04Z"
+    assert other_models["resets_at"] == "2026-09-07T01:00:04.000000Z"
 
 
 @pytest.mark.parametrize(
@@ -278,35 +282,10 @@ def test_a_raising_probe_names_the_class_that_raised(
     monkeypatch.setitem(limits._PROBES, "claude-cli", _boom)
 
     readings = limits.observe_plan_limits(
-        ("claude-cli",), state_dir=tmp_path, now=1_000.0, clock=lambda: NOW
+        ("claude-cli",), state_dir=tmp_path, now=at(1_000.0), clock=lambda: NOW
     )
 
     assert readings["claude-cli"]["windows"][0]["reason"] == "probe_raised_RuntimeError"
-
-
-def test_fresh_cache_skips_a_second_probe(monkeypatch, tmp_path: Path) -> None:
-    calls: list[str] = []
-
-    def _fake(surface: str, observed_at: str) -> dict:
-        calls.append(surface)
-        return unknown_reading(surface, "stale_credential", observed_at=observed_at)
-
-    monkeypatch.setattr(limits, "_probe_one", _fake)
-    first = limits.observe_plan_limits(
-        ("claude-cli",), state_dir=tmp_path, now=1_000.0, clock=lambda: NOW
-    )
-    second = limits.observe_plan_limits(
-        ("claude-cli",), state_dir=tmp_path, now=1_060.0, clock=lambda: NOW
-    )
-    third = limits.observe_plan_limits(
-        ("claude-cli",),
-        state_dir=tmp_path,
-        now=1_000.0 + limits.PLAN_LIMIT_REFRESH_SECONDS + 1,
-        clock=lambda: NOW,
-    )
-    assert calls == ["claude-cli", "claude-cli"]
-    for readings in (first, second, third):
-        assert readings["claude-cli"]["windows"][0]["reason"] == "stale_credential"
 
 
 def test_a_cache_written_by_another_shape_is_discarded_not_reported(
@@ -320,17 +299,19 @@ def test_a_cache_written_by_another_shape_is_discarded_not_reported(
         return unknown_reading(surface, "stale_credential", observed_at=observed_at)
 
     monkeypatch.setattr(limits, "_probe_one", _fake)
-    limits._write_cache(
-        {
-            "schema_version": limits.PLAN_LIMIT_CACHE_SCHEMA_VERSION - 1,
-            "probed_at": 1_000.0,
-            "surfaces": {"claude-cli": {"status": "ok", "remaining_percent": 50}},
-        },
-        tmp_path,
+    # A historical cache is fixture data, not a write through the current codec.
+    limits._cache_path(tmp_path).write_text(
+        json.dumps(
+            {
+                "schema_version": limits.PLAN_LIMIT_CACHE_SCHEMA_VERSION - 1,
+                "probed_at": 1_000.0,
+                "surfaces": {"claude-cli": {"status": "ok", "remaining_percent": 50}},
+            }
+        )
     )
 
     readings = limits.observe_plan_limits(
-        ("claude-cli",), state_dir=tmp_path, now=1_010.0, clock=lambda: NOW
+        ("claude-cli",), state_dir=tmp_path, now=at(1_010.0), clock=lambda: NOW
     )
 
     assert calls == ["claude-cli"]

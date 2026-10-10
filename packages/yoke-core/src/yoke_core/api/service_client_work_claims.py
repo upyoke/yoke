@@ -11,7 +11,7 @@ ambient session — see ``service_client_work_claims_identity``.
 from __future__ import annotations
 
 import argparse
-import json
+from yoke_core.domain.json_helper import dumps_compact
 import sys
 from typing import Optional
 
@@ -67,7 +67,7 @@ def _require_self_session(explicit: Optional[str]) -> Optional[str]:
     if identity.ok:
         return identity.effective_session_id
     print(
-        json.dumps(
+        dumps_compact(
             {"success": False, "code": identity.code, "error": identity.message}
         ),
         file=sys.stderr,
@@ -112,7 +112,7 @@ def cmd_claim_work(args: list[str]) -> int:
     try:
         target = _resolve_target(parsed)
     except (TargetValidationError, UnknownProcessError, ValueError) as exc:
-        print(json.dumps({"success": False, "error": str(exc)}), file=sys.stderr)
+        print(dumps_compact({"success": False, "error": str(exc)}), file=sys.stderr)
         return CLAIM_EXIT_USAGE
 
     conn = _get_db_readonly()
@@ -129,10 +129,10 @@ def cmd_claim_work(args: list[str]) -> int:
     )
 
     if result["success"]:
-        print(json.dumps({"success": True, "claim": result["claim"]}))
+        print(dumps_compact({"success": True, "claim": result["claim"]}))
         return CLAIM_EXIT_OK
     print(
-        json.dumps(
+        dumps_compact(
             {
                 "success": False,
                 "code": result.get("code"),
@@ -240,7 +240,7 @@ def cmd_release_work_claim(args: list[str]) -> int:
     try:
         target = _resolve_target(parsed)
     except (TargetValidationError, UnknownProcessError) as exc:
-        print(json.dumps({"success": False, "error": str(exc)}), file=sys.stderr)
+        print(dumps_compact({"success": False, "error": str(exc)}), file=sys.stderr)
         return RELEASE_EXIT_USAGE
 
     conn = _get_db_readwrite()
@@ -276,7 +276,7 @@ def cmd_release_work_claim(args: list[str]) -> int:
                 file=sys.stderr,
             )
             print(
-                json.dumps(
+                dumps_compact(
                     {
                         "success": False,
                         "released": False,
@@ -290,7 +290,7 @@ def cmd_release_work_claim(args: list[str]) -> int:
         conn.close()
 
     if result.get("released"):
-        print(json.dumps({"success": True, **result}))
+        print(dumps_compact({"success": True, **result}))
         return RELEASE_EXIT_OK
 
     failure_reason = result.get("failure_reason", "unknown")
@@ -303,7 +303,7 @@ def cmd_release_work_claim(args: list[str]) -> int:
         f"ItemClaimReleaseFailed.",
         file=sys.stderr,
     )
-    print(json.dumps({"success": False, **result}))
+    print(dumps_compact({"success": False, **result}))
     return _RELEASE_FAILURE_TO_EXIT.get(failure_reason, RELEASE_EXIT_DOMAIN_ERROR)
 
 

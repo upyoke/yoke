@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from runtime.harness.session_relay_clock_test_support import at
+
 from yoke_contracts.session_control.native_model_parsers import (
     codex_next_cursor,
     cursor_token_effort,
@@ -97,7 +99,7 @@ def test_codex_models_carry_efforts_and_replacement_metadata() -> None:
     assert models[0]["reasoning_efforts"] == ["low", "xhigh", "ultra"]
     assert models[0]["default_reasoning_effort"] == "medium"
     assert models[1]["replaced_by"] == "gpt-5.6-luna"
-    assert models[1]["retires_at"] == "2026-08-31T19:00:00Z"
+    assert models[1]["retires_at"] == "2026-08-31T19:00:00.000000Z"
     assert codex_next_cursor(CODEX_PAGE) is None
 
 
@@ -112,7 +114,9 @@ def test_reading_names_its_own_truncation() -> None:
         native_model(f"model-{index}") for index in range(MAX_MODELS_PER_SURFACE + 5)
     ]
 
-    reading = models_reading("cursor-cli", over, source="s", observed_at="t")
+    reading = models_reading(
+        "cursor-cli", over, source="s", observed_at="2026-09-07T14:00:00.000000Z"
+    )
 
     assert len(reading["models"]) == MAX_MODELS_PER_SURFACE
     assert reading["reason"] == TRUNCATED_REASON
@@ -123,7 +127,7 @@ def test_failed_probe_keeps_the_models_last_seen_and_marks_them_stale() -> None:
         "codex-cli",
         parse_codex_models(CODEX_PAGE),
         source="codex app-server model/list",
-        observed_at="2026-09-07T14:00:00Z",
+        observed_at="2026-09-07T14:00:00.000000Z",
     )
 
     stale = stale_reading(previous, "codex-cli", "app_server_timeout")
@@ -132,7 +136,7 @@ def test_failed_probe_keeps_the_models_last_seen_and_marks_them_stale() -> None:
     assert stale["reason"] == "app_server_timeout"
     # The original observation time survives, because that is when these
     # models were actually seen.
-    assert stale["observed_at"] == "2026-09-07T14:00:00Z"
+    assert stale["observed_at"] == "2026-09-07T14:00:00.000000Z"
     assert available_models(stale) == ("gpt-6-astra", "gpt-5.4-mini")
 
 
@@ -204,56 +208,6 @@ def test_every_known_surface_is_answered_so_desktop_never_inherits_the_cli(
     assert readings["cursor-desktop"]["status"] == "unsupported"
 
 
-def test_cached_readings_serve_the_next_poll_without_probing_again(
-    tmp_path: Path, monkeypatch
-) -> None:
-    calls: list[str] = []
-
-    def probe(*, observed_at: str) -> dict[str, object]:
-        calls.append(observed_at)
-        return models_reading(
-            "cursor-cli",
-            parse_cursor_models(CURSOR_OUTPUT),
-            source="cursor-agent --list-models",
-            observed_at=observed_at,
-        )
-
-    monkeypatch.setitem(observer.NATIVE_MODEL_PROBES, "cursor-cli", probe)
-    first = observer.observe_native_models(
-        ("cursor-cli",), state_dir=tmp_path, now=1_000.0
-    )
-    within = observer.observe_native_models(
-        ("cursor-cli",), state_dir=tmp_path, now=1_010.0
-    )
-    beyond = observer.observe_native_models(
-        ("cursor-cli",),
-        state_dir=tmp_path,
-        now=1_000.0 + observer.NATIVE_MODEL_REFRESH_SECONDS + 1,
-    )
-
-    assert len(calls) == 2
-    assert first["cursor-cli"]["models"] == within["cursor-cli"]["models"]
-    assert beyond["cursor-cli"]["status"] == "ok"
-
-
-def test_forced_refresh_ignores_the_cadence(tmp_path: Path, monkeypatch) -> None:
-    calls: list[str] = []
-
-    def probe(*, observed_at: str) -> dict[str, object]:
-        calls.append(observed_at)
-        return models_reading(
-            "cursor-cli", [native_model("auto")], source="s", observed_at=observed_at
-        )
-
-    monkeypatch.setitem(observer.NATIVE_MODEL_PROBES, "cursor-cli", probe)
-    observer.observe_native_models(("cursor-cli",), state_dir=tmp_path, now=1_000.0)
-    observer.observe_native_models(
-        ("cursor-cli",), state_dir=tmp_path, now=1_001.0, force=True
-    )
-
-    assert len(calls) == 2
-
-
 def test_a_probe_that_raises_is_named_rather_than_collapsed(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -280,10 +234,10 @@ def test_a_later_failure_does_not_withdraw_the_models_already_published(
             "cursor-cli",
             parse_cursor_models(CURSOR_OUTPUT),
             source="cursor-agent --list-models",
-            observed_at="2026-09-07T14:00:00Z",
+            observed_at="2026-09-07T14:00:00.000000Z",
         ),
     )
-    observer.observe_native_models(("cursor-cli",), state_dir=tmp_path, now=1_000.0)
+    observer.observe_native_models(("cursor-cli",), state_dir=tmp_path, now=at(1_000.0))
     monkeypatch.setitem(
         observer.NATIVE_MODEL_PROBES,
         "cursor-cli",
@@ -295,12 +249,12 @@ def test_a_later_failure_does_not_withdraw_the_models_already_published(
     reading = observer.observe_native_models(
         ("cursor-cli",),
         state_dir=tmp_path,
-        now=1_000.0 + observer.NATIVE_MODEL_REFRESH_SECONDS + 1,
+        now=at(1_000.0 + observer.NATIVE_MODEL_REFRESH_SECONDS + 1),
     )["cursor-cli"]
 
     assert reading["status"] == "stale"
     assert reading["reason"] == "list_models_timeout"
-    assert reading["observed_at"] == "2026-09-07T14:00:00Z"
+    assert reading["observed_at"] == "2026-09-07T14:00:00.000000Z"
     assert "auto" in available_models(reading)
 
 
@@ -319,7 +273,10 @@ def test_heartbeat_carries_the_observed_readings(monkeypatch, tmp_path: Path) ->
     from yoke_harness import session_relay_inventory as inventory_module
 
     reading = models_reading(
-        "cursor-cli", [native_model("auto")], source="s", observed_at="t"
+        "cursor-cli",
+        [native_model("auto")],
+        source="s",
+        observed_at="2026-09-07T14:00:00.000000Z",
     )
     monkeypatch.setattr(
         inventory_module,

@@ -35,10 +35,10 @@ import json
 import os
 import re
 import time
-from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Mapping, Optional, Union
 
+from yoke_contracts.timestamps import iso8601_now
 
 CURSOR_SESSION_MAP_DIR_NAME = "cursor-session-map"
 
@@ -89,10 +89,7 @@ def transcript_session_id(transcript_path: str) -> str:
             return ""
         return path.stem
     # Nested: .../agent-transcripts/<parent>/subagents/<child>.jsonl
-    if (
-        transcripts_at + 2 < len(parts)
-        and parts[transcripts_at + 2] == "subagents"
-    ):
+    if transcripts_at + 2 < len(parts) and parts[transcripts_at + 2] == "subagents":
         parent = parts[transcripts_at + 1]
         return parent if parent else ""
     # Flat: .../agent-transcripts/<id>/<id>.jsonl
@@ -117,9 +114,7 @@ def linked_worktree_lane_name(workspace_path: str) -> str:
         # Require the Yoke layout ``<repo>/.worktrees/<lane>`` (or Claude's
         # ``.claude/worktrees/<lane>``) rather than an arbitrary directory
         # named worktrees.
-        if marker == "worktrees" and (
-            idx == 0 or parts[idx - 1] != ".claude"
-        ):
+        if marker == "worktrees" and (idx == 0 or parts[idx - 1] != ".claude"):
             continue
         if idx + 1 < len(parts) and parts[idx + 1]:
             return parts[idx + 1]
@@ -179,7 +174,7 @@ def record_conversation_session(
             {
                 "session_id": session_id,
                 "conversation_id": conversation_id,
-                "recorded_at": datetime.now(timezone.utc).isoformat(),
+                "recorded_at": iso8601_now(),
             },
             sort_keys=True,
         )
@@ -192,7 +187,8 @@ def record_conversation_session(
 
 
 def recorded_session_id_for_conversation(
-    map_dir: _MapDir, conversation_id: str,
+    map_dir: _MapDir,
+    conversation_id: str,
 ) -> Optional[str]:
     """Return a live map entry's session id, or ``None`` when absent/stale."""
     path = _entry_path(map_dir, conversation_id)
@@ -226,14 +222,14 @@ def resolve_container_from_subagent_transcript_layout(
     """
     if not conversation_id or not _SAFE_ID.match(conversation_id):
         return ""
-    root = Path(projects_root) if projects_root is not None else (
-        Path.home() / ".cursor" / "projects"
+    root = (
+        Path(projects_root)
+        if projects_root is not None
+        else (Path.home() / ".cursor" / "projects")
     )
     try:
         matches = list(
-            root.glob(
-                f"*/agent-transcripts/*/subagents/{conversation_id}.jsonl"
-            )
+            root.glob(f"*/agent-transcripts/*/subagents/{conversation_id}.jsonl")
         )
     except OSError:
         return ""
@@ -251,13 +247,12 @@ def _resolve_unmapped_container(
     projects_root: Optional[Union[str, "os.PathLike[str]"]] = None,
 ) -> str:
     """Container for an unmapped conversation, or empty when unknown."""
-    from_env = transcript_session_id(
-        source.get(CURSOR_TRANSCRIPT_ENV_VAR, "") or ""
-    )
+    from_env = transcript_session_id(source.get(CURSOR_TRANSCRIPT_ENV_VAR, "") or "")
     if from_env and from_env != conversation_id:
         return from_env
     return resolve_container_from_subagent_transcript_layout(
-        conversation_id, projects_root=projects_root,
+        conversation_id,
+        projects_root=projects_root,
     )
 
 
@@ -284,7 +279,9 @@ def resolve_mapped_session_id(
     if mapped:
         return mapped
     container = _resolve_unmapped_container(
-        conversation_id, source, projects_root=projects_root,
+        conversation_id,
+        source,
+        projects_root=projects_root,
     )
     if not container:
         return None

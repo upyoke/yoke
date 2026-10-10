@@ -32,7 +32,7 @@ def _make_conn():
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             status TEXT,
-            spec_updated_at TEXT
+            spec_updated_at TIMESTAMPTZ
         );
 
         CREATE TABLE projects (
@@ -40,13 +40,15 @@ def _make_conn():
             slug TEXT UNIQUE,
             github_repo TEXT
         );
-        """
+        """,
     )
     return pg_testdb.drop_database_on_close(conn, name)
 
 
 def _args(**overrides) -> DoctorArgs:
-    defaults = dict(file=None, fix=False, only=None, quick=False, project="yoke", db_path=None)
+    defaults = dict(
+        file=None, fix=False, only=None, quick=False, project="yoke", db_path=None
+    )
     defaults.update(overrides)
     return DoctorArgs(**defaults)
 

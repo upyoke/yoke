@@ -239,12 +239,10 @@ class TestStaleSessions:
 
 
 class TestStaleSessionReclaimerAlive:
-    @pytest.mark.parametrize("representation", ["aware", "naive", "iso", "iso-z"])
+    @pytest.mark.parametrize("representation", ["aware", "iso", "iso-z"])
     def test_recent_native_and_legacy_timestamps_pass(self, representation):
         latest = datetime.now(timezone.utc) - timedelta(minutes=30)
-        if representation == "naive":
-            latest = latest.replace(tzinfo=None)
-        elif representation == "iso":
+        if representation == "iso":
             latest = latest.isoformat()
         elif representation == "iso-z":
             latest = latest.isoformat().replace("+00:00", "Z")
@@ -258,7 +256,9 @@ class TestStaleSessionReclaimerAlive:
         assert rec.results[0].result == "PASS"
         assert "Last sweep 30m ago" in rec.results[0].detail
 
-    @pytest.mark.parametrize("latest", ["invalid", 42, None, datetime(2000, 1, 1)])
+    @pytest.mark.parametrize(
+        "latest", ["invalid", 42, None, datetime(2000, 1, 1), datetime.now()]
+    )
     def test_missing_stale_and_unparseable_timestamps_warn(self, latest):
         conn = MagicMock()
         conn.execute.return_value.fetchone.return_value = {"latest": latest}

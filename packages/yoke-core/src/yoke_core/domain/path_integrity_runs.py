@@ -22,7 +22,7 @@ import json
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.events import emit_event
 
 
@@ -49,9 +49,7 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def close_stale_runs(
-    conn: Any, project_id: Optional[int]
-) -> int:
+def close_stale_runs(conn: Any, project_id: Optional[int]) -> int:
     """Close any ``running`` rows from prior crashed verifier processes.
 
     When ``project_id`` is None, sweeps every project; otherwise
@@ -63,16 +61,25 @@ def close_stale_runs(
             "UPDATE path_integrity_runs "
             f"SET status={p}, completed_at={p}, abort_reason={p} "
             f"WHERE status={p}",
-            (STATUS_ABORTED, iso8601_now(), ABORT_RESUMED_AFTER_CRASH,
-             STATUS_RUNNING),
+            (
+                STATUS_ABORTED,
+                instant_parameter(conn, utc_now()),
+                ABORT_RESUMED_AFTER_CRASH,
+                STATUS_RUNNING,
+            ),
         )
     else:
         cur = conn.execute(
             "UPDATE path_integrity_runs "
             f"SET status={p}, completed_at={p}, abort_reason={p} "
             f"WHERE status={p} AND project_id={p}",
-            (STATUS_ABORTED, iso8601_now(), ABORT_RESUMED_AFTER_CRASH,
-             STATUS_RUNNING, project_id),
+            (
+                STATUS_ABORTED,
+                instant_parameter(conn, utc_now()),
+                ABORT_RESUMED_AFTER_CRASH,
+                STATUS_RUNNING,
+                project_id,
+            ),
         )
     conn.commit()
     return int(cur.rowcount)
@@ -90,8 +97,13 @@ def open_run(
         "(project_id, commit_sha, status, started_at, "
         " verifier_version) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}) RETURNING id",
-        (project_id, commit_sha, STATUS_RUNNING, iso8601_now(),
-         VERIFIER_VERSION),
+        (
+            project_id,
+            commit_sha,
+            STATUS_RUNNING,
+            instant_parameter(conn, utc_now()),
+            VERIFIER_VERSION,
+        ),
     )
     run_id = int(cur.fetchone()[0])
     conn.commit()
@@ -131,8 +143,15 @@ def close_run(
         f"SET status={p}, completed_at={p}, failure_count={p}, "
         f"    unrepaired_failure_count={p}, skip_reason={p}, block_reason={p} "
         f"WHERE id={p}",
-        (status, iso8601_now(), failure_count,
-         unrepaired_failure_count, skip_reason, block_reason, run_id),
+        (
+            status,
+            instant_parameter(conn, utc_now()),
+            failure_count,
+            unrepaired_failure_count,
+            skip_reason,
+            block_reason,
+            run_id,
+        ),
     )
     conn.commit()
     emit_event(
@@ -172,8 +191,13 @@ def record_failure(
         "INSERT INTO path_integrity_failures "
         "(run_id, invariant_kind, target_id, details, recorded_at) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}) RETURNING id",
-        (run_id, invariant_kind, target_id,
-         json.dumps(details, sort_keys=True), iso8601_now()),
+        (
+            run_id,
+            invariant_kind,
+            target_id,
+            json.dumps(details, sort_keys=True),
+            instant_parameter(conn, utc_now()),
+        ),
     )
     failure_id = int(cur.fetchone()[0])
     conn.commit()

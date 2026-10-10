@@ -8,8 +8,10 @@ module decides only who the holders are.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 from yoke_contracts.public_ref import format_item_ref
@@ -19,11 +21,10 @@ from yoke_core.domain.session_tool_call_projections import (
     OPEN_TOOL_CALL_COLUMN,
     open_tool_call_expression,
 )
-from yoke_core.domain.session_reclaim_progress import parse_stamp
+from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 from yoke_core.domain.session_native_process_observation import (
     current_native_process_observation,
 )
-from yoke_core.domain.session_message_types import parse_timestamp
 from yoke_core.domain.session_resume_in_flight import (
     resumable_from_transcript,
     resumes_in_flight,
@@ -47,10 +48,10 @@ class ClaimHolder:
     public_ref: str
     mode: str
     parked: bool
-    last_activity_at: str
+    last_activity_at: datetime | None
     idle_seconds: int
     quiet_reason: str = ""
-    native_process_gone_at: str = ""
+    native_process_gone_at: datetime | None = None
     hand_started: bool = False
     #: Why this machine's containment sweep ended the native, when it did.
     #: A holder whose process a sweep stopped is not a worker that went
@@ -61,7 +62,7 @@ class ClaimHolder:
     call_interrupted: bool = False
     #: When a wake that answered the recorded exit started. A resuming
     #: holder is not a dead one, so it carries no process-gone stamp.
-    resume_started_at: str = ""
+    resume_started_at: datetime | None = None
     #: The holder's own surface resumes a stopped native from its transcript
     #: when messaged (its declared ``message_stopped`` operation).
     resumable_from_transcript: bool = False
@@ -91,7 +92,7 @@ class ClaimHolder:
         """
         if self.resuming:
             return (
-                f"resuming now (wake started {self.resume_started_at}, after "
+                f"resuming now (wake started {format_instant(self.resume_started_at)}, after "
                 "its recorded exit) — not dead; let it start"
             )
         if self.contained_by_sweep:
@@ -200,10 +201,14 @@ def claim_holders(
     resumes = resumes_in_flight(
         conn,
         (session_id for session_id, process in processes.items() if process),
-        now=parse_timestamp(now) or datetime.now(timezone.utc),
+        now=parse_stamp(now),
     )
     for row in rows:
-        last_activity = str(row.get("last_tool_call_at") or row.get("claimed_at") or "")
+        last_activity = parse_stamp(
+            row.get("last_tool_call_at")
+            if row.get("last_tool_call_at") is not None
+            else row.get("claimed_at")
+        )
         mode = str(row.get("mode") or "")
         process = processes[str(row["session_id"])]
         resume = resumes.get(str(row["session_id"]))
@@ -229,11 +234,11 @@ def claim_holders(
                 last_activity_at=last_activity,
                 idle_seconds=age_seconds(last_activity, now) or 0,
                 quiet_reason=str(row.get("quiet_reason") or ""),
-                native_process_gone_at=str(process.get("observed_at") or ""),
+                native_process_gone_at=parse_stamp(process.get("observed_at")),
                 contained_reason=_contained_reason(process),
                 hand_started=not bool(row.get("launch_recorded")),
                 call_interrupted=interrupted,
-                resume_started_at=resume.started_at if resume else "",
+                resume_started_at=parse_stamp(resume.started_at) if resume else None,
                 resumable_from_transcript=resumable_from_transcript(
                     row.get("executor_surface"), row.get("executor_version")
                 ),

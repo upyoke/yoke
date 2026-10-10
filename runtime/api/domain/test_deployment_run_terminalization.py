@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 
 import pytest
+
+from yoke_contracts.timestamps import InvalidInstant, format_instant
 
 from yoke_core.domain import deployment_run_terminalization as terminalization
 
@@ -47,15 +50,25 @@ def _seed_run(test_db, run_id: str, status: str) -> None:
 
 def _bind_connection(monkeypatch, test_db) -> None:
     monkeypatch.setattr(
-        terminalization, "connect", lambda: _OpenConnection(test_db),
+        terminalization,
+        "connect",
+        lambda: _OpenConnection(test_db),
     )
 
 
+@pytest.mark.parametrize("microsecond", [0, 123456])
+@pytest.mark.parametrize("offset", [0, 330, -240])
 def test_terminalization_updates_run_and_appends_permanent_audit(
-    test_db, monkeypatch,
+    test_db,
+    monkeypatch,
+    microsecond,
+    offset,
 ):
     _seed_run(test_db, "run-terminalize-proof", "executing")
     _bind_connection(monkeypatch, test_db)
+    instant = datetime(1969, 12, 31, 23, 59, 59, microsecond, tzinfo=timezone.utc)
+    supplied = instant.astimezone(timezone(timedelta(minutes=offset)))
+    monkeypatch.setattr(terminalization, "utc_now", lambda: supplied)
 
     result = terminalization.terminalize_run(
         "run-terminalize-proof",
@@ -72,6 +85,9 @@ def test_terminalization_updates_run_and_appends_permanent_audit(
         (result.run_id,),
     ).fetchone()
     assert run[0] == "cancelled"
+    assert isinstance(result.terminalized_at, datetime)
+    assert result.terminalized_at == instant
+    assert result.terminalized_at.tzinfo is timezone.utc
     assert run[1] == result.terminalized_at
     event = test_db.execute(
         "SELECT source_type, severity, actor_id, envelope FROM events "
@@ -89,7 +105,7 @@ def test_terminalization_updates_run_and_appends_permanent_audit(
         "final_status": "cancelled",
         "current_stage": "hosted-release",
         "reason": "External workflow no longer exists",
-        "terminalized_at": result.terminalized_at,
+        "terminalized_at": format_instant(result.terminalized_at),
         "terminalized_by_actor_id": None,
         "terminalized_by_session_id": "terminalization-session",
     }
@@ -110,10 +126,13 @@ def test_terminalization_refuses_an_already_terminal_run(test_db, monkeypatch):
             actor_id=1,
             session_id="terminalization-session",
         )
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM events WHERE event_name=%s",
-        (terminalization.TERMINALIZATION_EVENT,),
-    ).fetchone()[0] == 0
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM events WHERE event_name=%s",
+            (terminalization.TERMINALIZATION_EVENT,),
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_audit_failure_rolls_back_the_run_state(test_db, monkeypatch):
@@ -137,3 +156,30 @@ def test_audit_failure_rolls_back_the_run_state(test_db, monkeypatch):
         "SELECT status, completed_at FROM deployment_runs WHERE id=%s",
         ("run-audit-rollback",),
     ).fetchone() == ("created", None)
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "1969-12-31T23:59:59.123456Z",
+        "1970-01-01T05:29:59.123456+05:30",
+        datetime(1970, 1, 1),
+        0,
+        False,
+    ],
+)
+def test_terminalization_refuses_non_native_clock_before_database(bad):
+    class UnusedConnection:
+        def execute(self, *_args):
+            pytest.fail("database access before Native clock validation")
+
+    with pytest.raises(InvalidInstant):
+        terminalization.terminalize_run_on(
+            UnusedConnection(),
+            "run",
+            disposition="cancelled",
+            reason="finished",
+            actor_id=None,
+            session_id="session",
+            terminalized_at=bad,
+        )

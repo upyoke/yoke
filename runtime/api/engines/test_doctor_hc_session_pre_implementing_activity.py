@@ -56,11 +56,11 @@ def _make_pre_impl_conn() -> Any:
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT,
-            scope TEXT NOT NULL, claimed_at TEXT, released_at TEXT
+            scope TEXT NOT NULL, claimed_at TIMESTAMPTZ, released_at TIMESTAMPTZ
         );
         CREATE TABLE events (
             id INTEGER PRIMARY KEY,
-            session_id TEXT, event_name TEXT, created_at TEXT,
+            session_id TEXT, event_name TEXT, created_at TIMESTAMPTZ,
             client_timing_id TEXT,
             envelope TEXT
         );
@@ -266,7 +266,7 @@ class TestPreImplementingActivityHC:
             CREATE TABLE work_claims (
                 id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT,
                 scope TEXT,
-                released_at TEXT
+                released_at TIMESTAMPTZ
             );
             """
         )

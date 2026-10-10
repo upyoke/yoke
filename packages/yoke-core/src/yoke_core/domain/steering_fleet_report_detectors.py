@@ -13,8 +13,10 @@ Shared timestamp parsing stays here. Data comes from
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Mapping, Sequence
 
 from yoke_contracts.session_control.evidence import redacted_evidence_document
@@ -43,16 +45,17 @@ def marker(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def parse_stamp(raw: str) -> datetime:
-    parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+def parse_stamp(raw: datetime | str | None) -> datetime | None:
+    return parse_instant(raw) if raw is not None else None
 
 
-def age_seconds(stamp: str | None, now: str) -> int | None:
+def age_seconds(stamp: datetime | str | None, now: datetime | str) -> int | None:
     """Seconds between ``stamp`` and ``now``, or ``None`` for no stamp."""
-    if not stamp:
+    current = parse_instant(now)
+    instant = parse_stamp(stamp)
+    if instant is None:
         return None
-    return max(0, int((parse_stamp(now) - parse_stamp(stamp)).total_seconds()))
+    return max(0, int((current - instant).total_seconds()))
 
 
 def suspected_orphaned_waiters(
@@ -179,9 +182,7 @@ def unregistered_launches(
     for row in rows:
         record = dict(row)
         queued = record.get("state") in QUEUED_LAUNCH_STATES
-        elapsed = (
-            0 if queued else age_seconds(str(record.get("deadline_at") or ""), now) or 0
-        )
+        elapsed = 0 if queued else age_seconds(record.get("deadline_at"), now) or 0
         result_code = str(record.get("result_code") or "")
         evidence = redacted_evidence_document(
             evidence_document(record.get("result_evidence"))

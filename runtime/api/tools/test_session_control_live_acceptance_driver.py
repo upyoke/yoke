@@ -192,8 +192,8 @@ class _ScenarioClient:
             "state": "pending" if pending else "acknowledged",
             "injection_count": injection_count,
             "wake_attempt_count": wake_count,
-            "acknowledged_at": "" if pending else "2026-08-23T12:00:00Z",
-            "last_wake_at": "2026-08-23T12:00:01Z" if wake and wake_count else "",
+            "acknowledged_at": None if pending else "2026-08-23T12:00:00Z",
+            "last_wake_at": "2026-08-23T12:00:01Z" if wake and wake_count else None,
         }
         attempts = []
         if supported_wake:

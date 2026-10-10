@@ -7,7 +7,11 @@ prefer a CLI worker over an operator-facing desktop session.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Mapping
+
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_core.domain.session_relay_storage import marker
 
@@ -15,17 +19,18 @@ from yoke_core.domain.session_relay_storage import marker
 WORKER_SURFACE_SUFFIX = "-cli"
 
 
-def machine_has_fresh_relay(conn: Any, machine_id: str, now: str) -> bool:
+def machine_has_fresh_relay(conn: Any, machine_id: str, now: datetime | str) -> bool:
     """True when this machine's persistent relay heartbeat is still ahead."""
     if not machine_id:
         return False
+    stamped = instant_parameter(conn, parse_instant(now))
     placeholder = marker(conn)
     return (
         conn.execute(
             "SELECT 1 FROM session_relays "
             f"WHERE machine_id={placeholder} AND state IN ('active','idle') "
             f"AND connected_until>{placeholder} LIMIT 1",
-            (machine_id, now),
+            (machine_id, stamped),
         ).fetchone()
         is not None
     )

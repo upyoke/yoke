@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
-import base64
+from yoke_core.domain.db_helpers import instant_parameter
+
 from collections.abc import Sequence
+from datetime import datetime
 from typing import Any
+
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.session_message_cursor import (
+    decode_message_cursor,
+    encode_message_cursor,
+)
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_message_recipients import ACTOR_KIND
@@ -13,7 +21,6 @@ from yoke_core.domain.actor_project_visibility import (
     actor_project_ids_with_permission,
 )
 from yoke_contracts.read_detail import DETAIL_FULL, DETAIL_SUMMARY
-from yoke_core.domain.json_helper import dumps_compact, loads_text
 from yoke_core.domain.session_message_list_row import message_list_row
 from yoke_core.domain.session_message_queries import (
     expire_message_receipts,
@@ -25,8 +32,6 @@ from yoke_core.domain.session_message_reads import (
     message_summary,
 )
 from yoke_core.domain.session_message_types import (
-    SessionMessageError,
-    timestamp,
     utc_now,
 )
 from yoke_core.domain.steering_message_recipients import (
@@ -44,39 +49,6 @@ OPEN_STEERING_STATES = (STATE_AWAITING_SEAT, STATE_DELIVERED)
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def encode_message_cursor(created_at: str, message_id: str) -> str:
-    raw = dumps_compact({"created_at": created_at, "message_id": message_id})
-    return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
-
-
-def decode_message_cursor(cursor: str | None) -> tuple[str, str] | None:
-    if cursor is None:
-        return None
-    try:
-        padding = "=" * (-len(cursor) % 4)
-        payload = loads_text(
-            base64.urlsafe_b64decode((cursor + padding).encode()).decode()
-        )
-        if not isinstance(payload, dict) or set(payload) != {
-            "created_at",
-            "message_id",
-        }:
-            raise ValueError
-        created_at = payload["created_at"]
-        message_id = payload["message_id"]
-        if not isinstance(created_at, str) or not created_at:
-            raise ValueError
-        if not isinstance(message_id, str) or not message_id:
-            raise ValueError
-        return created_at, message_id
-    except (TypeError, UnicodeError, ValueError):
-        raise SessionMessageError(
-            "cursor_invalid",
-            "the settled-message cursor is unreadable; clear it and load the "
-            "first Messages page again",
-        ) from None
 
 
 def _visible_clause(
@@ -179,7 +151,7 @@ def _actionable_clause(conn: Any) -> tuple[str, list[Any]]:
         [
             *OPEN_SESSION_STATES,
             ACTOR_KIND,
-            timestamp(utc_now()),
+            instant_parameter(conn, utc_now()),
             STEERING_KIND,
             *OPEN_STEERING_STATES,
         ],
@@ -201,7 +173,7 @@ def _select_ids(
     params: Sequence[Any],
     *,
     limit: int | None = None,
-) -> list[tuple[str, str]]:
+) -> list[tuple[str, datetime]]:
     p = _p(conn)
     suffix = ""
     values = list(params)
@@ -215,12 +187,12 @@ def _select_ids(
         + suffix,
         tuple(values),
     ).fetchall()
-    return [(str(row[0]), str(row[1])) for row in rows]
+    return [(str(row[0]), parse_instant(row[1])) for row in rows]
 
 
 def _summaries(
     conn: Any,
-    ids: Sequence[tuple[str, str]],
+    ids: Sequence[tuple[str, datetime]],
     *,
     actor_id: int,
     caller_session_id: str | None,
@@ -244,9 +216,7 @@ def _summaries(
         # Visibility above is decided from the recipient rows the compact
         # projection drops, so the narrowing happens here rather than in
         # the query it would otherwise have to re-widen.
-        rows.append(
-            summary if detail == DETAIL_FULL else message_list_row(summary)
-        )
+        rows.append(summary if detail == DETAIL_FULL else message_list_row(summary))
     return rows
 
 
@@ -296,7 +266,13 @@ def read_message_page(
         settled_where.append(
             f"(m.created_at < {p} OR (m.created_at = {p} AND m.message_id < {p}))"
         )
-        settled_values.extend([created_at, created_at, message_id])
+        settled_values.extend(
+            [
+                instant_parameter(conn, created_at),
+                instant_parameter(conn, created_at),
+                message_id,
+            ]
+        )
     page_size = max(1, min(int(limit), MAX_SETTLED_LIMIT))
     settled_ids = _select_ids(conn, settled_where, settled_values, limit=page_size + 1)
     has_more = len(settled_ids) > page_size

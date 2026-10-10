@@ -31,7 +31,7 @@ def test_unacked_section_names_the_ack_command() -> None:
         (
             UnackedInjectedMessage(
                 message_id=MESSAGE_ID,
-                last_injected_at="2026-08-22T15:50:00Z",
+                last_injected_at="2026-08-22T15:50:00.000000Z",
                 age_seconds=600,
             ),
         )
@@ -54,7 +54,7 @@ def test_load_unacked_injected_skips_rows_inside_the_grace() -> None:
     conn.execute(
         "UPDATE session_message_recipients SET state='injected',"
         "injection_count=1,last_injected_at=? WHERE message_id=?",
-        ("2026-08-22T15:56:00Z", sent["message_id"]),
+        ("2026-08-22T15:56:00.000000Z", sent["message_id"]),
     )
     conn.commit()
     found = load_unacked_injected(
@@ -75,7 +75,7 @@ def test_load_unacked_injected_lists_rows_past_the_grace() -> None:
     conn.execute(
         "UPDATE session_message_recipients SET state='injected',"
         "injection_count=1,last_injected_at=? WHERE message_id=?",
-        ("2026-08-22T15:50:00Z", sent["message_id"]),
+        ("2026-08-22T15:50:00.000000Z", sent["message_id"]),
     )
     conn.commit()
     found = load_unacked_injected(
@@ -93,7 +93,7 @@ def test_hook_digest_carries_the_inbox_and_the_pull_command() -> None:
         unacked_injected=(
             UnackedInjectedMessage(
                 message_id=MESSAGE_ID,
-                last_injected_at="2026-08-22T15:50:00Z",
+                last_injected_at="2026-08-22T15:50:00.000000Z",
                 age_seconds=600,
             ),
         ),

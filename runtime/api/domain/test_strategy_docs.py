@@ -9,6 +9,8 @@ two-project isolation on the same slug. Render coverage lives in
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from pathlib import Path
 
 import pytest
@@ -132,7 +134,7 @@ class TestReplaceWrite:
 
             row = fetch_row(conn, PROJECT_A, "VISION")
             assert str(row["content"]) == new_content
-            assert str(row["updated_at"]) == result["updated_at"]
+            assert format_instant(row["updated_at"]) == result["updated_at"]
             assert int(row["updated_by_actor_id"]) == 42
         finally:
             conn.close()
@@ -158,10 +160,12 @@ class TestReplaceWrite:
                 base_updated_at=SEED_UPDATED_AT,
             )
             assert result["unchanged"] is True
-            assert result["updated_at"] == str(before["updated_at"])
+            assert result["updated_at"] == format_instant(before["updated_at"])
             after = fetch_row(conn, PROJECT_A, "VISION")
             # Row untouched: timestamp preserved, actor 99 NOT recorded.
-            assert str(after["updated_at"]) == str(before["updated_at"])
+            assert format_instant(after["updated_at"]) == format_instant(
+                before["updated_at"]
+            )
             assert after["updated_by_actor_id"] == before["updated_by_actor_id"]
             assert str(after["content"]) == SEED_CONTENT["VISION"]
         finally:

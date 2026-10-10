@@ -18,6 +18,7 @@ import json
 from typing import Any, Dict, Optional, Sequence
 
 from yoke_contracts.hook_evaluator_protocol import HOOK_CLIENT_TIMING_ID_FIELD
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import db_backend
 
 
@@ -39,7 +40,8 @@ def event_insert_params(
     envelope: Dict[str, Any],
     project_id: Optional[int],
 ) -> tuple[Any, ...]:
-    envelope_json = json.dumps(envelope)
+    instant = parse_instant(envelope["created_at"])
+    envelope_json = json.dumps({**envelope, "created_at": format_instant(instant)})
     return (
         envelope["event_id"],
         envelope["event_name"],
@@ -67,7 +69,7 @@ def event_insert_params(
         envelope.get("hook_event_name"),
         _client_timing_id(envelope),
         envelope_json,
-        envelope["created_at"],
+        instant,
     )
 
 
@@ -84,7 +86,7 @@ def write_event_row(
     """
     own_conn = db_backend.connect(db_path)
     try:
-        own_conn.execute(insert_sql, params)
+        own_conn.execute(insert_sql, _stored_params(own_conn, params))
         own_conn.commit()
         return True
     finally:
@@ -107,7 +109,7 @@ def write_event_row_on_conn(conn: Any, insert_sql: str, params: Sequence[Any]) -
         if use_savepoint:
             conn.execute(f"SAVEPOINT {savepoint}")
             savepoint_created = True
-        conn.execute(insert_sql, params)
+        conn.execute(insert_sql, _stored_params(conn, params))
         if use_savepoint:
             conn.execute(f"RELEASE SAVEPOINT {savepoint}")
         return True
@@ -119,3 +121,12 @@ def write_event_row_on_conn(conn: Any, insert_sql: str, params: Sequence[Any]) -
             except Exception:
                 pass
         raise
+
+
+def _stored_params(conn: Any, params: Sequence[Any]) -> Sequence[Any]:
+    """SQLite has a canonical TEXT boundary; PostgreSQL binds the native instant."""
+    return (
+        params
+        if db_backend.connection_is_postgres(conn)
+        else (*params[:-1], format_instant(params[-1]))
+    )

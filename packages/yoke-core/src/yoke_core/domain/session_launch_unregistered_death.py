@@ -21,6 +21,10 @@ here has a session to ask about — that is the whole shape being closed.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
+from datetime import datetime
+
 from typing import Any, Dict, Iterable, List, Mapping
 
 from yoke_contracts.session_control.launch_registration import (
@@ -88,7 +92,7 @@ def _close(
     launch: LaunchRecord,
     evidence: Mapping[str, Any],
     *,
-    now: str,
+    now: datetime | str,
 ) -> None:
     recorded = closure_evidence(
         conn,
@@ -120,10 +124,10 @@ def apply_unregistered_native_death_reports(
     machine_id: str,
     authorized_projects: Iterable[int],
     reports: Iterable[Mapping[str, Any]],
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> Dict[str, Any]:
     """Close every reported launch this machine may close, naming the rest."""
-    current = now or utc_now()
+    current = utc_now() if now is None else parse_instant(now)
     projects = frozenset(int(value) for value in authorized_projects)
     closed: List[str] = []
     skipped: List[Dict[str, str]] = []

@@ -25,6 +25,9 @@ verification gate against the exact new candidate, and re-run
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
+
+from yoke_contracts.timestamps import format_instant, parse_instant
 from typing import Optional
 
 from yoke_core.domain.merge_queue_readback_outcomes import (
@@ -89,8 +92,12 @@ class LandingHold:
     after: Optional[MergeQueueReadiness] = None
     merged: bool = False
     merge_commit_sha: str = ""
-    merged_at: str = ""
+    merged_at: datetime | None = None
     refusal: str = ""
+
+    def __post_init__(self) -> None:
+        if self.merged_at is not None:
+            object.__setattr__(self, "merged_at", parse_instant(self.merged_at))
 
     def describe(self) -> str:
         """One line naming the outcome, the readback, and what is next."""
@@ -115,7 +122,9 @@ class LandingHold:
             "after": self.after.to_dict() if self.after is not None else None,
             "merged": self.merged,
             "merge_commit_sha": self.merge_commit_sha,
-            "merged_at": self.merged_at,
+            "merged_at": format_instant(self.merged_at)
+            if self.merged_at is not None
+            else None,
             "refusal": self.refusal,
             "narrative": self.describe(),
         }
@@ -180,7 +189,7 @@ def _landed(
         refusal=(
             f"pull request {readiness.pr_number} already merged as "
             f"{readiness.merge_commit_sha or 'an unreported commit'}"
-            f"{f' at {readiness.merged_at}' if readiness.merged_at else ''}; "
+            f"{f' at {format_instant(readiness.merged_at)}' if readiness.merged_at is not None else ''}; "
             "there is no candidate left to hold. That landing is the fact to "
             "carry forward — continue through the item's own lifecycle from "
             "here rather than treating the merge as an error."

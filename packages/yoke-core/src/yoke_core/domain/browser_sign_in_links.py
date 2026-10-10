@@ -10,10 +10,12 @@ from __future__ import annotations
 import hashlib
 import hmac
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any
 from yoke_contracts.browser_sign_in import BROWSER_SIGN_IN_MAX_LENGTH
 
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_state import require_actor_active
 from yoke_core.domain.web_sessions import CreatedWebSession, mint_web_session
@@ -30,11 +32,7 @@ class BrowserSignInError(ValueError):
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _fmt(moment: datetime) -> str:
-    return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return utc_now()
 
 
 def _p(conn: Any) -> str:
@@ -54,7 +52,7 @@ def mint_browser_sign_in_link(conn: Any, *, actor_id: int) -> str:
     p = _p(conn)
     conn.execute(
         f"DELETE FROM browser_sign_in_links WHERE expires_at <= {p}",
-        (_fmt(now),),
+        (instant_parameter(conn, now),),
     )
     conn.execute(
         "INSERT INTO browser_sign_in_links (selector, code_hash, actor_id, expires_at) "
@@ -63,7 +61,7 @@ def mint_browser_sign_in_link(conn: Any, *, actor_id: int) -> str:
             selector,
             _hash(secret),
             actor_id,
-            _fmt(now + timedelta(seconds=BROWSER_SIGN_IN_TTL_S)),
+            instant_parameter(conn, now + timedelta(seconds=BROWSER_SIGN_IN_TTL_S)),
         ),
     )
     conn.commit()
@@ -75,7 +73,7 @@ def redeem_browser_sign_in_link(conn: Any, code: str) -> CreatedWebSession:
     if not code or len(code) > BROWSER_SIGN_IN_MAX_LENGTH:
         raise BrowserSignInError("browser_sign_in_invalid")
     p = _p(conn)
-    now = _fmt(_now())
+    now = instant_parameter(conn, _now())
     selector, separator, secret = code.partition(".")
     row = conn.execute(
         f"SELECT code_hash FROM browser_sign_in_links WHERE selector = {p}",

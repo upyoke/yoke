@@ -6,7 +6,7 @@ import json
 import sys
 from typing import List, Optional
 
-from yoke_core.domain.db_helpers import connect, iso8601_now
+from yoke_core.domain.db_helpers import connect, utc_now
 from yoke_core.domain.qa_cli_requirement_insert import INSERT_SQL, insert_params
 from yoke_core.domain.qa_deployment_run_stage_scope import (
     require_stage_scoped_requirement,
@@ -93,13 +93,14 @@ def cmd_requirement_add_batch(
             cur = conn.execute(
                 INSERT_SQL,
                 insert_params(
+                    conn=conn,
                     item_id=row.get("item_id"),
                     epic_id=row.get("epic_id"),
                     task_num=row.get("task_num"),
                     deployment_run_id=row.get("deployment_run_id"),
                     deployment_stage=row.get("deployment_stage"),
                     row=row,
-                    created_at=iso8601_now(),
+                    created_at=utc_now(),
                 ),
             )
             inserted_ids.append(int(cur.fetchone()[0]))

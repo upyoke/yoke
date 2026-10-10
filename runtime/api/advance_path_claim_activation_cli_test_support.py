@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from typing import Optional
 from unittest import mock
 
@@ -44,8 +46,8 @@ def _apply_activation_schema() -> None:
             "target_kind TEXT NOT NULL, "
             "scope TEXT NOT NULL, "
             "claim_type TEXT NOT NULL, "
-            "claimed_at TEXT NOT NULL, "
-            "released_at TEXT)"
+            "claimed_at TIMESTAMPTZ NOT NULL, "
+            "released_at TIMESTAMPTZ)"
         )
         conn.commit()
     finally:
@@ -107,8 +109,8 @@ def seed_work_claim(
             (
                 session_id,
                 make_item_target(item_id).scope_json(),
-                claimed_at,
-                "2026-05-06T13:00:00Z" if released else None,
+                parse_instant(claimed_at),
+                parse_instant("2026-05-06T13:00:00.123456Z") if released else None,
             ),
         )
         conn.commit()

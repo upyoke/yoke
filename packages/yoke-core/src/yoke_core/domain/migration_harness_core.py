@@ -6,25 +6,33 @@ import json
 import os
 import sqlite3
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
+
+from yoke_contracts.timestamps import format_instant, utc_now
 from typing import Dict, List, Optional
 
 from yoke_core.domain.db_helpers import BUSY_TIMEOUT_MS, iso8601_now
 from yoke_core.domain.migration_harness_backup import _restore_backup, _run_backup
-from yoke_core.domain.migration_harness_checks import _count_all_tables, _fk_violation_count
-from yoke_core.domain.migration_harness_contract import CRITICAL_TABLES, MigrationBackupError, MigrationVerificationError
+from yoke_core.domain.migration_harness_checks import (
+    _count_all_tables,
+    _fk_violation_count,
+)
+from yoke_core.domain.migration_harness_contract import (
+    CRITICAL_TABLES,
+    MigrationBackupError,
+    MigrationVerificationError,
+)
 from yoke_core.domain.migration_harness_events import _emit_event
+
 
 class GovernedMigration:
     """Legacy context manager for explicit SQLite validation files.
 
-    Yoke authority is Postgres-native. Active governed migration apply uses
-    the migration model target layer and its Postgres rollback backup path;
-    the unpatched SQLite-file backup path in this class fails closed.
+    Yoke authority is Postgres; migration_apply owns apply and rollback dumps.
+    Unpatched legacy SQLite backup refuses.
 
     Pre-flight:
-        1. Fail-closed retired backup check; use ``migration_apply`` for
-           Postgres rollback dumps.
+        1. Retired backup check; Postgres dumps belong to ``migration_apply``.
         2. Baseline row counts for ALL tables
         3. Baseline FK violation count
         4. Audit record insertion
@@ -73,7 +81,7 @@ class GovernedMigration:
         self._start_time: Optional[datetime] = None
 
     def __enter__(self) -> "GovernedMigration":
-        self._start_time = datetime.now(timezone.utc)
+        self._start_time = utc_now()
 
         # Step 1: Backup
         try:
@@ -194,7 +202,10 @@ class GovernedMigration:
             )
             raise MigrationVerificationError(msg)
 
-        print(f"[migration-harness] {self.name}: post-flight verification passed", file=sys.stderr)
+        print(
+            f"[migration-harness] {self.name}: post-flight verification passed",
+            file=sys.stderr,
+        )
         for tbl in self.tables:
             print(
                 f"  {tbl}: {self.pre_counts.get(tbl, '?')} → {self.post_counts.get(tbl, '?')} rows",
@@ -207,7 +218,7 @@ class GovernedMigration:
         now = iso8601_now()
         duration = None
         if self._start_time:
-            delta = datetime.now(timezone.utc) - self._start_time
+            delta = utc_now() - self._start_time
             duration = int(delta.total_seconds() * 1000)
 
         self.conn.execute(
@@ -240,7 +251,9 @@ class GovernedMigration:
             severity="INFO",
         )
 
-        print(f"[migration-harness] {self.name}: completed successfully", file=sys.stderr)
+        print(
+            f"[migration-harness] {self.name}: completed successfully", file=sys.stderr
+        )
 
     def _rollback(self, reason: str) -> None:
         """Auto-restore from backup and record failure."""
@@ -280,7 +293,7 @@ class GovernedMigration:
             now = iso8601_now()
             duration = None
             if self._start_time:
-                delta = datetime.now(timezone.utc) - self._start_time
+                delta = utc_now() - self._start_time
                 duration = int(delta.total_seconds() * 1000)
 
             cur = audit_conn.execute(
@@ -315,8 +328,7 @@ class GovernedMigration:
                         "live_apply_failed",
                         reason,
                         json.dumps(self.post_counts) if self.post_counts else None,
-                        self._start_time.strftime("%Y-%m-%dT%H:%M:%SZ")
-                        if self._start_time else now,
+                        format_instant(self._start_time) if self._start_time else now,
                         now,
                         duration,
                     ),

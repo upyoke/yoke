@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
+from yoke_core.domain.db_helpers import instant_parameter
+
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -74,7 +78,7 @@ def close_launch_delivery(
         + " WHERE message_id="
         + marker
         + " AND completed_at IS NULL",
-        (changed_at, reason, message_id),
+        (instant_parameter(conn, parse_instant(changed_at)), reason, message_id),
     )
     conn.execute(
         "UPDATE session_messages SET cancelled_at=COALESCE(cancelled_at,"
@@ -85,7 +89,12 @@ def close_launch_delivery(
         + marker
         + ") WHERE message_id="
         + marker,
-        (changed_at, requester_actor_id, reason, message_id),
+        (
+            instant_parameter(conn, parse_instant(changed_at)),
+            requester_actor_id,
+            reason,
+            message_id,
+        ),
     )
     conn.execute(
         "UPDATE session_message_recipients SET state='cancelled', cancelled_at="
@@ -94,7 +103,7 @@ def close_launch_delivery(
         "injection_lease_expires_at=NULL WHERE message_id="
         + marker
         + " AND state IN ('pending','injected')",
-        (changed_at, message_id),
+        (instant_parameter(conn, parse_instant(changed_at)), message_id),
     )
 
 

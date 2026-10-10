@@ -9,6 +9,10 @@ and how a person's role is replaced. The Actors page, invites, and the
 
 from __future__ import annotations
 
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+
 from dataclasses import dataclass
 from typing import Any
 
@@ -150,13 +154,14 @@ def replace_person_role(
     org_id: int,
     role: str,
     granted_by_actor_id: int | None,
-    now: str,
+    now: datetime | str,
 ) -> list[str]:
     """Make ``role`` the person's only org role; return the roles it replaced.
 
     The caller owns the transaction; ``check_person_role_change`` refuses
     first, so no grant path can strand the org without an admin.
     """
+    now = parse_instant(now)
     previous = check_person_role_change(
         conn, actor_id=actor_id, org_id=org_id, role=role
     )
@@ -171,7 +176,13 @@ def replace_person_role(
         "INSERT INTO actor_org_roles "
         "(actor_id, org_id, role_id, granted_at, granted_by_actor_id) "
         f"VALUES ({p}, {p}, {p}, {p}, {p})",
-        (actor_id, org_id, role_id_by_name(conn, role), now, granted_by_actor_id),
+        (
+            actor_id,
+            org_id,
+            role_id_by_name(conn, role),
+            instant_parameter(conn, parse_instant(now)),
+            granted_by_actor_id,
+        ),
     )
     return previous
 
@@ -183,7 +194,7 @@ def record_org_grant(
     org_id: int,
     role: str,
     granted_by_actor_id: int | None,
-    now: str,
+    now: datetime | str,
 ) -> None:
     """Write one org grant; the caller owns the transaction.
 
@@ -209,7 +220,13 @@ def record_org_grant(
         "(actor_id, org_id, role_id, granted_at, granted_by_actor_id) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}) "
         "ON CONFLICT(actor_id, org_id, role_id) DO NOTHING",
-        (actor_id, org_id, role_id_by_name(conn, role), now, granted_by_actor_id),
+        (
+            actor_id,
+            org_id,
+            role_id_by_name(conn, role),
+            instant_parameter(conn, parse_instant(now)),
+            granted_by_actor_id,
+        ),
     )
 
 
@@ -219,7 +236,7 @@ def set_actor_org_role(
     actor_id: int,
     role: str,
     caller_actor_id: int,
-    now: str,
+    now: datetime | str,
 ) -> ActorRoleChange:
     """Set a person's one org role in a single locked transaction.
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import signal
 import sys
@@ -81,10 +81,15 @@ def test_resume_spawn_supervises_detaches_redirects_and_records_custody(
         lease_id=LEASE_ID,
         state_dir=tmp_path,
         process_factory=factory,
-        clock=lambda: 1_777_000_000.0,
+        clock=lambda: 1_777_000_000.123456,
     )
 
     assert result is not None and result.pid == process.pid
+    assert result.started_at == datetime.fromtimestamp(
+        1_777_000_000.123456, timezone.utc
+    )
+    assert isinstance(result.started_at, datetime)
+    assert result.evidence["native_started_at"].endswith(".123456Z")
     argv, kwargs = calls[0]
     # The relay starts the supervisor, which starts the native and stays to
     # collect the exit status the relay poll will never be around to see.

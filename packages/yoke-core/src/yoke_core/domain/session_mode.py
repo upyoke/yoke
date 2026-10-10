@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now
 from typing import Any, Dict, Optional
 
 from yoke_contracts.session_queue_posture import (
@@ -98,7 +98,7 @@ def _advance_parked_order_clock(conn: Any, session_id: str) -> None:
     """Let a parked write win the same order clock delayed prompt stamps use."""
     if "turn_posture_at" not in _session_columns(conn):
         return
-    stamp = posture_timestamp(datetime.now(timezone.utc))
+    stamp = posture_timestamp(utc_now())
     marker = _p(conn)
     conn.execute(
         f"UPDATE harness_sessions SET turn_posture_at = {marker} "

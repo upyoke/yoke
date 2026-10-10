@@ -14,6 +14,7 @@ import {
   withProjectColumn,
 } from "./universe_view_support.js";
 import { relativeAge } from "./universe_time.js";
+import { instantMicros } from "./timestamps.js";
 
 const MIGRATION_MODEL_CAPABILITY = "migration_model";
 
@@ -96,16 +97,13 @@ function latestRunsByEnvironment(rows, directory) {
       row.target_environment || row.target_tier || "",
     ).toLowerCase()}`;
     const previous = latest.get(key);
-    const timestamp = new Date(runTimestamp(row) || 0).getTime();
-    const previousTimestamp = previous
-      ? new Date(runTimestamp(previous) || 0).getTime()
-      : Number.NaN;
-    if (
-      !previous ||
-      (!Number.isNaN(timestamp) && (
-        Number.isNaN(previousTimestamp) || timestamp > previousTimestamp
-      ))
-    ) latest.set(key, row);
+    const clock = runTimestamp(row);
+    const previousClock = runTimestamp(previous);
+    const timestamp = clock === null ? null : instantMicros(clock);
+    const previousTimestamp = previousClock === null ? null : instantMicros(previousClock);
+    if (!previous || (timestamp !== null && (
+      previousTimestamp === null || timestamp > previousTimestamp
+    ))) latest.set(key, row);
   }
   return latest;
 }

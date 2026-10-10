@@ -44,7 +44,7 @@ from typing import Any, Iterable
 
 from yoke_core.domain.deployment_run_member_targeting import needed_member_ids
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.deployment_item_flow_resolution import (
     completion_flow_refusal,
     freeze_item_completion_flow,
@@ -149,7 +149,13 @@ def admit_run_item(
         "INSERT INTO deployment_run_items "
         "(run_id, item_id, added_at, delivery_intent, requirement_selection) "
         "VALUES (%s, %s, %s, %s, %s)",
-        (run_id, int(item_id), iso8601_now(), intent, None if derived else selection),
+        (
+            run_id,
+            int(item_id),
+            instant_parameter(conn, utc_now()),
+            intent,
+            None if derived else selection,
+        ),
     )
     return render_item_ref(conn, int(item_id))
 

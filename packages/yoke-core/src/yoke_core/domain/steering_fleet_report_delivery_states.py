@@ -24,6 +24,10 @@ row still reads ``pending`` while nothing will ever deliver it.
 
 from __future__ import annotations
 
+from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
+
+from datetime import datetime
+
 from datetime import timedelta
 from typing import Any, Mapping
 
@@ -120,10 +124,10 @@ def deliverable_receipt(marker: str) -> str:
 def _attempt_owed(
     record: Mapping[str, Any],
     *,
-    sent_at: str,
+    sent_at: datetime | str,
     grace: timedelta,
     sla: timedelta,
-    current: Any,
+    current: datetime,
 ) -> bool:
     """True when the plane should already have attempted this receipt.
 
@@ -139,9 +143,7 @@ def _attempt_owed(
     route it no longer had, disagreeing with the plane, which escalates
     that same receipt.
     """
-    from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
-
-    acted = str(record.get("last_tool_call_at") or "")
+    acted = parse_stamp(record.get("last_tool_call_at"))
     silent_since = hook_route_silent_since(
         {"last_tool_call_at": acted or None, "message_created_at": sent_at}
     )
@@ -155,10 +157,10 @@ def delivery_state(
     record: Mapping[str, Any],
     *,
     result_code: str,
-    sent_at: str,
+    sent_at: datetime | str,
     grace: timedelta,
     sla: timedelta,
-    current: Any,
+    current: datetime,
     failed_count: int = 0,
 ) -> str:
     """Classify one undelivered receipt into exactly one delivery state.
@@ -169,14 +171,14 @@ def delivery_state(
     fired. One failure a live turn has since overtaken still yields to
     that turn; two or more are the finding even mid-call.
     """
-    if str(record.get("terminated_at") or ""):
+    if record.get("terminated_at") is not None:
         return RECIPIENT_TERMINATED
     if recipient_has_no_delivery_route(record):
         return RECIPIENT_ENDED
     if failed_count >= REPEATED_FAILURE_COUNT:
         return ATTEMPT_FAILED
     if session_call_is_live(
-        record, started_at=str(record.get(OPEN_TOOL_CALL_COLUMN) or "")
+        record, started_at=parse_stamp(record.get(OPEN_TOOL_CALL_COLUMN))
     ):
         return TURN_IN_FLIGHT
     if result_code:

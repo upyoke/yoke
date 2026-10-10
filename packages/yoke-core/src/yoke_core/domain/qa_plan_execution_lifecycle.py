@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.coordination_claims import heartbeat, release
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.qa_capture_settlement import (
     record_inflight_case_failure,
     settle_unreviewed_execution_captures,
@@ -51,11 +52,11 @@ def heartbeat_plan_execution(
         raise QaPlanExecutionStateError("QA plan execution cannot heartbeat")
     require_execution_target(execution)
     placeholder = marker(conn)
-    now = iso8601_now()
+    now = utc_now()
     conn.execute(
         "UPDATE qa_plan_executions SET heartbeat_at="
         f"{placeholder} WHERE id={placeholder}",
-        (now, str(execution["id"])),
+        (instant_parameter(conn, now), str(execution["id"])),
     )
     from yoke_core.domain.qa_plan_host_leases import heartbeat_execution_hosts
 
@@ -78,12 +79,12 @@ def set_plan_machine_lease(
 
     release_host_reservations(conn, str(execution["id"]))
     placeholder = marker(conn)
-    now = iso8601_now()
+    now = utc_now()
     cursor = conn.execute(
         "UPDATE qa_plan_executions SET machine_lease_id="
         f"{placeholder},heartbeat_at={placeholder} WHERE id={placeholder} "
         "AND state='active' AND machine_lease_id IS NULL",
-        (int(lease_id), now, str(execution["id"])),
+        (int(lease_id), instant_parameter(conn, now), str(execution["id"])),
     )
     if cursor.rowcount != 1:
         conn.rollback()
@@ -148,7 +149,7 @@ def finish_plan_execution(
             commit=False,
         )
     placeholder = marker(conn)
-    now = iso8601_now()
+    now = utc_now()
     completed_at = None if state in {"waiting", "awaiting_agent_review"} else now
     conn.execute(
         "UPDATE qa_plan_executions SET state="
@@ -157,8 +158,8 @@ def finish_plan_execution(
         f"WHERE id={placeholder}",
         (
             state,
-            completed_at,
-            now,
+            instant_parameter(conn, completed_at),
+            instant_parameter(conn, now),
             reason,
             execution.get("machine_lease_id") if retain_lease else None,
             str(execution["id"]),

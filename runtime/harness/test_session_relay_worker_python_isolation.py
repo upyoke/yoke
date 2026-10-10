@@ -225,7 +225,9 @@ def test_the_codex_turn_binary_starts_without_the_relay_python(
     _relay_daemon_environment(monkeypatch, state_dir)
     recorder = _SpawnRecorder()
     monkeypatch.setattr(codex_cli_module.subprocess, "Popen", recorder)
-    monkeypatch.setattr(codex_cli_module, "record_supervised_native", lambda *a, **k: True)
+    monkeypatch.setattr(
+        codex_cli_module, "record_supervised_native", lambda *a, **k: True
+    )
     monkeypatch.setattr(
         codex_cli_module,
         "resolve_native_cli_source",

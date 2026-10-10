@@ -17,7 +17,7 @@ from yoke_core.domain.steering_fleet_report_render import report_body
 
 RUN_ID = "run-20260826-001"
 STAGE = "item-qa"
-STAGE_STARTED = "2026-08-26T08:00:00Z"
+STAGE_STARTED = "2026-08-26T08:00:00.000000Z"
 
 
 def _seed_run(conn, *, stage: str = STAGE, status: str = "executing") -> None:
@@ -235,7 +235,7 @@ def test_the_fingerprint_moves_on_state_and_not_on_the_clock(fleet) -> None:
     fleet.commit()
     at_four_hours = compose(fleet, now=NOW).fingerprint()
 
-    later = compose(fleet, now="2026-08-26T18:00:00Z")
+    later = compose(fleet, now="2026-08-26T18:00:00.000000Z")
     assert later.deployment_runs[0].stage_seconds == 10 * 3600
     assert later.fingerprint() == at_four_hours
 

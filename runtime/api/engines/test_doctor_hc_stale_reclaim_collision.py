@@ -8,6 +8,8 @@ timestamp).
 
 from __future__ import annotations
 
+import pytest
+
 import json
 import os
 from dataclasses import dataclass, field
@@ -49,7 +51,7 @@ _MAKE_CONN_DDL = """
         event_name TEXT NOT NULL,
         event_type TEXT NOT NULL DEFAULT 'system',
         session_id TEXT,
-        created_at TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
         client_timing_id TEXT,
         envelope TEXT
     );
@@ -203,3 +205,39 @@ class TestHcStaleReclaimCollision:
         status, detail = rec.rows[0][2], rec.rows[0][3]
         assert status == "WARN"
         assert "executor=codex" in detail
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_native_reclaim_window_keeps_inclusive_exact_microsecond_endpoint(
+    monkeypatch, zone
+):
+    from yoke_contracts.timestamps import parse_instant
+    from yoke_core.engines import doctor_hc_agents_sessions as owner
+
+    stamp = parse_instant("1969-12-31T23:59:59.123456Z")
+    conn = _make_conn()
+    try:
+        conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+        monkeypatch.setattr(owner, "utc_now", lambda: stamp)
+        monkeypatch.setattr(
+            "yoke_core.domain.session_reclaim_activity.resolve_effective_ttl",
+            lambda executor: 20,
+        )
+        reclaimed = stamp - timedelta(minutes=30)
+        endpoint = reclaimed + timedelta(minutes=20)
+        for sid, activity in [
+            ("endpoint", endpoint),
+            ("after-endpoint", endpoint + timedelta(microseconds=1)),
+        ]:
+            _insert_session(conn, sid)
+            _insert_reclaimed_event(conn, sid, reclaimed_at=reclaimed)
+            _insert_tool_event(conn, sid, created_at=activity)
+        rec = _RecordCapture()
+        owner.hc_stale_reclaim_collision(conn, _Args(), rec)
+        assert rec.rows[0][2] == "WARN"
+        detail = rec.rows[0][3]
+        assert "Detected 1 reclaim collision(s)" in detail
+        assert "session endpoint" in detail and "session after-endpoint" not in detail
+        assert "1969-12-31T23:29:59.123456Z" in detail
+    finally:
+        conn.close()

@@ -6,7 +6,7 @@ from datetime import timedelta
 
 from yoke_core.domain.session_broker_wake import lease_broker_wake_for_hook
 from yoke_core.domain.session_broker_wake_recruit import broker_surface_is_worker
-from runtime.api.domain.test_session_broker_wake import (
+from runtime.api.domain.session_broker_test_support import (
     MACHINE_ID,
     NOW,
     _seed,

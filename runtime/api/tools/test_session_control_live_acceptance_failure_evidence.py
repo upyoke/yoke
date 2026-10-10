@@ -46,8 +46,8 @@ def test_ack_timeout_retains_the_last_body_free_receipt() -> None:
         "state": "pending",
         "injection_count": 1,
         "wake_attempt_count": 0,
-        "acknowledged_at": "",
-        "last_wake_at": "",
+        "acknowledged_at": None,
+        "last_wake_at": None,
         "native_wake_attempts": {
             "attempt_count": 0,
             "attempts_truncated": False,

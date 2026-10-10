@@ -2,20 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import as_utc, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Mapping
 
 from yoke_core.domain import db_backend, json_helper
 
 
 RelayRoutes = Mapping[str, tuple[dict[str, Any], ...]]
-
-
-def relay_now_text(now: datetime | None) -> str:
-    current = now or datetime.now(timezone.utc)
-    if current.tzinfo is None:
-        current = current.replace(tzinfo=timezone.utc)
-    return current.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _document(raw: Any, default: Any) -> Any:
@@ -41,7 +36,7 @@ def connected_relay_routes(
     rows = conn.execute(
         "SELECT machine_id,surface_versions,project_checkouts FROM session_relays "
         f"WHERE state IN ('active','idle') AND connected_until>{marker}",
-        (relay_now_text(now),),
+        (instant_parameter(conn, utc_now() if now is None else as_utc(now)),),
     ).fetchall()
     relays: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
@@ -91,6 +86,5 @@ def machine_surface_versions(
 __all__ = [
     "connected_relay_routes",
     "machine_surface_versions",
-    "relay_now_text",
     "surface_versions_for",
 ]

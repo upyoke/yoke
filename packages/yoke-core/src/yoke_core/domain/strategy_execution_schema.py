@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS item_strategy_docs (
   strategy_doc_slug TEXT NOT NULL,
   linked_by_actor_id INTEGER,
   linked_by_session_id TEXT,
-  linked_at TEXT NOT NULL,
+  linked_at TIMESTAMPTZ NOT NULL,
   UNIQUE(item_id, project_id, strategy_doc_slug),
   FOREIGN KEY(project_id, strategy_doc_slug)
     REFERENCES strategy_docs(project_id, slug)
@@ -61,10 +61,10 @@ CREATE TABLE IF NOT EXISTS strategy_doc_claims (
   ),
   registered_by_actor_id INTEGER,
   registered_by_session_id TEXT,
-  registered_at TEXT NOT NULL,
+  registered_at TIMESTAMPTZ NOT NULL,
   released_by_actor_id INTEGER,
   released_by_session_id TEXT,
-  released_at TEXT,
+  released_at TIMESTAMPTZ,
   release_mode TEXT
     CHECK(release_mode IS NULL OR release_mode IN ('normal','break_glass')),
   release_reason TEXT,

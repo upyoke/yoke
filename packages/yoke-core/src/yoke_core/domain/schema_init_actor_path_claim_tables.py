@@ -90,7 +90,7 @@ _ACTOR_IDENTITY_SQL = """
             name TEXT NOT NULL DEFAULT '',
             status TEXT NOT NULL DEFAULT 'active'
                 CHECK(status IN ('active','disabled')),
-            created_at TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL,
             attribution TEXT,
             CHECK (
                 (kind = 'system' AND system_component IS NOT NULL)
@@ -108,7 +108,7 @@ _PATH_CLAIM_TASK_BINDING_SQL = """
             claim_id INTEGER NOT NULL REFERENCES path_claims(id) ON DELETE CASCADE,
             epic_id INTEGER NOT NULL,
             task_num INTEGER NOT NULL,
-            bound_at TEXT NOT NULL,
+            bound_at TIMESTAMPTZ NOT NULL,
             PRIMARY KEY(claim_id, epic_id, task_num),
             FOREIGN KEY (epic_id, task_num)
                 REFERENCES epic_tasks(epic_id, task_num) ON DELETE CASCADE
@@ -153,10 +153,10 @@ def create_actor_path_claim_tables(conn: Any) -> None:
                 REFERENCES harness_sessions(session_id),
             integration_target TEXT NOT NULL,
             base_commit_sha TEXT,
-            registered_at TEXT NOT NULL,
-            activated_at TEXT,
-            released_at TEXT,
-            cancelled_at TEXT,
+            registered_at TIMESTAMPTZ NOT NULL,
+            activated_at TIMESTAMPTZ,
+            released_at TIMESTAMPTZ,
+            cancelled_at TIMESTAMPTZ,
             release_reason TEXT,
             cancel_reason TEXT,
             blocked_reason TEXT,
@@ -181,7 +181,7 @@ def create_actor_path_claim_tables(conn: Any) -> None:
             id INTEGER PRIMARY KEY,
             claim_id INTEGER NOT NULL REFERENCES path_claims(id),
             target_id INTEGER NOT NULL REFERENCES path_targets(id),
-            declared_at TEXT NOT NULL,
+            declared_at TIMESTAMPTZ NOT NULL,
             UNIQUE(claim_id, target_id)
         );
         CREATE INDEX IF NOT EXISTS idx_path_claim_targets_target
@@ -190,7 +190,7 @@ def create_actor_path_claim_tables(conn: Any) -> None:
         CREATE TABLE IF NOT EXISTS path_claim_amendments (
             id INTEGER PRIMARY KEY,
             claim_id INTEGER NOT NULL REFERENCES path_claims(id),
-            amended_at TEXT NOT NULL,
+            amended_at TIMESTAMPTZ NOT NULL,
             amendment_kind TEXT NOT NULL,
             payload TEXT NOT NULL DEFAULT '{}',
             reason TEXT
@@ -211,7 +211,7 @@ def create_actor_path_claim_tables(conn: Any) -> None:
             item_id INTEGER,
             project TEXT,
             session_id TEXT,
-            created_at TEXT NOT NULL
+            created_at TIMESTAMPTZ NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_path_claim_overrides_pair
             ON path_claim_overrides(path_claim_id, blocking_claim_id);

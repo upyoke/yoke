@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter, query_one, query_rows
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder, _plan_row
 from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
@@ -89,7 +90,7 @@ def attach_plan_to_item(
         qa_phase=qa_phase,
         acknowledge=acknowledge_unreachable_target,
     )
-    now = iso8601_now()
+    now = utc_now()
     if _column_exists(conn, "qa_plan_item_attachments", "retracted_at"):
         existing = query_one(
             conn,
@@ -112,7 +113,14 @@ def attach_plan_to_item(
             "ON CONFLICT(item_id, transition_id, plan_id) DO UPDATE SET "
             "qa_phase=EXCLUDED.qa_phase, attached_at=EXCLUDED.attached_at, "
             "attached_by_actor_id=EXCLUDED.attached_by_actor_id",
-            (item_id, transition_id, qa_phase, plan_id, now, actor_id),
+            (
+                item_id,
+                transition_id,
+                qa_phase,
+                plan_id,
+                instant_parameter(conn, now),
+                actor_id,
+            ),
         )
         if commit:
             conn.commit()
@@ -213,7 +221,7 @@ def materialize_for_item(
     subject = f"{render_item_ref(conn, item_id)} transition {transition_id!r}"
     created: list[int] = []
     existing: list[int] = []
-    now = iso8601_now()
+    now = utc_now()
     # Validate every plan before the first write. A plan that already has rows
     # is not skipped: a case added after the first materialization still owes
     # its own row, while an existing row is confirmed rather than rewritten

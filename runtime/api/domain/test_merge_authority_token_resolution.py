@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
+from yoke_contracts.timestamps import parse_instant
 import pytest
 from yoke_contracts.github_app_installation_permissions import (
     REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS,
@@ -82,7 +83,7 @@ class TestResolverHonorsTheClassification:
             "mint_bound_installation_token",
             lambda *_a, **_k: SimpleNamespace(
                 token=token,
-                expires_at=SimpleNamespace(isoformat=lambda: "later"),
+                expires_at=parse_instant("2030-01-01T00:00:00Z"),
             ),
         )
 

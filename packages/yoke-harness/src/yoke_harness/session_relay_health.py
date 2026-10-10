@@ -5,7 +5,10 @@ from __future__ import annotations
 from yoke_contracts.machine_config.directories import create_private_directory
 
 from collections.abc import Mapping
-from datetime import datetime, timezone
+from datetime import datetime
+
+from yoke_contracts.timestamps import format_instant
+from yoke_contracts.timestamps import iso8601_now as _utc_now
 from hashlib import sha256
 import json
 import logging
@@ -31,10 +34,6 @@ _LOGGER = logging.getLogger(__name__)
 
 def _root(state_dir: Path | None) -> Path:
     return state_dir or relay_state_dir()
-
-
-def _utc_now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _load(path: Path) -> dict[str, object]:
@@ -68,10 +67,10 @@ def record_report_failure(
     state_dir: Path | None,
     *,
     error_code: str,
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> None:
     """Record one failed dispatch without retaining its error text or body."""
-    observed_at = now or _utc_now()
+    observed_at = _utc_now() if now is None else format_instant(now)
     with _LOCK:
         path = _health_path(state_dir)
         document = _load(path)
@@ -81,7 +80,9 @@ def record_report_failure(
             {
                 "error_code": str(error_code or "relay_report_failed")[:128],
                 "failure_count": int(failure.get("failure_count") or 0) + 1,
-                "first_failed_at": failure.get("first_failed_at") or observed_at,
+                "first_failed_at": format_instant(failure["first_failed_at"])
+                if failure.get("first_failed_at") is not None
+                else observed_at,
                 "last_failed_at": observed_at,
             }
         )
@@ -96,9 +97,10 @@ def record_relay_run_refusal(
     local_revision: str,
     server_revision: str,
     ahead_by: int,
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> None:
     """Persist a bounded source/server mismatch for status and heartbeat."""
+    observed_at = _utc_now() if now is None else format_instant(now)
     with _LOCK:
         path = _health_path(state_dir)
         document = _load(path)
@@ -108,7 +110,7 @@ def record_relay_run_refusal(
             "local_revision": local_revision,
             "server_revision": server_revision,
             "ahead_by": ahead_by,
-            "observed_at": now or _utc_now(),
+            "observed_at": observed_at,
             "recovery": RELAY_NEWER_THAN_SERVER_RECOVERY,
         }
         _write(path, document)
@@ -173,9 +175,10 @@ def quarantine_report(
     *,
     error_code: str,
     attempts: int,
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> dict[str, object]:
     """Move one rejected payload aside and retain body-free diagnostic facts."""
+    observed_at = _utc_now() if now is None else format_instant(now)
     directory = _root(state_dir) / QUARANTINED_REPORT_DIR_NAME
     create_private_directory(directory)
     directory.chmod(0o700)
@@ -198,7 +201,7 @@ def quarantine_report(
         "job_kind": str((payload or {}).get("job_kind") or "unknown")[:16],
         "error_code": str(error_code or "relay_report_rejected")[:128],
         "attempts": max(1, int(attempts)),
-        "quarantined_at": now or _utc_now(),
+        "quarantined_at": observed_at,
         "payload_sha256": payload_sha256,
         "preserved_path": str(destination),
     }

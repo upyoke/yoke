@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.steering_claims import acquire
 from yoke_core.domain.strategy_docs_create import create_doc
 from yoke_core.domain.strategy_docs_defaults import NEAR_TERM_PLAN_SLUG
@@ -19,7 +19,7 @@ SESSION_GAMMA = "steering-gamma"
 def seed_project(conn: Any, project_id: int, slug: str) -> None:
     conn.execute(
         "INSERT INTO projects (id, slug, name, created_at) VALUES (%s, %s, %s, %s)",
-        (project_id, slug, slug.title(), iso8601_now()),
+        (project_id, slug, slug.title(), instant_parameter(conn, utc_now())),
     )
     conn.commit()
     seed_strategy_doc(conn, project_id, NEAR_TERM_PLAN_SLUG)
@@ -38,7 +38,7 @@ def seed_strategy_doc(conn: Any, project_id: int, slug: str) -> None:
 
 
 def seed_session(conn: Any, session_id: str, project_id: int) -> None:
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     conn.execute(
         "INSERT INTO harness_sessions "
         "(session_id, executor, provider, model, execution_level, workspace, "

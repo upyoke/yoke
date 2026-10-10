@@ -26,6 +26,7 @@ from runtime.api.tools.session_control_live_acceptance_reporting import (
     FAILED_STATUS,
     failed_cell_report,
     passed_cell_report,
+    receipt_clocks,
 )
 from runtime.api.tools.session_control_live_acceptance_route_selection import (
     resolve_route_selection,
@@ -316,8 +317,7 @@ class LiveAcceptanceDriver:
             "wake_attempt_count": receipt_count(
                 row.get("wake_attempt_count"), surface=cell.surface
             ),
-            "acknowledged_at": str(row.get("acknowledged_at") or ""),
-            "last_wake_at": str(row.get("last_wake_at") or ""),
+            **receipt_clocks(row, surface=cell.surface),
             "attempt_evidence": {
                 key: message.get(key)
                 for key in ("attempts", "attempt_count", "attempts_truncated")

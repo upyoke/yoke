@@ -38,7 +38,11 @@ def _seed_item(conn, *, item_id: int) -> int:
 
 
 def _seed_claim(
-    conn, *, item_id: int, target_id: int, state: str,
+    conn,
+    *,
+    item_id: int,
+    target_id: int,
+    state: str,
 ) -> int:
     actor = local_human(conn)
     cur = conn.execute(
@@ -48,7 +52,7 @@ def _seed_claim(
         "activated_at, base_commit_sha) "
         "VALUES (%s, 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', "
-        "CASE WHEN %s='active' THEN '2026-05-01T01:00:00Z' ELSE NULL END, "
+        "CASE WHEN %s='active' THEN TIMESTAMPTZ '2026-05-01T01:00:00.000000Z' ELSE NULL END, "
         "CASE WHEN %s='active' THEN %s ELSE NULL END) RETURNING id",
         (state, item_id, actor, state, state, SNAP),
     )
@@ -64,16 +68,24 @@ def _seed_claim(
 
 class TestOverrideActivePermits:
     def test_active_override_classifies_as_serial(
-        self, conn, monkeypatch,
+        self,
+        conn,
+        monkeypatch,
     ):
         target = seed_target(conn, path_string="runtime/api/domain")
         a_item = _seed_item(conn, item_id=6001)
         b_item = _seed_item(conn, item_id=6002)
         a_claim = _seed_claim(
-            conn, item_id=a_item, target_id=target, state="active",
+            conn,
+            item_id=a_item,
+            target_id=target,
+            state="active",
         )
         b_claim = _seed_claim(
-            conn, item_id=b_item, target_id=target, state="planned",
+            conn,
+            item_id=b_item,
+            target_id=target,
+            state="planned",
         )
         from yoke_core.domain import path_claims_override as _override
 
@@ -95,16 +107,24 @@ class TestOverrideActivePermits:
 
 class TestOverrideRetiredReverts:
     def test_retired_override_reverts_to_incompatible(
-        self, conn, monkeypatch,
+        self,
+        conn,
+        monkeypatch,
     ):
         target = seed_target(conn, path_string="runtime/api/domain")
         a_item = _seed_item(conn, item_id=6101)
         b_item = _seed_item(conn, item_id=6102)
         _seed_claim(
-            conn, item_id=a_item, target_id=target, state="active",
+            conn,
+            item_id=a_item,
+            target_id=target,
+            state="active",
         )
         b_claim = _seed_claim(
-            conn, item_id=b_item, target_id=target, state="planned",
+            conn,
+            item_id=b_item,
+            target_id=target,
+            state="planned",
         )
         from yoke_core.domain import path_claims_override as _override
 

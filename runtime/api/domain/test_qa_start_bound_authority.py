@@ -14,6 +14,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
+from yoke_contracts.timestamps import InvalidInstant
 from yoke_core.domain import qa_start_bound_authority as authority
 from yoke_core.domain.qa_start_bound_authority import (
     AUTHORITY_WINDOW_SECONDS,
@@ -71,8 +72,9 @@ class TestStartBoundClaimGrants(unittest.TestCase):
     def test_missing_claim_row_does_not_grant(self):
         self.assertFalse(self._grants(None))
 
-    def test_unparseable_release_timestamp_does_not_grant(self):
-        self.assertFalse(self._grants(_row(released_at="not-a-timestamp")))
+    def test_unparseable_release_timestamp_refuses_with_named_reason(self):
+        with self.assertRaisesRegex(InvalidInstant, "invalid_instant"):
+            self._grants(_row(released_at="not-a-timestamp"))
 
     def test_empty_session_never_grants(self):
         self.assertFalse(self._grants(_row(), session_id=""))

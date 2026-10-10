@@ -23,7 +23,7 @@ CREATE TABLE events (
     event_name TEXT NOT NULL,
     session_id TEXT,
     item_id INTEGER,
-    created_at TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
     hook_event_name TEXT,
     client_timing_id TEXT,
     envelope TEXT DEFAULT '{}'
@@ -65,10 +65,6 @@ def conn():
     c.close()
 
 
-def _iso(dt: datetime) -> str:
-    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def _emit_event(
     conn,
     name: str,
@@ -88,7 +84,7 @@ def _emit_event(
             name,
             session_id,
             item_id,
-            _iso(when),
+            when,
             hook_event_name,
             json.dumps(envelope or {}),
         ),

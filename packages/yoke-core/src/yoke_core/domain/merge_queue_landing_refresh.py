@@ -6,12 +6,13 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Iterable
 
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.github_poll_schedule import MINIMUM_POLL_INTERVAL_SECONDS
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
     row_dict,
-    timestamp,
 )
 
 
@@ -22,8 +23,8 @@ LANDING_RECORD_STALE_SECONDS = REFRESH_CADENCE_SECONDS * 2.0
 @dataclass(frozen=True)
 class LandingRefresh:
     project_id: int
-    started_at: str = ""
-    completed_at: str = ""
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     last_error: str = ""
 
     @property
@@ -33,8 +34,12 @@ class LandingRefresh:
     def payload(self) -> dict[str, Any]:
         return {
             "project_id": self.project_id,
-            "started_at": self.started_at,
-            "completed_at": self.completed_at,
+            "started_at": format_instant(self.started_at)
+            if self.started_at is not None
+            else None,
+            "completed_at": format_instant(self.completed_at)
+            if self.completed_at is not None
+            else None,
             "last_error": self.last_error,
             "in_progress": self.in_progress,
         }
@@ -52,8 +57,8 @@ def claim_due_projects(
     cadence_seconds: float = REFRESH_CADENCE_SECONDS,
 ) -> tuple[int, ...]:
     """Atomically claim each project whose last sweep began before cadence."""
-    current = timestamp(now)
-    cutoff = timestamp(now - timedelta(seconds=float(cadence_seconds)))
+    current = instant_parameter(conn, parse_instant(now))
+    cutoff = instant_parameter(conn, now - timedelta(seconds=float(cadence_seconds)))
     p = _p(conn)
     claimed: list[int] = []
     for project_id in sorted({int(value) for value in project_ids}):
@@ -94,7 +99,7 @@ def complete_projects(
     conn.execute(
         "UPDATE merge_queue_landing_refreshes SET "
         f"completed_at={p},last_error='' WHERE project_id IN ({slots})",
-        (timestamp(now), *projects),
+        (instant_parameter(conn, parse_instant(now)), *projects),
     )
     conn.commit()
 
@@ -114,7 +119,7 @@ def fail_projects(
     conn.execute(
         "UPDATE merge_queue_landing_refreshes SET "
         f"completed_at={p},last_error={p} WHERE project_id IN ({slots})",
-        (timestamp(now), str(error), *projects),
+        (instant_parameter(conn, parse_instant(now)), str(error), *projects),
     )
     conn.commit()
 
@@ -131,13 +136,15 @@ def read_refresh(conn: Any, project_id: int) -> LandingRefresh:
     value = row_dict(row)
     return LandingRefresh(
         project_id=int(value["project_id"]),
-        started_at=str(value.get("started_at") or ""),
-        completed_at=str(value.get("completed_at") or ""),
+        started_at=parse_timestamp(value.get("started_at")),
+        completed_at=parse_timestamp(value.get("completed_at")),
         last_error=str(value.get("last_error") or ""),
     )
 
 
-def record_age_seconds(observed_at: str, *, now: datetime) -> float | None:
+def record_age_seconds(
+    observed_at: datetime | str | None, *, now: datetime
+) -> float | None:
     observed = parse_timestamp(observed_at)
     if observed is None:
         return None

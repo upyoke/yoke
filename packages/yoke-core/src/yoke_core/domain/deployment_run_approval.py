@@ -16,10 +16,12 @@ the run on a rejection, which has nothing left to advance.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+from yoke_contracts.timestamps import format_instant
 from typing import Optional
 
 from yoke_core.domain.approval import parse_flow_stages, resolve_approval
-from yoke_core.domain.db_helpers import connect, iso8601_now, query_one, query_rows
+from yoke_core.domain.db_helpers import connect, utc_now, query_one, query_rows
 
 
 @dataclass(frozen=True)
@@ -28,7 +30,7 @@ class RunApproval:
     project: str
     approved_stage: str
     next_stage: str
-    approved_at: str
+    approved_at: datetime
     member_item_ids: tuple[int, ...]
     decision_request_id: Optional[int] = None
     stage_approved: bool = True
@@ -87,7 +89,7 @@ def approve_run(
             raise RunApprovalRejected(resolution.error or "approval rejected")
 
         next_stage = resolution.next_stage
-        approved_at = iso8601_now()
+        approved_at = utc_now()
         rows = query_rows(
             conn,
             "SELECT item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id",
@@ -164,7 +166,7 @@ def emit_run_approval(
             "run_id": approval.run_id,
             "approved_stage": approval.approved_stage,
             "next_stage": approval.next_stage,
-            "approved_at": approval.approved_at,
+            "approved_at": format_instant(approval.approved_at),
             "approver_actor_id": actor_id,
             "approver_session_id": session_id,
             "note": note,

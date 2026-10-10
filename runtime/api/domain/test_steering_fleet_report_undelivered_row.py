@@ -11,6 +11,7 @@ refused saw only a worker that had gone quiet.
 from __future__ import annotations
 
 from dataclasses import replace
+from yoke_contracts.timestamps import parse_instant
 
 from runtime.api.domain.test_steering_fleet_report_populated_body import (
     _populated_report,
@@ -32,6 +33,9 @@ SESSION = "undelivered-session"
 
 
 def _row(**overrides) -> str:
+    for field in ("wake_releasable_at", "turn_in_flight_since", "recipient_gone_at"):
+        if overrides.get(field) is not None:
+            overrides[field] = parse_instant(overrides[field])
     entry = UndeliveredMessages(
         session_id=SESSION,
         delivery_state=overrides.pop("delivery_state", NEVER_ATTEMPTED),
@@ -100,7 +104,7 @@ def test_a_queued_wake_inside_its_grace_names_when_it_becomes_releasable():
     )
 
     assert "wake queued but unattempted" in young
-    assert "releasable at 2026-08-26T12:03:00Z" in young
+    assert "releasable at 2026-08-26T12:03:00.000000Z" in young
     assert "yoke session-control session wake" not in young
     assert "wake escalated" not in young
     assert "no delivery attempted" not in young
@@ -149,10 +153,11 @@ def test_a_delivery_still_under_way_reads_as_waiting_not_as_a_failure():
 def test_a_recipient_mid_call_is_left_alone():
     """Nothing is owed, nothing failed, and the seat should not resume it."""
     line = _row(
-        delivery_state=TURN_IN_FLIGHT, turn_in_flight_since="2026-08-26T11:39:00Z"
+        delivery_state=TURN_IN_FLIGHT,
+        turn_in_flight_since="2026-08-26T11:39:00.000000Z",
     )
 
-    assert "recipient turn in flight since 2026-08-26T11:39:00Z" in line
+    assert "recipient turn in flight since 2026-08-26T11:39:00.000000Z" in line
     assert "no resume" in line
 
 
@@ -165,21 +170,21 @@ def test_a_gone_recipient_names_the_loss_and_how_to_settle_it():
     """
     ended = _row(
         delivery_state=RECIPIENT_ENDED,
-        recipient_gone_at="2026-08-26T11:58:00Z",
+        recipient_gone_at="2026-08-26T11:58:00.000000Z",
         message_ids=("msg-ended",),
     )
     terminated = _row(
         delivery_state=RECIPIENT_TERMINATED,
-        recipient_gone_at="2026-08-26T11:58:00Z",
+        recipient_gone_at="2026-08-26T11:58:00.000000Z",
         message_ids=("msg-killed",),
         wake_escalation="starved_hook_route",
         operator_wake=True,
     )
 
-    assert "recipient session ended 2026-08-26T11:58:00Z" in ended
+    assert "recipient session ended 2026-08-26T11:58:00.000000Z" in ended
     assert "no delivery route remains" in ended
     assert "yoke messages cancel msg-ended" in ended
-    assert "recipient session terminated 2026-08-26T11:58:00Z" in terminated
+    assert "recipient session terminated 2026-08-26T11:58:00.000000Z" in terminated
     assert "yoke messages cancel msg-killed" in terminated
     for line in (ended, terminated):
         assert "wake" not in line

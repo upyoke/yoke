@@ -24,6 +24,8 @@ operator reason and the WARN event are the accountability record instead.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import temporal_wire
+
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field, ValidationError
@@ -139,7 +141,7 @@ def handle_operator_correct_merged_at(
     except Exception as exc:  # noqa: BLE001 - surfaced so the caller aborts
         return _err("merged_at_correction_failed", str(exc))
 
-    return HandlerOutcome(result_payload=result, primary_success=True)
+    return HandlerOutcome(result_payload=temporal_wire(result), primary_success=True)
 
 
 __all__ = [

@@ -1,10 +1,11 @@
 """Measure an existing driver capture; never start or retry a deployment."""
 
 import argparse
-from datetime import datetime
 import json
 import os
 from pathlib import Path
+
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
 
 from yoke_core.domain.deployment_start_timing import PREFIX
 from yoke_core.domain.project_scratch_dir import (
@@ -28,6 +29,14 @@ def start_report(text, *, run_id, baseline_seconds):
                     "start_timing_invalid: malformed marker; recover the full raw capture"
                 ) from exc
             if record.get("run_id") == run_id:
+                if "timestamp" in record:
+                    try:
+                        record["timestamp"] = parse_instant(record["timestamp"])
+                    except InvalidInstant as exc:
+                        raise StartEvidenceError(
+                            "start_clock_invalid: capture supplies an invalid instant; "
+                            "recover its original qualified driver markers"
+                        ) from exc
                 records.append(record)
     starts = [
         r
@@ -60,8 +69,13 @@ def start_report(text, *, run_id, baseline_seconds):
         if record.get("phase") == "end":
             key = record["step"]
             steps[key] = steps.get(key, 0) + float(record.get("elapsed_ms", 0))
-    first = min(datetime.fromisoformat(r["timestamp"]) for r in starts)
-    last = max(datetime.fromisoformat(r["timestamp"]) for r in ends)
+    if any(record.get("timestamp") is None for record in (*starts, *ends)):
+        raise StartEvidenceError(
+            "start_clock_invalid: required driver clock is absent; "
+            "recover the complete original markers"
+        )
+    first = min(r["timestamp"] for r in starts)
+    last = max(r["timestamp"] for r in ends)
     elapsed = (last - first).total_seconds()
     if elapsed < 0:
         raise StartEvidenceError(

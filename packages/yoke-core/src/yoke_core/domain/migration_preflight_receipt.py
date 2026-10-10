@@ -41,7 +41,9 @@ only ever come from that environment's own row.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import as_utc, format_instant, utc_now
+
+from datetime import datetime
 from typing import Any, Dict, Mapping, Sequence, Tuple
 
 #: Namespace inside ``environments.settings`` owning fleet rehearsal coverage.
@@ -210,7 +212,7 @@ def uncovered_schema_shape(
 
 def receipt_id(moment: datetime | None = None) -> str:
     """Identity of one rehearsal run: sortable, and a legal settings segment."""
-    stamped = (moment or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    stamped = as_utc(utc_now() if moment is None else moment)
     return stamped.strftime("%Y%m%dT%H%M%SZ")
 
 
@@ -225,14 +227,14 @@ def receipt_assignments(
     moment: datetime | None = None,
 ) -> Tuple[str, Dict[str, Any]]:
     """The run identity and settings assignments one passing rehearsal writes."""
-    stamped = (moment or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    stamped = as_utc(utc_now() if moment is None else moment)
     run = receipt_id(stamped)
     digest = str(schema_shape_digest or "").strip()
     runs = f"{run_prefix(model)}.{run}"
     assignments: Dict[str, Any] = {
         f"{runs}.product_sha": str(product_sha or "").strip(),
         f"{runs}.engine": rehearsed_build_description(engine_artifact),
-        f"{runs}.rehearsed_at": stamped.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        f"{runs}.rehearsed_at": format_instant(stamped),
         f"{runs}.schema_shape": digest,
     }
     if database_count is not None:

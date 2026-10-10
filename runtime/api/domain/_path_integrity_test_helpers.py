@@ -30,7 +30,7 @@ def apply_path_integrity_schema() -> None:
             "name TEXT NOT NULL, emoji TEXT DEFAULT '', "
             "default_branch TEXT NOT NULL DEFAULT 'main', "
             "github_repo TEXT, public_item_prefix TEXT NOT NULL DEFAULT 'YOK', "
-            "created_at TEXT NOT NULL)"
+            "created_at TIMESTAMPTZ NOT NULL)"
         )
         create_core_tables(conn)
         seed_project_identities(conn)

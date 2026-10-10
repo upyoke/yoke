@@ -37,7 +37,7 @@ def _make_conn() -> Any:
             session_id TEXT PRIMARY KEY,
             mode TEXT,
             current_item_id TEXT,
-            ended_at TEXT
+            ended_at TIMESTAMPTZ
         );
         CREATE TABLE projects (
             id INTEGER PRIMARY KEY,
@@ -54,9 +54,9 @@ def _make_conn() -> Any:
             path TEXT,
             lane_role TEXT NOT NULL,
             state TEXT NOT NULL DEFAULT 'active',
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            released_at TEXT
+            created_at TIMESTAMPTZ NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL,
+            released_at TIMESTAMPTZ
         );
         CREATE TABLE epic_tasks (
             epic_id INTEGER NOT NULL,
@@ -69,7 +69,7 @@ def _make_conn() -> Any:
             session_id TEXT,
             target_kind TEXT,
             scope TEXT NOT NULL,
-            released_at TEXT
+            released_at TIMESTAMPTZ
         );
         CREATE TABLE events (
             id INTEGER PRIMARY KEY,

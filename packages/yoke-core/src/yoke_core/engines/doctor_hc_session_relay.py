@@ -5,6 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 from typing import Any, Mapping
+from datetime import datetime
+from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_cli.config import machine_config
 from yoke_cli.config.session_relay_instance import (
@@ -73,7 +76,10 @@ def _missing_credential_reference(*, follows_served_release: bool) -> str:
     return ""
 
 
-def _recent_relay(conn: Any, machine_id: str, now: str) -> tuple[str, str] | None:
+def _recent_relay(
+    conn: Any, machine_id: str, now: datetime | str
+) -> tuple[str, str] | None:
+    now = parse_instant(now)
     if conn is None:
         result = relay(
             _RELAY_LIST_FUNCTION_ID,
@@ -87,18 +93,18 @@ def _recent_relay(conn: Any, machine_id: str, now: str) -> tuple[str, str] | Non
             if str(row.get("liveness") or "") != "connected":
                 continue
             relay_id = str(row.get("relay_id") or "").strip()
-            last_seen = str(row.get("last_seen_at") or "").strip()
-            if relay_id and last_seen:
-                return relay_id, last_seen
+            last_seen = row.get("last_seen_at")
+            if relay_id and last_seen is not None:
+                return relay_id, format_instant(last_seen)
         return None
     p = marker(conn)
     row = conn.execute(
         "SELECT relay_id,last_seen_at FROM session_relays "
         f"WHERE machine_id={p} AND state<>'revoked' AND connected_until>{p} "
         "ORDER BY last_seen_at DESC LIMIT 1",
-        (machine_id, now),
+        (machine_id, instant_parameter(conn, now)),
     ).fetchone()
-    return (str(row[0]), str(row[1])) if row is not None else None
+    return (str(row[0]), format_instant(row[1])) if row is not None else None
 
 
 def hc_session_relay(

@@ -8,6 +8,9 @@ by prepare_create, prepare_update, and prepare_approval in mutations.py.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, FrozenSet, List, Optional, Tuple
 
@@ -117,13 +120,17 @@ class ApprovalResult(MutationResult):
         next_stage: The stage the run should advance to.
         run_id: The deployment run being advanced.
         member_item_ids: Item IDs of all run members to sync stage to.
-        approved_at: ISO timestamp of approval.
+        approved_at: Native aware instant of approval.
     """
 
     next_stage: Optional[str] = None
     run_id: Optional[str] = None
     member_item_ids: Tuple[int, ...] = ()
-    approved_at: Optional[str] = None
+    approved_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        if self.approved_at is not None:
+            object.__setattr__(self, "approved_at", parse_instant(self.approved_at))
 
 
 # ---------------------------------------------------------------------------
@@ -215,8 +222,12 @@ class ItemState:
     deployment_flow: Optional[str] = None
     deploy_stage: Optional[str] = None
     deployed_to: Optional[str] = None
-    merged_at: Optional[str] = None
+    merged_at: datetime | None = None
     workflow: Optional["WorkflowRuntime"] = None
+
+    def __post_init__(self) -> None:
+        if self.merged_at is not None:
+            self.merged_at = parse_instant(self.merged_at)
 
     @property
     def ref(self) -> str:

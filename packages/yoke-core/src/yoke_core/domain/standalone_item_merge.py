@@ -20,10 +20,10 @@ standalone-item-merge.md``.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant, utc_now
+
 from yoke_core.domain.public_item_target import public_item_target
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Optional, Sequence
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
@@ -32,31 +32,12 @@ from yoke_core.domain.merge_github_authority import classify_merge_authority
 from yoke_core.domain import standalone_item_merge_post_push as post_push
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.standalone_item_merge_engine import run as _run_merge_engine
+from yoke_core.domain.standalone_item_merge_outcome import StandaloneMergeOutcome
 
 # Exit code for a merge the engine refused because another session holds the
 # merge lock. Mirrors the engine's own retryable class so callers can
 # distinguish "try again later" from "this merge is wrong".
 RECOVERABLE_MERGE_LOCK_EXIT_CODE = 6
-
-
-@dataclass(frozen=True)
-class StandaloneMergeOutcome:
-    """What one standalone merge attempt produced."""
-
-    ok: bool
-    exit_code: int
-    already_merged: bool
-    commit_sha: str = ""
-    merge_sha: str = ""
-    touched_files: tuple[str, ...] = ()
-    pushed: bool = False
-    landing_pending: bool = False
-    pr_num: str = ""
-    enqueued_at: str = ""
-    error: str = ""
-    output: str = ""
-    publication_message: str = ""
-    warnings: tuple[str, ...] = field(default=())
 
 
 def stamp_merged_at(
@@ -75,14 +56,14 @@ def stamp_merged_at(
     that cannot answer -- falls back to now and keeps any earlier answer,
     because "now" is only ever an approximation of a landing nobody timed.
     """
-    landed_at = git.commit_time(repo_root, merge_sha) if repo_root else ""
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    landed_at = git.commit_time(repo_root, merge_sha) if repo_root else None
+    clock = utc_now() if landed_at is None else landed_at
     response = call_dispatcher(
         function_id="done_transition.populate_merged_at",
         target=public_item_target(item_id),
         payload={
-            "merged_at": landed_at or now,
-            "supersedes_prior_landing": bool(landed_at),
+            "merged_at": format_instant(clock),
+            "supersedes_prior_landing": landed_at is not None,
         },
     )
     if response.success:

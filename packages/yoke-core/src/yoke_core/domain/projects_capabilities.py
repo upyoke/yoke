@@ -21,7 +21,8 @@ from yoke_contracts.machine_config.capability_secrets import (
 from yoke_core.domain import capability_machine_secrets
 from yoke_core.domain.db_helpers import (
     connect,
-    iso8601_now,
+    instant_parameter,
+    utc_now,
     query_one,
     query_rows,
 )
@@ -229,7 +230,7 @@ def cmd_capability_set_secret(
                 key,
                 value,
                 "literal",
-                iso8601_now(),
+                instant_parameter(conn, utc_now()),
                 value,
                 "literal",
             ),

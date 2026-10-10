@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+from datetime import datetime, timezone
+from yoke_contracts.timestamps import format_instant, parse_instant
 
 from yoke_harness import session_relay
 from yoke_harness import session_relay_diagnostic_retention as diagnostic_retention
@@ -91,7 +93,14 @@ def test_native_failure_reports_only_safe_reference_and_fingerprint(
     assert evidence["native_diagnostic_command"] == (
         f"yoke relay diagnostic {evidence['native_diagnostic_ref']}"
     )
-    assert isinstance(evidence["diagnostic_expires_at"], int)
+    assert evidence["diagnostic_expires_at"] == format_instant(
+        parse_instant(evidence["diagnostic_expires_at"])
+    )
+    assert isinstance(outcome.jobs[0].diagnostic_expires_at, datetime)
+    assert outcome.jobs[0].diagnostic_expires_at.tzinfo == timezone.utc
+    assert outcome.jobs[0].diagnostic_expires_at == parse_instant(
+        evidence["diagnostic_expires_at"]
+    )
     assert evidence["native_stderr_tail"] == "actual native stderr"
     assert "private stdout body" not in repr(report)
     assert "private native transcript" not in repr(report)

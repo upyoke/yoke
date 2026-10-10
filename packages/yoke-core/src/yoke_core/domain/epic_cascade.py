@@ -9,13 +9,13 @@ continue to intercept calls.
 
 from __future__ import annotations
 
-import json
-import uuid
 from typing import Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_one, query_rows
-from yoke_core.domain.epic_parsing import _now_iso, _placeholder
+from yoke_contracts.timestamps import utc_now
+from yoke_core.domain.db_helpers import instant_parameter, query_one, query_rows
+from yoke_core.domain.events import emit_event
+from yoke_core.domain.epic_parsing import _placeholder
 from yoke_core.domain.item_status_transitions import record_task_transition
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
@@ -108,59 +108,20 @@ def _emit_task_status_changed(
     if note:
         detail["note"] = note
 
-    event_time = _now_iso()
-    envelope = {
-        "event_id": str(uuid.uuid4()),
-        "event_name": "TaskStatusChanged",
-        "event_kind": "lifecycle",
-        "event_type": "task_status_change",
-        "event_time": event_time,
-        "event_outcome": "completed",
-        "source_type": "system",
-        "severity": "STATUS",
-        "session_id": session_id,
-        "service": "cli",
-        "project": project,
-        "environment": None,
-        "org_id": None,
-        "actor": None,
-        "agent": None,
-        "item_id": str(epic_id),
-        "task_num": task_num,
-        "tool_name": None,
-        "duration_ms": None,
-        "exit_code": None,
-        "trace_id": None,
-        "parent_id": None,
-        "anomaly_flags": None,
-        "context": {"detail": detail},
-    }
-
-    p = _placeholder(conn)
-    conn.execute(
-        f"""
-        INSERT INTO events (
-          event_id, source_type, session_id, severity, event_kind,
-          event_type, event_name, event_outcome, service, project,
-          item_id, task_num, envelope
-        ) VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})
-        ON CONFLICT(event_id) DO NOTHING
-        """,
-        (
-            envelope["event_id"],
-            envelope["source_type"],
-            envelope["session_id"],
-            envelope["severity"],
-            envelope["event_kind"],
-            envelope["event_type"],
-            envelope["event_name"],
-            envelope["event_outcome"],
-            envelope["service"],
-            envelope["project"],
-            envelope["item_id"],
-            envelope["task_num"],
-            json.dumps(envelope, separators=(",", ":")),
-        ),
+    emit_event(
+        "TaskStatusChanged",
+        event_kind="lifecycle",
+        event_type="task_status_change",
+        source_type="system",
+        session_id=session_id,
+        severity="STATUS",
+        project=project,
+        item_id=str(epic_id),
+        task_num=task_num,
+        context={"detail": detail},
+        created_at=utc_now(),
+        conn=conn,
+        transactional=True,
     )
 
 
@@ -216,7 +177,7 @@ def cascade_task_status(
         return "0"
 
     note = f"Parent cascade: {from_parent} -> {to_parent}"
-    heartbeat = _now_iso()
+    heartbeat = instant_parameter(conn, utc_now())
     session_id = _resolve_session_id()
     project = _cascade_project(conn, epic_id)
 

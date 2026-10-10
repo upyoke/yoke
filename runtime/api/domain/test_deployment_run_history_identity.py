@@ -49,11 +49,11 @@ def _database() -> sqlite3.Connection:
             ('release', 1, 'Release', '["deploy"]');
         INSERT INTO deployment_runs VALUES
             ('run-frozen', 1, 'release', 'persistent', 1, 'executing',
-             'deploy', '2026-09-15T10:00:00Z', '', '', '{}',
+             'deploy', '2026-09-15T10:00:00.000000Z', NULL, NULL, '{}',
              'aa11bb22cc33dd44ee55ff6677889900aabbccdd',
-             'ghcr.io/example/demo@sha256:4f1c', '2026-09-15T10:00:10Z'),
+             'ghcr.io/example/demo@sha256:4f1c', '2026-09-15T10:00:10.000000Z'),
             ('run-open', 1, 'release', 'persistent', 1, 'created',
-             'deploy', '2026-09-15T09:00:00Z', '', '', '{}',
+             'deploy', '2026-09-15T09:00:00.000000Z', NULL, NULL, '{}',
              NULL, NULL, NULL);
     """)
     conn.commit()
@@ -92,7 +92,7 @@ def test_a_frozen_run_carries_its_candidate_artifact_and_freeze_moment(
     row = _row(monkeypatch, "run-frozen")
     assert row["release_lineage"] == "aa11bb22cc33dd44ee55ff6677889900aabbccdd"
     assert row["artifact_identity"] == "ghcr.io/example/demo@sha256:4f1c"
-    assert row["composition_frozen_at"] == "2026-09-15T10:00:10Z"
+    assert row["composition_frozen_at"] == "2026-09-15T10:00:10.000000Z"
 
 
 def test_an_unfrozen_run_carries_the_absence_rather_than_omitting_the_field(

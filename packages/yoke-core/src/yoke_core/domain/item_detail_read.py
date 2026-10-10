@@ -226,9 +226,9 @@ def get_item_detail(item_id: int, *, include: Sequence[str] = ()) -> dict[str, A
             "completion_flow_source": flow["source"],
             "merge_queue": {
                 "pr_number": str(row.get("merge_queue_pr_number") or ""),
-                "enqueued_at": str(row.get("merge_queue_enqueued_at") or ""),
-                "landed_at": str(row.get("merge_queue_landed_at") or ""),
-                "notified_at": str(row.get("merge_queue_notified_at") or ""),
+                "enqueued_at": row.get("merge_queue_enqueued_at"),
+                "landed_at": row.get("merge_queue_landed_at"),
+                "notified_at": row.get("merge_queue_notified_at"),
                 "status": render_merge_queue_status(
                     row.get("merge_queue_enqueued_at"),
                     row.get("merge_queue_landed_at"),

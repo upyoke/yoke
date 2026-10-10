@@ -253,7 +253,7 @@ test("repeated released seats and items keep latest release and count", () => {
       (history) => history.children.find((node) => node.tagName === "TIME")
         .getAttribute("datetime"),
     ),
-    ["2026-08-29T12:00:00.000Z", "2026-08-28T12:00:00.000Z"],
+    ["2026-08-29T12:00:00.000000Z", "2026-08-28T12:00:00.000000Z"],
   );
 });
 

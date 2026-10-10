@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain import session_launch_preview_payload as preview_module
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
 from yoke_core.domain.session_launch_level_placement import (
@@ -32,7 +34,7 @@ PROJECT = (10, "launch-project")
 
 @pytest.fixture(autouse=True)
 def _fixture_clock(monkeypatch):
-    monkeypatch.setattr(preview_module, "utc_now", lambda: NOW)
+    monkeypatch.setattr(preview_module, "utc_now", lambda: parse_instant(NOW))
 
 
 def _universe(*, claude: float, codex: float):
@@ -65,7 +67,7 @@ def _launcher_choice(conn):
             idempotency_key="",
             level=LEVEL,
         ),
-        now=NOW,
+        now=parse_instant(NOW),
         eligibility=derive_launch_eligibility,
     )
     return preview.level_placement["chosen"], preview.placement_reason

@@ -13,6 +13,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
+
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
 )
@@ -96,7 +98,7 @@ def _classify(
                 repo=payload.repo,
                 run_id=run_id,
                 jobs_count=jobs_count,
-                updated_at=str(data.get("updated_at") or ""),
+                updated_at=data.get("updated_at"),
                 concurrency_groups=concurrency_groups,
             )
             if CI_RUN_NEVER_STARTED_REASON in message:
@@ -113,7 +115,11 @@ def _classify(
         conclusion=conclusion,
         html_url=html_url,
         head_sha=str(data.get("head_sha") or "").strip() or None,
-        updated_at=str(data.get("updated_at") or "").strip() or None,
+        updated_at=(
+            None
+            if data.get("updated_at") is None
+            else format_instant(data["updated_at"])
+        ),
         jobs_count=jobs_count,
         message=message,
     )
@@ -151,6 +157,14 @@ def handle_run_get(request: FunctionCallRequest) -> HandlerOutcome:
     if not isinstance(data, dict):
         return _transport_failed(f"run {payload.run_id} was not found")
     data = with_effective_conclusion(payload.repo, data, token=token) or data
+    try:
+        updated = data.get("updated_at")
+        data = {
+            **data,
+            "updated_at": None if updated is None else parse_instant(updated),
+        }
+    except InvalidInstant as exc:
+        return _transport_failed(f"run updated_at refused: {exc}")
 
     jobs_count = None
     concurrency_groups = None
@@ -173,7 +187,7 @@ def handle_run_get(request: FunctionCallRequest) -> HandlerOutcome:
             repo=payload.repo,
             run_id=str(payload.run_id),
             jobs_count=jobs_count,
-            updated_at=str(data.get("updated_at") or ""),
+            updated_at=data.get("updated_at"),
             concurrency_groups=(),
         )
         if CI_RUN_NEVER_STARTED_REASON in candidate:

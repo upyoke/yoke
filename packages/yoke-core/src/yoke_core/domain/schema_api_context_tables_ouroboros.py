@@ -7,14 +7,14 @@ OUROBOROS_TABLES: dict[str, dict] = {
     "ouroboros_entries": {
         "columns": [
             ("id", "INTEGER"),
-            ("timestamp", "TEXT"),
+            ("timestamp", "TIMESTAMPTZ"),
             ("agent", "TEXT"),
             ("context", "TEXT"),
             ("category", "TEXT"),
             ("body", "TEXT"),
-            ("reviewed_at", "TEXT"),
-            ("archived_at", "TEXT"),
-            ("created_at", "TEXT"),
+            ("reviewed_at", "TIMESTAMPTZ"),
+            ("archived_at", "TIMESTAMPTZ"),
+            ("created_at", "TIMESTAMPTZ"),
             ("project_id", "INTEGER"),
             ("target_project_id", "INTEGER"),
         ],
@@ -49,7 +49,7 @@ OUROBOROS_TABLES: dict[str, dict] = {
         "columns": [
             ("correction_entry_id", "INTEGER"),
             ("corrected_entry_id", "INTEGER"),
-            ("created_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
             "One row per superseding field note: `correction_entry_id` is "

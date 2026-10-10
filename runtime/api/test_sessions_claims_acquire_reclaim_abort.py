@@ -28,7 +28,7 @@ from runtime.api.fixtures.backlog import insert_item
 from runtime.api.test_sessions import _register  # noqa: F401  (plain helper)
 from runtime.api.sessions_api_stale_test_helpers import (
     _ago_minutes,
-    _now_literal,
+    _now_instant,
     apply_ddl_statements,
 )
 from yoke_core.domain.work_claim_targets import make_item_target
@@ -75,7 +75,7 @@ _EVENTS_TABLE_FOR_CLAIM_RACE = """
         hook_event_name TEXT,
         client_timing_id TEXT,
         envelope TEXT,
-        created_at TEXT NOT NULL
+        created_at TIMESTAMPTZ NOT NULL
     );
     CREATE TABLE IF NOT EXISTS event_registry (
         event_name TEXT PRIMARY KEY,
@@ -121,7 +121,7 @@ def _seed_holder_with_claim(
     holder_hb = (
         _ago_minutes(holder_heartbeat_ago_min)
         if holder_heartbeat_ago_min > 0
-        else _now_literal()
+        else _now_instant()
     )
     conn.execute(
         """UPDATE harness_sessions
@@ -132,7 +132,7 @@ def _seed_holder_with_claim(
     claim_hb = (
         _ago_minutes(claim_heartbeat_ago_min)
         if claim_heartbeat_ago_min > 0
-        else _now_literal()
+        else _now_instant()
     )
     target = make_item_target(item_id)
     conn.execute(
@@ -275,7 +275,7 @@ class TestCmdClaimReclaimRace:
             item_id=4003,
             holder_heartbeat_ago_min=1,  # would be fresh
             claim_heartbeat_ago_min=1,
-            holder_ended_at=_now_literal(),  # but ended_at is set
+            holder_ended_at=_now_instant(),  # but ended_at is set
         )
         _insert_tool_event(c, "holder-A", ago_minutes=1)
 

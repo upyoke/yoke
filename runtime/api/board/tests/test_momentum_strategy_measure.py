@@ -126,8 +126,14 @@ def test_a_document_with_no_knowable_baseline_is_excluded(tmp_db: str) -> None:
                 "byte_length, source_operation, created_at) "
                 "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                 (
-                    PROJECT, "IMPORTED", revision, "c" * size,
-                    f"sha-{revision}", size, "replace", f"{DAY}T09:00:00Z",
+                    PROJECT,
+                    "IMPORTED",
+                    revision,
+                    "c" * size,
+                    f"sha-{revision}",
+                    size,
+                    "replace",
+                    f"{DAY}T09:00:00Z",
                 ),
             )
         conn.commit()
@@ -154,3 +160,24 @@ def test_both_meter_paths_report_the_same_figure(tmp_db: str) -> None:
     finally:
         conn.close()
     assert shared == legacy == {DAY: 130}
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_strategy_day_bucket_uses_utc_with_native_microseconds(tmp_db, zone):
+    from yoke_contracts.timestamps import parse_instant
+
+    conn = connect_test_db(tmp_db)
+    try:
+        conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+        record_doc_revision(
+            conn,
+            PROJECT,
+            "MISSION",
+            "native UTC day",
+            source_operation="replace",
+            actor_id=None,
+            created_at=parse_instant("2026-08-15T05:29:59.999999+05:30"),
+        )
+        assert _series(conn) == {DAY: len("native UTC day")}
+    finally:
+        conn.close()

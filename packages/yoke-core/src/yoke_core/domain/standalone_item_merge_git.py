@@ -256,26 +256,19 @@ def changed_files(repo_root: str, branch: str, target: str) -> tuple[str, ...]:
     return tuple(line.strip() for line in listing.splitlines() if line.strip())
 
 
-def commit_time(repo_root: str, commit: str) -> str:
-    """When ``commit`` was committed, in the stored merge-provenance shape.
+def commit_time(repo_root: str, commit: str) -> datetime | None:
+    """Read the commit's own native instant from Git's epoch-second protocol.
 
-    A landing has a time of its own, and it is not the moment close-out got
-    around to reading it: close-out can run minutes or hours later, and a
-    re-entered one much later still. Asked as epoch seconds so no locale or
-    timezone rendering can drift between the machine that merges and the
-    control plane that stores the answer. Empty when the commit cannot be
-    read, which leaves the caller to fall back rather than invent a time.
+    An unreadable commit is absent. A nonempty malformed provider clock refuses
+    rather than supplying a guessed landing time. Locale and display timezone
+    cannot change an integral epoch's meaning.
     """
-    from yoke_core.domain.item_merge_provenance_operator import MERGED_AT_FORMAT
-
     if not commit:
-        return ""
+        return None
     epoch = git_out(repo_root, "show", "-s", "--format=%ct", commit)
-    try:
-        seconds = int(epoch)
-    except (TypeError, ValueError):
-        return ""
-    return datetime.fromtimestamp(seconds, timezone.utc).strftime(MERGED_AT_FORMAT)
+    if not epoch:
+        return None
+    return datetime.fromtimestamp(int(epoch), timezone.utc)
 
 
 def has_remote(repo_root: str) -> bool:

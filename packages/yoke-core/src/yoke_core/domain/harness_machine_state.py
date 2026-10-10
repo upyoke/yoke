@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from typing import Any, Mapping, Sequence
 
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.schema_common import _table_exists
 
 
-APPROVAL_STATES = frozenset(
-    {"approved", "unapproved", "not_applicable", "unknown"}
-)
+APPROVAL_STATES = frozenset({"approved", "unapproved", "not_applicable", "unknown"})
 
 #: Whether the reporting machine's harness runs yoke without asking. Mirrors
 #: the states :mod:`yoke_contracts.harness_unattended_posture` reports; a row
@@ -46,7 +46,7 @@ def read_harness_machine_reports(conn: Any) -> list[dict[str, Any]]:
             "project_entry_present": bool(row[7]),
             "approval_state": str(row[8]),
             "unattended_posture": str(row[9]),
-            "reported_at": row[10],
+            "reported_at": parse_instant(row[10]),
         }
         for row in rows
     ]
@@ -69,7 +69,7 @@ def upsert_harness_machine_reports(
             "machine_id is required: a report names the machine it was "
             "collected on, so the Overview can answer for that machine alone"
         )
-    now = iso8601_now()
+    now = utc_now()
     stored: list[dict[str, Any]] = []
     for raw in reports:
         harness_id = str(raw.get("harness_id") or "").strip().lower()
@@ -120,14 +120,19 @@ def upsert_harness_machine_reports(
                 row["project_entry_present"],
                 row["approval_state"],
                 row["unattended_posture"],
-                row["reported_at"],
+                instant_parameter(conn, row["reported_at"]),
             ),
         )
-        stored.append({**row, "glue_written": bool(row["glue_written"]),
-                       "glue_present": bool(row["glue_present"]),
-                       "glue_malformed": bool(row["glue_malformed"]),
-                       "config_present": bool(row["config_present"]),
-                       "project_entry_present": bool(row["project_entry_present"])})
+        stored.append(
+            {
+                **row,
+                "glue_written": bool(row["glue_written"]),
+                "glue_present": bool(row["glue_present"]),
+                "glue_malformed": bool(row["glue_malformed"]),
+                "config_present": bool(row["config_present"]),
+                "project_entry_present": bool(row["project_entry_present"]),
+            }
+        )
     conn.commit()
     return stored
 

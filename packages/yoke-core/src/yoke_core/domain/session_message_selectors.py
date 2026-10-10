@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import hashlib
 import json
 from datetime import datetime
@@ -147,7 +149,8 @@ def resolve_recipients(
     against; the role resolves to nobody when no live seat covers it, which
     the send path parks rather than refuses.
     """
-    current = now or utc_now()
+    now = parse_instant(utc_now() if now is None else now)
+    current = now
     narrows_by_default = narrows_bulk_by_default(selector)
     states = applied_liveness(selector)
     explicit_liveness = () if narrows_by_default or not selector.liveness else states

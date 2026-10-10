@@ -7,7 +7,7 @@ Owns the CLI surface for ``service-client session-checkpoint`` (write) and
 
 from __future__ import annotations
 
-import json
+from yoke_core.domain.json_helper import dumps_compact
 import sys
 
 from yoke_core.api.service_client_shared import (
@@ -46,7 +46,10 @@ def cmd_session_checkpoint(args: list[str]) -> int:
     try:
         parsed = parser.parse_args(args)
     except SystemExit:
-        print("Usage: session-checkpoint [--session-id S] --step N --action A --chainable BOOL [--item-id I] [--task-num T] [--outcome O] [--status S] [--required-path P] [--pre-status PS] [--failure-class C]", file=sys.stderr)
+        print(
+            "Usage: session-checkpoint [--session-id S] --step N --action A --chainable BOOL [--item-id I] [--task-num T] [--outcome O] [--status S] [--required-path P] [--pre-status PS] [--failure-class C]",
+            file=sys.stderr,
+        )
         return 2
 
     parsed.session_id = _resolve_session_id(parsed.session_id)
@@ -74,6 +77,7 @@ def cmd_session_checkpoint(args: list[str]) -> int:
     conn = _get_db_readwrite()
     try:
         from yoke_core.domain.sessions import SessionError
+
         item_id = None
         if parsed.item_id is not None:
             from yoke_core.domain.yok_n_parser import parse_item_argument
@@ -98,10 +102,13 @@ def cmd_session_checkpoint(args: list[str]) -> int:
                 pre_status=parsed.pre_status,
                 chain_summary_label=label,
             )
-            print(json.dumps(checkpoint))
+            print(dumps_compact(checkpoint))
             return 0
         except SessionError as exc:
-            print(json.dumps({"error": exc.code, "message": exc.message}), file=sys.stderr)
+            print(
+                dumps_compact({"error": exc.code, "message": exc.message}),
+                file=sys.stderr,
+            )
             return 1
     finally:
         conn.close()
@@ -133,7 +140,7 @@ def cmd_session_checkpoint_read(args: list[str]) -> int:
     conn = _get_db_readonly()
     try:
         checkpoint = domain_read_checkpoint(conn, parsed.session_id)
-        print(json.dumps(checkpoint or {}))
+        print(dumps_compact(checkpoint or {}))
         return 0
     finally:
         conn.close()

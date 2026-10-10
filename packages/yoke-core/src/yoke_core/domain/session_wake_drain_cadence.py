@@ -32,6 +32,11 @@ never a delivery.
 
 from __future__ import annotations
 
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+
 from typing import Any, Sequence
 
 from yoke_core.domain import db_backend
@@ -49,7 +54,7 @@ def wake_work_pending(
     *,
     machine_id: str,
     project_ids: Sequence[int],
-    now: str,
+    now: datetime | str,
 ) -> bool:
     """True when this machine still has a wake-eligible receipt waiting.
 
@@ -76,7 +81,13 @@ def wake_work_pending(
         "AND a.target_session_id=r.session_id "
         "AND a.attempt_kind IN ('wake_relay','wake_broker') "
         "AND a.completed_at IS NULL) LIMIT 1",
-        (machine_id, *projects, now, now, now),
+        (
+            machine_id,
+            *projects,
+            instant_parameter(conn, parse_instant(now)),
+            instant_parameter(conn, parse_instant(now)),
+            instant_parameter(conn, parse_instant(now)),
+        ),
     ).fetchone()
     return row is not None
 

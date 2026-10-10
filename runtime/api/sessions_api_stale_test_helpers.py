@@ -13,32 +13,28 @@ production paths read.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import as_utc, utc_now
 from typing import Any
 
 import pytest
 
 from yoke_core.domain import db_backend
-from runtime.api.fixtures.backlog import seed_fixture_operating_actor
+from runtime.api.fixtures.backlog import insert_item, seed_fixture_operating_actor
 from runtime.api.fixtures.operating_actor import seed_fixture_universe_identity
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 
 
-def _ago_minutes(n: int) -> str:
-    """Return a UTC ISO-8601 literal timestamp for ``now - n minutes``.
-
-    Portable-SQL tests cannot use SQL-side arithmetic; bind this literal
-    into the query from Python instead.
-    """
-    return (datetime.now(timezone.utc) - timedelta(minutes=n)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+def _ago_minutes(n: int) -> datetime:
+    """Return a native aware clock for Python-owned stale cutoffs."""
+    return as_utc(utc_now()) - timedelta(minutes=n)
 
 
-def _now_literal() -> str:
-    """Return a UTC ISO-8601 literal timestamp for ``now``."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _now_instant() -> datetime:
+    """Return the same native clock shape without an offset."""
+    return _ago_minutes(0)
 
 
 def apply_ddl_statements(conn: Any, *ddl_blocks: str) -> None:
@@ -65,7 +61,7 @@ EVENTS_TABLE_FOR_STALE_DETECTION = """
         severity TEXT DEFAULT 'INFO',
         org_id TEXT,
         environment TEXT,
-        created_at TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
         session_id TEXT,
         client_timing_id TEXT,
         envelope TEXT
@@ -109,13 +105,17 @@ def ownership_conn(tmp_path):
     ):
         c = connect_test_db(str(tmp_path / "yoke.db"))
         # Seed a runnable item (matches the legacy fixture).
-        c.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, "
-            "created_at, updated_at, source, frozen) VALUES "
-            "(100, 'Test item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'high', 1, "
-            "'2026-03-01', '2026-03-01', 'user', 0)"
+        insert_item(
+            c,
+            id=100,
+            title="Test item",
+            status="refined-idea",
+            priority="high",
+            project_sequence=None,
+            created_at="2026-03-01T00:00:00.000000Z",
+            source="user",
+            frozen=0,
         )
-        c.commit()
         ws = str(tmp_path)
         (tmp_path / ".yoke" / "strategy").mkdir(parents=True, exist_ok=True)
         for sml_file in ("MISSION.md", "LANDSCAPE.md", "VISION.md", "MASTER-PLAN.md"):
@@ -146,7 +146,7 @@ _OWNERSHIP_EXTRA_TABLES = """
         kind TEXT NOT NULL DEFAULT 'system',
         system_component TEXT,
         name TEXT NOT NULL DEFAULT '',
-        created_at TEXT
+        created_at TIMESTAMPTZ
     );
     CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY,
@@ -174,7 +174,7 @@ _OWNERSHIP_EXTRA_TABLES = """
         hook_event_name TEXT,
         client_timing_id TEXT,
         envelope TEXT,
-        created_at TEXT NOT NULL
+        created_at TIMESTAMPTZ NOT NULL
     );
     CREATE TABLE IF NOT EXISTS event_registry (
         event_name TEXT PRIMARY KEY,
@@ -204,7 +204,7 @@ def _build_ownership_schema(create_ownership_schema) -> None:
 
 __all__ = [
     "_ago_minutes",
-    "_now_literal",
+    "_now_instant",
     "apply_ddl_statements",
     "EVENTS_TABLE_FOR_STALE_DETECTION",
     "conn",

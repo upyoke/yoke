@@ -7,6 +7,8 @@ from typing import Any, Iterator
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
@@ -23,6 +25,9 @@ from yoke_core.domain.ui_preferences_schema import (
     REQUIRED_UI_PREFERENCE_TABLES,
     create_ui_preference_tables,
 )
+
+
+FIRST_ACTIVATION_AT = parse_instant("2026-01-01T00:00:00Z")
 
 
 @pytest.fixture
@@ -56,27 +61,24 @@ def test_preference_rows_are_unique_per_actor_and_key(conn):
     actor_id = seed_human_actor(conn)
     conn.execute(
         "INSERT INTO actor_ui_preferences (actor_id, pref_key, value, updated_at) "
-        "VALUES (%s, 'overview.module.dismissed.first_deploy', '1', "
-        "'2026-01-01T00:00:00Z')",
-        (actor_id,),
+        "VALUES (%s, 'overview.module.dismissed.first_deploy', '1', %s)",
+        (actor_id, FIRST_ACTIVATION_AT),
     )
     conn.commit()
     with pytest.raises(Exception):
         conn.execute(
             "INSERT INTO actor_ui_preferences (actor_id, pref_key, value, updated_at) "
-            "VALUES (%s, 'overview.module.dismissed.first_deploy', '1', "
-            "'2026-01-02T00:00:00Z')",
-            (actor_id,),
+            "VALUES (%s, 'overview.module.dismissed.first_deploy', '1', %s)",
+            (actor_id, parse_instant("2026-01-02T00:00:00Z")),
         )
     conn.rollback()
     # The upsert shape the dismissal write uses relies on that constraint.
     conn.execute(
         "INSERT INTO actor_ui_preferences (actor_id, pref_key, value, updated_at) "
-        "VALUES (%s, 'overview.module.dismissed.first_deploy', '1', "
-        "'2026-01-03T00:00:00Z') "
+        "VALUES (%s, 'overview.module.dismissed.first_deploy', '1', %s) "
         "ON CONFLICT (actor_id, pref_key) DO UPDATE SET "
         "value = EXCLUDED.value, updated_at = EXCLUDED.updated_at",
-        (actor_id,),
+        (actor_id, parse_instant("2026-01-03T00:00:00Z")),
     )
     conn.commit()
     count = conn.execute("SELECT COUNT(*) FROM actor_ui_preferences").fetchone()[0]
@@ -87,21 +89,23 @@ def test_activation_facts_are_unique_per_module_key(conn):
     create_ui_preference_tables(conn)
     conn.execute(
         "INSERT INTO overview_activation_facts (module_key, activated_at) "
-        "VALUES ('connect_harness', '2026-01-01T00:00:00Z')"
+        "VALUES ('connect_harness', %s)",
+        (FIRST_ACTIVATION_AT,),
     )
     conn.commit()
     # The monotone latch inserts with conflict-skip, never a second row.
     conn.execute(
         "INSERT INTO overview_activation_facts (module_key, activated_at) "
-        "VALUES ('connect_harness', '2026-02-02T00:00:00Z') "
-        "ON CONFLICT (module_key) DO NOTHING"
+        "VALUES ('connect_harness', %s) "
+        "ON CONFLICT (module_key) DO NOTHING",
+        (parse_instant("2026-02-02T00:00:00Z"),),
     )
     conn.commit()
     row = conn.execute(
         "SELECT activated_at FROM overview_activation_facts "
         "WHERE module_key = 'connect_harness'"
     ).fetchone()
-    assert row[0] == "2026-01-01T00:00:00Z"
+    assert row[0] == FIRST_ACTIVATION_AT
 
 
 def test_boot_converge_propagates_tables_to_a_pre_existing_universe(

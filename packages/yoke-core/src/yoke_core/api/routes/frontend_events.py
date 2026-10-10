@@ -1,15 +1,14 @@
 """Frontend analytics: exact origin/key, shared rate budget, named refusals.
 
-Page views are anonymous unless the request carries the viewer's credential
-(bearer or web session); then the row carries that actor. Anonymous views
-carry only the browser's visitor id, which ties them to an actor at query
-time once that browser signs in (:mod:`yoke_core.domain.actor_visitor_links`).
+Verified bearer or web credentials attribute the viewer; anonymous views
+retain their visitor id for actor_visitor_links at query time.
 """
 
 import json
 import logging
-from datetime import datetime
 from uuid import UUID
+
+from yoke_contracts.timestamps import format_instant, parse_instant
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -163,10 +162,10 @@ def validated_events(body, request):
             )
         try:
             UUID(event["event_id"])
-            datetime.fromisoformat(event["event_time"].replace("Z", "+00:00"))
+            event["event_time"] = format_instant(parse_instant(event["event_time"]))
         except ValueError as error:
             raise ValueError(
-                "envelope_invalid: use a UUID event_id and ISO event_time"
+                "envelope_invalid: use a UUID event_id and a qualified RFC3339 event_time with at most six fractional digits"
             ) from error
         if event.get("source_type") != "frontend" or event["event_kind"] != "analytics":
             raise ValueError(

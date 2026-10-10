@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from typing import Any, Iterable, Optional
 from uuid import uuid4
 
@@ -21,8 +21,13 @@ from yoke_core.domain.conflict_survey_declared_paths import (
     classify_survey_payload,
     clean_path,
 )
-from yoke_core.domain.conflict_survey_models import ConflictMatch, ConflictSurvey
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.conflict_survey_models import (
+    ConflictMatch,
+    ConflictSurvey,
+    ConflictSurveyReservation,
+    RecordedConflictSurvey,
+)
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.path_claims_dependency_resolver_coordination import (
     has_forward_serial_edge,
     items_are_coordination_only,
@@ -31,22 +36,6 @@ from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.project_identity import render_item_ref
 
 DIRECT_WORKFLOW_IDS = frozenset({"blitz", "dash"})
-
-
-@dataclass(frozen=True)
-class ConflictSurveyReservation:
-    """Compare-and-swap marker for one in-flight survey request."""
-
-    content: str
-    previous_content: Optional[str]
-
-
-@dataclass(frozen=True)
-class RecordedConflictSurvey:
-    """One durable survey row classified before callers consume it."""
-
-    state: survey_contract.ConflictSurveyRecordState
-    payload: Optional[dict[str, Any]] = None
 
 
 def _p(conn: Any) -> str:
@@ -153,7 +142,7 @@ def survey_conflicts(
         integration_target=integration_target,
         touch_paths=clean_paths,
         blockers=tuple(blockers),
-        observed_at=iso8601_now(),
+        observed_at=utc_now(),
         fingerprint=hashlib.sha256(digest_input).hexdigest(),
         no_changes=no_changes,
     )
@@ -170,7 +159,7 @@ def reserve_conflict_survey_record(
     then be written only when this reservation is still current.
     """
     marker = _p(conn)
-    now = iso8601_now()
+    now = utc_now()
     existing = conn.execute(
         "SELECT content FROM item_sections "
         f"WHERE item_id = {marker} AND section_name = {marker}",
@@ -208,8 +197,8 @@ def reserve_conflict_survey_record(
             content,
             CONFLICT_SURVEY_ORDERING,
             "direct-workflow",
-            now,
-            now,
+            instant_parameter(conn, now),
+            instant_parameter(conn, now),
         ),
     )
     conn.commit()
@@ -227,7 +216,7 @@ def record_conflict_survey(
 ) -> bool:
     """Persist a survey, retaining only the result from the newest request."""
     marker = _p(conn)
-    now = iso8601_now()
+    now = utc_now()
     content = json.dumps(survey.to_dict(), sort_keys=True, indent=2)
     if reservation is not None:
         cursor = conn.execute(
@@ -242,7 +231,7 @@ def record_conflict_survey(
             (
                 content,
                 "direct-workflow",
-                now,
+                instant_parameter(conn, now),
                 survey.item_id,
                 CONFLICT_SURVEY_SECTION,
                 reservation.content,
@@ -263,8 +252,8 @@ def record_conflict_survey(
             content,
             CONFLICT_SURVEY_ORDERING,
             "direct-workflow",
-            now,
-            now,
+            instant_parameter(conn, now),
+            instant_parameter(conn, now),
         ),
     )
     conn.commit()

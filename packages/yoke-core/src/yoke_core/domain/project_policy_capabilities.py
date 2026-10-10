@@ -26,7 +26,7 @@ from yoke_contracts.project_contract.project_keys import (
 )
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.project_identity import row_value
 
 _INT_POLICY_KEYS = frozenset(
@@ -226,7 +226,7 @@ def _ensure_capability_settings(
                 project_id,
                 cap_type,
                 _settings_json(defaults),
-                iso8601_now(),
+                instant_parameter(conn, utc_now()),
             ),
         )
         return CapabilityRepairResult(

@@ -2,6 +2,7 @@
 // shaped like the reads each one composes.
 
 import { allNodes } from "./universe_ui_dom_test_support.mjs";
+import { instantFromDate } from "../../packages/yoke-core/src/yoke_core/ui/static/timestamps.js";
 
 const ok = (result) => ({
   status: 200, envelope: { success: true, result },
@@ -10,9 +11,9 @@ const fail = () => ({
   status: 500,
   envelope: { success: false, error: { message: "boom" } },
 });
-export const recentIso = (hours = 1) => new Date(
+export const recentIso = (hours = 1) => instantFromDate(new Date(
   Date.now() - hours * 60 * 60 * 1000,
-).toISOString();
+));
 
 function item(ref, project, projectId, facts = {}) {
   return {

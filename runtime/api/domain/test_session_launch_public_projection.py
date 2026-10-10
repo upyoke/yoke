@@ -69,11 +69,11 @@ def _prepared_launch(conn):
                 }
             ),
             "sha256:secret-attestation",
-            "2099-01-01T00:00:00Z",
-            "2098-12-31T23:50:00Z",
+            "2099-01-01T00:00:00.000000Z",
+            "2098-12-31T23:50:00.000000Z",
             4242,
             "spawn_completed_after_bound",
-            "2026-08-22T12:03:10Z",
+            "2026-08-22T12:03:10.000000Z",
             103_000,
             launch.launch_id,
         ),
@@ -105,7 +105,7 @@ def test_public_launch_record_uses_one_allowlisted_evidence_projection() -> None
     assert projected["instruction_delivery"] == "pending"
     assert projected["native_launch_pid"] == 4242
     assert projected["native_launch_phase"] == "spawn_completed_after_bound"
-    assert projected["native_launch_observed_at"] == "2026-08-22T12:03:10Z"
+    assert projected["native_launch_observed_at"] == "2026-08-22T12:03:10.000000Z"
     assert projected["spawn_duration_ms"] == 103_000
     assert projected["result_evidence"] == {
         "adapter_revision": "adapter-v2",

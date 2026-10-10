@@ -14,7 +14,9 @@ should reconstruct by finding the seat's row elsewhere on the page.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import parse_instant, utc_now
+
+from datetime import datetime
 from typing import Any, Iterable, Mapping
 
 from yoke_core.domain import db_backend
@@ -201,8 +203,9 @@ def steering_visibility(
     now: datetime | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Project the seat's scope and the live coverage association."""
+    now = parse_instant(utc_now() if now is None else now)
     session_ids = _session_ids(rows)
-    current = now or datetime.now(timezone.utc)
+    current = now
     scopes = _scope_rows(conn, _project_ids(rows), now=current)
     claims = live_steering_claims(conn) if _table_exists(conn, "work_claims") else []
     holders = {str(claim["session_id"]) for claim in claims}

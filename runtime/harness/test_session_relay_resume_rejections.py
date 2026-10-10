@@ -48,7 +48,9 @@ def test_rejected_finished_resume_retries_only_recoverable_failures(
         lease_id=LEASE_ID,
         state_dir=custody,
     )
-    monkeypatch.setattr("yoke_harness.session_process_custody.group_members", lambda group: {})
+    monkeypatch.setattr(
+        "yoke_harness.session_process_custody.group_members", lambda group: {}
+    )
     calls = []
 
     def dispatch(**kwargs):

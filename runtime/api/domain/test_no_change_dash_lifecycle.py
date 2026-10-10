@@ -20,7 +20,9 @@ from yoke_core.domain import conflict_survey_gate
 from yoke_core.domain import db_helpers
 from yoke_core.domain import standalone_item_merge as merge_domain
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
-from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
+from yoke_core.domain import (
+    standalone_item_merge_close_out_transition as close_out_transition,
+)
 from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
 from yoke_core.domain import standalone_item_merge_evidence as merge_evidence
 from yoke_core.domain import standalone_item_merge_landed as landed
@@ -42,7 +44,7 @@ def _item_sections_contract(test_db):
         "item_id INTEGER NOT NULL REFERENCES items(id), "
         "section_name TEXT NOT NULL, content TEXT NOT NULL, "
         "ordering INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL, "
-        "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, "
+        "created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL, "
         "PRIMARY KEY(item_id, section_name))"
     )
     test_db.commit()
@@ -164,7 +166,9 @@ def test_no_change_merge_records_base_identity_and_closes_dash(
     )
     monkeypatch.setattr(landed.git, "has_remote", lambda *_a: False)
     monkeypatch.setattr(
-        close_out_transition, "close_out_route", lambda *_a, **_k: CloseOutRoute(stages=("done",)),
+        close_out_transition,
+        "close_out_route",
+        lambda *_a, **_k: CloseOutRoute(stages=("done",)),
     )
     receipts = []
     monkeypatch.setattr(

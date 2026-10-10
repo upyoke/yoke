@@ -8,8 +8,8 @@ PROJECT_CAPABILITIES_TABLE: dict[str, object] = {
         ("id", "INTEGER"),
         ("project_id", "INTEGER"),
         ("type", "TEXT"),
-        ("verified_at", "TEXT"),
-        ("created_at", "TEXT"),
+        ("verified_at", "TIMESTAMPTZ"),
+        ("created_at", "TIMESTAMPTZ"),
         ("settings", "TEXT"),
     ],
     "notes": (

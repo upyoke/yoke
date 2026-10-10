@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.fixtures.session_holdings import insert_session
 from yoke_core.domain.session_activity_state import (
     record_tool_call_finished,
@@ -126,7 +128,7 @@ def test_a_reordered_replay_never_moves_activity_backwards(worker):
     worker.commit()
 
     activity = _activity(worker)
-    assert activity["last_tool_call_at"] == LATER
+    assert activity["last_tool_call_at"] == parse_instant(LATER)
     assert activity["tool_call_count"] == 2
 
 
@@ -159,8 +161,8 @@ def test_completed_work_markers_bracket_the_calls_that_actually_completed(worker
     worker.commit()
 
     activity = _activity(worker)
-    assert activity["first_completed_work_at"] == EARLIER
-    assert activity["last_completed_work_at"] == LATER
+    assert activity["first_completed_work_at"] == parse_instant(EARLIER)
+    assert activity["last_completed_work_at"] == parse_instant(LATER)
 
 
 def test_a_failed_call_is_activity_but_is_not_completed_work(worker):
@@ -214,7 +216,7 @@ def test_a_denied_call_closes_its_row_and_counts_as_no_activity(worker):
         "WHERE session_id = %s AND tool_use_id = %s",
         (SESSION_ID, CALL_ID),
     ).fetchone()
-    assert closed["completed_at"] == LATER
+    assert closed["completed_at"] == parse_instant(LATER)
     assert closed["outcome"] == "denied"
     assert _activity(worker)["tool_call_count"] == 0
 
@@ -266,5 +268,5 @@ def test_the_call_is_recorded_even_where_telemetry_cannot_be_written(worker):
 
     activity = _activity(worker)
     assert activity["tool_call_count"] == 1
-    assert activity["last_tool_call_at"] == LATER
-    assert activity["first_completed_work_at"] == LATER
+    assert activity["last_tool_call_at"] == parse_instant(LATER)
+    assert activity["first_completed_work_at"] == parse_instant(LATER)

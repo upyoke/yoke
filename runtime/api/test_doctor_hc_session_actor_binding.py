@@ -67,19 +67,19 @@ CREATE TABLE projects (
     id SERIAL PRIMARY KEY,
     slug TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
-    created_at TEXT
+    created_at TIMESTAMPTZ
 );
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY,
     actor_id INTEGER,
-    ended_at TEXT
+    ended_at TIMESTAMPTZ
 );
 CREATE TABLE actors (status TEXT NOT NULL DEFAULT 'active',
     id SERIAL PRIMARY KEY,
     kind TEXT NOT NULL,
     system_component TEXT,
     name TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 CREATE TABLE organizations (
     id SERIAL PRIMARY KEY,
@@ -87,7 +87,7 @@ CREATE TABLE organizations (
     name TEXT NOT NULL,
     domain TEXT DEFAULT NULL,
     settings TEXT NOT NULL DEFAULT '{}',
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 INSERT INTO organizations (slug, name, created_at)
     VALUES ('default', 'Default', '2026-05-01T00:00:00Z');

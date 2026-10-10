@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import Any, Callable
 
 from yoke_contracts.session_control.models import RecipientSelector
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_explicit_wake import mark_explicit_stopped_wake
 from yoke_core.domain.session_message_service import send_message
@@ -188,6 +189,31 @@ def notice_already_sent(conn: Any, *, idempotency_key: str) -> bool:
         (idempotency_key, f"{idempotency_key}:armed:%"),
     ).fetchone()
     return row is not None
+
+
+def arming_notice_key(conn: Any, *, head_key: str, enqueued_at: datetime | None) -> str:
+    """Reuse an immutable notice key for the same qualified arming instant."""
+    if enqueued_at is None:
+        return head_key
+    episode = parse_instant(enqueued_at)
+    prefix = f"{head_key}:armed:"
+    canonical = prefix + format_instant(episode)
+    rows = conn.execute(
+        f"SELECT idempotency_key FROM session_messages WHERE idempotency_key LIKE {_p(conn)} "
+        "ORDER BY created_at,message_id",
+        (prefix + "%",),
+    ).fetchall()
+    matches = []
+    for row in rows:
+        key = row[0]
+        try:
+            if parse_instant(key[len(prefix) :]) == episode:
+                matches.append(key)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("invalid stored arming notice clock") from exc
+    if canonical in matches or not matches:
+        return canonical
+    return matches[0]
 
 
 def push_notice(

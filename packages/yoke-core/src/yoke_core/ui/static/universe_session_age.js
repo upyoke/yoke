@@ -4,19 +4,26 @@ import {
 } from "./universe_sessions_holdings.js";
 import { isInstantRelativeTime, relativeAge, relativeTime } from "./universe_time.js";
 import { el } from "./universe_view_support.js";
+import { formatInstant } from "./timestamps.js";
 
 // How often the "active now" / "idle Xm/Xh/Xd" text repaints itself so a
 // reader watching the card sees a unit boundary cross without reloading.
 const ACTIVITY_REFRESH_MS = 5_000;
 
-// Shared `relativeAge` echoes an unparseable value back verbatim (it is
-// built to keep displaying a caller-supplied fallback string); the activity
-// line instead needs it to read "recently" for a timestamp that fails to
-// parse (missing, or a stray literal like "now"), so it can never render
-// nonsense or claim "active now".
+// Optional observed activity is a strict qualified clock or unknown. Unknown
+// activity says "recently" and supplies no freshness; fallback display text
+// from the shared relative-age formatter never establishes an observation.
 function activityAge(value, now = Date.now()) {
-  const parsed = Date.parse(String(value ?? ""));
-  return Number.isNaN(parsed) ? "recently" : relativeAge(value, now);
+  return value == null ? "recently" : relativeAge(value, now);
+}
+
+function optionalActivityInstant(value) {
+  if (value == null) return null;
+  try {
+    return formatInstant(value);
+  } catch {
+    return null;
+  }
 }
 
 // Recency wording for the observed-activity timestamp, live: "active now"
@@ -26,17 +33,19 @@ function activityAge(value, now = Date.now()) {
 // `activityAge` so toggling back to relative never disagrees with the
 // periodic repaint.
 function appendActivityStatus(documentNode, age, timestamp) {
-  const time = relativeTime(documentNode, timestamp, Date.now(), {
+  const activityTimestamp = optionalActivityInstant(timestamp);
+  const time = relativeTime(documentNode, activityTimestamp, Date.now(), {
     instantText: "now", relativeAgeFn: activityAge,
   });
   const prefix = el(documentNode, "span", "session-age-prefix", "");
   const paint = () => {
-    const instant = activityAge(timestamp, Date.now()) === "now";
+    const now = Date.now();
+    const instant = isInstantRelativeTime(activityTimestamp, now);
     prefix.textContent = instant ? "active " : "idle ";
     // A reader who toggled the time open to its absolute value is inspecting
     // it; a repaint must not overwrite that out from under them.
     if (time.getAttribute("aria-pressed") !== "true") {
-      time.textContent = instant ? "now" : activityAge(timestamp, Date.now());
+      time.textContent = instant ? "now" : activityAge(activityTimestamp, now);
     }
   };
   paint();

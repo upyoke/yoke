@@ -6,6 +6,8 @@ helpers that insert one session row or one item claim.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import contextlib
 from pathlib import Path
 
@@ -46,11 +48,11 @@ _RENDER_SCHEMA = """
         mode TEXT DEFAULT 'wait',
         workspace TEXT DEFAULT '',
         project_id INTEGER NOT NULL REFERENCES projects(id),
-        offered_at TEXT NOT NULL,
-        last_heartbeat TEXT,
-        last_tool_call_at TEXT,
-        ended_at TEXT,
-        terminated_at TEXT
+        offered_at TIMESTAMPTZ NOT NULL,
+        last_heartbeat TIMESTAMPTZ,
+        last_tool_call_at TIMESTAMPTZ,
+        ended_at TIMESTAMPTZ,
+        terminated_at TIMESTAMPTZ
     );
     CREATE TABLE items (
         id INTEGER PRIMARY KEY,
@@ -62,8 +64,8 @@ _RENDER_SCHEMA = """
         session_id TEXT,
         scope TEXT NOT NULL,
         claim_type TEXT,
-        claimed_at TEXT,
-        released_at TEXT,
+        claimed_at TIMESTAMPTZ,
+        released_at TIMESTAMPTZ,
         release_reason TEXT,
         target_kind TEXT
     );
@@ -73,8 +75,8 @@ _RENDER_SCHEMA = """
         owner_item_id INTEGER,
         owner_session_id TEXT,
         owner_work_claim_id INTEGER,
-        released_at TEXT,
-        cancelled_at TEXT,
+        released_at TIMESTAMPTZ,
+        cancelled_at TIMESTAMPTZ,
         release_reason TEXT,
         cancel_reason TEXT
     );
@@ -111,6 +113,10 @@ def make_render_db(tmp_path: Path):
         yield db, render_sessions_section
 
 
+def _native_clock(value):
+    return parse_instant(value) if value is not None else None
+
+
 def insert_render_session(db, **kwargs) -> None:
     raw = connect_test_db(db.path)
     try:
@@ -130,10 +136,10 @@ def insert_render_session(db, **kwargs) -> None:
                 kwargs.get("mode", "wait"),
                 kwargs.get("workspace", ""),
                 kwargs.get("project_id", 1),
-                kwargs.get("offered_at", "2026-05-19T20:00:00Z"),
-                kwargs.get("last_heartbeat", "2026-05-19T20:01:00Z"),
-                kwargs.get("ended_at"),
-                kwargs.get("terminated_at"),
+                _native_clock(kwargs.get("offered_at", "2026-05-19T20:00:00Z")),
+                _native_clock(kwargs.get("last_heartbeat", "2026-05-19T20:01:00Z")),
+                _native_clock(kwargs.get("ended_at")),
+                _native_clock(kwargs.get("terminated_at")),
             ),
         )
         raw.commit()
@@ -160,7 +166,7 @@ def insert_render_item_claim(
                 session_id,
                 make_item_target(item_id).scope_json(),
                 "work",
-                "2026-05-19T20:02:00Z",
+                parse_instant("2026-05-19T20:02:00Z"),
                 "item",
             ),
         )

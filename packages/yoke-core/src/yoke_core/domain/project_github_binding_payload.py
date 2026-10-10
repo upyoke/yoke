@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
+from yoke_contracts.timestamps import format_instant
+
 from yoke_contracts.github_origin import (
     GitHubApiOriginError,
     normalize_github_repository,
@@ -103,9 +105,13 @@ def binding_payload(row: Any) -> Optional[dict[str, Any]]:
         "repository_is_private": _row_bool(row, "repository_is_private"),
         "status": str(row["status"] or ""),
         "permissions": permissions_dict(row["permissions"]),
-        "last_verified_at": str(row["last_verified_at"] or ""),
+        "last_verified_at": format_instant(row["last_verified_at"])
+        if row["last_verified_at"] is not None
+        else None,
         "last_error": str(row["last_error"] or ""),
-        "last_sync_at": str(row["last_sync_at"] or ""),
+        "last_sync_at": format_instant(row["last_sync_at"])
+        if row["last_sync_at"] is not None
+        else None,
         "last_sync_outcome": str(row["last_sync_outcome"] or ""),
         "last_sync_error": str(row["last_sync_error"] or ""),
     }
@@ -123,7 +129,9 @@ def installation_payload(row: Any) -> Optional[dict[str, Any]]:
         "repository_selection": str(row["repository_selection"] or ""),
         "permissions": permissions_dict(row["permissions"]),
         "status": str(row["status"] or ""),
-        "last_verified_at": str(row["last_verified_at"] or ""),
+        "last_verified_at": format_instant(row["last_verified_at"])
+        if row["last_verified_at"] is not None
+        else None,
         "last_error": str(row["last_error"] or ""),
     }
 

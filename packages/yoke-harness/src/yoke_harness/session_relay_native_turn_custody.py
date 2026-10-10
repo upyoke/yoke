@@ -45,6 +45,8 @@ what this guard covers.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from dataclasses import dataclass
 from pathlib import Path
 import time
@@ -55,7 +57,6 @@ from yoke_harness.session_process_custody import custody_state
 from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
 from yoke_harness.session_relay_native_capture_format import (
     parse_capture,
-    stamp_seconds,
 )
 from yoke_harness import session_launch_handles
 from yoke_harness.session_launch_containment import supervised_records
@@ -143,10 +144,11 @@ def _silent_for_seconds(
     capture = parse_capture(payload)
     if capture is None:
         return None
-    spoke = stamp_seconds(capture.last_output_at)
+    spoke = capture.last_output_at
     if spoke is None:
         return None
-    return max(0, int(now() - spoke))
+    current = datetime.fromtimestamp(now(), timezone.utc)
+    return max(0, int((current - spoke).total_seconds()))
 
 
 def _running(

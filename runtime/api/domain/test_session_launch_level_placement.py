@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import json
+from datetime import datetime, timedelta, timezone
+
 import pytest
+
+from yoke_contracts.timestamps import format_instant, parse_instant
 
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
 from yoke_core.domain.session_launch_level_placement import (
@@ -42,7 +47,7 @@ def _place(conn, level: str = LEVEL):
         project_id=10,
         level=level,
         machine_id=None,
-        now=NOW,
+        now=parse_instant(NOW),
         eligibility=derive_launch_eligibility,
     )
 
@@ -261,3 +266,85 @@ def test_an_unknown_level_is_refused_naming_the_defined_levels() -> None:
     assert raised.value.code == LEVEL_UNKNOWN
     assert "WIZARD" in str(raised.value)
     assert LEVEL in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    "reset",
+    [
+        "2026-08-26T00:00:00.123456Z",
+        "2026-08-26T05:45:00.123456+05:45",
+        "2026-08-25T20:00:00.123456-04:00",
+    ],
+)
+def test_placement_keeps_native_pool_reset_until_json_projection(reset) -> None:
+    conn = level_connection(CODEX_SOL)
+    add_surface(
+        conn,
+        "m-codex",
+        "codex-cli",
+        [
+            window("rolling_7d", 30.0, resets_at=reset),
+        ],
+    )
+    placement = _place(conn)
+    chosen = placement.chosen
+    assert chosen is not None
+    assert chosen.pools[0].resets_at == datetime(
+        2026, 8, 26, 0, 0, 0, 123456, tzinfo=timezone.utc
+    )
+    payload = json.loads(json.dumps(placement.to_dict()))
+    assert payload["chosen"]["pools"][0]["resets_at"] == "2026-08-26T00:00:00.123456Z"
+    assert payload["chosen"]["label"] == chosen.label
+    assert payload["candidates"][0]["pools"] == payload["chosen"]["pools"]
+
+
+def test_pool_projection_preserves_null_reset_and_opaque_window() -> None:
+    from yoke_core.domain.session_launch_level_pools import PoolCheck
+
+    pool = PoolCheck("opaque .123+offset", None, None, None, "unknown", False)
+    assert json.loads(json.dumps(pool.to_dict())) == {
+        "window": "opaque .123+offset",
+        "remaining_percent": None,
+        "headroom_percent": None,
+        "resets_at": None,
+        "resets_utc": None,
+        "status": "unknown",
+        "exhausted": False,
+    }
+
+
+@pytest.mark.parametrize(
+    "reset", ["", "2026-08-26", "2026-08-26T00:00:00", "2026-08-26T00:00:00-00:00"]
+)
+def test_pool_constructor_refuses_unverifiable_reset(reset) -> None:
+    from yoke_contracts.timestamps import InvalidInstant
+    from yoke_core.domain.session_launch_level_pools import PoolCheck
+
+    with pytest.raises(InvalidInstant):
+        PoolCheck("weekly", 30.0, 60.0, reset, "ok", False)
+
+
+@pytest.mark.parametrize("microsecond", [None, 0, 123456])
+@pytest.mark.parametrize("offset", [0, 330, -240])
+def test_exhausted_pool_refusal_formats_native_reset(microsecond, offset):
+    expected = (
+        None
+        if microsecond is None
+        else datetime(2026, 8, 26, microsecond=microsecond, tzinfo=timezone.utc)
+    )
+    supplied = (
+        None
+        if expected is None
+        else expected.astimezone(timezone(timedelta(minutes=offset))).isoformat()
+    )
+    conn = level_connection(CODEX_SOL)
+    add_surface(
+        conn, "m-codex", "codex-cli", [window("rolling_7d", 0.0, resets_at=supplied)]
+    )
+    placement = _place(conn)
+    assert placement.chosen is None
+    (candidate,) = placement.candidates
+    assert candidate.pools[0].resets_at == expected
+    rendered = "unknown" if expected is None else format_instant(expected)
+    assert f"(resets {rendered})" in candidate.blocked
+    assert candidate.blocked in placement.reason

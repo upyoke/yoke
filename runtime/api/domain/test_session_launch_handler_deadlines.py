@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -44,11 +46,11 @@ def _wire_handler(monkeypatch, conn) -> None:
     monkeypatch.setattr(handlers, "_resolve_project", lambda _conn, _project: 10)
     monkeypatch.setattr(
         "yoke_core.domain.session_launch_requests.utc_now",
-        lambda: NOW,
+        lambda: parse_instant(NOW),
     )
     monkeypatch.setattr(
         "yoke_core.domain.session_launch_surface_selection.utc_now",
-        lambda: NOW,
+        lambda: parse_instant(NOW),
     )
     monkeypatch.setattr(
         handlers,
@@ -67,7 +69,7 @@ def test_get_and_list_settle_deadlines_when_no_relay_is_running(monkeypatch) -> 
     _wire_handler(monkeypatch, conn)
     monkeypatch.setattr(
         "yoke_core.domain.session_launch_deadlines.utc_now",
-        lambda: "2026-08-22T12:11:00Z",
+        lambda: parse_instant("2026-08-22T12:11:00Z"),
     )
 
     fetched = handlers.handle_launch_get(
@@ -99,11 +101,11 @@ def test_retry_mutation_settles_deadline_before_applying_retry(monkeypatch) -> N
     # bound closes it for the retry to reopen.
     monkeypatch.setattr(
         "yoke_core.domain.session_launch_deadlines.utc_now",
-        lambda: "2026-08-22T13:00:00Z",
+        lambda: parse_instant("2026-08-22T13:00:00Z"),
     )
     monkeypatch.setattr(
         "yoke_core.domain.session_launch_requests.utc_now",
-        lambda: "2026-08-22T13:00:00Z",
+        lambda: parse_instant("2026-08-22T13:00:00Z"),
     )
 
     retried = handlers.handle_launch_retry(
@@ -112,7 +114,9 @@ def test_retry_mutation_settles_deadline_before_applying_retry(monkeypatch) -> N
 
     assert retried.primary_success, retried.error
     assert retried.result_payload["launch"]["state"] == "assigned"
-    assert get_launch(conn, launch.launch_id).deadline_at == "2026-08-22T13:10:00Z"
+    assert get_launch(conn, launch.launch_id).deadline_at == parse_instant(
+        "2026-08-22T13:10:00Z"
+    )
 
 
 def test_create_refuses_surface_fallback_under_fixed_policy(monkeypatch) -> None:

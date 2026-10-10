@@ -8,7 +8,9 @@ rendering and settlement without constructing a control-plane database.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from datetime import datetime
 from typing import Any, Mapping, Protocol
+from yoke_contracts.timestamps import as_utc
 
 
 @dataclass(frozen=True)
@@ -43,8 +45,14 @@ class SessionMessageLease:
     remaining_count: int = 0
     report: str = ""
     report_fingerprint: str = ""
-    report_claimed_at: str = ""
-    report_not_after: str = ""
+    report_claimed_at: datetime | None = None
+    report_not_after: datetime | None = None
+
+    def __post_init__(self) -> None:
+        for name in ("report_claimed_at", "report_not_after"):
+            value = getattr(self, name)
+            if value is not None:
+                object.__setattr__(self, name, as_utc(value))
 
 
 class SessionMessageDeliveryPort(Protocol):
@@ -72,8 +80,8 @@ class SessionMessageDeliveryPort(Protocol):
         *,
         session_id: str,
         fingerprint: str,
-        claimed_at: str,
-        not_after: str,
+        claimed_at: datetime,
+        not_after: datetime,
     ) -> None: ...
 
     def probe_undelivered(
@@ -215,10 +223,12 @@ class CoreSessionMessageDeliveryPort:
         *,
         session_id: str,
         fingerprint: str,
-        claimed_at: str,
-        not_after: str,
+        claimed_at: datetime,
+        not_after: datetime,
     ) -> None:
         """Claim the report interval now that the reply confirms delivery."""
+        claimed_at = as_utc(claimed_at)
+        not_after = as_utc(not_after)
         from yoke_core.domain import db_backend
         from yoke_core.domain.steering_fleet_report_delivery import (
             SteeringReportCandidate,

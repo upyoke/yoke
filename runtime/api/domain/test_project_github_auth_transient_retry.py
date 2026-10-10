@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
+from yoke_contracts.timestamps import parse_instant
 
 import pytest
 
@@ -53,7 +54,8 @@ def _state() -> ProjectGithubState:
 def _resolve(provider, waits: list[float]) -> str | None:
     with pga.bind_local_github_user_token_provider(provider, api_url=API_URL):
         return project_github_auth_tokens.resolve_local_user_token(
-            _state(), sleep=waits.append,
+            _state(),
+            sleep=waits.append,
         )
 
 
@@ -180,16 +182,22 @@ class TestAFailedReadDoesNotEndInstallationCapableWork:
     @pytest.fixture(autouse=True)
     def _bound_project(self, monkeypatch):
         monkeypatch.setattr(
-            pga, "read_github_state", lambda *_a, **_k: _bound_state(),
+            pga,
+            "read_github_state",
+            lambda *_a, **_k: _bound_state(),
         )
         monkeypatch.setattr(
-            pga, "register_installation_token", lambda *_a, **_k: None,
+            pga,
+            "register_installation_token",
+            lambda *_a, **_k: None,
         )
         monkeypatch.setattr(
             pga,
             "read_app_credentials",
             lambda *_a, **_k: SimpleNamespace(
-                issuer="1", private_key_pem="k", api_url=API_URL,
+                issuer="1",
+                private_key_pem="k",
+                api_url=API_URL,
                 private_key_file="/k.pem",
             ),
         )
@@ -198,7 +206,7 @@ class TestAFailedReadDoesNotEndInstallationCapableWork:
             "mint_bound_installation_token",
             lambda *_a, **_k: SimpleNamespace(
                 token="ghs_installation",
-                expires_at=SimpleNamespace(isoformat=lambda: "later"),
+                expires_at=parse_instant("2030-01-01T00:00:00Z"),
             ),
         )
 
@@ -218,10 +226,13 @@ class TestAFailedReadDoesNotEndInstallationCapableWork:
         )
 
     @pytest.mark.parametrize(
-        "error", [UserAuthorizationTransient, UserAuthorizationUnavailable],
+        "error",
+        [UserAuthorizationTransient, UserAuthorizationUnavailable],
     )
     def test_a_failed_read_falls_through_to_the_installation(
-        self, monkeypatch, error,
+        self,
+        monkeypatch,
+        error,
     ) -> None:
         self._read_fails_with(monkeypatch, error)
 
@@ -231,14 +242,18 @@ class TestAFailedReadDoesNotEndInstallationCapableWork:
         assert resolved.token_source == GITHUB_AUTHORITY_INSTALLATION
 
     @pytest.mark.parametrize(
-        "error", [UserAuthorizationTransient, UserAuthorizationUnavailable],
+        "error",
+        [UserAuthorizationTransient, UserAuthorizationUnavailable],
     )
     def test_work_attributed_to_a_person_still_refuses(
-        self, monkeypatch, error,
+        self,
+        monkeypatch,
+        error,
     ) -> None:
         self._read_fails_with(monkeypatch, error)
 
         with pytest.raises(error):
             pga.resolve_project_github_auth(
-                "yoke", required_authority=GITHUB_AUTHORITY_USER,
+                "yoke",
+                required_authority=GITHUB_AUTHORITY_USER,
             )

@@ -25,10 +25,12 @@ merged_at correction carries, from
 from __future__ import annotations
 
 from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Dict, Optional
 
 from yoke_core.domain.item_merge_provenance_operator import (
-    MERGED_AT_FORMAT,
     MergedAtCorrectionError,
     emit_correction,
     sql_placeholder,
@@ -101,7 +103,7 @@ def operator_correct_landing_pull_request(
     placeholder = sql_placeholder(conn)
     conn.execute(
         f"UPDATE items SET merged_at = {placeholder} WHERE id = {placeholder}",
-        (merged_at, int(item_id)),
+        (instant_parameter(conn, merged_at), int(item_id)),
     )
     marker = point_item_at_pull_request(conn, int(item_id), replacement)
     return {
@@ -120,7 +122,7 @@ def operator_correct_landing_pull_request(
 
 def _verify_merged_pull_request(
     conn: Any, item_id: int, pr_number: str
-) -> tuple[str, str]:
+) -> tuple[str, datetime]:
     """Return the pull request's merge commit and time, or refuse by name."""
     from yoke_core.domain.gh_rest_transport import (
         RestRequest,
@@ -184,7 +186,7 @@ def _verify_merged_pull_request(
     )
 
 
-def _stored_merged_at(merged_at: str, *, pr_number: str, repo: str) -> str:
+def _stored_merged_at(merged_at: str, *, pr_number: str, repo: str) -> datetime:
     """The landing time in the shape every merged_at reader expects.
 
     The correction writes this value, so a provider answer that is missing
@@ -192,16 +194,15 @@ def _stored_merged_at(merged_at: str, *, pr_number: str, repo: str) -> str:
     downstream reader can parse.
     """
     try:
-        datetime.strptime(merged_at, MERGED_AT_FORMAT)
+        return parse_instant(merged_at)
     except ValueError as exc:
         raise MergedAtCorrectionError(
             f"pull request {pr_number} on {repo} reports merged_at "
             f"{merged_at or '(absent)'!r}, which is not the stored "
-            f"{MERGED_AT_FORMAT} shape. This correction records the landing "
+            "qualified RFC3339 shape. This correction records the landing "
             "time it verifies, so it refuses rather than storing a value no "
             "reader can parse; report the provider response as a defect."
         ) from exc
-    return merged_at
 
 
 __all__ = [

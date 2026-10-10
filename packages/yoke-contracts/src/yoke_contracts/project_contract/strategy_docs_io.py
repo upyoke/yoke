@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence
+
+from yoke_contracts.timestamps import format_instant
 
 from yoke_contracts.project_contract.file_write import write_live_text
 from yoke_contracts.project_contract.strategy_docs_header import (
@@ -98,12 +101,17 @@ def _inspect_one_render(path: Path, *, archived: bool) -> Optional[LocalRenderFi
     except (OSError, StrategyHeaderError) as exc:
         reason = (
             "missing_or_mangled_header"
-            if isinstance(exc, StrategyHeaderError) else "unreadable"
+            if isinstance(exc, StrategyHeaderError)
+            else "unreadable"
         )
         return LocalRenderFile(
-            slug=slug, archived=archived, path=path,
-            updated_at=None, content_sha256=None,
-            dirty=True, dirty_reason=reason,
+            slug=slug,
+            archived=archived,
+            path=path,
+            updated_at=None,
+            content_sha256=None,
+            dirty=True,
+            dirty_reason=reason,
         )
     body_digest = content_sha256(parsed.body)
     dirty = body_digest != parsed.content_sha256 or parsed.slug != slug
@@ -147,12 +155,14 @@ def local_render_known(target_root: Path | str) -> List[Dict[str, Any]]:
     for item in inspect_local_renders(target_root):
         if not item.updated_at or not item.content_sha256:
             continue
-        known.append({
-            "slug": item.slug,
-            "updated_at": item.updated_at,
-            "content_sha256": item.content_sha256,
-            "archived": item.archived,
-        })
+        known.append(
+            {
+                "slug": item.slug,
+                "updated_at": item.updated_at,
+                "content_sha256": item.content_sha256,
+                "archived": item.archived,
+            }
+        )
     return known
 
 
@@ -200,7 +210,7 @@ def relocate_generated_archive(
     target_root: Path | str,
     slug: str,
     *,
-    updated_at: str,
+    updated_at: str | datetime,
     content_sha256: str,
 ) -> str:
     """Move or remove a generated active file after a remote archive.
@@ -209,6 +219,7 @@ def relocate_generated_archive(
     generated identity is renamed into ``archive/``; a stale generated
     active file is unlinked without writing archive bytes.
     """
+    identity = (format_instant(updated_at), str(content_sha256))
     target_root = Path(target_root)
     slug = require_strategy_doc_slug(slug)
     locals_ = {
@@ -223,7 +234,6 @@ def relocate_generated_archive(
         archived_file is not None and archived_file.dirty
     ):
         return "local-edit"
-    identity = (str(updated_at), str(content_sha256))
     if active is not None and active.path.is_file():
         matches = (
             str(active.updated_at or "") == identity[0]

@@ -14,7 +14,7 @@ from yoke_core.domain.session_broker_wake_settlement import (
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_relay import claim_relay_job, report_relay_job
 from yoke_core.domain.session_relay_types import RelayHeartbeat
-from runtime.api.domain.test_session_broker_wake import (
+from runtime.api.domain.session_broker_test_support import (
     MACHINE_ID,
     NOW,
     RELAY_ID,

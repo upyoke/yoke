@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.sessions_holdings_claim_facts import steered_document_slugs
 from yoke_core.domain.strategy_execution_state import (
@@ -188,7 +188,7 @@ def release_paired_session_doc_claim(
             f"steering claim {work_claim_id} has a document lock held by "
             f"{claim_holder_label(claim)}"
         )
-    released_at = iso8601_now()
+    released_at = utc_now()
     updated = _row(
         conn.execute(
             "UPDATE strategy_doc_claims "
@@ -197,7 +197,13 @@ def release_paired_session_doc_claim(
             f"release_mode = 'normal', release_reason = {marker} "
             f"WHERE id = {marker} AND released_at IS NULL "
             "RETURNING id, project_id, strategy_doc_slug",
-            (actor_id, str(session_id), released_at, reason, int(claim["id"])),
+            (
+                actor_id,
+                str(session_id),
+                instant_parameter(conn, released_at),
+                reason,
+                int(claim["id"]),
+            ),
         )
     )
     if updated is None:

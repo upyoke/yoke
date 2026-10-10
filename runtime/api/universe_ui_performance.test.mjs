@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { renderPerformanceView, validateRange, localInput, WINDOWS } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_performance.js";
 import { chartData, SERIES } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_performance_chart.js";
+import { inspectBucket } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_performance_inspector.js";
 import { NAV } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_destinations.js";
 import { FakeDocument, byClass, settle } from "./universe_ui_dom_test_support.mjs";
 
@@ -14,16 +15,17 @@ test("date ranges reject reversal and serialize unambiguous timestamps", () => {
   assert.throws(() => validateRange("invalid", "2026-10-08T12:00"), /range_invalid/);
   assert.throws(() => validateRange("2026-10-08T12:00", "2026-10-08T11:00"), /range_invalid/);
   const range = validateRange("2026-10-08T11:00", "2026-10-08T12:00");
-  assert.match(range.since, /Z$/);
+  assert.match(range.since, /\.\d{6}Z$/);
   assert.equal(Date.parse(range.until) - Date.parse(range.since), 3600000);
   assert.equal(localInput("2026-10-08T11:00").length, 16);
   assert.deepEqual(WINDOWS.map(([hours]) => hours), [1, 12, 24, 72, 168, 720]);
 });
 test("sparse observations and unknowns are retained on their own axes", () => {
   const metrics = Object.fromEntries(["function", "tool", "hook", "relay", "watcher"].map(f => [f, { avg_ms: null, p95_ms: null }]));
-  const result = { buckets: [{ start: 1, metrics }, { start: 2, metrics: { ...metrics, watcher: { avg_ms: 10000, p95_ms: 10000 } } }] };
+  const result = { buckets: [{ start: "1970-01-01T00:00:01.000001Z", metrics }, { start: "1970-01-01T00:00:02.000001Z", metrics: { ...metrics, watcher: { avg_ms: 10000, p95_ms: 10000 } } }] };
   const data = chartData(result);
   assert.equal(data.length, SERIES.length + 2);
+  assert.deepEqual(data[0], [1.000001, 2.000001]);
   assert.deepEqual(data[6], [null, 10000]);
   assert.equal(SERIES[5][4], "wait");
   assert.equal(SERIES[0][4], undefined);
@@ -85,4 +87,40 @@ test("Custom is an actionable range control that keeps dates and focuses From", 
   assert.equal(custom.getAttribute("aria-pressed"), "true");
   assert.equal(from.value, before);
   assert.equal(document.activeElement, from);
+});
+
+
+test("inspection forwards original bucket microseconds through family changes", async () => {
+  const document = new FakeDocument(), create = document.createElement.bind(document);
+  document.createElement = tag => {
+    const node = create(tag);
+    node.append = (...children) => children.forEach(child => node.appendChild(child));
+    node.remove = () => node.parentNode?.removeChild(node);
+    if (tag === "dialog") {
+      node.showModal = () => { node.open = true; };
+      node.close = () => { node.open = false; node.dispatchEvent(new Event("close")); };
+    }
+    return node;
+  };
+  const calls = [], controller = new AbortController();
+  const bucket = { start: "2060-10-08T00:00:00.123456Z", end: "2060-10-08T00:01:00.123457Z" };
+  inspectBucket({ document, signal: controller.signal, client: { call: request => {
+    calls.push(request);
+    return Promise.resolve({ envelope: { success: true, result: {
+      total: 0, rows: [], next_offset: null, sampling: "none", span_coverage: "Unknown",
+    } } });
+  } } }, { project_ids: [11, 12] }, bucket);
+  await settle();
+  const filters = byClass(document.body, "performance-series")[0];
+  filters.children[1].dispatchEvent(new Event("click"));
+  await settle();
+  assert.equal(calls.length, 2);
+  for (const request of calls) {
+    assert.equal(request.function, "events.performance.detail");
+    assert.equal(request.payload.since, bucket.start);
+    assert.equal(request.payload.until, bucket.end);
+    assert.deepEqual(request.payload.project_ids, [11, 12]);
+  }
+  assert.equal(calls[1].payload.family, "function");
+  controller.abort();
 });

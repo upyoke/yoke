@@ -18,12 +18,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Mapping
 
+from yoke_contracts.timestamps import as_utc
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_message_types import utc_now
 from yoke_core.domain.session_recovery_facts import (
     release_resume_attempt,
     reserve_resume_attempt,
-    resume_episode_key,
 )
 from yoke_core.domain.session_vendor_error_states import (
     EVENT_SESSION_VENDOR_ERROR_RESUMED,
@@ -142,7 +143,7 @@ def resume_vendor_error_sessions(
     from yoke_core.domain.session_manual_wake import request_session_wake
     from yoke_core.domain.session_message_types import SessionMessageError
 
-    current = now or utc_now()
+    current = as_utc(now) if now is not None else utc_now()
     states = vendor_error_states(
         conn,
         machine_id=machine_id,
@@ -159,7 +160,7 @@ def resume_vendor_error_sessions(
         # hazard from the budget's point of view, and one statement that
         # reads and increments closes it. A refused reservation means
         # another caller took the last attempt between the read and here.
-        episode_key = resume_episode_key(state.get("episode_key"))
+        episode_key = state["episode_key"]
         reserved = reserve_resume_attempt(
             conn,
             session_id,

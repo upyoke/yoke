@@ -9,6 +9,10 @@ Completed failed runs remain immutable history and advance to a new attempt.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+from yoke_contracts.timestamps import utc_now, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
@@ -34,8 +38,8 @@ CREATE TABLE IF NOT EXISTS {INTENT_TABLE} (
   workflow_run_id TEXT,
   run_url TEXT,
   html_url TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (request_id, attempt)
 );
 CREATE INDEX IF NOT EXISTS idx_github_workflow_dispatch_intents_created
@@ -118,7 +122,7 @@ def claim_attempt(
     """Persist a pending attempt; return true only to the POST owner."""
     from yoke_core.domain import db_helpers
 
-    stamp = db_helpers.iso8601_now()
+    stamp = utc_now()
     sql = (
         f"INSERT INTO {INTENT_TABLE} "
         "(request_id, attempt, actor_id, authorization_scope, "
@@ -144,7 +148,17 @@ def claim_attempt(
     )
     try:
         with db_helpers.connect() as conn:
-            claimed = conn.execute(sql, params).rowcount == 1
+            claimed = (
+                conn.execute(
+                    sql,
+                    (
+                        *params[:-2],
+                        instant_parameter(conn, stamp),
+                        instant_parameter(conn, stamp),
+                    ),
+                ).rowcount
+                == 1
+            )
             conn.commit()
             return claimed
     except Exception as exc:
@@ -163,7 +177,7 @@ def complete_intent(
     """Attach GitHub's exact run identity to a pending attempt."""
     from yoke_core.domain import db_helpers
 
-    stamp = db_helpers.iso8601_now()
+    stamp = utc_now()
     try:
         with db_helpers.connect() as conn:
             changed = conn.execute(
@@ -175,7 +189,7 @@ def complete_intent(
                     workflow_run_id,
                     run_url,
                     html_url,
-                    stamp,
+                    instant_parameter(conn, stamp),
                     intent.request_id,
                     intent.attempt,
                     intent.correlation_id,
@@ -224,7 +238,7 @@ def reject_intent(intent: DispatchIntent) -> None:
                 "updated_at = %s WHERE request_id = %s AND attempt = %s "
                 "AND correlation_id = %s AND state = 'pending'",
                 (
-                    db_helpers.iso8601_now(),
+                    instant_parameter(conn, utc_now()),
                     intent.request_id,
                     intent.attempt,
                     intent.correlation_id,
@@ -241,14 +255,10 @@ def reject_intent(intent: DispatchIntent) -> None:
         )
 
 
-def ttl_cutoff_iso(now: Optional[Any] = None) -> str:
-    """Return the terminal-intent retention cutoff in UTC."""
-    from datetime import datetime, timedelta, timezone
-
-    base = now or datetime.now(timezone.utc)
-    return (base - timedelta(days=INTENT_TTL_DAYS)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+def ttl_cutoff_iso(now: datetime | str | None = None) -> datetime:
+    """Return the native instant below which retained rows expire."""
+    base = utc_now() if now is None else parse_instant(now)
+    return base - timedelta(days=INTENT_TTL_DAYS)
 
 
 def count_expired(conn: Any) -> int:
@@ -260,7 +270,7 @@ def count_expired(conn: Any) -> int:
     row = conn.execute(
         f"SELECT COUNT(*) FROM {INTENT_TABLE} "
         "WHERE state IN ('completed', 'rejected') AND updated_at < %s",
-        (ttl_cutoff_iso(),),
+        (instant_parameter(conn, ttl_cutoff_iso()),),
     ).fetchone()
     return int(row[0] or 0) if row else 0
 
@@ -274,7 +284,7 @@ def prune_expired(conn: Any) -> int:
     return conn.execute(
         f"DELETE FROM {INTENT_TABLE} "
         "WHERE state IN ('completed', 'rejected') AND updated_at < %s",
-        (ttl_cutoff_iso(),),
+        (instant_parameter(conn, ttl_cutoff_iso()),),
     ).rowcount
 
 

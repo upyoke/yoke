@@ -5,7 +5,9 @@ ranking, lane filtering, claim states."""
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import utc_now
 
 import pytest
 
@@ -25,7 +27,9 @@ from runtime.api.scheduler_test_fixtures import (  # noqa: F401
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
-def _insert_item_claim(conn, session_id: str, item_id: int, claimed_at: str) -> None:
+def _insert_item_claim(
+    conn, session_id: str, item_id: int, claimed_at: datetime
+) -> None:
     target = make_item_target(item_id)
     conn.execute(
         "INSERT INTO work_claims "
@@ -90,7 +94,7 @@ class TestComputeSchedule:
                (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                 project_sequence, created_at, updated_at, source, frozen)
                VALUES (100, 'Implementing issue', %s, %s, 'implementing',
-                       'high', 1, 100, '2026-03-01', '2026-03-01',
+                       'high', 1, 100, '2026-03-01T00:00:00.000000Z', '2026-03-01T00:00:00.000000Z',
                        'user', 0)""",
             (workflow_id, workflow_version_id),
         )
@@ -102,7 +106,7 @@ class TestComputeSchedule:
                    (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                     project_sequence, created_at, updated_at, source, frozen)
                    VALUES (%s, %s, %s, %s, 'implementing', 'medium', 1, %s,
-                           '2026-03-01', '2026-03-01', 'user', 0)""",
+                           '2026-03-01T00:00:00.000000Z', '2026-03-01T00:00:00.000000Z', 'user', 0)""",
                 (
                     i,
                     f"Active epic {i}",
@@ -195,9 +199,7 @@ class TestComputeSchedule:
     def test_schedule_claim_state_stale_by_heartbeat(self, scheduler_db):
         """A quiet live holder keeps its persisted claim."""
         conn = scheduler_db["conn"]
-        stale_iso = (datetime.now(timezone.utc) - timedelta(minutes=30)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        stale_iso = utc_now() - timedelta(minutes=30)
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)
@@ -213,9 +215,7 @@ class TestComputeSchedule:
     def test_schedule_selects_claim_from_ended_session(self, scheduler_db):
         """An ended session's inconsistent active claim remains recoverable."""
         conn = scheduler_db["conn"]
-        stale_iso = (datetime.now(timezone.utc) - timedelta(minutes=30)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        stale_iso = utc_now() - timedelta(minutes=30)
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)
@@ -245,7 +245,7 @@ class TestComputeSchedule:
     def test_schedule_claim_state_ended_session(self, scheduler_db):
         """claims from ended sessions are CLAIMED_BY_STALE."""
         conn = scheduler_db["conn"]
-        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        now_iso = utc_now()
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, ended_at, offered_at, last_heartbeat)
@@ -274,9 +274,7 @@ class TestComputeSchedule:
     def test_schedule_claim_state_15min_is_live_not_selected(self, scheduler_db):
         """15-min heartbeat: CLAIMED_BY_OTHER_LIVE, scheduler picks next item."""
         conn = scheduler_db["conn"]
-        live_iso = (datetime.now(timezone.utc) - timedelta(minutes=15)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        live_iso = utc_now() - timedelta(minutes=15)
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)
@@ -301,9 +299,7 @@ class TestComputeSchedule:
     def test_schedule_claim_state_25min_remains_held(self, scheduler_db):
         """Heartbeat age does not make a live claim selectable."""
         conn = scheduler_db["conn"]
-        stale_iso = (datetime.now(timezone.utc) - timedelta(minutes=25)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        stale_iso = utc_now() - timedelta(minutes=25)
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)

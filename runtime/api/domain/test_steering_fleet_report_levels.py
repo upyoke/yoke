@@ -33,7 +33,7 @@ def _pool(**overrides) -> PoolCheck:
         window="Claude 5h",
         remaining_percent=62.0,
         headroom_percent=140.0,
-        resets_at="2026-10-08T17:05:00Z",
+        resets_at="2026-10-08T17:05:00.000000Z",
         status="ok",
         exhausted=False,
     )

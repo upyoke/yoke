@@ -7,10 +7,12 @@ registering session into path authority.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.workflow_item_binding_lock import (
@@ -112,8 +114,7 @@ def bind_claim_to_task(
     )
     marker = _p(conn)
     claim = conn.execute(
-        "SELECT id, owner_kind, owner_item_id "
-        f"FROM path_claims WHERE id = {marker}",
+        f"SELECT id, owner_kind, owner_item_id FROM path_claims WHERE id = {marker}",
         (int(claim_id),),
     ).fetchone()
     if claim is None:
@@ -130,7 +131,12 @@ def bind_claim_to_task(
         "(claim_id, epic_id, task_num, bound_at) "
         f"VALUES ({marker}, {marker}, {marker}, {marker}) "
         "ON CONFLICT (claim_id, epic_id, task_num) DO NOTHING",
-        (int(claim_id), int(item_id), int(task_num), iso8601_now()),
+        (
+            int(claim_id),
+            int(item_id),
+            int(task_num),
+            instant_parameter(conn, utc_now()),
+        ),
     )
     if commit:
         conn.commit()
@@ -150,7 +156,7 @@ def task_bindings_for_claim(conn: Any, claim_id: int) -> list[dict[str, Any]]:
         {
             "epic_id": int(_value(row, "epic_id", 0)),
             "task_num": int(_value(row, "task_num", 1)),
-            "bound_at": str(_value(row, "bound_at", 2)),
+            "bound_at": format_instant(_value(row, "bound_at", 2)),
         }
         for row in rows
     ]

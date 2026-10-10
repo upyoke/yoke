@@ -11,7 +11,7 @@ ACTOR_TABLES: dict[str, dict] = {
             ("system_component", "TEXT"),
             ("name", "TEXT"),
             ("status", "TEXT"),
-            ("created_at", "TEXT"),
+            ("created_at", "TIMESTAMPTZ"),
             ("attribution", "TEXT"),
         ],
         "notes": (

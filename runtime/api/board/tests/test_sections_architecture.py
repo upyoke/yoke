@@ -44,7 +44,7 @@ _SCHEMA = """
         id INTEGER PRIMARY KEY,
         project_id INTEGER NOT NULL,
         commit_sha TEXT NOT NULL,
-        built_at TEXT NOT NULL
+        built_at TIMESTAMPTZ NOT NULL
     );
     CREATE TABLE path_snapshot_entries (
         id INTEGER PRIMARY KEY,

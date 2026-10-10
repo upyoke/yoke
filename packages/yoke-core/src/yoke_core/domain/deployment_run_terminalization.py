@@ -14,16 +14,21 @@ that could commit without it.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+
+from yoke_contracts.timestamps import as_utc, format_instant, utc_now
 from typing import Any, Optional
 
-from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
+from yoke_core.domain.db_helpers import connect, instant_parameter, query_one
 from yoke_core.domain.events import build_envelope
 from yoke_core.domain.events_insert_sql import _INSERT_SQL
 from yoke_core.domain.events_retired_name_guard import (
     assert_event_name_not_retired,
 )
-from yoke_core.domain.events_write_conn import event_insert_params
+from yoke_core.domain.events_write_conn import (
+    event_insert_params,
+    write_event_row_on_conn,
+)
 from yoke_core.domain.runs import ACTIVE_RUN_STATUSES
 
 
@@ -38,10 +43,13 @@ class RunTerminalization:
     prior_status: str
     final_status: str
     reason: str
-    terminalized_at: str
+    terminalized_at: datetime
     terminalized_by_actor_id: Optional[int]
     terminalized_by_session_id: str
     event_id: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "terminalized_at", as_utc(self.terminalized_at))
 
 
 class RunTerminalizationRejected(ValueError):
@@ -60,7 +68,7 @@ def _append_event(
     reason: str,
     actor_id: Optional[int],
     session_id: str,
-    terminalized_at: str,
+    terminalized_at: datetime,
 ) -> str:
     envelope = build_envelope(
         TERMINALIZATION_EVENT,
@@ -78,7 +86,7 @@ def _append_event(
             "final_status": final_status,
             "current_stage": current_stage,
             "reason": reason,
-            "terminalized_at": terminalized_at,
+            "terminalized_at": format_instant(terminalized_at),
             "terminalized_by_actor_id": actor_id,
             "terminalized_by_session_id": session_id,
         },
@@ -86,10 +94,9 @@ def _append_event(
     )
     envelope["actor_id"] = actor_id
     assert_event_name_not_retired(conn, TERMINALIZATION_EVENT)
-    sql = _INSERT_SQL
-    if not db_backend.connection_is_postgres(conn):
-        sql = sql.replace("%s", "?")
-    conn.execute(sql, event_insert_params(envelope, project_id))
+    write_event_row_on_conn(
+        conn, _INSERT_SQL, event_insert_params(envelope, project_id)
+    )
     return str(envelope["event_id"])
 
 
@@ -101,13 +108,15 @@ def terminalize_run_on(
     reason: str,
     actor_id: Optional[int],
     session_id: str,
-    terminalized_at: Optional[str] = None,
+    terminalized_at: datetime | None = None,
 ) -> RunTerminalization:
     """Close one active run and append its audit event on *conn*.
 
     The caller owns the transaction: nothing here commits or rolls back, so
     a close recorded alongside other writes lands with them or not at all.
     """
+    stamp = as_utc(terminalized_at) if terminalized_at is not None else utc_now()
+    stored_stamp = instant_parameter(conn, stamp)
     final_status = str(disposition).strip().lower()
     if final_status not in TERMINAL_DISPOSITIONS:
         raise RunTerminalizationRejected(
@@ -134,10 +143,9 @@ def terminalize_run_on(
             f"deployment run '{run_id}' has terminal status '{prior_status}'"
         )
 
-    stamp = str(terminalized_at or "").strip() or iso8601_now()
     conn.execute(
         "UPDATE deployment_runs SET status=%s, completed_at=%s WHERE id=%s",
-        (final_status, stamp, run_id),
+        (final_status, stored_stamp, run_id),
     )
     from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
         withdraw_deployment_qa_wait_wakes,

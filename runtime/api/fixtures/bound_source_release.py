@@ -15,6 +15,8 @@ from typing import Any
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.fixtures.backlog_insert_support import ensure_project_id
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.carried_release_candidate import (
@@ -35,7 +37,7 @@ CARRIER_ITEM_ID = 9601
 CONSUMER_ITEM_ID = 9602
 UNBOUND_ITEM_ID = 9603
 UNBOUND_PROJECT = "bystander"
-SEEDED_AT = "2026-09-14T00:00:00Z"
+SEEDED_AT = parse_instant("2026-09-14T00:00:00Z")
 
 
 def bound_stages(*, project: str = CONSUMER_PROJECT, branch: str = "main") -> str:
@@ -89,9 +91,7 @@ def _plain_stages() -> str:
 
 
 def _project_id(conn: Any, slug: str) -> int:
-    row = conn.execute(
-        "SELECT id FROM projects WHERE slug=%s", (slug,)
-    ).fetchone()
+    row = conn.execute("SELECT id FROM projects WHERE slug=%s", (slug,)).fetchone()
     return int(row[0])
 
 
@@ -115,20 +115,38 @@ def two_project_release(
     ensure_project_id(conn, CONSUMER_PROJECT, ts=SEEDED_AT)
     conn.commit()
     cmd_create(
-        conn, CARRIER_FLOW, "yoke", "Carrier", "",
-        stages if stages is not None else bound_stages(), status="disabled",
+        conn,
+        CARRIER_FLOW,
+        "yoke",
+        "Carrier",
+        "",
+        stages if stages is not None else bound_stages(),
+        status="disabled",
     )
     cmd_create(
-        conn, CONSUMER_FLOW, CONSUMER_PROJECT, "Consumer", "",
-        _plain_stages(), status="disabled",
+        conn,
+        CONSUMER_FLOW,
+        CONSUMER_PROJECT,
+        "Consumer",
+        "",
+        _plain_stages(),
+        status="disabled",
     )
     insert_item(
-        conn, id=CARRIER_ITEM_ID, project_sequence=CARRIER_ITEM_ID,
-        workflow_id="blitz", status="implementing", deployment_flow=CARRIER_FLOW,
+        conn,
+        id=CARRIER_ITEM_ID,
+        project_sequence=CARRIER_ITEM_ID,
+        workflow_id="blitz",
+        status="implementing",
+        deployment_flow=CARRIER_FLOW,
     )
     insert_item(
-        conn, id=CONSUMER_ITEM_ID, project_sequence=CONSUMER_ITEM_ID,
-        workflow_id="blitz", status=consumer_status, project=CONSUMER_PROJECT,
+        conn,
+        id=CONSUMER_ITEM_ID,
+        project_sequence=CONSUMER_ITEM_ID,
+        workflow_id="blitz",
+        status=consumer_status,
+        project=CONSUMER_PROJECT,
         deployment_flow=CONSUMER_FLOW,
     )
     conn.commit()
@@ -144,11 +162,17 @@ def two_project_release(
     record_landing_receipt(conn, CARRIER_ITEM_ID, branch=carrier_ref, tip=carrier_tip)
     if consumer_receipt:
         record_landing_receipt(
-            conn, CONSUMER_ITEM_ID, branch=consumer_ref, tip=consumer_tip,
+            conn,
+            CONSUMER_ITEM_ID,
+            branch=consumer_ref,
+            tip=consumer_tip,
         )
     serve_repositories(monkeypatch, {1: carrier_repo, consumer_id: consumer_repo})
     insert_run(
-        conn, "run-previous", lineage=carrier_base, status="succeeded",
+        conn,
+        "run-previous",
+        lineage=carrier_base,
+        status="succeeded",
         flow=CARRIER_FLOW,
         bound_sources=json.dumps(
             {
@@ -165,7 +189,10 @@ def two_project_release(
         ),
     )
     insert_run(
-        conn, "run-candidate", lineage=carrier_tip, status="created",
+        conn,
+        "run-candidate",
+        lineage=carrier_tip,
+        status="created",
         flow=CARRIER_FLOW,
     )
     return {

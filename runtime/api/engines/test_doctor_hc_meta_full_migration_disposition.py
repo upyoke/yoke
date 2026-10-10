@@ -18,7 +18,7 @@ from unittest.mock import patch
 from yoke_core.engines.doctor import hc_oneshot_migration_coverage
 
 from runtime.api.engines._doctor_hc_meta_full_test_helpers import (
-    _NOW_ISO,
+    _NOW_INSTANT,
     _ensure_migration_audit_table,
     _make_conn,
     _p,
@@ -29,9 +29,7 @@ from runtime.api.engines._doctor_hc_meta_full_test_helpers import (
 
 def _with_governance_columns(conn: Any) -> None:
     conn.execute("ALTER TABLE items ADD COLUMN db_mutation_profile TEXT")
-    conn.execute(
-        "ALTER TABLE items ADD COLUMN db_compatibility_attestation TEXT"
-    )
+    conn.execute("ALTER TABLE items ADD COLUMN db_compatibility_attestation TEXT")
 
 
 def _insert_audit_row(
@@ -48,7 +46,7 @@ def _insert_audit_row(
         "description, tables_declared, expected_deltas, pre_row_counts, "
         "backup_path, state, started_at, exception_reason) VALUES "
         f"({p}, {p}, '', '[]', '{{}}', '{{}}', {p}, 'completed', {p}, {p})",
-        (row_id, name, backup_path, _NOW_ISO, exception_reason),
+        (row_id, name, backup_path, _NOW_INSTANT, exception_reason),
     )
 
 
@@ -66,9 +64,7 @@ def test_noncanonical_backup_with_documented_disposition_passes(tmp_path):
         conn,
         row_id=200,
         name="legacy_cutover",
-        backup_path=(
-            "/tmp/data/yoke.db.legacy_cutover.20260424T153510Z.bak"
-        ),
+        backup_path=("/tmp/data/yoke.db.legacy_cutover.20260424T153510Z.bak"),
         exception_reason=(
             "pre_merge_breaking cutover routed through exception "
             "pathway. See docs/archive/decisions/legacy_cutover.md."
@@ -95,12 +91,8 @@ def test_noncanonical_backup_with_missing_record_still_warns(tmp_path):
         conn,
         row_id=201,
         name="orphan_cutover",
-        backup_path=(
-            "/tmp/data/yoke.db.orphan_cutover.20260424T153510Z.bak"
-        ),
-        exception_reason=(
-            "See docs/archive/decisions/orphan_cutover.md."
-        ),
+        backup_path=("/tmp/data/yoke.db.orphan_cutover.20260424T153510Z.bak"),
+        exception_reason=("See docs/archive/decisions/orphan_cutover.md."),
     )
     with patch(
         "yoke_core.engines.doctor_report._resolve_repo_root",
@@ -125,9 +117,7 @@ def test_noncanonical_backup_with_empty_exception_reason_still_warns(tmp_path):
         conn,
         row_id=202,
         name="legacy_cutover",
-        backup_path=(
-            "/tmp/data/yoke.db.legacy_cutover.20260424T153510Z.bak"
-        ),
+        backup_path=("/tmp/data/yoke.db.legacy_cutover.20260424T153510Z.bak"),
         exception_reason="",
     )
     with patch(

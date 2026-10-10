@@ -69,6 +69,12 @@ fleets this did not clear.
 import path before any ``yoke_core`` module loads. Omit it for ordinary
 pre-release rehearsal.
 
+Diagnostic instant census: add ``--instant-census-output DIR --copy-budget-gib N
+--minimum-free-gib N``. This inspects restored source copies in read-only
+transactions, skips boot history and release-driver writes, and cannot record
+a release receipt. Keep output on the copy filesystem; inspect retained JSON
+counts, timing and sizes before any repair. No row bodies or secrets are logged.
+
 The watcher keeps output unbuffered, streams the per-database verdicts and
 receipt, writes the sentinel consumed by ``yoke watch tail``, and preserves
 the preflight exit code. Exits non-zero when any database fails, so a release
@@ -104,6 +110,9 @@ def _parse(args: List[str]) -> argparse.Namespace:
     parser.add_argument("--product-sha", default="")
     parser.add_argument("--receipt-env", default="")
     parser.add_argument("--engine-wheel", default="")
+    parser.add_argument("--instant-census-output", default="")
+    parser.add_argument("--copy-budget-gib", type=int, default=0)
+    parser.add_argument("--minimum-free-gib", type=int, default=0)
     parser.add_argument("operands", nargs="*")
     parsed, unknown = parser.parse_known_args(args)
     if unknown:
@@ -133,6 +142,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         return 2
     record, product_sha = parsed.record_receipt, parsed.product_sha
+    if parsed.instant_census_output and record:
+        print(
+            "instant_census_diagnostic_only: drop --record-receipt; census does not prove convergence.",
+            file=sys.stderr,
+        )
+        return 2
     if record and positional[1:]:
         print(
             "--record-receipt records coverage for the model's whole declared "
@@ -215,6 +230,23 @@ def main(argv: Optional[List[str]] = None) -> int:
         return database_dsn(authority.dsn, database)
 
     plan = target.plan
+    if parsed.instant_census_output:
+        from yoke_core.domain.migration_copy_instant_inspection import inspection_plan
+
+        try:
+            plan = inspection_plan(
+                plan,
+                Path(parsed.instant_census_output),
+                parsed.copy_budget_gib,
+                parsed.minimum_free_gib,
+                covered_env,
+            )
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        print(
+            "diagnostic instant census: restored source only; no history applied or release receipt"
+        )
     print(f"project: {project} (migration model {target.model_name})")
     print(f"environment: {covered_env} (admin connection {admin_env})")
     print(f"rehearsal cluster: {spec.sock_dir}")

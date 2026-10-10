@@ -10,11 +10,12 @@ when the file is absent on a host that holds the checkout.
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now, query_rows
+from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_rows
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 from yoke_core.domain.projects_seed_ci_workflow import (
     CI_WORKFLOW_CAPABILITY_TYPE,
@@ -48,7 +49,7 @@ def reconcile_ci_workflow_declarations(
         (CI_WORKFLOW_CAPABILITY_TYPE,),
     )
     results: list[dict[str, Any]] = []
-    now = iso8601_now()
+    now = utc_now()
     for row in rows:
         result = _reconcile_one(conn, row, now, config_path=config_path)
         if result is not None:
@@ -59,7 +60,7 @@ def reconcile_ci_workflow_declarations(
 def _reconcile_one(
     conn: Any,
     row: Any,
-    now: str,
+    now: datetime,
     *,
     config_path: str | Path | None,
 ) -> dict[str, Any] | None:
@@ -96,12 +97,12 @@ def _settings(raw: Any) -> dict[str, Any]:
     return parsed if isinstance(parsed, dict) else {}
 
 
-def _stamp(conn: Any, project_id: int, verified_at: str | None) -> None:
+def _stamp(conn: Any, project_id: int, verified_at: datetime | None) -> None:
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     conn.execute(
         "UPDATE project_capabilities SET verified_at = "
         f"{marker} WHERE project_id = {marker} AND type = {marker}",
-        (verified_at, project_id, CI_WORKFLOW_CAPABILITY_TYPE),
+        (instant_parameter(conn, verified_at), project_id, CI_WORKFLOW_CAPABILITY_TYPE),
     )
 
 

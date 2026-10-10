@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 
 MEMBER_COLUMNS = (
@@ -40,7 +40,10 @@ def frozen_members(conn: Any, run_id: str) -> list[dict[str, Any]]:
         (run_id,),
     ).fetchall()
     return [
-        {column: _cell(row, column, index) for index, column in enumerate(MEMBER_COLUMNS)}
+        {
+            column: _cell(row, column, index)
+            for index, column in enumerate(MEMBER_COLUMNS)
+        }
         for row in rows
     ]
 
@@ -61,7 +64,7 @@ def copy_frozen_members(
     reason to look elsewhere for membership.
     """
     members = frozen_members(conn, source_run_id)
-    added_at = iso8601_now()
+    added_at = instant_parameter(conn, utc_now())
     for member in members:
         conn.execute(
             "INSERT INTO deployment_run_items "

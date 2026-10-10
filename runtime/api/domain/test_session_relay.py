@@ -65,8 +65,8 @@ def _add_wake_recipient(conn, *, message_id: str = "message-1") -> None:
         "'waiting')",
         (
             MACHINE_ID,
-            "2026-08-22T10:00:00Z",
-            "2026-08-22T10:30:00Z",
+            "2026-08-22T10:00:00.000000Z",
+            "2026-08-22T10:30:00.000000Z",
         ),
     )
     conn.execute(
@@ -76,8 +76,8 @@ def _add_wake_recipient(conn, *, message_id: str = "message-1") -> None:
         (
             message_id,
             "Never send this body through the native wake adapter.",
-            "2026-08-22T11:00:00Z",
-            "2026-08-23T12:00:00Z",
+            "2026-08-22T11:00:00.000000Z",
+            "2026-08-23T12:00:00.000000Z",
         ),
     )
     conn.execute(
@@ -85,7 +85,7 @@ def _add_wake_recipient(conn, *, message_id: str = "message-1") -> None:
         "(message_id,session_id,project_id,resolution_evidence,routing_snapshot,"
         "executor_surface,executor_version,machine_id,state,created_at,wake_after) "
         "VALUES (?,'target',10,'{}','{}','codex-cli','0.148.0a15',?,"
-        "'pending','2026-08-22T11:00:00Z','2026-08-22T11:10:00Z')",
+        "'pending','2026-08-22T11:00:00.000000Z','2026-08-22T11:10:00.000000Z')",
         (message_id, MACHINE_ID),
     )
     conn.commit()
@@ -116,7 +116,7 @@ def test_idle_launch_capable_heartbeat_keeps_active_cadence() -> None:
     assert row[2] == "0.1.1"
     assert json.loads(row[3]) == {"codex-cli": "0.148.0a15"}
     assert json.loads(row[4]) == [10]
-    assert row[5] == "2026-08-22T12:02:00Z"
+    assert row[5] == "2026-08-22T12:02:00.000000Z"
     assert json.loads(row[6]) == ["claude-cli"]
 
 
@@ -182,7 +182,7 @@ def test_wake_claim_carries_only_id_and_report_is_redacted_idempotent() -> None:
             "stderr": "secret output",
             "token": "never persist",
         },
-        now="2026-08-22T12:00:10Z",
+        now="2026-08-22T12:00:10.000000Z",
     )
     duplicate = report_relay_job(
         conn,
@@ -193,7 +193,7 @@ def test_wake_claim_carries_only_id_and_report_is_redacted_idempotent() -> None:
         lease_id=claimed.jobs[0].lease_id,
         result_code="accepted",
         adapter_revision="adapter-1",
-        now="2026-08-22T12:00:11Z",
+        now="2026-08-22T12:00:11.000000Z",
     )
 
     assert duplicate == reported
@@ -241,10 +241,10 @@ def test_live_lease_blocks_a_second_job_and_expires_without_guessing() -> None:
             job_id=first.jobs[0].job_id,
             lease_id=first.jobs[0].lease_id,
             result_code="accepted",
-            now="2026-08-22T12:01:31Z",
+            now="2026-08-22T12:01:31.000000Z",
         )
     assert late.value.code == "relay_lease_expired"
-    assert settle_expired_relay_leases(conn, now="2026-08-22T12:01:31Z") == 1
+    assert settle_expired_relay_leases(conn, now="2026-08-22T12:01:31.000000Z") == 1
     attempt = conn.execute(
         "SELECT completed_at,result_code,evidence FROM session_message_attempts"
     ).fetchone()
@@ -297,7 +297,7 @@ def test_launch_claim_separates_attestation_and_redacts_report() -> None:
         native_session_id="native-session",
         adapter_revision="adapter-1",
         evidence={"exit_code": 0, "stdout": "secret"},
-        now="2026-08-22T12:00:20Z",
+        now="2026-08-22T12:00:20.000000Z",
     )
     duplicate = report_relay_job(
         conn,
@@ -309,7 +309,7 @@ def test_launch_claim_separates_attestation_and_redacts_report() -> None:
         result_code="native_created",
         native_session_id="native-session",
         adapter_revision="adapter-1",
-        now="2026-08-22T12:00:21Z",
+        now="2026-08-22T12:00:21.000000Z",
     )
 
     assert result["state"] == "awaiting_registration"

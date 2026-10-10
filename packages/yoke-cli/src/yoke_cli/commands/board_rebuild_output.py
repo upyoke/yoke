@@ -24,6 +24,7 @@ from yoke_cli.board import outcome as _outcome
 from yoke_cli.board.outcome import REBUILT, FAILED, PRINTED, RebuildResult
 from yoke_cli.board.rebuild import resolve_board_path
 from yoke_contracts.api.function_call import FunctionError
+from yoke_contracts.timestamps import format_instant
 
 
 def write_board_rebuild_human(response, stdout, _stderr) -> None:
@@ -55,7 +56,9 @@ def coerce_rebuild_outcome(result: object) -> RebuildResult:
 
 
 def result_board_path(
-    result: RebuildResult, repo_root: Path, output_name: str | None,
+    result: RebuildResult,
+    repo_root: Path,
+    output_name: str | None,
 ) -> Path:
     if result.board_path:
         return Path(result.board_path)
@@ -136,6 +139,10 @@ def emit_board_json(
     *,
     event_ids: list[str] | None = None,
 ) -> None:
+    payload = dict(payload)
+    for field in ("started_at", "completed_at"):
+        if field in payload and payload[field] is not None:
+            payload[field] = format_instant(payload[field])
     error = _board_error(result)
     envelope = {
         "success": result.exit_code == 0,
@@ -152,12 +159,15 @@ def emit_board_json(
 
 def emit_board_human(result: RebuildResult, payload: Dict[str, Any]) -> None:
     if result.exit_code == 0:
+
         class _Response:
             def __init__(self, result):
                 self.result = result
 
         write_board_rebuild_human(
-            _Response(payload), stdout=sys.stdout, _stderr=sys.stderr,
+            _Response(payload),
+            stdout=sys.stdout,
+            _stderr=sys.stderr,
         )
         return
 
@@ -185,15 +195,19 @@ def emit_board_print(
     # The status line below still lands on stderr, after the pager exits.
     page_or_write(output, enabled=not no_pager)
     if result.exit_code == 0:
+
         class _Response:
             def __init__(self, result):
                 self.result = result
 
         write_board_rebuild_human(
-            _Response(payload), stdout=sys.stderr, _stderr=sys.stderr,
+            _Response(payload),
+            stdout=sys.stderr,
+            _stderr=sys.stderr,
         )
         return
     emit_board_human(result, payload)
+
 
 __all__ = [
     "board_payload",

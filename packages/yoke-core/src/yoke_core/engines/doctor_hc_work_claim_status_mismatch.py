@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import InvalidInstant, parse_instant, utc_now
 from typing import Any, Optional
 
 import yoke_core.engines.doctor_report as _base
@@ -42,17 +43,12 @@ def _scan_sql(conn: Any) -> str:
     """
 
 
-def _heartbeat_age_minutes(value: Optional[str], now: datetime) -> Optional[float]:
-    if not value:
-        return None
-    try:
-        text = value.replace("Z", "+00:00") if value.endswith("Z") else value
-        dt = datetime.fromisoformat(text)
-    except (TypeError, ValueError):
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return (now - dt).total_seconds() / 60.0
+def _heartbeat_age_minutes(
+    value: datetime | str | None, now: datetime
+) -> Optional[float]:
+    return (
+        None if value is None else (now - parse_instant(value)).total_seconds() / 60.0
+    )
 
 
 def hc_work_claim_status_mismatch(
@@ -67,7 +63,7 @@ def hc_work_claim_status_mismatch(
             return
 
     ttl_minutes = get_int("session_stale_ttl_minutes", _DEFAULT_STALE_TTL_MINUTES)
-    now = datetime.now(timezone.utc)
+    now = utc_now()
 
     try:
         rows = conn.execute(_scan_sql(conn)).fetchall()
@@ -81,7 +77,13 @@ def hc_work_claim_status_mismatch(
     for row in rows:
         status = row["item_status"]
         mode = row["session_mode"]
-        age = _heartbeat_age_minutes(row["session_last_heartbeat"], now)
+        try:
+            age = _heartbeat_age_minutes(row["session_last_heartbeat"], now)
+            clock_error = ""
+        except InvalidInstant as exc:
+            age = None
+            clock_error = f" clock_refused={exc}"
+
         fresh = row["session_ended_at"] is None and age is not None
         fresh = fresh and age <= ttl_minutes
 
@@ -101,7 +103,7 @@ def hc_work_claim_status_mismatch(
         findings.append(
             f"  - {public_ref} status={status} "
             f"holder={row['session_id']} mode={mode or '<none>'}{ended_clause} "
-            f"heartbeat_age={age_text} claim_id={int(row['claim_id'])} "
+            f"heartbeat_age={age_text}{clock_error} claim_id={int(row['claim_id'])} "
             f"recovery: {recovery}"
         )
 

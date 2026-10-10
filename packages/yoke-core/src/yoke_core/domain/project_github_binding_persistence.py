@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import Any, Optional
 
 from yoke_contracts.project_contract.github_sync_mode import (
@@ -9,7 +11,7 @@ from yoke_contracts.project_contract.github_sync_mode import (
     GITHUB_SYNC_ENABLED,
 )
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_one
+from yoke_core.domain.db_helpers import instant_parameter, query_one
 
 
 class ProjectGithubBindingError(ValueError):
@@ -36,7 +38,7 @@ def persist_verified_installation(
     repository_selection: str,
     permissions: str,
     status: str,
-    verified_at: str,
+    verified_at: datetime,
     last_error: Optional[str],
 ) -> None:
     """Upsert an installation while atomically preserving its API origin."""
@@ -78,10 +80,10 @@ def persist_verified_installation(
             repository_selection,
             permissions,
             status,
-            verified_at,
+            instant_parameter(conn, verified_at),
             last_error,
-            verified_at,
-            verified_at,
+            instant_parameter(conn, verified_at),
+            instant_parameter(conn, verified_at),
         ),
     )
     if write.rowcount == 0:
@@ -101,7 +103,7 @@ def persist_project_binding(
     repository_is_private: bool,
     status: str,
     permissions: str,
-    verified_at: str,
+    verified_at: datetime,
     last_error: Optional[str],
 ) -> None:
     """Upsert one project's repository binding with unique ownership."""
@@ -138,10 +140,10 @@ def persist_project_binding(
                 repository_is_private,
                 status,
                 permissions,
-                verified_at,
+                instant_parameter(conn, verified_at),
                 last_error,
-                verified_at,
-                verified_at,
+                instant_parameter(conn, verified_at),
+                instant_parameter(conn, verified_at),
             ),
         )
     except db_backend.integrity_error_types(conn) as exc:

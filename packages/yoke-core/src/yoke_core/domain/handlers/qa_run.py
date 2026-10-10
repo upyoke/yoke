@@ -69,7 +69,7 @@ class QaRunRecordVerdictResponse(BaseModel):
 
 
 def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome:
-    from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
+    from yoke_core.domain.db_helpers import connect, utc_now, query_one
     from yoke_core.domain import qa_events
     from yoke_core.domain.qa_constants import (
         VALID_VERDICTS,
@@ -168,7 +168,7 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
             raw_result, row.get("method_config"), conn=conn, requirement_id=int(req_id)
         )
 
-        now_iso = iso8601_now()
+        now = utc_now()
         resolved_capture_id = (
             unreviewed_capture_run_id(conn, int(req_id)) if agent_browser else None
         )
@@ -201,9 +201,9 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
                 case_outcome=case_outcome_for_verdict(verdict),
                 raw_result=raw_result,
                 duration_ms=duration_ms,
-                started_at=now_iso,
-                completed_at=now_iso,
-                created_at=now_iso,
+                started_at=now,
+                completed_at=now,
+                created_at=now,
             ).run_id
         if agent_browser:
             from yoke_core.domain.qa_captured_inspection_review import (

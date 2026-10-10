@@ -18,7 +18,7 @@ from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
     _recipients,
     seed_session,
 )
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.deployment_run_driver_attachment import (
     PHASE_EXECUTING,
     attach_driver,
@@ -37,7 +37,7 @@ def _driven_run(conn: Any, run_id: str, session_id: str) -> None:
     conn.execute(
         "INSERT INTO deployment_runs (id,project_id,flow,status,created_at) "
         "VALUES (%s,%s,'flow-wake','executing',%s)",
-        (run_id, PROJECT_YOKE, iso8601_now()),
+        (run_id, PROJECT_YOKE, instant_parameter(conn, utc_now())),
     )
     attach_driver(conn, run_id, session_id=session_id, pid=4242, phase=PHASE_EXECUTING)
     conn.commit()

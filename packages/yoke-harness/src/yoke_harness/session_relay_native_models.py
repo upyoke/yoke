@@ -12,14 +12,14 @@ the one thing that is certainly untrue.
 
 from __future__ import annotations
 
-from yoke_contracts.machine_config.directories import create_private_directory
-
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
-import json
+from datetime import datetime
+
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+from yoke_harness.session_relay_probe_cache import read_probe_cache, write_probe_cache
+from yoke_contracts.timestamps import iso8601_now as _now_iso
 from pathlib import Path
 import subprocess
-import time
 from typing import Any, Callable, Mapping, Sequence
 
 from yoke_contracts.harness_cli_manifest import harness_cli_manifest
@@ -62,7 +62,7 @@ NATIVE_MODEL_REFRESH_SECONDS = 45
 NATIVE_MODEL_CACHE_FILE_NAME = "native-models.json"
 #: Bumped whenever the cached reading shape changes, so an upgraded relay
 #: publishes real readings on its first poll rather than unreadable ones.
-NATIVE_MODEL_CACHE_SCHEMA_VERSION = 1
+NATIVE_MODEL_CACHE_SCHEMA_VERSION = 2
 NATIVE_MODEL_PROBE_TIMEOUT_SECONDS = 20.0
 _CODEX_LIST_METHOD = "model/list"
 _CODEX_OPERATION = "codex native model listing"
@@ -75,10 +75,6 @@ def _bounded_output(completed: subprocess.CompletedProcess[str]) -> str:
     """One line of the child's own words, so a log entry stays a log entry."""
     text = (completed.stderr or completed.stdout or "").strip().splitlines()
     return text[0][:160] if text else "no output"
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _cache_path(state_dir: Path | None) -> Path | None:
@@ -99,43 +95,11 @@ def _cache_path(state_dir: Path | None) -> Path | None:
 
 
 def _read_cache(state_dir: Path | None) -> dict[str, Any]:
-    empty: dict[str, Any] = {
-        "schema_version": NATIVE_MODEL_CACHE_SCHEMA_VERSION,
-        "probed_at": 0.0,
-        "surfaces": {},
-    }
-    path = _cache_path(state_dir)
-    if path is None:
-        return empty
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, TypeError, ValueError):
-        return empty
-    if not isinstance(payload, Mapping):
-        return empty
-    if payload.get("schema_version") != NATIVE_MODEL_CACHE_SCHEMA_VERSION:
-        return empty
-    try:
-        probed_at = float(payload.get("probed_at") or 0)
-    except (TypeError, ValueError):
-        probed_at = 0.0
-    surfaces = payload.get("surfaces")
-    return {
-        "schema_version": NATIVE_MODEL_CACHE_SCHEMA_VERSION,
-        "probed_at": probed_at,
-        "surfaces": dict(surfaces) if isinstance(surfaces, Mapping) else {},
-    }
+    return read_probe_cache(_cache_path(state_dir), NATIVE_MODEL_CACHE_SCHEMA_VERSION)
 
 
 def _write_cache(document: Mapping[str, Any], state_dir: Path | None) -> None:
-    path = _cache_path(state_dir)
-    if path is None:
-        return
-    create_private_directory(path.parent)
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(document, sort_keys=True), encoding="utf-8")
-    temporary.chmod(0o600)
-    temporary.replace(path)
+    write_probe_cache(_cache_path(state_dir), document)
 
 
 def _cursor_failure(reason: str, detail: str) -> dict[str, Any]:
@@ -279,7 +243,7 @@ def observe_native_models(
     surfaces: Sequence[str] | None = None,
     *,
     state_dir: Path | None = None,
-    now: float | None = None,
+    now: datetime | str | None = None,
     clock: Callable[[], str] = _now_iso,
     force: bool = False,
 ) -> dict[str, dict[str, Any]]:
@@ -288,7 +252,7 @@ def observe_native_models(
     ``force`` skips the cadence for a bounded refresh at dispatch time, when a
     caller is about to place work and wants this machine's newest answer.
     """
-    current = time.time() if now is None else now
+    current = utc_now() if now is None else parse_instant(now)
     wanted = tuple(
         surface
         for surface in NATIVE_MODEL_SURFACES
@@ -296,12 +260,13 @@ def observe_native_models(
     )
     document = _read_cache(state_dir)
     cached = sanitize_native_models(document.get("surfaces"))
-    fresh_enough = (
-        current - float(document.get("probed_at") or 0)
-    ) < NATIVE_MODEL_REFRESH_SECONDS
+    probed_at = document["probed_at"]
+    fresh_enough = probed_at is not None and (
+        0 <= (current - probed_at).total_seconds() < NATIVE_MODEL_REFRESH_SECONDS
+    )
     if not force and fresh_enough and all(surface in cached for surface in wanted):
         return {surface: cached[surface] for surface in wanted}
-    observed_at = clock()
+    observed_at = format_instant(clock())
     probeable = tuple(surface for surface in wanted if surface in NATIVE_MODEL_PROBES)
     readings: dict[str, dict[str, Any]] = {
         surface: empty_reading(surface, "unsupported", NO_ADAPTER_REASON)

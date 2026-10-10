@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.timestamps import utc_now
+
+from .db_helpers import instant_parameter
+
 from . import sessions_analytics as _sa
 from .sessions_analytics import (
     DEFAULT_STALE_THRESHOLD_MINUTES,
@@ -13,7 +17,7 @@ from .sessions_analytics import (
 from .session_launch_abandonment import settle_and_notify
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_lifecycle_registry import _get_claim, _get_session
-from .sessions_queries import _now_iso, _row_to_dict, clear_chain_checkpoint
+from .sessions_queries import _row_to_dict, clear_chain_checkpoint
 from .sessions_render_attribution import (
     clear_current_item,
     release_item_focus_if_current,
@@ -88,7 +92,7 @@ def reclaim_stale_session(
     session's to spend, and a reclaimed session's leftover checkpoint would
     keep refusing later end attempts with ``chain_pending``.
     """
-    now = _now_iso()
+    now = utc_now()
 
     session_rows = lock_session_rows_for_claim_lifecycle(conn, (session_id,))
     if session_id not in session_rows:
@@ -139,7 +143,7 @@ def reclaim_stale_session(
             "UPDATE work_claims SET released_at = %s, "
             "release_reason = 'reclaimed' "
             "WHERE id = %s AND released_at IS NULL",
-            (now, claim_row["id"]),
+            (instant_parameter(conn, now), claim_row["id"]),
         )
         if cursor.rowcount:
             released_claim_rows.append(claim_row)
@@ -149,7 +153,7 @@ def reclaim_stale_session(
     clear_chain_checkpoint(conn, session_id)
     conn.execute(
         "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
-        (now, session_id),
+        (instant_parameter(conn, now), session_id),
     )
     conn.commit()
 
@@ -197,7 +201,7 @@ def handoff_claim(
     Releases the old claim with reason 'handed_off' and creates a new claim
     for the target session.  Returns the new claim record.
     """
-    now = _now_iso()
+    now = utc_now()
 
     # Discover the immutable source session without taking the claim lock.
     # The actual claim state is re-read after the canonical
@@ -257,7 +261,7 @@ def handoff_claim(
     # Release old claim
     conn.execute(
         "UPDATE work_claims SET released_at = %s, release_reason = 'handed_off' WHERE id = %s",
-        (now, claim_id),
+        (instant_parameter(conn, now), claim_id),
     )
 
     # Create new claim for target — preserves the typed-target shape from
@@ -273,8 +277,8 @@ def handoff_claim(
             old_dict["target_kind"],
             old_dict["scope"],
             old_dict["claim_type"],
-            now,
-            now,
+            instant_parameter(conn, now),
+            instant_parameter(conn, now),
         ),
     )
     if old_target.kind == "item":

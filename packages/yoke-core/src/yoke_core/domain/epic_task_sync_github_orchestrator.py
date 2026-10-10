@@ -7,8 +7,7 @@ from typing import Any, Optional, TextIO
 
 import yoke_core.domain.epic_task_sync_github as _etsg
 import yoke_core.domain.epic_task_sync_github_orchestrator_body as _body
-from yoke_core.domain import db_backend, github_rest
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain import github_rest
 from yoke_core.domain.github_constraints import is_real_issue_num
 from yoke_core.domain.item_worktrees import record_worker_item_worktree
 from yoke_core.domain.worktree_naming import worktree_name_for_item
@@ -307,25 +306,6 @@ def sync_epic_tasks(
                     (int(lane["id"]), epic_name, int(db_tnum)),
                 )
             conn.commit()
-
-            # Insert history entry
-            try:
-                conn.execute(
-                    f"""INSERT INTO epic_task_history (epic_id, task_num, from_status, to_status, note, created_at)
-                       VALUES ({p}, {p}, {p}, {p}, {p}, {p})""",
-                    (
-                        epic_name,
-                        int(db_tnum),
-                        "none",
-                        "pending",
-                        "Created via sync",
-                        iso8601_now(),
-                    ),
-                )
-                conn.commit()
-            except db_backend.operational_error_types(conn):
-                conn.rollback()
-                pass  # history table may not exist in test fixtures
 
         return finalize_sync(
             dry_run=dry_run,

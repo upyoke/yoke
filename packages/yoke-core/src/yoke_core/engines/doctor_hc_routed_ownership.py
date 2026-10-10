@@ -1,17 +1,15 @@
 """Routed-ownership doctor health checks.
 
-Three read-only invariants on the routed-ownership defense backing
-:func:`yoke_core.domain.frontier_recent_owner.routed_ownership_exclusions`.
-All three read first-class claim/chain state (``work_claims.release_reason_intent``,
-``harness_sessions.last_chain_step`` / ``last_checkpoint_at`` / ``offered_at``)
-— never the events ledger. All three self-skip on minimal-schema fixtures
-and never auto-fix.
+Read-only claim and checkpoint invariants for routed ownership.
+Checks skip missing schema and never change recorded state.
 """
 
 from __future__ import annotations
 
 import json
 from typing import Any, Dict, List, Optional
+
+from yoke_contracts.timestamps import format_instant, parse_instant
 
 import yoke_core.engines.doctor_report as _base
 from yoke_core.domain import db_backend
@@ -309,11 +307,13 @@ def hc_session_checkpoint_integrity(
 
     lines: List[str] = []
     hit_count = 0
-    min_offered_at = _base._read_str_cutoff(
-        "hc_session_checkpoint_min_created_at",
-    )
+    cutoff = _base._read_str_cutoff("hc_session_checkpoint_min_created_at")
+    min_offered_at = parse_instant(cutoff) if cutoff else None
     for row in conn.execute(_CLOBBER_SQL).fetchall():
-        if min_offered_at and (row["offered_at"] or "") < min_offered_at:
+        offered = row["offered_at"]
+        if min_offered_at is not None and (
+            offered is None or parse_instant(offered) < min_offered_at
+        ):
             continue
         max_step = row["max_step"]
         if max_step is None:
@@ -323,10 +323,12 @@ def hc_session_checkpoint_integrity(
             continue
         hit_count += 1
         cur = current_step if current_step is not None else "absent"
+        checkpoint = row["last_checkpoint_at"]
+        clock = format_instant(checkpoint) if checkpoint is not None else None
         lines.append(
             f"  - session={row['session_id']} max_step={int(max_step)} "
             f"current_step={cur} "
-            f"last_checkpoint_at={row['last_checkpoint_at']}"
+            f"last_checkpoint_at={clock}"
         )
 
     if hit_count == 0:

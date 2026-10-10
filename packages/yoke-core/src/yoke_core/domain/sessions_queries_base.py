@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import iso8601_now
 from typing import Any, Dict, Optional
 
 from . import db_backend
@@ -65,7 +65,7 @@ def display_claim_item_id(
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return iso8601_now()
 
 
 def _row_to_dict(row: Any) -> Dict[str, Any]:

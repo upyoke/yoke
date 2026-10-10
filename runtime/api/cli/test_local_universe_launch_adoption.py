@@ -256,7 +256,9 @@ def test_the_adopted_handle_carries_the_native_reading_to_the_relay(
         ),
     )
 
-    monkeypatch.setattr("yoke_harness.session_process_custody.group_members", lambda group: {})
+    monkeypatch.setattr(
+        "yoke_harness.session_process_custody.group_members", lambda group: {}
+    )
 
     def one_poll() -> dict:
         dispatcher = _RecordingDispatcher()

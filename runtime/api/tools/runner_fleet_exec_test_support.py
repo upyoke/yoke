@@ -8,13 +8,10 @@ from yoke_core.domain import json_helper
 
 
 _SECRET_ARN = (
-    "arn:aws:secretsmanager:us-east-1:123456789012:"
-    "secret:yoke-github-app-AbCdEf"
+    "arn:aws:secretsmanager:us-east-1:123456789012:secret:yoke-github-app-AbCdEf"
 )
 _PRIVATE_KEY = (
-    "-----BEGIN PRIVATE KEY-----\n"
-    "PRIVATE_KEY_MATERIAL\n"
-    "-----END PRIVATE KEY-----\n"
+    "-----BEGIN PRIVATE KEY-----\nPRIVATE_KEY_MATERIAL\n-----END PRIVATE KEY-----\n"
 )
 _TOKEN = "ghs_repository_scoped_token"
 
@@ -110,9 +107,7 @@ def _runner_values(
         "runner_fleet_github_repository_id": "789012",
         "runner_fleet_github_api_url": "https://api.github.com",
         "runner_fleet_github_web_url": "https://github.com",
-        "runner_fleet_routing_enabled": (
-            "true" if routing_enabled else "false"
-        ),
+        "runner_fleet_routing_enabled": ("true" if routing_enabled else "false"),
         "runner_fleet_labels_json": (
             '["self-hosted","Linux","ARM64","yoke-github-actions"]'
         ),
@@ -124,6 +119,8 @@ def _runner_values(
         "runner_fleet_root_volume_gb": "200",
         "runner_fleet_idle_shutdown_minutes": "30",
         "runner_fleet_shutdown_mode": "terminate",
+        "runner_fleet_lifecycle_writers_paused": "false",
+        "runner_fleet_lifecycle_code_frozen": "false",
         "runner_fleet_deployment_ssh_stack_outputs_json": (
             json_helper.dumps_compact(deployment_ssh_stack_outputs or {})
         ),

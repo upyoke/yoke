@@ -6,6 +6,7 @@ or single-value returns into structured function responses.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
@@ -34,7 +35,7 @@ class ProjectsGetRequest(BaseModel):
 class ProjectsGetResponse(BaseModel):
     project: str
     field: Optional[str] = None
-    value: Optional[str] = None
+    value: str | int | datetime | None = None
     row: Optional[Dict[str, Any]] = None
 
 

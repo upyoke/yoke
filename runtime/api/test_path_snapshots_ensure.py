@@ -60,7 +60,7 @@ def _make_apply_schema(repo_path: Path, project_id: str = "demo"):
                 "id INTEGER PRIMARY KEY, slug TEXT UNIQUE NOT NULL, "
                 "name TEXT NOT NULL, "
                 "public_item_prefix TEXT NOT NULL DEFAULT 'YOK', "
-                "created_at TEXT NOT NULL)"
+                "created_at TIMESTAMPTZ NOT NULL)"
             )
             register_machine_checkout(
                 repo_path.parent / "machine-config",
@@ -142,7 +142,8 @@ class TestEnsureSnapshotAt:
             assert snap_id > 0
             p = _p(conn)
             paths = {
-                r[0] for r in conn.execute(
+                r[0]
+                for r in conn.execute(
                     "SELECT path_string FROM path_targets t "
                     "JOIN path_snapshot_entries e ON e.target_id = t.id "
                     f"WHERE e.snapshot_id = {p} AND t.kind = 'file'",
@@ -166,7 +167,8 @@ class TestEnsureSnapshotAt:
             assert snap_id_old != snap_id_head
             p = _p(conn)
             old_paths = {
-                r[0] for r in conn.execute(
+                r[0]
+                for r in conn.execute(
                     "SELECT path_string FROM path_targets t "
                     "JOIN path_snapshot_entries e ON e.target_id = t.id "
                     f"WHERE e.snapshot_id = {p} AND t.kind = 'file'",
@@ -174,7 +176,8 @@ class TestEnsureSnapshotAt:
                 ).fetchall()
             }
             head_paths = {
-                r[0] for r in conn.execute(
+                r[0]
+                for r in conn.execute(
                     "SELECT path_string FROM path_targets t "
                     "JOIN path_snapshot_entries e ON e.target_id = t.id "
                     f"WHERE e.snapshot_id = {p} AND t.kind = 'file'",
@@ -203,13 +206,13 @@ class TestEnsureHeadCli:
     def test_cli_ensure_head_invokes_build_head(self, tmp_path, monkeypatch):
         repo, _sha1, sha2 = _make_repo(tmp_path)
 
-        with init_test_db(
-            tmp_path, apply_schema=_make_apply_schema(repo)
-        ) as db_path:
+        with init_test_db(tmp_path, apply_schema=_make_apply_schema(repo)) as db_path:
             from yoke_core.domain import schema_common as _schema
+
             monkeypatch.setattr(_schema, "_resolve_db_path", lambda: db_path)
 
             from yoke_core.domain import path_snapshots as _ps
+
             rc = _ps.main(["--ensure-head", "demo"])
             assert rc == 0
 
@@ -227,6 +230,7 @@ class TestEnsureHeadCli:
 
     def test_cli_no_args_errors(self, tmp_path):
         from yoke_core.domain import path_snapshots as _ps
+
         with pytest.raises(SystemExit):
             _ps.main([])
 
@@ -261,13 +265,13 @@ class TestEnsureHeadCli:
         local_sha = _git(repo, "rev-parse", "HEAD")
         assert origin_sha != local_sha
 
-        with init_test_db(
-            tmp_path, apply_schema=_make_apply_schema(repo)
-        ) as db_path:
+        with init_test_db(tmp_path, apply_schema=_make_apply_schema(repo)) as db_path:
             from yoke_core.domain import schema_common as _schema
+
             monkeypatch.setattr(_schema, "_resolve_db_path", lambda: db_path)
 
             from yoke_core.domain import path_snapshots as _ps
+
             rc = _ps.main(["--ensure-head", "demo"])
             assert rc == 0
 
@@ -285,8 +289,6 @@ class TestEnsureHeadCli:
                     (_project_row_id("demo"), origin_sha),
                 ).fetchone()
                 assert local_row is not None, "local HEAD snapshot missing"
-                assert origin_row is not None, (
-                    "integration-target snapshot missing"
-                )
+                assert origin_row is not None, "integration-target snapshot missing"
             finally:
                 check.close()

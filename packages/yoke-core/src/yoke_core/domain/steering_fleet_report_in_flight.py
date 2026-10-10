@@ -32,6 +32,10 @@ alarm where the seat can see it.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
+from datetime import datetime
+
 import re
 from dataclasses import dataclass
 from typing import Any, Sequence
@@ -83,7 +87,7 @@ class InFlightCall:
     item_id: int
     public_ref: str
     command: str
-    started_at: str
+    started_at: datetime
     open_seconds: int
     quiet_reason: str = ""
 
@@ -167,8 +171,10 @@ def in_flight_calls(
         command = long_running_command(open_call.get("command_summary"))
         if command is None:
             continue
-        started_at = str(open_call.get("started_at") or "")
-        if not session_call_is_live(open_call, started_at=started_at):
+        started_at = parse_stamp(open_call.get("started_at"))
+        if started_at is None or not session_call_is_live(
+            open_call, started_at=started_at
+        ):
             continue
         open_seconds = age_seconds(started_at, now) or 0
         if open_seconds >= IN_FLIGHT_CEILING_SECONDS:
@@ -237,7 +243,7 @@ def in_flight_dicts(calls: tuple[InFlightCall, ...]) -> list[dict[str, Any]]:
             "item_id": call.item_id,
             "public_ref": call.public_ref,
             "command": call.command,
-            "started_at": call.started_at,
+            "started_at": format_instant(call.started_at),
             "open_seconds": call.open_seconds,
             "quiet_reason": call.quiet_reason or None,
         }

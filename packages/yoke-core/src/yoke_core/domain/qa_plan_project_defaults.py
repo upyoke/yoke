@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_core.domain.db_helpers import iso8601_now, query_one
+from yoke_core.domain.db_helpers import instant_parameter, utc_now, query_one
 from yoke_core.domain.qa_plan_attachment_validation import require_plan_cases
 from yoke_core.domain.qa_plan_management import (
     QaPlanError,
@@ -35,7 +35,7 @@ def set_project_default(
         is None
     ):
         raise QaPlanError(f"workflow {workflow_id!r} not found")
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     conn.execute(
         "INSERT INTO qa_plan_project_defaults("
         "project_id, workflow_id, transition_id, qa_phase, plan_id, "

@@ -132,7 +132,8 @@ def test_failed_dump_removes_partial_archive(monkeypatch, tmp_path) -> None:
 def test_dump_retries_ssl_eof_then_succeeds(monkeypatch, tmp_path) -> None:
     calls: list[tuple] = []
 
-    def _fake_run(argv, *, redact, timeout, env, progress_file):
+    def _fake_run(argv, *, redact, timeout, env, progress_file, resource_guard):
+        assert resource_guard is None
         calls.append((list(argv), redact, timeout, env))
         assert progress_file == dump
         if len(calls) == 1:
@@ -178,7 +179,8 @@ def test_dump_restores_the_forward_before_copying_again(monkeypatch, tmp_path) -
     """A retry through a dead forward is another failure; heal it first."""
     events: list[str] = []
 
-    def _fake_run(argv, *, redact, timeout, env, progress_file):
+    def _fake_run(argv, *, redact, timeout, env, progress_file, resource_guard):
+        assert resource_guard is None
         del argv, redact, timeout, env, progress_file
         events.append("copy")
         if events.count("copy") == 1:

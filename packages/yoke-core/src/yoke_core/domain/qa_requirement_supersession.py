@@ -37,7 +37,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
+from yoke_contracts.timestamps import parse_instant
+
+from yoke_core.domain.db_helpers import (
+    instant_parameter,
+    utc_now,
+    query_one,
+    query_rows,
+)
 from yoke_core.domain.qa_events import emit_qa_requirement_event
 from yoke_core.domain.qa_obligation_settlement import requirement_retracted_at_select
 from yoke_core.domain.qa_requirement_source_retirement import (
@@ -237,7 +244,8 @@ def record_supersession(
             f"superseded_by={broken.get('superseded_by_requirement_id')}, source={broken.get('supersession_source')}): {rationale}"
         ).strip()
 
-    now = broken.get("superseded_at") or iso8601_now()
+    previous = broken.get("superseded_at")
+    now = parse_instant(previous) if previous is not None else utc_now()
     conn.execute(
         "UPDATE qa_requirements SET superseded_by_requirement_id=%s,replacement_requirement_id=%s,"
         "superseded_at=%s,supersession_rationale=%s,supersession_source=%s "
@@ -247,7 +255,7 @@ def record_supersession(
             int(superseded_by_requirement_id)
             if broken.get("replacement_requirement_id")
             else None,
-            now,
+            instant_parameter(conn, now),
             rationale,
             str(source),
             int(requirement_id),

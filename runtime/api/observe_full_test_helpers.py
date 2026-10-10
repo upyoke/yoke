@@ -69,7 +69,7 @@ _PROJECTS_DDL = """CREATE TABLE projects (
     name TEXT NOT NULL,
     github_repo TEXT,
     public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
-    created_at TEXT NOT NULL DEFAULT ''
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );"""
 
 
@@ -106,7 +106,7 @@ _EVENTS_DDL = """CREATE TABLE events (
     hook_event_name TEXT,
     client_timing_id TEXT,
     envelope TEXT,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 )"""
 
 

@@ -12,7 +12,7 @@
 
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { steeringMarker } from "./universe_sessions_steering.js";
-import { relativeAgePhrase } from "./universe_time.js";
+import { elapsedSeconds, relativeAgePhrase, SECONDS_PER_DAY } from "./universe_time.js";
 import { el, statePill } from "./universe_view_support.js";
 
 // Documents every project has from its cold start, in the order they build on
@@ -23,16 +23,15 @@ export const STANDING_DOC_ORDER = [
 ];
 
 const STANDING_DOCS = new Set(STANDING_DOC_ORDER);
-const DAY_MS = 86_400_000;
 
 export function isStandingDoc(doc) {
   return STANDING_DOCS.has(String(doc.slug || ""));
 }
 
 function staleTone(updatedAt, now = Date.now()) {
-  const timestamp = new Date(updatedAt).getTime();
-  if (Number.isNaN(timestamp)) return "unknown";
-  const days = Math.max(0, now - timestamp) / DAY_MS;
+  const seconds = elapsedSeconds(updatedAt, now);
+  if (seconds === null) return "unknown";
+  const days = seconds / SECONDS_PER_DAY;
   if (days < 1) return "today";
   if (days < 7) return "week";
   if (days < 30) return "month";

@@ -32,8 +32,8 @@ def ensure_schema(conn: Any) -> None:
           project_id INTEGER NOT NULL REFERENCES projects(id),
           state TEXT NOT NULL DEFAULT 'pending'
             CHECK(state IN ('pending', 'reflected', 'dismissed')),
-          first_seen_at TEXT NOT NULL,
-          last_updated_at TEXT NOT NULL,
+          first_seen_at TIMESTAMPTZ NOT NULL,
+          last_updated_at TIMESTAMPTZ NOT NULL,
           last_session_id TEXT,
           reason TEXT,
           PRIMARY KEY (project_id, item_id)

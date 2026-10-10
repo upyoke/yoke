@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain.session_launch_execution import (
     claim_assigned_launch,
     reconcile_launch,
@@ -57,14 +59,14 @@ def test_bind_after_retry_realigns_message_ttl_so_recipient_survives_sweep() -> 
         lease_id=claim.lease_id,
         result_code="outcome_unknown",
         evidence={"result_code": "identity_parse_failed"},
-        now="2026-08-22T12:00:20Z",
+        now="2026-08-22T12:00:20.000000Z",
     )
     reconcile_launch(
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
         observed_native_id=None,
-        now="2026-08-22T12:09:00Z",
+        now="2026-08-22T12:09:00.000000Z",
     )
 
     # Retry resets the launch deadline but leaves the message pinned to the
@@ -73,10 +75,10 @@ def test_bind_after_retry_realigns_message_ttl_so_recipient_survives_sweep() -> 
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
-        now="2026-08-22T12:11:00Z",
+        now="2026-08-22T12:11:00.000000Z",
     )
     assert _message_expiry(conn, launch.message_id) == original_expiry
-    assert retried.deadline_at != original_expiry
+    assert retried.deadline_at != parse_instant(original_expiry)
 
     _register(conn, "retry-native")
     claim_two = claim_assigned_launch(
@@ -84,7 +86,7 @@ def test_bind_after_retry_realigns_message_ttl_so_recipient_survives_sweep() -> 
         launch_id=launch.launch_id,
         relay_id="relay-1",
         machine_id="machine-1",
-        now="2026-08-22T12:11:01Z",
+        now="2026-08-22T12:11:01.000000Z",
     )
     report_launch_attempt(
         conn,
@@ -92,16 +94,16 @@ def test_bind_after_retry_realigns_message_ttl_so_recipient_survives_sweep() -> 
         lease_id=claim_two.lease_id,
         result_code="native_created",
         native_session_id="retry-native",
-        now="2026-08-22T12:12:00Z",
+        now="2026-08-22T12:12:00.000000Z",
     )
 
     # Pickup restarted the retried window and realigned the message TTL to
     # it, so the expiry sweep run past the ORIGINAL deadline leaves the
     # recipient pending and injectable rather than flipping it to expired.
     live_deadline = get_launch(conn, launch.launch_id).deadline_at
-    assert live_deadline == "2026-08-22T12:21:01Z"
-    assert _message_expiry(conn, launch.message_id) == live_deadline
-    expire_due_recipients(conn, now=parse_time("2026-08-22T12:12:30Z"))
+    assert live_deadline == parse_instant("2026-08-22T12:21:01.000000Z")
+    assert parse_instant(_message_expiry(conn, launch.message_id)) == live_deadline
+    expire_due_recipients(conn, now=parse_time("2026-08-22T12:12:30.000000Z"))
     recipient = conn.execute(
         "SELECT state FROM session_message_recipients WHERE message_id=?",
         (launch.message_id,),
@@ -113,6 +115,6 @@ def test_bind_after_retry_realigns_message_ttl_so_recipient_survives_sweep() -> 
         launch_id=launch.launch_id,
         session_id="retry-native",
         injected=True,
-        now="2026-08-22T12:12:31Z",
+        now="2026-08-22T12:12:31.000000Z",
     )
     assert completed.state == "awaiting_registration"

@@ -17,7 +17,9 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import as_utc, utc_now
 from pathlib import Path
 
 from runtime.api.tools.serve_workbench_for_review import prepare_review_database
@@ -52,10 +54,8 @@ def _states() -> dict:
     return {state["id"]: state for state in json.loads(out.stdout)}
 
 
-def _stamp(**delta) -> str:
-    return (datetime.now(timezone.utc) - timedelta(**delta)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+def _stamp(**delta) -> datetime:
+    return as_utc(utc_now()) - timedelta(**delta)
 
 
 def _project(ref: str) -> tuple:

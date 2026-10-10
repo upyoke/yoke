@@ -13,7 +13,8 @@ from __future__ import annotations
 
 from yoke_core.domain import strategy_docs as sd
 from runtime.api.domain.strategy_docs_test_helpers import card_document
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.events import EmitResult
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -27,7 +28,7 @@ from yoke_core.domain.work_processes import PROCESS_STRATEGIZE
 SESSION_WITH_CLAIM = "session-strategy-claim"
 SESSION_WITHOUT_CLAIM = "session-no-claim"
 
-SEED_UPDATED_AT = "2026-06-10T00:00:00Z"
+SEED_UPDATED_AT = "2026-06-10T00:00:00.000000Z"
 
 SEED_SLUGS = ("MISSION", "VISION", "MASTER-PLAN", "LANDSCAPE", "PAD", "WISPS")
 
@@ -48,13 +49,18 @@ def seed_docs(conn, project_id: int = PROJECT_ID) -> None:
         conn.execute(
             f"INSERT INTO {sd.STRATEGY_DOCS_TABLE} "
             "(project_id, slug, content, updated_at) VALUES (%s, %s, %s, %s)",
-            (project_id, slug, SEED_CONTENT[slug], SEED_UPDATED_AT),
+            (
+                project_id,
+                slug,
+                SEED_CONTENT[slug],
+                instant_parameter(conn, parse_instant(SEED_UPDATED_AT)),
+            ),
         )
     conn.commit()
 
 
 def seed_session(conn, session_id: str) -> None:
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     conn.execute(
         "INSERT INTO harness_sessions (session_id, executor, provider, model, "
         "project_id, workspace, offered_at, last_heartbeat) "
@@ -72,7 +78,7 @@ def seed_process_claim(
     project_slug: str = PROJECT_SLUG,
     released: bool = False,
 ) -> None:
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     target = make_process_target(process_key, project_slug)
     conn.execute(
         "INSERT INTO work_claims (session_id, target_kind, scope, "

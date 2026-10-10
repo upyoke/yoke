@@ -7,7 +7,8 @@ and must refuse rather than invent when the authority has no row.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now
 
 import pytest
 
@@ -23,8 +24,8 @@ from yoke_core.domain.sessions_identity_read import (
 )
 
 
-def _iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _seen_at() -> datetime:
+    return utc_now()
 
 
 def _request(session_id: str) -> FunctionCallRequest:
@@ -47,7 +48,7 @@ def _insert_session(
     level: str = "DARIUS",
     workspace: str = "/tmp/workspace",
     project_id: int | None = 1,
-    ended_at: str | None = None,
+    ended_at: datetime | None = None,
 ) -> None:
     conn.execute(
         "INSERT INTO harness_sessions ("
@@ -65,8 +66,8 @@ def _insert_session(
             workspace,
             project_id,
             "wait",
-            _iso(),
-            _iso(),
+            _seen_at(),
+            _seen_at(),
             ended_at,
         ),
     )
@@ -144,7 +145,7 @@ class TestHandleIdentity:
         assert outcome.error.code == "no_session"
 
     def test_ended_session_is_refused_with_recovery(self, test_db, monkeypatch):
-        _insert_session(test_db, "identity-ended", ended_at=_iso())
+        _insert_session(test_db, "identity-ended", ended_at=_seen_at())
         monkeypatch.setattr(
             "yoke_core.domain.handlers.sessions_identity._connect_rw",
             lambda: _NonClosing(test_db),

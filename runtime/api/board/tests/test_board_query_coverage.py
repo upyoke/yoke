@@ -7,7 +7,7 @@ import json
 import re
 from datetime import date
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable
 
 import pytest
 
@@ -20,7 +20,6 @@ from yoke_contracts.board.data import (
 )
 from yoke_contracts.board.query_key import canonicalize_sql
 from yoke_contracts.board.sql import days_ago_expr, days_ago_text_expr
-from yoke_core.board.data import RecordingBoardDB, entry_key
 from yoke_core.board.db import BoardDB
 from yoke_core.board.renderer import _assemble
 from runtime.api.board.tests.helpers import insert_item, insert_task
@@ -28,7 +27,10 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
-QueryIdentity = tuple[str, str, str]
+from runtime.api.board.tests.board_query_recording_support import (
+    CoverageRecordingBoardDB as _CoverageRecordingBoardDB,
+    QueryIdentity,
+)
 
 # This is the frozen version-2 query plan, excluding reads that already carry
 # a payload-coverage probe. Do not refresh it for an ordinary query change:
@@ -69,44 +71,6 @@ da8bb3d8677b6e513e56094ab9010d8a1468a68b71779a5662832f7a5fcad962
 )
 _REPO_ROOT_TOKEN = "/Users/testy/code/yoke"
 _VISION_ENTRIES = [("1mo", "autonomous"), ("6mo", "fleet")]
-
-
-class _CoverageRecordingBoardDB(RecordingBoardDB):
-    """Record coverage probes while exercising the real recording seam."""
-
-    def __init__(
-        self,
-        inner: Any,
-        *,
-        unavailable: Iterable[QueryIdentity] = (),
-    ) -> None:
-        super().__init__(inner)
-        self.coverage_probes: set[QueryIdentity] = set()
-        self._unavailable = set(unavailable)
-
-    def has_query(
-        self,
-        sql: str,
-        params: Sequence[Any] | None = None,
-    ) -> bool:
-        return self._probe("query", sql, params)
-
-    def has_query_quiet(
-        self,
-        sql: str,
-        params: Sequence[Any] | None = None,
-    ) -> bool:
-        return self._probe("query_quiet", sql, params)
-
-    def _probe(
-        self,
-        kind: str,
-        sql: str,
-        params: Sequence[Any] | None,
-    ) -> bool:
-        identity = entry_key(kind, sql, params)
-        self.coverage_probes.add(identity)
-        return identity not in self._unavailable
 
 
 @pytest.fixture

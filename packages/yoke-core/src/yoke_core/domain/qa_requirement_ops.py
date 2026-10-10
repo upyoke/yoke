@@ -19,7 +19,8 @@ from typing import List, Optional
 
 from yoke_core.domain.db_helpers import (
     connect,
-    iso8601_now,
+    instant_parameter,
+    utc_now,
     query_one,
     query_rows,
 )
@@ -145,12 +146,12 @@ def waive_requirement(
             "Waiving a blocking requirement requires force=True."
         )
 
-    now = iso8601_now()
+    now = utc_now()
     conn.execute(
         """UPDATE qa_requirements
            SET waived_at = %s, waiver_rationale = %s, waiver_source = %s
            WHERE id = %s""",
-        (now, rationale, source, req_id),
+        (instant_parameter(conn, now), rationale, source, req_id),
     )
     conn.commit()
 

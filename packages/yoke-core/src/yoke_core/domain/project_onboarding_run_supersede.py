@@ -14,9 +14,11 @@ The checklist rows keep their own statuses — they are still true.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant, format_instant
 
 from yoke_core.domain import json_helper
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.schema_common import _table_exists
 
 RUN_STATUS_SUPERSEDED = "superseded"
@@ -30,7 +32,9 @@ DEPLOYMENT_RUNS_TABLE = "deployment_runs"
 
 
 def _overtaking_deployment(
-    conn: Any, project_id: int, run_updated_at: str,
+    conn: Any,
+    project_id: int,
+    run_updated_at: datetime | str,
 ) -> Optional[Dict[str, Any]]:
     """The deployment run that puts *project_id* past onboarding, or None.
 
@@ -38,6 +42,7 @@ def _overtaking_deployment(
     run newer than the checklist's last write does: the project moved on to
     delivery after the checklist stalled.
     """
+    updated_at = parse_instant(run_updated_at)
     succeeded = conn.execute(
         f"SELECT id, status, COALESCE(completed_at, created_at) FROM {DEPLOYMENT_RUNS_TABLE} "
         "WHERE project_id = %s AND status = 'succeeded' "
@@ -49,14 +54,14 @@ def _overtaking_deployment(
             f"SELECT id, status, COALESCE(completed_at, created_at) FROM {DEPLOYMENT_RUNS_TABLE} "
             "WHERE project_id = %s AND COALESCE(completed_at, created_at) > %s "
             "ORDER BY COALESCE(completed_at, created_at) DESC LIMIT 1",
-            (project_id, run_updated_at),
+            (project_id, instant_parameter(conn, updated_at)),
         ).fetchone()
     if succeeded is None:
         return None
     return {
         "deployment_run_id": str(succeeded[0]),
         "status": str(succeeded[1]),
-        "at": succeeded[2],
+        "at": parse_instant(succeeded[2]),
     }
 
 
@@ -66,7 +71,9 @@ def supersede_overtaken_runs(conn: Any) -> List[Dict[str, Any]]:
     Idempotent: a run already ``superseded`` is left alone, and a run whose
     project has not deployed is untouched. Returns the reconciled runs.
     """
-    if not (_table_exists(conn, RUNS_TABLE) and _table_exists(conn, DEPLOYMENT_RUNS_TABLE)):
+    if not (
+        _table_exists(conn, RUNS_TABLE) and _table_exists(conn, DEPLOYMENT_RUNS_TABLE)
+    ):
         return []
     candidates = conn.execute(
         f"SELECT run_id, project_id, updated_at, metadata_json FROM {RUNS_TABLE} "
@@ -74,19 +81,30 @@ def supersede_overtaken_runs(conn: Any) -> List[Dict[str, Any]]:
         (RUN_STATUS_SUPERSEDED,),
     ).fetchall()
     reconciled: List[Dict[str, Any]] = []
-    now = iso8601_now()
+    now = utc_now()
     for run_id, project_id, updated_at, metadata_json in candidates:
-        deployment = _overtaking_deployment(conn, int(project_id), str(updated_at))
+        deployment = _overtaking_deployment(conn, int(project_id), updated_at)
         if deployment is None:
             continue
         metadata = dict(json_helper.loads_text(metadata_json or "{}"))
-        metadata[SUPERSEDED_BY_KEY] = {**deployment, "reconciled_at": now}
+        metadata[SUPERSEDED_BY_KEY] = {
+            **deployment,
+            "at": format_instant(deployment["at"]),
+            "reconciled_at": format_instant(now),
+        }
         conn.execute(
             f"UPDATE {RUNS_TABLE} SET status = %s, metadata_json = %s, updated_at = %s "
             "WHERE run_id = %s",
-            (RUN_STATUS_SUPERSEDED, json_helper.dumps_compact(metadata), now, run_id),
+            (
+                RUN_STATUS_SUPERSEDED,
+                json_helper.dumps_compact(metadata),
+                instant_parameter(conn, now),
+                run_id,
+            ),
         )
-        reconciled.append({"run_id": str(run_id), "project_id": int(project_id), **deployment})
+        reconciled.append(
+            {"run_id": str(run_id), "project_id": int(project_id), **deployment}
+        )
     if reconciled:
         conn.commit()
     return reconciled
@@ -99,7 +117,13 @@ def superseded_by(metadata_json: Optional[str]) -> Optional[Dict[str, Any]]:
     except ValueError:
         return None
     value = metadata.get(SUPERSEDED_BY_KEY) if isinstance(metadata, dict) else None
-    return dict(value) if isinstance(value, dict) else None
+    if not isinstance(value, dict):
+        return None
+    result = dict(value)
+    for field in ("at", "reconciled_at"):
+        if field in result and result[field] is not None:
+            result[field] = parse_instant(result[field])
+    return result
 
 
 __all__ = [

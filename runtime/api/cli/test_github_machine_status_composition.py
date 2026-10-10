@@ -26,14 +26,19 @@ def _fail_helper_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_status_marks_live_failure_as_cached_and_not_ready(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config, _credential = _configured_machine(tmp_path, monkeypatch)
     _fail_helper_refresh(monkeypatch)
 
     def unavailable(request, timeout):
         raise urllib.error.HTTPError(
-            request.full_url, 503, "Unavailable", hdrs=None, fp=None,
+            request.full_url,
+            503,
+            "Unavailable",
+            hdrs=None,
+            fp=None,
         )
 
     report = github_machine.status(
@@ -69,7 +74,11 @@ def test_status_keeps_helper_warning_when_token_refresh_fails(
 
     def refused(request, timeout):
         raise urllib.error.HTTPError(
-            request.full_url, 400, "Bad Request", hdrs=None, fp=None,
+            request.full_url,
+            400,
+            "Bad Request",
+            hdrs=None,
+            fp=None,
         )
 
     report = github_machine.status(
@@ -94,7 +103,11 @@ def test_status_reports_an_unreachable_refresh_as_retryable_not_a_reconnect(
 
     def unavailable(request, timeout):
         raise urllib.error.HTTPError(
-            request.full_url, 503, "Unavailable", hdrs=None, fp=None,
+            request.full_url,
+            503,
+            "Unavailable",
+            hdrs=None,
+            fp=None,
         )
 
     report = github_machine.status(
@@ -148,7 +161,8 @@ def test_offline_status_does_not_republish_the_helper_bundle(
 
 
 def test_suspended_installation_is_not_misreported_as_missing_permissions(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config, _credential = _configured_machine(tmp_path, monkeypatch)
     payload = json.loads(config.read_text(encoding="utf-8"))
@@ -167,7 +181,8 @@ def test_suspended_installation_is_not_misreported_as_missing_permissions(
 
 
 def test_offline_status_reports_the_access_token_a_push_would_carry(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The two halves of the credential are separately reportable.
 
@@ -191,11 +206,12 @@ def test_offline_status_reports_the_access_token_a_push_would_carry(
     binding = report["bindings"]["git_access_token"]
 
     assert binding["verdict"] == "ok"
-    assert "2099-12-09T17:00:00+00:00" in binding["message"]
+    assert "2099-12-09T17:00:00.000000Z" in binding["message"]
 
 
 def test_a_machine_with_no_cached_token_is_reported_but_still_provable(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A cold cache is not a fault, so it never gates readiness."""
 

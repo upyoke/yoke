@@ -8,6 +8,11 @@ reads; no mutation, no auto-release.
 
 from __future__ import annotations
 
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+
 from typing import Any, List, Optional, Union
 
 from yoke_contracts.coordination_claim_keys import (
@@ -93,7 +98,7 @@ def _key_suffix_column(kind: str) -> tuple[str, int]:
 def stale_claim_candidates(
     conn: Any,
     *,
-    threshold_iso: str,
+    threshold_iso: datetime | str,
     project_id: Optional[Union[str, int]] = None,
 ) -> List[CoordinationClaim]:
     """Return active claims whose heartbeat predates ``threshold_iso``.
@@ -108,7 +113,7 @@ def stale_claim_candidates(
         "wc.released_at IS NULL",
         f"(wc.last_heartbeat IS NULL OR wc.last_heartbeat < {p})",
     ]
-    params: List[Any] = [threshold_iso]
+    params: List[Any] = [instant_parameter(conn, parse_instant(threshold_iso))]
     if project_id is not None:
         where.append(f"{scope_text_sql(conn, 'wc.scope', 'project_id')} = {p}")
         params.append(str(resolve_project_id(conn, project_id)))

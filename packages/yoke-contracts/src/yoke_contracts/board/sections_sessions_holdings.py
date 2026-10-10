@@ -156,9 +156,7 @@ def _path_observations(
         held = terminal is None and (
             bool(work_state.get("current")) or not follows_work
         )
-        released_at = (
-            None if held else terminal or work_state.get("released_at") or "released"
-        )
+        released_at = None if held else terminal or work_state.get("released_at")
         bucket = facets.setdefault(
             (key, held),
             {
@@ -168,6 +166,7 @@ def _path_observations(
                 "target": target,
                 "path_count": 0,
                 "released_at": released_at,
+                "currently_held": held,
             },
         )
         bucket["path_count"] = int(bucket["path_count"]) + int(count or 0)
@@ -230,6 +229,7 @@ def _coordination_observations(
     for row in coordination_claims_for_session(db, session_id):
         lease_key = str(row[1] or "?")
         terminal = row[2]
+        held = terminal is None
         owner_item_id = row[5] if len(row) > 5 else None
         owner_ref = None
         if owner_item_id is not None:
@@ -249,6 +249,7 @@ def _coordination_observations(
                 "target": lease_key,
                 "owner_public_ref": owner_ref,
                 "released_at": terminal,
+                "currently_held": held,
             }
         )
     return observations

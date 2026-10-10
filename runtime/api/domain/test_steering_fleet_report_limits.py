@@ -39,7 +39,7 @@ from yoke_core.domain.steering_fleet_report_limits import load_plan_limits
 from yoke_core.domain.steering_fleet_report_render import report_body
 from yoke_core.domain.steering_fleet_report_capacity import SessionCount
 
-_NOW = "2026-09-01T13:20:00Z"
+_NOW = "2026-09-01T13:20:00.000000Z"
 _HOST = PLAN_LIMIT_HOST
 
 
@@ -67,7 +67,7 @@ def test_worked_target_headroom_matches_format_ruling() -> None:
             plan_tier="max",
             window_kind="rolling_7d",
             remaining_percent=44.0,
-            resets_at="2026-09-04T01:00:00Z",
+            resets_at="2026-09-04T01:00:00.000000Z",
         ),
         now=_NOW,
     )
@@ -81,8 +81,8 @@ def test_worked_target_headroom_matches_format_ruling() -> None:
     assert claude.headroom_percent is not None
     assert int(round(cursor.headroom_percent)) == 120
     assert int(round(claude.headroom_percent)) == 124
-    assert format_reset_utc("2026-09-04T01:00:00Z") == "Sep 4 01:00"
-    assert format_reset_utc("2026-09-07T01:00:00Z") == "Sep 7 01:00"
+    assert format_reset_utc("2026-09-04T01:00:00.000000Z") == "Sep 4 01:00"
+    assert format_reset_utc("2026-09-07T01:00:00.000000Z") == "Sep 7 01:00"
 
 
 def test_plan_limit_lines_match_worked_target_table() -> None:
@@ -104,7 +104,7 @@ def test_plan_limit_lines_match_worked_target_table() -> None:
                 plan_tier="max",
                 window_kind="rolling_7d",
                 remaining_percent=44.0,
-                resets_at="2026-09-04T01:00:00Z",
+                resets_at="2026-09-04T01:00:00.000000Z",
             ),
             _row(
                 surface="codex-cli",
@@ -157,7 +157,7 @@ def test_unknown_reading_has_no_headroom() -> None:
 
 def test_past_reset_has_no_headroom() -> None:
     computed = compute_plan_limit(
-        _row(resets_at="2026-08-31T13:04:00Z"),
+        _row(resets_at="2026-08-31T13:04:00.000000Z"),
         now=_NOW,
     )
     assert computed.headroom_percent is None
@@ -194,14 +194,14 @@ def test_report_renders_table_and_unknown_without_omitting_a_failed_read(
                     "claude-cli": {
                         "surface": "claude-cli",
                         "plan_tier": "max",
-                        "observed_at": "2026-08-30T01:00:00Z",
+                        "observed_at": "2026-08-30T01:00:00.000000Z",
                         "windows": [
                             {
                                 "window_kind": "rolling_5h",
                                 "scope": "all",
                                 "meter": "oauth_usage.limits.session",
                                 "remaining_percent": 89.0,
-                                "resets_at": "2026-08-30T03:00:00Z",
+                                "resets_at": "2026-08-30T03:00:00.000000Z",
                                 "status": "ok",
                                 "reason": None,
                             },
@@ -210,7 +210,7 @@ def test_report_renders_table_and_unknown_without_omitting_a_failed_read(
                                 "scope": "Fable",
                                 "meter": "oauth_usage.limits.weekly_scoped",
                                 "remaining_percent": 55.0,
-                                "resets_at": "2026-09-04T01:00:00Z",
+                                "resets_at": "2026-09-04T01:00:00.000000Z",
                                 "status": "ok",
                                 "reason": None,
                             },
@@ -219,7 +219,7 @@ def test_report_renders_table_and_unknown_without_omitting_a_failed_read(
                     "cursor-cli": {
                         "surface": "cursor-cli",
                         "plan_tier": None,
-                        "observed_at": "2026-08-30T01:00:00Z",
+                        "observed_at": "2026-08-30T01:00:00.000000Z",
                         "windows": [
                             {
                                 "window_kind": "unknown",
@@ -260,14 +260,14 @@ _READING = {
     "claude-cli": {
         "surface": "claude-cli",
         "plan_tier": "max",
-        "observed_at": "2026-08-30T01:00:00Z",
+        "observed_at": "2026-08-30T01:00:00.000000Z",
         "windows": [
             {
                 "window_kind": "rolling_5h",
                 "scope": "all",
                 "meter": "oauth_usage.limits.session",
                 "remaining_percent": 89.0,
-                "resets_at": "2026-08-30T03:00:00Z",
+                "resets_at": "2026-08-30T03:00:00.000000Z",
                 "status": "ok",
                 "reason": None,
             }

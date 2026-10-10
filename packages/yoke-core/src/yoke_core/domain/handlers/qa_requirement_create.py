@@ -101,7 +101,7 @@ class QaRequirementAddResponse(BaseModel):
 
 def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
     """Create one case against whichever subject the target names."""
-    from yoke_core.domain.db_helpers import connect, iso8601_now
+    from yoke_core.domain.db_helpers import connect, utc_now
     from yoke_core.domain.qa_events import emit_qa_requirement_event
 
     if request.target.kind == "deployment_run":
@@ -152,9 +152,7 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
         refused = bind_item_named_target(conn, item_id=int(item_id), row=row)
         if refused:
             return _error("payload_invalid", refused, jsonpath="$.payload.target_env")
-        cur = execute_insert(
-            conn, RequirementSubject.for_item(item_id), row, iso8601_now()
-        )
+        cur = execute_insert(conn, RequirementSubject.for_item(item_id), row, utc_now())
         inserted_id = int(cur.fetchone()[0])
         conn.commit()
         emit_qa_requirement_event(
@@ -195,7 +193,7 @@ class QaRequirementAddBatchResponse(BaseModel):
 def handle_qa_requirement_add_batch(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    from yoke_core.domain.db_helpers import connect, iso8601_now
+    from yoke_core.domain.db_helpers import connect, utc_now
     from yoke_core.domain.qa_events import emit_qa_requirement_event
 
     item_id = request.target.item_id
@@ -253,7 +251,7 @@ def handle_qa_requirement_add_batch(
     try:
         try:
             lock_item_workflow_bindings(conn, (int(item_id),))
-            now_iso = iso8601_now()
+            created_at = utc_now()
             from yoke_core.domain.qa_environment_execution_target import (
                 bind_item_named_target,
             )
@@ -285,7 +283,7 @@ def handle_qa_requirement_add_batch(
                         jsonpath=f"$.payload.rows[{len(inserted_ids)}].target_env",
                     )
                 cur = execute_insert(
-                    conn, RequirementSubject.for_item(item_id), row, now_iso
+                    conn, RequirementSubject.for_item(item_id), row, created_at
                 )
                 inserted_ids.append(int(cur.fetchone()[0]))
             conn.commit()

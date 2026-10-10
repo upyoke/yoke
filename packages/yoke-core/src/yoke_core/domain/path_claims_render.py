@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from typing import Any, List, Optional
 
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.path_claims_read import item_view
 from yoke_core.domain.path_targets_states import OBSERVED, PLANNED
@@ -57,23 +58,21 @@ def _render_claim(claim: dict) -> List[str]:
         elif owner_kind == "session" and claim.get("owner_session_id"):
             lines.append(f"  - Owner session id: `{claim['owner_session_id']}`")
         elif owner_kind == "process" and claim.get("owner_work_claim_id") is not None:
-            lines.append(
-                f"  - Owner work claim id: `{claim['owner_work_claim_id']}`"
-            )
+            lines.append(f"  - Owner work claim id: `{claim['owner_work_claim_id']}`")
     if claim.get("base_commit_sha"):
         lines.append(f"- **Base commit SHA:** `{claim['base_commit_sha']}`")
     registered = claim.get("registered_at")
     if registered:
-        lines.append(f"- **Registered at:** `{registered}`")
+        lines.append(f"- **Registered at:** `{format_instant(registered)}`")
     activated = claim.get("activated_at")
     if activated:
-        lines.append(f"- **Activated at:** `{activated}`")
+        lines.append(f"- **Activated at:** `{format_instant(activated)}`")
     released = claim.get("released_at")
     if released:
-        lines.append(f"- **Released at:** `{released}`")
+        lines.append(f"- **Released at:** `{format_instant(released)}`")
     cancelled = claim.get("cancelled_at")
     if cancelled:
-        lines.append(f"- **Cancelled at:** `{cancelled}`")
+        lines.append(f"- **Cancelled at:** `{format_instant(cancelled)}`")
     blocked_reason = claim.get("blocked_reason")
     if blocked_reason:
         lines.append(f"- **Blocked reason:** {blocked_reason}")
@@ -113,7 +112,8 @@ def _render_claim(claim: dict) -> List[str]:
         for amendment in amendments:
             kind = amendment.get("amendment_kind", "")
             reason = amendment.get("reason") or ""
-            applied = amendment.get("amended_at") or ""
+            clock = amendment.get("amended_at")
+            applied = format_instant(clock) if clock is not None else ""
             head = f"`{kind}`"
             tail_parts = [p for p in (reason, applied) if p]
             tail = f" — {' @ '.join(tail_parts)}" if tail_parts else ""
@@ -136,9 +136,7 @@ def _render_claim(claim: dict) -> List[str]:
     return lines
 
 
-def render_path_claims_section(
-    conn: Any, item_id: int
-) -> Optional[str]:
+def render_path_claims_section(conn: Any, item_id: int) -> Optional[str]:
     """Return the rendered ``## Path Claims`` section, or ``None``.
 
     Items with no claims attached return ``None`` so the body renderer

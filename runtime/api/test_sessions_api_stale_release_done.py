@@ -19,7 +19,7 @@ from yoke_core.domain.sessions import (
     release_claim,
     release_claims_for_done_item,
 )
-from runtime.api.sessions_api_stale_test_helpers import _now_literal
+from runtime.api.sessions_api_stale_test_helpers import _now_instant
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
@@ -72,7 +72,7 @@ class TestReleaseClaimsForDoneItem:
         _register(conn, session_id="sess-a")
         _register(conn, session_id="sess-b")
         claim_work(conn, session_id="sess-a", item_id=9999)
-        _ts = _now_literal()
+        _ts = _now_instant()
         with pytest.raises(db_backend.integrity_error_types()):
             conn.execute(
                 """INSERT INTO work_claims

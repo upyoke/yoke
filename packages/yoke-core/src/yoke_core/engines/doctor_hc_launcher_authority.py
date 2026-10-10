@@ -44,10 +44,14 @@ def _machine_launcher_env() -> dict[str, str]:
     if Path(sys.prefix).resolve() != source_venv:
         return env
     temporary_bin = source_venv / "bin"
-    env["PATH"] = os.pathsep.join(
-        part for part in env.get("PATH", "").split(os.pathsep)
-        if part and Path(part).resolve() != temporary_bin
-    ) or os.defpath
+    env["PATH"] = (
+        os.pathsep.join(
+            part
+            for part in env.get("PATH", "").split(os.pathsep)
+            if part and Path(part).resolve() != temporary_bin
+        )
+        or os.defpath
+    )
     return env
 
 

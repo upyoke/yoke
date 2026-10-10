@@ -1,11 +1,8 @@
 """Choose which option of a level a launch runs, and on which machine.
 
-A launch that names a level, not a surface, is placed here. Every option of
-the level is weighed on every machine the caller may use that offers its
-surface and has lane capacity, against only the quota pools that option's
-model draws on (:mod:`session_launch_level_pools`). A Cursor option's
-fallback is weighed on a machine only where the option's own pool is
-confirmed empty there.
+Each level option is weighed on machines offering its surface and capacity,
+against its model's quota pools (:mod:`session_launch_level_pools`). Cursor
+fallback requires its own pool to be confirmed empty.
 
 The choice, in order:
 
@@ -25,10 +22,12 @@ never borrows another level's options: steering decides whether to relaunch.
 
 from __future__ import annotations
 
+from datetime import datetime
 from dataclasses import replace
 from typing import Any, Sequence
 
 from yoke_contracts.levels import Level, LevelOption
+from yoke_contracts.timestamps import as_utc
 from yoke_core.domain.machine_launch_access import filter_by_machine_access
 from yoke_core.domain.machine_registry import display_name, machine_names
 from yoke_core.domain.refusal_recovery import compose_refusal
@@ -98,7 +97,7 @@ def _weigh(
     names: dict[str, str],
     limits: Sequence[Any],
     workers: dict[str, int],
-    now: str,
+    now: datetime,
     fallback: bool,
 ) -> LevelCandidate:
     pools = option_pools(
@@ -124,7 +123,7 @@ def _weigh(
         headroom_window=binding.window if binding else None,
         live_workers=workers.get(option.surface, 0),
         blocked=(
-            f"{empty.window} pool exhausted (resets {empty.resets_at or 'unknown'})"
+            f"{empty.window} pool exhausted (resets {empty.to_dict()['resets_at'] or 'unknown'})"
             if empty
             else None
         ),
@@ -138,7 +137,7 @@ def _candidates(
     auth: LaunchAuthorization,
     project_id: int,
     machine_id: str | None,
-    now: str,
+    now: datetime,
     eligibility: LaunchEligibilityPort,
 ) -> list[LevelCandidate]:
     limits = load_plan_limits(conn, project_id=project_id, now=now)
@@ -257,10 +256,11 @@ def place_level(
     project_id: int,
     level: str,
     machine_id: str | None,
-    now: str,
+    now: datetime,
     eligibility: LaunchEligibilityPort,
 ) -> LevelPlacement:
     """Weigh every option of ``level`` and choose one, or say why none fits."""
+    now = as_utc(now)
     levels, source = effective_levels(conn, project_id)
     wanted = _level(levels, level, source)
     pin = resolve_launch_machine_pin(conn, machine_id)

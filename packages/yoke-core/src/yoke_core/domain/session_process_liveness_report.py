@@ -41,8 +41,10 @@ launch kept reporting ``succeeded`` for a worker that was already gone.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant, utc_now
+
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Mapping, Sequence
 
 from yoke_contracts.session_control.liveness import LIVENESS_ENDED, LIVENESS_STALE
@@ -207,7 +209,8 @@ def apply_verified_process_death_reports(
     now: datetime | None = None,
 ) -> Dict[str, Any]:
     """End settled dead processes and retain every session still owed to."""
-    current = now or datetime.now(timezone.utc)
+    now = parse_instant(utc_now() if now is None else now)
+    current = now
     projects = tuple(sorted({int(value) for value in authorized_projects}))
     holdings = session_holdings_by_session(conn, previous_limit=0)
     ended: List[str] = []

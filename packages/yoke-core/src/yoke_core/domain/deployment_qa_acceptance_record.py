@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import utc_now
 from yoke_core.domain.deployment_qa_stage_contract import (
     DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
 )
@@ -42,7 +42,7 @@ def record_acceptance(
         None,
         execution_target_digest=execution["execution_target_digest"],
     )
-    now = iso8601_now()
+    now = utc_now()
     return insert_qa_run(
         conn,
         qa_requirement_id=requirement_id,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Mapping
 
 from yoke_contracts.hook_driver_process import resolve_driver_process
@@ -14,6 +14,13 @@ from yoke_contracts.hook_evaluator_protocol import (
 )
 from yoke_contracts.hook_runner.chain_registry import chain_for
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_contracts.timestamps import (
+    InvalidInstant,
+    format_instant,
+    parse_instant,
+    utc_now,
+)
 from yoke_core.domain.events_project_identity import working_project_for_event
 from yoke_core.domain.events import build_envelope as build_event_envelope
 from yoke_core.domain.events_emit_write import _write_event
@@ -56,16 +63,13 @@ def _stable_event_id(observation_id: str, kind: str) -> str:
     )
 
 
-def _observed_at(value: Any) -> str:
-    if not isinstance(value, str):
+def _observed_at(value: Any) -> datetime:
+    if value is None:
         raise ObservationBatchError("observation timestamp is missing")
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError as exc:
+        return parse_instant(value)
+    except InvalidInstant as exc:
         raise ObservationBatchError("observation timestamp is invalid") from exc
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc).isoformat()
 
 
 def _request_payload(request: Mapping[str, Any]) -> tuple[Any, dict[str, Any]]:
@@ -130,7 +134,7 @@ def _tool_event(
     event_name: str,
     payload: dict[str, Any],
     context: Any,
-    observed_at: str,
+    observed_at: datetime,
     event_id: str,
     ingest_lag: ElapsedMeasurement,
 ) -> None:
@@ -168,7 +172,7 @@ def _tool_event(
     if envelope is None:
         return
     envelope["event_id"] = event_id
-    envelope["event_time"] = observed_at
+    envelope["event_time"] = format_instant(observed_at)
     _annotate_ingest_lag(envelope, ingest_lag)
     insert_event(conn, envelope)
 
@@ -181,7 +185,7 @@ def _dispatch_event(
     request: Mapping[str, Any],
     payload: dict[str, Any],
     context: Any,
-    observed_at: str,
+    observed_at: datetime,
     hook_wait_ms: int,
 ) -> None:
     event_id = _stable_event_id(observation_id, "dispatch")
@@ -230,23 +234,24 @@ def _dispatch_event(
     _write_event(envelope, conn=conn)
 
 
-def _stamp_heartbeat(conn: Any, session_id: str, observed_at: str) -> None:
+def _stamp_heartbeat(conn: Any, session_id: str, observed_at: datetime) -> None:
     if not session_id or session_id == "unknown":
         return
     marker = _placeholder(conn)
+    clock = instant_parameter(conn, observed_at)
     conn.execute(
         "UPDATE harness_sessions SET last_heartbeat = "
         f"CASE WHEN last_heartbeat IS NULL OR last_heartbeat < {marker} "
         f"THEN {marker} ELSE last_heartbeat END "
         f"WHERE session_id = {marker} AND ended_at IS NULL",
-        (observed_at, observed_at, session_id),
+        (clock, clock, session_id),
     )
     conn.execute(
         "UPDATE work_claims SET last_heartbeat = "
         f"CASE WHEN last_heartbeat IS NULL OR last_heartbeat < {marker} "
         f"THEN {marker} ELSE last_heartbeat END "
         f"WHERE session_id = {marker} AND released_at IS NULL",
-        (observed_at, observed_at, session_id),
+        (clock, clock, session_id),
     )
 
 
@@ -314,7 +319,7 @@ def persist_observation_batch(
                 context=context,
                 observed_at=observed_at,
                 event_id=_stable_event_id(observation_id, "tool"),
-                ingest_lag=measure_elapsed(observed_at, datetime.now(timezone.utc)),
+                ingest_lag=measure_elapsed(observed_at, utc_now()),
             )
             _stamp_heartbeat(conn, context.session_id or "", observed_at)
             _dispatch_event(

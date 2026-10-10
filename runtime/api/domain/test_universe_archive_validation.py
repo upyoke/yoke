@@ -65,7 +65,7 @@ def test_inspection_verifies_the_enclosed_receipt(
     assert report["receipt"] == {
         "receipt_id": "b" * 64,
         "org": "default",
-        "frozen_at": "2026-07-14T00:00:00Z",
+        "frozen_at": "2026-07-14T00:00:00.000000Z",
     }
 
 
@@ -73,9 +73,7 @@ def test_inspection_refuses_receipt_that_does_not_bind_the_dump(
     tmp_path: Path,
 ) -> None:
     artifact = _artifact(tmp_path, forge_sha="0" * 64)
-    with pytest.raises(
-        universe_archive.UniverseArchiveError, match="does not match"
-    ):
+    with pytest.raises(universe_archive.UniverseArchiveError, match="does not match"):
         validator.inspect_archive(artifact)
 
 
@@ -96,7 +94,9 @@ def test_roundtrip_emits_non_secret_restore_receipts(
         return _inspection(tmp_path)
 
     monkeypatch.setattr(
-        validator.universe_portability, "restore_universe", fake_restore,
+        validator.universe_portability,
+        "restore_universe",
+        fake_restore,
     )
     monkeypatch.setattr(validator.db_backend, "connect_psycopg", lambda _dsn: conn)
     monkeypatch.setattr(validator, "missing_readiness_tables", lambda _conn: [])

@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
+from yoke_contracts.timestamps import utc_now, parse_instant
 from pathlib import Path
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect, iso8601_now
+from yoke_core.domain.db_helpers import connect, instant_parameter
 
 THROTTLE_SECONDS = 60
 
@@ -21,13 +22,8 @@ class DriftAdvisory:
     oneline_summary: str
 
 
-def _parse_iso(raw: Optional[str]) -> Optional[datetime]:
-    if not raw:
-        return None
-    try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError:
-        return None
+def _parse_iso(raw: datetime | str | None) -> datetime | None:
+    return parse_instant(raw) if raw is not None else None
 
 
 def _git(repo_path: str, *args: str) -> str:
@@ -61,14 +57,13 @@ def check_drift(
     session_id: str,
     *,
     repo_path: Optional[str] = None,
-    now: Optional[str] = None,
+    now: datetime | str | None = None,
     throttle_seconds: int = THROTTLE_SECONDS,
 ) -> Optional[DriftAdvisory]:
     """Return a drift advisory when ``main`` moved since this session last checked."""
     if not session_id:
         return None
-    checked_at = now or iso8601_now()
-    checked_dt = _parse_iso(checked_at) or datetime.now(timezone.utc)
+    checked_dt = utc_now() if now is None else parse_instant(now)
     conn = connect()
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     try:
@@ -83,9 +78,8 @@ def check_drift(
         if row is None:
             return None
         prior_check = _parse_iso(row["last_drift_check_at"])
-        if (
-            prior_check
-            and (checked_dt - prior_check).total_seconds() < throttle_seconds
+        if prior_check and checked_dt - prior_check < timedelta(
+            seconds=throttle_seconds
         ):
             return None
         resolved_repo = _repo_path(row, repo_path)
@@ -99,7 +93,7 @@ def check_drift(
         conn.execute(
             f"UPDATE harness_sessions SET last_seen_main_sha={p}, "
             f"last_drift_check_at={p} WHERE session_id={p}",
-            (current_sha, checked_at, session_id),
+            (current_sha, instant_parameter(conn, checked_dt), session_id),
         )
         conn.commit()
         if not previous_sha or previous_sha == current_sha:

@@ -27,7 +27,7 @@ import json
 from typing import Any, Dict, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.gate_satisfier_ladder import (
     LadderResolution,
@@ -207,7 +207,7 @@ def _upsert(
         target_status,
         detail,
         json.dumps(facts, sort_keys=True),
-        iso8601_now(),
+        instant_parameter(conn, utc_now()),
         recorded_by_session_id if recorded_by_session_id is not None else _session_id(),
         item_id,
         obligation,

@@ -51,7 +51,7 @@ _EVENTS_DDL = (
     " id INTEGER PRIMARY KEY,"
     " event_name TEXT,"
     " item_id TEXT,"
-    " created_at TEXT"
+    " created_at TIMESTAMPTZ"
     ")"
 )
 

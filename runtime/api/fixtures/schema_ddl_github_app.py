@@ -13,10 +13,10 @@ CREATE TABLE IF NOT EXISTS github_app_installations (
     repository_selection TEXT NOT NULL DEFAULT 'selected',
     permissions TEXT NOT NULL DEFAULT '{{}}',
     status TEXT NOT NULL DEFAULT 'active',
-    last_verified_at TEXT,
+    last_verified_at TIMESTAMPTZ,
     last_error TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL
 );
 CREATE TABLE IF NOT EXISTS project_github_repo_bindings (
     project_id INTEGER PRIMARY KEY,
@@ -28,11 +28,11 @@ CREATE TABLE IF NOT EXISTS project_github_repo_bindings (
     repository_is_private BOOLEAN NOT NULL DEFAULT FALSE,
     status TEXT NOT NULL DEFAULT 'active',
     permissions TEXT NOT NULL DEFAULT '{{}}',
-    last_verified_at TEXT,
+    last_verified_at TIMESTAMPTZ,
     last_error TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    last_sync_at TEXT,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    last_sync_at TIMESTAMPTZ,
     last_sync_outcome TEXT,
     last_sync_error TEXT,
     UNIQUE(installation_id, github_repo)

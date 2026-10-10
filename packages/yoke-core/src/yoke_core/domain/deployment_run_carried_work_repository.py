@@ -8,11 +8,13 @@ and time; the first-parent range is walked out of that graph.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Mapping, Optional, Sequence
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_CONTENTS_READ_PERMISSION_LEVELS,
 )
+from yoke_core.domain.commit_evidence_instant import commit_instant
 from yoke_core.domain.deployment_run_carried_work_source import (
     RELATION_AHEAD,
     RELATION_DIVERGED,
@@ -50,7 +52,6 @@ from yoke_core.domain.repository_content_equivalence import (
     blob_sha,
     content_already_present,
 )
-
 
 COMPARE_PAGE_SIZE = 100
 COMPARE_PAGE_LIMIT = 10
@@ -160,9 +161,9 @@ class RepositoryProviderSource:
         commit = self._graph.get(sha.lower(), {})
         return str(commit.get("message") or "")
 
-    def commit_time(self, sha: str) -> str:
+    def commit_time(self, sha: str) -> datetime | None:
         commit = self._graph.get(sha.lower(), {})
-        return str(commit.get("committed_at") or "")
+        return commit_instant(commit.get("committed_at"))
 
     def commit_author(self, sha: str) -> str:
         return str(self._graph.get(sha.lower(), {}).get("author") or "")

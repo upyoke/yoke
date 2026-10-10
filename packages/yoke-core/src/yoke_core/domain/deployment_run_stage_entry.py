@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.deployment_flow_policy import QA_STEP_RUNNER, STAGE_KIND_QA
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.schema_common import _column_exists
 
 
@@ -26,7 +26,7 @@ def set_current_stage(
             "UPDATE deployment_runs SET current_stage_entered_at=CASE "
             "WHEN current_stage IS DISTINCT FROM %s THEN %s "
             f"ELSE current_stage_entered_at END,current_stage=%s WHERE id=%s{guard}",
-            (stage, iso8601_now(), stage, run_id),
+            (stage, instant_parameter(conn, utc_now()), stage, run_id),
         )
     else:
         conn.execute(

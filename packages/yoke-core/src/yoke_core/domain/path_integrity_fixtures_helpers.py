@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 
 
 KIND_FILE = "file"
@@ -32,6 +32,10 @@ FIXTURE_PROJECT_IDS = {
     "fix_drift": 108,
     "fix_drift_other": 109,
 }
+
+
+def _now_parameter(conn):
+    return instant_parameter(conn, utc_now())
 
 
 def _p(conn) -> str:
@@ -56,6 +60,7 @@ def record_fixture_row(
     project_id: str | int,
     expected_invariant_kind: Optional[str],
 ) -> int:
+    now = _now_parameter(conn)
     p = _p(conn)
     numeric_project_id = project_row_id(project_id)
     cur = conn.execute(
@@ -67,7 +72,7 @@ def record_fixture_row(
         (
             name,
             description,
-            iso8601_now(),
+            now,
             numeric_project_id,
             expected_invariant_kind,
         ),
@@ -75,10 +80,9 @@ def record_fixture_row(
     return int(cur.fetchone()[0])
 
 
-def ensure_project_row(
-    conn: Any, project_id: str | int
-) -> None:
+def ensure_project_row(conn: Any, project_id: str | int) -> None:
     """Insert a minimal projects row if one does not exist."""
+    now = _now_parameter(conn)
     p = _p(conn)
     numeric_project_id = project_row_id(project_id)
     slug = str(project_id) if not str(project_id).isdigit() else f"project-{project_id}"
@@ -94,7 +98,7 @@ def ensure_project_row(
             numeric_project_id,
             slug,
             slug,
-            iso8601_now(),
+            now,
         ),
     )
 
@@ -108,6 +112,7 @@ def mint_target(
     parent_target_id: Optional[int],
     generation: int = 1,
 ) -> int:
+    now = _now_parameter(conn)
     p = _p(conn)
     numeric_project_id = project_row_id(project_id)
     cur = conn.execute(
@@ -116,8 +121,7 @@ def mint_target(
         " parent_target_id, created_at) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}) "
         "RETURNING id",
-        (numeric_project_id, kind, path_string, generation,
-         parent_target_id, iso8601_now()),
+        (numeric_project_id, kind, path_string, generation, parent_target_id, now),
     )
     return int(cur.fetchone()[0])
 
@@ -129,13 +133,14 @@ def mint_snapshot(
     commit_sha: str,
     target_ids,
 ) -> int:
+    now = _now_parameter(conn)
     p = _p(conn)
     numeric_project_id = project_row_id(project_id)
     cur = conn.execute(
         "INSERT INTO path_snapshots "
         f"(project_id, commit_sha, built_at) VALUES ({p}, {p}, {p}) "
         "RETURNING id",
-        (numeric_project_id, commit_sha, iso8601_now()),
+        (numeric_project_id, commit_sha, now),
     )
     snapshot_id = int(cur.fetchone()[0])
     for tid in target_ids:

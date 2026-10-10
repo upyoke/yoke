@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from . import sessions_analytics as _sa
@@ -22,7 +23,7 @@ def build_work_release_post_commit_receipt(
     claim_id: int,
     canonical_reason: str,
     reason: str,
-    released_at: str,
+    released_at: datetime | str,
 ) -> Dict[str, Any]:
     """Build the event receipt retained until the transaction commits."""
     item_id: Optional[str] = None

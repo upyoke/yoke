@@ -1,34 +1,17 @@
-"""Same-tree reuse probe for the yoke-ci workflow.
+"""Reuse successful yoke-ci evidence only for an identical git tree.
 
-Two runs re-prove trees that were already proved. After a fast-forward
-merge the push-to-main run re-executes the suite against the tree a
-dispatch or pull-request run already covered; and a merge queue train
-carrying one rebased item builds a candidate whose tree is byte-identical
-to that item's entry tree, so the train run repeats the entry run exactly.
-This probe resolves the checked-out tree's object id, walks recent
-successful yoke-ci runs, and reports reuse when a covering run's head
-commit resolves to the same tree id.
-
-A ``pull_request`` run covers by the same rule everything else does, and
-soundly: the run's recorded head sha is the pull request's head commit,
-whose tree equals the candidate tree only when the base was already an
-ancestor of it — which is exactly when the run tested that tree rather
-than a merge of it. A batch train, or a train built after the base moved,
-produces a tree no single run covers and runs the full suite, which is
-when the integration proof is real.
-
-Fail open on every uncertainty: API errors, missing shas, unresolvable
-trees, empty result sets, or covering runs older than the window all mean
-``skip_suite=false`` so the matrix runs exactly as today. Comparison is by
-tree object id, never commit sha — merge commits that rewrite the tree
-correctly force a fresh suite.
+Pushes after a merge and single-item merge trains can reproduce an entry tree.
+A pull-request run covers the candidate only when the base was already an
+ancestor of its recorded head; changed bases and multi-item trains need their
+own proof. Tree object identity, rather than commit identity, decides reuse.
+Missing, unreadable, unqualified, future or expired evidence cannot skip tests.
 """
 
 from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import json
 import os
 from pathlib import Path
@@ -38,6 +21,8 @@ from typing import Any, Callable, Mapping, Optional, Sequence
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+
+from yoke_contracts.timestamps import InvalidInstant, parse_instant, utc_now
 
 
 DEFAULT_WINDOW_HOURS = 24
@@ -66,19 +51,14 @@ def _no_reuse(reason: str, candidate_tree: str = "") -> ReuseDecision:
     )
 
 
-def _parse_github_time(raw: str) -> Optional[datetime]:
-    text = (raw or "").strip()
-    if not text:
+def _parse_github_time(raw: Any) -> Optional[datetime]:
+    """Unreadable external evidence cannot authorize skipping verification."""
+    if raw is None:
         return None
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
     try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
+        return parse_instant(raw)
+    except InvalidInstant:
         return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
 
 
 def tree_object_id(worktree: str | Path, rev: str) -> Optional[str]:
@@ -86,8 +66,13 @@ def tree_object_id(worktree: str | Path, rev: str) -> Optional[str]:
     try:
         proc = subprocess.run(
             [
-                "git", "-C", str(worktree),
-                "rev-parse", "--verify", "--quiet", f"{rev}^{{tree}}",
+                "git",
+                "-C",
+                str(worktree),
+                "rev-parse",
+                "--verify",
+                "--quiet",
+                f"{rev}^{{tree}}",
             ],
             capture_output=True,
             text=True,
@@ -101,7 +86,10 @@ def tree_object_id(worktree: str | Path, rev: str) -> Optional[str]:
 
 
 def _api_get_json(
-    url: str, *, token: str, opener: Callable[..., Any] = urlopen,
+    url: str,
+    *,
+    token: str,
+    opener: Callable[..., Any] = urlopen,
 ) -> Any:
     request = Request(
         url,
@@ -182,13 +170,13 @@ def decide_reuse(
     opener: Callable[..., Any] = urlopen,
 ) -> ReuseDecision:
     """Return whether the suite may be skipped for HEAD's tree."""
+    clock = utc_now() if now is None else parse_instant(now)
     candidate = tree_object_id(worktree, "HEAD")
     if not candidate:
         return _no_reuse("unresolvable_candidate_tree")
     if window_hours <= 0:
         return _no_reuse("invalid_window", candidate)
 
-    clock = now or datetime.now(timezone.utc)
     cutoff = clock - timedelta(hours=window_hours)
     runs = list_successful_workflow_runs(
         api_url=api_url,
@@ -207,8 +195,8 @@ def decide_reuse(
             continue
         if run_id == current_run_id:
             continue
-        created = _parse_github_time(str(run.get("created_at") or ""))
-        if created is None or created < cutoff:
+        created = _parse_github_time(run.get("created_at"))
+        if created is None or created < cutoff or created > clock:
             continue
         head_sha = str(run.get("head_sha") or "").strip()
         if not head_sha:
@@ -311,7 +299,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "skip_suite": "true" if decision.skip_suite else "false",
         "candidate_tree": decision.candidate_tree,
         "covering_run_id": (
-            str(decision.covering_run_id) if decision.covering_run_id is not None else ""
+            str(decision.covering_run_id)
+            if decision.covering_run_id is not None
+            else ""
         ),
         "covering_head_sha": decision.covering_head_sha,
         "covering_html_url": decision.covering_html_url,

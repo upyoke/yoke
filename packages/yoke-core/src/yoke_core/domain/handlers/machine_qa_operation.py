@@ -15,8 +15,17 @@ machine without touching its readiness.
 from __future__ import annotations
 
 from typing import Any, Literal
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant, format_instant
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    field_serializer,
+)
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_contracts.machine_qa_execution import (
@@ -97,11 +106,20 @@ class TestMachineOperationResponse(BaseModel):
     machine: str
     operation: str
     status: str
-    performed_at: str
+    performed_at: datetime | None
     checks: list[dict[str, Any]]
     error_code: str | None
     golden_baseline_path: str | None = None
     surfaces: dict[str, dict[str, Any]] | None = None
+
+    @field_validator("performed_at", mode="before")
+    @classmethod
+    def native_operation_clock(cls, value):
+        return parse_instant(value) if value is not None else None
+
+    @field_serializer("performed_at", when_used="json")
+    def operation_clock_wire(self, value):
+        return format_instant(value) if value is not None else None
 
 
 def _operation(operation: str) -> HostControlOperation:

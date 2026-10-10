@@ -62,8 +62,7 @@ def _after_custody(script: str, custody: Path) -> str:
         "deadline = time.monotonic() + 30\n"
         f"while not Path({str(path)!r}).is_file():\n"
         "    if time.monotonic() >= deadline: raise SystemExit('custody_not_persisted')\n"
-        "    time.sleep(0.01)\n"
-        + script
+        "    time.sleep(0.01)\n" + script
     )
 
 
@@ -120,7 +119,11 @@ def test_default_spawn_settles_usage_across_custody_and_relay_directories(
     monkeypatch.setattr(machine_config, "cache_dir", lambda: custody)
     monkeypatch.setattr(diagnostics, "relay_state_dir", lambda: relay)
     resumed = spawn_supervised_native(
-        [sys.executable, "-c", _after_custody(f"print({NATIVE_RESULT_LINE!r})", custody)],
+        [
+            sys.executable,
+            "-c",
+            _after_custody(f"print({NATIVE_RESULT_LINE!r})", custody),
+        ],
         checkout=tmp_path,
         environment=dict(os.environ),
         attempt_id=ATTEMPT_ID,
@@ -165,8 +168,8 @@ def test_default_spawn_settles_usage_across_custody_and_relay_directories(
     # What a second settlement must not change is what was measured, and
     # comparing the rendered documents asserted the clock as well — one
     # settlement pair straddling a second boundary failed the whole shard.
-    assert replace(usage, observed_at="") == replace(
-        before_second_settlement, observed_at=""
+    assert replace(usage, observed_at=None) == replace(
+        before_second_settlement, observed_at=None
     )
     entry = usage.models[0]
     assert (entry.input, entry.cached_input, entry.cache_write, entry.output) == (

@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
+
 from runtime.api.fixtures.session_holdings import insert_session
 from yoke_core.domain.session_activity_state import (
     record_tool_call_finished,
@@ -74,14 +76,14 @@ def _activity(conn) -> dict:
 def test_a_start_arriving_after_its_completion_replaces_the_placeholder(worker):
     """The completion's own instant is a placeholder, not a captured start."""
     _complete(worker, at=COMPLETED)
-    assert _call(worker)["started_at"] == COMPLETED
+    assert _call(worker)["started_at"] == parse_instant(COMPLETED)
 
     assert _start(worker, at=STARTED) is True
     worker.commit()
 
     call = _call(worker)
-    assert call["started_at"] == STARTED
-    assert call["completed_at"] == COMPLETED
+    assert call["started_at"] == parse_instant(STARTED)
+    assert call["completed_at"] == parse_instant(COMPLETED)
 
 
 def test_reconciling_a_late_start_never_reopens_the_call(worker):
@@ -91,7 +93,7 @@ def test_reconciling_a_late_start_never_reopens_the_call(worker):
     worker.commit()
 
     call = _call(worker)
-    assert call["completed_at"] == COMPLETED
+    assert call["completed_at"] == parse_instant(COMPLETED)
     assert call["outcome"] == "completed"
 
 
@@ -103,7 +105,7 @@ def test_a_late_start_does_not_count_the_call_a_second_time(worker):
 
     activity = _activity(worker)
     assert activity["tool_call_count"] == 1
-    assert activity["last_tool_call_at"] == COMPLETED
+    assert activity["last_tool_call_at"] == parse_instant(COMPLETED)
 
 
 def test_both_arrival_orders_record_the_same_pair_of_endpoints(worker):
@@ -117,8 +119,12 @@ def test_both_arrival_orders_record_the_same_pair_of_endpoints(worker):
     worker.commit()
     reordered = _call(worker, call="reordered-call")
 
-    assert reordered["started_at"] == in_order["started_at"] == STARTED
-    assert reordered["completed_at"] == in_order["completed_at"] == COMPLETED
+    assert reordered["started_at"] == in_order["started_at"] == parse_instant(STARTED)
+    assert (
+        reordered["completed_at"]
+        == in_order["completed_at"]
+        == parse_instant(COMPLETED)
+    )
 
 
 def test_a_replayed_start_changes_nothing(worker):
@@ -130,7 +136,7 @@ def test_a_replayed_start_changes_nothing(worker):
     assert _start(worker, at=STARTED) is False
     worker.commit()
 
-    assert _call(worker)["started_at"] == STARTED
+    assert _call(worker)["started_at"] == parse_instant(STARTED)
     assert _activity(worker)["tool_call_count"] == 1
 
 
@@ -140,27 +146,26 @@ def test_a_duplicate_start_never_moves_the_start_forwards(worker):
     assert _start(worker, at=COMPLETED) is False
     worker.commit()
 
-    assert _call(worker)["started_at"] == STARTED
+    assert _call(worker)["started_at"] == parse_instant(STARTED)
 
 
-def test_an_unreadable_arriving_start_leaves_the_stored_one_alone(worker):
-    """A timestamp nobody can read is not evidence about when work began."""
+def test_an_invalid_arriving_start_refuses_before_changing_the_stored_one(worker):
     _start(worker, at=STARTED)
+    with pytest.raises(InvalidInstant) as refusal:
+        _start(worker, at="not-a-timestamp")
+    assert refusal.value.code == "invalid_instant"
+    assert _call(worker)["started_at"] == parse_instant(STARTED)
 
-    assert _start(worker, at="not-a-timestamp") is False
-    worker.commit()
 
-    assert _call(worker)["started_at"] == STARTED
-
-
-def test_a_valid_start_replaces_an_unreadable_stored_one(worker):
-    """An unreadable stored start is a gap a real capture should fill."""
-    _start(worker, at="not-a-timestamp")
-
-    assert _start(worker, at=STARTED) is True
-    worker.commit()
-
-    assert _call(worker)["started_at"] == STARTED
+def test_an_invalid_start_cannot_create_an_owned_endpoint(worker):
+    with pytest.raises(InvalidInstant):
+        _start(worker, at="2026-09-08T12:00:00")
+    assert (
+        worker.execute(
+            "SELECT COUNT(*) FROM session_tool_calls WHERE session_id=%s", (SESSION_ID,)
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_reconciliation_stays_inside_the_calls_own_session(worker):
@@ -171,8 +176,10 @@ def test_reconciliation_stays_inside_the_calls_own_session(worker):
     _start(worker, at=STARTED)
     worker.commit()
 
-    assert _call(worker, session_id=other_session)["started_at"] == COMPLETED
-    assert _call(worker)["started_at"] == STARTED
+    assert _call(worker, session_id=other_session)["started_at"] == parse_instant(
+        COMPLETED
+    )
+    assert _call(worker)["started_at"] == parse_instant(STARTED)
 
 
 def test_reconciliation_holds_where_telemetry_is_not_retained(worker):
@@ -185,6 +192,6 @@ def test_reconciliation_holds_where_telemetry_is_not_retained(worker):
     worker.commit()
 
     call = _call(worker)
-    assert call["started_at"] == STARTED
-    assert call["completed_at"] == COMPLETED
+    assert call["started_at"] == parse_instant(STARTED)
+    assert call["completed_at"] == parse_instant(COMPLETED)
     assert _activity(worker)["tool_call_count"] == 1

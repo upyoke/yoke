@@ -11,7 +11,7 @@ from __future__ import annotations
 from yoke_core.domain.public_item_target import public_item_target
 
 import sys
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import iso8601_now
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.github_app_installation_permissions import (
@@ -54,7 +54,7 @@ def _populate_merged_at(public_ref: str) -> None:
     if existing and existing != "null":
         print(f"  merged_at already set: {existing}")
         return
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = iso8601_now()
     resp = call_dispatcher(
         function_id="done_transition.populate_merged_at",
         target=public_item_target(public_ref),

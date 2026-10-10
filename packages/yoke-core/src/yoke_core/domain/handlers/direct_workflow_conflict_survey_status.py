@@ -12,8 +12,10 @@ transport refuses.
 from __future__ import annotations
 
 from typing import Any, List, Optional
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant, format_instant
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator, field_serializer
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -45,9 +47,18 @@ class ConflictSurveyStatusResponse(BaseModel):
     touch_paths: List[str]
     integration_target: str
     fingerprint: str
-    observed_at: str
+    observed_at: datetime | None
     blockers: List[dict[str, Any]]
     no_changes: bool
+
+    @field_validator("observed_at", mode="before")
+    @classmethod
+    def native_observation_clock(cls, value):
+        return parse_instant(value) if value is not None else None
+
+    @field_serializer("observed_at", when_used="json")
+    def observation_clock_wire(self, value):
+        return format_instant(value) if value is not None else None
 
 
 def _error(code: str, message: str) -> HandlerOutcome:
@@ -115,7 +126,7 @@ def handle_conflict_survey_status(request: FunctionCallRequest) -> HandlerOutcom
                     touch_paths=[],
                     integration_target="main",
                     fingerprint="",
-                    observed_at="",
+                    observed_at=None,
                     blockers=[],
                     no_changes=False,
                 ).model_dump(),

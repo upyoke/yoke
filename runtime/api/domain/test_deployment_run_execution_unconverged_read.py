@@ -7,6 +7,8 @@ from typing import Any
 
 import pytest
 
+from yoke_contracts.timestamps import utc_now
+
 from runtime.api.domain import (
     test_deployment_execution_serving_authority as serving_fixture,
 )
@@ -235,7 +237,7 @@ def test_deployment_create_and_execution_survive_unconverged_actor_status(
             actor_id=actor_id,
             caller_actor_id=actor_id,
             enabled=False,
-            now="2026-09-25T00:00:00Z",
+            now=utc_now(),
         )
 
     created = _call(

@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS actor_ui_preferences (
     actor_id INTEGER NOT NULL REFERENCES actors(id),
     pref_key TEXT NOT NULL,
     value TEXT NOT NULL DEFAULT '',
-    updated_at TEXT NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
     UNIQUE(actor_id, pref_key)
 )
 """
@@ -55,7 +55,7 @@ OVERVIEW_ACTIVATION_FACTS_CREATE_SQL = """
 CREATE TABLE IF NOT EXISTS overview_activation_facts (
     id INTEGER PRIMARY KEY,
     module_key TEXT NOT NULL UNIQUE,
-    activated_at TEXT NOT NULL
+    activated_at TIMESTAMPTZ NOT NULL
 )
 """
 
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS overview_machine_activation_facts (
     id INTEGER PRIMARY KEY,
     machine_id TEXT NOT NULL,
     module_key TEXT NOT NULL,
-    activated_at TEXT NOT NULL,
+    activated_at TIMESTAMPTZ NOT NULL,
     UNIQUE(machine_id, module_key)
 )
 """

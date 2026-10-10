@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.strategy_docs import get_doc
 from yoke_core.domain.strategy_execution_state import (
     BLITZ_WORKFLOW_ID,
@@ -62,7 +62,7 @@ def link_execution_document(
         raise StrategyExecutionLinkError(
             "an active Blitz cannot replace its claimed execution document"
         )
-    linked_at = iso8601_now()
+    linked_at = utc_now()
     conn.execute(
         "INSERT INTO item_strategy_docs "
         "(item_id, project_id, strategy_doc_slug, linked_by_actor_id, "
@@ -80,14 +80,12 @@ def link_execution_document(
             slug,
             actor_id,
             session_id,
-            linked_at,
+            instant_parameter(conn, linked_at),
         ),
     )
-    from datetime import datetime, timezone
-
     from yoke_core.domain.steering_message_drain import reseat_item_messages
 
-    reseat_item_messages(conn, item_id=int(item_id), now=datetime.now(timezone.utc))
+    reseat_item_messages(conn, item_id=int(item_id), now=linked_at)
     if commit:
         conn.commit()
     return {

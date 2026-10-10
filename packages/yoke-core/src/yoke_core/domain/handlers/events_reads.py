@@ -23,6 +23,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.timestamps import temporal_wire
 from yoke_core.domain.events_history_read import (
     EventsHistoryRequest,
     history_outcome,
@@ -231,7 +232,7 @@ def _select_rows(where: str, params: List[Any], limit: int) -> List[Dict[str, An
         names = (*EVT_COLUMN_NAMES, "envelope")
         rows = [
             {
-                name: ("" if value is None else str(value))
+                name: ("" if value is None else str(temporal_wire(value)))
                 for name, value in zip(names, tuple(row))
             }
             for row in raw_rows

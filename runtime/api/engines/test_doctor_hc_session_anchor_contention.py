@@ -25,9 +25,9 @@ _HARNESS_SESSIONS_DDL = """
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY,
     executor TEXT NOT NULL DEFAULT 'claude-code',
-    offered_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    ended_at TEXT
+    offered_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    ended_at TIMESTAMPTZ
 );
 """
 
@@ -38,9 +38,7 @@ _START = "Wed Jun 10 14:05:41 2026"
 @pytest.fixture
 def sessions_conn():
     name = pg_testdb.create_test_database()
-    conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    conn = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     apply_fixture_ddl(conn, _HARNESS_SESSIONS_DDL)
     yield conn
     conn.close()
@@ -56,8 +54,7 @@ def registry(tmp_path, monkeypatch):
     )
     # The registry only reports on markers whose anchor process is alive.
     monkeypatch.setattr(
-        "yoke_project_checks.check_session_anchor_contention"
-        "._anchor_process_live",
+        "yoke_project_checks.check_session_anchor_contention._anchor_process_live",
         lambda record: record.get("anchor_start_time") == _START,
     )
     return directory
@@ -73,14 +70,18 @@ def _seed_session(conn, session_id: str, *, ended_at: Optional[str] = None):
 
 
 def _seed_marker(registry, pid: int, contenders, *, start: str = _START):
-    (registry / f"{pid}.json").write_text(json.dumps({
-        "session_id": "",
-        "anchor_pid": pid,
-        "anchor_start_time": start,
-        "shared_by_multiple_sessions": True,
-        "contending_session_ids": list(contenders),
-        "last_writer_argv": "yoke hook evaluate PreToolUse",
-    }))
+    (registry / f"{pid}.json").write_text(
+        json.dumps(
+            {
+                "session_id": "",
+                "anchor_pid": pid,
+                "anchor_start_time": start,
+                "shared_by_multiple_sessions": True,
+                "contending_session_ids": list(contenders),
+                "last_writer_argv": "yoke hook evaluate PreToolUse",
+            }
+        )
+    )
 
 
 def _run(conn):
@@ -100,7 +101,8 @@ def test_no_markers_passes(sessions_conn, registry):
 
 
 def test_two_live_contenders_is_expected_fail_closed_state(
-    sessions_conn, registry,
+    sessions_conn,
+    registry,
 ):
     _seed_session(sessions_conn, "sess-a")
     _seed_session(sessions_conn, "sess-b")
@@ -133,7 +135,8 @@ def test_marker_for_a_dead_process_is_ignored(sessions_conn, registry):
 
 
 def test_unregistered_contenders_read_as_a_stalled_marker(
-    sessions_conn, registry,
+    sessions_conn,
+    registry,
 ):
     # Mirrors the healer: ids with positively no session row are not live
     # conversations (the anchor-poisoning class), so this marker heals on

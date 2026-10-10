@@ -110,7 +110,7 @@ def _install_legacy_contract(conn) -> tuple[int, int]:
         conn.execute(
             "INSERT INTO qa_requirements("
             "deployment_run_id,qa_kind,qa_phase,created_at"
-            ") VALUES ('run-legacy','browser','post_deploy','then') RETURNING id"
+            ") VALUES ('run-legacy','browser','post_deploy','2026-10-08T16:30:00.123456Z') RETURNING id"
         ).fetchone()[0]
     )
     conn.execute(
@@ -118,7 +118,7 @@ def _install_legacy_contract(conn) -> tuple[int, int]:
         "id,deployment_run_id,session_id,roster_digest,roster_json,state,"
         "created_at,heartbeat_at"
         ") VALUES ('execution-legacy','run-legacy','session','digest','[]',"
-        "'awaiting_agent_review','then','then')"
+        "'awaiting_agent_review','2026-10-08T16:30:00.123456Z','2026-10-08T16:30:00.123456Z')"
     )
     return requirement_id, 1
 
@@ -140,21 +140,21 @@ def test_cutover_preserves_legacy_waits_results_runs_and_artifacts(test_db) -> N
     test_db.execute(
         "INSERT INTO qa_plan_execution_results("
         "execution_id,ordinal,requirement_id,result_json,completed_at"
-        ") VALUES ('execution-legacy',0,%s,'{}','then')",
+        ") VALUES ('execution-legacy',0,%s,'{}','2026-10-08T16:30:00.123456Z')",
         (requirement_id,),
     )
     run_id = int(
         test_db.execute(
             "INSERT INTO qa_runs("
             "qa_requirement_id,performed_by,qa_kind,verdict,created_at"
-            ") VALUES (%s,'runner','browser','pass','then') RETURNING id",
+            ") VALUES (%s,'runner','browser','pass','2026-10-08T16:30:00.123456Z') RETURNING id",
             (requirement_id,),
         ).fetchone()[0]
     )
     artifact_id = int(
         test_db.execute(
             "INSERT INTO qa_artifacts(qa_run_id,artifact_type,created_at) "
-            "VALUES (%s,'screenshot','then') RETURNING id",
+            "VALUES (%s,'screenshot','2026-10-08T16:30:00.123456Z') RETURNING id",
             (run_id,),
         ).fetchone()[0]
     )
@@ -241,14 +241,14 @@ def test_scoped_subjects_reject_blank_stage_names(test_db) -> None:
             "id,deployment_run_id,deployment_stage,session_id,roster_digest,"
             "roster_json,state,created_at,heartbeat_at"
             ") VALUES ('blank-stage','run-blank','   ','session','digest','[]',"
-            "'active','then','then')"
+            "'active','2026-10-08T16:30:00.123456Z','2026-10-08T16:30:00.123456Z')"
         )
     test_db.rollback()
     with pytest.raises(db_backend.integrity_error_types(test_db)):
         test_db.execute(
             "INSERT INTO qa_requirements("
             "deployment_run_id,deployment_stage,qa_kind,qa_phase,created_at"
-            ") VALUES ('run-blank','','browser','post_deploy','then')"
+            ") VALUES ('run-blank','','browser','post_deploy','2026-10-08T16:30:00.123456Z')"
         )
     test_db.rollback()
 

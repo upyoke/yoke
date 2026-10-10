@@ -14,7 +14,7 @@ from yoke_core.domain.builtin_workflow_version_convergence import (
     converge_builtin_workflows as _converge_builtin_workflows,
     select_current_builtin_workflow_versions as _select_builtin_versions,
 )
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.workflow_definition_codec import (
     WorkflowRegistryError,
     canonical_definition_json,
@@ -51,7 +51,7 @@ def _insert_version(
     published_reason: Optional[str] = None,
 ) -> dict:
     validate_workflow_definition(definition)
-    now = iso8601_now()
+    now = utc_now()
     canonical = canonical_definition_json(definition)
     digest = definition_digest(definition)
     marker = _marker(conn)
@@ -67,9 +67,9 @@ def _insert_version(
             int(definition["schema_version"]),
             canonical,
             digest,
-            now,
+            instant_parameter(conn, now),
             published_by_actor_id,
-            now,
+            instant_parameter(conn, now),
             derived_from_canon_version,
             published_reason,
         ),

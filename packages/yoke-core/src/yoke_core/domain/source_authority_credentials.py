@@ -6,10 +6,13 @@ import hashlib
 import json
 import secrets
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from psycopg import conninfo
+
+from yoke_contracts.timestamps import format_instant, parse_instant
 
 from yoke_core.domain import source_authority_credential_file as credential_file
 from yoke_core.domain.source_authority_credential_file import SourceCredentialError
@@ -30,20 +33,33 @@ class SourceCredentialBundle:
     cutover_dsn: str
     original_rolcanlogin: bool
     retirement_receipt: str | None
-    retired_at: str | None
+    retired_at: datetime | None
     retirement_phase: str | None
+
+    def __post_init__(self) -> None:
+        if self.retired_at is not None:
+            object.__setattr__(self, "retired_at", parse_instant(self.retired_at))
 
 
 def prepare_or_load(
-    path: str | Path, *, original_dsn: str, database: str, database_oid: int,
-    admin_role: str, service_stop_receipt: str, original_rolcanlogin: bool,
+    path: str | Path,
+    *,
+    original_dsn: str,
+    database: str,
+    database_oid: int,
+    admin_role: str,
+    service_stop_receipt: str,
+    original_rolcanlogin: bool,
 ) -> SourceCredentialBundle:
     """Create once before commit, or reuse the same precommit crash artifact."""
     selected = credential_file.selected_path(path)
     if selected.exists() or selected.is_symlink():
         return _load_expected(
-            selected, original_dsn=original_dsn, database=database,
-            database_oid=database_oid, admin_role=admin_role,
+            selected,
+            original_dsn=original_dsn,
+            database=database,
+            database_oid=database_oid,
+            admin_role=admin_role,
             service_stop_receipt=service_stop_receipt,
             original_rolcanlogin=original_rolcanlogin,
         )
@@ -77,24 +93,36 @@ def prepare_or_load(
     if credential_file.write_atomic_owner_only(selected, payload):
         return _decode(selected, payload)
     return _load_expected(
-        selected, original_dsn=original_dsn, database=database,
-        database_oid=database_oid, admin_role=admin_role,
+        selected,
+        original_dsn=original_dsn,
+        database=database,
+        database_oid=database_oid,
+        admin_role=admin_role,
         service_stop_receipt=service_stop_receipt,
         original_rolcanlogin=original_rolcanlogin,
     )
 
 
 def _load_expected(
-    path: Path, *, original_dsn: str, database: str, database_oid: int,
-    admin_role: str, service_stop_receipt: str, original_rolcanlogin: bool,
+    path: Path,
+    *,
+    original_dsn: str,
+    database: str,
+    database_oid: int,
+    admin_role: str,
+    service_stop_receipt: str,
+    original_rolcanlogin: bool,
 ) -> SourceCredentialBundle:
     bundle = load_bound(
-        path, original_dsn=original_dsn,
+        path,
+        original_dsn=original_dsn,
         service_stop_receipt=service_stop_receipt,
     )
     expected = (database, int(database_oid), admin_role, original_rolcanlogin)
     actual = (
-        bundle.database, bundle.database_oid, bundle.admin_role,
+        bundle.database,
+        bundle.database_oid,
+        bundle.admin_role,
         bundle.original_rolcanlogin,
     )
     if actual != expected:
@@ -105,7 +133,9 @@ def _load_expected(
 
 
 def load_bound(
-    path: str | Path, *, original_dsn: str | None = None,
+    path: str | Path,
+    *,
+    original_dsn: str | None = None,
     service_stop_receipt: str | None = None,
 ) -> SourceCredentialBundle:
     """Load a safe bundle and bind it to the configured original authority."""
@@ -129,9 +159,7 @@ def load_bound(
         service_stop_receipt is not None
         and bundle.service_stop_receipt != service_stop_receipt
     ):
-        raise SourceCredentialError(
-            "cutover credential quiesce receipt does not match"
-        )
+        raise SourceCredentialError("cutover credential quiesce receipt does not match")
     return bundle
 
 
@@ -139,7 +167,9 @@ def source_fingerprint(dsn: str) -> str:
     """Bind connection coordinates and the original secret without emitting it."""
     parsed = conninfo.conninfo_to_dict(dsn)
     canonical = json.dumps(
-        parsed, sort_keys=True, separators=(",", ":"),
+        parsed,
+        sort_keys=True,
+        separators=(",", ":"),
     ).encode("utf-8")
     return hashlib.sha256(canonical).hexdigest()
 
@@ -152,15 +182,16 @@ def password_from_dsn(dsn: str) -> str:
 
 
 def prepare_retirement(
-    bundle: SourceCredentialBundle, *, retirement_receipt: str, retired_at: str,
+    bundle: SourceCredentialBundle,
+    *,
+    retirement_receipt: str,
+    retired_at: str | datetime,
 ) -> SourceCredentialBundle:
     """Fsync an idempotent retirement intent before disabling both logins."""
+    retired_at = parse_instant(retired_at)
     current = load_bound(bundle.path, original_dsn=bundle.original_dsn)
     if current.retirement_receipt is not None or current.retired_at is not None:
-        if (
-            current.retirement_receipt != retirement_receipt
-            or not current.retired_at
-        ):
+        if current.retirement_receipt != retirement_receipt or not current.retired_at:
             raise SourceCredentialError(
                 "cutover credential contains another retirement intent"
             )
@@ -170,7 +201,7 @@ def prepare_retirement(
     payload = _payload(current)
     payload["retirement"] = {
         "retirement_receipt": retirement_receipt,
-        "retired_at": retired_at,
+        "retired_at": format_instant(retired_at),
         "phase": "intent",
     }
     credential_file.replace_atomic_owner_only(current.path, payload)
@@ -221,15 +252,16 @@ def _decode(path: Path, payload: Any) -> SourceCredentialBundle:
             original_rolcanlogin=original_rolcanlogin,
             retirement_receipt=(
                 str(payload["retirement"]["retirement_receipt"])
-                if "retirement" in payload else None
+                if "retirement" in payload
+                else None
             ),
             retired_at=(
-                str(payload["retirement"]["retired_at"])
-                if "retirement" in payload else None
+                parse_instant(payload["retirement"]["retired_at"])
+                if "retirement" in payload
+                else None
             ),
             retirement_phase=(
-                str(payload["retirement"]["phase"])
-                if "retirement" in payload else None
+                str(payload["retirement"]["phase"]) if "retirement" in payload else None
             ),
         )
     except (KeyError, TypeError, ValueError) as exc:
@@ -256,8 +288,7 @@ def _decode(path: Path, payload: Any) -> SourceCredentialBundle:
             character not in "0123456789abcdef"
             for character in bundle.source_fingerprint
         )
-        or
-        source_fingerprint(bundle.original_dsn) != bundle.source_fingerprint
+        or source_fingerprint(bundle.original_dsn) != bundle.source_fingerprint
         or {k: v for k, v in original.items() if k != "password"}
         != {k: v for k, v in cutover.items() if k != "password"}
         or str(original.get("user") or "") != bundle.admin_role
@@ -288,15 +319,21 @@ def _payload(bundle: SourceCredentialBundle) -> dict[str, Any]:
     if bundle.retirement_receipt is not None:
         payload["retirement"] = {
             "retirement_receipt": bundle.retirement_receipt,
-            "retired_at": bundle.retired_at,
+            "retired_at": format_instant(bundle.retired_at),
             "phase": bundle.retirement_phase,
         }
     return payload
 
 
 __all__ = [
-    "BUNDLE_SCHEMA", "SourceCredentialBundle", "SourceCredentialError",
-    "delete_bundle", "load_bound", "mark_retirement_transaction_started",
-    "password_from_dsn", "prepare_or_load", "prepare_retirement",
+    "BUNDLE_SCHEMA",
+    "SourceCredentialBundle",
+    "SourceCredentialError",
+    "delete_bundle",
+    "load_bound",
+    "mark_retirement_transaction_started",
+    "password_from_dsn",
+    "prepare_or_load",
+    "prepare_retirement",
     "source_fingerprint",
 ]

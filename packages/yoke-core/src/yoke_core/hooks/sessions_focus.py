@@ -8,17 +8,27 @@ timestamp/format formatters used across the cmd functions.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 
-from yoke_core.domain.db_helpers import query_one
+from yoke_contracts.timestamps import (
+    format_instant,
+    iso8601_now,
+    parse_instant,
+    utc_now,
+)
+
+from yoke_core.domain.db_helpers import instant_parameter, query_one
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return iso8601_now()
 
 
 def _format_row(row) -> str:
-    return "|".join("" if v is None else str(v) for v in tuple(row))
+    return "|".join(
+        "" if v is None else format_instant(v) if isinstance(v, datetime) else str(v)
+        for v in tuple(row)
+    )
 
 
 def _set_current_item(conn, session_id: str, item_id: int) -> None:
@@ -34,11 +44,17 @@ def _set_current_item(conn, session_id: str, item_id: int) -> None:
     if row["current_item_id"]:
         conn.execute(
             "UPDATE harness_sessions SET recent_item_id=%s, recent_item_recorded_at=%s WHERE session_id=%s",
-            (row["current_item_id"], row["current_item_set_at"], session_id),
+            (
+                row["current_item_id"],
+                instant_parameter(conn, parse_instant(row["current_item_set_at"]))
+                if row["current_item_set_at"] is not None
+                else None,
+                session_id,
+            ),
         )
     conn.execute(
         "UPDATE harness_sessions SET current_item_id=%s, current_item_set_at=%s WHERE session_id=%s",
-        (item_id_text, _now_iso(), session_id),
+        (item_id_text, instant_parameter(conn, utc_now()), session_id),
     )
 
 
@@ -54,7 +70,13 @@ def _clear_current_item(conn, session_id: str) -> None:
     if row["current_item_id"]:
         conn.execute(
             "UPDATE harness_sessions SET recent_item_id=%s, recent_item_recorded_at=%s WHERE session_id=%s",
-            (row["current_item_id"], row["current_item_set_at"], session_id),
+            (
+                row["current_item_id"],
+                instant_parameter(conn, parse_instant(row["current_item_set_at"]))
+                if row["current_item_set_at"] is not None
+                else None,
+                session_id,
+            ),
         )
     conn.execute(
         "UPDATE harness_sessions SET current_item_id=NULL, current_item_set_at=NULL WHERE session_id=%s",
@@ -65,7 +87,7 @@ def _clear_current_item(conn, session_id: str) -> None:
 def _require_active_session(conn, session_id: str) -> None:
     row = query_one(
         conn,
-        "SELECT COUNT(*) as cnt, COALESCE(MAX(ended_at), '') as ended "
+        "SELECT COUNT(*) as cnt, MAX(ended_at) as ended "
         "FROM harness_sessions WHERE session_id=%s",
         (session_id,),
     )

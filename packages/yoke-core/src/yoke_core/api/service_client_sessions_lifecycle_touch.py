@@ -7,7 +7,7 @@ used by claim acquire/release commands.
 
 from __future__ import annotations
 
-import json
+from yoke_core.domain.json_helper import dumps_compact
 import sys
 
 from yoke_core.domain import db_backend
@@ -61,10 +61,10 @@ def cmd_session_heartbeat(args: list[str]) -> int:
 
         try:
             result = domain_heartbeat(conn, parsed.session_id)
-            print(json.dumps({"success": True, "session": result}))
+            print(dumps_compact({"success": True, "session": result}))
         except SessionError as exc:
             print(
-                json.dumps(
+                dumps_compact(
                     {
                         "success": True,
                         "already_ended": True,
@@ -117,7 +117,7 @@ def cmd_session_touch(args: list[str]) -> int:
             if parsed.mode is not None:
                 set_session_mode(conn, parsed.session_id, parsed.mode)
                 result["mode"] = parsed.mode
-            print(json.dumps({"success": True, "session": result}, default=str))
+            print(dumps_compact({"success": True, "session": result}))
             return 0
         except SessionError as exc:
             if exc.code == "NOT_FOUND":
@@ -131,7 +131,7 @@ def cmd_session_touch(args: list[str]) -> int:
                 msg = f"Error: {exc.message}"
             else:
                 msg = f"Error: {exc.message}"
-            print(json.dumps({"error": exc.code, "message": msg}), file=sys.stderr)
+            print(dumps_compact({"error": exc.code, "message": msg}), file=sys.stderr)
             return 1
     finally:
         conn.close()
@@ -151,7 +151,7 @@ def _validate_active_session(conn, session_id: str) -> bool:
 
     if row is None:
         print(
-            json.dumps(
+            dumps_compact(
                 {
                     "success": False,
                     "error": (
@@ -168,7 +168,7 @@ def _validate_active_session(conn, session_id: str) -> bool:
         from yoke_core.domain.sessions_ended_recovery import session_ended_message
 
         print(
-            json.dumps(
+            dumps_compact(
                 {
                     "success": False,
                     "error": f"Error: {session_ended_message(conn, session_id)}",

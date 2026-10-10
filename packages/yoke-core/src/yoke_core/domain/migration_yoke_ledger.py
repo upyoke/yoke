@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Mapping, Sequence, Tuple
 
 from yoke_core.domain.migration_artifact_trust import ArtifactVerifier
@@ -152,7 +153,7 @@ def adopt_yoke_legacy_content_identities(
     artifact_verifier: ArtifactVerifier | None,
     adopted_by: str,
     entry_names: Sequence[str] | None = None,
-    adopted_at: str | None = None,
+    adopted_at: datetime | str | None = None,
 ) -> Tuple[AdoptionRecord, ...]:
     """Use the generic adopter with Yoke's ledger and evidence table."""
     from yoke_core.domain import db_backend, migration_fleet_ownership

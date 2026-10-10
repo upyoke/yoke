@@ -10,8 +10,10 @@ from __future__ import annotations
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
+    FunctionCallResponse,
     TargetRef,
 )
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.builtin_workflow_canon import canon_generations
 from yoke_core.domain.handlers.workflows_versioning import (
     handle_workflows_canon_get,
@@ -36,6 +38,17 @@ def test_omitting_the_version_serves_the_newest_generation():
     assert outcome.result_payload["definition_digest"] == newest.digest
     assert outcome.result_payload["is_newest"] is True
     assert outcome.result_payload["definition"]["stages"]
+    assert outcome.result_payload["published_at"] == newest.published_at
+    response = FunctionCallResponse(
+        success=True,
+        function="workflows.canon.get",
+        version="v1",
+        result=outcome.result_payload,
+    )
+    wire = response.model_dump(mode="json")["result"]
+    assert wire["published_at"] == format_instant(newest.published_at)
+    assert wire["definition_digest"] == newest.digest
+    assert wire["definition"] == newest.definition
 
 
 def test_an_older_generation_is_served_and_marked_as_such():

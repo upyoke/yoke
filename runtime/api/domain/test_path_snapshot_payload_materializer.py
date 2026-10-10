@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import os
 import subprocess
 from pathlib import Path
 
 from yoke_cli.project_snapshot.scanner import scan_ref
-from yoke_core.domain import db_backend
+from yoke_core.domain import (
+    db_backend,
+    path_snapshot_payload_materializer as materializer,
+)
 from runtime.api.domain._path_snapshots_test_helpers import path_snapshot_db
 from yoke_core.domain.path_snapshot_payload_materializer import (
     materialize_snapshot_payload,
@@ -38,15 +43,33 @@ def _make_repo(tmp_path: Path) -> Path:
     return repo
 
 
-def test_materializes_client_scanned_snapshot_payload(tmp_path: Path) -> None:
+def test_materializes_client_scanned_snapshot_payload(
+    tmp_path: Path, monkeypatch
+) -> None:
+    instant = datetime(1969, 12, 31, 23, 59, 59, 123456, tzinfo=timezone.utc)
+    supplied = instant.astimezone(timezone(timedelta(minutes=330)))
+    monkeypatch.setattr(materializer, "utc_now", lambda: supplied)
     repo = _make_repo(tmp_path)
     payload = scan_ref(repo, "HEAD")
     with path_snapshot_db(tmp_path, repo) as conn:
         result = materialize_snapshot_payload(
-            conn, project_id="demo", payload=payload,
+            conn,
+            project_id="demo",
+            payload=payload,
         )
         assert result.status == "created"
         assert result.entry_count >= 5
+        built_at = conn.execute("SELECT built_at FROM path_snapshots").fetchone()[0]
+        assert isinstance(built_at, datetime)
+        assert built_at == instant
+        created_at = [
+            row[0]
+            for row in conn.execute("SELECT created_at FROM path_targets").fetchall()
+        ]
+        assert created_at
+        assert all(
+            isinstance(clock, datetime) and clock == instant for clock in created_at
+        )
 
         p = _p(conn)
         row = conn.execute(
@@ -82,10 +105,14 @@ def test_materializer_reuses_existing_commit_snapshot(tmp_path: Path) -> None:
     payload = scan_ref(repo, "HEAD")
     with path_snapshot_db(tmp_path, repo) as conn:
         first = materialize_snapshot_payload(
-            conn, project_id="demo", payload=payload,
+            conn,
+            project_id="demo",
+            payload=payload,
         )
         second = materialize_snapshot_payload(
-            conn, project_id="demo", payload=payload,
+            conn,
+            project_id="demo",
+            payload=payload,
         )
         assert second.status == "reused"
         assert second.snapshot_id == first.snapshot_id

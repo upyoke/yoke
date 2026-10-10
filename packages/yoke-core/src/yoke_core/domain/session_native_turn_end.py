@@ -53,11 +53,12 @@ from yoke_contracts.session_control.native_turn_end import (
     NATIVE_TURN_END_POSTURE,
     NATIVE_TURN_RECORD_SURFACES,
 )
+from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
     row_dict,
-    timestamp,
     utc_now,
 )
 from yoke_core.domain.session_turn_posture import stamp_turn_posture
@@ -138,6 +139,8 @@ def probe_targets(
     projects = tuple(sorted({int(value) for value in authorized_projects}))
     if not projects or not machine_id:
         return []
+    current = parse_instant(utc_now() if now is None else now)
+    stamped = instant_parameter(conn, current)
     marker = _p(conn)
     live = _live_session_clause(marker, projects=projects)
     live_params = _live_session_params(machine_id, projects=projects)
@@ -162,7 +165,7 @@ def probe_targets(
         "AND a.result_code='skipped_operation' "
         f"WHERE {live} "
         "ORDER BY hs.session_id",
-        (timestamp(now or utc_now()), *live_params),
+        (stamped, *live_params),
     ).fetchall()
     targets: Dict[str, Dict[str, str]] = {}
     for raw in list(claim_holders) + list(refused_wakes):
@@ -215,8 +218,8 @@ def _record_observed(
     session_id: str,
     *,
     evidence: Mapping[str, Any],
-    observed_at: str,
-    recorded_at: str,
+    observed_at: datetime | None,
+    recorded_at: datetime,
 ) -> None:
     """Store the observation on the session, then publish its telemetry.
 
@@ -231,7 +234,7 @@ def _record_observed(
 
     observation = {
         "session_id": session_id,
-        "observed_at": observed_at,
+        "observed_at": format_instant(observed_at) if observed_at is not None else None,
         "posture": NATIVE_TURN_END_POSTURE,
         "source": "relay_native_turn_record",
         **dict(evidence),
@@ -269,7 +272,7 @@ def apply_native_turn_ends(
     applied comes back with a named status: a silent no-op here reads
     exactly like the stuck session this path exists to free.
     """
-    current = now or utc_now()
+    current = parse_instant(utc_now() if now is None else now)
     projects = tuple(sorted({int(value) for value in authorized_projects}))
     reclassified: List[str] = []
     skipped: List[Dict[str, Any]] = []
@@ -280,12 +283,12 @@ def apply_native_turn_ends(
         row = _session_row(conn, session_id)
         status = _skip_reason(row, machine_id=machine_id, authorized_projects=projects)
         if status is None:
-            observed_at = str(report.get("observed_at") or "")
+            observed_at = parse_timestamp(report.get("observed_at"))
             stamped = stamp_turn_posture(
                 conn,
                 session_id=session_id,
                 posture=NATIVE_TURN_END_POSTURE,
-                observed_at=parse_timestamp(observed_at) or current,
+                observed_at=current if observed_at is None else observed_at,
             )
             if not stamped:
                 # A newer posture observation already won, which means the
@@ -297,7 +300,7 @@ def apply_native_turn_ends(
                     session_id,
                     evidence=report.get("evidence") or {},
                     observed_at=observed_at,
-                    recorded_at=timestamp(current),
+                    recorded_at=current,
                 )
         if status is None:
             reclassified.append(session_id)

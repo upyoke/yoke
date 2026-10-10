@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.approval_policy import ApprovalPolicy
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.decision_request_contract import REQUEST_WITHDRAWN_EVENT
 from yoke_core.domain.decision_request_events import append_decision_event
 from yoke_core.domain.decision_requests import (
@@ -65,13 +65,13 @@ def withdraw_stale_pending_request(
     session_id: str,
     reason: str,
 ) -> None:
-    stamp = iso8601_now()
+    stamp = utc_now()
     p = _p(conn)
     conn.execute(
         "UPDATE decision_requests SET status='withdrawn', "
         f"withdrawal_reason={p}, withdrawn_at={p} "
         f"WHERE id={p} AND status='pending'",
-        (reason, stamp, int(request["id"])),
+        (reason, instant_parameter(conn, stamp), int(request["id"])),
     )
     append_decision_event(
         conn,
@@ -285,14 +285,14 @@ def consume_lifecycle_approval(
             f"decision request {request_id} is not an unconsumed approval "
             "for this transition snapshot"
         )
-    stamp = iso8601_now()
+    stamp = utc_now()
     cursor = conn.execute(
         "UPDATE decision_requests SET consumed_at={p}, "
         "consumed_from_stage={p}, consumed_to_stage={p}, "
         "consumed_workflow_version_id={p} "
         f"WHERE id={p} AND consumed_at IS NULL".format(p=p),
         (
-            stamp,
+            instant_parameter(conn, stamp),
             str(from_stage_id),
             str(to_stage_id),
             int(workflow_version_id),

@@ -43,9 +43,9 @@ def _labels_for_window(
         rows = db.query(
             "SELECT title FROM items "
             "WHERE project_id = %s AND status = 'done' "
-            f"AND created_at >= {now_sql(offset_modifier='%s', localtime=True)} "
+            f"AND created_at >= {now_sql(offset_days=-label_days)} "
             "ORDER BY created_at",
-            (project_id, f"-{label_days} days"),
+            (project_id,),
         )
     else:
         rows = db.query(

@@ -70,7 +70,7 @@ def handle_actor_state_set(request: FunctionCallRequest) -> HandlerOutcome:
                 actor_id=actor_id,
                 caller_actor_id=int(raw_caller),
                 enabled=enabled,
-                now=db_helpers.iso8601_now(),
+                now=db_helpers.utc_now(),
                 confirm_system_retirement=confirm_system_retirement,
             )
         except ActorStateRefused as exc:

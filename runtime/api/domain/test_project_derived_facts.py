@@ -32,7 +32,8 @@ from yoke_core.domain.project_derived_facts import (
 def conn() -> Iterator[Any]:
     name = pg_testdb.create_test_database()
     c = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name,
+        pg_testdb.connect_test_database(name),
+        name,
     )
     c.execute(
         "CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT, "
@@ -43,17 +44,14 @@ def conn() -> Iterator[Any]:
         "github_repo TEXT, default_branch TEXT, status TEXT)"
     )
     c.execute("CREATE TABLE environments (id INTEGER, project_id INTEGER)")
+    c.execute("CREATE TABLE qa_plans (id INTEGER PRIMARY KEY, retired_at TIMESTAMPTZ)")
     c.execute(
-        "CREATE TABLE qa_plans (id INTEGER PRIMARY KEY, retired_at TEXT)"
-    )
-    c.execute(
-        "CREATE TABLE qa_plan_project_defaults (project_id INTEGER, "
-        "plan_id INTEGER)"
+        "CREATE TABLE qa_plan_project_defaults (project_id INTEGER, plan_id INTEGER)"
     )
     c.execute(
         "CREATE TABLE project_derived_facts (id SERIAL PRIMARY KEY, "
         "project_id INTEGER, fact_key TEXT, present INTEGER, "
-        "fact_value TEXT, observed_at TEXT, observed_from TEXT)"
+        "fact_value TEXT, observed_at TIMESTAMPTZ, observed_from TEXT)"
     )
     c.execute("INSERT INTO projects (id, slug) VALUES (1, 'alpha')")
     c.commit()
@@ -82,7 +80,8 @@ def test_an_active_repo_binding_supplies_remote_and_default_branch(conn):
     conn.commit()
     facts = _facts(conn)
     assert facts[FACT_REMOTE_PRESENT] == {
-        "present": True, "value": "owner/repo",
+        "present": True,
+        "value": "owner/repo",
     }
     assert facts[FACT_DEFAULT_BRANCH] == {"present": True, "value": "trunk"}
 
@@ -106,18 +105,21 @@ def test_an_inactive_binding_does_not_supply_a_default_branch(conn):
 def test_a_live_project_default_plan_declares_a_test_command(conn):
     conn.execute("INSERT INTO qa_plans (id, retired_at) VALUES (5, NULL)")
     conn.execute(
-        "INSERT INTO qa_plan_project_defaults (project_id, plan_id) "
-        "VALUES (1, 5)"
+        "INSERT INTO qa_plan_project_defaults (project_id, plan_id) VALUES (1, 5)"
     )
     conn.commit()
     assert _facts(conn)[FACT_TEST_COMMAND_DECLARED]["present"] is True
 
 
 def test_a_retired_plan_does_not_declare_a_test_command(conn):
-    conn.execute("INSERT INTO qa_plans (id, retired_at) VALUES (5, 'gone')")
+    from yoke_contracts.timestamps import parse_instant
+
     conn.execute(
-        "INSERT INTO qa_plan_project_defaults (project_id, plan_id) "
-        "VALUES (1, 5)"
+        "INSERT INTO qa_plans (id, retired_at) VALUES (5, %s)",
+        (parse_instant("1970-01-01T00:00:00Z"),),
+    )
+    conn.execute(
+        "INSERT INTO qa_plan_project_defaults (project_id, plan_id) VALUES (1, 5)"
     )
     conn.commit()
     assert _facts(conn)[FACT_TEST_COMMAND_DECLARED]["present"] is False
@@ -195,3 +197,30 @@ def test_an_absent_store_still_answers_from_a_live_observation(conn):
     conn.commit()
     facts = load_project_facts(conn, 1)
     assert facts.verdict(DERIVED_ENVIRONMENTS_PRESENT) is FactVerdict.PRESENT
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_convergence_shares_exact_native_clock_on_insert_and_update(
+    conn, monkeypatch, zone
+):
+    from datetime import timedelta
+    from yoke_contracts.timestamps import parse_instant
+    from yoke_core.domain import project_derived_facts as owner
+
+    conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    clock = [parse_instant("1969-12-31T05:44:59.123456+05:45")]
+    monkeypatch.setattr(owner, "utc_now", lambda: clock[0])
+    assert converge_derived_facts(conn, 1)["stored"]
+    rows = conn.execute(
+        "SELECT observed_at,pg_typeof(observed_at)::text FROM project_derived_facts"
+    ).fetchall()
+    assert len(rows) == len(DERIVED_FACT_KEYS)
+    assert all(row == (clock[0], "timestamp with time zone") for row in rows)
+    clock[0] += timedelta(microseconds=1)
+    assert converge_derived_facts(conn, 1)["stored"]
+    assert all(
+        row[0] == clock[0]
+        for row in conn.execute(
+            "SELECT observed_at FROM project_derived_facts"
+        ).fetchall()
+    )

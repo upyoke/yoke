@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from .session_cleanup_holdings import effective_cleanup_ttl
@@ -19,7 +20,7 @@ def bucket_holdings_spared_session(
     sid: str,
     entry: Dict[str, Any],
     progress_stale_flag: bool,
-    activity_at: Optional[str],
+    activity_at: datetime | None,
     stale_threshold_minutes: int,
     progress_stale: List[Dict[str, Any]],
     heartbeat_stale: List[Dict[str, Any]],

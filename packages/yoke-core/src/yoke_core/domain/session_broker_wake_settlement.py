@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_broker_wake import (
     BROKER_ADAPTER_REVISION,
@@ -16,7 +18,6 @@ from yoke_core.domain.session_broker_wake_fallback import (
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
     row_dict,
-    timestamp,
     utc_now,
 )
 from yoke_core.domain.session_relay_evidence import redacted_evidence
@@ -37,8 +38,9 @@ def _begin(conn: Any) -> None:
 
 
 def close_broker_attempt(
-    conn: Any, *, attempt_id: str, result_code: str, now: str
+    conn: Any, *, attempt_id: str, result_code: str, now: datetime | str
 ) -> bool:
+    stamped = instant_parameter(conn, parse_instant(now))
     p = marker(conn)
     cursor = conn.execute(
         "UPDATE session_message_attempts SET completed_at="
@@ -52,7 +54,7 @@ def close_broker_attempt(
         + p
         + f" WHERE attempt_id={p} AND completed_at IS NULL",
         (
-            now,
+            stamped,
             result_code,
             BROKER_ADAPTER_REVISION,
             redacted_evidence({"result_code": result_code}),
@@ -71,7 +73,7 @@ def complete_broker_hook_lease(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """Record whether the broker instruction survived aggregate rendering."""
-    current = timestamp(now or utc_now())
+    current = parse_instant(utc_now() if now is None else now)
     p = marker(conn)
     _begin(conn)
     try:
@@ -123,13 +125,12 @@ def complete_broker_hook_lease(
 
 def _after(value: Any, boundary: datetime) -> bool:
     parsed = parse_timestamp(value)
-    return bool(parsed and parsed > boundary)
+    return parsed is not None and parsed > boundary
 
 
 def settle_broker_wake_losses(conn: Any, *, now: datetime | None = None) -> int:
     """Close abandoned peer reservations without guessing native outcomes."""
-    current = now or utc_now()
-    current_text = timestamp(current)
+    current = parse_instant(utc_now() if now is None else now)
     _begin(conn)
     try:
         rows = conn.execute(
@@ -193,7 +194,7 @@ def settle_broker_wake_losses(conn: Any, *, now: datetime | None = None) -> int:
                     conn,
                     attempt_id=str(row["attempt_id"]),
                     result_code=code,
-                    now=current_text,
+                    now=current,
                 )
             )
         conn.commit()

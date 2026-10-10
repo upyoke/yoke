@@ -15,10 +15,13 @@ WARN with the dropped-entry counts. Self-skips cleanly on minimal-schema
 fixtures (missing ``events`` table) so it degrades to PASS in
 test/empty-history contexts instead of FAIL.
 """
+
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from yoke_contracts.timestamps import format_instant, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -61,10 +64,8 @@ def _parse_payload(payload_text: Any) -> dict | None:
     return parsed if isinstance(parsed, dict) else None
 
 
-def _cutoff_24h() -> str:
-    return (datetime.now(timezone.utc) - timedelta(hours=24)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+def _cutoff_24h() -> datetime:
+    return utc_now() - timedelta(hours=24)
 
 
 def _persist_failed_entries_24h(conn: Any) -> list[dict]:
@@ -75,7 +76,7 @@ def _persist_failed_entries_24h(conn: Any) -> list[dict]:
             "WHERE event_name='ReflectionCapturePersistFailed' "
             f"AND created_at >= {p} "
             "ORDER BY created_at DESC",
-            (_cutoff_24h(),),
+            (instant_parameter(conn, _cutoff_24h()),),
         ).fetchall()
     except db_backend.database_error_types(conn):
         return []
@@ -84,22 +85,28 @@ def _persist_failed_entries_24h(conn: Any) -> list[dict]:
         parsed = _parse_payload(row[0])
         if not parsed:
             continue
-        out.append({
-            "created_at": row[1],
-            "agent": parsed.get("agent"),
-            "category": parsed.get("category"),
-            "body_excerpt": parsed.get("body_excerpt"),
-            "exception_type": parsed.get("exception_type"),
-        })
+        out.append(
+            {
+                "created_at": row[1],
+                "agent": parsed.get("agent"),
+                "category": parsed.get("category"),
+                "body_excerpt": parsed.get("body_excerpt"),
+                "exception_type": parsed.get("exception_type"),
+            }
+        )
     return out
 
 
 def hc_reflection_capture_persist_failed(
-    conn: Any, args: DoctorArgs, rec: RecordCollector,
+    conn: Any,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     if not _events_table_present(conn):
         rec.record(
-            _HC_NAME, _HC_DESC, "PASS",
+            _HC_NAME,
+            _HC_DESC,
+            "PASS",
             "events table not present (fixture/minimal-schema context); skipping",
         )
         return
@@ -107,7 +114,9 @@ def hc_reflection_capture_persist_failed(
     entries = _persist_failed_entries_24h(conn)
     if not entries:
         rec.record(
-            _HC_NAME, _HC_DESC, "PASS",
+            _HC_NAME,
+            _HC_DESC,
+            "PASS",
             "no ReflectionCapturePersistFailed events in the last 24h",
         )
         return
@@ -128,7 +137,7 @@ def hc_reflection_capture_persist_failed(
     for entry in entries[:10]:
         excerpt = (entry.get("body_excerpt") or "")[:120]
         detail_lines.append(
-            f"- {entry['created_at']} agent={entry['agent']} "
+            f"- {format_instant(entry['created_at'])} agent={entry['agent']} "
             f"category={entry['category']} "
             f"exception={entry['exception_type']} "
             f"excerpt={excerpt!r}",
@@ -136,8 +145,7 @@ def hc_reflection_capture_persist_failed(
     if len(entries) > 10:
         detail_lines.append(f"... ({len(entries) - 10} more)")
     detail_lines.append(
-        "By category: "
-        + ", ".join(f"{k}={v}" for k, v in sorted(by_category.items())),
+        "By category: " + ", ".join(f"{k}={v}" for k, v in sorted(by_category.items())),
     )
     detail_lines.append(
         "By exception: "

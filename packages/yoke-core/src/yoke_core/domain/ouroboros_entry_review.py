@@ -8,11 +8,16 @@ these selectors enforce.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, time, timezone
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now, query_rows, query_scalar
+from yoke_core.domain.db_helpers import (
+    instant_parameter,
+    utc_now,
+    query_rows,
+    query_scalar,
+)
 from yoke_core.domain.ouroboros_entries import MAX_ENTRY_LIST_LIMIT
 from yoke_core.domain.ouroboros_entry_write_scope import (
     project_scope_predicate,
@@ -27,11 +32,11 @@ MAX_ENTRY_REVIEW_BATCH = MAX_ENTRY_LIST_LIMIT
 class EntryReviewBatch:
     reviewed_count: int
     remaining_count: int
-    reviewed_at: str | None
+    reviewed_at: datetime | None
 
 
 def normalize_entry_review_cutoff(value: str) -> str:
-    """Require a date boundary whose lexical order matches stored UTC text."""
+    """Require the UTC calendar day used as the exclusive review boundary."""
     text = str(value or "").strip()
     try:
         normalized = date.fromisoformat(text).isoformat()
@@ -57,7 +62,8 @@ def mark_entries_reviewed_before(
     project's queue in one call. ``include_unattributed`` widens the batch
     to entries that belong to no project.
     """
-    cutoff = normalize_entry_review_cutoff(before)
+    day = date.fromisoformat(normalize_entry_review_cutoff(before))
+    cutoff = instant_parameter(conn, datetime.combine(day, time.min, timezone.utc))
     if limit <= 0 or limit > MAX_ENTRY_REVIEW_BATCH:
         raise ValueError(f"limit must be between 1 and {MAX_ENTRY_REVIEW_BATCH}")
     project_id = require_bulk_scope_project_id(conn, project)
@@ -85,16 +91,16 @@ def mark_entries_reviewed_before(
         (*filter_params, limit),
     )
     entry_ids = [int(row[0]) for row in rows]
-    reviewed_at: str | None = None
+    reviewed_at: datetime | None = None
     reviewed_count = 0
     if entry_ids:
-        reviewed_at = iso8601_now()
+        reviewed_at = utc_now()
         placeholders = ", ".join(p for _entry_id in entry_ids)
         cursor = conn.execute(
             f"UPDATE ouroboros_entries SET reviewed_at={p} "
             f"WHERE {project_sql} AND reviewed_at IS NULL "
             f"AND archived_at IS NULL AND id IN ({placeholders})",
-            (reviewed_at, *project_params, *entry_ids),
+            (instant_parameter(conn, reviewed_at), *project_params, *entry_ids),
         )
         reviewed_count = int(cursor.rowcount)
         if reviewed_count < 0:

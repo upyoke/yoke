@@ -19,6 +19,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Mapping, Sequence
 
+from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.steering_message_recipients import (
     STATE_AWAITING_SEAT,
@@ -84,7 +86,7 @@ def render_digest(
         lines.append(f"{origin}:")
         for row in grouped[origin]:
             lines.append(
-                f"  {row['sent_at']}  {_state_note(row)}\n"
+                f"  {format_instant(row['sent_at'])}  {_state_note(row)}\n"
                 f"    {str(row['body']).strip()}"
             )
     if len(rows) > DIGEST_LIMIT:
@@ -314,17 +316,17 @@ def _cancel_session_recipient(
     now: datetime,
 ) -> None:
     from yoke_core.domain import db_backend
-    from yoke_core.domain.session_message_types import timestamp
 
     if not session_id:
         return
+    stamped = instant_parameter(conn, parse_instant(now))
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     conn.execute(
         "UPDATE session_message_recipients "
         f"SET state = {marker}, cancelled_at = {marker} "
         f"WHERE message_id = {marker} AND session_id = {marker} "
         f"AND state <> {marker}",
-        ("cancelled", timestamp(now), message_id, session_id, "acknowledged"),
+        ("cancelled", stamped, message_id, session_id, "acknowledged"),
     )
 
 

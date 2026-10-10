@@ -6,6 +6,7 @@ import contextlib
 import json
 from pathlib import Path
 
+from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.board import sections_sessions
 from yoke_contracts.board.data import BOARD_DATA_VERSION, ReplayBoardDB
 from yoke_contracts.board.renderer import render_board_from_payload
@@ -33,8 +34,8 @@ CREATE TABLE work_claims (
     target_kind TEXT,
     scope TEXT,
     claim_type TEXT,
-    claimed_at TEXT,
-    released_at TEXT,
+    claimed_at TIMESTAMPTZ,
+    released_at TIMESTAMPTZ,
     release_reason TEXT
 );
 CREATE TABLE strategy_doc_claims (
@@ -42,15 +43,15 @@ CREATE TABLE strategy_doc_claims (
     strategy_doc_slug TEXT,
     owner_kind TEXT,
     owner_session_id TEXT,
-    registered_at TEXT,
-    released_at TEXT
+    registered_at TIMESTAMPTZ,
+    released_at TIMESTAMPTZ
 );
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY,
-    last_heartbeat TEXT,
-    last_tool_call_at TEXT,
-    ended_at TEXT,
-    terminated_at TEXT
+    last_heartbeat TIMESTAMPTZ,
+    last_tool_call_at TIMESTAMPTZ,
+    ended_at TIMESTAMPTZ,
+    terminated_at TIMESTAMPTZ
 );
 CREATE TABLE path_claims (
     id INTEGER PRIMARY KEY,
@@ -58,8 +59,8 @@ CREATE TABLE path_claims (
     owner_item_id INTEGER,
     owner_session_id TEXT,
     owner_work_claim_id INTEGER,
-    released_at TEXT,
-    cancelled_at TEXT,
+    released_at TIMESTAMPTZ,
+    cancelled_at TIMESTAMPTZ,
     release_reason TEXT,
     cancel_reason TEXT
 );
@@ -97,7 +98,7 @@ def _seed(db_path: str) -> None:
                 1,
                 "holder-1",
                 make_steering_target(1).scope_json(),
-                "2026-08-26T11:00:00Z",
+                parse_instant("2026-08-26T11:00:00Z"),
             ),
         )
         conn.execute(
@@ -106,7 +107,7 @@ def _seed(db_path: str) -> None:
                 2,
                 "holder-1",
                 make_steering_target(3).scope_json(),
-                "2026-08-26T11:00:01Z",
+                parse_instant("2026-08-26T11:00:01Z"),
             ),
         )
         conn.execute(
@@ -174,7 +175,7 @@ def test_a_project_steered_without_a_document_still_names_itself(
                 (
                     "holder-2",
                     make_steering_target(3).scope_json(),
-                    "2026-08-26T11:00:02Z",
+                    parse_instant("2026-08-26T11:00:02Z"),
                 ),
             )
             conn.commit()

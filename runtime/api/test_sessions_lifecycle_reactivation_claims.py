@@ -2,11 +2,10 @@
 """Regression tests: session-end + reactivation + conduct re-entry claim gap.
 
 Exercise the released-claim advisory around a reactivated session:
-  1. Session is created and claims an item.
-  2. Session is ended — claim is released with reason='session_ended'.
-  3. Same session is reactivated (ended_at cleared).
-  4. Advisory state includes only prior session-ended claims.
-  5. Conditional reacquisition remains governed by the configured time window.
+  1. Session claims an item, then ends with release reason='session_ended'.
+  2. Same session is reactivated (ended_at cleared).
+  3. Advisory state includes only prior session-ended claims.
+  4. Conditional reacquisition remains governed by the configured time window.
 """
 
 from __future__ import annotations
@@ -16,6 +15,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 from typing import Any, Dict, Optional
+
+from yoke_contracts.timestamps import parse_instant
 
 from yoke_core.domain.sessions_analytics_core import (
     EVENT_SESSION_REACTIVATED_WITH_RELEASED_CLAIMS,
@@ -53,14 +54,14 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     reasoning_effort TEXT DEFAULT NULL, context_window_tokens INTEGER DEFAULT NULL, requested_model TEXT DEFAULT NULL, requested_reasoning_effort TEXT DEFAULT NULL, requested_context_window_tokens INTEGER DEFAULT NULL,
     executor_version TEXT, machine_id TEXT, workspace TEXT NOT NULL DEFAULT '',
     project_id INTEGER NOT NULL,
-    mode TEXT NOT NULL DEFAULT 'wait', offered_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL, ended_at TEXT,
-    terminated_at TEXT, terminated_by_actor_id INTEGER,
+    mode TEXT NOT NULL DEFAULT 'wait', offered_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL, ended_at TIMESTAMPTZ,
+    terminated_at TIMESTAMPTZ, terminated_by_actor_id INTEGER,
     terminated_by_session_id TEXT, termination_reason TEXT,
     offer_envelope TEXT,
-    actor_id INTEGER, last_tool_call_at TEXT,
+    actor_id INTEGER, last_tool_call_at TIMESTAMPTZ,
     tool_call_count INTEGER NOT NULL DEFAULT 0,
-    episode_started_at TEXT, pending_resume_notice TEXT
+    episode_started_at TIMESTAMPTZ, pending_resume_notice TEXT
 );
 """
 
@@ -69,8 +70,8 @@ CREATE TABLE IF NOT EXISTS work_claims (
     id INTEGER PRIMARY KEY, session_id TEXT NOT NULL, target_kind TEXT NOT NULL,
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
-    claimed_at TEXT NOT NULL, last_heartbeat TEXT NOT NULL,
-    released_at TEXT, release_reason TEXT
+    claimed_at TIMESTAMPTZ NOT NULL, last_heartbeat TIMESTAMPTZ NOT NULL,
+    released_at TIMESTAMPTZ, release_reason TEXT
 );
 """
 
@@ -79,7 +80,7 @@ CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY, event_name TEXT NOT NULL, event_kind TEXT,
     event_type TEXT, source_type TEXT, session_id TEXT, project_id INTEGER,
     item_id TEXT, task_num INTEGER, context TEXT, outcome TEXT, severity TEXT,
-    created_at TEXT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL
 );
 """
 
@@ -101,7 +102,7 @@ CREATE TABLE IF NOT EXISTS actors (status TEXT NOT NULL DEFAULT 'active',
     kind TEXT NOT NULL DEFAULT 'human',
     system_component TEXT,
     name TEXT NOT NULL DEFAULT '',
-    created_at TEXT
+    created_at TIMESTAMPTZ
 );
 """
 
@@ -113,7 +114,7 @@ CREATE TABLE IF NOT EXISTS actors (status TEXT NOT NULL DEFAULT 'active',
 _CREATE_ORGANIZATIONS = """
 CREATE TABLE IF NOT EXISTS organizations (
     id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL, created_at TEXT NOT NULL
+    name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL
 );
 INSERT INTO organizations (id, slug, name, created_at)
     VALUES (1, 'default', 'Default', '2026-01-01T00:00:00Z')
@@ -157,7 +158,7 @@ def _insert_session(conn: Any, session_id: str, ended: bool = False) -> None:
         "last_heartbeat, ended_at) "
         "VALUES (%s, 'claude-code', 'anthropic', 'test', '/tmp', 1, "
         "'2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', %s)",
-        (session_id, "2026-01-01T01:00:00Z" if ended else None),
+        (session_id, parse_instant("2026-01-01T01:00:00.123456Z") if ended else None),
     )
     conn.commit()
 
@@ -178,7 +179,7 @@ def _insert_claim(
         (
             session_id,
             make_item_target(item_id).scope_json(),
-            "2026-01-01T01:00:00Z" if released else None,
+            parse_instant("2026-01-01T01:00:00.123456Z") if released else None,
             release_reason if released else None,
         ),
     )

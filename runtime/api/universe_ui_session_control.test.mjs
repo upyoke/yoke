@@ -129,7 +129,7 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
   );
   const acknowledged = byClass(root, "session-message-recipient-status")[1];
   assert.equal(acknowledged.children[0].textContent, "Acknowledged ");
-  assert.equal(acknowledged.children[1].getAttribute("datetime"), "2026-08-23T01:06:00.000Z");
+  assert.equal(acknowledged.children[1].getAttribute("datetime"), "2026-08-23T01:06:00.000000Z");
   button(root, "Cancel").dispatchEvent(new Event("click"));
   await settle();
   assert.ok(requests.some(

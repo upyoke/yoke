@@ -17,6 +17,7 @@ wrote the capture is the same one on every harness.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from yoke_contracts.timestamps import format_instant
 from pathlib import Path
 from typing import Any, Callable
 
@@ -84,8 +85,8 @@ def _result(
         evidence["exit_code"] = exit_code
     if capture is None:
         return RelayAdapterResult(code, evidence=evidence)
-    if capture.exit_at:
-        evidence["native_exit_at"] = capture.exit_at
+    if capture.exit_at is not None:
+        evidence["native_exit_at"] = format_instant(capture.exit_at)
     # The capture is already retained under this attempt's own name, so the
     # report carries that reference and the one line the native ended on —
     # never the streams themselves.

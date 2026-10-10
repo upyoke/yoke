@@ -1,6 +1,8 @@
 """Failed usage responses remain visible through cache, guidance and Fleet."""
 
+from datetime import timedelta
 from email.message import Message
+from yoke_contracts.timestamps import parse_instant
 from io import BytesIO
 import json
 from pathlib import Path
@@ -74,18 +76,23 @@ def test_failed_usage_response_is_logged_cached_and_rendered_without_backoff(
         )
 
     monkeypatch.setattr(urllib.request, "urlopen", fail)
+    observed_at = parse_instant("2026-10-09T14:02:00Z")
     readings = limits.observe_plan_limits(
         (surface,),
         state_dir=tmp_path,
-        now=1000,
+        now=observed_at,
         clock=lambda: "2026-10-09T14:02:00Z",
     )
     first_call_count = len(calls)
-    cached = limits.observe_plan_limits((surface,), state_dir=tmp_path, now=1239)
+    cached = limits.observe_plan_limits(
+        (surface,), state_dir=tmp_path, now=observed_at + timedelta(seconds=239)
+    )
     assert cached == readings
     assert len(calls) == first_call_count
     stored = json.loads((tmp_path / limits.PLAN_LIMIT_CACHE_FILE_NAME).read_text())
-    limits.observe_plan_limits((surface,), state_dir=tmp_path, now=1240)
+    limits.observe_plan_limits(
+        (surface,), state_dir=tmp_path, now=observed_at + timedelta(seconds=240)
+    )
     assert len(calls) == first_call_count * 2
     assert limits.PLAN_LIMIT_REFRESH_SECONDS == 240
 

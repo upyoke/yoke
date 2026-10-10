@@ -21,7 +21,7 @@ from __future__ import annotations
 from typing import Optional
 
 from yoke_core.domain.db_backend import connection_is_postgres
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.github_actions_runner_fleet_capability import (
     CAPABILITY_TYPE as RUNNER_FLEET_CAPABILITY_TYPE,
 )
@@ -197,7 +197,14 @@ def seed_capability_templates(conn) -> None:
             "(id, name, description, required_config, requires, created_at) "
             f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}) "
             "ON CONFLICT(id) DO NOTHING",
-            (tmpl_id, tmpl_name, tmpl_desc, tmpl_config, tmpl_requires, iso8601_now()),
+            (
+                tmpl_id,
+                tmpl_name,
+                tmpl_desc,
+                tmpl_config,
+                tmpl_requires,
+                instant_parameter(conn, utc_now()),
+            ),
         )
     conn.commit()
 

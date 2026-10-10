@@ -1,3 +1,7 @@
+import { formatInstant, instantMicros } from "./timestamps.js";
+
+export const SECONDS_PER_DAY = 86400;
+
 // The dashboard's one "how long ago" convention: minute granularity rolling
 // over to hours past an hour and days past 48 hours. Every "X ago" display
 // on the card (age, idle recency, claim held, QA result age, …) reuses this
@@ -6,13 +10,22 @@
 // the deliberate seconds-granular exception for facts that change faster
 // than a minute (a relay heartbeat), not a second convention to choose
 // between.
+export function elapsedSeconds(value, now = Date.now()) {
+  if (!Number.isSafeInteger(now)) return null;
+  try {
+    const elapsed = BigInt(now) * 1000n - instantMicros(value);
+    return elapsed <= 0n ? 0 : Number(elapsed / 1_000_000n);
+  } catch {
+    return null;
+  }
+}
+
 export function relativeAge(value, now = Date.now()) {
   if (!value) return "recently";
-  const timestamp = new Date(value).getTime();
-  if (Number.isNaN(timestamp)) return String(value);
-  const elapsedSeconds = Math.max(0, Math.floor((now - timestamp) / 1000));
-  if (elapsedSeconds < 60) return "now";
-  const minutes = Math.floor(elapsedSeconds / 60);
+  const seconds = elapsedSeconds(value, now);
+  if (seconds === null) return String(value);
+  if (seconds < 60) return "now";
+  const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
   if (hours < 48) return `${hours}h`;
@@ -32,17 +45,17 @@ export function relativeAgePhrase(value, now = Date.now()) {
 // arriving. `relativeAge` stays the default everywhere a minute is the
 // smallest interval that carries meaning.
 export function preciseAge(value, now = Date.now()) {
-  const timestamp = Date.parse(String(value || ""));
-  if (Number.isNaN(timestamp)) return null;
-  const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
+  const seconds = elapsedSeconds(value, now);
+  if (seconds === null) return null;
   if (seconds < 60) return `${seconds}s`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
-  return `${Math.floor(seconds / 86400)}d`;
+  if (seconds < SECONDS_PER_DAY) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / SECONDS_PER_DAY)}d`;
 }
 
 export function isInstantRelativeTime(value, now = Date.now()) {
-  return relativeAge(value, now) === "now";
+  const seconds = elapsedSeconds(value, now);
+  return seconds !== null && seconds < 60;
 }
 
 // The viewer's time-zone preference (Profile → Preferences). Empty means
@@ -59,6 +72,7 @@ export function displayTimeZoneValue() {
 }
 
 function absoluteTime(value) {
+  if (value == null) return "";
   const timestamp = new Date(value);
   if (Number.isNaN(timestamp.getTime())) return String(value || "");
   const options = { dateStyle: "medium", timeStyle: "short" };
@@ -77,7 +91,8 @@ export function relativeTime(
   { instantText = "now", relativeAgeFn = relativeAge } = {},
 ) {
   const time = documentNode.createElement("time");
-  const timestamp = new Date(value).getTime();
+  const canonical = value == null ? null : formatInstant(value);
+  const timestamp = canonical === null ? Number.NaN : Date.parse(canonical);
   const relativeText = (referenceTime = Date.now()) => {
     const age = relativeAgeFn(value, referenceTime);
     return age === "now" ? instantText : age;
@@ -96,7 +111,7 @@ export function relativeTime(
   time.setAttribute("aria-pressed", "false");
   time.setAttribute("aria-label", absolute || relative);
   if (!Number.isNaN(timestamp)) {
-    time.setAttribute("datetime", new Date(timestamp).toISOString());
+    time.setAttribute("datetime", canonical);
     time.setAttribute("data-ms", String(timestamp));
   }
   const toggle = () => {

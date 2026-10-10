@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_contracts.public_ref import format_item_ref
+from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_core.domain.time_parse import parse_timestamp_utc
 from yoke_core.domain.deployment_run_membership_removals import (
     parse_membership_removals,
 )
@@ -114,7 +116,9 @@ def removed_member_items(
         "ORDER BY dr.created_at DESC, dr.id DESC",
         tuple(item_ids),
     ).fetchall()
-    created = {str(run["id"]): str(run.get("created_at") or "") for run in runs}
+    created = {
+        str(run["id"]): parse_timestamp_utc(run.get("created_at")) for run in runs
+    }
     result: dict[str, list[dict[str, Any]]] = {}
     for run_id, entries in removals.items():
         for entry in entries:
@@ -127,7 +131,8 @@ def removed_member_items(
                     for row in later
                     if int(row["item_id"]) == item_id
                     and str(row["id"]) != run_id
-                    and str(row["created_at"]) > created[run_id]
+                    and created[run_id] is not None
+                    and parse_instant(row["created_at"]) > created[run_id]
                 ),
                 None,
             )
@@ -135,7 +140,11 @@ def removed_member_items(
                 {
                     **identities[item_id],
                     "reason": str(entry.get("reason") or ""),
-                    "removed_at": str(entry.get("removed_at") or ""),
+                    "removed_at": (
+                        format_instant(entry["removed_at"])
+                        if entry.get("removed_at") is not None
+                        else None
+                    ),
                     "later_run_id": next_run,
                 }
             )

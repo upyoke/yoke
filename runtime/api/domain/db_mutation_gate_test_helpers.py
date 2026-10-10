@@ -9,6 +9,9 @@ seeding helpers below.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.stored_instant_columns import STORED_INSTANT_COLUMNS
+
 import contextlib
 import json
 import re
@@ -48,8 +51,8 @@ CREATE TABLE IF NOT EXISTS project_capabilities (
     type TEXT NOT NULL,
     
     settings TEXT DEFAULT '{}',
-    verified_at TEXT,
-    created_at TEXT NOT NULL,
+    verified_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL,
     UNIQUE(project_id, type)
 );
 
@@ -68,7 +71,7 @@ CREATE TABLE IF NOT EXISTS migration_audit (
     failure_reason TEXT,
     exception_reason TEXT,
     source_fingerprint TEXT,
-    rehearsed_at TEXT,
+    rehearsed_at TIMESTAMPTZ,
     lease_id INTEGER,
     test_copy_path TEXT,
     baseline_verify_result TEXT,
@@ -76,8 +79,8 @@ CREATE TABLE IF NOT EXISTS migration_audit (
     session_id TEXT,
     model_name TEXT,
     project_id INTEGER,
-    started_at TEXT,
-    completed_at TEXT,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
     duration_ms INTEGER
 );
 """
@@ -157,9 +160,22 @@ def seed_audit_row(
     try:
         marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
         native_placeholders = placeholders.replace("?", marker)
+        native_values = list(values)
+        parameter_index = 0
+        for column, token in zip(
+            columns.split(","), placeholders.split(","), strict=True
+        ):
+            if token.strip() not in {"?", "%s"}:
+                continue
+            if ("migration_audit", column.strip()) in STORED_INSTANT_COLUMNS:
+                value = native_values[parameter_index]
+                if value is not None:
+                    native_values[parameter_index] = parse_instant(value)
+            parameter_index += 1
+        assert parameter_index == len(native_values)
         conn.execute(
             f"INSERT INTO migration_audit ({columns}) VALUES ({native_placeholders})",
-            values,
+            tuple(native_values),
         )
         conn.commit()
     finally:
@@ -191,7 +207,7 @@ def _seed_capability(
         f"(project_id, type, settings, created_at) VALUES ({p}, {p}, {p}, {p}) "
         "ON CONFLICT (project_id, type) DO UPDATE SET "
         "settings = excluded.settings, created_at = excluded.created_at",
-        (project_id, "migration_model", raw, "2026-04-23T00:00:00Z"),
+        (project_id, "migration_model", raw, parse_instant("2026-04-23T00:00:00Z")),
     )
     conn.commit()
 
@@ -208,7 +224,7 @@ def _seed_project(conn: sqlite3.Connection, project: str, repo_path: Path) -> No
         "(id, slug, name, public_item_prefix, created_at) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}) "
         f"ON CONFLICT (id) DO UPDATE SET {_PROJECT_UPSERT_SET}",
-        (project_id, project, project, "YOK", "2026-04-23T00:00:00Z"),
+        (project_id, project, project, "YOK", parse_instant("2026-04-23T00:00:00Z")),
     )
     conn.commit()
 

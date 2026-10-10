@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
+
+from yoke_contracts.timestamps import as_utc
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -173,7 +176,7 @@ class ScheduledStep:
         unblocks_count: How many items this item hard-blocks.
         downstream_depth: Length of the longest downstream activation-gate
             chain from this item.
-        created_at: ISO 8601 creation timestamp.
+        created_at: Native aware creation instant, or absent for a synthetic step.
     """
 
     item_id: int
@@ -194,11 +197,15 @@ class ScheduledStep:
     blocked_reasons: List[str] = field(default_factory=list)
     unblocks_count: int = 0
     downstream_depth: int = 0
-    created_at: str = ""
+    created_at: datetime | None = None
     stage_index: int = -1
     stage_count: int = 0
     stage_label: str = ""
     routing_override: Optional[RoutingOverride] = None
+
+    def __post_init__(self) -> None:
+        if self.created_at is not None:
+            self.created_at = as_utc(self.created_at)
 
 
 # ---------------------------------------------------------------------------

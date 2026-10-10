@@ -19,6 +19,10 @@ starts at its first real edit.
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant
+
 from typing import Any, Optional
 
 from yoke_core.domain.strategy_docs_header import content_sha256
@@ -35,13 +39,13 @@ CREATE TABLE IF NOT EXISTS {STRATEGY_DOCS_TABLE} (
   project_id BIGINT NOT NULL REFERENCES projects(id),
   slug TEXT NOT NULL,
   content TEXT NOT NULL DEFAULT '',
-  updated_at TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
   updated_by_actor_id BIGINT,
   -- archived_at: nullable ISO timestamp. NULL = active (renders to
   -- .yoke/strategy/<slug>.md); a timestamp = archived (renders to
   -- .yoke/strategy/archive/<slug>.md). Flipped by strategy.doc.archive /
   -- strategy.doc.unarchive; the doc stays a full, editable corpus row.
-  archived_at TEXT
+  archived_at TIMESTAMPTZ
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_strategy_docs_project_id_slug
   ON {STRATEGY_DOCS_TABLE}(project_id, slug)
@@ -62,7 +66,7 @@ CREATE TABLE IF NOT EXISTS {STRATEGY_DOC_REVISIONS_TABLE} (
   source_operation TEXT NOT NULL,
   actor_id BIGINT,
   session_id TEXT,
-  created_at TEXT NOT NULL
+  created_at TIMESTAMPTZ NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_strategy_doc_revisions_doc_revision
   ON {STRATEGY_DOC_REVISIONS_TABLE}(project_id, slug, revision)
@@ -78,7 +82,7 @@ def record_doc_revision(
     source_operation: str,
     actor_id: Optional[int],
     session_id: Optional[str] = None,
-    created_at: str,
+    created_at: datetime | str,
 ) -> int:
     """Append one revision row inside the caller's open transaction.
 
@@ -115,7 +119,7 @@ def record_doc_revision(
             source_operation,
             actor_id,
             session_id,
-            created_at,
+            instant_parameter(conn, parse_instant(created_at)),
         ),
     )
     return revision

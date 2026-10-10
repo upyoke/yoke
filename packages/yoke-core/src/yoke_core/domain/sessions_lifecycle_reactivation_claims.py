@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
+
+from yoke_contracts.timestamps import parse_instant, utc_now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Dict, List, Optional, Tuple
 
 from .runtime_settings import get_seconds
@@ -34,23 +37,13 @@ _REACTIVATION_REASON_SQL = (
 )
 
 
-def _now_iso() -> str:
-    return (
-        datetime.now(timezone.utc)
-        .isoformat(timespec="microseconds")
-        .replace("+00:00", "Z")
-    )
-
-
-def _within_window(released_at: Optional[str], window_s: int) -> bool:
-    if not released_at:
+def _within_window(
+    released_at: datetime | str | None, window_s: int, *, now: datetime
+) -> bool:
+    if released_at is None:
         return False
-    try:
-        ts = datetime.fromisoformat(str(released_at).replace("Z", "+00:00"))
-    except (ValueError, TypeError):
-        return False
-    age = (datetime.now(timezone.utc) - ts).total_seconds()
-    return 0 <= age <= window_s
+    age = now - parse_instant(released_at)
+    return timedelta() <= age <= timedelta(seconds=window_s)
 
 
 def _resolve_reacquire_window_s(override_s: Optional[int] = None) -> int:
@@ -93,7 +86,7 @@ def _conflict_holder(conn: Any, row: Any) -> Tuple[Optional[str], bool]:
     return None, active_self is not None
 
 
-def _insert_reacquired_claim(conn: Any, row: Any, *, now_iso: str) -> int:
+def _insert_reacquired_claim(conn: Any, row: Any, *, now: datetime) -> int:
     """Insert a fresh active claim mirroring the prior target and intent."""
     from .claim_chain_state import claim_reason_columns_present
 
@@ -108,7 +101,12 @@ def _insert_reacquired_claim(conn: Any, row: Any, *, now_iso: str) -> int:
         f"{reason_cols} "
         "FROM work_claims WHERE id = %s "
         "RETURNING id",
-        (row["session_id"], now_iso, now_iso, row["id"]),
+        (
+            row["session_id"],
+            instant_parameter(conn, now),
+            instant_parameter(conn, now),
+            row["id"],
+        ),
     )
     inserted = cursor.fetchone()
     return int(inserted[0]) if inserted else 0
@@ -173,13 +171,13 @@ def auto_reacquire_session_ended_claims(
     reacquired: List[Dict[str, Any]] = []
     conflicts: List[Dict[str, Any]] = []
     seen_targets: set[Tuple[Any, ...]] = set()
-    now_iso = _now_iso()
+    now = utc_now()
     for row in rows:
         target_key = _target_key(row)
         if target_key in seen_targets:
             continue
         seen_targets.add(target_key)
-        if not _within_window(row["released_at"], window):
+        if not _within_window(row["released_at"], window, now=now):
             continue
         target = target_descriptor(row)
         try:
@@ -196,7 +194,7 @@ def auto_reacquire_session_ended_claims(
         if holder is not None:
             conflicts.append({**target, "holder_session_id": holder})
             continue
-        new_id = _insert_reacquired_claim(conn, row, now_iso=now_iso)
+        new_id = _insert_reacquired_claim(conn, row, now=now)
         if row["target_kind"] == TARGET_KIND_STEERING:
             from .strategy_doc_steering_pair import (
                 paired_document_slug_for_history,

@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant, utc_now
+from .db_helpers import instant_parameter
+
 from typing import Any, Dict, List, Optional
 
 from . import db_backend, project_identity
@@ -25,7 +29,7 @@ from .sessions_lifecycle_release_precondition import (
 from .sessions_lifecycle_release_events import (
     POST_COMMIT_RECEIPT_KEY as _POST_COMMIT_RECEIPT_KEY,
 )
-from .sessions_queries import _now_iso, normalize_claim_item_id
+from .sessions_queries import normalize_claim_item_id
 from .sessions_render_attribution import release_item_focus_if_current
 from .workflow_runtime import load_item_workflow_runtime
 from .work_claim_targets import (
@@ -148,7 +152,7 @@ def release_work_claim_for_execution(
     """
     lock_session_rows_for_claim_lifecycle(conn, (session_id,))
     binding_lock.lock_work_claim_target_workflow_binding(conn, target)
-    now = _now_iso()
+    now = utc_now()
     claim_row = find_active_claim(conn, session_id, target)
     target_label = target.render()
 
@@ -231,7 +235,7 @@ def release_work_claim_for_execution(
     conn.execute(
         f"UPDATE work_claims SET released_at = {_p(conn)}, "
         f"release_reason = {_p(conn)} WHERE id = {_p(conn)}",
-        (now, canonical_reason, claim_id),
+        (instant_parameter(conn, now), canonical_reason, claim_id),
     )
     # The caller's release intent is first-class claim state — the
     # released row persists and the frontier defense reads it from here.
@@ -277,7 +281,7 @@ def release_work_claim_for_execution(
 def _release_linked_path_claims(
     conn: Any,
     work_claim_id: int,
-    now: str,
+    now: datetime | str,
     canonical_reason: str,
 ) -> List[int]:
     """Release non-terminal path claims linked to a process work-claim.
@@ -302,7 +306,11 @@ def _release_linked_path_claims(
         conn.execute(
             f"UPDATE path_claims SET state = 'released', released_at = {_p(conn)}, "
             f"release_reason = {_p(conn)} WHERE id = {_p(conn)}",
-            (now, f"work-claim-released:{canonical_reason}", cid),
+            (
+                instant_parameter(conn, parse_instant(now)),
+                f"work-claim-released:{canonical_reason}",
+                cid,
+            ),
         )
         released_ids.append(cid)
     return released_ids

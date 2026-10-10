@@ -118,6 +118,7 @@ async function testAnnotatedScreenshotResponseShape() {
   assert(typeof result.refs === 'object' && result.refs !== null, 'refs is an object');
   assert(typeof result.url === 'string', 'url is a string');
   assert(typeof result.timestamp === 'string', 'timestamp is a string');
+    assert(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(result.timestamp), 'owned clock is fixed-six UTC');
   assert(!isNaN(Date.parse(result.timestamp)), 'timestamp is valid ISO date');
   assert(typeof result.viewport === 'object', 'viewport is an object');
   assert(typeof result.viewport.width === 'number', 'viewport.width is a number');

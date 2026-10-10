@@ -59,8 +59,8 @@ def project_has_active_verified_github_binding(
     )
     return bool(
         automation_info.get("available")
-        and str(binding["last_verified_at"] or "").strip()
-        and str(installation["last_verified_at"] or "").strip()
+        and binding["last_verified_at"] is not None
+        and installation["last_verified_at"] is not None
     )
 
 

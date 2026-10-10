@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.stored_instant_columns import STORED_INSTANT_COLUMNS
+
 from typing import Optional
 
 from yoke_core.domain.db_helpers import connect
@@ -39,20 +41,20 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 status TEXT NOT NULL DEFAULT 'created'
                     CHECK(status IN ('created','executing','succeeded','failed','cancelled')),
                 current_stage TEXT,
-                current_stage_entered_at TEXT,
-                created_at TEXT NOT NULL,
-                started_at TEXT,
-                completed_at TEXT,
+                current_stage_entered_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL,
+                started_at TIMESTAMPTZ,
+                completed_at TIMESTAMPTZ,
                 created_by TEXT DEFAULT 'operator',
                 carried_work TEXT,
                 bound_sources TEXT,
                 candidate_containment TEXT,
                 artifact_identity TEXT,
                 composition_resolution TEXT,
-                composition_frozen_at TEXT,
+                composition_frozen_at TIMESTAMPTZ,
                 requirement_snapshot TEXT,
                 driver_attachment TEXT,
-                settling_at TEXT,
+                settling_at TIMESTAMPTZ,
                 membership_removals TEXT,
                 CONSTRAINT deployment_runs_target_tier_vocabulary
                     CHECK (target_tier IS NULL
@@ -67,7 +69,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
             CREATE TABLE IF NOT EXISTS deployment_run_items (
                 run_id TEXT NOT NULL REFERENCES deployment_runs(id),
                 item_id INTEGER NOT NULL,
-                added_at TEXT NOT NULL,
+                added_at TIMESTAMPTZ NOT NULL,
                 delivery_intent {DELIVERY_INTENT_COLUMN_SQL},
                 requirement_selection TEXT,
                 requirement_snapshot TEXT,
@@ -84,7 +86,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 blocking INTEGER NOT NULL DEFAULT 1,
                 status TEXT NOT NULL DEFAULT 'pending'
                     CHECK(status IN ('pending','passed','failed','waived')),
-                updated_at TEXT,
+                updated_at TIMESTAMPTZ,
                 UNIQUE(run_id, check_name)
             )
             """,
@@ -99,7 +101,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 env_type TEXT NOT NULL DEFAULT 'adhoc'
                     CHECK(env_type IN ('shared','adhoc')),
                 url TEXT,
-                created_at TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL,
                 UNIQUE(project_id, env_name)
             )
             """,
@@ -119,7 +121,12 @@ def cmd_init(db_path: Optional[str] = None) -> None:
             KEY_COLUMN,
             REQUEST_COLUMN,
         ):
-            _add_column_if_not_exists(conn, "deployment_runs", column, "TEXT")
+            declaration = (
+                "TIMESTAMPTZ"
+                if ("deployment_runs", column) in STORED_INSTANT_COLUMNS
+                else "TEXT"
+            )
+            _add_column_if_not_exists(conn, "deployment_runs", column, declaration)
         conn.execute(KEY_INDEX_SQL)
         for column, declaration in (
             ("delivery_intent", DELIVERY_INTENT_COLUMN_SQL),

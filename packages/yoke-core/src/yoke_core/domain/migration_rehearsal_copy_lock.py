@@ -13,12 +13,12 @@ import hashlib
 import json
 import os
 import subprocess
-import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Iterator
 
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
 from yoke_contracts.machine_config import runtime as machine_config
 from yoke_contracts.machine_config.directories import create_private_directory
 from yoke_core.domain.postgres_cluster import ClusterSpec, SOCKET_PORT
@@ -81,7 +81,9 @@ def _holder(descriptor: int) -> str:
     try:
         metadata = json.loads(os.pread(descriptor, 4096, 0))
         pid = int(metadata["pid"])
-        elapsed = max(0, int(time.time() - float(metadata["started_at"])))
+        elapsed = max(
+            0, int((utc_now() - parse_instant(metadata["started_at"])).total_seconds())
+        )
         return (
             f"driver pid={pid}, held={elapsed}s (a surviving child may hold admission)"
         )
@@ -107,7 +109,9 @@ def copy_lock(spec: ClusterSpec, copy_name: str) -> Iterator[None]:
             ) from None
         # Diagnostics cannot decide admission or make an acquired lock fail.
         try:
-            metadata = json.dumps({"pid": os.getpid(), "started_at": time.time()})
+            metadata = json.dumps(
+                {"pid": os.getpid(), "started_at": format_instant(utc_now())}
+            )
             os.ftruncate(descriptor, 0)
             os.pwrite(descriptor, metadata.encode(), 0)
         except OSError:

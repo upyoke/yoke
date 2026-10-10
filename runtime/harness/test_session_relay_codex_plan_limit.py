@@ -14,7 +14,7 @@ from yoke_harness.session_relay_codex_app_server_client import CodexAppServerErr
 from yoke_harness.session_relay_failure_log import FailureReporter
 
 
-NOW = "2026-08-30T01:00:00Z"
+NOW = "2026-08-30T01:00:00.000000Z"
 _OK_APP_SERVER_RESULT = {
     "rateLimitsByLimitId": {
         "codex": {
@@ -110,7 +110,7 @@ def test_app_server_read_uses_the_proven_client_and_returns_the_bucket(
             "scope": "all",
             "meter": "rateLimitsByLimitId.codex.primary",
             "remaining_percent": 88.0,
-            "resets_at": "2026-09-05T21:28:12Z",
+            "resets_at": "2026-09-05T21:28:12.000000Z",
             "status": "ok",
             "reason": None,
         }

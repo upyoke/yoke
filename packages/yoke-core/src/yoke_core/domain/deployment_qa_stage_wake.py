@@ -14,7 +14,9 @@ the stage's own diagnostic.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import parse_instant, utc_now
+
+from datetime import datetime
 from typing import Any, Optional
 
 from yoke_core.domain.deployment_run_driver_notice import (
@@ -193,6 +195,7 @@ def notify_item_scoped_qa_wait(
     the stage's own existing retry/requirement contract (a new
     ``target_digest``) is always a fresh key.
     """
+    now = parse_instant(utc_now() if now is None else now)
     from yoke_core.domain.project_identity import render_item_ref
     from yoke_core.domain.qa_plan_empty_roster import member_discharge_statement
 
@@ -216,7 +219,7 @@ def notify_item_scoped_qa_wait(
         idempotency_key=stage_wait_idempotency_key(
             run_id, stage_name, item_id, target_digest
         ),
-        now=now or datetime.now(timezone.utc),
+        now=now,
     )
 
 

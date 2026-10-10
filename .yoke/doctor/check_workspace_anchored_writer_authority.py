@@ -61,6 +61,7 @@ HELPER_MODULE = "yoke_core.domain.workspace_authority"
 # exists to catch (worktree-claim-bound writes of TRACKED rendered
 # source files into main).
 IN_SCOPE_WRITERS = (
+    "runtime/api/tools/schema_catalog_render.py",
     "packages/yoke-core/src/yoke_core/tools/build_frontend_events.py",
     "packages/yoke-core/src/yoke_core/domain/agents_render.py",
     "packages/yoke-core/src/yoke_core/domain/install_bundle_tree_sync.py",

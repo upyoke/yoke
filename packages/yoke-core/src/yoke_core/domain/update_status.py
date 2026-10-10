@@ -1,34 +1,13 @@
-"""Python owner for epic-task status mutation orchestration.
+"""Orchestrate epic-task status writes, GitHub sync and parent derivation.
 
-Owns the DB status update plus the side-effect dispatch and parent-epic
-derivation for epic-task lifecycle transitions.
-
-Responsibilities live across responsibility-named siblings:
-
-- ``update_status_helpers`` -- shared low-level helpers (history insert,
-  claim verification, repo resolution).
-- ``update_status_auto_unblock`` -- ``auto_unblock`` dependency-aware
-  unblock pass.
-- ``update_status_auto_derive`` -- ``auto_derive_epic_status`` parent
-  recomputation.
-- ``update_status_github_sync`` -- ``_github_label_sync``,
-  ``_github_comment_post``, ``_github_close_on_terminal`` (bearer-token REST).
-- ``update_status_epic_checkbox`` -- ``_update_epic_checkbox`` parent
-  body writeback (bearer-token REST).
-
-This front door keeps ``update_task_status`` (the public mutator that
-orchestrates all of the above) and ``main`` (the CLI entry point).  The full
-historical public surface is re-exported here so existing
-``from yoke_core.domain.update_status import ...`` callers continue to
-work unchanged.
-
-CLI usage::
-
-    python3 -m yoke_core.domain.update_status <epic-id> <task-num> <new-status> [note] \\
-        [--no-github] [--no-derive]
+Shared helpers, auto-unblock, auto-derive and GitHub/checkbox writers live in
+responsibility-named siblings. This front door retains their public re-exports,
+update_task_status and the CLI entry point.
 """
 
 from __future__ import annotations
+
+from yoke_core.domain.db_helpers import instant_parameter
 
 import os
 import sys
@@ -161,7 +140,10 @@ def update_task_status(
     )
     if new_status == "done" and not task_done_verified:
         print("Error: epic-task done requires merge-verified context.", file=stderr)
-        print("Epic tasks should reach 'reviewed-implementation' via conduct, then 'done' only through:", file=stderr)
+        print(
+            "Epic tasks should reach 'reviewed-implementation' via conduct, then 'done' only through:",
+            file=stderr,
+        )
         print("  - done-transition.sh (parent epic cascade)", file=stderr)
         print("  - merge/SKILL.md (post-PR-merge)", file=stderr)
         print("Set YOKE_TASK_DONE_VERIFIED=1 to override.", file=stderr)
@@ -172,6 +154,7 @@ def update_task_status(
             schema_available as task_scope_schema_available,
             task_scope_issues,
         )
+
         if task_scope_schema_available(conn):
             scope_issues = task_scope_issues(conn, int(epic_id))
             if scope_issues:
@@ -195,7 +178,7 @@ def update_task_status(
     # Update last_heartbeat
     conn.execute(
         f"UPDATE epic_tasks SET last_heartbeat={p} WHERE epic_id={p} AND task_num={p}",
-        (timestamp, str(epic_id), str(task_num)),
+        (instant_parameter(conn, timestamp), str(epic_id), str(task_num)),
     )
     conn.commit()
 
@@ -209,6 +192,7 @@ def update_task_status(
 
     # Record the transition (state) + history insert (TaskStatusChanged telemetry)
     from yoke_core.domain.item_status_transitions import record_task_transition
+
     # Request-scoped status source first (relay-posted), else the env var,
     # keeping the historical "update-status" default.
     _, ctx_status_source = resolve_claim_bypass()
@@ -218,7 +202,8 @@ def update_task_status(
         task_num=task_num,
         from_status=old_status,
         to_status=new_status,
-        source=ctx_status_source or os.environ.get("YOKE_STATUS_SOURCE", "update-status"),
+        source=ctx_status_source
+        or os.environ.get("YOKE_STATUS_SOURCE", "update-status"),
     )
     conn.commit()
     _history_insert(epic_id, task_num, old_status, new_status, note)
@@ -273,9 +258,22 @@ def update_task_status(
     gh_project = resolved_project(project)
 
     _github_label_sync(issue_num, new_status, repo_a, gh_project, stderr=stderr)
-    _github_comment_post(issue_num, old_status, new_status, note, repo_a, gh_project, stderr=stderr)
-    _github_close_on_terminal(issue_num, new_status, epic_id, task_num, repo_a, gh_project, stderr=stderr)
-    _update_epic_checkbox(conn, epic_id, task_num, new_status, github_issue, repo_a, gh_project, stdout=stdout)
+    _github_comment_post(
+        issue_num, old_status, new_status, note, repo_a, gh_project, stderr=stderr
+    )
+    _github_close_on_terminal(
+        issue_num, new_status, epic_id, task_num, repo_a, gh_project, stderr=stderr
+    )
+    _update_epic_checkbox(
+        conn,
+        epic_id,
+        task_num,
+        new_status,
+        github_issue,
+        repo_a,
+        gh_project,
+        stdout=stdout,
+    )
 
     return 0
 
@@ -322,7 +320,11 @@ def main(argv: Optional[list[str]] = None) -> int:
             print(f"Error: {exc}", file=sys.stderr)
             return 2
         return update_task_status(
-            conn, epic_id, task_num, new_status, note,
+            conn,
+            epic_id,
+            task_num,
+            new_status,
+            note,
             no_github=no_github,
             no_derive=no_derive,
         )

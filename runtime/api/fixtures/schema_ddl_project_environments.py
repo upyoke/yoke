@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS sites (
     project_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
-    created_at TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
     settings TEXT DEFAULT '{}',
     UNIQUE(id, project_id),
     UNIQUE(project_id, name)
@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS environments (
     name TEXT NOT NULL,
     url TEXT,
     health_check_url TEXT,
-    last_deployed_at TEXT,
-    created_at TEXT NOT NULL,
+    last_deployed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL,
     settings TEXT DEFAULT '{}',
     UNIQUE(project_id, name)
 );

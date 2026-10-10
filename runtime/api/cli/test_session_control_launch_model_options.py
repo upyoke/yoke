@@ -112,7 +112,7 @@ def test_list_models_names_the_models_a_surface_actually_published(
                 "codex-cli",
                 [native_model("gpt-6-astra")],
                 source="codex app-server model/list",
-                observed_at="2026-09-07T14:00:00Z",
+                observed_at="2026-09-07T14:00:00.000000Z",
             )
         },
     )
@@ -125,4 +125,4 @@ def test_list_models_names_the_models_a_surface_actually_published(
     rendered = capsys.readouterr().out
     assert "codex-cli available (ok, codex app-server model/list)" in rendered
     assert "models: gpt-6-astra" in rendered
-    assert "observed 2026-09-07T14:00:00Z" in rendered
+    assert "observed 2026-09-07T14:00:00.000000Z" in rendered

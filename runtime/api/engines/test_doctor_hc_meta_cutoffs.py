@@ -1,4 +1,4 @@
-"""Cutoff tests for YOK-1704 task 3 — meta-fixture HC cutoffs.
+"""Cutoff tests for lifecycle and deployment health checks.
 
 Covers three HC sources that consume machine-config cutoff keys and run
 against the shared meta-fixture schema in ``_doctor_meta_test_helpers``:
@@ -18,6 +18,10 @@ scaffolding that would push this file past the 350-line hard cap).
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+
+import pytest
+
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
 
 from runtime.api.engines._doctor_meta_test_helpers import (
     _args,
@@ -44,9 +48,7 @@ from yoke_core.engines.doctor import (
 def _seed_undeployed_done(conn, item_id: int) -> None:
     """Seed a done item that trips HC-undeployed-done."""
     days_old = 30
-    updated = (datetime.now(timezone.utc) - timedelta(days=days_old)).strftime(
-        "%Y-%m-%d %H:%M:%S",
-    )
+    updated = datetime.now(timezone.utc) - timedelta(days=days_old)
     _seed_project(conn, "yoke")
     _insert_item(
         conn,
@@ -258,3 +260,35 @@ class TestLifecycleContinuityCutoff:
 
         result, _ = _results(rec)["HC-lifecycle-continuity"]
         assert result == "PASS"
+
+
+@pytest.mark.parametrize(
+    "cutoff", [None, "2026-05-16T19:55:00.123456+02:00", "2026-05-16T17:55:00.123456Z"]
+)
+def test_lifecycle_cutoff_binds_native_instants(monkeypatch, cutoff):
+    from yoke_core.engines import doctor_hc_meta_lifecycle as owner
+
+    calls = []
+    monkeypatch.setattr(owner._base, "_table_exists", lambda *_: True)
+    monkeypatch.setattr(owner._base, "_read_str_cutoff", lambda *_: cutoff)
+    monkeypatch.setattr(owner, "query_rows", lambda *args: calls.append(args) or [])
+    owner.hc_lifecycle_continuity(object(), _args(), RecordCollector())
+    params = calls[0][-1]
+    assert params == (() if cutoff is None else (parse_instant(cutoff),))
+    if params:
+        assert isinstance(params[0], datetime) and params[0].microsecond == 123456
+
+
+@pytest.mark.parametrize(
+    "cutoff", ["2026-05-16", "2026-05-16 17:55:00+00", "2026-05-16T17:55:00"]
+)
+def test_invalid_lifecycle_cutoff_refuses_before_query(monkeypatch, cutoff):
+    from yoke_core.engines import doctor_hc_meta_lifecycle as owner
+
+    monkeypatch.setattr(owner._base, "_table_exists", lambda *_: True)
+    monkeypatch.setattr(owner._base, "_read_str_cutoff", lambda *_: cutoff)
+    monkeypatch.setattr(
+        owner, "query_rows", lambda *_: pytest.fail("invalid cutoff reached SQL")
+    )
+    with pytest.raises(InvalidInstant):
+        owner.hc_lifecycle_continuity(object(), _args(), RecordCollector())

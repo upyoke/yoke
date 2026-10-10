@@ -46,4 +46,7 @@ where = ["src"]
 "yoke_contracts" = [
     "machine_authorization.schema.v1.json",
     "browser_step_schema.json",
+    # Exact compiled UI contract bytes, importable by standalone Node consumers.
+    "timestamps.mjs",
+    "time_sql.mjs",
 ]

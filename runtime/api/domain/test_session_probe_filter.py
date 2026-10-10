@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from runtime.api.fixtures.session_holdings import insert_session, iso
+from runtime.api.fixtures.session_holdings import insert_session, instant_ago
 from yoke_core.domain.session_probe import (
     FIRST_USER_PROMPT_COLUMN,
     PROBE_MAX_LIFETIME_SECONDS,
@@ -27,13 +27,13 @@ def _record_first_prompt(conn, session_id: str) -> None:
     conn.execute(
         f"UPDATE harness_sessions SET {FIRST_USER_PROMPT_COLUMN} = %s "
         "WHERE session_id = %s",
-        (iso(), session_id),
+        (instant_ago(), session_id),
     )
     conn.commit()
 
 
 def test_probe_session_is_hidden_while_real_sessions_are_listed(test_db):
-    insert_session(test_db, "s-probe", ended_at=iso())
+    insert_session(test_db, "s-probe", ended_at=instant_ago())
     insert_session(test_db, "s-live")
     insert_session(
         test_db,

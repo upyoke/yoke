@@ -46,6 +46,8 @@ def _runner_stack(
     aws_region="us-east-1",
     stack_name="yoke-runner-fleet",
     routing_enabled=True,
+    lifecycle_writers_paused=False,
+    lifecycle_code_frozen=False,
     spot_on_demand_base_capacity=0,
     spot_on_demand_percentage_above_base=0,
     authority_overrides=None,
@@ -192,6 +194,8 @@ def _runner_stack(
         ],
         runner_variable_name="YOKE_LINUX_RUNS_ON",
         routing_enabled=routing_enabled,
+        lifecycle_writers_paused=lifecycle_writers_paused,
+        lifecycle_code_frozen=lifecycle_code_frozen,
         runner_count=runner_count,
         max_runner_count=max_count,
         instance_type="m7g.2xlarge",
@@ -204,9 +208,7 @@ def _runner_stack(
             "yoke-stage": "originElasticIpAddress",
         },
         spot_on_demand_base_capacity=spot_on_demand_base_capacity,
-        spot_on_demand_percentage_above_base=(
-            spot_on_demand_percentage_above_base
-        ),
+        spot_on_demand_percentage_above_base=(spot_on_demand_percentage_above_base),
     )
     for key, value in (config_overrides or {}).items():
         setattr(args, key, value)
@@ -237,10 +239,12 @@ def _runner_stack(
         "root_volume_gb": args.root_volume_gb,
         "idle_shutdown_minutes": args.idle_shutdown_minutes,
         "shutdown_mode": args.shutdown_mode,
-        "deployment_ssh_stack_outputs": dict(
-            args.deployment_ssh_stack_outputs
-        ),
+        "deployment_ssh_stack_outputs": dict(args.deployment_ssh_stack_outputs),
     }
+    if args.lifecycle_writers_paused:
+        authority["lifecycle_writers_paused"] = True
+    if args.lifecycle_code_frozen:
+        authority["lifecycle_code_frozen"] = True
     authority.update(authority_overrides or {})
     monkeypatch.setenv(
         authority_intent.AUTHORITY_INTENT_ENV,

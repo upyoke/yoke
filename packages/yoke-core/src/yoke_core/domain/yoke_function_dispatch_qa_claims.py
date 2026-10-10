@@ -238,7 +238,7 @@ def qa_subject_claim_verdict(
 
 def _operator_waiver_allowed(request: Any, item_id: int) -> bool:
     """An operator's decision may be recorded by its steering or run driver."""
-    from yoke_core.domain.db_helpers import connect, iso8601_now
+    from yoke_core.domain.db_helpers import connect, utc_now
     from yoke_core.domain.deployment_run_driver_attachment import (
         live_attachment_for_run,
     )
@@ -263,9 +263,7 @@ def _operator_waiver_allowed(request: Any, item_id: int) -> bool:
         ).fetchone()
         if row is None or not row[0]:
             return False
-        driver = live_attachment_for_run(
-            conn, run_id_value=str(row[0]), now=iso8601_now()
-        )
+        driver = live_attachment_for_run(conn, run_id_value=str(row[0]), now=utc_now())
         return driver is not None and driver.session_id == session_id
 
 

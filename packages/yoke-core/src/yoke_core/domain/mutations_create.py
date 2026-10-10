@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now
 from typing import List, Optional
 
 from .mutation_fields import (
@@ -96,7 +96,7 @@ def prepare_create(
             error_code="VALIDATION_ERROR",
         )
 
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = utc_now()
 
     defaults = {
         "status": effective_status,

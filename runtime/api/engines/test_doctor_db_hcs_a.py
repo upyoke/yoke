@@ -26,7 +26,7 @@ from yoke_core.engines.doctor import (
 from runtime.api.engines._doctor_db_test_helpers import (
     _default_args,
     _get_result,
-    _iso_offset,
+    _instant_offset,
     _p,
     conn,  # noqa: F401 -- imported pytest fixture
 )
@@ -34,8 +34,12 @@ from runtime.api.engines._doctor_db_test_helpers import (
 
 class TestHCEpicValidation:
     def test_pass_valid_epic(self, conn):
-        conn.execute("INSERT INTO epic_tasks (epic_id, task_num, title, status) VALUES (1, 1, 'T1', 'planning')")
-        conn.execute("INSERT INTO epic_tasks (epic_id, task_num, title, status) VALUES (1, 2, 'T2', 'planned')")
+        conn.execute(
+            "INSERT INTO epic_tasks (epic_id, task_num, title, status) VALUES (1, 1, 'T1', 'planning')"
+        )
+        conn.execute(
+            "INSERT INTO epic_tasks (epic_id, task_num, title, status) VALUES (1, 2, 'T2', 'planned')"
+        )
         rec = RecordCollector()
         hc_epic_validation(conn, _default_args(), rec)
         assert _get_result(rec, "HC-epic-validation").result == "PASS"
@@ -46,7 +50,9 @@ class TestHCEpicValidation:
         assert _get_result(rec, "HC-epic-validation").result == "PASS"
 
     def test_warn_invalid_task_status(self, conn):
-        conn.execute("INSERT INTO epic_tasks (epic_id, task_num, title, status) VALUES (1, 1, 'T1', 'bogus')")
+        conn.execute(
+            "INSERT INTO epic_tasks (epic_id, task_num, title, status) VALUES (1, 1, 'T1', 'bogus')"
+        )
         rec = RecordCollector()
         hc_epic_validation(conn, _default_args(), rec)
         r = _get_result(rec, "HC-epic-validation")
@@ -65,7 +71,7 @@ class TestHCUndeployedDone:
         conn.execute(
             "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, deployed_to, updated_at) "
             f"VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'low', 'prod', {p})",
-            (_iso_offset(days=-30),),
+            (_instant_offset(days=-30),),
         )
         rec = RecordCollector()
         hc_undeployed_done(conn, _default_args(), rec)
@@ -76,7 +82,7 @@ class TestHCUndeployedDone:
         conn.execute(
             "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, updated_at) "
             f"VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'low', 2, {p})",
-            (_iso_offset(days=-14),),
+            (_instant_offset(days=-14),),
         )
         conn.execute(
             "INSERT INTO deployment_flows (id, project_id, name, stages) "
@@ -114,7 +120,9 @@ class TestHCOrphanedRuns:
             "INSERT INTO deployment_runs (id, project_id, status, created_at) "
             "VALUES ('r1', 1, 'succeeded', '2025-01-01T00:00:00')"
         )
-        conn.execute("INSERT INTO deployment_run_items (run_id, item_id) VALUES ('r1', 1)")
+        conn.execute(
+            "INSERT INTO deployment_run_items (run_id, item_id) VALUES ('r1', 1)"
+        )
         rec = RecordCollector()
         hc_orphaned_runs(conn, _default_args(), rec)
         assert _get_result(rec, "HC-orphaned-runs").result == "PASS"
@@ -147,7 +155,7 @@ class TestHCStaleRuns:
         conn.execute(
             "INSERT INTO deployment_runs (id, project_id, status, started_at) "
             f"VALUES ('r1', 1, 'executing', {p})",
-            (_iso_offset(hours=-2),),
+            (_instant_offset(hours=-2),),
         )
         rec = RecordCollector()
         hc_stale_runs(conn, _default_args(), rec)
@@ -158,7 +166,7 @@ class TestHCStaleRuns:
         conn.execute(
             "INSERT INTO deployment_runs (id, project_id, status, started_at, current_stage) "
             f"VALUES ('r1', 1, 'executing', {p}, 'deploy')",
-            (_iso_offset(hours=-48),),
+            (_instant_offset(hours=-48),),
         )
         rec = RecordCollector()
         hc_stale_runs(conn, _default_args(), rec)

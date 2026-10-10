@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from typing import Any
 
 from yoke_contracts.project_contract.strategy_doc_fields import (
@@ -47,7 +49,7 @@ def summary_from_row(conn: Any, row: Any) -> dict[str, object]:
     return {
         "slug": slug,
         "title": title_from_content(slug, content),
-        "updated_at": str(row["updated_at"]),
+        "updated_at": format_instant(row["updated_at"]),
         "updated_by": render_actor_name(conn, row["updated_by_actor_id"]),
         "bytes": len(content.encode("utf-8")),
         "archived": row["archived_at"] is not None,

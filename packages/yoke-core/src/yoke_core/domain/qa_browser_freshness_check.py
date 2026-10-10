@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 from typing import Any, List, Optional, Tuple
+from yoke_contracts.timestamps import format_instant
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_latest_execution import latest_executions
@@ -232,7 +233,9 @@ def _collect_stale_browser_requirements(
             (
                 int(row["id"]),
                 str(row["method_id"] or INVALID_BROWSER_METHOD_LABEL),
-                str(latest_run["created_at"] or "") or None,
+                None
+                if latest_run["created_at"] is None
+                else format_instant(latest_run["created_at"]),
                 run_sha,
                 note,
             )
@@ -259,7 +262,7 @@ def _browser_freshness_errors(
     if latest_code.sha:
         errors.append(f"  Latest SHA: {latest_code.sha}")
     if latest_code.timestamp:
-        errors.append(f"  Latest commit: {latest_code.timestamp}")
+        errors.append(f"  Latest commit: {format_instant(latest_code.timestamp)}")
     errors.append(
         "  Re-run each materialized Browser case with `yoke qa case run "
         "--requirement-id <REQ_ID>` to generate fresh passing runs."

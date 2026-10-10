@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import format_instant
+
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -267,7 +269,7 @@ def handle_strategy_checkpoint_latest(
         latest = latest_checkpoint_at(conn, payload.project)
     return HandlerOutcome(
         result_payload=StrategyCheckpointLatestResponse(
-            latest=latest,
+            latest=format_instant(latest) if latest is not None else None,
             project=payload.project,
         ).model_dump(),
         primary_success=True,

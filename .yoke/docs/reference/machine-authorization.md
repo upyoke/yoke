@@ -134,3 +134,9 @@ identifies its contract independently of the wheel's release version.
 Shared client helpers are `authorization_origin`, `same_origin_url`,
 `credential_api_url`, and `parse_authorization_response`, with
 `BROWSER_VERIFICATION_PATHS`, `POLL_OUTCOMES`, and `RETRYABLE_POLL_ERRORS`.
+
+Hosted lifecycle delivery accepts qualified instants or aware Python datetimes
+for occurrence and expiry. Numeric epochs, naive dates and empty supplied clocks
+refuse. Stored decision clocks are native; owned occurrence, expiry and end
+context fields and audit receipts use fixed-six UTC RFC3339Z or null. Expiry is
+an inclusive comparison of instants, independent of database session timezone.

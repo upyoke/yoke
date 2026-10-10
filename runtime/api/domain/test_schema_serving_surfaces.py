@@ -24,7 +24,7 @@ BUILD_READS: Dict[str, Dict[str, str]] = {
 class _Catalog:
     """A connection that answers only the probe's ``information_schema`` read."""
 
-    def __init__(self, rows: Sequence[Tuple[str, str]] | None) -> None:
+    def __init__(self, rows: Sequence[Tuple[str, str, str]] | None) -> None:
         self._rows = rows
 
     def execute(self, _sql: str) -> "_Catalog":
@@ -32,14 +32,24 @@ class _Catalog:
             raise RuntimeError("catalog is unreadable")
         return self
 
-    def fetchall(self) -> List[Tuple[str, str]]:
+    def fetchall(self) -> List[Tuple[str, str, str]]:
         assert self._rows is not None
         return list(self._rows)
 
 
 def _catalog_of(tables: Dict[str, Dict[str, str]]) -> _Catalog:
     return _Catalog(
-        [(table, column) for table, columns in tables.items() for column in columns]
+        [
+            (
+                table,
+                column,
+                "timestamp with time zone"
+                if data_type == "TIMESTAMPTZ"
+                else data_type.lower(),
+            )
+            for table, columns in tables.items()
+            for column, data_type in columns.items()
+        ]
     )
 
 
@@ -103,6 +113,26 @@ class TestSurfacesThisBuildReads:
         assert findings
         assert len(findings) == len(parse_expected_schema())
 
+    def test_names_only_cannot_prove_native_instant_compatibility(self) -> None:
+        reads = {"items": {"id": "INTEGER", "updated_at": "TIMESTAMPTZ"}}
+        legacy = {"items": {"id": "INTEGER", "updated_at": "TEXT"}}
+        findings = schema_readiness.unreadable_serving_surfaces(
+            _catalog_of(legacy), reads
+        )
+        assert len(findings) == 1
+        assert "native timestamptz" in findings[0]
+        assert "updated_at" in findings[0]
+        assert "governed native conversion" in findings[0]
+        assert (
+            schema_readiness.unreadable_serving_surfaces(_catalog_of(reads), reads)
+            == []
+        )
+
+    def test_timestamp_without_zone_is_not_a_native_instant(self) -> None:
+        reads = {"items": {"updated_at": "TIMESTAMPTZ"}}
+        conn = _Catalog([("items", "updated_at", "timestamp without time zone")])
+        assert schema_readiness.unreadable_serving_surfaces(conn, reads)
+
 
 class TestProbeIsIndependentOfDeclaredFloors:
     def test_no_ledger_or_floor_participates_in_the_answer(self) -> None:
@@ -136,5 +166,28 @@ class TestTheCatalogIsLoadBearing:
             run_init_chain_at_dsn(dsn, emit=lambda _line: None)
             with psycopg.connect(dsn) as conn:
                 assert schema_readiness.unreadable_serving_surfaces(conn) == []
+                from yoke_core.domain.stored_instant_columns import (
+                    STORED_INSTANT_COLUMNS,
+                )
+
+                catalog = {
+                    (table, column): data_type
+                    for table, column, data_type in conn.execute(
+                        "SELECT table_name,column_name,data_type "
+                        "FROM information_schema.columns "
+                        "WHERE table_schema='public'"
+                    ).fetchall()
+                }
+                mismatches = {
+                    f"{table}.{column}": catalog.get((table, column), "missing")
+                    for table, column in STORED_INSTANT_COLUMNS
+                    if catalog.get((table, column)) != "timestamp with time zone"
+                }
+                assert mismatches == {}
+                from runtime.api.tools.schema_catalog_render import read_catalog
+
+                assert parse_expected_schema() == read_catalog(conn)
+                assert catalog[("item_activity_days", "day")] == "text"
+                assert catalog[("session_tool_calls", "outcome")] == "text"
         finally:
             pg_testdb.drop_test_database(name)

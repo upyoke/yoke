@@ -34,17 +34,21 @@ Rationale and the terminal-immutability contract: ``.yoke/docs/reference/lifecyc
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import datetime
+
+from yoke_contracts.timestamps import (
+    format_instant,
+    parse_instant,
+    temporal_wire,
+    utc_now,
+)
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Dict, Optional
 
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 MERGED_AT_CORRECTION_EVENT = "OperatorMergedAtCorrection"
-
-# The stored shape every merged_at writer emits; a correction must match it
-# so downstream readers cannot tell a corrected row from a stamped one.
-MERGED_AT_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 
 class MergedAtCorrectionError(RuntimeError):
@@ -65,28 +69,23 @@ def row_value(row: Any, key: str, position: int) -> Any:
     return row[key] if hasattr(row, "keys") else row[position]
 
 
-def _parse_merged_at(merged_at: str, *, now: Optional[datetime]) -> str:
-    candidate = (merged_at or "").strip()
-    if not candidate:
-        raise MergedAtCorrectionError("merged_at must be a non-empty timestamp")
+def _parse_merged_at(merged_at: str, *, now: Optional[datetime]) -> datetime:
     try:
-        parsed = datetime.strptime(candidate, MERGED_AT_FORMAT)
+        parsed = parse_instant(merged_at)
     except ValueError as exc:
         raise MergedAtCorrectionError(
-            f"merged_at must match {MERGED_AT_FORMAT} "
-            f"(for example 2026-08-02T14:30:00Z); got {candidate!r}"
+            "merged_at must be a qualified RFC3339 instant"
         ) from exc
-    parsed = parsed.replace(tzinfo=timezone.utc)
-    reference = now or datetime.now(timezone.utc)
+    reference = utc_now() if now is None else parse_instant(now)
     if parsed > reference:
         raise MergedAtCorrectionError(
-            f"merged_at {candidate} is in the future; a correction records "
+            f"merged_at {format_instant(parsed)} is in the future; a correction records "
             "when the branch actually landed"
         )
-    return candidate
+    return parsed
 
 
-def _item_state(conn: Any, item_id: int) -> tuple[str, str]:
+def _item_state(conn: Any, item_id: int) -> tuple[str, datetime | None]:
     placeholder = sql_placeholder(conn)
     row = conn.execute(
         f"SELECT status, merged_at FROM items WHERE id = {placeholder}",
@@ -96,7 +95,7 @@ def _item_state(conn: Any, item_id: int) -> tuple[str, str]:
         raise MergedAtCorrectionError(ITEM_NOT_FOUND)
     return (
         str(row_value(row, "status", 0) or ""),
-        str(row_value(row, "merged_at", 1) or ""),
+        row_value(row, "merged_at", 1),
     )
 
 
@@ -168,7 +167,7 @@ def operator_correct_merged_at(
     placeholder = sql_placeholder(conn)
     conn.execute(
         f"UPDATE items SET merged_at = {placeholder} WHERE id = {placeholder}",
-        (resolved_merged_at, int(item_id)),
+        (instant_parameter(conn, resolved_merged_at), int(item_id)),
     )
     conn.commit()
 
@@ -213,7 +212,7 @@ def emit_correction(
             item_id=str(item_id),
             severity="WARN",
             outcome="completed",
-            context=context,
+            context=temporal_wire(context),
         )
     except Exception:
         # Best-effort telemetry; the correction proceeds so recovery is not
@@ -223,7 +222,6 @@ def emit_correction(
 
 __all__ = [
     "MERGED_AT_CORRECTION_EVENT",
-    "MERGED_AT_FORMAT",
     "MergedAtCorrectionError",
     "MergedAtCorrectionHookContextError",
     "emit_correction",

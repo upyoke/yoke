@@ -45,6 +45,12 @@ on the Public Suffix List (app.upyoke.com counts upyoke.com as internal; an IP
 or localhost is its own site), and sign-in provider returns such as
 accounts.google.com never become a touch. `frontend_event_rate_limits` stores disposable request counts (60
 requests per client/organization per minute), independently of event retention.
+Collector event times require qualified RFC3339 with at most six fractional
+digits and normalize to fixed-six UTC strings before native storage. Signed
+cookie and handoff instants use that same representation; old numeric-expiry
+payloads are discarded and attribution is captured again. Rate-window starts
+and redemption expiries are native PostgreSQL instants; rate windows preserve
+their 60-second UTC epoch alignment.
 The server stamps organization, environment (`YOKE_ENVIRONMENT`), and the
 viewer's verified actor: a bearer token, the self-hosted `yoke_web_session`
 cookie, or, on the Local view, the per-run token that admits the local

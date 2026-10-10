@@ -52,7 +52,7 @@ def test_missing_or_partial_evidence_cannot_prove_absence_of_concurrency(data):
 
 @pytest.mark.parametrize(
     "jobs,updated",
-    [(1, "2000-01-01T00:00:00Z"), (0, "2026-10-01T00:00:00Z"), (0, "unknown")],
+    [(1, "2000-01-01T00:00:00Z"), (0, "2026-10-01T00:00:00Z"), (0, None)],
 )
 def test_unqueued_run_needs_stale_zero_job_evidence_to_stall(jobs, updated):
     message = pending_run_message(

@@ -1,8 +1,11 @@
 """Rehearse the whole pending history on one faithful, read-only-source copy.
 
-Automatic machine-wide copy admission lasts through transfer, convergence,
-invariants, diagnostics, connection close and cleanup. See the copy-lock and
-extension-fidelity modules for those boundaries.
+Live sources are read-only. Ordinary rehearsal runs schema and ordered
+history on a faithful disposable copy; diagnostic-only results never prove
+convergence. Machine-wide admission covers transfer, observers, convergence,
+invariants, connection close and cleanup. Live ownership and pinned extension
+versions establish fidelity before transfer.
+
 """
 
 from __future__ import annotations
@@ -63,6 +66,9 @@ class RehearsalPlan:
     #: out of that proof (tests that only exercise dump/ownership paths).
     load_module: Callable[[str], Any] | None = None
     post_converge_validator: Callable[[Any, str], str | None] | None = None
+    copy_observer: Callable[[str, Path], None] | None = None
+    resource_guard: Callable[[], None] | None = None
+    success_detail: str = "converged"
 
 
 def _live_ownership_verdict(
@@ -114,12 +120,7 @@ def rehearse(
     source_environment: str,
     emit: Optional[Callable[[str], None]] = None,
 ) -> Verdict:
-    """Admit one copy through cleanup; read privileges on the live database.
-
-    A --no-owner restore normalizes ownership, so the copy cannot establish
-    whether the serving role can migrate its own tables. The owned body reads
-    that authority from the source before dumping it; the source is only read.
-    """
+    """Admit one copy through cleanup; read serving privileges on its live database source."""
     try:
         with migration_rehearsal_copy_lock.copy_lock(
             spec, f"{REHEARSAL_PREFIX}{database}"
@@ -184,26 +185,28 @@ def _rehearse_owned(
     )
     dump = work_dir / f"{database}.dump"
     work_dir.mkdir(parents=True, exist_ok=True)
-
+    copy_started = False
     try:
-        migration_fleet_preflight_transfer.dump_database(
-            spec,
-            source_dsn,
-            dump,
-            source_environment=source_environment,
-            emit=_database_emit(emit, database),
-        )
-    except BaseException as exc:
-        dump.unlink(missing_ok=True)  # the transfer has already stopped and reaped
-        if not isinstance(exc, Exception):
-            raise
-        return Verdict(
-            database,
-            False,
-            f"could not copy: {exc}; correct the failure and retry preflight",
-        )
-
-    try:
+        if plan.copy_observer:
+            plan.copy_observer("start", dump)
+        try:
+            migration_fleet_preflight_transfer.dump_database(
+                spec,
+                source_dsn,
+                dump,
+                source_environment=source_environment,
+                emit=_database_emit(emit, database),
+                resource_guard=plan.resource_guard,
+            )
+            if plan.copy_observer:
+                plan.copy_observer("dumped", dump)
+        except Exception as exc:  # noqa: BLE001 -- actionable copy verdict
+            return Verdict(
+                database,
+                False,
+                f"could not copy: {exc}; correct the failure and retry preflight",
+            )
+        copy_started = True
         migration_fleet_preflight_transfer.drop_copy(spec, copy_name)
         migration_fleet_preflight_transfer.create_copy(spec, copy_name)
         use_list = migration_fleet_preflight_extensions.stage_pinned_extensions(
@@ -218,13 +221,21 @@ def _rehearse_owned(
             copy_name,
             dump,
             use_list=use_list,
+            resource_guard=plan.resource_guard,
         )
+        if plan.copy_observer:
+            plan.copy_observer("restored", dump)
         return _converge_copy(spec, database, copy_name, dump, plan)
     finally:
         try:
-            migration_fleet_preflight_transfer.drop_copy(spec, copy_name)
+            if plan.copy_observer:
+                plan.copy_observer("cleanup", dump)
         finally:
-            dump.unlink(missing_ok=True)
+            try:
+                if copy_started:
+                    migration_fleet_preflight_transfer.drop_copy(spec, copy_name)
+            finally:
+                dump.unlink(missing_ok=True)
 
 
 def _database_emit(
@@ -284,7 +295,7 @@ def _converge_copy(
         return Verdict(
             database,
             failure is None,
-            "converged" if failure is None else failure,
+            plan.success_detail if failure is None else failure,
             pending,
             applied,
             skipped_invariants=report.skipped,

@@ -150,7 +150,7 @@ def test_staffing_and_idle_thresholds_answer_separate_questions(steering_scope):
     )
     steering_scope.execute(
         "UPDATE harness_sessions SET last_tool_call_at = %s WHERE session_id = %s",
-        ("2026-08-26T11:50:00Z", WORKER_SESSION),
+        ("2026-08-26T11:50:00.000000Z", WORKER_SESSION),
     )
     steering_scope.commit()
 
@@ -282,7 +282,7 @@ def test_launchability_names_the_connected_machine_and_surface(steering_scope):
 
 def test_the_fingerprint_ignores_how_old_everything_is(steering_scope):
     early = _compose(steering_scope)
-    later = _compose(steering_scope, now="2026-08-26T12:30:00Z")
+    later = _compose(steering_scope, now="2026-08-26T12:30:00.000000Z")
 
     assert early.fingerprint() == later.fingerprint()
 

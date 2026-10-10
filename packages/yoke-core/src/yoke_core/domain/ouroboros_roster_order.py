@@ -4,16 +4,18 @@ from __future__ import annotations
 
 import base64
 
+from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.json_helper import dumps_compact, loads_text
 
 ROSTER_PREVIEW_LENGTH = 240
 
 SORT_COLUMNS = {
-    "timestamp": "COALESCE(o.timestamp,'')",
+    "timestamp": "o.timestamp",
     "preview": f"SUBSTR(COALESCE(o.body,''),1,{ROSTER_PREVIEW_LENGTH})",
     "category": "COALESCE(o.category,'')",
     "context": "COALESCE(o.context,'')",
-    "reviewed_at": "COALESCE(o.reviewed_at,'')",
+    "reviewed_at": "o.reviewed_at",
     "project": "COALESCE(p.slug,'')",
 }
 SORT_DIRECTIONS = ("asc", "desc")
@@ -31,7 +33,7 @@ def normalize_sort(sort):
     return {"column": sort["column"], "direction": sort["direction"]}
 
 
-def continuation(cursor, sort, project_ids):
+def continuation(cursor, sort, project_ids, *, conn):
     if not cursor:
         return "", []
     try:
@@ -42,7 +44,12 @@ def continuation(cursor, sort, project_ids):
             raise ValueError
         entry_id = int(payload["id"])
         value = payload["value"]
-        if not isinstance(value, str):
+        is_clock = sort["column"] in ("timestamp", "reviewed_at")
+        if is_clock:
+            value = parse_instant(value) if value is not None else None
+            if value is None and sort["column"] != "reviewed_at":
+                raise ValueError
+        elif not isinstance(value, str):
             raise ValueError
     except Exception as exc:
         raise ValueError(
@@ -50,17 +57,28 @@ def continuation(cursor, sort, project_ids):
         ) from exc
     expression = SORT_COLUMNS[sort["column"]]
     comparison = ">" if sort["direction"] == "asc" else "<"
-    return (
-        f"({expression} {comparison} {{p}} OR ({expression} = {{p}} AND o.id {comparison} {{p}}))",
-        [value, value, entry_id],
-    )
+    if is_clock:
+        if value is None:
+            ties = f"({expression} IS NULL AND o.id {comparison} {{p}})"
+            predicate = (
+                f"({expression} IS NOT NULL OR {ties})" if comparison == ">" else ties
+            )
+            return predicate, [entry_id]
+        value = instant_parameter(conn, value)
+    predicate = f"({expression} {comparison} {{p}} OR ({expression} = {{p}} AND o.id {comparison} {{p}}))"
+    if is_clock and comparison == "<":
+        predicate = f"({expression} IS NULL OR {predicate})"
+    return predicate, [value, value, entry_id]
 
 
 def encode_continuation(row, sort, project_ids):
+    value = row["_sort_value"]
+    if sort["column"] in ("timestamp", "reviewed_at") and value is not None:
+        value = format_instant(value)
     raw = dumps_compact(
         {
             "id": row["id"],
-            "value": row["_sort_value"],
+            "value": value,
             "sort": sort,
             "projects": sorted(project_ids),
         }

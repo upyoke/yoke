@@ -33,6 +33,7 @@ where = ["src"]
     "package-lock.json",
     "README.md",
     "src/*.js",
+    "src/*.mjs",
     "src/**/*.js",
     "tests/*.js",
     "tests/**/*.js",

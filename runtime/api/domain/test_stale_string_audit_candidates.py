@@ -43,7 +43,10 @@ def test_normalize_quoted_values_preserves_copy_and_filters_identifiers():
     assert _normalize_candidate_string('"Launch failed"') == "Launch failed"
     assert _normalize_candidate_string("'Retired'") == "Retired"
     assert _normalize_candidate_string('"RACING"') == "RACING"
-    assert _normalize_candidate_string("Don't close this window") == "Don't close this window"
+    assert (
+        _normalize_candidate_string("Don't close this window")
+        == "Don't close this window"
+    )
 
 
 def test_normalize_candidate_string_rejects_route_paths():

@@ -17,6 +17,9 @@ from yoke_core.domain.deployment_flow_validator import (
 )
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain import workflow_item_binding_lock
+from yoke_core.domain.item_field_parameters import item_field_parameter
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_contracts.timestamps import parse_instant
 
 
 def _insert_item(
@@ -51,6 +54,8 @@ def _insert_item(
     not pass it. The migration backfills both columns and the writer
     keeps them in lockstep going forward.
     """
+    created_at = instant_parameter(conn, parse_instant(created_at))
+    updated_at = instant_parameter(conn, parse_instant(updated_at))
     require_flow_for_item_binding(conn, deployment_flow)
     owner_value = owner if owner is not None else source
     conn.execute(
@@ -104,7 +109,7 @@ def _update_item_field(
 
     Handles type coercion: None -> NULL, bool -> int, etc.
     """
-    now = _now_iso()
+    now = instant_parameter(conn, _now_iso())
     if field == "deployment_flow":
         require_flow_for_item_binding(conn, value)
         workflow_item_binding_lock.lock_item_workflow_bindings(conn, (item_id,))
@@ -134,7 +139,7 @@ def _update_item_field(
     else:
         conn.execute(
             f"UPDATE items SET {field} = %s, updated_at = %s WHERE id = %s",
-            (str(value), now, item_id),
+            (item_field_parameter(conn, field, value, text=True), now, item_id),
         )
     conn.commit()
 
@@ -151,7 +156,7 @@ def _update_item_multi(
     if "deployment_flow" in field_writes:
         require_flow_for_item_binding(conn, field_writes["deployment_flow"])
         workflow_item_binding_lock.lock_item_workflow_bindings(conn, (int(item_id),))
-    now = _now_iso()
+    now = instant_parameter(conn, _now_iso())
     sets = []
     params: list[Any] = []
 
@@ -177,7 +182,7 @@ def _update_item_multi(
                 params.append(int(value))
         else:
             sets.append(f"{field} = %s")
-            params.append(str(value))
+            params.append(item_field_parameter(conn, field, value, text=True))
 
     if not sets:
         return

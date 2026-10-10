@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from datetime import datetime, timezone
 from typing import Any, TextIO
 
+from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.read_detail import SUMMARY_EXCERPT_CHARACTERS
 from yoke_contracts.session_control.liveness import ENDED_CAUSE_KILLED
 from yoke_cli.commands.adapters.session_control_attempt_output import (
@@ -61,17 +61,9 @@ def humanize(value: Any) -> str:
 
 
 def utc_time(value: Any) -> str:
-    text = _plain(value)
-    if text == EMPTY_VALUE:
-        return text
-    candidate = f"{text[:-1]}+00:00" if text.endswith("Z") else text
-    try:
-        parsed = datetime.fromisoformat(candidate)
-    except ValueError:
-        return text
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    if value is None:
+        return EMPTY_VALUE
+    return parse_instant(value).strftime("%Y-%m-%d %H:%M UTC")
 
 
 def write_table(

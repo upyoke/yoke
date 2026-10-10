@@ -4,6 +4,7 @@ from pathlib import Path
 
 import psycopg
 import pytest
+from yoke_contracts.timestamps import format_instant
 
 from runtime.api.domain.test_source_authority_credential_cutoff import _bundle
 from yoke_core.domain import source_authority_credentials as credentials
@@ -28,7 +29,8 @@ def _retirement_proof() -> dict[str, object]:
 
 
 def test_retire_reuses_precommit_marker_after_failure_before_commit(
-    monkeypatch, tmp_path: Path,
+    monkeypatch,
+    tmp_path: Path,
 ):
     bundle = _bundle(tmp_path)
 
@@ -47,16 +49,20 @@ def test_retire_reuses_precommit_marker_after_failure_before_commit(
     probes = iter((first, second))
     monkeypatch.setattr(lifecycle, "connection_or_none", lambda _dsn: next(probes))
     monkeypatch.setattr(
-        lifecycle, "retirement_connection_or_none",
+        lifecycle,
+        "retirement_connection_or_none",
         lambda *_a, **_kw: next(probes),
     )
     monkeypatch.setattr(lifecycle, "validate_bundle_authority", lambda *_a: {})
     monkeypatch.setattr(
-        lifecycle, "database_identity",
+        lifecycle,
+        "database_identity",
         lambda _conn: {"database": "yoke", "database_oid": 42, "org": "yoke"},
     )
     monkeypatch.setattr(
-        lifecycle, "authority_receipt", lambda _conn: {"receipt_digest": "a" * 64},
+        lifecycle,
+        "authority_receipt",
+        lambda _conn: {"receipt_digest": "a" * 64},
     )
     retirement_attempts = []
 
@@ -67,10 +73,13 @@ def test_retire_reuses_precommit_marker_after_failure_before_commit(
 
     monkeypatch.setattr(lifecycle, "mark_source_retired", mark)
     monkeypatch.setattr(
-        lifecycle.role_credentials, "retire_role_credential", lambda *_a: None,
+        lifecycle.role_credentials,
+        "retire_role_credential",
+        lambda *_a: None,
     )
     monkeypatch.setattr(
-        lifecycle.role_credentials, "prove_role_retired",
+        lifecycle.role_credentials,
+        "prove_role_retired",
         lambda *_a: _retirement_proof(),
     )
 
@@ -98,7 +107,7 @@ def test_retire_reuses_precommit_marker_after_failure_before_commit(
         retirement_receipt="retirement-gates-green",
     )
 
-    assert report["retired_at"] == prepared.retired_at
+    assert report["retired_at"] == format_instant(prepared.retired_at)
     assert report["credential_proof"] == "live-role-catalog-state"
     assert report["login_disabled"] is True
     assert report["password_cleared"] is True
@@ -108,7 +117,8 @@ def test_retire_reuses_precommit_marker_after_failure_before_commit(
 
 
 def test_retire_recovers_after_commit_before_bundle_delete(
-    monkeypatch, tmp_path: Path,
+    monkeypatch,
+    tmp_path: Path,
 ):
     bundle = _bundle(tmp_path)
 
@@ -125,22 +135,30 @@ def test_retire_recovers_after_commit_before_bundle_delete(
     conn = Connection()
     monkeypatch.setattr(lifecycle, "connection_or_none", lambda _dsn: conn)
     monkeypatch.setattr(
-        lifecycle, "retirement_connection_or_none", lambda *_a, **_kw: None,
+        lifecycle,
+        "retirement_connection_or_none",
+        lambda *_a, **_kw: None,
     )
     monkeypatch.setattr(lifecycle, "validate_bundle_authority", lambda *_a: {})
     monkeypatch.setattr(
-        lifecycle, "database_identity",
+        lifecycle,
+        "database_identity",
         lambda _conn: {"database": "yoke", "database_oid": 42, "org": "yoke"},
     )
     monkeypatch.setattr(
-        lifecycle, "authority_receipt", lambda _conn: {"receipt_digest": "a" * 64},
+        lifecycle,
+        "authority_receipt",
+        lambda _conn: {"receipt_digest": "a" * 64},
     )
     monkeypatch.setattr(lifecycle, "mark_source_retired", lambda *_a, **_kw: None)
     monkeypatch.setattr(
-        lifecycle.role_credentials, "retire_role_credential", lambda *_a: None,
+        lifecycle.role_credentials,
+        "retire_role_credential",
+        lambda *_a: None,
     )
     monkeypatch.setattr(
-        lifecycle.role_credentials, "prove_role_retired",
+        lifecycle.role_credentials,
+        "prove_role_retired",
         lambda *_a: _retirement_proof(),
     )
 
@@ -183,12 +201,15 @@ def test_retire_recovers_after_commit_before_bundle_delete(
 
 
 def test_both_rejected_before_validated_retirement_is_indeterminate(
-    monkeypatch, tmp_path: Path,
+    monkeypatch,
+    tmp_path: Path,
 ):
     bundle = _bundle(tmp_path)
     monkeypatch.setattr(lifecycle, "connection_or_none", lambda _dsn: None)
     monkeypatch.setattr(
-        lifecycle, "retirement_connection_or_none", lambda *_a, **_kw: None,
+        lifecycle,
+        "retirement_connection_or_none",
+        lambda *_a, **_kw: None,
     )
 
     with pytest.raises(
@@ -206,7 +227,8 @@ def test_both_rejected_before_validated_retirement_is_indeterminate(
 
 
 def test_abort_recovers_after_commit_with_inconclusive_cutover_probe(
-    monkeypatch, tmp_path: Path,
+    monkeypatch,
+    tmp_path: Path,
 ):
     bundle = _bundle(tmp_path)
 
@@ -228,7 +250,8 @@ def test_abort_recovers_after_commit_with_inconclusive_cutover_probe(
 
     monkeypatch.setattr(lifecycle, "connection_or_none", connect)
     monkeypatch.setattr(
-        lifecycle, "database_identity",
+        lifecycle,
+        "database_identity",
         lambda _conn: {"database": "yoke", "database_oid": 42, "org": "yoke"},
     )
     monkeypatch.setattr(lifecycle.connect_fence, "fence_state", lambda _conn: None)
@@ -241,7 +264,8 @@ def test_abort_recovers_after_commit_with_inconclusive_cutover_probe(
 
 
 def test_abort_does_not_hide_original_authority_network_failure(
-    monkeypatch, tmp_path: Path,
+    monkeypatch,
+    tmp_path: Path,
 ):
     bundle = _bundle(tmp_path)
 

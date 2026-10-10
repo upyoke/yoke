@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any, Callable
 
+from yoke_contracts.timestamps import utc_now
+
 
 def _artifact_handles(value: Any) -> list[tuple[str, dict[str, Any]]]:
     found: list[tuple[str, dict[str, Any]]] = []
@@ -31,7 +33,7 @@ def record_machine_case_result(
 ) -> dict[str, Any]:
     """Store the run, durable evidence, and telemetry for one machine case."""
     from yoke_core.domain import db_backend, qa_events
-    from yoke_core.domain.db_helpers import iso8601_now
+    from yoke_core.domain.db_helpers import instant_parameter
     from yoke_core.domain.item_activity import touch_for_qa_requirement
     from yoke_core.domain.qa_artifact_handle import (
         parse_handle,
@@ -51,7 +53,7 @@ def record_machine_case_result(
         "waiting": None,
     }[result.verdict]
     waiting = result.case_outcome == "waiting"
-    now = iso8601_now()
+    now = utc_now()
     raw_result = json.dumps(
         {
             "evidence": result.evidence,
@@ -106,7 +108,7 @@ def record_machine_case_result(
                 content_type,
                 serialize_handle(parse_handle(handle)),
                 json.dumps(metadata, separators=(",", ":"), sort_keys=True),
-                now,
+                instant_parameter(conn, now),
             ),
         ).fetchone()
         recorded.append(int(artifact[0]))

@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
+
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any
 
 from yoke_core.domain.session_reclaim_activity import (
@@ -25,7 +29,7 @@ def reclaim_stale_conflicts(
     target: WorkClaimTarget,
     target_label: str,
     attempting_session_id: str,
-    now: str,
+    now: datetime | str,
 ) -> tuple[str, ...]:
     """Revalidate and release holders stale in the initial snapshot.
 
@@ -78,7 +82,7 @@ def reclaim_stale_conflicts(
         conn.execute(
             "UPDATE work_claims SET released_at=%s, release_reason='reclaimed' "
             "WHERE id=%s AND released_at IS NULL",
-            (now, claim[0]),
+            (instant_parameter(conn, parse_instant(now)), claim[0]),
         )
         reclaimed_holders.append(str(original_session_id))
         _emit_event(

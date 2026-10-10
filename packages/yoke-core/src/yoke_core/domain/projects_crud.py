@@ -7,11 +7,15 @@ symbols are re-exported from the parent so existing callers via
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Optional
+
+from yoke_contracts.timestamps import format_instant
 
 from yoke_core.domain.db_helpers import (
     connect,
-    iso8601_now,
+    instant_parameter,
+    utc_now,
     query_one,
     query_rows,
     query_scalar,
@@ -46,13 +50,20 @@ def _parent_constants():
     )
 
 
+def _text_cell(value) -> str:
+    """Render a native SQL value at the project CLI text boundary."""
+    if value is None:
+        return ""
+    return format_instant(value) if isinstance(value, datetime) else str(value)
+
+
 def _pipe_row(row) -> str:
-    """Format a ``sqlite3.Row`` as a pipe-delimited string."""
-    return "|".join(str(v) if v is not None else "" for v in row)
+    """Format a database row as pipe-delimited text."""
+    return "|".join(_text_cell(v) for v in row)
 
 
 def _pipe_rows(rows) -> str:
-    """Format a list of ``sqlite3.Row`` as pipe-delimited lines."""
+    """Format database rows as pipe-delimited lines."""
     return "\n".join(_pipe_row(r) for r in rows)
 
 
@@ -88,7 +99,7 @@ def cmd_create(
                 name,
                 selected_prefix,
                 GITHUB_SYNC_DISABLED,
-                iso8601_now(),
+                instant_parameter(conn, utc_now()),
             ),
         )
         from yoke_core.domain.project_policy_capabilities import (
@@ -166,7 +177,7 @@ def _read_resolved_project(
             f"SELECT {project_fields_sql(conn, [field])} FROM projects WHERE id=%s",
             (numeric_project_id,),
         )
-        return str(val) if val is not None else ""
+        return _text_cell(val)
     else:
         row = query_one(
             conn,

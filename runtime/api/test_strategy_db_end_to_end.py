@@ -1,19 +1,12 @@
-"""End-to-end coverage for the per-project strategy DB authority.
+"""Strategy CLI, dispatcher and handlers against a disposable Postgres corpus.
 
-The full operator story through the REAL surfaces — no dispatch stubs:
-the ``yoke`` CLI entrypoint builds envelopes (explicit ``--project``),
-the real dispatcher binds identity and permissions, the real handlers
-hit a disposable Postgres seeded with the shared strategy-doc fixture
-corpus (the DB is the corpus authority; rendered ``.yoke/strategy``
-views are local-only and untracked, so no checkout files are read),
-renders land in a real git checkout, ingest CAS round-trips against
-real files, the claim interplay (replace claim-gated, ingest
-foreign-claim-bounced) plays out across two sessions, real
-``StrategyDocReplaced`` events land in the events table with their
-``source`` markers, and the staleness HC closes the loop.
+Exercises real local render/ingest files, CAS, two-session claim refusal,
+replacement events and staleness checks without dispatch stubs.
 """
 
 from __future__ import annotations
+
+from yoke_contracts.timestamps import format_instant
 
 import io
 import json
@@ -110,7 +103,10 @@ def _row(db_path: str, slug: str) -> dict:
         ).fetchone()
     finally:
         conn.close()
-    return {"content": str(row["content"]), "updated_at": str(row["updated_at"])}
+    return {
+        "content": str(row["content"]),
+        "updated_at": format_instant(row["updated_at"]),
+    }
 
 
 def _replaced_event_envelopes(db_path: str) -> list:

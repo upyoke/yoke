@@ -11,10 +11,11 @@ recorded no scope says so rather than implying one.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Mapping
 
 from yoke_cli.config.status_surface_policy import _control_plane_ready
+from yoke_contracts.timestamps import InvalidInstant, parse_instant, utc_now
 
 _UNVERIFIED = "health unverified — run yoke doctor run --quick"
 _TIMEOUT_S = 8.0
@@ -64,7 +65,10 @@ def _summarize(last_run: Mapping[str, Any] | None) -> str:
     pass_count = int(last_run.get("pass_count") or 0)
     warn_count = int(last_run.get("warn_count") or 0)
     scope = _scope_label(last_run.get("scope"))
-    age = _age_label(str(last_run.get("ran_at") or ""))
+    try:
+        age = _age_label(last_run.get("ran_at"))
+    except InvalidInstant:
+        return "health unverified — invalid receipt clock; run yoke doctor run --quick"
     return (
         f"{fail_count} FAIL / {pass_count} PASS / {warn_count} WARN, "
         f"{scope}, {age} — run yoke doctor run --quick"
@@ -79,16 +83,11 @@ def _scope_label(scope: Any) -> str:
     return _SCOPE_LABELS.get(text, f"{text} scope (not whole-machine)")
 
 
-def _age_label(ran_at: str) -> str:
-    if not ran_at:
+def _age_label(ran_at: datetime | str | None) -> str:
+    if ran_at is None:
         return "unknown age"
-    try:
-        parsed = datetime.fromisoformat(ran_at.replace("Z", "+00:00"))
-    except ValueError:
-        return "unknown age"
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    seconds = max(0, int((datetime.now(timezone.utc) - parsed).total_seconds()))
+    parsed = parse_instant(ran_at)
+    seconds = max(0, int((utc_now() - parsed).total_seconds()))
     if seconds < 60:
         return "just now"
     minutes = seconds // 60

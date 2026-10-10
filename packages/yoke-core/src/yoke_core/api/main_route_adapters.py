@@ -13,6 +13,8 @@ from typing import Any
 
 from fastapi.responses import JSONResponse
 
+from yoke_contracts.timestamps import format_instant
+
 from yoke_core.api.main_models import ErrorDetail, ErrorResponse, ItemObject
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.public_item_target import public_item_target
@@ -32,6 +34,10 @@ def _row_to_item(row: Any, include_body: bool = False, *, conn: Any) -> ItemObje
     d["frozen"] = bool(d.get("frozen", 0))
     if not include_body:
         d.pop("body", None)
+    for field in ("created_at", "updated_at", "merged_at"):
+        value = d.get(field)
+        if value is not None:
+            d[field] = format_instant(value)
     return ItemObject(**d)
 
 

@@ -36,6 +36,10 @@ named as unproven rather than asserted.
 
 from __future__ import annotations
 
+from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
+
+from datetime import datetime
+
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -96,7 +100,7 @@ class AnsweredDecision:
 
     request_id: int
     action: str
-    resolved_at: str
+    resolved_at: datetime | None
     resolved_seconds: Optional[int]
 
     def describe(self) -> str:
@@ -165,10 +169,12 @@ class DeploymentRunProgress:
         return redrive_recovery(self.run_id, unresolved=self.outstanding)
 
 
-def _answered(raw: Optional[dict[str, Any]], *, now: str) -> Optional[AnsweredDecision]:
+def _answered(
+    raw: Optional[dict[str, Any]], *, now: datetime
+) -> Optional[AnsweredDecision]:
     if raw is None:
         return None
-    resolved_at = str(raw.get("resolved_at") or "")
+    resolved_at = parse_stamp(raw.get("resolved_at"))
     return AnsweredDecision(
         request_id=int(raw["request_id"]),
         action=str(raw.get("action") or ""),
@@ -202,7 +208,7 @@ def run_progress(
     conn: Any,
     *,
     project_id: int,
-    now: str,
+    now: datetime,
 ) -> tuple[DeploymentRunProgress, ...]:
     """Every non-terminal run in the project, with what is holding it."""
     tables = probe_report_tables(conn)
@@ -228,7 +234,7 @@ def run_progress(
         else:
             outstanding = qa.waiting
             total_blocking = qa.subjects
-        entered = facts.entered_at.get(run_id, "")
+        entered = facts.entered_at.get(run_id)
         red = tuple(
             RedRequirement(
                 requirement_id=int(item["requirement_id"]),

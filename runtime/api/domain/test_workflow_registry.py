@@ -75,8 +75,13 @@ def _reset_to_version_one(conn, fixtures) -> None:
             "(workflow_id, version, definition_schema_version, "
             "definition_json, definition_digest, published_at, immutable_at) "
             "VALUES (%s, 1, 1, %s, %s, %s, %s) RETURNING id",
-            (workflow["id"], canonical_definition_json(definition),
-             definition_digest(definition), _TS, _TS),
+            (
+                workflow["id"],
+                canonical_definition_json(definition),
+                definition_digest(definition),
+                _TS,
+                _TS,
+            ),
         ).fetchone()[0]
         conn.execute(
             "UPDATE workflows SET current_version_id = %s WHERE id = %s",
@@ -119,21 +124,28 @@ def test_publish_pins_existing_items_and_can_roll_back_new_item_default(test_db)
     next_definition = _definition()
     next_definition["stages"][0]["label"] = "Filed"
     published = publish_workflow_version(
-        test_db, workflow_id="issue", definition=next_definition,
+        test_db,
+        workflow_id="issue",
+        definition=next_definition,
     )
     assert published["version"] == current + 1
     assert resolve_current_workflow_pin(test_db, "issue") == (
-        "issue", published["version_id"])
+        "issue",
+        published["version_id"],
+    )
     pinned = test_db.execute(
         "SELECT workflow_version_id FROM items WHERE id = 901"
     ).fetchone()
     assert int(pinned[0]) == builtin_version_id
     rolled_back = set_current_workflow_version(
-        test_db, workflow_id="issue", version=current,
+        test_db,
+        workflow_id="issue",
+        version=current,
     )
     assert rolled_back["version_id"] == builtin_version_id
     assert resolve_current_workflow_pin(test_db, "issue") == (
-        "issue", builtin_version_id,
+        "issue",
+        builtin_version_id,
     )
 
 
@@ -182,9 +194,7 @@ def test_editable_path_claim_default_publishes_an_immutable_version(test_db):
     )
     assert result["version"] == current + 2
     assert result["path_claims_default"] is True
-    previous = get_workflow_version(
-        test_db, workflow_id="dash", version=current
-    )
+    previous = get_workflow_version(test_db, workflow_id="dash", version=current)
     published = get_workflow_version(
         test_db, workflow_id="dash", version=result["version"]
     )
@@ -216,7 +226,9 @@ def test_current_definition_change_does_not_repin_existing_item(test_db):
     next_definition = _definition()
     next_definition["stages"][0]["label"] = "Submitted"
     published = publish_workflow_version(
-        test_db, workflow_id="issue", definition=next_definition,
+        test_db,
+        workflow_id="issue",
+        definition=next_definition,
     )
     pinned = inspect_item_workflow_pin(test_db, 902)
     assert pinned["workflow_version"] == current
@@ -247,3 +259,40 @@ def test_compatible_item_migration_applies_adjacent_stage_mapping(test_db):
 def test_publication_refuses_noop_definition(test_db):
     with pytest.raises(WorkflowRegistryError, match="must change"):
         publish_workflow_version(test_db, workflow_id="issue", definition=_definition())
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_new_publication_keeps_native_clocks_and_preserves_published_bytes(
+    test_db, monkeypatch, zone
+):
+    from yoke_contracts.timestamps import parse_instant
+    from yoke_core.domain import workflow_publication
+    from yoke_core.domain import workflow_registry as owner
+
+    stamp = parse_instant("1969-12-31T23:59:59.123456Z")
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    old_rows = _version_one_rows(test_db)
+    monkeypatch.setattr(owner, "utc_now", lambda: stamp)
+    monkeypatch.setattr(workflow_publication, "utc_now", lambda: stamp)
+    definition = _definition()
+    definition["stages"][0]["label"] = "Native publication"
+    published = owner.publish_workflow_version(
+        test_db, workflow_id="issue", definition=definition
+    )
+    row = test_db.execute(
+        "SELECT published_at,immutable_at,definition_json,definition_digest FROM workflow_versions WHERE id=%s",
+        (published["version_id"],),
+    ).fetchone()
+    assert tuple(row) == (
+        stamp,
+        stamp,
+        canonical_definition_json(definition),
+        definition_digest(definition),
+    )
+    assert (
+        test_db.execute("SELECT updated_at FROM workflows WHERE id='issue'").fetchone()[
+            0
+        ]
+        == stamp
+    )
+    assert _version_one_rows(test_db) == old_rows

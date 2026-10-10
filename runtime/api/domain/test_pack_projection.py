@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
+from yoke_contracts.timestamps import parse_instant, temporal_wire
+
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_schema
 from yoke_core.domain import pack_projection
@@ -38,7 +41,9 @@ def test_admin_created_pack_tables_grant_database_owner_runtime_access(
     monkeypatch,
 ) -> None:
     conn = _AdminOwnedPackConnection()
-    monkeypatch.setattr(pack_projection.db_backend, "connection_is_postgres", lambda _: True)
+    monkeypatch.setattr(
+        pack_projection.db_backend, "connection_is_postgres", lambda _: True
+    )
 
     pack_projection._grant_database_owner_pack_access(conn)
 
@@ -112,9 +117,7 @@ def test_expired_repository_report_is_labeled_stale() -> None:
                 conn,
                 project="yoke",
                 receipt_digest="b" * 64,
-                packs=[
-                    {"slug": "current", "version": "1.0.0", "file_count": 2}
-                ],
+                packs=[{"slug": "current", "version": "1.0.0", "file_count": 2}],
             )
             expired = datetime.now(timezone.utc) - timedelta(days=2)
             conn.execute(
@@ -129,9 +132,7 @@ def test_expired_repository_report_is_labeled_stale() -> None:
             conn.close()
 
         assert result["packs"][0]["status"] == "stale"
-        assert result["packs"][0]["stale_reasons"] == [
-            "repository_report_expired"
-        ]
+        assert result["packs"][0]["stale_reasons"] == ["repository_report_expired"]
         assert result["repository_report"]["fresh"] is False
     finally:
         pg_testdb.drop_test_database(db_name)
@@ -167,3 +168,29 @@ def _catalog() -> list[dict[str, object]]:
             "file_count": 4,
         },
     ]
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+def test_pack_projection_writes_and_receipts_retain_native_clock(
+    test_db, monkeypatch, zone
+):
+    stamp = parse_instant("1969-12-31T23:59:59.123456Z")
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+    monkeypatch.setattr(pack_projection.db_helpers, "utc_now", lambda: stamp)
+    monkeypatch.setattr(pack_projection, "catalog_rows", _catalog)
+    pack_projection.converge_pack_catalog(test_db)
+    report = pack_projection.report_project_packs(
+        test_db, project="yoke", packs=[], receipt_digest="a" * 64
+    )
+    assert report["reported_at"] == stamp
+    assert temporal_wire(report)["reported_at"] == "1969-12-31T23:59:59.123456Z"
+    assert (
+        test_db.execute(
+            "SELECT reported_at FROM project_pack_reports WHERE project_id=1"
+        ).fetchone()[0]
+        == stamp
+    )
+    assert all(
+        row[0] == stamp
+        for row in test_db.execute("SELECT observed_at FROM pack_catalog").fetchall()
+    )

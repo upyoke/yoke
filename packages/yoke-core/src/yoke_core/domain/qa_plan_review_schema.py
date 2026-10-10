@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS qa_plan_review_bundles (
     state TEXT NOT NULL CHECK(state IN ('pending','completed')),
     reviewer_actor_id TEXT,
     reviewer_session_id TEXT,
-    created_at TEXT NOT NULL,
-    reviewed_at TEXT
+    created_at TIMESTAMPTZ NOT NULL,
+    reviewed_at TIMESTAMPTZ
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_plan_review_bundles_execution
     ON qa_plan_review_bundles(execution_id);
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS qa_plan_review_verdicts (
     verdict TEXT NOT NULL CHECK(verdict IN ('pass','fail','undetermined')),
     rationale TEXT NOT NULL,
     decision_request_id INTEGER,
-    created_at TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
     PRIMARY KEY(bundle_id, requirement_id)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_plan_review_verdicts_run

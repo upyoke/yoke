@@ -35,3 +35,12 @@ as disposable diagnostics.
 Verified cookie reads and signed, one-time cross-origin sign-in hand-offs are
 server-only APIs; supply durable atomic nonce storage. See the integration
 guide for routes, destination binding and named refusals.
+
+The timestamp resources are canonical shared contracts shipped with the Pack.
+Event and attribution clocks and signed expiry payloads use six-digit UTC
+RFC3339 strings; Python native storage callbacks receive aware UTC datetime.
+Drop old signed cookies and restart old handoffs during adoption. Qualified
+new input preserves microseconds; malformed or offset-free clocks refuse
+before storage. See the installed events guide for exact callback contracts.
+
+UTC conversion outside years 1 through 9999 refuses with `invalid_instant`; valid boundary instants retain all six fractional digits.

@@ -38,7 +38,10 @@ from .project_renderer_runner_deployment_network import (
 
 
 def runner_fleet_values(
-    settings: ProjectRendererSettings, *, fallback_repo: str, enabled: bool,
+    settings: ProjectRendererSettings,
+    *,
+    fallback_repo: str,
+    enabled: bool,
 ) -> Dict[str, str]:
     """Return Pulumi template values for the runner-fleet stack."""
     runner_fleet = _runner_fleet_settings(settings)
@@ -67,9 +70,7 @@ def runner_fleet_values(
     bound_api_url = _stringify(github.get("api_url"))
     if enabled:
         try:
-            bound_api_url = validate_github_api_endpoint(
-                bound_api_url
-            ).base_url
+            bound_api_url = validate_github_api_endpoint(bound_api_url).base_url
         except GitHubApiOriginError as exc:
             raise ValueError(
                 f"runner-fleet GitHub binding api_url is invalid: {exc}"
@@ -105,17 +106,17 @@ def runner_fleet_values(
         "runner_fleet_aws_capability": runner_fleet.aws_capability,
         "runner_fleet_aws_region": runner_aws_region,
         "runner_fleet_github_capability": runner_fleet.github_capability or "",
-        "runner_fleet_repo": bound_repo or _stringify(
-            runner_fleet.repo, fallback_repo,
+        "runner_fleet_repo": bound_repo
+        or _stringify(
+            runner_fleet.repo,
+            fallback_repo,
         ),
         "runner_fleet_github_repo_owner": _stringify(github.get("repo_owner")),
         "runner_fleet_github_repo_name": _stringify(github.get("repo_name")),
         "runner_fleet_github_installation_id": _stringify(
             github.get("installation_id")
         ),
-        "runner_fleet_github_repository_id": _stringify(
-            github.get("repository_id")
-        ),
+        "runner_fleet_github_repository_id": _stringify(github.get("repository_id")),
         "runner_fleet_github_app_issuer": app.issuer if app else "",
         "runner_fleet_github_api_url": api_url,
         "runner_fleet_github_web_url": web_url,
@@ -134,15 +135,9 @@ def runner_fleet_values(
         ),
         "runner_fleet_instance_type": runner_fleet.instance.instance_type,
         "runner_fleet_architecture": runner_fleet.instance.architecture,
-        "runner_fleet_root_volume_gb": str(
-            runner_fleet.instance.root_volume_gb
-        ),
-        "runner_fleet_runner_count": str(
-            runner_fleet.desired_runner_count
-        ),
-        "runner_fleet_max_runner_count": str(
-            runner_fleet.max_runner_count
-        ),
+        "runner_fleet_root_volume_gb": str(runner_fleet.instance.root_volume_gb),
+        "runner_fleet_runner_count": str(runner_fleet.desired_runner_count),
+        "runner_fleet_max_runner_count": str(runner_fleet.max_runner_count),
         "runner_fleet_idle_shutdown_minutes": str(
             runner_fleet.lifecycle.idle_shutdown_minutes
         ),
@@ -152,7 +147,13 @@ def runner_fleet_values(
         "runner_fleet_spot_on_demand_percentage_above_base": str(
             runner_fleet.spot.on_demand_percentage_above_base
         ),
+        "runner_fleet_lifecycle_code_frozen": (
+            "true" if runner_fleet.lifecycle.code_frozen else "false"
+        ),
         "runner_fleet_shutdown_mode": runner_fleet.lifecycle.shutdown_mode,
+        "runner_fleet_lifecycle_writers_paused": (
+            "true" if runner_fleet.lifecycle.writers_paused else "false"
+        ),
         "runner_fleet_deployment_ssh_stack_outputs_json": (
             json_helper.dumps_compact(resolved_deployment_ssh_stack_outputs)
         ),
@@ -200,8 +201,12 @@ def _github_binding(
         return {}
     github = settings.capabilities.get(capability_selector, {})
     missing = [
-        key for key in (
-            "repo_owner", "repo_name", "installation_id", "repository_id",
+        key
+        for key in (
+            "repo_owner",
+            "repo_name",
+            "installation_id",
+            "repository_id",
             "api_url",
         )
         if not _stringify(github.get(key))
@@ -242,7 +247,9 @@ def _bound_repo(github: Dict[str, object]) -> str:
     try:
         return normalize_github_repository(f"{owner}/{name}")
     except GitHubApiOriginError as exc:
-        raise ValueError(f"runner-fleet GitHub repository binding is invalid: {exc}") from exc
+        raise ValueError(
+            f"runner-fleet GitHub repository binding is invalid: {exc}"
+        ) from exc
 
 
 def _web_url_from_api(api_url: str) -> str:
@@ -257,11 +264,14 @@ def _validate_enabled_values(values: Dict[str, str]) -> None:
         if re.fullmatch(r"[1-9][0-9]*", values[key]) is None:
             raise ValueError(f"{key} must be a positive GitHub numeric id")
     secret_arn = values["runner_fleet_github_private_key_secret_arn"]
-    if re.fullmatch(
-        r"arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:"
-        r"[A-Za-z0-9/_+=.@-]+",
-        secret_arn,
-    ) is None:
+    if (
+        re.fullmatch(
+            r"arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:"
+            r"[A-Za-z0-9/_+=.@-]+",
+            secret_arn,
+        )
+        is None
+    ):
         raise ValueError(
             "runner-fleet github_app."
             "private_key_secret_arn must be a complete AWS Secrets Manager ARN"

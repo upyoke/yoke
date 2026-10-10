@@ -17,8 +17,11 @@ actually happened.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from typing import Any
 
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.session_launch_store import marker, parse_time, value
 from yoke_core.domain.session_launch_types import LaunchRecord
 
@@ -42,12 +45,14 @@ TRANSPORT_RELAY_UNKNOWN = "relay_unknown"
 def launch_phase_reached(launch: LaunchRecord) -> str:
     """Name the furthest phase this launch reached before the server closed it."""
     for column, phase in _PHASE_LADDER:
-        if str(getattr(launch, column, "") or "").strip():
+        if getattr(launch, column, None) is not None:
             return phase
     return "queued"
 
 
-def relay_transport_state(conn: Any, *, relay_id: str | None, now: str) -> str:
+def relay_transport_state(
+    conn: Any, *, relay_id: str | None, now: datetime | str
+) -> str:
     """Report whether the relay holding this attempt was still connected.
 
     A relay past its connection horizon stopped talking to the control plane,
@@ -65,9 +70,7 @@ def relay_transport_state(conn: Any, *, relay_id: str | None, now: str) -> str:
     ).fetchone()
     if row is None:
         return TRANSPORT_RELAY_UNKNOWN
-    connected_until = str(value(row, "connected_until", 0) or "").strip()
-    if not connected_until:
-        return TRANSPORT_RELAY_UNKNOWN
+    connected_until = parse_time(value(row, "connected_until", 0))
     if parse_time(now) < parse_time(connected_until):
         return TRANSPORT_RELAY_CONNECTED
     return TRANSPORT_RELAY_DISCONNECTED
@@ -81,8 +84,8 @@ def closure_evidence(
     closure_reason: str,
     relay_id: str | None,
     machine_id: str | None,
-    started_at: str | None,
-    now: str,
+    started_at: datetime | str | None,
+    now: datetime | str,
 ) -> dict[str, Any]:
     """Render the bounded facts a server-closed attempt can still answer with.
 
@@ -101,9 +104,9 @@ def closure_evidence(
         document["relay_id"] = str(relay_id)
     if str(machine_id or "").strip():
         document["machine_id"] = str(machine_id)
-    if str(started_at or "").strip():
-        document["native_started_at"] = str(started_at)
-        elapsed = parse_time(now) - parse_time(str(started_at))
+    if started_at is not None:
+        document["native_started_at"] = format_instant(parse_time(started_at))
+        elapsed = parse_time(now) - parse_time(started_at)
         document["duration_ms"] = max(0, int(elapsed.total_seconds() * 1000))
     return document
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now
 from pathlib import Path
 from typing import Callable
 
@@ -117,7 +117,7 @@ def _inventory(
     # to place a worker on a box that has no room for one.
     capacity = observe_machine_capacity(
         read_settings(),
-        observed_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        observed_at=utc_now(),
     )
     config = load_config()
     return RelayInventory(

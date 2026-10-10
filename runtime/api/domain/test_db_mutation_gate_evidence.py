@@ -62,6 +62,61 @@ class TestStampClear:
         parsed = json.loads(row[0])
         assert parsed["frozen_at"] == stamp1
 
+    def test_new_stamp_uses_canonical_microseconds(self, gate_db, monkeypatch) -> None:
+        from yoke_contracts import timestamps
+
+        conn, _ = gate_db
+        clock = timestamps.parse_instant("1969-12-31T23:59:59.123456Z")
+        monkeypatch.setattr(timestamps, "utc_now", lambda: clock)
+        insert_item(conn, id=1, project="yoke", db_compatibility_attestation="{}")
+        stamp = stamp_attestation_frozen_at(1, conn=conn)
+        assert stamp == "1969-12-31T23:59:59.123456Z"
+        stored = json.loads(
+            conn.execute(
+                "SELECT db_compatibility_attestation FROM items WHERE id=1",
+            ).fetchone()[0]
+        )
+        assert stored["frozen_at"] == stamp
+
+    @pytest.mark.parametrize(
+        "stamp",
+        [
+            "2026-04-22T17:52:49Z",
+            "2024-02-29T00:00:00.1Z",
+            "1969-12-31T23:59:59.123456Z",
+        ],
+    )
+    def test_restamp_preserves_frozen_json_identity(self, gate_db, stamp) -> None:
+        from yoke_core.domain.db_compatibility_attestation import canonical_json
+
+        conn, _ = gate_db
+        raw = canonical_json({"frozen_at": stamp, "invariants": ["frozen evidence"]})
+        insert_item(conn, id=1, project="yoke", db_compatibility_attestation=raw)
+        assert stamp_attestation_frozen_at(1, conn=conn) == stamp
+        assert (
+            conn.execute(
+                "SELECT db_compatibility_attestation FROM items WHERE id=1",
+            ).fetchone()[0]
+            == raw
+        )
+
+    def test_invalid_existing_stamp_refuses_before_write(self, gate_db) -> None:
+        from yoke_core.domain.db_compatibility_attestation import (
+            DbCompatibilityAttestationError,
+        )
+
+        conn, _ = gate_db
+        raw = json.dumps({"frozen_at": "2026-02-30T00:00:00Z"})
+        insert_item(conn, id=1, project="yoke", db_compatibility_attestation=raw)
+        with pytest.raises(DbCompatibilityAttestationError, match="invalid_instant"):
+            stamp_attestation_frozen_at(1, conn=conn)
+        assert (
+            conn.execute(
+                "SELECT db_compatibility_attestation FROM items WHERE id=1",
+            ).fetchone()[0]
+            == raw
+        )
+
     def test_stamp_appends_escalations(self, gate_db) -> None:
         conn, _ = gate_db
         insert_item(

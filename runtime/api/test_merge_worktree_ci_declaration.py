@@ -47,8 +47,8 @@ def _apply_capability_schema() -> None:
                 project_id BIGINT NOT NULL REFERENCES projects(id),
                 type TEXT NOT NULL,
                 settings TEXT DEFAULT '{}',
-                verified_at TEXT,
-                created_at TEXT NOT NULL DEFAULT '2026-01-01T00:00:00Z'
+                verified_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT '2026-01-01T00:00:00Z'
             )
             """
         )

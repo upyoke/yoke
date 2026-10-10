@@ -8,7 +8,12 @@ what says whether a worker can be started and where the load already sits.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import as_utc
+
+from yoke_core.domain.db_helpers import instant_parameter
+
 from dataclasses import dataclass
+from datetime import datetime
 import json
 from typing import Any
 
@@ -57,7 +62,7 @@ def launchable_surfaces(
     conn: Any,
     *,
     project_id: int,
-    now: str,
+    now: datetime,
 ) -> tuple[SurfaceReadiness, ...]:
     """Every ``(machine, surface)`` a launch could reach for this project.
 
@@ -66,6 +71,7 @@ def launchable_surfaces(
     surface the launch plane would refuse and does not re-query
     ``session_relays`` for each surface.
     """
+    current = as_utc(now)
     ready: set[tuple[str, str]] = set()
     relay_rows = load_relay_eligibility_rows(conn)
     for surface in KNOWN_SURFACE_LABELS:
@@ -77,7 +83,7 @@ def launchable_surfaces(
             project_id=int(project_id),
             surface=surface,
             machine_id=None,
-            now=now,
+            now=current,
             relay_rows=relay_rows,
         )
         for relay in snapshot.relays:
@@ -99,7 +105,7 @@ def _serves(raw: Any, project_id: int) -> bool:
 
 
 def machine_capacities(
-    conn: Any, *, project_id: int, now: str
+    conn: Any, *, project_id: int, now: datetime
 ) -> tuple[MachineCapacity, ...]:
     """Lanes against cap for every connected machine serving this project.
 
@@ -107,12 +113,13 @@ def machine_capacities(
     machine at its cap is exactly the one eligibility drops and exactly the
     one the seat needs to see before it launches.
     """
+    current = as_utc(now)
     p = marker(conn)
     rows = conn.execute(
         "SELECT machine_id, project_checkouts, machine_capacity FROM session_relays "
         f"WHERE connected_until >= {p} AND state IN ('active','idle') "
         "ORDER BY last_seen_at DESC, machine_id",
-        (now,),
+        (instant_parameter(conn, current),),
     ).fetchall()
     found: dict[str, MachineCapacity] = {}
     for row in rows:
@@ -123,7 +130,7 @@ def machine_capacities(
             conn,
             machine_id=machine_id,
             capacity_document=row["machine_capacity"],
-            now=now,
+            now=current,
         )
     return tuple(found[machine] for machine in sorted(found))
 

@@ -1,14 +1,10 @@
-"""Amendment surface for path claims.
-
-``widen`` adds coverage, ``narrow`` removes coverage after the
-committed-git boundary check, and ``cancel_amendment`` appends an
-audit row that reverses a prior amendment without rewriting history.
-"""
+"""Widen, narrow or reverse claim amendments while retaining audit history."""
 
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import utc_now as _now
+from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Iterable, List, Mapping, Optional, Sequence
 
 from yoke_core.domain import db_backend
@@ -35,11 +31,9 @@ from yoke_core.domain.workflow_item_binding_lock import (
     lock_path_claim_workflow_binding,
     rollback_workflow_binding_write_errors,
 )
+
 _NON_AMENDABLE_STATES = ("released", "cancelled")
-# Amend (widen/narrow) is valid for every non-terminal claim, including
-# active claims. Boundary remediation commonly happens after the door
-# lock has been acquired; the durable fix is an amendment, a revert, or
-# a split, not release/cancel/re-register.
+# Active and other non-terminal claims may amend coverage without re-registering.
 
 
 def _p(conn: Any) -> str:
@@ -85,10 +79,6 @@ class NarrowWouldOrphanCommittedWork(AmendmentError):
         )
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
 def _record_amendment(
     conn: Any,
     *,
@@ -102,7 +92,7 @@ def _record_amendment(
         "INSERT INTO path_claim_amendments "
         "(claim_id, amended_at, amendment_kind, payload, reason) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}) RETURNING id",
-        (claim_id, _now(), kind, json.dumps(payload), reason),
+        (claim_id, instant_parameter(conn, _now()), kind, json.dumps(payload), reason),
     )
     return int(cur.fetchone()[0])
 
@@ -208,7 +198,7 @@ def widen(
             repo_path=repo_path,
             worktree_head=worktree_head,
         )
-    now = _now()
+    now = instant_parameter(conn, _now())
     p = _p(conn)
     _executemany(
         conn,
@@ -343,7 +333,15 @@ def _project_for_claim(conn: Any, claim: dict) -> Optional[int]:
 
 
 __all__ = [
-    "AmendmentError", "AmendmentNotFound", "CannotAmendClaim", "ClaimNotFound",
-    "IllegalTransition", "IncompatibleOverlap", "InvalidTargetSet",
-    "NarrowWouldOrphanCommittedWork", "cancel_amendment", "narrow", "widen",
+    "AmendmentError",
+    "AmendmentNotFound",
+    "CannotAmendClaim",
+    "ClaimNotFound",
+    "IllegalTransition",
+    "IncompatibleOverlap",
+    "InvalidTargetSet",
+    "NarrowWouldOrphanCommittedWork",
+    "cancel_amendment",
+    "narrow",
+    "widen",
 ]

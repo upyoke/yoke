@@ -9,6 +9,8 @@ stopped.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import pytest
 
 from runtime.api.steering_fleet_test_helpers import (
@@ -33,9 +35,9 @@ from yoke_core.domain.work_claim_targets import make_item_target
 
 #: Twenty minutes before ``NOW``: past the report's idle threshold, well
 #: inside every long-running command's own budget.
-CALL_STARTED = "2026-08-26T11:40:00Z"
+CALL_STARTED = "2026-08-26T11:40:00.000000Z"
 #: Two hours before ``NOW``: past :data:`IN_FLIGHT_CEILING_SECONDS`.
-CALL_STARTED_LONG_OVER = "2026-08-26T10:00:00Z"
+CALL_STARTED_LONG_OVER = "2026-08-26T10:00:00.000000Z"
 
 MERGE_WAIT = (
     "cd /repo/.worktrees/YOK-1 && yoke --env prod watch merge "
@@ -131,7 +133,7 @@ def test_a_refused_call_is_closed_by_its_refusal_and_never_reads_in_flight(fleet
         "WHERE session_id = %s AND tool_use_id = %s",
         (WORKER_SESSION, "call-1"),
     ).fetchone()
-    assert closed["completed_at"] == CALL_STARTED
+    assert closed["completed_at"] == parse_instant(CALL_STARTED)
     assert closed["outcome"] == "denied"
 
     report = _compose(fleet)
@@ -172,7 +174,7 @@ def test_a_row_the_session_kept_working_past_is_residue_rather_than_in_flight(fl
         fleet,
         WORKER_SESSION,
         tool_use_id="call-1",
-        started_at="2026-08-26T08:00:00Z",
+        started_at="2026-08-26T08:00:00.000000Z",
         command_summary=MERGE_WAIT,
     )
     fleet.commit()
@@ -261,7 +263,7 @@ def test_native_exit_excludes_even_an_unclosed_running_call(fleet):
 
 
 def test_a_turn_that_ended_mid_call_alarms_before_the_idle_threshold(fleet):
-    just_started = "2026-08-26T11:59:30Z"
+    just_started = "2026-08-26T11:59:30.000000Z"
     _open_call(fleet, MERGE_WAIT, started_at=just_started)
     fleet.execute(
         "UPDATE harness_sessions SET turn_posture='waiting', turn_posture_at=%s, "

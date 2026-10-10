@@ -8,6 +8,8 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 from yoke_contracts.session_control.capabilities import capability_for_surface
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_broker_wake_fallback import (
     direct_wake_waits_for_broker,
@@ -20,7 +22,6 @@ from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
     row_dict,
-    timestamp,
     utc_now,
 )
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
@@ -134,8 +135,10 @@ def _reserve_candidate(
     *,
     broker_session_id: str,
     candidate: Mapping[str, Any],
-    now: str,
+    now: datetime,
 ) -> BrokerWakeLease | None:
+    current = parse_instant(now)
+    stamped = instant_parameter(conn, current)
     p = marker(conn)
     _begin(conn)
     try:
@@ -154,12 +157,12 @@ def _reserve_candidate(
             "ON hs.session_id=r.session_id "
             f"WHERE r.message_id={p} AND r.session_id={p} "
             f"AND m.cancelled_at IS NULL AND m.expires_at>{p}" + _lock(conn, "r"),
-            (candidate["message_id"], candidate["session_id"], now),
+            (candidate["message_id"], candidate["session_id"], stamped),
         ).fetchone()
         if broker is None or target is None:
             conn.rollback()
             return None
-        if skip_exhausted_wake(conn, candidate, now):
+        if skip_exhausted_wake(conn, candidate, current):
             conn.commit()
             return None
         if str(candidate["session_id"]) == broker_session_id:
@@ -170,15 +173,19 @@ def _reserve_candidate(
             broker[2] is None,
             _same(target[0], candidate.get("state")),
             int(target[1] or 0) == int(candidate.get("wake_attempt_count") or 0),
-            _same(target[2], candidate.get("last_wake_at")),
+            parse_timestamp(target[2])
+            == parse_timestamp(candidate.get("last_wake_at")),
             _same(target[3], candidate.get("injection_lease_id")),
             _same(target[4], candidate.get("machine_id")),
             _same(target[5], candidate.get("turn_posture")),
-            _same(target[6], candidate.get("turn_posture_at")),
-            _same(target[7], candidate.get("last_heartbeat")),
-            _same(target[8], candidate.get("last_tool_call_at")),
-            _same(target[9], candidate.get("ended_at")),
-            _same(target[10], candidate.get("wake_after")),
+            parse_timestamp(target[6])
+            == parse_timestamp(candidate.get("turn_posture_at")),
+            parse_timestamp(target[7])
+            == parse_timestamp(candidate.get("last_heartbeat")),
+            parse_timestamp(target[8])
+            == parse_timestamp(candidate.get("last_tool_call_at")),
+            parse_timestamp(target[9]) == parse_timestamp(candidate.get("ended_at")),
+            parse_timestamp(target[10]) == parse_timestamp(candidate.get("wake_after")),
             _same(target[11], candidate.get("executor_surface")),
             _same(target[12], candidate.get("executor_version")),
         )
@@ -205,7 +212,12 @@ def _reserve_candidate(
             + ",last_wake_at="
             + p
             + f" WHERE message_id={p} AND session_id={p}",
-            (escalation or None, now, candidate["message_id"], candidate["session_id"]),
+            (
+                escalation or None,
+                stamped,
+                candidate["message_id"],
+                candidate["session_id"],
+            ),
         )
         conn.execute(
             "INSERT INTO session_message_attempts "
@@ -220,7 +232,7 @@ def _reserve_candidate(
                 "wake_broker",
                 BROKER_ADAPTER_REVISION,
                 lease_id,
-                now,
+                stamped,
                 "broker_hook_leased",
                 redacted_evidence(
                     {
@@ -257,15 +269,14 @@ def lease_broker_wake_for_hook(
         settle_broker_wake_losses,
     )
 
-    current = now or utc_now()
+    current = parse_instant(utc_now() if now is None else now)
     settle_broker_wake_losses(conn, now=current)
     broker = _broker_session(conn, broker_session_id)
     if broker is None or not _hook_can_broker(broker, hook_event):
         return None
     if _open_broker_role(conn, broker_session_id):
         return None
-    stamp = timestamp(current)
-    if machine_has_fresh_relay(conn, str(broker.get("machine_id") or ""), stamp):
+    if machine_has_fresh_relay(conn, str(broker.get("machine_id") or ""), current):
         return None
     candidates = _candidate_routes(
         conn, broker_session_id=broker_session_id, now=current
@@ -281,7 +292,7 @@ def lease_broker_wake_for_hook(
             conn,
             broker_session_id=broker_session_id,
             candidate=candidate,
-            now=stamp,
+            now=current,
         )
         if lease is not None:
             return lease

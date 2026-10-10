@@ -258,16 +258,20 @@ def test_owned_diagnostic_line_uses_the_transport_utc_stamp() -> None:
     )
     drain = drain_timeout_warning(clock=lambda: instant)
 
-    assert line.startswith("2026-09-08T14:54:09Z WARNING:")
+    assert line.startswith("2026-09-08T14:54:09.000000Z WARNING:")
     assert "class=transient_retry outcome=retrying" in line
-    assert drain.startswith("2026-09-08T14:54:09Z WARNING: YOKE_HOOK_TELEMETRY_DRAIN_TIMEOUT")
+    assert drain.startswith(
+        "2026-09-08T14:54:09.000000Z WARNING: YOKE_HOOK_TELEMETRY_DRAIN_TIMEOUT"
+    )
     assert "class=drain_timeout outcome=continue" in drain
 
 
 def test_flush_failure_does_not_follow_a_later_stderr_redirect() -> None:
     bound = io.StringIO()
     redirected = io.StringIO()
-    queue = ObservationQueue(_rejecting_opener(400, "HOOK_OBSERVATION_PROJECT_DENIED"), bound)
+    queue = ObservationQueue(
+        _rejecting_opener(400, "HOOK_OBSERVATION_PROJECT_DENIED"), bound
+    )
     try:
         queue.enqueue(_pending(1))
         with redirect_stderr(redirected):

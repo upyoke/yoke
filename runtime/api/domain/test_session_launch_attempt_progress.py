@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+
 import json
 
 import pytest
@@ -82,14 +84,14 @@ def test_relay_lease_expiry_preserves_last_phase_and_diagnostic() -> None:
             "native_launch_phase": "spawn",
             "native_diagnostic_ref": DIAGNOSTIC_REF,
         },
-        now="2026-08-22T12:00:20Z",
+        now="2026-08-22T12:00:20.000000Z",
     )
 
-    assert settle_expired_relay_leases(conn, now="2026-08-22T12:06:01Z") == 1
+    assert settle_expired_relay_leases(conn, now="2026-08-22T12:06:01.000000Z") == 1
 
     attempt, evidence = _attempt(conn, launch.launch_id)
     assert tuple(attempt[:2]) == (
-        "2026-08-22T12:06:01Z",
+        "2026-08-22T12:06:01.000000Z",
         "relay_lease_expired",
     )
     # The relay's own last word survives the closure. The document also
@@ -129,7 +131,7 @@ def test_uncertain_adapter_result_surfaces_its_specific_terminal_code() -> None:
             "result_code": "identity_uncorrelated",
             "native_launch_phase": "thread_identity",
         },
-        now="2026-08-22T12:00:20Z",
+        now="2026-08-22T12:00:20.000000Z",
     )
 
     assert result["state"] == "outcome_unknown"
@@ -141,7 +143,7 @@ def test_uncertain_adapter_result_surfaces_its_specific_terminal_code() -> None:
 
 def test_late_report_enriches_expired_attempt_without_hiding_expiry() -> None:
     conn, launch, job = _claimed_launch("late-report-evidence")
-    settle_expired_relay_leases(conn, now="2026-08-22T12:06:01Z")
+    settle_expired_relay_leases(conn, now="2026-08-22T12:06:01.000000Z")
 
     result = report_relay_job(
         conn,
@@ -157,7 +159,7 @@ def test_late_report_enriches_expired_attempt_without_hiding_expiry() -> None:
             "native_launch_phase": "spawn",
             "native_diagnostic_ref": DIAGNOSTIC_REF,
         },
-        now="2026-08-22T12:06:10Z",
+        now="2026-08-22T12:06:10.000000Z",
     )
 
     assert result == {
@@ -188,7 +190,7 @@ def test_adapter_start_opens_registration_before_native_result() -> None:
             "result_code": LAUNCH_ADAPTER_STARTED_CODE,
             "native_launch_phase": "adapter_start",
         },
-        now="2026-08-22T12:00:10Z",
+        now="2026-08-22T12:00:10.000000Z",
     )
 
     assert ready["state"] == "awaiting_registration"
@@ -207,13 +209,13 @@ def test_adapter_start_opens_registration_before_native_result() -> None:
             "result_code": "accepted",
             "native_launch_phase": "native_running",
         },
-        now="2026-08-22T12:00:20Z",
+        now="2026-08-22T12:00:20.000000Z",
     )
 
     assert result["state"] == "awaiting_registration"
     assert result["result_code"] == "native_created"
     assert get_launch(conn, launch.launch_id).awaiting_registration_at == (
-        "2026-08-22T12:00:10Z"
+        parse_instant("2026-08-22T12:00:10.000000Z")
     )
 
 
@@ -234,21 +236,23 @@ def test_live_slow_spawn_is_durable_and_retry_reattaches() -> None:
             "native_launch_pid": 4242,
             "duration_ms": 180_000,
         },
-        now="2026-08-22T12:03:00Z",
+        now="2026-08-22T12:03:00.000000Z",
     )
 
     observed = get_launch(conn, launch.launch_id)
     deadline = observed.deadline_at
     assert observed.native_launch_pid == 4242
     assert observed.native_launch_phase == "spawn_alive"
-    assert observed.native_launch_observed_at == "2026-08-22T12:03:00Z"
+    assert observed.native_launch_observed_at == parse_instant(
+        "2026-08-22T12:03:00.000000Z"
+    )
     assert observed.spawn_duration_ms == 180_000
 
     attached = retry_launch(
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
-        now="2026-08-22T12:03:01Z",
+        now="2026-08-22T12:03:01.000000Z",
     )
     assert attached.state == "launching"
     assert attached.result_code == "native_spawn_pending"
@@ -267,17 +271,17 @@ def test_live_slow_spawn_is_durable_and_retry_reattaches() -> None:
             launch_id=launch.launch_id,
             auth=authorization(),
             observed_native_id=None,
-            now="2026-08-22T12:03:02Z",
+            now="2026-08-22T12:03:02.000000Z",
         )
     assert refused.value.code == "native_process_alive"
     assert "4242" in str(refused.value)
 
     conn.execute(
         "UPDATE session_relays SET lease_expires_at=? WHERE relay_id=?",
-        ("2026-08-22T12:03:05Z", RELAY_ID),
+        ("2026-08-22T12:03:05.000000Z", RELAY_ID),
     )
     conn.commit()
-    assert settle_expired_relay_leases(conn, now="2026-08-22T12:05:01Z") == 0
+    assert settle_expired_relay_leases(conn, now="2026-08-22T12:05:01.000000Z") == 0
     assert (
         conn.execute(
             "SELECT completed_at FROM session_launch_attempts WHERE launch_id=?",
@@ -300,14 +304,14 @@ def test_live_slow_spawn_is_durable_and_retry_reattaches() -> None:
             "native_launch_pid": 4242,
             "duration_ms": 190_000,
         },
-        now="2026-08-22T12:05:02Z",
+        now="2026-08-22T12:05:02.000000Z",
     )
 
     handoff = retry_launch(
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
-        now="2026-08-22T12:05:02Z",
+        now="2026-08-22T12:05:02.000000Z",
     )
     assert handoff.native_launch_phase == "spawn_completed_after_bound"
     assert (
@@ -317,8 +321,8 @@ def test_live_slow_spawn_is_durable_and_retry_reattaches() -> None:
         ).fetchone()[0]
         == 1
     )
-    assert settle_expired_relay_leases(conn, now="2026-08-22T12:05:02Z") == 0
-    assert settle_launch_deadlines(conn, now="2026-08-22T12:05:02Z") == []
+    assert settle_expired_relay_leases(conn, now="2026-08-22T12:05:02.000000Z") == 0
+    assert settle_launch_deadlines(conn, now="2026-08-22T12:05:02.000000Z") == []
 
     completed = report_relay_job(
         conn,
@@ -336,7 +340,7 @@ def test_live_slow_spawn_is_durable_and_retry_reattaches() -> None:
             "native_launch_pid": 4242,
             "duration_ms": 190_000,
         },
-        now="2026-08-22T12:05:03Z",
+        now="2026-08-22T12:05:03.000000Z",
     )
     assert completed["state"] == "awaiting_registration"
     final = get_launch(conn, launch.launch_id)

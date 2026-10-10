@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import parse_instant, temporal_wire, utc_now
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -29,6 +30,11 @@ class PerformanceRequest(BaseModel):
     until: datetime
     project_ids: list[int] | None = Field(default=None, max_length=100)
     points: int = Field(default=400, ge=20, le=MAX_POINTS)
+
+    @field_validator("since", "until", mode="before")
+    @classmethod
+    def qualified_range_clock(cls, value: Any) -> datetime:
+        return parse_instant(value)
 
 
 class PerformanceDetailRequest(PerformanceRequest):
@@ -59,7 +65,7 @@ def _read(request: FunctionCallRequest, detail: bool) -> HandlerOutcome:
     model = PerformanceDetailRequest if detail else PerformanceRequest
     value = model.model_validate(request.payload)
     start, end = value.since, value.until
-    if start.tzinfo is None or end.tzinfo is None or start >= end:
+    if start >= end:
         return HandlerOutcome(
             primary_success=False,
             error=FunctionError(
@@ -67,7 +73,6 @@ def _read(request: FunctionCallRequest, detail: bool) -> HandlerOutcome:
                 message="Use timezone-qualified From/To timestamps with From before To.",
             ),
         )
-    start, end = start.astimezone(timezone.utc), end.astimezone(timezone.utc)
     try:
         with connect() as conn:
             observations = read_observations(
@@ -76,11 +81,9 @@ def _read(request: FunctionCallRequest, detail: bool) -> HandlerOutcome:
         if detail:
             result = details(observations, value.family, value.offset, value.limit)
         else:
-            result = aggregate(
-                observations, start.timestamp(), end.timestamp(), value.points
-            )
+            result = aggregate(observations, start, end, value.points)
             result.update(
-                queried_at=datetime.now(timezone.utc).isoformat(),
+                queried_at=utc_now(),
                 coverage=(
                     "Delivered retained observations only; gaps and older history are unknown. "
                     "Last observation is not proof of collector health. Unattributed observations "
@@ -88,7 +91,9 @@ def _read(request: FunctionCallRequest, detail: bool) -> HandlerOutcome:
                     "Hook series measures evaluator time; client wall is available in inspection."
                 ),
             )
-        return HandlerOutcome(primary_success=True, result_payload=result)
+        return HandlerOutcome(
+            primary_success=True, result_payload=temporal_wire(result)
+        )
     except (PermissionDenied, ValueError) as exc:
         return HandlerOutcome(
             primary_success=False,

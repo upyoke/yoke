@@ -27,20 +27,20 @@ contents; the unconditional write only changes the clock.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 from pathlib import Path
 import signal
 import subprocess
 import sys
-import time
 from types import FrameType
 from typing import Sequence
 
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
 from yoke_harness.session_relay_environment import strip_relay_owned_python_state
 from yoke_harness.session_relay_native_capture_format import (
     STATE_EXITED,
     STATE_RUNNING,
     compose_capture,
-    utc_stamp,
 )
 from yoke_harness.session_relay_native_diagnostics import (
     NativeDiagnosticError,
@@ -70,21 +70,18 @@ def _write(
     *,
     state: str,
     exit_code: int | None = None,
-    now: float | None = None,
-    last_output_at: float | None = None,
+    now: datetime | None = None,
+    last_output_at: datetime | None = None,
 ) -> None:
+    current = utc_now() if now is None else parse_instant(now)
     stdout, stderr = streams.snapshot()
     payload = compose_capture(
         stdout=stdout,
         stderr=stderr,
         state=state,
         exit_code=exit_code,
-        exit_at=utc_stamp(time.time() if now is None else now)
-        if state == STATE_EXITED
-        else None,
-        last_output_at=(
-            None if last_output_at is None else utc_stamp(last_output_at)
-        ),
+        exit_at=current if state == STATE_EXITED else None,
+        last_output_at=last_output_at,
     )
     try:
         write_native_capture(capture, payload)
@@ -107,11 +104,11 @@ def supervise(capture: Path, native: Sequence[str]) -> int:
             stderr=subprocess.PIPE,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        started = time.time()
+        started = utc_now()
         streams.append(
             STDERR,
             (
-                f"{utc_stamp(started)} ERROR: YOKE_NATIVE_START_FAILED: "
+                f"{format_instant(started)} ERROR: YOKE_NATIVE_START_FAILED: "
                 f"native did not start: {exc}; class=native_start_failed "
                 "outcome=exited; the capture is the account of the spawn refusal\n"
             ).encode(),
@@ -130,7 +127,7 @@ def supervise(capture: Path, native: Sequence[str]) -> int:
     # The native has said nothing yet, so its clock starts at the spawn: a
     # turn that never speaks is silent from the moment it began, which is
     # exactly what a reader measuring a stall needs it to say.
-    spoke_at = time.time()
+    spoke_at = utc_now()
     while True:
         try:
             exit_code: int | None = process.wait(timeout=FLUSH_INTERVAL_SECONDS)
@@ -140,12 +137,12 @@ def supervise(capture: Path, native: Sequence[str]) -> int:
             # is unconditional -- but it is still the one signal that the
             # native itself produced something, so it sets the native's clock.
             if streams.take_dirty():
-                spoke_at = time.time()
+                spoke_at = utc_now()
             _write(capture, streams, state=STATE_RUNNING, last_output_at=spoke_at)
     for drain in drains:
         drain.join(_DRAIN_JOIN_SECONDS)
     if streams.take_dirty():
-        spoke_at = time.time()
+        spoke_at = utc_now()
     _write(
         capture,
         streams,

@@ -13,7 +13,8 @@ from yoke_contracts.machine_qa_execution import (
 )
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_contracts.timestamps import utc_now, parse_instant
 from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
 
 
@@ -33,7 +34,7 @@ def _row_result(row: Any) -> dict[str, Any]:
     return {
         "operation": str(row["operation"]),
         "status": str(row["status"]),
-        "performed_at": str(row["performed_at"]),
+        "performed_at": parse_instant(row["performed_at"]),
         "checks": list(receipt.get("checks") or []),
         "error_code": row["error_code"],
     }
@@ -57,7 +58,7 @@ def record_test_machine_operation(
     ensure_test_machine_schema(conn)
     marker = _marker(conn)
     capability_type = test_machine_capability_type(machine)
-    now = iso8601_now()
+    now = utc_now()
     receipt = json.dumps(
         {"checks": list(checks)},
         separators=(",", ":"),
@@ -78,12 +79,12 @@ def record_test_machine_operation(
             capability_type,
             operation,
             status,
-            now,
+            instant_parameter(conn, now),
             receipt,
             error_code,
             int(lease_id),
             str(contract_digest),
-            now,
+            instant_parameter(conn, now),
         ),
     )
     conn.commit()

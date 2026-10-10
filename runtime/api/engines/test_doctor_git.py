@@ -49,7 +49,7 @@ def _make_conn():
             project_sequence INTEGER,
             github_issue TEXT,
             deployed_to TEXT,
-            updated_at TEXT,
+            updated_at TIMESTAMPTZ,
             deployment_flow TEXT
         );
 
@@ -58,7 +58,7 @@ def _make_conn():
             task_num INTEGER,
             title TEXT,
             status TEXT,
-            last_heartbeat TEXT,
+            last_heartbeat TIMESTAMPTZ,
             dispatch_attempts INTEGER DEFAULT 0,
             item_worktree_id INTEGER,
             github_issue TEXT,
@@ -70,7 +70,7 @@ def _make_conn():
             slug TEXT UNIQUE,
             name TEXT,
             default_branch TEXT,
-            created_at TEXT,
+            created_at TIMESTAMPTZ,
             github_repo TEXT,
             public_item_prefix TEXT DEFAULT 'YOK'
         );
@@ -87,9 +87,9 @@ def _make_conn():
             context TEXT,
             category TEXT,
             body TEXT,
-            created_at TEXT,
-            reviewed_at TEXT,
-            archived_at TEXT
+            created_at TIMESTAMPTZ,
+            reviewed_at TIMESTAMPTZ,
+            archived_at TIMESTAMPTZ
         );
     """)
         + ITEM_WORKTREES_TABLE_SQL,

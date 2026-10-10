@@ -2,8 +2,30 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.stored_instant_columns import STORED_INSTANT_COLUMNS
+
 
 _PROJECT_IDS = {"yoke": 1, "externalwebapp": 2, "orphan": 3, "a": 4, "b": 5}
+
+
+def _native_fields(table, fields):
+    return {
+        key: parse_instant(value)
+        if (table, key) in STORED_INSTANT_COLUMNS and value is not None
+        else value
+        for key, value in fields.items()
+    }
+
+
+def _values(conn, table, fields):
+    return tuple(
+        instant_parameter(conn, value)
+        if (table, key) in STORED_INSTANT_COLUMNS
+        else value
+        for key, value in fields.items()
+    )
 
 
 def _p(conn) -> str:
@@ -25,6 +47,7 @@ def _seed_project(
     github_repo: str | None = None,
     public_item_prefix: str | None = None,
 ) -> None:
+    created_at = parse_instant("2026-01-01T00:00:00.000000Z")
     p = _p(conn)
     project_id = _project_id(slug)
     prefix = public_item_prefix or {"yoke": "YOK", "externalwebapp": "EXT"}.get(
@@ -41,6 +64,7 @@ def _seed_project(
             project_id,
             slug,
             name or slug.title(),
+            instant_parameter(conn, created_at),
             github_repo,
             prefix,
             "enabled",
@@ -50,6 +74,7 @@ def _seed_project(
             project_id,
             slug,
             name or slug.title(),
+            instant_parameter(conn, created_at),
             github_repo,
             prefix,
         )
@@ -58,7 +83,7 @@ def _seed_project(
         "INSERT INTO projects "
         "(id, slug, name, default_branch, created_at, "
         f"github_repo, public_item_prefix{mode_columns}) "
-        f"VALUES ({p}, {p}, {p}, 'main', '2026-01-01T00:00:00Z', {p}, {p}{mode_values}) "
+        f"VALUES ({p}, {p}, {p}, 'main', {p}, {p}, {p}{mode_values}) "
         "ON CONFLICT(id) DO UPDATE SET "
         "slug=excluded.slug, name=excluded.name, "
         "github_repo=excluded.github_repo, "
@@ -74,6 +99,7 @@ def _insert_item(
     project: str | None = "yoke",
     **fields,
 ) -> None:
+    fields = _native_fields("items", fields)
     p = _p(conn)
     from yoke_core.domain.schema_common import _column_exists
 
@@ -97,7 +123,7 @@ def _insert_item(
     placeholders = ", ".join(p for _ in columns)
     conn.execute(
         f"INSERT INTO items ({', '.join(columns)}) VALUES ({placeholders})",
-        tuple(data[col] for col in columns),
+        _values(conn, "items", data),
     )
 
 
@@ -108,6 +134,7 @@ def _insert_deployment_flow(
     stages: str = "[]",
     **fields,
 ) -> None:
+    fields = _native_fields("deployment_flows", fields)
     p = _p(conn)
     data = {
         "id": flow_id,
@@ -119,5 +146,5 @@ def _insert_deployment_flow(
     placeholders = ", ".join(p for _ in columns)
     conn.execute(
         f"INSERT INTO deployment_flows ({', '.join(columns)}) VALUES ({placeholders})",
-        tuple(data[col] for col in columns),
+        _values(conn, "deployment_flows", data),
     )

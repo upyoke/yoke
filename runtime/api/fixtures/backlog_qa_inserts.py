@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Optional
 
-from runtime.api.fixtures.backlog_insert_support import now, placeholder
+from runtime.api.fixtures.backlog_insert_support import placeholder, stamp, values
 
 
 def insert_qa_requirement(
@@ -19,7 +20,7 @@ def insert_qa_requirement(
     blocking_mode: str = "blocking",
     requirement_source: str = "explicit",
     success_policy: Optional[str] = None,
-    created_at: Optional[str] = None,
+    created_at: str | datetime | None = None,
     **kwargs,
 ) -> Any:
     """Insert a row into ``qa_requirements`` and return it."""
@@ -33,16 +34,17 @@ def insert_qa_requirement(
         "blocking_mode": blocking_mode,
         "requirement_source": requirement_source,
         "success_policy": success_policy,
-        "created_at": created_at or now(),
+        "created_at": stamp(created_at),
         **kwargs,
     }
+    params = values(conn, "qa_requirements", cols)
     col_names = ", ".join(cols.keys())
     p = placeholder(conn)
     placeholders = ", ".join(p for _ in cols)
     cur = conn.execute(
         f"INSERT INTO qa_requirements ({col_names}) "
         f"VALUES ({placeholders}) RETURNING id",
-        tuple(cols.values()),
+        params,
     )
     row_id = cur.fetchone()[0]
     conn.commit()
@@ -61,11 +63,11 @@ def insert_qa_run(
     verdict: str = "pass",
     raw_result: Optional[str] = None,
     duration_ms: Optional[int] = None,
-    created_at: Optional[str] = None,
+    created_at: str | datetime | None = None,
     **kwargs,
 ) -> Any:
     """Insert a row into ``qa_runs`` and return it."""
-    stamp = created_at or now()
+    started = stamp(created_at)
     cols = {
         "qa_requirement_id": qa_requirement_id,
         "performed_by": performed_by,
@@ -73,17 +75,18 @@ def insert_qa_run(
         "verdict": verdict,
         "raw_result": raw_result,
         "duration_ms": duration_ms,
-        "started_at": stamp,
-        "completed_at": stamp if verdict else None,
-        "created_at": stamp,
+        "started_at": started,
+        "completed_at": started if verdict else None,
+        "created_at": started,
         **kwargs,
     }
+    params = values(conn, "qa_runs", cols)
     col_names = ", ".join(cols.keys())
     p = placeholder(conn)
     placeholders = ", ".join(p for _ in cols)
     cur = conn.execute(
         f"INSERT INTO qa_runs ({col_names}) VALUES ({placeholders}) RETURNING id",
-        tuple(cols.values()),
+        params,
     )
     row_id = cur.fetchone()[0]
     conn.commit()

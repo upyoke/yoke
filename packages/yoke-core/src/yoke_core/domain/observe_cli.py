@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import utc_now
+
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
 from yoke_core.domain.observe_anomaly import detect_anomalies
@@ -64,7 +65,7 @@ def record_hook_event(
         tool_use_id=tool_use_id,
         db_path=normalize_observe_db_path(db_path),
         project_dir=project_dir,
-        completed_at=completed_at or datetime.now(timezone.utc),
+        completed_at=(utc_now() if completed_at is None else completed_at),
     )
     if rec is None:
         return

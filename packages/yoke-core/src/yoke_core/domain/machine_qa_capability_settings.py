@@ -13,7 +13,7 @@ from yoke_contracts.machine_config.test_machine import (
 )
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.machine_qa_capability_rows import (
     test_machine_capability_rows,
 )
@@ -98,7 +98,12 @@ def replace_test_machine_settings(
             "INSERT INTO project_capabilities("
             "project_id,type,settings,verified_at,created_at"
             f") VALUES({marker},{marker},{marker},NULL,{marker})",
-            (identity.id, capability_type, canonical, iso8601_now()),
+            (
+                identity.id,
+                capability_type,
+                canonical,
+                instant_parameter(conn, utc_now()),
+            ),
         )
     else:
         stored = str(row[0])
@@ -111,7 +116,7 @@ def replace_test_machine_settings(
             f"{marker}, verified_at=NULL WHERE project_id={marker} AND type={marker}",
             (canonical, identity.id, capability_type),
         )
-    now = iso8601_now()
+    now = instant_parameter(conn, utc_now())
     conn.execute(
         "INSERT INTO test_machine_verifications("
         "project_id,capability_type,status,checked_at,receipt_json,error_code,updated_at"

@@ -37,7 +37,7 @@ from yoke_core.domain.session_wake_meter import (
 )
 
 
-RESET = "2026-10-07T00:00:00Z"
+RESET = "2026-10-07T00:00:00.000000Z"
 OTHER_METER = "planUsage.apiPercentUsed"
 CURSOR_METER = "planUsage.autoPercentUsed"
 
@@ -83,7 +83,7 @@ def _pin(
             json.dumps([project_id]),
             NOW_TEXT,
             NOW_TEXT,
-            "2026-08-23T00:00:00Z",
+            "2026-08-23T00:00:00.000000Z",
             json.dumps(
                 {
                     surface: {
@@ -271,7 +271,7 @@ def test_claim_does_not_open_a_native_when_the_meter_drains() -> None:
     )
     conn.commit()
     assert (
-        claim_wake_attempt(conn, candidate=candidate, now="2026-08-22T16:11:00Z")
+        claim_wake_attempt(conn, candidate=candidate, now="2026-08-22T16:11:00.000000Z")
         is None
     )
     conn.commit()

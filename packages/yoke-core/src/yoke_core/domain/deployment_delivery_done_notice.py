@@ -27,7 +27,9 @@ happens once, and the key is the item plus the run that delivered it.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from yoke_contracts.timestamps import parse_instant, utc_now
+
+from datetime import datetime
 from typing import Any, Optional
 
 from yoke_contracts.session_control.models import RecipientSelector
@@ -103,6 +105,7 @@ def notify_delivery_done(
     the caller can report "no delivery to announce" separately from "no
     owner to tell".
     """
+    now = parse_instant(utc_now() if now is None else now)
     from yoke_core.domain.project_identity import render_item_ref
 
     run = _delivered_run(conn, item_id)
@@ -143,7 +146,7 @@ def notify_delivery_done(
         ),
         idempotency_key=delivery_done_idempotency_key(int(item_id), run_id),
         idempotency_intent_only=True,
-        now=now or datetime.now(timezone.utc),
+        now=now,
         commit=False,
     )
     return {

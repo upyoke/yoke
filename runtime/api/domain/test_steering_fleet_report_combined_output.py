@@ -56,7 +56,7 @@ def _limit(machine_id: str) -> MachinePlanLimit:
         scope="all",
         meter="rateLimitsByLimitId.codex.primary",
         remaining_percent=50.0,
-        resets_at="2026-09-30T00:00:00Z",
+        resets_at="2026-09-30T00:00:00.000000Z",
         status="ok",
         reason=None,
     )
@@ -242,7 +242,7 @@ def test_unacked_injected_makes_a_quiet_combined_report_actionable() -> None:
         unacked_injected=(
             UnackedInjectedMessage(
                 message_id="11111111-2222-4333-8444-555555555555",
-                last_injected_at="2026-08-29T11:00:00Z",
+                last_injected_at="2026-08-29T11:00:00.000000Z",
                 age_seconds=3600,
             ),
         ),

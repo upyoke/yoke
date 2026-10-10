@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+
+from yoke_contracts.timestamps import parse_instant
+
+from datetime import datetime
+
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -48,7 +54,7 @@ def _settle_open_attempts(
     *,
     launch: LaunchRecord,
     observed_native_id: str | None,
-    now: str,
+    now: datetime | str,
 ) -> None:
     launch_id = launch.launch_id
     p = marker(conn)
@@ -98,7 +104,7 @@ def _settle_open_attempts(
             + p
             + f" WHERE attempt_id={p} AND completed_at IS NULL",
             (
-                now,
+                instant_parameter(conn, parse_instant(now)),
                 observed_native_id,
                 result_code,
                 canonical_json(
@@ -130,7 +136,7 @@ def _adopt_registered_session(
     *,
     launch: LaunchRecord,
     session_id: str,
-    now: str,
+    now: datetime | str,
 ) -> LaunchRecord:
     """Bind a session that registered inside the window but was never bound.
 
@@ -160,11 +166,11 @@ def reconcile_launch(
     launch_id: str,
     auth: LaunchAuthorization,
     observed_native_id: str | None,
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> LaunchRecord:
     """Resolve possible native creation before any retry is permitted."""
     ensure_operator(auth)
-    current = now or utc_now()
+    current = utc_now() if now is None else parse_instant(now)
     begin_mutation(conn)
     try:
         launch = get_launch(conn, launch_id, for_update=True)

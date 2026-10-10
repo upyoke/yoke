@@ -59,17 +59,23 @@ class RunnerFleetLifecycleSettings(BaseModel):
 
     start_mode: str = DEFAULT_START_MODE
     idle_shutdown_minutes: int = Field(30, ge=1)
+    writers_paused: bool = Field(False, strict=True)
+    code_frozen: bool = Field(False, strict=True)
     ephemeral_runners: bool = True
     shutdown_mode: str = DEFAULT_SHUTDOWN_MODE
+
+    @model_validator(mode="after")
+    def _freeze_requires_pause(self) -> "RunnerFleetLifecycleSettings":
+        if self.code_frozen and not self.writers_paused:
+            raise ValueError("code_frozen requires writers_paused=true")
+        return self
 
     @field_validator("start_mode")
     @classmethod
     def _known_start_mode(cls, value: str) -> str:
         cleaned = value.strip()
         if cleaned not in {"operator", "manual", "scheduled", "autoscaled"}:
-            raise ValueError(
-                "must be one of operator, manual, scheduled, autoscaled"
-            )
+            raise ValueError("must be one of operator, manual, scheduled, autoscaled")
         return cleaned
 
     @field_validator("shutdown_mode")
@@ -82,16 +88,12 @@ class RunnerFleetLifecycleSettings(BaseModel):
 
 
 class RunnerFleetSpotSettings(BaseModel):
-    """How much of the fleet is bought on spare (spot) capacity.
+    """Spot capacity intent; disposable runners use spot by default.
 
-    Runners are disposable — reclaiming one fails a job that reruns — so the
-    whole fleet rides spot by default. Raise ``on_demand_base_capacity`` to
-    keep a floor of runners that a spot shortage cannot take away.
+    Raise ``on_demand_base_capacity`` to retain hosts during spot shortages.
     """
 
-    on_demand_base_capacity: int = Field(
-        DEFAULT_SPOT_ON_DEMAND_BASE_CAPACITY, ge=0
-    )
+    on_demand_base_capacity: int = Field(DEFAULT_SPOT_ON_DEMAND_BASE_CAPACITY, ge=0)
     on_demand_percentage_above_base: int = Field(
         DEFAULT_SPOT_ON_DEMAND_PERCENTAGE_ABOVE_BASE, ge=0, le=100
     )
@@ -106,7 +108,8 @@ class RunnerFleetNetworkSettings(BaseModel):
     @field_validator("deployment_ssh_environments")
     @classmethod
     def _clean_deployment_ssh_environments(
-        cls, environments: List[str],
+        cls,
+        environments: List[str],
     ) -> List[str]:
         cleaned: List[str] = []
         for environment in environments:
@@ -120,15 +123,14 @@ class RunnerFleetNetworkSettings(BaseModel):
     @field_validator("deployment_ssh_stack_names")
     @classmethod
     def _clean_deployment_ssh_stack_names(
-        cls, stack_names: List[str],
+        cls,
+        stack_names: List[str],
     ) -> List[str]:
         cleaned: List[str] = []
         for stack_name in stack_names:
             value = str(stack_name).strip()
             if not value:
-                raise ValueError(
-                    "must contain only non-empty Pulumi stack names"
-                )
+                raise ValueError("must contain only non-empty Pulumi stack names")
             if any(marker in value for marker in (".", ":", "/")):
                 try:
                     ipaddress.ip_network(value, strict=False)
@@ -139,9 +141,13 @@ class RunnerFleetNetworkSettings(BaseModel):
                         "must contain Pulumi stack names, not literal IP "
                         "addresses or CIDRs"
                     )
-            if re.fullmatch(
-                r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+){0,2}", value,
-            ) is None:
+            if (
+                re.fullmatch(
+                    r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+){0,2}",
+                    value,
+                )
+                is None
+            ):
                 raise ValueError(
                     "must contain only Pulumi stack names or qualified "
                     "org/project/stack references"
@@ -164,10 +170,14 @@ class RunnerFleetSettings(BaseModel):
     routing_enabled: bool = False
     provider: str = DEFAULT_PROVIDER
     desired_runner_count: int = Field(
-        DEFAULT_DESIRED_RUNNER_COUNT, ge=1, le=MAX_RUNNER_FLEET_HOSTS,
+        DEFAULT_DESIRED_RUNNER_COUNT,
+        ge=1,
+        le=MAX_RUNNER_FLEET_HOSTS,
     )
     max_runner_count: int = Field(
-        DEFAULT_MAX_RUNNER_COUNT, ge=1, le=MAX_RUNNER_FLEET_HOSTS,
+        DEFAULT_MAX_RUNNER_COUNT,
+        ge=1,
+        le=MAX_RUNNER_FLEET_HOSTS,
     )
     github_capability: Optional[str] = None
     github_app: Optional[RunnerFleetGitHubAppSettings] = None
@@ -178,9 +188,7 @@ class RunnerFleetSettings(BaseModel):
     lifecycle: RunnerFleetLifecycleSettings = Field(
         default_factory=RunnerFleetLifecycleSettings
     )
-    spot: RunnerFleetSpotSettings = Field(
-        default_factory=RunnerFleetSpotSettings
-    )
+    spot: RunnerFleetSpotSettings = Field(default_factory=RunnerFleetSpotSettings)
     network: Optional[RunnerFleetNetworkSettings] = None
 
     @field_validator("repo")
@@ -231,7 +239,8 @@ class RunnerFleetSettings(BaseModel):
     @field_validator("github_capability")
     @classmethod
     def _clean_github_capability(
-        cls, value: Optional[str],
+        cls,
+        value: Optional[str],
     ) -> Optional[str]:
         if value is None:
             return None
@@ -256,8 +265,7 @@ class RunnerFleetSettings(BaseModel):
     def _max_covers_desired(self) -> "RunnerFleetSettings":
         if self.max_runner_count < self.desired_runner_count:
             raise ValueError(
-                "max_runner_count must be greater than or equal to "
-                "desired_runner_count"
+                "max_runner_count must be greater than or equal to desired_runner_count"
             )
         if not self.lifecycle.ephemeral_runners:
             raise ValueError("runner fleet v1 requires ephemeral_runners=true")
@@ -294,8 +302,7 @@ def validate_json_string(raw_json: str) -> str:
         ) from exc
     if not isinstance(parsed, dict):
         raise RunnerFleetSettingsError(
-            f"invalid {CAPABILITY_TYPE} capability settings: root must be "
-            "a JSON object"
+            f"invalid {CAPABILITY_TYPE} capability settings: root must be a JSON object"
         )
     return canonical_json(validate(parsed))
 

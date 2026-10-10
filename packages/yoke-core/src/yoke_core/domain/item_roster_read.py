@@ -5,14 +5,11 @@ transferring it, so every filter the page offers is evaluated here — before
 the page is selected — and the caller receives one page plus the total number
 of matches standing behind it.
 
-Ordering, cursor comparison and tie-breaking all read ONE expression,
-the allowlisted sort expression. ``items.updated_at`` is TEXT: it is empty on
-some rows and on at least one row omits the trailing ``Z``, so a coalesced
-expression is the only stable sort key. The cursor carries that stored string
-verbatim — parsing it into a timestamp and re-serializing would rewrite a
-19-character value to 20 characters and silently move the comparison, which is
-exactly how a keyset page skips or repeats a row. ``i.id`` makes the order
-total so equal timestamps still page deterministically.
+Ordering, cursor comparison and tie-breaking use the same allowlisted
+expression. Native update instants fall back to creation only when null.
+The cursor encodes the exact instant as canonical UTC and binds it natively
+when continued; text sort keys remain opaque. ``i.id`` makes the order total
+so equal instants still page deterministically.
 
 This module is layer ``domain_invariants``: it receives project ids the
 caller has already resolved and authorized, and imports nothing from the
@@ -24,6 +21,7 @@ from __future__ import annotations
 from typing import Any, Iterable, Optional, Sequence
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
@@ -243,6 +241,8 @@ def read_item_roster(
     page_where, page_params = where, list(params)
     if cursor:
         sort_value, cursor_id = decode_cursor(cursor, sort_column, sort_direction)
+        if sort_column == "updated_at":
+            sort_value = instant_parameter(conn, sort_value)
         joiner = " AND " if page_where else " WHERE "
         page_where = (
             page_where
@@ -268,7 +268,7 @@ def read_item_roster(
     page = rows[:page_size]
     next_cursor = (
         encode_cursor(
-            str(page[-1]["roster_sort_value"]),
+            page[-1]["roster_sort_value"],
             int(page[-1]["internal_id"]),
             sort_column,
             sort_direction,

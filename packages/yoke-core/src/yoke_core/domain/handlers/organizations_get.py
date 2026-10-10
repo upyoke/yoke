@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from yoke_contracts.timestamps import format_instant
+
 from pydantic import BaseModel
 
 from yoke_contracts.api.function_call import (
@@ -80,7 +82,7 @@ def handle_organizations_get(request: FunctionCallRequest) -> HandlerOutcome:
             "slug": str(row["slug"]),
             "name": str(row["name"]),
             "domain": str(row["domain"]) if row["domain"] else None,
-            "created_at": str(row["created_at"]),
+            "created_at": format_instant(row["created_at"]),
         },
         primary_success=True,
     )

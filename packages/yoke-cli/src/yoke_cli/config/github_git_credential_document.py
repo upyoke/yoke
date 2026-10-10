@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import os
 from pathlib import Path
 import re
@@ -10,11 +10,11 @@ from typing import Any, Mapping
 
 if __package__:
     from yoke_contracts import github_app_tokens as token_contract
-else:  # pragma: no cover - copied helper uses its immutable sibling
-    import _yoke_github_app_tokens as token_contract  # type: ignore
-if __package__:
+    from yoke_contracts import timestamps as clock_contract
     from yoke_cli.config import github_git_credential_file as credential_file
-else:  # pragma: no cover - copied helper uses its immutable sibling
+else:  # pragma: no cover - copied helper uses its immutable siblings
+    import _yoke_github_app_tokens as token_contract  # type: ignore
+    import _yoke_timestamps as clock_contract  # type: ignore
     import _yoke_github_git_credential_file as credential_file  # type: ignore
 
 
@@ -23,9 +23,7 @@ CREDENTIAL_FILE_PREFIX = "github-app-user-"
 CREDENTIAL_FILE_SUFFIX = ".json"
 CREDENTIAL_QUARANTINE_SUFFIX = ".pending-delete.json"
 LIVE_CREDENTIAL_GLOB = f"{CREDENTIAL_FILE_PREFIX}*{CREDENTIAL_FILE_SUFFIX}"
-QUARANTINED_CREDENTIAL_GLOB = (
-    f"{CREDENTIAL_FILE_PREFIX}*{CREDENTIAL_QUARANTINE_SUFFIX}"
-)
+QUARANTINED_CREDENTIAL_GLOB = f"{CREDENTIAL_FILE_PREFIX}*{CREDENTIAL_QUARANTINE_SUFFIX}"
 _MACHINE_HOME_ENV = "YOKE_MACHINE_HOME"
 _MACHINE_SECRETS_DIR_NAME = "secrets"
 CONFIG_OWNERS_KEY = "config_owners"
@@ -49,10 +47,7 @@ def validate_owned_path(
         if machine_home
         else _default_machine_home() / _MACHINE_SECRETS_DIR_NAME
     )
-    if (
-        not selected.is_absolute()
-        or not is_live_credential_name(selected.name)
-    ):
+    if not selected.is_absolute() or not is_live_credential_name(selected.name):
         raise error_type(
             "GitHub App credential reference is not Yoke-owned; reconnect GitHub"
         )
@@ -81,8 +76,7 @@ def _default_machine_home() -> Path:
 def machine_secrets_dir() -> Path:
     machine_home = os.environ.get(_MACHINE_HOME_ENV, "").strip()
     return (
-        Path(machine_home).expanduser()
-        if machine_home else _default_machine_home()
+        Path(machine_home).expanduser() if machine_home else _default_machine_home()
     ) / _MACHINE_SECRETS_DIR_NAME
 
 
@@ -101,19 +95,14 @@ def is_live_credential_name(name: str) -> bool:
         and value.endswith(CREDENTIAL_FILE_SUFFIX)
     ):
         return False
-    credential_id = value[
-        len(CREDENTIAL_FILE_PREFIX):-len(CREDENTIAL_FILE_SUFFIX)
-    ]
+    credential_id = value[len(CREDENTIAL_FILE_PREFIX) : -len(CREDENTIAL_FILE_SUFFIX)]
     return _CREDENTIAL_ID.fullmatch(credential_id) is not None
 
 
 def quarantined_credential_name(live_name: str) -> str:
     if not is_live_credential_name(live_name):
         raise ValueError("GitHub App credential filename is invalid")
-    return (
-        live_name.removesuffix(CREDENTIAL_FILE_SUFFIX)
-        + CREDENTIAL_QUARANTINE_SUFFIX
-    )
+    return live_name.removesuffix(CREDENTIAL_FILE_SUFFIX) + CREDENTIAL_QUARANTINE_SUFFIX
 
 
 def is_quarantined_credential_name(name: str) -> bool:
@@ -121,8 +110,7 @@ def is_quarantined_credential_name(name: str) -> bool:
     if not value.endswith(CREDENTIAL_QUARANTINE_SUFFIX):
         return False
     live_name = (
-        value.removesuffix(CREDENTIAL_QUARANTINE_SUFFIX)
-        + CREDENTIAL_FILE_SUFFIX
+        value.removesuffix(CREDENTIAL_QUARANTINE_SUFFIX) + CREDENTIAL_FILE_SUFFIX
     )
     return is_live_credential_name(live_name)
 
@@ -142,8 +130,31 @@ def read_document(
             "GitHub App credential has an unsupported format; reconnect GitHub"
         )
     required_string(payload.get("refresh_token"), "refresh_token", error_type)
-    parse_timestamp(payload.get("refresh_expires_at"), "refresh_expires_at", error_type)
-    return payload
+    return _document_clocks(payload, error_type=error_type, wire=False)
+
+
+def _document_clocks(
+    payload: Mapping[str, Any],
+    *,
+    error_type: type[RuntimeError],
+    wire: bool,
+) -> dict[str, Any]:
+    """Project only credential-owned clocks, leaving unrelated content opaque."""
+    document = dict(payload)
+    instant = parse_timestamp(
+        document.get("refresh_expires_at"), "refresh_expires_at", error_type
+    )
+    document["refresh_expires_at"] = (
+        clock_contract.format_instant(instant) if wire else instant
+    )
+    cached = document.get("cached_access")
+    if isinstance(cached, Mapping) and "expires_at" in cached:
+        instant = parse_timestamp(cached["expires_at"], "expires_at", error_type)
+        document["cached_access"] = {
+            **cached,
+            "expires_at": clock_contract.format_instant(instant) if wire else instant,
+        }
+    return document
 
 
 def write_document(
@@ -153,7 +164,9 @@ def write_document(
     error_type: type[RuntimeError],
 ) -> Path:
     try:
-        return credential_file.write_json_document(path, payload)
+        return credential_file.write_json_document(
+            path, _document_clocks(payload, error_type=error_type, wire=True)
+        )
     except credential_file.CredentialFileError as exc:
         raise error_type(str(exc)) from exc
     except OSError as exc:
@@ -168,19 +181,25 @@ def token_state_from_response(
     now: datetime | None,
     error_type: type[RuntimeError],
 ) -> dict[str, Any]:
-    selected_now = ensure_utc(now or datetime.now(timezone.utc))
+    selected_now = clock_contract.utc_now() if now is None else ensure_utc(now)
     try:
         return {
             "access_token": required_string(
-                payload.get("access_token"), "access_token", error_type,
+                payload.get("access_token"),
+                "access_token",
+                error_type,
             ),
             "expires_at": expiry_timestamp(
-                payload.get("expires_in"), now=selected_now, label="expires_in",
+                payload.get("expires_in"),
+                now=selected_now,
+                label="expires_in",
                 maximum=token_contract.GITHUB_APP_USER_ACCESS_TOKEN_MAX_SECONDS,
                 error_type=error_type,
-            ).isoformat(),
+            ),
             "refresh_token": required_string(
-                payload.get("refresh_token"), "refresh_token", error_type,
+                payload.get("refresh_token"),
+                "refresh_token",
+                error_type,
             ),
             "refresh_expires_at": expiry_timestamp(
                 payload.get("refresh_token_expires_in"),
@@ -188,7 +207,7 @@ def token_state_from_response(
                 label="refresh_token_expires_in",
                 maximum=token_contract.GITHUB_APP_USER_REFRESH_TOKEN_MAX_SECONDS,
                 error_type=error_type,
-            ).isoformat(),
+            ),
             "scope": str(payload.get("scope") or ""),
             "token_type": str(payload.get("token_type") or "bearer"),
         }
@@ -209,13 +228,17 @@ def persisted_document(
     return {
         "schema_version": schema_version,
         "refresh_token": required_string(
-            payload.get("refresh_token"), "refresh_token", error_type,
-        ),
-        "refresh_expires_at": parse_timestamp(
-            payload.get("refresh_expires_at"),
-            "refresh_expires_at",
+            payload.get("refresh_token"),
+            "refresh_token",
             error_type,
-        ).isoformat(),
+        ),
+        "refresh_expires_at": clock_contract.format_instant(
+            parse_timestamp(
+                payload.get("refresh_expires_at"),
+                "refresh_expires_at",
+                error_type,
+            )
+        ),
         CONFIG_OWNERS_KEY: config_owners(source, error_type=error_type),
         OWNERSHIP_COMPLETE_KEY: source.get(OWNERSHIP_COMPLETE_KEY) is True,
     }
@@ -234,7 +257,9 @@ def config_owner(value: str | Path, *, error_type: type[RuntimeError]) -> str:
 
 
 def config_owners(
-    payload: Mapping[str, Any], *, error_type: type[RuntimeError],
+    payload: Mapping[str, Any],
+    *,
+    error_type: type[RuntimeError],
 ) -> list[str]:
     raw = payload.get(CONFIG_OWNERS_KEY)
     if raw is None:
@@ -250,7 +275,9 @@ def config_owners(
 
 
 def required_string(
-    value: Any, label: str, error_type: type[RuntimeError],
+    value: Any,
+    label: str,
+    error_type: type[RuntimeError],
 ) -> str:
     if not isinstance(value, str):
         raise error_type(f"{label} must be a string")
@@ -283,18 +310,18 @@ def expiry_timestamp(
 
 
 def parse_timestamp(
-    value: Any, label: str, error_type: type[RuntimeError],
+    value: Any,
+    label: str,
+    error_type: type[RuntimeError],
 ) -> datetime:
     try:
-        return ensure_utc(datetime.fromisoformat(str(value)))
+        return clock_contract.parse_instant(value)
     except (TypeError, ValueError) as exc:
         raise error_type(f"{label} must be an ISO timestamp") from exc
 
 
 def ensure_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+    return clock_contract.as_utc(value)
 
 
 __all__ = [

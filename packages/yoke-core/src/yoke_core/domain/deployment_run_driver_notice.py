@@ -29,8 +29,10 @@ correctly finds nobody rather than guessing.
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant, utc_now
+
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Optional
 
 from yoke_core.domain.merge_queue_landing_notice import STEERING
@@ -51,13 +53,12 @@ def resolve_run_driver_recipient(
 
     ``("", 0, "")`` means nobody is addressable at all.
     """
-    from yoke_core.domain.db_helpers import iso8601_now
     from yoke_core.domain.deployment_run_driver_attachment import (
         live_attachment_for_run,
     )
     from yoke_core.domain.steering_scope_coverage import PROJECT_KEY, covering_seat
 
-    driver = live_attachment_for_run(conn, run_id_value=str(run_id), now=iso8601_now())
+    driver = live_attachment_for_run(conn, run_id_value=str(run_id), now=utc_now())
     if driver is not None and driver.session_id:
         actor_id = _session_actor(conn, driver.session_id)
         if actor_id is not None:
@@ -150,6 +151,7 @@ def push_run_scoped_notice(
     is passed the route that found the recipient so the body can name who
     it reached.
     """
+    now = parse_instant(utc_now() if now is None else now)
     session_id, actor_id, route = resolve_run_driver_recipient(
         conn, run_id=run_id, project_id=project_id
     )
@@ -161,7 +163,7 @@ def push_run_scoped_notice(
         actor_id=actor_id,
         body=body_for_route(route),
         idempotency_key=idempotency_key,
-        now=now or datetime.now(timezone.utc),
+        now=now,
     )
 
 
@@ -184,6 +186,7 @@ def push_member_notice(
     other per-item wake already uses. The envelope still goes through this
     module's delivery contract rather than a second wake path.
     """
+    now = parse_instant(utc_now() if now is None else now)
     from yoke_core.domain.merge_queue_landing_notice import resolve_lane_recipient
 
     session_id, actor_id, route = resolve_lane_recipient(
@@ -197,7 +200,7 @@ def push_member_notice(
         actor_id=actor_id,
         body=body_for_route(route),
         idempotency_key=idempotency_key,
-        now=now or datetime.now(timezone.utc),
+        now=now,
     )
 
 

@@ -5,7 +5,8 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+from yoke_core.domain.db_helpers import utc_now
 
 import pytest
 
@@ -22,7 +23,7 @@ _STALE_DB_SCHEMA = f"""
                 slug TEXT NOT NULL UNIQUE,
                 name TEXT NOT NULL,
                 public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
-                created_at TEXT NOT NULL DEFAULT '2026-01-01T00:00:00Z'
+                created_at TIMESTAMPTZ NOT NULL DEFAULT '2026-01-01T00:00:00Z'
             );
             INSERT INTO projects (id, slug, name, public_item_prefix, created_at)
             VALUES (1, 'yoke', 'Yoke', 'YOK', '2026-01-01T00:00:00Z');
@@ -48,19 +49,19 @@ _STALE_DB_SCHEMA = f"""
                 executor_version TEXT, machine_id TEXT,
                 workspace TEXT NOT NULL,
                 mode TEXT DEFAULT 'wait',
-                offered_at TEXT NOT NULL,
-                last_heartbeat TEXT NOT NULL,
-                ended_at TEXT,
+                offered_at TIMESTAMPTZ NOT NULL,
+                last_heartbeat TIMESTAMPTZ NOT NULL,
+                ended_at TIMESTAMPTZ,
                 offer_envelope TEXT,
                 current_item_id TEXT DEFAULT NULL,
-                current_item_set_at TEXT DEFAULT NULL,
+                current_item_set_at TIMESTAMPTZ DEFAULT NULL,
                 recent_item_id TEXT DEFAULT NULL,
                 recent_item_status TEXT DEFAULT NULL,
-                recent_item_recorded_at TEXT DEFAULT NULL,
+                recent_item_recorded_at TIMESTAMPTZ DEFAULT NULL,
                 actor_id INTEGER DEFAULT NULL,
-                last_tool_call_at TEXT DEFAULT NULL,
+                last_tool_call_at TIMESTAMPTZ DEFAULT NULL,
                 tool_call_count INTEGER NOT NULL DEFAULT 0,
-                episode_started_at TEXT DEFAULT NULL,
+                episode_started_at TIMESTAMPTZ DEFAULT NULL,
                 pending_resume_notice TEXT DEFAULT NULL
             );
             CREATE TABLE work_claims (
@@ -69,9 +70,9 @@ _STALE_DB_SCHEMA = f"""
     target_kind TEXT NOT NULL CHECK({TARGET_KIND_CHECK_SQL}),
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
-    claimed_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL,
-    released_at TEXT,
+    claimed_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat TIMESTAMPTZ NOT NULL,
+    released_at TIMESTAMPTZ,
     release_reason TEXT CHECK(release_reason IS NULL OR release_reason IN ('completed','released','reclaimed','handed_off','expired','session_ended')),
     reason TEXT,
     reason_intent TEXT,
@@ -106,7 +107,7 @@ _STALE_DB_SCHEMA = f"""
                 hook_event_name TEXT,
                 client_timing_id TEXT,
                 envelope TEXT,
-                created_at TEXT NOT NULL
+                created_at TIMESTAMPTZ NOT NULL
             );
             CREATE TABLE IF NOT EXISTS event_registry (
                 event_name TEXT PRIMARY KEY,
@@ -213,7 +214,7 @@ class TestSessionsDbScript:
         assert release.returncode != 0
         assert "not found" in release.stderr
 
-    def test_stale_uses_iso_heartbeat_comparison(self, db_path):
+    def test_stale_uses_native_heartbeat_comparison(self, db_path):
         register = self._run_script(
             db_path,
             "begin",
@@ -225,24 +226,22 @@ class TestSessionsDbScript:
         )
         assert register.returncode == 0
 
-        stale_iso = (datetime.now(timezone.utc) - timedelta(minutes=30)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        stale_instant = utc_now() - timedelta(minutes=30)
         conn = connect_test_db(db_path)
         conn.execute(
             "UPDATE harness_sessions SET last_heartbeat = %s WHERE session_id='sess-1'",
-            (stale_iso,),
+            (stale_instant,),
         )
         # Backdate events so multi-signal stale detection sees no recent activity
         conn.execute(
             "UPDATE events SET created_at = %s WHERE session_id='sess-1'",
-            (stale_iso,),
+            (stale_instant,),
         )
         conn.commit()
         conn.close()
 
         stale = self._run_script(db_path, "stale", "10")
-        assert stale.returncode == 0
+        assert stale.returncode == 0, stale.stderr
         assert "sess-1" in stale.stdout
 
     def test_stale_excludes_sessions_with_active_claims(self, db_path):
@@ -262,24 +261,22 @@ class TestSessionsDbScript:
             db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "YOK-99"
         )
 
-        stale_iso = (datetime.now(timezone.utc) - timedelta(minutes=120)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        stale_instant = utc_now() - timedelta(minutes=120)
         conn = connect_test_db(db_path)
         conn.execute(
             "UPDATE harness_sessions SET last_heartbeat = %s WHERE session_id='sess-1'",
-            (stale_iso,),
+            (stale_instant,),
         )
         conn.execute(
             "UPDATE events SET created_at = %s WHERE session_id='sess-1'",
-            (stale_iso,),
+            (stale_instant,),
         )
         conn.commit()
         conn.close()
 
         # Even with a very low threshold, the active claim protects the session
         stale = self._run_script(db_path, "stale", "10")
-        assert stale.returncode == 0
+        assert stale.returncode == 0, stale.stderr
         assert "sess-1" not in stale.stdout
 
     def test_stale_excludes_sessions_with_recent_tool_activity(self, db_path):
@@ -294,20 +291,18 @@ class TestSessionsDbScript:
             "/tmp/work",
         )
 
-        stale_iso = (datetime.now(timezone.utc) - timedelta(minutes=120)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
-        fresh_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        stale_instant = utc_now() - timedelta(minutes=120)
+        fresh_instant = utc_now()
         conn = connect_test_db(db_path)
         conn.execute(
             "UPDATE harness_sessions SET last_heartbeat = %s, "
             "last_tool_call_at = %s, tool_call_count = 1 "
             "WHERE session_id='sess-1'",
-            (stale_iso, fresh_iso),
+            (stale_instant, fresh_instant),
         )
         conn.commit()
         conn.close()
 
         stale = self._run_script(db_path, "stale", "10")
-        assert stale.returncode == 0
+        assert stale.returncode == 0, stale.stderr
         assert "sess-1" not in stale.stdout

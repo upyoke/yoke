@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import List, Optional, Union
 
+from yoke_contracts.timestamps import format_instant
+
 from fastapi import Query, Request
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
@@ -65,7 +67,7 @@ def _frontier_item_to_model(fi: FrontierItem, conn=None) -> _models.FrontierItem
         blocked_reasons=fi.blocked_reasons,
         unblocks_count=fi.unblocks_count,
         downstream_depth=fi.downstream_depth,
-        created_at=fi.created_at,
+        created_at=None if fi.created_at is None else format_instant(fi.created_at),
     )
 
 
@@ -127,7 +129,7 @@ def _scheduled_step_to_model(step, conn=None) -> _models.ScheduledStepModel:
         blocked_reasons=step.blocked_reasons,
         unblocks_count=step.unblocks_count,
         downstream_depth=step.downstream_depth,
-        created_at=step.created_at,
+        created_at=None if step.created_at is None else format_instant(step.created_at),
     )
 
 

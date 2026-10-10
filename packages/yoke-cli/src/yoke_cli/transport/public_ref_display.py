@@ -55,7 +55,9 @@ def _default_human_writer(
     response: FunctionCallResponse, stdout: TextIO, stderr: TextIO
 ) -> None:
     if response.success:
-        display, condensed = compact_receipt(response.function, response.result)
+        display, condensed = compact_receipt(
+            response.function, response.model_dump(mode="python")["result"]
+        )
         print(json.dumps(display, sort_keys=True), file=stdout)
         if condensed:
             print(omission_advisory(condensed), file=stderr)
@@ -82,9 +84,12 @@ def redact_response(
 ) -> FunctionCallResponse:
     # Transport redacts secrets but preserves the server-owned machine payload.
     # Human identity projection belongs to emit_response, not dispatch.
+    # Local dispatch has native result values; the same response serializer
+    # owns the clock image consumed from local and HTTPS client responses.
+    wire = response.model_dump(mode="python")
     secrets = tuple(value for value in sensitive_values if value)
     if not secrets:
-        return response
+        return FunctionCallResponse.model_validate(wire)
 
     def redact(value: Any) -> Any:
         if isinstance(value, str):
@@ -97,6 +102,4 @@ def redact_response(
             return {key: redact(item) for key, item in value.items()}
         return value
 
-    return FunctionCallResponse.model_validate(
-        redact(response.model_dump(mode="python"))
-    )
+    return FunctionCallResponse.model_validate(redact(wire))

@@ -38,7 +38,7 @@ _SCHEMA_DDL = """
         id INTEGER PRIMARY KEY,
         project_id INTEGER NOT NULL,
         name TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
         settings TEXT DEFAULT '{}',
         UNIQUE(id, project_id),
         UNIQUE(project_id, name)
@@ -53,8 +53,8 @@ _SCHEMA_DDL = """
         project_id INTEGER NOT NULL,
         name TEXT NOT NULL,
         url TEXT,
-        last_deployed_at TEXT,
-        created_at TEXT NOT NULL DEFAULT '',
+        last_deployed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
         settings TEXT DEFAULT '{}',
         UNIQUE(project_id, name),
         FOREIGN KEY(site, project_id) REFERENCES sites(id, project_id)
@@ -92,9 +92,9 @@ _SCHEMA_DDL = """
         project_id INTEGER NOT NULL DEFAULT 1,
         project_sequence INTEGER NOT NULL DEFAULT 0,
         deployment_flow TEXT,
-        merged_at TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
+        merged_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL,
         source TEXT NOT NULL DEFAULT '2',
         deploy_stage TEXT
     );
@@ -108,7 +108,7 @@ _SCHEMA_DDL = """
         source TEXT NOT NULL DEFAULT 'test',
         rationale TEXT NOT NULL DEFAULT '',
         evidence_json TEXT NOT NULL DEFAULT '{}',
-        created_at TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
         UNIQUE(dependent_item_id, blocking_item_id, gate_point)
     );
 

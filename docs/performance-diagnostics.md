@@ -36,3 +36,13 @@ Performance, and the same consumer with the new roster admits Performance.
 Platform separately builds against the exact released candidate before adopting
 the contract. Its consumer source identity is recorded beside the fixture;
 these tests do not claim a private infrastructure deploy or consumer build.
+
+Performance observation and bucket clocks stay native through SQL reads,
+grouping and latest selection. Bucket rounding uses exact timedelta division;
+the response boundary applies the shared wire adapter. The bundled chart uses
+the shared timestamp kernel only to adapt canonical strings to uPlot's numeric
+seconds coordinates. Inspection forwards the original endpoints, retaining all
+six fractional digits; human calendar controls format Date values through the
+same kernel. Durations and bucket resolution remain numeric measurements.
+The captured review page also uses exact kernel microseconds for its half-open
+detail filtering rather than Date display precision.

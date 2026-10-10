@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from typing import Any, Mapping, Optional
+from yoke_contracts.timestamps import format_instant
 
 from yoke_contracts.model_reference import lookup_api_price
 from yoke_contracts.model_reference_records import ModelRecord
@@ -41,7 +42,7 @@ def estimated_session_cost(
     return replace(
         cost,
         revision_id=str(revision["revision_id"]),
-        revision_effective_at=str(revision["effective_at"]),
+        revision_effective_at=format_instant(revision["effective_at"]),
     )
 
 

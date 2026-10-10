@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.db_helpers import instant_parameter
+
+from yoke_contracts.timestamps import parse_instant
+
+from datetime import datetime
+
 import hmac
 from typing import Any
 
@@ -35,7 +41,7 @@ def prepare_launch_registration(
     launch_id: str,
     attestation: str,
     session_id: str,
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> LaunchRegistrationInjection:
     """Bind an attested hook session and return its instruction body.
 
@@ -43,7 +49,7 @@ def prepare_launch_registration(
     hook response is lost, the addressed message remains readable by id;
     the attestation itself can never be replayed.
     """
-    current = now or utc_now()
+    current = utc_now() if now is None else parse_instant(now)
     begin_mutation(conn)
     try:
         launch = get_launch(conn, launch_id, for_update=True)
@@ -141,10 +147,10 @@ def complete_launch_injection(
     launch_id: str,
     session_id: str,
     injected: bool,
-    now: str | None = None,
+    now: datetime | str | None = None,
 ) -> LaunchRecord:
     """Record actual model-visible injection; never infer it from registration."""
-    current = now or utc_now()
+    current = utc_now() if now is None else parse_instant(now)
     begin_mutation(conn)
     try:
         launch = get_launch(conn, launch_id, for_update=True)
@@ -176,7 +182,12 @@ def complete_launch_injection(
                 f"wake_after = {p} "
                 f"WHERE message_id = {p} AND session_id = {p} "
                 "AND state IN ('pending','injected')",
-                (current, current, launch.message_id, session_id),
+                (
+                    instant_parameter(conn, parse_instant(current)),
+                    instant_parameter(conn, parse_instant(current)),
+                    launch.message_id,
+                    session_id,
+                ),
             )
             if not cursor.rowcount:
                 raise SessionLaunchError(
@@ -205,11 +216,11 @@ def complete_launch_for_message(
     *,
     message_id: str,
     session_id: str,
-    now: str | None = None,
+    now: datetime | str | None = None,
     commit: bool = True,
 ) -> LaunchRecord | None:
     """Close a bound launch only after its recipient acknowledges the mandate."""
-    current = now or utc_now()
+    current = utc_now() if now is None else parse_instant(now)
     begin_mutation(conn)
     p = marker(conn)
     try:
@@ -239,7 +250,7 @@ def complete_launch_for_message(
                 conn,
                 launch_id=launch_id,
                 state=launch.state,
-                changed_at=str(launch.completed_at or current),
+                changed_at=launch.completed_at or current,
             )
             if commit:
                 conn.commit()

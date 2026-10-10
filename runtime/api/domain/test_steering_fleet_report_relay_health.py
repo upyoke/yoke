@@ -63,14 +63,14 @@ def test_retry_failure_appears_only_after_it_is_sustained(fleet) -> None:
         "report_failure": {
             "error_code": "transport_error",
             "failure_count": 2,
-            "first_failed_at": "2026-08-26T11:59:30Z",
+            "first_failed_at": "2026-08-26T11:59:30.000000Z",
             "last_failed_at": NOW,
         },
     }
     _publish(fleet, recent)
     assert compose(fleet).relay_health == ()
 
-    recent["report_failure"]["first_failed_at"] = "2026-08-26T11:55:00Z"
+    recent["report_failure"]["first_failed_at"] = "2026-08-26T11:55:00.000000Z"
     _publish(fleet, recent)
     report = compose(fleet)
     rendered = report_body(report)
@@ -113,7 +113,7 @@ def test_mixed_quarantines_stay_actionable_and_name_unsettled_code(fleet) -> Non
                     "job_kind": "launch",
                     "error_code": "payload_invalid",
                     "attempts": 3,
-                    "quarantined_at": "2026-08-26T11:00:00Z",
+                    "quarantined_at": "2026-08-26T11:00:00.000000Z",
                 },
                 {
                     "report_id": "later-conflict",

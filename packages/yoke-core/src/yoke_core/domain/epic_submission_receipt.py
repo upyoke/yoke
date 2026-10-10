@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping
 
+from yoke_contracts.timestamps import format_instant
+
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.epic_parsing import _placeholder
 
@@ -108,7 +110,7 @@ def submission_receipt_get(
         conn,
         f"""
         SELECT note_num, COALESCE(commit_hash, '') AS commit_hash,
-               COALESCE(created_at, '') AS created_at, COALESCE(body, '') AS body
+               created_at, COALESCE(body, '') AS body
         FROM epic_progress_notes
         WHERE epic_id = {p}
           AND task_num = {p}
@@ -131,5 +133,5 @@ def submission_receipt_get(
     public_ref = render_item_ref(conn, int(epic_id))
     return (
         f"PASS|{public_ref}|{task_num}|{row['note_num']}|"
-        f"{row['commit_hash']}|{row['created_at']}|{format_submission_fields(fields)}"
+        f"{row['commit_hash']}|{format_instant(row['created_at'])}|{format_submission_fields(fields)}"
     )

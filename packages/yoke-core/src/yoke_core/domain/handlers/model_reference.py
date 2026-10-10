@@ -17,6 +17,7 @@ from yoke_contracts.model_reference import (
     validate_model_record,
 )
 from yoke_contracts.model_reference_catalog import refuse_retired_record_keys
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.model_reference_store import revision_at, revision_get
 
 LOOKUP_FUNCTION_ID = "models.lookup.run"
@@ -95,7 +96,7 @@ def handle_models_lookup(request: FunctionCallRequest) -> HandlerOutcome:
         result_payload={
             **lookup.to_dict(),
             "revision_id": revision["revision_id"],
-            "effective_at": revision["effective_at"],
+            "effective_at": format_instant(revision["effective_at"]),
         },
         primary_success=True,
     )
@@ -119,8 +120,8 @@ def handle_models_get(request: FunctionCallRequest) -> HandlerOutcome:
             return _reference_error(exc)
     metadata = {
         "revision_id": revision["revision_id"],
-        "effective_at": revision["effective_at"],
-        "published_at": revision["published_at"],
+        "effective_at": format_instant(revision["effective_at"]),
+        "published_at": format_instant(revision["published_at"]),
         "published_by_actor_id": revision["published_by_actor_id"],
         "source_note": revision["source_note"],
         "source_revision_id": revision["source_revision_id"],

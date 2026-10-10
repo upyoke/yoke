@@ -229,7 +229,7 @@ def run(argv: List[str]) -> int:
         landed_lane=landed_lane,
         outcome=outcome,
         queue_pr_number=str(queue.get("pr_number") or ""),
-        queue_landed_at=str(queue.get("landed_at") or ""),
+        queue_landed_at=queue.get("landed_at"),
     )
     # A claim recovered at admission is already close-out authority. Re-check
     # after landing only when the wait itself could have outlived a claim

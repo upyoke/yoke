@@ -39,6 +39,8 @@ repair is to stop asking a question that was already answered better.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from dataclasses import dataclass
 from typing import Any, Sequence
 
@@ -68,7 +70,7 @@ class LandedItem:
     item_id: int
     public_ref: str
     status: str
-    landed_at: str
+    landed_at: datetime | None
     landed_seconds: int
     #: The live session holding the item's claim, empty when none does.
     #: Close-out is a claim-holding step, so this is the difference between

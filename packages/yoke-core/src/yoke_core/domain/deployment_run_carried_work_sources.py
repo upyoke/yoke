@@ -12,10 +12,12 @@ binds is carried as a commit made outside Yoke, without blocking the release.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import timedelta
 from typing import Any, Mapping, Sequence
 
 from yoke_contracts.public_ref import format_item_ref
+from yoke_contracts.timestamps import parse_instant
+from yoke_core.domain.commit_evidence_instant import commit_instant as _commit_instant
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
 from yoke_core.domain.json_helper import loads_text
 from yoke_core.domain.item_merge_receipt_document import merge_identities
@@ -201,17 +203,6 @@ def _resolve_recorded_evidence(
                 )
 
 
-def _parse_time(value: Any) -> datetime | None:
-    token = str(value or "").strip()
-    if not token:
-        return None
-    try:
-        parsed = datetime.fromisoformat(token.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
-
-
 def _resolve_item_metadata(
     conn: Any,
     *,
@@ -237,7 +228,7 @@ def _resolve_item_metadata(
         warnings=warnings,
     )
     commit_times = {
-        commit: _parse_time(source.commit_time(commit)) for commit in commits
+        commit: _commit_instant(source.commit_time(commit)) for commit in commits
     }
     for row in rows:
         item_id = _cell(row, "id", 0)
@@ -272,18 +263,20 @@ def _resolve_item_metadata(
         numeric_item_id = int(item_id)
         if any(numeric_item_id in item_ids for item_ids in resolved.values()):
             continue
-        landed = _parse_time(landed_at)
+        landed = parse_instant(landed_at) if landed_at is not None else None
         if landed is None:
             continue
         distances = sorted(
-            (abs((when - landed).total_seconds()), commit)
+            (abs(when - landed), commit)
             for commit, when in commit_times.items()
             if when is not None
         )
         if distances:
             distance, commit = distances[0]
             unique_nearest = len(distances) == 1 or distance < distances[1][0]
-            if unique_nearest and distance <= LANDING_TIME_TOLERANCE_SECONDS:
+            if unique_nearest and distance <= timedelta(
+                seconds=LANDING_TIME_TOLERANCE_SECONDS
+            ):
                 _add_resolution(resolved, commits, commit, item_id, known_items)
 
 

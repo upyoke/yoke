@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from runtime.harness.session_relay_clock_test_support import at
+
 from yoke_contracts.fleet_policy import RELAY_POLL_SECONDS
 from yoke_contracts.session_control.plan_limits import (
     PLAN_LIMIT_FRESH_SECONDS,
@@ -22,8 +24,8 @@ from yoke_harness.session_relay_report_delivery import (
 
 
 SURFACE = "codex-cli"
-FIRST_OBSERVED_AT = "2026-09-04T12:00:00Z"
-REFRESHED_AT = "2026-09-04T12:04:00Z"
+FIRST_OBSERVED_AT = "2026-09-04T12:00:00.000000Z"
+REFRESHED_AT = "2026-09-04T12:04:00.000000Z"
 
 
 def _reading(observed_at: str) -> dict[str, object]:
@@ -37,7 +39,7 @@ def _reading(observed_at: str) -> dict[str, object]:
                 scope="all",
                 meter="primary",
                 remaining_percent=72,
-                resets_at="2026-09-04T14:00:00Z",
+                resets_at="2026-09-04T14:00:00.000000Z",
             ),
         ),
     )
@@ -71,18 +73,18 @@ def test_cached_reading_refreshes_before_the_display_deadline(
     monkeypatch.setitem(session_relay_plan_limits._PROBES, SURFACE, probe)
 
     first = session_relay_plan_limits.observe_plan_limits(
-        (SURFACE,), state_dir=tmp_path, now=0, clock=lambda: FIRST_OBSERVED_AT
+        (SURFACE,), state_dir=tmp_path, now=at(0), clock=lambda: FIRST_OBSERVED_AT
     )
     cached = session_relay_plan_limits.observe_plan_limits(
         (SURFACE,),
         state_dir=tmp_path,
-        now=PLAN_LIMIT_REFRESH_SECONDS - 1,
+        now=at(PLAN_LIMIT_REFRESH_SECONDS - 1),
         clock=lambda: "unexpected-refresh",
     )
     refreshed = session_relay_plan_limits.observe_plan_limits(
         (SURFACE,),
         state_dir=tmp_path,
-        now=PLAN_LIMIT_REFRESH_SECONDS,
+        now=at(PLAN_LIMIT_REFRESH_SECONDS),
         clock=lambda: REFRESHED_AT,
     )
 
@@ -102,7 +104,7 @@ def test_failed_refresh_replaces_old_quota_with_a_named_unknown(
         lambda *, observed_at: _reading(observed_at),
     )
     session_relay_plan_limits.observe_plan_limits(
-        (SURFACE,), state_dir=tmp_path, now=0, clock=lambda: FIRST_OBSERVED_AT
+        (SURFACE,), state_dir=tmp_path, now=at(0), clock=lambda: FIRST_OBSERVED_AT
     )
     monkeypatch.setitem(
         session_relay_plan_limits._PROBES,
@@ -115,7 +117,7 @@ def test_failed_refresh_replaces_old_quota_with_a_named_unknown(
     failed = session_relay_plan_limits.observe_plan_limits(
         (SURFACE,),
         state_dir=tmp_path,
-        now=PLAN_LIMIT_REFRESH_SECONDS,
+        now=at(PLAN_LIMIT_REFRESH_SECONDS),
         clock=lambda: REFRESHED_AT,
     )[SURFACE]
 

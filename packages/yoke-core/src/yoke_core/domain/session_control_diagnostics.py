@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any, Iterable, Mapping
 
+from yoke_contracts.timestamps import format_instant, parse_instant, temporal_wire
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_cleanup_holdings import (
@@ -83,17 +84,7 @@ def _document_lock_counts(
 
 
 def _parse_timestamp(value: Any) -> datetime | None:
-    text = str(value or "").strip()
-    if not text:
-        return None
-    candidate = f"{text[:-1]}+00:00" if text.endswith("Z") else text
-    try:
-        parsed = datetime.fromisoformat(candidate)
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+    return parse_instant(value) if value is not None else None
 
 
 def _stale_eligible_at(activity_at: Any, ttl_minutes: int) -> str | None:
@@ -101,7 +92,7 @@ def _stale_eligible_at(activity_at: Any, ttl_minutes: int) -> str | None:
     if parsed is None:
         return None
     eligible = parsed + timedelta(minutes=ttl_minutes)
-    return eligible.isoformat().replace("+00:00", "Z")
+    return format_instant(eligible)
 
 
 def session_diagnostics(
@@ -156,7 +147,7 @@ def session_diagnostics(
             if terminal or ttl_minutes is None
             else _stale_eligible_at(row.get("activity_at"), ttl_minutes),
         }
-    return projected
+    return temporal_wire(projected)
 
 
 __all__ = ["session_diagnostics"]

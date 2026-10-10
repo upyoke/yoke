@@ -17,9 +17,20 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Tuple
 
-from yoke_core.domain.db_helpers import connect, iso8601_now, query_one, query_rows, query_scalar
+from yoke_core.domain.db_helpers import (
+    connect,
+    instant_parameter,
+    utc_now,
+    query_one,
+    query_rows,
+    query_scalar,
+)
 from yoke_core.domain.deployment_runs_schema import VALID_ENV_TYPES
-from yoke_core.domain.project_identity import ProjectIdentity, render_item_ref, resolve_project
+from yoke_core.domain.project_identity import (
+    ProjectIdentity,
+    render_item_ref,
+    resolve_project,
+)
 from yoke_core.domain.time_parse import age_minutes_since
 
 
@@ -33,6 +44,7 @@ def _project_identity(conn: Any, project: str) -> ProjectIdentity:
 # Event helper (best-effort)
 # ---------------------------------------------------------------------------
 
+
 def _emit_event(
     name: str,
     kind: str = "lifecycle",
@@ -45,6 +57,7 @@ def _emit_event(
     """Best-effort event emission via the native Python emitter."""
     try:
         from yoke_core.domain.events import emit_event as _native_emit
+
         kwargs: Dict[str, Any] = {
             "event_kind": kind,
             "event_type": event_type,
@@ -63,6 +76,7 @@ def _emit_event(
 # ---------------------------------------------------------------------------
 # Preview occupancy + simple claim/release
 # ---------------------------------------------------------------------------
+
 
 def cmd_preview_check(
     project: str,
@@ -104,7 +118,7 @@ def cmd_preview_claim(
             "(project_id, env_name, run_id, status, created_at) "
             "VALUES (%s, %s, %s, 'claimed', %s) "
             "ON CONFLICT(project_id, env_name) DO UPDATE SET run_id=%s, status='claimed'",
-            (ident.id, env_name, run_id, iso8601_now(), run_id),
+            (ident.id, env_name, run_id, instant_parameter(conn, utc_now()), run_id),
         )
         conn.commit()
         return f"Claimed preview '{env_name}' for run {run_id}"
@@ -228,7 +242,15 @@ def cmd_claim_preview(
             "(project_id, env_name, run_id, status, env_type, created_at) "
             "VALUES (%s, %s, %s, 'claimed', %s, %s) "
             "ON CONFLICT(project_id, env_name) DO UPDATE SET run_id=%s, status='claimed', env_type=%s",
-            (ident.id, env_name, run_id, env_type, iso8601_now(), run_id, env_type),
+            (
+                ident.id,
+                env_name,
+                run_id,
+                env_type,
+                instant_parameter(conn, utc_now()),
+                run_id,
+                env_type,
+            ),
         )
         conn.commit()
 
@@ -252,7 +274,9 @@ def cmd_claim_preview(
         conn.close()
 
 
-def cmd_can_cleanup_preview(run_id: str, db_path: Optional[str] = None) -> Tuple[bool, str]:
+def cmd_can_cleanup_preview(
+    run_id: str, db_path: Optional[str] = None
+) -> Tuple[bool, str]:
     """Check if a run's preview can be cleaned up.
 
     Returns (allowed, message).
@@ -278,7 +302,10 @@ def cmd_can_cleanup_preview(run_id: str, db_path: Optional[str] = None) -> Tuple
         env_name = preview_row[1]
 
         if env_type == "shared":
-            return False, f"blocked: shared preview '{env_name}' is never auto-cleanable"
+            return (
+                False,
+                f"blocked: shared preview '{env_name}' is never auto-cleanable",
+            )
 
         lineage = query_scalar(
             conn,

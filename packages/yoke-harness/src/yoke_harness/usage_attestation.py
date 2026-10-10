@@ -48,7 +48,8 @@ persisted instead of scanning the same bytes again.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+from yoke_contracts.timestamps import utc_now
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
@@ -274,8 +275,8 @@ def _artifact(path: str) -> Optional[Path]:
     return resolved if resolved.is_file() else None
 
 
-def _observed_at() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _observed_at() -> datetime:
+    return utc_now()
 
 
 def _text(value: object) -> str:

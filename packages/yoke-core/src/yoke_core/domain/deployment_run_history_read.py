@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import base64
+from datetime import datetime
 from typing import Any, Collection, Optional, Sequence
 
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.deployment_run_list_read import present_deployment_runs
 from yoke_core.domain.json_helper import dumps_compact, loads_text
 from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
@@ -34,7 +37,7 @@ RUN_HISTORY_FIELDS = (
     "gates",
 )
 
-_SORT = "COALESCE(NULLIF(dr.created_at, ''), '0001-01-01T00:00:00Z')"
+_SORT = "dr.created_at"
 
 
 class RunHistoryCursorError(ValueError):
@@ -45,12 +48,12 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def encode_cursor(sort_value: str, run_id: str) -> str:
-    raw = dumps_compact({"created_at": sort_value, "run_id": run_id})
+def encode_cursor(sort_value: datetime | str, run_id: str) -> str:
+    raw = dumps_compact({"created_at": format_instant(sort_value), "run_id": run_id})
     return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
 
 
-def decode_cursor(cursor: str) -> tuple[str, str]:
+def decode_cursor(cursor: str) -> tuple[datetime, str]:
     try:
         padding = "=" * (-len(cursor) % 4)
         payload = loads_text(
@@ -66,7 +69,7 @@ def decode_cursor(cursor: str) -> tuple[str, str]:
             raise ValueError
         if not isinstance(run_id, str) or not run_id:
             raise ValueError
-        return created_at, run_id
+        return parse_instant(created_at), run_id
     except (KeyError, TypeError, UnicodeError, ValueError):
         raise RunHistoryCursorError(
             "Runs page cursor is malformed. Reload the first Runs page "
@@ -280,6 +283,7 @@ def read_deployment_run_history(
     loaded_before = 0
     if cursor:
         sort_value, run_id = decode_cursor(cursor)
+        sort_value = instant_parameter(conn, sort_value)
         ahead = [
             *completed_clauses,
             f"({_SORT} > {marker} OR ({_SORT} = {marker} AND dr.id >= {marker}))",
@@ -309,7 +313,7 @@ def read_deployment_run_history(
     if has_more and page:
         last = page[-1]
         next_cursor = encode_cursor(
-            str(last["history_sort_value"]),
+            last["history_sort_value"],
             str(last["id"]),
         )
     for row in page:
