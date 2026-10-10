@@ -3,6 +3,8 @@
 from dataclasses import replace
 from types import SimpleNamespace
 
+from yoke_contracts.timestamps import format_instant, parse_instant
+
 from yoke_core.domain.merge_queue_landing_marker import point_item_at_pull_request
 from yoke_core.domain.merge_queue_landing_pending import mark_landing_pending
 
@@ -142,8 +144,8 @@ def test_an_already_armed_retry_preserves_its_recorded_episode():
         dispatch=dispatch,
         now=INJECTED_AT,
         preserve_existing=True,
-    ) == (episode, "")
-    assert writes == [{"pr_number": "42", "enqueued_at": episode}]
+    ) == (parse_instant(episode), "")
+    assert writes == [{"pr_number": "42", "enqueued_at": format_instant(episode)}]
 
 
 def test_a_new_arming_does_not_reuse_an_existing_episode():
@@ -159,7 +161,7 @@ def test_a_new_arming_does_not_reuse_an_existing_episode():
         "42",
         dispatch=dispatch,
         now=INJECTED_AT,
-    ) == (INJECTED_TEXT, "")
+    ) == (INJECTED_AT, "")
     assert writes == [{"pr_number": "42", "enqueued_at": INJECTED_TEXT}]
 
 
@@ -177,7 +179,7 @@ def test_an_unreadable_existing_episode_refuses_before_marking():
         now=INJECTED_AT,
         preserve_existing=True,
     )
-    assert episode == ""
+    assert episode is None
     assert "landing_episode_unreadable" in error
     assert "offline" in error
     assert "re-enter yoke merge item" in error

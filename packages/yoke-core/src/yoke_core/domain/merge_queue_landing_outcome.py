@@ -76,7 +76,9 @@ def recorded_landing_covers_candidate(
     return "unlanded" if leftover else "landed"
 
 
-def recorded_landing(dispatch: Callable[..., Any], item_id: int) -> tuple[str, str]:
+def recorded_landing(
+    dispatch: Callable[..., Any], item_id: int
+) -> tuple[str, datetime | None]:
     """The pull request and landing time already recorded, if any.
 
     Read through the registered item detail so the answer follows the
@@ -92,10 +94,13 @@ def recorded_landing(dispatch: Callable[..., Any], item_id: int) -> tuple[str, s
         payload={},
     )
     if not getattr(response, "success", False):
-        return "", ""
+        return "", None
     result = getattr(response, "result", None) or {}
     queue = (result.get("item") or {}).get("merge_queue") or {}
-    return str(queue.get("pr_number") or ""), str(queue.get("landed_at") or "")
+    landed_at = queue.get("landed_at")
+    return str(queue.get("pr_number") or ""), (
+        None if landed_at is None else parse_instant(landed_at)
+    )
 
 
 def close_out(

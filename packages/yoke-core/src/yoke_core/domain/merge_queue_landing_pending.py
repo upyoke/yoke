@@ -18,7 +18,7 @@ from datetime import datetime
 from typing import Any, Callable
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-from yoke_contracts.timestamps import format_instant, utc_now
+from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
 
 
 def _response_error(response: Any, fallback: str) -> str:
@@ -55,9 +55,9 @@ def mark_landing_pending(
     dispatch: Callable[..., Any] = call_dispatcher,
     now: datetime | None = None,
     preserve_existing: bool = False,
-) -> tuple[str, str]:
+) -> tuple[datetime | None, str]:
     """Record an arming episode, preserving it when GitHub is already armed."""
-    enqueued_at = format_instant(utc_now() if now is None else now)
+    enqueued_at = utc_now() if now is None else parse_instant(now)
     if preserve_existing:
         response = dispatch(
             function_id="items.detail.get",
@@ -65,7 +65,7 @@ def mark_landing_pending(
             payload={},
         )
         if not getattr(response, "success", False):
-            return "", (
+            return None, (
                 "landing_episode_unreadable: "
                 + _response_error(response, "existing arming episode read failed")
                 + "; restore the item read and re-enter yoke merge item."
@@ -74,16 +74,22 @@ def mark_landing_pending(
             "merge_queue"
         ) or {}
         if str(queue.get("pr_number") or "") == str(pr_number):
-            enqueued_at = str(queue.get("enqueued_at") or enqueued_at)
+            existing_at = queue.get("enqueued_at")
+            if existing_at is not None:
+                enqueued_at = parse_instant(existing_at)
     response = dispatch(
         function_id="merge_queue.landing_pending.mark",
         target=public_item_target(item_id),
-        payload={"pr_number": str(pr_number), "enqueued_at": enqueued_at},
+        payload={
+            "pr_number": str(pr_number),
+            "enqueued_at": format_instant(enqueued_at),
+        },
     )
     if not getattr(response, "success", False):
-        return "", _response_error(response, "landing marker write failed")
+        return None, _response_error(response, "landing marker write failed")
     result = getattr(response, "result", None) or {}
-    return str(result.get("enqueued_at") or enqueued_at), ""
+    result_at = result.get("enqueued_at")
+    return parse_instant(enqueued_at if result_at is None else result_at), ""
 
 
 def clear_landing_pending(
