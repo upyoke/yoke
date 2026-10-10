@@ -1,8 +1,7 @@
-"""Native report candidates cross hook metadata as qualified clocks and return native."""
+"""Report clocks stay Native through hook leases, settlement and SQL boundaries."""
 
 from dataclasses import asdict
-from datetime import timedelta
-import json
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -12,6 +11,7 @@ from yoke_core.domain import db_backend, session_message_delivery
 from yoke_core.domain.steering_fleet_report_delivery import SteeringReportCandidate
 from yoke_core.hooks.session_message_delivery_port import (
     CoreSessionMessageDeliveryPort,
+    SessionMessageLease,
     _coerce_lease,
 )
 
@@ -64,9 +64,11 @@ def test_actual_report_port_round_trip_preserves_metadata_and_native_sql(
     )
     port = CoreSessionMessageDeliveryPort()
     lease = port.lease_for_hook(session_id="sample", hook_event="PreToolUse", limit=1)
-    payload = json.loads(json.dumps(asdict(lease)))
-    assert payload["report_claimed_at"] == WIRE
-    assert payload["report_not_after"] == format_instant(CUTOFF)
+    payload = asdict(lease)
+    assert isinstance(lease.report_claimed_at, datetime)
+    assert isinstance(lease.report_not_after, datetime)
+    assert payload["report_claimed_at"] == INSTANT
+    assert payload["report_not_after"] == CUTOFF
     assert payload["report"] == "opaque report"
     assert payload["report_fingerprint"] == "opaque fingerprint"
     port.confirm_report_delivered(
@@ -90,7 +92,14 @@ def test_actual_report_port_round_trip_preserves_metadata_and_native_sql(
 @pytest.mark.parametrize("field", ("claimed_at", "not_after"))
 @pytest.mark.parametrize(
     "clock",
-    (None, "", "2026-10-09", "2026-10-09T15:00:00-00:00", INSTANT.replace(tzinfo=None)),
+    (
+        None,
+        "",
+        WIRE,
+        "2026-10-09",
+        "2026-10-09T15:00:00-00:00",
+        INSTANT.replace(tzinfo=None),
+    ),
 )
 def test_invalid_confirmation_clock_refuses_before_connection(
     monkeypatch, field, clock
@@ -99,7 +108,7 @@ def test_invalid_confirmation_clock_refuses_before_connection(
         raise AssertionError("invalid clock must refuse before connection")
 
     monkeypatch.setattr(db_backend, "connect", untouched)
-    clocks = {"claimed_at": WIRE, "not_after": format_instant(CUTOFF)}
+    clocks = {"claimed_at": INSTANT, "not_after": CUTOFF}
     clocks[field] = clock
     with pytest.raises(InvalidInstant):
         CoreSessionMessageDeliveryPort().confirm_report_delivered(
@@ -109,6 +118,70 @@ def test_invalid_confirmation_clock_refuses_before_connection(
 
 def test_message_lease_without_report_has_null_clock_metadata():
     lease = _coerce_lease({"lease_id": "lease", "messages": []})
-    result = json.loads(json.dumps(asdict(lease)))
+    result = asdict(lease)
     assert result["report_claimed_at"] is None
     assert result["report_not_after"] is None
+
+
+@pytest.mark.parametrize("field", ["report_claimed_at", "report_not_after"])
+@pytest.mark.parametrize("bad", [WIRE, "", INSTANT.replace(tzinfo=None)])
+def test_lease_refuses_non_native_report_clocks(field, bad):
+    with pytest.raises(InvalidInstant, match="invalid_instant"):
+        SessionMessageLease(lease_id="lease", messages=(), **{field: bad})
+
+
+@pytest.mark.parametrize("family", ["claude", "codex", "cursor"])
+@pytest.mark.parametrize("empty", [False, True])
+@pytest.mark.parametrize("offset", [0, 330, -240])
+def test_actual_hook_settlement_preserves_native_clock_without_string_round_trip(
+    monkeypatch,
+    family,
+    empty,
+    offset,
+):
+    from runtime.harness.session_message_delivery_test_helpers import (
+        FakePort,
+        hook_context,
+    )
+    from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
+    from yoke_core.hooks import session_message_delivery as delivery
+
+    instant = datetime(1969, 12, 31, 23, 59, 59, 123456, tzinfo=timezone.utc)
+    cutoff = instant - timedelta(minutes=5)
+    supplied = instant.astimezone(timezone(timedelta(minutes=offset)))
+    report = f"{REPORT_BEGIN}\nopaque report\n{REPORT_END}"
+    port = FakePort(empty_lease=empty, report=report)
+    original = port.lease_for_hook
+
+    def native_lease(**kwargs):
+        from dataclasses import replace
+
+        return replace(
+            original(**kwargs),
+            report_claimed_at=supplied,
+            report_not_after=supplied - timedelta(minutes=5),
+        )
+
+    monkeypatch.setattr(port, "lease_for_hook", native_lease)
+    monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
+    monkeypatch.setattr(
+        "yoke_core.hooks.fleet_watcher_presence.list_process_cmdlines", lambda: ()
+    )
+    surface = {"claude": "claude-code", "codex": "codex-cli", "cursor": "cursor-cli"}[
+        family
+    ]
+    decision = delivery.evaluate(
+        hook_context("PreToolUse", family=family, surface=surface)
+    )
+    audit = decision.audit_fields[delivery.DELIVERY_AUDIT_FIELD]
+    assert isinstance(audit["report_claimed_at"], datetime)
+    assert audit["report_claimed_at"] == instant
+    delivery.settle_after_render(
+        [decision], rendered_text=report, denied=False, port=port
+    )
+    assert len(port.confirmed_reports) == 1
+    _, _, claimed_at, not_after = port.confirmed_reports[0]
+    assert isinstance(claimed_at, datetime)
+    assert isinstance(not_after, datetime)
+    assert claimed_at == instant
+    assert not_after == cutoff

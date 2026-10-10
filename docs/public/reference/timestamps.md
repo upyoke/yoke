@@ -335,9 +335,9 @@ readers keep native instants; steering ties compare instants before claim ids. C
 receipts and stale-browser diagnostics format their owned clock fields. Terminal settlement parses its optional
 completion instant. Existing frozen snapshots, retained triage receipts, reports and digests stay opaque.
 
-Merge receipts order present instants; steering reply cutoffs stay native. Doctor, pricing and hook report metadata
-format clocks as fixed-six UTC/null. Report confirmation validates before connecting and binds native interval
-clocks.
+Merge receipts order present instants; steering reply cutoffs stay native. Doctor and pricing metadata format clocks as fixed-six UTC/null.
+Hook report leases, decision metadata and settlement retain native instants; optional unknown clocks remain null.
+Report confirmation validates Native clocks before connecting and binds native intervals; only explicit SQLite binds format clocks.
 
 Strategy headers emit fixed-six UTC identities; parsing rejects invalid clocks as mangled headers. Archive
 relocation compares canonical identities before file inspection, preserving matching file bytes, body hashes and

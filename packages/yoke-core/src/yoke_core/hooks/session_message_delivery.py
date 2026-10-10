@@ -302,8 +302,8 @@ def settle_after_render(
                 delivery_port.confirm_report_delivered(
                     session_id=str(raw.get("report_session_id") or ""),
                     fingerprint=fingerprint,
-                    claimed_at=str(raw.get("report_claimed_at") or ""),
-                    not_after=str(raw.get("report_not_after") or ""),
+                    claimed_at=raw.get("report_claimed_at"),
+                    not_after=raw.get("report_not_after"),
                 )
             except Exception:
                 pass

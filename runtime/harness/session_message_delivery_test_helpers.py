@@ -8,7 +8,7 @@ from the port it stands in for.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from yoke_core.hooks.session_message_delivery_port import (
     LeasedSessionMessage,
@@ -22,8 +22,8 @@ MESSAGE_ID = "11111111-2222-4333-8444-555555555555"
 
 
 REPORT_FINGERPRINT = "report-fingerprint-1"
-REPORT_CLAIMED_AT = "2026-08-22T20:00:00Z"
-REPORT_NOT_AFTER = "2026-08-22T19:45:00Z"
+REPORT_CLAIMED_AT = NOW
+REPORT_NOT_AFTER = NOW - timedelta(minutes=15)
 
 
 @dataclass
@@ -40,7 +40,9 @@ class FakePort:
     leased: list[tuple[str, str, int]] = field(default_factory=list)
     completed: list[tuple[str, bool, str]] = field(default_factory=list)
     probed: list[tuple[str, str, str, str]] = field(default_factory=list)
-    confirmed_reports: list[tuple[str, str, str, str]] = field(default_factory=list)
+    confirmed_reports: list[tuple[str, str, datetime, datetime]] = field(
+        default_factory=list
+    )
 
     def _message(self) -> LeasedSessionMessage:
         return LeasedSessionMessage(
@@ -49,7 +51,7 @@ class FakePort:
             sender_actor_id=41,
         )
 
-    def _report_fields(self) -> dict[str, str]:
+    def _report_fields(self) -> dict[str, str | datetime]:
         if not self.report:
             return {}
         return dict(
@@ -115,8 +117,8 @@ class FakePort:
         *,
         session_id: str,
         fingerprint: str,
-        claimed_at: str,
-        not_after: str,
+        claimed_at: datetime,
+        not_after: datetime,
     ) -> None:
         self.confirmed_reports.append((session_id, fingerprint, claimed_at, not_after))
 
