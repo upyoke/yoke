@@ -17,6 +17,8 @@ Itemless autonomous steering of a claimed strategy document, defaulting to
 CURRENT-PLAN. Read its intent, reconcile live frontier/reports, staff executors,
 and write current plan state. The coordinator never implements.
 
+## Phase map
+
 | Phase | Read before acting |
 |---|---|
 | Parse/read/take paired seat | [scope-and-authority.md](scope-and-authority.md) |

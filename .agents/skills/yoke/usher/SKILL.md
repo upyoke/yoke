@@ -33,6 +33,8 @@ already authorize execution; no extra confirmation.
 yoke sessions touch --mode usher
 ```
 
+## Phase map
+
 | Phase | Read before acting |
 |---|---|
 | Collect: admission, scoped dependency gate, ordering, dirty state, claims | [collect.md](collect.md) |

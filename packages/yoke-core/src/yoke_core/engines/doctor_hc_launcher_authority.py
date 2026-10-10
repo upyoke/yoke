@@ -12,8 +12,10 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
+from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.tools.install_yoke_launcher_sweep import (
     canonical_shim_path,
@@ -32,8 +34,25 @@ SLUG = "launcher-authority"
 TITLE = "Machine launcher resolves to canonical editable install"
 
 
-def _login_shell_yoke() -> str:
+def _machine_launcher_env() -> dict[str, str]:
+    """Exclude only the verified source runner's temporary interpreter path."""
     env = dict(os.environ)
+    source_root = env.get(SOURCE_DEV_RUN_ROOT_ENV)
+    if not source_root:
+        return env
+    source_venv = Path(source_root).resolve() / ".venv"
+    if Path(sys.prefix).resolve() != source_venv:
+        return env
+    temporary_bin = source_venv / "bin"
+    env["PATH"] = os.pathsep.join(
+        part for part in env.get("PATH", "").split(os.pathsep)
+        if part and Path(part).resolve() != temporary_bin
+    ) or os.defpath
+    return env
+
+
+def _login_shell_yoke() -> str:
+    env = _machine_launcher_env()
     tool_dir = str(canonical_shim_path().parent)
     env["PATH"] = (
         os.pathsep.join(
@@ -122,8 +141,13 @@ def hc_launcher_authority(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 rec.record(SLUG, TITLE, "FAIL", f"--fix repair failed: {exc}")
                 return
     login = _login_shell_yoke()
-    interactive = shutil.which("yoke") or ""
-    shadows = enumerate_shadow_installs(canonical=canonical)
+    machine_env = _machine_launcher_env()
+    interactive = (
+        shutil.which("yoke", path=machine_env["PATH"])
+        if machine_env.get("PATH") != os.environ.get("PATH")
+        else shutil.which("yoke")
+    ) or ""
+    shadows = enumerate_shadow_installs(canonical=canonical, env=machine_env)
     problems: list[str] = []
     if not login:
         problems.append(

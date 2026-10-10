@@ -14,7 +14,7 @@ architect, reflection schema, filled with original ref/title/workflow/root,
 current caveats, attempt/Boss feedback and Simulator gaps on retry.
 
 ```bash
-yoke readiness prd-validate ITEM
+yoke readiness prd-validate PREFIX-N
 ```
 
 Architect reads spec/design from DB, body only when a structured field is empty;

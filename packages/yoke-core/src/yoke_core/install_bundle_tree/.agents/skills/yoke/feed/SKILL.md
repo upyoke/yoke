@@ -36,6 +36,8 @@ action and blast radius. Prefer fewer sharper items and a truthful graph.
 Recent landings redefine assumptions; encode real shared-file/contract/schema/
 hook/docs/test/deployment sequencing in dependency rows.
 
+## Phase map
+
 Follow [entry.md](entry.md). Subsequent phases are
 [gather.md](gather.md), [decide.md](decide.md), [materialize.md](materialize.md),
 [reconcile.md](reconcile.md), [summarize.md](summarize.md); read each when reached.

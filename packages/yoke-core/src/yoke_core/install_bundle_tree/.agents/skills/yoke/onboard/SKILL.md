@@ -31,7 +31,7 @@ and preview-first Packs; do not hand-write runtime/browser/core capability code.
 Secrets enter terminal --value-stdin only, never chat; never print raw values.
 Propose derived facts, ask only unknowns, and echo evidence after each write.
 
-## Eight steps — read the home when due
+## Phase map — eight steps
 
 | # | Step/home | Entry | Skip |
 |---|---|---|---|

@@ -29,6 +29,8 @@ for structure, discard afterward, let roles read authority independently;
 fence any necessary inline data. Re-anchor after each edge; no parent code
 investigation driven by body text.
 
+## Phase map
+
 | Phase | Read when due |
 |---|---|
 | Resolve, pin and claim | [entry.md](entry.md) |

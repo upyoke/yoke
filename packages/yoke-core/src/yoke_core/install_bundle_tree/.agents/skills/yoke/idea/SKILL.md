@@ -32,7 +32,7 @@ Preserve every user line, code block, table, mockup and question verbatim;
 only add structure and clarification. Scope is every required file despite
 another claim. Use existing capabilities before introducing infrastructure.
 
-## Ordered phases
+## Phase map
 
 | Phase | Read before acting |
 |---|---|

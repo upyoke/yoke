@@ -19,7 +19,7 @@ Claude YAML metadata comes from `runtime/agents/{role}.claude.json`. Codex TOML
 uses `name`, `description`, `developer_instructions`; optional `model` is emitted
 only for a sidecar's explicit pinned policy, otherwise inherited. Claude tool
 allowlists/model nicknames/turn fields do not become Codex config. Harness
-conditional expansion can omit unsupported primitives while retaining the same
+conditional expansion selects declared primitives while retaining the same
 canonical responsibility. Details: [harness substrate](harness-substrate.md),
 [manifest schema](../runtime/harness/manifest-schema.md) and actual manifests.
 `canonical_agents` in bootstrap/manifest points to bodies without embedding them.

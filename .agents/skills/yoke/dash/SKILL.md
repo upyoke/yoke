@@ -23,6 +23,8 @@ resumes. The CLI `yoke dash "<title>" --stdin` files only, with the required
 execution-instruction attestation. Task is the merge-free/laneless alternative,
 not a way to remove a selected gate.
 
+## Phase map
+
 | Phase | Read before acting |
 |---|---|
 | Resolve/file/claim | [file-and-claim.md](file-and-claim.md) |

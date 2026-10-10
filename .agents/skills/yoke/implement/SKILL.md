@@ -23,6 +23,8 @@ Use a complete public ref; entry flags belong to [entry.md](entry.md).
 The immutable workflow pin owns stages, gates and half-open bindings;
 act only inside this binding. Its through-stage is a fresh skill/claim boundary.
 
+## Phase map
+
 | Phase | Read before acting |
 |---|---|
 | Resolve/enter | [`entry.md`](entry.md) |

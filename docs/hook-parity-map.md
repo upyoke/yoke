@@ -47,6 +47,8 @@ Generated hook commands invoke `yoke hook evaluate <event>` once per native
 event/matcher. The Python-owned runner walks
 `yoke_contracts.hook_runner.hook_ordering.ordered_pipeline_for`; adapters do
 not copy lint ordering, per-policy shell choreography or runtime import paths.
+Codex wires `SessionStart`, `UserPromptSubmit`, `PreToolUse@Bash`,
+`PostToolUse@Bash` and `Stop` in its canonical hook configuration.
 Session start/prompt boundaries register identity and inject orientation;
 pre-tool hooks apply command/write guardrails; post-tool hooks record
 telemetry; Stop attempts bounded empty-session ending. Claimed or

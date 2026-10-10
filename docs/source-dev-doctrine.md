@@ -109,6 +109,11 @@ authorization likewise prove through that paired HTTPS plane.
 
 ### Source execution and release rules
 
+Doctor's launcher check excludes only the source runner's temporary `.venv/bin`
+when its source-root marker matches the running interpreter prefix. It still
+checks persistent machine PATH shadows, login-shell resolution and hook commands;
+ordinary virtual-environment activation receives no exemption.
+
 - **Actor-state bootstrap during a self-deploy.** The paired `prod-db-admin` connection creates and drives a production run against the existing database before the new server boots and converges additive columns. An actor row without `status` therefore has legacy active authority; once the column exists, only an explicit `active` value has authority. Keep authorization, approver, notification-audience, and roster reads compatible across that boundary. Actor enable/disable itself refuses until boot convergence. Do not apply the column manually. A correction merged while an earlier Stage run is executing needs a new Stage/Production pair pinned to the corrected candidate; the old Stage receipt does not prove the new build.
 - **Environment behavior is declared, never inferred from the name.** Endpoints, QA execution gating, release membership, the paired admin connection, the warm-up serving connection, observability, and the production role live on that environment's settings document (`yoke projects environment-settings`). A missing declaration is a named refusal, not an empty mapping and not production behavior borrowed from a conventional name.
 - The generic runner is the source-dev `uv run --frozen python3 -m yoke_core.tools.run_tests` helper; use project-provided commands or the retained watcher wrappers when they are named in your packet. `uv run --frozen` makes a clean worktree use its locked development dependencies and its own source packages without requiring an activated virtualenv. Run `yoke dev ruff-changed --base <ref>` for changed-path lint; add `--fix-format` to write the formatting CI checks, or `--format-check` to only report it. `yoke dev import-check <module> ...` imports named modules from the lane and names the file that answered each one, which is the sanctioned shape for smoke-testing source you are editing. Detailed recipes: [`docs/testing-verification.md`](testing-verification.md).

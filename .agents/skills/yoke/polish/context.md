@@ -3,7 +3,7 @@
 ## 4. Gather Context
 
 Read `spec`, `technical_plan` and `test_results` with
-`yoke items get "$ITEM_REF" FIELD`. Use `body` only as fallback when spec is
+`yoke items get "$ITEM_REF" spec technical_plan test_results`. Use `body` only as fallback when spec is
 absent; do not reread a whole rendered body alongside the same spec.
 Identify every AC, scope boundary and relevant file/test.
 
