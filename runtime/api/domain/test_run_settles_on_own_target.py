@@ -8,14 +8,12 @@ from runtime.api.domain.test_dash_post_deploy_done_consumption import (
 from runtime.api.domain.test_post_deploy_original_pass_needs_admission import (
     _record_evidence,
 )
-from runtime.api.domain.test_release_member_target_enrollment import (
-    _pair,
-    release_pair_driver,
-)
+from runtime.api.domain.test_release_member_target_enrollment import _pair
 from runtime.api.domain.test_status_transition_preflight import (
     _isolate_status_effects,
 )
 from runtime.api.fixtures.backlog_inserts import insert_qa_run
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from yoke_core.domain.deployment_qa_member_acceptance_notice import (
     notify_item_qa_accepted,
 )
@@ -169,7 +167,7 @@ def test_auto_completion_does_not_wait_on_another_targets_obligation(
         "UPDATE deployment_runs SET current_stage='member-qa' WHERE id='run-prod'"
     )
     test_db.commit()
-    release_pair_driver(test_db, "run-prod")
+    release_seeded_driver(test_db, "run-prod")
 
     ready, reason = _readiness(test_db, "run-prod")
 

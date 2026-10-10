@@ -15,12 +15,8 @@ from runtime.api.domain.test_post_deploy_original_pass_needs_admission import (
     _record_evidence,
 )
 from runtime.api.fixtures.backlog_inserts import insert_qa_run
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from yoke_core.domain.deployment_item_completion_runs import completion_runs
-from yoke_core.domain.deployment_run_driver_attachment import (
-    PHASE_EXECUTING,
-    attach_driver,
-    release_driver,
-)
 from yoke_core.domain.gate_satisfier_resolution import record_delivery_evidence_rung
 from yoke_core.domain.deployment_member_post_deploy_admission import (
     post_deploy_admission_split,
@@ -33,18 +29,6 @@ from yoke_core.domain.deployment_run_member_targeting import (
     holder_covers_run,
     run_needs_member,
 )
-
-
-#: The session driving both runs. Attached by :func:`_pair` so automatic
-#: completion leaves each run to its driver until a test releases it.
-DRIVER_SESSION = "release-driver"
-DRIVER_PID = 4242
-
-
-def release_pair_driver(conn, run_id):
-    """Detach the pair's driver so automatic completion may finish *run_id*."""
-    release_driver(conn, run_id, session_id=DRIVER_SESSION, pid=DRIVER_PID)
-    conn.commit()
 
 
 def _pair(conn, *, item_id):
@@ -75,13 +59,6 @@ def _pair(conn, *, item_id):
             (environment, f"run-{environment}"),
         )
         sources[environment] = source
-        attach_driver(
-            conn,
-            f"run-{environment}",
-            session_id=DRIVER_SESSION,
-            pid=DRIVER_PID,
-            phase=PHASE_EXECUTING,
-        )
     conn.commit()
     return sources
 
@@ -331,7 +308,7 @@ def test_supplemental_run_finishes_without_final_item_close_out(test_db, monkeyp
         ("run-stage",),
     )
     test_db.commit()
-    release_pair_driver(test_db, "run-stage")
+    release_seeded_driver(test_db, "run-stage")
     ready, reason = _readiness(test_db, "run-stage")
     assert ready is not None, reason
     assert (

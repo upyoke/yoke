@@ -4,10 +4,9 @@ The serving runtime's own creation-time gate (``require_supported_defini
 tion_schema``) refuses to START a new run against a schema-2 (QA-stage)
 flow through ``deployment_runs.create`` at all — a deliberate gate: "keep
 the definition disabled until the matching runtime is deployed." Tests
-that need to execute a real scoped-QA stage (via ``deploy_pipeline.run_
-pipeline`` or the lower-level materialize/gate calls directly) seed an
-already-admitted, already-frozen run instead, exactly as this module does
-and as ``test_deployment_qa_stage_execution.py`` does inline.
+that execute a real scoped-QA stage (``deploy_pipeline.run_pipeline`` or the
+materialize/gate calls directly) seed an already-admitted, already-frozen
+run instead, as this module and ``test_deployment_qa_stage_execution.py`` do.
 """
 
 from __future__ import annotations
@@ -16,6 +15,7 @@ import json
 from typing import Any
 
 from runtime.api.fixtures.backlog_inserts import insert_item
+from runtime.api.fixtures.deployment_run_driver_fixture import attach_seeded_driver
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.deployment_requirement_snapshots import (
     requirement_selection,
@@ -215,6 +215,7 @@ def seed_run_standing_on_qa_stage(
         "UPDATE deployment_runs SET current_stage=%s WHERE id=%s",
         (str(stages[1]["name"]), run_id),
     )
+    attach_seeded_driver(conn, run_id)
     conn.commit()
 
 

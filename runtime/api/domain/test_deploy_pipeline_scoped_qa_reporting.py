@@ -36,7 +36,7 @@ def scoped_run(test_db, monkeypatch):
         lineage="c" * 40,
     )
     assert unresolved_blocking_qa(conn, run_id) == []
-    monkeypatch.setattr(handler, "_locked_run", lambda request, function: run_id)
+    monkeypatch.setattr(handler, "_driven_run", lambda request, function: run_id)
     monkeypatch.setattr(db_helpers, "connect", lambda: nullcontext(conn))
 
     def call(function, run, payload):

@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from typing import Any, Iterator
 
+from runtime.api.fixtures.deployment_run_driver_fixture import attach_seeded_driver
 from yoke_core.domain import db_backend
 
 DEFAULT_STAGE_APPROVALS = {"roles": ["owner", "operator"], "actors": []}
@@ -123,6 +124,7 @@ def seed_stage_approval(conn: Any) -> dict[str, Any]:
         "VALUES ('run-approval-proof', %s, '2026-07-26T00:00:00Z')",
         (int(member[0]),),
     )
+    attach_seeded_driver(conn, "run-approval-proof")
     conn.commit()
     return {
         "run_id": "run-approval-proof",
@@ -180,6 +182,7 @@ def seed_gate_run(
         "%s, %s, '2026-07-26T00:00:00Z')",
         (run_id, flow_id, environment_id, current_stage, created_by),
     )
+    attach_seeded_driver(conn, run_id)
     conn.commit()
 
 

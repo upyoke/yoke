@@ -120,7 +120,7 @@ def test_accepted_member_is_never_woken(test_db: Any) -> None:
 
 def test_run_scoped_waiting_stage_wakes_the_run_driver(test_db: Any) -> None:
     """Run scope has no single item to wake, so it addresses the project's
-    deploy-lock driver (or steering) instead of an item claim holder."""
+    live driver (or steering) instead of an item claim holder."""
     _run(test_db, "run-wake-3")
     stage = {"name": "run-qa", "scope": "run"}
 
@@ -174,7 +174,7 @@ def test_run_scoped_wait_with_no_recipient_is_reported_visibly(
     assert rc == -4
     assert "run: awaiting agent verdict" in diag
     out = capsys.readouterr().out
-    assert "no deploy-lock driver" in out
+    assert "no live run driver" in out
     assert "Staff it manually" in out
 
 
