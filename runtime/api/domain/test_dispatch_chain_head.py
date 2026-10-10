@@ -246,9 +246,9 @@ def test_diagnostics_with_real_postgres_reads(holder, monkeypatch):
             "CREATE TABLE epic_dispatch_chains (id INTEGER PRIMARY KEY, epic_id INTEGER, item_worktree_id INTEGER, queue TEXT, current_index INTEGER, current_task TEXT)"
         )
         conn.execute(
-            "CREATE TABLE epic_tasks (epic_id INTEGER, task_num INTEGER, status TEXT, last_activity_at TEXT)"
+            "CREATE TABLE epic_tasks (epic_id INTEGER, task_num INTEGER, status TEXT, last_activity_at TIMESTAMPTZ)"
         )
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc)
         conn.execute(
             "INSERT INTO items (id, title, created_at, updated_at) VALUES (42, 'epic', %s, %s)",
             (now, now),
@@ -267,7 +267,7 @@ def test_diagnostics_with_real_postgres_reads(holder, monkeypatch):
                 (
                     holder,
                     make_item_target(42).scope_json(),
-                    datetime.now(timezone.utc).isoformat(),
+                    now,
                 ),
             )
         conn.commit()
