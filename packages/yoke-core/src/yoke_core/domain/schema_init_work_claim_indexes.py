@@ -15,6 +15,7 @@ ACTIVE_ROUTE_QUALIFICATION_INDEX_NAME = "idx_work_claims_active_route_qualificat
 ACTIVE_MIGRATION_SERIALIZATION_INDEX_NAME = (
     "idx_work_claims_active_migration_serialization"
 )
+ACTIVE_DEPLOY_SERIALIZATION_INDEX_NAME = "idx_work_claims_active_deploy_serialization"
 
 ACTIVE_ITEM_INDEX_DDL = (
     "CREATE UNIQUE INDEX IF NOT EXISTS "
@@ -64,6 +65,23 @@ def active_migration_serialization_index_ddl(conn: Any) -> str:
     )
 
 
+def active_deploy_serialization_index_ddl(conn: Any) -> str:
+    """Build the exclusivity index of the retired per-project deploy lock.
+
+    Nothing takes that kind any more, so the index matches only holds taken
+    before the retirement. It stays declared because every existing
+    universe already carries it: a fresh schema without it would fingerprint
+    differently from a restored one, and archive import compares the two.
+    """
+    project = scope_text_sql(conn, "scope", "project_id")
+    return (
+        "CREATE UNIQUE INDEX IF NOT EXISTS "
+        f"{ACTIVE_DEPLOY_SERIALIZATION_INDEX_NAME} "
+        f"ON work_claims(({project})) "
+        "WHERE released_at IS NULL AND target_kind='deploy_serialization'"
+    )
+
+
 def active_process_conflict_index_ddl(conn: Any) -> str:
     """Build the backend-specific conflict-group expression index."""
     conflict_group = scope_text_sql(conn, "scope", "conflict_group")
@@ -84,9 +102,11 @@ def create_work_claim_active_uniques(conn: Any) -> None:
     conn.execute(ACTIVE_QA_ADMISSION_INDEX_DDL)
     conn.execute(ACTIVE_ROUTE_QUALIFICATION_INDEX_DDL)
     conn.execute(active_migration_serialization_index_ddl(conn))
+    conn.execute(active_deploy_serialization_index_ddl(conn))
 
 
 __all__ = [
+    "ACTIVE_DEPLOY_SERIALIZATION_INDEX_NAME",
     "ACTIVE_EPIC_TASK_INDEX_DDL",
     "ACTIVE_MIGRATION_SERIALIZATION_INDEX_NAME",
     "ACTIVE_QA_ADMISSION_INDEX_DDL",
@@ -99,6 +119,7 @@ __all__ = [
     "ACTIVE_PROCESS_CONFLICT_INDEX_NAME",
     "ACTIVE_STEERING_INDEX_DDL",
     "ACTIVE_STEERING_INDEX_NAME",
+    "active_deploy_serialization_index_ddl",
     "active_migration_serialization_index_ddl",
     "active_process_conflict_index_ddl",
     "create_work_claim_active_uniques",
