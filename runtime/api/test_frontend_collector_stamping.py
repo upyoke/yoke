@@ -1,12 +1,35 @@
-"""The Local view's collector stamps its operator only on token-admitted views."""
+"""What the engine collector stamps: emitter fields, environment, and viewer."""
+
+import json
 
 from fastapi.testclient import TestClient
 
-from runtime.api.test_frontend_events import database, event, headers
+from runtime.api.test_frontend_events import client, database, event, headers
+from yoke_core.api.observability_otel import environment_name
 from yoke_core.domain.actors import seed_human_actor
 
 database = database
+client = client
 LOCAL = "http://127.0.0.1:8689"
+
+
+def test_rows_keep_emitter_service_and_project_and_carry_serving_environment(
+    client, database
+):
+    payload = event()
+    response = client.post(
+        "/api/events", json={"events": [payload]}, headers=headers(client)
+    )
+    assert response.status_code == 200, response.text
+    with database() as conn:
+        service, environment, project_id, raw = conn.execute(
+            "SELECT service, environment, project_id, envelope FROM events "
+            "WHERE event_id=%s",
+            (payload["event_id"],),
+        ).fetchone()
+    stored = json.loads(raw) if isinstance(raw, str) else raw
+    assert (service, environment, project_id) == ("web", environment_name(), None)
+    assert stored["project"] == "yoke" and stored["environment"] == environment
 
 
 def test_token_admitted_local_page_views_carry_the_local_operator(

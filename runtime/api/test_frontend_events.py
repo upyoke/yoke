@@ -9,7 +9,6 @@ from fastapi.testclient import TestClient
 
 from runtime.api.fixtures import pg_testdb
 from yoke_core.api import app_factory, frontend_events_config
-from yoke_core.api.observability_otel import environment_name
 from yoke_core.api.routes import frontend_events
 from yoke_core.domain import db_helpers, events_writes
 from yoke_core.domain.auth_schema import create_auth_tables
@@ -94,18 +93,13 @@ def test_anonymous_sink_sanitizes_deduplicates_and_stamps_its_own_identity(
         assert response.json() == {"accepted": 1}
     with database() as conn:
         rows = conn.execute(
-            "SELECT actor_id, project_id, org_id, envelope, service, environment "
-            "FROM events WHERE event_id=%s",
+            "SELECT actor_id, project_id, org_id, envelope FROM events WHERE event_id=%s",
             (payload["event_id"],),
         ).fetchall()
         assert len(rows) == 1
-        actor_id, project_id, org_id, raw, service, environment = rows[0]
+        actor_id, project_id, org_id, raw = rows[0]
         assert actor_id is None and project_id is None and org_id != "forged"
-        assert service == "web"
-        assert environment == environment_name()
         stored = json.loads(raw) if isinstance(raw, str) else raw
-        assert stored["project"] == "yoke"
-        assert stored["environment"] == environment
         assert stored["page_url"] == ORIGIN + "/items?utm_source=email"
         assert "private" not in stored["referrer"]
         assert stored["actor_id"] is None
