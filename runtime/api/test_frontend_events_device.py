@@ -9,6 +9,7 @@ MAC_CHROME = (
     "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
 )
 
+
 def test_collector_overrides_emitter_device_fields(client, database):  # noqa: F811
     payload = {**event(), "device_type": "mobile", "browser": "forged"}
     admitted = {**headers(client), "User-Agent": MAC_CHROME}
