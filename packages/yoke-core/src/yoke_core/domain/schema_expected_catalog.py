@@ -163,6 +163,7 @@ _EXPECTED_SCHEMA_STR = (
     "|universe_settings:key/TEXT,value/TEXT,updated_at/TEXT,updated_by_actor_id/INTEGER"
     "|web_sessions:id/INTEGER,token_hash/TEXT,actor_id/INTEGER,created_at/TEXT,expires_at/TEXT,revoked_at/TEXT,last_used_at/TEXT"
     "|browser_sign_in_links:selector/TEXT,code_hash/TEXT,actor_id/INTEGER,expires_at/TEXT,consumed_at/TEXT"
+    "|actor_visitor_links:visitor_id/TEXT,actor_id/INTEGER,linked_at/TEXT,refused_actor_id/INTEGER,refused_at/TEXT"
     "|work_claims:id/INTEGER,session_id/TEXT,target_kind/TEXT,scope/TEXT,claim_type/TEXT,claimed_at/TEXT,last_heartbeat/TEXT,released_at/TEXT,release_reason/TEXT,reason/TEXT,reason_intent/TEXT,release_reason_intent/TEXT"
     "|workflow_execution_instruction_projects:instruction_id/INTEGER,project_id/INTEGER"
     "|workflow_execution_instruction_workflows:instruction_id/INTEGER,workflow_id/TEXT"

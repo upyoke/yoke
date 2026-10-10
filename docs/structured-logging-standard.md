@@ -152,7 +152,8 @@ Admission rules (both collectors):
 - `event_id`, `event_name`, `event_kind`, `event_type`, `event_time`,
   `session_id`: required non-empty strings. The engine also requires
   `event_id` to parse as a UUID; `event_time` must parse as an ISO 8601
-  timestamp.
+  timestamp, and requires non-empty `service` and `project` strings, which it
+  stores as sent (the row still indexes as global, never as that project).
 - `source_type` must be `frontend` and `event_kind` must be `analytics`;
   this route never admits backend, audit or security events.
 - `page_url`, `referrer` and `page_path`: string or `null`; all three are
@@ -163,9 +164,11 @@ Admission rules (both collectors):
 - Each envelope at most 64 KB serialized (`limits.envelope_bytes`); the whole
   request at most 512 KB (`limits.request_bytes`).
 - Identity is stamped server-side: client `org_id` and `actor_id` are ignored.
-  The engine stamps the collector org and, when a web-session cookie (or a
-  verified `Authorization` bearer) is present, its actor; otherwise the event
-  is anonymous.
+  The engine stamps the collector org, its serving environment
+  (`YOKE_ENVIRONMENT`) and, when a web-session cookie, a verified
+  `Authorization` bearer, or the Local view's per-run token is present, the
+  viewer's actor; otherwise the event is anonymous and carries only its
+  `visitor_id`.
 - Dedupe is silent: a repeated `event_id` is dropped by the sink
   (`ON CONFLICT (event_id) DO NOTHING`) and still counts as accepted.
 
@@ -211,6 +214,8 @@ attribution when capture succeeds. `PageViewed` follows the path: a single-page
 app emits one view per path change, and a query-only or fragment-only change
 (filters, the app's own URL rewrites) emits none. Required signup facts belong
 to the durable account/actor owner, never only to events.
+Each sign-in links the browser's visitor_id to its actor; page views join to
+actors through that link list at query time ([Section E](structured-logging-standard/marketing-attribution.md#visitor-links-tying-page-views-to-actors)).
 
 ### Envelope Size Limits
 

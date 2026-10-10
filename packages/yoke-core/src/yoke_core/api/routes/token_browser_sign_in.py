@@ -17,6 +17,10 @@ from yoke_contracts.browser_sign_in import (
     BROWSER_SIGN_IN_REDEEM_PATH,
     BROWSER_SIGN_IN_MAX_LENGTH,
 )
+from yoke_core.api.frontend_events_config import (
+    link_sign_in_visitor,
+    sign_in_attribution,
+)
 from yoke_core.api.http_auth import auth_error_response, require_auth_context
 from yoke_core.api.oidc_config import OidcConfigError, resolve_oidc_config
 from yoke_core.api.web_session_auth import WEB_SESSION_COOKIE_NAME, cross_origin_refusal
@@ -157,6 +161,7 @@ def redeem(request: Request, body: AdmissionCode) -> Response:
     try:
         with db_helpers.connect() as conn:
             session = redeem_browser_sign_in_link(conn, body.code)
+            link_sign_in_visitor(conn, sign_in_attribution(request), session.actor_id)
     except BrowserSignInError as exc:
         return _error(exc.code, str(exc), 401)
     except ActorDisabledError as exc:

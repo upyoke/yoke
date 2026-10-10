@@ -137,7 +137,7 @@ export function mountUniverseApp(rootNode, options = {}) {
   const detachRootClass = attachMountRootClass(rootNode);
   rootNode.replaceChildren(header, shell);
   const disposeBuildUpdate = mountBuildUpdate(main, windowNode, options);
-  const disposeTelemetry = mountWorkbenchTelemetry(windowNode);
+  const disposeTelemetry = mountWorkbenchTelemetry(windowNode, options);
   main.replaceChildren(routeLoadingLine(documentNode));
 
   // The mark uses currentColor, so it must live in the DOM (an <img src>

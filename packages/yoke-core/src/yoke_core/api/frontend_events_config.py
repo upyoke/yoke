@@ -1,6 +1,7 @@
 """Same-origin anonymous collection and server-verified attribution cookies."""
 
 import ipaddress
+import logging
 from functools import cache
 from http.cookies import SimpleCookie
 from urllib.parse import urlsplit
@@ -18,6 +19,7 @@ COLLECTOR_PATHS = frozenset(
     {EVENTS_PATH, ATTRIBUTION_PATH, CONFIG_PATH, HANDOFF_PATH, REDEEM_PATH}
 )
 LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+_log = logging.getLogger(__name__)
 
 
 def collector_origin(request):
@@ -89,6 +91,15 @@ def cookie_output(request, header):
     return header
 
 
+def cleared_attribution_cookie(request):
+    """The Set-Cookie header that drops this browser's visitor id at sign-out."""
+    from yoke_core.frontend_events.events_cookie import COOKIE_NAME
+
+    return cookie_output(
+        request, f"{COOKIE_NAME}=; Max-Age=0; Path=/; Secure; HttpOnly; SameSite=Lax"
+    )
+
+
 def verified_attribution(request):
     """Sign-in may read only the server-signed attribution record, never events."""
     if not any(
@@ -99,3 +110,49 @@ def verified_attribution(request):
     if not cookie_input(request):
         return None
     return attribution_cookie(request).read(cookie_input(request))
+
+
+def sign_in_attribution(request):
+    """The verified attribution a sign-in may use; None, named, when unreadable."""
+    try:
+        return verified_attribution(request)
+    except Exception:
+        _log.warning(
+            "attribution_unavailable: restore analytics capture; signing in without attribution",
+            exc_info=True,
+        )
+        return None
+
+
+def link_sign_in_visitor(conn, attribution, actor_id):
+    """Link the signing-in browser's verified visitor id to its actor.
+
+    Sign-in proceeds either way; a refused or failed link is named in the
+    server log, and a refusal is also recorded on the visitor's link row.
+    """
+    from yoke_core.domain.actor_visitor_links import record_visitor_link
+
+    if not attribution:
+        return None
+    try:
+        result = record_visitor_link(
+            conn, visitor_id=attribution["visitor_id"], actor_id=actor_id
+        )
+    except Exception:
+        conn.rollback()
+        _log.warning(
+            "visitor_link_unavailable: restore the boot-converged actor_visitor_links "
+            "table; this sign-in's browser stays unlinked until its next sign-in",
+            exc_info=True,
+        )
+        return None
+    if result.refused:
+        _log.warning(
+            "%s: visitor %s stays linked to actor %s and was not linked to actor %s; "
+            "sign out on the shared browser so the next person starts a fresh visitor id",
+            result.outcome,
+            result.visitor_id,
+            result.linked_actor_id,
+            result.actor_id,
+        )
+    return result

@@ -93,3 +93,33 @@ test("unavailable configuration names the recovery and leaves the workbench moun
     assert.match(warnings[0], /collector_setup_failed/);
   } finally { cleanup(); console.warn = originalWarn; }
 });
+
+test("a hosted mount sends to the organization collector it names", async () => {
+  configFailure = false;
+  requests.length = 0;
+  events.length = 0;
+  const collector = "/api/orgs/acme/api/events";
+  const cleanup = mountWorkbenchTelemetry(browser, {
+    eventsEndpoint: `${collector}/`, runtimeIdentity: { portabilityMode: "hosted" },
+  });
+  try {
+    await until(async () => { await flushEvents(); return events.length === 1; });
+    const urls = requests.map(r => r.url);
+    assert.equal(urls[0], `${collector}/config`);
+    assert.ok(urls.includes(`${collector}/attribution`));
+    assert.ok(urls.includes(collector));
+    assert.ok(urls.every(url => url.startsWith(collector)));
+  } finally { cleanup(); }
+});
+
+test("a hosted mount without its collector refuses by name and sends nothing", () => {
+  requests.length = 0;
+  const warnings = [], originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args.join(" "));
+  try {
+    const cleanup = mountWorkbenchTelemetry(browser, { runtimeIdentity: { portabilityMode: "hosted" } });
+    cleanup();
+  } finally { console.warn = originalWarn; }
+  assert.match(warnings[0], /collector_endpoint_unconfigured/);
+  assert.equal(requests.length, 0);
+});

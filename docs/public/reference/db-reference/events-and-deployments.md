@@ -4,7 +4,7 @@ Schemas for the unified events log, write-side severity config and registry, dep
 
 ## Table: events
 
-Cross-stack structured event log. Unified envelope for agent tool calls, session lifecycle, backend telemetry, frontend analytics, and system events. All source types share the same schema, enabling cross-source queries on a single table. Workbench analytics use the anonymous `/api/events` collector; [workbench telemetry](../../events-doctor-ouroboros.md) explains consent, admission, URL hygiene, packaging, and durable `actors.attribution` ownership.
+Cross-stack structured event log. Unified envelope for agent tool calls, session lifecycle, backend telemetry, frontend analytics, and system events. All source types share the same schema, enabling cross-source queries on a single table. Workbench analytics use the mounted universe's own `/api/events` collector, which stamps the viewer's actor when a credential is present; [workbench telemetry](../../events-doctor-ouroboros.md) explains consent, admission, URL hygiene, packaging, durable `actors.attribution` ownership, and the `actor_visitor_links` join that ties anonymous page views to actors.
 
 Compatibility note: first-class tool-call correlation columns are optional across local installs and emitters. Readers and emitters must tolerate their absence until all live event tables expose the full correlation surface.
 

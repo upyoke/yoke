@@ -7,6 +7,10 @@ web-session cookie, and lands the browser on the workbench at ``/``
 (:mod:`yoke_core.api.routes.workbench`). The workbench shows
 :func:`signed_out_page` to a browser without a valid session.
 
+``POST /v1/auth/sign-out`` revokes this browser's web session and clears
+its analytics attribution cookie, so the next person on a shared browser
+starts under a fresh visitor id rather than the one linked to this actor.
+
 When OIDC config is absent these routes answer 409 and the workbench offers
 API-token browser admission through ``yoke ui up``. What the web session
 authorizes, and its CSRF protection, is :mod:`yoke_core.api.web_session_auth`.
@@ -25,7 +29,7 @@ from yoke_contracts.machine_authorization import (
     APPROVAL_RETURN_COOKIE,
     approval_return_path,
 )
-from yoke_core.api.http_auth import OIDC_CALLBACK_PATH, OIDC_START_PATH
+from yoke_core.api.http_auth import OIDC_CALLBACK_PATH, OIDC_START_PATH, SIGN_OUT_PATH
 from yoke_core.api.oidc_client import (
     OidcDiscoveryError,
     OidcExchangeError,
@@ -42,12 +46,17 @@ from yoke_core.api.oidc_flow_state import (
     mint_flow_state,
     verify_flow_state,
 )
-from yoke_core.api.web_session_auth import WEB_SESSION_COOKIE_NAME
+from yoke_core.api.web_session_auth import (
+    WEB_SESSION_COOKIE_NAME,
+    authenticate_web_session,
+    cross_origin_refusal,
+)
 from yoke_core.domain import db_helpers
 from yoke_core.domain.sign_in_resolution import resolve_sign_in
 from yoke_core.domain.web_sessions import (
     DEFAULT_WEB_SESSION_TTL_S,
     mint_web_session,
+    revoke_web_session,
 )
 
 
@@ -66,6 +75,7 @@ _FLOW_COOKIE_PATH = "/v1/auth/oidc"
 _V1_PREFIX = "/v1"
 _START_SUBPATH = OIDC_START_PATH[len(_V1_PREFIX) :]
 _CALLBACK_SUBPATH = OIDC_CALLBACK_PATH[len(_V1_PREFIX) :]
+_SIGN_OUT_SUBPATH = SIGN_OUT_PATH[len(_V1_PREFIX) :]
 
 
 def _door_error(status_code: int, code: str, message: str) -> JSONResponse:
@@ -204,16 +214,12 @@ def oidc_callback(request: Request) -> Response:
         )
 
     with db_helpers.connect() as conn:
-        from yoke_core.api.frontend_events_config import verified_attribution
+        from yoke_core.api.frontend_events_config import (
+            link_sign_in_visitor,
+            sign_in_attribution,
+        )
 
-        try:
-            acquisition = verified_attribution(request)
-        except Exception:
-            _log.warning(
-                "attribution_unavailable: restore analytics capture; signing in without attribution",
-                exc_info=True,
-            )
-            acquisition = None
+        acquisition = sign_in_attribution(request)
         resolution = resolve_sign_in(
             conn,
             claims,
@@ -227,6 +233,7 @@ def oidc_callback(request: Request) -> Response:
                 resolution.detail,
             )
         session = mint_web_session(conn, actor_id=resolution.actor_id)
+        link_sign_in_visitor(conn, acquisition, resolution.actor_id)
 
     destination = approval_return_path(request.cookies.get(APPROVAL_RETURN_COOKIE, ""))
     redirect = RedirectResponse(destination or _SIGNED_IN_LANDING, status_code=303)
@@ -244,6 +251,40 @@ def oidc_callback(request: Request) -> Response:
     # cannot be replayed from another browser.
     redirect.delete_cookie(FLOW_COOKIE_NAME, path=_FLOW_COOKIE_PATH)
     return redirect
+
+
+@router.post(_SIGN_OUT_SUBPATH)
+def sign_out(request: Request) -> Response:
+    """Revoke this browser's session and rotate its visitor id."""
+    from yoke_core.api.frontend_events_config import cleared_attribution_cookie
+
+    refusal = cross_origin_refusal(request)
+    if refusal is not None:
+        return refusal
+    try:
+        session = authenticate_web_session(request)
+        if session is not None:
+            with db_helpers.connect() as conn:
+                revoke_web_session(conn, web_session_id=session.web_session_id)
+    except Exception:
+        _log.warning("sign_out_unavailable", exc_info=True)
+        return _door_error(
+            503,
+            "sign_out_unavailable",
+            "session storage is unavailable; ask the server operator to restore "
+            "database service, then sign out again",
+        )
+    response = JSONResponse({"signed_out": True}, headers={"Cache-Control": "no-store"})
+    response.delete_cookie(WEB_SESSION_COOKIE_NAME, path="/")
+    try:
+        response.headers.append("Set-Cookie", cleared_attribution_cookie(request))
+    except Exception:
+        _log.warning(
+            "visitor_rotation_unavailable: restore the collector signing identity; "
+            "the browser keeps its visitor id until the attribution cookie expires",
+            exc_info=True,
+        )
+    return response
 
 
 def signed_out_page() -> HTMLResponse:
@@ -276,4 +317,4 @@ def signed_out_page() -> HTMLResponse:
     return _page("Sign in to Yoke", body)
 
 
-__all__ = ["FLOW_COOKIE_NAME", "router", "signed_out_page"]
+__all__ = ["FLOW_COOKIE_NAME", "router", "sign_out", "signed_out_page"]

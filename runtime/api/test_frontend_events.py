@@ -70,6 +70,8 @@ def event():
         "event_time": "2026-01-01T00:00:00Z",
         "session_id": str(uuid4()),
         "source_type": "frontend",
+        "service": "web",
+        "project": "yoke",
         "page_url": ORIGIN + "/items?token=door-secret&utm_source=email#private",
         "referrer": "https://search.test/?token=private",
         "actor_id": 999999,
@@ -169,6 +171,8 @@ def test_anonymous_route_cannot_write_backend_events_or_malformed_envelopes(clie
         {"page_url": {}},
         {"page_path": []},
         {"event_id": "not-a-uuid"},
+        {"service": None},
+        {"project": ""},
     ):
         response = client.post(
             "/api/events", json={"events": [{**event(), **changed}]}, headers=admitted
