@@ -21,6 +21,7 @@ def test_normalize_candidate_string_filters_paths_and_commands():
             "PYTHONPATH",
             "yoke --help",
             "(optional",
+            "and the",
             ".remove",
             ".split",
             ".agents",
