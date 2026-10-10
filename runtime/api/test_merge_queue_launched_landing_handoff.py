@@ -21,7 +21,8 @@ def test_launched_session_arms_and_returns_even_when_wait_was_asked_for(monkeypa
         route_mod,
         "mark_landing_pending",
         lambda item_id, pr_num, **_kw: (
-            marked.append((item_id, pr_num)) or ("2026-09-04T20:00:00Z", "")
+            marked.append((item_id, pr_num))
+            or (parse_instant("2026-09-04T20:00:00Z"), "")
         ),
     )
     monkeypatch.setattr(
