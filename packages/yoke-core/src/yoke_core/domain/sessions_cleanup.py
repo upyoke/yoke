@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import time as _time
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from . import sessions_analytics as _sa
@@ -21,7 +20,7 @@ from .session_reclaim_activity import (
     in_flight_activity_is_hard_stale,
     read_activity_signals,
 )
-from .session_reclaim_progress import parse_stamp
+from .time_parse import age_minutes_since
 from .session_staleness import activity_is_stale
 from .sessions_analytics_core import DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES
 from .sessions_analytics import (
@@ -42,13 +41,6 @@ from .session_cleanup_receipt import (
     sweep_receipt,
 )
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
-
-
-def _minutes_since(iso_value: Optional[str]) -> int:
-    ts = parse_stamp(iso_value)
-    if ts is None:
-        return 0
-    return max(0, int((datetime.now(timezone.utc) - ts).total_seconds() // 60))
 
 
 def clean_stale_harness_sessions(
@@ -161,7 +153,7 @@ def clean_stale_harness_sessions(
                 base_ttl_minutes=effective_ttl,
                 executor_ttl_overrides={},
             )
-        stale_minutes = _minutes_since(activity_at) if activity_at else 0
+        stale_minutes = age_minutes_since(activity_at)
 
         entry = {
             "session_id": sid,

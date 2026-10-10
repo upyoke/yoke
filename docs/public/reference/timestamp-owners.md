@@ -47,7 +47,7 @@ Org and project role grants bind native clocks. Strategy section CAS, cached
 render headers and staleness checks compare instants. Board calendar buckets
 project native instants to UTC dates; age windows use aware timestamps.
 
-Idle wake eligibility validates aware native clocks and exact microsecond cutoffs. Hook envelopes and new Progress Log entries format six fractional digits;
+Idle wake eligibility validates aware native clocks and exact microsecond cutoffs. Cleanup age displays use exact timedelta minute flooring across valid UTC years. Hook envelopes and new Progress Log entries format six fractional digits;
 event SQL binds native clocks. Recent-session attribution compares aware
 instants at its exact 30-minute boundary, including microseconds.
 
