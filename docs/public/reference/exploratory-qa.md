@@ -12,7 +12,7 @@ and repeatable.
 
 ## Contract
 
-The built-in method has these immutable properties:
+The Machine QA Pack method has these immutable properties:
 
 | Field | Value |
 |---|---|

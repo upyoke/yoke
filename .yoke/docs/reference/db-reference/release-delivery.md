@@ -1,7 +1,7 @@
 # DB Reference — Release delivery: QA authorities, verdicts, notices
 
 How a merged item's release is verified and announced, across the tables
-[events-and-deployments.md](events-and-deployments.md) defines:
+[deployment-run-records.md](deployment-run-records.md) defines:
 `deployment_runs`, `deployment_run_items`, `deployment_run_qa`,
 `deployment_stage_receipts`, and the `qa_requirements` / `qa_runs` rows a
 scoped stage settles through. Those table schemas stay there; what lives
@@ -20,10 +20,8 @@ gating, stage receipts carrying observed evidence, the wait and verdict
 wakes, the configured result notification, and release-to-done
 acceptance.
 
-Target *kinds* are the other axis and the schema version promises
-nothing about them. A QA stage reads its target from an earlier stage's
-receipt, so a kind with no registered receipt producer cannot be
-executed however complete the rest of the runtime is —
+Target *kinds* are independent of schema vocabulary. A QA stage reads an
+earlier stage's receipt; a kind without a registered producer cannot execute.
 `deployment_flow_target_support.unsupported_stage_target_kinds` names
 them, and the same gates the schema version guards refuse them:
 activating, updating an active definition, assigning, and starting. That
@@ -38,12 +36,8 @@ every QA target this definition names has a producer, with
 stored and kept disabled while its producer is absent, which is what
 lets configuration land ahead of runtime.
 
-Target kinds are one axis of that answer and identity provability is the
-other, because supporting a kind is not the same as being able to
-observe one. A QA stage reads its target from an earlier stage's
-receipt, and that receipt is evidence only if something verified which
-candidate the target is actually serving. Two things can supply that,
-and either is enough.
+Identity provability is a separate constraint: a receipt must verify which
+candidate the target serves. Either of two sources supplies it.
 
 The first is the environment itself, and it is the project-agnostic one.
 When the project configures an identity path on its `health-endpoint`
@@ -153,10 +147,7 @@ read-only acceptance ladder the active-stage gate settles).
 
 ## An accepted item-scoped QA wakes that member
 
-The gate above already answers for one item, not the batch. What was
-missing was a wake: the only deployment wake was run-scoped and
-addressed to the driver, so a member whose own item-scoped QA was
-accepted sat at its release wait until the whole run finished.
+Acceptance and its wake address the member independently of the batch.
 
 Only blocking aggregate requirements demand evidence-linked verdicts. Adding a
 blocking post-deploy requirement retracts the item's prior no-obligation
@@ -235,9 +226,8 @@ run-scoped stage.
 
 ## A caseless QA stage waits rather than failing
 
-A stage that names no cases is the ordinary shape, not a
-misconfiguration: the agent responsible for the subject chooses or
-creates the evidence. Materialization refuses when nothing is pinned,
+A caseless stage lets the subject's responsible agent choose or create
+evidence. Materialization refuses when nothing is pinned,
 admitted or agent-selected, and that refusal is the agent's cue — so it
 carries its own exception type and the dispatch treats it as a durable
 wait, adding the subject to the waiting set and waking whoever can end
