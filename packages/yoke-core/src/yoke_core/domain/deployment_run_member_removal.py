@@ -19,6 +19,7 @@ from yoke_core.domain.deployment_runs_lock import (
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_attachment_retract import retract_requirements
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_item_binding_lock import lock_item_workflow_bindings
 
 
@@ -116,6 +117,8 @@ def retract_outstanding_member_copies(
     plans and passing evidence survive; the next release materializes fresh
     run-bound copies.
     """
+    if not _table_exists(conn, "qa_requirements"):
+        return []
     member = " AND r.deployment_member_item_id=%s" if item_id is not None else ""
     rows = query_rows(
         conn,

@@ -19,6 +19,7 @@ from typing import Any, Mapping, Sequence
 
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
+from yoke_core.domain.schema_common import _column_exists
 
 LINK_COLUMNS = ("replacement_requirement_id", "superseded_by_requirement_id")
 LINKED_SCOPE_CHANGE_CODE = "replacement_link_scope_changed"
@@ -95,16 +96,17 @@ def _broken(predecessors: list[dict], rows: dict[int, dict]) -> list[str]:
 def broken_links_touching(conn: Any, requirement_ids: Sequence[int]) -> list[str]:
     """Broken links into or out of *requirement_ids*, read on *conn* now."""
     ids = sorted({int(value) for value in requirement_ids})
-    if not ids:
+    columns = [c for c in LINK_COLUMNS if _column_exists(conn, "qa_requirements", c)]
+    if not ids or not columns:
         return []
     marks = ",".join(["%s"] * len(ids))
     predecessors = _live_link_rows(
         conn,
         f"r.id IN ({marks}) OR "
-        + " OR ".join(f"r.{column} IN ({marks})" for column in LINK_COLUMNS),
-        ids * (1 + len(LINK_COLUMNS)),
+        + " OR ".join(f"r.{column} IN ({marks})" for column in columns),
+        ids * (1 + len(columns)),
     )
-    targets = {int(p[c]) for p in predecessors for c in LINK_COLUMNS if p.get(c)}
+    targets = {int(p[c]) for p in predecessors for c in columns if p.get(c)}
     return _broken(predecessors, _rows_by_id(conn, targets))
 
 
