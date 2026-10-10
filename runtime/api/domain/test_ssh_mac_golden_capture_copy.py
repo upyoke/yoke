@@ -59,7 +59,9 @@ def _run_capture(home: Path, destination: Path, tmp_path: Path):
     )
 
 
-@pytest.mark.skipif(sys.platform != "darwin", reason="uses macOS tar metadata and cp")
+@pytest.mark.skipif(
+    sys.platform != "darwin", reason="uses macOS tar metadata and ditto"
+)
 def test_probe_created_socket_and_fifo_are_omitted_and_captured_state_restores(
     tmp_path,
 ):
@@ -101,7 +103,9 @@ def test_probe_created_socket_and_fifo_are_omitted_and_captured_state_restores(
     restored.mkdir()
     for entry in destination.iterdir():
         result = subprocess.run(
-            ["/bin/cp", "-Rpf", str(entry), str(restored)],
+            ["/usr/bin/ditto", str(entry), str(restored / entry.name)]
+            if entry.is_dir() and not entry.is_symlink()
+            else ["/bin/cp", "-Rpf", str(entry), str(restored)],
             capture_output=True,
             text=True,
             timeout=15,
@@ -204,7 +208,7 @@ def test_container_attribute_larger_than_tar_header_limit_captures_and_restores(
     restored = tmp_path / "restored"
     restored.mkdir()
     result = subprocess.run(
-        ["/bin/cp", "-Rpf", str(destination / "Library"), str(restored)],
+        ["/usr/bin/ditto", str(destination / "Library"), str(restored / "Library")],
         capture_output=True,
         text=True,
         timeout=15,

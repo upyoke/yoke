@@ -60,9 +60,15 @@ pipeline gates.
 ```
 
 Simulation is parent-persisted against the epic target, no task number, with
-phase and complete report body. The parsed report's two-line verdict/epic must
-match dispatch; every real attempt remains durable. Consume the served receipt
-contract at its declared floor, not guessed fields or event success. Submission
+phase, complete report body and optional head_sha. CLI --head-sha binds the
+verified code commit when no clean epic lane supplies it. Parsed two-line
+verdict/epic must match dispatch; every actual phase attempt remains durable.
+Phase selection uses JSON values independent of whitespace; simulation-get
+returns the latest exact phase attempt. Receipt names requirement_id, run_id,
+verdict and verified=true after exact-run readback, without body. Identity or
+verdict mismatch refuses before writing; readback failure returns known ids
+without retrying. Requirement/run creation failures preserve their underlying
+refusal and recovery. Consume this served contract at its declared floor. Submission
 receipt get validates the latest new PASS receipt after the supplied note count;
 bad/missing fields refuse rather than treating narrative as proof.
 

@@ -153,8 +153,9 @@ shell_surface_is_clean() {
 
 verify_restored_home() {
   local suffix target flag
-  for suffix in "${preserved_entries[@]}"; do
-    is_os_managed_entry "$suffix" && continue
+  # Harness logins and OS-managed state are kept when present; a host that
+  # never signed a harness in has none to keep.
+  for suffix in "${required_preserved_entries[@]}"; do
     lexists "$home/$suffix" || return 1
   done
   assert_os_managed_preserved_state || return 1

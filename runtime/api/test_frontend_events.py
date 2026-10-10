@@ -70,6 +70,8 @@ def event():
         "event_time": "2026-01-01T00:00:00Z",
         "session_id": str(uuid4()),
         "source_type": "frontend",
+        "service": "web",
+        "project": "yoke",
         "page_url": ORIGIN + "/items?token=door-secret&utm_source=email#private",
         "referrer": "https://search.test/?token=private",
         "actor_id": 999999,
@@ -139,6 +141,27 @@ def test_direct_entry_accepts_pack_null_referrer(client, database):
         assert stored["referrer"] is None
 
 
+def test_device_login_codes_never_reach_stored_url_fields(client, database):
+    payload = {
+        **event(),
+        "page_url": ORIGIN + "/machine-approval/RXZ2-AGEE?user_code=RXZ2-AGEE",
+        "page_path": "/machine-approval/RXZ2-AGEE",
+        "referrer": ORIGIN + "/device?user_code=NE8L-CUWF&tab=1",
+    }
+    response = client.post(
+        "/api/events", json={"events": [payload]}, headers=headers(client)
+    )
+    assert response.status_code == 200
+    with database() as conn:
+        raw = conn.execute(
+            "SELECT envelope FROM events WHERE event_id=%s", (payload["event_id"],)
+        ).fetchone()[0]
+    stored = json.loads(raw) if isinstance(raw, str) else raw
+    assert stored["page_url"] == ORIGIN + "/machine-approval/redacted"
+    assert stored["page_path"] == "/machine-approval/redacted"
+    assert stored["referrer"] == ORIGIN + "/device?tab=1"
+
+
 def test_anonymous_route_cannot_write_backend_events_or_malformed_envelopes(client):
     admitted = headers(client)
     for changed in (
@@ -146,7 +169,10 @@ def test_anonymous_route_cannot_write_backend_events_or_malformed_envelopes(clie
         {"event_kind": "security"},
         {"source_type": None},
         {"page_url": {}},
+        {"page_path": []},
         {"event_id": "not-a-uuid"},
+        {"service": None},
+        {"project": ""},
     ):
         response = client.post(
             "/api/events", json={"events": [{**event(), **changed}]}, headers=admitted

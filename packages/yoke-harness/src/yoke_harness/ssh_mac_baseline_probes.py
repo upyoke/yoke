@@ -15,10 +15,12 @@ from typing import Any, Callable, Sequence
 
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
 from yoke_harness.baseline_harness_requests import harness_request
+from yoke_harness.baseline_probe_failure_causes import classify_declared_failure
 from yoke_harness.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_harness.ssh_mac_gui_session import (
     classify_macos_session_context_failure,
 )
+from yoke_harness.standard_baseline_probes import standard_probe_failure
 from yoke_harness.test_machine_types import HostActionResult
 
 
@@ -32,12 +34,6 @@ FAILED_ERROR_CODE = "baseline_probe_failed"
 BRIDGE_CALL_RAISED_CAUSE = "bridge_call_raised"
 BRIDGE_CALL_RAISED_REASON = "the GUI-session bridge could not be called at all"
 BRIDGE_UNDELIVERED_CAUSE = "macos_gui_session_context_unavailable"
-NOT_SIGNED_IN_CAUSE = "probe_reported_not_signed_in"
-NOT_SIGNED_IN_REASON = "the probe ran and its program did not report itself signed in"
-NOT_SIGNED_IN_RECOVERY = (
-    "recapture the golden from a session where the program is signed in, or "
-    "correct the probe argv or expectation in the document beside the golden"
-)
 _RECOVERY_BY_CAUSE = {
     BRIDGE_CALL_RAISED_CAUSE: (
         "check SSH reachability and Terminal.app control on the host, then "
@@ -56,8 +52,9 @@ _RECOVERY_BY_CAUSE = {
         "window-server context"
     ),
     "macos_login_keychain_context_unavailable": (
-        "recapture the golden from a login session where the program is "
-        "signed in; its credential is present but not readable here"
+        "unlock the login keychain and sign the program in again from the "
+        "logged-in GUI session, then retry; the login stays live through "
+        "resets, so no recapture is needed"
     ),
 }
 
@@ -138,21 +135,22 @@ def _failed_row(
     probe: BaselineProbe,
     *,
     exit_code: int | None,
-    expectation_met: bool,
-    cause: str,
-    reason: str,
+    expectation_met: bool | None,
+    failure: dict[str, str],
 ) -> dict[str, Any]:
-    """Record one failure as a cause an operator can act on."""
+    """Record one failure as a named cause with its recovery."""
     return {
         "name": probe.name,
         "ok": False,
         "exit_code": exit_code,
         "expectation_met": expectation_met,
         "outcome": "failed",
-        "cause": cause,
-        "reason": reason,
-        "recovery": _RECOVERY_BY_CAUSE.get(cause, NOT_SIGNED_IN_RECOVERY),
+        **failure,
     }
+
+
+def _bridge_failure(cause: str, reason: str) -> dict[str, str]:
+    return {"cause": cause, "reason": reason, "recovery": _RECOVERY_BY_CAUSE[cause]}
 
 
 def run_baseline_probes(
@@ -180,9 +178,10 @@ def run_baseline_probes(
                 _failed_row(
                     probe,
                     exit_code=None,
-                    expectation_met=False,
-                    cause=BRIDGE_CALL_RAISED_CAUSE,
-                    reason=BRIDGE_CALL_RAISED_REASON,
+                    expectation_met=None,
+                    failure=_bridge_failure(
+                        BRIDGE_CALL_RAISED_CAUSE, BRIDGE_CALL_RAISED_REASON
+                    ),
                 )
             )
             if not classify_gui_failures:
@@ -203,12 +202,14 @@ def run_baseline_probes(
             return HostActionResult(False, evidence, NO_VERDICT_ERROR_CODE)
         exit_code = int(result.returncode)
         expectation = probe.expect_output_contains
-        matched = expectation is None or expectation in "\n".join(
-            (result.stdout or "", result.stderr or "")
-        )
+        stdout, stderr = result.stdout or "", result.stderr or ""
+        # Nothing expected is not an expectation met: it is reported as None.
+        matched: bool | None = None
         if request:
-            matched = request.answered(result.stdout or "")
-        if exit_code == 0 and matched:
+            matched = request.answered(stdout)
+        elif expectation is not None:
+            matched = expectation in "\n".join((stdout, stderr))
+        if exit_code == 0 and matched is not False:
             rows.append(
                 {
                     "name": probe.name,
@@ -224,37 +225,28 @@ def run_baseline_probes(
             if classify_gui_failures
             else None
         )
-        cause, reason = (
-            (NOT_SIGNED_IN_CAUSE, NOT_SIGNED_IN_REASON)
-            if classified is None
-            else (classified.error_code, classified.reason)
+        failure = (
+            _bridge_failure(classified.error_code, classified.reason)
+            if classified is not None
+            else standard_probe_failure(probe.name, exit_code)
+            or classify_declared_failure(
+                probe.name, exit_code, request=request, stdout=stdout, stderr=stderr
+            )
         )
         rows.append(
             _failed_row(
-                probe,
-                exit_code=exit_code,
-                expectation_met=matched,
-                cause=cause,
-                reason=reason,
+                probe, exit_code=exit_code, expectation_met=matched, failure=failure
             )
         )
-        if request and classified is None:
-            rows[-1].update(
-                request.failure_evidence(result.stdout or "", result.stderr or "")
-            )
-        from yoke_harness.standard_baseline_probes import standard_probe_recovery
-
-        recovery = standard_probe_recovery(probe.name)
-        if recovery and classified is None:
-            rows[-1].update(
-                reason=f"{probe.name} failed. {recovery}", recovery=recovery
-            )
-        message = rows[-1]["reason"]
         return HostActionResult(
             False,
-            {"probes": rows, "reason": message, "recovery": rows[-1]["recovery"]},
+            {
+                "probes": rows,
+                "reason": failure["reason"],
+                "recovery": failure["recovery"],
+            },
             NO_VERDICT_ERROR_CODE
-            if cause == BRIDGE_UNDELIVERED_CAUSE
+            if failure["cause"] == BRIDGE_UNDELIVERED_CAUSE
             else FAILED_ERROR_CODE,
         )
     return HostActionResult(True, {"probes": rows})

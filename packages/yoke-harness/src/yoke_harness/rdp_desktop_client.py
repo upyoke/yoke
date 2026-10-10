@@ -19,6 +19,15 @@ CLIENT_RECOVERY = "Install FreeRDP's sdl-freerdp on the executing workstation (m
 # FreeRDP SDL reports CONN_FAILED on local quit when its event-handle check
 # observes cancellation. Never accept that code without the client evidence.
 LOCAL_QUIT_CODES = {131, 145}
+# Logical window bounds; Retina uses two framebuffer pixels per logical pixel.
+INITIAL_WINDOW_BOUNDS = (1280, 800)
+MAC_WINDOW_SCALE = 2
+
+
+def _window_geometry(width, height):
+    factor = min(1, INITIAL_WINDOW_BOUNDS[0] / width, INITIAL_WINDOW_BOUNDS[1] / height)
+    density = MAC_WINDOW_SCALE if sys.platform == "darwin" else 1
+    return round(width * factor * density), round(height * factor * density)
 
 
 def _capture_output(source, destination, password, evidence):
@@ -88,6 +97,7 @@ def view_desktop(project, machine, settings, password, receipt, run):
         )
     with desktop_forward(project, settings) as (host, port, user):
         authority = f"[{host}]" if ":" in host else host
+        window_width, window_height = _window_geometry(width, height)
         argv = [
             executable,
             f"/v:{authority}:{port}",
@@ -97,7 +107,10 @@ def view_desktop(project, machine, settings, password, receipt, run):
             "/cert:tofu",
             "/log-level:INFO",
             "/timeout:15000",
-            f"/size:{width}x{height}",
+            # SDL retains /size as local window dimensions and negotiates the
+            # smart-sizing dimensions remotely. Keep the existing XFCE size.
+            f"/size:{window_width}x{window_height}",
+            f"/smart-sizing:{width}x{height}",
             f"/bpp:{depth}",
             f"/t:Yoke desktop: {machine}",
         ]

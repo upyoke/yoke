@@ -224,21 +224,17 @@ export interface UniverseAppOptions {
    * matching nav entry.
    */
   readonly sections?: UniverseViewSections;
-  /**
-   * Who the viewer is acting as. Authenticated hosts supply their actor;
-   * the local server supplies its resolved operator when one is known.
-   */
+  /** The viewer's actor: an authenticated host's, or the local server's resolved operator. */
   readonly currentActor?: UniverseActor;
-  /**
-   * Canonical runtime-identity packet. Hosts that already derived display
-   * fields may omit this, but the local and hosted shells pass it so the
-   * footer detail surface can show install/build/mode facts.
-   */
+  /** Canonical runtime-identity packet; the local and hosted shells pass it so the
+   * footer detail surface can show install/build/mode facts. */
   readonly runtimeIdentity?: UniverseRuntimeIdentity;
   /** Primary version text shown in the footer. */
   readonly versionLabel?: string;
   /** Environment / portability label shown beside the brand mark. */
   readonly environmentLabel?: string;
+  /** Page-view collector; default `/api/events`. A hosted mount names its own org's. */
+  readonly eventsEndpoint?: string;
 }
 
 export interface UniverseAppMount {

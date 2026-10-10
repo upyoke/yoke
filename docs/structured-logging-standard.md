@@ -119,7 +119,7 @@ every Yoke API and workbench) and the Pack reference collector
 contract is the HTTP status plus the `error` name; `recovery` text is advice
 and differs between the two implementations. Limits come from
 `attribution_rules.json` `limits`. The [Pack collector
-contract](../packs/structured-events/versions/4.1.0/files/events/README.md)
+contract](../packs/structured-events/versions/4.4.0/files/events/README.md)
 covers consuming-project wiring, delivery retries and attribution.
 
 **GET /api/events/config** returns `{"publishableKey": "..."}` with
@@ -156,17 +156,23 @@ Admission rules (both collectors):
 - `event_id`, `event_name`, `event_kind`, `event_type`, `event_time`,
   `session_id`: required non-empty strings. The engine also requires
   `event_id` to parse as a UUID; `event_time` must parse as an ISO 8601
-  timestamp.
+  timestamp, and requires non-empty `service` and `project` strings, which it
+  stores as sent (the row still indexes as global, never as that project).
 - `source_type` must be `frontend` and `event_kind` must be `analytics`;
   this route never admits backend, audit or security events.
-- `page_url` and `referrer`: string or `null`; both are sanitized server-side
-  (secrets and fragments stripped).
+- `page_url`, `referrer` and `page_path`: string or `null`; all three are
+  sanitized server-side from the same `attribution_rules.json` the browser
+  uses. Sensitive query keys (such as `token` and the device-login
+  `user_code`), userinfo and fragments are stripped, and
+  `/machine-approval/<code>` is stored as `/machine-approval/redacted`.
 - Each envelope at most 64 KB serialized (`limits.envelope_bytes`); the whole
   request at most 512 KB (`limits.request_bytes`).
 - Identity is stamped server-side: client `org_id` and `actor_id` are ignored.
-  The engine stamps the collector org and, when a web-session cookie (or a
-  verified `Authorization` bearer) is present, its actor; otherwise the event
-  is anonymous.
+  The engine stamps the collector org, its serving environment
+  (`YOKE_ENVIRONMENT`) and, when a web-session cookie, a verified
+  `Authorization` bearer, or the Local view's per-run token is present, the
+  viewer's actor; otherwise the event is anonymous and carries only its
+  `visitor_id`.
 - Dedupe is silent: a repeated `event_id` is dropped by the sink
   (`ON CONFLICT (event_id) DO NOTHING`) and still counts as accepted.
 
@@ -209,8 +215,42 @@ project that exposes its own authenticated ingestion owns that contract.
 
 Frontend emission and attribution capture run from first load with no consent
 state, so collect only non-personal data. Every frontend event attaches
-attribution when capture succeeds. Required signup facts belong to the durable
-account/actor owner, never only to events.
+attribution when capture succeeds. `PageViewed` follows the path: a single-page
+app emits one view per path change, and a query-only or fragment-only change
+(filters, the app's own URL rewrites) emits none. Required signup facts belong
+to the durable account/actor owner, never only to events.
+Each sign-in links the browser's visitor_id to its actor; page views join to
+actors through that link list at query time ([Section E](structured-logging-standard/marketing-attribution.md#visitor-links-tying-page-views-to-actors)).
+
+**Frontend event time.** The collector stamps each accepted frontend event
+with its own receipt time: `created_at` is the server receipt time, so ordering
+and time-based reports never trust a browser clock. The envelope keeps the
+client `event_time` as the client's claim beside `received_at` and
+`client_time_offset_seconds` (`event_time` minus receipt; negative when the
+event was queued or the client clock runs behind). Beyond 300 seconds either
+way the row carries `anomaly_flags = 'client_time_skew'`; it is still accepted.
+Rows written before receipt stamping keep `created_at = event_time`.
+
+**Collector refusals.** Every refusal from `/api/events`, `/api/events/config`,
+`/api/events/attribution` and its hand-off routes (for example
+`origin_not_allowed`, `publishable_key_invalid`, `rate_limited`,
+`payload_too_large`, `attribution_handoff_replayed`) also writes one
+`FrontendCollectorRefused` event (`source_type = 'backend'`,
+`event_kind = 'system'`, severity WARN, `event_outcome` = the reason) with
+`context.detail` holding reason, status, route, the truncated Origin and the
+serving host — never a request body, cookie, key or client address. At most one
+row per reason, status and route per minute is written, so a flood cannot grow
+`events` without bound; repeats inside that minute are not counted. The record
+is disposable diagnostics: nothing operational reads it, and a failed write
+logs `collector_refusal_record_failed` while the caller still receives its
+refusal. Each install records its own refusals in its own `events` table.
+Collector rows belong to the organization, not a project (`project_id` is
+NULL), so project-scoped `yoke events query` does not return them; read recent
+refusals with the read-only diagnostic surface:
+
+```bash
+yoke db read "SELECT created_at, event_outcome, envelope::jsonb -> 'context' -> 'detail' AS detail FROM events WHERE event_name = 'FrontendCollectorRefused' ORDER BY created_at DESC LIMIT 20"
+```
 
 ### Envelope Size Limits
 

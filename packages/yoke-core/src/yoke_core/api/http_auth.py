@@ -42,12 +42,15 @@ AUTH_STATE_ATTR = "yoke_auth"
 # construction: they are how a browser acquires a credential.
 OIDC_START_PATH = "/v1/auth/oidc/start"
 OIDC_CALLBACK_PATH = "/v1/auth/oidc/callback"
+#: Ends this browser's own web session; its cookie is the only credential.
+SIGN_OUT_PATH = "/v1/auth/sign-out"
 
 PUBLIC_PATHS = frozenset(
     {
         "/v1/health",
         OIDC_START_PATH,
         OIDC_CALLBACK_PATH,
+        SIGN_OUT_PATH,
         BROWSER_SIGN_IN_REDEEM_PATH,
         START_PATH,
         POLL_PATH,
@@ -287,6 +290,7 @@ __all__ = [
     "HttpAuthContext",
     "OIDC_CALLBACK_PATH",
     "OIDC_START_PATH",
+    "SIGN_OUT_PATH",
     "auth_error_response",
     "authenticate_request",
     "bind_actor_from_auth",

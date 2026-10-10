@@ -88,21 +88,27 @@ Frontend-specific fields for page/view events.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `page_url` | TEXT | Yes (for page events) | URL with sensitive query parameters, userinfo and fragment stripped. |
-| `page_path` | TEXT | Yes (for page events) | URL path without query string or domain. |
+| `page_url` | TEXT | Yes (for page events) | URL with sensitive query parameters (including `user_code`), userinfo and fragment stripped, and sensitive path segments masked. |
+| `page_path` | TEXT | Yes (for page events) | URL path without query string or domain; `/machine-approval/<code>` is stored as `/machine-approval/redacted`. A new page view is emitted only when this path changes. |
 | `page_title` | TEXT | No | Document title. |
-| `referrer` | TEXT | No | Full referrer URL (from `document.referrer`). |
+| `referrer` | TEXT | No | Referrer URL (from `document.referrer`), sanitized like `page_url`. |
 
 ### device_props
 
-Frontend-specific fields for device/browser context.
+Frontend fields for browser and device context. The browser sends only
+`user_agent` and `is_bot`. The collector derives the rest from the request
+headers and overwrites any emitter value: it parses User-Agent (ua-parser in
+Python, Bowser in TypeScript) and applies the `Sec-CH-UA-Platform` and
+`Sec-CH-UA-Mobile` Client Hints when sent. Viewport size never decides device type.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `user_agent` | TEXT | No | Raw User-Agent string. |
-| `browser` | TEXT | No | Parsed browser name and version. E.g., `Chrome 120`. |
-| `os` | TEXT | No | Parsed OS. E.g., `macOS 14.2`, `Windows 11`. |
-| `device_type` | TEXT | No | `desktop`, `mobile`, `tablet`. |
+| `user_agent` | TEXT | No | Raw User-Agent string from the browser. |
+| `is_bot` | BOOLEAN | No | Collector-computed from the request User-Agent. |
+| `browser` | TEXT | No | Collector-parsed browser name, as the parser names it. E.g., `Chrome`, `Mobile Safari`, `Electron`. |
+| `browser_version` | TEXT | No | Collector-parsed browser version. E.g., `141.0.0.0`. |
+| `os` | TEXT | No | `Sec-CH-UA-Platform` when sent, else the parsed OS name. E.g., `macOS`, `Windows`, `Android`, `iOS`. |
+| `device_type` | TEXT | No | `mobile` when `Sec-CH-UA-Mobile` is `?1`; otherwise the parser's `tablet` or `mobile` classification, else `desktop`. Null when the request has no User-Agent. |
 
 ### marketing_attribution_props
 
@@ -117,6 +123,6 @@ Included on every frontend event when server capture succeeds. Required signup f
 Each touch contains the five classic UTMs, utm_id, utm_source_platform, gclid,
 fbclid, msclkid, li_fat_id, referrer_domain, acquisition_channel and captured_at.
 Values are nullable except channel and time. See [attribution](marketing-attribution.md)
-for rules and server storage. Device props also include is_bot from user agent.
+for rules and server storage.
 
 ---

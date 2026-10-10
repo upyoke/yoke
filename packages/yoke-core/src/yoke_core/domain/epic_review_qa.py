@@ -32,6 +32,7 @@ from yoke_core.domain.simulation_report_headers import (
     parse_simulation_headers,
 )
 from yoke_core.domain.simulation_attempt_read import verify_simulation_attempt
+from yoke_core.domain.sql_json import json_get
 from yoke_core.domain.qa_workflow_binding_validation import (
     item_transition_for_gate,
 )
@@ -198,6 +199,7 @@ def simulation_upsert(
     body: str,
     *,
     scripts_dir: Optional[str] = None,
+    head_sha: Optional[str] = None,
 ) -> SimulationReceipt:
     """Retain and verify one simulation attempt after validating its public identity."""
     public_ref = render_item_ref(conn, int(epic_id))
@@ -212,14 +214,14 @@ def simulation_upsert(
     )
 
     # Check for existing requirement
-    # deliberate case-sensitive match against internal JSON-literal phase token
     row = query_one(
         conn,
         (
             "SELECT id FROM qa_requirements WHERE qa_kind='simulation' "
-            f"AND item_id={_placeholder(conn)} AND success_policy LIKE {_placeholder(conn)}"
+            f"AND item_id={_placeholder(conn)} "
+            f"AND {json_get('success_policy', '$.phase')} = {_placeholder(conn)}"
         ),
-        (str(epic_id), f'%"phase":"{phase}"%'),
+        (str(epic_id), phase),
     )
 
     if row:
@@ -254,18 +256,23 @@ def simulation_upsert(
                 "Inspect the named refusal and simulation-get before retrying."
             ) from exc
 
+    diagnostic = io.StringIO()
     try:
-        run_id = _qa_run_add(
-            requirement_id=int(req_id),
-            performed_by="agent",
-            qa_kind="simulation",
-            verdict=verdict,
-            verdict_reason=verdict_reason,
-            raw_result=raw_result,
-        )
+        with contextlib.redirect_stderr(diagnostic):
+            run_id = _qa_run_add(
+                requirement_id=int(req_id),
+                performed_by="agent",
+                qa_kind="simulation",
+                verdict=verdict,
+                verdict_reason=verdict_reason,
+                raw_result=raw_result,
+                **({"head_sha": head_sha} if head_sha else {}),
+            )
     except SystemExit as exc:
         raise RuntimeError(
-            f"Error creating run: qa run-add exited with {exc.code}"
+            "simulation_run_create_failed: "
+            f"{diagnostic.getvalue().strip() or f'QA run creation exited {exc.code}'}. "
+            f"Requirement {req_id}; inspect simulation-get before retrying."
         ) from exc
 
     receipt = SimulationReceipt(public_ref, phase, int(req_id), int(run_id), result)

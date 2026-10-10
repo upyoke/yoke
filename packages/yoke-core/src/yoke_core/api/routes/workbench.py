@@ -30,6 +30,7 @@ from yoke_contracts.machine_authorization import (
     approval_return_path,
 )
 from yoke_contracts.runtime_identity import PORTABILITY_SELFHOST, SERVED_BUILD_PATH
+from yoke_core.api.http_auth import SIGN_OUT_PATH
 from yoke_core.api.routes.web_sign_in import signed_out_page
 from yoke_core.api.web_session_auth import (
     WEB_SESSION_FUNCTION_CALL_PATH,
@@ -50,9 +51,13 @@ _ASSET_PREFIX = "/assets/"
 _API_PREFIX = "/v1/"
 
 #: The self-hosted host's capabilities. A browser is not a machine, so this
-#: host asserts no onboarding machine fact; the engine answers it.
+#: host asserts no onboarding machine fact; the engine answers it. The
+#: browser's web session ends at ``signOutPath`` (Profile's Sign out).
 _SELF_HOST_CAPABILITIES = {
-    "data": {"portability": {"mode": "self-host", "sectionOwned": False}},
+    "data": {
+        "portability": {"mode": "self-host", "sectionOwned": False},
+        "session": {"signOutPath": SIGN_OUT_PATH},
+    },
 }
 
 

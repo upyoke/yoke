@@ -8,11 +8,14 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_harness import ssh_mac_golden_capture
+from yoke_harness.baseline_probe_failure_causes import PROBE_EXIT_CODES
 from yoke_harness.ssh_host_baselines import SshHostBaselines
 from yoke_harness.ssh_mac_baseline_probes import prove_declared_probes
 from yoke_harness.ssh_mac_host_session_state import SCREEN_SAVER_READ_COMMAND
 from yoke_harness.standard_baseline_probes import standard_probes
 from yoke_harness.test_machine_types import HostActionResult
+
+CHECK_UNMET_EXIT = PROBE_EXIT_CODES["probe_check_unmet"]
 
 
 def _saver_program():
@@ -38,7 +41,8 @@ def test_screen_saver_assertion_reads_current_host_without_writing(
     monkeypatch.setattr(subprocess, "run", run)
     with pytest.raises(SystemExit) as result:
         exec(compile(_saver_program(), "screen-saver-probe", "exec"), {})
-    assert result.value.code == (0 if exit_code == 0 and value.strip() == "0" else 1)
+    passes = exit_code == 0 and value.strip() == "0"
+    assert result.value.code == (0 if passes else CHECK_UNMET_EXIT)
     assert calls == [shlex.split("/usr/bin/" + SCREEN_SAVER_READ_COMMAND)]
     assert capsys.readouterr() == ("", "")
 
@@ -74,7 +78,7 @@ def test_capture_seals_screen_saver_check_and_reset_replays_it(
             code = 0
             if argv[2] == program:
                 contexts.append((state["reset"], kwargs["required_session_context"]))
-                code = 0 if state["idle"] == 0 else 1
+                code = 0 if state["idle"] == 0 else CHECK_UNMET_EXIT
             return SimpleNamespace(returncode=code, stdout="", stderr="")
 
         def read_remote_text(self, path):

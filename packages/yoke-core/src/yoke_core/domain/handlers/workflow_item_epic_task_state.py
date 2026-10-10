@@ -63,6 +63,7 @@ class UpdateStatusResponse(BaseModel):
 
 
 class SimulationUpsertRequest(BaseModel):
+    head_sha: Optional[str] = None
     phase: str = Field(..., min_length=1)
     body: str
 
@@ -203,6 +204,7 @@ def handle_simulation_upsert(request: FunctionCallRequest) -> HandlerOutcome:
                 str(epic_id),
                 payload.phase,
                 payload.body,
+                **({"head_sha": payload.head_sha} if payload.head_sha else {}),
             )
         except (SimulationReportError, SimulationReadbackError) as exc:
             return HandlerOutcome(

@@ -57,6 +57,14 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+    candidate = json.loads(os.environ.get("YOKE_QA_CANDIDATE_TREE", "{}"))
+    head_sha = candidate.get("head_sha")
+    if not head_sha:
+        print(
+            "simulation_proof_candidate_missing: run in candidate-bound deployment QA.",
+            file=sys.stderr,
+        )
+        return 1
     fixture = None
     original_mode = envelope("sessions", "identity")["mode"]
     try:
@@ -107,6 +115,8 @@ def main() -> int:
             "--phase",
             "plan",
             "--stdin",
+            "--head-sha",
+            head_sha,
         )
         output = run(*command, body=body).strip()
         match = re.fullmatch(

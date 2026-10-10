@@ -40,6 +40,13 @@ stdin, and owns the SSH forward until the viewer closes. It does not write a
 password file or put the password in the client arguments. Personal sign-in is
 performed by the operator in the visible desktop.
 
+The resizable viewer scales the shared desktop to fit its window. The initial
+window fits within 1280 by 800 logical pixels, with a doubled framebuffer on
+macOS for Retina readability. Resizing the window changes only the local view;
+the measured remote XFCE geometry stays unchanged. FreeRDP SDL uses the
+`/smart-sizing` dimensions for the remote desktop and `/size` for the initial
+local window; see its [window setup](https://github.com/FreeRDP/FreeRDP/blob/3.32.1/client/SDL/SDL3/sdl_context.cpp).
+
 On macOS, the FreeRDP SDL client uses OpenGL rendering. Continuous remote updates
 can keep its default Metal renderer waiting for drawables inside the update loop,
 starving Cocoa input processing. The selection applies only to this child
