@@ -8,6 +8,8 @@ snapshot-builder tests in ``test_path_snapshots.py``.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 
 from yoke_core.domain import path_registry
@@ -25,7 +27,7 @@ from yoke_core.domain.schema_init_tables import (
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
-NOW = "2026-04-29T00:00:00Z"
+NOW = datetime(2026, 4, 29, tzinfo=timezone.utc)
 
 
 def _p(conn) -> str:
@@ -97,7 +99,7 @@ def test_bulk_snapshot_resolution_preserves_reappearance_generation(
             (ROOT_PATH_SENTINEL, KIND_DIRECTORY),
             ("x.py", KIND_FILE),
         ],
-        now_iso=NOW,
+        observed_at=NOW,
     ).target_ids["x.py"]
     _snapshot(fresh_db, "sha1", present=(first,))
     _snapshot(fresh_db, "sha2")
@@ -109,7 +111,7 @@ def test_bulk_snapshot_resolution_preserves_reappearance_generation(
             (ROOT_PATH_SENTINEL, KIND_DIRECTORY),
             ("x.py", KIND_FILE),
         ],
-        now_iso=NOW,
+        observed_at=NOW,
     ).target_ids["x.py"]
 
     assert second != first

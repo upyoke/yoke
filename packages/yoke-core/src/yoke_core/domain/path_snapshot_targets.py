@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from yoke_contracts.timestamps import parse_instant
-from yoke_core.domain.db_helpers import instant_parameter
+from yoke_contracts.timestamps import as_utc
 
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
@@ -155,7 +154,7 @@ def resolve_snapshot_target_ids(
     *,
     project_id: int,
     targets: Sequence[Tuple[str, str]],
-    now_iso: datetime | str,
+    observed_at: datetime,
 ) -> SnapshotTargetResolution:
     """Resolve or mint target ids for a whole snapshot in bulk.
 
@@ -172,6 +171,7 @@ def resolve_snapshot_target_ids(
     back-references (each child mint needs its parent's freshly minted
     id from earlier in the walk).
     """
+    observed_at = as_utc(observed_at)
     latest_by_path = _latest_targets_by_path(
         conn,
         project_id=project_id,
@@ -209,7 +209,7 @@ def resolve_snapshot_target_ids(
             kind,
             parent_id,
             1 if latest is None else latest.generation + 1,
-            instant_parameter(conn, parse_instant(now_iso)),
+            observed_at,
         )
     return SnapshotTargetResolution(
         target_ids=target_ids,

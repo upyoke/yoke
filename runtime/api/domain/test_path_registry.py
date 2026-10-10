@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from datetime import datetime, timezone
+
 import pytest
 
 from yoke_core.domain import path_registry, path_snapshots
@@ -32,7 +34,7 @@ from yoke_core.domain.schema_init_tables import (
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
-NOW = "2026-04-29T00:00:00Z"
+NOW = datetime(2026, 4, 29, tzinfo=timezone.utc)
 
 
 def _p(conn) -> str:

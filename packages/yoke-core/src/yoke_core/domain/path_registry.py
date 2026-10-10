@@ -51,7 +51,11 @@ workflow or operator truth.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Iterable, List, Optional, Tuple
+
+from yoke_contracts.timestamps import as_utc
+from yoke_core.domain.db_helpers import instant_parameter
 
 from yoke_contracts.path_snapshot import (
     KIND_DIRECTORY,
@@ -122,9 +126,7 @@ def target_at(
     return int(row[0])
 
 
-def ancestors_of(
-    conn: Any, target_id: int
-) -> List[int]:
+def ancestors_of(conn: Any, target_id: int) -> List[int]:
     """Return every ancestor target id walking up ``parent_target_id``,
     nearest-first.  The target itself is not included; the chain ends
     at the root sentinel (``parent_target_id IS NULL``).
@@ -147,9 +149,7 @@ def ancestors_of(
     return [int(r[0]) for r in rows]
 
 
-def descendants_of(
-    conn: Any, target_id: int
-) -> List[int]:
+def descendants_of(conn: Any, target_id: int) -> List[int]:
     """Return every descendant target id reachable through
     ``parent_target_id`` traversal.  The target itself is not included.
     """
@@ -225,7 +225,7 @@ def _mint_target(
     kind: str,
     parent_target_id: Optional[int],
     generation: int,
-    now_iso: str,
+    created_at: datetime,
 ) -> int:
     p = _p(conn)
     cur = conn.execute(
@@ -239,7 +239,7 @@ def _mint_target(
             path_string,
             generation,
             parent_target_id,
-            now_iso,
+            instant_parameter(conn, created_at),
         ),
     )
     return int(cur.fetchone()[0])
@@ -251,7 +251,7 @@ def _resolve_path_target_id(
     path_string: str,
     kind: str,
     parent_target_id: Optional[int],
-    now_iso: str,
+    created_at: datetime,
 ) -> int:
     """Find or mint the active path_target for ``path_string`` per C4.
 
@@ -265,6 +265,7 @@ def _resolve_path_target_id(
     very first scan (no snapshots yet) the trajectory is degenerate
     and the existing row is reused.
     """
+    created_at = as_utc(created_at)
     latest = _latest_target_for_path(conn, project_id, path_string)
     if latest is None:
         return _mint_target(
@@ -274,7 +275,7 @@ def _resolve_path_target_id(
             kind,
             parent_target_id,
             1,
-            now_iso,
+            created_at,
         )
     target_id, generation, latest_kind, latest_parent_id = latest
     if latest_kind != kind or latest_parent_id != parent_target_id:
@@ -285,7 +286,7 @@ def _resolve_path_target_id(
             kind,
             parent_target_id,
             generation + 1,
-            now_iso,
+            created_at,
         )
     if _disappearance_observed(conn, project_id, target_id):
         return _mint_target(
@@ -295,7 +296,7 @@ def _resolve_path_target_id(
             kind,
             parent_target_id,
             generation + 1,
-            now_iso,
+            created_at,
         )
     return target_id
 

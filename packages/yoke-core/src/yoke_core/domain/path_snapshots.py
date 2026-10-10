@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
-from yoke_contracts.timestamps import utc_now as _utc_now_iso
+from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 from pathlib import Path
 from typing import Any, List, Optional
@@ -116,7 +116,7 @@ def _materialize_snapshot(
     mint+entries+materialize in one transaction; rolls back any write failure.
     """
     targets = _all_paths_with_kinds(files)
-    now_iso = instant_parameter(conn, _utc_now_iso())
+    observed_at = utc_now()
     p = _p(conn)
 
     try:
@@ -145,13 +145,13 @@ def _materialize_snapshot(
             conn,
             project_id=project_id,
             targets=targets,
-            now_iso=now_iso,
+            observed_at=observed_at,
         )
 
         cur = conn.execute(
             "INSERT INTO path_snapshots "
             f"(project_id, commit_sha, built_at) VALUES ({p}, {p}, {p}) RETURNING id",
-            (project_id, commit_sha, now_iso),
+            (project_id, commit_sha, instant_parameter(conn, observed_at)),
         )
         snapshot_id = int(cur.fetchone()[0])
         write_entries(
