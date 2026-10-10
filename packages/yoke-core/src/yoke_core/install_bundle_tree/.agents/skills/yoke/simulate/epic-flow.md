@@ -1,147 +1,79 @@
-# Simulate Phase: Epic Simulation Flow
+# Simulate — epic flow
 
-This phase owns per-epic simulation before any optional auto-fix loop.
+## Resolve phase and context
 
-## 1. Verify The Epic Exists
+Read the complete public ref and pinned definition. No tasks means
+task_graph_missing: restore the graph through that definition's authoring
+binding and [shared handoff recipe](../shared/stage-handoff.md), then retry.
 
-Read `yoke epic-tasks list --epic "{epic-ref}"` once for task count and statuses. No rows: report `task_graph_missing` and stop simulation.
-Read `yoke items detail get {epic-ref} --json` to resolve the item's pin, then
-restore its task graph through the definition's authoring binding before
-retrying. Render any re-entry command through
-[the shared handoff recipe](../shared/stage-handoff.md).
-
-## 2. Auto-Detect Simulation Phase
-
-Use the task statuses already read in step 1.
-
-- If all tasks have status `planning` or `planned` -> **Plan simulation**
-- If all tasks have status `completed` or `merged` -> **Integration simulation**
-- If `--force-integration` is present -> **Integration simulation** regardless of task state
-- Otherwise -> report current task states and stop with guidance to wait or use `--force-integration`
-
-## 3. Gather Context For The Simulator
-
-Keep the complete public `{epic-ref}` in every read and request.
-
-### Plan simulation context
-
-- Read structured fields:
- ```bash
- yoke items get "{epic-ref}" spec
- yoke items get "{epic-ref}" technical_plan
- yoke items get "{epic-ref}" worktree_plan
- ```
-- Read all task content:
- ```bash
- yoke workflow-item epic-task body-get --epic "{epic-ref}" --task-num "{task_num}"
- ```
-
-### Integration simulation context
-
-Read all of the above, plus:
-- Task statuses from `yoke epic-tasks list`
-- Worktree authorities from `epic_tasks` and `epic_dispatch_chains`: `task_num`, branch/worktree, and `worktree_path`
-- Reviews from `yoke workflow-item epic-task review-get`
-- Incomplete-task exclusions if `--force-integration`
-
-Integration mode defaults to compressed two-phase mode unless `sim_force_standard_integration=true` in config:
-
-```bash
-_force_standard=$(python3 -m yoke_core.domain.runtime_settings get sim_force_standard_integration false)
+```text
+yoke epic-tasks list --epic {epic-ref} --json
+yoke items detail get {epic-ref} --json
 ```
 
-A true override selects standard mode; otherwise use compressed mode.
+All planning/planned → plan; all completed/merged → integration. Otherwise
+report actual states and wait. --force-integration permits integration only
+with explicit incomplete-task exclusions in the prompt and resulting report.
 
-Compute and log the scope estimate for observability:
+Gather full parent spec, technical/worktree plans and every task body.
+Integration also needs statuses, reviews and registered task/chain lane,
+branch and worktree_path. Actual task lanes are code authority in one lane or
+many; main is the base/merge target. Missing lane/diff is missing evidence.
 
-```bash
+```text
+yoke items get {epic-ref} spec
+yoke items get {epic-ref} technical_plan
+yoke items get {epic-ref} worktree_plan
+yoke workflow-item epic-task body-get --epic {epic-ref} --task-num {task_num}
+yoke workflow-item epic-task review-get --epic {epic-ref} --task-num {task_num}
+```
+
+Integration defaults to compressed unless sim_force_standard_integration=true.
+Log scope bytes for bodies/reviews/spec/plans/diff stats plus configured
+preflight thresholds; these are observations, not a mode-selection gate.
+
+```text
+_force_standard=$(python3 -m yoke_core.domain.runtime_settings get sim_force_standard_integration false)
 _pflight_tasks=$(python3 -m yoke_core.domain.runtime_settings get sim_preflight_task_threshold 8)
 _pflight_kb=$(python3 -m yoke_core.domain.runtime_settings get sim_preflight_size_kb 20)
 ```
 
-Include task bodies, reviews, spec, plan, and diff stat sizes in the log line.
+Compressed bundle: task interfaces, explicit shim exports, lane authorities,
+file overlaps, dependency edges, change summaries, branch diff stats, reviews
+and parent-supplied commit-boundary evidence. Standard adds full diffs from
+each actual task branch. Follow [dispatch-prompts.md](dispatch-prompts.md):
+dispatch its common contract plus exactly the matching mode. Capture
+reflections through the active harness contract; do not duplicate automatic
+hook capture. Manual recovery/backfill first verifies capture was absent.
 
-### Compressed integration bundle
+## Persist once and verify
 
-When `_use_compressed=true`, build:
-- Interface contracts per task
-- Worktree authorities per task
-- File overlap matrix
-- Dependency edge list
-- Per-task change summaries
-- Diff stats per branch
-- Review summaries
-- Explicit shim re-exports and parent-supplied commit-boundary evidence under
-  [dispatch-prompts.md](dispatch-prompts.md)'s bounded verification contract
-
-### Standard integration bundle
-
-When `_use_compressed=false`, gather worktree lane authorities plus full `git diff main...{branch}` output for each worktree branch in the plan. The task worktree checkout is the authority for unmerged task state whether there is one lane or many; main is the base/integration target.
-
-## 4. Invoke The Simulator
-
-Use the canonical prompts in [dispatch-prompts.md](dispatch-prompts.md):
-- Plan simulation prompt
-- Standard integration prompt
-- Compressed integration prompt
-
-Select the prompt that matches the detected phase and `_use_compressed` mode.
-
-## 5. Capture Ouroboros Reflections
-
-The PostToolUse Agent hook parses and persists the Simulator's delimited
-reflection envelope automatically. Do not insert those entries again here.
-Manual insertion is reserved for an explicitly documented recovery or backfill
-after confirming the hook did not capture the response.
-
-## 6. Save The Gap Report To DB
-
-For direct Simulate, write the report through the registered adapter:
-
-```sh
-yoke workflow-item epic-task simulation-upsert --epic PREFIX-N --phase <phase> --stdin < <report-file>
-```
-
-For retained `caller=conduct` integration context, use the internal
-`persist_simulation` boundary already used by Conduct's simulation gate:
-
-```sh
-python3 -m yoke_core.domain.persist_simulation <epic-ref> integration < <report-file>
-```
-
-This boundary verifies the two-line `SIMULATION:` / `EPIC:` attestation,
-records integration evidence, and performs the authoritative CLEAN handoff.
-Keep the complete public ref in the report and every client request.
-Read the exit status and persisted verdict. Any failure stops with its exact
-diagnostic and recovery; exit 16/17 are identity failures, not fixable gaps.
-Write the report even when clean. Never report a local verdict as persisted
-when the write failed.
-
-## 7. Parse And Display Summary
-
-Count severity prefixes in the report:
-- `[CRITICAL]`
-- `[WARNING]`
-- `[NOTE]`
-
-Display:
+Every initial/retry report starts with SIMULATION: CLEAN or GAPS FOUND, then
+EPIC: {epic-ref}. Both direct and Conduct callers use the registered surface:
 
 ```text
-Simulation complete ({phase} phase): {X} critical, {Y} warnings, {Z} notes
-
-{if X > 0:}
-Critical gaps require resolution before proceeding.
-
-{if X == 0 and Y > 0:}
-No critical gaps. Review warnings and decide whether to fix or accept.
-
-{if X == 0 and Y == 0:}
-Clean simulation. Safe to proceed.
-
-Report stored in DB. To read: `yoke workflow-item epic-task simulation-get --epic "{epic-ref}" --phase "{phase}"`.
+yoke workflow-item epic-task simulation-upsert --epic {epic-ref} --phase {phase} --stdin --json < {REPORT_FILE}
 ```
 
-If `[CRITICAL]` or `[WARNING]` gaps remain and auto-fix is approved or
-`--auto-fix` is set, continue with [autofix-loop.md](autofix-loop.md).
-When this was a re-simulation requested by that loop, return the persisted
-report and verdict to the existing iteration instead of starting another loop.
+Capture the original write receipt. Require matching public_ref, phase and
+verdict, verified=true and positive requirement_id/run_id. Verification is
+for that exact receipt's run; an absent field, local verdict or another latest
+run cannot substitute. Persist CLEAN too. Any refusal stops with exact code/
+message, requested/attested refs and returned ids; preserve evidence and named
+recovery. Do not repeat an uncertain write or use source-private persistence.
+This receipt does not advance lifecycle or release Conduct's work claim.
+Conduct separately completes native parent QA and its pinned gated handoff.
+
+## Summary and continuation
+
+Display phase, actual CRITICAL/WARNING/NOTE counts, recommendation and receipt.
+Critical gaps require resolution; warnings need acceptance or fixes. Claim
+clean only from the verified CLEAN receipt. Read the stored report with:
+
+```text
+yoke workflow-item epic-task simulation-get --epic {epic-ref} --phase {phase}
+```
+
+Approved fixes or --auto-fix continue [autofix-loop.md](autofix-loop.md).
+A re-simulation returns its verified report/verdict to the existing iteration;
+never starts another loop or resets its budget.

@@ -23,6 +23,8 @@ def test_normalize_candidate_string_filters_paths_and_commands():
             ".split",
             ".agents",
             ", or",
+            "not found",
+            "Retry",
             ") else",
             "all Y",
         )

@@ -131,7 +131,7 @@ class TestEntryActivationTeachesFunctionCallAdapters(unittest.TestCase):
         """claim-work dispatches through ``claims.work.claim`` — it is
         the canonical work-claim acquisition adapter."""
         self.assertIn(
-            "claim-work",
+            "yoke claims work acquire",
             self.s3b,
             "S3b must teach claim-work (function id: "
             "claims.work.claim).",

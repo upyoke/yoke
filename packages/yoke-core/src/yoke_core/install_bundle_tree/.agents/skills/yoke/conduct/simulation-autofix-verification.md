@@ -1,228 +1,68 @@
-# Simulation Auto-Fix — Verification Protocol (AF10–AF19)
+# Conduct — one code-gap amend cycle
 
-Amend Cycle. Invoked from `simulation-autofix.md` after Simulate returns `AUTOFIX_CODE_GAPS`. Creates a fix task, dispatches Engineer/Tester, and re-simulates. Maximum 1 amend cycle.
+Only after Simulate returns AUTOFIX_CODE_GAPS. Maximum one amend cycle; retain
+parent/project, exact registered lane/branch, current report and max attempts.
+Latest concrete CRITICAL/WARNING code gaps are cross-checked against accumulated
+Architect classifications; no invented scope or duplicate completed work.
 
-**Inherited:** `MAIN_ROOT`, `_epic_ref`, `_item_id`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `_code_level_gaps`.
+## Create and activate the fix task
 
-**Returns:** `AUTOFIX_CLEAN` or `AUTOFIX_HALTED`.
+Parse Tasks involved forms #N/#NNN/Task N/plain numbers. Deduplicate, sort and
+zero-pad; exclude the eventual fix task itself. Unparseable source refs mean
+empty task dependency set, not guessed ids. Resolve next local task number from
+actual rows, never items.id. Task body contains description, each gap severity/
+root cause/fix/files, behavioral ACs, test plan and actual file scope/budget.
 
----
-
-### AF10. Parse Remaining Gaps
-
-Read the latest simulation report:
-```bash
-_latest_sim=$(yoke workflow-item epic-task simulation-get --epic "$_epic_ref" --phase integration)
+```text
+yoke workflow-item epic-task simulation-get --epic PREFIX-N --phase integration --json
+yoke epic-tasks list --epic PREFIX-N --json
+yoke workflow-item epic-task add --epic PREFIX-N --title "Fix integration simulation gaps" --worktree {BRANCH} --context-estimate M --dependencies {DEPENDENCIES} --body-file {TASK_FILE}
+yoke workflow-item epic-task update-status --epic PREFIX-N --task-num {FIX_TASK} --status planned
+yoke workflow-item epic-task history-insert --epic PREFIX-N --task-num {FIX_TASK} --from-status none --to-status planned --note "Created by conduct auto-fix"
+yoke workflow-item epic-task file-add --epic PREFIX-N --task-num {FIX_TASK} --file-path {FILE} --action modify
+yoke items github-sync PREFIX-N
 ```
 
-Cross-reference with `_code_level_gaps` accumulated across all Architect iterations. Filter to CRITICAL/WARNING gaps with concrete fix guidance referencing code changes.
+Sync is idempotent; only new task gets issue. Verify exact lane/chain, append
+fix task to its queue and refresh activation through registered chain writes.
+No task graph mutation outside the parent's project or lost required claims.
 
-### AF10a. Extract Dependencies from Gap Source Tasks
-
-Parse "Tasks involved" fields from all code-level gaps. Simulator outputs formats: `#7, #9`, `#007`, `Task 7`, plain `7`.
-
-```
-_dep_task_nums = empty set
-
-For each code-level gap in _code_level_gaps:
- 1. Find "Tasks involved:" line (case-insensitive).
- 2. Extract task number references (#NNN, #N, Task N, Task NNN, plain N).
- 3. Add each numeric value to _dep_task_nums.
-
-Remove duplicates from _dep_task_nums.
+```text
+yoke workflow-item epic-dispatch-chain get --epic PREFIX-N --worktree {BRANCH} --json
+yoke workflow-item epic-dispatch-chain update --epic PREFIX-N --worktree {BRANCH} --field queue --value '{UPDATED_QUEUE_JSON}'
+yoke conduct epic-task update-status --epic PREFIX-N --task-num {FIX_TASK} --status implementing --note "Dispatched by conduct auto-fix" --claim-bypass "simulation-autofix:epic-PREFIX-N"
 ```
 
-After determining `_fix_task_num` in AF11, remove self-references from `_dep_task_nums`, then format:
-```
-_fix_deps = join(sorted(zero_pad_3(n) for n in _dep_task_nums if n != _fix_task_num), ",")
-```
-If no parseable task numbers: set `_fix_deps = ""` (graceful degradation).
+The documented system-owned transition bypass is not lane write authority.
+Acquire/verify exact task claim before every Engineer/Tester and hold normal
+scope coverage. Record fix task/attempt baselines and note watermark. Render the
+shared Engineer descriptor and complete cold project/QA context; use task and
+parent spec reads, exact ref and local task number, never PREFIX-{internal_id}.
 
-### AF11. Create Fix Task
+After Engineer immediately capture reflections and run ALL normal submission
+gates, including same-attempt max20turn submit-only repair. A rescue commit is
+still a blocker. Record actual agent id and seed review only after passing.
+Merge verified current target; delegate conflicts once, unresolved→AUTOFIX_HALTED.
 
-```bash
-_max_task=$(yoke db read --format lines "SELECT MAX(task_num) FROM epic_tasks WHERE epic_id=(SELECT item_id FROM item_refs WHERE public_ref='$_epic_ref')")
-_fix_task_num=$(printf "%03d" $((_max_task + 1)))
-```
+## Tester and final simulation
 
-Remove self-references from `_dep_task_nums`, format `_fix_deps`, write the task body to a temp file, then insert through the registered epic-task add surface:
-```bash
-yoke workflow-item epic-task add --epic "$_epic_ref" \
- --title "Fix integration simulation gaps" \
- --worktree "$_worktree_branch" \
- --context-estimate "M" \
- --dependencies "$_fix_deps" \
- --body-file "$_fix_task_body_file"
-```
+Render [shared Tester](../shared/tester-dispatch-template.md) for this exact task,
+with registered lane/QA/dependencies and size-gated baseline/task/retry diffs.
+Capture artifacts/reflections and durable review. Text-only verdict requires its
+attributed native insertion/readback. Genuine FAIL records failed and returns
+AUTOFIX_HALTED: no implementation retry in this one amend cycle. No-verdict gets
+the two minimal output retries; still absent→HALTED, no synthetic amend PASS.
+PASS review-insert advances task; release only its exact task claim.
 
-Write task body (template):
-```
----
-worktree: {_worktree_branch}
-context_estimate: M
----
-# Task {_fix_task_num}: Fix integration simulation gaps
+Refresh all task/status/lane authorities for final Simulator, not main code.
+Every prompt is identity-attested, requiring SIMULATION: CLEAN/GAPS FOUND then
+EPIC: {public_ref}, using the complete public ref, never an internal id. Preserve Worktree-State Authority and actual _worktree_list.
+Use [simulation criteria](simulation-gate-criteria.md) and bounded output gate;
+persist once through simulation-upsert --json and require verified=true,
+matching identity/phase/verdict and positive requirement_id/run_id.
 
-## Description
-Auto-created by the conduct skill's simulation auto-fix flow to address code-level
-integration gaps that the Architect could not resolve at the plan level.
-
-## Gaps to Fix
-### GAP #{n}: {title}
-- **Severity:** {severity}
-- **Root cause:** {root cause from report}
-- **Fix guidance:** {fix guidance from report}
-- **Files:** {files mentioned in fix guidance}
-
-## Acceptance Criteria
-- [ ] AC-{n}: Gap #{n} is resolved with the expected behavior from the fix guidance
-
-## Test Plan
-- Run existing test suite to verify no regressions
-- Verify each gap's fix guidance is implemented correctly
-
-## Files Touched
-{derived from gap fix guidance}
-```
-
-```bash
-yoke workflow-item epic-task update-status --epic "$_epic_ref" --task-num "$_fix_task_num" --status planned
-yoke workflow-item epic-task history-insert --epic "$_epic_ref" --task-num "$_fix_task_num" \
- --from-status none --to-status planned --note "Created by conduct auto-fix (amend cycle)"
-yoke workflow-item epic-task file-add --epic "$_epic_ref" --task-num "$_fix_task_num" \
- --file-path "{file_path}" --action modify
-```
-
-### AF12. Sync Fix Task to GitHub
-
-```bash
-yoke items github-sync "$_epic_ref"
-```
-
-Already-synced tasks are skipped idempotently. Only the new fix task gets a GitHub issue created.
-
-### AF13. Update Dispatch Chain
-
-Append `_fix_task_num` to the dispatch chain queue:
-```bash
-_chain_row=$(yoke workflow-item epic-dispatch-chain get --epic "$_epic_ref" --worktree "$_worktree_branch")
-# Parse current queue JSON (field 5 of pipe-delimited row), append _fix_task_num
-yoke workflow-item epic-dispatch-chain update --epic "$_epic_ref" --worktree "$_worktree_branch" \
- --field queue --value "{updated_queue_json}"
-yoke workflow-item epic-dispatch-chain update --epic "$_epic_ref" --worktree "$_worktree_branch" \
- --field last_updated --value "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-```
-
-### AF14. Dispatch Engineer for Fix Task
-
-```bash
-# Bypass claim verification for system-owned fix task through the conduct pipeline wrapper.
-yoke conduct epic-task update-status --epic "$_epic_ref" --task-num "$_fix_task_num" \
- --status implementing --note "Dispatched by conduct auto-fix (amend cycle)" \
- --claim-bypass "simulation-autofix:epic-$_epic_ref"
-ATTEMPT_BASELINE_fix=$(git -C "${_worktree_path}" rev-parse HEAD)
-```
-
-Build context block (same pattern as `dispatch-context.md` 5f-epic.6) then dispatch:
-
-**Dispatch:** descriptor `DispatchDescriptor(role="engineer")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `---SUBMISSION-CHECKS-START---`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
-```
- Implement fix task for PREFIX-{_item_id}: Fix integration simulation gaps (amend cycle)
- {context block}
- Read the authoritative task spec from the DB before starting:
- yoke workflow-item epic-task body-get --epic "{_epic_ref}" --task-num "{_fix_task_num}"
- Also read the parent item spec for full context:
- yoke items get PREFIX-{_item_id} spec
- IMPORTANT: cd to the worktree path FIRST. Commit incrementally. Run tests before finishing.
-```
-
-### AF15. Post-Engineer Processing
-
-1. Capture Ouroboros reflections (see `dispatch-context.md` step 5m).
-2. Post-Engineer commit sweep (pattern):
- ```bash
- cd {_worktree_path} && git add -A 2>/dev/null
- if ! git diff --cached --quiet 2>/dev/null; then
- _uncommitted_count=$(git diff --cached --name-only | wc -l | tr -d ' ')
- _uncommitted_files=$(git diff --cached --name-only | tr '\n' ', ' | sed 's/,$//')
- git commit -m "chore: auto-commit Engineer uncommitted work [PREFIX-${_item_id}] (autofix)"
- yoke ouroboros entry insert \
- --agent conduct --category problem --context "PREFIX-${_item_id}" \
- --observation "Engineer left ${_uncommitted_count} uncommitted file(s) in autofix cycle. Files: ${_uncommitted_files}"
- fi
- ```
-3. Record agent ID: `yoke workflow-item epic-task metadata-update --epic "$_epic_ref" --task-num "$_fix_task_num" --fields-json '{"agent_id":"ENGINEER_AGENT_ID"}'`
-4. Seed review (auto-advances to `reviewing-implementation`): `yoke workflow-item epic-task review-seed --epic "$_epic_ref" --task-num "$_fix_task_num"`
-
-### AF16. Merge Main Before Tester
-
-```bash
-cd {_worktree_path} && git merge main --no-edit
-```
-
-If conflicts: re-dispatch Engineer to resolve. If still unresolved after re-dispatch: Return `AUTOFIX_HALTED`.
-
-### AF17. Dispatch Tester for Fix Task
-
-Render [the shared Tester template](../shared/tester-dispatch-template.md)
-for `_fix_task_num`, using its registered lane, parent/task specs, project QA
-roster, dependency context, changed files, and size-gated diffs from
-`ATTEMPT_BASELINE_fix` and main. Include exact `_epic_ref` and `_fix_task_num`
-for `review-insert`. Use the normal and minimal retry variants from that same
-template; a text verdict without the durable review is insufficient.
-
-### AF18. Process Tester Verdict
-
-1. Capture reflections (see `dispatch-context.md` step 5m).
-2. Commit Tester artifacts (see `dispatch-context.md` step 5n).
-3. Parse verdict: `yoke workflow-item epic-task review-get --epic "$_epic_ref" --task-num "$_fix_task_num"`. Fall back to text search.
-
-**If FAIL:**
-- No retry in amend cycle (safety guard).
-- ```bash
- yoke conduct epic-task update-status --epic "$_epic_ref" --task-num "$_fix_task_num" \
-  --status failed --note "Tester failed in autofix amend cycle" \
-  --claim-bypass "simulation-autofix:epic-$_epic_ref"
- ```
-- Print: `Fix task {_fix_task_num} failed testing. Amend cycle halted.`
-- Return `AUTOFIX_HALTED`.
-
-**If PASS:**
-- The `review_insert` call auto-advanced fix task to `reviewed-implementation`.
-- Proceed to AF19.
-
-**If neither found:** Enter the Tester output gate (same pattern as `engineer-tester-closeout.md` Step 9). If no verdict after `MAX_TESTER_REPROMPTS` retries, treat as FAIL and return `AUTOFIX_HALTED`.
-
-### AF19. Final Re-Simulation
-
-```bash
-_task_list=$(yoke db read --format lines \
- "SELECT task_num, title, status FROM epic_tasks WHERE epic_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') ORDER BY task_num")
-```
-
-**Dispatch:** descriptor `DispatchDescriptor(role="simulator")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `SIMULATION: CLEAN|GAPS FOUND`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
-```
- Run integration simulation for epic {_epic_ref} (PREFIX-{_item_id}).
- Repository root: {MAIN_ROOT}
- All tasks completed testing successfully including auto-created fix task {_fix_task_num}.
- This is the final re-simulation after the amend cycle.
- Trace execution paths across tasks to find any remaining integration gaps.
- IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: PREFIX-{_item_id}. Persistence rejects bodies whose attested epic does not match PREFIX-{_item_id} (exit 16) or that omit the EPIC line entirely (exit 17).
- Worktree-State Authority: a task's resolved worktree checkout is the authority for that task's actual code whether the item/epic has one worktree or many. Main is the base/integration target, not evidence of unmerged task state. Use the task's worktree_path / branch when verifying files; if no worktree path or prompt-supplied diff exists, report evidence missing instead of inspecting main as a substitute.
- Worktree authorities: {_worktree_list from simulation-gate-criteria.md, refreshed}
- Epic tasks: {_task_list}
-```
-
-Capture Ouroboros reflections (step 5m pattern).
-
-```bash
-set +e
-_verified_verdict=$(echo "{simulator_output}" | python3 -m yoke_core.domain.persist_simulation "$_epic_ref" "integration")
-_persist_rc=$?
-set -e
-```
-
-- **`_persist_rc` is 0 and `CLEAN`:** Print: `All gaps resolved after Architect fix + amend cycle.` Return `AUTOFIX_CLEAN`.
-- **`_persist_rc` is 0 and `GAPS FOUND`:** Print: `Gaps remain after full auto-fix cycle. Manual review required.` Return `AUTOFIX_HALTED`.
-- **`_persist_rc` is 16 or 17:** Print the exact epic-identity attestation diagnostic from `persist_simulation` (`wrong-epic body` or `missing-epic body`). Return `AUTOFIX_HALTED` without treating the identity failure as an ordinary gap.
-- **`_persist_rc` non-zero:** Print: `Final re-simulation persistence failed (exit code {_persist_rc}). Treating as GAPS FOUND.` Return `AUTOFIX_HALTED`.
+Final CLEAN returns AUTOFIX_CLEAN for actual parent gates/lifecycle handoff;
+remaining GAPS returns AUTOFIX_HALTED with report. Wrong-epic body/missing-epic
+body/readback refusal returns exact diagnostic without treating the identity
+failure as an ordinary gap. No repeat uncertain write, synthetic CLEAN, second
+amend cycle or source helper fallback. Restore caller mode and preserve lanes.

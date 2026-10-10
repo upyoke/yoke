@@ -26,7 +26,6 @@
 > | `update-status.sh <epic> <task> <status> [note]` | `python3 -m runtime.api.domain.update_status <epic> <task> <status> [note]` |
 > | `check-hard-blocks.sh <id> [--gate-point <p>]` | `python3 -m runtime.api.domain.check_hard_blocks <id> [--gate-point <p>]` |
 > | `check-ac-presence.sh <id>` | `python3 -m runtime.api.domain.check_ac_presence <id>` |
-> | `persist-epic-simulation.sh <epic> <phase>` | `python3 -m runtime.api.domain.persist_simulation <epic> <phase>` |
 > | `conduct-reviewed-handoff.sh <epic>` | `python3 -m runtime.api.domain.conduct_reviewed_handoff <epic>` |
 > | `bootstrap-project.sh <project>` | `python3 -m runtime.api.domain.bootstrap_project cli <project>` |
 > | `config-helper.sh get <key> [default]` | `python3 -m runtime.api.domain.runtime_settings get <key> [default]` |

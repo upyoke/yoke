@@ -1,162 +1,88 @@
-# Conduct — Simulation Gate Escalation Paths
+# Conduct — simulation result branches
 
-Invoked from `simulation-gate-criteria.md` after `_local_result` and `_verified_verdict` are set. Covers CLEAN handoff, GAPS FOUND branch selection, auto-fix invocation, and return handling.
+## Pre-Branch HALT Conditions
 
-**Inherited:** `MAIN_ROOT`, `_epic_ref`, `N`, `_worktree_path`, `_worktree_branch`, `_max_attempts`, `_project`, `_local_result`, `_verified_verdict`, `_simulation_gaps` (Simulator output).
+_epic_ref is empty, output retries exhausted, wrong-epic body, missing-epic body,
+unverified/mismatched receipt or failed readback goes directly to cleanup HALTED.
+Preserve exact returned code/message, refs and recovery. No local verdict branch
+or automatic retry of an uncertain write. Persistence is not an auto-handoff.
 
----
+## CLEAN: actual gates, then handoff
 
-### Pre-Branch HALT Conditions
+Read parent requirements. Complete each still-owed native case with its exact
+subject and current candidate; do not blanket-credit command/Browser cases from
+task passes or simulation. The simulation requirement is already credited by
+its verified receipt, never another manual run. Aggregate evidence applies only
+where that requirement's declared policy actually permits it.
 
-Some halt paths fire before the result branching below — they short-circuit straight to `cleanup-report.md` with `HALTED`:
+Re-read pin/live status and require all tasks reviewed/done, current integration
+CLEAN receipt and no remaining blocking parent requirement. Resolve the next
+declared target at this binding's handoff; require correct live source. Registered
+lifecycle transition enforces claim, status/QA/approval and immutable pin gates:
 
-| Source | Condition | Diagnostic |
-|---|---|---|
-| `simulation-gate-criteria.md` defensive precondition | `_epic_ref` is empty or unset before any Simulator dispatch (initial or retry) | `[CRITICAL] _epic_ref lost between dispatches — refusing retry. Halting simulator gate.` |
-| `simulation-gate-criteria.md` Simulator Output Gate | `_simulator_output_failures` > `MAX_SIMULATOR_REPROMPTS` after the no-tool fallback | `[CRITICAL] Simulator output gate exhausted retries` |
-| `persist_simulation` exit 16 | Body's attested epic differs from CLI-passed `_epic_ref` | `[CRITICAL] simulator returned body for wrong epic — CLI passed ${_epic_ref}, body attested a different epic.` |
-| `persist_simulation` exit 17 | Body has no `EPIC: PREFIX-N` line and no legacy heading fallback | `[CRITICAL] simulator output for ${_epic_ref} has no EPIC: PREFIX-N attestation line.` |
-
-When any of these fire, conduct does NOT enter result branching; it goes straight to `cleanup-report.md` with `HALTED` and surfaces the diagnostic so the operator sees the wrong-epic / missing-epic / lost-context outcome explicitly.
-
-### Result Branching
-
-#### If `_local_result` is `CLEAN`
-
-- **Satisfy parent epic item-level verification requirements.** All epic tasks passed testing and simulation is clean. Record passing QA runs for unsatisfied blocking verification requirements:
- ```bash
- _unsatisfied_reqs=$(yoke db read --format lines "SELECT r.id, r.qa_kind, COALESCE(r.method_id, '') FROM qa_requirements r WHERE r.item_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND r.qa_phase='verification' AND r.blocking_mode='blocking' AND r.waived_at IS NULL AND NOT EXISTS (SELECT 1 FROM qa_runs qr WHERE qr.qa_requirement_id=r.id AND qr.verdict='pass')")
- ```
- For each unsatisfied requirement (parse `id|qa_kind|method_id` per line):
- - Skip `simulation` kind — already satisfied by the `persist_simulation` call above.
- - Skip cases whose method is `browser-check` or `browser-inspection` — they execute through the shared case runner and Browser substrate.
- - Otherwise record a passing run:
- ```bash
- yoke qa run add \
- --requirement-id {_req_id} --performed-by "agent" --qa-kind "{_qa_kind}" \
- --verdict "pass" \
- --raw-result "Satisfied from conduct evidence: all ${_task_count} epic tasks passed + integration simulation CLEAN"
- ```
- `--raw-result` is evidence text. The write stamps `verification_tree.head_sha` from the claimed lane HEAD. A blocking pass without a head sha is refused.
-
-- **Auto-handoff and claim release.** The `persist_and_verify` call auto-triggered `conduct_reviewed_handoff` on CLEAN verdict (T-1), which released the Conduct item claim with reason `handoff-to-polish` (T-4). Verify:
- ```bash
- _parent_status=$(yoke items get "${N}" status 2>/dev/null)
- ```
- If `_parent_status` is NOT `reviewed-implementation`: **HALT**. Auto-handoff failed. Do NOT write `status reviewed-implementation` manually. **Go to `cleanup-report.md`** with `HALTED`.
-
-- Do NOT run done-transitions, close the GitHub issue, or remove the worktree.
-  Refresh the item and resolve `NEXT_SKILL_ID` with
-  [the shared handoff recipe](../shared/stage-handoff.md). Print:
- ```
- All tasks in this worktree complete. Next bound skill: /yoke {NEXT_SKILL_ID} PREFIX-{N}
- ```
-- **Go to `cleanup-report.md`** with `SUCCESS`.
-
----
-
-#### If `_local_result` is `GAPS FOUND`
-
-Store `_simulation_gaps` with gap details from Simulator output.
-
-Parse severity counts and recommendation:
-```bash
-_critical_count=$(echo "$_simulation_gaps" | grep -c '\[CRITICAL\]' || true)
-_warning_count=$(echo "$_simulation_gaps" | grep -c '\[WARNING\]' || true)
-_recommendation=$(echo "$_simulation_gaps" | grep '^- Recommendation:' | sed 's/.*Recommendation: //')
+```text
+yoke workflows item get PREFIX-N --json
+yoke lifecycle transition PREFIX-N --from LIVE_STAGE --to HANDOFF_STAGE --reason "Conduct: tasks reviewed and verified integration simulation" --json
+yoke items get PREFIX-N status --json
 ```
 
-##### Branch 1 — PROCEED with no CRITICALs (file work items, proceed)
+Verify the returned/live stage equals HANDOFF_STAGE. A refusal preserves claim/
+lanes and names its recovery; no scalar status shortcut. Once boundary is verified,
+release only the Conduct parent claim still held and verify exact custody:
 
-**Condition:** `_critical_count = 0` AND `_recommendation = "PROCEED"`.
-
-Print: `Simulation found WARNING/NOTE gaps but Simulator recommends PROCEED. Filing follow-up work items.`
-
-The target `_project` and `issue` workflow are now fixed. Before finalizing any
-gap title or spec, call the registered
-`workflow.execution_instruction.resolve` read and apply every returned
-instruction:
-
-```bash
-yoke workflow execution-instruction resolve --workflow issue --project "$_project" --full
+```text
+yoke claims work release --item PREFIX-N --reason "handoff-to-polish" --json
+yoke claims work holder-list --session-id-filter {SESSION_ID} --json
 ```
 
-For each `### GAP #N:` block in `_simulation_gaps`:
-1. Extract: title, severity, category, tasks involved, "what happens", root cause, fix guidance.
-2. Map priority: `[WARNING]` → `medium`, `[NOTE]` → `low`.
-3. Create the item through the issue workflow's authorized harness entry:
- ```bash
- _add_output=$(yoke items create "Sim gap: {gap_title}" issue --project "$_project" --priority {priority} --entry-surface harness_skill --execution-instructions-considered)
- _new_id=$(echo "$_add_output" | sed -n 's/.*[A-Z][A-Z]*-\([0-9][0-9]*\).*/\1/p')
- ```
-4. Set source to `simulation`, write spec to DB, sync to GitHub.
+Use the actual next skill's truthful handoff reason if different. Failed release
+is incomplete handoff, not SUCCESS. Fresh item detail plus
+[shared handoff](../shared/stage-handoff.md) renders next command. No done-transition,
+issue closure, merge or lane removal. Continue cleanup with SUCCESS for this leg.
 
-Collect all filed work item IDs into `_filed_item_ids`.
-Satisfy parent epic verification requirements** (same logic as CLEAN path — skip `simulation` and Browser method cases).
-PROCEED triage records a bounded discharge on the exact current failed report,
-with its authenticated actor, rationale, and filed follow-up refs. It preserves
-every attempt and final failed verdict; a newer attempt invalidates the discharge.
-The acting session must hold the epic work claim. The receipt namespace is
-reserved for this authenticated operation; ordinary section writes refuse it.
-A changed capture invalidates the receipt without overwriting its audit.
-The server checks the retained report itself for explicit PROCEED and zero
-CRITICAL gaps and validates all required follow-ups before handoff.
-PROCEED triage write + reviewed-implementation handoff:
-```bash
-_gap_summary=$(echo "$_simulation_gaps" | head -c 500)
-yoke conduct epic proceed-triage-handoff --epic "${_epic_ref}" \
- --recommendation "$_recommendation" \
- --gap-summary "$_gap_summary" \
- --filed-items "$(echo "$_filed_item_ids" | tr ' ' ',')"
-_proceed_rc=$?
+## GAPS FOUND
+
+Retain full persisted report, severity counts and actual recommendation.
+
+### Branch 1 — PROCEED and zero CRITICAL
+
+File each required WARNING/NOTE follow-up through [Idea](../idea/SKILL.md), with
+exact target project, authorized workflow/entry, title budget, execution instructions
+and structured spec/GitHub sync. WARNING→medium; NOTE→low. Keep complete refs,
+not numeric tails or issue numbers. No cross-project item combining targets.
+Complete actual parent evidence gates, then registered PROCEED triage:
+
+```text
+yoke conduct epic proceed-triage-handoff --epic PREFIX-N --recommendation PROCEED --gap-summary "{BOUNDED_GAP_SUMMARY}" --filed-items {COMMA_SEPARATED_PUBLIC_REFS}
 ```
-If `_proceed_rc` non-zero: **HALT**. Do NOT write status manually. **Go to `cleanup-report.md`** with `HALTED`.
-If `_proceed_rc` is 0: verify `_parent_status` is `reviewed-implementation`. If not: **HALT**.
 
-**Go to `cleanup-report.md`** with `SUCCESS`.
+It requires the held epic claim, exact current failed report, authenticated actor,
+explicit PROCEED/zero criticals and required follow-ups. Bounded discharge retains
+failed attempts/rationale/refs; changed capture/newer attempt invalidates it.
+Reserved receipt namespace cannot be forged with section writes. Verify its
+handoff and claim-release result; refusal HALTs. Do NOT write `status
+reviewed-implementation` manually. No fake passing simulation or skip-deploy.
 
-##### Branch 2 — Auto-fix disabled
+### Branch 2 — --no-auto-fix
 
-**Condition:** `--no-auto-fix` was passed.
+HALT with retained report/lanes and recovery. Do not fall through to auto-fix.
 
-Print halt message. **Go to `cleanup-report.md`** with `HALTED`.
+### Branch 3 — CRITICAL or recommendation not PROCEED
 
-##### Branch 3 — Full autofix (CRITICAL gaps or Recommendation ≠ PROCEED)
+Delegate [simulation-autofix.md](simulation-autofix.md), retaining exact parent,
+project, registered lanes, max attempts and already persisted report.
 
-Read and follow `.agents/skills/yoke/conduct/simulation-autofix.md`. Pass inherited context:
-- `MAIN_ROOT`
-- `_epic_ref`, `N` (as `_item_id`), `_worktree_path`, `_worktree_branch`
-- `_simulator_output` = Simulator's raw output from this step
-- `_max_attempts`
+**If auto-fix returns `AUTOFIX_NOT_REQUIRED`:** refresh actual report/counts/
+recommendation. With zero criticals and PROCEED, execute Branch 1 above, including
+the registered PROCEED triage write. NOTE-only with a non-PROCEED or absent
+recommendation returns simulation_nonblocking_recommendation_unresolved for
+corrected Simulator recommendation or explicit operator triage. Do not manufacture
+PROCEED, passing verdict or status.
 
-**If auto-fix returns `AUTOFIX_NOT_REQUIRED`:**
-- Refresh `_simulation_gaps`, severity counts and `_recommendation` from the
-  returned persisted report. Do not claim CLEAN or assume auto-handoff.
-- With no CRITICALs and recommendation `PROCEED`, execute Branch 1 above,
-  including follow-up filing, the registered PROCEED triage write and verified
-  reviewed-handoff. This also handles WARNING-only reports after re-simulation.
-- Otherwise (including NOTE-only with a non-PROCEED or absent recommendation),
-  return `HALTED` with `simulation_nonblocking_recommendation_unresolved` to
-  `cleanup-report.md`. Preserve the report and lane; recovery is a corrected
-  Simulator recommendation or explicit operator triage. Do not manufacture
-  `PROCEED`, a passing verdict, or a status write.
+**If auto-fix returns `AUTOFIX_CLEAN`:** require its final native verified receipt,
+then run CLEAN's real parent gates and verified lifecycle/claim handoff. Previous
+candidate evidence does not authorize new code.
 
-**If auto-fix returns `AUTOFIX_CLEAN`:**
-- **Satisfy parent epic verification requirements** (same logic as CLEAN path).
-- **Verify auto-handoff after clean autofix.** The `persist_and_verify` inside autofix auto-triggered `conduct_reviewed_handoff.run()` on the final CLEAN result and released the Conduct item claim. Verify:
- ```bash
- _parent_status=$(yoke items get "${N}" status 2>/dev/null)
- ```
- If `_parent_status` is not `reviewed-implementation`: **HALT**. Do NOT write status manually.
-- Refresh the item and resolve `NEXT_SKILL_ID` with
-  [the shared handoff recipe](../shared/stage-handoff.md). Print:
-  `All tasks in this worktree complete (gaps auto-resolved). Next bound skill: /yoke {NEXT_SKILL_ID} PREFIX-{N}`
-- **Go to `cleanup-report.md`** with `SUCCESS`.
-
-**If auto-fix returns `AUTOFIX_HALTED`:**
-- Print halt message with worktree preserved and `--force` bypass hint.
-- **Go to `cleanup-report.md`** with `HALTED`.
-
----
-
-**Handoff:** After simulation processing, always read `.agents/skills/yoke/conduct/cleanup-report.md` for main-repo cleanup and final report.
+**If auto-fix returns `AUTOFIX_HALTED`:** preserve report/work and exact diagnostic,
+go to cleanup HALTED. Explicit force is a named bypass leg only; never fabricate
+completion. Every branch ends at [cleanup-report.md](cleanup-report.md).

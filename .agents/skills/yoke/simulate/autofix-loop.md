@@ -6,8 +6,7 @@ writes the returned plan changes through registered item surfaces.
 
 ## Entry and caller contract
 
-Retain the epic's public `_epic_ref`, resolved parent `public_ref` and
-`public_ref`, `phase`, current persisted report and `_simulator_output`, and
+Retain the epic's public `_epic_ref`, resolved internal parent id, `phase`, current persisted report and `_simulator_output`, and
 registered lane authorities. Never construct a public ref from an internal id.
 Direct invocation has `caller=simulate`. Conduct supplies `caller=conduct`,
 `phase=integration`, an already persisted initial report, and its task-pipeline
@@ -114,16 +113,16 @@ declined. Automatic mode proceeds immediately.
 Run [epic-flow.md](epic-flow.md) steps 3–7 for the retained phase, refreshing
 all task bodies, reviews, contracts, lane authorities and diffs. Use its
 canonical Simulator prompts and compressed/standard selection; do not invoke
-this auto-fix phase recursively. Conduct context uses the retained
-`persist_simulation` boundary in epic-flow's persistence step, so the verdict
-is identity-attested and the reviewed-handoff occurs on CLEAN.
+this auto-fix phase recursively. Both callers use the registered
+simulation-upsert JSON receipt in epic-flow. Persistence verifies evidence;
+the caller separately owns its gated lifecycle transition and claim release.
 
-- A successfully persisted `CLEAN` returns `AUTOFIX_CLEAN`; show the iteration
-  count. Never infer success from an unpersisted local verdict.
-- An absent verdict, persistence failure, wrong-epic body (exit 16), or
-  missing-epic body (exit 17) returns `AUTOFIX_HALTED`, preserving the exact
-  diagnostic. Recovery is to correct the report identity/format or the named
-  persistence failure, then re-run the simulation. It is not another plan gap.
+- Matching `CLEAN`, `verified=true`, positive requirement/run ids returns
+  `AUTOFIX_CLEAN`; show the iteration count. A local verdict is insufficient.
+- Missing verdict, identity mismatch, persistence/readback refusal returns
+  `AUTOFIX_HALTED` with exact code/message, requested and attested refs and
+  any receipt ids. Correct that named failure before retrying; never repeat
+  an uncertain write or treat identity failure as another plan gap.
 - `GAPS FOUND`: replace `_simulator_output` and the retained report with the
   newly persisted report. Reclassify remaining gaps; return
   `AUTOFIX_CODE_GAPS` immediately when all remaining fixable gaps are code-level.

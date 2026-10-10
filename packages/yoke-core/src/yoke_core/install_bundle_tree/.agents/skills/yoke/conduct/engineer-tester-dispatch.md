@@ -1,225 +1,67 @@
-# Conduct — Engineer/Tester Dispatch Protocol
+# Conduct — single-task dispatch
 
-Invoked from `engineer-tester-loop.md` S6g. Covers loop initialization, branch-ahead detection, attempt baseline, Engineer dispatch with submission gate, and Tester dispatch with diff size-gating.
+Initialize attempt=1 and output-failure counter=0 once per task. Read baselines
+through the owning main checkout's branch ref before task claim:
 
-**Inherited:** `MAIN_ROOT`, `_epic_ref`, `N`, `_task_id`, `_worktree_path`, `_worktree_branch`, `TASK_BASELINE`, `_max_attempts`, `_no_chain`, context block, `_attempt`, `_tester_output_failures`.
-
----
-
-### Loop Initialization
-
-```
-_attempt=1
-_tester_output_failures=0
+```text
+git -C {MAIN_ROOT} rev-parse {BRANCH}
+git -C {MAIN_ROOT} merge-base {BRANCH} main
 ```
 
-**Branch-ahead detection:** Before entering the loop, check if the worktree branch already has commits ahead of main for the current task. Compare against `TASK_BASELINE` — if `TASK_BASELINE == HEAD`, Engineer should still be dispatched. Read via the main checkout's branch ref because the per-task `epic_task` work-claim has not been acquired yet (Step 3b below does that); `lint_session_cwd` would otherwise block `git -C "${_worktree_path}"` against the lane worktree.
+Only a first task whose preserved TASK_BASELINE equals merge-base and differs
+from current branch HEAD may skip Engineer on attempt1. Later chain tasks
+always dispatch Engineer; every retry does too. Record ATTEMPT_BASELINE and
+progress-note count before each attempt. Never overwrite the task baseline.
+Skipped implementation still seeds review, merges current target and gets Tester.
 
-```bash
-_worktree_head=$(git -C "${MAIN_ROOT}" rev-parse "${_worktree_branch}")
-_has_implementation=false
-if [ "$TASK_BASELINE" != "$_worktree_head" ]; then
- _has_implementation=true
-fi
+## Exact task custody before Engineer and Tester
+
+```text
+yoke claims work acquire --epic PREFIX-N --task-num {task_num} --reason "engineer dispatch"
+yoke sessions identity --json
+yoke db read --format lines "SELECT 1 FROM work_claims WHERE session_id='{SESSION_ID}' AND target_kind='epic_task' AND scope::jsonb->>'epic_id'=(SELECT item_id::text FROM item_refs WHERE public_ref='PREFIX-N') AND scope::jsonb->>'task_num'='{task_num}' AND released_at IS NULL"
 ```
 
-**Skip logic does NOT apply to subsequent tasks in an epic chain.** If `TASK_BASELINE` differs from the merge-base with main (prior tasks committed), always dispatch Engineer.
+Require this active same-session row; absent/refused reads HALT: engineer
+dispatch. The parent coordination claim cannot replace task custody. Same-session
+reacquire is idempotent; claim_conflict skips the affected task without writing
+its lane. Reacquire and verify before Tester as well:
 
----
-
-### Loop Steps (while `_attempt <= _max_attempts`)
-
-**Step 1 — Record attempt baseline:** Read via the main checkout's branch ref — Step 3b's per-task claim acquire is still ahead, so direct lane-worktree access is blocked by `lint_session_cwd`.
-```bash
-ATTEMPT_BASELINE=$(git -C "${MAIN_ROOT}" rev-parse "${_worktree_branch}")
-_progress_note_count_before=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND task_num=${_task_id}" 2>/dev/null || echo 0)
+```text
+yoke claims work acquire --epic PREFIX-N --task-num {task_num} --reason "tester dispatch"
 ```
 
-**Step 2 — Skip Engineer if implementation already on branch:** If `_has_implementation` is true AND `_attempt` equals 1:
-- Emit: `[SKIP] PREFIX-{N}: implementation already on branch, skipping to Tester`
-- Seed review requirement: `yoke workflow-item epic-task review-seed --epic "$_epic_ref" --task-num "$_task_id"`
-- Go directly to Step 5 (Merge main).
+Missing active same-row proof HALT: tester dispatch; recover through acquire,
+then reread. Never construct a worktree DB path or guess session identity.
 
-On retry attempts (`_attempt > 1`), always dispatch Engineer.
+Rehydrate through [dispatch-context-rehydrate.md](dispatch-context-rehydrate.md).
+Render the Engineer descriptor with the complete cold prompt from
+[dispatch-context-prompts.md](dispatch-context-prompts.md); use the registered
+lane, no isolation. Exact task spec and parent spec, retry feedback, QA commands,
+effective scope axes, naming/350/simplify and durable submission rules travel
+with it. Continue immediately on return.
 
-**Step 3 — Run 5f-rehydrate** (see `dispatch-context.md`, ~line 640): Query prior progress notes and tester reviews for this epic task. Store as `_rehydration_block`. Use `offset`/`limit` to read only the `5f-rehydrate` section.
+Run [dispatch-context-gates.md](dispatch-context-gates.md)'s receipt, dirty-exit,
+progress-note and rescue gates. Failure re-dispatches submit-only remediation
+for the SAME attempt; no Tester/advance until clean. Capture reflections and
+review artifacts through [dispatch-context-artifacts.md](dispatch-context-artifacts.md).
+Seed review after submission succeeds:
 
-**Step 3b — Acquire per-task work-claim** (covers both Engineer and Tester dispatches for this task):
-
-The parent item claim from `entry-activation.md` S3b is the epic coordination lock; the `target_kind="epic_task"` claim acquired here authorizes writes in the task lane linked by `epic_tasks.item_worktree_id`. Same-session re-acquire is idempotent — see [`engineer-tester-loop.md`](engineer-tester-loop.md) "Re-entry semantics" for the cross-session paths.
-
-```bash
-yoke claims work acquire \
- --epic "${_epic_ref}" --task-num "${_task_id}" \
- --reason "engineer dispatch PREFIX-${N} task ${_task_id}"
+```text
+yoke workflow-item epic-task review-seed --epic PREFIX-N --task-num {task_num}
 ```
 
-Verify the claim landed before dispatching — mirrors entry-activation S3b's verify-claim-exists invariant. This assertion uses the retained operator-debug raw SQL router because the registered claim acquire surface does not expose a same-row verification projection; never construct a DB path manually:
+Merge verified current integration target into this claimed lane, capture exit
+and delegate conflicts to its Engineer. Unresolved conflict halts this task.
+Never reset/rebase or silently substitute stale local target:
 
-```bash
-_eng_claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" yoke db read --format lines \
- "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND target_kind='epic_task' AND epic_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND task_num=${_task_id} AND released_at IS NULL")
-if [ -z "$_eng_claim_ok" ] || [ "$_eng_claim_ok" = "0" ]; then
- echo "HALT: engineer dispatch — no active epic_task claim for (epic_id=${_epic_ref}, task_num=${_task_id}) under session ${YOKE_SESSION_ID}."
- echo "Recovery: run 'yoke claims work acquire --epic ${_epic_ref} --task-num ${_task_id} --reason \"engineer dispatch\"' and retry."
- exit 1
-fi
+```text
+git -C {WORKTREE_PATH} merge {INTEGRATION_TARGET} --no-edit
 ```
 
-**HALT** if the verification returns empty. Do not proceed to Step 4 without a confirmed active per-task claim.
-
-**Step 4 — Dispatch Engineer** (no isolation — uses Yoke-managed worktree):
-
-**Dispatch:** descriptor `DispatchDescriptor(role="engineer")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `---SUBMISSION-CHECKS-START---`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
-```
- {If _attempt = 1: "Implement" | If _attempt > 1: "Retry"} PREFIX-{N}: {_title}
- {If _attempt > 1: "(attempt {_attempt} of {_max_attempts})"}
-
- {context block from S6f}
-
- Read the authoritative task spec from the DB before starting:
- yoke workflow-item epic-task body-get --epic "{_epic_ref}" --task-num "{_task_id}"
- Also read the parent item spec for full context:
- yoke items get PREFIX-{N} spec
-
- {If _attempt > 1:
- The Tester found these issues on the previous attempt:
- {_tester_feedback}
- Fix all issues, commit, and ensure tests pass.}
-
- {If _rehydration_block is non-empty:}
- {_rehydration_block}
-
- {If _attempt = 1:
- IMPORTANT: cd to the worktree path FIRST before doing any work.
- Acceptance criteria are in the spec.
- Commit incrementally on the worktree branch.
- Run tests before finishing.
-
-	 FILE SIZING: when the dispatch says effective File Budget is enabled,
-	 read `## File Budget` at its item/task scope before creating or growing
-	 authored files. When disabled, do not require that section; follow the
-	 task execution scope. In every posture the hard limit is 350 lines per
-	 authored file (owned by `yoke_core.domain.file_line_check`) and the
-	 design target is `<=300`. End the durable receipt with `file_budget:
-	 PASS` when authored code grew and every authored file is within the
-	 universal limit, or `file_budget: SKIP` when none grew.
-
-	 Apply the simplify three-axis vocabulary at code-author time. See AGENTS.md "## Simplify — three-axis doctrine": reuse existing surfaces first, keep the diff to the smallest AC-satisfying shape, justify new infrastructure against what already exists, and apply the future-concept lens when the change touches actors, sessions, heartbeats, ownership, leases, claims, approvals, overrides, evidence, run records, journals, packets, locks, or shared-state coordination.}
-
-	 CODEBASE-READER NAMING: Assume future readers of the codebase will NOT have the ephemeral planning artifacts you are working from. Treat the task/spec/plan as scaffolding, not naming source material. New or renamed files, modules, helpers, tests, docs, commands, events, config keys, symbols, headings, and comments must describe current function, purpose, mechanics, or domain role to someone who can only see the repository. Do not copy work item IDs, plan names, initiative labels, phase/task/thread numbers, AC/FR identifiers, branch/worktree names, or implementation-batch wording into live code or current-state docs unless the identifier is itself a runtime/domain concept.
-
-	 {If task body/spec mentions schema, column, migration, ALTER TABLE, CREATE TABLE, ADD COLUMN, or DROP TABLE:
-	 DB MIGRATION PROTOCOL: Follow the migration protocol in your agent definition (## DB Schema Changes section).}
-
- {If task body/spec mentions live DB, verify, CHECK constraint, deployed state, or any shared mutable system:
- LIVE-STATE AC FAIL-SAFE: ACs tagged [READ-ONLY] mean observe and report only. ACs tagged [APPLY-MUTATION] mean apply the change via the sanctioned write path. Untagged ACs referencing live/shared state MUST be treated as [READ-ONLY].}
-
- OUTPUT DISCIPLINE: Before final response, write a final progress note containing the required `---SUBMISSION-CHECKS-START---` block from your agent definition. Then return only a short summary (commit count, test status). Do not repeat spec text or acceptance criteria in your final output.
-```
-
-**Step 5 — After Engineer returns:**
-
-**AUTONOMOUS CONTINUATION REQUIRED:** Emit `[CONTINUE] Engineer returned for PREFIX-{N}. Next: post-Engineer processing (S6g.5)` then execute immediately.
-
-- Capture reflections (see `dispatch-context.md` step 5m; use `offset`/`limit`).
-- **Submission gate:** Run `yoke workflow-item epic-task submission-receipt-get --epic "$_epic_ref" --task-num "$_task_id" --after-note-count "$_progress_note_count_before"` and require it to pass. This is the load-bearing check on both Claude and Codex — there is no SubagentStop hook gate (the per-subagent binding required to identify a stopping engineer's `(epic_id, task_num)` cannot be satisfied from the SubagentStop hook payload). The command reads `---SUBMISSION-CHECKS-START---` / `---SUBMISSION-CHECKS-END---` from `epic_progress_notes.body`, not from the Agent result summary. Required keys: `test_plan`, `files_touched`, `edited_tests`, `clean_worktree`, `progress_notes`, `file_budget`. Accept only `PASS` or explicit `SKIP` for `test_plan`, `files_touched`, `edited_tests`. Require `clean_worktree: PASS`. Require `progress_notes: PASS` when `HEAD` differs from `ATTEMPT_BASELINE`; `SKIP` only when no commit landed. Require `file_budget: PASS` when the submission created or grew authored code (every authored file is at or below 350 lines per `yoke_core.domain.file_line_check`); `file_budget: SKIP` is valid only when no authored code was created or grown (e.g., docs-only sub-task). Missing line, malformed line, or any `FAIL`/`UNKNOWN` value re-dispatches the same attempt. On any failure, re-dispatch Engineer for the same attempt (do NOT increment `_attempt`).
-- **Dirty-exit detection:**
- ```bash
- _last_commit_subject=$(git -C "${_worktree_path}" log -1 --format='%s' 2>/dev/null || true)
- ```
- If `_last_commit_subject` matches `chore: auto-commit Engineer uncommitted work [PREFIX-${N}]`, re-dispatch Engineer for the same attempt. Do NOT advance to `reviewing-implementation` from a safety-net commit.
-- **Epic progress-note gate:**
- ```bash
- _progress_note_count_after=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND task_num=${_task_id}" 2>/dev/null || echo 0)
- _head_after_engineer=$(git -C "${_worktree_path}" rev-parse HEAD 2>/dev/null || true)
- ```
- If `_head_after_engineer` differs from `ATTEMPT_BASELINE` and `_progress_note_count_after` not greater than `_progress_note_count_before`, re-dispatch Engineer for the same attempt.
-- **Post-Engineer rescue sweep:**
- ```bash
- cd {_worktree_path}
- git add -A 2>/dev/null
- if ! git diff --cached --quiet 2>/dev/null; then
- _uncommitted_count=$(git diff --cached --name-only | wc -l | tr -d ' ')
- _uncommitted_files=$(git diff --cached --name-only | tr '\n' ', ' | sed 's/,$//')
- git commit -m "chore: auto-commit Engineer uncommitted work [PREFIX-${N}]"
- echo "Warning: Engineer left ${_uncommitted_count} uncommitted file(s) in worktree."
- yoke ouroboros entry insert \
- --agent conduct --category problem --context "PREFIX-${N}" \
- --observation "Engineer left ${_uncommitted_count} uncommitted file(s) in worktree for PREFIX-${N}. Files: ${_uncommitted_files}"
- fi
- ```
- If this sweep committed anything, re-dispatch Engineer for the same attempt.
-- **Seed review:** `yoke workflow-item epic-task review-seed --epic "$_epic_ref" --task-num "$_task_id"` (auto-advances to `reviewing-implementation`).
-
-**Step 6 — Merge main:**
-```bash
-cd {_worktree_path}
-git merge main --no-edit
-```
-If merge fails: re-dispatch Engineer to resolve conflicts, then retry merge.
-
-**Step 6b — Verify per-task claim before Tester dispatch.** The claim acquired at Step 3b should still be held; re-acquire is idempotent and acts as the verify step. Same shape as Step 3b's verification:
-
-```bash
-yoke claims work acquire \
- --epic "${_epic_ref}" --task-num "${_task_id}" \
- --reason "tester dispatch PREFIX-${N} task ${_task_id}"
-_tester_claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" yoke db read --format lines \
- "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND target_kind='epic_task' AND epic_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND task_num=${_task_id} AND released_at IS NULL")
-if [ -z "$_tester_claim_ok" ] || [ "$_tester_claim_ok" = "0" ]; then
- echo "HALT: tester dispatch — no active epic_task claim for (epic_id=${_epic_ref}, task_num=${_task_id}) under session ${YOKE_SESSION_ID}."
- echo "Recovery: re-run conduct or 'yoke claims work acquire --epic ${_epic_ref} --task-num ${_task_id}'."
- exit 1
-fi
-```
-
-**HALT** if verification returns empty. Do not proceed to Step 7 without a confirmed active per-task claim.
-
-**Step 7 — Dispatch Tester:**
-
-**No manual diff truncation.** Never truncate or summarize diffs with `...`. Use size-gate.
-
-```
-TESTER_DIFF_INLINE_MAX_LINES=300
-```
-
-Size-gate the per-task diff:
-```bash
-_task_diff_line_count=$(git -C "${_worktree_path}" diff "${TASK_BASELINE}..HEAD" | wc -l | tr -d ' ')
-if [ "$_task_diff_line_count" -gt "$TESTER_DIFF_INLINE_MAX_LINES" ]; then
- _task_diff_file=$(mktemp)
- git -C "${_worktree_path}" diff "${TASK_BASELINE}..HEAD" > "$_task_diff_file"
- _task_diff_stat=$(git -C "${_worktree_path}" diff "${TASK_BASELINE}..HEAD" --stat)
-else
- _task_diff=$(git -C "${_worktree_path}" diff "${TASK_BASELINE}..HEAD")
-fi
-```
-
-Full diff to temp file:
-```bash
-_full_diff_file=$(mktemp)
-git -C "${_worktree_path}" diff main...HEAD > "$_full_diff_file"
-```
-
-Per-attempt retry diff size-gate (on retry `_attempt > 1`):
-```bash
-_attempt_diff_line_count=$(git -C "${_worktree_path}" diff "${ATTEMPT_BASELINE}..HEAD" | wc -l | tr -d ' ')
-if [ "$_attempt_diff_line_count" -gt "$TESTER_DIFF_INLINE_MAX_LINES" ]; then
- _attempt_diff_file=$(mktemp)
- git -C "${_worktree_path}" diff "${ATTEMPT_BASELINE}..HEAD" > "$_attempt_diff_file"
- _attempt_diff_stat=$(git -C "${_worktree_path}" diff "${ATTEMPT_BASELINE}..HEAD" --stat)
-else
- _attempt_diff=$(git -C "${_worktree_path}" diff "${ATTEMPT_BASELINE}..HEAD")
-fi
-```
-
-Read and render [the shared Tester template](../shared/tester-dispatch-template.md)
-with the generated-task identity, parent/task specs, project QA context,
-registered task lane, dependency interfaces, downstream task bodies, and the
-per-task, full-branch, and retry diffs prepared above. Apply the output gate's
-model escalation through the shared descriptor; do not carry a local prompt.
-
----
-
-**Handoff:** After Tester returns, read and follow `.agents/skills/yoke/conduct/engineer-tester-closeout.md` for verdict processing and auto-chaining.
+Prepare full/task/attempt diffs under the sole size-gate owner in
+[dispatch-context-prompts.md](dispatch-context-prompts.md), never manual ellipsis.
+Render [the shared Tester template](../shared/tester-dispatch-template.md), with
+task identity, QA/project context, dependency interfaces, downstream bodies,
+claim coverage and exact capture paths. Continue immediately after Tester at
+[engineer-tester-closeout.md](engineer-tester-closeout.md).
