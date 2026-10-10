@@ -19,6 +19,7 @@ def test_normalize_candidate_string_filters_paths_and_commands():
         _normalize_candidate_string(s) is None
         for s in (
             "PYTHONPATH",
+            "yoke --help",
             ".remove",
             ".split",
             ".agents",
