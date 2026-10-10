@@ -157,6 +157,11 @@ class FunctionCallRequest(BaseModel):
     preconditions: Dict[str, Any] = Field(default_factory=dict)
     options: Dict[str, Any] = Field(default_factory=dict)
 
+    @field_serializer("payload", "preconditions", "options", when_used="json")
+    def _wire_request_values(self, value: Dict[str, Any]) -> Dict[str, Any]:
+        """Project native request clocks only at the owned JSON boundary."""
+        return temporal_wire(value)
+
 
 class FunctionCallResponse(BaseModel):
     """Canonical response envelope. ``warnings[]`` carries downstream-degraded steps."""

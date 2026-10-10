@@ -84,7 +84,7 @@ and merge marker writes retain native landing facts, including null unknowns; qu
 provider corrections accept qualified RFC3339 and compare native instants. Claim contention, run terminalization, minted web-session and strategy-ingest plan models retain native clocks; ingest CAS compares native plan facts and formats conflict reports; claim reports and terminalization responses format only their owned output leaves. Queue
 refresh cadence keeps native cutoffs and facts across database timezones.
 
-New dispatcher result digests and public/CLI payloads apply the shared native
+Dispatcher request JSON projects native payload, precondition and option clocks while Python-mode values retain datetimes. New result digests and public/CLI payloads apply the shared native
 clock JSON projection, preserving opaque strings, integers and existing receipt
 bytes. Release-build and artifact models retain native generation clocks until JSON output; direct materialization validates before output changes. Newly authored distribution channel pointers format generated_at as fixed-six UTC and refuse invalid input before replacing output; existing pointer bytes and content digests remain unchanged. Native spawn results retain aware start clocks until evidence output; capture and custody formats remain owned file boundaries. Relay adapter launch deadlines project fixed-six UTC or null and refuse malformed clocks. Newly minted Cursor trust clocks preserve microseconds through the shared UTC formatter; existing trust-file bytes remain untouched. Current board and session-message fixtures declare native clock columns;
 calendar-day rollups remain dates. Git epoch seconds stay a provider protocol,
