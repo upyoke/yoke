@@ -60,6 +60,7 @@ FILE_LIKE_SUFFIXES = (
 
 GENERIC_QUOTED_STRINGS = {
     "yoke --help",  # Stable root command syntax, not retired display copy.
+    "(optional",  # Generic prose fragment, not the Python variable it matches.
     "PYTHONPATH",  # Active environment contract, not retired display copy.
     "PATH=",  # Active shell environment assignment.
     "$PATH",  # Active shell environment expansion, not retired display copy.

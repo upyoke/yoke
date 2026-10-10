@@ -1,161 +1,96 @@
-# Test setup — first-class onboard dimension (internal)
+# Test setup for onboarding examples
 
-Done and merged gates run the project's **registered verification command**
-through QA plan cases (`qa.plan.materialize` then `yoke qa case run`). Install
-and onboard today almost never bind that command. This page is the live
-surface map; each archetype file records that persona's test reality against
-it.
+Source-maintainer reference: these archetypes illustrate setup choices. They
+are not receipts for live installations. Current authority is the confirmed
+profile and registered binding, not a transcript's past missing-feature claim.
 
-## What the two surfaces actually ask
+The setup wizard covers PATH, destination, GitHub, project and hosting; test
+posture belongs to harness onboarding. Follow
+[profile confirmation](../../.agents/skills/yoke/onboard/profile-and-scaffold.md),
+[verification binding](../../.agents/skills/yoke/onboard/verification-binding.md)
+and [work seeding](../../.agents/skills/yoke/onboard/seed-work.md) when acting.
 
-**Wizard (`yoke setup`).** PATH, Account, GitHub, Project, Hosting, Review.
-No test, CI, QA-plan, or merge-queue question exists
-(`onboard_wizard_steps.py` step map).
+## Confirm the posture
 
-**Harness `/yoke onboard`.** Step 1 repo survey *reads* "test config"
-(`strategy-conversation.md`). Step 2's confirmed profile now carries a
-**test-setup box** with four named outcomes — surveyed command, scaffold
-suite, review-only suite, or explicit skip (`profile-and-scaffold.md`). Step 5
-binds the confirmed outcome and records the `verification-command-binding`
-checklist row (`hosting-and-environments.md`). Step 8 attaches a reusable plan
-when named and turns review-only legacy suites into item-specific blocking
-review plus advisory command requirements (`seed-work.md`).
+Every project chooses explicitly; an undecided posture blocks completion:
 
-## Live bind surfaces (verified)
+- Survey a runnable suite: retain exact argv, roots, prerequisites and a
+  documented reliable quick slice; full may be a distinct aggregate.
+- Scaffold a minimal project-native suite when absent. Map existing files
+  rather than overwrite them. Bind only after the scaffold applies.
+- Keep materially flaky or known-red suites review-only: blocking
+  `implementation_review` plus non-blocking exact legacy-command evidence.
+- Attest no-tests only with the operator's required reason. Offer scaffold
+  first; business model, SOW and future hosting do not choose the answer.
 
-| Intent | Live write | What it does |
-|---|---|---|
-| Test trees | `yoke project-structure patch apply` family `test_roots` | Path selectors the impacted selector reads |
-| Descriptive command | family `verification_profiles` payload `test_command` | **Not** the QA gate. Advance qa-seeding says do not seed free-form `quick`/`full` from project-structure command settings |
-| Gate command | Plan slug `registered-command-{scope}` for `quick` / `full` / `e2e` / `smoke` | `yoke qa registered-command set --project P --scope SCOPE --command ARGV` converges the plan, case, runner, target, and attachments. `quick`/`full` are project-targeted; local `e2e`/`smoke` require exactly one of `--environment` or `--requires-base-url`; CI deployed scopes require `--environment` |
-| Review-only legacy suite | Item requirements: blocking `implementation_review`, non-blocking method `command` | Records the exact known-red/flaky argv without making its current failure a project-default gate |
-| CI routing | `yoke projects capability-settings set --project P --cap-type ci_workflow_file --new --settings-json '{"workflow_file":"ci.yml"}'` | Filename under `.github/workflows/` (optional `scope_workflows` map). Empty declaration keeps the **local** `command` method |
-| Merge queue | `yoke projects capability-settings set --project P --cap-type merge_queue --new --settings-json '{}'` | Presence-only. Template `requires` `ci_workflow_file` and `github`. Absent → standalone merge engine |
-| Attach to an item | `yoke qa item-plan attach --item PREFIX-N --project P --plan-id N --transition reviewing-implementation` | Seed-work already teaches this when CURRENT-PLAN names a plan. Where QA policy is optional item attachment, attach accepts only the selection in `workflow_posture.verification` — set it first with `yoke workflows item-posture amend PREFIX-N --verification-plan ID_OR_SLUG --reason TEXT` |
+## Bind the actual gate
 
-Routing (`qa_command_plan_registration.py` / `qa_command_scope_routing.py`):
+| Surface | Contract |
+|---|---|
+| `test_roots` | Path selectors for impacted selection; one keyed entry per tree |
+| `verification_profiles.test_command` | Descriptive policy; does not bind QA |
+| `registered-command-{scope}` | Registered plan, case, runner, target and attachments |
+| `ci_workflow_file` | Eligible Actions **test** workflow under `.github/workflows/`; optional scope routing |
+| `merge_queue` | GitHub plus declared test workflow and `merge_group` support |
+| Item QA attachment | Immutable plan snapshot at the required pinned transition |
 
-- `quick` and `full` default `ci_routable=True`: if `ci_workflow_file` names a
-  workflow, the case method is `command-ci` (`ci_run`); otherwise `command`
-  (`worktree_run`).
-- `e2e` and `smoke` default local (need a base URL CI often cannot reach)
-  unless `scope_workflows` names a workflow for that scope. Local registration
-  chooses one declared environment or the runtime `--base-url` contract; CI
-  registration must bind a declared environment.
-- Unreachable `command-ci` fails with a **named reason** (not a silent local
-  downgrade) — `qa_case_ci_lane.py`.
-- `merge_queue` makes the QA executor open/reuse the landing PR and record
-  that PR's entry run (`dash/merge.md`).
+Register the confirmed command through the existing surface:
 
-Generic `yoke qa plan create` still **requires** `--environment`, so a plan
-authored through that adapter is tied to a site. Registered `quick` and `full`
-commands instead carry an immutable project target; no stage/prod placeholder
-is needed. Registered deployed scopes use the explicit matrix above.
+```text
+yoke qa registered-command set --project P --scope SCOPE --command ARGV
+```
 
-`webapp-scaffold` 1.1.2 installs FastAPI tests, Vitest, Playwright examples,
-and `.github/workflows/ci.yml`. The Pack itself still writes neither
-`ci_workflow_file` nor a `registered-command-*` plan; onboard step 5 now
-declares both from the confirmed test-setup box, after the Pack has applied.
+Read its `--help` for target and routing options before binding.
+`quick`/`full` carry project targets; no placeholder stage/prod is needed.
+Local `e2e`/`smoke` choose exactly one declared environment or
+`--requires-base-url`; CI deployed scopes require a declared environment.
+Generic `qa plan create` requires an environment and is not the project-targeted
+registered-command adapter.
 
-## Bind / refuse / silent mis-bind
+Quick/full route through configured eligible CI, otherwise local `command`.
+Deployed scopes default local unless explicitly scope-routed. Unreachable
+`command-ci` refuses with a named reason; do not silently downgrade.
+Jenkins, GitLab CI, Bitbucket Pipelines and a store-upload/deploy workflow are
+not Actions test bindings. Eligible CI needs `workflow_dispatch` and
+`yoke_dispatch_id`; queue verification also needs its PR/merge-group triggers.
+Inspect the configured declaration and the source-backed Doctor result rather
+than infer eligibility from a filename.
 
-**Can bind.** A surveyed shell command as `registered-command-quick` (and
-`full` when they differ). The argv may be `mvn test`, PHPUnit, `xcodebuild`,
-or `docker compose run --rm tests`; it need not resemble pytest. A real
-`.github/workflows/*.yml` as
-`ci_workflow_file.workflow_file`. GitHub App + that workflow + org queue
-rules as `merge_queue`. Scaffold-installed `ci.yml` the same way, after
-apply.
+The scaffold Pack installs examples but does not itself register the gate.
+Onboarding binds from the confirmed profile after apply and records
+`verification-command-binding` evidence. Plan attachments must also respect
+the item's pinned verification posture; see the binding owner for optional
+selection and seeding recipes.
 
-**Can describe separately.** A monorepo may carry one keyed `test_roots`
-entry per tree while its reliable `quick` command covers only a documented
-slice. A distinct `full` command is the aggregate. A known-red or materially
-flaky suite stays review-only: preserve roots and argv, then seed blocking
-human/agent review plus a non-blocking executable case per item.
+## No-tests lifecycle
 
-**Refuses (correct, if declared).** `command-ci` against a workflow the gate
-cannot start — absent from `.github/workflows/`, not an Actions workflow, or
-carrying no `workflow_dispatch` / `yoke_dispatch_id` input; and, for a
-merge-queue project, one with no `pull_request` trigger. `merge_queue` without
-GitHub + `ci_workflow_file`, or whose declared workflow has no `merge_group`
-trigger. HTTPS `yoke migration rehearse` (unrelated, but the same honesty
-pattern).
+The durable `verification_posture` declaration stores `attested-no-tests`
+and the operator's reason:
 
-**Silent mis-binds today.**
+```text
+yoke qa no-tests attest --project P --reason TEXT
+yoke qa no-tests clear --project P --reason TEXT
+```
 
-1. Writing `verification_profiles.test_command` and believing the
-   reviewing-implementation gate will run it — it will not. The family
-   reference and the public QA doc now both say so outright.
-2. Confirming the stock profile, installing `webapp-scaffold` (tests +
-   `ci.yml` land), never declaring the capability or plan — closed by the
-   step-2 box plus the step-5 binding; the box has no silent default, so
-   the profile cannot be confirmed without an answer.
-Registration refuses two invalid bindings: treating Jenkins / GitLab CI / Bitbucket
-Pipelines / `fastlane` as `ci_workflow_file`, and declaring `command-ci`
-against a workflow that deploys. Registration reads the named file and
-refuses one the gate cannot start, naming any other CI system the repository
-carries. What remains unrefusable is a deploy workflow into which someone
-deliberately wired Yoke's dispatch correlation input on a project with no
-merge queue; `HC-projects-ci-workflow-configured` surfaces every declaration
-it can read so that stays reviewable.
+Read each command's `--help` before changing posture. Attestation retires
+registered-command plans and supplies blocking implementation review at the
+verification transition. It cannot coexist with registered commands; clear
+returns the project to undecided before a new suite can be bound. Never invent
+pytest, attest an existing failing suite as absent, or treat no command as an
+empty gate. Path-shaped missing argv refuses; a bare tool unavailable on the
+registering laptop is reported because its declared CI may provide it.
 
-## No-tests: what the QA gate should mean
+## Fit by suite
 
-For a repo with no runnable suite, the step-2 question offers these honest
-paths:
+| Reality | Preserve in the profile |
+|---|---|
+| Maven/JUnit or PHPUnit | Actual unit/aggregate argv and each module's roots |
+| XCTest/Gradle | Scheme, destination, simulator/device and test/upload separation |
+| Containerized | Exact container invocation and prerequisites |
+| Monorepo | Reliable quick slice, aggregate full and separate test trees |
+| Known-red/flaky | Review-only plus advisory executable evidence |
+| Empty/content-only | Minimal scaffold offer or operator-attested no-tests |
 
-1. **Offer to scaffold a minimal suite.** Greenfield + `webapp-scaffold`
-   already drops tests and `ci.yml`. Existing empty idea repo: same offer.
-   Content-only / pre-code: a one-file pytest or project-native equivalent.
-2. **Accept an operator-attested no-tests posture.** A named project
-   declaration that reviewing-implementation / done use an explicit
-   `implementation_review` requirement (advance qa-seeding already seeds
-   that when no plan and no ACs exist) — not a fake `pytest` and not a
-   silent empty gate.
-3. **Refuse with a named reason.** Correct for inventing `command-ci`,
-   inventing `merge_queue`, or registering a command whose argv is not in
-   the repo.
-
-**Recommend (1) then (2).** Offer the scaffold (or the Pack's tests) at
-profile confirmation. If the operator declines — idea-only, content site,
-client will not pay for tests yet — record attested no-tests and seed
-`implementation_review` instead of a `registered-command-quick` that cannot
-run. Always refuse (3) for CI/queue lies. Never skip the question.
-
-Registration enforces the third path where it can check: a path-shaped argv
-that is not in the checkout is refused by name, because it would bind a gate
-that fails wherever it runs. A bare program name the registering machine lacks
-is reported rather than refused — an operator binding `mvn verify` from a
-laptop for a repository whose CI has Maven is doing the right thing.
-
-The question is now asked: the step-2 box includes scaffold and explicit-skip
-outcomes, and the `verification-command-binding` checklist row records which
-one was chosen.
-The durable declaration for outcome (2) is the `verification_posture`
-Project Structure family — a project-attached singleton whose only stored
-value is `attested-no-tests`, carrying the operator's required reason. Write
-it with `yoke qa no-tests attest --project P --reason "..."`; that one call
-also retires any `registered-command-*` plan, so a project can never hold both
-declarations. While it stands, `reviewing-implementation` seeds a blocking
-`implementation_review` requirement at the transition
-`registered-command-quick` would have attached to, and registering a command
-for any scope is refused by name with the clearing recipe. `yoke qa no-tests
-clear --project P --reason "..."` returns the project to undecided so a suite
-it later gains can be bound.
-
-## Archetype mapping
-
-| Reality | Quick | Full | Roots and runner posture |
-|---|---|---|---|
-| Maven / JUnit | `mvn -q -DskipITs test` | `mvn verify` | Record each module test tree; local `command` unless an Actions test workflow runs it |
-| PHPUnit | `vendor/bin/phpunit --testsuite unit` | `vendor/bin/phpunit` | PHP test roots remain separate from any frontend roots |
-| XCTest | Focused `xcodebuild test` destination/scheme | Broader workspace invocation | Local `command`; `fastlane` alone is not Actions CI |
-| Containerized | Focused `docker compose run --rm tests ...` | Aggregate container command | Local `command` unless a real Actions test workflow owns it |
-| Monorepo | One documented reliable slice | Aggregate workspace command | One keyed `test_roots` entry per suite tree |
-| Known-red / flaky | No project-default binding | No blocking full binding | Blocking `implementation_review` plus non-blocking exact command per item |
-
-## Scopes the sample must cover
-
-none · scaffold-only (unregistered) · local pytest/jest · GitHub Actions ·
-other-CI (Jenkins/GitLab/Pipelines) · monorepo many suites · XCTest /
-fastlane · flaky legacy · containerized · no-code / content.
+External CI, native Windows, other forges and unsupported hosts retain their
+named limits. A valid local test binding does not imply support for their
+deployment or remote merge automation.

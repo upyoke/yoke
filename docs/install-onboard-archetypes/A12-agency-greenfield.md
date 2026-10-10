@@ -43,19 +43,10 @@ Then step 7 `[y/N]` apply. Only **then** should a persistent default flow exist.
 
 ## Test setup
 
-**Reality:** wizard-created empty git repo — **no tests**. Phase-2 AWS does
-not change that.
+Offer the minimal scaffold in the empty repository, then bind its actual suite after apply. Otherwise require the operator's reason for no-tests. An undecided posture blocks completion. Project-targeted quick/full QA plans need no stage/prod placeholder, and future AWS hosting does not decide the current test posture.
 
-**Bind today:** same as A01. Registered `quick` and `full` commands carry a
-project target, so creating stage/prod only to make a QA plan exist is neither
-needed nor allowed by the onboarding recipe.
-
-**Onboard:** no test question. CURRENT-PLAN will name client work items, not a
-reusable QA plan, so seed will not attach one.
-
-**Ask that should happen:** scaffold vs attested no-tests before any item
-can hit reviewing-implementation. Recommend scaffold if they accepted
-`webapp-scaffold`; else attest no-tests.
+The confirmed profile, command/CI binding and immutable QA attachment follow
+[test-setup.md](test-setup.md); this example is not a live setup receipt.
 
 ## Crux
 
@@ -65,4 +56,4 @@ can hit reviewing-implementation. Recommend scaffold if they accepted
 | Deploy on items | Idea uses `deploy-defaults get` | Empty-tier default → Route A with no run; empty default → omit flow | Replace with persistent only after hosting verifies |
 | Migration | Step-2 governed-database box | — | Record `not-needed` now, or name the model to attach once the database exists |
 
-Ledger: G-test-setup-unasked, G-no-tests-posture, G-qa-plan-needs-env.
+No unresolved test-setup gap is asserted by this example.

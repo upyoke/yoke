@@ -73,12 +73,10 @@ automation. Jenkins is invisible.
 
 ## Transcript — `/yoke onboard`
 
-Survey finds `Jenkinsfile`, `pom.xml`, internal registries. Strategy can
-describe GitLab+Jenkins. Profile still lists GitHub binding mode
-`app-binding` vs `disabled` and AWS Packs.
-
-**User:** `disabled` GitHub; defer hosting. No `registry-oidc` (that is GitHub
-Actions OIDC).
+Survey finds `Jenkinsfile`, `pom.xml` and internal registries. The confirmed
+profile keeps GitHub disabled and records no Yoke-managed host, excluding
+AWS Packs and credential probes. Jenkins delivery stays external; choose
+and verify merge-only or no default rather than create managed environments.
 
 GitLab has no connect adapter (the live one is `yoke github connect`).
 Issue sync cannot create GitLab issues.
@@ -95,21 +93,10 @@ the operator is told that is the complete answer rather than a gap.
 
 ## Test setup
 
-**Reality:** flaky JUnit on Jenkins, maybe containerized. GitLab CI or
-`Jenkinsfile`. Not GitHub Actions.
+Survey exact Maven/container argv and roots. A reliable suite may run locally; a known-red or materially flaky suite uses blocking implementation review plus a non-blocking exact legacy command. Jenkins and GitLab CI remain external: neither is ci_workflow_file or command-ci. Preserve the suite evidence rather than relabeling a failing suite as absent.
 
-**Bind today:** a local `command` can wrap `mvn test` / `docker compose
-run` **if** that argv is honest on the operator machine. `ci_workflow_file`
-cannot name Jenkins. `merge_queue` is GitHub-only. `command-ci` against
-Actions would be a lie.
-
-**Onboard:** survey may see `Jenkinsfile` / `pom.xml`. Nothing registers
-`mvn test`. No other-CI capability exists.
-
-**Ask that should happen:** "Register a local Maven/container command, or
-attest that Jenkins stays the gate and Yoke uses `implementation_review`?"
-Refuse treating GitLab CI as `ci_workflow_file`. Ledger:
-G-legacy-suite-unmapped, G-command-ci-misbind.
+The confirmed profile, command/CI binding and immutable QA attachment follow
+[test-setup.md](test-setup.md); this example is not a live setup receipt.
 
 ## Crux
 
@@ -120,4 +107,4 @@ G-legacy-suite-unmapped, G-command-ci-misbind.
 | Deploy environment | On-prem Jenkins not a `step_runner` | Do not create AWS persistent flows | Empty default; document Jenkins as external |
 | Self-host server | Guided host setup or existing URL+token | Missing Docker/Compose is named before writes; networking remains operator-owned | Run guided Start on the host or use `yoke self-host init` (`docs/self-host.md`) |
 
-Ledger: G-forge-github-only, G-no-deploy-default-flow, G-test-setup-unasked, G-legacy-suite-unmapped, G-command-ci-misbind.
+Ledger: G-forge-github-only, G-no-deploy-default-flow.

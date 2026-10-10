@@ -35,8 +35,9 @@ App cannot see the repo (`disabled` / pending install).
 
 ### Migration
 
-**Declare:** project `migration_model` capability when the repo has a DB
-cutover. Onboard does not ask.
+**Declare:** confirm the profile's governed-database box and record its
+`migration-model-setup` outcome; attach a supported `migration_model`, name
+the model to attach later, or record the reason it is not needed.
 
 **Refuse:** `yoke migration rehearse` on HTTPS product connections; rehearsal
 needs a validation DB.
@@ -45,10 +46,10 @@ needs a validation DB.
 
 ### Test setup (done / merged gate)
 
-**Declare:** at profile confirmation — one of: registered
-`registered-command-quick` (and `full` if different) plus optional
-`ci_workflow_file` / `merge_queue`; or an operator-attested no-tests
-posture. Surfaces in [test-setup.md](test-setup.md).
+**Declare:** confirm surveyed command, minimal scaffold, review-only suite,
+or operator-attested no-tests. Bind actual argv and immutable QA plans;
+CI and queue declarations require their eligible test workflows.
+Surfaces in [test-setup.md](test-setup.md).
 
 **Refuse:** `command-ci` against a workflow the gate cannot start — absent
 from `.github/workflows/`, not an Actions workflow, or carrying no
@@ -57,8 +58,9 @@ project, one with no `pull_request` trigger. `merge_queue` without GitHub +
 `ci_workflow_file`, or whose workflow has no `merge_group` trigger. Inventing
 `pytest` for a repo that has none.
 
-**Instead:** offer scaffold (or Pack tests) first; if declined, command
-absence seeds `no_tests_declared` for workflows consuming project defaults.
+**Instead:** offer a minimal scaffold first when no suite exists; if declined,
+record the operator's no-tests reason and blocking implementation review.
+Keep existing known-red/flaky suites review-only with exact advisory commands.
 Use local `command` when CI is not GitHub Actions. Never write
 `verification_profiles.test_command` and treat it as the gate.
 

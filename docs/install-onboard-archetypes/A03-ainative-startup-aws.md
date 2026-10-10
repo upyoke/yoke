@@ -99,22 +99,10 @@ Seed: `yoke items create … --deployment-flow {default}`.
 
 ## Test setup
 
-**Reality:** active product. Likely Jest or pytest plus
-`.github/workflows/deploy.yml` (and maybe a test workflow). CI already
-deploys.
+Confirm the actual quick/full suite and eligible Actions test workflow. A deployment workflow is a delivery hint, not a verification binding. Declare queue delivery only with its GitHub and merge_group prerequisites. Bind the confirmed outcome and attach the reusable plan snapshot to seed work; existing AWS delivery does not select the QA command.
 
-**Bind today:** register the **test** argv as `quick`/`full`. Declare
-`ci_workflow_file.workflow_file` only for the workflow that runs that
-suite (not the deploy workflow). `command-ci` then `ci_run`. `merge_queue`
-only if the org already uses merge-when-ready and the workflow has
-`merge_group`.
-
-**Onboard:** survey sees CI as a deploy **hint**. Step 5 does not write
-`ci_workflow_file`. Seed will not attach `registered-command-quick`.
-
-**Ask that should happen:** "Which workflow is the required status check?
-Which local argv is `quick` vs `full`? Queue or standalone merge?" Refuse
-binding `command-ci` to a deploy-only YAML.
+The confirmed profile, command/CI binding and immutable QA attachment follow
+[test-setup.md](test-setup.md); this example is not a live setup receipt.
 
 ## Crux
 
@@ -124,4 +112,4 @@ binding `command-ci` to a deploy-only YAML.
 | Existing CI | `.github/workflows` is a **hint**, not a Yoke flow | Do not fail onboard if Actions already deploy | Map or ignore; never dual-write two production pipelines silently |
 | Migration | Step-2 governed-database box; step 5 writes the `migration_model` capability or records the model to attach once the stack exists | Rehearsal refuses HTTPS product connections | Attach-later is recorded on `migration-model-setup`; idea items that mutate DB need a DB claim |
 
-Ledger: G-byo-aws-identity, G-no-deploy-default-flow (deferred apply), G-installer-handoff-cursor, G-test-setup-unasked, G-ci-workflow-undeclared, G-command-ci-misbind.
+Ledger: G-byo-aws-identity, G-no-deploy-default-flow (deferred apply), G-installer-handoff-cursor.

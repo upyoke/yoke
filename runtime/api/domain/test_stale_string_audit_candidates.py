@@ -20,6 +20,7 @@ def test_normalize_candidate_string_filters_paths_and_commands():
         for s in (
             "PYTHONPATH",
             "yoke --help",
+            "(optional",
             ".remove",
             ".split",
             ".agents",
