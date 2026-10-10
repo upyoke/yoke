@@ -5,20 +5,24 @@ unknown historical clocks. Required recovery, transaction and ledger custody
 belong to the governed applier. No immutable receipt or signed payload changes.
 """
 
+from pathlib import Path
+import runpy
 from typing import Any
 
 from yoke_contracts.schema_authority import refuse_without_serving_build_authority
 from yoke_core.domain import administered_postgres
 
 from yoke_core.domain.migration_serving_version import NEXT_RELEASE
-from yoke_core.domain.stored_instant_conversion import (
-    assert_native_stored_instants,
-    convert_stored_instants,
+
+# Explicit sibling paths keep installed lease/audit writers separate from history.
+_STORAGE = runpy.run_path(str(Path(__file__).with_name("_native_instant_storage.py")))
+_DOCUMENTS = runpy.run_path(
+    str(Path(__file__).with_name("_native_instant_documents.py"))
 )
-from yoke_core.domain.migrations._native_instant_documents import (
-    apply_document_updates,
-    prepare_document_updates,
-)
+assert_native_stored_instants = _STORAGE["assert_native_stored_instants"]
+convert_stored_instants = _STORAGE["convert_stored_instants"]
+apply_document_updates = _DOCUMENTS["apply_document_updates"]
+prepare_document_updates = _DOCUMENTS["prepare_document_updates"]
 
 MINIMUM_SERVING_VERSION = NEXT_RELEASE
 

@@ -7,13 +7,17 @@ payloads remain unchanged. Owner-fact fallback is historical conversion only.
 from typing import Any
 
 from yoke_core.domain.json_helper import dumps_compact
-from yoke_core.domain.migrations._native_instant_documents import (
-    DocumentUpdate,
-    _add,
-    _clock,
-    _document,
-    _rows,
+from pathlib import Path
+import runpy
+
+_FIELDS = runpy.run_path(
+    str(Path(__file__).with_name("_native_instant_document_fields.py"))
 )
+DocumentUpdate = _FIELDS["DocumentUpdate"]
+_add = _FIELDS["_add"]
+_clock = _FIELDS["_clock"]
+_document = _FIELDS["_document"]
+_rows = _FIELDS["_rows"]
 
 
 def _object(value: Any) -> dict[str, Any]:

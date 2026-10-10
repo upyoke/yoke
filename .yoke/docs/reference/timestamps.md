@@ -25,15 +25,14 @@ invoking it. `json_helper.dumps_compact`, `dumps_pretty` and file dumps apply
 `temporal_wire`, so native values cross JSON boundaries canonically while
 opaque strings remain byte-for-byte values.
 
-One-time governed conversion lives in `stored_instant_conversion`, with a
-frozen column roster supplied by permanent migration history. It checks all
-source columns before changing types and combines each table's alterations
-into one rewrite. Approved historical calendar values assume UTC; optional
-blanks become NULL, and specifically approved owner-creation repairs replace
-missing item updates or malformed Ouroboros observations. These are explicit
-historical assumptions, not recovered facts or future input fallbacks. The
-caller retains the restore point, transaction, serving floor and receipts;
-append-only UPDATE/DELETE guards remain enabled during type conversion.
+One-time governed conversion is frozen in migration history alongside its column roster, storage converter and finite document helpers. The entry loads these
+helpers through explicit sibling paths, so installed runners can load candidate history without importing candidate runtime packages. For the native instant
+cutover, run `yoke --env prod-db-admin migration rehearse PREFIX-N` through the installed launcher: its existing lease and audit writers retain authority over
+the pre-cutover control plane; only the history body runs on the validation copy. `stored_instant_conversion` remains the source helper for separate declared
+storage conversions. It checks all source columns before changing types and combines each table's alterations into one rewrite. Approved historical calendar
+values assume UTC; optional blanks become NULL, and specifically approved owner-creation repairs replace missing item updates or malformed Ouroboros
+observations. These are explicit historical assumptions, not recovered facts or future input fallbacks. The caller retains the restore point, transaction,
+serving floor and receipts; append-only UPDATE/DELETE guards remain enabled during type conversion.
 Permanent history freezes all 265 columns across 125 tables. Excess historical
 fraction digits are dropped at microseconds. Its finite mutable-document policy
 repairs only declared usage, episode, resume-notice, driver, QA-wait and

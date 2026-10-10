@@ -6,125 +6,25 @@ existing owner facts; optional unknown usage observations become JSON null.
 No immutable artifact, signed document, token counter or identity is rewritten.
 """
 
-from dataclasses import dataclass
-from datetime import datetime
 import json
-import re
 from typing import Any
 
 from psycopg import sql
 
-from yoke_contracts.timestamps import InvalidInstant, format_instant
 from yoke_core.domain.json_helper import dumps_compact
 from yoke_core.domain.qa_plan_execution_store import canonical
 
+from pathlib import Path
+import runpy
 
-@dataclass(frozen=True)
-class DocumentUpdate:
-    table: str
-    key_column: str
-    key: Any
-    column: str
-    before: str
-    after: str
-
-
-def _historical_clock(conn: Any, value: Any) -> str | None:
-    if value is None or value == "":
-        return None
-    if isinstance(value, datetime):
-        return format_instant(value)
-    if not isinstance(value, str):
-        return None
-    try:
-        return format_instant(value)
-    except InvalidInstant:
-        # This is a one-time UTC assumption, never an accepted future encoding.
-        value = re.sub(r"([.][0-9]{6})[0-9]+", r"\1", value)
-        valid = conn.execute(
-            "SELECT pg_input_is_valid(%s,'timestamp with time zone')", (value,)
-        ).fetchone()[0]
-        if not valid:
-            return None
-        return format_instant(
-            conn.execute("SELECT %s::timestamptz", (value,)).fetchone()[0]
-        )
-
-
-def _clock(
-    conn: Any, value: Any, facts: tuple[Any, ...], *, optional=False
-) -> str | None:
-    if optional and (value is None or value == ""):
-        return None
-    for candidate in (value, *facts):
-        repaired = _historical_clock(conn, candidate)
-        if repaired is not None:
-            return repaired
-    raise RuntimeError(
-        "instant_document_owner_fact_unavailable: a required owned clock has "
-        "no usable historical value or owner fact. Recovery: inspect the restored "
-        "owner record and declare its deterministic repair before rehearsal."
-    )
-
-
-def _rows(
-    conn: Any,
-    table: str,
-    key: str,
-    column: str,
-    facts: tuple[str, ...],
-    *,
-    kind: str | None = None,
-) -> list[Any]:
-    names = {
-        r[0]
-        for r in conn.execute(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_schema='public' AND table_name=%s",
-            (table,),
-        ).fetchall()
-    }
-    if not {key, column}.issubset(names) or (kind is not None and "kind" not in names):
-        return []
-    fields = [sql.Identifier(key), sql.Identifier(column)]
-    fields += [
-        sql.Identifier(name) if name in names else sql.SQL("NULL") for name in facts
-    ]
-    statement = sql.SQL("SELECT {} FROM {} WHERE {} IS NOT NULL AND {} <> ''").format(
-        sql.SQL(",").join(fields),
-        sql.Identifier(table),
-        sql.Identifier(column),
-        sql.Identifier(column),
-    )
-    if kind is not None:
-        statement += sql.SQL(" AND kind=%s")
-        return conn.execute(statement, (kind,)).fetchall()
-    return conn.execute(statement).fetchall()
-
-
-def _document(raw: str, table: str, key: Any) -> dict[str, Any]:
-    try:
-        value = json.loads(raw)
-        if isinstance(value, dict):
-            return value
-    except (ValueError, TypeError):
-        pass
-    raise RuntimeError(
-        f"instant_document_unreadable: {table} owner {key}. Recovery: inspect "
-        "this restored mutable document before defining its repair; no data changed."
-    )
-
-
-def _add(
-    updates: list[DocumentUpdate],
-    table: str,
-    key: str,
-    row: Any,
-    column: str,
-    after: str,
-) -> None:
-    if row[1] != after:
-        updates.append(DocumentUpdate(table, key, row[0], column, row[1], after))
+_FIELDS = runpy.run_path(
+    str(Path(__file__).with_name("_native_instant_document_fields.py"))
+)
+DocumentUpdate = _FIELDS["DocumentUpdate"]
+_add = _FIELDS["_add"]
+_clock = _FIELDS["_clock"]
+_document = _FIELDS["_document"]
+_rows = _FIELDS["_rows"]
 
 
 def prepare_document_updates(conn: Any) -> list[DocumentUpdate]:
@@ -253,11 +153,10 @@ def prepare_document_updates(conn: Any) -> list[DocumentUpdate]:
                 "subject_context",
                 dumps_compact(doc),
             )
-    from yoke_core.domain.migrations._native_relay_instant_documents import (
-        prepare_relay_document_updates,
+    relay = runpy.run_path(
+        str(Path(__file__).with_name("_native_relay_instant_documents.py"))
     )
-
-    updates.extend(prepare_relay_document_updates(conn))
+    updates.extend(relay["prepare_relay_document_updates"](conn))
     return updates
 
 

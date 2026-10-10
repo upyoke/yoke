@@ -7,12 +7,11 @@ import pytest
 
 from yoke_contracts.schema_authority import SchemaAuthorityRefused
 from yoke_contracts.timestamps import format_instant
-from yoke_core.domain import stored_instant_conversion as scalar
 from yoke_core.domain.migrations import _native_instant_documents as documents
 from yoke_core.domain.stored_instant_columns import STORED_INSTANT_COLUMNS
 
 history = importlib.import_module(
-    "yoke_core.domain.migrations.0068_native_domain_instants"
+    "yoke_core.domain.migrations.0070_native_domain_instants"
 )
 STAMP = "2026-10-08T16:30:00.123456Z"
 
@@ -259,7 +258,7 @@ def test_owned_view_is_reconstructed_in_conversion_transaction(blank, monkeypatc
         restored.append(True)
 
     monkeypatch.setattr(flow_init, "create_or_replace_item_progress_view", rebuild)
-    scalar.convert_stored_instants(blank, (("projection_clock", "observed_at"),))
+    history.convert_stored_instants(blank, (("projection_clock", "observed_at"),))
     assert restored == [True]
     assert (
         format_instant(
@@ -267,7 +266,7 @@ def test_owned_view_is_reconstructed_in_conversion_transaction(blank, monkeypatc
         )
         == STAMP
     )
-    scalar.convert_stored_instants(blank, (("projection_clock", "observed_at"),))
+    history.convert_stored_instants(blank, (("projection_clock", "observed_at"),))
     assert restored == [True]
     blank.rollback()
     assert blank.execute("SELECT to_regclass('projection_clock')").fetchone()[0] is None
@@ -290,7 +289,7 @@ def test_unowned_or_custom_view_refuses_before_drop_or_ddl(blank, dependent):
         else "instant_dependent_view_unowned"
     )
     with pytest.raises(RuntimeError, match=expected):
-        scalar.convert_stored_instants(blank, (("projection_clock", "observed_at"),))
+        history.convert_stored_instants(blank, (("projection_clock", "observed_at"),))
     assert (
         blank.execute("SELECT observed_at FROM projection_clock")
         .fetchone()[0]
