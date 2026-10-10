@@ -2,9 +2,11 @@
 
 ## CLI
 
-After install, `yoke` is on PATH and always runs the **main checkout's**
-installed packages (not a linked worktree's source), unless you re-point the
-editable install for source-dev.
+After install, `yoke` is on PATH and runs the installed product. A source-checkout
+installation has its own launcher binding; changing directories does not select
+a linked worktree's build. For pre-merge source development, use
+`yoke dev run -- <command>` to resolve the claimed checkout and verify its
+locked environment before running candidate code.
 
 Common operators:
 
