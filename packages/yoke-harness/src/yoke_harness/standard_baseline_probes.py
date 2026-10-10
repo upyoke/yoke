@@ -27,7 +27,7 @@ RECOVERIES = {
     "Codex real request": "Sign in Codex with codex login in the test user's session.",
     "Cursor real request": "Sign in Cursor with agent login in the test user's session.",
     "Claude bypass accepted": "Have the operator accept Claude's one-time bypass prompt in the test user's session.",
-    "macOS login keychain readable": "Use GUI Terminal to unlock/re-key the login keychain after a password change, sign in Claude again, and re-save.",
+    "macOS login keychain readable": "Use GUI Terminal to unlock/re-key the login keychain after a password change and sign in Claude again; the keychain stays live through resets.",
     "macOS screen saver disabled": f"As the GUI test user run {SCREEN_SAVER_DISABLE_COMMAND} before capture; save a new golden and prove the reset roundtrip.",
     "Linux desktop input available": "Provision xdotool as a baseline package before capture, not as a QA package; capture a new golden and prove the fresh-host reset roundtrip.",
 }

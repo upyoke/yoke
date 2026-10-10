@@ -52,8 +52,9 @@ _RECOVERY_BY_CAUSE = {
         "window-server context"
     ),
     "macos_login_keychain_context_unavailable": (
-        "recapture the golden from a login session where the program is "
-        "signed in; its credential is present but not readable here"
+        "unlock the login keychain and sign the program in again from the "
+        "logged-in GUI session, then retry; the login stays live through "
+        "resets, so no recapture is needed"
     ),
 }
 

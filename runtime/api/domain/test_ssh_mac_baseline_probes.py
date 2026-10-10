@@ -222,9 +222,9 @@ def test_a_probe_with_nothing_expected_does_not_report_an_expectation_met() -> N
     assert result.evidence["probes"][0]["expectation_met"] is None
 
 
-def test_an_unreadable_credential_recovers_by_recapture_not_by_host_repair() -> None:
-    # The bridge delivered the probe, so the program did answer. A credential
-    # the session cannot read is still a fact about the golden.
+def test_an_unreadable_credential_recovers_by_signing_in_live() -> None:
+    # The bridge delivered the probe, so the program did answer. The login is
+    # live state now, so the fix is on the host, never in the golden.
     recorder = _Recorder(_completed(1, stderr="errSecInteractionNotAllowed"))
 
     result = run_baseline_probes(
@@ -235,7 +235,7 @@ def test_an_unreadable_credential_recovers_by_recapture_not_by_host_repair() -> 
     assert result.error_code == "baseline_probe_failed"
     row = result.evidence["probes"][0]
     assert row["cause"] == "macos_login_keychain_context_unavailable"
-    assert "recapture the golden" in row["recovery"]
+    assert "sign the program in again" in row["recovery"]
 
 
 class _Control:
