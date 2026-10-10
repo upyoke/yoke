@@ -215,21 +215,33 @@ def _resolve_item_metadata(
     resolved: dict[str, set[int]],
     warnings: list[dict[str, str]],
 ) -> None:
+    commit_times = {
+        commit: _commit_instant(source.commit_time(commit)) for commit in commits
+    }
+    instants = [when for when in commit_times.values() if when is not None]
+    landing_window, bounds = "FALSE", ()
+    if instants:
+        tolerance = timedelta(seconds=LANDING_TIME_TOLERANCE_SECONDS)
+        # SQL narrows the candidates; only the strict codec admits a clock
+        # used as ownership evidence. The cast is an identity on native storage.
+        landing_window = (
+            "COALESCE(i.merge_queue_landed_at,i.merged_at)::timestamptz "
+            "BETWEEN %s AND %s"
+        )
+        bounds = (min(instants) - tolerance, max(instants) + tolerance)
     rows = _safe_rows(
         conn,
         "SELECT i.id,i.merged_at,i.merge_queue_landed_at,i.resolution_ref,"
-        "iw.branch,iw.commit_sha FROM items i LEFT JOIN item_worktrees iw "
+        f"iw.branch,iw.commit_sha,({landing_window}) AS landing_in_window "
+        "FROM items i LEFT JOIN item_worktrees iw "
         "ON iw.item_id=i.id WHERE i.project_id=%s AND (i.merged_at IS NOT NULL "
         "OR i.merge_queue_landed_at IS NOT NULL OR i.resolution_ref IS NOT NULL "
         "OR iw.commit_sha IS NOT NULL)",
-        (project_id,),
+        (*bounds, project_id),
         reason="item_merge_metadata_unavailable",
         recovery="Restore item and lane metadata reads, then retry run completion.",
         warnings=warnings,
     )
-    commit_times = {
-        commit: _commit_instant(source.commit_time(commit)) for commit in commits
-    }
     for row in rows:
         item_id = _cell(row, "id", 0)
         resolution_ref = str(_cell(row, "resolution_ref", 3) or "").strip()
@@ -262,6 +274,8 @@ def _resolve_item_metadata(
                 _add_resolution(resolved, commits, carrier, item_id, known_items)
         numeric_item_id = int(item_id)
         if any(numeric_item_id in item_ids for item_ids in resolved.values()):
+            continue
+        if not _cell(row, "landing_in_window", 6):
             continue
         landed = parse_instant(landed_at) if landed_at is not None else None
         if landed is None:

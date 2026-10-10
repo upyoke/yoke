@@ -109,6 +109,17 @@ Yoke self-deploys use the same paired authority because they replace the API
 that otherwise serves run state. Follow the release-pair rule below and the
 steering skill's source-dev delivery guide; ordinary projects deliver over HTTPS.
 
+Before native-clock boot convergence, the candidate self-deploy driver may
+read a database whose clocks are still TEXT. Composition decodes only clocks
+it uses: flow succession compares relevant active successors, and landing
+attribution first filters timestamps in SQL against the qualified commit-time
+window. That filter supplies no ownership evidence; each admitted landing is
+still decoded strictly before comparison. Unrelated historical rows do not
+need decoding. Driver datetime writes into TEXT may have PostgreSQL's ISO
+space separator and short offset; the permanent native-clock history converts
+them at boot. Non-clock run-field reads and whole-row pipe projections do not
+decode those strings; an explicitly requested clock still uses the strict codec.
+
 Tenant-fleet content-identity adoption is also an attested operator operation:
 
 ```text

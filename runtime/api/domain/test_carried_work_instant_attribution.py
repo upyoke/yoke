@@ -16,7 +16,7 @@ STAMP = parse_instant("1969-12-31T23:59:59.123456Z")
 
 
 def _resolve(monkeypatch, landed, commit_times):
-    row = (7, landed, None, None, None, None)
+    row = (7, landed, None, None, None, None, True)
     monkeypatch.setattr(sources, "_safe_rows", lambda *args, **kwargs: [row])
     resolved = {}
     sources._resolve_item_metadata(
