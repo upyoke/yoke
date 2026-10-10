@@ -40,6 +40,7 @@ from yoke_core.domain.standalone_item_merge_landed import LandedLane
 from yoke_core.domain.standalone_item_merge_release_status import (
     close_out_route,
 )
+from yoke_core.domain.standalone_item_merge_terminal import GATE_REFUSAL_CODE
 from yoke_core.domain.workflow_level_handoff import capture_level_handoffs
 
 
@@ -151,15 +152,23 @@ def run_terminal_transition(
             f"merge landed and evidence recorded, but the terminal "
             f"transition was refused: {transition_error}"
         )
-        _sweep_landed_lane(
-            item,
-            envelope,
-            record_terminal_lane_close_out,
-            status=status,
-            session_id=session_id,
-            repo_root=repo_root,
-            target=target,
-        )
+        if getattr(transition_error, "code", "") == GATE_REFUSAL_CODE:
+            # A gate refusal is cleared by re-running this close-out, and the
+            # retry may still need the lane, so nothing is swept here.
+            envelope.setdefault("warnings", []).append(
+                "lane kept for the retry: fix the refused gate, then re-run "
+                "the same close-out command"
+            )
+        else:
+            _sweep_landed_lane(
+                item,
+                envelope,
+                record_terminal_lane_close_out,
+                status=status,
+                session_id=session_id,
+                repo_root=repo_root,
+                target=target,
+            )
         retain_if_waiting(envelope, **waiting)
         return 1
     envelope["status"] = new_status
@@ -230,6 +239,9 @@ def _sweep_landed_lane(
     target: str,
 ) -> None:
     """Retire the lane of a landing whose terminal transition did not take.
+
+    Not reached after a lifecycle gate refusal: that recovery is a retry of
+    the same close-out, which may still need the lane.
 
     Lane release is otherwise reachable only from the review stage, so an
     item that recorded its evidence and then refused here would sit at its

@@ -29,7 +29,7 @@ GATE_SATISFIER_TABLES: dict[str, dict] = {
             "obligation's satisfier ladder discharged it — the durable "
             "answer to 'was this done merged with CI, merged locally, or "
             "merely attested'. Obligations: 'path_claim_boundary' "
-            "(remote_integration_ref, local_integration_ref), "
+            "(landed_merge, remote_integration_ref, local_integration_ref), "
             "'done_merge_evidence' (merged_with_ci, merged_locally, "
             "agent_attested), 'delivery_evidence' "
             "(deployment_run_succeeded, merge_only). The project-scoped "

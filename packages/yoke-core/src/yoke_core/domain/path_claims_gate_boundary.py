@@ -18,6 +18,9 @@ The adapter:
 * Blocks the transition with ``GATE_PATH_CLAIM_BOUNDARY`` and the
   rejection diagnostic when any claim returns ``conflict``.
 
+Once a landing is recorded for the item's current work, the boundary is
+proved from that merge instead (:mod:`path_claims_landed_boundary`).
+
 The gate never passes on an unexamined boundary. An item with zero
 non-terminal claims has genuinely nothing to enforce and returns clear;
 every other shortage is a named refusal:
@@ -49,6 +52,10 @@ from yoke_core.domain.gate_satisfier_ladder_catalog import (
 )
 from yoke_core.domain.gate_satisfier_stamp import record_refusal, record_rung
 from yoke_core.domain.path_claims_boundary_ladder import resolve_boundary_rung
+from yoke_core.domain.path_claims_landed_boundary import (
+    check_landed_boundary,
+    landing_for_boundary,
+)
 from yoke_core.domain.project_checkout_locations import item_worktree_path
 from yoke_core.domain.project_identity import render_item_ref
 
@@ -169,6 +176,15 @@ def check_boundary_for_item(
         if not claims:
             return None
         claim_ids = [claim_id for claim_id, _target in claims]
+        landing = landing_for_boundary(conn, item_id)
+        if landing is not None:
+            return check_landed_boundary(
+                conn,
+                item_id=item_id,
+                target_status=target_status,
+                claim_ids=claim_ids,
+                landing=landing,
+            )
 
         repo_path = _resolve_repo_path(conn, item_id)
         if repo_path is None:
@@ -236,11 +252,9 @@ def check_boundary_for_item(
         except ImportError:  # pragma: no cover
             _events = None  # type: ignore[assignment]
 
-        # Aggregate per-claim results into an item-level verdict
-        # before rejecting. Single-claim items behave like before
-        # (one claim's coverage IS the union); multi-claim items accept
-        # when the union of declared coverage covers every touched path,
-        # rejecting only when paths are truly out-of-coverage.
+        # Item-level verdict: multi-claim items accept when the union of
+        # declared coverage covers every touched path, even where a
+        # narrower claim conflicted on its own.
         rejections: List[str] = []
         hard_errors: List[str] = []
         per_claim_results = []
@@ -273,11 +287,6 @@ def check_boundary_for_item(
                     f"{result.diagnostics}; offending paths: "
                     f"{', '.join(offending_paths)}"
                 )
-        # Aggregation: if every touched path is in the union of
-        # declared coverage across the item's claims, the item-level
-        # verdict is accept even when individual claims reported
-        # conflict (they conflicted only because their own coverage was
-        # narrower than the union).
         if rejections and len(per_claim_results) > 1:
             residual = union_touched - union_declared
             if not residual:

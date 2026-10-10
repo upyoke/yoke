@@ -9,9 +9,6 @@ from urllib.parse import quote
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_CONTENTS_READ_PERMISSION_LEVELS,
 )
-from yoke_core.domain.gate_satisfier_ladder_catalog import (
-    PATH_CLAIM_BOUNDARY_LADDER,
-)
 from yoke_core.domain.path_claims_boundary import BoundaryCheckStatus
 
 
@@ -34,6 +31,7 @@ _CHECK_FIELDS = frozenset(
         "diagnostics",
     }
 )
+_LANE_RUNGS = frozenset({"remote_integration_ref", "local_integration_ref"})
 _CLEAR_STATUSES = frozenset(
     {
         BoundaryCheckStatus.VALID.value,
@@ -142,10 +140,10 @@ def validate_proof(
                 "boundary proof has an invalid integration-base SHA"
             )
     rung_id = str(proof.get("rung_id") or "")
-    try:
-        PATH_CLAIM_BOUNDARY_LADDER.rung(rung_id)
-    except KeyError as exc:
-        raise BoundaryProofError("boundary proof names an unsupported rung") from exc
+    # A lane observation proves only an integration-ref rung; the landed
+    # rung is read by the control plane itself from the recorded merge.
+    if rung_id not in _LANE_RUNGS:
+        raise BoundaryProofError("boundary proof names an unsupported rung")
     if verify_remote and rung_id == "remote_integration_ref":
         expected = _remote_heads(
             conn,

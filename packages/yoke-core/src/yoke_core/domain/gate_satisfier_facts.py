@@ -68,6 +68,7 @@ DERIVED_DEFAULT_BRANCH = "derived:default_branch"
 OBSERVED_REMOTE_INTEGRATION_REF = "observed:remote_integration_ref"
 OBSERVED_LOCAL_INTEGRATION_REF = "observed:local_integration_ref"
 OBSERVED_MERGE_RECORDED = "observed:merge_recorded"
+OBSERVED_LANDED_MERGE = "observed:landed_merge"
 OBSERVED_NO_IMPLEMENTATION_BRANCH = "observed:no_implementation_branch"
 
 _UNKNOWN_RECOVERY = {
@@ -285,6 +286,7 @@ __all__ = [
     "DERIVED_TEST_COMMAND_DECLARED",
     "Fact",
     "FactVerdict",
+    "OBSERVED_LANDED_MERGE",
     "OBSERVED_LOCAL_INTEGRATION_REF",
     "OBSERVED_MERGE_RECORDED",
     "OBSERVED_NO_IMPLEMENTATION_BRANCH",

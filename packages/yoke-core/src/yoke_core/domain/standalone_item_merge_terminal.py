@@ -46,6 +46,22 @@ TERMINAL_STATUS = evidence.CLOSED_OUT_STATUS
 TRANSITION_REASON = "Merged and evidence recorded"
 
 
+#: The relay code every lifecycle gate refusal carries. Its recovery is a
+#: retry of the same close-out, which may still need the item's lane.
+GATE_REFUSAL_CODE = "lifecycle_gate_unmet"
+
+
+class TransitionRefusal(str):
+    """A refusal message that keeps the relay's error code beside it."""
+
+    code: str = ""
+
+    def __new__(cls, message: str, code: str = "") -> "TransitionRefusal":
+        refusal = super().__new__(cls, message)
+        refusal.code = code
+        return refusal
+
+
 def _relay_error(response: Any, fallback: str) -> str:
     error = getattr(response, "error", None)
     return getattr(error, "message", None) or fallback if error else fallback
@@ -73,7 +89,10 @@ def _execute(
     if response.success:
         record_level_handoff(dict(response.result or {}))
         return ""
-    return _relay_error(response, "terminal transition refused")
+    return TransitionRefusal(
+        _relay_error(response, "terminal transition refused"),
+        str(getattr(getattr(response, "error", None), "code", "") or ""),
+    )
 
 
 def transition_to_done(
@@ -187,4 +206,10 @@ def _lane_verdicts(
     return tuple(answered.values())
 
 
-__all__ = ["TERMINAL_STATUS", "TRANSITION_REASON", "transition_to_done"]
+__all__ = [
+    "GATE_REFUSAL_CODE",
+    "TERMINAL_STATUS",
+    "TRANSITION_REASON",
+    "TransitionRefusal",
+    "transition_to_done",
+]
