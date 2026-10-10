@@ -241,7 +241,7 @@ Decision creation, individual answers, resolution and withdrawal admit supplied
 clocks strictly before mutation, bind aware native instants, and keep absent
 resolution clocks null. Decision events share the caller transaction and use
 the event writer's canonical SQLite/JSON boundary. Run terminalization binds a
-native completion clock and exposes a fixed-six UTC audit receipt.
+Native completion clock, refuses internal wire/naive clocks before database access, and exposes a fixed-six UTC audit receipt. Claim contention validates Native handoffs and floors ages with exact timedelta arithmetic.
 Machine-authorization lifecycle delivery rejects unqualified and numeric clocks
 before coercion. Its declared expiry, occurrence and end-context clocks serialize
 as fixed-six UTC/null; other context strings remain opaque. Expiry checks compare

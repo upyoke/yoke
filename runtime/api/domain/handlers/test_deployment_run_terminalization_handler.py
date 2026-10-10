@@ -8,7 +8,7 @@ from runtime.api.domain.handlers.deployment_handler_test_support import (
     deployment_request,
 )
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.timestamps import format_instant
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.deployment_run_terminalization import RunTerminalization
 from yoke_core.domain.handlers.deployment_run_terminalization import (
     handle_deployment_run_terminalize,
@@ -34,7 +34,7 @@ def test_handler_calls_the_guarded_domain_authority():
         prior_status="executing",
         final_status="cancelled",
         reason="No external job remains",
-        terminalized_at="2026-08-05T12:00:00Z",
+        terminalized_at=parse_instant("2026-08-05T12:00:00Z"),
         terminalized_by_actor_id=None,
         terminalized_by_session_id="s-1",
         event_id="event-1",

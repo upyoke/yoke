@@ -4,19 +4,19 @@ from __future__ import annotations
 from yoke_core.domain.project_identity import render_item_ref
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from yoke_contracts.timestamps import as_utc, format_instant, parse_instant, utc_now
+from yoke_contracts.timestamps import as_utc, format_instant, utc_now
 from typing import Any
 
 from yoke_contracts.coordination_claim_recovery import operator_release_command
 
 
-def _age_seconds(value: object, now: datetime) -> int | None:
-    parsed = None if value is None else parse_instant(value)
-    if parsed is None:
+def _age_seconds(value: datetime | None, now: datetime) -> int | None:
+    current = as_utc(now)
+    if value is None:
         return None
-    return max(0, int((now - parsed).total_seconds()))
+    return max(0, (current - as_utc(value)) // timedelta(seconds=1))
 
 
 def _age_label(seconds: int | None) -> str:
@@ -46,9 +46,9 @@ class ClaimContention:
     operator_release_command: str
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "acquired_at", parse_instant(self.acquired_at))
+        object.__setattr__(self, "acquired_at", as_utc(self.acquired_at))
         if self.heartbeat_at is not None:
-            object.__setattr__(self, "heartbeat_at", parse_instant(self.heartbeat_at))
+            object.__setattr__(self, "heartbeat_at", as_utc(self.heartbeat_at))
 
     @property
     def message(self) -> str:

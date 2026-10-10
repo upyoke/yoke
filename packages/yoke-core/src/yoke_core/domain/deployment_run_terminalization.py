@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+from yoke_contracts.timestamps import as_utc, format_instant, utc_now
 from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import connect, instant_parameter, query_one
@@ -49,7 +49,7 @@ class RunTerminalization:
     event_id: str
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "terminalized_at", parse_instant(self.terminalized_at))
+        object.__setattr__(self, "terminalized_at", as_utc(self.terminalized_at))
 
 
 class RunTerminalizationRejected(ValueError):
@@ -108,14 +108,14 @@ def terminalize_run_on(
     reason: str,
     actor_id: Optional[int],
     session_id: str,
-    terminalized_at: datetime | str | None = None,
+    terminalized_at: datetime | None = None,
 ) -> RunTerminalization:
     """Close one active run and append its audit event on *conn*.
 
     The caller owns the transaction: nothing here commits or rolls back, so
     a close recorded alongside other writes lands with them or not at all.
     """
-    stamp = parse_instant(terminalized_at) if terminalized_at is not None else utc_now()
+    stamp = as_utc(terminalized_at) if terminalized_at is not None else utc_now()
     stored_stamp = instant_parameter(conn, stamp)
     final_status = str(disposition).strip().lower()
     if final_status not in TERMINAL_DISPOSITIONS:
