@@ -51,7 +51,7 @@ def run_host_operation(
     if operation in {"reset", "verify"}:
         parser.description = (
             "Restore the declared baseline and clear owned Yoke/harness temporary artifacts. "
-            "Preserve the golden, browser-profile baseline, restored home and live mission scratch. "
+            "Preserve the golden, live browser identities, restored home and live mission scratch. "
             "The receipt reports temp_cleanup.freed_bytes; cleanup failures refuse with recovery."
         )
     if operation == "screenshot":
@@ -73,11 +73,6 @@ def run_host_operation(
         parser.add_argument(
             "--destination",
             help="Golden capture path on the remote Test Machine; local path claims do not apply to this destination.",
-        )
-        parser.add_argument(
-            "--component",
-            choices=("browser-profile",),
-            help="Seal only the stopped browser profile beside the clean home golden on Linux, macOS, or Windows/WSL; no probes file required.",
         )
         parser.add_argument(
             "--probes-file",
@@ -103,7 +98,6 @@ def run_host_operation(
         machine=parsed.machine,
         baseline=getattr(parsed, "baseline", None),
         destination=getattr(parsed, "destination", None),
-        capture_component=getattr(parsed, "component", None),
         probes_document=probes_document,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
@@ -117,7 +111,6 @@ def _execute(
     machine: str | None,
     baseline: str | None,
     destination: str | None,
-    capture_component: str | None,
     probes_document: str | None,
     session_id: str | None,
     json_mode: bool,
@@ -133,7 +126,6 @@ def _execute(
             "operation": operation,
             "baseline": baseline,
             "destination": destination,
-            **({"capture_component": capture_component} if capture_component else {}),
         },
         actor=actor,
     )
@@ -199,11 +191,6 @@ def _execute(
                 "project": project,
                 "baseline": baseline,
                 "destination": execution.get("golden_destination"),
-                **(
-                    {"capture_component": execution["capture_component"]}
-                    if execution.get("capture_component")
-                    else {}
-                ),
                 **submission.payload,
             },
             actor=actor,
@@ -286,11 +273,6 @@ def abort_operation(
             "operation": operation,
             "baseline": baseline,
             "destination": execution.get("golden_destination"),
-            **(
-                {"capture_component": execution["capture_component"]}
-                if execution.get("capture_component")
-                else {}
-            ),
             "reason": reason,
         },
         actor=actor,

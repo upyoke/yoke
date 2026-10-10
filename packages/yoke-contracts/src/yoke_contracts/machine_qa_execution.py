@@ -13,7 +13,6 @@ from pydantic import (
     Field,
     ValidationError,
     model_validator,
-    model_serializer,
 )
 
 from yoke_contracts.machine_config.test_machine import (
@@ -147,7 +146,6 @@ class HostControlExecutionContract(BaseModel):
     baselines: list[str] = Field(default_factory=list)
     cases: list[MachineQaCaseContract] = Field(default_factory=list)
     golden_destination: str | None = None
-    capture_component: Literal["browser-profile"] | None = None
     plan_execution_id: str | None = None
     continues_execution_id: str | None = None
     roster_digest: str | None = None
@@ -155,13 +153,6 @@ class HostControlExecutionContract(BaseModel):
     case_position: int | None = Field(default=None, ge=1)
     baseline_position: int | None = Field(default=None, ge=1)
     contract_digest: str
-
-    @model_serializer(mode="wrap")
-    def _compatible_capture_shape(self, serialize):
-        result = serialize(self)
-        if self.capture_component is None:
-            result.pop("capture_component", None)
-        return result
 
     @model_validator(mode="after")
     def _registered_shape(self) -> "HostControlExecutionContract":
@@ -199,11 +190,6 @@ class HostControlExecutionContract(BaseModel):
                 "a golden destination belongs to a golden-capture contract and "
                 "to no other operation"
             )
-        if (
-            self.capture_component is not None
-            and self.operation != GOLDEN_CAPTURE_OPERATION
-        ):
-            raise ValueError("a capture component belongs only to golden capture")
         if self.golden_destination is not None:
             self.golden_destination = validate_golden_baseline_path(
                 self.golden_destination
@@ -286,7 +272,6 @@ def issue_execution_contract(
     baselines: list[str] | None = None,
     cases: list[dict[str, Any]] | None = None,
     golden_destination: str | None = None,
-    capture_component: Literal["browser-profile"] | None = None,
     plan_execution_id: str | None = None,
     continues_execution_id: str | None = None,
     roster_digest: str | None = None,
@@ -308,7 +293,6 @@ def issue_execution_contract(
         baselines=list(baselines or []),
         cases=[_validated_case(case) for case in (cases or [])],
         golden_destination=golden_destination,
-        capture_component=capture_component,
         plan_execution_id=plan_execution_id,
         continues_execution_id=continues_execution_id,
         roster_digest=roster_digest,

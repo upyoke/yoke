@@ -25,7 +25,13 @@ from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
     validate_test_machine_settings,
 )
-from yoke_core.domain.handlers.machine_qa_operation import handle_operation_begin
+from yoke_core.domain.handlers.machine_qa_execution_abort import (
+    handle_operation_abort,
+)
+from yoke_core.domain.handlers.machine_qa_operation import (
+    handle_operation_begin,
+    handle_operation_submit,
+)
 from yoke_core.domain.machine_qa_capability import (
     test_machine_detail as machine_detail,
 )
@@ -124,6 +130,51 @@ def test_a_refused_capture_leaves_the_declared_baseline_alone(
     assert receipt["checks"][0]["refusal"]["recovery"]
     assert execution["golden_destination"] == (
         "/Users/Shared/yoke-golden/tester-home-new"
+    )
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [handle_operation_begin, handle_operation_submit, handle_operation_abort],
+)
+def test_a_browser_profile_capture_request_is_refused_by_name(handler) -> None:
+    # Clients that predate live browser identities still send this field; they
+    # learn what replaced the sealed capture instead of an unknown-field error.
+    refused = handler(
+        operation_request(
+            {
+                "project": "yoke",
+                "operation": "golden_capture",
+                "capture_component": "browser-profile",
+            }
+        )
+    )
+
+    assert not refused.primary_success
+    assert refused.error.code == "browser_profile_capture_removed"
+    assert "yoke browser authorize --identity NAME" in refused.error.message
+
+
+def test_an_older_clients_null_capture_component_still_captures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Older clients serialize the retired field as null on every ordinary
+    # capture; only a named component is the removed sealed profile capture.
+    conn = make_conn()
+    configure_test_machine(conn, tmp_path, monkeypatch)
+    _declare_golden_baseline(conn)
+
+    submitted, execution = run_operation(
+        "golden_capture",
+        control=FakeHostControl(),
+        begin_payload={"capture_component": None},
+    )
+
+    assert submitted.primary_success, submitted.error
+    assert (
+        submitted.result_payload["golden_baseline_path"]
+        == (execution["golden_destination"])
     )
 
 

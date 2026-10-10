@@ -51,7 +51,10 @@ def _runtime_dir() -> Path | None:
 def _node(runtime: Path, script: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["node", "-e", script],
-        cwd=str(runtime), capture_output=True, text=True, timeout=WINDOW_TIMEOUT_SECONDS,
+        cwd=str(runtime),
+        capture_output=True,
+        text=True,
+        timeout=WINDOW_TIMEOUT_SECONDS,
     )
 
 
@@ -95,7 +98,8 @@ def probe_server():
     # sends anything on them, and a single-threaded server blocks in the
     # handler for one of those while the real request waits behind it.
     with http.server.ThreadingHTTPServer(
-        ("127.0.0.1", 0), _SessionCookieHandler,
+        ("127.0.0.1", 0),
+        _SessionCookieHandler,
     ) as server:
         # The served requests are the proof that the window reached the page;
         # without them, "no cookie" cannot be told apart from "no page load".
@@ -115,7 +119,8 @@ def _stored_cookies(profile: Path) -> list[tuple]:
     connection = sqlite3.connect(f"file:{store}?mode=ro", uri=True)
     try:
         return connection.execute(
-            "SELECT name, is_persistent FROM cookies WHERE name = ?", (COOKIE_NAME,),
+            "SELECT name, is_persistent FROM cookies WHERE name = ?",
+            (COOKIE_NAME,),
         ).fetchall()
     finally:
         connection.close()
@@ -139,18 +144,20 @@ def _sign_in_window(runtime: Path, profile: Path, probe) -> None:
     built = _node(
         runtime,
         f"process.stdout.write(JSON.stringify(require({json.dumps(str(AUTHORIZE_JS))})"
-        f".buildLaunchArgs({json.dumps({'profileDir': str(profile), 'url': url})})))",
+        f".buildLaunchArgs({json.dumps({'profileDir': str(profile), 'urls': [url]})})))",
     )
     assert built.returncode == 0, built.stderr
     args = json.loads(built.stdout)
     executable = _node(
-        runtime, "process.stdout.write(require('playwright').chromium.executablePath())",
+        runtime,
+        "process.stdout.write(require('playwright').chromium.executablePath())",
     ).stdout.strip()
     browser_log = profile.parent / "browser-stderr.log"
     with open(browser_log, "w", encoding="utf-8") as stderr_log:
         window = subprocess.Popen(
             [executable, "--headless=new", *args],
-            stdout=subprocess.DEVNULL, stderr=stderr_log,
+            stdout=subprocess.DEVNULL,
+            stderr=stderr_log,
         )
     try:
         deadline = time.monotonic() + WINDOW_TIMEOUT_SECONDS
@@ -193,7 +200,9 @@ def _daemon_context_cookies(runtime: Path, profile: Path) -> list[str]:
 
 
 def test_a_sign_in_reaches_the_daemons_browser_context(
-    browser_runtime, probe_server, tmp_path,
+    browser_runtime,
+    probe_server,
+    tmp_path,
 ) -> None:
     profile = tmp_path / "profile"
     profile.mkdir()

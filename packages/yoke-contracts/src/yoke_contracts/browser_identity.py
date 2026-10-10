@@ -158,7 +158,9 @@ def _sign_in_check(identity: str, index: int, raw: object) -> SignInCheck:
             "signed_in_selector must be a non-empty selector."
         )
     if status is not None and not (
-        isinstance(status, int) and not isinstance(status, bool) and 100 <= status <= 599
+        isinstance(status, int)
+        and not isinstance(status, bool)
+        and 100 <= status <= 599
     ):
         raise BrowserIdentityError(
             f"browser_identity_declaration_invalid: {where}.probe."
@@ -249,8 +251,7 @@ def select_identity(
         return identities[selected]
     raise BrowserIdentityError(
         f"browser_identity_undeclared: this project declares no browser identity "
-        f"{selected!r}; declared: {', '.join(sorted(identities))}. "
-        + _DECLARE_RECOVERY
+        f"{selected!r}; declared: {', '.join(sorted(identities))}. " + _DECLARE_RECOVERY
     )
 
 

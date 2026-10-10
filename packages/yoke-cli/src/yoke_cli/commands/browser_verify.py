@@ -17,6 +17,7 @@ from typing import List
 from yoke_contracts.browser_identity import BrowserIdentityError
 from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.commands.browser_sign_in import (
+    DECLARATIONS_FLAG_HELP,
     IDENTITY_FLAG_HELP,
     check_sign_in,
     prepare_browser_runtime,
@@ -24,7 +25,8 @@ from yoke_cli.commands.browser_sign_in import (
 )
 
 BROWSER_VERIFY_USAGE = (
-    "yoke browser verify [--project PROJECT] [--identity NAME] [--json]"
+    "yoke browser verify [--project PROJECT] [--identity NAME] "
+    "[--declarations-json JSON] [--json]"
 )
 
 _BROWSER_VERIFY_HELP_DEEP = """\
@@ -61,6 +63,9 @@ def browser_verify(args: List[str]) -> int:
     )
     parser.add_argument("--project", default=None)
     parser.add_argument("--identity", default=None, help=IDENTITY_FLAG_HELP)
+    parser.add_argument(
+        "--declarations-json", default=None, help=DECLARATIONS_FLAG_HELP
+    )
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parse_or_usage_error(parser, args, BROWSER_VERIFY_USAGE)
     if parsed is None:
@@ -76,7 +81,9 @@ def browser_verify(args: List[str]) -> int:
     from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 
     try:
-        project_key, identity = resolve_identity_target(parsed.project, parsed.identity)
+        project_key, identity = resolve_identity_target(
+            parsed.project, parsed.identity, parsed.declarations_json
+        )
         runtime = (
             prepare_browser_runtime("verify-sign-in.js") if identity.sites else None
         )

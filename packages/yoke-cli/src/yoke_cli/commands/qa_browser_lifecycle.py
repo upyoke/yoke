@@ -189,13 +189,10 @@ def qa_browser_setup(args: List[str]) -> int:
 
 
 def _declared_identity(project: str, identity: str | None) -> str:
-    """The identity setup opens; a named one must be declared by the project."""
-    if not identity:
-        return DEFAULT_IDENTITY
-    from yoke_cli.config.browser_identities import resolve_identity
-    from yoke_cli.config.browser_profile import profile_project_key
+    """The identity setup opens; reading no declarations keeps hosts offline-safe."""
+    from yoke_contracts.browser_identity import validate_identity_name
 
-    return resolve_identity(profile_project_key(project), identity).name
+    return validate_identity_name(identity or DEFAULT_IDENTITY)
 
 
 def _profile_dir_arg(project: str | None, identity: str) -> str | None:

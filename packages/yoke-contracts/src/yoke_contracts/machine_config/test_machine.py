@@ -23,10 +23,7 @@ _SETTING_KEYS = frozenset({"resource_name", "host", "user", "os", "operating_not
 # restore instead of an enumeration, so its absence means the machine has opted
 # out of that reset rather than that the settings are incomplete.
 _OPTIONAL_SETTING_KEYS = (
-    frozenset(
-        {"golden_baseline_path", "browser_profile_baseline_path", "cloud_instance_id"}
-    )
-    | DESKTOP_SETTING_KEYS
+    frozenset({"golden_baseline_path", "cloud_instance_id"}) | DESKTOP_SETTING_KEYS
 )
 TEST_MACHINE_CAPABILITY_PREFIX = f"{TEST_MACHINE_CAPABILITY}:"
 
@@ -134,15 +131,16 @@ def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]
         raise TestMachineCapabilityError(
             "test-machine settings require exactly resource_name, host, user, "
             "os, and operating_notes, and optionally "
-            "golden_baseline_path, browser_profile_baseline_path, cloud_instance_id "
+            "golden_baseline_path, cloud_instance_id "
             "and a complete desktop route (" + "; ".join(detail) + ")"
         )
     values = {key: str(payload[key] or "").strip() for key in present}
-    for key in ("golden_baseline_path", "browser_profile_baseline_path"):
-        if values.get(key):
-            values[key] = validate_golden_baseline_path(values[key])
-        else:
-            values.pop(key, None)
+    if values.get("golden_baseline_path"):
+        values["golden_baseline_path"] = validate_golden_baseline_path(
+            values["golden_baseline_path"]
+        )
+    else:
+        values.pop("golden_baseline_path", None)
     values.update(validate_desktop_settings(values))
     if "cloud_instance_id" in values and not re.fullmatch(
         r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,511}", values["cloud_instance_id"]

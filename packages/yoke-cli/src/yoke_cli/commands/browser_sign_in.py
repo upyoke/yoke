@@ -6,17 +6,30 @@ check that identity's declared sites headless on its own profile.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from typing import Any, NamedTuple
 
-from yoke_contracts.browser_identity import BrowserIdentity
+from yoke_contracts.browser_identity import (
+    BrowserIdentity,
+    BrowserIdentityError,
+    parse_identity_declarations,
+    select_identity,
+)
 from yoke_cli import browser_node_toolchain
 
 IDENTITY_FLAG_HELP = (
     "Identity whose profile to use (default: `default`, the project's original "
     "single profile). Other names must be declared in the project's "
     "browser-control capability settings."
+)
+DECLARATIONS_FLAG_HELP = (
+    "The project's browser-control settings document as JSON, for a host that "
+    "cannot read them itself (a Test Machine not connected to the project's "
+    "control plane). Read it where the project is reachable with `yoke "
+    "projects capability-settings get --project P --cap-type browser-control "
+    "--json` and pass result.settings_json verbatim."
 )
 
 
@@ -27,18 +40,35 @@ class BrowserRuntime(NamedTuple):
 
 
 def resolve_identity_target(
-    project: str | None, identity: str | None
+    project: str | None, identity: str | None, declarations_json: str | None = None
 ) -> tuple[str, BrowserIdentity]:
     """Return the project key and its declared identity, or raise naming why.
 
-    Raises ``ProjectSlugLookupError`` or ``BrowserIdentityError``; both carry
-    their recovery step in the message.
+    Declarations come from the project's control plane, or from the settings
+    document a caller supplies for a host that cannot reach it. Raises
+    ``ProjectSlugLookupError`` or ``BrowserIdentityError``; both carry their
+    recovery step in the message.
     """
     from yoke_cli.config import browser_profile
     from yoke_cli.config.browser_identities import resolve_identity
 
     key = browser_profile.profile_project_key(project)
-    return key, resolve_identity(key, identity)
+    if declarations_json is None:
+        return key, resolve_identity(key, identity)
+    try:
+        settings = json.loads(declarations_json)
+    except ValueError as exc:
+        raise BrowserIdentityError(
+            f"browser_identity_declarations_unreadable: --declarations-json is "
+            f"not JSON ({exc}). Pass result.settings_json from `yoke projects "
+            "capability-settings get --cap-type browser-control --json` verbatim."
+        ) from None
+    if not isinstance(settings, dict):
+        raise BrowserIdentityError(
+            "browser_identity_declarations_unreadable: --declarations-json must "
+            "be the browser-control settings object."
+        )
+    return key, select_identity(parse_identity_declarations(settings), identity)
 
 
 def prepare_browser_runtime(script: str) -> BrowserRuntime:
@@ -80,6 +110,7 @@ def check_sign_in(
 
 
 __all__ = [
+    "DECLARATIONS_FLAG_HELP",
     "IDENTITY_FLAG_HELP",
     "BrowserRuntime",
     "check_sign_in",

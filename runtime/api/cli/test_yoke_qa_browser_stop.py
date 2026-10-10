@@ -18,7 +18,7 @@ def test_stop_reports_stopped(
     )
     monkeypatch.setattr(
         "yoke_cli.config.browser_profile.authorized_profile_dir",
-        lambda project: None,
+        lambda project, identity: None,
     )
 
     def _stop(*, profile_dir: str) -> str:
@@ -42,7 +42,7 @@ def test_stop_already_down_is_not_running(
     )
     monkeypatch.setattr(
         "yoke_cli.config.browser_profile.authorized_profile_dir",
-        lambda project: None,
+        lambda project, identity: None,
     )
 
     def _stop(*, profile_dir: str) -> str:
@@ -65,7 +65,7 @@ def test_stop_failure_names_status_retry(
     )
     monkeypatch.setattr(
         "yoke_cli.config.browser_profile.authorized_profile_dir",
-        lambda project: None,
+        lambda project, identity: None,
     )
 
     def _stop(*, profile_dir: str) -> str:

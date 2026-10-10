@@ -20,6 +20,7 @@ from typing import List
 from yoke_contracts.browser_identity import BrowserIdentityError
 from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.commands.browser_sign_in import (
+    DECLARATIONS_FLAG_HELP,
     IDENTITY_FLAG_HELP,
     check_sign_in,
     prepare_browser_runtime,
@@ -34,7 +35,7 @@ from yoke_cli.config.browser_profile_cookies import (
 
 BROWSER_AUTHORIZE_USAGE = (
     "yoke browser authorize [--project PROJECT] [--identity NAME] [--url URL] "
-    "[--reset] [--json]"
+    "[--declarations-json JSON] [--reset] [--json]"
 )
 
 _BROWSER_AUTHORIZE_HELP_DEEP = """\
@@ -112,6 +113,9 @@ def browser_authorize(args: List[str]) -> int:
     )
     parser.add_argument("--identity", default=None, help=IDENTITY_FLAG_HELP)
     parser.add_argument(
+        "--declarations-json", default=None, help=DECLARATIONS_FLAG_HELP
+    )
+    parser.add_argument(
         "--url",
         default=None,
         help="Starting URL to open instead of the expired sites' origins.",
@@ -144,7 +148,9 @@ def browser_authorize(args: List[str]) -> int:
     from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 
     try:
-        project_key, identity = resolve_identity_target(parsed.project, parsed.identity)
+        project_key, identity = resolve_identity_target(
+            parsed.project, parsed.identity, parsed.declarations_json
+        )
         runtime = prepare_browser_runtime("authorize.js")
     except (ProjectSlugLookupError, BrowserIdentityError, RuntimeError) as exc:
         return _fail(parsed.json_mode, str(exc), code=2)
@@ -158,7 +164,9 @@ def browser_authorize(args: List[str]) -> int:
         except browser_identity_check.SignInCheckError as exc:
             return _fail(parsed.json_mode, str(exc), code=1)
         say(browser_identity_check.summarize(identity.name, sites))
-        unreachable = browser_identity_check.sites_in(sites, browser_identity_check.UNREACHABLE)
+        unreachable = browser_identity_check.sites_in(
+            sites, browser_identity_check.UNREACHABLE
+        )
         if unreachable:
             return _fail(
                 parsed.json_mode,
@@ -172,7 +180,12 @@ def browser_authorize(args: List[str]) -> int:
             check
             for check in identity.sites
             if check.site
-            in {s["site"] for s in browser_identity_check.sites_in(sites, browser_identity_check.EXPIRED)}
+            in {
+                s["site"]
+                for s in browser_identity_check.sites_in(
+                    sites, browser_identity_check.EXPIRED
+                )
+            }
         ]
         if not expired:
             return _done(parsed.json_mode, project_key, identity.name, sites, None)
@@ -204,7 +217,10 @@ def browser_authorize(args: List[str]) -> int:
             urls = [parsed.url] if parsed.url else [check.origin for check in expired]
             for line in browser_identity_check.sign_in_request(
                 identity.name,
-                [{"site": c.site, "origin": c.origin, "account": c.account} for c in expired],
+                [
+                    {"site": c.site, "origin": c.origin, "account": c.account}
+                    for c in expired
+                ],
             ):
                 say(line)
             say(
@@ -233,7 +249,9 @@ def browser_authorize(args: List[str]) -> int:
                 "sign in to each named site before closing the window.",
                 code=1,
             )
-    return _done(parsed.json_mode, project_key, identity.name, sites, kept, profile)
+    return _done(
+        parsed.json_mode, project_key, identity.name, sites, kept, profile, parsed.reset
+    )
 
 
 def _sign_in_window(runtime, profile, urls: list[str], json_mode: bool) -> int:
@@ -273,12 +291,13 @@ def _sign_in_window(runtime, profile, urls: list[str], json_mode: bool) -> int:
         raise RuntimeError(str(exc)) from None
 
 
-def _done(json_mode, project_key, identity, sites, kept, profile=None) -> int:
+def _done(json_mode, project_key, identity, sites, kept, profile=None, reset=False):
     payload = {
         "ok": True,
         "project": project_key,
         "identity": identity,
         "window_opened": kept is not None,
+        "reset": bool(reset),
         "sites": sites,
     }
     if kept is not None:
@@ -286,7 +305,9 @@ def _done(json_mode, project_key, identity, sites, kept, profile=None) -> int:
     if json_mode:
         print(json.dumps(payload))
     elif kept is None:
-        print(f"Every declared site is signed in for identity {identity}; no window opened.")
+        print(
+            f"Every declared site is signed in for identity {identity}; no window opened."
+        )
     else:
         print(
             f"Profile saved for project {project_key} identity {identity}. Kept "

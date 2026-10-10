@@ -36,8 +36,9 @@ _PROJECT_FLAG_HELP = (
 )
 _IDENTITY_FLAG_HELP = (
     "Browser identity whose profile the daemon opens (default: `default`). "
-    "Each identity has its own profile and daemon; a name the project does "
-    "not declare refuses with browser_identity_undeclared."
+    "Each identity has its own profile and daemon; an identity never signed in "
+    "on this host runs in a clean context, named in the log with the "
+    "`yoke browser authorize --identity NAME` command that signs it in."
 )
 
 _QA_BROWSER_SCREENSHOT_HELP_DEEP = """\

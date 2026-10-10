@@ -140,8 +140,8 @@ The walker returns `WALK_STATUS: HUMAN_GATE` with the action, why, observed
 state, and resume point, then stops. It never sends Fleet mail. The parent
 records that on the Progress Log and reads this run for host, browser
 substrate, project profile, URL, and access route — not a Test Machine list.
-Managed sign-in is `yoke browser authorize` on that host and profile; setup
-only starts the runtime. A host-native browser uses its declared access
+Managed sign-in is `yoke browser authorize --identity NAME` on that host;
+setup only starts the runtime. A host-native browser uses its declared access
 surface. Preview `yoke say --preview --steering`: `delivered` means a live
 covering seat, so send `--steering` and read the receipt. `awaiting_seat` is
 not delivery — cancel it, then `yoke say --preview --actor` and `--actor` for
@@ -252,8 +252,8 @@ installs Yoke on a Test Machine to get a browser.
 Agents complete setup and application steps that do not need the user.
 The user supplies personal credentials. Password, MFA, passkey and personal
 permission prompts return a human gate for this run's host, substrate, and resume state.
-Prepare and restore saved browser profiles through the
-Machine QA Pack per-OS procedures at `docs/packs/machine-qa/browser-profile-baseline.md` (installed by the Machine QA Pack).
+Missions list `browser_identities`; the walker verifies each before browsing. See
+[browser sign-in identities](qa-platform/browser-identities.md).
 The mission execution contract above governs every host command.
 
 ## Evidence Discipline

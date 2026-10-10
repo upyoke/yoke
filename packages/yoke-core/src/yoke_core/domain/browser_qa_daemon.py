@@ -84,16 +84,10 @@ def _ensure_daemon_running(
     from yoke_core.domain.browser_client import daemon_start
 
     from yoke_contracts.browser_identity import BrowserIdentityError
-    from yoke_cli.config.browser_identities import resolve_identity
-    from yoke_cli.config.browser_profile import (
-        profile_project_key,
-        resolve_authorized_profile,
-    )
+    from yoke_cli.config.browser_profile import resolve_authorized_profile
     from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 
     try:
-        if identity != DEFAULT_IDENTITY:
-            resolve_identity(profile_project_key(project), identity)
         profile_path, profile_note = resolve_authorized_profile(
             project, identity=identity
         )

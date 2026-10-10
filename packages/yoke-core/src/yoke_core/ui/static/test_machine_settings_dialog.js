@@ -64,7 +64,6 @@ export function machineSettingsDialog(context, detail, close, saved) {
     ["os", "Operating system"],
     ["operating_notes", "Operating notes"],
     ["golden_baseline_path", "Golden baseline path"],
-    ["browser_profile_baseline_path", "Browser profile baseline path"],
     ["cloud_instance_id", "Cloud instance id"],
     ["desktop_route", "Desktop route (direct or ssh-forward)"],
     ["desktop_protocol", "Desktop protocol (rdp or vnc)"],

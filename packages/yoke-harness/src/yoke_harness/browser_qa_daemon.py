@@ -25,22 +25,21 @@ def ensure_daemon_running(
     whatever the operator signed into; an identity with no profile keeps the
     clean-context behavior. Every profile owns an independent daemon;
     another identity's or project's live capture is never stopped or reused.
-    A named identity must be declared, so a mistyped name refuses instead of
-    silently running signed out.
+    Starting reads no declarations, so a host that cannot reach the project's
+    control plane (a Test Machine) still runs; an identity with no profile is
+    named in the log line with the command that signs it in.
     """
-    from yoke_contracts.browser_identity import BrowserIdentityError
-    from yoke_cli.config.browser_identities import resolve_identity
-    from yoke_cli.config.browser_profile import (
-        profile_project_key,
-        resolve_authorized_profile,
+    from yoke_contracts.browser_identity import (
+        DEFAULT_IDENTITY,
+        BrowserIdentityError,
+        validate_identity_name,
     )
+    from yoke_cli.config.browser_profile import resolve_authorized_profile
     from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 
     try:
-        key = profile_project_key(project)
-        selected = resolve_identity(key, identity) if identity else None
         profile_path, profile_note = resolve_authorized_profile(
-            key, **({"identity": selected.name} if selected else {})
+            project, identity=validate_identity_name(identity or DEFAULT_IDENTITY)
         )
     except (ProjectSlugLookupError, MissingProjectError, BrowserIdentityError) as exc:
         return str(exc)
