@@ -1,11 +1,6 @@
-"""Validate Yoke static distribution release artifacts and public URLs.
-
-The release tree is a private PEP 503 "simple" index plus immutable versioned
-wheels. ``validate-release-artifact`` checks the flat, immutable payload emitted
-for one release version. ``validate-release`` additionally requires that payload
-at ``<output-root>/dist/releases/<version>`` and checks the sibling ``simple/``
-tree. ``write-channel`` writes the mutable channel -> version pointer. ``smoke``
-GETs the index pages and wheels and asserts cache headers.
+"""Validate static release artifacts, channel pointers and public URLs.
+Artifact validation checks immutable wheels and metadata; release validation also
+checks the simple index. Channel writes update pointers; URL smoke checks assert cache headers.
 """
 
 from __future__ import annotations
@@ -144,8 +139,10 @@ def verify_urls(checks: Sequence[UrlCheck], *, timeout: float = 20.0) -> None:
     for check in checks:
         try:
             headers, _body = _get_url(
-                check.url, timeout=timeout,
-                expected_sha256=check.sha256, expected_size=check.size,
+                check.url,
+                timeout=timeout,
+                expected_sha256=check.sha256,
+                expected_size=check.size,
             )
         except FetchError as exc:
             failures.append(f"{check.url}: {exc}")
@@ -242,12 +239,18 @@ def _quote_url_path(url: str) -> str:
 
 
 def _get_url(
-    url: str, *, timeout: float, expected_sha256: str | None = None,
+    url: str,
+    *,
+    timeout: float,
+    expected_sha256: str | None = None,
     expected_size: int | None = None,
 ) -> tuple[Mapping[str, str], bytes]:
     result = fetch_bytes(
-        url, timeout=timeout, headers={"User-Agent": "yoke-distribution-smoke"},
-        expected_sha256=expected_sha256, expected_size=expected_size,
+        url,
+        timeout=timeout,
+        headers={"User-Agent": "yoke-distribution-smoke"},
+        expected_sha256=expected_sha256,
+        expected_size=expected_size,
     )
     return result.headers, result.body
 
@@ -269,7 +272,7 @@ def _write_channel(channel: str, channel_input: Path, output: Path) -> None:
         version=str(source["version"]),
         index_url=str(source["index_url"]),
         release_base_url=str(source["release_base_url"]),
-        generated_at=str(source.get("generated_at") or ""),
+        generated_at=source.get("generated_at"),
         migration_manifest_sha256=str(migration_history.get("manifest_sha256") or ""),
         source_commit=str(migration_history.get("source_commit") or ""),
     )

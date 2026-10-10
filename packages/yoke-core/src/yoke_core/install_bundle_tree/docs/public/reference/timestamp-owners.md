@@ -86,7 +86,7 @@ refresh cadence keeps native cutoffs and facts across database timezones.
 
 New dispatcher result digests and public/CLI payloads apply the shared native
 clock JSON projection, preserving opaque strings, integers and existing receipt
-bytes. Relay adapter launch deadlines project fixed-six UTC or null and refuse malformed clocks. Newly minted Cursor trust clocks preserve microseconds through the shared UTC formatter; existing trust-file bytes remain untouched. Current board and session-message fixtures declare native clock columns;
+bytes. Newly authored distribution channel pointers format generated_at as fixed-six UTC and refuse invalid input before replacing output; existing pointer bytes and content digests remain unchanged. Relay adapter launch deadlines project fixed-six UTC or null and refuse malformed clocks. Newly minted Cursor trust clocks preserve microseconds through the shared UTC formatter; existing trust-file bytes remain untouched. Current board and session-message fixtures declare native clock columns;
 calendar-day rollups remain dates. Git epoch seconds stay a provider protocol,
 with fixed-six UTC formatting when projected into a request.
 

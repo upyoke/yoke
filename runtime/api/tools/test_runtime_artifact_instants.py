@@ -10,7 +10,7 @@ import pytest
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.api import observability
 from yoke_core.cli import board_rebuild_timing_events as board
-from yoke_core.tools import build_release
+from yoke_core.tools import build_release, distribution_channel, distribution_publish
 
 STAMP = parse_instant("1970-01-01T05:29:59.123456+05:30")
 WIRE = "1969-12-31T23:59:59.123456Z"
@@ -88,3 +88,49 @@ def test_build_clock_refuses_before_output_replacement(tmp_path, monkeypatch, ba
             generated_at=bad,
         )
     assert sentinel.read_text() == "retained"
+
+
+def _channel(clock):
+    return distribution_channel.channel_payload(
+        channel="latest",
+        version="1.0.0",
+        index_url="https://example.test/simple/",
+        release_base_url="https://example.test/dist/releases/1.0.0/",
+        generated_at=clock,
+        migration_manifest_sha256="b" * 64,
+        source_commit="a" * 40,
+    )
+
+
+@pytest.mark.parametrize("clock", [STAMP, "1970-01-01T05:29:59.123456+05:30"])
+def test_new_channel_clock_is_canonical_without_changing_content_identity(clock):
+    payload = _channel(clock)
+    assert payload["generated_at"] == WIRE
+    assert payload["migration_history"]["manifest_sha256"] == "b" * 64
+    assert payload["migration_history"]["source_commit"] == "a" * 40
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        None,
+        "then",
+        "1970-01-01",
+        "1970-01-01T00:00:00",
+        "1970-01-01T00:00:00-00:00",
+        True,
+        0,
+    ],
+)
+def test_invalid_channel_clock_retains_existing_output(tmp_path, bad):
+    source = _channel(STAMP)
+    source["generated_at"] = bad
+    channel_input = tmp_path / "input.json"
+    channel_input.write_text(json.dumps(source))
+    before = channel_input.read_bytes()
+    output = tmp_path / "channel.json"
+    output.write_text("existing pointer bytes")
+    with pytest.raises(InvalidInstant):
+        distribution_publish._write_channel("latest", channel_input, output)
+    assert output.read_text() == "existing pointer bytes"
+    assert channel_input.read_bytes() == before
