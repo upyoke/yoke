@@ -1,3 +1,4 @@
+import { formatInstant } from "./timestamps.js";
 import { attachTooltip } from "./universe_tooltip.js";
 import {
   callFunction,
@@ -282,11 +283,12 @@ export function tableWrap(documentNode, table) {
   return wrap;
 }
 
-export function relativeTimeNode(documentNode, value) {
-  if (!value) return el(documentNode, "span", "muted", "—");
-  const time = el(documentNode, "time", "qa-relative-time", relativeAge(value));
-  time.dateTime = String(value);
-  attachTooltip(documentNode, time, String(value));
+export function relativeTimeNode(documentNode, value, now = Date.now()) {
+  if (value == null) return el(documentNode, "span", "muted", "—");
+  const canonical = formatInstant(value);
+  const time = el(documentNode, "time", "qa-relative-time", relativeAge(canonical, now));
+  time.dateTime = canonical;
+  attachTooltip(documentNode, time, canonical);
   return time;
 }
 

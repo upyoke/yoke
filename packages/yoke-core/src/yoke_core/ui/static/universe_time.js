@@ -1,5 +1,7 @@
 import { formatInstant, instantMicros } from "./timestamps.js";
 
+export const SECONDS_PER_DAY = 86400;
+
 // The dashboard's one "how long ago" convention: minute granularity rolling
 // over to hours past an hour and days past 48 hours. Every "X ago" display
 // on the card (age, idle recency, claim held, QA result age, …) reuses this
@@ -8,7 +10,7 @@ import { formatInstant, instantMicros } from "./timestamps.js";
 // the deliberate seconds-granular exception for facts that change faster
 // than a minute (a relay heartbeat), not a second convention to choose
 // between.
-function elapsedSeconds(value, now) {
+export function elapsedSeconds(value, now = Date.now()) {
   if (!Number.isSafeInteger(now)) return null;
   try {
     const elapsed = BigInt(now) * 1000n - instantMicros(value);
@@ -47,8 +49,8 @@ export function preciseAge(value, now = Date.now()) {
   if (seconds === null) return null;
   if (seconds < 60) return `${seconds}s`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
-  return `${Math.floor(seconds / 86400)}d`;
+  if (seconds < SECONDS_PER_DAY) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / SECONDS_PER_DAY)}d`;
 }
 
 export function isInstantRelativeTime(value, now = Date.now()) {

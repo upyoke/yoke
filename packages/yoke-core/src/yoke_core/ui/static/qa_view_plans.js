@@ -1,3 +1,4 @@
+import { elapsedSeconds, SECONDS_PER_DAY } from "./universe_time.js";
 import { instantMicros } from "./timestamps.js";
 import { attachTooltip } from "./universe_tooltip.js";
 import {
@@ -92,13 +93,10 @@ function orderedPlans(rows) {
 }
 
 function planResultAge(documentNode, value) {
-  const age = relativeTimeNode(documentNode, value);
-  const elapsed = Date.now() - new Date(value).getTime();
-  if (
-    Number.isFinite(elapsed)
-    && elapsed >= 24 * 60 * 60 * 1000
-    && elapsed < 48 * 60 * 60 * 1000
-  ) {
+  const now = Date.now();
+  const age = relativeTimeNode(documentNode, value, now);
+  const seconds = elapsedSeconds(value, now);
+  if (seconds !== null && seconds >= SECONDS_PER_DAY && seconds < SECONDS_PER_DAY * 2) {
     age.textContent = "yesterday";
   }
   return age;
