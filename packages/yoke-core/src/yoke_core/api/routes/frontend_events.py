@@ -96,7 +96,12 @@ async def body_json(request):
 
 
 def validated_events(body, request):
-    from yoke_core.frontend_events.events_attribution import RULES, is_bot, sanitize_url
+    from yoke_core.frontend_events.events_attribution import (
+        RULES,
+        is_bot,
+        sanitize_path,
+        sanitize_url,
+    )
 
     events = body.get("events") if isinstance(body, dict) else None
     if (
@@ -141,6 +146,10 @@ def validated_events(body, request):
                     "envelope_invalid: page_url and referrer must be strings or null"
                 )
             event[key] = sanitize_url(event.get(key) or "")
+        if event.get("page_path") is not None:
+            if not isinstance(event["page_path"], str):
+                raise ValueError("envelope_invalid: page_path must be a string or null")
+            event["page_path"] = sanitize_path(event["page_path"])
         event["is_bot"] = is_bot(request.headers.get("user-agent", ""))
     return events
 

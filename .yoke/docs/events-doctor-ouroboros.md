@@ -6,10 +6,13 @@ The workbench collects usage analytics from first load in every mode — local,
 self-hosted, and hosted — with no consent prompt, banner, or toggle; nothing it
 collects is personal data, and a local or self-hosted workbench collects into
 its own universe. The first load captures the visitor's attribution cookie, and
-that load and each URL-changing client navigation emit `PageViewed`
-with `event_type=page_view`. State-only navigation is deduplicated. The installed
-Structured Events Pack removes `?token=`, other sensitive query keys, userinfo,
-and fragments from `page_url` and referrer before storage. Only one page-view
+that load and each client navigation that changes the path emit `PageViewed`
+with `event_type=page_view`. Query-only, fragment-only, and state-only
+navigation (filters, `?selection=all` rewrites) emits no view. The installed
+Structured Events Pack removes `?token=`, `?user_code=`, other sensitive query
+keys, userinfo, and fragments from `page_url` and referrer, and stores
+`/machine-approval/<code>` as `/machine-approval/redacted` in `page_url`,
+`page_path`, and referrer, in the browser and again in the collector. Only one page-view
 tracker runs per document, so a host page that tracks its own views and mounts
 the workbench records each navigation once.
 

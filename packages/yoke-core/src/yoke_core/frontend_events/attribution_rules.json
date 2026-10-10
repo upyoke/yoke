@@ -118,6 +118,7 @@
   ],
   "sensitive_query_keys": [
     "token",
+    "user_code",
     "access_token",
     "refresh_token",
     "id_token",
@@ -139,6 +140,10 @@
     "x-amz-credential",
     "x-amz-security-token"
   ],
+  "sensitive_path_parents": [
+    "machine-approval"
+  ],
+  "redacted_path_segment": "redacted",
   "bot_pattern": "bot|crawler|spider|headless|slurp|facebookexternalhit|preview|lighthouse",
   "limits": {
     "envelope_bytes": 65536,

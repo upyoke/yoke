@@ -117,6 +117,15 @@ def get_attribution_props(record):
     return dict(record) if record else {}
 
 
+def sanitize_path(path):
+    """Mask the segment after a sensitive parent such as /machine-approval/<code>."""
+    parts = path.split("/")
+    for i in range(1, len(parts)):
+        if parts[i] and parts[i - 1].lower() in RULES["sensitive_path_parents"]:
+            parts[i] = RULES["redacted_path_segment"]
+    return "/".join(parts)
+
+
 def sanitize_url(value):
     try:
         url = urlsplit(value)
@@ -132,7 +141,9 @@ def sanitize_url(value):
             for k, v in parse_qsl(url.query, keep_blank_values=True)
             if k.lower() not in RULES["sensitive_query_keys"]
         ]
-        return urlunsplit((url.scheme, host, url.path or "/", urlencode(params), ""))
+        return urlunsplit(
+            (url.scheme, host, sanitize_path(url.path or "/"), urlencode(params), "")
+        )
     except ValueError:
         return None
 

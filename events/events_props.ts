@@ -1,4 +1,4 @@
-import { sanitizeUrl, isBot } from './events_attribution.ts';
+import { sanitizePath, sanitizeUrl, isBot } from './events_attribution.ts';
 
 let sessionId: string | null = null;
 let started: string | null = null;
@@ -15,7 +15,7 @@ export function getOrgProps(orgId?: string): Record<string, unknown> {
 }
 export function getPageProps(): Record<string, unknown> {
   return {
-    page_url: sanitizeUrl(window.location.href), page_path: window.location.pathname,
+    page_url: sanitizeUrl(window.location.href), page_path: sanitizePath(window.location.pathname),
     page_title: document.title, referrer: sanitizeUrl(document.referrer),
   };
 }
