@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any, Collection, Optional, Union
 
 from yoke_core.domain.db_backend import connection_is_postgres
+from yoke_core.domain.items_projection import ITEM_INSTANT_FIELDS, item_text_expression
 
 # Pure item-ref formatting and parsing moved to the shipped
 # yoke_contracts.public_ref tier (so the board render ships core-free);
@@ -267,11 +268,13 @@ def item_project_join_select(
     fields: list[str],
     *,
     item_alias: str = "i",
+    native_instants: bool = False,
 ) -> tuple[str, bool]:
     """Build SELECT columns, mapping public ``project`` to ``projects.slug``.
 
     ``id`` is reserved for the public ref the operator-facing handlers
-    render in Python.
+    render in Python. Clock values stay native for structured reads; explicit
+    textual callers use fixed-six UTC with empty cells for absence.
     """
     needs_project = "project" in fields
     parts: list[str] = []
@@ -279,8 +282,10 @@ def item_project_join_select(
         column = f"{item_alias}.{field}"
         if field == "project":
             parts.append("COALESCE(CAST(p.slug AS TEXT), '') AS project")
+        elif native_instants and field in ITEM_INSTANT_FIELDS:
+            parts.append(f"{column} AS {field}")
         else:
-            parts.append(f"COALESCE(CAST({column} AS TEXT), '') AS {field}")
+            parts.append(f"{item_text_expression(field, column=column)} AS {field}")
     return ", ".join(parts), needs_project
 
 

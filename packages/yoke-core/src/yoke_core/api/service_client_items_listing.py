@@ -171,7 +171,9 @@ def cmd_item_list(args: list[str]) -> int:
                     continue
             return ids
 
-        ref_lookup = render_item_ref_lookup(conn, _lookup_ids())
+        ref_lookup = (
+            render_item_ref_lookup(conn, _lookup_ids()) if ref_positions else None
+        )
 
         def _cell(position: int, value: Any) -> str:
             text = "" if value is None else str(value)

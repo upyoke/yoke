@@ -2,7 +2,8 @@
 
 from typing import Any, Dict, List
 
-from yoke_core.domain.items_projection import ACTOR_LABEL_FIELDS
+from yoke_core.domain.items_projection import ACTOR_LABEL_FIELDS, ITEM_INSTANT_FIELDS
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.item_completion_flow_projection import completion_flow_values
 
 _UNSET_LABEL_TOKENS = frozenset({"none", "null"})
@@ -80,7 +81,8 @@ def _render_rows(
 
     ``id`` renders the item's public ref (batched through
     :class:`ItemRefLookup`); actor-label fields resolve through one
-    batched label query per page; every other field passes as text.
+    batched label query per page; clocks stay native/null through response
+    ownership and other fields pass as text.
     Runs on the handler's already-open connection — no second connect.
     """
     from yoke_core.domain.item_ref_render import render_item_ref_lookup
@@ -122,6 +124,8 @@ def _render_rows(
                 )
             elif field in ACTOR_LABEL_FIELDS:
                 rendered[field] = _render_label(value)
+            elif field in ITEM_INSTANT_FIELDS:
+                rendered[field] = None if value is None else parse_instant(value)
             else:
                 rendered[field] = "" if value is None else str(value)
         out_rows.append(rendered)

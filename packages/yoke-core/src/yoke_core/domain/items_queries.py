@@ -13,12 +13,12 @@ from typing import Any, List, Optional
 from yoke_core.domain.db_helpers import connect, query_one, query_rows, query_scalar
 from yoke_core.domain.items_constants import (
     CANONICAL_COLUMNS,
-    INTEGER_FIELDS,
     LIST_COLUMNS,
     _DB_COLUMNS,
     _map_frozen_read,
 )
 from yoke_core.domain.project_identity import item_project_join_select
+from yoke_core.domain.items_projection import item_text_expression
 
 
 def query_item(
@@ -60,10 +60,7 @@ def query_item(
                 else ""
             )
 
-        # Integer columns must be cast to TEXT before COALESCE(..., '') — the
-        # empty-string sentinel cannot coerce to integer on Postgres (SQLite
-        # tolerates the mixed type). query_item_row/query_items_list apply the
-        # same cast for their integer columns.
+        # This API owns a text value, including UTC clock text and empty null cells.
         if field == "project":
             val = query_scalar(
                 conn,
@@ -73,10 +70,9 @@ def query_item(
                 (item_id,),
             )
         else:
-            col_expr = f"CAST({field} AS TEXT)" if field in INTEGER_FIELDS else field
             val = query_scalar(
                 conn,
-                f"SELECT COALESCE({col_expr}, '') FROM items WHERE id = %s",
+                f"SELECT {item_text_expression(field)} FROM items WHERE id = %s",
                 (item_id,),
             )
         if val is None:
