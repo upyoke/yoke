@@ -86,7 +86,7 @@ project="${YOKE_PROJECT:-}"
 
 ## Template 2: standalone Python emitter
 
-The executable [Structured Events Pack 4.3.0](../../packs/structured-events/versions/4.3.0/files/events/README.md)
+The executable [Structured Events Pack 4.4.0](../../packs/structured-events/versions/4.4.0/files/events/README.md)
 is the standalone Python template. Install events.py, events_props.py,
 events_attribution.py, events_cookie.py, events_delivery.py and their shared
 attribution_rules.json together. Use build_event/emit_event for backend envelopes;
@@ -103,13 +103,17 @@ A missing key reports publishable_key_required. Failures never gate product work
 
 ## Attribution and delivery in the standalone Pack
 
-[Structured Events Pack 4.3.0](../../packs/structured-events/versions/4.3.0/files/events/README.md)
+[Structured Events Pack 4.4.0](../../packs/structured-events/versions/4.4.0/files/events/README.md)
 provides events_attribution.py and AttributionCookie in events_cookie.py with
 shared rules and the same signed server-cookie shape as TypeScript. Routes
 capture and return Set-Cookie. get_attribution_props(record) attaches
 visitor_id and both touches, or an empty group when there is no record.
 Required signup facts belong to
 the account owner. sanitize_url and is_bot share the browser's privacy/bot rules.
+events_device.device_props(headers) is the collector's is_bot, browser,
+browser_version, os and device_type classification: ua-parser over the request User-Agent plus
+the Sec-CH-UA-Platform and Sec-CH-UA-Mobile Client Hints. Apply it to every
+accepted event; it needs ua-parser[regex]>=1.0 installed.
 EventBatch retries only network failures, 429 and 5xx with batch_requeued;
 429 honors Retry-After. Other HTTP refusals discard the batch and report
 batch_refused with the collector's error and recovery. The queue holds at most

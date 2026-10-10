@@ -1,6 +1,7 @@
 {
   "type": "module",
   "devDependencies": {
+    "bowser": "2.14.1",
     "typescript": "5.9.3"
   },
   "dependencies": {

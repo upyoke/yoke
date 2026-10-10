@@ -132,10 +132,10 @@ async def body_json(request):
 def validated_events(body, request):
     from yoke_core.frontend_events.events_attribution import (
         RULES,
-        is_bot,
         sanitize_path,
         sanitize_url,
     )
+    from yoke_core.frontend_events.events_device import device_props
 
     events = body.get("events") if isinstance(body, dict) else None
     if (
@@ -143,6 +143,7 @@ def validated_events(body, request):
         or not 1 <= len(events) <= RULES["limits"]["batch_size"]
     ):
         raise ValueError("events_invalid: send 1..50 frontend analytics envelopes")
+    device = device_props(request.headers)
     for event in events:
         if not isinstance(event, dict) or any(
             not isinstance(event.get(k), str) or not event[k]
@@ -186,7 +187,7 @@ def validated_events(body, request):
             if not isinstance(event["page_path"], str):
                 raise ValueError("envelope_invalid: page_path must be a string or null")
             event["page_path"] = sanitize_path(event["page_path"])
-        event["is_bot"] = is_bot(request.headers.get("user-agent", ""))
+        event.update(device)
     return events
 
 
