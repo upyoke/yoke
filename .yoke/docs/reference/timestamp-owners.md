@@ -88,7 +88,7 @@ Dispatcher request JSON projects native payload, precondition and option clocks 
 clock JSON projection, preserving opaque strings, integers and existing receipt
 bytes. Release-build and artifact models retain native generation clocks until JSON output; direct materialization validates before output changes. Newly authored distribution channel pointers format generated_at as fixed-six UTC and refuse invalid input before replacing output; existing pointer bytes and content digests remain unchanged. Native spawn results retain aware start clocks until evidence output; capture and custody formats remain owned file boundaries. Relay adapter launch deadlines project fixed-six UTC or null and refuse malformed clocks. Newly minted Cursor trust clocks preserve microseconds through the shared UTC formatter; existing trust-file bytes remain untouched. Current board and session-message fixtures declare native clock columns;
 calendar-day rollups remain dates. Git epoch seconds stay a provider protocol,
-with fixed-six UTC formatting when projected into a request.
+with fixed-six UTC formatting when projected into a request. Provider seconds/millisecond reset adapters retain fixed-six microseconds and preserve optional null on invalid or out-of-range epochs.
 
 
 Merge-lock expiry and temporary-environment cleanup bind native cutoffs and

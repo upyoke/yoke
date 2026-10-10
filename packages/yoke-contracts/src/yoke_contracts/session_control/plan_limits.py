@@ -77,7 +77,7 @@ def iso_from_epoch_seconds(seconds: float) -> str:
 def iso_from_epoch_ms(value: object) -> str | None:
     try:
         return iso_from_epoch_seconds(float(str(value)) / 1000.0)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError, OSError):
         return None
 
 
