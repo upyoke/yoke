@@ -157,6 +157,9 @@ class TestRenderFull:
         root, _, spec = spec_dir
         result = render_full(root, spec)
         assert "=== Critical Runtime Invariants ===" in result
+        assert "registered `yoke <subcommand>` operations" in result
+        assert "diagnostic SELECTs use `yoke db read`" in result
+        assert "python3 -m yoke_core.cli.db_router" not in result
         assert "yoke packets render --role main_agent" in result
         assert "=== AGENTS.md ===" in result
         assert "# Claude rules" in result
