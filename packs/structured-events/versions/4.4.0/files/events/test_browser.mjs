@@ -336,7 +336,7 @@ test('collector classifies browser, os and device type from request headers only
     assert.deepEqual([props.browser, props.os, props.device_type], expected);
     assert.ok(props.browser_version);
   }
-  assert.deepEqual(deviceProps(new Headers()), { browser: null, browser_version: null, os: null, device_type: null });
+  assert.deepEqual(deviceProps(new Headers()), { is_bot: false, browser: null, browser_version: null, os: null, device_type: null });
   assert.ok(!('device_type' in getDeviceProps()));
   const writes = [];
   const handler = createCollector({ ...base, rateLimit: async () => 0, writeEvents: async events => { writes.push(events); } });

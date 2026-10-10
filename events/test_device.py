@@ -71,4 +71,14 @@ def test_device_props_follow_user_agent_and_client_hints(headers, expected):
 
 
 def test_device_props_record_nothing_without_a_user_agent():
-    assert set(device_props({}).values()) == {None}
+    assert device_props({}) == {
+        "is_bot": False,
+        "browser": None,
+        "browser_version": None,
+        "os": None,
+        "device_type": None,
+    }
+
+
+def test_device_props_flag_bot_user_agents():
+    assert device_props({"user-agent": "HeadlessChrome"})["is_bot"] is True

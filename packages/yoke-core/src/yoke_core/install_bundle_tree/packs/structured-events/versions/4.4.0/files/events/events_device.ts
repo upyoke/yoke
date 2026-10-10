@@ -1,10 +1,11 @@
 /**
- * Server-side browser, OS and device classification for collected events.
+ * Server-side bot, browser, OS and device classification for collected events.
  * The collector is the only authority: it parses the request User-Agent with
  * Bowser and lets the default User-Agent Client Hints override it. Viewport
  * size is a layout signal and never decides device type.
  */
 import Bowser from 'bowser';
+import { isBot } from './events_attribution.ts';
 
 const MOBILE_OS = new Set(['Android', 'iOS', 'Windows Phone', 'KaiOS']);
 
@@ -20,12 +21,13 @@ function deviceType(platformType: string | undefined, os: string | null, mobile:
   return 'desktop';
 }
 
-export function deviceProps(headers: Headers): Record<string, string | null> {
+export function deviceProps(headers: Headers): Record<string, string | boolean | null> {
   const userAgent = headers.get('User-Agent') || '';
   const mobile = hint(headers, 'Sec-CH-UA-Mobile');
   const parsed = userAgent ? Bowser.parse(userAgent) : null;
   const os = hint(headers, 'Sec-CH-UA-Platform') || parsed?.os.name || null;
   return {
+    is_bot: isBot(userAgent),
     browser: parsed?.browser.name || null,
     browser_version: parsed?.browser.version || null,
     os,

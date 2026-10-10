@@ -128,8 +128,8 @@ stays in the envelope as the client's claim. Skewed events are still accepted.
 
 ## Browser, OS and device type
 
-The collector is the only authority for browser, browser_version, os and
-device_type: it derives them from each request's headers and overwrites
+The collector is the only authority for is_bot, browser, browser_version, os
+and device_type: it derives them from each request's headers and overwrites
 whatever an emitter sent. events_device.py (device_props, ua-parser) and
 events_device.ts (deviceProps, Bowser) parse the User-Agent, then apply the
 User-Agent Client Hints browsers send by default: Sec-CH-UA-Platform names os,

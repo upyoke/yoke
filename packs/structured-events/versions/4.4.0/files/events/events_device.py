@@ -1,4 +1,4 @@
-"""Server-side browser, OS and device classification for collected events.
+"""Server-side bot, browser, OS and device classification for collected events.
 
 The collector is the only authority for these fields: it parses the request
 User-Agent with the maintained uap-core parser (``ua-parser``) and lets the
@@ -14,6 +14,8 @@ except ImportError as error:  # pragma: no cover - exercised by installs only
         "Python dependencies (pip install 'ua-parser[regex]'), then restart"
     ) from error
 
+from events_attribution import is_bot
+
 MOBILE_OS = {"Android", "iOS", "Windows Phone", "KaiOS"}
 # uap-core names macOS by its historical family; Client Hints say "macOS".
 OS_NAMES = {"Mac OS X": "macOS"}
@@ -25,12 +27,13 @@ def _hint(headers, name):
 
 
 def device_props(headers):
-    """Return browser, browser_version, os and device_type for a request.
+    """Return is_bot, browser, browser_version, os and device_type for a request.
 
     ``headers`` is any case-insensitive mapping of request headers. Reads
     ``User-Agent``, ``Sec-CH-UA-Mobile`` and ``Sec-CH-UA-Platform``.
     """
-    result = parse(headers.get("user-agent") or "")
+    user_agent = headers.get("user-agent") or ""
+    result = parse(user_agent)
     agent, system, device = result.user_agent, result.os, result.device
     mobile = _hint(headers, "sec-ch-ua-mobile")
     platform = _hint(headers, "sec-ch-ua-platform")
@@ -53,6 +56,7 @@ def device_props(headers):
         if part
     )
     return {
+        "is_bot": is_bot(user_agent),
         "browser": agent.family if agent else None,
         "browser_version": version or None,
         "os": os_name or None,
