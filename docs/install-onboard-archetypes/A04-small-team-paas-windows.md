@@ -70,16 +70,14 @@ flow or enter the AWS approval gate.
 a local Jest/pytest suite. Native Windows never reaches this; after WSL the
 suite is Linux.
 
-**Bind today:** declare the **test** workflow as `ci_workflow_file`;
-register `quick`/`full`. `command-ci` works because GitHub App + Actions
-exist. Do not treat the Render deploy job as the verification workflow.
-
-**Onboard:** no test box. After WSL, survey sees workflows and does not
-write the capability.
-
-**Ask that should happen (WSL):** which YAML is the required check; local
-argv for `worktree_run` fallback. Refuse `merge_queue` unless they already
-run merge-when-ready.
+**Onboard:** confirm the surveyed suite in the execution profile's test box.
+Register exact project-local `quick`/`full` argv. Bind `command-ci` only after
+the GitHub App and eligible **test** workflow are configured; the Render deploy
+job is not verification. Queue delivery also requires `merge_group` support.
+Attach the reusable QA plan's immutable snapshot to seeded items at their
+required transition. Follow the current
+[verification binding](../../.agents/skills/yoke/onboard/verification-binding.md)
+and [work seeding](../../.agents/skills/yoke/onboard/seed-work.md) contracts.
 
 ## Crux
 
@@ -89,4 +87,4 @@ run merge-when-ready.
 | PaaS environment | Execution profile hosting box | "No PaaS provider in the wizard; skip cloud apply" | Merge-only / empty default; keep Render as external deploy |
 | GitHub CI | App binding | Unreachable CI method names the reason | `command-ci` when `ci_workflow_file` exists; else local |
 
-Ledger: G-windows-native-install, G-windows-wsl-teaching, G-paas-hosting, G-test-setup-unasked, G-ci-workflow-undeclared, G-command-ci-misbind.
+Ledger: G-windows-native-install, G-windows-wsl-teaching, G-paas-hosting.

@@ -29,5 +29,5 @@ fallback. Linux probes never invoke the macOS `security` command.
 
 These Linux paths also apply to apps running inside the WSLg distribution;
 the relay and credentials must live in that distribution. Yoke's desktop
-surfaces remain operator-opened. App detection is a separate contract, and
-Codex desktop remains macOS-only.
+surfaces remain operator-opened. Use the target harness manifest and that
+machine's app detection to establish its available desktop surfaces.
