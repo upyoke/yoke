@@ -154,3 +154,39 @@ def test_failed_notice_transport_keeps_the_episode_for_retry(monkeypatch):
         == 1
     )
     assert "Landing stopped" in message_body(conn, ejected_message_id(conn))
+
+
+@pytest.mark.parametrize("microsecond", [0, 123456])
+def test_recovered_arming_episode_is_native_before_sql_binding(
+    monkeypatch, microsecond
+):
+    from datetime import timedelta, timezone
+    from yoke_contracts.timestamps import format_instant
+    from runtime.api.domain.test_session_message_support import NOW
+
+    conn = never_armed(observer_connection())
+    episode = NOW.replace(microsecond=microsecond).astimezone(
+        timezone(timedelta(minutes=345))
+    )
+    observe(
+        conn, now=episode, read_state=armed_awaiting_checks, read_membership=not_queued
+    )
+    bind = landing_observer.instant_parameter
+    seen = []
+
+    def record_binding(connection, value):
+        assert value.tzinfo is timezone.utc
+        seen.append(value)
+        return bind(connection, value)
+
+    monkeypatch.setattr(landing_observer, "instant_parameter", record_binding)
+    observe(
+        conn,
+        now=episode + timedelta(seconds=1),
+        read_state=merged,
+        read_membership=not_queued,
+    )
+    assert episode in seen
+    assert conn.execute(
+        "SELECT merge_queue_enqueued_at FROM items WHERE id=101"
+    ).fetchone()[0] == format_instant(episode)

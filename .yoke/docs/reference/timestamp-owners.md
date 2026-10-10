@@ -5,7 +5,7 @@ The shared contract is in [timestamps](timestamps.md).
 
 Invites retain native creation and acceptance instants; list projections format
 those declared fields as fixed-six UTC/null. Organization seed, external identity
-link and release-note writes use the shared native SQL adapter. Release-note
+link, visitor link/refusal and release-note writes use the shared native SQL adapter. Release-note
 pipe output formats only its creation clock; its default version remains a UTC
 calendar date. Role and permission seeding also binds native creation clocks.
 GitHub binding and installation payloads format only verification/sync clocks
@@ -82,7 +82,7 @@ responses normalize declared clocks before model validation. Doctor receipts bin
 native run clocks and format only their response projection; the live outcome scan binds its exact native three-day cutoff. Done bookkeeping
 and merge marker writes retain native landing facts, including null unknowns; queue adapters parse local and relayed clock ingress, preserve native arming episodes, and format only request payloads and human landing text;
 provider corrections accept qualified RFC3339 and compare native instants. Claim contention, run terminalization, minted web-session and strategy-ingest plan models retain native clocks; ingest CAS compares native plan facts and formats conflict reports; contention, terminalization and minted web-session results refuse internal wire/naive clocks; claim age uses exact timedelta second flooring; claim reports and terminalization responses format only their owned output leaves. Queue
-refresh cadence keeps native cutoffs and facts across database timezones.
+refresh cadence keeps native cutoffs and facts across database timezones. Recovered arming episodes parse the stored instant before rebinding; completion attribution binds its new recorded clock natively. Collector refusal minute clocks format fixed-six UTC at their JSON leaf.
 
 Dispatcher request JSON projects native payload, precondition and option clocks while Python-mode values retain datetimes. New result digests and public/CLI payloads apply the shared native
 clock JSON projection, preserving opaque strings, integers and existing receipt
@@ -246,7 +246,7 @@ steering digests format their declared clocks while retaining opaque bodies.
 
 Recipient wake_after is an instant deadline, declared TIMESTAMPTZ at birth and
 included in the same governed stored-instant conversion as receipt clocks.
-The classified scalar roster now covers 265 columns across 125 tables; stored
+The classified scalar roster now covers 267 columns across 126 tables; stored
 mutable document clocks remain separately owned finite fields. Disposable
 SQLite broker seeds write canonical clocks so native-claim snapshot comparisons
 exercise the current boundary rather than historical whole-second seed text.

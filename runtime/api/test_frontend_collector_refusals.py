@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from runtime.api import test_frontend_events as collector_tests
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.api import frontend_events_config
 from yoke_core.api.routes import frontend_events
 from yoke_core.domain import frontend_collector_refusals
@@ -92,6 +93,9 @@ def test_each_refusal_records_one_named_diagnostic_event(
     assert (source, kind, severity, outcome) == ("backend", "system", "WARN", reason)
     detail = envelope["context"]["detail"]
     assert detail["reason"] == reason and detail["status"] == status
+    window = parse_instant(detail["window_start"])
+    assert detail["window_start"] == format_instant(window)
+    assert window.second == window.microsecond == 0
     assert detail["route"] == path
     assert detail["origin"] == admitted["Origin"]
     assert detail["host"] == ORIGIN.removeprefix("https://")
@@ -153,7 +157,7 @@ def stored(database, event_id):
 
 def test_accepted_events_are_ordered_by_server_receipt_time(client, database):
     now = datetime.now(timezone.utc)
-    current = {**event(), "event_time": now.strftime("%Y-%m-%dT%H:%M:%S.000Z")}
+    current = {**event(), "event_time": format_instant(now)}
     forged = {**event(), "received_at": "1999-01-01T00:00:00Z"}
     response = client.post(
         "/api/events", json={"events": [current, forged]}, headers=headers(client)
@@ -164,8 +168,9 @@ def test_accepted_events_are_ordered_by_server_receipt_time(client, database):
     assert envelope["event_time"] == current["event_time"]
     created, flags, envelope = stored(database, forged["event_id"])
     assert flags == "client_time_skew"
-    assert envelope["event_time"] == "2026-01-01T00:00:00Z"
-    received = datetime.fromisoformat(envelope["received_at"].replace("Z", "+00:00"))
+    assert envelope["event_time"] == "2026-01-01T00:00:00.000000Z"
+    received = parse_instant(envelope["received_at"])
     assert abs((received - now).total_seconds()) <= 5
-    assert created == envelope["received_at"]
+    assert created == received
+    assert envelope["received_at"] == format_instant(received)
     assert envelope["client_time_offset_seconds"] < -300

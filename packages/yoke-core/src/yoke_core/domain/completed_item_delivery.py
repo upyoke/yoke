@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable
 
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.delivery_evidence_ladder import (
     SOURCE_CONTAINMENT,
     SOURCE_MEMBERSHIP,
@@ -136,8 +137,6 @@ def _attribution(conn: Any, *, item_id: int, run_id: str, source: str) -> dict |
 
 def _store(conn: Any, item_id: int, entries: list[dict]) -> None:
     """Update facts without committing or weakening a producer preflight."""
-    from yoke_core.domain.db_helpers import iso8601_now
-
     row = conn.execute(
         "SELECT facts FROM item_gate_satisfactions WHERE item_id=%s AND obligation=%s FOR UPDATE",
         (item_id, OBLIGATION_DELIVERY_EVIDENCE),
@@ -165,7 +164,7 @@ def _store(conn: Any, item_id: int, entries: list[dict]) -> None:
                 OBLIGATION_DELIVERY_EVIDENCE,
                 "Delivery attribution committed with item completion",
                 encoded,
-                iso8601_now(),
+                instant_parameter(conn, utc_now()),
             ),
         )
 

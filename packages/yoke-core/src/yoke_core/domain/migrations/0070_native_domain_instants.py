@@ -39,6 +39,8 @@ COLUMNS: tuple[tuple[str, str], ...] = (
     ("actor_org_roles", "granted_at"),
     ("actor_project_roles", "granted_at"),
     ("actor_ui_preferences", "updated_at"),
+    ("actor_visitor_links", "linked_at"),
+    ("actor_visitor_links", "refused_at"),
     ("actors", "created_at"),
     ("api_token_audit", "created_at"),
     ("api_tokens", "created_at"),

@@ -19,9 +19,9 @@ list of every browser later linked to the actor.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 VISITOR_LINK_TABLE = "actor_visitor_links"
@@ -52,18 +52,14 @@ def create_actor_visitor_links_table(conn: Any) -> None:
         CREATE TABLE IF NOT EXISTS actor_visitor_links (
             visitor_id TEXT PRIMARY KEY,
             actor_id INTEGER NOT NULL REFERENCES actors(id),
-            linked_at TEXT NOT NULL,
+            linked_at TIMESTAMPTZ NOT NULL,
             refused_actor_id INTEGER REFERENCES actors(id),
-            refused_at TEXT
+            refused_at TIMESTAMPTZ
         );
         CREATE INDEX IF NOT EXISTS idx_actor_visitor_links_actor
             ON actor_visitor_links(actor_id);
     """,
     )
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def record_visitor_link(
@@ -77,7 +73,7 @@ def record_visitor_link(
     """
     if not visitor_id:
         raise ValueError("visitor_id_required: link only a verified visitor id")
-    now = _now()
+    now = instant_parameter(conn, utc_now())
     inserted = conn.execute(
         "INSERT INTO actor_visitor_links (visitor_id, actor_id, linked_at) "
         "VALUES (%s, %s, %s) ON CONFLICT (visitor_id) DO NOTHING "

@@ -36,7 +36,7 @@ _EXPECTED_SCHEMA_STR = (
     "|actor_org_roles:actor_id/INTEGER,org_id/INTEGER,role_id/INTEGER,granted_at/TIMESTAMPTZ,granted_by_actor_id/INTEGER"
     "|actor_project_roles:actor_id/INTEGER,project_id/INTEGER,role_id/INTEGER,granted_at/TIMESTAMPTZ,granted_by_actor_id/INTEGER"
     "|actor_ui_preferences:id/INTEGER,actor_id/INTEGER,pref_key/TEXT,value/TEXT,updated_at/TIMESTAMPTZ"
-    "|actor_visitor_links:visitor_id/TEXT,actor_id/INTEGER,linked_at/TEXT,refused_actor_id/INTEGER,refused_at/TEXT"
+    "|actor_visitor_links:visitor_id/TEXT,actor_id/INTEGER,linked_at/TIMESTAMPTZ,refused_actor_id/INTEGER,refused_at/TIMESTAMPTZ"
     "|actors:id/INTEGER,kind/TEXT,system_component/TEXT,name/TEXT,status/TEXT,created_at/TIMESTAMPTZ,attribution/TEXT"
     "|api_token_audit:id/INTEGER,api_token_id/INTEGER,actor_id/INTEGER,project_id/INTEGER,event_type/TEXT,outcome/TEXT,permission_key/TEXT,diagnostic_metadata/TEXT,created_at/TIMESTAMPTZ"
     "|api_tokens:id/INTEGER,token_hash/TEXT,actor_id/INTEGER,machine_id/TEXT,name/TEXT,status/TEXT,created_at/TIMESTAMPTZ,revoked_at/TIMESTAMPTZ,expires_at/TIMESTAMPTZ,last_used_at/TIMESTAMPTZ,diagnostic_metadata/TEXT"

@@ -86,8 +86,8 @@ def blank():
 
 
 def test_history_freezes_complete_roster_and_serving_floor():
-    assert len(history.COLUMNS) == len(set(history.COLUMNS)) == 265
-    assert len({table for table, _ in history.COLUMNS}) == 125
+    assert len(history.COLUMNS) == len(set(history.COLUMNS)) == 267
+    assert len({table for table, _ in history.COLUMNS}) == 126
     assert set(history.COLUMNS) == set(STORED_INSTANT_COLUMNS)
     assert history.MINIMUM_SERVING_VERSION == "next-release"
 
@@ -297,3 +297,43 @@ def test_unowned_or_custom_view_refuses_before_drop_or_ddl(blank, dependent):
     )
     name = "unowned_clock_view" if dependent == "direct" else "item_progress_view"
     assert blank.execute("SELECT to_regclass(%s)", (name,)).fetchone()[0] is not None
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("microsecond", [0, 123456])
+def test_visitor_clock_history_preserves_keys_nulls_and_exact_instants(
+    blank, zone, microsecond
+):
+    from datetime import datetime, timedelta, timezone
+
+    conn = blank
+    stamp = datetime(1969, 12, 31, 23, 59, 59, microsecond, tzinfo=timezone.utc)
+    supplied = stamp.astimezone(timezone(timedelta(minutes=345))).isoformat()
+    conn.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
+    conn.execute(
+        "CREATE TABLE actor_visitor_links (visitor_id TEXT PRIMARY KEY, actor_id INTEGER, linked_at TEXT NOT NULL, refused_actor_id INTEGER, refused_at TEXT)"
+    )
+    conn.execute(
+        "INSERT INTO actor_visitor_links VALUES ('first',1,%s,NULL,NULL),('second',2,%s,9,%s)",
+        (supplied, supplied, supplied),
+    )
+    conn.commit()
+    history.apply(conn)
+    history.invariants(conn)
+    conn.commit()
+    assert conn.execute("SHOW TimeZone").fetchone()[0] == zone
+    rows = [
+        tuple(row)
+        for row in conn.execute(
+            "SELECT visitor_id,actor_id,linked_at,refused_actor_id,refused_at FROM actor_visitor_links ORDER BY visitor_id"
+        )
+    ]
+    assert rows == [("first", 1, stamp, None, None), ("second", 2, stamp, 9, stamp)]
+    history.apply(conn)
+    history.invariants(conn)
+    assert [
+        tuple(row)
+        for row in conn.execute(
+            "SELECT visitor_id,actor_id,linked_at,refused_actor_id,refused_at FROM actor_visitor_links ORDER BY visitor_id"
+        )
+    ] == rows

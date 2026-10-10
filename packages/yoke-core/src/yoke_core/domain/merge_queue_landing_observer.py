@@ -145,12 +145,12 @@ def observe_pending_landings(
                     # Keep this known arming episode until its notice arrives.
                     # Replacing its observation with STALLED must not erase the
                     # evidence needed to retry a failed notice transport.
-                    episode = str(row["previous_observed_at"])
+                    episode = parse_instant(row["previous_observed_at"])
                     updated = conn.execute(
                         f"UPDATE items SET merge_queue_enqueued_at={marker} "
                         f"WHERE id={marker} AND merge_queue_pr_number={marker} "
                         "AND merge_queue_enqueued_at IS NULL",
-                        (episode, item_id, pr_number),
+                        (instant_parameter(conn, episode), item_id, pr_number),
                     )
                     if not updated.rowcount:
                         conn.rollback()

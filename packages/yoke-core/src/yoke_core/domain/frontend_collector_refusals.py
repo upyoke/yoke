@@ -24,6 +24,7 @@ import time
 from datetime import datetime, timezone
 from uuid import NAMESPACE_URL, uuid5
 
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.events_writes import cmd_insert
 
@@ -69,7 +70,7 @@ def record_refusal(*, reason, status, route, origin, host, now=None):
         "route": route,
         "origin": (origin or "")[:ORIGIN_MAX_CHARS],
         "host": host,
-        "window_start": window_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "window_start": format_instant(window_start),
         "window_seconds": REFUSAL_WINDOW_SECONDS,
     }
     envelope = {

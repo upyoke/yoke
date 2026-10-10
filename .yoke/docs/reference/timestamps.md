@@ -34,7 +34,7 @@ storage conversions. It checks all source columns before changing types and comb
 values assume UTC; optional blanks become NULL, and specifically approved owner-creation repairs replace missing item updates or malformed Ouroboros
 observations. These are explicit historical assumptions, not recovered facts or future input fallbacks. The caller retains the restore point, transaction,
 serving floor and receipts; append-only UPDATE/DELETE guards remain enabled during type conversion.
-Permanent history freezes all 265 columns across 125 tables. Excess historical
+Permanent history freezes all 267 columns across 126 tables. Excess historical
 fraction digits are dropped at microseconds. Its finite mutable-document policy
 repairs only declared usage, episode, resume-notice, driver, QA-wait and
 machine-decision clocks

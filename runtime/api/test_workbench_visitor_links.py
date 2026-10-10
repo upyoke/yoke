@@ -1,5 +1,6 @@
 """Web sign-in links browser visitor ids to actors; sign-out rotates the id."""
 
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -108,22 +109,43 @@ def test_each_browser_sign_in_links_its_visitor_and_joins_earlier_page_views(
     assert joined == {anonymous_view, signed_in_view}
 
 
-def test_visitor_linked_to_one_actor_is_refused_for_another_by_name(db_conn):
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
+@pytest.mark.parametrize("microsecond", [0, 123456])
+def test_visitor_linked_to_one_actor_is_refused_for_another_by_name(
+    db_conn, monkeypatch, zone, microsecond
+):
+    from yoke_core.domain import actor_visitor_links as owner
+
+    stamp = datetime(1969, 12, 31, 23, 59, 59, microsecond, tzinfo=timezone.utc)
+    db_conn.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
+    db_conn.commit()
+    monkeypatch.setattr(owner, "utc_now", lambda: stamp)
     holder = seed_human_actor(db_conn, "holder")
     other = seed_human_actor(db_conn, "other")
     visitor = str(uuid4())
     assert not record_visitor_link(db_conn, visitor_id=visitor, actor_id=holder).refused
+    clocks = db_conn.execute(
+        "SELECT linked_at,refused_at FROM actor_visitor_links WHERE visitor_id=%s",
+        (visitor,),
+    ).fetchone()
+    assert tuple(clocks) == (stamp, None)
     again = record_visitor_link(db_conn, visitor_id=visitor, actor_id=holder)
     assert again.outcome == ALREADY_LINKED
+    refusal = stamp + timedelta(microseconds=1)
+    monkeypatch.setattr(owner, "utc_now", lambda: refusal)
     refused = record_visitor_link(db_conn, visitor_id=visitor, actor_id=other)
     assert refused.outcome == LINKED_TO_OTHER_ACTOR
     assert refused.linked_actor_id == holder
     row = db_conn.execute(
-        "SELECT actor_id, refused_actor_id, refused_at FROM actor_visitor_links "
+        "SELECT actor_id, refused_actor_id, linked_at, refused_at FROM actor_visitor_links "
         "WHERE visitor_id=%s",
         (visitor,),
     ).fetchone()
-    assert row[0] == holder and row[1] == other and row[2]
+    assert tuple(row) == (holder, other, stamp, refusal)
+    assert all(
+        isinstance(value, datetime) and value.tzinfo is not None for value in row[2:]
+    )
+    assert db_conn.execute("SHOW TimeZone").fetchone()[0] == zone
 
 
 def test_sign_out_revokes_session_and_next_capture_mints_a_new_visitor(

@@ -144,9 +144,9 @@ CREATE INDEX IF NOT EXISTS idx_web_sessions_actor ON web_sessions(actor_id);
 CREATE TABLE IF NOT EXISTS actor_visitor_links (
     visitor_id TEXT PRIMARY KEY,
     actor_id INTEGER NOT NULL,
-    linked_at TEXT NOT NULL,
+    linked_at TIMESTAMPTZ NOT NULL,
     refused_actor_id INTEGER,
-    refused_at TEXT
+    refused_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_actor_visitor_links_actor
     ON actor_visitor_links(actor_id);
