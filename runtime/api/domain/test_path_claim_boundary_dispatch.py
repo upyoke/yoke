@@ -4,6 +4,7 @@ from contextlib import closing
 from unittest.mock import patch
 
 import pytest
+from psycopg.errors import LockNotAvailable
 
 from runtime.api.domain._path_claims_test_helpers import HOLDER_SESSION_ID, local_human
 from runtime.api.domain.test_path_claim_boundary_gate_proof import (
@@ -16,6 +17,8 @@ from yoke_cli.transport.dispatcher import call_dispatcher
 from yoke_contracts.api.function_call import ActorContext, TargetRef
 from yoke_contracts.public_item_contract import public_item_request_error
 from yoke_core.domain.gate_satisfier_stamp import read_rungs
+from yoke_core.domain.path_claim_boundary_gate_proof import record_boundary_proof
+from yoke_core.domain.workflow_item_binding_lock import lock_item_workflow_bindings
 from yoke_core.domain.actor_permissions import grant_actor_project_role, ROLE_OWNER
 from yoke_core.domain.projects_restart_schema import create_project_registry_tables
 from yoke_core.domain.universe_levels import create_universe_settings_table
@@ -151,3 +154,30 @@ def test_resolving_typed_request_keeps_caller_payload_public():
     assert request.payload == {"public_ref": ITEM_REF}
     assert request.target.item_id is None
     assert public_item_request_error(request) is None
+
+
+def test_boundary_stamp_does_not_wait_on_own_status_transaction(
+    project_repo, real_db, monkeypatch
+):
+    _claim, _lane, _context, proof = _seed_proof_case(project_repo, real_db)
+    monkeypatch.setattr(
+        "yoke_core.domain.path_claim_boundary_proof_validation._remote_heads",
+        lambda *_args: _remote_from(proof),
+    )
+    with (
+        closing(connect_test_db(real_db)) as writer,
+        closing(connect_test_db(real_db)) as gate,
+    ):
+        lock_item_workflow_bindings(writer, [ITEM_ID])
+        gate.execute("SET lock_timeout = '1s'")
+        record_boundary_proof(
+            gate, item_id=ITEM_ID, session_id=HOLDER_SESSION_ID, proof=proof
+        )
+        assert read_rungs(gate, ITEM_ID)[0]["rung_id"] == proof["rung_id"]
+        # Referencing the immutable key may proceed; a competing item writer
+        # still waits until the status transaction releases its lock.
+        with pytest.raises(LockNotAvailable):
+            gate.execute(
+                "UPDATE items SET title = 'competing writer' WHERE id = %s",
+                (ITEM_ID,),
+            )
