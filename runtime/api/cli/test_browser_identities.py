@@ -81,7 +81,16 @@ def test_a_profile_in_both_places_refuses_by_name(machine_home) -> None:
         browser_profile.authorized_profile_dir("acme", identity="admin")
 
 
-def test_the_human_gate_stops_every_daemon_and_refuses_new_ones(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "clock", ["1970-01-01T00:00:00Z", "1970-01-01T05:29:59.123456+05:30"]
+)
+def test_the_human_gate_stops_every_daemon_and_refuses_new_ones(
+    tmp_path, monkeypatch, clock
+):
+    from yoke_contracts.timestamps import format_instant, parse_instant
+
+    native = parse_instant(clock)
+    monkeypatch.setattr(browser_human_gate, "utc_now", lambda: native)
     for key, profile in (("a", "/p/acme/admin"), ("b", "")):
         state = tmp_path / "daemons" / key / ".daemon-state.json"
         state.parent.mkdir(parents=True)
@@ -96,6 +105,12 @@ def test_the_human_gate_stops_every_daemon_and_refuses_new_ones(tmp_path, monkey
     with browser_human_gate.human_gate(
         browser_client, tmp_path, project="acme", identity="admin"
     ) as names:
+        marker = json.loads(
+            (tmp_path / browser_human_gate.HUMAN_GATE_FILE_NAME).read_text()
+        )
+        assert marker["started_at"] == format_instant(native)
+        assert parse_instant(marker["started_at"]) == native
+        assert marker["identity"] == "admin"
         assert sorted(names) == ["", "/p/acme/admin"]
         assert stopped == ["/p/acme/admin", None]
         with pytest.raises(browser_human_gate.HumanGateActiveError, match="'admin'"):

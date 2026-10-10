@@ -11,7 +11,8 @@ from runtime.api.domain.steering_claim_test_support import (
     seed_session,
     seed_strategy_doc,
 )
-from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.db_helpers import instant_parameter, utc_now
+from yoke_contracts.timestamps import parse_instant
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     ITEM_QA_STAGE,
     seed_member_qa_case,
@@ -159,18 +160,21 @@ def test_uncovered_recorder_is_refused_with_recovery(waiver_world, authority):
             conn.execute(
                 "INSERT INTO item_strategy_docs(item_id,project_id,strategy_doc_slug,linked_at) "
                 "VALUES (%s,1,'AREA-PLAN',%s)",
-                (MEMBER, iso8601_now()),
+                (MEMBER, instant_parameter(conn, utc_now())),
             )
         else:
             conn.execute(
                 "UPDATE work_claims SET released_at=%s WHERE id=%s",
-                ("2026-10-01T00:00:00Z", seat["id"]),
+                (
+                    instant_parameter(conn, parse_instant("2026-10-01T00:00:00Z")),
+                    seat["id"],
+                ),
             )
         conn.commit()
     elif authority == "other_driver":
         _drive(conn, WORKER)
     elif authority == "stale_driver":
-        _drive(conn, RECORDER, now="2026-01-01T00:00:00Z")
+        _drive(conn, RECORDER, now=parse_instant("2026-01-01T00:00:00Z"))
     refusal = _gate(_request(requirement_id))
     assert refusal.error.code == "claim_required"
     assert "ask that holder" in refusal.error.message
@@ -213,7 +217,7 @@ def test_ended_steering_session_grants_no_authority(waiver_world):
     acquire_seat(conn, session_id=RECORDER, project_id=1, reason="steer items")
     conn.execute(
         "UPDATE harness_sessions SET ended_at=%s WHERE session_id=%s",
-        ("2026-10-01T00:00:00Z", RECORDER),
+        (instant_parameter(conn, parse_instant("2026-10-01T00:00:00Z")), RECORDER),
     )
     conn.commit()
     assert _gate(_request(requirement_id)).error.code == "claim_required"
@@ -225,7 +229,7 @@ def test_document_seat_covers_its_linked_member(waiver_world):
     conn.execute(
         "INSERT INTO item_strategy_docs(item_id,project_id,strategy_doc_slug,linked_at) "
         "VALUES (%s,1,'AREA-PLAN',%s)",
-        (MEMBER, iso8601_now()),
+        (MEMBER, instant_parameter(conn, utc_now())),
     )
     conn.commit()
     acquire_seat(

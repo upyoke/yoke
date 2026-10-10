@@ -88,12 +88,12 @@ def compose_handoff_body(
 
 
 def _live_driver(conn: Any, run_id: str) -> Optional[str]:
-    from yoke_core.domain.db_helpers import iso8601_now
+    from yoke_core.domain.db_helpers import utc_now
     from yoke_core.domain.deployment_run_driver_attachment import (
         live_attachment_for_run,
     )
 
-    driver = live_attachment_for_run(conn, run_id_value=run_id, now=iso8601_now())
+    driver = live_attachment_for_run(conn, run_id_value=run_id, now=utc_now())
     holder = str(driver.session_id or "").strip() if driver is not None else ""
     return holder or None
 

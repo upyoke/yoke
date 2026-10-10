@@ -59,6 +59,7 @@ OWNERS = (
         "deployment_run_driver_notice",
         "push_run_scoped_notice",
         {
+            "run_id": "run",
             "project_id": 1,
             "body_for_route": lambda route: "sample",
             "idempotency_key": "key",
@@ -167,7 +168,9 @@ def test_driver_notices_forward_one_native_microsecond_clock(
     if member:
         result = owner.push_member_notice(UntouchedConnection(), item_id=1, **arguments)
     else:
-        result = owner.push_run_scoped_notice(UntouchedConnection(), **arguments)
+        result = owner.push_run_scoped_notice(
+            UntouchedConnection(), run_id="run", **arguments
+        )
     assert result == "delivered"
     assert len(delivered) == 1
     assert delivered[0]["now"] == INSTANT
@@ -183,6 +186,7 @@ def test_invalid_generated_clock_refuses_before_recipient_lookup(monkeypatch):
     with pytest.raises(InvalidInstant):
         owner.push_run_scoped_notice(
             UntouchedConnection(),
+            run_id="run",
             project_id=1,
             body_for_route=lambda route: "sample",
             idempotency_key="key",
