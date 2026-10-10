@@ -12,7 +12,6 @@ exactly as a fresh attachment would.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -26,27 +25,24 @@ from yoke_core.domain.qa_method_capabilities import (
     QaMethodCapabilityError,
     encoded_capability_kinds,
 )
-from yoke_core.domain.qa_method_config_validation import (
-    QaMethodConfigError,
-    validate_method_config,
-)
-from yoke_core.domain.qa_deployment_case_correction_window import (
-    correction_window_closed_reason,
-    correction_window_open,
-)
-from yoke_core.domain.qa_method_definitions import BUILTIN_QA_METHODS
 from yoke_core.domain.qa_requirement_target_env_update import (
     _prepare_target_env,
 )
 from yoke_core.domain.qa_requirement_transition_update import (
     _prepare_workflow_transition,
 )
-from yoke_core.domain.qa_plan_execution_store import canonical
+from yoke_core.domain.qa_requirement_method_config_update import (
+    _prepare_method_config,
+)
+from yoke_core.domain.qa_replacement_scope_guard import (
+    LINK_SCOPE_FIELDS,
+    LINKED_SCOPE_CHANGE_CODE,
+    linked_scope_refusal,
+)
 from yoke_core.domain.qa_requirement_pass_currency import (
     METHOD_CONFIG_FIELD,
     _marker,
     bind_correction_identity,
-    executable_method_config,
 )
 from yoke_core.domain.qa_admitted_case_reconciliation import (
     ADMITTED_COPY_IN_FLIGHT_CODE,
@@ -56,7 +52,7 @@ from yoke_core.domain.qa_requirement_frozen_snapshot import (
     FROZEN_REQUIREMENT_CODE,
     FROZEN_REQUIREMENT_MESSAGE,
 )
-from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.schema_common import _column_exists
 
 
 UPDATABLE_REQUIREMENT_FIELDS: tuple[str, ...] = (
@@ -69,11 +65,6 @@ UPDATABLE_REQUIREMENT_FIELDS: tuple[str, ...] = (
     "workflow_transition_id",
     METHOD_CONFIG_FIELD,
 )
-
-_BUILTIN_CONTRACTS = {
-    str(method["id"]): str(method["config_contract_id"])
-    for method in BUILTIN_QA_METHODS
-}
 
 
 @dataclass(frozen=True)
@@ -106,54 +97,6 @@ def _fail(
         requirement_id=int(req_id),
         field=field,
     )
-
-
-def _config_contract_id(conn: Any, method_id: str) -> str | None:
-    if _table_exists(conn, "qa_methods"):
-        method = query_one(
-            conn,
-            f"SELECT config_contract_id FROM qa_methods WHERE id={_marker(conn)}",
-            (str(method_id),),
-        )
-        if method is not None and method["config_contract_id"]:
-            return str(method["config_contract_id"])
-    return _BUILTIN_CONTRACTS.get(str(method_id))
-
-
-def _prepare_method_config(
-    conn: Any, existing: Any, value: Any
-) -> tuple[Optional[str], str]:
-    method_id = str(existing["method_id"] or "") if existing["method_id"] else ""
-    if not method_id:
-        return None, "method_config is only updatable on method-backed requirements"
-    if existing["deployment_run_id"] and not correction_window_open(
-        conn, int(existing["id"])
-    ):
-        # Frozen only once the case has actually answered. Before that the
-        # row is a case nobody has judged, and correcting it is how a
-        # wrong-target, missing-field or data-precondition defect gets
-        # fixed at all -- those surface on the first real run, not by
-        # reading the case.
-        return None, (
-            f"{FROZEN_REQUIREMENT_CODE}: "
-            + correction_window_closed_reason(int(existing["id"]))
-        )
-    contract_id = _config_contract_id(conn, method_id)
-    if contract_id is None:
-        return None, f"method {method_id!r} is not registered"
-    raw: Any = value
-    if isinstance(value, str):
-        try:
-            raw = json.loads(value)
-        except (TypeError, ValueError):
-            return None, "method_config must be a JSON object"
-    if isinstance(raw, dict):
-        raw = executable_method_config(raw)
-    try:
-        config = validate_method_config(contract_id, raw)
-    except QaMethodConfigError as exc:
-        return None, str(exc)
-    return canonical(config), ""
 
 
 def apply_requirement_update(
@@ -254,9 +197,7 @@ def apply_requirement_update(
             )
         value = bind_correction_identity(existing["method_config"], prepared)
     if field == "workflow_transition_id":
-        prepared_transition, error = _prepare_workflow_transition(
-            conn, existing, value
-        )
+        prepared_transition, error = _prepare_workflow_transition(conn, existing, value)
         if error:
             return _fail(
                 code="payload_invalid",
@@ -307,7 +248,8 @@ def apply_requirement_update(
         )
 
         persist_requirement_target_snapshot(
-            conn, int(req_id),
+            conn,
+            int(req_id),
             {"execution_target_json": target_json, "execution_target_digest": digest},
         )
         value = name
@@ -315,6 +257,14 @@ def apply_requirement_update(
         conn.execute(
             f"UPDATE qa_requirements SET {field} = {marker} WHERE id = {marker}",
             (value, int(req_id)),
+        )
+    refusal = field in LINK_SCOPE_FIELDS and linked_scope_refusal(
+        conn, (int(req_id), *admitted_copies), change=f"setting {field}"
+    )
+    if refusal:
+        conn.rollback()
+        return _fail(
+            code=LINKED_SCOPE_CHANGE_CODE, message=refusal, req_id=req_id, field=field
         )
     event_phase = value if field == "qa_phase" else str(existing["qa_phase"])
     conn.commit()

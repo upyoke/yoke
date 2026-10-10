@@ -22,7 +22,10 @@ from typing import Any
 
 from yoke_core.domain.db_helpers import iso8601_now, query_one
 from yoke_core.domain.qa_events import emit_qa_requirement_event
-from yoke_core.domain.qa_execution_environment_target import canonical_target, target_digest
+from yoke_core.domain.qa_execution_environment_target import (
+    canonical_target,
+    target_digest,
+)
 from yoke_core.domain.qa_requirement_rebind_endpoint_delta import (
     endpoint_delta,
     stale_label_rebind_applies,
@@ -180,6 +183,14 @@ def rebind_requirement(
             int(requirement_id),
         ),
     )
+    from yoke_core.domain.qa_replacement_scope_guard import linked_scope_refusal
+
+    refusal = linked_scope_refusal(
+        conn, (int(requirement_id),), change="rebinding the execution target"
+    )
+    if refusal:
+        conn.rollback()
+        raise QaRebindError(refusal)
     if commit:
         conn.commit()
     emit_qa_requirement_event(

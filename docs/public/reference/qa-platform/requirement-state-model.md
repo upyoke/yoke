@@ -166,3 +166,28 @@ notice delivery and recovery if notification fails. Supersession without reconci
 keeps its ordinary QA subject claim policy.
 Ambiguous branches refuse before writing; ask the operator to resolve the
 intended obligation instead of guessing a successor.
+
+## Links that stop answering for their obligation
+
+A link is valid only while both rows bind the same obligation scope and the
+successor is blocking. Every link writer checks that when it writes. Two
+writers can change a linked row afterwards: `yoke qa requirement update`
+(`target_env`, `qa_phase`, `workflow_transition_id`, `blocking_mode`) and
+`yoke qa requirement rebind-target`. Both refuse with
+`replacement_link_scope_changed` and write nothing when the change would break a
+link into or out of the row. The refusal names each broken link and the repair.
+
+A change to the scope rule itself can still leave a stored link that was valid
+when written. The done gate then refuses with the `replacement_graph_invalid`
+error, naming both rows, the differing scope and the repair, rather than
+reporting missing proof. Repair the predecessor with the reconciliation above,
+naming a passing same-scope case. Reconciliation replaces a direct link that no
+longer answers for the obligation rather than following it. Waive the
+predecessor when no passing same-scope case exists. Links held by a waived or
+retracted row carry no obligation. The gate and the writer guards read one rule,
+so any change to the scope rule reaches both.
+
+Cancelling a deployment run retracts each member's outstanding run-bound QA
+copies, as removing that member does. Unsettled, never-passed blocking copies
+are retracted. Passing evidence and standing item plans remain, and the next
+release materializes fresh copies.

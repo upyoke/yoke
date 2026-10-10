@@ -155,6 +155,10 @@ with supersession recovery. Item correction reconciles active admitted copies
 copies update atomically; answered/live-frozen copies refuse admitted_copy_in_flight
 before either write. Terminal-run copies remain acceptance history. Already
 waived/superseded copies are settled and cannot block correction.
+A scope change (target_env, qa_phase, workflow_transition_id, blocking_mode)
+or rebind-target that would break a replacement link refuses
+replacement_link_scope_changed before writing; see
+[requirement state model](qa-platform/requirement-state-model.md#links-that-stop-answering-for-their-obligation).
 
 Copies execute their admitted definitions despite source drift. source_currency
 diagnoses correction/refresh/new admission; drift alone never invalidates frozen

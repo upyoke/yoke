@@ -72,6 +72,23 @@ def validate_successor(
         for key in ("replacement_requirement_id", "superseded_by_requirement_id")
         if broken.get(key)
     }
+    if reconcile:
+        # Reconciliation overwrites both of the origin's links, so a direct
+        # link that no longer answers for its obligation is replaced, not
+        # followed.
+        from yoke_core.domain.qa_replacement_scope_guard import link_mismatches
+
+        edges = {
+            edge
+            for edge in edges
+            if (
+                row := query_one(
+                    conn, "SELECT * FROM qa_requirements WHERE id=%s", (edge,)
+                )
+            )
+            is not None
+            and not link_mismatches(broken, dict(row))
+        }
     if len(edges) > 1 and not reconcile:
         raise QaSuccessorError(
             "replacement_graph_invalid: conflicting successor links; ask an operator to run yoke qa requirement supersede --reconcile with the actual terminal case"
