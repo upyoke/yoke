@@ -11,7 +11,7 @@ from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
 )
-from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.timestamps import as_utc, parse_instant
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_launch_capacity import (
     MACHINE_AT_CAPACITY,
@@ -102,7 +102,7 @@ def derive_launch_eligibility(
     project_id: int,
     surface: str,
     machine_id: str | None,
-    now: datetime | str,
+    now: datetime,
     relay_rows: Sequence[Any] | None = None,
 ) -> EligibilitySnapshot:
     """Return one freshest eligible relay per machine.
@@ -112,6 +112,7 @@ def derive_launch_eligibility(
     registered project checkout identifiers, and the lanes already running
     or in flight on each machine against the cap its relay published.
     """
+    current = as_utc(now)
     capability = capability_for_surface(surface)
     if capability is None or capability.create == "none":
         return EligibilitySnapshot(relays=(), rejection_codes=("unsupported_surface",))
@@ -135,7 +136,7 @@ def derive_launch_eligibility(
         row_rejected = False
         state = str(_value(row, "state", 5))
         connected_until = parse_instant(_value(row, "connected_until", 6))
-        if state not in {"active", "idle"} or connected_until < parse_instant(now):
+        if state not in {"active", "idle"} or connected_until < current:
             rejected.add("liveness_expired")
             row_rejected = True
         if not _serves_project(_value(row, "project_checkouts", 3), project_keys):
@@ -161,7 +162,7 @@ def derive_launch_eligibility(
                 conn,
                 machine_id=relay_machine,
                 capacity_document=_value(row, "machine_capacity", 7),
-                now=now,
+                now=current,
             )
         if capacities[relay_machine].at_capacity:
             rejected.add(MACHINE_AT_CAPACITY)

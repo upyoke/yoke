@@ -111,7 +111,7 @@ class LaunchEligibilityPort(Protocol):
         project_id: int,
         surface: str,
         machine_id: str | None,
-        now: datetime | str,
+        now: datetime,
     ) -> EligibilitySnapshot: ...
 
 

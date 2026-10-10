@@ -13,7 +13,7 @@ not a roomy machine, and the reading says so rather than passing silently.
 
 from __future__ import annotations
 
-from yoke_contracts.timestamps import parse_instant, temporal_wire
+from yoke_contracts.timestamps import as_utc, parse_instant, temporal_wire
 
 from yoke_core.domain.db_helpers import instant_parameter
 
@@ -108,8 +108,9 @@ def _document(value: Any) -> dict[str, Any]:
         return {}
 
 
-def live_lane_count(conn: Any, *, machine_id: str, now: datetime | str) -> int:
+def live_lane_count(conn: Any, *, machine_id: str, now: datetime) -> int:
     """Sessions running on the machine plus launches still on their way there."""
+    current = as_utc(now)
     p = _marker(conn)
     sessions = conn.execute(
         f"SELECT COUNT(*) FROM harness_sessions WHERE machine_id = {p} "
@@ -124,7 +125,7 @@ def live_lane_count(conn: Any, *, machine_id: str, now: datetime | str) -> int:
         (
             machine_id,
             *IN_FLIGHT_LAUNCH_STATES,
-            instant_parameter(conn, parse_instant(now)),
+            instant_parameter(conn, current),
         ),
     ).fetchone()[0]
     return int(sessions or 0) + int(launches or 0)
@@ -135,13 +136,14 @@ def machine_capacity(
     *,
     machine_id: str,
     capacity_document: Any,
-    now: datetime | str,
+    now: datetime,
 ) -> MachineCapacity:
     """Pair the relay's published reading with the lanes the plane can see."""
+    current = as_utc(now)
     reading = _document(capacity_document)
     return MachineCapacity(
         machine_id=machine_id,
-        live_lanes=live_lane_count(conn, machine_id=machine_id, now=now),
+        live_lanes=live_lane_count(conn, machine_id=machine_id, now=current),
         max_worker_lanes=reading.get("max_worker_lanes"),
         cap_source=reading.get("cap_source"),
         free_memory_bytes=reading.get("free_memory_bytes"),
