@@ -71,7 +71,7 @@ missing valid owner evidence refuses before any scalar conversion.
 New baseline artifact metadata formats its capture clock as fixed-six UTC and
 binds the corresponding creation instant natively; existing artifact bytes stay
 unchanged. Registry/board render headers and timing-log wall clocks use the shared
-formatter. Artifact filename dates remain labels. Current observation birth
+formatter. Artifact filename dates remain labels. Branch preview cleanup successors emit fixed-six UTC log prefixes using the standalone Python output boundary; historical Pack files remain frozen. Current observation birth
 fixtures declare native clocks; historical conversion fixtures retain TEXT. PostgreSQL project/planning, parity, path, constrained-audit and structured-write
 mini-DDL follows this native
 contract; episode clocks parse before SQL and capability fixtures bind aware
