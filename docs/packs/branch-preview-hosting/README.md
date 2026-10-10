@@ -3,7 +3,8 @@
 Adds the host-side pieces shared by branch preview systems: deterministic
 subdomain-to-port routing and time-to-live cleanup for preview directories,
 Compose projects, images, and volumes. It does not prescribe how application
-code is built or deployed.
+code is built or deployed. Cleanup log prefixes use UTC RFC3339 with six
+fractional digits and `Z`; resource ages retain operating-system epoch seconds.
 
 ## Project-specific work
 

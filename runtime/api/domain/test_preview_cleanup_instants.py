@@ -23,6 +23,7 @@ FROZEN = {
 @pytest.mark.parametrize(
     "source",
     [
+        ROOT / "ops/ephemeral_cleanup.py",
         PACK / "versions/1.1.1/files/ops/ephemeral_cleanup.py",
     ],
 )

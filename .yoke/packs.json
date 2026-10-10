@@ -1,17 +1,17 @@
 {
   "packs": {
     "branch-preview-hosting": {
-      "content_digest": "aa29340eee3dd3bb9d04b01a083ac999e86acd211735e8cdf9b9c453c59680f4",
+      "content_digest": "0b11ea6fb7187722246ba115b3a39bb167f5330b23258cc2563b06d4e70e51be",
       "files": {
         "docs/packs/branch-preview-hosting/README.md": {
           "mode": 420,
           "path": "docs/packs/branch-preview-hosting/README.md",
-          "sha256": "01348d0241de8edea2ab270dc6aef6e85e42f1d3e52b3d5a00053e0b66bb3c15"
+          "sha256": "f68edf6afce26a9f65484a86ba0812112b40cbe3552f9b323dbaf30abb9473ff"
         },
         "ops/ephemeral_cleanup.py": {
           "mode": 493,
           "path": "ops/ephemeral_cleanup.py",
-          "sha256": "80b8d0089b85fb19ff7ff0d38574dfe9f1da0f918083e5c542a9b988e5c587a5"
+          "sha256": "ab8c222729c0e9a3d7afc8e4db6f7ec13149ce3afd3f5db5b1640452673fc89c"
         },
         "ops/ephemeral_port.js": {
           "mode": 420,
@@ -24,7 +24,38 @@
           "sha256": "a67fc465f0f2de2c6a36db45342e48eb78fd0961cdc6d446cbef7f3b57d20229"
         }
       },
-      "prerequisites": [],
+      "prerequisites": [
+        {
+          "install": {
+            "darwin": "brew install --cask docker",
+            "linux": "curl -fsSL https://get.docker.com | sh",
+            "windows": "winget install Docker.DockerDesktop"
+          },
+          "minimum_version": "20.10.0",
+          "probe": {
+            "executable": "docker",
+            "version_args": [
+              "--version"
+            ]
+          },
+          "tool": "docker"
+        },
+        {
+          "install": {
+            "darwin": "brew install node",
+            "linux": "curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs",
+            "windows": "winget install OpenJS.NodeJS.LTS"
+          },
+          "minimum_version": "20.0.0",
+          "probe": {
+            "executable": "node",
+            "version_args": [
+              "--version"
+            ]
+          },
+          "tool": "node"
+        }
+      ],
       "render_values": {
         "preview_domain": "preview.upyoke.com",
         "preview_namespace": "yoke-preview",
@@ -34,9 +65,10 @@
         "preview_ttl_hours": "24"
       },
       "source": {
-        "kind": "served"
+        "commit": "8b61c4c8e24fb1a5ae8e215022e6219e4317d885",
+        "kind": "lane"
       },
-      "version": "1.1.0"
+      "version": "1.1.1"
     },
     "structured-events": {
       "content_digest": "1a3e035bc1b1a1b500f178a24b0c96a1691ffc1adb366bcfa7e2b147f3c766b4",
