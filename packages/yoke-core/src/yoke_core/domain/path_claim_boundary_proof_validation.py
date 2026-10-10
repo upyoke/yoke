@@ -55,13 +55,19 @@ def validate_proof(
     session_id: str,
     verify_remote: bool,
 ) -> dict:
-    """Bind proof observations to current server-authoritative item facts."""
+    """Bind public-ref proof observations to projected authoritative facts."""
+    from yoke_core.domain.function_response_refs import public_result
+    from yoke_core.domain.item_ref_render import render_item_refs
+
+    public_context = public_result(
+        context, render_item_refs(conn, [context["item_id"]])
+    )
     if not isinstance(proof, dict) or proof.get("kind") != PROOF_KIND:
         raise BoundaryProofError("boundary proof kind is missing or unsupported")
-    if type(proof.get("item_id")) is not int or proof["item_id"] != context["item_id"]:
+    if proof.get("public_ref") != public_context["public_ref"]:
         raise BoundaryProofError("boundary proof targets a different item")
     for key in ("lane", "work_claim", "claims"):
-        if proof.get(key) != context.get(key):
+        if proof.get(key) != public_context.get(key):
             raise BoundaryProofError(f"boundary proof {key} facts are stale")
     holder = context.get("work_claim") or {}
     if not session_id or holder.get("session_id") != session_id:

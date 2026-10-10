@@ -38,7 +38,8 @@ def lock_item_workflow_bindings(
     """Lock item rows in stable order for workflow-sensitive binding writes.
 
     The caller owns the surrounding transaction and must commit or roll back.
-    PostgreSQL's row lock supplies the production serialization boundary.
+    PostgreSQL's non-key row lock serializes binding writers while allowing
+    another connection to record gate evidence referencing the immutable id.
     Missing parent rows and compatibility fixtures without ``items`` are
     ignored because they cannot be workflow-migration targets. SQLite keeps
     the same best-effort parent lookup while relying on database-level write
@@ -49,7 +50,7 @@ def lock_item_workflow_bindings(
         return ()
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     placeholders = ", ".join(marker for _ in normalized)
-    suffix = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
+    suffix = " FOR NO KEY UPDATE" if db_backend.connection_is_postgres(conn) else ""
     rows = conn.execute(
         f"SELECT id FROM items WHERE id IN ({placeholders}) ORDER BY id{suffix}",
         normalized,

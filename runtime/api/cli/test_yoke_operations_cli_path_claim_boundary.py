@@ -23,11 +23,11 @@ def test_boundary_prove_observes_recorded_lane_then_relays_proof(tmp_path):
     lane = tmp_path / "lane"
     lane.mkdir()
     context = {
-        "item_id": 7777,
+        "public_ref": f"YOK-{7777}",
         "project": {"id": 1, "slug": "yoke"},
         "lane": {
             "id": 9,
-            "item_id": 7777,
+            "public_ref": f"YOK-{7777}",
             "branch": "YOK-7777",
             "path": str(lane),
             "commit_sha": "a" * 40,
@@ -50,7 +50,7 @@ def test_boundary_prove_observes_recorded_lane_then_relays_proof(tmp_path):
         return _response(
             function_id,
             {
-                "item_id": 7777,
+                "public_ref": f"YOK-{7777}",
                 "rung_id": "remote_integration_ref",
                 "lane_commit_sha": "a" * 40,
             },
@@ -101,7 +101,9 @@ def test_boundary_prove_observes_recorded_lane_then_relays_proof(tmp_path):
         timeout_s=None,
         retry_command="yoke claims path boundary-prove --item YOK-7777",
     )
-    assert "boundary-proof-recorded|item|remote_integration_ref" in out.getvalue()
+    assert (
+        f"boundary-proof-recorded|YOK-{7777}|remote_integration_ref" in out.getvalue()
+    )
 
 
 def test_boundary_prove_timeout_retries_original_command(tmp_path):
@@ -111,11 +113,11 @@ def test_boundary_prove_timeout_retries_original_command(tmp_path):
 
     lane = make_repo(tmp_path)
     context = {
-        "item_id": 7777,
+        "public_ref": f"YOK-{7777}",
         "project": {"id": 1, "slug": "yoke"},
         "lane": {
             "id": 9,
-            "item_id": 7777,
+            "public_ref": f"YOK-{7777}",
             "branch": "YOK-7777",
             "path": str(lane),
             "commit_sha": "a" * 40,
@@ -177,11 +179,11 @@ def test_boundary_prove_auth_refusal_does_not_teach_retry(tmp_path):
     lane = tmp_path / "lane"
     lane.mkdir()
     context = {
-        "item_id": 7777,
+        "public_ref": f"YOK-{7777}",
         "project": {"id": 1, "slug": "yoke"},
         "lane": {
             "id": 9,
-            "item_id": 7777,
+            "public_ref": f"YOK-{7777}",
             "branch": "YOK-7777",
             "path": str(lane),
             "commit_sha": "a" * 40,
