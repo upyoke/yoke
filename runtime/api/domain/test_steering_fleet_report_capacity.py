@@ -12,6 +12,8 @@ import json
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.steering_fleet_test_helpers import (
     ACTOR_ID,
     NOW,
@@ -176,7 +178,7 @@ def test_launchable_surfaces_read_relay_rows_once(fleet, monkeypatch):
         "yoke_core.domain.steering_fleet_report_capacity.load_relay_eligibility_rows",
         counting,
     )
-    launchable_surfaces(fleet, project_id=PROJECT_ID, now=NOW)
+    launchable_surfaces(fleet, project_id=PROJECT_ID, now=parse_instant(NOW))
     assert calls["n"] == 1
 
 

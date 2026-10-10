@@ -28,6 +28,7 @@ from dataclasses import asdict, dataclass, replace
 from typing import Any, Sequence
 
 from yoke_contracts.levels import Level, LevelOption
+from yoke_contracts.timestamps import as_utc
 from yoke_core.domain.machine_launch_access import filter_by_machine_access
 from yoke_core.domain.refusal_recovery import compose_refusal
 from yoke_core.domain.session_launch_level_pools import (
@@ -145,7 +146,7 @@ def _weigh(
     relay: EligibleRelay,
     limits: Sequence[Any],
     workers: dict[str, int],
-    now: datetime | str,
+    now: datetime,
     fallback: bool,
 ) -> LevelCandidate:
     pools = option_pools(
@@ -184,7 +185,7 @@ def _candidates(
     auth: LaunchAuthorization,
     project_id: int,
     machine_id: str | None,
-    now: datetime | str,
+    now: datetime,
     eligibility: LaunchEligibilityPort,
 ) -> list[LevelCandidate]:
     limits = load_plan_limits(conn, project_id=project_id, now=now)
@@ -300,10 +301,11 @@ def place_level(
     project_id: int,
     level: str,
     machine_id: str | None,
-    now: datetime | str,
+    now: datetime,
     eligibility: LaunchEligibilityPort,
 ) -> LevelPlacement:
     """Weigh every option of ``level`` and choose one, or say why none fits."""
+    now = as_utc(now)
     levels, source = effective_levels(conn, project_id)
     wanted = _level(levels, level, source)
     pin = resolve_launch_machine_pin(conn, machine_id)

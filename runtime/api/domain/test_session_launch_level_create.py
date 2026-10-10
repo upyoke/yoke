@@ -6,6 +6,8 @@ import json
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_contracts.session_control.models import (
     LaunchCreateRequest,
     LaunchPreviewRequest,
@@ -138,7 +140,7 @@ def test_a_level_preview_with_no_capacity_is_not_launchable() -> None:
         conn,
         auth=authorization(),
         request=_level_request(),
-        now=NOW,
+        now=parse_instant(NOW),
         eligibility=derive_launch_eligibility,
     )
 
@@ -200,7 +202,8 @@ def test_the_preview_handler_reports_the_level_option_as_the_knob_source(
     conn = _two_options(claude=20.0, codex=40.0)
     _wire_handler(monkeypatch, conn)
     monkeypatch.setattr(
-        "yoke_core.domain.session_launch_preview_payload.utc_now", lambda: NOW
+        "yoke_core.domain.session_launch_preview_payload.utc_now",
+        lambda: parse_instant(NOW),
     )
 
     outcome = handlers.handle_launch_preview(

@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
 from yoke_core.domain.session_launch_level_placement import (
     LEVEL_UNKNOWN,
@@ -45,7 +47,7 @@ def _place(conn, level: str = LEVEL):
         project_id=10,
         level=level,
         machine_id=None,
-        now=NOW,
+        now=parse_instant(NOW),
         eligibility=derive_launch_eligibility,
     )
 

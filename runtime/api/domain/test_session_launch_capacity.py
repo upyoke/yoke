@@ -220,6 +220,9 @@ def test_internal_capacity_reference_refuses_before_any_sql(clock):
         def execute(self, *_args, **_kwargs):
             pytest.fail("Native reference clock admission must precede SQL")
 
+    from yoke_core.domain.session_launch_level_placement import place_level
+    from yoke_core.domain.session_launch_level_selection import preview_level_launch
+
     conn = NoSQL()
     calls = (
         lambda: live_lane_count(conn, machine_id=MACHINE, now=clock),
@@ -231,6 +234,28 @@ def test_internal_capacity_reference_refuses_before_any_sql(clock):
         ),
         lambda: launchable_surfaces(conn, project_id=10, now=clock),
         lambda: machine_capacities(conn, project_id=10, now=clock),
+        lambda: place_level(
+            conn,
+            auth=authorization(),
+            project_id=10,
+            level="opaque",
+            machine_id=None,
+            now=clock,
+            eligibility=derive_launch_eligibility,
+        ),
+        lambda: preview_level_launch(
+            conn,
+            auth=authorization(),
+            request=LaunchRequest(
+                project_id=10,
+                executor_surface="",
+                instructions="",
+                idempotency_key="",
+                level="opaque",
+            ),
+            now=clock,
+            eligibility=derive_launch_eligibility,
+        ),
     )
     for call in calls:
         with pytest.raises(InvalidInstant):

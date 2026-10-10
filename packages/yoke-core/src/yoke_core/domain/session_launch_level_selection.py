@@ -15,6 +15,7 @@ from datetime import datetime
 from dataclasses import replace
 from typing import Any
 
+from yoke_contracts.timestamps import as_utc
 from yoke_core.domain import session_relay_managed_presentation as presentation
 from yoke_core.domain.session_launch_level_placement import (
     LEVEL_NO_CAPACITY,
@@ -50,7 +51,7 @@ def preview_level_launch(
     *,
     auth: LaunchAuthorization,
     request: LaunchRequest,
-    now: datetime | str,
+    now: datetime,
     eligibility: LaunchEligibilityPort,
 ) -> tuple[LaunchRequest, LaunchPreview]:
     """Place ``request.level`` and preview the launch it chose.
@@ -60,6 +61,7 @@ def preview_level_launch(
     capacity the request comes back unchanged beside a non-launchable
     ``level_no_capacity`` preview naming every blocked option.
     """
+    now = as_utc(now)
     placement = place_level(
         conn,
         auth=auth,
