@@ -30,6 +30,7 @@ from yoke_contracts.timestamps import parse_instant, format_instant
 
 from yoke_contracts.project_contract.strategy_doc_fields import normalize_fields
 from dataclasses import dataclass, replace
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
@@ -58,8 +59,8 @@ class IngestDocPlan:
 
     slug: str
     path: Path
-    base_updated_at: str
-    db_updated_at: str
+    base_updated_at: datetime
+    db_updated_at: datetime
     file_body: str
     changed: bool
     old_lines: int
@@ -70,9 +71,13 @@ class IngestDocPlan:
     # its correct active/archive location instead of defaulting to active.
     archived: bool = False
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "base_updated_at", parse_instant(self.base_updated_at))
+        object.__setattr__(self, "db_updated_at", parse_instant(self.db_updated_at))
+
     @property
     def stale_base(self) -> bool:
-        return parse_instant(self.base_updated_at) != parse_instant(self.db_updated_at)
+        return self.base_updated_at != self.db_updated_at
 
 
 def conflict_teaching(slugs: Sequence[str], target_root: Path) -> str:
@@ -263,7 +268,7 @@ def execute_ingest(
                 actor_id,
                 project_id,
                 plan.slug,
-                instant_parameter(conn, parse_instant(plan.base_updated_at)),
+                instant_parameter(conn, plan.base_updated_at),
             ),
         )
         if cur.rowcount == 0:

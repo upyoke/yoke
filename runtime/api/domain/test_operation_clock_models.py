@@ -1,6 +1,7 @@
 """Operation models retain native clocks until their declared output owners."""
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
@@ -8,6 +9,7 @@ from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_inst
 from yoke_core.domain.coordination_claim_contention import ClaimContention
 from yoke_core.domain.deployment_run_terminalization import RunTerminalization
 from yoke_core.domain.web_sessions import CreatedWebSession
+from yoke_core.domain.strategy_docs_ingest import IngestDocPlan, dry_run_report
 
 INSTANT = parse_instant("1969-12-31T23:59:59.123456Z")
 
@@ -45,10 +47,17 @@ def web_session(clock):
     return CreatedWebSession(1, 2, "opaque-token", clock)
 
 
+def ingest_plan(clock):
+    return IngestDocPlan(
+        "MISSION", Path("MISSION.md"), clock, clock, "body", True, 1, 1, 4, 4
+    )
+
+
 MODELS = [
     (contention, "acquired_at"),
     (terminalization, "terminalized_at"),
     (web_session, "expires_at"),
+    (ingest_plan, "base_updated_at"),
 ]
 
 
@@ -92,3 +101,39 @@ def test_contention_evidence_formats_only_at_the_output_owner():
     )
     assert "since " + format_instant(INSTANT) in report.message
     assert contention(INSTANT).claim_evidence()["heartbeat_at"] is None
+
+
+def test_ingest_plan_compares_native_clocks_and_formats_conflict_report():
+    plan = IngestDocPlan(
+        "MISSION",
+        Path("MISSION.md"),
+        "1970-01-01T05:29:59.123456+05:30",
+        INSTANT,
+        "body",
+        True,
+        1,
+        1,
+        4,
+        4,
+    )
+    assert plan.base_updated_at == plan.db_updated_at == INSTANT
+    assert not plan.stale_base
+    newer = IngestDocPlan(
+        "MISSION",
+        Path("MISSION.md"),
+        INSTANT,
+        INSTANT + timedelta(microseconds=1),
+        "body",
+        True,
+        1,
+        1,
+        4,
+        4,
+    )
+    assert newer.stale_base
+    report = dry_run_report([newer])[0]
+    assert report["status"] == "conflict"
+    assert report["base_updated_at"] == format_instant(INSTANT)
+    assert report["db_updated_at"] == format_instant(
+        INSTANT + timedelta(microseconds=1)
+    )
