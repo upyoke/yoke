@@ -72,10 +72,10 @@ def claims_coordination_claim_acquire(args: List[str]) -> int:
         prog="yoke claims coordination-claim acquire",
         description=CLAIMS_COORDINATION_CLAIM_ACQUIRE_USAGE,
         epilog=(
-            "Takes one shared-operation claim for this session. The deploy "
-            "lock is DEPLOY:<project-slug>: hold it while driving a release "
-            "pair, and release it when the pair completes. Reserved "
-            "qualification grants open only through session-control."
+            "Takes one shared-operation claim for this session. Deployment "
+            "runs take none: a run occupies its target servers until its QA "
+            "settles. Reserved qualification grants open only through "
+            "session-control."
         ),
     )
     parser.add_argument("--project", required=True, help="Project slug or id.")

@@ -258,10 +258,9 @@ export function createWorkbenchChrome({
     scrim: navigationScrim, body,
     footer: controls.footer, main, links: navLinks,
   });
-  // Revealed panels — a claiming session, a status reason, a deploy-lock
-  // holder — float above whichever view drew them, so the press-outside
-  // and Escape dismissal is armed once for the mount rather than once per
-  // route render.
+  // Revealed panels — a claiming session, a status reason — float above
+  // whichever view drew them, so the press-outside and Escape dismissal is
+  // armed once for the mount rather than once per route render.
   const disposeRevealPanels = armRevealPanelDismissal(documentNode);
 
   return {

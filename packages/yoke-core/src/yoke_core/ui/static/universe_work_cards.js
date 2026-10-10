@@ -20,7 +20,6 @@ import { runGateStatus } from "./universe_run_gates.js";
 import { appendCarriedItemEvidence } from "./universe_carried_item_evidence.js";
 import { runEvidence, runFlowName } from "./universe_run_evidence.js";
 import { runQaSection } from "./universe_run_qa.js";
-import { itemClaimantControl } from "./universe_item_claimant.js";
 import { navIcon } from "./universe_nav_sidebar.js";
 import {
   appendMoreDisclosure,
@@ -34,7 +33,6 @@ export const CARRIED_ITEMS_SHOWN = 3;
 
 // A run in one of these states is over; nothing it waits on can still
 // apply to it.
-const TERMINAL_RUN_STATUSES = new Set(["succeeded", "failed", "cancelled"]);
 
 function itemReference(row) {
   return String(row.public_ref || "Item");
@@ -245,35 +243,6 @@ export function shippingRunCard(context, row, scope, options = {}) {
   const statusNode = statePill(documentNode, status, status);
   if (statusNode) head.appendChild(statusNode);
   card.appendChild(head);
-  // Directly under the identity row, because "why has this not started" is
-  // the first question a waiting run raises. The lock belongs to the
-  // project, not to this run: the session holding it is serializing every
-  // deploy in that project and may have started none of them.
-  const lock = TERMINAL_RUN_STATUSES.has(status)
-    ? null : options.deployLocks?.get(String(row.project || ""));
-  // The lock reads as something the session holds, so it renders inside that
-  // session's own chip rather than as a box the session sits in. Filed the
-  // other way round it said the session belonged to the lock and the lock
-  // belonged to this run, and neither is true.
-  if (lock && options.renderFullSession) {
-    const lockNote = el(documentNode, "span", "shipping-run-lock");
-    const lockIcon = el(documentNode, "span", "shipping-run-lock-icon", "🔒");
-    lockIcon.setAttribute("aria-hidden", "true");
-    lockNote.appendChild(lockIcon);
-    lockNote.appendChild(el(
-      documentNode,
-      "span",
-      "shipping-run-lock-label",
-      `holds deploy lock (${row.project}, project-wide)`,
-    ));
-    const lockRow = el(documentNode, "div", "shipping-run-lock-row");
-    lockRow.appendChild(itemClaimantControl(documentNode, lock, {
-      renderFullSession: options.renderFullSession,
-      label: `Show the session holding the ${row.project} deploy lock`,
-      note: lockNote,
-    }));
-    card.appendChild(lockRow);
-  }
   card.appendChild(el(
     documentNode, "strong", "shipping-run-flow", runFlowName(options.facts, row),
   ));

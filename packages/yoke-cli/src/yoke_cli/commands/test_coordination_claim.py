@@ -67,13 +67,13 @@ def test_public_release_dispatches_exact_reviewed_holder() -> None:
                     "--project",
                     "yoke",
                     "--key",
-                    "DEPLOY:yoke",
+                    "LIVE_DB_MIGRATION:core",
                     "--claim-id",
                     "42",
                     "--holder-session-id",
                     "stranded-session",
                     "--reason",
-                    "driver exited after pipeline settled",
+                    "rehearsal driver exited after landing",
                     "--json",
                 ]
             )
@@ -82,10 +82,10 @@ def test_public_release_dispatches_exact_reviewed_holder() -> None:
     assert captured[-1]["function_id"] == ("claims.coordination_claim.operator_release")
     assert captured[-1]["payload"] == {
         "project_id": "yoke",
-        "key": "DEPLOY:yoke",
+        "key": "LIVE_DB_MIGRATION:core",
         "claim_id": 42,
         "holder_session_id": "stranded-session",
-        "reason": "driver exited after pipeline settled",
+        "reason": "rehearsal driver exited after landing",
     }
 
 
@@ -198,7 +198,7 @@ def test_project_scoped_recovery_without_project_keeps_required_message(capsys):
             "coordination-claim",
             "release",
             "--key",
-            "DEPLOY:yoke",
+            "LIVE_DB_MIGRATION:core",
             "--claim-id",
             "42",
             "--holder-session-id",

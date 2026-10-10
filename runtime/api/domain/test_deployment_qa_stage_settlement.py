@@ -230,13 +230,11 @@ def test_run_visual_wait_assigns_inspection_to_driver():
     assert "--member" not in message
 
 
-def test_continuation_keeps_existing_run_and_lock():
+def test_continuation_keeps_existing_run():
     message = continuation_message(
         run_id="run-existing",
         stage="item-qa",
         outcome="passed",
-        project_slug="yoke",
-        route="driver",
     )
     assert "Continue this same run" in message
     assert "watch deploy -- run-existing" in message

@@ -69,7 +69,7 @@ def deployment_runs_add_item(args: List[str]) -> int:
             "(item_qa_flow_without_delivery_custody) when the run's flow has "
             "an item-scoped QA stage but takes no delivery custody: such a "
             "member never receives the requirement snapshot item QA proves "
-            "against. Requires the caller's project deploy lock."
+            "against. Refused while another session is the run's live driver."
         ),
         epilog=CROSS_PROJECT_MEMBERSHIP_NOTE,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -115,7 +115,7 @@ def deployment_runs_remove_item(args: List[str]) -> int:
             "the reason on the run. Composition then never re-enrolls it; its "
             "landed code still ships with the candidate and a later release "
             "enrolls it. Re-attaching while created with `add-item` clears the removal. "
-            "Requires the caller's project deploy lock. Use remove-item RUN ITEM "
+            "Refused while another session is the run's live driver. Use remove-item RUN ITEM "
             "--reason R to let a run finish while a red member rides the next release. "
             "Item-QA removal refuses shared run QA/approval, settled members, and "
             "any stage other than item QA; outstanding run-bound member requirements "
@@ -164,7 +164,7 @@ def deployment_runs_validate_composition(args: List[str]) -> int:
             "whose flow is the completion flow for delivery-ready items no "
             "other release holds (item_qa_run_without_members). A memberless "
             "run owing no delivery passes with item_qa_no_member_owes_target. "
-            "Requires the caller's project deploy lock."
+            "Refused while another session is the run's live driver."
         ),
     )
     parser.add_argument("run_id")

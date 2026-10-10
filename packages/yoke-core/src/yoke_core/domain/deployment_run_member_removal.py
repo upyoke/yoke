@@ -218,7 +218,7 @@ def cmd_remove_item(
         if status == "failed":
             recovery = (
                 f"Resume this same run with `yoke watch deploy -- {run_id} "
-                "--from-stage item-qa` under the project deploy lock."
+                "--from-stage item-qa`."
             )
         elif status == "executing":
             from yoke_core.domain.deployment_run_auto_completion import (
@@ -238,18 +238,19 @@ def cmd_remove_item(
                 )
                 delivery = push_run_scoped_notice(
                     conn,
+                    run_id=run_id,
                     project_id=int(project["project_id"]),
                     body_for_route=lambda _route: (
                         f"Removed {ref} from run {run_id}: {reason}. "
                         "Re-evaluate its remaining item QA and continue this same run "
-                        f"with `yoke watch deploy -- {run_id}` under the project deploy lock."
+                        f"with `yoke watch deploy -- {run_id}`."
                     ),
                     idempotency_key=f"deployment-member-removal:{run_id}:{item_id}",
                 )
                 conn.commit()
                 if not delivery:
                     print(
-                        f"Run {run_id} removal is durable but no driver received continuation; re-drive under the project deploy lock."
+                        f"Run {run_id} removal is durable but no driver received continuation; re-drive it with `yoke watch deploy -- {run_id}`."
                     )
             recovery = (
                 result.failure

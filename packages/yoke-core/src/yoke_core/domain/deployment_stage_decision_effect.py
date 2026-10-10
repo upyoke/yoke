@@ -9,20 +9,20 @@ already refused it.
 The runner still holds its authority. ``deployment_run_approval`` states that
 the deployment runner consumes the resolved decision and remains the only
 surface that advances run and member-item deployment state, and nothing here
-reverses that -- a resolve call has no repo checkout, no candidate revision, no
-deploy lock and no budget for a multi-minute release, which is the reason that
-authority sits with the driver in the first place. So the two answers are acted
+reverses that -- a resolve call has no repo checkout, no candidate revision
+and no budget for a multi-minute release, which is the reason that authority
+sits with the driver in the first place. So the two answers are acted
 on differently, because they are different facts:
 
-* An approve still has a release to run, so this wakes the project's
-  deploy-lock driver (its steering seat when no session holds the lock) with
-  the recipe that re-enters the runner. Every advance remains the runner's.
+* An approve still has a release to run, so this wakes the run's live
+  driver (the project's steering seat when none is attached) with the
+  recipe that re-enters the runner. Every advance remains the runner's.
 * A rejection has nothing left to advance. Waking somebody would send them to
   a dead end, and until they went the run would keep lying about being in
   flight, so recording the rejection closes the run here. Closing a run is not
   advancing one: ``deployment_runs.terminalize`` already moves an active run to
-  a terminal status under a row lock with an audit event and no deploy lock,
-  and this is that same close with the decision as its reason.
+  a terminal status under a row lock with an audit event, and this is that
+  same close with the decision as its reason.
 
 The wake reuses :mod:`yoke_core.domain.deployment_run_driver_notice`, the same
 recipient rule and delivery contract a waiting run-scoped QA stage uses, rather
@@ -86,28 +86,15 @@ def stage_decision_idempotency_key(
     return f"deployment-stage-decision:{run_id}:{stage}:{request_id}:{action}"
 
 
-def drive_recipe(run_id: str, project_slug: str, *, holds_lock: bool) -> str:
-    """The commands that re-enter the runner on *run_id*, one per line.
+def drive_recipe(run_id: str) -> str:
+    """The command that re-enters the runner on *run_id*, indented one line.
 
-    Rendered by the modules that own them -- :mod:`yoke_core.domain.deploy_lock`
-    for the lock creating or executing a run requires, and
-    :func:`deploy_pipeline_environment.watch_deploy_command` for the driver
-    itself -- so the recipe cannot drift from what those surfaces accept. A
-    recipient that already holds the lock is not told to take it again.
+    Rendered by :func:`deploy_pipeline_environment.watch_deploy_command`, the
+    driver itself, so the recipe cannot drift from what that surface accepts.
     """
-    from yoke_core.domain.deploy_lock import acquire_command, release_command
     from yoke_core.domain.deploy_pipeline_environment import watch_deploy_command
 
-    drive = f"  {watch_deploy_command(run_id)}"
-    if holds_lock:
-        return drive
-    return "\n".join(
-        (
-            f"  {acquire_command(project_slug)}",
-            drive,
-            f"  {release_command(project_slug)}",
-        )
-    )
+    return f"  {watch_deploy_command(run_id)}"
 
 
 def stage_decision_message(
@@ -115,21 +102,19 @@ def stage_decision_message(
     run_id: str,
     stage: str,
     request_id: int,
-    project_slug: str,
     route: str,
     completion_failure: str = "",
 ) -> str:
     """Say what was approved, and give a recipe this recipient can run."""
-    holds_lock = route == DRIVER
     addressed = (
-        "you hold this project's deploy lock"
-        if holds_lock
+        "you are this run's live driver"
+        if route == DRIVER
         else (
-            "no session holds this project's deploy lock, so this reaches its "
+            "no driver is attached to this run, so this reaches the project's "
             "steering seat"
         )
     )
-    recipe = drive_recipe(run_id, project_slug, holds_lock=holds_lock)
+    recipe = drive_recipe(run_id)
     recovery = (
         f"Automatic completion failed: {completion_failure}. "
         if completion_failure
@@ -220,12 +205,12 @@ def notify_deployment_stage_decision(
         return ""
     return push_run_scoped_notice(
         conn,
+        run_id=run_id,
         project_id=int(project_id),
         body_for_route=lambda route: stage_decision_message(
             run_id=run_id,
             stage=stage,
             request_id=int(request["id"]),
-            project_slug=identity.slug,
             route=route,
             completion_failure=attempt.failure,
         ),

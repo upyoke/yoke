@@ -121,13 +121,12 @@ def settle_subject(
     )
     delivery = push_run_scoped_notice(
         conn,
+        run_id=run_id,
         project_id=project.id,
-        body_for_route=lambda route: continuation_message(
+        body_for_route=lambda _route: continuation_message(
             run_id=run_id,
             stage=stage,
             outcome=outcome,
-            project_slug=project.slug,
-            route=route,
             completion_failure=completion_failure,
             blockers=""
             if released
@@ -141,8 +140,7 @@ def settle_subject(
             f"Run {run_id} stage {stage!r} settled {outcome}, but no deploy "
             "driver or covering steering seat could be reached. The QA "
             f"blockers are {status.get('reasons') or 'none reported'}. "
-            "The outcome is durable; acquire the project deploy lock and re-drive "
-            f"the same run with `yoke watch deploy -- {run_id}`."
+            "The outcome is durable; re-drive the same run with `yoke watch deploy -- {run_id}`."
         )
     return status
 
@@ -171,15 +169,12 @@ def continuation_message(
     run_id: str,
     stage: str,
     outcome: str,
-    project_slug: str,
-    route: str,
     completion_failure: str = "",
     blockers: str = "",
 ) -> str:
-    from yoke_core.domain.deployment_run_driver_notice import DRIVER
     from yoke_core.domain.deployment_stage_decision_effect import drive_recipe
 
-    recipe = drive_recipe(run_id, project_slug, holds_lock=route == DRIVER)
+    recipe = drive_recipe(run_id)
     recovery = (
         f"Automatic completion failed: {completion_failure}. "
         if completion_failure
@@ -194,7 +189,7 @@ def continuation_message(
         )
         + f"{'Remaining blockers: ' + blockers + '. ' if blockers else ''}"
         "Continue this same run through "
-        f"its pinned deploy-lock runner:\n{recipe}\n"
+        f"its pinned runner:\n{recipe}\n"
         "Read the run and its live driver attachment first. If that driver "
         "is still running, continue its existing watcher; otherwise re-enter "
         "this run. The runner adopts recorded QA and completed stages "

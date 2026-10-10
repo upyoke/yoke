@@ -159,7 +159,7 @@ def close_out_satisfied_delivery_member(
         conn.rollback()
         print(
             f"{named} closed, but run {run_id} could not continue: {exc}. "
-            "Re-drive it under the project deploy lock with "
+            "Re-drive it with "
             f"`yoke deployment-runs update {run_id} status succeeded`."
         )
     return DeliveryMemberCloseOut(applies=True, ok=True, detail="closed")

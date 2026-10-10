@@ -11,4 +11,4 @@ target another environment (stage QA beside a production release) does not
 hold the run: it is stamped deployed_to, stays at its release wait, and
 closes when a run on that environment accepts its obligation. A member red
 or unanswered on this run's own target still holds it. Re-drive a settling
-run under the project deploy lock with the same command."""
+run with the same command."""

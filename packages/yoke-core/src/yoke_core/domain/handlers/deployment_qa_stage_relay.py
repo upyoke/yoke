@@ -29,15 +29,15 @@ from yoke_core.domain.deployment_qa_stage_resume import (
 )
 from yoke_core.domain.handlers.deployment_common import error, run_id
 from yoke_core.domain.handlers.deployment_run_execution import (
-    _require_execution_lock,
+    require_run_driver,
 )
 
 
-def _locked_run(request: FunctionCallRequest, function_id: str):
+def _driven_run(request: FunctionCallRequest, function_id: str):
     resolved = run_id(request, function_id)
     if isinstance(resolved, HandlerOutcome):
         return resolved
-    return _require_execution_lock(request, resolved) or resolved
+    return require_run_driver(request, resolved) or resolved
 
 
 def _stored_stages_for_run(
@@ -83,7 +83,7 @@ class DeploymentQaStageResumeRefusalsResponse(BaseModel):
 def handle_deployment_qa_stage_dispatch(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    resolved = _locked_run(request, DISPATCH_FUNCTION_ID)
+    resolved = _driven_run(request, DISPATCH_FUNCTION_ID)
     if isinstance(resolved, HandlerOutcome):
         return resolved
     payload = request.payload or {}
@@ -124,7 +124,7 @@ def handle_deployment_qa_stage_dispatch(
 def handle_deployment_qa_stage_resume_refusals(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    resolved = _locked_run(request, RESUME_FUNCTION_ID)
+    resolved = _driven_run(request, RESUME_FUNCTION_ID)
     if isinstance(resolved, HandlerOutcome):
         return resolved
     payload = request.payload or {}

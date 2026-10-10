@@ -1,16 +1,15 @@
 """Hand a completed release pair to the session that may actually deploy it.
 
-Deploy authority is a coordination claim, not a property of whoever happened
-to merge last. The merging session holds its item's work claim and nothing
+Deploy authority is not a property of whoever happened to merge last. The merging session holds its item's work claim and nothing
 else, so it cannot execute the run it just completed, and giving it that
 power to close the loop would put deploy authority in every worker — the one
 thing this must not do.
 
-So the loop closes by addressing the authority instead of assuming it. The
-project's ``DEPLOY:<slug>`` holder is the driver already authorized for this
-project's release, and a durable Fleet message reaches it whether it is mid
-turn, idle, or yet to resume. When nothing holds the lock the message goes to
-the project's steering seat, which is who decides to take it.
+So the loop closes by addressing the authority instead of assuming it. A
+live driver already attached to the run is the session driving it; otherwise
+the message goes to the project's steering seat, which decides who drives.
+A durable Fleet message reaches either whether it is mid turn, idle, or yet
+to resume.
 
 The hand-off is keyed on the run and the exact commit, so it survives being
 attempted more times than it should be. A close-out that crashes and re-runs,
@@ -29,9 +28,7 @@ from yoke_contracts.api.function_call import ActorContext, TargetRef
 from yoke_contracts.session_control.recipient_selector import (
     STEERING_SCOPE_PROJECT_KEY,
 )
-from yoke_core.domain.coordination_claims import active_claim
 from yoke_core.domain.deploy_pipeline_environment import watch_deploy_command
-from yoke_core.domain.work_claim_targets import make_deploy_serialization_target
 
 
 #: Written where the recipient could not be resolved to a live driver at all.
@@ -82,7 +79,7 @@ def compose_handoff_body(
         f"Prepared deployment run {run_id} for project {project_slug} is "
         f"ready: its coordinated pair has fully merged and the run now names "
         f"release lineage {release_lineage}.\n\n"
-        f"You hold the deploy authority for this project. Execute it with:\n"
+        f"You drive this project's deployments. Execute it with:\n"
         f"  {_execute_command(run_id)}\n\n"
         f"Nothing has been deployed. The run stays in 'created' until you "
         f"execute it, and re-reading it is "
@@ -90,11 +87,14 @@ def compose_handoff_body(
     )
 
 
-def _deploy_lock_holder(conn: Any, project_id: int, slug: str) -> Optional[str]:
-    claim = active_claim(conn, make_deploy_serialization_target(project_id, slug))
-    if claim is None:
-        return None
-    holder = str(claim.session_id or "").strip()
+def _live_driver(conn: Any, run_id: str) -> Optional[str]:
+    from yoke_core.domain.db_helpers import iso8601_now
+    from yoke_core.domain.deployment_run_driver_attachment import (
+        live_attachment_for_run,
+    )
+
+    driver = live_attachment_for_run(conn, run_id_value=run_id, now=iso8601_now())
+    holder = str(driver.session_id or "").strip() if driver is not None else ""
     return holder or None
 
 
@@ -106,14 +106,14 @@ def hand_off_prepared_run(
     project: tuple[int, str],
     session_id: Optional[str] = None,
 ) -> HandoffResult:
-    """Tell the project's deploy authority that *run_id* is ready to execute."""
+    """Tell whoever drives *run_id* that it is ready to execute."""
     project_id, slug = project
     body = compose_handoff_body(
         project_slug=slug,
         run_id=run_id,
         release_lineage=release_lineage,
     )
-    holder = _deploy_lock_holder(conn, project_id, slug)
+    holder = _live_driver(conn, run_id)
     if holder:
         selector: dict[str, Any] = {"session_ids": [holder]}
         recipient = holder

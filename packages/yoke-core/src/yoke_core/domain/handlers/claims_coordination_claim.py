@@ -143,7 +143,6 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
                 body.key,
                 project_id=identity.id,
                 item_id=body.item_id,
-                project_slug=identity.slug,
             )
         except LookupError as exc:
             return _err("project_not_found", str(exc))
@@ -251,9 +250,7 @@ def _release_target_id(conn: Any, body: "ReleaseRequest") -> int:
 
     identity = resolve_project(conn, body.project_id)
     assert identity is not None
-    target = target_for_key(
-        body.key, project_id=identity.id, project_slug=identity.slug
-    )
+    target = target_for_key(body.key, project_id=identity.id)
     claim = active_claim(conn, target)
     if claim is None:
         raise LookupError(

@@ -115,7 +115,7 @@ test("completed stages and a settlement marker read finalizing while status exec
   assert.match(byClass(card, "run-finalization-note")[0].textContent,
     /Finalizing member delivery/);
   assert.match(byClass(card, "run-finalization-note")[0].textContent,
-    /re-drive this run under the project deploy lock/);
+    /If settlement stopped, re-drive this run\./);
   assert.ok(!card.textContent.includes("succeeded"));
 });
 

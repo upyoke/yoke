@@ -225,7 +225,7 @@ def qa_subject_claim_verdict(
             False,
             "claim_required",
             "Operator waiver recording requires this item's work claim, a live "
-            "steering seat covering the item, or the deploy lock for the run "
+            "steering seat covering the item, or the live driver of the run "
             "holding the requirement; ask that holder to record the operator's "
             "decision with --source operator and its rationale",
         )
@@ -238,15 +238,13 @@ def qa_subject_claim_verdict(
 
 def _operator_waiver_allowed(request: Any, item_id: int) -> bool:
     """An operator's decision may be recorded by its steering or run driver."""
-    from yoke_core.domain.coordination_claims import active_claim
-    from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.function_target_row_project import (
-        resolve_deployment_run_project,
-        resolve_item_project,
+    from yoke_core.domain.db_helpers import connect, iso8601_now
+    from yoke_core.domain.deployment_run_driver_attachment import (
+        live_attachment_for_run,
     )
+    from yoke_core.domain.function_target_row_project import resolve_item_project
     from yoke_core.domain.steering_scope_coverage import covering_claims
     from yoke_core.domain.steering_scope_membership import item_coverage_target
-    from yoke_core.domain.work_claim_targets import make_deploy_serialization_target
 
     session_id = request.actor.session_id
     with connect() as conn:
@@ -265,11 +263,10 @@ def _operator_waiver_allowed(request: Any, item_id: int) -> bool:
         ).fetchone()
         if row is None or not row[0]:
             return False
-        run_project = resolve_deployment_run_project(conn, str(row[0]))
-        if run_project is None:
-            return False
-        claim = active_claim(conn, make_deploy_serialization_target(*run_project))
-        return claim is not None and claim.session_id == session_id
+        driver = live_attachment_for_run(
+            conn, run_id_value=str(row[0]), now=iso8601_now()
+        )
+        return driver is not None and driver.session_id == session_id
 
 
 def resolve_deployment_member_item_id(
