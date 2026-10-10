@@ -195,7 +195,7 @@ immediately; the server never supplies its answer. The frozen target digest
 is checked before settlement, so old evidence cannot credit a new target.
 A passed, discharged, blocked, or rejected subject requests continuation
 of the same run through the existing driver notice contract. The pinned
-runner still owns external stages and the deploy lock.
+runner still owns external stages.
 
 Owner: `yoke_core.domain.deployment_qa_member_acceptance_notice`,
 emitted from the stage-gate settlement that records acceptance.
@@ -207,7 +207,7 @@ waits, and the agent that supplied the evidence parks. Resolving a
 `qa_needs_review` request whose requirement is a deployment-stage subject
 settles that stage gate on the server and sends a notice to the recipient
 the wait itself addressed: the member's
-claim holder or the project's steering seat, or the deploy-lock driver for
+claim holder or the project's steering seat, or the run's live driver for
 a run-scoped stage. It names the run, stage, subject, outcome and the next
 step — an approval releases the parked agent, a rejection hands it work, a
 waiver discharges the obligation. Sent after the resolution commits and
@@ -231,8 +231,8 @@ evidence. Materialization refuses when nothing is pinned,
 admitted or agent-selected, and that refusal is the agent's cue — so it
 carries its own exception type and the dispatch treats it as a durable
 wait, adding the subject to the waiting set and waking whoever can end
-it (the member's claim holder at item scope, the release's deploy-lock
-driver at run scope).
+it (the member's claim holder at item scope, the run's live driver or
+steering at run scope).
 
 Every other materialization refusal still fails the stage. An invalid
 pinned plan, an unresolvable target identity and a permission denial do

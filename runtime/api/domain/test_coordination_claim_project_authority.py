@@ -25,7 +25,10 @@ from yoke_core.domain.actor_permissions import (
     seed_roles_and_permissions,
 )
 from yoke_core.domain.auth_schema import create_auth_tables
-from yoke_core.domain.coordination_claim_keys import target_for_key
+from yoke_core.domain.coordination_claim_keys import (
+    CoordinationKeyError,
+    target_for_key,
+)
 from yoke_core.domain.function_target_resolution import resolve_project_context
 from yoke_core.domain.org_schema import seed_default_org
 from yoke_core.domain.project_identity import resolve_project_id
@@ -116,16 +119,14 @@ def _session(conn: Any, session_id: str, project_id: int) -> None:
     conn.commit()
 
 
-def _deploy_claim(conn: Any, *, project: str, session_id: str) -> int:
+def _migration_claim(conn: Any, *, project: str, session_id: str) -> int:
     """Insert the row an acquire writes, built by the production constructor.
 
     The scope is what the resolver reads, so it is built through
     ``target_for_key`` rather than hand-shaped here.
     """
     identity = resolve_project_id(conn, project)
-    target = target_for_key(
-        f"DEPLOY:{project}", project_id=identity, project_slug=project
-    )
+    target = target_for_key("LIVE_DB_MIGRATION:core", project_id=identity, item_id=7)
     cur = conn.execute(
         "INSERT INTO work_claims "
         "(session_id, target_kind, scope, claimed_at, last_heartbeat) "
@@ -176,7 +177,7 @@ def test_release_by_claim_id_alone_resolves_the_claim_project(conn: Any):
     yoke = resolve_project_id(conn, "yoke")
     actor_id = _project_owner(conn, yoke)
     _session(conn, "holder-session", yoke)
-    claim_id = _deploy_claim(conn, project="yoke", session_id="holder-session")
+    claim_id = _migration_claim(conn, project="yoke", session_id="holder-session")
     entry = _entry("claims.coordination_claim.release")
 
     request = _release_request(actor_id, {"claim_id": claim_id, "reason": "done"})
@@ -194,11 +195,17 @@ def test_explicit_project_and_key_still_resolve(conn: Any):
     entry = _entry("claims.coordination_claim.release")
 
     request = _release_request(
-        actor_id, {"project_id": "yoke", "key": "DEPLOY:yoke", "reason": "done"}
+        actor_id,
+        {"project_id": "yoke", "key": "LIVE_DB_MIGRATION:core", "reason": "done"},
     )
 
     assert resolve_project_context(conn, entry, request) == (yoke, "yoke")
     assert check_dispatch_permission(conn, entry, request).error is None
+
+
+def test_a_retired_deploy_key_refuses_naming_its_retirement():
+    with pytest.raises(CoordinationKeyError, match="^deploy_lock_retired:"):
+        target_for_key("DEPLOY:yoke", project_id=1)
 
 
 def test_an_actor_without_the_claim_project_is_still_refused(conn: Any):
@@ -208,7 +215,7 @@ def test_an_actor_without_the_claim_project_is_still_refused(conn: Any):
     _project_owner(conn, yoke)
     outsider = _project_owner(conn, external)
     _session(conn, "holder-session", yoke)
-    claim_id = _deploy_claim(conn, project="yoke", session_id="holder-session")
+    claim_id = _migration_claim(conn, project="yoke", session_id="holder-session")
     entry = _entry("claims.coordination_claim.release")
 
     request = _release_request(outsider, {"claim_id": claim_id, "reason": "done"})

@@ -29,12 +29,11 @@ yoke claims work holder-list --session-id-filter {SESSION_ID} --json
 ```
 
 5. Release only this session's remaining holds: steering pair first, each
-   named coordination hold (DEPLOY is sticky), then work. Never release
+   named coordination hold, then work. Never release
    another worker's/item-owned claim or directly unlock a live paired doc.
 
 ```text
 yoke claims steering release {CLAIM_ID} --reason "steer close-out"
-yoke claims coordination-claim release --project {_project} --key DEPLOY:{_project} --reason "steer close-out"
 yoke claims work release --all-mine --reason "steer close-out"
 ```
 

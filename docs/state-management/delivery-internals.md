@@ -159,11 +159,10 @@ refused rather than evaluated.
 
 **What recording the answer does.** `deployment_stage_decision_effect`, reached
 by kind from `decision_request_subject_effect` — the registry both this and the
-QA review verdict resolve through. An approve wakes the project's deploy-lock
-driver, or its steering seat when no session holds the lock, with the
-acquire/drive/release commands that re-enter the runner, rendered by
-`deploy_lock` and `deploy_pipeline_environment` so the recipe cannot drift from
-what those surfaces accept. Nothing about the run moves there: the runner
+QA review verdict resolve through. An approve wakes the run's live driver, or
+the project's steering seat when none is attached, with the command that
+re-enters the runner, rendered by `deploy_pipeline_environment` so the recipe
+cannot drift from what that surface accepts. Nothing about the run moves there: the runner
 remains the only surface that advances run and member-item deployment state. A
 rejection takes the other path and closes the run as `failed` through
 `deployment_run_terminalization`, because a rejected stage has nothing left to

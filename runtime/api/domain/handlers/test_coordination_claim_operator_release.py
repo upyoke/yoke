@@ -23,7 +23,7 @@ from yoke_core.domain.handlers.claims_coordination_claim import handle_release
 from yoke_core.domain.handlers.claims_coordination_claim_operator import (
     handle_operator_release,
 )
-from yoke_core.domain.work_claim_targets import make_deploy_serialization_target
+from yoke_core.domain.work_claim_targets import make_migration_serialization_target
 
 
 def _request(
@@ -44,7 +44,7 @@ def _request(
 def _claim(*, session_id: str = "holder", released_at: str | None = None):
     return CoordinationClaim(
         id=42,
-        target=make_deploy_serialization_target(1, "yoke"),
+        target=make_migration_serialization_target(1, "core", 7),
         session_id=session_id,
         claimed_at="2026-09-10T00:00:00Z",
         released_at=released_at,
@@ -54,10 +54,10 @@ def _claim(*, session_id: str = "holder", released_at: str | None = None):
 def _operator_payload() -> dict:
     return {
         "project_id": "yoke",
-        "key": "DEPLOY:yoke",
+        "key": "LIVE_DB_MIGRATION:core",
         "claim_id": 42,
         "holder_session_id": "holder",
-        "reason": "driver exited after the deployment settled",
+        "reason": "rehearsal driver exited after landing",
     }
 
 
@@ -91,17 +91,13 @@ def test_non_human_actor_cannot_invoke_operator_release() -> None:
     conn = MagicMock()
     conn.execute.return_value.fetchone.return_value = ("system",)
     with (
-        patch(
-            "yoke_core.domain.db_helpers.connect", return_value=nullcontext(conn)
-        ),
+        patch("yoke_core.domain.db_helpers.connect", return_value=nullcontext(conn)),
         patch(
             "yoke_core.domain.coordination_claims_operator.operator_release"
         ) as release,
     ):
         outcome = handle_operator_release(
-            _request(
-                "claims.coordination_claim.operator_release", _operator_payload()
-            )
+            _request("claims.coordination_claim.operator_release", _operator_payload())
         )
 
     assert outcome.primary_success is False
@@ -117,10 +113,10 @@ def test_operator_release_passes_exact_reviewed_claim_to_domain() -> None:
         "released": True,
         "claim_id": 42,
         "project_id": 1,
-        "key": "DEPLOY:yoke",
+        "key": "LIVE_DB_MIGRATION:core",
         "prior_session_id": "holder",
         "operator_actor_id": 2,
-        "operator_reason": "driver exited after the deployment settled",
+        "operator_reason": "rehearsal driver exited after landing",
         "released_at": "2026-09-10T01:00:00Z",
     }
     with (
@@ -201,14 +197,14 @@ def test_ordinary_holder_can_release_its_own_claim() -> None:
 
 def test_operator_release_refuses_when_reviewed_holder_changed(test_db) -> None:
     seed_session(test_db, "new-holder", 1)
-    target = make_deploy_serialization_target(1, "yoke")
+    target = make_migration_serialization_target(1, "core", 7)
     claim = acquire(test_db, target, "new-holder")
 
     with pytest.raises(CoordinationClaimChangedError, match="changed after review"):
         operator_release(
             test_db,
             project_id="yoke",
-            key="DEPLOY:yoke",
+            key="LIVE_DB_MIGRATION:core",
             operator_reason="old driver is gone",
             expected_claim_id=claim.id - 1,
             expected_holder_session_id="old-holder",

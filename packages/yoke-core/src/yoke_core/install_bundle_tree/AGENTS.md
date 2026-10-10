@@ -31,7 +31,7 @@ Authoring agents attest independent overlaps with `coordination_only`; ordered e
 
 Use registered function ids through `yoke <subcommand>`, never direct runtime API/client/HTTP recipes. Postgres owns control-plane state, never constructed paths/DSNs or lane DB files. Diagnostic SQL: `yoke db read "SELECT ..."`, with `<>`; no write SQL. Missing mutations escalate. Never print secrets or dump settings.
 
-Reusable capabilities ship as immutable Packs; config stays in DB/project policy, credentials capability-owned. Hold `DEPLOY:<project>` before creating/executing runs. Merge before release; hosted flows own exact commits and proof. Remote changes originate locally.
+Reusable capabilities ship as immutable Packs; config stays in DB/project policy, credentials capability-owned. Deployment runs take no claim: a run occupies its target servers until its QA settles, and a run with a live driver answers only to that session. Merge before release; hosted flows own exact commits and proof. Remote changes originate locally.
 
 ## Before acting: operation homes
 

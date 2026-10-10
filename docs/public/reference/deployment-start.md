@@ -16,7 +16,7 @@ retries; other refusals stop immediately and name the repair and re-drive step.
 yoke deployment-runs execution containment-basis RUN-ID --json
 ```
 
-Hold the project deploy lock before using it. A serving build below its declared
+It refuses while another session is the run's live driver. A serving build below its declared
 minimum version refuses by name; use the same-universe owner’s local authority
 when driving the control plane’s own upgrade. Ordinary projects use HTTPS.
 

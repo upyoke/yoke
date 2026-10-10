@@ -21,7 +21,7 @@ Each CLI adapter dispatches the same typed function authority.
 | qa.requirement.add | Explicit method/config and actual bound transition |
 | lifecycle.transition.execute | Adjacent pinned source/target/reason; yoke lifecycle transition |
 | github.merge_queue.readiness / hold | Read live candidate / verify disarmed before correction |
-| deployment_runs.start_for_item | Authorized selected flow for landed lineage with DEPLOY claim |
+| deployment_runs.start_for_item | Authorized selected flow for landed lineage; no claim |
 | direct_workflow.dash.evidence | Result, honest verification, touched paths, actual identities or no_changes; yoke direct-workflow dash evidence |
 | sessions.identity | Actual session; yoke sessions identity |
 | events.query.run | Session/episode denial read; yoke events query |

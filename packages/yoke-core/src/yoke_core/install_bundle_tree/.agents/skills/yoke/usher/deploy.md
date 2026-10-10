@@ -56,21 +56,11 @@ never prescribe an unrequested no-worktree flag.
 Current mandate may reserve creation/execution to a batching orchestrator.
 Honor that custody: report exact landed identity and wait, do not create a run.
 Otherwise read [delivery rules](../../../../.yoke/docs/reference/agent-rules/delivery.md)
-and hold DEPLOY for the project before first composition/execution:
-
-```text
-yoke claims coordination-claim acquire --project PROJECT --key DEPLOY:PROJECT --reason "usher deploy batch"
-```
-
-Refusal names holder: wait/coordinate, no workaround. Stranded holds require
-human signed-in exact reviewed holder release, outside harness:
-
-```text
-yoke coordination-claim release --project PROJECT --key DEPLOY:PROJECT --claim-id {claim_id} --holder-session-id SESSION --reason REASON
-```
-
-The action verifies unchanged holder/claim and writes durable reason/WARN;
-agent sessions cannot perform that recovery.
+first. Runs take no claim: a run occupies its target servers from start until
+its QA settles or it is terminal. A start refused `target_occupied` names the
+holding run and its open QA: wait/coordinate, no workaround. A run with
+another session's live driver refuses `run_driven_elsewhere`; a dead driver's
+attachment lapses after ten minutes, and nothing needs a human release.
 
 Before new composition, find the existing member run:
 
@@ -86,7 +76,7 @@ Ordinary external delivery uses selected HTTPS transport; serving-API selfdeploy
 refusal goes to its operator with named recovery. Do not switch authority silently.
 
 Remaining eligible items auto-enroll. Explicit add is only for an intended member
-whose code is not in candidate; it needs same DEPLOY hold, created run, matching
+whose code is not in candidate; it needs a created run with no other live driver, matching
 project/bound source and compatible workflow:
 
 ```text
@@ -127,9 +117,9 @@ watch deploy -- RUN-ID --from-stage NEXT_STAGE. Serving-API refusal escalates to
 | Exit | Required action |
 |---|---|
 | 0 | Close each member via selected-flow evidence and verify actual item stage. |
-| 1 | Stage failure: release every member claim with usher-halt-deploy-stage-failure, then DEPLOY hold, then halt/resume summary. |
-| 2 | Exact run awaits human approval; stop with registered approval command, retain DEPLOY across wait. Each later approval is a new exact-run decision. Resume deploy-only at authoritative stage after approved receipt. |
-| 3 | Setup/preview/lineage/infrastructure failure: member claim releases usher-halt-deploy-infra-failure, then DEPLOY release, then halt. |
+| 1 | Stage failure: release every member claim with usher-halt-deploy-stage-failure, then halt/resume summary. |
+| 2 | Exact run awaits human approval; stop with registered approval command; the run keeps occupying its target across the wait. Each later approval is a new exact-run decision. Resume deploy-only at authoritative stage after approved receipt. |
+| 3 | Setup/preview/lineage/infrastructure failure: member claim releases usher-halt-deploy-infra-failure, then halt. |
 | Other | Preserve run/current stage, diagnose named failure and report; no success shortcut. |
 
 ```text
@@ -144,13 +134,6 @@ must name BOTH run stage and member; an unscoped run-wide pass cannot credit it.
 Approval is operator action, not agent self-approval. For infra failure use its
 different release intent. Any failed member release must name failure/holder;
 don't claim clean recovery while it stays held. Never use completed for a halt.
-
-After final group settles (or halt1/3 after member releases), release each
-project hold before summary; approval2 retains it:
-
-```text
-yoke claims coordination-claim release --project PROJECT --key DEPLOY:PROJECT --reason "usher deploy batch complete"
-```
 
 Continue to [finalize](finalize.md). Level-change handoff takes precedence over
 release wait; follow current mandate and registered successor contract.

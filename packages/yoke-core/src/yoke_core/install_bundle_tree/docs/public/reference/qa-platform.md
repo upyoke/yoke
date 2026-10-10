@@ -235,8 +235,8 @@ without --plan. Predecessor leaves roster; successor still must pass.
 **Waiver:** qa.requirement.waive stores waived_at/rationale/source; blocking
 needs --force. Operator decides. Recording --source operator for item/member
 needs its item claim, a covering steering seat (including document membership),
-or deploy lock for the run holding it. Steering can record the rationale while
-worker keeps item custody; re-drive that run. Another project's lock/unrelated
+or the live driver of the run holding it. Steering can record the rationale while
+worker keeps item custody; re-drive that run. Another run's driver or an unrelated
 item grants nothing. Agent waivers keep normal QA subject-claim authority.
 Read `yoke qa requirement waive --help`.
 

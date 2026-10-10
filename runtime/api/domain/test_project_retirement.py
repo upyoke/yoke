@@ -151,7 +151,10 @@ def test_in_flight_deployment_refuses(conn, status):
     "kind,scope",
     [
         ("steering", {"project_id": 30}),
-        ("deploy_serialization", {"project_id": 30, "project_slug": "fixture"}),
+        (
+            "migration_serialization",
+            {"project_id": 30, "model": "core", "item_id": 300},
+        ),
         ("process", {"process_key": "DO", "conflict_group": "discovery:fixture"}),
         ("item", {"item_id": 300}),
         ("epic_task", {"epic_id": 300, "task_num": 1}),

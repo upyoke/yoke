@@ -119,7 +119,7 @@ yoke merge item ITEM --skip-status --json
 Delivery must use the selected item-bound project flow for returned merge_sha,
 with a run succeeded before completion.
 Read [delivery authority](../../../../.yoke/docs/reference/agent-rules/delivery.md)
-first and acquire DEPLOY:P before creating/executing any run, releasing after.
+first; runs take no claim and occupy their target servers until QA settles.
 A steering-batched worker follows its mandate and retains release wait; it
 does not start an independent run. An authorized driver uses:
 
