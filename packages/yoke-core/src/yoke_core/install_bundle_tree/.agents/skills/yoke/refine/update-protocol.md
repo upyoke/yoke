@@ -38,6 +38,7 @@ expansion, operator scope change or item split. Never silently advance.
 A single verified missing live owner in the same project/target/behavior scope
 is an obvious repair: add budget row and widen only if claims enabled.
 Multiple plausible owners, changed scope or ambiguous overlap escalates.
+Use served scope/stage bindings; do not reconstruct them from a workflow name.
 
 Route spec/design/technical intent to their corresponding fields; worktree_plan
 and shepherd_caveats are graph fields only under generated task policy.

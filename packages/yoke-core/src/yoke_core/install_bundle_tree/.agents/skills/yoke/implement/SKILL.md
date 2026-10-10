@@ -25,7 +25,7 @@ act only inside this binding. Its through-stage is a fresh skill/claim boundary.
 
 | Phase | Read before acting |
 |---|---|
-| Resolve/enter | [entry.md](entry.md) |
+| Resolve/enter | [`entry.md`](entry.md) |
 | Reenter past entry | [reentry.md](reentry.md) |
 | Implement | [implementing/SKILL.md](implementing/SKILL.md) |
 | Review/handoff | [review.md](review.md) |

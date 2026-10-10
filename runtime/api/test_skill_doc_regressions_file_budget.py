@@ -26,6 +26,7 @@ from runtime.api.skill_doc_regressions_test_helpers import (
     REPO,
     SKILLS,
     _read,
+    _read_bundle,
 )
 
 
@@ -147,20 +148,27 @@ class TestFileBudgetConductDispatch:
     def docs(self) -> dict[str, Path]:
         return {
             "dispatch_context_gates": SKILLS / "conduct" / "dispatch-context-gates.md",
+            "dispatch_context_prompts": SKILLS
+            / "conduct"
+            / "dispatch-context-prompts.md",
             "engineer_tester_dispatch": SKILLS
             / "conduct"
             / "engineer-tester-dispatch.md",
         }
 
     def test_engineer_dispatch_packet_mentions_file_budget(self, docs):
-        text = _read(docs["engineer_tester_dispatch"])
+        text = _read_bundle(
+            docs["engineer_tester_dispatch"], docs["dispatch_context_prompts"]
+        )
         assert "FILE BUDGET" in text or "File Budget" in text
         assert "350" in text
         # Dispatch packet must reference the canonical backstop.
         assert "yoke_core.domain.file_line_check" in text
 
     def test_submission_gate_requires_file_budget_key(self, docs):
-        text = _read(docs["engineer_tester_dispatch"])
+        text = _read_bundle(
+            docs["engineer_tester_dispatch"], docs["dispatch_context_gates"]
+        )
         # Submission gate must list `file_budget` among the required keys.
         assert "`file_budget`" in text or "file_budget" in text
         # And explicitly call out PASS/SKIP semantics.
@@ -173,7 +181,9 @@ class TestFileBudgetConductDispatch:
         assert "FAIL" in text and "UNKNOWN" in text
 
     def test_submission_gate_redispatches_on_failure(self, docs):
-        text = _read(docs["engineer_tester_dispatch"])
+        text = _read_bundle(
+            docs["engineer_tester_dispatch"], docs["dispatch_context_gates"]
+        )
         # Missing/malformed/FAIL/UNKNOWN must trigger re-dispatch.
         assert "FAIL" in text and "UNKNOWN" in text
 

@@ -61,6 +61,7 @@ FILE_LIKE_SUFFIXES = (
 GENERIC_QUOTED_STRINGS = {
     "PYTHONPATH",  # Active environment contract, not retired display copy.
     "PATH=",  # Active shell environment assignment.
+    "$PATH",  # Active shell environment expansion, not retired display copy.
     ".git",  # Repository suffix and domain substring, not display wording.
     "Write",  # Generic tool/action verb.
     "AND",  # Generic logical conjunction, not retired display wording.

@@ -11,6 +11,11 @@ restate one of these facts on a document's own authority.
 
 # Steer — standing loop
 
+After compaction or resume, reload this phase: discarded context is gone;
+reattach the running watcher or re-arm it when absent under the current mandate.
+Preserve unresolved holds and obligations from other claimed documents.
+Never erase that contract to hit a size target.
+
 Run only with paired steering/document authority. Routine resume reads only
 the Live Status checkpoint; read claimed contract slugs on demand through
 strategy.doc.get, never erase contracts to meet a size target. No feed.

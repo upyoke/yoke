@@ -45,8 +45,8 @@ git -C ABSOLUTE_REGISTERED_LANE status --porcelain --untracked-files=all
 yoke item-worktrees release PREFIX-N --all-active --reason evidence-only-recovery
 ```
 
-Only then release: adapter repeats fixed-reason, pinned review stage, exactly
-one active implementation lane and matching cleanliness attestation. Failed
+Only then release: adapter repeats fixed-reason, pinned review stage,
+exactly one active implementation lane and matching cleanliness attestation. Failed
 path/status/attestation stops; preserve/commit files before retry. Resume Usher.
 Future no-worktree requires explicit user authorization or pinned none policy;
 never prescribe an unrequested no-worktree flag.

@@ -19,6 +19,9 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Standing intake rules
 
+File Budget and path claims are independent axes; read the effective policies
+and [complete budget owner](file-budget.md) before authoring.
+
 The body must cold-start downstream work: concrete observed/expected behavior,
 verified references and examples. Investigate failures and bounded telemetry
 before filing the systemic prevention problem. Never attribute it to personal

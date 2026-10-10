@@ -46,6 +46,10 @@ anchors alongside drifting line numbers.
 
 ## File Budget, when enabled
 
+Treat it as a first-class dimension. **Item-artifact refinement** covers the
+item's actual implementation scope; **Generated-task-plan refinement** covers
+each persisted task's scope under required_per_task policy.
+
 Use only the central effective projection. Universal350 authored lines is hard,
 <=300 is the design target; owner is `yoke_core.domain.file_line_check`.
 Do not manufacture a budget when the axis is off.

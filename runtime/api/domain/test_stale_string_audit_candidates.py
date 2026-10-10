@@ -26,6 +26,7 @@ def test_normalize_candidate_string_filters_paths_and_commands():
             "not found",
             "Retry",
             "exit_code == 0",
+            "$PATH",
             ") else",
             "all Y",
         )

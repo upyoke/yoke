@@ -13,7 +13,7 @@ failures/recovery, no dispatch. PASS warnings enter prompt. Descriptor role
 architect, reflection schema, filled with original ref/title/workflow/root,
 current caveats, attempt/Boss feedback and Simulator gaps on retry.
 
-```text
+```bash
 yoke readiness prd-validate ITEM
 ```
 
