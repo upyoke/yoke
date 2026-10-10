@@ -86,7 +86,7 @@ for (const memberId of [null, 42]) {
       const record = byClass(card, "run-decision-record")[0];
       assert.match(record.textContent, new RegExp(`${word} by Ben Bauman`));
       assert.equal(allNodes(record).filter((node) => node.tagName === "TIME")[0]
-        .getAttribute("datetime"), "2026-09-26T10:30:00.000Z");
+        .getAttribute("datetime"), "2026-09-26T10:30:00.000000Z");
       assert.equal(byClass(card, "review-action").length, 0);
       assert.deepEqual(runGates(run({ gates: [gate] })), []);
     });
@@ -99,7 +99,7 @@ for (const [action, word] of [["approve", "Approved"], ["reject", "Rejected"]]) 
     const record = byClass(card, "run-decision-record")[0];
     assert.match(record.textContent, new RegExp(`${word} by Ben Bauman`));
     assert.equal(allNodes(record).filter((node) => node.tagName === "TIME")[0]
-      .getAttribute("datetime"), "2026-09-26T10:30:00.000Z");
+      .getAttribute("datetime"), "2026-09-26T10:30:00.000000Z");
     assert.equal(byClass(card, "review-action").length, 0);
     assert.ok(card.classList.contains("is-executing"));
     assert.deepEqual(runGates(run({ gates: [decision(action)] })), []);

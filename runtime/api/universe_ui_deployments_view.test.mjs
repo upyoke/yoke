@@ -53,6 +53,7 @@ test("Deployments is the one destination with tabs, Flows first", () => {
 });
 
 test("Runs is one eight-column table whose rows open the run page", async (t) => {
+  t.mock.method(Date, "now", () => Date.parse("2026-09-26T11:30:00.124Z"));
   const requests = [];
   const client = {
     async call(request) {
@@ -75,7 +76,7 @@ test("Runs is one eight-column table whose rows open the run page", async (t) =>
             flow: "externalwebapp-prod-release",
             target_tier: "persistent", target_environment: "prod",
             release_lineage: null, status: "succeeded",
-            current_stage: "complete", created_at: "then",
+            current_stage: "complete", created_at: "2026-09-26T10:30:00.123456Z",
             started_at: null, completed_at: null, created_by: "usher",
             stage_index: 1, stage_count: 2,
             stages: [
@@ -116,7 +117,7 @@ test("Runs is one eight-column table whose rows open the run page", async (t) =>
     allNodes(root).filter((node) => node.tagName === "TD").map(cellText),
     [
       "externalwebapp-prod-release", "externalwebapp", "environment run",
-      "prod", "", "succeeded", "—", "then",
+      "prod", "", "succeeded", "—", "1h",
     ],
   );
   assert.equal(byClass(root, "secondary-muted")[0].textContent, "environment run");

@@ -73,7 +73,7 @@ test("a strategy doc drill-in reads the body through strategy.surface.get", asyn
               document: {
                 slug: "PLAN-1",
                 content: "# The plan\n\nOne spine.",
-                updated_at: "today",
+                updated_at: "2026-08-23T01:04:03.123456Z",
                 bytes: 23,
                 current_revision: 1,
                 revisions: [],
