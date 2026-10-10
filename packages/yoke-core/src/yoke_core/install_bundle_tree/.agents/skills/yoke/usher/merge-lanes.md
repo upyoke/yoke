@@ -1,108 +1,41 @@
-# Merge — Per-Branch Merge Loop
+# Usher — sequential lane landing
 
-Covers merge Step 6: the per-branch sequential merge loop. For each branch, resolves the actual branch, commits any Tester artifacts, invokes the retained merge watcher (`yoke watch merge merge-worktree`), updates task status, re-verifies ACs post-merge on main, and halts on regression.
+For each ordered registered lane, verify actual checkout branch. A stored/
+actual mismatch warns with both identities and selects the verified actual
+branch. Read exact registered path; no branch-to-directory synthesis.
+Commit only known uncommitted Tester review artifacts in this authorized lane,
+with exact paths and descriptive message; preserve unrelated state/errors.
+Resolve target from project's default branch and carry parent's complete ref.
 
-**Context variables** (set by the Preflight phase): `{epic-id}`, `WORKTREE_PATH`, `ACTUAL_BRANCH`.
+```text
+git -C ABSOLUTE_REGISTERED_LANE branch --show-current
+git -C ABSOLUTE_REGISTERED_LANE status --short
+yoke watch merge merge-worktree -- BRANCH DEFAULT_BRANCH PREFIX-N
+```
 
----
+Pass force-lock/skip-simulation only when explicitly authorized; no local
+fallback for queue policy. Engine owns rebase/generated resolution/tests/
+App-bound PR+CI+merge, branch/checkout cleanup and terminal task/GitHub receipts.
+Read actual outcome, merged PR/commit and target sync. Never supplement it
+with bypass env vars or internal update_status terminal writes.
 
-6. **For each branch, sequentially:**
+After each successful landing, verify target synchronization before trusting
+main's files. Engine owns sync; failure reports merge_target_sync_failed and
+exact recovery, preserves dirty state and skips unverifiable checks. Don't
+claim a postmerge pass or advance bookkeeping against stale checkout.
+Reverify the same statically checkable parent criteria against the verified
+merged target (not a removed lane), with pre/post progress and PASS/FAIL.
+Runtime-only checks explicitly report SKIP (runtime-only) and retain original
+execution proof; static checks are not a new runtime suite.
 
- **Pre-merge: resolve actual branch and commit any uncommitted Tester artifacts.** The stored branch name may be stale. Resolve the worktree path, then verify the actual checked-out branch before merging:
- ```bash
- WORKTREE_PATH=".worktrees/$(echo {branch} | tr '/' '-')"
- ACTUAL_BRANCH="{branch}"
- if [ -d "$WORKTREE_PATH" ]; then
- _actual=$(git -C "$WORKTREE_PATH" branch --show-current 2>/dev/null)
- if [ -n "$_actual" ] && [ "$_actual" != "{branch}" ]; then
- echo "Warning: branch mismatch — stored '{branch}', actual '$_actual'. Using actual." >&2
- ACTUAL_BRANCH="$_actual"
- fi
- git -C "$WORKTREE_PATH" add -A 2>/dev/null
- git -C "$WORKTREE_PATH" diff --cached --quiet || git -C "$WORKTREE_PATH" commit -m "chore: commit Tester review artifacts before merge [$ACTUAL_BRANCH]"
- fi
- ```
+A criterion that passed premerge and now fails is POST-MERGE AC REGRESSION:
+halt immediately, name criterion/reason/PR/branch and inspect whether generated
+resolution lost intended content. Operator investigation/current-item fix is
+required before later lanes. Report pass_count/verifiable_count and runtime
+skip count. Missing criteria skips postcheck silently after preflight's warning.
 
- **Merge:**
- ```bash
- # Pass --force-lock and --skip-simulation if user specified them
- _merge_flags=""
- if [ "${FORCE_LOCK:-0}" -eq 1 ]; then _merge_flags="--force-lock"; fi
- if [ "${SKIP_SIMULATION:-0}" -eq 1 ]; then _merge_flags="$_merge_flags --skip-simulation"; fi
- yoke watch merge merge-worktree -- $_merge_flags "$ACTUAL_BRANCH" main {epic-id}
- ```
- Note: `{epic-id}` is passed as the epic ID (third argument) for DB-native prereq checks. `--force-lock` is passed through if the user specified it.
-
- This script:
- - Rebases onto the updated main
- - Auto-resolves generated files (lock files, compiled output)
- - Runs tests
- - Creates a PR through the project's verified App binding and a short-lived installation token (`yoke_core.engines.merge_worktree_pr_rest`)
- - Waits for CI to pass
- - Merges through the same App-bound REST authority
- - Removes the worktree
-
- **If merge succeeds:**
- - For each task in the merged worktree, update its status to `done` using the merge pipeline's internal status writer. This is not the normal agent-facing product flow; the public `workflow-item epic-task update-status` wrapper intentionally refuses terminal success statuses.
- ```bash
- # Internal merge-admin fallback only; merge_worktree handles completed tasks automatically.
- YOKE_CLAIM_BYPASS="merge:PR-{pr-number}" YOKE_TASK_DONE_VERIFIED=1 python3 -m yoke_core.domain.update_status {epic-id} {task-num} done "Merged via PR #{pr-number}"
- ```
- This handles: DB update, GitHub label sync, **and closing the task's GitHub issue** (the script auto-closes issues when status reaches `done`).
- Note: `yoke watch merge merge-worktree` already handles this automatically for completed tasks in the worktree branch. Only manually call this internal fallback for tasks that were missed.
-
- - **Post-merge AC re-verification:** After task status updates and before continuing to the next branch, re-verify the epic-level acceptance criteria against the merged result on main (not the pre-merge worktree). This catches cases where auto-resolve discarded branch changes that satisfied ACs.
-
- **Step 1: Sync local main with origin.** Pull the PR merge commits so local main reflects the actual merged state:
- ```bash
- git pull --rebase origin main
- ```
- If the pull fails, skip AC re-verification and report the pull failure as the primary issue — do not halt the merge sequence for a pull failure (this aligns with existing Post-merge phase behavior).
-
- **Step 2: Re-verify ACs against main.** Read the same `### Acceptance Criteria` section from the backlog item body that was verified in the Preflight phase. For each AC:
-
- - **Statically verifiable ACs** (file existence, grep for strings, code patterns): Re-run the same check, but this time against the main working directory (the current checkout, which now contains the merged result after `git pull`). Do NOT use worktree paths — the worktree may have been removed by the merge watcher.
-
- - **Runtime-only ACs** (e.g., "the server starts without errors", "tests pass", behavioral checks that require execution): Skip with a note:
- ```
- AC-{i}: SKIP (runtime-only — cannot verify statically post-merge)
- ```
-
- **Print progress and results** for each AC, matching the Preflight phase format:
- ```
- Post-merge verifying AC {i}/{total}: {AC text (first 80 chars)}...
- AC-{i}: PASS (post-merge)
- ```
-
- **Step 3: Halt on regression.** If any statically verifiable AC that passed in the pre-merge Preflight phase check now fails post-merge, **halt the merge sequence immediately** and report:
- ```
- ┌─────────────────────────────────────────────────┐
- │ POST-MERGE AC REGRESSION DETECTED │
- ├─────────────────────────────────────────────────┤
- │ AC-{i}: {AC text} │
- │ Pre-merge: PASS (verified in worktree) │
- │ Post-merge: FAIL — {specific reason} │
- │ │
- │ The merge auto-resolve may have discarded │
- │ branch changes. Check the conflicting files │
- │ and re-apply if needed. │
- │ │
- │ Merged PR: #{pr-number} │
- │ Branch: {branch-name} │
- └─────────────────────────────────────────────────┘
- ```
- Do NOT continue to the next branch. The operator must investigate and fix the regression before proceeding.
-
- **Print a summary after all post-merge ACs:**
- ```
- Post-merge AC verification: {pass_count}/{verifiable_count} passed, {skip_count} skipped (runtime-only)
- ```
-
- If no `### Acceptance Criteria` section exists in the backlog item body, skip this step silently (the warning was already emitted in the Preflight phase).
-
- - Continue to the next branch
-
- **If merge fails (test failure after rebase):**
- - Pause the merge sequence
- - Report which tests failed and why
- - Fix the failed verification in the current item and lane, commit, and resume this internal merge step. Report a live ownership conflict or decision boundary before proceeding.
+Failure after rebase belongs here: halt, report failing tests/reason, resolve
+under this item/claim, commit and resume same procedure. Future/planned owners
+do not waive it; a live conflict/decision is reported before proceeding.
+Conflict3 uses [recovery](merge-conflicts.md). Already-landed lanes reuse receipts
+on retry. Continue to [bookkeeping](merge-bookkeeping.md) only after every lane.

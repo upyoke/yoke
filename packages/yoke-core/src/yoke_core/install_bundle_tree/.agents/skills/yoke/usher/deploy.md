@@ -1,244 +1,156 @@
-# Usher — Post-Merge Deployment Routing
+# Usher — delivery
 
-Step 8: Route merged items through deployment pipelines. Skip if `--merge-only`.
+Merge-only reports landed identity and declared delivery wait, retains the
+claim under its mandate and stops; a successful merge is not successful release.
+Otherwise group landed items by project and projected deployment_flow.value.
+Read actual flow target_tier and status; disabled definitions cannot start.
+Successful empty/no flow or registered internal/merge-only convention is
+Route A. A non-internal unresolved read is unresolved Route B, never guessed
+deploy-free. Usher executes registered policy, not project-specific topology.
+Run status/current_stage and membership own delivery proof; events do not.
 
-**Run state for verification.** Check item-bound delivery through
-`yoke deployment-runs get {run-id}`; events are audit telemetry, not the
-success authority.
+## Route A: verified no delivery
 
-**Context variables** (set by prior phases): merged items, `_MERGE_ONLY`, `_pre_merge_verified`, `_eph_next_stage`
-
-If `_MERGE_ONLY`: report merge-only complete, **stop**.
-
----
-
-## Step 8a: Group items by (project, deployment_flow)
-
-For each merged item, read `deployment_flow` and `project` through the typed `items.get` function (typed reads, not shell `items get`); the flow id is the `value` of the projected `{value, source}` field. For every non-empty, non-`-internal` value, read `target_tier` through the registered `deployment_flows.get` function. A successful empty target tier is merge-only; an unavailable read is unresolved and must not be guessed merge-only.
-
-Categories:
-- **Route A, no run:** `deployment_flow` is empty/null, ends in the registered
-  project convention `-internal`, or names a registered flow whose
-  `target_tier` is empty
-- **Route B, deployment run:** persistent/ephemeral flows and unresolved
-  non-internal values, grouped by `(project, deployment_flow)`
-
-Usher does not know project-specific flow ids or release topology. It executes
-the item's active registered flow exactly as defined; disabled flows cannot be
-assigned or start a run.
-
-## Step 8b: Route A — Internal and registered merge-only items (no run)
-
-The done-transition engine is the project-agnostic internal-delivery boundary;
-run it through the merge watcher, then handle exit codes:
-
-```bash
+```text
 yoke watch merge done-transition -- PREFIX-N --skip-deploy
 ```
 
-`--skip-deploy` records delivery as having happened outside the item's
-selected flow, so it belongs only to items this route is for. The guard
-refuses it when a succeeded run of that item's own flow already delivered the
-item — recording a selected-flow release as out-of-band is a false record,
-and an item in that state closes out through `yoke merge item` instead.
+This records out-of-band delivery and is valid only for a flow genuinely
+delivering nothing. A succeeded selected-flow run belongs to Route B close-out
+through yoke merge item; never misrecord it with skip-deploy.
 
-For any non-zero exit code that revert-to-implemented requires, call `lifecycle.transition.execute` to revert the item from `release` back to `implemented` (the handler runs the standard rollback gate, posts the GitHub status-change comment, and emits `ItemStatusChanged`):
+Read actual live stage and any landed receipt before recovery. Permitted
+rollback uses lifecycle.transition.execute with the pin's exact source/target,
+reason and standard rollback gate; never guess release -> implemented.
 
-```json
-{
-  "function": "lifecycle.transition.execute",
-  "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "public_ref": "PREFIX-N"},
-  "intent": "usher_rollback_to_implemented",
-  "payload": {"target_status": "implemented", "source_status": "release", "reason": "<exit-code summary>"}
-}
+| Exit | Required recovery |
+|---|---|
+| 0 | Read actual terminal success, continue next item. |
+| 1 | Merge failure: permitted rollback, halt/report code and state. |
+| 2 | Cwd/arguments/validation: permitted rollback, halt with named repair. |
+| 3 | Simulation/conflict gate: permitted rollback, resolve actual gap, halt. |
+| 4 | User files at risk: hard-stop, preserve state, permitted rollback, manual review. |
+| 7 | Flow guard: absorb into routing; unresolved/persistent/ephemeral flow needs Route B or repaired definition read. Permitted rollback, rerun correct route without skip-deploy. |
+| 8 | Empty implementation branch: evidence-only recovery below; never discard files. |
+| 99 | Internal self-reexecution should be launcher-owned; surfaced exit is unexpected, halt with exact evidence. |
+| Other nonzero | Unexpected failure: permitted rollback only if unlanded, preserve actual landed stage, report code/recovery and halt. |
+
+For exit8, take the pin's permitted rollback first. Read the actual registered
+implementation lane and prove path exists, git status succeeds, and no modified
+tracked OR untracked file remains:
+
+```text
+yoke item-worktrees get PREFIX-N --lane-role implementation --field path
+git -C ABSOLUTE_REGISTERED_LANE status --porcelain --untracked-files=all
+yoke item-worktrees release PREFIX-N --all-active --reason evidence-only-recovery
 ```
 
-Exit-code dispatch:
+Only then release: adapter repeats fixed-reason, pinned review stage, exactly
+one active implementation lane and matching cleanliness attestation. Failed
+path/status/attestation stops; preserve/commit files before retry. Resume Usher.
+Future no-worktree requires explicit user authorization or pinned none policy;
+never prescribe an unrequested no-worktree flag.
 
-- **Exit 0:** Success — item transitioned to done. Continue to next item.
-- **Exit 1:** Merge failure. Revert to `implemented`, halt batch. Report: `[Route A] PREFIX-N: done-transition merge failure (exit 1). Reverted to implemented.`
-- **Exit 2:** CWD/argument/validation error. Revert to `implemented`, halt batch. Report: `[Route A] PREFIX-N: done-transition validation error (exit 2). Reverted to implemented.`
-- **Exit 3:** Simulation gate failure (epic) or merge conflicts requiring agent resolution. Revert to `implemented`, halt batch. Report: `[Route A] PREFIX-N: done-transition blocked by simulation gate or conflicts (exit 3). Reverted to implemented.`
-- **Exit 4:** User files at risk — **HARD STOP**. Revert to `implemented`. Report: `[Route A] PREFIX-N: user files at risk (exit 4). Reverted to implemented. Manual review required.`
-- **Exit 7:** Deployment flow guard. The item has a persistent, ephemeral, unregistered, or unresolved flow rather than a verified merge-only flow. Revert to `implemented`. Report: `[Route A] PREFIX-N: deployment flow guard (exit 7). This item needs Route B or a repaired flow-definition read, not Route A. Reverted to implemented. Re-run usher without --skip-deploy or verify the item's deployment_flow and target_tier.`
-- **Exit 8:** Empty worktree branch — the item's worktree branch has no commits diverging from the project's default branch. This is the evidence-only guard. Revert to `implemented`. Report: `[Route A] PREFIX-N: empty worktree branch (exit 8). This is an evidence-only item with no code changes. Reverted to implemented.`
-  **Recovery:** The canonical remediation is the evidence-only path — future items should enter implementing with `--no-worktree`. Only after the rollback to `implemented`, read the registered lane path and prove it contains no modified tracked or untracked files:
-  ```bash
-  _wt_path=$(yoke item-worktrees get PREFIX-N \
-   --lane-role implementation --field path)
-  if [ -z "$_wt_path" ] || [ "$_wt_path" = "null" ] || [ ! -d "$_wt_path" ]; then
-   echo "Blocked: the registered worktree path cannot be verified."
-   exit 1
-  fi
-  _wt_dirty=$(git -C "$_wt_path" status --porcelain \
-   --untracked-files=all)
-  _wt_git_rc=$?
-  if [ "$_wt_git_rc" -ne 0 ] || [ -n "$_wt_dirty" ]; then
-   echo "Blocked: preserve or commit every worktree file before lane release."
-   exit 1
-  fi
-  yoke item-worktrees release PREFIX-N --all-active \
-   --reason evidence-only-recovery
-  ```
-  The release adapter repeats the branch and cleanliness checks. The server accepts only this fixed recovery reason, a review stage of the pinned workflow (the item is not yet merged) with exactly one active implementation lane, and an attestation matching that lane. Then re-run `/yoke usher PREFIX-N`.
-- **Exit 99:** Self-modifying bootstrap — the underlying done-transition engine re-executes itself. This is handled internally by the launcher and should never surface to usher. If it does, treat as unexpected and apply the catch-all below.
-- **Any other non-zero exit (catch-all):** Unexpected failure. Revert to `implemented` so the item is never stranded in `release`. Report: `[Route A] PREFIX-N: unexpected done-transition failure (exit {code}). Reverted to implemented. Investigate the done-transition output above.`
+## Route B: item-bound runs
 
-## Step 8c: Route B — Item-bound deployment flow groups
+Current mandate may reserve creation/execution to a batching orchestrator.
+Honor that custody: report exact landed identity and wait, do not create a run.
+Otherwise read [delivery rules](../../../../.yoke/docs/reference/agent-rules/delivery.md)
+and hold DEPLOY for the project before first composition/execution:
 
-**Take the project's deploy lock first.** Composing a run and executing one
-both refuse unless this session holds it, so one driver owns a project's
-deployments end to end. Acquire once per project before the first group, and
-release after the last group finishes:
-
-```bash
-yoke claims coordination-claim acquire --project {project} --key DEPLOY:{project} --reason "usher deploy batch"
+```text
+yoke claims coordination-claim acquire --project PROJECT --key DEPLOY:PROJECT --reason "usher deploy batch"
 ```
 
-If the acquire is refused, another session is already driving that project's
-deployments: the refusal names the holder and the acquire recipe. Wait for it,
-or coordinate with that driver — do not work around the lock. After confirming
-the pipeline settled, a human lists the live row and uses the signed-in action
-outside any harness session to release the exact reviewed holder with
-`yoke coordination-claim release --project P --key DEPLOY:P --claim-id N
---holder-session-id S --reason "..."`. The registered action works over HTTPS
-or local authority, refuses a changed claim/holder, and records a WARN
-`OperatorLeaseRelease` plus the durable reason. Manual and launched agent
-sessions are refused.
+Refusal names holder: wait/coordinate, no workaround. Stranded holds require
+human signed-in exact reviewed holder release, outside harness:
 
-For each `(project, flow)` group:
-
-### 8c1-8c7: Compose the run
-
-Lead with the composed `deployment_runs.start_for_item` surface for the first
-item; it folds resolve-target, create-run, enrollment, and composition
-validation into a single invocation:
-
-```bash
-yoke --env {control-plane} deployment-runs start-for-item {item-id} \
-    [--project {project}] [--flow {flow}] [--environment {environment}] \
-    [--release-lineage {lineage-id}] [--created-by {actor}]
+```text
+yoke coordination-claim release --project PROJECT --key DEPLOY:PROJECT --claim-id {claim_id} --holder-session-id SESSION --reason REASON
 ```
 
-Create and start-for-item use the selected control-plane transport. Ordinary
-external delivery is supported over HTTPS. A serving-API self-deploy refusal
-goes to the control-plane operator with its named recovery.
+The action verifies unchanged holder/claim and writes durable reason/WARN;
+agent sessions cannot perform that recovery.
 
-Remaining items in the `(project, flow)` group need no membership step: the
-start enrolls every delivery-ready item the candidate carries that no live or
-succeeded release already holds, including one a cancelled run left behind,
-and applies the composition check itself. Attach an item only for the other case — its code is not in the
-candidate, and the run should still deliver it:
+Before new composition, find the existing member run:
 
-```bash
-yoke --env {control-plane} deployment-runs add-item {run-id} PREFIX-N
+```text
+yoke deployment-runs find-by-item PREFIX-N --status executing --json
+yoke --env CONTROL_PLANE deployment-runs start-for-item PREFIX-N --project PROJECT --flow FLOW --environment ENVIRONMENT --json
 ```
 
-That command requires the same project deploy lock. Enrollment resolves the
-public item reference through the registered item target and refuses a run
-that has left `created`, an item whose project the run ships no source for, or
-an incompatible workflow binding. `yoke --env {control-plane} deployment-runs
-validate-composition {run-id}` composes the run now and reports what it
-enrolled or why it refused. A flow with an item-scoped QA stage refuses a run
-that carries or owes members without delivery custody
-(`item_qa_flow_without_delivery_custody`), and a memberless run whose flow is
-the completion flow for delivery-ready items no other release holds by
-landing custody (`item_qa_run_without_members`); dispatch and later stages
-re-ask that and fail closed. A memberless run that owes no delivery — a
-stage run whose candidates were targeted out — passes its item QA with the
-named `item_qa_no_member_owes_target` result. A composition refusal halts the
-batch; do not execute a partial run.
+An executing run resumes from its authoritative stage instead of duplicate
+creation. Start resolves target, creates, enrolls candidate-carried unheld
+delivery-ready work (including cancelled-run residue) and validates composition.
+Ordinary external delivery uses selected HTTPS transport; serving-API selfdeploy
+refusal goes to its operator with named recovery. Do not switch authority silently.
 
-Multiple resolvable environments → `AskUserQuestion` for selection, then re-run with `--environment`. Validation failure → halt.
+Remaining eligible items auto-enroll. Explicit add is only for an intended member
+whose code is not in candidate; it needs same DEPLOY hold, created run, matching
+project/bound source and compatible workflow:
 
-Preview-flow side decisions wrap the composed call (these are not folded into `start-for-item`):
-
-- **Before** `start-for-item`: use the registered preview-occupancy operation; if occupied, `AskUserQuestion` (overwrite / new name / abort). For a new lineage, use the registered lineage-create operation and pass the result as `--release-lineage`.
-- **Resume an existing run** instead of starting a new one when `yoke deployment-runs find-by-item {first-item-id} --status executing` returns a row — skip to 8c8.
-- **After** `start-for-item`: use the registered preview-claim operation to attach the preview to the run.
-
-The target resolver is `yoke deployment-runs resolve-target`; prefer the registered composed call for item-bound delivery.
-
-### 8c8: Run-level QA seeding
-**Do NOT manually seed** — `yoke_core.domain.deploy_pipeline` calls the internal deploy QA recorder automatically.
-
-### 8c9: Execute deployment pipeline
-
-**Branch ancestry check** (defense in depth) — verify the merged item commit is
-an ancestor of the branch selected by the flow's project/environment policy.
-The pipeline owns that resolution and enforces the same gate internally
-(`resolve_flow_gate_branch`); Usher must not hardcode a project branch.
-
-**Long-running execution:** `deploy_pipeline` polls external CI systems and can run for several minutes (default timeout: 30 min). Execute it through the harness long-command surface, await completion, and do not poll. The full anti-polling rule is enforced by `yoke_core.domain.lint_long_command_polling`.
-
-```bash
-if [ "$_pre_merge_verified" = "1" ] && [ -n "$_eph_next_stage" ]; then
- yoke --env {control-plane} deployment-runs execute {run-id} --from-stage "$_eph_next_stage"
-else
- yoke --env {control-plane} deployment-runs execute {run-id}
-fi
+```text
+yoke deployment-runs add-item RUN-ID PREFIX-N
+yoke deployment-runs validate-composition RUN-ID
 ```
 
-If execution refuses because the target is the selected control plane's own
-serving API, escalate that named refusal and recovery to its operator.
+Unresolved target/multiple environments requires explicit operator selection,
+then retry with environment. Composition failure halts, no partial execution.
+Item-scoped QA needs delivery custody; carried/owed members without it refuse
+item_qa_flow_without_delivery_custody. A completion flow with unheld eligible
+work but no members refuses item_qa_run_without_members at composition and
+later dispatch/gates. A legitimately target-out memberless run owing no delivery
+records item_qa_no_member_owes_target, not a fabricated member pass.
 
-**Exit 0:** Close each member out through the one agent-facing close-out,
-carrying the run as its evidence:
+Preview side choices remain explicit: inspect actual project preview occupancy
+before start; occupied chooses overwrite/new name/abort. New lineage must have
+an authoritative created identity passed as release-lineage; after start attach
+the preview through its authoritative owner. Read available retained operations
+and project Pack policy. The current deployment registry/catalog exposes no
+lineage-create or preview-claim mutation: if required, stop as
+preview_lineage_mutation_unavailable and escalate exact operation plus checked
+surfaces to control-plane operator. No invented adapter, raw SQL or claimed
+occupancy/lineage success. Reuse already verified identities only.
 
-```bash
-yoke merge item PREFIX-N --result "<what shipped>" --verification "<run-id, stages, QA>"
+Pipeline automatically seeds run QA; do not seed manually. Verify merged commit
+ancestry against the flow/environment-resolved branch, never hardcode main.
+Execute via the manifest long-command/watcher surface and continue its handle
+to exit; pipeline polls external systems itself. Do not poll/relaunch.
+
+```text
+yoke --env CONTROL_PLANE watch deploy -- RUN-ID
 ```
 
-Do NOT reach for `done-transition --skip-deploy` here. This member's delivery
-ran on its selected flow, so recording it as out-of-band is a false record, and
-the close-out refuses it once that flow has a succeeded run covering the merge.
-`--skip-deploy` belongs to Route A above, where the flow genuinely delivers
-nothing. If a member's QA stage is still unsatisfied, it is credited by naming
-that stage AND the member — `yoke qa plan run --deployment-run-id {run-id}
---stage STAGE --member PREFIX-N` — never by an unscoped run-wide pass. Depth:
-`yoke merge item --help`, `yoke qa plan run --help`.
+Only proven premerge ephemeral work and resolved successor stage permit
+watch deploy -- RUN-ID --from-stage NEXT_STAGE. Serving-API refusal escalates to operator.
 
-**Exit 1 (HALT — `usher-halt-deploy-stage-failure`):** Stage failed. For every member item of the run, release the work claim with `usher-halt-deploy-stage-failure` BEFORE printing resume/recovery instructions. If the release call itself fails, the halt summary MUST say the release failed and include the failure class / holder when available — do not print a clean recovery summary while the claim is still live. Operator/debug adapter (dispatches `claims.work.release`):
+| Exit | Required action |
+|---|---|
+| 0 | Close each member via selected-flow evidence and verify actual item stage. |
+| 1 | Stage failure: release every member claim with usher-halt-deploy-stage-failure, then DEPLOY hold, then halt/resume summary. |
+| 2 | Exact run awaits human approval; stop with registered approval command, retain DEPLOY across wait. Each later approval is a new exact-run decision. Resume deploy-only at authoritative stage after approved receipt. |
+| 3 | Setup/preview/lineage/infrastructure failure: member claim releases usher-halt-deploy-infra-failure, then DEPLOY release, then halt. |
+| Other | Preserve run/current stage, diagnose named failure and report; no success shortcut. |
 
-```bash
-yoke claims work release --item PREFIX-N --reason usher-halt-deploy-stage-failure
+```text
+yoke merge item PREFIX-N --result "what shipped" --verification "RUN-ID, stages and QA"
+yoke qa plan run --deployment-run-id RUN-ID --stage STAGE --member PREFIX-N
+yoke deployment-runs approve RUN-ID --note "operator decision" --json
+yoke claims work release --item PREFIX-N --reason usher-halt-deploy-stage-failure --json
 ```
 
-The four `usher-halt-*` values are terminal release intents per `yoke_core.domain.release_intent_classification.TERMINAL_RELEASE_INTENTS`. Do NOT use `completed` for a halt path. After release, halt the batch and surface resume instructions.
+Own-flow close-out never uses done-transition skip-deploy. Unsatisfied member QA
+must name BOTH run stage and member; an unscoped run-wide pass cannot credit it.
+Approval is operator action, not agent self-approval. For infra failure use its
+different release intent. Any failed member release must name failure/holder;
+don't claim clean recovery while it stays held. Never use completed for a halt.
 
-**Exit 2:** Awaiting approval — halt and surface the exact Yoke run command
-([`.agents/skills/yoke/approve/SKILL.md`](../approve/SKILL.md)):
+After final group settles (or halt1/3 after member releases), release each
+project hold before summary; approval2 retains it:
 
-```
-yoke deployment-runs approve {_run_id} [--note "..."] --json
-```
-
-That registered mutation validates the exact executing run and approval stage,
-atomically advances run and member-item stage state, and writes the Yoke audit
-event. After the operator approves, re-run Usher with `--deploy-only`; it
-resumes from the run's authoritative stage. Another approval stage produces
-another exit 2 and requires another exact-run approval.
-
-**Exit 3 (HALT — `usher-halt-deploy-infra-failure`):** Setup / infrastructure error before any stage ran (preview claim, lineage, validation). For every member item of the run, release the work claim with `usher-halt-deploy-infra-failure` BEFORE printing recovery instructions. Same release-failure contract as exit 1 (halt summary names the release failure if the release call itself fails). Operator/debug adapter:
-
-```bash
-yoke claims work release --item PREFIX-N --reason usher-halt-deploy-infra-failure
+```text
+yoke claims coordination-claim release --project PROJECT --key DEPLOY:PROJECT --reason "usher deploy batch complete"
 ```
 
-After release, halt the batch.
-
----
-
-After all groups processed, release the deploy lock for every project this
-batch drove, then return to router for finalize phase:
-
-```bash
-yoke claims coordination-claim release --project {project} --key DEPLOY:{project} --reason "usher deploy batch complete"
-```
-
-Release it on the halt paths too (exit 1 and exit 3 above), after the member
-work-claim releases and before the halt summary — a batch that stopped is no
-longer driving, and a retained lock blocks the next driver. Exit 2 is a
-pending human approval that Usher resumes with `--deploy-only`, so the lock
-stays held across that wait.
+Continue to [finalize](finalize.md). Level-change handoff takes precedence over
+release wait; follow current mandate and registered successor contract.

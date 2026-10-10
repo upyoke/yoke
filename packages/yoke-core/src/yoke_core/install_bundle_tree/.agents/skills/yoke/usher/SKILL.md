@@ -5,88 +5,59 @@ description: "Unified merge+deploy command. Takes items from implemented through
 argument-hint: "PREFIX-N [PREFIX-N ...] [--dry-run] [--merge-only] [--deploy-only] [--resume PREFIX-N]"
 ---
 
-<!--
- done-transition caller audit: agent-facing execution uses
- yoke watch merge done-transition, and only for Route A — a flow
- that genuinely delivers nothing. A Route B member's delivery ran on
- its selected flow, so it closes out through yoke merge item;
- --skip-deploy there would record that delivery as out-of-band.
- Raw done_transition engine calls are internal implementation detail.
- Usher is the PRIMARY caller for the implemented -> done path.
- Manual operator delivery also enters through this skill.
- EXIT 7 PATTERN: Usher absorbs done-transition exit 7 into its
- post-merge routing logic — never exposes it to operators.
- Full audit details in merge.md.
--->
-
-# /yoke usher PREFIX-N [PREFIX-N ...] [--dry-run] [--merge-only] [--deploy-only] [--resume PREFIX-N]
-
-Unified merge+deploy command. Takes `implemented` items through merge, deployment pipeline, and done-transition.
-
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
-## Philosophy
+# /yoke usher PREFIX-N [PREFIX-N ...]
 
-**Error/rollback paths are mandatory.** Every merge and deployment operation must have a known recovery path. When a merge fails mid-batch, the pipeline halts with clear state. When a deployment stage fails, the run state is preserved for `--resume`. Never leave items in an ambiguous intermediate state.
+Inline orchestration: no subagent. Carry explicitly named implemented items
+through governed merge, deployment and actual done-transition. Read the item's
+Workflow Execution Instructions and immutable live binding; no remembered
+workflow progression or forced stage. A current worker mandate can reserve
+deployment batching to its orchestrator.
 
-**Run state for deployment verification.** Deployment evidence is run state: `deployment_runs.status` / `current_stage` joined through `deployment_run_items` answer "did PREFIX-N's pipeline succeed" before advancing items past deployment gates. The events ledger is telemetry-only — deployment lifecycle events (`DeploymentRunStageCompleted`, `DeploymentRunFailed`) are audit trail, not verification input.
+| Flag | Effect |
+|---|---|
+| --dry-run | Read-only plan; stop before execution. |
+| --merge-only | Land only, record delivery wait and retained claim. |
+| --deploy-only | Deliver already-landed items; no repeat landing. |
+| --resume PREFIX-N | Single-item deploy-only at authoritative run stage. |
 
-## Arguments
+At least one complete public ref or resume target is required. Explicit items
+already authorize execution; no extra confirmation.
 
-| Argument | Description |
-|----------|-------------|
-| `PREFIX-N [PREFIX-N ...]` | Explicit items to process (at least one required) |
-| `--dry-run` | Show plan without executing |
-| `--merge-only` | Merge but do not deploy |
-| `--deploy-only` | Deploy already-merged items |
-| `--resume PREFIX-N` | Resume paused deployment (sugar for single-item deploy-only) |
-
-## Phase map — read one file, at the phase it governs
-
-| Phase | What it does | Read before acting |
-|---|---|---|
-| 1. Collect and validate | Resolves the item set and runs the admission gates | [`collect.md`](collect.md) |
-| 2. Plan and confirm | Builds the merge/deploy plan and takes its confirmation | [`plan.md`](plan.md) |
-| 3. Merge execution | Lands each branch through the governed merge boundary | [`merge.md`](merge.md) |
-| 4. Deployment routing | Routes the merged identity to its flow | [`deploy.md`](deploy.md) |
-| 5. Finalize | Records the outcome and closes out | [`finalize.md`](finalize.md) |
-
-## Phase Dispatch
-
-Before reading the first phase, stamp the session's mode so the board's active-session row reflects the live phase (default `wait` misrepresents an active usher run):
-
-```bash
-yoke sessions touch \
- --mode usher
+```text
+yoke sessions touch --mode usher
 ```
 
-Read and follow each phase file in order. Each phase may halt the pipeline (blocked merge, failed deployment, etc.).
+| Phase | Read before acting |
+|---|---|
+| Collect: admission, scoped dependency gate, ordering, dirty state, claims | [collect.md](collect.md) |
+| Dry-run/plan | [plan.md](plan.md) |
+| Land through governed engine and recover exact exit | [merge.md](merge.md) |
+| Route no-delivery or selected-flow run | [deploy.md](deploy.md) |
+| Honest state/report/recovery and releases | [finalize.md](finalize.md) |
 
-**Phase 1 — Collect & Validate:** Read `.agents/skills/yoke/usher/collect.md`
-- Parse arguments, collect items, status gate, compute merge order, pre-merge CI check
-- Halt recovery when `deploy_stage` shows `<stage>-failed`: see the "Halt recovery: deploy reported failed" sub-section in `collect.md` — runs an internal usher/GitHub reconciliation helper to align Yoke with GH truth before retrying.
+Read phases in order; deploy-only skips merge, merge-only stops at delivery
+wait. Generated-task merging is an internal procedure reached from merge's
+effective child/lane policy, not another skill or parent-only landing.
 
-**Phase 2 — Plan & Confirm:** Read `.agents/skills/yoke/usher/plan.md`
-- Dry run display (if `--dry-run` → stop after), operator confirmation
+Every merge/deploy failure preserves receipts, run stage and a named recovery.
+The batch halts on unresolved failure. Run status/current_stage plus item
+membership own release evidence; events are diagnostic telemetry.
+Queue projects use their declared queue, with combined-head merge_group proof,
+never local fallback. Phase exit handling distinguishes coordination, landed
+cleanup, user files and true failure; cancelled checks are no verdict.
 
-**Phase 3 — Merge Execution:** Read `.agents/skills/yoke/usher/merge.md`
-- Skip if `--deploy-only`
-- Pre-merge ephemeral verification, execute merges, handle results, post-merge CI
-- The standalone merge boundary is route-selected per project: a `merge_queue` capability lands branches through the GitHub merge queue (PR + merge-when-ready; admission control keeps overlapping, serial-linked, and double-migration-carrier items off one train; one `merge_group` gate proves the combined head). Recoverable exit 9 means admission refusal, ejection, or a record-wait timeout — surface the named reason and requeue after it clears. Required checks already failed with nothing in flight are terminal exit 1, not a timeout: fix on the lane, commit, and re-run `yoke merge item`; do not wait out the record-wait budget. Required checks that were only cancelled or never started are no verdict: re-run `yoke merge item`, which re-runs them on the same head before arming — no fix and no new commit. Never fall back to a local merge for a declared-queue project. Projects without the capability keep the local engine unchanged.
+Usher owns implemented-to-done and manual delivery. Route A's done-transition
+skip-deploy is only verified no delivery; Route B closes through yoke merge item
+with selected-flow run evidence. Absorb exit7 into routing, never force done.
+Only verified terminal success reports completion.
 
-**Phase 4 — Deployment Routing:** Read `.agents/skills/yoke/usher/deploy.md`
-- Skip if `--merge-only`
-- Route A (internal flows → done-transition)
-- Route B (deployment runs → pipeline execution with inline approval, then
-  each member closes out through `yoke merge item`)
-
-**Phase 5 — Finalize:** Read `.agents/skills/yoke/usher/finalize.md`
-- Completion report, idempotency rules, pipeline failure recovery, operational notes
-
-A `handoff` with `reason=level_change` takes precedence over a release wait.
-Follow the harness-neutral Stage-level handoff rule in
-`.yoke/docs/reference/session-level-routing.md`; workers may launch their own successor.
+Before a nonterminal stop, checkpoint current stage, committed/dirty work and
+next command. A handoff reason=level_change takes precedence over release wait;
+follow [stage-level routing](../../../../.yoke/docs/reference/session-level-routing.md)
+and its exact successor command. Release waits obey current claim/park mandate.

@@ -21,18 +21,25 @@ Continue its native handle to exit. If interrupted, rerun the same command to
 adopt the exact-commit run, not another suite. A failed wait registration names
 its warning; never promise an unregistered wake or poll GitHub yourself.
 
-## Landing and wait authority
+## Wake-routed wait
 
 The first landing call arms/queues the PR and returns landing_pending only
 after GitHub readback proves armed/queued, still eligible/mergeable and no
 required checks already red. Armed before queue entry is ordinary.
 Failed arming, ineligible PR or a concluded red check refuses by name.
 
-A relay-launched session takes the recorded arm-and-stop handoff; report PR
-and pending landing, then deliberately stop. The landing notice wakes it to
-rerun the same merge with result/verification. Other callers' wait shape comes
-from the manifest's verified native idle-wake capability, not executor name
-or launch origin.
+A relay-launched session arms the landing and stops. Report by naming the pull
+request, whatever you passed as result/verification, and say you are waiting
+on landing: a headless command cannot outlive a queue landing. Treat its
+recorded pending landing as a legitimate stop. The control-plane landing
+notice wakes you to rerun the same merge with result/verification.
+
+**Every other session waits.** The shape is resolved from the calling session's
+manifest wake capability, never from who opened the session, its executor name,
+or whether Yoke can reach it over a relay. A native idle-wake primitive preserves
+the background subscription; a harness with no or unverified idle wake keeps
+the wait in-turn. Thus a desktop conversation waits exactly as its CLI sibling
+does. A relay-launched session takes the arm-and-stop handoff above.
 
 Ask the watcher for its safe invocation:
 
@@ -40,21 +47,28 @@ Ask the watcher for its safe invocation:
 yoke watch merge --print-streaming-pair merge-item -- ITEM --wait --result "<result>" --verification "<proof>"
 ```
 
-That prints only; it does not arm, merge or record. Run the returned command
-or bound background/subscription pair exactly once. Background-wake expects a
-native completion wake only because the mode proved it. In-turn remains a
-foreground invocation through exit, with no later wake.
-Claude in-turn watchers need the documented 600000 tool timeout; if a handle
-still yields, continue that same handle, never launch a second copy or end
-the turn over a live watcher.
+That call only prints: it merges nothing, arms nothing; run the printed command
+exactly once. `background-wake` means the caller's harness can resume an ended
+turn and uses its bound background/subscription pair. `in-turn` means the printed
+command is a single foreground invocation. No later completion notice is
+expected. The wrapper's four-fact landing readback (armed, queued, eligible,
+required checks) never needs a hand-authored `gh` poll loop.
+
+For Claude in-turn waits, set the Bash tool's `timeout` to `600000` so the harness
+does not move the call to a background task. If it moves the call anyway, the
+command is still running: continue that same call through the background task's
+output. Reading that output continues the call; only ending the turn kills the
+watcher. Never launch another copy beside it.
 
 The wrapper observes through control-plane merge_queue.landing.observe with
-project-wide cadence/rate limiting, streams changed durable records and exit
-sentinel; no local gh/GitHub/fetch loops.
+one project-wide GitHub sweep per cadence and streams changed durable records
+and an exit sentinel. The waiting machine issues no `gh`, GitHub, or `git fetch`
+read loop. Named outcomes follow; none of them is silence.
 A tunnel_busy sibling owns authority lifecycle: leave it running and retain
 this invocation through the bounded replacement window.
 Read readiness through `yoke github merge-queue readiness ITEM --json`;
-null arming with awaiting-checks queue entry may mean consumed/in flight.
+null arming with queue-entry=AWAITING_CHECKS can mean consumed and in flight,
+not cleared.
 
 ## Hold before a correction
 
@@ -74,15 +88,21 @@ Correct, commit, reverify the new candidate and merge again.
 Stderr's [close-out] block reports actual status, stored result/verification
 and holder fact beside stdout's envelope. Exit0 alone is not done.
 
-| Outcome | Action |
-|---|---|
-| merged/closed or landing_already_recorded | Read status/identity; done needs no new claim/transition; continue denial reporting |
-| landing pending | Recorded handoff, not completion |
-| landing stopped (9) | Follow named recovery, refresh lane/proof and rerun same command; it converges if landing occurred |
-| required checks red (1) | Terminal for this tree; fix/reverify then rearm |
-| cancelled/not-started check | No verdict, not red; rerun same-head landing to get replacement, no fabricated fix |
-| landing_record_stale (9) | Report control-plane refresh/recovery; no local polling |
-| wait budget exhausted (9) | Park retaining claim, report HUMAN_GATE with PR/last state/exact resume command |
+- **merged** — exit 0: the boundary closed the item out in this turn, or
+  landing_already_recorded names its receipt. Read status/identity; done needs
+  no new claim/transition. Continue denial reporting.
+- **landing stopped** — exit 9: follow named recovery, rebase the lane onto the
+  base branch and re-run the verification gate before the same merge command.
+  It converges on the merge if one happened meanwhile; never discard landed state.
+- **a required check already red** — exit 1, terminal for this tree: fix,
+  commit/reverify, then rearm. A cancelled/not-started check has no verdict;
+  rerun same-head landing for replacement without a fabricated fix.
+- **landing record stale** — landing_record_stale, exit 9: report last
+  record/project refresh times and named control-plane recovery. Do not
+  substitute local polling.
+- **wait budget exhausted** — exit 9: checkpoint PR, last observed reading and
+  exact resume; `yoke sessions touch --mode parked --reason "<observed landing state>"`.
+  Report HUMAN_GATE. The item stays non-terminal and the claim stays held.
 
 Wait budget only covers genuinely pending checks/train; a concluded red head
 with nothing in flight returns immediately. Never rearm blindly after timeout.

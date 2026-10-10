@@ -21,7 +21,12 @@ Main sessions first use `--print-streaming-pair`, which runs nothing. Run the
 printed command: `background-wake` arms its command and one `yoke watch tail`
 subscription; `in-turn` runs foreground with Bash `timeout: 600000`. Unknown
 waits in-turn. A returned/backgrounded handle still runs: continue it until exit,
-never relaunch beside it or manually poll. Read the completed raw capture once.
+never relaunch beside it or manually poll, because a turn that ends there kills the
+watcher it was holding. Reading the background task's output is how you
+continue the call, not how you end the turn: keep reading until the command
+exits and you have its outcome. A relay-launched worker has no second chance
+here; prepare by naming the continuation before the command starts. Read the
+completed raw capture once.
 
 Subagents run long commands foreground in one Bash sequence, never
 `Bash(run_in_background: true)` plus Monitor and return. Tighten dispatch if its
