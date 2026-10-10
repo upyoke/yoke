@@ -25,6 +25,7 @@ from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_harness import browser_runtime_home
 from yoke_harness.browser_daemon_profile import canonical_profile, state_file_path
 from yoke_harness.browser_client_readiness import start_daemon
+from yoke_harness.browser_human_gate import refuse_during_human_gate
 from yoke_harness.browser_setup import ensure_browser_runtime
 
 
@@ -176,7 +177,9 @@ def daemon_start(
 
     Each profile owns its state, log and endpoint. Other profiles' live
     captures remain open, and same-profile workers reuse the healthy daemon.
+    No automated daemon starts while a human signs in on this machine.
     """
+    refuse_during_human_gate(_browser_dir())
     requested_profile = canonical_profile(profile_dir)
     state_path = _state_file_path(requested_profile)
     state = DaemonState.load(state_path)

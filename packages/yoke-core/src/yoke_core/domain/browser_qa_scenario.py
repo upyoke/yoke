@@ -25,11 +25,13 @@ import json
 from typing import Dict, Optional
 
 from yoke_contracts.api.function_call import ActorContext
+from yoke_contracts.browser_identity import BrowserIdentityError, case_browser_identity
 from yoke_core.domain.browser_qa_context_fetch import _fetch_browser_context  # noqa: F401
 from yoke_core.domain.browser_qa_freshness_outcome import (
     EXECUTION_TARGET_UNAUTHORIZED,
 )
 from yoke_core.domain.browser_qa_requirement import _process_requirement
+from yoke_core.domain.browser_qa_case_config import parse_case_config
 from yoke_core.domain.browser_qa_sign_in_evidence import describe_sign_in
 from yoke_core.domain.browser_qa_run_source import run_bound_identity
 from yoke_core.domain.browser_qa_results import ScenarioResult
@@ -266,21 +268,34 @@ def execute_scenario(
 
     from yoke_harness.browser_daemon_profile import project_scope
 
-    # Step 5: Ensure browser daemon is running
-    _bqa._log("Checking browser daemon status...")
-    daemon_error = _bqa._ensure_daemon_running(subject=subject, project=project)
-    if daemon_error:
-        _bqa._log(f"ERROR: {daemon_error}")
+    # Step 5: Ensure a browser daemon runs for every identity the cases name;
+    # each identity is its own profile, so each has its own daemon.
+    try:
+        identities = [
+            case_browser_identity(parse_case_config(row["method_config"]))
+            for row in req_rows
+        ]
+    except BrowserIdentityError as exc:
+        _bqa._log(f"ERROR: {exc}")
         result.verdict = "error"
-        result.note = "daemon_failure"
+        result.note = "malformed_method_config"
         print(result.to_json())
         return result
+    _bqa._log("Checking browser daemon status...")
+    for identity in dict.fromkeys(identities):
+        daemon_error = _bqa._ensure_daemon_running(
+            subject=subject, project=project, identity=identity
+        )
+        if daemon_error:
+            _bqa._log(f"ERROR: {daemon_error}")
+            result.verdict = "error"
+            result.note = "daemon_failure"
+            print(result.to_json())
+            return result
 
-    with project_scope(project):
-        sign_in = describe_sign_in(project)
-
-        # Step 6: Process each requirement
-        for req_row in req_rows:
+    # Step 6: Process each requirement on its own identity's daemon
+    for req_row, identity in zip(req_rows, identities):
+        with project_scope(project, identity):
             outcome = _process_requirement(
                 req_row=req_row,
                 subject=subject,
@@ -288,7 +303,7 @@ def execute_scenario(
                 base_url=base_url,
                 code_identity=code_identity,
                 freshness_validated=freshness_validated,
-                sign_in=sign_in,
+                sign_in=describe_sign_in(project, identity),
                 actor=actor,
             )
             result.runs.append(outcome.run_result)
@@ -315,12 +330,12 @@ def execute_scenario(
                 _bqa._log("Aborting remaining requirements due to env setup failure")
                 break
 
-        # Step 7: Vacuous pass detection
-        if result.executed == 0 and result.skipped > 0:
-            result.verdict = "error"
-            result.note = "vacuous_pass_prevented"
-            _bqa._log(
-                f"ERROR: {result.skipped} browser requirement(s) found but 0 executed"
-            )
+    # Step 7: Vacuous pass detection
+    if result.executed == 0 and result.skipped > 0:
+        result.verdict = "error"
+        result.note = "vacuous_pass_prevented"
+        _bqa._log(
+            f"ERROR: {result.skipped} browser requirement(s) found but 0 executed"
+        )
 
-        return result
+    return result

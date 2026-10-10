@@ -27,7 +27,6 @@ REGISTERED_SETUP_OPERATION_IDS = frozenset(
         "installer.current-release-prepare",
         "installer.product-state-reset",
         "machine.path-idempotence-prepare",
-        "machine.browser-profile-restore",
         "machine.path-prepare",
         "machine.token-file-prepare",
         "machine.yoke-auth-clear",

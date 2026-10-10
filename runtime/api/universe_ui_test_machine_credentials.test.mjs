@@ -62,11 +62,11 @@ test("desktop registration shows its route and secret reference without a value"
   assert.match(text(credential), /unknown on this browser/);
 });
 
-test("saving machine settings preserves optional desktop and browser baseline declarations", async () => {
+test("saving machine settings preserves optional desktop declarations", async () => {
   const machine = structuredClone(detail);
   Object.assign(machine.settings, {
     desktop_route: "direct", desktop_protocol: "vnc", desktop_port: "5900",
-    desktop_user: "testy", browser_profile_baseline_path: "/Users/Shared/golden/profile",
+    desktop_user: "testy",
   });
   const prepared = context([machine]);
   const main = prepared.documentNode.createElement("main");

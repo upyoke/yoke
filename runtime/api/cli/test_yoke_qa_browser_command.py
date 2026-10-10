@@ -123,7 +123,7 @@ class TestScreenshotAdapter:
                 "acme",
             )
         assert rc == 0
-        ensure.assert_called_once_with("acme")
+        ensure.assert_called_once_with("acme", None)
 
     def test_capture_runtime_error_exits_one(self):
         with (

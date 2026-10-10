@@ -102,7 +102,7 @@ def test_transient_start_error_preserves_healthy_profile(
     profile = tmp_path / "alpha"
     monkeypatch.setattr(
         "yoke_cli.config.browser_profile.resolve_authorized_profile",
-        lambda project: (profile, "test profile"),
+        lambda project, identity="default": (profile, "test profile"),
     )
     monkeypatch.setattr(client, "_browser_dir", lambda: tmp_path)
     state = client.DaemonState(pid=101, profile_dir=str(profile))

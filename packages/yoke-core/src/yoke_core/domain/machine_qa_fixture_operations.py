@@ -6,9 +6,6 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from yoke_core.domain.host_control_runner import HostActionResult
-from yoke_core.domain.machine_qa_browser_profile_fixture import (
-    MachineQaBrowserProfileFixture,
-)
 from yoke_core.domain.machine_qa_fixture_credential_operations import (
     MachineQaFixtureCredentialOperations,
 )
@@ -36,7 +33,6 @@ from yoke_core.domain.machine_qa_fixture_validation import (
 
 
 class MachineQaFixtureOperationRunner(
-    MachineQaBrowserProfileFixture,
     MachineQaFixtureCredentialOperations,
     MachineQaFixtureMachineOperations,
     MachineQaFixtureRepositoryOperations,
@@ -95,7 +91,6 @@ class MachineQaFixtureOperationRunner(
         self,
     ) -> Mapping[str, Callable[[Mapping[str, Any]], None]]:
         return {
-            "machine.browser-profile-restore": self._browser_profile_restore,
             "fixture.apply-resume-report-prepare": self._apply_resume_report,
             "fixture.git-checkout-prepare": self._git_checkout,
             "fixture.git-remote-prepare": self._git_remote,

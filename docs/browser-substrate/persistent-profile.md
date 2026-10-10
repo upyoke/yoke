@@ -11,11 +11,18 @@ jar, and any criterion rendered behind a dashboard sign-in stayed
 
 ## Where the profile lives
 
-One profile directory per project, beside that project's other machine-local
-capability secrets:
+One profile directory per project **identity**, beside that project's other
+machine-local capability secrets. An identity is one persona's whole profile
+— every site that persona uses, signed in together. A project declares named
+identities in its `browser-control` capability settings
+(`yoke_contracts.browser_identity`); `default` always exists and keeps the
+project's original single-profile path, so a project that declares nothing
+behaves as before and a profile signed in before identities existed is the
+`default` identity's profile:
 
 ```text
-~/.yoke/secrets/capability-secrets/<project>/browser-control/profile
+~/.yoke/secrets/capability-secrets/<project>/browser-control/profile                     # default
+~/.yoke/secrets/capability-secrets/<project>/browser-control/identities/<name>/profile   # every other identity
 ```
 
 It is a Chromium profile holding live session cookies, so it is owner-only
@@ -44,17 +51,33 @@ and run `yoke browser authorize` again.
 ## Signing in
 
 ```sh
-yoke browser authorize                        # this checkout's project
-yoke browser authorize --project yoke
-yoke browser authorize --url https://app.upyoke.com
-yoke browser authorize --reset                # start from an empty profile
+yoke browser verify --identity admin              # admin: google ok, yoke expired
+yoke browser authorize --identity admin           # window only for expired sites
+yoke browser authorize                            # default identity, this checkout
+yoke browser authorize --identity admin --reset   # start that identity from empty
 ```
 
-The command opens the profile in a plain window of the daemon's own Chromium
-and waits until you close every authorization window. Sign into as many sites as you like; whatever the
-window ends up holding is what the project's Browser cases and walkers get.
-There are no origin lists, no declarations, no per-site probes, and no exported
-storage state.
+Each site an identity declares carries its own signed-in check: a URL plus a
+selector only a signed-in page shows (the page must also show no sign-in wall,
+the same detection a case step uses), or the HTTP status a signed-in request
+answers without following redirects. `verify` runs every check headless on the
+identity's profile and reports each site. `authorize` runs the same checks
+first: when every site is signed in it returns without a window. Otherwise it
+opens the profile in a plain window of the daemon's own Chromium, one tab per
+expired site, naming the identity, the site and the account to use, waits until
+you close every authorization window, and checks again — a site still signed
+out fails by name. A site whose check gets no answer fails without a window,
+because no sign-in fixes it. An identity that declares no sites has nothing to
+check, so the window opens as it always did. Nothing is exported: whatever the
+window ends up holding is what that identity's Browser cases and walkers get.
+
+No automated browser runs while a human signs in. Before the window opens,
+every browser daemon on the machine is stopped (any project, any profile) and a
+machine-wide marker (`human-sign-in.json` in the runtime directory) is held
+until the window closes; a daemon start meanwhile is refused with
+`browser_human_gate_active`, naming the identity being signed in. An automated
+window left on screen is the window a person signs into by mistake, and
+identity providers refuse a browser they can see is automated.
 
 On macOS, closing the last window can leave Chromium running with no window.
 The command counts windows owned by the browser process it spawned, including
@@ -137,19 +160,19 @@ later automated runs. It is bounded rather than indefinite for that reason.
 ## Starting over
 
 ```sh
-yoke browser authorize --reset
+yoke browser authorize --identity admin --reset
 ```
 
-Stops the daemon, deletes this project's profile directory, and opens a fresh
-window. Everything the profile was signed into is gone. Use it for a profile
+Deletes that identity's profile and opens a fresh window for every site it
+declares. Everything that identity was signed into is gone; other identities
+are untouched. Use it for a profile
 signed into the wrong account, a sign-in that will not take, or a damaged
 cookie store — the refusal from a damaged store names this command. The
 directory to delete is resolved from the project reference rather than accepted
 from the caller, so the only profile the command can remove is the one named.
 
-Chromium locks a profile directory, so `authorize` stops only the daemon
-holding the requested project's profile. Other profiles' captures stay open.
-The next case run starts that profile's daemon again.
+`verify` needs the profile free (Chromium locks a profile directory), so it
+stops only the daemon serving that identity; the next case starts it again.
 
 ## How a run uses it
 
@@ -173,12 +196,20 @@ and when *other* projects do have profiles it lists their references — a
 profile signed in under one reference and looked for under another is
 otherwise a silent miss.
 
-`--project` takes the same reference, with the same checkout default, on
-`yoke qa browser screenshot`, `yoke qa browser step`, `yoke qa browser setup`,
-and `yoke qa browser status`. Check what a run here would open:
+`--project` takes the same reference, with the same checkout default, and
+`--identity NAME` selects the identity, on `yoke qa browser screenshot`,
+`step`, `setup`, `status` and `stop`. Starting a daemon reads no
+declarations, so a host that cannot reach the project's control plane still
+runs; an identity never signed in there gets a clean context, named in the
+log with the command that signs it in. `verify` and `authorize` need the
+identity's sites: on such a host pass the project's browser-control settings
+document with `--declarations-json`, read where the project is reachable.
+A Browser case names its identity with `method_config.browser_identity`;
+a run whose cases name several starts one daemon per identity. Check what a run
+here would open:
 
 ```sh
-yoke qa browser status --project yoke
+yoke qa browser status --project yoke --identity admin
 ```
 
 A reference that cannot be resolved to a slug is a refusal, not a silent clean
@@ -188,10 +219,27 @@ profile facet.
 
 ## Expiry
 
-Expiry needs no machinery. A dead session — the site's own expiry, or the
-30-day lifetime given to a kept session cookie — lands the walker on a sign-in
-page, which is already the human gate it raises. Run `yoke browser authorize`
-again for that site. A Browser QA case that lands the same way records
-`sign_in.authenticated` as false, and a wait_for or assert timeout there is
-`execution_target_unauthorized` with that authorize command rather than a
-missing selector.
+`yoke browser verify` finds an expired session before anything browses, and
+`yoke browser authorize --identity NAME` asks a human only for the sites it
+reports expired. An exploratory mission lists the identities it needs in
+`method_config.browser_identities`, and its walker runs the exact verify
+command for each before browsing; an expired site is the human gate, naming
+the identity, site and account. A Browser QA case that still lands on a sign-in
+page records `sign_in.authenticated` as false with its identity, and a
+wait_for or assert timeout there is `execution_target_unauthorized` naming
+`yoke browser authorize --identity NAME` rather than a missing selector.
+
+## Identities on test machines
+
+Sites rotate session cookies, so a sealed copy of a signed-in profile is stale
+by the time it is restored. A test machine keeps its identities live in
+`~/.yoke-browser-identities/<project>/<identity>/`
+(`LIVE_IDENTITY_STORE_HOME_ENTRY`), outside `~/.yoke`. The macOS and Linux full
+resets keep that store exactly as they keep live harness logins, and golden
+capture never includes it, while `~/.yoke` is still absent after a reset. When
+the store exists, `yoke_cli.config.browser_profile` makes each identity's
+capability-secrets path a link into it, so the installed product reads and
+refreshes the live sessions in place — a walk that fails or is aborted keeps
+whatever the site refreshed. A real profile found at the capability path when
+the store has none for that identity is moved into the store, never discarded;
+a profile in both places refuses with `browser_identity_store_conflict`.

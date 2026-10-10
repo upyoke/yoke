@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import shlex
 
@@ -13,6 +14,7 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
     require_zsh,
     run_functions,
 )
+from yoke_contracts.browser_identity import LIVE_IDENTITY_STORE_HOME_ENTRY as STORE
 from yoke_harness.ssh_mac_preserved_state import (
     HARNESS_LOGIN_HOME_ENTRIES,
     PRESERVED_HOME_ENTRIES,
@@ -113,7 +115,17 @@ def test_capture_prunes_every_preserved_entry_and_keeps_neighbors(tmp_path):
         assert neighbor in entries, neighbor
 
 
-@pytest.mark.parametrize("manifest", ["legacy", "declared", "mismatch", "copied_login"])
+@pytest.mark.parametrize(
+    "manifest",
+    [
+        "legacy",
+        "declared",
+        "earlier_subset",
+        "mismatch",
+        "copied_login",
+        "copied_store",
+    ],
+)
 def test_reset_manifest_refuses_a_golden_carrying_a_declared_login(tmp_path, manifest):
     home, golden = tmp_path / "home", tmp_path / "golden"
     home.mkdir()
@@ -121,10 +133,16 @@ def test_reset_manifest_refuses_a_golden_carrying_a_declared_login(tmp_path, man
     line = f"{PRESERVED_MANIFEST_KEY} {PRESERVED_MANIFEST_VALUE}"
     if manifest == "legacy":
         line = "source_home legacy"
+    if manifest == "earlier_subset":
+        # Sealed before the identity store joined the kept set.
+        earlier = [entry for entry in PRESERVED_HOME_ENTRIES if entry != STORE]
+        line = f"{PRESERVED_MANIFEST_KEY} {json.dumps(earlier, separators=(',', ':'))}"
     if manifest == "mismatch":
-        line = f"{PRESERVED_MANIFEST_KEY} []"
+        line = f'{PRESERVED_MANIFEST_KEY} [".ssh","Library/Unknown"]'
     if manifest == "copied_login":
         _write(golden, ".codex/auth.json", "captured login")
+    if manifest == "copied_store":
+        _write(golden, f"{STORE}/acme/admin/Cookies", "captured cookies")
     Path(str(golden) + ".manifest").write_text(line + "\n")
     result = run_functions(
         (
@@ -135,4 +153,6 @@ def test_reset_manifest_refuses_a_golden_carrying_a_declared_login(tmp_path, man
         ),
         shell_home=tmp_path / "shell",
     )
-    assert ("REJECTED" in result.stdout) == (manifest in {"mismatch", "copied_login"})
+    assert ("REJECTED" in result.stdout) == (
+        manifest in {"mismatch", "copied_login", "copied_store"}
+    )

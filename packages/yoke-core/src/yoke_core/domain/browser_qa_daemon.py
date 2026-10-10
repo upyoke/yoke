@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import time
 from typing import Any, Dict, Optional
+
+from yoke_contracts.browser_identity import DEFAULT_IDENTITY
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_harness.browser_client_readiness import DAEMON_LOG_NAME
 from yoke_harness.browser_daemon_profile import recover_unhealthy_daemon
@@ -66,6 +68,7 @@ def _ensure_daemon_running(
     *,
     subject: int | str | None = None,
     project: str = "",
+    identity: str = DEFAULT_IDENTITY,
 ) -> Optional[str]:
     """Ensure browser daemon is running. Returns error message or None.
 
@@ -80,12 +83,15 @@ def _ensure_daemon_running(
     from yoke_core.domain import browser_client
     from yoke_core.domain.browser_client import daemon_start
 
+    from yoke_contracts.browser_identity import BrowserIdentityError
     from yoke_cli.config.browser_profile import resolve_authorized_profile
     from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 
     try:
-        profile_path, profile_note = resolve_authorized_profile(project)
-    except ProjectSlugLookupError as exc:
+        profile_path, profile_note = resolve_authorized_profile(
+            project, identity=identity
+        )
+    except (ProjectSlugLookupError, BrowserIdentityError) as exc:
         _bqa._log(str(exc))
         return str(exc)
     _bqa._log(profile_note)

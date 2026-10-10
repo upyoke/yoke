@@ -7,6 +7,7 @@ import shlex
 import time
 from typing import Any
 
+from yoke_contracts.browser_identity import LIVE_IDENTITY_STORE_HOME_ENTRY
 from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 from yoke_harness.ssh_linux_reset_cleanup import RESET_WRITERS_PROGRAM
 from yoke_harness.ssh_linux_reset_preconditions import (
@@ -40,13 +41,17 @@ ABSENT_HOME_PATHS = (
     ".local/bin/env",
 )
 
-_ARCHIVE_PROGRAM = r"""
+_ARCHIVE_PROGRAM = (
+    r"""
 import fnmatch, hashlib, json, os, pathlib, shutil, stat, sys, tarfile, tempfile
 operation, expected_home, golden = sys.argv[1:4]
 preserve_claude = len(sys.argv) > 4 and sys.argv[4] == "preserve-claude"
 home = pathlib.Path(os.environ["HOME"])
 baseline = pathlib.Path(golden)
 absent = json.loads(sys.stdin.read())
+# Kept live through a reset and never captured: SSH access, and the live
+# browser identity store, whose restored copy would be rotated stale cookies.
+kept_live = (".ssh", __LIVE_IDENTITY_STORE__)
 def stream_sha256(stream):
     digest = hashlib.sha256()
     for chunk in iter(lambda: stream.read(65536), b""):
@@ -85,7 +90,7 @@ def validate_archive(archive):
         name = str(path)
         if any(parent in links for parent in path.parents):
             refuse("golden_baseline_archive_unsafe", member.name)
-        if path.is_absolute() or ".." in path.parts or not path.parts or path.parts[0] == ".ssh":
+        if path.is_absolute() or ".." in path.parts or not path.parts or path.parts[0] in kept_live:
             refuse("golden_baseline_archive_unsafe", member.name)
         if not (member.isfile() or member.isdir() or member.issym()):
             refuse("golden_baseline_archive_unsafe", member.name)
@@ -120,7 +125,7 @@ if operation == "capture":
             return member
         with tarfile.open(temporary / "home.tar.gz", "w:gz") as archive:
             for entry in sorted(home.iterdir()):
-                if entry.name == ".ssh": continue
+                if entry.name in kept_live: continue
                 for directory, subdirs, files in os.walk(entry, followlinks=False):
                     for value in [directory, *[str(pathlib.Path(directory) / name) for name in subdirs + files]]:
                         if pathlib.Path(value).lstat().st_uid != os.getuid():
@@ -153,7 +158,7 @@ else:
                 refuse("linux_desktop_stop_not_proved", recovery=str(exc))
             # STOP_YOKE_WRITERS
             for entry in home.iterdir():
-                if entry.name == ".ssh": continue
+                if entry.name in kept_live: continue
                 try:
                     if entry.is_dir() and not entry.is_symlink(): shutil.rmtree(entry)
                     else: entry.unlink()
@@ -183,11 +188,12 @@ else:
     for value in absent:
         if (home / value).exists() or (home / value).is_symlink(): refuse("reset_absence_not_proved")
 print(json.dumps({"ok":True, "operation":operation, "golden_baseline_path":str(baseline),
-                  "preserved_entries":[".ssh"] + ([".claude/.credentials.json"] if preserve_claude else []), "absent_paths":absent if operation == "reset" else [],
+                  "preserved_entries":[".ssh"] + ([".claude/.credentials.json"] if preserve_claude else []) + [name for name in kept_live[1:] if (home / name).is_dir()], "absent_paths":absent if operation == "reset" else [],
                   "desktop_terminal_preference_preserved":bool(locals().get("terminal_selection")),
                   "service_cleanup": locals().get("service_cleanup")}))
-""".replace("__YOKE_SERVICE_PATTERNS__", repr(YOKE_SERVICE_PATTERNS)).replace(
-    "# RESET_PRECONDITION_FUNCTIONS", DESKTOP_PROGRAM + CREDENTIAL_PROGRAM
+""".replace("__YOKE_SERVICE_PATTERNS__", repr(YOKE_SERVICE_PATTERNS))
+    .replace("__LIVE_IDENTITY_STORE__", repr(LIVE_IDENTITY_STORE_HOME_ENTRY))
+    .replace("# RESET_PRECONDITION_FUNCTIONS", DESKTOP_PROGRAM + CREDENTIAL_PROGRAM)
 )
 
 

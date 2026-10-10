@@ -50,9 +50,13 @@ def _cli_daemon(args: argparse.Namespace) -> int:
             return 2
 
     elif args.daemon_cmd == "start":
+        from yoke_contracts.browser_identity import DEFAULT_IDENTITY
         from yoke_cli.config.browser_profile import resolve_authorized_profile
 
-        profile, note = resolve_authorized_profile(getattr(args, "project", None))
+        profile, note = resolve_authorized_profile(
+            getattr(args, "project", None),
+            identity=getattr(args, "identity", None) or DEFAULT_IDENTITY,
+        )
         _bc._log(note)
         try:
             result = _bc.daemon_start(
@@ -165,7 +169,9 @@ def run_cli(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         parser.print_help()
         return 3
     try:
-        with project_scope(getattr(args, "project", None)):
+        with project_scope(
+            getattr(args, "project", None), getattr(args, "identity", None)
+        ):
             return handler(args)
     except MissingProjectError as exc:
         client._log(str(exc))

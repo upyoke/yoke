@@ -21,8 +21,6 @@ from yoke_core.domain.machine_operation_recording import (
     recorded_test_machine_operation,
 )
 from yoke_core.domain.machine_qa_golden_destination import (
-    BROWSER_PROFILE_BASELINE_PATH_KEY,
-    GOLDEN_BASELINE_PATH_KEY,
     record_captured_golden_baseline,
     selected_test_machine_row,
 )
@@ -129,11 +127,6 @@ def record_capture_destination(
         conn,
         selected_test_machine_row(conn, project=contract.project, machine=machine),
         destination=destination,
-        setting_key=(
-            BROWSER_PROFILE_BASELINE_PATH_KEY
-            if contract.capture_component
-            else GOLDEN_BASELINE_PATH_KEY
-        ),
     )
     return destination
 

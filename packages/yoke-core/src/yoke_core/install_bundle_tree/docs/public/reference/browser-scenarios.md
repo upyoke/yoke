@@ -36,6 +36,14 @@ step. For example, a dedicated actor round trip can include
 `"cleanup_steps": [{"action": "click", "target": "#disable-actor"}]`.
 Choose steps that restore a safe state from the page left by a failure.
 
+Optional `browser_identity` names the project identity whose signed-in profile
+the case runs as (default `default`), declared in the project's
+`browser-control` capability settings; an identity never signed in on the
+running host gets a clean context and a signed-out capture names the
+`yoke browser authorize --identity NAME` command. A run whose cases name several identities starts
+one daemon per identity, and the run's `sign_in` evidence names the identity.
+See [browser sign-in identities](qa-platform/browser-identities.md).
+
 Optional `color_scheme` is exactly `"light"` or `"dark"`; omit it for the
 ordinary browser preference. It applies before navigation to this case's owned
 page only, stays fixed across navigation/reload/steps, and never changes the

@@ -114,9 +114,14 @@ Safari, elsewhere desktop default) using screenshot/keystroke host commands
 
 Never sign in or send the human request. Sign-in is HUMAN_GATE: site, reason,
 observed state, resume point. Name this run's actual host, managed daemon versus
-host browser, managed project profile and target URL from executed commands;
-inventory is not proof. `yoke qa browser setup` starts runtime only; managed
-sign-in is `yoke browser authorize` on that host/profile. Native browsers have
+host browser, managed project identity and target URL from executed commands;
+inventory is not proof. `yoke qa browser setup` starts runtime only. A managed
+profile is one named identity (`--identity NAME`, default `default`): before
+browsing as each identity the dispatch names, run its exact `yoke browser
+verify` with the project's declarations read locally; an expired site is
+HUMAN_GATE naming identity, site and account, resumed by `yoke browser
+authorize --identity NAME` on that host. Sign-ins stay live in
+the host's identity store; never save or restore a profile. Native browsers have
 no managed profile: name declared human access, never invent authorize for them.
 Screenshots prove a finding/gate, not progress. No credentials in reports.
 

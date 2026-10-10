@@ -208,7 +208,7 @@ commit. No supplied identity flags are needed. Missing/mismatched hosted
 promotion, no delivered commit, conflicting supplied commit or unprovable served
 environment refuses by name. Browser setup/status/screenshot/step are substrate
 utilities; diagnostic captures create no parallel verdict. Use
-[per-OS saved-profile baselines](qa-platform/browser-profile-baseline.md).
+[browser sign-in identities](qa-platform/browser-identities.md).
 
 ## AC-Derived Requirements and Suite Graduation
 

@@ -17,8 +17,8 @@ modules below for source-development diagnostics.
 - [Browser Scenario Schema](../.yoke/docs/reference/browser-scenarios.md) —
   immutable `method_config` for `browser-check` and `browser-inspection`
 - [Persistent Browser Profile](browser-substrate/persistent-profile.md) — one
-  profile per project, signed in once by the operator with
-  `yoke browser authorize`
+  profile per project identity, checked site by site and signed in by the
+  operator with `yoke browser authorize --identity NAME` only when expired
 - [Snapshot Primitives](browser-substrate/snapshot-primitives.md) —
   accessibility, screenshot, and diff diagnostics
 - [QA Artifact Integration](browser-substrate/qa-artifact-integration.md) —

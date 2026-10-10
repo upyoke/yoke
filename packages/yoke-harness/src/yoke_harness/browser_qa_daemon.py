@@ -16,20 +16,32 @@ def _log(message: str) -> None:
     print(f"[browser-runtime] {message}", file=sys.stderr)
 
 
-def ensure_daemon_running(project: Optional[str] = None) -> Optional[str]:
-    """Ensure the daemon runs on ``project``'s persistent browser profile.
+def ensure_daemon_running(
+    project: Optional[str] = None, identity: Optional[str] = None
+) -> Optional[str]:
+    """Ensure the daemon runs on one project identity's persistent profile.
 
     An authorized profile makes every context the daemon hands out signed into
-    whatever the operator signed into; a project with no profile keeps the
+    whatever the operator signed into; an identity with no profile keeps the
     clean-context behavior. Every profile owns an independent daemon;
-    another project's live capture is never stopped or reused.
+    another identity's or project's live capture is never stopped or reused.
+    Starting reads no declarations, so a host that cannot reach the project's
+    control plane (a Test Machine) still runs; an identity with no profile is
+    named in the log line with the command that signs it in.
     """
+    from yoke_contracts.browser_identity import (
+        DEFAULT_IDENTITY,
+        BrowserIdentityError,
+        validate_identity_name,
+    )
     from yoke_cli.config.browser_profile import resolve_authorized_profile
     from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 
     try:
-        profile_path, profile_note = resolve_authorized_profile(project)
-    except (ProjectSlugLookupError, MissingProjectError) as exc:
+        profile_path, profile_note = resolve_authorized_profile(
+            project, identity=validate_identity_name(identity or DEFAULT_IDENTITY)
+        )
+    except (ProjectSlugLookupError, MissingProjectError, BrowserIdentityError) as exc:
         return str(exc)
     _log(profile_note)
     profile = str(profile_path) if profile_path else None

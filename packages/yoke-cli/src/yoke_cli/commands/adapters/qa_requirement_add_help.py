@@ -69,6 +69,10 @@ Run and screenshot metadata keep requested and observed prefers-color-scheme.
 Invalid values, failed emulation, missing observations and mismatches refuse
 by name: correct the setting or repair the daemon and rerun. Media preference
 proves browser input; normal assertions/visual judgment still judge the app.
+Browser method_config.browser_identity names the declared project identity
+the case runs as (default `default`); an agent mission's
+method_config.browser_identities lists the identities its walker verifies
+signed in before browsing (`yoke browser verify --identity NAME`).
 Full configuration: reference/browser-scenarios.md, Method configuration.
 
   flag                        required  default    value shape

@@ -132,8 +132,10 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke qa browser step", "qa.browser", REASON_TOOL_SHAPED),
     _p("yoke qa browser status", "qa.browser", REASON_TOOL_SHAPED),
     _p("yoke qa browser stop", "qa.browser", REASON_TOOL_SHAPED),
-    # The operator's headed sign-in window for a project's browser profile.
+    # The operator's headed sign-in window for one browser identity, and the
+    # headless per-site check it runs before asking for a human.
     _p("yoke browser authorize", "browser.profile", REASON_TOOL_SHAPED),
+    _p("yoke browser verify", "browser.profile", REASON_TOOL_SHAPED),
     *tuple(
         _p(f"yoke core {verb}", "core.local", REASON_TOOL_SHAPED)
         for verb in ("build", "start", "status", "logs", "stop", "upgrade")

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hmac
-from typing import Any, Literal, Sequence
+from typing import Any, Sequence
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.coordination_claim_record import (
@@ -110,7 +110,6 @@ def _issue(
     baselines: Sequence[str],
     cases: Sequence[dict[str, Any]],
     golden_destination: str | None = None,
-    capture_component: Literal["browser-profile"] | None = None,
     selection_reason: str | None = None,
     plan_execution_id: str | None = None,
     continues_execution_id: str | None = None,
@@ -125,11 +124,9 @@ def _issue(
         # the lease. They are not inputs to capture and must not spoil retries.
         from yoke_core.domain.machine_qa_golden_destination import (
             GOLDEN_BASELINE_PATH_KEY,
-            BROWSER_PROFILE_BASELINE_PATH_KEY,
         )
 
         settings.pop(GOLDEN_BASELINE_PATH_KEY, None)
-        settings.pop(BROWSER_PROFILE_BASELINE_PATH_KEY, None)
     from yoke_core.domain.machine_qa_execution_contract import public_case_snapshots
 
     return issue_execution_contract(
@@ -144,7 +141,6 @@ def _issue(
         baselines=list(baselines),
         cases=public_case_snapshots(conn, cases),
         golden_destination=golden_destination,
-        capture_component=capture_component,
         plan_execution_id=plan_execution_id,
         continues_execution_id=continues_execution_id,
         roster_digest=roster_digest,
@@ -164,7 +160,6 @@ def begin_host_control_execution(
     baselines: Sequence[str] = (),
     cases: Sequence[dict[str, Any]] = (),
     golden_destination: str | None = None,
-    capture_component: Literal["browser-profile"] | None = None,
     plan_execution_id: str | None = None,
     continues_execution_id: str | None = None,
     roster_digest: str | None = None,
@@ -210,7 +205,6 @@ def begin_host_control_execution(
         baselines=baselines,
         cases=cases,
         golden_destination=golden_destination,
-        capture_component=capture_component,
         selection_reason=admission.selection_reason,
         plan_execution_id=plan_execution_id,
         continues_execution_id=continues_execution_id,
@@ -277,7 +271,6 @@ def validate_host_control_submission(
     baselines: Sequence[str] = (),
     cases: Sequence[dict[str, Any]] = (),
     golden_destination: str | None = None,
-    capture_component: Literal["browser-profile"] | None = None,
     allow_recorded_replay: bool = False,
     plan_execution_id: str | None = None,
     continues_execution_id: str | None = None,
@@ -304,7 +297,6 @@ def validate_host_control_submission(
         baselines=baselines,
         cases=cases,
         golden_destination=golden_destination,
-        capture_component=capture_component,
         plan_execution_id=plan_execution_id,
         continues_execution_id=continues_execution_id,
         roster_digest=roster_digest,
