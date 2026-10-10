@@ -1,8 +1,187 @@
-> Orientation doc: describes the intended operating model and may lead the current implementation.
-
 # Yoke — Architecture Overview
 
-> **Field-note loop.** Yoke improves itself by capturing field-note signals from every agent — recipe gaps and minor bug observations alike. When a recipe is missing, wrong, or unclear, or an agent spots a small bug best held as a supporting record, they log it inline; `/yoke curate` clusters the signals and fixes the source. The directive block is the contract.
+This contributor orientation separates architecture intent from live authority.
+Read the current item, immutable workflow, registered command and harness
+manifest before relying on a capability or changing state.
+
+## Purpose and operating model
+
+Yoke provides a software-delivery operating layer: operators make decisions,
+agents execute assigned work, and Postgres retains claims, workflow state and
+linked QA/delivery evidence across session loss. It uses the same delivery
+system for its own development. Software delivery is its first proving ground
+for broader company operations: a shared clearinghouse for incoming work,
+participants, approvals, artifacts and outcomes.
+
+The Strategic Markdown Layer holds `MISSION` (purpose), `LANDSCAPE`
+(source-backed external research), `VISION` (chosen future and canonical visual),
+`MASTER-PLAN` (evolving strategy) and its current execution plan. These are
+`strategy_docs` rows; `.yoke/strategy/` contains gitignored rendered views.
+Operational facts below that boundary belong to typed database records.
+
+The main strategic paths are `/yoke steer` (staff work from strategy),
+`/yoke strategize` (guided research/synthesis), `/yoke feed` (frontier facts and
+materialization) and `/yoke charge` (rank and dispatch the active frontier).
+Their skill phase maps own checkpoints, staffing and execution; narrower item
+skills are downstream adapters. Read [frontier behavior](public/reference/charge-frontier.md).
+
+Workflows can mix deterministic services, bounded structured judgment and
+open-ended agent execution. Prefer the cheapest sufficient executor. Future
+operational expansion should preserve one causal record of intent,
+participants, decisions, evidence, overrides and effects rather than infer
+important actions after they happen or wrap every domain in a new registry.
+
+## Authority and workflow execution
+
+The connected Postgres authority is the source of truth. Use registered
+`yoke <subcommand>` operations and typed function calls; diagnostic SQL uses
+`yoke db read`. Never construct a DB file path or treat a linked worktree as a
+control plane. [Function authority](public/reference/db-reference/functions.md)
+defines envelope and permission/claim contracts.
+
+An item's immutable workflow/version pin owns stages, gates, policies, entry
+surfaces and half-open skill bindings. Inspect `yoke workflows item get PREFIX-N`
+and its named `yoke workflows version get WORKFLOW VERSION`. The live binding
+selects the skill; names or copied stage sequences do not. A skill autonomously
+executes its authorized segment with its declared human decisions, QA gates,
+retry bounds and handoffs. At a binding boundary enter the next skill freshly.
+[Lifecycle reference](public/reference/lifecycle.md) owns the transition contract.
+
+One item belongs to one deployment project. A contract consumed by another
+project requires linked companion work and exact-candidate consumer evidence.
+Project identity is an integer; slugs and public prefixes are display/context
+values. Items use stable integer `items.id` and project-local `project_sequence`
+for `PREFIX-N`; resolve the reference before using an item id or GitHub issue.
+
+The rendered item `body` is virtual, composed from structured fields and
+sections. Read `yoke items get PREFIX-N body`; use registered structured writes.
+Session checkpoints belong in Progress Log, not generated task-graph fields on
+a workflow with no children. `.yoke/BOARD.md` is a generated view; rebuild it
+explicitly with `yoke board rebuild` (`--print` / `--print-only`). Never edit it
+or rendered strategy views as authoritative content.
+
+## Project adoption and reusable capabilities
+
+Product adoption starts with `yoke setup`, project create/import/install and
+`/yoke onboard`. The phase owners survey strategy and actual execution posture,
+install Packs, verify hosting, register environments/flows, execute the gated
+first delivery and seed work with evidence. GitHub/CI/hosting settings and
+credentials use Yoke-owned previews and resolvers, not ad hoc bootstrap scripts.
+
+Reusable capability behavior ships in immutable versioned `packs/<slug>/`
+bundles with explicit files, dependencies, settings, docs and verification.
+Project-only behavior stays with the project. Installed Pack files belong to
+the project; its baseline permits a previewed three-way update. Configuration
+belongs to DB capabilities/settings or project-local policy, never Pack source.
+
+Project Structure declares architecture, areas/mappings, ownership/test roots,
+integration targets, context routing, hosting/verification posture and delivery
+defaults. Descriptive verification profiles do not execute a gate: immutable
+registered QA cases do. Explicit operator no-tests attestation is distinct from
+missing or failing tests. [Projects and flows](public/reference/db-reference/projects-and-flows.md)
+and [test setup](install-onboard-archetypes/test-setup.md) own details.
+
+Each project uses the same registry/capability machinery; a literal slug does
+not unlock special behavior. GitHub automation uses the verified App repository
+binding and short-lived tokens. `github_sync_mode=disabled` suppresses issue
+mirroring independently of connected merge/CI gates. Capability-owned secrets
+stay behind their resolvers; machine-local AWS/SSH material is not ambient shell
+authority. Broken authorization refuses with recovery; transient provider
+unavailability remains retryable. [GitHub connections](github-connections.md)
+and [GitHub sync](public/reference/github-sync.md) define these boundaries.
+
+## Harnesses and agent roles
+
+Yoke's state, approvals and workflow semantics are harness-neutral. Installed
+release manifests under `runtime/harness/{claude,codex,cursor}/manifest.json`
+define supported surfaces, identity, events, launch/wake primitives and explicit
+limitations. Supported paths derive from the shared registry plus the manifest;
+they are not caller self-reports. Native instructions and skills load through
+[discovery](public/reference/harness-discovery.md); the [bootstrap contract](harness-bootstrap.md)
+defines startup trust, identity and progressive command/packet discovery.
+
+Canonical bodies in `runtime/agents/` render through harness adapters; edit the
+canonical source, render, then sync the install bundle. Models, effort, tools,
+turn bounds and dispatch contracts come from the current role source, manifest
+and execution-level selection, not an overview's fixed table. See
+[harness substrate](harness-substrate.md), [adapter contract](harness-adapter-template.md)
+and [execution levels](public/reference/session-level-routing.md).
+
+| Role | Responsibility |
+|---|---|
+| Product Manager | Convert rough ideas into structured item specifications. |
+| Product Designer | Derive UX/UI specifications where the item needs design. |
+| Architect | Plan session-sized tasks, exact interfaces and lane assignments. |
+| Engineer | Implement assigned code, tests and documentation; commit changes. |
+| Tester | Verify implementation against artifacts without modifying code. |
+| QA Walker | Explore one declared mission, return findings or a precise human gate; main owns verdict. |
+| Simulator | Trace plan/integration paths across tasks and return gaps. |
+| Boss | Apply structured quality gates to specifications and plans. |
+
+Shepherd and Conduct are orchestration skills. Their current phase/dispatch
+contracts own staffing, gates, attempt ceilings and return boundaries. Claim the
+item before its survey, prepare/reuse its registered lane, and use the exact
+lane for reads, edits and tests. Scope, budget and physical path claims are
+independent. Resolve overlaps through coordination/dependencies; claims do not
+remove required scope. Exact interface contracts prevent integration gaps;
+session-sized tasks must fit their declared execution budget. See
+[lanes and claims](public/reference/agent-rules/lanes-and-claims.md).
+
+## Persistent evidence and delivery
+
+Items, epic tasks, universal `item_worktrees`, dispatch chains, QA requirements/
+runs/artifacts, progress notes, simulations, approvals, flows and concrete runs
+are linked durable facts. Task queues reference lane identity; branch/path facts
+belong to the lane. Reviews and simulation receipts live in QA records, not
+conversation claims. Native dispatch freshness and dependency reads govern
+execution. Registered commands return the facts needed at the boundary, with
+explicit full-depth reads when necessary.
+
+Verification runs through the project's declared binding and method: Command,
+Browser, inspection or mission. Record real pass/fail/pending/waived evidence,
+not inferred success. Local checks are bounded iterations; attached immutable
+QA is the complete execution. Exact-candidate evidence must survive later
+changes or be rerun. [QA](public/qa.md) and
+[verification rules](public/reference/agent-rules/verification.md) own admission,
+CI continuation and failure responsibility.
+
+Merge and delivery remain separate. Queue-declared projects use their protected
+merge-group gate. A push is not release authority. Hold `DEPLOY:<project>` before
+creating/executing a concrete run; flows are immutable referenced definitions,
+run ids are executions, and the hosted flow owns exact commits/artifacts,
+environment proof and promotion. Retain history when disabling definitions.
+Project migration models govern data transforms: permanent ordered entries,
+restore points, item rehearsal and all-live-fleet release evidence; boot converges
+and applies fail-hard. [Delivery rules](public/reference/agent-rules/delivery.md),
+[database rules](public/reference/agent-rules/databases.md) and
+[fleet rehearsal](public/reference/db-reference/migration-model-fleet.md) own
+operation depth.
+
+## Hooks, telemetry and learning
+
+Harness-native hooks enter through Python-owned `yoke hook evaluate <event>`.
+Client-local guards and serving policies compose with any deny winning; hooks
+do not substitute for lifecycle/claim authority. See [hooks](hooks.md) for exact
+transport, deadline, orientation, trust, timing and message-settlement contracts,
+and [parity](hook-parity-map.md) before assuming equivalent native events.
+
+The unified `events` ledger records structured tool/session/workflow/audit facts
+with registry ownership and severity gating. Context identities and emitter
+source are separate from semantic `event_kind`. Use [event contract](event-contract.md),
+[event catalog](event-catalog.md), [logging standard](structured-logging-standard.md)
+and [isolation rules](event-contract/isolation-and-querying.md). Test capture or
+explicit test authority prevents live-ledger contamination; legitimate smoke
+lineage is retained. Telemetry availability, missing observations and timing
+coverage never decide operational correctness or prove zero activity.
+
+Ouroboros turns observations into durable learning: field notes and role
+reflection feed `ouroboros_entries`; `/yoke curate` clusters/promotes/file work;
+`/yoke doctor` checks declared applicability and reports pass, fail or N/A with
+reason; `/yoke simulate --system` checks source-wide consistency behind its
+source-checkout guard. Project-local checks under `.yoke/doctor/` join the same
+report. Reflection blocks use their role contract and capture owner rather
+than an invented logging format. Source simulation depth is
+[source-dev/system-simulation.md](source-dev/system-simulation.md).
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -10,231 +189,24 @@ yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evide
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
-## What Yoke Is
+## Repository boundaries
 
-Yoke is becoming the operating core of an agentic company. The first type of company it is optimized to run is a company that delivers software products, and the first capability it owns is the software delivery lifecycle itself. In the current repo, that shows up as an attachable software-delivery operating layer: you make the key decisions, specialized AI subagents do the work, Postgres-backed state survives anything, Git worktrees enable parallel execution without conflicts, and QA/deployment evidence stays tied to the work. Yoke dogfoods its own infrastructure using the same pipeline it provides.
+| Path | Owner/purpose |
+|---|---|
+| `packages/yoke-core/` | Domain, API, DB, engines and contributor tools. |
+| `packages/yoke-cli/` | Installed CLI, typed adapters and transport. |
+| `packages/yoke-contracts/` | Shared interface, event and policy contracts. |
+| `packages/yoke-harness/` | Installable hook and browser support. |
+| `runtime/agents/`, `runtime/harness/` | Canonical roles, manifests and rendered adapters. |
+| `runtime/api/`, `runtime/browser_runtime/`, `tests/` | API/browser/boundary verification. |
+| `.agents/skills/yoke/` | Canonical situational skill knowledge. |
+| `packs/` | Immutable reusable capability bundles. |
+| `packaging/` | Pre-runtime installer and distribution metadata. |
+| `docs/`, `.yoke/` | Public/source references and project policy/generated views. |
+| `.github/workflows/` | CI and hosted release execution. |
 
-This first wedge is larger than it sounds. In a software product company, the software roadmap is often the company roadmap wearing a different name. Releases, bugs, quality decisions, and delivery cadence shape the business's real operating rhythm. That is why software delivery is the right first proving ground for Yoke rather than an arbitrary starting point.
-
-Another framing: Yoke is trying to become a wish engine for company operations. Software delivery is the first proving ground.
-
-At the Strategic Markdown Layer (SML), Yoke should keep `MISSION` for the one-line purpose statement, `LANDSCAPE` for source-backed external research and candidate imports, `VISION` for the chosen high-level future state and canonical visual, and `MASTER-PLAN` for the detailed evolving strategy. These SML docs live in the per-project `strategy_docs` DB table; `.yoke/strategy/*.md` are gitignored local views rendered from those rows. `Strategize` should first update the landscape, then selectively fold it into the vision and master plan, then shape the frontier until `feed` is coherent. Below that boundary, operational truth belongs in the database.
-
-That suggests a product shape: operators should eventually launch workflows, not just commands. A workflow is an end-to-end execution path with ordered stages, gates, evidence, and a defined end state.
-
-In practice, the near-term control surface should settle around four paths:
-
-- `/yoke steer` for staffing work from strategy
-- `/yoke strategize` for guided Strategic Markdown Layer research and synthesis
-- `/yoke feed` for maintaining frontier dependency facts and materializing strategy into ideas
-- `/yoke charge` for moving the active frontier forward (see [charge-frontier.md](../.yoke/docs/reference/charge-frontier.md) for algorithm details)
-
-Direct item commands such as `idea`, `shepherd`, `conduct`, and `usher` still matter, but as narrower downstream delivery adapters inside that control surface rather than as separate architectural centers.
-
-Today that system is harness-neutral at the control-plane boundary: Yoke owns the state, approvals, evidence, and workflow logic, while reusable skill knowledge becomes portable across multiple agent environments. The [Harness Bootstrap Contract](harness-bootstrap.md) defines the neutral entry point for any harness -- startup reads, command classification (operator commands vs internal sub-skills vs raw scripts), repo-local skill discovery, and session identity expectations. Harness-specific adapters load this contract through thin wrappers, hooks, or native skill loaders, but the contract itself is Yoke-owned and harness-independent. The [Harness Adapter Template](harness-adapter-template.md) defines the five required parts every adapter must implement: bootstrap loader, capability manifest, session registration adapter, route wrapper, and smoke-test matrix. The [Hook Parity Map](hook-parity-map.md) classifies every hook by its availability tier across harnesses.
-
-Cross-harness parity is now the operating model rather than a future direction. The Codex adapter (`runtime/harness/codex/`) covers the full Tier 1 operator surface listed in [`harness-bootstrap.md`](harness-bootstrap.md) §2 — including `/yoke conduct`. The shared Yoke registry supplies the entrypoints (`/yoke idea`, `/yoke refine`, `/yoke implement`, `/yoke conduct`, `/yoke polish`, `/yoke usher`) and downstream paths (`shepherd`, `refine`, `implement`, `dash`, `blitz`, `polish`, `usher`); `runtime/harness/codex/manifest.json` declares identity, affordances, and explicit limitations rather than copying those lists. Codex sessions can file ideas, execute assigned work, refine artifacts, drive epic conduct through the shared dispatch descriptor module that emits one task envelope per agent for both harnesses, open the issue implementation worktree via `/yoke implement YOK-N`, finish implementations in that worktree, and perform explicit merge/deploy handoff through the top-level usher flow. The eight canonical agent bodies live at `runtime/agents/{agent}.md`; the substrate renderer fans them into `runtime/harness/claude/agents/yoke-*.md` for Claude and `runtime/harness/codex/agents/yoke-*.toml` for Codex, surfaced at `.claude/agents/` and `.codex/agents/` respectively, so the same prompt body ships to both harnesses. Codex also reads the canonical `.agents/skills/yoke` tree as repo-local skills, using the same `SKILL.md` frontmatter Claude reads. Hook-enhanced mode requires Codex >= 0.128.0-alpha.1; Yoke keeps the canonical hook pack at `runtime/harness/codex/hooks.json`, surfaced to Codex via `.codex/hooks.json`, and Codex Desktop opens the repo directly with `codex app <repo>`. When unavailable, the adapter falls back to wrapper-only mode where all correctness comes from Yoke core. The remaining named substrate gap is hook-edge: Codex has no `PostToolUseFailure` event for non-Bash tools, so Write/Edit/Read failures lack the dedicated event Claude emits — see [`hook-parity-map.md`](hook-parity-map.md) for the full tier breakdown. Session registration and claim lifecycle events come from Yoke core. Yoke core derives each harness's `supported_paths` server-side from the shared registry plus manifest-declared limitations; harnesses do not self-report capabilities via `YOKE_SUPPORTED_PATHS`. The universal-source + per-harness-renderer model is documented in [`harness-substrate.md`](harness-substrate.md).
-
-Long term it should also become multi-actor. Some people may launch or steer workflows from an attached harness, some may work mainly in a web approval surface, and some may contribute design or planning artifacts. Yoke should treat those as multiple actors collaborating through one shared workflow/evidence system.
-
-That also means Yoke should become a real clearinghouse. Work may come from many channels and not all of it should become an item immediately. Yoke should classify and route incoming work into the right lane, and everything important should become a typed, traceable record even when it is not a backlog item.
-
-The useful metaphor is organizational, not purely technical: Yoke becomes the company's front desk, main phone line, and mail room. Things arrive. They are identified. They are turned into the right kind of record. They are routed to the right lane and the right participant. Then the deeper workflow begins.
-
-## The Pipeline
-
-```
-Steering loop:
- /yoke steer -> read strategy and frontier -> launch item-bound workers -> review results
-
-Explicit strategic and frontier modes:
- /yoke strategize -> refresh state -> research -> propose SML changes -> approve -> finalize (6 operator checkpoints)
- /yoke feed -> gather context -> decide -> reconcile dependency graph -> optionally materialize new ideas -> summarize
- /yoke charge -> advance the active frontier -> route into delivery adapters
-
-Downstream delivery adapters:
- idea -> shepherd -> charge lane -> usher
- (batch coordination is available when genuinely helpful)
-```
-
-You drive every phase transition. No phase auto-advances.
-
-## Execution Ladder
-
-Yoke should prefer the cheapest sufficient executor for each step:
-
-- `D` — deterministic service / worker logic
-- `J` — bounded LLM judgment with structured outputs
-- `A` — full agentic execution with tools and iterative repo work
-
-That means a workflow is not "one big agent session." It is an execution path whose stages can mix deterministic control-plane steps, bounded judgment calls, and only the genuinely open-ended agentic work.
-
-## Multi-Actor Shape
-
-The future product is not just "the operator dashboard." It is a shared clearinghouse with different participant types:
-
-- workflow operators in an attached harness
-- approvers and viewers in the website
-- designers and planners contributing artifacts and decisions
-- agents and workers executing bounded workflow stages
-
-That means the control plane should eventually support teams, roles, permissions, workflow participants, approvals, artifact ownership, and audit trails as first-class concepts.
-
-## Execution Ledger And Overrides
-
-Under the workflows themselves, Yoke should maintain an execution ledger: one canonical record of intent, participants, state transitions, evidence, decisions, overrides, and outcomes.
-
-In practice, that ledger should come from richly linked facts and derived traces rather than from forcing one giant wrapper around all work. Items often provide the main wrapper already; other explicit wrappers should appear only where the domain truly needs them.
-
-That matters because the system should preserve causal truth. Yoke should be able to answer:
-
-- what happened
-- why it happened
-- who did it
-- what evidence supports it
-- what is allowed to happen next
-
-When work happens outside the standard execution path, the answer should not be "the framework kind of inferred it later." It should be an explicit manual override record with the actor, reason, evidence, and state effects attached.
-
-**Project adoption prerequisite:** New projects must be installed and adopted before the Usher can operate. The product path is `yoke setup`, then `yoke project create` / `yoke project import` / `yoke onboard project` or `yoke project install`, followed by the `/yoke onboard` harness skill to fill strategy docs, confirm the execution profile, install Packs, verify hosting, register environments and flows, run the gated first deploy, and seed first work with checklist evidence. GitHub labels, Actions variables/secrets, branch protection, environment protection, and project capability secrets are previewed and configured through Yoke surfaces, not ad-hoc bootstrap scripts.
-
-## The Eight Agents + Orchestration Skills
-
-| Agent | Model | Role | Key Constraint |
-|---|---|---|---|
-| Product Manager | opus | Rough idea → structured spec (in item body) | Read-only, no user interaction (subagent) |
-| Product Designer | opus | Spec → UX/UI spec | Read-only, optional phase |
-| Architect | opus | Spec → epic + tasks + worktree plan | Read-only + Bash for exploration |
-| Engineer | opus | Implements task: code, tests, docs | Full tools, `bypassPermissions`, 300 turns |
-| Tester | opus | Validates against spec, runs project-aware tests, traces paths, E2E against ephemeral URLs | Cannot modify code (3-layer enforcement) |
-| QA Walker | opus | Explores one prose mission across declared substrates and returns ranked findings | Atomic turn; no final verdict; human gates return to the main agent |
-| Simulator | opus | Epic-level cross-task gap detection | Read-only (3-layer enforcement), optional |
-| Boss | opus | Multi-perspective quality gate for specs, PRDs, and plans | Read-only + Bash, 300 turns |
-
-> **Note:** Shepherd and Conduct orchestration runs inline via their respective SKILL.md files. They are skills/roles, not agents.
-
-## File Layout
-
-```
-# Repo root — product packages, harness adapters, Packs, and verification
-AGENTS.md                     # Project-wide operating and coding rules
-packages/
-├── yoke-core/                # Domain, API, DB, engines, and source-dev tools
-├── yoke-cli/                 # Installed `yoke` command and transport adapters
-├── yoke-contracts/           # Shared event, lint, and interface contracts
-└── yoke-harness/             # Installable hooks and browser-runtime support
-runtime/
-├── agents/                   # Canonical agent bodies and harness manifests
-├── harness/
-│   ├── claude/               # Rendered Claude agents, rules, and settings
-│   ├── codex/                # Rendered Codex agents and hook configuration
-│   └── hook_runner/           # Shared hook execution runtime
-├── browser_runtime/          # Browser worker source and tests
-└── api/                      # Integration, compatibility, and API test suites
-.agents/skills/yoke/          # Canonical Yoke skill tree
-.claude/                      # Symlinks into Claude runtime output and skills
-.codex/                       # Symlinks into Codex runtime output
-packs/                        # Focused, immutable capability bundles
-├── webapp-scaffold/          # Generic application starting point
-├── production-deploy/        # Independently updateable delivery capability
-└── ...                       # Infrastructure, runtime, events, and testing Packs
-packaging/
-├── public-installer/         # Pre-runtime public installer boundary
-└── package-index/            # Distribution channel metadata and schemas
-docs/                         # Architecture, contracts, runbooks, and archives
-ouroboros/                    # Learning log and recurring-pattern records
-tests/                        # Import-graph and installer boundary tests
-.yoke/                        # Tracked repo policy, runbooks, and generated-view config
-.github/workflows/            # CI, release, and deployment workflows
-```
-
-## Backlog Registry
-
-Every item — Dash, Blitz, Task, Issue, Epic — gets a stable global integer `items.id` and
-a stable public reference formed from the owning project's item prefix plus
-the item's `project_sequence` (for example, `EXAMPLE-42`). The connected Postgres
-authority (`items` table) is the source of truth for all registry data. Item
-body content is read via `items get YOK-N body` (a virtual rendered field
-assembled on demand from structured fields). The auto-generated board in
-`.yoke/BOARD.md` shows all registry items grouped by status.
-
-- **`/yoke idea {title}`** — Create a new item and assign the next `YOK-N` ID.
-- **`yoke items list`** — List items with optional filters.
-- **`yoke items get YOK-N body`** — Render the authoritative item body from structured fields.
-- **`yoke <subcommand>`** — Registered command surface for items, workflow items, projects, events, QA, claims, and other function-backed operations.
-- **`yoke board rebuild`** — Canonical board rebuild/terminal render entrypoint for `.yoke/BOARD.md`; add `--print` to print after writing or `--print-only` to render without writing.
-- **Board preview helpers** — Source-dev/admin helpers for board art/widgets; see the Atlas before teaching a command-shaped recipe.
-
-## Key Design Decisions
-
-1. **Persistent state is the source of truth.** Not conversation memory. Operational state lives in the connected Postgres authority: backlog items and their structured design specifications, epic tasks, dispatch chains, QA requirements/runs/artifacts, progress notes, simulations, deployment flows, deployment runs, structured events, severity config, and ouroboros entries. Item body content is a virtual rendered field (read via `yoke items get YOK-N body`). DB access goes through registered `yoke ...` commands or the function-call surface, not through per-item markdown files or constructed file paths. A fresh session can pick up where the last left off.
-
-2. **Session-aware decomposition.** Tasks are sized to fit in a single harness session. XL (>100k tokens) is never allowed. The Architect splits further if needed.
-
-3. **Interface contracts.** Each task declares what it provides (exports) and expects (imports) with exact types and signatures. This prevents cross-task failures.
-
-4. **Worktree independence.** Tasks in different worktrees cannot modify the same files. Verified by shell script during sync. Cross-session merge coordination via DB-based locking (`merge_locks` table) prevents concurrent merge operations from colliding when multiple Conduct sessions run in parallel.
-
-5. **Multi-project isolation.** Yoke enforces strict project isolation. Every item is scoped to a project through the integer `items.project_id` field. Project and deployment flow are both set at creation time via `/yoke idea` (which prompts for project selection and deployment flow). An item's project determines which deployment flows are available; cross-project flow assignment is rejected. GitHub sync targets the correct repo per project, and each project carries a sync switch — `projects.github_sync_mode='disabled'` keeps a project's backlog DB-only, with every issue-sync surface skipping it (see `.yoke/docs/reference/github-sync.md`). The Python sync layer resolves repo and credentials per project through `yoke_core.domain.project_github_auth.resolve_project_github_auth`. Every registered project follows the same GitHub contract: the verified GitHub App repo binding is the sole outbound repository authority and mints short-lived bearer tokens for REST callers. `aws-admin` secrets and `ssh.private_key` are machine-local under `~/.yoke/secrets/capability-secrets/<project>/<capability>/`. No fallback to ambient host credentials. No env-var fallback chain. Broken project auth fails closed with a concrete repair command from `repair_command_hint`; GitHub itself failing during the token mint is the retryable `github_unavailable`, never a credentials repair. Doctor `HC-wrong-repo-issues` validates GitHub issues exist in the correct repo per project. Local board rendering uses the machine config's env-scoped checkout-to-project list only to resolve the correct universe and project id; board appearance and scope come from that project's DB-backed `project-policy.settings.board`, while `.yoke/board-art` remains the checkout-local presentation source. Sprints are per-project: each project can have one active sprint simultaneously, enforced by a partial unique index. Tracks inherit project from their parent sprint. `yoke_core.engines.done_transition` resolves the item's project repo when looking for branches to merge. Doctor health checks validate project FK integrity, NULL-project violations (`HC-null-project-items`), item-flow project mismatches (`HC-invalid-item-flows`), cross-project sprint integrity (`HC-cross-project-sprint`, `HC-sprint-project-alignment`), and wrong-repo GitHub issues (`HC-wrong-repo-issues`).
-
-6. **Hooks are deterministic.** Status updates, progress syncing, and cleanup run through Python hook entrypoints wired to each harness's hook events — not by LLM judgment. See `docs/hooks.md`.
-
-7. **Self-discovering hooks.** Hooks use the harness-provided project root and the `epic_dispatch_chains` DB table to find the active task. No custom env vars are required for correctness.
-
-8. **Unified Event Platform.** The `events` table is the single temporal log for system activity: tool calls, session lifecycle, status transitions, sync operations, conduct milestones, verdicts, and more. On the harness side, the observe hook emits `HarnessToolCallStarted`, `HarnessToolCallCompleted`, `HarnessToolCallFailed`, `HarnessToolCallStructuredExit`, and `HarnessLifecycleMutationDetected`, and the Yoke-owned PreToolUse lint deniers (`lint_db_cmd`, `lint_event_registry`, `lint_main_commit`, `lint_tc_label`, `lint_write_path`) emit `HarnessToolCallDenied` via the shared `emit_denial_event` helper in `yoke_core.hooks.telemetry`. Every denial names its registered check id in both the rendered recovery and audit detail. DB-command branches retain `lint-sqlite-cmd` as their compatibility id, while embedded condition-specific guards use their own ids. Anomalies are stored on the primary tool-call row via `anomaly_flags`, not as a separate runtime event. Events follow a cross-stack structured logging standard (documented in `docs/structured-logging-standard.md`) with a canonical JSON envelope, property groups, and source-type composition. The event contract (`docs/event-contract.md`) defines the canonical envelope structure, naming conventions, execution context fields, and reserved patterns for downstream epics (DR-1, QA-1). `event_kind` is the semantic class of the event (`analytics`, `system`, `audit`, `security`, `metric`, `lifecycle`, `workflow`); emitter/source identity belongs in `source_type`, `service`, and registry ownership metadata. `yoke events ...` is the read/anomaly query surface. `yoke_core.domain.events.emit_event` is the universal emitter with session ID fallback, write-side severity gating, durable-by-default caller-connection writes, and explicit transactional emission; `YOKE_EVENTS_CAPTURE` mode enables test harness integration. **Event Registry Governance:** The `event_registry` table provides a central catalog of known event types with ownership, lifecycle status, and severity defaults. The pre-tool-use guardrail enforces registration for emit call sites, and the registry population helper maintains the catalog plus corrective metadata for runtime-owned events. Doctor health checks (`HC-event-registry-coverage`, `HC-event-family-liveness`, `HC-event-callsite-registry-sync`) audit registry completeness, compare durable activity with expected event families, and check call site synchronization without making product behavior depend on telemetry.
-
-9. **Ouroboros — Self-Improvement.** The system that eats its own tail, continuously learning and improving. Yoke manages its own development — it should also learn from itself. Four pillars:
- - **Agent Reflection:** Every agent answers 4 reflection questions at session end. Observations are captured automatically by the PostToolUse Agent-tool hook (`packages/yoke-core/src/yoke_core/domain/reflection_capture_hook.py`) from `---REFLECTION-START---` blocks and persisted to the `ouroboros_entries` table.
- - **System-Wide Simulation:** `/yoke simulate --system` audits all agents, commands, scripts, rules, and docs for internal consistency drift.
- - **Health Checks:** `/yoke doctor` runs deterministic checks across the entire installation — backlog, GitHub, worktrees, docs, dispatch chains, agents, hooks, schema validation, semantic drift, orphaned stashes, stale sessions, GitHub state sync, size/bloat monitoring, backlog quality, GitHub orphan detection, bidirectional sync, session startup hook, documentation health audit, DB schema drift detection, event registry coverage, event emission rate, event call site registry sync. Which checks run is derived rather than fixed: every check declares its project scope, source-tree dependence, supported runtimes, and required capabilities, and the runner resolves the applicable set for the target project and runtime — reporting anything outside it as not applicable, with the reason, instead of as a pass. A project's own checks live in its `.yoke/doctor/` folder and join the same report.
- - **Learning Curation:** `/yoke curate` clusters agent observations, files work items, archives old entries, and promotes recurring patterns to rules or code changes.
-
- The feedback loop: agents observe friction and ideas → log → curate clusters and work items → doctor catches drift → fixes improve the system → agents observe better. Ouroboros is a headline feature — it's what makes Yoke compound its own intelligence over time.
-
-## State Management
-
-- **Backlog items:** The `items` table in the connected Postgres authority is the source of truth for all backlog item data (see your `items` packet stanza for the structured-field column list). All CRUD operations write to the DB; the rendered body is a virtual field — read via `items get YOK-N body`, which renders on demand from the stored structured fields. Content flows through structured field writes, which trigger GitHub sync.
-- **Item status flow:** Every item is governed by its pinned immutable workflow
-  version. Dash runs `idea` → `implementing` →
-  `reviewing-implementation` → `done`; Blitz adds idea refinement and then
-  closes directly through its continuous-slice executor, with `done`
-  archiving the linked execution document while preserving its row and
-  revision history. Task is the floor subset: `idea` → `implementing` →
-  `done`, with no git lane and a no-SHA close-out. Issue uses the full
-  review, polish, and release path. Epic adds `planning` /
-  `plan-drafted` / `refining-plan` / `planned` before that implementation
-  and delivery path.
-- **Epic tasks:** `epic_tasks` table — one row per task, keyed by `(epic_id, task_num)`. Status, body, GitHub issue, universal `item_worktree_id` lane, dependencies, and dispatch attempts are tracked in DB.
-- **Dispatch chains:** `epic_dispatch_chains` table — ordered task queue per universal `item_worktree_id` lane, with current index and attempt tracking. Branch and path facts live only on `item_worktrees`.
-- **Task history:** `events` rows with `event_type='task_status_change'` — epic task status transition log with timestamps and envelope detail.
-- **Reviews:** Stored in `qa_requirements` + `qa_runs` with `qa_kind='implementation_review'`; epic task helpers use `yoke workflow-item epic-task review-insert ... --body-file <path>` (stdin fallback supported) and `yoke workflow-item epic-task review-get`.
-- **Progress notes:** `epic_progress_notes` table — per-task progress with GitHub sync tracking.
-- **Simulations:** Stored in `qa_runs` table via `yoke workflow-item epic-task simulation-upsert` — plan and integration phase simulation reports.
-- **Events:** `events` table — structured telemetry events (tool calls, session lifecycle, anomalies). Keyed by `event_id` (UUID, idempotent insert/upsert for deduplication). Filterable by `source_type`, `session_id`, `event_name`, `tool_name`, `project` through `yoke events query`; write-side severity gating uses the `severity_config` table.
-- **Projects:** `projects` table — registered project repos with identity and repo metadata (see your `projects` packet stanza for the column list). Deployment-flow defaults and context routing live in Project Structure; executable project verification lives in immutable QA plans attached at workflow transitions. Supporting tables: `sites`, `environments`, `project_capabilities`, `capability_templates`. Items reference the integer project authority through `items.project_id`; `projects.slug` is a resolved display and command-context value, not the foreign key.
-- **Project Structure aggregate:** `project_structure` table — the unversioned declaration of project-wide structure (`architecture_model`, `areas`, `context_routing`, `deploy_defaults`, `hosting_posture`, `integration_targets`, `mappings`, `ownership_defaults`, `test_roots`, `verification_posture`, and `verification_profiles`). There are no placeholder or named-only family slots. Public mutations route through `yoke project-structure patch apply`.
-- **Board:** `.yoke/BOARD.md` — project-local generated board between `<!-- YOKE:BOARD:START/END -->` markers with sections for Active, Pipeline, Backlog, Freezer, and Done. Rendered by the Python board renderer (`yoke_core.board`) via the public backlog surface. Header features dynamic emoji pixel art from `.yoke/board-art`: progress bar or random standalone art variant / rainbow fill, plus a stats box with 10-cell proportional meters. All counts use **task-expanded counting** (epics with tasks expand to N units). Below the art header, **dashboard rows** display a 14-day touched-units sparkline, an optional 90-day meter (activity, code lines, issues done, strategy lines), WIP gauge, weather indicator, type badges, age heatmap, and achievement badges.
-
-## Execution Loop
-
-### Single-Item Loop (conduct)
-
-Standalone single-item execution (`/yoke conduct YOK-N`) uses the same Engineer→Tester loop per item:
-
-1. Load task, resolve worktree path from dispatch chain
-2. **Simulation gap gate** (first epic dispatch only): check plan-phase simulation for unresolved CRITICAL gaps. Blocks dispatch unless `--force`/`--ignore-gaps` is passed. Epics without simulations pass silently.
-3. Verify dependencies met (`item_dependencies` hard-blocks + epic task dependencies) + interface contracts available
-4. Ensure the item is in a conduct-owned executable state (`planned` / `implementing` for issues, dispatch-ready for epic tasks)
-5. Invoke Engineer (implements, tests, docs, commits)
-6. Invoke Tester (validates against spec, path-traces, runs project test commands and E2E against ephemeral URLs when available) — diffs exceeding 300 lines are externalized to temp files with `--stat` summaries
-7. If PASS → status → `reviewed-implementation`, ready for `/yoke polish`
-8. If FAIL (< max attempts) → feed Tester report to new Engineer
-9. If FAIL (>= max) → status → `failed`, escalate to operator
-
-Auto-chaining persists to DB. Survives crashes, compaction, tab closes. Continuation markers at every subagent return boundary prevent the conduct from stalling between steps 5-6 and 6-7.
-
-## Code Conventions
-
-- Literal zero shell. All launchers, hooks, helpers, installers, and test runners live behind `yoke <subcommand>` adapters or packaged Python entrypoints. Shell is permitted only for project test commands, grep/discovery, git inspection, and diff/screenshot temp files. See `AGENTS.md` for the full contract.
-- JSON: `yoke_core.domain.json_helper`. YAML: `yoke_core.domain.yaml_helper`.
-- Backlog reads and writes: registered `yoke ...` commands or function-call surfaces (never direct database-client calls, never hardcoded DB paths).
+Project code conventions and naming come from `AGENTS.md` and its operation
+homes. Stateful launchers/helpers are Python-owned; Git/external tooling remains
+command-shaped. JSON/YAML helpers live in `yoke_core.domain.json_helper` and
+`yaml_helper`. Read the [source-dev doctrine](source-dev-doctrine.md) before
+source verification, render, release, preflight or cleanup.
