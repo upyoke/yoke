@@ -9,6 +9,11 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceContractError,
 )
+from runtime.api.tools.session_control_live_acceptance_reporting import (
+    attempt_summary as _attempt_summary,
+    receipt_clocks,
+)
+from yoke_contracts.timestamps import InvalidInstant, format_instant
 from yoke_contracts.session_control.wake_delivery import (
     WAKE_ATTEMPT_SUCCESS_RESULTS,
     wake_attempt_unsettled,
@@ -61,20 +66,6 @@ def receipt_count(value: Any, *, surface: str) -> int:
     return count
 
 
-def _attempt_summary(attempt: dict[str, Any]) -> dict[str, Any]:
-    keys = (
-        "attempt_id",
-        "attempt_kind",
-        "result_code",
-        "started_at",
-        "completed_at",
-    )
-    return {
-        key: value if isinstance((value := attempt.get(key)), str) else None
-        for key in keys
-    }
-
-
 def _require_attempt_metadata(
     attempt: dict[str, Any],
     *,
@@ -83,7 +74,6 @@ def _require_attempt_metadata(
 ) -> None:
     required = (
         attempt.get("attempt_id"),
-        attempt.get("started_at"),
         attempt.get("adapter_revision"),
         attempt.get("result_code"),
     )
@@ -91,11 +81,15 @@ def _require_attempt_metadata(
         raise AcceptanceContractError(
             "wake_attempt_settlement_invalid", surface=surface
         )
-    completed = attempt.get("completed_at")
-    if completed_required and not (isinstance(completed, str) and completed.strip()):
+    try:
+        format_instant(attempt.get("started_at"))
+        completed = attempt.get("completed_at")
+        if completed_required or completed is not None:
+            format_instant(completed)
+    except InvalidInstant as exc:
         raise AcceptanceContractError(
             "wake_attempt_settlement_invalid", surface=surface
-        )
+        ) from exc
 
 
 def _unsupported_wake_evidence(
@@ -228,7 +222,9 @@ def native_wake_evidence(
     }
 
 
-def _body_free_receipt_evidence(observed: dict[str, Any]) -> dict[str, Any]:
+def _body_free_receipt_evidence(
+    observed: dict[str, Any], *, surface: str
+) -> dict[str, Any]:
     evidence = {
         key: observed.get(key)
         for key in (
@@ -236,10 +232,9 @@ def _body_free_receipt_evidence(observed: dict[str, Any]) -> dict[str, Any]:
             "state",
             "injection_count",
             "wake_attempt_count",
-            "acknowledged_at",
-            "last_wake_at",
         )
     }
+    evidence.update(receipt_clocks(observed, surface=surface))
     raw_attempts = observed.get("attempt_evidence")
     if isinstance(raw_attempts, dict):
         attempts = raw_attempts.get("attempts")
@@ -264,7 +259,7 @@ def _receipt_failure(
     return AcceptanceContractError(
         code,
         surface=cell.surface,
-        evidence=_body_free_receipt_evidence(observed),
+        evidence=_body_free_receipt_evidence(observed, surface=cell.surface),
     )
 
 
