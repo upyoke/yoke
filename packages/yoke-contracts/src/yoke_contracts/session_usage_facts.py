@@ -34,7 +34,12 @@ figure that is right.
 from __future__ import annotations
 
 from datetime import datetime
-from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
+from yoke_contracts.timestamps import (
+    InvalidInstant,
+    as_utc,
+    format_instant,
+    parse_instant,
+)
 
 import json
 from dataclasses import dataclass, replace
@@ -109,7 +114,7 @@ class SessionUsage:
 
     def __post_init__(self) -> None:
         if self.observed_at is not None:
-            object.__setattr__(self, "observed_at", parse_instant(self.observed_at))
+            object.__setattr__(self, "observed_at", as_utc(self.observed_at))
 
     def billable_tokens(self) -> int:
         return sum(entry.billable_tokens() for entry in self.models)

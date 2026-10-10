@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.machine_config import machine_capacity as capacity_module
 from yoke_contracts.machine_config.machine_capacity import (
     CAP_SOURCE_DERIVED,
@@ -38,13 +39,15 @@ def test_the_reading_names_where_its_cap_came_from(monkeypatch) -> None:
     monkeypatch.setattr(capacity_module, "load_average_1m", lambda: 31.2)
     monkeypatch.setattr(capacity_module, "core_count", lambda: 18)
 
-    derived = observe_machine_capacity({}, observed_at="2026-09-03T20:00:00Z")
+    derived = observe_machine_capacity(
+        {}, observed_at=parse_instant("2026-09-03T20:00:00Z")
+    )
     assert (derived.max_worker_lanes, derived.cap_source) == (72, CAP_SOURCE_DERIVED)
     assert derived.to_dict()["free_memory_bytes"] == 44 * 1024**2
     assert derived.to_dict()["core_count"] == 18
 
     configured = observe_machine_capacity(
-        {"max_worker_lanes": "12"}, observed_at="2026-09-03T20:00:00Z"
+        {"max_worker_lanes": "12"}, observed_at=parse_instant("2026-09-03T20:00:00Z")
     )
     assert (configured.max_worker_lanes, configured.cap_source) == (
         12,
@@ -52,7 +55,9 @@ def test_the_reading_names_where_its_cap_came_from(monkeypatch) -> None:
     )
 
     monkeypatch.setattr(capacity_module, "total_memory_bytes", lambda: None)
-    unknown = observe_machine_capacity({}, observed_at="2026-09-03T20:00:00Z")
+    unknown = observe_machine_capacity(
+        {}, observed_at=parse_instant("2026-09-03T20:00:00Z")
+    )
     assert unknown.max_worker_lanes is None
     assert unknown.cap_source == CAP_SOURCE_UNREADABLE
 

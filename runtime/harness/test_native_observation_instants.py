@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -15,7 +15,7 @@ from yoke_contracts.session_usage_facts import (
     usage_document,
     usage_from_document,
 )
-from yoke_contracts.timestamps import InvalidInstant, parse_instant
+from yoke_contracts.timestamps import InvalidInstant, format_instant, parse_instant
 from yoke_core.domain.session_usage_observation import record_session_usage
 from yoke_harness import session_relay_native_supervisor as supervisor
 from yoke_harness.session_relay_native_capture_format import (
@@ -113,15 +113,22 @@ def test_silence_uses_the_capture_clock_with_exact_elapsed_boundaries(tmp_path):
     assert _silent_for_seconds(record, now=lambda: 999.0) is None
 
 
-def test_session_usage_is_native_inside_and_canonical_at_its_json_boundary():
+@pytest.mark.parametrize("microsecond", [0, 123456])
+@pytest.mark.parametrize("offset", [0, 330, -240])
+def test_session_usage_is_native_inside_and_canonical_at_its_json_boundary(
+    microsecond, offset
+):
+    expected = parse_instant(CANONICAL).replace(microsecond=microsecond)
+    supplied = expected.astimezone(timezone(timedelta(minutes=offset)))
     usage = SessionUsage(
         status=USAGE_COMPLETE,
-        observed_at=QUALIFIED,
+        observed_at=supplied,
         models=(ModelUsage(model="2026-09-03", input=7),),
     )
-    assert usage.observed_at == parse_instant(CANONICAL)
+    assert usage.observed_at == expected
+    assert usage.observed_at.tzinfo is timezone.utc
     document = json.loads(usage_document(usage))
-    assert document["observed_at"] == CANONICAL
+    assert document["observed_at"] == format_instant(expected)
     assert document["models"][0]["model"] == "2026-09-03"
     assert usage_from_document(document) == usage
     assert json.loads(usage_document(SessionUsage()))["observed_at"] is None
@@ -146,16 +153,23 @@ def test_usage_clock_refusal_precedes_any_sql(bad):
     )
 
 
+@pytest.mark.parametrize("microsecond", [0, 123456])
+@pytest.mark.parametrize("offset", [0, 330, -240])
 def test_machine_capacity_is_native_inside_and_only_known_wire_fields_are_formatted(
     monkeypatch,
+    microsecond,
+    offset,
 ):
+    expected = parse_instant(CANONICAL).replace(microsecond=microsecond)
+    supplied = expected.astimezone(timezone(timedelta(minutes=offset)))
     monkeypatch.setattr(capacity, "total_memory_bytes", lambda: None)
     monkeypatch.setattr(capacity, "free_memory_bytes", lambda: None)
     monkeypatch.setattr(capacity, "core_count", lambda: None)
     monkeypatch.setattr(capacity, "load_average_1m", lambda: None)
-    reading = capacity.observe_machine_capacity({}, observed_at=QUALIFIED)
-    assert reading.observed_at == parse_instant(CANONICAL)
-    assert reading.to_dict()["observed_at"] == CANONICAL
+    reading = capacity.observe_machine_capacity({}, observed_at=supplied)
+    assert reading.observed_at == expected
+    assert reading.observed_at.tzinfo is timezone.utc
+    assert reading.to_dict()["observed_at"] == format_instant(expected)
     cleaned = capacity.sanitize_machine_capacity(
         {"observed_at": QUALIFIED, "cap_source": "2026-09-03"}
     )
@@ -199,3 +213,35 @@ def test_native_spawn_result_keeps_aware_clock_until_evidence(tmp_path, clock):
 def test_native_spawn_result_refuses_ambiguous_clock(tmp_path, bad):
     with pytest.raises(InvalidInstant):
         SupervisedNative(42, "native", "path", tmp_path / "capture", "ref", bad)
+
+
+@pytest.mark.parametrize(
+    "clock", [QUALIFIED, CANONICAL, datetime(1970, 1, 1), 0, False]
+)
+def test_internal_usage_and_capacity_readings_refuse_non_native_clocks(
+    monkeypatch, clock
+):
+    with pytest.raises(InvalidInstant):
+        SessionUsage(observed_at=clock)
+    with pytest.raises(InvalidInstant):
+        capacity.MachineCapacityReading(None, None, None, None, None, "unknown", clock)
+
+    def forbidden():
+        pytest.fail("hardware probe before Native clock validation")
+
+    monkeypatch.setattr(capacity, "total_memory_bytes", forbidden)
+    with pytest.raises(InvalidInstant):
+        capacity.observe_machine_capacity({}, observed_at=clock)
+
+
+def test_capacity_requires_a_clock_and_usage_preserves_null_absence(monkeypatch):
+    with pytest.raises(InvalidInstant):
+        capacity.MachineCapacityReading(None, None, None, None, None, "unknown", None)
+
+    def forbidden():
+        pytest.fail("hardware probe before Native clock validation")
+
+    monkeypatch.setattr(capacity, "total_memory_bytes", forbidden)
+    with pytest.raises(InvalidInstant):
+        capacity.observe_machine_capacity({}, observed_at=None)
+    assert SessionUsage(observed_at=None).observed_at is None

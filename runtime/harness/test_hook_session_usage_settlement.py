@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.session_usage_facts import ModelUsage, SessionUsage, usage_document
 from yoke_core.hooks import hook_registration_tail, run_tail, telemetry
 
@@ -17,7 +18,7 @@ def _measured(*, input_tokens: int = 11) -> str:
     return usage_document(
         SessionUsage(
             status="complete",
-            observed_at="2026-09-09T02:22:39Z",
+            observed_at=parse_instant("2026-09-09T02:22:39Z"),
             source="native-test",
             models=(
                 ModelUsage(
@@ -192,7 +193,10 @@ def test_missing_row_is_not_inserted_by_usage_observation():
         conn,
         ensure_session=None,
         observed_session=(
-            "missing", json.dumps({"usage_totals": _measured()}), "claude", True
+            "missing",
+            json.dumps({"usage_totals": _measured()}),
+            "claude",
+            True,
         ),
     )
     assert conn.execute("SELECT * FROM harness_sessions").fetchall() == []
@@ -221,7 +225,10 @@ def test_telemetry_failure_does_not_lose_carried_usage(monkeypatch):
     telemetry.flush_hook_telemetry(
         [("dispatch", {})],
         observed_session=(
-            "s-relay", json.dumps({"usage_totals": carried}), "codex", False
+            "s-relay",
+            json.dumps({"usage_totals": carried}),
+            "codex",
+            False,
         ),
     )
 

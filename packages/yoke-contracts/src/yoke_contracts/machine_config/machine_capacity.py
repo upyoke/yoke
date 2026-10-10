@@ -15,7 +15,7 @@ clock is admitted strictly before probing and formatted only at the wire.
 from __future__ import annotations
 
 from datetime import datetime
-from yoke_contracts.timestamps import parse_instant, format_instant, temporal_wire
+from yoke_contracts.timestamps import as_utc, format_instant, temporal_wire
 
 from dataclasses import asdict, dataclass
 import os
@@ -58,7 +58,7 @@ class MachineCapacityReading:
     observed_at: datetime
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "observed_at", parse_instant(self.observed_at))
+        object.__setattr__(self, "observed_at", as_utc(self.observed_at))
 
     def to_dict(self) -> dict[str, Any]:
         return temporal_wire(asdict(self))
@@ -154,10 +154,10 @@ def configured_lane_cap(settings: Mapping[str, Any] | None) -> int | None:
 def observe_machine_capacity(
     settings: Mapping[str, Any] | None,
     *,
-    observed_at: datetime | str,
+    observed_at: datetime,
 ) -> MachineCapacityReading:
     """Read this machine's capacity, resolving the cap from settings or memory."""
-    observed_at = parse_instant(observed_at)
+    observed_at = as_utc(observed_at)
     total = total_memory_bytes()
     configured = configured_lane_cap(settings)
     if configured is not None:
