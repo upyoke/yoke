@@ -151,6 +151,7 @@ class TestFileBudgetConductDispatch:
             "dispatch_context_prompts": SKILLS
             / "conduct"
             / "dispatch-context-prompts.md",
+            "engineer": REPO / "runtime" / "agents" / "engineer.md",
             "engineer_tester_dispatch": SKILLS
             / "conduct"
             / "engineer-tester-dispatch.md",
@@ -158,7 +159,9 @@ class TestFileBudgetConductDispatch:
 
     def test_engineer_dispatch_packet_mentions_file_budget(self, docs):
         text = _read_bundle(
-            docs["engineer_tester_dispatch"], docs["dispatch_context_prompts"]
+            docs["engineer_tester_dispatch"],
+            docs["dispatch_context_prompts"],
+            docs["engineer"],
         )
         assert "FILE BUDGET" in text or "File Budget" in text
         assert "350" in text
