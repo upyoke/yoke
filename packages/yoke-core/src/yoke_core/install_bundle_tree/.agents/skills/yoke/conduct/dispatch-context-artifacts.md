@@ -8,7 +8,8 @@ handle to exit; capture observation is not command completion.
 ## Reflections
 
 Use the installed harness manifest and capture receipts. Claude's PostToolUse
-Agent hook normally captures the complete delimited response once; no duplicate
+Agent hook (`yoke_core.domain.reflection_capture_hook`) normally captures the
+complete delimited response once; no duplicate
 manual insert. Codex custom-agent returns do not fire that Agent matcher; the
 retained operator/debug parity owner consumes the captured response with actual
 project and canonical role before continuing:

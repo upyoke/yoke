@@ -158,6 +158,11 @@ def _normalize_candidate_string(value: str) -> Optional[str]:
         return None  # Member-access or path-component fragment, not display copy.
     if re.fullmatch(r"[,;]\s*(?:and|or)", candidate):
         return None  # Prose between adjacent quoted values, not either value.
+    if re.fullmatch(
+        r"[A-Za-z_][\w.]*\s*(?:==|<>|>=|<=|>|<)\s*(?:-?\d+(?:\.\d+)?|None|True|False)",
+        candidate,
+    ):
+        return None  # Execution predicate, not user-visible copy.
     if any(ch in candidate for ch in "{}[]"):
         return None
     lower = candidate.lower()

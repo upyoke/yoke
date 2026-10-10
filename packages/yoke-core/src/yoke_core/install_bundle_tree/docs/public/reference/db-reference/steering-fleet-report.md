@@ -1,85 +1,307 @@
 # Steering fleet report
 
-Failed HTTP usage checks record the status, UTC response time, Retry-After,
-and safe rate-limit response headers in the relay error log and the cached
-plan-limit window reason. The unreadable Fleet row displays that evidence
-alongside its recovery guidance. Credentials, cookies, and response bodies
-are excluded. Retry-After is evidence only; probes retain the four-minute
-refresh cadence.
+The server composes reports for the calling session's held steering scopes;
+reporting never staffs work. `yoke steering report get` combines them;
+`--project P` filters a scope and `--full` retrieves complete detail.
+Headings use project slug or `<project> · <document>`.
 
-A steering session spends its attention on whatever it is doing, and the fleet changes underneath it. The fleet report is that negative space, composed server-side for every steering claim the calling session holds. Omit `--project` to get one report whose sections are those held scopes, each heading the claim's scope descriptor — the project slug for a whole-project seat, `<project> · <document>` for a seat narrowed to one strategy document. Pass `--project P` to keep a single scope. It reports; nothing in it staffs anything.
+## Scope and available work
 
-A seat narrowed to a strategy document reports only that document's work, including linked items whose execution project differs from the document's owning project. Every item-keyed section — available work, claim holders, idle holders, live landing readbacks, dead waits, landed-without-close-out — follows membership in `item_strategy_docs`, and undelivered messages follow the sessions holding those items. A project seat covers its unlinked items and its CURRENT-PLAN members. An open item linked to another document with no live seat appears under **unattended linked work**, with the document's owning project and an acquire command. Delivery-plane and machine facts stay project-wide: a launch that never bound a session has no item to attribute it to, and machines are shared by every seat running on them.
+Document seats follow item_strategy_docs membership, including execution in
+other projects. Available work, holders, landing/dead-wait rows and mail to
+those holders follow that membership. Project seats cover unlinked items and
+CURRENT-PLAN members. Other-document work with no live seat appears as
+unattended linked work with owning project/acquire command. Machines, delivery
+and unbound launches remain project-wide/shared facts.
 
-It leads with **available work** — every step the scheduler calls runnable that nobody holds, ordered by rank, each row marked `new` (never started) or `stopped` (a claim release put it back) and flagged `!` once it has waited past the staffing threshold. That is one list rather than two, because the diagnosis differs per row but the action does not: staff it. It appears before the alarms because the section answering "what can I staff right now" reading like leftovers at the bottom is what made a steering seat believe runnable work was being withheld from it.
+Available work leads: scheduler-runnable unheld rows, ranked, `new` or `stopped`
+by prior claim release, `!` after staffing threshold. Quiet holders still own
+their items: idle never makes work available. Release/completion/cancellation/
+authorized termination changes custody; freeze/block are deliberate holds,
+cancel ends work. No age-inferred holds or staffing.
 
-Then the failures that arrive as silence, each quiet when it has nothing to say:
+## Holder and landing detectors
 
-Message delivery to a parked worker on a wake-capable surface is automatic: send the message once; the relay resumes the recipient and its hook reads the mailbox. Relay polls lease one job at a time, checking termination and evidence work, then eligible worker wakes, then new launches. New staffing therefore cannot keep bypassing pending worker mail. An explicit `session_control.session.wake` refusal keeps its named reason and recovery in the response's `error`, even when `result` is empty; the CLI prints that error on stderr, and `--json` prints the complete envelope. Read the error before retrying rather than interpreting an empty result as an unexplained failure.
+| Section | Evidence and response |
+|---|---|
+| idle holders | No tool call beyond threshold, excluding proven open queue/armed landing with no failed required checks; merged/dead/unreadable/failed landing returns to ordinary idle rules. Light roster's awaiting-landing fact drives probe; missing fact retains alarm. Full landing details load only when report is due. |
+| in flight | Quiet running holder inside a budgeted watcher/landing call. Unknown/waiting posture, observed native exit (even clean), denied/closed call, a call overtaken by later activity or one older than 45 minutes cannot excuse silence. Terminal vendor-turn observation survives same-turn tool settlement. |
+| landing readbacks | Current nonmutating `yoke github merge-queue readiness PREFIX-N --json`: one status/checks GraphQL read per PR and shared repository/base queue read per request; no cache across reports. |
 
-- **idle holders** — a claim held with no tool call past the idle threshold. A proven open landing with a queue entry or armed merge-when-ready and no failed required checks excludes its holder from this section and the fleet idle-holder alarm. A merged landing returns to the ordinary idle threshold even when its completion wake has not been delivered. Dead, unreadable, or failed landings retain the ordinary idle threshold, as does a holder still silent after a merge. The fleet probe classifies silence with the light roster's per-claim awaiting-landing fact; a missing fact retains the ordinary idle alarm. Full landing readbacks are composed only when the report is due. Otherwise, parked sessions excluded unless the relay has proved their native process gone, and holders inside a long-running call excluded to the section below. A holder whose turn stopped after opening an unfinished call appears immediately, even below the idle threshold (a declared park remains a wait). Every idle holder names its process state and the move, and none of the three resumable states implies termination: a live process reads *idle, process running — message it*; a recorded exit on a surface that declares `message_stopped` reads *idle, process exited — message it to resume from transcript*, because a headless worker's process exits between turns and the message is the resume; and a holder whose recorded exit a wake has already answered — a `wake_relay` attempt started at or after the exit that is still open, or that resumed a process which has not reported exiting since, within the resume-custody quiet window — reads *resuming now* and raises no process-gone alarm. A process-gone holder appears immediately; only one on a surface that cannot be resumed by message reads *process gone, claims held — this surface cannot resume by message; terminate deliberately if dead*. `yoke sessions terminate` refuses a resuming session as `TERMINATION_RESUME_IN_FLIGHT` unless `--allow-resume-in-flight` is passed, and the `sessions.list` `native_process` projection carries the same facts (`state: resuming` with `resume_started_at`, or `state: gone` with `resumable_from_transcript`). One whose death its own machine caused says so instead, reading *contained by sweep: <reason>, claims held*: containment and going quiet want opposite responses, and telling a seat to terminate something a sweep already terminated names neither what happened nor what to do about it. Only a recorded containment reason claims one — an ordinary exit, a crash, or a death nobody explained keeps the generic wording rather than inventing a cause. Holders that cannot resume — an exhausted meter, rejected credentials, or a model this surface no longer offers — are named under stranded sessions instead, so a recurring resume death is not a quiet worker;
-- **in flight** — a quiet holder that is not stuck but sitting inside one call that is supposed to take this long: a watcher wrapper or a merge-queue landing wait. Quiet is measured between tool calls, so a command that holds the turn for forty minutes reads exactly like a stalled worker; the only difference is an open `session_tool_calls` row naming a command whose own budget covers the silence. The session must have running posture; unknown or waiting state does not prove a call is alive, and any current machine-observed native exit (including a clean exit) disqualifies it immediately. A native vendor-error turn record remains terminal when only the same turn's tool settlement records follow it. Three additional guards keep that row from excusing real silence: a refused call is closed by the guardrail that refused it and carries `outcome='denied'` on its own row, so it is never open here, a row the session went on working past is residue from a harness that never closed it, and past 45 minutes — the widest budget any of these commands gives itself, the landing wait's own poll deadline — the call has outlived its own bound and rejoins the idle alarm;
-- **landing readbacks** — every open item landing pull request, read through the same non-mutating surface an agent calls as `yoke github merge-queue readiness PREFIX-N --json`. Each distinct pull request is one GraphQL read of landing status and required checks together; each repository/base-branch queue is one shared read for the request. Those facts stay request-local: the next report reads GitHub again. Each row names `queue-entry=AWAITING_CHECKS`, `UNMERGEABLE`, `MERGEABLE`, `absent`, or `unreadable` together with arming. GitHub consumes `autoMergeRequest` when an entry forms, so null arming beside an entry is `merge-when-ready=consumed` and remains in flight; null arming with an absent entry is truly cleared and the row is flagged `!` for action. The entry state, never absence of arming by itself, decides liveness;
-- **undelivered messages** — every envelope no recipient has read yet, one row per (recipient, delivery state) so a session in two situations gets a line each rather than one line whose count and reason disagree. Each row names the recipient, up to three message ids beside the count so the seat can read the envelope rather than infer it, the oldest envelope's age, and one of eight delivery states, which divide four ways.
+Landing rows show queue-entry AWAITING_CHECKS/UNMERGEABLE/MERGEABLE/absent/unreadable
+and arming. GitHub consumes autoMergeRequest when an entry forms: null arming
+with entry means consumed/in-flight; absent entry plus null arming means cleared
+and `!`. Entry decides liveness, not null arming alone.
 
-  **The seat owes a move** on exactly two, and only these raise `actionable`. *never injected, no delivery attempted* means the plane owed an attempt and made none: it appears one relay poll after that moment, which is once the recipient's own silence has passed the acknowledgement grace period counted from `last_tool_call_at`, so silence that accrued before the message counts — a worker quiet for four hours will not run the hook that would attach an envelope sent two minutes ago. Where that receipt is an explicit wake nobody attempted, the row reads *never injected, wake queued but unattempted* and names its recovery, `yoke session-control session wake <session-id>`: a wake was asked for, the plane never picked it up, and that queued receipt is itself what refuses the next wake request until the retry releases it — reported as a bare absence, the seat asks for the wake the receipt is blocking. That recovery is offered only once every such receipt for the session has waited out the wake acknowledgement grace counted from its own creation, because the wake command releases nothing younger and refuses as `wake_in_flight` while one remains; until then the row reads *never injected, wake queued but unattempted — releasable at <timestamp>* and names no command. *never injected, last attempt failed (reason)* appears at once whatever its age, carrying the named `diagnostic` resolved from that attempt's evidence (the adapter's refusal code, the eligibility rule that skipped the route, a hook result such as `hook_lease_expired` which is itself the reason, or the literal `unreported` only when a coarse `failed` wake carried nothing); a reason that repeats on the same receipt includes its count (`×N`). Two or more failed attempts stay this state even while a tool call is open, because that is a route that keeps missing rather than a wait for the call's own hook.
+Parked holders are expected waits unless native death is proven. A stopped turn
+with unfinished call is immediately idle (declared park remains a wait).
+Process rows distinguish:
 
-  **The delivery is still on its way** in three, all of which end in *waiting* and none of which is a failure. *delivery attempt in flight* is an accepted resume that has not settled either way. *queued for the recipient's next hook* is the ordinary case: no attempt is owed yet, because a hook has run since the send or the plane is still inside one poll of its own window. *recipient turn in flight since HH:MMZ* is a recipient whose latest `session_tool_calls` row is still open — the envelope lands on that call's own hook. A live open call defers automatic message wakes even when its activity ages past the stale or idle threshold; that age does not authorize a second turn. Returning from the call delivers through the existing hook. A verified native exit retires an orphaned call, ended sessions retain their supported recovery route, and explicit operator wakes retain their intentional semantics. None of these three borrows desktop *waiting for the operator to wake it* copy: a session that is already firing hooks, or sitting inside a call, is not waiting on a person who has not typed. A row that is open is only the half of that a clock can see; the other half is the state below, which the recipient's own machine reports rather than this one inferring it. These three are reported and never count toward `actionable`, and they are deliberately excluded from the report's fingerprint: every ordinary send passes through one of them, so hashing them would turn routine fleet traffic into changed-report wakes for mail about to land by itself. Reporting any of them as a failure sends the seat after a delivery already under way, and this section formerly dropped all three, which left a seat unable to tell an attempt in flight from one that had never been made.
+- running: message it;
+- exited on a surface declaring message_stopped: message to resume transcript;
+- resuming: wake_relay started at/after exit and still open, or resumed without
+  another exit within resume-custody quiet window; no process-gone alarm;
+- gone on a surface unable to resume by message: deliberately terminate if dead;
+- contained by sweep: only with recorded containment reason, never inferred
+  from unexplained exit. Exhausted/rejected/unavailable-model cases go to stranded.
 
-  **The machine is holding the wake** in one, and it is neither a failure nor a delivery under way: *never injected, wake held — a native turn is already running for this session; it delivers when that turn ends, or end it with `yoke sessions terminate <session-id> --reason ...`*. A turn between tool calls holds no open `session_tool_calls` row, so the clock above cannot see it. The recipient's own machine can, from the pid and process start time it recorded when it started that native: while that pid is still that process it declines the wake, gives back the attempt it was charged, and leaves the envelope pending for the running turn's next hook. A recorded `mode = parked` declares a wait, not an exit: the native may still be finishing its turn, so the same hold applies until the machine observes an exit or proves that process absent. Codex’s “already has an active writer” refusal is also a busy deferral (`native_turn_running`), retaining its `background_session_in_use` diagnosis and retrying without a “Native message wake needs steering” notice. An observed exit reopens a previously busy receipt even at its retry limit; silence alone does not reopen an exhausted, unparked recipient. It does not raise `actionable` on its own, but unlike the three above it is deliberately *not* excluded from the report's fingerprint: a session newly stuck behind a native that will not end is exactly the change a seat should be woken for. The row names that native rather than proposing another wake, which the machine would hold for the same reason, and says whether it is moving: the relay reports how long that native has produced no output, read from the native's own clock inside its capture rather than from the capture's modification time, which the supervisor refreshes on a fixed interval so that a reader can tell a live supervisor from a dead one. A turn thinking between tool calls and a turn that has stopped are the same row without that number. Where the machine cannot measure it — no capture, or one written before the clock existed — the row says nothing rather than implying the native just spoke. It is reported, never acted on automatically: silence is not authority to start a second turn on a live conversation, because a turn between tool calls is silent by design.
+`yoke sessions terminate` refuses TERMINATION_RESUME_IN_FLIGHT unless
+--allow-resume-in-flight. sessions.list native_process exposes resuming with
+resume_started_at, or gone with resumable_from_transcript. Ended/terminated
+sessions are excluded from holder alarms, not repeatedly called idle.
 
-  **The recipient is gone** in two, and *no delivery route remains* on both: *recipient session ended* wound down, *recipient session terminated* was ended deliberately. No later poll can deliver to an ended recipient; the report keeps these receipts visible to the sender. Delivery does not recruit a successor session: a new native cannot acknowledge mail addressed to the ended one. The row names the settle command, `yoke messages cancel <message-id>`, so the sender or seat can withdraw the envelope rather than discovering the loop only after launches accumulate. The content still has to be re-sent to whoever should have it now; cancel does not deliver it.
+## Undelivered messages
 
-  Terminal receipts never appear at all. Injected, acknowledged, expired, and cancelled envelopes are finished, and membership is decided by the delivery plane's own test for a receipt it would still lease rather than by the receipt's `state` column: expiry and cancellation converge on a sweep, so between the deadline and the sweep the row reads `pending` while nothing will ever deliver it. Sender is not a filter — a worker-to-worker envelope goes unread exactly like a steerer-sent one.
+Rows group recipient + delivery state, count, up to three ids and oldest age.
+Membership uses the delivery plane's deliverable-receipt predicate, not stored
+pending alone: injected/acknowledged/expired/cancelled receipts are finished,
+including between expiry and sweep. Sender is not a filter.
 
-  Two clauses qualify the two rows the seat owes. `wake_escalation` says the wake sweep has already escalated that receipt — `starved_hook_route` for a hook route the envelope proves stopped running, `parked_without_idle_wake` for a session that stamped `parked` on a harness whose manifest reports no idle wake, and `native_process_gone` for a session whose machine watched its native exit and said so. The last two escalate on the first pass rather than waiting the window out, for the same reason in two forms: neither fact becomes truer by waiting. The third is the only one of the three nobody inferred, and it is what closes the gap where a heartbeat outlives the process that stopped refreshing it — such a recipient reads `active` for up to `session_stale_ttl_minutes` while having no process to run a hook, so a stored native exit escalates without another acknowledgement grace period. It reads the same stored process observation as the claim-holder alarm, and later activity retires both verdicts. Delivery includes a clean exit under a declared parked or landing wait: the next message resumes the same stored native identity immediately, while the alarm continues to show the expected wait. Such an exit also retires an orphaned open tool call, because no hook can return from that process. A refused or exhausted wake sends one role-addressed notice per failure to the covering steering scope, carrying the original message, target session, and exact diagnostic; an `outcome_unknown` notice waits for the target’s next completed tool call while no live call is open and is suppressed when the message is acknowledged; retries remain bounded, and notices never generate further failure notices. Both late reasons are confined to a surface whose own capability declares `message_stopped` — every headless CLI surface and no desktop or IDE one. A desktop surface declares `wake_authority: operator` in its harness manifest, so Yoke never resumes it at all: resuming the conversation would fork the transcript its operator is reading. Such a row carries `operator_wake` and, when the recipient is actually silent, reads *waiting for the operator to wake it* — the message is delivered by hook injection the moment that person types anything in the chat, and past the same grace window Yoke sends them an actor-addressed Inbox message saying so. That suffix is withheld from a delivery still on its way and from a named failed attempt: those already say why nothing arrived, and attributing them to an operator who has not typed hid a session whose hooks were firing. An escalated row is a resume in flight, not one a seat still owes by hand. Every row ends with an `evidence` clause naming the read that brings the recipient machine's own diagnosis to this seat — `yoke session-control evidence get --session <id>`, carrying `--evidence-id` when the failed attempt recorded a diagnostic reference; see [machine-local-evidence.md](machine-local-evidence.md);
-- **vendor-stopped sessions** — a live session whose last turn the model provider ended rather than the worker. Nothing else in this report sees one: the session is live, its claim is held, and it will never speak again on its own, so every other detector reads it as a worker quietly thinking. The relay learns of it by reading the session's own native turn record on its regular poll — no idle window, no message needing to be pending first — and stores that observation on the session itself — the provider's message and its classification — and publishes a matching `HarnessSessionTurnEndObserved` telemetry row beside it. Recovery reads the stored copy, so a session stays recoverable and explainable after the telemetry ages out. Only surfaces whose harness manifest declares a readable `turn_record` produce these rows; a harness that fires its turn-end hook instead has nothing stuck and declares that as its recorded reason. Each row names the session, the item stalled behind it, the failure's classification and the provider's own words, and when it stopped — then what happens next. A failure a retry could move (a capacity refusal, a client build the provider stopped serving) is resumed by the relay on a widening backoff, and the row says which attempt is coming and when. A failure no retry can move (an exhausted quota, rejected credentials) is never attempted, and a budget that runs out stops the attempts; both name the seat as the next actor, and only those rows count toward `actionable`, so a fleet the relay is already handling reads as context rather than as work;
-- **stranded sessions** — live sessions that cannot resume: an exhausted published meter, rejected credentials, or a model the surface no longer offers. A wake cannot return them, so they are named here with the count, the held items, and the recovery — relaunch on a surface with headroom, never a wake and never an automatic model substitution. They count toward `actionable` and are excluded from idle holders. A pin that only differs from the current preferred default is not stranded — that default is a launch choice, not a wall — and a session still inside its launch deadline and still registering is not named here; it has not been observed doing anything yet. `session_control.session.wake` refuses the same wall as `meter_exhausted`, naming the meter, remaining quota, and reset time. Unknown or unreadable meters are not exhaustion; only the model's own pool at zero is. The session roster overlays a recurring `resumed-died` as `blocked-meter-exhausted` when that death will recur for the same empty meter;
-- **unregistered launches** — a launch with no `registered_session_id` when correlation has already failed, when its exact active native session exists in `harness_sessions` but the launch binding is absent, or when an otherwise in-flight registration has passed `deadline_at`. A launch still queued for relay pickup is not named: its `deadline_at` window starts at pickup. The row explicitly says the instruction was not delivered and teaches reconciliation before retry; unrelated closed history is excluded. It also separates the two shapes that need different hands: a native that is up and answering needs only its binding, so the row reads *native is live — bind it*, while one that exited leaves an exit code and the last line it wrote, so the row reads *native is dead — reconcile, then retry* and quotes that line. The quote is there because the capture behind it lives on the machine that produced it, and the row closes with the `evidence` read that brings the whole of it to a seat elsewhere whenever a native session id is known — see [machine-local-evidence.md](machine-local-evidence.md);
-- **abandoned launches** — a launch whose mandate reached its worker and whose worker never started: no work claim, no outbound message, no completed tool call, and its native now gone. Nothing else on the report can show this, because the launch closed and the item reads unclaimed rather than wrong. The row names the session, how long ago it closed, the native's exit code and last line, and says the work is unstarted — restaff it. Rows age out after six hours;
-- **landed without close-out** — an item whose branch landed (its own `merged_at`, or `merge_queue_landed_at` on a queue project) while the item never reached a terminal status. The landing is recorded from GitHub by the control-plane observer rather than by the process that was waiting for it, so a merge whose waiter died still appears here instead of reading as an idle holder. An item at `release` with a live parked holder and an active completion flow prints one compact line: `awaiting deployment run` before enrollment, or `delivering in RUN` after enrollment. Tool silence during a declared delivery wait is expected, even past the idle threshold. Missing or process-gone holders, working holders whose tool silence and landing age both reach the idle threshold, unavailable completion flows, remerged or unreadable custody, and runs needing action retain full detail. The landed section owns these items' rows; idle-holder and live-claim sections do not repeat them, and an item a listed deployment run is already delivering is that run's member, so this section does not list it again. Each detailed row names the session still holding the item's work claim and whether it is parked, or `no live holder`, because that is what decides whether the row needs anything at all. Close-out is a claim-holding step, so a seat can only run it on a landing no live session holds — against a live holder the command is refused by name, and a parked holder is simply waiting on the delivery its close-out needs. Those rows carry no command, and say what they are waiting on instead: a correct command offered where none is needed still reads as work the seat owes, and nine healthy waits once printed one each. Only a landing nobody holds carries a recovery, composed for that item's own workflow from `close_out_evidence_gate` — the same set `yoke merge item` refuses on — so an evidence-gated terminal transition names `--result` and `--verification` on the row rather than leaving a reader to discover them through the denial. Each row also names which release holds that landing, because a holder can only finish a close-out its delivery has reached and the two situations were otherwise indistinguishable: `delivering in RUN` is a wait that needs nobody, `no release holds it` means no run carries this landing; for a live parked release holder with an active completion flow that is the expected enrollment wait, and `merged again since RUN` is an item whose newest merge a member run predates. The custody answer is `delivery_landing_custody`, shared with run enrollment, so what this section calls stranded is exactly what the next release start will enroll — the seat is never sent after something the product was about to do by itself. Custody is part of the report's content identity, so a landing losing its release wakes the seat, while a landing simply moving between releases does not. Ages are measured from the recorded merge time, not from the poll that noticed it. A holder waiting inside a merge-queue call is not called quiet until the landing itself has aged through the full idle threshold; when that verdict fires, the row still displays the true landing age and true silence since the last tool call;
-- **dead waits** — for each idle holder, its last outbound message that actually asks something and whether an answer can still arrive. Only a message carrying an interrogative sentence or an explicit reply request counts: a holder's last peer message is frequently a confirmation, which waits on nothing, and counting it produced exactly the false positive this section exists to avoid. The scan reads back over the holder's recent conversation rather than its single latest message, so a confirmation sent after a real question neither counts itself nor hides the question still open underneath it. `answerer session has ended` and `answerer's own item is already terminal` are positive evidence that none can; a live answerer reports `unresolved` rather than a guess, and a holder that asked nobody produces no row. A reply that already came back is checked first, so an answerer that answered and then ended is not a dead wait. Neither is a question addressed to the steering ROLE: the next seat drains it on acquire, so an ended answerer there is a handoff rather than a dead end, and the awaiting-a-seat line below accounts for it instead. Both wrong answers cost real work — a false positive sends the seat to answer a question nobody asked, a false negative parks a worker forever — so the shape reports what it can establish and says when it cannot.
+Send once to a parked wake-capable worker; relay resumes it and hook reads mail.
+Relay leases one job at a time: termination/evidence, eligible wakes, then
+launches. A wake refusal keeps its error code/message/recovery even with empty
+result; human stderr and JSON envelope preserve it. Read it before retry.
 
-- **deployment runs** — every non-terminal run in the project, whether or not anything is wrong with it. Each row names the run, its status and flow, which stage it is at and how long it has been there, how many of its blocking QA obligations are outstanding out of how many it carries, and how many hold a determinate failing verdict. Those facts are loaded once per report request for the live run set: each relevant table is probed once, then outstanding/total QA, current-stage receipts, latest red verdicts, and resolved stage decisions are retrieved in bounded batch reads so the query count does not grow as a sequence of per-run reads. A red run then lists each red requirement with the member item it belongs to, so `run X has been at stage S for N hours with M of P outstanding, K red` is a sentence the report can produce. When a red requirement's member has a recorded merge that containment shows is outside the source this run pinned for that member's own project — its `release_lineage` for the run's project, the commit it bound at start for any other — the row also says that requirement cannot pass against this pin and names removing the red member at independent item QA with `yoke deployment-runs remove-item RUN ITEM --reason R` so it rides the next release (`remove-item --help` for guards), or superseding a shared-gate run with one pinned above that remediation; failed independent item QA and settlement automatically release a member definitely outside its project's frozen lineage; unknown containment holds — re-drive cannot help, and the report never terminalizes, supersedes, or waives on its own. A merge is never compared against another project's commit. A recorded merge whose containment cannot be read — a provider refusal such as a commit the repository does not carry, or a member project the run pinned no source for — is named as unproven with its reason and recovery rather than asserted, and never fails the report; a fail with no recorded merge does not make the claim. At a scoped QA stage the outstanding count is the stage gate's own evaluation (`qa_stage_outstanding`), so it cannot disagree with the wait a drive would print: each waiting item-QA member is one line carrying its blocker count and whether its owner was woken — the per-requirement reasons stay on `yoke deployment-runs stages RUN` rather than in every report — read from its newest stored notice — the `deployment-qa-stage-wait` wake, or the `deployment-qa-member-failure` handoff for a member whose QA failed: `wake pending` while a live driver has not sent it yet, `woken HH:MMZ` (marked `by QA failure handoff` for the latter) qualified as acknowledged, not acknowledged, or not yet delivered — the furthest any recipient got — or `not woken` with the reason: the wake expired, failed, or was cancelled, no claim holder or steering seat is addressable, or the driver is gone or stale and re-driving sends it. Those lines cost one notice read and at most two addressability reads per run at a QA stage, never a read per member. The stage sends those owner wakes before it closes any member with nothing to check, so a pending wake lasts seconds rather than the length of every close-out; a missing wake is a defect, not a reason to message owners by hand. "Waiting only to be driven" appears only when the run's own status is `created` and no live driver is attached — that is when a drive would actually start it. A `created` run with a live driver is already inside a silent phase (the self-deploy freeze is the worked case) and is reported without a mark. An `executing` run is already being driven; the row names the stage it is at and does not recommend a second drive, even when nothing is outstanding, because re-driving a live stage can double-dispatch a correlated workflow. Off that stage it still uses the run-completion readers (`unresolved_blocking_qa`, `blocking_obligation_total`) and prints their recovery sentence only for a run waiting to be driven. A healthy run in flight is reported without a mark and without a recovery line: the section answers "how is the release doing", and one that appeared only on failure would answer the healthy stretch with silence, which is indistinguishable from the section not working. Only two shapes are marked as needing a decision — a run holding a red verdict, and one still at `created` with nothing outstanding and no live driver — because those are the two a run cannot leave by itself. Re-drive remains the recovery when a driver has actually died; the report simply does not recommend it for every executing run. There is no timeout and no auto-cancel here: the row exists so a person can see the state and decide. A run whose current stage already carries a resolved decision says so too, naming the request, whether it was approved or rejected, and how long ago — a stage waiting on a question somebody already answered is the same silence one layer down, and the person who answered otherwise has no signal that their answer did nothing. That is read from the pair of live facts — this stage has a resolved decision, and the run is still on this stage — never from `decision_requests.consumed_at`, which only the item lifecycle's own approval consumption ever writes and which is therefore NULL on every deployment-stage row whether or not anything acted on it.
+Eight states remain distinct:
 
-Stage age reads `deployment_runs.current_stage_entered_at`, stamped atomically when `current_stage` changes, including entry into `complete`. Re-driving the same stage preserves its age. A NULL timestamp on an older run or a snapshot with no source clock means unknown age; neither the run's start time nor a QA source receipt substitutes for it. Boot adds the column without backfilling old runs.
+| State | Meaning and action/fingerprint |
+|---|---|
+| never attempted | Plane owes an attempt after acknowledgement grace measured from recipient's last tool call plus one poll. Prior silence counts. Actionable. |
+| last attempt failed | Immediate exact diagnostic (adapter/eligibility/hook reason, or unreported when absent), with ×N repeat count. Two failed attempts remain a failure even during an open call. Actionable. |
+| attempt in flight | Accepted resume not settled. Waiting; not actionable or fingerprinted. |
+| queued for next hook | Hook/window means no attempt owed yet. Waiting; not actionable or fingerprinted. |
+| recipient turn in flight | Live open call since its actual time; message lands at return hook even past stale/idle threshold. Waiting; not actionable or fingerprinted. |
+| wake held for native turn | Machine verified pid/start identity still running between calls. Gives attempt back and keeps envelope pending. Fingerprinted, not actionable; no automatic second turn. |
+| recipient ended without remaining route | No parked/waiting declaration; sender/seat cancels envelope and re-sends content to intended successor. No automatic successor or acknowledgement. |
+| recipient terminated | Deliberate end has no route; same cancel/re-send recovery. |
 
-One line counts **steering messages awaiting a seat**: parked role-addressed reports and unacknowledged reports left by an ended seat. Acknowledged reports are settled and never inherited. Acquire prints inherited, parked and stranded counts plus `yoke messages list --state unacknowledged`; its `--json` envelope retains the digest grouped by sending item, newest first. The report count is absent when zero.
+Ended parked/waiting recipients retain their supported transcript routes;
+ended_at alone is not proof mail is undeliverable. Terminated always has no
+route. For gone recipients use `yoke messages cancel MESSAGE-ID`; cancel does
+not deliver content.
 
-A combined report also lists **unacked injected (this session)** — messages addressed to the calling session whose receipt is `injected` but still unacknowledged past the acknowledgement grace period. Each row prints `yoke messages acknowledge <id>`. That is this session's own inbox, not the seat-awaiting count above.
+Queued explicit wake with no attempt names `yoke session-control session wake
+SESSION-ID` only after every receipt reaches its own acknowledgement grace.
+Before then it reports releasable-at timestamp and no command; a younger queued
+receipt still causes wake_in_flight. A single failed attempt overtaken by a
+live call may defer; repeated failures retain precedence.
 
-It closes with the live item claims — every holder no section above already named. That inventory and the holder alarms render the same row shape, and an empty section renders nothing at all, so an inventory listing every holder printed a byte-identical row directly beneath the alarm that had just named it: a seat read one quiet holder as two sessions in trouble, and read the inventory's below-threshold rows as more rows under a heading promising no tool call in over twenty minutes. Each holder therefore appears exactly once, in the most specific section that claims it, and the inventory's heading says quiet there carries no alarm.
+Native-held rows name the native and, when measurable, its no-output age from
+the capture's own clock, not periodically refreshed file mtime. Missing old
+clock means unknown, never recent output. Parked declares wait, not native
+exit. Codex active-writer/background_session_in_use is native_turn_running
+deferral, not a steering failure notice. Observed exit reopens a busy receipt
+even at retry limit; silence alone cannot reopen exhausted unparked receipt.
+Verified exit retires orphan open calls. Explicit operator wake retains its
+intentional semantics; automatic wakes never start a second live turn.
 
-On a single-scope pull (`--project P`) that is followed by which `(machine, surface)` pairs a launch could actually reach — read through the same eligibility composition the launch preview uses, so the report can never name a surface the launch plane would refuse — plus per-surface session counts grouped by requested and served model/effort/context, a **capacity line per machine**, origin counts, and the plan-limits table. Every balance selection and plan-limit row names its live model, reasoning effort, and compact context window; a requested value that differs from served truth stays explicitly labelled. Every plan-limit row also names the vendor-enforced meter. Cursor supplies separate **Cursor Models** and **Other Models** monthly rows: every Grok selection (`grok-*` and `cursor-grok-*`) and every `composer-*` selection appears only beside Cursor Models, and every other model appears beside Other Models. One family list (`yoke_contracts.session_control.plan_limits.CURSOR_MODELS_FAMILIES`) decides that split for the report, the launch preview headroom line, the Machines card, and the model reference. Claude and Codex rows likewise identify the concrete vendor counter that supplies their remaining percentage. A window that could not be read shows the probe's reason beside the guidance that reason earns in its Headroom cell, from the same owner (`yoke_contracts.session_control.plan_limit_unreadable_guidance`) that words the Machines card: a missing or rejected sign-in (`stale_credential`) says to re-authenticate the CLI on that machine, a throttled read (`http_429`) says the vendor throttled the check and the surface is not known to be signed out, and any other failed read says it retries on the next refresh. No unreadable reason says a launch will fail, because a plan-limit read never gates one.
+wake_escalation qualifies actionable rows: starved_hook_route,
+parked_without_idle_wake, native_process_gone. Park/no-idle-wake and stored
+native exit escalate immediately, not after another grace; later activity
+retires observations. Clean exited parked/landing workers resume stored native
+identity on their next message while their holder wait remains expected.
+Readable machine observation, not heartbeat age, proves exit.
 
-The **levels** block answers what a level launch would do right now. For each level the project reads (lowest first, with its glyph) it is a dry run of the same placement `launch create --level` performs, under the reading seat's own launch authorization, so it can never name a placement the launch would not make. Each option of the level is one row per machine it was weighed on: `→` marks the option and machine the next launch at that level goes to, `✓` one that can launch, and `✗` one that cannot, with its blocker (an exhausted pool and its reset, or the eligibility rule that left no usable machine). Every launchable row names the quota pools that option's model draws on, each with the share left, headroom, and reset; an unreadable pool says so, and an option on a surface that publishes no meter says `no published meter`. The level line names where the next launch goes and why (the spread rule or most headroom), or `no capacity: a launch at this level refuses`. The block's heading names where the levels come from (`project`, `universe`, or `default`) and the fleet-wide **live workers** on every surface a level launches on, launches in flight included: the count the spread rule reads. When the seat's session carries no actor the block says `unavailable` with the preview command to run instead. The JSON projection carries the same dry runs as `levels` (`source`, `live_workers`, and per level the `glyph` plus the placement's `chosen`, `rule`, `reason`, and every `candidates` row).
+Refused/exhausted wakes send one bounded role-addressed notice per failure to
+covering steering, with original message/target/diagnostic. outcome_unknown
+notice waits for next completed tool call when no live call remains and is
+suppressed if acknowledged. Notices never recurse into failure notices.
+Late native recovery applies only to manifest message_stopped surfaces.
+Desktop/IDE operator wake authority is never automatically resumed: next user
+input injects mail, and beyond grace an actor-addressed Inbox notice names that
+need. Do not label progressing/failed deliveries as operator waiting.
 
-Items the report shows (available work and claim holders) that carry a **level override** — the `level` key of their workflow posture, `{shift, min, max, reason}` — are listed under **item level overrides**, one line per item: `PREFIX-N  level shift -1 · max SENIOR (reason)`. The JSON projection carries them as `level_overrides`.
+Every row names machine evidence: `yoke session-control evidence get --session
+SESSION-ID`, plus --evidence-id when diagnostic reference exists; see
+[machine-local-evidence.md](machine-local-evidence.md).
 
-The capacity line reads `capacity lanes 3/12 · free 8.0 GB · load 4.5 on 12 cores · cap from max_worker_lanes`, and it is read from the connected relay rows rather than from eligibility: a machine at its cap is exactly the one eligibility drops, so a report built only from launchable surfaces would show the full box as absent instead of full. Such a machine is listed with `no launchable surface` and its line ends `AT CAP, launches refuse`; a relay publishing no reading says `capacity unreported` and names the update rather than reading as roomy. Lanes count live sessions on the machine plus launches already assigned there and not yet registered, so a burst of launches cannot all pass the same free lane.
+## Stopped sessions and launches
 
-On a combined pull (no `--project`), those machine-level lines — launchable pairs, capacity, and the plan-limits table — render once per distinct `machine_id` after the scope sections, followed by each distinct **levels** block once. Each `## <descriptor>` heading keeps only that scope's facts: available work, the quiet-detector sections, live claims, model-aware launch-balance counts, and origin counts. The per-scope preamble is omitted there because the combined preamble already names the block. Deployment runs, landed-without-close-out, undelivered messages, and unregistered and abandoned launches belong to a project rather than a seat: when several held seats sit on one project they render once, under that project's first heading, merged across its seats, and the later headings keep only seat-specific rows. A heading left with nothing seat-specific is omitted from the digest.
+Vendor-stopped rows use stored native turn record on readable-manifest surfaces,
+persisting provider words/classification/time and HarnessSessionTurnEndObserved
+telemetry. Stored recovery survives telemetry retention. Turn-end-hook surfaces
+already settled and declare that reason. Recoverable capacity/client-build
+refusals retry with widening bounded backoff; show next attempt/time. Exhausted
+quota/rejected credentials or exhausted retry budget need seat action; only
+those rows are actionable.
 
-Delivery needs no producer of its own, and no pending message either: composing the report only needs a live steering claim and the interval, so a steering session with an empty inbox still receives it at its next model-visible hook, clearly marked as control-plane state rather than peer-authored text. A pending message lease never waits on that composition: the envelope ships on its own hook, and the report rides a later empty-inbox hook rather than holding the 30s injection lease through ranking. When a message is also pending, a harness that reads one structured reply per event still gets exactly one reply — the envelope — never a valid value followed by unrelated bytes it cannot parse. Hook injection carries a compact digest (actionable sections, this session's unacked inbox, and a one-line pointer to `yoke steering report get` and its `--help`); the fleet watcher writes that same digest, including the closing marker, so a wake is not a bare header. The hook and the watcher share one delivery record per session: the watcher pulls with `steering.report.get` `deliver=true`, and the reply's `delivered` says whether this content is new to the session, so a report the hook already attached is not printed again by the watcher, and the reverse. The pull and the ride compose the same combined report so the two cannot disagree on what changed. Workers message their steerer as ordinary traffic and each of those messages is a wake; the report then follows on the next empty-inbox hook rather than sharing the message's injection lease, and a fleet quiet enough to send no messages still gets its report on its own next hook rather than waiting for one. Composing a report never by itself spends its delivery interval: a reply a sibling guard denies, or one settlement finds malformed, settles as not delivered, and the interval stays open for the next hook to try again instead of losing a whole cycle to a reply that never reached the model. Pull the full body on demand with `yoke steering report get --full` (function id `steering.report.get`); optional `--project P` filters to one held scope.
+Stranded sessions cannot resume: exhausted published model pool, rejected
+credentials or removed model. Show count/items/relaunch on available headroom,
+never automatic model substitution/wake. Preferred-default drift is not a wall;
+still-registering sessions within deadline are excluded. Unknown/unreadable
+meter is not exhaustion; only that model's own zero pool is. Wake refuses
+meter_exhausted with remaining/reset; recurring resumed-died may project
+blocked-meter-exhausted.
 
-Three `project-policy` keys tune it, and the first two are deliberately separate numbers. `steering_report_staffing_minutes` (default `5`) is how long runnable unclaimed work may sit before the report marks it overdue rather than merely available; waiting age is measured from the moment the work last became pickable — the later of the item's last change and the last release of a claim on it — so a released claim restarts the clock rather than making newly available work look ancient. `steering_report_idle_minutes` (default `20`) is how long a claim holder stays quiet before the report presumes it stuck. "How long may work sit unstaffed" and "how long must a worker be silent before it is stuck" are unrelated judgments that once shared one value. `steering_report_interval_minutes` (default `2`) is the shortest gap between reports appended to one session's messages — one combined report per interval, attached when what its digest shows changed, including a new decision — and composition happens at most once per interval because ranking each scope's schedule is real work. Scopes with actionable rows sort first.
+Unregistered launches report immediately for failed correlation or exact
+active harness session lacking binding; otherwise after deadline_at. Deadline
+starts at pickup, not queued time. State that mandate was not delivered;
+reconcile before retry. Live native: bind it; exited native: reconcile/retry,
+with exit/last line and session evidence read. Exclude unrelated closed history.
+Abandoned launch: delivered mandate but no claim/outbound message/completed
+call, native gone; show session/closed age/exit/last line, restaff unstarted work.
+Rows expire after six hours.
 
-The report's fingerprint is built from what the sections say and never from how old anything is, which is what lets the deployment-run section be useful rather than noisy. A stalled run's most striking fact is how long it has been stalled, so hashing its stage age looks like the way to make the watcher announce it; it is the opposite. The age changes every pass, so the report would wake the seat once a minute forever and the one pass that mattered — a verdict turning red — would look like every other. Only the run's state is hashed: the stage, the outstanding count of the total, which requirements are red, and which of those are proven unpassable against the pin (or unproven). The watcher fires when one of those changes, and the age is read off the row once the seat is already looking. Stranded sessions hash session, kind, and model, so a newly exhausted, credential-rejected, or removed-model pin wakes the seat. The fingerprint covers only what the digest renders: live claims, launch balances, launchable pairs, machine capacity, plan limits, native models, and relay health are on the full pull, and their moving does not count as a new report. Project-wide sections hash once per project, as they render.
+## Landed work and dead waits
 
-Every detector except dead waits, verified process death, and positive launch-correlation failures is a time threshold, never an instantaneous read: each lifecycle segment boundary releases a claim and reacquires moments later, so a zero-owner snapshot is the normal shape of healthy work. A correlation failure is already evidence that the coupled instruction was stranded, and an exact active `harness_sessions` match is already evidence that waiting for registration will not repair the missing launch binding; both therefore report immediately. A parked session is a separate fact from an unowned item and is excluded from the idle list — it declared its wait — unless its process is verified gone and the declaration can no longer describe a running worker. Ended and terminated sessions are excluded entirely, because a session that is already gone would otherwise re-fire as an idle worker on every pass. And a report is attached only when it is worth a read: the content changed since the one that session last saw, including changes to outstanding decisions. `harness_sessions.last_steering_report_at` and `last_steering_report_fingerprint` record what was last delivered — by the hook or by the fleet watcher, one record for both — claimed by compare-and-set to suppress already-recorded content. Hook settlement confirms only an undenied, well-formed reply that still carries the report after the byte ceiling. A narrow race can duplicate one report if a watcher records and prints while a hook has rendered its provisional candidate but has not yet settled; subsequent delivery is suppressed by the shared fingerprint.
+Landed-without-close-out uses item merged_at or merge_queue_landed_at plus
+nonterminal state; control-plane observer records landing even if waiter died.
+A parked live release holder with active completion flow reports compact
+awaiting-deployment-run or delivering-in-RUN; silence is expected. Missing/gone
+holders, aged working holder + landing, unavailable flow, remerged/unreadable
+custody or actionable run keeps full detail. Section owns these rows; never
+duplicates idle/live holders or members already shown in deployment runs.
 
-Two absences are deliberate and recorded rather than left silent. A quiet work-claim holder still owns its item: the item stays out of available work until explicit release, completion, cancellation, or authorized termination. The holder can appear in the idle list because idleness is measured from `last_tool_call_at`, but that signal does not release the claim. An item an operator is holding on purpose is excluded by the flag the operator sets: the frontier composition the report reads already drops frozen and operator-blocked items, so `yoke items freeze` and `yoke items block` are the whole hold mechanism. Work that will never resume is `yoke items cancel`, not freeze. Teaching the report to infer a hold from age would hide real unstaffed work.
+Close-out requires holder claim: never propose seat recovery against a live
+holder. Orphan rows alone name pinned workflow recovery including --result/
+--verification when close_out_evidence_gate requires them. delivery_landing_custody
+agrees with enrollment: delivering-in-run, no-release-holds-it (expected
+enrollment for valid parked wait), or merged-again-since-run. Losing custody
+changes identity/wakes; moving between releases does not. Merge time starts
+landing age; a queue waiter becomes quiet only after full landing idle threshold,
+while rows retain actual landing age/tool silence.
 
-A steerer or operator can disable one `(machine, surface)` with `yoke session-control surface-policy disable --project P --machine M --surface S --reason TEXT`. Launch preview/create and native-resume wakes then skip that relay and name the mark, the reason, and the enable command. In-flight sessions stay up. `yoke status` lists live marks on that machine. No counters, auto-trip, or probing.
+Dead waits scan recent outbound conversation for real interrogative/explicit
+reply requests, not confirmations or latest message alone. Reply already received
+wins; ended answerer or terminal answerer's item proves no reply possible.
+Live answerer is unresolved; no question means no row. Steering-role question
+survives seat succession and belongs to awaiting-seat count, not dead waits.
 
-Watcher terminal-close SIGHUP is handled like SIGINT and SIGTERM: child groups are reaped, and the interrupted line and exit sentinel are written. A dead writer without a sentinel is interrupted, as diagnosed by `yoke watch tail <progress-file>`; inspect its raw capture before retrying. `yoke session-control evidence get --session SESSION-ID` labels its status **FETCH JOB STATE**: `succeeded` says the file was fetched, not that the session is running.
+## Deployment runs
 
-The fleet wake stream stays silent on unchanged reports, even while an existing decision remains outstanding. Quiet heartbeat and progress-stall diagnostics stay in its raw capture. The watcher drains every complete line from a ready pipe read before waiting again, so a complete report does not wait for the next probe pass; the tail forwards the report in one write. A live parked release holder whose current landing awaits a later candidate remains an expected delivery wait, including after removal from an earlier release.
+All nonterminal project runs show run/status/flow/current stage/age, outstanding
+blocking obligations/total and determinate reds. Tables and bounded QA/current
+receipts/latest reds/resolved decisions load once per request, not per-run
+query cascades. Healthy running rows have no actionable mark/recovery.
 
-The fleet watcher remembers the holder, landing, and deployment-run rows it actually printed; project-wide rows are remembered once per project, using the project's lexically first held scope descriptor as a stable identity even when actionable-first rendering reorders the headings, so a finished run explains itself once. When a row disappears from the next due report, that report includes one `no longer listed` line naming the cause from the roster and report facts already read: a worker active again or parked, a released claim, a merged or closed pull request, or a finished run. The line stays inside the report block so it reaches the seat in the same wake, then the watcher forgets it. Unchanged rows are not re-announced; rows are never kept sticky. When the session already received the current report from the hook, the watcher prints only the `no longer listed` lines rather than the report again. If the current facts cannot establish a cause, the line says that and names `yoke steering report get` for inspection. A retained pull-request detail is labelled last observed rather than presented as a fresh read.
+Red rows name requirement/member and containment against that member's own
+project pin: release_lineage for run project, bound start commit for others.
+Never compare across projects. Definite remediation outside frozen lineage
+cannot pass here: independent item QA names remove-item with reason, or shared
+gate needs a superseding run above remediation. Failed independent QA/settlement
+releases definitely-outside members; unknown containment holds. Unreadable
+provider/source evidence is unproven with reason/recovery, not a report failure
+or invented impossibility. No recorded merge makes no containment claim.
+Report never terminalizes, waives or supersedes.
 
-## Pull read deltas
+At scoped QA stage, outstanding is native qa_stage_outstanding. Each waiting
+member reports blocker count and newest owner notice: wake-pending, woken-time
+(failure-handoff labelled) with furthest receipt acknowledgement/delivery, or
+not-woken reason (expired/failed/cancelled, no holder/seat, gone/stale driver).
+One notice + at most two addressability reads per run; detailed requirement
+reasons stay on `yoke deployment-runs stages RUN`. Wakes precede empty-member
+close-out; missing wake is a defect, not instruction to message owners manually.
 
-Combined full reports print native model availability, universe level headings, headroom legends, Test Machines and launch balance once. Project counts are added once per project, regardless of document-seat count. Empty document seats occupy one heading line; seat-specific work and differing placement results remain visible under their scopes. JSON retains each scope's complete facts.
+Waiting-only-to-be-driven means created with no live driver. created + live
+driver may be silent phase; executing does not call for duplicate drive even
+with no obligations. Other stages use native unresolved_blocking_qa and
+blocking_obligation_total. Only red or created/no-outstanding/no-driver shapes
+require decision; re-drive recovers a proven dead driver. No timeout/auto-cancel.
+Current-stage resolved approval/rejection shows request/time while run remains
+there; decision_requests.consumed_at is item-lifecycle consumption and cannot
+prove deployment-stage action.
 
-Human `yoke steering report get` returns changed held-scope, inbox, unattended-work and shared-machine sections plus an unchanged count. A nullable session-owned checkpoint stores age-blind fingerprints across calls; no telemetry or new table is involved. `--full` returns every section and advances the checkpoint; `--json` preserves the complete report without consuming it. Project-filtered reads retain checkpoints for other scopes. Hook/watcher delivery intervals and suppression use their existing separate record. An invalid checkpoint refuses as `steering_report_read_state_invalid`; `yoke steering report get --full` replaces it.
+Stage age is deployment_runs.current_stage_entered_at, atomic on stage change
+including complete; same-stage re-drive preserves age. NULL/no source clock is
+unknown, never run-start or source-QA age. Boot adds column without backfill.
+
+## Inbox, shared placement and capacity
+
+Steering-awaiting-seat counts parked role reports/unacknowledged ended-seat
+reports; acknowledged never inherits. Acquire shows inherited/parked/stranded
+counts and messages-list unacknowledged; JSON keeps newest-by-item digest.
+Zero count is omitted. Unacked-injected-this-session rows past grace name
+`yoke messages acknowledge MESSAGE-ID`; separate from awaiting-seat inbox.
+Every holder appears once in its most specific alarm/landed/live section;
+ordinary live-claim inventory is not an idle alarm. Empty sections print nothing.
+
+Single scope adds launchable machine/surface pairs from preview's actual
+eligibility, per-surface requested/served model/effort/context counts, origins,
+capacity and plan meters. Differing requested versus served remains labelled.
+Cursor Models includes grok-*, cursor-grok-* and composer-*; other selections
+use Other Models. One CURSOR_MODELS_FAMILIES owner supplies report/preview/
+Machines/model-reference split; Claude/Codex name actual vendor counter.
+Unreadable meters show reason/recovery from shared guidance: stale_credential
+reauthenticates that machine; http_429 means throttled, not signed out; others
+retry next refresh. Plan-limit reads never gate launches.
+
+HTTP failed-probe evidence includes status, UTC response time, Retry-After and
+safe rate-limit headers in relay log/cached window reason/Fleet row; excludes
+credentials/cookies/body. Retry-After is evidence, not changed four-minute cadence.
+
+Levels dry-run actual launch-create --level under seat actor authority, lowest
+first with glyph/source project/universe/default. Each option/machine weighed
+shows → chosen, ✓ launchable, ✗ blocker/reset/eligibility reason. Pools show
+share/headroom/reset, unreadable or no-published-meter. Summary says next
+placement/rule/why or no-capacity refusal. Live worker count includes assigned
+launches; missing actor shows unavailable/preview command. JSON levels retains
+source/live_workers/glyph/chosen/rule/reason/candidates. Item posture level
+shift/min/max/reason overrides show once per item; JSON level_overrides retains.
+
+Capacity reads connected relay rows, including capped/unlaunchable machines:
+lanes/free GB/load/cores/cap source, AT CAP refusal or unreported/update recovery.
+Lane count includes live sessions + assigned not-yet-registered launches; burst
+cannot borrow the same slot repeatedly. Eligibility omission never means roomy.
+
+Combined pull prints machine/model/headroom/Test Machine/levels blocks once,
+each distinct placement retained; project counts once regardless of seat count.
+Scope sections keep work/alarms/claims/model-aware launch balances/origins.
+Deployment/landed/mail/unregistered/abandoned project-wide facts merge once
+under first project heading; empty document seats collapse to one line and
+empty digest headings vanish. JSON retains complete per-scope facts.
+
+## Delivery, fingerprints and pull deltas
+
+Held live seat + interval suffices for empty-inbox model-visible hook delivery,
+marked control-plane facts. Message leases do not wait for report composition:
+one structured event reply carries envelope; report follows empty hook rather
+than holding 30-second lease/ranking or appending unparsable second bytes.
+Hook and watcher use same compact digest/closing marker/actionable sections,
+own unacked inbox and full-read/help pointer; deliver=true/shared delivered
+record prevents reprinting other's report. Worker mail wakes normally; no mail
+is still followed by next due hook report.
+
+Undenied/well-formed settlement confirms report survived byte ceiling; denied/
+malformed replies consume no delivery interval. Shared last_steering_report_at/
+fingerprint compare-and-set suppresses delivered duplicates. A watcher print
+racing provisional hook render can duplicate once; later shared identity stops it.
+
+Project-policy defaults: staffing 5 minutes, idle 20, interval 2. Staffing age
+starts when pickable: later item change/claim release. Idle is last tool silence,
+independent of staffing. One combined composition per interval; changed digest,
+including decisions, causes attachment, actionable scopes first.
+
+Fingerprint is age-blind and covers rendered digest: run stage/count/reds/
+containment, stranded session/kind/model, project-wide rows once. Full-only live
+inventory/balance/placement/capacity/meters/models/relay changes do not wake.
+Ordinary delivery-progress states are excluded; native-held is included.
+Timed detectors avoid normal claim boundary gaps; positive native death/dead
+wait/launch-correlation failure is immediate. Alarms due without delta still
+remain alarms. Quiet holder custody never expires from report age.
+
+Human pull defaults to changed held scopes/inbox/unattended/shared-machine
+sections + unchanged count. Nullable session-owned age-blind checkpoint survives
+calls without telemetry/new table. --full returns all/advances checkpoint; --json
+keeps complete facts without consuming it; project filter retains other scope
+checkpoints. Hook/watcher intervals use separate existing record. Invalid
+checkpoint refuses steering_report_read_state_invalid; get --full replaces it.
+
+`yoke session-control surface-policy disable --project P --machine M --surface S --reason TEXT`
+marks one pair; read its --help before mutation. Preview/
+create/native wakes skip it with reason/enable recovery, existing sessions stay
+up; yoke status lists marks. No auto-trip/probing/counters.
+
+Watcher SIGHUP/SIGINT/SIGTERM reaps child groups and writes interruption/sentinel.
+Missing dead-writer sentinel is interrupted; watch tail diagnoses, raw capture
+precedes retry. Evidence get FETCH JOB STATE succeeded means file fetched,
+not native alive. Unchanged reports stay silent; heartbeat/stall diagnostics
+remain raw. Drain complete ready lines before waiting, forward whole report
+in one write. Parked release holder awaiting newer candidate remains expected
+even after removal from earlier release.
+
+Watcher remembers printed holder/landing/run rows, project facts under stable
+lexically-first held descriptor despite actionable reorder. Removed row emits
+one in-block no-longer-listed cause (active/parked/released/merged/closed/finished)
+from already-read current facts, then forgets it; no sticky rows. Hook-delivered
+current report yields only those removal lines. Unknown cause names full report
+read; retained PR detail is last observed, never fresh evidence.

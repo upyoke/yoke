@@ -8,7 +8,8 @@ argument-hint: "PREFIX-N [--max-attempts N] [--no-chain]"
 # /yoke conduct PREFIX-N
 
 Run the pinned Conduct segment through generated task lanes, Engineer/Tester
-validation and integration simulation in this session. A launch-assigned item
+validation and integration simulation in the same harness session; no manual relaunch.
+A launch-assigned item
 takes its work claim first; never manually register the session. Obey fetched
 Workflow Execution Instructions and every AC.
 

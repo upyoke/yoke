@@ -25,6 +25,7 @@ def test_normalize_candidate_string_filters_paths_and_commands():
             ", or",
             "not found",
             "Retry",
+            "exit_code == 0",
             ") else",
             "all Y",
         )
