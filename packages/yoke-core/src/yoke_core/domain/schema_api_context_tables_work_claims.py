@@ -48,8 +48,8 @@ WORK_CLAIM_TABLES: dict[str, dict] = {
             '"document":SLUG}, migration_serialization='
             '{"project_id":N,"model":M,"item_id":N}, qa_admission='
             '{"machine_id":ID}, or route_qualification={"project_id":N,'
-            '"grant_key":K}. Released deploy_serialization rows are '
-            "retained history of a retired kind nothing takes any more. "
+            '"grant_key":K}. deploy_serialization is a retired kind nothing '
+            "takes any more; its remaining rows release by claim id. "
             "Domain validation requires "
             "exactly the required keys for the named kind; steering also "
             "accepts the optional document key. A steering seat covers a "

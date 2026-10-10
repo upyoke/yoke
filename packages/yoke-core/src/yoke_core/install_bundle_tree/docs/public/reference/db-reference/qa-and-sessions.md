@@ -203,7 +203,7 @@ Domain validation requires each kind's keys and permits steering's optional docu
 ```sql
 id INTEGER PRIMARY KEY
 session_id TEXT NOT NULL -- FK to harness_sessions.session_id
-target_kind TEXT NOT NULL -- item|epic_task|process|steering|migration_serialization|qa_admission|route_qualification (deploy_serialization: retained history only)
+target_kind TEXT NOT NULL -- item|epic_task|process|steering|migration_serialization|qa_admission|route_qualification (deploy_serialization: retired, release by id)
 scope TEXT NOT NULL -- canonical JSON object; exact shape is validated by target_kind
 claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive')
 claimed_at TEXT NOT NULL
@@ -282,10 +282,10 @@ lives — so the sweep reclaims it normally.
 Each claim is addressed by one operator key: `LIVE_DB_MIGRATION:<model>`,
 `QA_HOST:<machine>`, and the qualification grant token. QA_HOST keys are machine-scoped: list with `yoke coordination-claim list --key QA_HOST:<machine> --active-only --json`, ignoring any project filter. Signed-in humans outside harness sessions recover a reviewed row with `yoke coordination-claim release --key QA_HOST:<machine> --claim-id N --holder-session-id S --reason R`; permission remains the holder's project `claims.release`. Other key kinds still require `--project P` for operator release. QA host holders can release by claim id with `yoke claims work release --claim-id N --reason TEXT` after run completion; requirement reads and artifact uploads retain the stored member's project authority after membership ends.
 
-Deployment runs take no coordination claim. `deploy_serialization` rows
-are the retained history of the retired per-project deploy lock: nothing
-takes one, a `DEPLOY:` key refuses with `deploy_lock_retired`, and runs
-serialize by the servers they occupy, described in
+Deployment runs take no coordination claim. `deploy_serialization` is the
+retired per-project deploy lock: nothing takes one, a `DEPLOY:` key refuses
+with `deploy_lock_retired`, a hold from before the retirement is released by
+its claim id, and runs serialize by the servers they occupy, described in
 [`deployment-run-records.md`](deployment-run-records.md).
 
 ### BOARD.md Claims column rendering

@@ -27,6 +27,7 @@ from yoke_core.domain.actor_permissions import (
 from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.coordination_claim_keys import (
     CoordinationKeyError,
+    key_for_target,
     target_for_key,
 )
 from yoke_core.domain.function_target_resolution import resolve_project_context
@@ -38,7 +39,11 @@ from yoke_core.domain.schema_init_actor_path_claim_tables import (
 )
 from yoke_core.domain.schema_init_path_tables import create_path_registry_tables
 from yoke_core.domain.schema_init_tables import create_core_tables
-from yoke_core.domain.work_claim_targets import make_qa_admission_target
+from yoke_core.domain.work_claim_targets import (
+    TARGET_KIND_DEPLOY_SERIALIZATION,
+    WorkClaimTarget,
+    make_qa_admission_target,
+)
 from yoke_core.domain.yoke_function_permissions import check_dispatch_permission
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 
@@ -204,8 +209,17 @@ def test_explicit_project_and_key_still_resolve(conn: Any):
 
 
 def test_a_retired_deploy_key_refuses_naming_its_retirement():
-    with pytest.raises(CoordinationKeyError, match="^deploy_lock_retired:"):
+    with pytest.raises(CoordinationKeyError, match="^deploy_lock_retired:") as refused:
         target_for_key("DEPLOY:yoke", project_id=1)
+    assert "release --claim-id N" in str(refused.value)
+
+
+def test_a_hold_from_before_the_retirement_still_renders_its_key():
+    """Its holder lists it by key and releases it by id."""
+    hold = WorkClaimTarget(
+        TARGET_KIND_DEPLOY_SERIALIZATION, {"project_id": 1, "project_slug": "yoke"}
+    )
+    assert key_for_target(hold) == "DEPLOY:yoke"
 
 
 def test_an_actor_without_the_claim_project_is_still_refused(conn: Any):

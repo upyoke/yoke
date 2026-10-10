@@ -20,6 +20,7 @@ from yoke_contracts.coordination_claim_keys import (
     QUALIFICATION_KEY_PREFIX,
 )
 from yoke_core.domain.work_claim_targets import (
+    TARGET_KIND_DEPLOY_SERIALIZATION,
     TARGET_KIND_MIGRATION_SERIALIZATION,
     TARGET_KIND_QA_ADMISSION,
     TARGET_KIND_ROUTE_QUALIFICATION,
@@ -35,8 +36,10 @@ class CoordinationKeyError(ValueError):
 
 
 #: Deployment runs once required a per-project claim under this prefix.
-#: Nothing accepts one now, and a caller still typing it is told what
-#: replaced it rather than handed the generic unknown-key refusal.
+#: Nothing takes one now, and a caller still typing it is told what replaced
+#: it rather than handed the generic unknown-key refusal. Rows taken before
+#: the retirement still render under it, so their holder can find and
+#: release them by id.
 RETIRED_DEPLOY_KEY_PREFIX = "DEPLOY:"
 RETIRED_DEPLOY_KEY_REFUSAL = (
     "deploy_lock_retired: {key!r} names the retired per-project deploy "
@@ -44,7 +47,10 @@ RETIRED_DEPLOY_KEY_REFUSAL = (
     "A run occupies the server origins it deploys to until its QA settles "
     "or it is terminal, and a run that would deploy over an occupied server "
     "refuses naming the holding run; a run with a live driver answers only "
-    "to that driver's session."
+    "to that driver's session. A hold taken before the retirement is "
+    "released by its id: `yoke claims coordination-claim list --active-only` "
+    "names it, then `yoke claims coordination-claim release --claim-id N "
+    "--reason R`."
 )
 
 
@@ -101,6 +107,8 @@ def key_for_target(target: WorkClaimTarget) -> str:
         return f"{QA_HOST_KEY_PREFIX}{target.machine_id}"
     if target.kind == TARGET_KIND_ROUTE_QUALIFICATION:
         return f"{QUALIFICATION_KEY_PREFIX}{target.grant_key}"
+    if target.kind == TARGET_KIND_DEPLOY_SERIALIZATION:
+        return f"{RETIRED_DEPLOY_KEY_PREFIX}{target.project_slug}"
     raise CoordinationKeyError(f"{target.kind!r} is not a shared-operation claim kind")
 
 

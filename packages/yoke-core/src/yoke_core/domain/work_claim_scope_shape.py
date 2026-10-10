@@ -19,10 +19,11 @@ TARGET_KIND_MIGRATION_SERIALIZATION = "migration_serialization"
 TARGET_KIND_QA_ADMISSION = "qa_admission"
 TARGET_KIND_ROUTE_QUALIFICATION = "route_qualification"
 #: The per-project deploy lock deployment runs once required. Nothing takes
-#: one now; the kind stays readable only because released rows of it are
-#: retained claim history.
+#: one now; the kind stays readable because rows of it remain — released
+#: history, and holds taken before the retirement until their holder
+#: releases them by id.
 TARGET_KIND_DEPLOY_SERIALIZATION = "deploy_serialization"
-RETAINED_HISTORY_TARGET_KINDS = (TARGET_KIND_DEPLOY_SERIALIZATION,)
+RETIRED_TARGET_KINDS = (TARGET_KIND_DEPLOY_SERIALIZATION,)
 ALL_TARGET_KINDS = (
     TARGET_KIND_ITEM,
     TARGET_KIND_EPIC_TASK,
@@ -31,7 +32,7 @@ ALL_TARGET_KINDS = (
     TARGET_KIND_MIGRATION_SERIALIZATION,
     TARGET_KIND_QA_ADMISSION,
     TARGET_KIND_ROUTE_QUALIFICATION,
-    *RETAINED_HISTORY_TARGET_KINDS,
+    *RETIRED_TARGET_KINDS,
 )
 
 #: The strategy document a steering seat is narrowed to, when it has one.
@@ -143,7 +144,7 @@ __all__ = [
     "ALL_TARGET_KINDS",
     "OPTIONAL_SCOPE_KEYS",
     "REQUIRED_SCOPE_KEYS",
-    "RETAINED_HISTORY_TARGET_KINDS",
+    "RETIRED_TARGET_KINDS",
     "STEERING_DOCUMENT_KEY",
     "TARGET_KIND_DEPLOY_SERIALIZATION",
     "TARGET_KIND_EPIC_TASK",
