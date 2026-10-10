@@ -87,7 +87,7 @@ Read workflows.item.get and its exact workflows.version.get.
 LIVE_STAGE comes from status; NEXT_STAGE is the unique declared forward edge
 from it, using stage order to separate rework. Confirm the live half-open Dash
 binding. Missing/ambiguous edge refuses workflow_next_stage_ambiguous; ask the
-workflow owner, never invent a route. Resumed active lanes skip entry activation.
+workflow owner, never invent a route. Skip activation when resuming an already-active lane.
 
 ```text
 yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE --reason "Dash execution started"

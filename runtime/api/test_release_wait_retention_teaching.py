@@ -82,8 +82,9 @@ def test_the_dash_close_out_stops_teaching_a_release_wait_release():
     assert "Any prompt that wakes you clears the park" in collapsed
     assert "re-park first with the command above" in collapsed
     assert "active work claim retains the session through idle sweeps" in collapsed
-    # Only the run that discharges THIS item's delivery calls its owner.
-    assert "a stage run in a stage-and-production pair will not call you" in (collapsed)
+    # Stage QA can wake an owing member; supplemental stage success is not final completion.
+    assert "Native wakes cover this item's outstanding QA" in collapsed
+    assert "a supplemental stage run does not claim final completion" in collapsed
 
 
 def test_the_close_out_park_recipe_is_the_reason_the_product_stamps():

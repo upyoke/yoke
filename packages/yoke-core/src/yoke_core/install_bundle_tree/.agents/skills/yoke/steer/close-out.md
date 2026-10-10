@@ -1,116 +1,63 @@
-# /yoke steer step 5 — close-out, seat hygiene, surface marks
+# Steer — settle, hand off, release
 
-## 5. Close-out: settle, hand off, and release everything held
+Honor explicit stop promptly. Release is mark-complete, not silence or a
+substitute for settling operations. Follow this order:
 
-Release is mark-complete, not silence. A deliberate close-out is a full
-shutdown and handoff, not just the steering claim; an abandoned coordinator
-is reclaimed by the stale sweep instead. Honor an explicit stop promptly,
-then work through this order:
+1. Refresh the document's Live status snapshot with runs/workers, ownership,
+   receipts and exact successor action; the next seat can cold-start there.
+2. Stop this session's watcher through its owning handle and remove its Codex
+   keep steering schedule if present. Do not leave unowned recovery automation.
+3. Settle or explicitly hand off every pending landing, deploy or worker
+   before releasing its protecting lock. Reuse merge/run recovery and name
+   successor. Run success is not finished member delivery:
 
-1. **Snapshot state for the successor.** Refresh the strategy document's
-   `## Live status — steering snapshot` (see [`loop.md`](loop.md) § "Keep
-   the document current") with current runs, workers, and each one's exact
-   successor action — a cold-start reader must be able to pick up the scope
-   from the document alone.
+```text
+yoke deployment-runs get {RUN_ID}
+yoke deployment-runs stages {RUN_ID}
+```
 
-2. **Stop this session's own watchers and recovery automation.** Stop the
-   fleet watcher through its owning tool handle (see
-   [`watching.md`](watching.md)); on Codex, remove the `keep steering`
-   scheduled task if one is running — a watcher left armed has nowhere to
-   deliver its next wake.
+Parked release members remain owned: do not release their claims, terminate
+them, run their QA or close-out. Snapshot owners/owed work. Only an orphan
+explicitly handed to this seat is yours to finish through yoke merge item.
 
-3. **Settle or explicitly hand off every active operation before releasing
-   the lock protecting it.** A `landing_pending` merge, an in-flight deploy
-   batch, or a worker mid-mandate is not release-ready: use its existing
-   recovery path (re-run `yoke merge item`, let the deploy batch finish,
-   message the worker) or hand it to the successor named above. Releasing a
-   lock never settles the operation it guarded.
+4. Inventory all three session holdings; no one bulk call covers them:
 
-   A succeeded run is not a finished release. Each member closes itself out
-   after its own deployment wake, so read what the run's members still owe
-   before you call delivery done:
+```text
+yoke claims steering list --session-id {SESSION_ID} --active-only --json
+yoke claims coordination-claim list --session-id {SESSION_ID} --active-only --json
+yoke claims work holder-list --session-id-filter {SESSION_ID} --json
+```
 
-   ```text
-   yoke deployment-runs get {RUN_ID}
-   yoke deployment-runs stages {RUN_ID}
-   ```
+5. Release only this session's remaining holds: steering pair first, each
+   named coordination hold (DEPLOY is sticky), then work. Never release
+   another worker's/item-owned claim or directly unlock a live paired doc.
 
-   Members still parked at their release wait are owned, not abandoned — do
-   not release their work claims, terminate their sessions, or run their item
-   QA or close-out for them. Name each one and its owner in the successor
-   snapshot instead. Only a member the stale sweep already handed to this seat
-   is yours to finish, through the same `yoke merge item` every owner runs.
+```text
+yoke claims steering release {CLAIM_ID} --reason "steer close-out"
+yoke claims coordination-claim release --project {_project} --key DEPLOY:{_project} --reason "steer close-out"
+yoke claims work release --all-mine --reason "steer close-out"
+```
 
-4. **Inventory every claim and lock this session holds.** No single bulk
-   call covers it — read all three:
+6. Repeat all inventories: empty or only deliberately recorded handoffs.
+   Failed release/unsafe unsettled operation retains its lock and names exact
+   exception/recovery; never report clean close-out. Explicit operator release
+   instruction is already authority. Wrapup only when asked for session close.
 
-   ```text
-   yoke claims steering list --session-id {SESSION_ID} --active-only --json
-   yoke claims coordination-claim list --session-id {SESSION_ID} --active-only --json
-   yoke claims work holder-list --session-id-filter {SESSION_ID} --json
-   ```
-
-5. **Release every remaining session-owned claim/lock** — never another
-   worker's or an item-owned claim. Steering seat first (its paired
-   strategy-doc lock leaves with it), then every coordination claim the
-   inventory surfaced by name (e.g. `DEPLOY:{project}` — sticky, so it
-   survives `--all-mine`), then any remaining work claim:
-
-   ```text
-   yoke claims steering release {CLAIM_ID} --reason "steer close-out"
-   yoke claims coordination-claim release --project {_project} --key DEPLOY:{_project} --reason "steer close-out"
-   yoke claims work release --all-mine --reason "steer close-out"
-   ```
-
-6. **Re-verify zero unintended holds.** Re-run the three list calls from
-   step 4; each must return empty, or name only what step 3 deliberately
-   handed off with its own recorded successor.
-
-If a live operation cannot be settled or handed off safely, stop short of
-releasing its lock, name the concrete exception and exact recovery action
-instead of reporting a complete close-out. An explicit operator instruction
-to release a held lock is authorization on its own; do not ask again.
-
-Then `/yoke wrapup` if the operator asked for a session close. Do not
-release the paired strategy document directly while the steering seat is
-live; that refusal teaches this paired release instead.
-
-## Seat hygiene (token economics)
-
-- Every wake resends the seat's whole transcript, so cost-per-wake grows
-  with transcript length. When the transcript is heavy and the fleet is
-  quiet, prefer an orderly handoff — update the strategy doc's Live
-  status, release the seats, and let a fresh session cold-start from the
-  doc — over dragging a long transcript through every subsequent wake.
-- When self-scheduling a wakeup, pick the delay for what is actually
-  being awaited and avoid landing just past the prompt-cache window:
-  wake densely while genuinely active or rarely with a batched pass —
-  the just-expired middle pays full transcript price per wake for
-  nothing.
+Heavy transcript/quiet fleet favors orderly snapshot+seat handoff to a fresh
+session. Choose actual wait cadence with prompt-cache cost in mind: dense
+when active or infrequent batched passes, no just-expired repeated transcript.
 
 ## Surface disable marks
 
-This is a manual circuit breaker, not a state machine. Do not count
-failures, auto-trip, auto-clear, or probe on a timer.
-
-When a run of same-surface worker failures carries a vendor-side
-signature (quota exhausted, launch path broken on that harness), disable
-that `(machine, surface)` and rebalance new launches onto the other
-harnesses:
+Manual vendor circuit breaker only: no failure counter/autotrip/auto-clear/
+timer probing. Classified quota or broken-harness signature disables that
+machine/surface and rebalances new launches. Unclassified failure escalates
+instead; do not disable a healthy harness for a system defect.
 
 ```text
 yoke session-control surface-policy disable --project {_project} --machine M --surface S --reason vendor_signature
-```
-
-Before re-enabling, run one cheap canary launch on that surface. Clear
-the mark only after that canary succeeds:
-
-```text
 yoke session-control surface-policy enable --project {_project} --machine M --surface S
 ```
 
-Escalate to the operator instead of marking when failures are
-unclassified. Unclassified failures can be Yoke-side; disabling a
-healthy harness for our own bug is the failure mode to avoid. Marks
-gate new launches and native-resume spawns only; in-flight sessions
-stay up.
+Enable only after one successful cheap canary. Marks gate new launches/native
+resume spawns; in-flight sessions stay up.

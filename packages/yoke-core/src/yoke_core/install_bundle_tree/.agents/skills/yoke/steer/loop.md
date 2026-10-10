@@ -1,22 +1,3 @@
-# /yoke steer — standing loop
-
-Strategy document writes: read the selected command’s `--help` for required fields and limits; the canonical contract is `.yoke/docs/reference/db-reference/functions-project-configuration.md`.
-
-Run this loop after each steering acquire atomically holds a project seat and
-its paired strategy-doc lock. Routine resume reads only the Live Status
-checkpoint; get a claimed contract slug on demand via `yoke strategy doc get`.
-Never erase that contract to hit a size target. Do not invoke `/yoke feed`.
-
-## Wake sources
-
-- A delivered session message (acknowledge first, then act).
-- A periodic frontier check when no message is waiting.
-
-Read [watching.md](watching.md) completely and start or reattach the standing
-fleet watcher on every harness and CLI/desktop surface. Its returned wait mode
-selects the native subscription or active tool stream. Ordinary questions do
-not stop this loop; answer them while authorized coordination continues.
-
 <!-- BEGIN GENERATED: harness-wake-capability -->
 Wake capability is a manifest fact, not prose. Source of truth:
 `agent_wake` in `runtime/harness/<harness-dir>/manifest.json`, rendered from
@@ -28,320 +9,184 @@ restate one of these facts on a document's own authority.
 - `cursor` — idle wake: supported (`notify_on_output`); timer wake: none. Verified on cursor-cli.
 <!-- END GENERATED: harness-wake-capability -->
 
-Check live mode before each resumed pass: an explicit `parked` pause remains
-until the operator resumes coordination. Only then stamp
-`yoke sessions touch --mode steer` if needed. After compaction or resume,
-reload this phase and reattach the running watcher or re-arm it when absent, respecting that pause; discarded context is gone.
+# Steer — standing loop
 
-## Pass
+Run only with paired steering/document authority. Routine resume reads only
+the Live Status checkpoint; read claimed contract slugs on demand through
+strategy.doc.get, never erase contracts to meet a size target. No feed.
+Read [watching.md](watching.md) completely and attach every held scope's
+manifest-selected stream. Explicit parked pause survives resumes/compaction;
+only operator resumption stamps steer/rearms. Ordinary questions continue it.
 
-### 1. Read the live checkpoint, then the scope frontier
+## 1. Plan, frontier, then negative-space findings
 
 ```text
 yoke strategy doc get {SLUG} --project {_project}
-```
-
-Use only `## Live status — steering snapshot` from that get on routine resume. Extract next steps and standing decisions from it before the live DB frontier:
-
-```text
 yoke charge schedule --project {_project} --json
 yoke claims steering list --project {_project} --active-only --json
 ```
 
-The document wins on intended scope, priority, order, and constraints; the DB wins
-on live item status, claims, dependencies, and runnable eligibility. A DB-gated item
-waits and refreshes the doc; a DB-runnable item absent from or ordered differently
-by the doc does not silently become next. Reconcile through registered surfaces
-before acting; escalate only for a reserved human decision.
+Extract next steps/standing decisions first. The document wins on intended
+scope, priority, order and constraints; the DB wins on live item status,
+claims, dependencies and runnable eligibility. A runnable item absent from
+or differently ordered by the doc does not silently become next. Reconcile
+through registered authority; DB-gated work waits and updates the doc.
+charge.schedule is a frontier read, never dispatch or feed.
 
-`charge.schedule` is a frontier **read**, not dispatch or feed. Record runnable items, dependency gates, and claims; write material movement into the doc (step 7).
+### Negative-space checks — first, every periodic pass
 
-When a blocker merges and an activation gate clears, explicitly wake the
-waiting dependent; activation dependencies do not send their own go-signal:
-
-```text
-printf '%s' "GO PREFIX-N: dependency gate cleared; resume the routed leg" | yoke say --item PREFIX-N --stdin
-```
-
-#### Negative-space checks — first, every periodic pass
-
-Positive wake events are not enough. Failures arrive as silence, and the
-fleet report is the detector for them: it is composed server-side and
-rides hook context. On every pass **read the report you were given** before
-consuming events, messages, or worker reports. A harness may persist that
-context to a file and show only a preview from the top — open the file, not
-the preview. Between wakes, pull (omit `--project`):
+Failures arrive as silence; the fleet report is the detector. Read the whole
+hook report before consuming events, messages, or worker reports. If persisted
+with a preview, open the file, not the preview. Between wakes pull all held scopes:
 
 ```text
 yoke steering report get
 ```
 
-The report answers these checks from live control-plane state, with one
-section per finding and idle holders keyed on `last_tool_call_at`
-rather than any liveness label. Do not re-run those queries by hand:
-use the report directly. A section with nothing to say prints nothing,
-so a short report means the detectors have no findings to report.
-The report scans every pass because these failures are silences.
+Do not re-run those queries by hand. Detectors use last_tool_call_at rather
+than any liveness label. A section with nothing to say prints nothing.
+These failures are silences. Read [fleet-findings.md](fleet-findings.md) and
+dispose of every finding before continuing.
 
-Read [fleet-findings.md](fleet-findings.md) completely and act on every
-finding before continuing this pass.
+Two things the report deliberately does not do:
+- Re-verify ownership immediately before launching or reclaiming: composition
+  leaves one more claim handoff window; stale readback can staff a second
+  worker onto a healthy item. Read yoke claims work holder-get PREFIX-N.
+- Set the hold flag on work you are holding on purpose, rechecking each pass.
+  Report excludes frozen/operator-blocked work rather than guessing intent.
+  Use yoke items freeze PREFIX-N or block with reason; permanently abandoned
+  work uses yoke items cancel PREFIX-N --reason TEXT. Keep only actual blockers/
+  operator holds, unblock/resume when cleared.
 
-Two things the report deliberately does not do, so do them yourself:
+Since activation dependencies do not send their own go-signal, after verified
+blocker merge/gate clearance, explicitly resume the waiting dependent:
 
-- **Re-verify ownership immediately before launching or reclaiming.** The gap
-  between the report's composition and your action is one more claim handoff
-  window. Observed: a sweep hit that window and staffed a second worker onto
-  a healthy item.
+```text
+printf '%s' "GO PREFIX-N: dependency gate cleared; resume the routed leg" | yoke say --item PREFIX-N --stdin
+```
 
-  ```text
-  yoke claims work holder-get PREFIX-N
-  ```
+The dashboard session card is a faster read: active for live, parked for
+declared wait, confirmed stale only by server, possibly stale while unresolved;
+waiting/probed explain a claim holder's quiet. Recency remains subordinate,
+not evidence of death. Effective executor TTL is reported data; an active work
+claim protects its holder from age reclaim. An idle session can still be a
+session the control plane counts. Do not reproduce a machine's numeric TTL.
 
-- **Set the hold flag on work you are holding on purpose, and recheck it
-  every pass.** The report excludes frozen and operator-blocked items rather
-  than guessing intent from age, so an item you have parked reports as
-  available until you say so with `yoke items freeze PREFIX-N` or `yoke
-  items block PREFIX-N --reason TEXT`. Work that will never resume is `yoke
-  items cancel PREFIX-N --reason TEXT`, not freeze. Keep only current
-  blockers or explicit operator holds, not filing notes — unblock and
-  resume the moment the reason clears.
+## 2. Read, acknowledge, dispose
 
-The dashboard session card carries one primary status in the identity line:
-`active` for any live session, `parked` for a session that parked itself
-(its server liveness is `waiting` while it holds a claim, never `stale`),
-confirmed `stale` when the server has classified it, and `possibly stale`
-only while still server-active past the window with claims and no wait or
-probe. A claim-holding card's primary
-becomes `waiting` or `probed` when those facts explain the quiet. Age, relay,
-and latest-message stay labelled subordinates and never restate that status
-word. Recency instead lives on the age line: `active now` under a minute,
-`idle <age>` past it, rolling over minutes/hours/days like every other age
-on the card. The executor-aware TTL (1440 minutes here) decides alive versus
-stale, so `idle 24h` there can still be a session the control plane counts.
+```text
+yoke messages list --json
+yoke messages get MESSAGE-ID
+yoke messages acknowledge MESSAGE-ID
+yoke inbox list
+```
 
-### 2. Consume worker reports
+List/excerpt decides what to open, never disposition. Read each authenticated
+full message, acknowledge immediately, then assign a substantive disposition
+before switching topics or ending this pass: act now, record the exact
+dependency/hold, or surface the reserved operator decision. Acknowledgement
+is receipt, never completion. Carry unfinished actions in CURRENT-PLAN or
+the claimed standing plan with message id/item/owner/next step/release condition.
+Inbox decisions are part of this same pass.
 
-Item-addressed messaging is the default. The server resolves the live
-holder of a claim; do not hand-copy or expand a session UUID.
+Item-addressed messaging resolves live claim holder; also epic-task/process.
+Session UUID is fallback only for claim-less recipients. Never reconstruct
+an abbreviated UUID. Substantive peer requests copy steering; see worker-launch.
 
 ```text
 printf '%s' "$BODY" | yoke say --item PREFIX-N --stdin
 ```
 
-Also `--epic-task ITEM:N` and `--process KEY`. `--session UUID` is the
-fallback for a claim-less recipient only (this itemless steerer is one).
-No Yoke surface shortens a session id, so a short one did not come from Yoke: never pad, complete, or expand one by hand.
-
-```text
-yoke messages list --json
-yoke messages get MESSAGE-ID
-```
-
-The list serves one row per message — sender, state, recipients, expiry, and
-the first line. It is how you decide which report to open, never the report
-itself: read each inbound message with `yoke messages get MESSAGE-ID` before
-disposing of it, because a disposition assigned off an excerpt is assigned
-off the part of the body that happened to fit.
-
-For each authenticated inbound message: acknowledge immediately, then assign
-a substantive disposition before switching topics or ending this pass: act
-now, record the exact dependency/hold in existing item and strategy state, or
-surface the reserved operator decision. Acknowledgement is receipt, never
-completion. Apply only what the report justifies. Carry unfinished actions in
-CURRENT-PLAN (or the explicitly claimed standing plan), with the message id,
-item, owner, next action, and exact release condition, so compaction and a
-seat handoff cannot erase work whose mail is already acknowledged.
-
-```text
-yoke messages acknowledge MESSAGE-ID
-```
-
-Your Inbox is part of the same pass — decision requests left unread are
-somebody blocked, not a queued chore:
-
-```text
-yoke inbox list
-```
-
-Vetting landed work is a separate duty and is not done here; it is step 5b
-below. The `merge_candidate_review` posture exists for an item a human owner
-explicitly wants held before it lands, and steering does not select it.
-
-Typical report body: `DONE PREFIX-N <one-line summary>`. The PREFIX-N in
-that heading is the report identity: it must name work the sender holds or
-has released, not another live claim. When a
-DONE envelope arrives, treat it as a prompt to verify, not proof of
-completion. Workers can finish without sending one, too. Confirm both the
-item status and the latest matching claim's `release_reason=completed`:
+DONE PREFIX-N: that heading is the report identity, naming sender-held/released
+work. DONE prompts verification, not completion. Verify terminal item state
+and latest matching release_reason=completed; workers may finish without mail:
 
 ```text
 yoke items get PREFIX-N status --json
 yoke db read "SELECT release_reason FROM work_claims WHERE target_kind = 'item' AND scope::jsonb->>'item_id' = (SELECT item_id::text FROM item_refs WHERE public_ref = 'PREFIX-N') ORDER BY id DESC LIMIT 1"
 ```
 
-When those authorities show the steering-scoped item is complete:
-
-1. Update item state, dependencies, or gates through the registered item
-   surfaces the report actually requires — never invent a status change.
-2. The worker should already have followed
-   [`worker-lifecycle.md`](worker-lifecycle.md) rule 5 and self-ended after
-   reporting. Routine completion never calls `yoke sessions terminate`;
-   reserve termination for an unresponsive worker, a restaff (rule 9), or
-   cleanup.
-3. Write the close-out into the doc.
-
-#### Revive starved workers
-
-A quiet `claude-cli` worker is dead: Claude heartbeats advance on tool calls.
-Send an item-addressed wake first:
+Apply only justified item/dependency/gate writes, snapshot completion, and let
+worker self-END. No routine termination; reserve it for proven unresponsive,
+restaff or cleanup. Quiet/exited between turns is not dead. Send an item
+message first. For a report naming an owed stuck wake, read machine evidence
+then use registered recovery, never direct native resume:
 
 ```text
-printf '%s' "WAKE PREFIX-N: resume the assigned routed leg and report status" | yoke say --item PREFIX-N --stdin
+yoke session-control evidence get --session SESSION-ID
+yoke session-control session wake --item PREFIX-N --prompt "Resume the assigned routed leg" --json
 ```
 
-Never hand-wake a parked CLI worker: with no idle wake it escalates to a relay
-wake on the first pass. A desktop session is nobody's to resume; its operator
-types in that chat to deliver it. Read `state='pending'`, `injection_count=0`:
+Moving delivery/wake_in_flight waits; meter_exhausted needs deliberate restaff
+with headroom; operator_wake_required needs that desktop operator's prompt.
+No surface-disable mark for unclassified failure. Preserve receipts/recovery.
 
-```text
-yoke db read "SELECT session_id,state,injection_count,wake_escalation,created_at FROM session_message_recipients WHERE session_id = '{SESSION_ID}' AND state = 'pending' AND injection_count = 0 ORDER BY created_at DESC"
-```
+## 3. Write plan state and staff every authorized item
 
-A `cursor-cli` row with no `wake_escalation` past the grace window is what the
-bridge is still for; resume that stuck session directly:
-
-```text
-cursor-agent --resume <session-id> --print --output-format json --workspace <dir> --trust '<instruction>'
-```
-
-A run of deaths within a few tool calls on one installed, signed-in surface is
-vendor quota or credits exhausted. Disable that surface on that machine
-(`surface-policy disable`) so level placement weighs the level's other options
-until it recovers, then enable it again.
-
-### 3. Write the strategy document itemless
-
-The coordinator holds no work item. The claimed doc is the durable write target
-for plan-level progress: objective, frontier, decisions, gates, and dead ends.
-Edit through `strategy render`, `strategy ingest`, or `strategy.doc.replace`;
-the doc plus the items survive coordinator death.
-
-Item-spec writes are the exception to itemless authority. Hold a temporary
-item claim for exactly the registered structured-field write, then release
-it immediately:
+The claimed doc is the durable write target for plan-level progress, through
+registered strategy render/ingest/replace. Read chosen command's help and the
+project-configuration function catalog. Item spec writes alone take a temporary
+item claim for exactly that structured write, then release:
 
 ```text
 yoke claims work acquire --item PREFIX-N --reason steering
-printf '%s' "$CONTENT" | yoke items structured-field replace PREFIX-N --field <field> --stdin
+printf '%s' "$CONTENT" | yoke items structured-field replace PREFIX-N --field FIELD --stdin
 yoke claims work release --item PREFIX-N --reason "steering spec write complete"
 ```
 
-### 4. Hand a chunk to an executor
-
-Read and follow [`blitz-handoff.md`](blitz-handoff.md) completely whenever a
-strategy-document chunk needs an executor. It owns the link, lock-release,
-dependency, launch, and automatic document-archive boundary.
-
-### 5. Staff unpicked runnable work
-
-Runnable work that sits unclaimed is this seat's to staff; nothing else
-does it. Work this seat files is staffed in the same pass, as soon as it is
-runnable; the report is not its trigger. Everything else runnable and
-unclaimed reaches you through the available list of the report you already
-read above (`yoke steering report get` between wakes).
-
-Launch per [`worker-lifecycle.md`](worker-lifecycle.md) — item-bound and
-CLI-only, through the registered launch surface.
-
-Before switching topics or ending any pass, reconcile **all runnable scoped
-work** against the standing plan and live schedule. Verify current ownership,
+Follow [blitz-handoff.md](blitz-handoff.md) for document chunks. There is no second staffing path. Runnable
+unclaimed work is this seat's to staff; nothing else staffs it. Filing and
+staffing happen in the same pass once runnable. Follow worker-lifecycle and
+its one registered CLI launch path. Before switching topics/ending a pass,
+reconcile all runnable scoped work for every held seat: verify live ownership,
 launch or restaff each authorized unclaimed item, unblock and resume cleared
-dependents, and record an exact dependency, hold, or reserved decision for
-anything unfinished. Reconcile every seat this session holds; a document seat
-covers its linked items, while a project seat covers the project. A watcher
-signal is a prompt to read that scope authority, never permission to staff
-outside it. Keep independent work moving while one item waits.
+dependents, record exact hold/dependency/reserved decision for the remainder.
+A watcher finding is no authority outside the seat; keep independent work moving.
 
-### 5b. Vet each landing before it enters a release
+## 4. Vet before release admission; batch delivery
 
-Workers merge on their own the moment their gates are green. Do not hold a
-merge, and do not make your review a precondition of landing — the seat that
-gates landing is the seat that becomes the bottleneck.
-
-Vet each worker's landed or landing work as soon as you can, and **always
-before admitting the item to a deployment run**. Read the exact diff and the
-evidence that covers it, not the summary you were sent:
+Worker gates land immediately; steering never selects default prelanding
+merge_candidate_review. Vet exact diff/evidence as soon as possible and always
+before run admission, not DONE summary:
 
 ```text
 yoke items detail get PREFIX-N --json
-git -C {CHECKOUT} show --stat {LANDED_SHA}
 git -C {CHECKOUT} diff {BASE_SHA}...{LANDED_SHA}
 yoke qa requirement list --item PREFIX-N --json
 ```
 
-When vetting finds a problem, the item goes back to the worker to correct —
-fix, re-verify, re-land, re-enter release. The registered rework transition
-is a backward move the declared-transition gate leaves to rework rather
-than refusing.
+Unresolved vetting problems stay out of release. Route correction to the
+holder; lifecycle transition needs its claim. No takeover of a live lane.
+Unheld rework follows worker-launch's acquire/transition recipe, fixes the
+same item, re-verifies/re-lands/re-enters release. Read
+[release-batches.md](release-batches.md) before composition/execution.
 
-Follow the [worker rework-claim procedure](worker-lifecycle.md) to route
-the correction to the live holder, or acquire the claim when no holder exists.
-That document owns the transition recipe and holder-authority rule.
+## 5. Preserve current snapshot and verified reminders
 
-**An item with an unresolved vetting problem is not admitted to a
-release** — leave it out of the batch below rather than deploying it and
-correcting afterwards.
-
-### 6. Deploy merged work in batches
-
-Read [release-batches.md](release-batches.md) before this step.
-
-### 7. Keep the document current
-
-After every material change — frontier movement, gate decision, launch,
-escalation, dead end, report close-out — write it into the claimed doc
-through the registered strategy surfaces. The doc is coordinator state,
-not a wrapup artifact.
-
-Maintain one dated section with this exact heading, refreshing or replacing
-it at the next steering handoff rather than accumulating stale snapshots:
+After material frontier/gate/launch/report/escalation/dead-end change, refresh
+one dated section rather than accumulate history:
 
 ```text
 ## Live status — steering snapshot (refresh or replace on next steering handoff)
 ```
 
-It carries current objective, standing decisions/holds, seat holdings,
-in-flight lanes, blockers, next actions, and links to evidence. Do not
-paste full results. Preserve unresolved holds and obligations from other
-dated sections until reconciled here; then drop superseded snapshots.
+Carry objective/standing constraints/seat holdings/in-flight owners/blockers/
+next steps/evidence. Preserve older unresolved obligations until reconciled;
+drop superseded snapshots, not contracts. Do not paste full results.
 
-### Operator reminders in every reply
+Every operator-visible reply/turn repeats all live outstanding operator actions:
+item, the specific required action, and what it unblocks, until resolved or
+explicitly muted. ordinary questions never waive this duty. Fold into normal
+reply, never a separate wake or turn just to nag. Before each reminder verify
+the actual authority (gate/hold/refusal/decision). If a system failure caused
+the hold, correct the attribution and pursue repair. Preserve the full reminder
+set/evidence/unblock conditions in the standing plan's live status section;
+reconcile resolution/mute before replying.
 
-Every operator-visible reply/turn, including an answer to an ordinary
-question, repeats **all live outstanding operator actions**. State each item,
-the specific required action, and what it unblocks. No most recent blocker
-hides another. Keep repeating each action until resolved or explicitly muted;
-record the resolution or mute in the standing plan. Fold these reminders into
-the normal response, never a separate wake or turn just to nag.
+## Escalate only human decisions
 
-Before each reminder, verify the actual authority: the live item gate,
-claim/lock, refusal, or decision record. If a system failure caused the hold,
-correct the attribution and pursue its repair; do not repeatedly ask the
-operator to perform an action the system owes. Preserve the complete reminder
-set, its evidence and unblock conditions in the existing standing plan's live
-status section so it survives compaction and handoff. Reconcile resolved and
-muted entries before replying; ordinary questions never waive this duty.
-
-### 8. Escalate only human decisions
-
-Escalate to the operator when the loop cannot choose: conflicting reports, a
-scope that needs a new project, a lock it cannot release without destroying
-in-flight work, or any decision the operator reserved. Present the decision,
-the evidence, and the recommended option, then **wait**. Do not guess. Do not
-implement. Do not file a substitute item to dodge the gate. Everything else
-continues autonomously.
-
-## Stop
-
-A clean stop follows the close-out ceremony in `SKILL.md` step 5 — settle,
-hand off, and release everything held. An abandoned coordinator's active work claim stays held until explicit release or authorized termination.
+Conflicting reports, new project/scope, unsafe protected lock or reserved
+decision: present evidence/recommended option and wait. Do not guess, implement
+or file a substitute item to dodge the gate. Continue independent authorized
+work. Explicit stop follows [close-out.md](close-out.md); no abandoned lock or
+claim is settled by silence.

@@ -58,10 +58,15 @@ Effective required is item-scoped, required_per_task generated-task-scoped,
 optional off. Central compatibility/posture projection owns the answer;
 File Budget and path claims remain independent, 350 always on.
 
-## Resume and checkpoints
+## Resuming an item already in flight
 
-Read Progress Log and the registered lane's status/log before resuming.
-Preserve uncommitted work; actual lane state wins over a stale checkpoint.
+```text
+yoke items section get ITEM --section 'Progress Log'
+git -C {WORKTREE_PATH} status --short
+git -C {WORKTREE_PATH} log -5 --oneline
+```
+
+Keep the uncommitted work; actual lane state wins over a stale checkpoint.
 Survey and prepare still run, reusing the lane. Skip the entry transition
 already completed and resume at the phase selected by the live pin.
 

@@ -50,7 +50,7 @@ def _words(text: str) -> str:
 
 class TestSteerWorkerLifecycle:
     def test_worker_rules_and_launcher_recipe_cover_steering_contract(self):
-        text = _worker_rules()
+        text = _words(_worker_rules())
         assert "Encode dependency edges" in text
         assert "Keep the frontier maxed out" in text
         assert "Launch CLI surfaces only" in text

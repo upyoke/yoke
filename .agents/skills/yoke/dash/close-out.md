@@ -14,7 +14,8 @@ terminal scalar/lifecycle write for a landed Dash. Read the pinned status and
 
 If delivery is still owed, the command retains the claim and registered Dash worktree lane,
 lands at the declared release wait and parks this session.
-You remain owner through delivery; no early DONE or terminal steering report.
+You stay the owner through delivery. Do not release the claim and do not end
+the session there; no early DONE or terminal steering report.
 Read what the item owes (exact stage/member requirements) and verified wake
 authority, and report them. If park is unconfirmed, stamp it:
 
@@ -22,8 +23,9 @@ authority, and report them. If park is unconfirmed, stamp it:
 yoke sessions touch --mode parked --reason "awaiting ITEM delivery: deployment run, then post-deploy validation and the done close-out"
 ```
 
-Every wake clears park. If the item remains short of done and you go quiet,
-repark; never release the unfinished claim. An operator-wake desktop needs
+Any prompt that wakes you clears the park. If the item remains short of done
+and you go quiet, re-park first with the command above. The active work claim
+retains the session through idle sweeps; never release the unfinished claim. An operator-wake desktop needs
 its operator/steering seat to reenter; do not promise a native wake.
 An item owing nothing closes on actual delivery without reentry.
 
@@ -122,8 +124,7 @@ without intervening commits.
 Successful merge/done may already release the item work claim and sweep its
 lane; read lane_sweep kept/removed reasons and LandedLanePreserved evidence.
 Only release when a claim remains AND the item is finished, or on an actual
-premerge exit. Skip an already-released claim and skip it
-entirely while the item sits at a release wait.
+premerge exit. Skip an already-released claim and skip it entirely while the item sits at a release wait.
 
 ```text
 yoke claims work release --item ITEM --reason "Dash completed"
@@ -134,7 +135,7 @@ It addresses the covering role from held/last-held work, not a copied seat
 session. One terminal report per leg deduplicates; Collapsed into an earlier
 message means the new body was discarded. A resumed completion is its own
 leg. Never release unfinished work merely to be heard.
-Ending a turn sends no Fleet mail; release wait owes no DONE yet.
+Ending a turn sends no Fleet mail; release wait owes no terminal report yet.
 
 ## Surface this session's guardrail denials
 

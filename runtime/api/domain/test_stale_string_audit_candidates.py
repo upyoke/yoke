@@ -17,7 +17,15 @@ def test_normalize_candidate_string_filters_paths_and_commands():
     assert _normalize_candidate_string("python3 -m yoke_core.domain.foo") is None
     assert all(
         _normalize_candidate_string(s) is None
-        for s in ("PYTHONPATH", ".remove", ".split", ") else", "all Y")
+        for s in (
+            "PYTHONPATH",
+            ".remove",
+            ".split",
+            ".agents",
+            ", or",
+            ") else",
+            "all Y",
+        )
     )
     assert _normalize_candidate_string("RACING") == "RACING"
 

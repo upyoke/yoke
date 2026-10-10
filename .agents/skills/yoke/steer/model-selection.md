@@ -1,191 +1,87 @@
-# /yoke steer — choosing a level for a launch
+# Steer — choose level, then let the launch plane place it
 
-`session_control.launch.create` defaults to the item's live effective stage
-level, and Yoke chooses the option and machine. Judge the current leg before
-every item launch and pass `--level` whenever that judgment differs from the
-stage level: on an item-bound create, `--level` is how you staff the item at
-that level for every stage. This file is how the steering seat decides the
-level and an item's override. It applies to **new launches only** — a running
-session keeps the selection it started with, and changing a worker's level
-means launching a replacement, never editing a live one.
+New launches only: running session retains its attested selection. Judge live
+remaining leg, not title/starting model: SENIOR default for definition/
+implementation/review; JUNIOR mechanical/small bug/docs/cleanup; INTERN trivial
+specified; PRINCIPAL very complex debugging/design. Read fleet levels dry-run
+for option/machine/scoped pools/headroom/reset/blocker and live workers before
+choosing. No capacity means actual refusal, not a guessed spare surface.
 
-## Choose the level for the current leg
-
-Judge the work remaining at the item's live stage, not just its title or the
-level that started it.
-
-| The current leg is | Level |
-|---|---|
-| Definition (idea, refine, shepherd), implementation, pre-merge review/polish — the default | `SENIOR` |
-| Well-specified mechanical edits, small bug fixes, documentation, routine cleanup | `JUNIOR` |
-| Trivial, fully specified changes | `INTERN` |
-| Genuinely very complex debugging or architectural decisions | `PRINCIPAL` |
-
-These are staffing judgments, not static per-skill routing; the ladder below
-moves a running item up or down a level.
-
-Before naming a level, read the fleet report's **levels** block: for every
-level it is a dry run of the placement a launch would make, naming each
-option's machine, pools (left, headroom, reset), blocker, and where the next
-launch goes and why, beside the live workers per surface. A level reading
-`no capacity` will refuse; choose by that read rather than re-deriving it.
-
-## Staff an item at a level: `--level` sets its override
-
-An item-bound `launch create --level LEVEL` is the staffing path. In the
-launch's own transaction it records `{"min": LEVEL, "max": LEVEL, "reason": R}`
-as the item's `level` override, so **every stage** resolves to LEVEL, then
-launches the worker there. That is why the worker is not handed back to the
-stage level (`level_change`) at its first stage edge. `--level-reason R` says
-why (default `launch-time level`); the receipt's `Item level` row (`item_level`
-in `--json`) shows what was recorded, and a launch that fails records nothing.
-Omit `--level` when the stage level is right: the launch reads the item's
-effective stage level and records nothing. A preview, an itemless create, and
-an exact `--surface` selection place that one launch only. The write uses the
-launching seat's own authority; acquire and release no claim for it.
+## Item-bound --level sets every-stage override
 
 ```text
-yoke session-control launch create --project P --item PREFIX-N \
-  --level JUNIOR --level-reason "well-specified text change" --idempotency-key K
+yoke workflows item get PREFIX-N --json
+yoke session-control launch create --project P --item PREFIX-N --level JUNIOR --level-reason "well-specified text change" --idempotency-key K
 ```
 
-The write needs the pinned definition's `item_posture_allowlist` to include
-`level`; read `yoke workflows item get PREFIX-N`. A newly deployed workflow
-version does not change an existing item's pin. If `level` is absent the
-create refuses `item_level_not_recordable`: ask the control-plane operator to
-select a compatible published version and preview `yoke workflows item
-migrate PREFIX-N --version N --preview`; apply only after the compatibility
-checks pass. Migration requires a live steering seat covering the target
-project or document. Record that prerequisite for this item and continue
-staffing other eligible items; never blanket-repin the backlog or launch it
-elsewhere to avoid the refusal.
+Create atomically records level min=max with reason (default launch-time level),
+then launches; failure writes nothing. Receipt item_level/Item level confirms
+override, preventing level_change at next stage. Omitted --level reads effective
+stage and writes no override. Preview/itemless/exact --surface selection places
+one launch only, no temporary item claim. Pinned item_posture_allowlist must
+permit level; published current version does not repin existing item.
+item_level_not_recordable requires control-plane operator compatible version
+and workflows item migrate preview before checked apply under covering seat.
+Record prerequisite/continue other work; no blanket repin or alternate launch.
 
-Change a **running** item's level, or give it a `shift`, `min`, or `max`
-instead of a pin, with the posture amend; `yoke workflows item-posture amend
---help` has the shape and the recovery tree:
+For a running item or shift/min/max, amend per help then restaff through rule 9:
 
 ```text
-yoke workflows item-posture amend PREFIX-N --key level \
-  --value '{"max": "SENIOR", "reason": "<why SENIOR is enough>"}' \
-  --reason "steering staffing default"
-```
-
-The override shifts and clamps an automatic stage default once; an exact
-surface/model request bypasses it. The report lists every item's override.
-Amending mid-stage does not touch the running worker, which keeps the
-selection it launched with: restaff the item through rule 9 in
-[`worker-lifecycle.md`](worker-lifecycle.md) so the successor launches at the
-new level.
-
-The levels a project reads, and each level's options, are data:
-
-```text
+yoke workflows item-posture amend PREFIX-N --key level --value '{"max":"SENIOR","reason":"SENIOR is sufficient"}' --reason "steering staffing default"
 yoke projects level-summary get --project {_project}
 yoke universe levels get
-```
-
-Never restate those options here; the next level edit would leave this file
-teaching a selection the universe no longer has.
-
-## How a level launch is placed
-
-```text
 yoke session-control launch preview --project {_project} --level SENIOR --json
 ```
 
-That launches nothing. It weighs every option of the level on every machine
-you may use, against only the quota pools that option's model draws on, keeps
-a worker on every idle surface above 100% headroom, and otherwise picks the
-most headroom. The receipt names the level, the chosen option, every pool
-each option read, and why the winner won (`level_placement`). The rules and
-their edge cases live in
-[launching by level](../../../../.yoke/docs/reference/session-level-routing.md#launching-by-level).
+Override shifts/clamps automatic stage default once; exact model request bypasses
+it. Never restate central level options here. Preview launches nothing; weighs
+all authorized machine/options against only their billed pools, spreads to idle
+surfaces above 100% headroom then greatest headroom. Read level_placement with
+option/machine/pool and reason, not manual imitation. Depth:
+[level routing](../../../../.yoke/docs/reference/session-level-routing.md#launching-by-level).
+Cursor fallback on Other Models only when Cursor Models is confirmed zero:
+unreadable, low headroom or ample other pool is not exhaustion.
+level_no_capacity names options/blocking pool; deliberate permissible other
+level, reset wait or operator wall. Never borrow other level silently.
 
-A Cursor option draws on **Cursor Models**; its fallback (Opus, on **Other
-Models**) is placed only where the Cursor Models pool reads zero. Plenty of
-Other Models quota, an unreadable meter, or low headroom are not exhaustion
-and never move a launch onto the fallback.
+## Exact operator model request
 
-When no option of the level has capacity, the launch refuses as
-`level_no_capacity`, naming each option and the pool that blocked it. Yoke
-never borrows another level's options. Decide: relaunch at a different
-`--level` if the work allows it, wait for the named reset, or raise the wall
-with the operator. Never pick a different level silently to get a worker
-started.
-
-## Explicit selections are operator overrides
-
-When the operator asks for an exact model ("Opus 5.5 medium"), launch exactly
-that with `--surface` and the knobs instead of `--level`; the launch is
-recorded as `selection: override`. A level and explicit knobs are exclusive
-(`level_selection_conflict`).
-
-Each harness publishes its own accepted efforts and context windows, and a
-name one surface accepts another refuses. Read them before naming one:
+--surface plus explicit model/effort/context is selection override, exclusive
+with level (level_selection_conflict). Read accepted knobs and observed models:
 
 ```text
 yoke session-control launch create --project {_project} --surface {_surface} --list-models
 ```
 
-That prints the efforts and context windows the CLI accepts for the surface
-and this machine's observed native models. The manifest
-`session_control.launch_model_selection` at
-`runtime/harness/<harness-dir>/manifest.json` is the fact it reads.
+Manifest session_control.launch_model_selection owns accepted surface knobs;
+specific model may accept fewer efforts. Native Cursor selector already naming
+effort encodes once; matching separate effort accepted, conflicting refused.
+Omit context unless exact variant's native label names it. Unknown availability
+refreshes target machine's native probe, then preview:
 
-Effort levels come from what the specific **model** publishes, which can be
-narrower than what the surface accepts; asking for a level a model never
-offered is a launch the vendor rejects.
+```text
+yoke relay probe-models --surface cursor-cli
+```
 
-For Cursor, use the exact selector from that machine's native listing and
-omit a separate effort when the selector already names it. A matching
-separate effort is accepted once; a conflicting effort is refused. Omit
-`--context-window` unless the exact variant's native description names that
-window. If availability is unknown, refresh it with
-`yoke relay probe-models --surface cursor-cli` on the target machine, then
-preview again.
+Native publication observes new models immediately; missing research never
+gates launch. Catalog research (models get/lookup) is facts, not level mutation.
+Only operator-approved level-proposal followed by universe levels set changes
+options. No catalog-driven silent preference shift.
 
-## Adopting a new model
+## Restaff ladder
 
-Availability is observed natively, so a new model appears the moment the
-surface publishes it; missing research never gates a launch. A new model
-reaches a level only when the operator approves a change to the levels:
-`yoke models level-proposal` proposes it, and `yoke universe levels set`
-stores the approved document. `/yoke models` reviews the researched catalog
-(`yoke models get`, or one model with `yoke models lookup <model-id>`); the
-catalog holds facts about models and never moves a level option by itself.
+1. First implementation/verification failure: same worker diagnoses/corrects
+   once and reruns failed check.
+2. Second failure OR spec/design misunderstanding at any attempt: one level up,
+   no extra misunderstanding retry.
+3. Only mechanical merge/closeout/docs/cleanup remain: next leg one level down.
+4. PRINCIPAL failure or next level no capacity: evidence to operator decision;
+   never silent promotion/demotion.
 
-## The restaff ladder
-
-Move a running item between levels mechanically, never on a hunch:
-
-1. **First failure** — a local implementation or verification failure gets
-   one retry from the same worker: diagnose the named failure, correct it,
-   and rerun the failed check.
-2. **Second failure, or a spec/design misunderstanding** on any attempt —
-   relaunch the item **one level up**. Do not spend another retry on a
-   misunderstanding.
-3. **Only mechanical legs remain** (merge, close-out, documentation sync,
-   routine cleanup) — relaunch the next leg **one level down**.
-4. **A PRINCIPAL failure** has no level above it: report the failure
-   evidence to the operator for a decision. Do the same when the next level
-   up has no capacity. Never promote or demote silently.
-
-A parked delivery or landing wait is not a failure and never climbs the
-ladder. The successor's `--level` replaces the item's override with that
-level, so a climb past an earlier `max` needs no separate amend; state why
-with `--level-reason`.
-
-Every step is a restaff through rule 9 in
-[`worker-lifecycle.md`](worker-lifecycle.md): read or request the checkpoint,
-terminate the predecessor, verify its claim is released, preview and launch
-the successor on the same item at its current stage and the new level, then
-confirm registration and claim ownership. The checkpoint names the live
-stage, committed and uncommitted work, the failure evidence or
-misunderstanding, and the next concrete step. The successor reads it and the
-preserved lane before acting; it continues the item rather than repeating
-completed legs.
-
-A native resume retains that session's attested selection: Claude restores
-it, and Codex and Cursor re-send it. To change the level for the item,
-restaff it: launch a successor at the new level through rule 9; do not edit
-the running session's model.
+Parked landing/delivery is not failure. Successor --level replaces earlier
+override even past previous max; explain with level-reason. To change it, restaff it through
+rule 9 in [worker-lifecycle.md](worker-lifecycle.md): checkpoint live stage/
+committed+dirty/failure/next step, terminate predecessor, verify released,
+preview/create same item/current leg/new level, confirm registration/ownership.
+Native resume keeps selection (Claude native restore, Codex/Cursor explicit
+resend); changing level requires successor, never edit live worker.
