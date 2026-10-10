@@ -1,86 +1,66 @@
-# /yoke blitz steps 6–7 — review the execution and complete the document
+# Blitz — whole review and document completion
 
-## 6. Review the whole execution
+## 6. Review all integrated slices
 
-After the last slice is integrated:
+Inspect landed diffs/current product end to end; run the full relevant
+registered suite and applicable user-facing proof; confirm governed migration
+and delivery receipts; remove replaced paths; reconcile every Slice Log entry.
 
-- inspect all landed diffs and the current product path end to end;
-- run the full relevant registered suite plus user-facing proof where
-  applicable;
-- confirm all governed migrations and delivery runs have evidence;
-- remove obsolete paths the plan replaced;
-- reconcile the execution document against every Slice Log checkpoint.
+Refresh before the once-per-item close and each later transition. The pin lookup
+is `yoke workflows version get WORKFLOW_ID WORKFLOW_VERSION --json`:
 
-Transition into the once-per-item close through `lifecycle.transition.execute`.
-Refresh `yoke workflows item get ITEM --json`, then read the returned pin with
-`yoke workflows version get WORKFLOW_ID WORKFLOW_VERSION --json`. Set
-`LIVE_STAGE` to status and `NEXT_STAGE` to the unique declared forward edge
-in `definition.transitions` whose `from_stage_id` equals `LIVE_STAGE`,
-ordered by `definition.stages`. Confirm the
-active half-open binding belongs to Blitz. Stop at its boundary and report
-the item's rendered `next_skill_id` handoff. If the edge is absent or
-ambiguous, stop with `workflow_next_stage_ambiguous` and ask the workflow owner
-to repair or select the declared route; never invent a target:
+```sh
+yoke workflows item get ITEM --json
+yoke workflows version get <workflow-id> <workflow-version> --json
+```
 
-```text
+Set `LIVE_STAGE` from status and `NEXT_STAGE` from the unique forward
+`definition.transitions` edge whose `from_stage_id` matches it, ordered by
+`definition.stages`. Confirm the active half-open binding owns Blitz.
+At its boundary report rendered `next_skill_id`. Absent/ambiguous edge is
+`workflow_next_stage_ambiguous`: owner repairs/selects a declared route.
+
+```sh
 yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE --reason "All slices integrated; final reconciliation started"
 ```
 
-## 7. Complete the document and close
+## 7. Reconcile the document; close one edge at a time
 
-Revise the linked strategy document so it explicitly records:
-
-- what was completed;
-- what changed from the starting plan;
-- what remains, including an explicit statement when nothing remains;
-- verification and delivery evidence with stable identities;
-- how the parent strategy was reconciled, or that no parent exists.
-
-Use this exact document-owned closeout shape so the completion gate can
-distinguish terminal evidence from planning prose:
+Revise the linked document with this exact completion shape:
 
 ```markdown
 ## Blitz Completion
 
-- Completed: <delivered outcomes>
-- Changed: <departures from the starting plan, or none>
-- Remaining: <open work, or nothing remains>
+- Completed: <what was completed: delivered outcomes>
+- Changed: <what changed from the starting plan, or none>
+- Remaining: <what remains: open work, or nothing>
 - Verification identities: <commands, receipts, runs, commits, or artifacts>
-- Parent reconciliation: <parent update and revision, or no parent exists>
+- Parent reconciliation: <how the parent strategy was reconciled, its revision, or no parent exists>
 ```
 
-Append a final Slice Log entry naming the document revision and the final
-verification result. Re-read `yoke strategy execution get ITEM --json` and
-confirm the document claim still belongs to this item.
+Append final Slice Log with document revision/final verification. Re-read
+`yoke strategy execution get ITEM --json` to confirm this item's document claim.
+Refresh status/pin and resolve each unique forward edge as above until
+`definition.terminal_stage_ids`; advance one declared stage at a time:
 
-Advance one declared forward edge at a time, refreshing the item status and
-pinned definition before each transition and resolving `LIVE_STAGE` and
-`NEXT_STAGE` as above. Stop when status belongs to
-`definition.terminal_stage_ids`; never jump over a declared stage.
-
-```text
+```sh
 yoke lifecycle transition ITEM --from LIVE_STAGE --to NEXT_STAGE --reason "Execution document reconciled with passing evidence"
 ```
 
-If the definition's release stage still owes delivery through the selected
-flow, keep the work claim and park this session on that wait. A delivery wake
-re-enters this skill; continue the same definition-driven walk here.
-The terminal edge still runs `doc_completion` and its document-archive
-semantics; neither is bypassed by selecting the target from the definition.
+When release still owes selected-flow delivery, keep the work claim and park this session.
+Its delivery wake resumes the same definition-driven walk.
+The terminal edge still runs `doc_completion` and document-archive semantics.
 
-The terminal transition atomically archives the linked execution document
-when no other non-terminal Blitz still links it, then releases the item-owned
-document claim and every registered Blitz worktree lane. An already-archived
-document is a no-op; a shared live document stays active; and the parent
-document is never archived by this path. If the archive write fails,
-`GATE_BLITZ_DOCUMENT_ARCHIVE_FAILED` keeps the item at its current stage and names
-the retry recovery. Do not archive the document by hand after completion.
-Release the remaining session work claim:
+The terminal transition atomically archives the linked execution document only when no other
+non-terminal Blitz links it, and releases the item-owned document claim and all
+registered Blitz lanes. Already archived is a no-op; a shared live document stays active;
+the parent document is never archived here. Archive failure
+`GATE_BLITZ_DOCUMENT_ARCHIVE_FAILED` retains stage and names retry recovery.
+Use that recovery, rather than manual archival. After terminal success:
 
-```text
+```sh
 yoke claims work release --item ITEM --reason "Blitz completed"
 ```
 
-If document completion is blocked, keep the item at
-its current stage, record the missing fact in `Live Status`, and
-repair the document or evidence. Never weaken the completion gate.
+Blocked completion retains current stage: record the missing fact in
+`Live Status`, repair document/evidence and preserve the completion gate.

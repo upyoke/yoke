@@ -188,8 +188,8 @@ REGISTRATIONS = [
         target_kind="item",
         side_effects=["db_write", "event_emit"],
         events=[handlers.CLAIM_BREAK_GLASS_EVENT],
-        guardrails=["operator_override_required"],
-        claim_required_kind="operator_override",
+        guardrails=["steering_seat_required"],
+        claim_required_kind="steering",
     ),
 ]
 

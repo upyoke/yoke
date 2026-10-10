@@ -23,6 +23,9 @@ from __future__ import annotations
 from yoke_core.domain.public_item_target import public_item_target
 
 import json
+from datetime import datetime
+
+from yoke_contracts.timestamps import format_instant, parse_instant
 from typing import Any, Optional
 
 
@@ -149,16 +152,17 @@ def authoritative_status_is(item_id: int, expected_status: str) -> bool:
     return str(item.get("status") or "") == expected_status
 
 
-def _merged_at(item_id: int) -> str:
+def _merged_at(item_id: int) -> datetime | None:
     response = call_dispatcher(
         function_id="items.get.run",
         target=public_item_target(item_id),
         payload={"fields": ["merged_at"]},
     )
     if not getattr(response, "success", False):
-        return ""
+        return None
     fields = (getattr(response, "result", None) or {}).get("fields") or {}
-    return str(fields.get("merged_at") or "")
+    clock = fields.get("merged_at")
+    return None if clock is None else parse_instant(clock)
 
 
 def recorded_landing(item_id: int) -> Optional[dict[str, Any]]:
@@ -214,7 +218,7 @@ def recorded_landing_envelope(
         "already_merged": True,
         "commit_sha": str(landing.get("commit_sha") or ""),
         "merge_sha": str(landing.get("merge_sha") or ""),
-        "merged_at": str(landing.get("merged_at") or ""),
+        "merged_at": format_instant(landing["merged_at"]),
         "touched_files": list(landing.get("touched_files") or []),
         "evidence_recorded": True,
         "recorded_by_session_id": session,

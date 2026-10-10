@@ -41,7 +41,7 @@ def test_hc_fails_when_login_shell_misses_canonical(
     )
     monkeypatch.setattr(
         "yoke_core.engines.doctor_hc_launcher_authority.shutil.which",
-        lambda _name: str(tmp_path / "other"),
+        lambda _name, path=None: str(tmp_path / "other"),
     )
     monkeypatch.setattr(
         "yoke_core.engines.doctor_hc_launcher_authority._resolve_checkout",
@@ -70,7 +70,7 @@ def test_hc_passes_when_login_matches_canonical(monkeypatch, tmp_path: Path) -> 
     )
     monkeypatch.setattr(
         "yoke_core.engines.doctor_hc_launcher_authority.shutil.which",
-        lambda _name: str(canon),
+        lambda _name, path=None: str(canon),
     )
     monkeypatch.setattr(
         "yoke_core.engines.doctor_hc_launcher_authority._resolve_checkout",
@@ -106,7 +106,7 @@ def test_hc_fix_calls_converge_machine(monkeypatch, tmp_path: Path) -> None:
     )
     monkeypatch.setattr(
         "yoke_core.engines.doctor_hc_launcher_authority.shutil.which",
-        lambda _name: str(canon),
+        lambda _name, path=None: str(canon),
     )
     rec = _Rec()
     hc_launcher_authority(None, SimpleNamespace(fix=True), rec)
@@ -173,3 +173,38 @@ def test_login_shell_uses_configured_shell_or_posix_fallback(monkeypatch, shell)
     monkeypatch.setattr(check.subprocess, "run", run)
     assert check._login_shell_yoke() == "/tmp/bin/yoke"
     assert calls == [[shell or "/bin/sh", "-lc", "command -v yoke"]]
+
+
+@pytest.mark.parametrize("verified_source", [True, False])
+def test_launcher_probe_preserves_unrelated_path_shadows(
+    monkeypatch, tmp_path, verified_source
+):
+    from yoke_core.engines import doctor_hc_launcher_authority as check
+
+    source = tmp_path / "source"
+    source_bin = source / ".venv" / "bin"
+    other_bin = tmp_path / "other" / "bin"
+    machine_bin = tmp_path / "machine" / "bin"
+    original = check.os.pathsep.join(map(str, (source_bin, other_bin, machine_bin)))
+    monkeypatch.setenv("PATH", original)
+    monkeypatch.setenv(check.SOURCE_DEV_RUN_ROOT_ENV, str(source))
+    prefix = source / ".venv" if verified_source else tmp_path / "unrelated"
+    monkeypatch.setattr(check.sys, "prefix", str(prefix))
+
+    observed = check._machine_launcher_env()["PATH"]
+    expected = (
+        check.os.pathsep.join(map(str, (other_bin, machine_bin)))
+        if verified_source
+        else original
+    )
+    assert observed == expected
+
+
+def test_ordinary_venv_activation_remains_in_machine_probe(monkeypatch, tmp_path):
+    from yoke_core.engines import doctor_hc_launcher_authority as check
+
+    activated_bin = tmp_path / ".venv" / "bin"
+    monkeypatch.setenv("PATH", str(activated_bin))
+    monkeypatch.setattr(check.sys, "prefix", str(activated_bin.parent))
+    monkeypatch.delenv(check.SOURCE_DEV_RUN_ROOT_ENV, raising=False)
+    assert check._machine_launcher_env()["PATH"] == str(activated_bin)

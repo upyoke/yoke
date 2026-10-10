@@ -1,22 +1,10 @@
 # Polish — Verify And Commit
 
-Covers polish steps 8 and 9: run verification against the fixes, then commit.
+## 8. Verification authority
 
-**Context variables** (set by earlier phases): `ITEM_REF`, `WORKTREE_PATH`,
-`WORKTREE_PATHS`, `POLISH_ENTRY_STAGE`, `REVIEW_STAGE`.
-
----
-
-## 8. Run Verification
-
-Read the exact pinned definition as taught in [`parse-and-claim.md`](parse-and-claim.md).
-Derive `REVIEW_STAGE` from the forward edge entering the `reviewing` bucket
-from the `implementing` bucket, at or before `POLISH_ENTRY_STAGE`. This is
-the review attachment transition, not polish's next or completion stage.
-Project defaults match the attachment transition exactly; materializing the
-completion target would omit the review Command plan.
-
-With the returned `definition` and `POLISH_ENTRY_STAGE`, resolve it:
+Read the exact pinned definition. Derive `REVIEW_STAGE` from the unique forward
+implementing-bucket to reviewing-bucket edge at/before `POLISH_ENTRY_STAGE`.
+This is review-plan attachment, not polish completion; never move backward.
 
 ```python
 stages = {stage["id"]: stage for stage in definition["stages"]}
@@ -37,105 +25,70 @@ if len(review_targets) != 1:
 REVIEW_STAGE = next(iter(review_targets))
 ```
 
-Materialize the effective project-default and item-attached plans at that
-review transition. This re-verifies evidence; do not transition the item
-backward to run it. Completion-target QA remains in [`advance.md`](advance.md).
-
+Materialize **all** effective default/item review plans and list requirements:
 ```bash
-yoke qa plan materialize \
-  --item "PREFIX-{N}" \
-  --transition "$REVIEW_STAGE" \
-  --json
-yoke qa requirement list --item "PREFIX-{N}" --json
+yoke qa plan materialize --item "$ITEM_REF" --transition "$REVIEW_STAGE" --json
+yoke qa requirement list --item "$ITEM_REF" --json
 ```
 
-Select every non-waived `Command` requirement at `REVIEW_STAGE` whose latest
-pass does not prove the current committed HEAD, including previously satisfied
-cases made stale by polish fixes. Execute each through its registered runner:
+Every nonwaived Command requirement whose latest pass does not prove current
+committed HEAD must run, including **previously satisfied** cases made stale
+by fixes. For multi-lane work, prove every changed lane through its task
+requirements; a parent lane is insufficient. Without a project plan, record
+the relevant changed tests against the item's AC-derived requirement.
+Explicitly rerun changed tests even when a broader case passes. Prompt or
+large-script changes also need relevant invariants/doctor:
+```bash
+yoke watch doctor -- --quick
+```
 
+While fixing, use failing tests, changed module paths or
+`yoke watch pytest --impacted main --bounded`. Unbounded selection is reported,
+not silently widened. A CI-configured project runs the pushed committed lane
+through its watcher; commit before CI. `--local` is only a small check expected
+within about one minute; an overlong local check is interrupted cleanly with
+its incomplete capture preserved, then committed and continued on CI.
+
+**The registered QA case is the one full execution.** Do not rediscover its
+command or run a manual full sweep before executing the same tree again:
 ```bash
 yoke qa case run --requirement-id <requirement-id>
 ```
 
-The case runner resolves the item's worktree, streams the command's output
-live to stderr while capturing it, records the verdict, and stores the
-complete command output as a QA artifact. It names its raw capture file
-before the command starts (`capture=...` on stderr), so a long case is
-followable without a second copy of the run.
-
-When a Command case passes, persist that capture onto **this** item so the
-polish evidence gate reads this row's `items.test_results` rather than an
-empty field (or another item's row):
-
+It resolves the lane, streams output, prints its raw capture path, records
+verdict and stores complete output. Continue yielded handles to exit; do not
+launch another copy. Persist that complete capture on **this** item:
 ```bash
 yoke items structured-field replace "$ITEM_REF" --field test_results --stdin < CAPTURE_PATH
 ```
 
-`CAPTURE_PATH` is the file named by the case runner's `capture=` line. Use
-the registered replace adapter; do not skip this write because a later
-usher/merge gate can also read the field.
+A `command-ci` run's `verification_tree.head_sha` and conclusion prove the
+candidate; the completion gate accepts that recorded verdict without a
+hand-fetched pytest banner.
 
-A CI-routed Command case (`command-ci`) already records `verification_tree.head_sha`
-and a conclusion on the run. The bound polish completion gate accepts that recorded
-verdict without a hand-fetched pytest banner in `items.test_results`.
-
-**This is the one full execution.** Iterate with the cheap layers while
-fixing — the individual failing tests, the changed module's paths,
-`yoke watch pytest --impacted main --bounded` (which reports an unbounded
-selection instead of widening to the full sweep, and which runs on the
-project's CI against the pushed lane commit when the project declares a
-`ci_workflow_file` capability — commit and let CI run it. `--local` is
-only a small targeted check expected to finish in about one minute; if it
-exceeds that, interrupt it cleanly, commit, and continue on CI) — then let
-the case run close the loop.
-Do not run the project's full sweep by hand and then re-execute the same
-tree through QA: the case executor re-runs the identical registered
-command, so only the verdict-producing run needs to happen. Do not
-rediscover a command from project settings and do not write a duplicate run
-manually.
-
-Verification expectations:
-
-- Run every attached `Command` case that gates review. A project may attach
-  more than one plan at the transition.
-- For a multi-worktree epic, verify every changed lane through the epic's task
-  requirements; do not pretend the parent item's one worktree covers them.
-- If no project plan is attached, run the most relevant changed tests directly
-  in the worktree and record them against the item's AC-derived requirement.
-- When tests themselves change, rerun those tests explicitly even if a broader
-  Command case also passes.
-- When prompt surfaces or large scripts change, run the relevant doctor or
-  invariant checks as additional proof. Invoke doctor through
-  `yoke watch doctor -- --quick`.
-
-If verification fails, investigate and fix it before continuing.
-Future/planned item ownership or a planned path claim is not a waiver for a
-current regression. When a required fix expands the file set, use
-`claims.path.widen` (operator/debug fallback: `path-claim-widen`) and
+**Current-item failures belong here.** Future/planned item ownership or a
+planned path claim is not a waiver. Widen required scope with
+`claims.path.widen` (operator/debug alias `path-claim-widen`) and use
 dependency or claim reconciliation before retrying.
-Do not use `path-claim-override` for a planned future claim when reconciliation can
-resolve the ordering; override is last resort for irreducible live collisions
-and requires explicit operator approval.
-Do not leave the worktree in a failing state.
+Do not use `path-claim-override` for a planned future claim when reconciliation
+works; override is last resort for irreducible live collisions and needs
+explicit operator approval. Do not leave the worktree in a failing state.
 
-## 9. Commit
+## 9. Commit and prove the final head
 
-If files changed during polish, commit them with a descriptive message:
-
+Commit specific changed files in each changed lane; leave untouched lanes and
+unrelated dirty work alone:
 ```bash
-git -C "{worktree-path}" add {specific changed files}
-git -C "{worktree-path}" commit -m "polish: {brief description of finishing fixes} (PREFIX-{N})"
+git -C "<absolute-lane-path>" add <specific-changed-files>
+git -C "<absolute-lane-path>" commit -m "polish: <finishing-fix-purpose>"
 ```
 
-Use a scoped `git add` containing only the files changed by this pass. For a
-multi-worktree epic, commit each changed lane separately and leave untouched
-lanes alone. If no changes were needed, skip the commit and report that the
-implementation was already clean.
+No changes means no commit. Never push or create a PR by hand; registered CI
+owns publication. Resolve full commit identities with rev-parse and verify
+them, rather than expanding a short hash.
 
-Do not push or create a pull request by hand. The registered CI case owns
-any required publication.
-
-After the commit, rerun each required Command case with the committed HEAD so
-the latest requirement verdict and artifact prove the exact branch tip. That
-is a changed tree, not a same-tree duplicate, so it is required rather than
-wasteful. Make no further commits after that final passing execution.
+After the commit, run every required case whose evidence is stale against
+the committed HEAD. A changed tree requires rerun; unchanged proven trees
+do not need duplicate full execution. **Make no further commits after the
+final passing execution.** Any later change restarts exact-head verification.
+Proceed to [advance.md](advance.md).

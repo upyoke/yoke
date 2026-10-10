@@ -115,6 +115,7 @@ def get_workflow_version(
         "published_at": row["published_at"],
         "immutable_at": row["immutable_at"],
         "published_by_actor_id": row.get("published_by_actor_id"),
+        "published_reason": row.get("published_reason"),
         "current": int(workflow["current_version_id"]) == int(row["id"]),
         "definition": decode_definition(row["definition_json"]),
     }

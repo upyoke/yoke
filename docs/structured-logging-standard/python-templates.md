@@ -4,14 +4,16 @@ Cross-link back from [structured-logging-standard.md](../structured-logging-stan
 
 ## Template 1: Python Emitter (`yoke_core.domain.events.emit_event`)
 
-The canonical Python emitter for `agent` and `system` source types. All Yoke scripts and hooks use this as the single entry point for event emission.
+The in-process engine emitter. Registered functions own control-plane writes;
+this import is a source implementation API, not an alternative agent command.
+Hook observation has its own producer in `observe_event_emission.py`.
 
 **Call shape:**
 
 ```python
 emit_event(
-    name="HarnessToolCallCompleted",
-    kind="system",
+    "HarnessToolCallCompleted",
+    event_kind="system",
     event_type="tool_call",
     source_type="agent",
     severity="INFO",
@@ -27,8 +29,8 @@ emit_event(
 # Pass bare numeric `item_id` values to the emitter; stored `events.item_id` remains `42`.
 
 emit_event(
-    name="DatabasePruned",
-    kind="system",
+    "DatabasePruned",
+    event_kind="system",
     event_type="maintenance",
     source_type="system",
     severity="INFO",
@@ -38,8 +40,8 @@ emit_event(
 )
 
 emit_event(
-    name="HarnessToolCallFailed",
-    kind="system",
+    "HarnessToolCallFailed",
+    event_kind="system",
     event_type="tool_call",
     source_type="agent",
     severity="ERROR",
@@ -47,50 +49,45 @@ emit_event(
     agent="engineer",
     tool_name="Bash",
     exit_code=1,
-    error_category="command_failure",
-    error_message="Command exited with status 1",
-    anomaly_flags=["nonzero_exit"],
-    context={"command": "npm test", "exit_code": 1},
+    anomaly_flags="nonzero_exit",
+    context={"command": "npm test", "error_category": "command_failure",
+             "error_message": "Command exited with status 1"},
 )
 ```
 
 **Behavior:**
 
-1. Generates `event_id` (UUID v4) if not provided via `--event-id`
-2. Sets `event_time` to current UTC if not provided
-3. Resolves `session_id` from: `$CLAUDE_CODE_SESSION_ID` > hook JSON payload > `$(date +%s)-$$` fallback
-4. Resolves `environment` from `$YOKE_ENV` or defaults to `development`
-5. Resolves `project` from explicit caller context, `$YOKE_PROJECT`, or caller checkout binding; unresolved telemetry stays unattributed
-6. Checks write-side severity config before inserting (skips if below threshold)
-7. Enforces envelope size limits (64KB max, 2KB per context field, 4KB stacktrace)
-8. Inserts the built JSON envelope via `yoke_core.domain.events.emit_event`
-9. Always exits 0 (graceful degradation)
+`events.py` generates a UUID v4 and UTC `created_at` unless a timestamp is
+provided; the core envelope uses `created_at`, unlike the frontend/Pack
+`event_time`. It normalizes severity and bare item identity (numeric text in
+JSON, INTEGER in the indexed table). Pass registered session, project,
+environment and trusted `auth_context` from the caller; do not fabricate a
+session from the clock or PID. Service is `cli`; unset context stays unset.
+Active tracing supplies trace/span identity.
 
-**Session ID Fallback Chain:**
+String context values are clipped to 2,048 characters. Total-envelope fitting
+uses the 65,536-byte bound and preserves identity scalars with per-value
+truncation markers. Severity and isolation gates precede insertion. Test
+capture writes only its configured capture; HTTPS without an explicit local
+connection returns the named transport refusal, while relayed functions emit
+server-side. See [event contract](../event-contract.md) for attribution and
+capture ownership.
 
-```
-$CLAUDE_CODE_SESSION_ID (if set in environment)
- -> hook JSON .session_id (if available from hook payload)
- -> "$(date +%s)-$$" (deterministic fallback for scripts)
-```
-
-**System Props Resolution:**
-
-```sh
-# Resolved automatically by yoke_core.domain.events.emit_event
-environment="${YOKE_ENV:-development}"
-service="${SERVICE:-cli}"
-service_version="${SERVICE_VERSION:-}"
-project="${YOKE_PROJECT:-}"
-```
+The return is `EmitResult`, not a process exit code. Ordinary emission failures
+return a non-ok result with a reason. Retired names raise their dedicated error;
+`transactional=True` without `conn` raises `ValueError`. A successful explicit
+connection commits by default; transactional emission leaves commit ownership
+to the caller. Disposable telemetry does not gate product work.
 
 ## Template 2: standalone Python emitter
 
-The executable [Structured Events Pack 4.0.0](../../packs/structured-events/versions/4.0.0/files/events/README.md)
+The executable [Structured Events Pack 4.4.0](../../packs/structured-events/versions/4.4.0/files/events/README.md)
 is the standalone Python template. Install events.py, events_props.py,
 events_attribution.py, events_cookie.py, events_delivery.py and their shared
 attribution_rules.json together. Use build_event/emit_event for backend envelopes;
-HTTP emission requires publishable_key, passed to the X-Events-Key header:
+HTTP emission requires publishable_key, passed to the X-Events-Key header.
+The destination below is a consuming project's own ingestion contract; Yoke's
+`/api/events` admits only frontend analytics, not this backend audit envelope:
 
 ```python
 emit_event("OrderCreated", "audit", "order", destination="https://example.com/api/events",
@@ -103,13 +100,17 @@ A missing key reports publishable_key_required. Failures never gate product work
 
 ## Attribution and delivery in the standalone Pack
 
-[Structured Events Pack 4.0.0](../../packs/structured-events/versions/4.0.0/files/events/README.md)
+[Structured Events Pack 4.4.0](../../packs/structured-events/versions/4.4.0/files/events/README.md)
 provides events_attribution.py and AttributionCookie in events_cookie.py with
 shared rules and the same signed server-cookie shape as TypeScript. Routes
 capture and return Set-Cookie. get_attribution_props(record) attaches
 visitor_id and both touches, or an empty group when there is no record.
 Required signup facts belong to
 the account owner. sanitize_url and is_bot share the browser's privacy/bot rules.
+events_device.device_props(headers) is the collector's is_bot, browser,
+browser_version, os and device_type classification: ua-parser over the request User-Agent plus
+the Sec-CH-UA-Platform and Sec-CH-UA-Mobile Client Hints. Apply it to every
+accepted event; it needs ua-parser[regex]>=1.0 installed.
 EventBatch retries only network failures, 429 and 5xx with batch_requeued;
 429 honors Retry-After. Other HTTP refusals discard the batch and report
 batch_refused with the collector's error and recovery. The queue holds at most

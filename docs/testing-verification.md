@@ -12,12 +12,16 @@ built-in roster is:
 
 - **Command** — deterministic worktree command; exit 0 passes and captured
   output is evidence.
+- **Command (CI)** — the project-declared workflow conclusion is the verdict;
+  its URL and exact head SHA are evidence.
 - **Browser check** — browser assertions with an automatic verdict.
 - **Browser inspection** — screenshots judged against the expected outcome.
 
 The `machine-qa` Pack adds **Terminal check**, **Terminal inspection**, and
-**Machine state check**. Those methods share the registered `host_control`
-runner and a serial `test-machine` capability.
+**Machine state check** through serial `host_control`, plus **Exploratory
+mission** through the Main-owned `agent_mission` runner. A mission uses its
+declared browser/machine substrates and informed or target-naive walker;
+deterministic checks stay with Command methods.
 
 Inspect the roster and a method contract with:
 
@@ -111,9 +115,13 @@ materialized requirements. Host control always uses the registered
 two-phase execution protocol.
 If any case uses an agent verdict path, deterministic capture finishes first
 and the command returns `state="awaiting_agent_review"` with exit `12`. The
-returned typed dispatch contract is mandatory: the harness dispatches its
-reviewer over the immutable bundle, and that reviewer submits one verdict and
-rationale per case through the exact returned command. Until then the gate is
+returned typed dispatch contract is mandatory. For `subagent`, dispatch its
+named reviewer over the immutable bundle. For `main_agent_mission`, Main keeps
+ownership, dispatches the declared walkers, aggregates their findings and
+submits the complete verdict batch through the returned command. A walker
+HUMAN_GATE preserves the exact action/resume state for the covering steering
+seat or human owner; acknowledgement is receipt, not proof the action occurred.
+Until the complete review settles, the gate is
 unsatisfied and the result reads `review_status="pending"`: no verdict, not a
 pass, and a capture-side verdict is refused. Agent `undetermined` needs attached
 evidence and halts the item until an owner or operator resolves its Inbox
@@ -241,36 +249,24 @@ Per-project extras, groups, and test-root trees are declared on the
 `test_environment` capability and Project Structure `test_roots`; see
 [`project-test-environment.md`](testing-verification/project-test-environment.md).
 
-Off-machine CI runs the full three-anchor suite on the pull request, on
-the merge queue's merge_group ref (one gate per train's combined head),
-and on the merged `main` commit. Verification stays change-scoped while
-implementing: impacted selection to iterate; the QA case run is the one
-full execution. For a project declaring a `ci_workflow_file` capability
-that iteration selection also runs off-machine — `yoke watch pytest` and
-the generic runner push the lane commit, dispatch the project's selection
-workflow against it with the merge base, and adopt its conclusion — so
-the workstation serves sessions while CI runs tests. `--local` (or
-`YOKE_PYTEST_LOCAL=1`) is only a small targeted check expected to finish
-in about one minute; uncommitted work does not justify a slow local run.
-A remote run refuses an uncommitted tree — commit, then run on CI.
-Queue landing (`yoke merge item --wait`) returns immediately when the
-pull request's required checks have already concluded red with nothing in
-flight — that is a terminal required-check failure, not a record-wait timeout.
-Required checks that were only cancelled or never started are no verdict:
-re-running `yoke merge item` re-runs them on the same head before arming.
+Full CI uses the project's declared test roots on the pull request, combined
+merge-group head and merged commit, with exact-tree reuse where proved.
+Iterate through `yoke watch pytest --impacted main --bounded`; committed
+CI-capable lanes execute that selection off-machine. Local checks must be
+small and expected to finish in about one minute. The native QA case is the
+one full execution; rerun after tree changes.
 
-Selection output distinguishes pytest files from collected items as
-`files=N of M items=X of Y`; unavailable values are explicit as `unknown`.
-A bounded unbounded-verdict names the rule, runnable subset, and coverage
-deferred to the final QA gate. Conftest fixture use and function-id
-dispatch are selection edges, not triggers. Trigger paths are excluded from reachability;
-selecting 80% of a universe of at least 100 files gets the same deferral,
-and the watcher repeats the file/item summary after collection.
+Selection reports files and collected items separately, with unavailable
+counts explicitly `unknown`. Bounded unbounded-verdicts name their trigger,
+runnable subset and deferred full coverage. Fixture/function-id references
+are edges, not triggers. Selecting 80% of at least 100 files also defers full
+coverage; collection updates the summary.
 
-That contract — the iteration loop, why the same tree is never proved
-twice, how to read a widened selection, the CI-disagreement triage, and
-the red-main and CI-outage protocols — lives in
-[`testing-verification/full-suite-authority.md`](testing-verification/full-suite-authority.md).
+Queue landing returns terminal red-check failures immediately when no work is
+in flight. Cancelled/unstarted checks are no verdict; re-entry proves the same
+head before arming. Exact adoption/rejoin, queue state/refusals, reachability,
+CI disagreement, red-main and outage proof live in
+[full-suite authority](testing-verification/full-suite-authority.md).
 
 ## Concurrent local runs
 

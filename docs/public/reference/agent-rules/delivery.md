@@ -154,9 +154,10 @@ learns the other's part from its own skill. The split is the whole rule:
   skipped and why: held by another release, back in rework (status before
   its release stage), removed, or blocked by an open dependency on an unshipped
   item. Composition skips that dependent until its blocker ships or reaches
-  done. A blocker a live or settling release still holds has not shipped:
-  only a recorded `succeeded` run counts, so the notice names that run and
-  the first release after it settles enrolls the dependent. The first
+  done. Completion dependencies read the item's done milestone; explicit
+  environment dependencies also read its persisted delivery attribution.
+  Completed members remain satisfied while siblings wait, fail or cancel.
+  For incomplete blockers the notice names the holding run. The first
   subsequent release enrolls it, including landings below
   the prior release baseline. Satisfied and coordination-only edges do not
   delay enrollment. Workers finding blocked item QA record the dependency
@@ -182,7 +183,7 @@ learns the other's part from its own skill. The split is the whole rule:
   Deployment-run cards exclude recorded removals from carried counts and
   member QA. A separate Removed section says "QA cancelled — rides" and names
   the newer run holding the item, or "a later release" when none holds it yet.
-  For red member QA, `yoke deployment-runs remove-item RUN ITEM --reason R` lets an independent run finish while the member waits for its next release; see `remove-item --help`. Settlement automatically releases members whose current candidate is outside the frozen lineage.
+  For red member QA, `yoke deployment-runs remove-item RUN ITEM --reason R` lets an independent run finish while the member waits for its next release; see `remove-item --help`. Failed independent item QA automatically releases a member whose recorded merge is definitely outside its project's frozen lineage, using the same audited removal as settlement; unknown containment holds and reports recovery. Settlement also releases replaced candidates.
 - **Commits made outside Yoke ship without an item.** Composition never
   blocks on commit ownership. Carried work records each commit's SHA, subject
   and author under its project. Run pages, Shipping cards, Runs tables and

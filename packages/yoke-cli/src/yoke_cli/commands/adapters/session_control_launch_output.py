@@ -5,16 +5,23 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, TextIO
 
+from yoke_cli.commands.adapters.session_control_launch_status_output import (
+    _launch_status,
+    _launch_identity,
+    _instruction_delivery,
+    _launch_recovery,
+)
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_cli.commands.adapters.session_control_human_output import (
     Column,
-    EMPTY_VALUE,
     humanize,
     utc_time,
     write_summary,
     write_table,
 )
 from yoke_cli.commands.adapters.session_control_launch_preview_output import (
+    nonempty_rows,
+    selection_rows,
     write_launch_preview,
 )
 from yoke_cli.commands.adapters.session_control_level_placement_output import (
@@ -24,66 +31,6 @@ from yoke_cli.commands.adapters.session_control_level_placement_output import (
 from yoke_cli.commands.adapters.session_control_native_diagnostic_output import (
     native_diagnostic_fields,
 )
-
-
-def _launch_status(launch: Mapping[str, Any]) -> str:
-    state = humanize(launch.get("state"))
-    result = humanize(launch.get("result_code"))
-    return f"{state} ({result})" if result != EMPTY_VALUE else state
-
-
-def _launch_identity(launch: Mapping[str, Any]) -> str:
-    state = str(launch.get("identity_correlation") or "unknown")
-    labels = {
-        "matched": "matched",
-        "mismatch": "mismatch",
-        "awaiting_registration": "awaiting registration",
-        "registration_failed": "registration failed",
-        "native_unreported": "native identity not reported",
-        "correlation_failed": (f"failed ({humanize(launch.get('result_code'))})"),
-        "unavailable": "unavailable",
-        "pending": "waiting for native session",
-        "unknown": "status unavailable",
-    }
-    return labels.get(state, humanize(state))
-
-
-def _instruction_delivery(launch: Mapping[str, Any]) -> str:
-    state = str(launch.get("instruction_delivery") or "unknown")
-    return {
-        "delivered": "delivered",
-        "not_delivered": "not delivered",
-        "pending": "pending",
-        "awaiting_acknowledgement": "awaiting recipient acknowledgement",
-        "unknown": "status unavailable",
-    }.get(state, humanize(state))
-
-
-def _launch_recovery(launch: Mapping[str, Any]) -> str | None:
-    if launch.get("result_code") == "launch_acknowledgement_missing":
-        return (
-            "Inspect the registered session and its message receipt; resolve "
-            "any active work claim before retrying this launch."
-        )
-    if launch.get("result_code") == "model_combo_unsupported":
-        return (
-            "Choose a supported model, reasoning effort, and context window; "
-            "then create a new launch. The rejected launch never falls back."
-        )
-    if (
-        launch.get("instruction_delivery") != "not_delivered"
-        or launch.get("state") != "outcome_unknown"
-    ):
-        return None
-    launch_id = str(launch.get("launch_id") or "LAUNCH-ID")
-    native = str(launch.get("native_session_id") or "").strip()
-    command = f"yoke session-control launch reconcile {launch_id}"
-    if native:
-        return f"Reconcile before retry: {command} --observed-native-id {native}"
-    return (
-        "Find the native session ID, then reconcile before retry: "
-        f"{command} --observed-native-id ID"
-    )
 
 
 def _result_evidence(launch: Mapping[str, Any]) -> str | None:
@@ -109,6 +56,7 @@ def _write_launch_detail(
     stdout: TextIO,
     *,
     deduplicated: Any = None,
+    item_level: Mapping[str, Any] | None = None,
 ) -> None:
     fields: list[tuple[str, Any]] = [
         ("Launch ID", launch.get("launch_id")),
@@ -129,16 +77,17 @@ def _write_launch_detail(
         ("Requested machine", launch.get("requested_machine_id")),
         ("Assigned machine", launch.get("assigned_machine_id")),
         ("Placement", launch.get("placement_reason")),
-        ("Requested model", launch.get("requested_model")),
-        ("Requested effort", launch.get("requested_reasoning_effort")),
-        (
-            "Requested context tokens",
-            launch.get("requested_context_window_tokens"),
+        *selection_rows(
+            "Model", launch.get("requested_model"), launch.get("resolved_model")
         ),
-        ("Effective model", launch.get("resolved_model")),
-        ("Effective effort", launch.get("resolved_reasoning_effort")),
-        (
-            "Effective context tokens",
+        *selection_rows(
+            "Effort",
+            launch.get("requested_reasoning_effort"),
+            launch.get("resolved_reasoning_effort"),
+        ),
+        *selection_rows(
+            "Context tokens",
+            launch.get("requested_context_window_tokens"),
             launch.get("resolved_context_window_tokens"),
         ),
         ("Fallback allowed", bool(launch.get("allow_surface_fallback"))),
@@ -156,7 +105,17 @@ def _write_launch_detail(
     ]
     if deduplicated is not None:
         fields.insert(2, ("Deduplicated", bool(deduplicated)))
-    write_summary("LAUNCH", fields, stdout)
+    if item_level:
+        recorded = "recorded" if item_level.get("changed") else "already recorded"
+        fields.insert(
+            3,
+            (
+                "Item level",
+                f"{item_level.get('level')} for every stage, {recorded} "
+                f"({item_level.get('reason')})",
+            ),
+        )
+    write_summary("LAUNCH", nonempty_rows(fields), stdout)
     write_level_candidates(launch.get("level_placement"), stdout)
 
 
@@ -216,6 +175,7 @@ def write_launch_result(result: Mapping[str, Any], stdout: TextIO) -> None:
             launch,
             stdout,
             deduplicated=result.get("deduplicated"),
+            item_level=result.get("item_level"),
         )
         return
     if "outcome" in result or "eligible_relays" in result:

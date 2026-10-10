@@ -44,7 +44,7 @@ from yoke_core.domain.session_message_types import (
     SessionMessageError,
     utc_now,
 )
-from yoke_core.domain.session_operator_authority import (
+from yoke_core.domain.session_steering_authority import (
     session_control_target,
 )
 from yoke_core.domain.session_relay_machine_versions import (

@@ -39,9 +39,11 @@ Emission pattern: Hook-emitted (PostToolUse/PostToolUseFailure) or explicit `yok
  "worktree_path": "/Users/dev/yoke/.worktrees/YOK-N",
 
  "context": {
- "command": "npm test",
- "exit_code": 0,
- "output_bytes": 4096
+ "detail": {
+ "tool_name": "Bash",
+ "tool_input": "npm test",
+ "tool_response_preview": "tests passed"
+ }
  }
 }
 ```
@@ -132,8 +134,9 @@ Emission pattern: Client-side SDK calls, batched to /api/events endpoint
  "referrer": "https://www.google.com/search?q=example+app",
 
  "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
- "browser": "Chrome 120",
- "os": "macOS 14.2",
+ "browser": "Chrome",
+ "browser_version": "120.0.0.0",
+ "os": "macOS",
  "device_type": "desktop",
 
  "visitor_id": "anonymous-visitor-uuid",

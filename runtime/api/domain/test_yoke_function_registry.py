@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import re
 import unittest
+from collections import Counter
+from pathlib import Path
 
 from pydantic import BaseModel
 
@@ -191,10 +194,10 @@ class TestRegistryValidation(_RegistryTestBase):
 
 
 class TestClaimRequiredKindEnumeration(_RegistryTestBase):
-    """Registry accepts exactly the five canonical kinds."""
+    """Registry accepts the canonical claim policies."""
 
-    def test_all_five_kinds_accepted(self):
-        kinds = (None, "item", "epic", "self_only", "operator_override")
+    def test_all_claim_kinds_accepted(self):
+        kinds = (None, "item", "epic", "qa_subject", "self_only", "steering")
         for ix, kind in enumerate(kinds):
             register(
                 f"test.kind.op_{ix}",
@@ -205,7 +208,7 @@ class TestClaimRequiredKindEnumeration(_RegistryTestBase):
                 claim_required_kind=kind,
             )
         ids = {e.function_id for e in list_entries()}
-        self.assertEqual(len(ids), 5)
+        self.assertEqual(len(ids), len(kinds))
 
     def test_unknown_kind_rejected(self):
         with self.assertRaises(RegistryValidationError):
@@ -285,6 +288,36 @@ class TestServingFloorDeclaration(_RegistryTestBase):
             if e.minimum_serving_version
         }
         self.assertEqual(dict(FUNCTION_MINIMUM_SERVING_VERSIONS), engine)
+
+
+class TestFunctionDocumentation(_RegistryTestBase):
+    def test_registered_catalog_is_complete_unique_and_reachable(self):
+        from yoke_core.domain.handlers.__init_register__ import register_all_handlers
+
+        register_all_handlers()
+        expected = {entry.function_id for entry in list_entries()}
+        root = (
+            Path(__file__).resolve().parents[3] / "docs/public/reference/db-reference"
+        )
+        families = (
+            "claims items project-configuration qa runtime tasks workflows worktrees"
+        ).split()
+        index = (root / "functions.md").read_text()
+        documented = []
+        for family in families:
+            name = f"functions-{family}.md"
+            self.assertIn(f"]({name})", index)
+            body = (root / name).read_text()
+            owned = re.findall(r"^\| `([a-z_]+(?:\.[a-z_]+)+)` \|", body, re.M)
+            mentioned = set(re.findall(r"`([a-z_]+(?:\.[a-z_]+)+)`", body)) & expected
+            self.assertEqual(mentioned, set(owned), name)
+            documented.extend(owned)
+        self.assertTrue(expected)
+        self.assertEqual(set(documented), expected)
+        self.assertEqual(set(Counter(documented).values()), {1})
+        self.assertTrue(
+            {"board.data.get", "doctor.run.run", "ephemeral_env.update"} <= expected
+        )
 
 
 class TestVersioningMetadata(_RegistryTestBase):

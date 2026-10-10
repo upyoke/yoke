@@ -36,7 +36,7 @@ Item-bound batch release — who runs what:
   An item a cancelled run left behind needs no attaching: it is held by no
   live release, so the next start takes it. `yoke steering report get` names
   any landed item no release holds, so nobody has to notice one going stale.
-  For red member QA, `yoke deployment-runs remove-item RUN ITEM --reason R` lets an independent run finish while the member waits for its next release; see `remove-item --help`. Settlement automatically releases members whose current candidate is outside the frozen lineage.
+  For red member QA, `yoke deployment-runs remove-item RUN ITEM --reason R` lets an independent run finish while the member waits for its next release; see `remove-item --help`. Failed independent item QA automatically releases a member whose recorded merge is definitely outside its project's frozen lineage, using the same audited removal as settlement; unknown containment holds and reports recovery. Settlement also releases replaced candidates.
   Steering does not run a member's item QA and does not close a member out. A
   run-wide pass does not credit a member's item-scoped stage. Completed scoped
   execution settles its gate on the server and opens required human review;

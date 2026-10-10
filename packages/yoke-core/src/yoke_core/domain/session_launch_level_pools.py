@@ -29,7 +29,9 @@ from yoke_contracts.timestamps import parse_instant, temporal_wire
 from yoke_contracts.session_control.model_billing_pools import window_covers_model
 from yoke_core.domain.session_probe import not_probe_session_sql
 from yoke_core.domain.steering_fleet_plan_capacity import (
+    EMPTY,
     compute_plan_limit,
+    format_reset_utc,
     window_label,
 )
 from yoke_core.domain.steering_fleet_report_detectors import marker
@@ -53,8 +55,14 @@ class PoolCheck:
         if self.resets_at is not None:
             object.__setattr__(self, "resets_at", parse_instant(self.resets_at))
 
+    @property
+    def resets_utc(self) -> str | None:
+        """The reset as the steering report prints it (UTC), or ``None``."""
+        text = format_reset_utc(self.resets_at)
+        return None if text == EMPTY else text
+
     def to_dict(self) -> dict[str, Any]:
-        return temporal_wire(asdict(self))
+        return {**temporal_wire(asdict(self)), "resets_utc": self.resets_utc}
 
 
 def option_pools(

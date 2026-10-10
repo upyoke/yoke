@@ -42,6 +42,7 @@ NativeState = Literal[
 NativePhase = Literal[
     "binary_resolve",
     "spawn",
+    "custody",
     "instruction_write",
     "thread_identity",
     "identity_match",

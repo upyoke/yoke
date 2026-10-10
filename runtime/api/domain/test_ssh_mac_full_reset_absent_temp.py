@@ -40,7 +40,7 @@ def _verify_bindings(home: Path, binary: str) -> tuple[str, ...]:
         _assignment("clean_shell_path", "/usr/bin:/bin:/usr/sbin:/sbin"),
         _assignment("tool_bin_dir", str(Path(path_state.tool_bin_dir))),
         "tools=(definitely-no-yoke-reset-tool)",
-        "preserved_entries=(.ssh 'Library/Application Support/com.apple.TCC')",
+        "required_preserved_entries=(.ssh 'Library/Application Support/com.apple.TCC')",
         "yoke_absent_directories=(.yoke)",
         "yoke_absent_files=()",
         "container_runtime_paths=()",

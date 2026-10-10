@@ -13,11 +13,11 @@ GitHub Releases; this directory contains no per-release notes.
    the two merges instead of depending on someone remembering it. The last
    merge in the pair binds that run to its merge commit and hands it to the
    deploy-lock holder; `.yoke/runbooks/deploy.md` carries the full procedure.
-2. Deliver the item through `yoke-hosted-stage-consumer-bound` or
-   `yoke-hosted-production-hotfix-consumer-bound`; the earlier `-typed-target`,
-   `-warm-gated`, `-no-ci-gate`, and `yoke-hosted-production` definitions are
-   disabled history — a definition a run has referenced is immutable, so each
-   change to a route retires the prior definition and adds the next one. The active flow's scoped GitHub App
+2. Resolve the item's assigned active flow through
+   [Usher](../../.agents/skills/yoke/usher/deploy.md) and the
+   [source-dev release rules](../source-dev-doctrine.md). A referenced flow
+   definition is immutable: retire a superseded definition and add its
+   successor. The active flow's scoped GitHub App
    continues the newest `vX.Y.Z+launch.N` series, creates an annotated tag
    whose message is the release note, and returns the existing tag when the
    same commit is retried. The PEP 440 local segment is intentional: public

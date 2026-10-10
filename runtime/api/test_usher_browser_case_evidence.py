@@ -23,9 +23,14 @@ def _merge_text() -> str:
 def test_pre_merge_skip_recognizes_passing_browser_method_cases() -> None:
     text = _merge_text()
 
-    assert "qreq.method_id IN ('browser-check', 'browser-inspection')" in text
-    assert "qreq.qa_phase = 'verification'" in text
-    assert "qr.verdict = 'pass'" in text
+    assert "verification-phase Browser method cases" in text
+    assert "browser-check" in text and "browser-inspection" in text
+    assert "current candidate proof, not a historical pass" in text
+    assert "yoke qa requirement list --item PREFIX-N --json" in text
+    assert "yoke qa run list --requirement-id {requirement_id} --json" in text
+    assert "native case_outcome and runner currency" in text
+    assert "Unreadable, stale or" in text
+    assert "unsatisfied evidence stops" in text
     assert "Browser method cases" in text
 
 

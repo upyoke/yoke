@@ -255,6 +255,7 @@ def plan_limit_lines(
     *,
     now: str,
     session_counts: tuple[SessionCount, ...] = (),
+    with_legend: bool = True,
 ) -> list[str]:
     if not limits:
         return []
@@ -266,7 +267,7 @@ def plan_limit_lines(
             _markdown_row(compute_plan_limit(row, now=now), session_counts)
             for row in sorted(limits, key=_sort_key)
         ),
-        HEADROOM_LEGEND,
+        *([HEADROOM_LEGEND] if with_legend else []),
     ]
 
 

@@ -17,6 +17,7 @@ from yoke_core.domain.session_staleness import session_liveness
 from yoke_core.domain.session_termination import terminate_session
 from yoke_core.domain.sessions import SessionError, claim_work
 from yoke_core.domain.sessions_list_read import list_sessions
+from yoke_core.domain.steering_claims import acquire as acquire_steering
 from yoke_core.domain.work_claim_targets import make_steering_target
 
 
@@ -56,7 +57,10 @@ def _register_operator_and_target(conn, *, target="worker") -> None:
         conn,
         session_id="operator",
         actor_id=41,
-        mode="operator",
+        mode="wait",
+    )
+    acquire_steering(
+        conn, session_id="operator", project_id=1, reason="terminate session"
     )
     _register(
         conn,
@@ -173,7 +177,7 @@ def test_operator_termination_ends_silences_releases_and_queues_reap(
             {
                 "terminated_by_actor_id": 41,
                 "terminated_by_session_id": "operator",
-                "authority": "operator",
+                "authority": "steering",
                 "reason": "worker completed",
                 "cancelled_recipient_count": 1,
                 "reap_state": "pending",
@@ -230,7 +234,7 @@ def test_steering_claim_authorizes_termination_and_unrelated_session_does_not(
     )
     conn.commit()
 
-    with pytest.raises(SessionError, match="operator mode or a live steering seat"):
+    with pytest.raises(SessionError, match="live steering seat"):
         terminate_session(
             conn,
             target_session_id="worker",

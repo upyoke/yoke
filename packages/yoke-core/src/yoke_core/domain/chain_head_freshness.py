@@ -1,22 +1,9 @@
-"""Chain-head freshness evaluator for ``/yoke conduct`` re-entry.
+"""Shared dispatch-head freshness decisions for conduct re-entry.
 
-Given a parent epic id, a task number, and the current session id,
-return whether a chain head at ``implementing`` /
-``reviewing-implementation`` is ``"resumable"``, ``"busy"``, or
-``"blocked"``. Two conduct surfaces consume this decision and must not drift:
-``entry-activation-resolution.md`` S6c and ``dispatch-context.md`` 5f-epic.2.
-
-* ``resumable`` — re-dispatch via ``5f-rehydrate``.
-* ``busy`` — recent session/task activity; defer to SessionEnd defense.
-* ``blocked`` — another live session holds the parent claim.
-
-Implementation invariants: DB-only (no subprocess to ``who-claims``),
-freshness threshold via :func:`resolve_freshness_window_s` (default 60s,
-machine config key ``chain_head_freshness_window_s``), recent task
-activity read from ``epic_tasks.last_activity_at`` (first-class state,
-The telemetry-only events cutover keeps per-task scoping structural), and every branch returns a
-structured rationale rather than silently falling through on missing or
-malformed evidence."""
+Returns resumable, busy, or blocked from parent claims and session/task
+activity. ``strict_reads`` uses the supplied connection for claims and raises
+on unavailable task evidence so read-only diagnostics can report unknown.
+"""
 
 from __future__ import annotations
 
@@ -168,7 +155,9 @@ def _session_activity_row(
     return latest_activity(conn, session_id), _row_value(row, "ended_at")
 
 
-def _task_last_activity_at(conn: Any, epic_id: int, task_num: int) -> Optional[object]:
+def _task_last_activity_at(
+    conn: Any, epic_id: int, task_num: int, *, strict_reads=False
+) -> Optional[object]:
     """Return ``epic_tasks.last_activity_at`` for ``(epic_id, task_num)``.
 
     First-class task-freshness state, stamped by every epic-task mutation
@@ -182,6 +171,8 @@ def _task_last_activity_at(conn: Any, epic_id: int, task_num: int) -> Optional[o
             (str(int(epic_id)), int(task_num)),
         ).fetchone()
     except db_backend.operational_error_types(conn):
+        if strict_reads:
+            raise
         try:
             conn.rollback()
         except Exception:
@@ -200,6 +191,7 @@ def evaluate_chain_head_freshness(
     conn: Optional[Any] = None,
     freshness_window_s: Optional[int] = None,
     now: Optional[datetime] = None,
+    strict_reads: bool = False,
 ) -> FreshnessDecision:
     """Decide whether a chain head at ``implementing`` / ``reviewing-implementation``
     should be treated as ``resumable``, ``busy``, or ``blocked``.
@@ -211,7 +203,14 @@ def evaluate_chain_head_freshness(
     window = resolve_freshness_window_s(override_s=freshness_window_s)
     now_dt = as_utc(now) if now is not None else utc_now()
 
-    holder = who_claims_for_item(int(epic_id))
+    if strict_reads:
+        from .sessions_queries_lookup import get_claim_for_work_unit
+
+        if conn is None:
+            raise ValueError("strict freshness reads require a connection")
+        holder = get_claim_for_work_unit(conn, item_id=str(epic_id))
+    else:
+        holder = who_claims_for_item(int(epic_id))
     holder_session_id: Optional[str] = None
     holder_is_self = False
     if holder:
@@ -254,7 +253,9 @@ def evaluate_chain_head_freshness(
                 prior_ended = bool(ended_at)
                 prior_age_s = _age_seconds(last_hb, now_dt)
 
-        recent_ts = _task_last_activity_at(conn, epic_id, task_num)
+        recent_ts = _task_last_activity_at(
+            conn, epic_id, task_num, strict_reads=strict_reads
+        )
         recent_age_s = _age_seconds(recent_ts, now_dt)
     finally:
         if owns_conn:

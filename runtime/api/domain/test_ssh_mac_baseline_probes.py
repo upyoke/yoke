@@ -193,14 +193,38 @@ def test_a_failing_probe_names_its_cause_and_recovery_without_the_output() -> No
     assert not result.ok
     assert result.error_code == "baseline_probe_failed"
     row = result.evidence["probes"][0]
-    assert row["cause"] == "probe_reported_not_signed_in"
-    assert "recapture the golden" in row["recovery"]
+    assert row["cause"] == "probe_exit_nonzero"
+    assert "correct the probe argv" in row["recovery"]
     assert "a@b.c" not in repr(result.evidence)
 
 
-def test_an_unreadable_credential_recovers_by_recapture_not_by_host_repair() -> None:
-    # The bridge delivered the probe, so the program did answer. A credential
-    # the session cannot read is still a fact about the golden.
+def test_a_declared_expectation_missing_from_output_is_named_as_unmet() -> None:
+    result = run_baseline_probes(
+        parse_baseline_probes(_document()),
+        run_gui_command=_Recorder(_completed(0, stdout="loggedOut")),
+    )
+
+    row = result.evidence["probes"][0]
+    assert row["cause"] == "probe_expectation_unmet"
+    assert row["expectation_met"] is False
+
+
+def test_a_probe_with_nothing_expected_does_not_report_an_expectation_met() -> None:
+    document = _document()
+    probe = json.loads(document)["probes"][0]
+    del probe["expect_output_contains"]
+    result = run_baseline_probes(
+        parse_baseline_probes(json.dumps({"probes": [probe]})),
+        run_gui_command=_Recorder(_completed(0)),
+    )
+
+    assert result.ok
+    assert result.evidence["probes"][0]["expectation_met"] is None
+
+
+def test_an_unreadable_credential_recovers_by_signing_in_live() -> None:
+    # The bridge delivered the probe, so the program did answer. The login is
+    # live state now, so the fix is on the host, never in the golden.
     recorder = _Recorder(_completed(1, stderr="errSecInteractionNotAllowed"))
 
     result = run_baseline_probes(
@@ -211,10 +235,12 @@ def test_an_unreadable_credential_recovers_by_recapture_not_by_host_repair() -> 
     assert result.error_code == "baseline_probe_failed"
     row = result.evidence["probes"][0]
     assert row["cause"] == "macos_login_keychain_context_unavailable"
-    assert "recapture the golden" in row["recovery"]
+    assert "sign the program in again" in row["recovery"]
 
 
 class _Control:
+    home = "/Users/tester"
+
     def __init__(self, *, restored: HostActionResult, proven: HostActionResult):
         self._restored = restored
         self._proven = proven
@@ -222,6 +248,11 @@ class _Control:
 
     def reset_installer_test_host(self) -> HostActionResult:
         return self._restored
+
+    def run_command(self, argv, **kwargs):
+        return SimpleNamespace(
+            returncode=0, stdout=json.dumps({"ok": True, "freed_bytes": 0}), stderr=""
+        )
 
     def prove_user_equivalent(self) -> HostActionResult:
         self.proved += 1

@@ -6,6 +6,8 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
     TargetRef,
 )
+from yoke_contracts.timestamps import format_instant, parse_instant
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain import item_detail_read, item_overview_read
 from yoke_core.domain.handlers import item_page_reads, items_listing
 from runtime.api.item_page_reads_test_support import _connection
@@ -103,23 +105,27 @@ def test_overview_list_rejects_unknown_relevance():
 
 def test_dash_detail_links_back_to_its_source_field_note(monkeypatch):
     conn = _connection()
+    observed_at = parse_instant("2026-07-25T08:00:00.123456Z")
+    reviewed_at = parse_instant("2026-07-25T09:00:00.654321Z")
     conn.execute(
         """
         INSERT INTO ouroboros_entries VALUES (
-          22890, '2026-07-25T08:00:00Z', 'codex', 'curate',
+          22890, ?, 'codex', 'curate',
           'field-note-observation', 'The footer needs focused follow-up.',
-          '2026-07-25T09:00:00Z', 7
+          ?, 7
         )
-        """
+        """,
+        (instant_parameter(conn, observed_at), instant_parameter(conn, reviewed_at)),
     )
     conn.execute(
         """
         INSERT INTO ouroboros_entry_dispositions VALUES (
           22890, 'promote_to_dash', 'completed', 51,
           'Fix the footer', 'The footer needs focused follow-up.',
-          '2026-07-25T09:00:00Z'
+          ?
         )
-        """
+        """,
+        (instant_parameter(conn, reviewed_at),),
     )
     conn.commit()
     monkeypatch.setattr(item_detail_read.db_helpers, "connect", lambda: conn)
@@ -128,13 +134,13 @@ def test_dash_detail_links_back_to_its_source_field_note(monkeypatch):
 
     assert item["source_field_note"] == {
         "entry_id": 22890,
-        "timestamp": "2026-07-25T08:00:00Z",
+        "timestamp": format_instant(observed_at),
         "agent": "codex",
         "context": "curate",
         "category": "field-note-observation",
         "body": "The footer needs focused follow-up.",
-        "reviewed_at": "2026-07-25T09:00:00Z",
-        "promoted_at": "2026-07-25T09:00:00Z",
+        "reviewed_at": format_instant(reviewed_at),
+        "promoted_at": format_instant(reviewed_at),
         "project_id": 7,
         "project": "acme",
     }

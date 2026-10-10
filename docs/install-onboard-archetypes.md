@@ -25,7 +25,7 @@ forbidden. Sources:
 | Board art | `onboard_wizard_board_art.py`, `onboard_wizard_board_art_steps.py` |
 | Modes | `docs/public/modes.md` |
 | Harness onboard skill | `.agents/skills/yoke/onboard/` (SKILL + step files) |
-| Idea deploy-default | `.agents/skills/yoke/idea/infer-and-create.md` |
+| Idea deploy-default | `.agents/skills/yoke/idea/infer-deployment-flow.md` |
 | Usher routing | `.agents/skills/yoke/usher/deploy.md` |
 | Windows git advice | `project_git_install_advice.py` |
 | QA command routing | `qa_command_plan_registration.py`, `qa_command_scope_routing.py` |
@@ -93,21 +93,20 @@ Facts:
 - Persistent flows name exactly one registered environment. Merge-only flows
   carry `target_tier` NULL, create no deployment run, and are offered alongside
   no default when hosting is deferred or not needed.
-- `/yoke idea` looks up `yoke project-structure deploy-defaults get` and, when
-  non-empty, **always** uses that flow (`infer-and-create.md`).
-- Usher Route A is an empty/`-internal` flow or any registered empty-tier flow
-  → `yoke watch merge done-transition -- PREFIX-N --skip-deploy`. Route B is a
-  persistent/ephemeral flow. Exit 7 remains the fail-closed result for a flow
-  that requires a pipeline or cannot be resolved (`usher/deploy.md`).
+- Idea resolves the requested flow and pinned workflow/project defaults through
+  [its flow owner](../.agents/skills/yoke/idea/infer-deployment-flow.md).
+  Usher's [delivery owner](../.agents/skills/yoke/usher/deploy.md) selects the
+  verified merge-only or deployment path and preserves named refusals.
 - Hosting separates provider choice (AWS, self-hosted, or undecided) from AWS
   sign-in (guided access key, existing access key, or Not now). Role, SSO/OIDC,
   instance-profile, and web-identity execution remain unsupported.
 - The `vps-hosting` Pack provisions **AWS EC2**, not DigitalOcean.
 - Native Windows install fails in the shim (`Darwin|Linux` only). Native
   Windows onboarding git advice: "not supported yet. Use WSL/Linux or macOS".
-- Neither wire-up nor the harness profile asks how tests run. The QA gate
-  still expects a `registered-command-*` plan (see
-  [test setup](install-onboard-archetypes/test-setup.md)).
+- Harness onboarding explicitly confirms surveyed, scaffolded, review-only or
+  operator-attested no-tests posture and binds the actual gate; see
+  [test setup](install-onboard-archetypes/test-setup.md). Transcript gaps are
+  research evidence, not declarations of current runtime capability.
 
 Where a requirement should be declared, what the refusal should say, and what a
 project without that structure should get instead: see each archetype's crux

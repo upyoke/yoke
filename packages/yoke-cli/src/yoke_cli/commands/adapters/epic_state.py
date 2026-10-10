@@ -161,7 +161,7 @@ def epic_task_update_status(args: List[str]) -> int:
 
 EPIC_TASK_SIMULATION_UPSERT_USAGE = (
     "yoke workflow-item epic-task simulation-upsert --epic PREFIX-N --phase P "
-    "(--body TEXT | --body-file PATH | --stdin) [--session-id S] [--json]"
+    "(--body TEXT | --body-file PATH | --stdin) [--head-sha COMMIT] [--session-id S] [--json]"
 )
 
 
@@ -171,7 +171,8 @@ def epic_task_simulation_upsert(args: List[str]) -> int:
         description=(
             "Persist a Simulator report for an epic phase as qa rows "
             "(epic-level: no --task-num; CLEAN / GAPS FOUND is parsed "
-            "from the body; re-upserting a phase replaces prior runs). "
+            "from canonical SIMULATION / EPIC headers; retains every actual attempt for the phase). "
+            "Returns public_ref, phase, message, requirement_id, run_id, verdict and verified=true after exact-run readback. "
             "Example: yoke workflow-item epic-task simulation-upsert "
             "--epic PREFIX-N --phase plan --body-file /tmp/sim-report.md"
         ),
@@ -179,6 +180,10 @@ def epic_task_simulation_upsert(args: List[str]) -> int:
     parser.add_argument("--epic", required=True, help="Epic public ref (PREFIX-N).")
     parser.add_argument(
         "--phase", required=True, help="Simulation phase (e.g. plan, integration)."
+    )
+    parser.add_argument(
+        "--head-sha",
+        help="Exact code commit verified; required when no clean claimed epic lane supplies it.",
     )
     body_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
@@ -215,7 +220,11 @@ def epic_task_simulation_upsert(args: List[str]) -> int:
     return dispatch_and_emit(
         function_id="workflow_item.epic_task.simulation_upsert",
         target=TargetRef(kind="epic_task", public_ref=parsed.epic),
-        payload={"phase": parsed.phase, "body": body},
+        payload={
+            "phase": parsed.phase,
+            "body": body,
+            **({"head_sha": parsed.head_sha} if parsed.head_sha else {}),
+        },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_writer,

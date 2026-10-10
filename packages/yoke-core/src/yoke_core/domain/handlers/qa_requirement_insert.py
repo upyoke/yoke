@@ -124,11 +124,19 @@ def execute_insert(
     )
     stored["created_at"] = instant_parameter(conn, stored["created_at"])
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    return conn.execute(
+    cursor = conn.execute(
         f"INSERT INTO qa_requirements ({', '.join(stored)}) "
         f"VALUES ({', '.join(marker for _ in stored)}) RETURNING id",
         tuple(stored.values()),
     )
+    from yoke_core.domain.qa_post_deploy_no_obligation_retirement import (
+        retract_no_obligation_for_requirement,
+    )
+
+    retract_no_obligation_for_requirement(
+        conn, item_id=subject.item_id, requirement=row
+    )
+    return cursor
 
 
 __all__ = ["RequirementSubject", "execute_insert", "insert_params"]

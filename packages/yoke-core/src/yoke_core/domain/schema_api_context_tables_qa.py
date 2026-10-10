@@ -85,6 +85,11 @@ QA_TABLES: dict[str, dict] = {
             ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
+            "Deployment QA test fixtures use "
+            "runtime.api.fixtures.completed_delivery.seed_selected_requirement_run; "
+            "the stage environment fixture is "
+            "runtime.api.domain.test_deployment_qa_stage_execution._environment, "
+            "not test_deployment_qa_admission_execution._environment. "
             "Plan detail reads use qa_plan_detail.get_plan(conn, plan_id=...); "
             "the guessed qa_plan_detail.plan_detail helper does not exist. "
             "QA cases declare target_envs as a JSON list; each environment "

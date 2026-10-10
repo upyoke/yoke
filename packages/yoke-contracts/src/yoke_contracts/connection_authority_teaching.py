@@ -14,12 +14,9 @@ registered surfaces checked. `yoke env list` shows configured connections.
 
 # Compact session-packet stanza: kinds of authority, not a config dump.
 CONNECTION_AUTHORITY_STANZA = (
-    "Connection authority: `yoke env list` prints every configured "
-    "connection (name, active, transport, prod). HTTPS is the normal "
-    "product/API authority — registered `yoke` commands relay there; "
-    "`yoke db` is read-only. Ordinary writes use registered "
-    "`yoke <subcommand>`. When no registered command covers a required "
-    "mutation, escalate the missing command to the control-plane operator."
+    "Connections: `yoke env list`. HTTPS is product authority; writes use "
+    "registered `yoke` commands, `yoke db` is read-only. Escalate missing "
+    "mutations to the control-plane operator."
 )
 
 # Human footer on `yoke env list`. JSON inventory stays sanitized rows.

@@ -12,6 +12,47 @@ from runtime.api.source_pythonpath_test_helpers import provision_stub_environmen
 from yoke_core.domain import source_python_environment as environment
 from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
 from yoke_core.domain import qa_environment_declaration as declarations
+from yoke_contracts.project_defaults import MissingProjectError
+
+
+def test_disposable_candidate_uses_command_project_without_checkout_mapping(
+    tmp_path, monkeypatch
+):
+    provision_stub_environment(tmp_path)
+    monkeypatch.delenv("YOKE_PROJECT", raising=False)
+    monkeypatch.setattr(
+        "yoke_core.domain.project_selection.default_project_for_directory",
+        lambda _directory: None,
+    )
+    reads = []
+
+    def read_settings(project, *, strict=False):
+        reads.append((project, strict))
+        return {}
+
+    monkeypatch.setattr(declarations, "_read_settings", read_settings)
+    binding = environment.resolve(tmp_path, dict(os.environ, YOKE_PROJECT="fixture"))
+    assert reads == [("fixture", True)]
+    assert Path(binding.evidence["root"]) == tmp_path
+
+
+def test_disposable_candidate_without_project_keeps_named_refusal(
+    tmp_path, monkeypatch
+):
+    monkeypatch.delenv("YOKE_PROJECT", raising=False)
+    monkeypatch.setattr(
+        "yoke_core.domain.project_selection.default_project_for_directory",
+        lambda _directory: None,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.control_plane_transport.relay",
+        lambda *_args: {"rows": [{"slug": "fixture"}]},
+    )
+    with pytest.raises(environment.SourceEnvironmentRefusal) as refused:
+        environment.resolve(tmp_path, os.environ)
+    assert isinstance(refused.value.__cause__, MissingProjectError)
+    assert "SOURCE-ENVIRONMENT-DECLARATION" in str(refused.value)
+    assert "--project" in str(refused.value)
 
 
 @pytest.fixture

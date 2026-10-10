@@ -1,66 +1,27 @@
-# 5f-rehydrate. Prior Attempt Rehydration (shared sub-step)
+# Conduct — prior attempt evidence
 
-Extracted from `dispatch-context.md`. Referenced from `dispatch-context-dispatch.md` before Engineer dispatch and from `engineer-tester-closeout.md` when a retry needs prior attempt context.
+Before every Engineer dispatch, load prior task progress notes and reviews in
+chronological order. Empty history omits the block. Preserve complete parent
+public ref and local task number; never substitute numeric public tail for id.
 
-This sub-step assembles context from prior Engineer attempts and Tester rejections for injection into the Engineer dispatch prompt. It converts cross-session failures into learning by surfacing what was already tried.
+Diagnostic reads use selected control-plane authority:
 
-**When to run:** Before every Engineer dispatch (first attempt and retries). On first attempts with no prior data, this step produces an empty block and no context is injected.
-
-**Input:** `_id` (item numeric ID), `_workflow_id`, and for Epic workflow
-items: `_epic_ref`, `_task_id`.
-
-### Step 1: Query prior progress notes
-
-**For epic tasks:**
-```bash
-_prior_notes=$(yoke db read --format lines "SELECT note_num, body, created_at FROM epic_progress_notes WHERE epic_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND task_num='${_task_id}' ORDER BY note_num ASC")
+```text
+yoke db read --format lines "SELECT note_num, body, created_at FROM epic_progress_notes WHERE epic_id=(SELECT item_id FROM item_refs WHERE public_ref='PREFIX-N') AND task_num={task_num} ORDER BY note_num ASC"
+yoke workflow-item epic-task review-list --epic PREFIX-N --task-num {task_num}
 ```
 
-**For standalone issues:** Progress notes are not used for issues (no `epic_progress_notes` rows). Set `_prior_notes` to empty.
+Standalone items have no epic_progress_notes. Read their implementation-review
+requirements/runs through registered QA lists, with item identity and no epic
+scope. Task reviews use exact task identity. Do not reinterpret missing/failed
+reads as evidence of no history or write a read value back to body.
 
-### Step 2: Query prior tester reviews
+Build ## Prior Attempts containing note number/date/body and review verdict/
+date/body. Explain previous outcomes as systemic evidence: study already tried
+approaches and pending feedback before work; no agent-error blame. Retain the
+block only for this task, then clear on chain advance.
 
-**For epic tasks:**
-```bash
-_prior_reviews=$(yoke db read --format lines "SELECT CASE qr.verdict WHEN 'pass' THEN 'PASS' WHEN 'fail' THEN 'FAIL' ELSE 'FAIL' END, COALESCE(NULLIF(qr.raw_result, '')::jsonb #>> '{body}', ''), qr.created_at FROM qa_runs qr JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id WHERE qreq.qa_kind = 'implementation_review' AND qreq.epic_id=(SELECT item_id FROM item_refs WHERE public_ref='${_epic_ref}') AND qreq.task_num='${_task_id}' ORDER BY qr.created_at ASC")
-```
-
-**For standalone issues:**
-```bash
-_prior_reviews=$(yoke db read --format lines "SELECT CASE qr.verdict WHEN 'pass' THEN 'PASS' WHEN 'fail' THEN 'FAIL' ELSE 'FAIL' END, COALESCE(NULLIF(qr.raw_result, '')::jsonb #>> '{body}', ''), qr.created_at FROM qa_runs qr JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id WHERE qreq.qa_kind = 'implementation_review' AND qreq.item_id=(SELECT item_id FROM item_refs WHERE public_ref='${_id}') AND qreq.epic_id IS NULL ORDER BY qr.created_at ASC")
-```
-
-### Step 3: Assemble the rehydration block
-
-If both `_prior_notes` and `_prior_reviews` are empty, set `_rehydration_block` to empty string and return. No context is injected for first-attempt dispatches with no prior history.
-
-Otherwise, build the block:
-
-```
-## Prior Attempts
-
-WARNING: Previous engineer sessions attempted this task and failed. Study the failures below carefully before starting. Do NOT repeat the same approaches that already failed.
-
-{If _prior_notes is non-empty:}
-### Progress Notes from Prior Attempts
-{For each row in _prior_notes (pipe-separated: note_num|body|created_at):}
-**Note {note_num}** ({created_at}):
-{body}
-
-{If _prior_reviews is non-empty:}
-### Prior Tester Reviews
-{For each row in _prior_reviews (pipe-separated: verdict|body|created_at):}
-**Review ({verdict}, {created_at}):**
-{body}
-```
-
-Store the assembled text as `_rehydration_block`.
-
-### Step 4: Size guard
-
-If `_rehydration_block` exceeds 3000 characters, truncate to the most recent 2 reviews and most recent 3 progress notes. Append a note:
-```
-(Prior attempt history truncated — {total_notes} notes, {total_reviews} reviews available in DB)
-```
-
-This prevents rehydration context from consuming the Engineer's context budget on items with long failure histories.
+If >3000 characters, include latest3 notes and latest2 reviews, count withheld
+rows and name the exact complete history read. Never cut an arbitrary body
+midline or silently discard prior failures. Store _rehydration_block for prompt
+assembly; no history means empty, not an empty heading placeholder.

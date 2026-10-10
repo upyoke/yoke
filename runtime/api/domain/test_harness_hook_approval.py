@@ -158,8 +158,10 @@ def test_cursor_absence_cites_official_hooks_docs():
 def test_mapping_absence_is_not_proof_of_no_trust_gate():
     bootstrap = (_REPO / "docs" / "harness-bootstrap.md").read_text(encoding="utf-8")
     assert "A harness absent from that mapping has no gate." not in bootstrap
-    assert "no declared hook-specific approval requirement" in bootstrap
-    assert "not proof there is no trust gate" in bootstrap
+    assert "owns declared hook-specific gates" in bootstrap
+    assert "absence\nfrom its mapping means no declared requirement" in bootstrap
+    assert "not proof of no security gate" in bootstrap
+    assert "Workspace trust remains separate" in bootstrap
 
 
 def test_stale_cursor_hook_approval_teaching_is_absent():

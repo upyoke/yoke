@@ -50,7 +50,8 @@ jobs:
   dispatch-platform-release:
     # This bridge targets upstream's hosted service and Platform repository.
     if: github.repository == 'upyoke/yoke'
-    timeout-minutes: 60
+    # Room for a re-proof when Platform main moved during the factory waits.
+    timeout-minutes: 120
     name: dispatch and await Platform release
     runs-on: ubuntu-24.04
     env:
@@ -217,64 +218,29 @@ jobs:
             --api-url "$YOKE_API_BASE" \
             --token-stdin >/dev/null
 
+      # Platform's trunk can move during the tag and factory waits above, and
+      # promotion refuses a trunk carrying changes beyond the revision it is
+      # handed. So each attempt re-reads that trunk first: unchanged hands on
+      # the proven revision; a descendant is proven against this exact
+      # candidate again and handed on instead; a rewrite refuses by name. A
+      # promotion refused only because the trunk moved again before it bound
+      # is retried, bounded, re-reading and re-proving each time.
       - name: Dispatch and await Platform pin promotion and release
         id: promotion
         env:
+          PRODUCT_SHA: ${{ inputs.product_sha }}
           PRODUCT_REF: ${{ steps.release.outputs.tag }}
           RELEASE_MODE: ${{ inputs.release_mode }}
           TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
           OUTER_DISPATCH_ID: ${{ inputs.yoke_dispatch_id }}
-          # The consumer revision the pre-tag proof actually built against.
-          # Promotion refuses when the trunk revision it is about to
-          # incorporate is not this one, so the release that ships is the
-          # pair that was proven rather than whatever trunk drifted to.
           PROVEN_CONSUMER_SHA: ${{ steps.consumer_proof.outputs.proven_consumer_sha }}
         run: |
-          case "$TARGET_ENVIRONMENT" in
-            stage|prod) ;;
-            *)
-              echo "no Platform promotion route for environment $TARGET_ENVIRONMENT" >&2
-              exit 1
-              ;;
-          esac
-          request_id="bridge:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:${OUTER_DISPATCH_ID}"
-          dispatch_error="$RUNNER_TEMP/platform-release-dispatch-error.txt"
-          platform_run_id=""
-          for attempt in $(seq 1 12); do
-            if platform_run_id="$(yoke github-actions trigger \
-              upyoke/platform yoke-release-promote.yml \
-              --ref main \
-              --input "target_environment=$TARGET_ENVIRONMENT" \
-              --input "product_ref=$PRODUCT_REF" \
-              --input "release_mode=$RELEASE_MODE" \
-              --input "proven_consumer_sha=$PROVEN_CONSUMER_SHA" \
-              --request-id "$request_id" \
-              --correlation-input yoke_dispatch_id \
-              --project platform 2>"$dispatch_error")"; then
-              break
-            else
-              dispatch_rc=$?
-            fi
-            cat "$dispatch_error" >&2
-            if ! grep -q "workflow_dispatch_ambiguous" "$dispatch_error"; then
-              exit "$dispatch_rc"
-            fi
-            if [ "$attempt" -eq 12 ]; then
-              echo "Platform release dispatch remained ambiguous after bounded recovery" >&2
-              exit "$dispatch_rc"
-            fi
-            # The server has already recorded durable intent. Reusing the same
-            # request id and payload lets the same scoped actor discover the
-            # correlated GitHub run without posting another dispatch.
-            sleep 5
-          done
-          test -n "$platform_run_id"
-          echo "run_id=$platform_run_id" >> "$GITHUB_OUTPUT"
-          echo "Platform release run: https://github.com/upyoke/platform/actions/runs/$platform_run_id"
-          yoke github-actions wait-run \
-            upyoke/platform "$platform_run_id" \
-            --project platform \
-            --timeout 10800
+          python3 -m runtime.api.tools.promote_platform_release \
+            --candidate-sha "$PRODUCT_SHA" \
+            --proven-consumer-sha "$PROVEN_CONSUMER_SHA" \
+            --product-ref "$PRODUCT_REF" --release-mode "$RELEASE_MODE" \
+            --target-environment "$TARGET_ENVIRONMENT" \
+            --request-id "bridge:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:${OUTER_DISPATCH_ID}"
 
       - name: Record desired pin after successful Platform release
         env:

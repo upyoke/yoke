@@ -40,7 +40,7 @@ A small AST scanner walked these 29 owners and collected every
 `backlog.py`, `browser_client.py`, `browser_qa.py`, `migration_harness.py`,
 `backup.py`, `github_actions.py`, `project_renderer.py`, `gh_retry.py`,
 `gh_issue.py`, `db_error_hook.py`, `conduct_reviewed_handoff.py`,
-`persist_simulation.py`, `bootstrap_project.py`, `deploy_qa_recorder.py`,
+`bootstrap_project.py`, `deploy_qa_recorder.py`,
 `events_crud.py`, `update_status.py`
 
 For each site the scanner asked: within the enclosing function, is the

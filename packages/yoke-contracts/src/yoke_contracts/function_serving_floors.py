@@ -28,6 +28,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "deployment_runs.execution.containment_basis": "next-release",
     "deployment_runs.execution.release_driver": "next-release",
     "deployment_runs.remove_item": "next-release",
+    "github.branch.head": "next-release",
     "github_actions.dispatch_tag.ensure": "next-release",
     "item_landings.list": "next-release",
     "item_landings.record": "next-release",
@@ -93,6 +94,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "universe.levels.get": "next-release",
     "universe.levels.set": "next-release",
     "workflows.canon_status.list": "next-release",
+    "workflows.version.publish": "next-release",
 }
 
 
@@ -109,12 +111,18 @@ class ArgumentFloor:
 
 
 #: function_id -> {argument: floor}, for arguments added to an already-served
-#: function. A server below the floor rejects the payload outright, because its
-#: request model does not know the argument; the HTTPS client then names the
-#: floor instead of the server's bare validation error. A command only sends a
-#: floored argument after checking it against this build's own request model,
-#: so a payload refusal for it can only come from a server that predates it.
+#: function. Older request models may reject unknown arguments or silently
+#: ignore them. Payload refusals name this floor; adapters whose writes can be
+#: ignored must also verify the success receipt echoes the requested argument.
 FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] = {
+    "items.structured_field.section_upsert": {
+        "field": ArgumentFloor(
+            "next-release", "field-less --section TEXT for a top-level item section"
+        ),
+        "heading_level": ArgumentFloor(
+            "next-release", "field-less --section TEXT for a top-level item section"
+        ),
+    },
     "session_control.launch.create": {
         "use_stage_level": ArgumentFloor(
             "next-release",
@@ -122,6 +130,11 @@ FUNCTION_ARGUMENT_MINIMUM_SERVING_VERSIONS: dict[str, dict[str, ArgumentFloor]] 
         ),
         "level": ArgumentFloor(
             "next-release", "an exact selection with --surface S [--model M]"
+        ),
+        "level_reason": ArgumentFloor(
+            "next-release",
+            "--level LEVEL without --level-reason, then record the reason with "
+            "`yoke workflows item-posture amend PREFIX-N --key level`",
         ),
     },
     "session_control.launch.preview": {

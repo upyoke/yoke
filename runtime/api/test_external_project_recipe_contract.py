@@ -85,9 +85,14 @@ def test_recipe_repairs_and_registered_surfaces_stay_taught() -> None:
     assert "yoke dev ruff-changed --base <ref>" in source_dev_doctrine
     assert "Use `-- -n 0`" in source_dev_doctrine
     assert "docs/source-dev-doctrine.md" in agents
-    assert "Never pass an unmatched path glob" in agents
-    assert "Never fabricate or expand a full commit hash" in agents
-    assert "cat-file -e '<sha>^{commit}'" in agents
+    assert "`code-and-cli.md`" in agents
+    assert (
+        "Read the applicable `.yoke/docs/reference/agent-rules/` home first" in agents
+    )
+    code_home = (REPO / ".yoke/docs/reference/agent-rules/code-and-cli.md").read_text()
+    assert "Enumerate optional globs with `rg --files`" in code_home
+    assert "full commit hashes; never expand abbreviations" in agents
+    assert "cat-file -e '<sha>^{commit}'" in code_home
     assert "yoke dev run -- <command>" in verification
     assert "git diff --name-only --diff-filter=ACMR <base>...HEAD" in source_development
     assert "Do not pipe NUL-delimited Git output through `rg -z`" in source_development
@@ -132,9 +137,13 @@ def test_atlas_names_real_pulumi_client_local_source_owners() -> None:
         "packages/yoke-cli/src/yoke_cli/commands/adapters/pulumi.py",
         "packages/yoke-core/src/yoke_core/tools/pulumi_exec.py",
     )
-    atlas = "\n".join(_render_permanent_roster({
-        "operation_tracker": collect_operation_tracker(),
-    }))
+    atlas = "\n".join(
+        _render_permanent_roster(
+            {
+                "operation_tracker": collect_operation_tracker(),
+            }
+        )
+    )
     for owner in owners:
         assert (REPO / owner).is_file()
         assert owner in atlas

@@ -1,13 +1,12 @@
 """Tests for yoke_core.domain.epic — proceed_triage_and_handoff path.
 
 Split from test_epic_cli.py: TestProceedTriageAndHandoff. Covers the
-Python-owned PROCEED-path reviewed-handoff helper plus the persist-and-verify
-clean/gaps interactions.
+Python-owned PROCEED-path reviewed-handoff helper. Native simulation receipt
+identity/readback is covered by the function adapter tests.
 """
 
 from __future__ import annotations
 
-from unittest import mock
 from unittest.mock import patch
 
 
@@ -185,62 +184,3 @@ class TestProceedTriageAndHandoff:
         assert rc == 0
         run_add.assert_not_called()
         handoff.assert_not_called()
-
-    def test_clean_path_unchanged_no_proceed_helper(self):
-        """Persist_and_verify CLEAN path still uses auto-handoff, not proceed helper."""
-        from yoke_core.domain import persist_simulation
-
-        sim_output = "SIMULATION: CLEAN\nEPIC: YOK-42"
-        conn = mock.MagicMock()
-        conn.__enter__ = mock.MagicMock(return_value=conn)
-        conn.__exit__ = mock.MagicMock(return_value=False)
-
-        with (
-            mock.patch.object(persist_simulation, "connect", return_value=conn),
-            mock.patch.object(persist_simulation._epic_domain, "simulation_upsert"),
-            mock.patch.object(
-                persist_simulation._epic_domain,
-                "simulation_get",
-                return_value="1|42|integration|CLEAN|body|2026-04-09",
-            ),
-            mock.patch(
-                "yoke_core.domain.conduct_reviewed_handoff.run", return_value=0
-            ) as handoff,
-            mock.patch.object(epic, "proceed_triage_and_handoff") as proceed,
-        ):
-            verdict = persist_simulation.persist_and_verify(
-                "42", "integration", sim_output
-            )
-
-        assert verdict == "CLEAN"
-        # CLEAN uses direct handoff, not proceed helper
-        handoff.assert_called_once_with(42)
-        proceed.assert_not_called()
-
-    def test_gaps_found_persist_does_not_handoff(self):
-        """Plain GAPS FOUND persistence does not trigger any handoff."""
-        from yoke_core.domain import persist_simulation
-
-        sim_output = "SIMULATION: GAPS FOUND\nEPIC: YOK-42\n- Gap 1"
-        conn = mock.MagicMock()
-        conn.__enter__ = mock.MagicMock(return_value=conn)
-        conn.__exit__ = mock.MagicMock(return_value=False)
-
-        with (
-            mock.patch.object(persist_simulation, "connect", return_value=conn),
-            mock.patch.object(persist_simulation._epic_domain, "simulation_upsert"),
-            mock.patch.object(
-                persist_simulation._epic_domain,
-                "simulation_get",
-                return_value="1|42|integration|GAPS FOUND|body|2026-04-09",
-            ),
-            mock.patch("yoke_core.domain.conduct_reviewed_handoff.run") as handoff,
-            mock.patch.object(epic, "proceed_triage_and_handoff") as proceed,
-        ):
-            verdict = persist_simulation.persist_and_verify(
-                "42", "integration", sim_output
-            )
-
-        assert verdict == "GAPS FOUND"
-        handoff.assert_not_called()
-        proceed.assert_not_called()

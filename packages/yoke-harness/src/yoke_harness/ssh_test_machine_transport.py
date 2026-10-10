@@ -51,6 +51,9 @@ class SshTestMachineTransport:
         self.golden_baseline_path = (
             str(settings.get("golden_baseline_path") or "") or None
         )
+        self.browser_profile_baseline_path = settings.get(
+            "browser_profile_baseline_path"
+        )
         facts = self._host_facts()
         self.home = str(facts["home"])
         self.shell = str(facts["shell"])

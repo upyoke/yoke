@@ -1,273 +1,177 @@
 # QA Platform
 
-Yoke's QA platform replaces the legacy `reviews` table with a unified, requirement-driven quality assurance model. Every item must carry explicit QA requirements before it can enter the review lane (`reviewing-implementation` in the current lifecycle). QA results are recorded as typed runs with non-binary verdicts, artifacts, and codified success policies. Agent writes against the QA tables route through the Yoke function-call surface (`qa.requirement.add`,
-`qa.requirement.add_batch`, `qa.requirement.list`, `qa.requirement.get`, `qa.requirement.update`,
-`qa.plan.materialize`, `qa.run.add`, `qa.run.complete`, `qa.run.record_verdict`, `qa.run.list`,
-`qa.artifact.presign`, `qa.artifact.add`, `qa.artifact.rehome`, `qa.gate_summary.run`, `qa.browser_context.get`, and
-`qa.case_execution.begin`). The public `yoke qa ...` commands (for example `yoke qa requirement list`)
-are the retained operator/debug adapters that dispatch the matching function ids. See
-[.yoke/docs/reference/db-reference/functions.md](db-reference/functions.md) for the envelope. Render
-the operator-readable Atlas of registered surfaces locally with
-`python3 -m yoke_core.tools.atlas_render_docs render`. For standalone project QA, run `yoke qa plan run --plan PLAN --project P`; read its `--help` and [standalone plan contracts](qa-platform/standalone-plans.md) before execution.
+QA requirements declare an obligation; typed runs, artifacts and success policies
+record its evidence. Items need materialized requirements before entering
+`reviewing-implementation`. Write through registered `yoke qa ...` adapters;
+[function families](db-reference/functions-qa.md) own typed envelopes. For
+standalone QA use `yoke qa plan run --plan PLAN --project P`; read its `--help`
+and [standalone plans](qa-platform/standalone-plans.md) before execution.
 
 ## Four-Layer Model
 
-QA is modeled in four independent layers. These layers are independent columns/fields -- never collapse them into a single enum.
+Keep these dimensions independent; never collapse them into one enum.
 
-### Layer 1: qa_kind -- What are we proving?
+| Dimension | Meaning and values |
+|---|---|
+| `qa_kind` | Free-form purpose: implementation_review, simulation, smoke, e2e, visual-regression, manual-acceptance; new kinds need no schema change. |
+| `performed_by` | Execution: agent, agent_mission (walker captures, main agent judges), shell, playwright, manual, github-actions. |
+| `capability_requirements` | JSON capability slugs checked against project capability and executing host/session authority. |
+| `success_policy` | All-pass aggregation over current actual attempts; method-local measurement thresholds; [schema and decisions](qa-platform/success-policy-schema.md). |
 
-Free-form text describing the kind of QA being performed.
-
-| Value | Description |
-|-------|-------------|
-| `implementation_review` | Code/spec review by Tester agent (migrated from legacy `reviews` table) |
-| `simulation` | Cross-task integration simulation |
-| `smoke` | Post-deploy smoke test (HTTP health checks, basic flows) |
-| `e2e` | End-to-end browser test scenario |
-| `visual-regression` | Visual diff against known-good baseline |
-| `manual-acceptance` | Human sign-off on acceptance criteria |
-
-New qa_kinds can be added without schema changes. The column is free-form text, not a CHECK-constrained enum.
-
-### Layer 2: performed_by -- How is it run?
-
-| Value | Description |
-|-------|-------------|
-| `agent` | Claude agent (Tester, Simulator) executes and judges |
-| `agent_mission` | Exploratory walker captures findings; the main agent judges |
-| `shell` | Shell script execution (`exit_code == 0` = pass) |
-| `playwright` | Playwright browser automation framework |
-| `manual` | Human performs the QA step and records result |
-| `github-actions` | GitHub Actions workflow execution |
-
-### Layer 3: capability_requirements -- What runtime access is needed?
-
-JSON array of capability slugs. Case admission checks these against the project's `project_capabilities` rows and the executing harness session, and refuses a case whose host is missing one. The one exemption is per runner, never per kind: a kind passes admission only for a case whose own `runner_id` is declared to supply it on the machine that runs the case (`browser_substrate` starts the machine-local browser daemon, which installs the runtime it needs; `agent_mission`'s dispatch contract requires the walker to run `yoke qa browser setup` on its target host before any browser step). The same kind on any other runner is still refused — a `worktree_run` or `ci_run` case declaring `browser-control` does not pass — and kinds naming project or host authority, such as `test-machine`, are exempt for no runner at all.
-
-```json
-["browser", "docker", "ssh", "repo", "github"]
-```
-
-### Layer 4: success_policy -- What counts as success?
-
-JSON object defining the acceptance criteria for the QA requirement. Supports non-binary, statistical, and composite assessments. See [success_policy JSON Schema](#success_policy-json-schema) below.
+Admission exemptions are runner-specific: browser_substrate supplies its local
+browser runtime; agent_mission requires walker setup on the target host before
+browser steps. The same browser-control kind on worktree_run/ci_run still
+refuses. Project/host authority such as test-machine has no runner exemption.
 
 ## Table Schemas
 
-### qa_requirements
+The [QA database reference](db-reference/qa-and-sessions.md) owns complete
+qa_requirements/qa_runs/qa_artifacts schemas, indexes, typed artifact handles,
+configured storage and gate validation. Requirements have exactly one subject:
+item_id; epic_id + task_num; or deployment_run_id. Item/task subjects carry no
+deployment stage/member; deployment subjects are legacy unscoped, run-scoped
+(stage), or item-scoped (stage + member). Never substitute an item for a run.
 
-Stores QA requirements attached to items, epic tasks, or deployment runs. Each requirement declares what kind of QA must be performed, when in the lifecycle it is due, and what success looks like.
-
-```sql
-id INTEGER PRIMARY KEY
-item_id INTEGER -- nullable; FK to items(id)
-epic_id INTEGER -- nullable; FK to epic_tasks(epic_id)
-task_num INTEGER -- nullable; FK to epic_tasks(task_num)
-deployment_run_id TEXT -- nullable; no FK (deployment_runs table deferred)
-deployment_stage TEXT -- nullable; pinned schema-2 QA stage on a deployment subject
-deployment_member_item_id INTEGER -- nullable; attached member for item-scoped stage QA
-qa_kind TEXT NOT NULL -- free-form: implementation_review, simulation, smoke, e2e, visual-regression, etc.
-qa_phase TEXT NOT NULL -- CHECK: verification | post_deploy | manual_acceptance
-target_env TEXT -- semantic: local | preview | ephemeral | prod
-blocking_mode TEXT NOT NULL DEFAULT 'blocking' -- CHECK: blocking | non_blocking
-requirement_source TEXT NOT NULL DEFAULT 'explicit' -- CHECK: explicit | seeded_default | ac_derived | flow_derived
-success_policy TEXT -- JSON: defines what counts as success
-capability_requirements TEXT -- JSON array: e.g. ["browser","docker","ssh"]
-suite_id TEXT -- nullable, unconstrained; links to future test-intelligence suite
-waived_at TEXT -- ISO timestamp if waived
-waiver_rationale TEXT -- why waived
-waiver_source TEXT -- 'operator' or 'agent'
-superseded_by_requirement_id INTEGER -- the corrected case that answered this one
-superseded_at TEXT -- ISO timestamp if superseded
-supersession_rationale TEXT -- why the corrected case answers this obligation
-supersession_source TEXT -- 'operator' or 'agent'
-replacement_requirement_id INTEGER -- the corrected case declared to carry this failed one; supersedes it once it passes
-created_at TEXT NOT NULL
-```
-
-**Polymorphic FK constraint:** Exactly one of (`item_id`), (`epic_id` + `task_num`), or (`deployment_run_id`) must be non-NULL. Deployment subjects are either legacy (`deployment_stage` and member both NULL), run-scoped (stage set, member NULL), or item-scoped (stage and member set):
-
-```sql
-CHECK (
- (item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NULL AND deployment_stage IS NULL AND deployment_member_item_id IS NULL) OR
- (item_id IS NULL AND epic_id IS NOT NULL AND task_num IS NOT NULL AND deployment_run_id IS NULL AND deployment_stage IS NULL AND deployment_member_item_id IS NULL) OR
- (item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NOT NULL AND ((deployment_stage IS NULL AND deployment_member_item_id IS NULL) OR deployment_stage IS NOT NULL))
-)
-```
-
-**Indexes:** See the canonical [QA schema reference](db-reference/qa-and-sessions.md) for subject indexes and scoped execution keys.
-
-### qa_runs
-
-Records individual QA executions against a requirement. Multiple runs per requirement support statistical success policies.
-
-```sql
-id INTEGER PRIMARY KEY
-qa_requirement_id INTEGER NOT NULL -- FK to qa_requirements(id)
-performed_by TEXT NOT NULL -- how it ran: agent, shell, playwright, manual, github-actions
-qa_kind TEXT NOT NULL -- denormalized from requirement for query convenience
-verdict TEXT -- CHECK: pass | fail | undetermined | error (nullable: started but not completed)
-verdict_reason TEXT -- required when undetermined; agent outcomes also require linked evidence
-score REAL -- nullable numeric score
-confidence REAL -- nullable confidence level (0.0-1.0)
-raw_result TEXT -- → JSONB on Postgres; JSON: full execution output; browser_substrate runs also record code_identity.branch / code_identity.sha and sign_in.profile / sign_in.authenticated
-duration_ms INTEGER -- nullable execution duration
-started_at TEXT -- ISO timestamp
-completed_at TEXT -- ISO timestamp
-created_at TEXT NOT NULL
-```
-
-**Index:** `idx_qa_runs_requirement(qa_requirement_id)`
-
-### qa_artifacts
-
-QA artifacts attach screenshots, diffs, logs and traces to a run. The
-[QA database reference](db-reference/qa-and-sessions.md) owns their schema,
-typed handles, configured storage and gate validation.
+Runs reference their requirement. Preserve pass/fail/undetermined/error and a
+nullable verdict while executing; undetermined requires a reason, and agent
+outcomes require evidence. Multiple attempts, raw result, score/confidence,
+duration and timestamps remain history. Artifacts hold screenshots/logs/traces.
+Browser captures retain code identity and authenticated sign-in evidence.
 
 ## success_policy JSON Schema
 
-The `success_policy` column on `qa_requirements` stores a JSON object defining what counts as success. Five policy types are supported (`deterministic`, `threshold`, `statistical`, `composite`, `agent_judgment`); each has its own JSON shape, semantics, and evaluation rules. Full schema and decision logic per type live in [qa-platform/success-policy-schema.md](qa-platform/success-policy-schema.md). Downstream consumers (conduct, usher) implement policy evaluation; a centralized evaluation engine is deferred.
+Use [success-policy-schema.md](qa-platform/success-policy-schema.md) for the five
+policy shapes and evaluation rules; the stored success_policy is JSON.
 
 ## QA Phases
 
-`qa_phase` is a controlled vocabulary meaning "when in the delivery/implementation lifecycle this requirement becomes due."
+| Phase | Obligation |
+|---|---|
+| verification | Blocking requirements gate reviewed-implementation. |
+| post_deploy | Accepted admitted copies on the selected completion run, including settling, must prove its candidate/stage/member/target; source needs no separate CI verdict. |
+| manual_acceptance | Human sign-off gates done. |
 
-| Phase | When Due | Gating Effect |
-|-------|----------|---------------|
-| `verification` | During conduct/tester verification, before `reviewed-implementation` | Blocks the `reviewed-implementation` transition |
-| `post_deploy` | Accepted admitted copies on the selected completion run, including while settling | Blocks `done` until every copy and its stage pass for the recorded candidate and target; the source needs no separate CI verdict |
-| `manual_acceptance` | After automated QA, requires human sign-off | Blocks `done` transition |
+`reviewed-implementation` is a status; `verification` is a phase. Use current
+pinned lifecycle vocabulary, not retired QA-stage statuses.
 
 ## Target Environments
 
-`target_env` names a registered environment; an authorized name stores the canonical snapshot.
+target_env names a registered environment and stores its authorized canonical
+snapshot. `local` needs no Yoke environment; `preview` is named non-production
+(staging, qa, shmaging); `ephemeral` is short-lived branch/item validation;
+`prod` is production. Preview and ephemeral are distinct. Concrete preview
+names are environment names, not new enum values. Projects need not have every
+target; follow [browser semantics](browser-scenarios.md).
 
-| Value | Description |
-|-------|-------------|
-| `local` | No Yoke environment record required |
-| `preview` | Named non-production target (e.g., staging, qa, shmaging) |
-| `ephemeral` | Short-lived branch/item-scoped environment |
-| `prod` | Production environment |
+## Blocking Modes and Requirement Sources
 
-Notes: `preview` and `ephemeral` are distinct -- one is not shorthand for the other. Concrete preview
-names (staging, qa, shmaging) are preview-environment names, not separate `target_env` enum values.
-Preview environments may participate in delivery-time targeting; ephemeral environments are
-branch/item-scoped validation infrastructure. Not every project has every target environment, and
-detailed browser-environment semantics are canonical.
-
-## Blocking Modes
-
-| Value | Gating Effect |
-|-------|---------------|
-| `blocking` | Unsatisfied requirement prevents status transition |
-| `non_blocking` | Requirement is tracked but does not prevent transitions |
-
-## Requirement Sources
-
-`requirement_source` tracks where the requirement came from.
-
-| Value | Description |
-|-------|-------------|
-| `explicit` | Manually declared by operator or shepherd |
-| `seeded_default` | Auto-seeded by project/workflow policy |
-| `ac_derived` | Derived from acceptance criteria (e.g., AC -> browser check) |
-| `flow_derived` | Materialized from deployment flow definition |
+blocking prevents transition when unsatisfied; non_blocking records evidence
+without gating. requirement_source is explicit, seeded_default, ac_derived or
+flow_derived. Do not infer satisfaction from source or kind.
 
 ## Gating Semantics
 
-### Validation Entry Guard
+Entering reviewing-implementation requires at least one requirement. All
+blocking verification requirements must satisfy the review-complete gate.
+Inspect actual requirements and native previews:
 
-When an item or task transitions to `reviewing-implementation`, the system checks that at least one `qa_requirements` row exists. If zero exist, the transition is rejected with a clear error message.
+```text
+yoke qa requirement list --item PREFIX-N
+yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json
+yoke qa gate-summary --item PREFIX-N --target implemented --json
+```
 
-**Implementation:** `yoke_core.domain.qa_gates` enforces this during the lifecycle transition.
-Operators inspect the public requirement read surface with `yoke qa requirement list --item PREFIX-N`.
+Done settles blocking item and run-member requirements of any phase. A
+run-bound supersession needs the same run/stage/member/target and accepted
+stage. Admitted copies and acceptance rows answer their source/stage once,
+not twice. Refusals name the requirement/run. cancelled/stopped abandon;
+they do not settle or auto-waive. No obligation differs from unsatisfied QA.
 
-### Review-Complete Gate
-
-Transitioning to `reviewed-implementation` requires all blocking `verification`-phase requirements
-to be "satisfied": at least one `qa_runs` row with `verdict='pass'`, or waived (`waived_at IS NOT
-NULL`). **Public preview:** `yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json`
-
-### Done Gate
-
-`done` settles item-bound (`item_id`) and member-scoped run-bound (`deployment_member_item_id`) blocking rows, any phase; a superseded run-bound failure settles only when its passing replacement has the same run, stage, member, and execution target and that stage is accepted. Admitted copies and stage-acceptance rows settle a source or run stage rather than binding twice. The refusal names the requirement and its run. `cancelled` and `stopped` abandon without settling or auto-waiving. A member with no such rows is distinct from one whose obligation is unsatisfied.
-
-**Public preview:** `yoke qa gate-summary --item PREFIX-N --target done --json`
-
-Terminal settlement and code-identity checks use each requirement's newest execution; older attempts never block. A requirement-filtered `qa.run.list` puts the native-selected actual attempt first and retains audit history; case detail preserves that selection, with aware start instants before equal-start id ties and detached reviews excluded from current selection. Native run list/get project `case_outcome` through the shared judged-outcome model, and case detail displays it; final review changes the derived answer while stored capture outcome, raw evidence and timestamps remain intact. Browser reviews use the capture's verdict and identity, excluding detached agent verdict rows. If the latest execution is closed and verdict-less on a superseded requirement, its successor must pass or be discharged. Post-deploy successors need accepted admitted copies on the completion member (run-wide copies for a legacy schema-1 run). Refusals name unsettled successors. Latest live executions and active plans still block; history remains unchanged.
-
-### Bypass
-
-`YOKE_QA_GATE_BYPASS=1` is accepted only in pytest contexts; production use refuses as `GATE_QA_BYPASS_FORBIDDEN`. Unset it and satisfy or explicitly waive every declared requirement.
+Newest actual execution controls settlement and identity; older attempts stay
+history. Requirement-filtered run list puts the native-selected attempt first;
+aware start instant precedes equal-start id ties, and detached verdict reviews
+are excluded. case_outcome projects judged outcome without rewriting capture
+outcome/raw evidence/timestamps. Browser review judges its capture identity.
+Closed verdict-less superseded executions need a passed/discharged successor;
+post-deploy successors need accepted completion-member copies (run-wide for
+legacy schema-1). Live executions/active plans still block; name the unsettled
+successor. `YOKE_QA_GATE_BYPASS=1` is pytest-only; production refuses
+GATE_QA_BYPASS_FORBIDDEN. Unset it and satisfy or explicitly waive obligations.
 
 ## Requirement Materialization
 
-### Item-Level Requirements
+Item requirements are attached by definition/seeded policy before review.
+materialize converges newly added cases and confirms existing rows unchanged.
+rematerialize refreshes amended rows, waives removed cases, and reports all
+plan_ids reached, including already-answered plans (refresh without new rows).
+Deployment convergence is per case: unjudged refreshes, changed failed gets
+one declared corrected replacement, passed stands. An explicit --replaces
+case gets no second automatic correction. Read both commands' --help.
 
-Issue and epic items must have materialized item-level requirements before entering the QA-gated review lane. The shepherd skill or seeded defaults attach these during item definition.
-
-Materializing again after the plan changed converges added cases: `yoke qa plan materialize` gives every case the plan has gained its row and confirms existing rows without rewriting them. `yoke qa plan rematerialize` converges the rest in one pass: amended rows are refreshed in place, cases the plan lost are waived, and `plan_ids` names every plan the call reached — including a plan a delivery already answered, whose existing rows still come current though it gains no new row. On a deployment stage it converges case by case, so an answered sibling never blocks the rest: unjudged rows refresh, a failed case whose content changed gets one corrected row declared its replacement, and a passed case stands. A case already carried by an explicit `--replaces` declaration gets no second, automatic correction. Depth: `yoke qa plan materialize --help`, `yoke qa plan rematerialize --help`.
-
-### Epic Task Requirements
-
-Epic tasks may carry task-level requirements for task execution and verification. Task-level blocking requirements gate that task's `reviewed-implementation` and `done` transitions. Epic tasks mirror parent epic statuses including `release` — tasks cascade through `release` when the parent epic enters the release phase.
-
-### Epic Parent Aggregation
-
-An epic parent item cannot become `reviewed-implementation` until every blocking epic-task
-verification requirement and every blocking epic-level requirement is satisfied.
-
+Task blocking requirements gate that task's reviewed-implementation/done;
+tasks mirror parent statuses including cascading release. Parent review also
+requires every blocking task-verification and parent requirement satisfied.
 
 ### Deployment Run Requirements
 
-Deployment runs materialize a named project plan as post-deploy requirements that prove release
-health. Name the QA stage, and the member too when its scope is `item` — every QA stage credits only requirements carrying its own name, so a run pinning one refuses the unscoped form ([case-attachment.md](qa-platform/case-attachment.md)):
+Name the pinned QA stage and member for item scope; stages credit only their
+own requirements and refuse unscoped execution when a stage is pinned:
 
 ```text
-yoke qa plan run \
-  --deployment-run-id <run-id> \
-  --stage <stage-name> [--member <PREFIX-N>] \
-  --plan <plan-slug> \
-  --project <project>
+yoke qa plan run --deployment-run-id {RUN_ID} --stage {STAGE} --member PREFIX-N --plan {PLAN} --project {PROJECT}
 ```
 
-One case at a time, with no plan, is the same `qa.requirement.add` an item uses, targeted at the run instead — authoring shapes, refusals, and which cases the shared activity read returns are in [case-attachment.md](qa-platform/case-attachment.md).
+Run scope omits --member. A direct case uses qa.requirement.add targeted at
+the run; [case attachment](qa-platform/case-attachment.md) owns authoring and
+refusals. No synthetic item: immutable roster, serial Test Machine lease,
+runs/artifacts/verdicts stay bound to deployment_run_id. Plan/activity/browser
+context reads filter that run; artifact reads authorize its owning project.
 
-The run is the durable execution subject. Materialization and execution do not create a
-synthetic item: the immutable roster, serial Test Machine lease, QA runs, artifacts, and verdicts
-all remain bound through `qa_requirements.deployment_run_id`. Run-scoped reads stay explicit:
-`qa.plan.get` filters every case proof to the run, `qa.activity.list` returns and filters the
-same field, `qa.browser_context.get` takes a `deployment_run` target and scopes its case read
-to that run, and `qa.artifact.read` resolves evidence through the run's owning project.
+Plan get defaults to cases/methods/target/verdicts; --full includes probe source,
+output tails/evidence/reviews. Item activity can filter public_refs: absent
+means project, empty means none. Rows name public_ref, member ref, stage and
+run. For known cards, query those subjects, not globally recent QA. Captures
+stay captured until reviewed; no-obligation Item QA names its settled reason;
+Run Identity names recorded artifact or source-revision-only identity.
 
-`qa.plan.get` defaults to the scannable shape — cases, methods, target, each case's verdict. Probe source and every proof's output tail, evidence and review come back under `detail="full"` (`--full` on `yoke qa plan get`), which the summary names.
-
-Item-scoped reads are the other half, because an item-attached requirement records no
-deployment run at all: `qa.activity.list` also takes `public_refs` (absent reads the project; an
-empty list matches nothing), and every row reports `public_ref`, `deployment_member_public_ref`,
-`deployment_stage`, and `deployment_run_id`. A surface showing a known set of subjects — the
-items a deployment card carries — reads their evidence rather than whatever QA is most recent,
-and can tell an item's own proof from what it proved inside a release. Latest captured runs stay `captured` until reviewed; no-obligation members show their settled answer and reason in Item QA. Run Identity shows the recorded artifact identity, or explains that the run pins only a source revision. With `public_refs`, `limit`
-bounds each item's checks **within each deployment run they name**, and its run-less checks as
-their own group, so neither another item nor another release can take the rows a given card
-needs; `deployment_run_ids` keeps the answer to the run groups a caller draws (an item's run-less
-checks always travel), so it is sized by what is on screen rather than by a lifetime of releases.
-`item_selection` reports `per_group_limit` with the `truncated_groups` it cut short, group by
-group. What a cut-short group loses is old history, never a live request: a review names its own
-item — `deployment_member_public_ref` for a release's per-member check — so callers join pending
-reviews through their subjects rather than through the rows a cap may have trimmed.
+With public_refs, limit applies per item within each named deployment run and
+separately to run-less checks. deployment_run_ids limits displayed run groups;
+run-less item checks still travel. item_selection reports per_group_limit and
+truncated_groups. History trimming never hides pending review: join reviews by
+their item/member subject, not only capped activity rows.
 
 ## Browser Methods
 
-Browser execution is method-backed and case-scoped. The built-in methods are:
+browser-check executes assertions and automatic verdict; browser-inspection
+captures evidence for review. undetermined halts for owner/operator review.
+An unexecuted precondition failure records blocked_on_precondition, fails its
+scheduler, and creates no human work. Each requirement snapshots method_config;
+routes/assertions/waits/screenshots belong there, not in qa_kind.
 
-- **Browser check** (`browser-check`) — runs declared browser assertions and
-  produces an automatic verdict.
-- **Browser inspection** (`browser-inspection`) — captures evidence before agent
-  `undetermined`, which halts for owner/operator review; an unexecuted case records `blocked_on_precondition` and fails its scheduler without human work.
+Correct an item config with qa.requirement.update --field method_config. A
+deployment row freezes after pass/fail and refuses frozen_requirement_immutable
+with supersession recovery. Item correction reconciles active admitted copies
+(source-key/direct or matching plan/case/member/baseline/environment): unjudged
+copies update atomically; answered/live-frozen copies refuse admitted_copy_in_flight
+before either write. Terminal-run copies remain acceptance history. Already
+waived/superseded copies are settled and cannot block correction.
 
-Each materialized requirement carries a `method_config` snapshot. Correct a live item case with `qa.requirement.update --field method_config`; a deployment-run row accepts that write until it records a `pass` or `fail`, then refuses it as `frozen_requirement_immutable` and names supersession. Correcting an item case also reconciles the admitted copies a still-active deployment run holds of it, including source-keyed direct copies and post-deploy plan-backed copies matched by plan, case, member, baseline and declared environment: an unjudged copy is corrected with the source, one that has answered or that a live execution has frozen refuses as `admitted_copy_in_flight` before either row is written, and one on a terminal run is left as the acceptance record it is. A copy whose own obligation is already settled — waived, or superseded by a corrected case — is not in flight at all and holds nothing still, so it never blocks the correction the supersede receipt just named. A deployment copy executes and grades against its admitted definition even when its source later changes. `qa.requirement.list` reports `source_currency` as a diagnostic for an explicit correction, refresh, or new admission; source drift alone does not invalidate frozen evidence. Case runners record the executed config and execution-target digest at run start inside `raw_result` and keep those snapshots through complete, so a prior green does not prove a later script or a later `target_env`. Human review judges the actual capture and retains its recorded method_config and digest; approve fails closed when the live case is executable and the reviewed capture has no recorded method_config. An in-place method_config correction records a revision marker on the requirement; once set it stays, including through empty config, and unstamped historical greens then no longer satisfy. Plan currency compares executable configuration without that internal marker: a correction matching the plan reads as current even without a live delivery, while changed executable configuration or other plan definition fields still read as stale. A `target_env` correction persists the live snapshot instead of that marker; acceptance compares the start-bound digest. Routes, assertions, waits, and screenshots belong in the snapshot, not in `qa_kind`.
+Copies execute their admitted definitions despite source drift. source_currency
+diagnoses correction/refresh/new admission; drift alone never invalidates frozen
+proof. At run start, raw_result records executed config and target digest,
+retained through completion/review. A prior green proves neither later script
+nor later target. Approval fails closed for executable captures lacking config.
+In-place correction sets a persistent revision marker, even through empty config;
+unstamped historic greens then fail. Plan currency compares executable config
+without that marker; target_env correction stores the snapshot and acceptance
+compares its start-bound digest.
+
+Protected merge-queue CI receipts remain current for unchanged landing/config/
+target even when old runners lacked start snapshots. Conflicting snapshots,
+different landing or later failed/pending actual attempt still block. Matching
+accepted admitted copies answer post-deploy sources for delivered candidate,
+stage/member/environment through source-key or plan-case identity; no extra
+source run/manual supersession. Failed/pending/mismatched copies still hold.
 
 ```json
 {
@@ -285,56 +189,114 @@ Each materialized requirement carries a `method_config` snapshot. Correct a live
 }
 ```
 
-Execute one materialized case at a time:
-
-Browser cases may declare `color_scheme: "light"` or `"dark"` for their owned
-page. Runs and captures record requested and observed media preference; a
-missing or mismatched observation fails. Omission keeps the ordinary preference.
-Use separate cases for both modes; visual judgment still assesses the product.
-See [Browser method configuration](browser-scenarios.md#method-configuration).
+Owned pages may declare light/dark. Runs/captures record requested and observed
+media preference; missing/mismatched observation fails. Omission keeps ordinary
+preference; use separate cases for both, then judge product appearance.
+See [method configuration](browser-scenarios.md#method-configuration).
 
 ```text
-yoke qa case run \
-  --requirement-id <requirement-id> \
-  --base-url <environment-url> \
-  --expected-branch <branch> \
-  --expected-sha <commit>
+yoke qa case run --requirement-id {REQUIREMENT_ID} --base-url {ENVIRONMENT_URL} --expected-branch {BRANCH} --expected-sha {COMMIT}
 ```
 
-A case attached to a deployment run needs neither flag: it is judged against the commit that run delivered for the case's own project (for a hosted bound project, its verified promotion attempt SHA, including no-ops; for other bindings, the last recorded release output, else the bound commit), and refuses by name when hosted promotion identity is missing or mismatched, when the run delivered none, when a different commit is named for it, or when the environment cannot prove what it serves.
-
-`yoke qa browser setup`, `status`, `screenshot`, and `step` are machine-substrate utilities; diagnostic capture creates no parallel verdict. Saved browser profiles use the [per-OS baseline procedures](qa-platform/browser-profile-baseline.md).
+Deployment cases derive their own project's delivered commit: verified hosted
+promotion attempt (including no-op), otherwise last release output then bound
+commit. No supplied identity flags are needed. Missing/mismatched hosted
+promotion, no delivered commit, conflicting supplied commit or unprovable served
+environment refuses by name. Browser setup/status/screenshot/step are substrate
+utilities; diagnostic captures create no parallel verdict. Use
+[per-OS saved-profile baselines](qa-platform/browser-profile-baseline.md).
 
 ## AC-Derived Requirements and Suite Graduation
 
-Requirements with `requirement_source='ac_derived'` are derived from acceptance criteria (e.g., an AC that says "the page should be pink" generates a Browser check case). The `suite_id` field (nullable TEXT, no FK) links to a permanent test suite for test-intelligence tracking (future epic). This supports the lifecycle:
-
-1. AC is written during spec/design
-2. A Browser check case is derived from the AC (`requirement_source='ac_derived'`)
-3. If stable, graduate to a suite (`suite_id`); later tooling tracks membership.
+ac_derived records an AC-derived case. Nullable suite_id links future stable
+suite membership: define AC, derive case, graduate a stable case to a suite.
+The metadata itself is no passing result.
 
 ## Discharges: waiver, supersession, and retraction
 
-For an admitted case with a `fail` or `error` verdict on a named deployment QA stage (never a passed case or one with no verdict), create a plan containing only the corrected case, then run `yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --member ITEM --plan CORRECTED_PLAN --project PROJECT --replaces CORRECTED_CASE_KEY=FAILED_REQUIREMENT_ID`. The stage accepts this correction-only plan even though its original cases are already named. Materialization and declaration commit together; the failed attempt remains history, the corrected blocking case must pass, and a still-pending sibling remains a blocker. Repeat the same command after an interrupted delivery; it reuses the declaration. If a corrected direct requirement already exists, use `yoke qa requirement supersede --requirement-id FAILED_ID --superseded-by-requirement-id CORRECTED_ID --rationale 'corrected case' --declare-replacement`, then run the scoped QA plan without `--plan`. The old case leaves the roster, and the corrected case still needs a pass.
-A requirement that has not passed can still be discharged, three ways. All are recorded, all count as satisfied for gating, and all stay distinguishable from a passing result. **Waiver** records `waived_at`, `waiver_rationale`, and `waiver_source` (`operator` or `agent`), via `yoke qa requirement waive`; a `blocking` requirement needs `--force`. An operator decides a waiver. For an item or member requirement, the recorder of `--source operator` must hold its item work claim, a live steering seat covering the item (including document membership), or the deploy lock for the run holding that requirement. Another worker can keep its item claim while steering records the operator's rationale; re-drive that same run to settle its discharged stage. A deploy lock for another project or an item requirement outside the run grants nothing. Agent-sourced waivers retain the normal QA subject claim rule. Depth: `yoke qa requirement waive --help`. **Supersession** records that a corrected case answered a frozen one: the corrected case must be bound to the same deployment run, stage, member and execution target (for an item case, the same item, transition, phase and target), be blocking, and have recorded a passing verdict, and it is still graded on its own evidence, so a link cannot carry a failure through. The superseded row is left untouched as history. The normal route is a **declared replacement**: `yoke qa plan run ... --plan CORRECTED --replaces CASE_KEY=FAILED_ID` (or `yoke qa plan materialize ... --replaces`) records `replacement_requirement_id` on the failed row after same-scope and acyclic graph validation. The predecessor immediately becomes history and leaves grading and the execution roster. Only the final successor can block or satisfy the obligation, including while pending or failing; the review bundle holds only newly captured cases; a passing independent verdict (agent review or human approval) on the corrected case supersedes it on that verdict's transaction, and a failing or undetermined one supersedes nothing. A content-refreshed corrected row declares itself automatically. `yoke qa requirement supersede` records one by hand. **Retraction** withdraws a mis-specified post-deploy item plan attachment via `yoke qa item-plan retract`: the attachment row stays as history, requirements it materialized retire as retracted (not waived, not superseded), and the item is unanswered again. Every done and member close-out reader excludes retracted requirements from obligations, including the status write used during run settlement and Browser evidence/freshness checks. Gate summaries retain those rows as `RETIRED` history with `retracted_at`, never as unsatisfied requirements. Release admission and frozen stage selection skip withdrawn requirements and member plan attachments, so a replacement active plan supplies the cases. For a frozen run that an older build already populated from a withdrawn plan, repeat `yoke qa item-plan retract --item ITEM --project PROJECT --plan-id PLAN --transition release --reason "withdraw the mis-scoped plan"`: it retires still-unretracted copies while preserving the original attachment withdrawal and refusing any passing copy. Re-drive the run or execute its member-scoped QA stage afterward; the withdrawn copy no longer blocks, and any replacement still needs its own evidence. A verification-phase attachment and a post-deploy case that already passed both refuse. Both waiver and supersession settle the obligation at every boundary that reads it — including selected Dash verification before merge and at close-out, where a superseding case needs its own current same-candidate pass (its recorded head must belong to the item's accepted revision set, including the current lane head after rework of a merged item) and an unfinished replacement is named with the evidence still owed; no manual waiver is needed — the deployment stage's acceptance check, and the item's `done` gate, which honors an admitted copy's discharge and a run-bound member case's validated same-scope supersession after stage acceptance; an un-superseded failing case still holds `done`. Superseding an admitted copy is run-local: it discharges one frozen copy and never reaches the item requirement the copy was frozen from, because that row is a real outstanding obligation and discharging it from here would drop it forever. An outstanding source row would admit the same body again on the next release. So a supersession whose discharged row is an admitted copy returns `admitted_from_requirement_id` and a `next_admission_notice` naming that source row and how to retire it, whenever the source is still outstanding; a source that is missing or itself already discharged is named by neither, because no future release admits it. **Retiring a post_deploy item source** is its own explicit supersession: record the corrected body as a new item requirement for the same item, transition, phase and `--target-env` (`yoke qa requirement add --item ...`), then `yoke qa requirement supersede --requirement-id SOURCE --superseded-by-requirement-id CORRECTED --rationale "..."`. Neither item row ever executes, so instead of the corrected row's own pass this requires one admitted copy of the source already superseded by a passing run case; the receipt names that case as `run_replacement_requirement_id`. That passing case keeps answering its own run — the corrected requirement reads the retired source's admitted copies at `done` — and later releases admit only the corrected requirement, because admission skips a superseded source. The source row itself is never rewritten. Recording a requirement is a control-plane write, so the control plane may record a `--target-env` its own runtime may not execute (prod recording a stage case); only case execution checks that the runtime may observe the target.
-A deployment stage subject whose every blocking case is discharged has nothing left to execute, so it reports `discharged` rather than `accepted` — accepted for gating, named apart because an authorized discharge is not a result that passed. A carried cross-project member owes no item QA when its own completion flow declares no item-scoped QA and it has no explicit plan or post-deploy requirement; reports name that flow, no answer is recorded, and it closes with the run. Same-project members and carried members whose own flow declares item QA still owe an answer. Otherwise a subject with no materialized cases is unanswered unless the member recorded that it has no post-deploy obligation (`yoke qa post-deploy record-no-obligation`, not a waiver) or a waiver-backed declaration. Depth: `yoke qa plan run --help`.
+Discharge is recorded and satisfies gates, while staying distinguishable from
+pass. Failed/error admitted cases on a named stage can be corrected (never a
+passed/no-verdict case): author only the corrected case and execute:
+
+```text
+yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage {STAGE} --member PREFIX-N --plan {CORRECTED_PLAN} --project {PROJECT} --replaces {CASE_KEY}={FAILED_REQUIREMENT_ID}
+```
+
+Materialization/declaration commit together; old failure remains history,
+corrected blocking case and pending siblings still need proof. Interrupted
+re-entry reuses declaration. Existing direct correction can be declared with
+qa.requirement.supersede --declare-replacement, then scoped plan execution
+without --plan. Predecessor leaves roster; successor still must pass.
+
+**Waiver:** qa.requirement.waive stores waived_at/rationale/source; blocking
+needs --force. Operator decides. Recording --source operator for item/member
+needs its item claim, a covering steering seat (including document membership),
+or deploy lock for the run holding it. Steering can record the rationale while
+worker keeps item custody; re-drive that run. Another project's lock/unrelated
+item grants nothing. Agent waivers keep normal QA subject-claim authority.
+Read `yoke qa requirement waive --help`.
+
+**Supersession:** corrected blocking case needs same run/stage/member/target
+(item: same item/transition/phase/target) and its own qualifying pass. History
+is untouched. Declared replacement via plan run/materialize --replaces records
+replacement_requirement_id after same-scope/acyclic validation. Predecessor
+immediately leaves grading/roster; only terminal successor answers, even pending
+or failing. Review bundle includes newly captured cases only. Independent pass
+(agent review or human approval) supersedes in that verdict transaction; fail/
+undetermined supersedes nothing. Content refresh declares correction automatically;
+qa.requirement.supersede can declare one explicitly.
+
+**Retraction:** qa.item-plan.retract withdraws a mis-specified post-deploy item
+attachment; retain attachment/requirements as retracted history, not waiver or
+supersession. Item becomes unanswered. Done/member/freshness readers exclude
+withdrawn obligations; summaries keep RETIRED/retracted_at history. Admission
+and frozen selection skip withdrawn attachments; replacement plan owes proof.
+For older frozen copies, repeat with item/project/plan-id/transition release/
+reason: retires remaining copies, preserves original withdrawal, refuses any
+passed copy. Re-drive scoped QA/run. Verification attachments and passed
+post-deploy cases refuse retraction.
+
+Waiver/supersession answer every gate, including Dash verification/close-out.
+Supersession still needs current same-candidate pass within accepted revisions
+(including current reworked lane head); unfinished successor names owed evidence.
+Deployment acceptance and done honor admitted discharge and validated same-scope
+member supersession after stage acceptance. Unsettled failures keep done blocked.
+
+Run-local supersession never retires its item source: an outstanding source
+would be admitted again. Receipts name admitted_from_requirement_id and
+next_admission_notice only while that source is outstanding; absent/discharged
+sources get neither. Retiring a post_deploy item source is explicit:
+
+```text
+yoke qa requirement add --item PREFIX-N --target-env {ENVIRONMENT} --method-id {METHOD_ID} --qa-phase post_deploy --blocking-mode blocking --workflow-transition {TRANSITION} --instructions-file {INSTRUCTIONS_FILE} --expected-outcome-file {EXPECTED_OUTCOME_FILE} --method-config '{METHOD_CONFIG_JSON}'
+yoke qa requirement supersede --requirement-id {SOURCE_ID} --superseded-by-requirement-id {CORRECTED_ID} --rationale "corrected source definition"
+```
+
+Declare the corrected body through requirement-add's --help contract for the
+same item/transition/phase/resolved environment; snapshot digest may differ.
+Neither source executes. Instead require an admitted source copy replaced or
+superseded through a chain whose terminal case has a current config/target-qualified
+pass. Receipt names run_replacement_requirement_id. That case still answers its
+run; corrected source reads retired source's admitted copies at done. Later
+admissions skip superseded source and admit corrected one; source is never
+rewritten. Control plane may record an authorized target it cannot execute
+(prod recording stage); execution alone checks runtime observation authority.
+
+All blocking cases discharged → subject reports discharged, accepted for gating
+but distinct from accepted passing proof. A carried cross-project member owes
+no item QA only when its own completion flow declares none and no explicit
+plan/post-deploy requirement exists; report names that flow, records no answer
+and closes with run. Same-project/QA-owning carried members still owe proof.
+No cases otherwise means unanswered, except recorded no-post-deploy-obligation
+or waiver-backed declaration. `yoke qa post-deploy record-no-obligation` is not
+a waiver. Read `yoke qa plan run --help`.
 
 ## Events
 
-QA-domain writes emit unified events via `yoke_core.domain.events.emit_event` (contract):
-
-| Event Name | When Emitted |
-|------------|--------------|
-| `QARequirementCreated` | Every qa_requirement insert, whatever created it — an operator/function add, a materialized plan case, the merge-gate CI requirement, or the seeded no-tests floor. Paths that write the row inside a transaction their caller commits emit with `transactional=True`, so the row and its event become durable together; `HC-event-family-liveness` pairs rows with events per `requirement_source`, so one emitting path cannot mask a silent one. |
-| `QARequirementWaived` | Requirement waived |
-| `QARequirementRetracted` | Item plan attachment withdrawn; requirement retired as retracted |
-| `QARequirementSuperseded` | Frozen requirement discharged by a corrected case that passed |
-| `QARunStarted` | New qa_run row inserted (no verdict yet) |
-| `QARunCompleted` | qa_run verdict recorded |
-| `QAArtifactAttached` | qa_artifact row inserted |
-
-All event names are registered in the `event_registry` table. Attach of a plan bound to the item's delivery environment at a pre-delivery transition is refused and names the post-deploy attachment that works.
-
-### Current Lifecycle Vocabulary
-
-`reviewed-implementation` is the checkpoint status; `verification` is a QA phase, not a lifecycle status. Retired QA-stage lifecycle names must not appear in current runtime.
+QARequirementCreated emits for every requirement insert, including explicit,
+materialized, merge-CI and seeded floors. Caller-committed writes emit with
+transactional=True; HC-event-family-liveness checks each source, not just one
+emitting path. Other registered events: QARequirementWaived, QARequirementRetracted,
+QARequirementSuperseded, QARunStarted, QARunCompleted, QAArtifactAttached. Attaching
+a delivery-environment plan before delivery refuses and names the post-deploy
+attachment. See [event/database reference](db-reference/events-and-deployments.md).

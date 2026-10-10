@@ -15,7 +15,7 @@ CANONICAL = "1969-12-31T23:59:59.123456Z"
 INSTANT = parse_instant(QUALIFIED)
 
 
-def _attachment(clock=QUALIFIED):
+def _attachment(clock=INSTANT):
     return driver.DriverAttachment(
         run_id="run-native-driver",
         session_id="session-native-driver",
@@ -46,11 +46,12 @@ def test_live_heartbeat_preserves_inclusive_microsecond_boundary() -> None:
     boundary = INSTANT + driver.LIVE_HEARTBEAT
     assert driver.is_live(attachment, now=boundary)
     assert not driver.is_live(attachment, now=boundary + timedelta(microseconds=1))
-    assert driver.is_live(attachment, now=QUALIFIED)
+    assert driver.is_live(attachment, now=INSTANT)
 
 
 @pytest.mark.parametrize(
-    "invalid", [None, "", "1970-01-01", 0, False, datetime(1970, 1, 1)]
+    "invalid",
+    [None, "", "1970-01-01", QUALIFIED, CANONICAL, 0, False, datetime(1970, 1, 1)],
 )
 def test_bad_driver_clock_refuses_before_database_or_liveness(invalid) -> None:
     class UnusedConnection:

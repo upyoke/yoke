@@ -117,7 +117,7 @@ def _canonical_work_claim(holder: Any) -> dict | None:
 
 
 def build_local_boundary_proof(context: dict, repo_path: str) -> dict:
-    """Inspect the recorded lane with the existing boundary checker."""
+    """Inspect the lane from public context, retaining its public item ref."""
     try:
         return _build_local_boundary_proof(context, repo_path)
     except BoundaryProofError:
@@ -186,7 +186,7 @@ def _build_local_boundary_proof(context: dict, repo_path: str) -> dict:
         )
     return {
         "kind": PROOF_KIND,
-        "item_id": int(context["item_id"]),
+        "public_ref": context["public_ref"],
         "rung_id": rung_id,
         "lane": dict(lane),
         "work_claim": dict(holder),

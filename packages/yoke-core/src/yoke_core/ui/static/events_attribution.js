@@ -63,7 +63,10 @@ export function captureTouch(url        , referrer        , siteDomain        ,
   const params = new URL(url).searchParams;
   const touch        = Object.fromEntries(rules.campaign_keys.map(k => [k, params.get(k) || null]));
   let domain = extractReferrerDomain(referrer);
-  if (domain && domainMatches(domain, siteDomain)) domain = null;
+  // Own domains and sign-in hops are internal: they never start or replace a touch.
+  const internal = (host        ) =>
+    [siteDomain, ...rules.excluded_referrer_domains].some(d => domainMatches(host, d));
+  if (domain && internal(domain)) domain = null;
   touch.referrer_domain = domain;
   touch.acquisition_channel = inferChannel(touch.utm_source, touch.utm_medium, domain, touch.utm_campaign || '');
   for (const [key, channel] of Object.entries(rules.paid_click_ids)) {
@@ -83,11 +86,23 @@ export function updateAttribution(existing                        , touch       
   };
 }
 
+/** Masks the path segment that follows a sensitive parent such as /machine-approval/<code>. */
+export function sanitizePath(path        )         {
+  const parts = path.split('/');
+  for (let i = 1; i < parts.length; i++) {
+    if (parts[i] && rules.sensitive_path_parents.includes(parts[i - 1].toLowerCase())) {
+      parts[i] = rules.redacted_path_segment;
+    }
+  }
+  return parts.join('/');
+}
+
 export function sanitizeUrl(value        )                {
   try {
     const url = new URL(value);
     if (!['https:', 'http:'].includes(url.protocol)) return null;
     url.username = ''; url.password = ''; url.hash = '';
+    url.pathname = sanitizePath(url.pathname);
     for (const key of [...url.searchParams.keys()]) {
       if (rules.sensitive_query_keys.includes(key.toLowerCase())) url.searchParams.delete(key);
     }

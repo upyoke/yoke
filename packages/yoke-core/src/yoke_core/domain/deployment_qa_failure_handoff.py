@@ -66,6 +66,12 @@ def notify_member_qa_failure(
     )
     if not requirement_ids:
         return ""
+    from yoke_core.domain.deployment_member_candidate_release import (
+        release_failed_member,
+    )
+
+    if release_failed_member(conn, run_id=run_id, stage=stage, item_id=item_id):
+        return "released: recorded correction rides a later release"
     item = conn.execute(
         "SELECT project_id FROM items WHERE id=%s", (int(item_id),)
     ).fetchone()

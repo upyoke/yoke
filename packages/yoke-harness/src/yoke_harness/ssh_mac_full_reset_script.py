@@ -91,7 +91,15 @@ restore_entry() {
   local captured="$1" target_dir="$2"
   local destination="${target_dir%/}/${captured:t}"
   reconcile_entry_types "$captured" "$destination" || return 1
-  /bin/cp -Rpf "$captured" "$target_dir"
+  # A directory is merged, never created-only: the user's own daemons keep
+  # running through a reset and can recreate one while the copy walks it, and
+  # ditto merges into it where cp -R stops on "File exists". ditto dereferences
+  # a symlink named as its source, so a symlink or file keeps cp's exact copy.
+  if [[ -d "$captured" && ! -L "$captured" ]]; then
+    /usr/bin/ditto "$captured" "$destination"
+  else
+    /bin/cp -Rpf "$captured" "$target_dir"
+  fi
 }
 
 # The aggregate error log decides the outcome; this names WHICH captured entry
@@ -265,7 +273,6 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
                 for name, value in RESET_PHASES.items()
             ),
             f"tools={_array(contract.tools)}",
-            f"preserved_entries={_array(PRESERVED_HOME_ENTRIES)}",
             "os_managed_invalid_prefix=" + shlex.quote(OS_MANAGED_INVALID_PREFIX),
             render_preserved_state_contract(),
             f"yoke_absent_directories={_array(YOKE_ABSENT_RELATIVE_DIRECTORIES)}",

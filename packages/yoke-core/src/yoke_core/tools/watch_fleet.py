@@ -162,7 +162,7 @@ quiet passes too, covering every held project/document seat; a timer-only
 finding needs no delta to be noticed.
 Healthy item transitions, claim churn, registrations, clean ends, and alarm
 clears stay silent at delta time and surface through the next report. Pull the
-full body with `yoke steering report get`. Removed holder, landing and run
+full body with `yoke steering report get --full`. Removed holder, landing and run
 rows get one explanation in the next due report, using already-read facts.
 Quiet-heartbeat and progress-stall diagnostics stay in the raw capture;
 silence is expected while the fleet is unchanged. Complete reports are

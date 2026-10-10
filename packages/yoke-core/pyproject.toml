@@ -50,6 +50,12 @@ dependencies = [
     # exchange (stdlib urllib) + token verification, not a full OAuth
     # client framework surface.
     "PyJWT[crypto]>=2.8,<3",
+    # Registrable-domain lookup for the attribution site domain: the bundled
+    # Public Suffix List maps app.upyoke.com to upyoke.com without network.
+    "publicsuffixlist>=1.0,<2",
+    # The frontend collector classifies browser, OS and device type from the
+    # request User-Agent with the maintained uap-core parser.
+    "ua-parser[regex]>=1.0,<2",
 ]
 
 [project.optional-dependencies]

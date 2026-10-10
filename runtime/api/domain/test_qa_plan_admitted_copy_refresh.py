@@ -2,9 +2,9 @@
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_admission_execution import (
-    _environment,
-    _seed_selected_requirement_run,
+from runtime.api.domain.test_deployment_qa_stage_execution import _environment
+from runtime.api.fixtures.completed_delivery import (
+    seed_selected_requirement_run as _seed_selected_requirement_run,
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement, insert_qa_run

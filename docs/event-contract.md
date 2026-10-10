@@ -1,23 +1,9 @@
 # Event Contract
 
-> Canonical reference for emitting and consuming events in the Yoke event platform.
-> Downstream epics (DR-1, QA-1) and all internal scripts MUST follow this contract.
-
-Version: 1.0.0
-Status: Active
-
----
-
-## Table of Contents
-
-- [1. Event Envelope Structure](#1-event-envelope-structure)
-- [2. Execution Context Fields](#2-execution-context-fields)
-- [3. Reserved Fields for DR-1 / QA-1](#3-reserved-fields-for-dr-1--qa-1)
-- [4. Event Naming Registry](#4-event-naming-registry)
-- [5. Migration Guidance](#5-migration-guidance)
-- [6. Write-Time Isolation & Querying Guidance](#6-write-time-isolation--querying-guidance)
-
----
+Canonical source reference for event emission, indexed correlation,
+attribution and transaction ownership. The generated [catalog](event-catalog.md)
+owns registered names; [schema source](../packages/yoke-core/src/yoke_core/domain/events_schema.py)
+owns physical columns. Events are telemetry, never product state authority.
 
 ## 1. Event Envelope Structure
 
@@ -28,7 +14,7 @@ Every event is a row in the `events` table. The canonical columns are:
 | `event_id` | TEXT (UUID) | Yes | Globally unique, deduplicated by conflict handling |
 | `source_type` | TEXT | Yes | `agent`, `backend`, `frontend`, `system`, `script`, `hook`, `skill` |
 | `session_id` | TEXT | Yes | Session that emitted the event |
-| `severity` | TEXT | Yes | `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL` |
+| `severity` | TEXT | Yes | `DEBUG`, `INFO`, `STATUS`, `WARN`, `ERROR`, `FATAL` |
 | `event_kind` | TEXT | Yes | Category: `analytics`, `system`, `audit`, `security`, `metric`, `lifecycle`, `workflow` |
 | `event_type` | TEXT | Yes | `snake_case` subcategory (e.g., `task_status_change`, `sync_failure`) |
 | `event_name` | TEXT | Yes | `PascalCase` unique name (e.g., `TaskStatusChanged`, `SyncFailed`) |
@@ -37,7 +23,7 @@ Every event is a row in the `events` table. The canonical columns are:
 | `actor_id` | INTEGER | No | Authenticated or named system actor; references `actors(id)` |
 | `environment` | TEXT | No | `prod`, `stage`, `local` |
 | `service` | TEXT | Yes | Emitting service (default `cli`) |
-| `project` | TEXT | Yes | Caller project attribution; unresolved telemetry stays global |
+| `project_id` | INTEGER | No | Indexed FK to `projects(id)`; unresolved telemetry stays global (`NULL`). `project` is envelope attribution. |
 | `item_id` | TEXT | No | Backlog item reference (canonical bare-numeric text; display layers may render `YOK-N`) |
 | `task_num` | INTEGER | No | Epic task number (when item_id is an epic) |
 | `agent` | TEXT | No | Agent name (e.g., `engineer`, `tester`) |
@@ -121,75 +107,47 @@ New envelopes omit the retired human-user key. Historical envelopes are immutabl
 }
 ```
 
-### Canonical context.detail Shape for Tool-Call Events
+### Tool-call context and payload bounds
 
-Tool-call events (`HarnessToolCallStarted`, `HarnessToolCallCompleted`, `HarnessToolCallFailed`, `HarnessToolCallStructuredExit`, `HarnessToolCallDenied`) use a consistent `context.detail` shape:
+`observe_event_emission.build_envelope` owns completion/failure/structured-exit
+`context.detail`: `tool_name`, `tool_input` (command or file path),
+`tool_response_preview`, `error`, `attribution_source`, `hook_event`,
+`timing_status`, `actor_role`, and optional decision metadata. Parent calls omit
+`actor_role`; dispatched calls identify their role within the parent session.
+Correlation, outcome, exit code and duration are indexed/top-level fields;
+missing timing is a named unknown, not an instantaneous call. Started and denial
+owners have their own registered context contracts.
 
-```json
-{
- "context": {
- "detail": {
- "tool": "Bash",
- "tool_use_id": "call_abc123",
- "hook_event": "PostToolUse",
- "command_preview": "npm test",
- "exit_code": 0,
- "duration_ms": 342,
- "output_bytes": 4096,
- "anomaly_flags": "nonzero_exit",
- "item_id": "42",
- "task_num": 3,
- "agent": "engineer",
- "session_id": "claude-code-20260315T143000Z-12345"
- }
- }
-}
-```
+The observer bounds command input/error to 2048 characters and response preview
+to 512. If serialized detail exceeds 4096 UTF-8 bytes, it shrinks those fields
+to 1024/1024/256 respectively. Above 65536 envelope bytes it replaces detail
+with the tool name and `truncated: true`, and adds `_truncated: true`.
+These are character cuts inside byte-size triggers; never report them as token
+limits or promise that full tool output was retained. `events_schema` enforces
+backend-specific valid JSON for non-null envelopes.
 
-Fields vary by event: `HarnessToolCallStarted` omits `exit_code`/`duration_ms`/`output_bytes`; `HarnessToolCallDenied` includes `denial_reason` and `lint_check` instead.
-
-### Truncation Rules
-
-Envelope payloads are subject to size limits to prevent DB bloat:
-
-- `command_preview` in `context.detail` is truncated to 200 characters for Bash tool calls
-- `output_bytes` records the original output size; the actual output is not stored in the envelope
-- `envelope` column has a `CHECK(envelope IS NULL OR json_valid(envelope))` constraint -- truncation must preserve valid JSON
-- The `observe.py` emitter applies truncation before INSERT; downstream consumers can rely on `json_valid(envelope)` always being true
+Observer insertion projects activity into session state independently of
+telemetry retention. A missing events table does not suppress that state;
+ordinary insertion writes the row and idempotent activity projection together.
+Product readers use the state projection, never events as inferred authority.
 
 ### item_id Format
 
 The canonical format for `events.item_id` is bare numeric text (for example `42`). Display layers may render `YOK-N`, but persisted and programmatic event item references are numeric text. the events-backfill migration converges historical prefixed rows to numeric text.
 
-### Required vs Optional Fields Per event_kind
+### Required and recommended attribution
 
-| Field | analytics | system | lifecycle | workflow | audit | security | metric |
-|-------|-----------|--------|-----------|----------|-------|----------|--------|
-| `event_id` | **req** | **req** | **req** | **req** | **req** | **req** | **req** |
-| `source_type` | **req** | **req** | **req** | **req** | **req** | **req** | **req** |
-| `session_id` | **req** | **req** | **req** | **req** | **req** | **req** | **req** |
-| `event_kind` | **req** | **req** | **req** | **req** | **req** | **req** | **req** |
-| `event_type` | **req** | **req** | **req** | **req** | **req** | **req** | **req** |
-| `event_name` | **req** | **req** | **req** | **req** | **req** | **req** | **req** |
-| `severity` | **req** | **req** | **req** | **req** | **req** | **req** | **req** |
-| `item_id` | opt | opt | **rec** | **rec** | **rec** | opt | opt |
-| `task_num` | opt | opt | **rec** | opt | opt | opt | opt |
-| `project` | **req** | **req** | **req** | **req** | **req** | **req** | **req** |
-| `tool_name` | **rec** | opt | opt | opt | opt | opt | opt |
-| `duration_ms` | **rec** | opt | opt | opt | opt | opt | opt |
-| `exit_code` | **rec** | opt | opt | opt | opt | opt | opt |
-| `agent` | **rec** | opt | opt | opt | opt | opt | opt |
-| `tool_use_id` | **rec** | opt | opt | opt | opt | opt | opt |
-| `turn_id` | **rec** | **rec** | opt | opt | **rec** | opt | opt |
-| `hook_event_name` | **rec** | **rec** | opt | opt | **rec** | opt | opt |
-
-Legend: **req** = required, **rec** = recommended, opt = optional.
-
----
+Required physical columns are listed above; a required session field may carry
+an empty/sentinel value when identity is unavailable. Every kind needs envelope
+project attribution when resolvable; indexed `project_id` remains nullable.
+Recommended fields are `item_id` for lifecycle/workflow/audit, `task_num` for
+lifecycle, and `turn_id`/`hook_event_name` for analytics/system/audit. Analytics
+also recommends `tool_name`, `duration_ms`, `exit_code`, `agent`, and
+`tool_use_id`. Other per-event context is contract-owned, not universally required.
 
 ## 2. Execution Context Fields
 
-explicit execution context propagation so events carry attribution metadata automatically was introduced.
+Emission resolves available attribution without inventing missing identity.
 
 ### Context Resolution Chain
 
@@ -232,70 +190,39 @@ yoke events emit \
  --source-type system \
  --severity INFO \
  --outcome completed \
- --item-id "42" \
+ --item PREFIX-N \
  --task-num 3 \
  --context '{"from_status":"implementing","to_status":"reviewing-implementation","note":"..."}'
 ```
 
 Indexed `events.project_id` uses `resolve_envelope_project_id_for_event` on both the native writer and `cmd_insert`: context `project_id` / `detail.project_id`, then the registered session project for `SESSION_SCOPED_EVENT_TYPES` (including `tool_call` denials), then the boundary project token. `cmd_insert` builds that input from row identity plus parseable envelope context; stored envelope session/type/project never replace the row. Unresolvable tokens stay global (`NULL`). Scripts must still pass context fields the observe hook would populate.
 
-If `--project` is omitted but `--item-id` is present, the CLI emitter resolves project from the `items` row. Otherwise it uses explicit caller environment or checkout binding; unresolved telemetry remains global (`NULL`). A session-scoped event follows its registered session project.
+If `--project` is omitted but `--item` is present, the CLI emitter resolves project from the `items` row. Otherwise it uses explicit caller environment or checkout binding; unresolved telemetry remains global (`NULL`). A session-scoped event follows its registered session project.
 
-`yoke_core.domain.events.emit_event` should be called with bare numeric `--item-id` values. Stored `events.item_id` values are canonical bare-numeric text.
-
----
-
-## 3. Reserved Fields for DR-1 / QA-1
-
-Downstream epics (DR-1 deployment events, QA-1 review events) emit through the existing `events` table with reserved `event_kind` / `event_type` / `event_name` / `context.detail.*` conventions. The live event catalog and the "How to emit a new domain event" walkthrough live in [event-catalog.md](event-catalog.md).
+`yoke_core.domain.events.emit_event` receives bare numeric `item_id` values;
+the CLI resolves its complete public `--item` reference first. Stored `events.item_id` values are canonical bare-numeric text.
 
 ---
+
+## Domain event contracts
+
+Deployment and QA events use the same ledger with registered kind/type/name and
+`context.detail` contracts. The [catalog](event-catalog.md) owns discovery;
+[deployment records](public/reference/db-reference/deployment-run-records.md)
+remain durable state/evidence independent of telemetry retention.
 
 ## 4. Event Naming Registry
 
 All event names MUST be registered in the `event_registry` table before first emission. The `yoke_core.domain.observe` (lint-event-registry guardrail) PreToolUse hook enforces this at development time.
 
-### Registry Table Schema
+### Registry metadata and catalog
 
-```sql
-CREATE TABLE event_registry (
- event_name TEXT PRIMARY KEY, -- PascalCase event name
- event_kind TEXT NOT NULL,
- event_type TEXT NOT NULL,
- owner_service TEXT NOT NULL,
- description TEXT NOT NULL,
- context_schema TEXT, -- optional JSON schema for context payload
- severity_default TEXT NOT NULL DEFAULT 'INFO',
- added_in TEXT, -- YOK-N or version when added
- status TEXT NOT NULL DEFAULT 'active' -- 'active' | 'deprecated'
-);
-```
+`events_schema` owns `event_registry`: event name, kind, type, owner service,
+description, optional context schema, default severity, added-in metadata and
+active/deprecated status. It has no timestamp columns; lifecycle observations
+belong in the ledger. Consult the generated [full catalog](event-catalog.md)
+instead of maintaining another roster here.
 
-The schema matches the production DDL in `yoke_core.domain.events_writes`. Timestamps are NOT columns on `event_registry` — the registry is static metadata; lifecycle changes are recorded as events in the main ledger.
-
-### Current Registered Events
-
-| Event Name | Kind | Type | Owner | Status |
-|------------|------|------|-------|--------|
-| `HarnessToolCallStarted` | system | tool_call | yoke_core.domain.observe_pre | active |
-| `HarnessToolCallCompleted` | system | tool_call | yoke_core.domain.observe | active |
-| `HarnessToolCallFailed` | system | tool_call | yoke_core.domain.observe | active |
-| `HarnessToolCallDenied` | audit | tool_call | yoke_core.hooks.telemetry (shared emit_denial_event helper) | active |
-| `HarnessToolCallStructuredExit` | system | tool_call | yoke_core.domain.observe | active |
-| `HarnessLifecycleMutationDetected` | system | tool_call | yoke_core.domain.observe | active |
-| `HookDispatchDeduplicated` | system | hook_dispatch | yoke_core.hooks | active |
-| `HookDispatchTelemetry` | system | hook_dispatch | yoke_core.hooks | active |
-| `HookExecutionFailed` | system | hook_execution_failure | yoke_core.hooks | active |
-| `HookGuardrailEvaluated` | system | hook_guardrail_evaluated | yoke_core.hooks | active |
-| `HarnessSessionSentFirstUserPromptSubmit` | system | session_lifecycle | yoke_core.hooks | active |
-| `HarnessSessionStopped` | system | session_lifecycle | agent_stop | active |
-| `TaskStatusChanged` | lifecycle | task_status_change | epic-db | active |
-| `SyncFailed` | system | sync_failure | sync-helper | active |
-| `VerdictRendered` | workflow | verdict_rendered | shepherd | active |
-| `GitHubCloseFailure` | system | github_sync | cli | active |
-| `IssueMigrated` | system | github_sync | cli | active |
-
-For the full catalog with descriptions, see `docs/event-catalog.md` (auto-generated by the source-dev registry population tool).
 `HarnessSessionStopped` is emitted by the agent-stop lifecycle hook; its context includes `stop_reason` with the live values `completed`, `auto_committed`, and `unexpected_stop`.
 
 `HookGuardrailEvaluated`, `HookExecutionFailed`, and `HookDispatchTelemetry` are runner-native emissions from `yoke_core.hooks.telemetry` (see `emit_hook_guardrail_evaluated`, `emit_hook_execution_failed`, `emit_hook_dispatch_telemetry`). `HookDispatchDeduplicated` joins them from `yoke_core.hooks.dispatch_dedup`, emitted by the run half that owns the telemetry tail when a harness delivered one lifecycle event twice. Those four are the only hook-runner telemetry names that exist as registered events.
@@ -339,11 +266,12 @@ Registry mutation is a source-dev/admin boundary, not an installed external-proj
 
 Pure-log tables are consolidated into the `events` table. Current read and write paths should use direct `events` access; phased cutovers use a temporary compatibility view that is deleted once callers converge. The `shepherd_verdicts` state table emits `VerdictRendered` on write while retaining its table.
 
-The seven-step migration pattern, compatibility-view COALESCE design, domain-state emission pattern, and unified-timeline query examples live in [event-contract/migration-guidance.md](event-contract/migration-guidance.md).
+Governed cutover, temporary compatibility-view design, domain-state emission
+and unified-timeline examples live in [event-contract/migration-guidance.md](event-contract/migration-guidance.md).
 
 ## 6. Write-Time Isolation & Querying Guidance
 
-The live `events` ledger is production telemetry. Synthetic test rows must not land in it under any normal workflow. Write-time isolation is enforced by the native emitter and CLI owner via `YOKE_EVENTS_ISOLATION=1`, with explicit escape hatches (Postgres `yoke_test_*` authority, legacy file-backed `YOKE_DB` test paths, `YOKE_EVENTS_CAPTURE` + `YOKE_EVENTS_FILE`, intentional `synthetic_smoke` lineage marker, explicit `conn=` arguments).
+The live `events` ledger is production telemetry. Synthetic test rows must not land in it under any normal workflow. Write-time isolation is enforced by the native emitter and CLI owner via `YOKE_EVENTS_ISOLATION=1`, with explicit escape hatches (Postgres `yoke_test_*` authority, `YOKE_EVENTS_CAPTURE` + `YOKE_EVENTS_FILE`, intentional `synthetic_smoke` lineage marker, explicit `conn=` arguments).
 
 ### Synthetic-Row Cleanup Guidance
 

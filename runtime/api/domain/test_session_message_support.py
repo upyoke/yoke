@@ -284,3 +284,12 @@ __all__ = [
     "selector",
     "stamp_activity",
 ]
+
+
+def seed_steering_seat(conn, *, session_id: str, project_id: int) -> None:
+    """Seed live coverage in the focused session-message SQLite fixture."""
+    conn.execute(
+        "INSERT INTO work_claims(session_id,target_kind,scope,claimed_at) "
+        "VALUES (?,'steering',?,?)",
+        (session_id, json.dumps({"project_id": project_id}), NOW_TEXT),
+    )

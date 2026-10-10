@@ -68,7 +68,9 @@ def test_registration_adopts_owner_only_launch_handle_and_reaper_stops_it(
             SESSION_ID,
             state_dir=tmp_path,
         )
-        release_supervised_native(LAUNCH_ID, state_dir=tmp_path)
+        release_supervised_native(
+            LAUNCH_ID, state_dir=tmp_path, custody_transferred=True
+        )
         handle = native_handle_path(LAUNCH_ID)
         assert stat.S_IMODE(handle.stat().st_mode) == 0o600
         payload = json.loads(handle.read_text())

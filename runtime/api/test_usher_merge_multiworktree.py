@@ -47,180 +47,115 @@ def _add_git_worktree(git_repo, branch: str):
 
 
 class TestMergeMdEpicDelegation:
-    """Usher/merge.md runs generated task merging as an internal procedure."""
-
-    def _read_merge_md(self) -> str:
-        return MERGE_MD.read_text()
+    """Pinned child/lane policy selects the internal generated-task procedure."""
 
     def test_no_direct_epic_merge_worktree_call(self):
-        """merge.md must not call merge_worktree with an epic ref directly."""
-        text = self._read_merge_md()
-        # The old pattern: merge_worktree PREFIX-{N} main PREFIX-{N}
-        assert "merge_worktree PREFIX-{N} main PREFIX-{N}" not in text, (
-            "merge.md still has a direct epic merge_worktree call — "
-            "must run the internal generated-task merge procedure instead"
-        )
+        text = MERGE_MD.read_text()
+        assert "merge_worktree PREFIX-{N} main PREFIX-{N}" not in text
+        assert "Never merge only the parent lane" in text
 
     def test_has_internal_generated_task_merge(self):
-        """merge.md must reference the internal generated-task merge procedure."""
-        text = self._read_merge_md()
-        assert "merge-generated-tasks.md" in text, (
-            "merge.md is missing its internal generated-task merge procedure"
-        )
+        assert "merge-generated-tasks.md" in MERGE_MD.read_text()
 
     def test_single_lane_path_still_present(self):
-        """merge.md must retain the single-lane standalone-item merge call."""
-        text = self._read_merge_md()
-        assert "merge-item -- PREFIX-N --skip-status" in text, (
-            "merge.md lost the single-lane standalone-item merge call"
-        )
+        assert "merge-item -- PREFIX-N --skip-status" in MERGE_MD.read_text()
 
-    def test_7e_scoped_to_single_lane_policy(self):
-        """merge.md step 7e must scope watcher exits to the single-lane policy."""
-        text = self._read_merge_md()
-        assert "worktrees=single_implementation_lane" in text, (
-            "merge.md step 7e does not scope exit handling to the lane policy"
-        )
+    def test_exit_handling_is_scoped_to_single_lane_policy(self):
+        text = MERGE_MD.read_text()
+        assert "worktrees=single_implementation_lane" in text
+        assert "Generated-task procedure owns its loop separately" in text
 
     def test_merge_selection_uses_pinned_policy_not_workflow_name(self):
-        text = self._read_merge_md()
+        text = MERGE_MD.read_text()
         for required in (
             "yoke workflows item get",
             "yoke workflows version get",
-            "_usher_generated_children",
-            "_usher_worktree_policy",
-            "skill_bindings",
+            "Effective children=epic_tasks with worktrees=worker_and_integration_lanes",
+            "Children=none with worktrees=single_implementation_lane",
+            "Unsupported combination refuses",
+            "half-open binding",
         ):
             assert required in text
         assert 'if [ "$_item_workflow_id" = "epic" ]' not in text
 
     def test_internal_merge_follows_pinned_delivery_stages(self):
-        bookkeeping = (SKILL_ROOT / "usher" / "merge-bookkeeping.md").read_text()
+        text = (SKILL_ROOT / "usher" / "merge-bookkeeping.md").read_text()
         for required in (
             "yoke workflows item get",
             "yoke workflows version get",
             "half-open interval",
-            "source_status",
-            "target_status",
-            "stopping on entry to the delivery wait",
-            "A successful merge is not successful delivery",
+            "source_status/target_status",
+            "stopping on entry to the",
+            "delivery wait",
+            "merge is not successful delivery",
+            "Read stage after every write",
         ):
-            assert required in bookkeeping
-        assert "bypass_reason" not in bookkeeping
-        assert '"target_status": "done"' not in bookkeeping
+            assert required in text
+        assert "bypass_reason" not in text
+        assert '"target_status": "done"' not in text
 
 
 class TestMergeMdWorktreeIteration:
-    """usher/merge.md resolves every ephemeral-verification lane."""
+    """Ephemeral verification consumes every registered lane and exact candidate."""
 
     def test_no_direct_worktree_field_read_for_ephemeral(self):
-        """The ephemeral-verify branch resolution must use the resolver, not db_router worktree."""
         text = MERGE_MD.read_text()
-        # The old single-field read (without resolver) was on one line; check it is gone
-        assert "items get PREFIX-{N} worktree" not in text, (
-            "merge.md still reads the retired item-level branch projection — "
-            "must use worktree_item_resolve instead"
+        assert "items get PREFIX-{N} worktree" not in text
+        assert "registered lane's actual branch and full committed HEAD" in " ".join(
+            text.split()
         )
 
-    def test_resolver_used_for_ephemeral_branch(self):
-        """The ephemeral-verify block must call the resolver module."""
-        text = MERGE_MD.read_text()
-        assert "worktree_item_resolve" in text, (
-            "merge.md does not use worktree_item_resolve for the ephemeral-verify branch"
-        )
+    def test_registered_reader_used_for_ephemeral_lanes(self):
+        assert "yoke item-worktrees list PREFIX-N --json" in MERGE_MD.read_text()
 
     def test_ephemeral_verify_iterates_all_resolved_branches(self):
-        """The resolver output must be looped, not truncated to the first worktree."""
         text = MERGE_MD.read_text()
-        assert "head -1" not in text, (
-            "merge.md still truncates resolved branches to the first worktree"
-        )
-        assert "while IFS= read -r _ev_branch" in text, (
-            "merge.md does not iterate resolved branches for ephemeral-verify"
-        )
-        assert 'ephemeral-verify "$_ev_github_repo" "$_ev_branch"' in text, (
-            "merge.md does not invoke ephemeral-verify once per resolved branch"
-        )
-        assert "done <<EOF" in text, (
-            "merge.md must expand the resolved branch list in the here-doc"
-        )
+        assert "every permitted registered" in text
+        assert "Capture/await every lane invocation through completion" in text
+        assert "ephemeral-verify PROJECT REPO BRANCH WORKFLOW DOMAIN SHA" in text
+        assert "stage config.workflow" in text and "capability preview_domain" in text
+        assert "Missing inputs refuse by name" in text
+        assert "head -1" not in text
 
 
 class TestMergeMdHaltClassRelease:
-    """Usher/merge.md halt branches release the work claim with a
-    halt-class reason BEFORE printing recovery instructions.
-    """
-
-    def _read_merge_md(self) -> str:
-        return MERGE_MD.read_text()
+    """Merge exits preserve landed state and release intent before recovery prose."""
 
     def test_halt_class_strings_present(self):
-        text = self._read_merge_md()
-        for halt_class in (
-            "usher-halt-merge-failure",
-            "usher-halt-unexpected",
-        ):
-            assert halt_class in text, (
-                f"merge.md does not name halt-class {halt_class!r}"
-            )
+        text = MERGE_MD.read_text()
+        for required in ("usher-halt-merge-failure", "usher-halt-unexpected"):
+            assert required in text
 
     def test_release_work_claim_command_with_halt_reason(self):
-        """The yoke claims work release shell call appears with --reason."""
-        text = self._read_merge_md()
-        assert "yoke claims work release" in text, (
-            "merge.md must invoke yoke claims work release for halt-class release"
-        )
-        assert "--reason" in text, (
-            "merge.md must pass --reason to yoke claims work release"
+        assert (
+            "yoke claims work release --item PREFIX-N --reason usher-halt-merge-failure --json"
+            in MERGE_MD.read_text()
         )
 
     def test_halt_class_release_named_before_halt_summary(self):
-        """The halt-class release contract appears before the halt summary
-        recovery instructions ("Then halt the entire usher batch")."""
-        text = self._read_merge_md()
-        release_idx = text.find("Halt-class release contract")
-        summary_idx = text.find("Then halt the entire usher batch")
-        assert release_idx != -1, (
-            "merge.md missing 'Halt-class release contract' section"
-        )
-        assert summary_idx != -1, (
-            "merge.md missing 'Then halt the entire usher batch' summary text"
-        )
-        assert release_idx < summary_idx, (
-            "merge.md halt-class release section must appear before the "
-            "halt-summary recovery instructions (release must run BEFORE "
-            "recovery prose)"
-        )
+        text = MERGE_MD.read_text()
+        order = text.index("Release matching intent BEFORE halt summary")
+        release = text.index("yoke claims work release", order)
+        recovery = text.index("exact resume /yoke usher", release)
+        assert order < release < recovery
+        assert "A failed release names failure class/holder and retained claim" in text
 
     def test_exit_5_names_halt_class_release(self):
-        """Exit 5 (merge landed, cleanup failed) must still release the claim
-        with usher-halt-merge-failure (item stays in release)."""
-        text = self._read_merge_md()
-        exit5_start = text.find("Exit 5 (HALT")
-        assert exit5_start != -1, "merge.md missing 'Exit 5 (HALT' branch"
-        # Limit search to the exit-5 branch itself, ending at the next
-        # bullet (Any other non-zero exit) so we are sure the reference
-        # is in the right branch.
-        exit5_end = text.find("Any other non-zero exit", exit5_start)
-        assert exit5_end > exit5_start
-        exit5_block = text[exit5_start:exit5_end]
-        assert "usher-halt-merge-failure" in exit5_block, (
-            "Exit 5 branch must release the claim with usher-halt-merge-failure"
-        )
-        assert "release the work claim" in exit5_block.lower(), (
-            "Exit 5 branch must explicitly call out releasing the work claim"
+        text = MERGE_MD.read_text()
+        branch = text[text.index("| 5 |") : text.index("| 6 |")]
+        assert "no rollback" in branch and "release usher-halt-merge-failure" in branch
+        assert (
+            "Merge committed, cleanup failed" in branch
+            and "Resume skips merge" in branch
         )
 
     def test_unknown_exit_uses_usher_halt_unexpected(self):
-        text = self._read_merge_md()
-        catchall_start = text.find("Any other non-zero exit (HALT")
-        assert catchall_start != -1
-        catchall_end = text.find("Halt-class release contract", catchall_start)
-        assert catchall_end > catchall_start
-        catchall_block = text[catchall_start:catchall_end]
-        assert "usher-halt-unexpected" in catchall_block, (
-            "Unknown non-zero exit branch must use usher-halt-unexpected"
-        )
+        text = MERGE_MD.read_text()
+        branch = text[
+            text.index("| Other nonzero |") : text.index("Rollback uses lifecycle")
+        ]
+        assert "Distinguish landed receipt first" in branch
+        assert "release usher-halt-unexpected" in branch
 
 
 class TestResolverCLI:

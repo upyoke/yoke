@@ -47,7 +47,7 @@ def _connection():
     add_coordination_claim_schema(conn)
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
     conn.execute(
-        "UPDATE harness_sessions SET actor_id=10,mode='operator',"
+        "UPDATE harness_sessions SET actor_id=10,mode='wait',"
         "executor_surface='claude-cli',executor_version='2.1.241' "
         "WHERE session_id='s1'"
     )
@@ -57,6 +57,9 @@ def _connection():
         project_id=1,
         role_name=ROLE_ADMIN,
     )
+    from runtime.api.domain.test_session_message_support import seed_steering_seat
+
+    seed_steering_seat(conn, session_id="s1", project_id=1)
     conn.commit()
     return conn
 
@@ -154,7 +157,9 @@ def test_open_refuses_canonical_floor_and_inactive_operator(monkeypatch) -> None
         )
     assert canonical.value.code == "qualification_canonical_route"
 
-    conn.execute("UPDATE harness_sessions SET mode='agent' WHERE session_id='s1'")
+    conn.execute(
+        "UPDATE harness_sessions SET ended_at='2026-01-01T00:00:00Z' WHERE session_id='s1'"
+    )
     with pytest.raises(PrivateRouteQualificationError) as inactive:
         open_qualification_grant(
             conn,

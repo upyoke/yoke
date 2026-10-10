@@ -1,5 +1,5 @@
-// Delivery belongs to the item: each environment shows its own member QA
-// or candidate containment, even while the carrying run waits on other work.
+// Delivery is the item's completion-owned attribution. Run and QA standings
+// explain pending work; neither can revoke a completed environment delivery.
 import { deploymentRunHref } from "./universe_navigation.js";
 import { NO_ENVIRONMENT_LABEL } from "./deployment_environment_copy.js";
 import { relativeAge, relativeAgePhrase } from "./universe_time.js";
@@ -95,13 +95,16 @@ function itemOutcome(run) {
       removed: true,
     };
   }
+  if (run.completed_delivery) {
+    return { symbol: "✓", text: "deployed · item completed", finished: true };
+  }
   const qa = run.delivery_item?.item_qa;
   if (qa?.failed_requirement_ids?.length) {
     return { symbol: "✗", text: `QA failed · ${qa.failed_requirement_ids.map((id) => `#${id}`).join(", ")}` };
   }
   if (qa?.state === "rejected") return { symbol: "✗", text: "QA failed" };
   if (run.delivery_relation === "member" && ACCEPTED_QA.has(qa?.state)) {
-    return { symbol: "✓", text: `deployed · QA ${qa.state === "accepted" ? "passed" : "discharged"}`, finished: true };
+    return { symbol: "◐", text: `QA ${qa.state === "accepted" ? "passed" : "discharged"} · awaiting item completion` };
   }
   const status = String(run.status || "");
   if (status === "failed" || status === "cancelled") {
@@ -111,7 +114,7 @@ function itemOutcome(run) {
     return { symbol: "○", text: "QA unavailable", reason: qa.reason };
   }
   if (status === "succeeded") {
-    return { symbol: "✓", text: run.delivery_relation === "member" ? "deployed" : "in build", finished: true };
+    return { symbol: "○", text: run.delivery_relation === "member" ? "awaiting item completion" : "in build" };
   }
   const stage = runStage(run);
   const started = run.started_at || run.created_at;
@@ -119,6 +122,27 @@ function itemOutcome(run) {
     symbol: "◐",
     text: `deploying${stage ? ` · at ${stage}` : ""} · ${started ? relativeAge(started) : "time unavailable"}`,
   };
+}
+
+function deliveryRuns(row, deployments) {
+  const runs = deployments?.get(String(row.public_ref)) || [];
+  const completed = row.delivery?.completed_deliveries || [];
+  const attributed = [...completed, ...runs.flatMap((run) => (
+    run.delivery_item?.completed_deliveries || []
+  ))];
+  const selected = new Map(shownDeliveryRuns(runs).map((run) => [runEnvironment(run), run]));
+  const seen = new Set();
+  for (const entry of attributed) {
+    if (seen.has(entry.environment)) continue;
+    seen.add(entry.environment);
+    const run = runs.find((candidate) => String(candidate.id) === entry.run_id);
+    selected.set(entry.environment, {
+      ...run, id: entry.run_id, project_id: entry.run_project_id,
+      target_environment: entry.environment, completed_delivery: entry,
+      delivery_relation: entry.member_public_ref ? "member" : "carried",
+    });
+  }
+  return [...selected.values()];
 }
 
 function runWait(run) {
@@ -153,7 +177,7 @@ function environmentRow(documentNode, environment, outcome, run, row) {
     link.href = deploymentRunHref(run.project_id ?? row.project_id ?? null, run.id || run.run_id);
     card.appendChild(link);
     card.appendChild(el(documentNode, "small", "item-deployment-relation", run.delivery_relation));
-    if (outcome.finished && run.delivery_relation === "member"
+    if (outcome.finished && run.status && run.delivery_relation === "member"
         && !TERMINAL_RUN_STATES.has(String(run.status || ""))) {
       card.appendChild(el(documentNode, "small", "item-deployment-wait", runWait(run)));
     }
@@ -185,8 +209,7 @@ export function appendItemDelivery(documentNode, card, row, deployments, project
     // wait for — an absent merge line alone would read as unfinished work.
     box.appendChild(el(documentNode, "small", "item-delivery-no-change", "no code change"));
   }
-  const itemId = row.public_ref;
-  const runs = shownDeliveryRuns(deployments?.get(String(itemId)) || []);
+  const runs = deliveryRuns(row, deployments);
   for (const run of runs) {
     box.appendChild(environmentRow(documentNode, runEnvironment(run), itemOutcome(run), run, row));
   }
@@ -207,8 +230,7 @@ export function appendItemDelivery(documentNode, card, row, deployments, project
 // Where an item's delivery stands, one environment per part, for a surface
 // too compact for the delivery box: "stage ✓ · prod deploying".
 export function deliverySummary(row, deployments) {
-  const itemId = row.public_ref;
-  const runs = shownDeliveryRuns(deployments?.get(String(itemId)) || [])
+  const runs = deliveryRuns(row, deployments)
     .filter((run) => run.delivery_relation !== "removed");
   const parts = runs.map((run) => {
     const outcome = itemOutcome(run);

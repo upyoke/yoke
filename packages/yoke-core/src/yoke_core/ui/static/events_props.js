@@ -1,6 +1,6 @@
 // Generated from the installed structured-events Pack; run build_frontend_events.
 import { instantFromDate } from "./events_timestamps.mjs";
-import { sanitizeUrl, isBot } from './events_attribution.js';
+import { sanitizePath, sanitizeUrl, isBot } from "./events_attribution.js";
 
 let sessionId                = null;
 let started                = null;
@@ -17,12 +17,12 @@ export function getOrgProps(orgId         )                          {
 }
 export function getPageProps()                          {
   return {
-    page_url: sanitizeUrl(window.location.href), page_path: window.location.pathname,
+    page_url: sanitizeUrl(window.location.href), page_path: sanitizePath(window.location.pathname),
     page_title: document.title, referrer: sanitizeUrl(document.referrer),
   };
 }
 export function getDeviceProps()                          {
   const ua = navigator.userAgent;
-  return { user_agent: ua, is_bot: isBot(ua),
-    device_type: window.innerWidth < 768 ? 'mobile' : window.innerWidth < 1024 ? 'tablet' : 'desktop' };
+  // The collector derives browser, browser_version, os and device_type from request headers.
+  return { user_agent: ua, is_bot: isBot(ua) };
 }

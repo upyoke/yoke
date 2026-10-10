@@ -11,6 +11,7 @@ from yoke_contracts.machine_qa_failures import (
     host_control_failure,
 )
 from yoke_contracts.qa_mission_scratch import mission_scratch_path
+from yoke_harness.test_machine_temp_state import require_mission_disk_space
 from yoke_core.domain.machine_qa_result_safety import redact_machine_qa_value
 from yoke_core.domain.machine_qa_submission_artifacts import ensure_secret_free_result
 
@@ -101,6 +102,10 @@ def prepare_mission(
         phase = "preparation_heartbeat"
         if progress_callback is not None:
             progress_callback()
+        phase = "disk_preflight"
+        preparation["evidence"]["disk_preflight"] = require_mission_disk_space(
+            execution.control
+        )
         if mission_manages_packages(contract) and not contract.continues_execution_id:
             from yoke_harness.qa_host_package_fixture import restore_host_packages
 

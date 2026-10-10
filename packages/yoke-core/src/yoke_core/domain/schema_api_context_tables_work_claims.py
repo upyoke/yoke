@@ -48,7 +48,8 @@ WORK_CLAIM_TABLES: dict[str, dict] = {
             '"document":SLUG}, migration_serialization='
             '{"project_id":N,"model":M,"item_id":N}, qa_admission='
             '{"machine_id":ID}, or route_qualification={"project_id":N,'
-            '"grant_key":K}. Domain validation requires '
+            '"grant_key":K}, deploy_serialization={"project_id":N,'
+            '"project_slug":SLUG}. Domain validation requires '
             "exactly the required keys for the named kind; steering also "
             "accepts the optional document key. A steering seat covers a "
             "whole project or one strategy document identified by owning "
@@ -59,13 +60,11 @@ WORK_CLAIM_TABLES: dict[str, dict] = {
             "project seat overlaps CURRENT-PLAN document steering of the "
             "same project; two different documents do not overlap. "
             "Strategy-document locks remain in strategy_doc_claims. "
-            "The last three kinds are the "
-            "shared-operation claims that replaced the retired "
-            "lease table it replaced: migration territory per model, one "
-            "physical test machine, one private-route qualification grant. "
-            "They are STICKY — the stale-session sweep and session-end "
+            "Migration serialization, QA admission and deployment "
+            "serialization are STICKY — the stale-session sweep and session-end "
             "release skip them, because the resource keeps running after "
-            "the session goes quiet. The holder of a live QA_HOST claim "
+            "the session goes quiet. Route qualification is not sticky. "
+            "The holder of a live QA_HOST claim "
             "releases it with `yoke claims coordination-claim release "
             "--claim-id N --reason TEXT`; permission resolves from the "
             "holding session's project because the scope names only the "
@@ -85,9 +84,11 @@ WORK_CLAIM_TABLES: dict[str, dict] = {
             "ignores project filters. Other kinds require --project for recovery. "
             "Their exclusivity unit is the whole scope except "
             "migration_serialization, which conflicts on (project_id, "
-            "model) so item_id records the owner rather than the resource. "
+            "model) so item_id records the owner rather than the resource, "
+            "and deploy_serialization, which conflicts on project_id "
+            "even when project_slug changes. "
             "Read and address them by their operator key "
-            "(LIVE_DB_MIGRATION:<model>, QA_HOST:<machine>) via `yoke "
+            "(LIVE_DB_MIGRATION:<model>, QA_HOST:<machine>, DEPLOY:<project>) via `yoke "
             "coordination-claim list [--active-only]`. There is no "
             "specialized target column or "
             "target_path column; worktree/path coverage lives elsewhere. "

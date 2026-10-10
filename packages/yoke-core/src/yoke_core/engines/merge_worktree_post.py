@@ -12,9 +12,9 @@ from yoke_core.engines.merge_worktree_pr_setup import (  # noqa: F401
     _ensure_target_pushed,
 )
 from yoke_core.engines.merge_worktree_ci import _wait_for_ci  # noqa: F401
+from yoke_core.engines.merge_worktree_cleanup import _post_merge_cleanup  # noqa: F401
 
 from yoke_core.engines.merge_worktree_post_helpers import (  # noqa: F401
-    _post_merge_cleanup,
     _sync_local_target,
     _schema_refresh,
     _ensure_target_branch,

@@ -48,7 +48,7 @@ def test_existing_pin_survives_boot_then_explicit_migration_allows_override() ->
         assert f"dash@{before['workflow_version']} does not allow" in message
         assert "Deploying new workflow versions does not change" in message
         assert f"workflows item migrate {ref} --version N --preview" in message
-        assert "operator-started authority" in message
+        assert "a live steering seat covering the target project or document" in message
         assert inspect_item_workflow_pin(conn, item_id) == before
 
         preview = migrate_item_workflow_pin(

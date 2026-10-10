@@ -5,7 +5,7 @@ import json
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from yoke_contracts.timestamps import parse_instant, utc_now
+from yoke_contracts.timestamps import as_utc, format_instant, parse_instant, utc_now
 
 from yoke_core.domain import db_helpers
 from yoke_core.domain.external_identities import default_org_id
@@ -13,6 +13,10 @@ from yoke_core.domain.events_writes import cmd_insert
 
 RATE_WINDOW_SECONDS = 60
 RATE_REQUESTS = 60
+# Beyond this distance from receipt a client clock or a long-queued retry is
+# flagged; the event is still accepted and ordered by receipt time.
+CLIENT_TIME_TOLERANCE_SECONDS = 300
+CLIENT_TIME_SKEW_FLAG = "client_time_skew"
 
 
 def collector_identity(conn):
@@ -64,10 +68,33 @@ def admit_client(conn, *, org_id, client, now=None):
     )
 
 
-def write_frontend_events(events, *, org_id, actor_id=None):
-    """Use the existing event gateway; retries dedupe on the browser event UUID."""
+def write_frontend_events(
+    events, *, org_id, environment, actor_id=None, received_at=None
+):
+    """Use the existing event gateway; retries dedupe on the browser event UUID.
+
+    The emitter's own ``service`` and ``project`` names are kept as sent;
+    the serving universe supplies the organization, environment and actor.
+    ``created_at`` is the collector's receipt time, never the browser clock;
+    the envelope keeps the client ``event_time`` beside ``received_at`` and
+    the signed offset between them.
+    """
+    received_at = utc_now() if received_at is None else as_utc(received_at)
+    received = format_instant(received_at)
     for event in events:
-        envelope = {**event, "org_id": str(org_id), "actor_id": actor_id, "project": ""}
+        client_time = parse_instant(event["event_time"])
+        seconds, remainder = divmod(client_time - received_at, timedelta(seconds=1))
+        half = timedelta(microseconds=500_000)
+        offset = seconds + int(remainder > half or (remainder == half and seconds % 2))
+        envelope = {
+            **event,
+            "org_id": str(org_id),
+            "actor_id": actor_id,
+            "environment": environment,
+        }
+        envelope["event_time"] = format_instant(client_time)
+        envelope["received_at"] = received
+        envelope["client_time_offset_seconds"] = offset
         envelope["session_id"] = "browser:" + event["session_id"]
         context = event.get("context")
         if isinstance(context, dict):
@@ -78,7 +105,8 @@ def write_frontend_events(events, *, org_id, actor_id=None):
                 }
             envelope["context"] = context
         # Frontend context is telemetry only. No browser value selects a project,
-        # work item, actor, organization, or operational severity.
+        # work item, actor, organization, or operational severity: the envelope
+        # keeps the emitter's project name, but the row indexes as global.
         for key in (
             "project_id",
             "item_id",
@@ -99,9 +127,15 @@ def write_frontend_events(events, *, org_id, actor_id=None):
             event_outcome=event.get("event_outcome"),
             org_id=str(org_id),
             actor_id=actor_id,
-            service="workbench",
+            environment=environment,
+            service=event["service"],
+            anomaly_flags=(
+                CLIENT_TIME_SKEW_FLAG
+                if abs(offset) > CLIENT_TIME_TOLERANCE_SECONDS
+                else None
+            ),
             envelope=json.dumps(envelope, separators=(",", ":")),
-            created_at=event["event_time"],
+            created_at=received_at,
             skip_severity=True,
         )
 

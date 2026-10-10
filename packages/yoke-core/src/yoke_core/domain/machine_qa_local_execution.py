@@ -14,6 +14,7 @@ from yoke_harness.ssh_mac_gui_session import (
     classify_macos_session_context_failure,
 )
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
+from yoke_contracts.qa_mission_scratch import mission_scratch_path
 
 from yoke_core.domain.agent_mission_preparation import (
     mission_manages_packages as _mission_manages_packages,
@@ -60,6 +61,11 @@ def _execution(
             "project": contract.project,
             "settings": contract.settings,
         }
+    )
+    control.baseline_preserved_temp_paths = tuple(
+        mission_scratch_path(str(value))
+        for value in (contract.plan_execution_id, contract.continues_execution_id)
+        if value
     )
     allowed_urls = tuple(
         str(value).rstrip("/")

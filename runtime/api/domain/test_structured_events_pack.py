@@ -28,6 +28,12 @@ def test_structured_events_published_contract(tmp_path):
             .replace("{{project_name}}", "example")
         )
     assert not list(tmp_path.rglob("*attribution_session*"))
+    # The TypeScript collector imports Bowser; the ui package pins it for tests.
+    modules = ROOT / "packages/yoke-core/src/yoke_core/ui/node_modules"
+    assert (modules / "bowser").is_dir(), (
+        "bowser_missing: run npm ci --prefix packages/yoke-core/src/yoke_core/ui"
+    )
+    (tmp_path / "node_modules").symlink_to(modules)
     for command in (
         [sys.executable, "-m", "pytest", "events", "-q"],
         ["node", "--experimental-strip-types", "--test", "events/test_browser.mjs"],

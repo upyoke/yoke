@@ -1,131 +1,44 @@
-# /yoke charge steps 4–6 — select, confirm, dispatch
+# Charge: Select, confirm and dispatch
 
-## 4. Select the target item
+## Select
 
-If `--item PREFIX-N` was passed:
-- Find that item in the assignable Runnable table.
-- If the item is on `ranked_steps[]` but with `claim_state='claimed_by_other_live'`, treat it as unavailable and report `claimed_by_other_live` (held by another live session) as the reason.
-- If not found, also check `blocked_steps[]` and `frozen_steps[]` and report why it cannot be dispatched.
-- **Emit ChargeDecisionMade event** before stopping:
+An explicit `--item` must be in the assignable Runnable table. If held-live,
+report `claimed_by_other_live`; otherwise inspect blocked/frozen/not-found
+buckets and report the reason. Emit `requested_item_unavailable` with its bucket
+through [events.md](events.md), then stop. Without an explicit target choose the
+first assignable ranked item, matching `selected_step` when present; an empty
+table returns to frontier's no-runnable branch.
 
-```sh
-yoke events emit \
- --name "ChargeDecisionMade" \
- --kind lifecycle \
- --type charge \
- --source-type skill \
- --severity INFO \
- --outcome skipped \
- --item "{requested_item_id}" \
- --context "{\"adapter\":\"\",\"dispatched\":false,\"reason\":\"requested_item_unavailable\",\"target_bucket\":\"{target_bucket}\",\"project\":\"{project}\"}"
-```
+## Confirm
 
-Where `{target_bucket}` is `blocked`, `frozen`, or `not_found` based on where the item was found in the frontier response (or not found at all). Then stop.
-- Use that item as the target.
+Require nonempty `entrypoint` before confirmation. Show selected public ref,
+title, status, adapter, `next_step` and exact action/entrypoint. Ask:
 
-If no `--item` flag:
-- Use the first (highest-ranked) item from the assignable Runnable table as the target. This matches `selected_step` from the schedule response when present; if `selected_step` is `null` and the assignable Runnable table is empty, stop with the no-runnable-items wording from step 2.
+- Yes, dispatch to {entrypoint}
+- Pick a different item (specify PREFIX-N)
+- Cancel — do not dispatch
 
-## 5. Confirm with operator
+For a different item, validate assignability and repeat confirmation. Cancel
+emits `operator_cancelled` through [events.md](events.md), then stops.
 
-Before confirmation, require the selected item's non-empty `entrypoint`.
-If it is unavailable, use the diagnosed refusal and recovery in step 6.
+## Dispatch
 
-Present the selected item and its dispatch target:
+Read and execute the confirmed returned entrypoint's skill, passing its
+arguments unchanged. The scheduler uses the same binding-derived mapping as
+launch mandates; never reconstruct a route from the adapter category.
 
-```
-Selected: {item_id} — {title}
- Status: {status}
- Adapter: {adapter}
- Next step: {next_step}
- Action: Will invoke {entrypoint}
-```
-
-Ask the operator to confirm. Use the following options:
-- "Yes, dispatch to {entrypoint}"
-- "Pick a different item (specify PREFIX-N)"
-- "Cancel — do not dispatch"
-
-If the operator picks a different item, find it in the assignable Runnable table and repeat step 5 with the new item.
-
-If the operator cancels, **emit ChargeDecisionMade event** before stopping:
+Absent/null entrypoint on a non-wait step stops as `entrypoint_unavailable`,
+naming item and next step. Recover by reading the pin and definition, then
+refreshing against a serving build that exposes entrypoint:
 
 ```sh
-yoke events emit \
- --name "ChargeDecisionMade" \
- --kind lifecycle \
- --type charge \
- --source-type skill \
- --severity INFO \
- --outcome skipped \
- --item "{item_id}" \
- --context "{\"next_step\":\"{next_step}\",\"adapter\":\"{adapter}\",\"dispatched\":false,\"reason\":\"operator_cancelled\",\"project\":\"{project}\"}"
+yoke workflows item get PREFIX-N --json
+yoke workflows version get <workflow> <version> --json
+yoke charge schedule --item PREFIX-N --json
 ```
 
-Where `{item_id}`, `{next_step}`, and `{adapter}` are from the selected item (if one was selected before cancellation; empty otherwise). Then stop.
-
-## 6. Dispatch to downstream skill
-
-Use the confirmed item's `entrypoint` from `charge.schedule`. It is rendered
-by the same mapping that composes item launch mandates, from the scheduler's
-binding-derived `next_step` and the true public item ref. Read and follow the
-skill named by that command, passing its returned arguments unchanged. The
-raw frontier category (`adapter`) is for ranking diagnostics.
-
-If `entrypoint` is absent or null for a non-`wait` step, stop with
-`entrypoint_unavailable` and the item and `next_step` named. Re-read
-`yoke workflows item get PREFIX-N --json` and
-`yoke workflows version get <workflow> <version> --json`, then refresh
-`yoke charge schedule --item PREFIX-N --json` against a serving build that
-exposes the entrypoint. Do not reconstruct the command from a copied table.
-An older serving response may omit this field; that is a diagnosed refusal,
-not permission to invent a route.
-
-### `wait`
-This should not appear in the assignable Runnable table. If encountered, report:
-```
-Item {item_id} has next_step "wait" — it has unsatisfied dependencies.
-Blocked by: {blocked_by list}
-Reasons: {blocked_reasons list}
-
-No dispatch possible. Resolve the blocking items first.
-```
-
-**Emit ChargeDecisionMade event** before stopping:
-
-```sh
-yoke events emit \
- --name "ChargeDecisionMade" \
- --kind lifecycle \
- --type charge \
- --source-type skill \
- --severity INFO \
- --outcome skipped \
- --item "{item_id}" \
- --context "{\"next_step\":\"wait\",\"adapter\":\"{adapter}\",\"dispatched\":false,\"reason\":\"wait_encountered\",\"project\":\"{project}\"}"
-```
-
-Then stop without dispatching.
-
-**Emit ChargeDecisionMade event** after successful dispatch:
-
-```sh
-yoke events emit \
- --name "ChargeDecisionMade" \
- --kind lifecycle \
- --type charge \
- --source-type skill \
- --severity INFO \
- --outcome completed \
- --item "{item_id}" \
- --context "{\"next_step\":\"{next_step}\",\"adapter\":\"{adapter}\",\"dispatched\":true,\"reason\":\"dispatched\",\"project\":\"{project}\"}"
-```
-
-Where:
-- `{item_id}` is the dispatched item.
-- `{next_step}` is the scheduler-derived dispatch action.
-- `{adapter}` is the raw frontier adapter category (for diagnostics).
-- `{project}` is the project scope.
-
-Note: Non-dispatch exits (no runnable items, dry-run, unavailable explicit target, operator cancellation, unexpected `wait` next_step) emit `ChargeDecisionMade` in their respective steps before stopping.
-
+An older response's omission is a diagnosed refusal, never an invented route.
+If `next_step=wait` appears, show unsatisfied `blocked_by`/`blocked_reasons`,
+report no dispatch possible, emit `wait_encountered` and stop.
+After successful downstream dispatch, emit `dispatched` through
+[events.md](events.md). Downstream skills set their own session mode.

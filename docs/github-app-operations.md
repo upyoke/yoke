@@ -6,21 +6,14 @@ Product flows never ask users to paste a GitHub credential.
 
 ## Ownership Boundary
 
-GitHub registration and installation are human trust ceremonies. An App owner
-or manager creates the registration, and an account or organization owner
-approves each installation and permission increase. Yoke then manages the
-repeatable runtime pieces:
+An App owner/manager registers the App; account/organization owners approve
+installations and permission increases. Yoke manages device authorization and
+refresh rotation, verified bindings, scoped installation tokens, external key
+references, and optional Pulumi runner-webhook/HMAC delivery.
 
-- machine device authorization and refresh-token rotation;
-- verified installation and repository bindings;
-- repository- and operation-scoped installation tokens;
-- hosted key delivery from an external secret reference; and
-- the optional runner-fleet repository webhook and its HMAC through Pulumi.
-
-The GitHub App private-key secret container and its value are external
-bootstrap authority. Pulumi does not create or own them and must receive only a
-Secrets Manager ARN. This keeps the PEM out of source, Pulumi config/state,
-command arguments, logs, project databases, and machine config.
+The private-key container and value are external bootstrap authority. Pulumi
+receives only a Secrets Manager ARN: never put the PEM in source, Pulumi
+config/state, arguments, logs, project databases, or machine config.
 
 ## Hosted Deploy Relay
 
@@ -271,20 +264,16 @@ the non-root probe and core container. The candidate image verifies `/app`
 identity before atomic promotion. Failure preserves the prior key; CI never
 receives the PEM or transports it through SSH stdin.
 
-This pre-delivery check proves the issuer and PEM belong to the same live App.
-It does not prove that a particular installation still covers a project's
-repositories; use the project health check in the rotation procedure for that
-binding-level verification.
+Pre-delivery verifies the live App issuer/key pair; the rotation procedure's
+project health check separately verifies installation/repository coverage.
 
-The downloaded PEM is transient for hosted bootstrap. Set mode `0600`, compare
-its fingerprint with GitHub, ingest and verify it, then remove the download.
-Self-hosted deployments retain their runtime copy under the generated bundle's
-ignored `secrets/` directory.
+Hosted downloads are transient: set `0600`, compare the GitHub fingerprint,
+ingest and verify, then remove the download. Self-hosted runtime copies stay in
+the generated bundle's ignored `secrets/` directory.
 
 ## Zero-Downtime Private-Key Rotation
 
-GitHub supports multiple active private keys specifically so rotation can
-overlap. Rotate one registration at a time:
+Overlap active keys; rotate one registration at a time:
 
 1. Inventory every hosted environment, self-hosted server, and runner fleet
    using the App and its secret reference.
@@ -334,9 +323,8 @@ overlap. Rotate one registration at a time:
    fingerprint, secret version, environments verified, and operator. Never
    record the PEM or a minted token.
 
-Changing the App private key does not require users to reconnect machine
-device authorization. Those refresh credentials have their own automatic
-rotation and revocation lifecycle.
+Private-key rotation preserves machine device authorization; refresh
+credentials rotate and revoke independently.
 
 ## Incident Response
 

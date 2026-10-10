@@ -1,6 +1,6 @@
 """Table-backed override fact layer for path claims.
 
-Operator-collision approval surface. Persistence is the
+Steering collision-approval fact layer. Persistence is the
 ``path_claim_overrides`` state table; this module owns the write side
 (:func:`invoke_override`, which inserts the row and emits the
 ``PathClaimOverride`` telemetry event in the same transaction) and the
@@ -18,10 +18,9 @@ Design contract:
   terminal (``released`` or ``cancelled``) or when an amendment
   narrows the overridden surface out of the blocking claim's declared
   coverage.
-* Override is **human-only.** Invocation is rejected when the
-  ``YOKE_HOOK_EVENT`` environment variable is set. The
-  rejection mirrors :func:`sessions_lifecycle_release.
-  operator_override_release_claim` so the discipline is uniform.
+* Registered ``claims.path.override`` requires a covering live steering seat.
+  Hook callbacks cannot approve overrides: invocation is rejected when
+  ``YOKE_HOOK_EVENT`` is set.
 * **State first, telemetry second.** The ``path_claim_overrides`` row
   is the durable fact the overlap classifier consumes; the
   ``PathClaimOverride`` event is emitted alongside it for audit.
@@ -112,7 +111,7 @@ def invoke_override(
 ) -> Optional[str]:
     """Persist the override fact: state row first, telemetry event second.
 
-    Validates the human-only guard (``YOKE_HOOK_EVENT``), the
+    Validates the hook-context guard (``YOKE_HOOK_EVENT``), the
     non-empty ``actor_reason``, and the claim-row existence
     requirement of ``override_point='creation'``. Inserts the
     ``path_claim_overrides`` row and emits ``PathClaimOverride`` in
@@ -124,12 +123,12 @@ def invoke_override(
         raise HookContextRejection(
             "PathClaimOverride cannot be invoked from a hook context "
             f"(YOKE_HOOK_EVENT={os.environ['YOKE_HOOK_EVENT']}). "
-            "This command is human-only."
+            "Recovery: run outside hooks from a session holding the covering steering seat."
         )
     if not (actor_reason or "").strip():
         raise EmptyActorReason(
             "actor_reason is required and must be non-empty; provide "
-            "the operator-authored justification for this override."
+            "the caller-authored collision justification for this override."
         )
     if not _claim_exists(conn, path_claim_id):
         # Creation override demands a concrete claim row first.

@@ -154,6 +154,7 @@ PRODUCT_AUTHZ_BY_ID = {
     "workflows.canon_update.apply": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflows.canon_update.apply_all": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflows.canon_follow.set": AuthzSpec(ORG, PERM_ORG_ADMIN),
+    "workflows.version.publish": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflows.policy_defaults.publish": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflows.mechanics.get": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflows.testing_default.set": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),

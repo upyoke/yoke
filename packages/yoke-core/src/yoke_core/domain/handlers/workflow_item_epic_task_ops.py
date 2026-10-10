@@ -6,13 +6,13 @@ from functools import partial
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.domain import epic
+from yoke_core.domain.dispatch_chain_head import read_head_dispatch
 from yoke_core.domain.epic_parsing import public_epic_pipe_rows
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
 )
-
 
 from yoke_core.domain.handlers.epic_task_operation_models import (
     operation_registration,
@@ -24,10 +24,10 @@ from yoke_core.domain.handlers.epic_task_operation_models import (
     ChainUpdateRequest as ChainUpdateRequest,
     ChainRefreshActivationRequest as ChainRefreshActivationRequest,
     BodyResponse as BodyResponse,
+    ChainReadResponse as ChainReadResponse,
     TaskBodyResponse as TaskBodyResponse,
     MessageResponse as MessageResponse,
 )
-
 
 _OWNER = "yoke_core.domain.handlers.workflow_item_epic_task_ops"
 
@@ -92,12 +92,9 @@ def handle_task_get(request: FunctionCallRequest) -> HandlerOutcome:
             )
         except LookupError as exc:
             return _not_found(str(exc))
+    response = TaskBodyResponse(epic_id=epic_id, task_num=task_num, body=body)
     return HandlerOutcome(
-        result_payload=TaskBodyResponse(
-            epic_id=epic_id,
-            task_num=task_num,
-            body=body,
-        ).model_dump(),
+        result_payload=response.model_dump(),
         primary_success=True,
     )
 
@@ -189,8 +186,13 @@ def handle_dispatch_chain_get(request: FunctionCallRequest) -> HandlerOutcome:
             )
         except LookupError as exc:
             return _not_found(str(exc))
+        heads = read_head_dispatch(
+            conn, epic_id, request.actor.session_id, payload.worktree
+        )
     return HandlerOutcome(
-        result_payload=BodyResponse(epic_id=epic_id, body=body).model_dump(),
+        result_payload=ChainReadResponse(
+            epic_id=epic_id, body=body, head_dispatch=heads
+        ).model_dump(),
         primary_success=True,
     )
 
@@ -206,8 +208,11 @@ def handle_dispatch_chain_list(request: FunctionCallRequest) -> HandlerOutcome:
         body = public_epic_pipe_rows(
             conn, epic_id, epic.dispatch_chain_list(conn, str(epic_id))
         )
+        heads = read_head_dispatch(conn, epic_id, request.actor.session_id)
     return HandlerOutcome(
-        result_payload=BodyResponse(epic_id=epic_id, body=body).model_dump(),
+        result_payload=ChainReadResponse(
+            epic_id=epic_id, body=body, head_dispatch=heads
+        ).model_dump(),
         primary_success=True,
     )
 
@@ -272,7 +277,6 @@ def handle_dispatch_chain_refresh_activation(
 
 _entry = partial(operation_registration, owner=_OWNER)
 
-
 REGISTRATIONS: List[Dict[str, Any]] = [
     _entry(
         "workflow_item.epic_task.get",
@@ -310,7 +314,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "workflow_item.epic_dispatch_chain.get",
         handle_dispatch_chain_get,
         ChainWorktreeRequest,
-        BodyResponse,
+        ChainReadResponse,
         [],
         None,
     ),
@@ -318,7 +322,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "workflow_item.epic_dispatch_chain.list",
         handle_dispatch_chain_list,
         EmptyRequest,
-        BodyResponse,
+        ChainReadResponse,
         [],
         None,
     ),
@@ -339,6 +343,5 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "epic",
     ),
 ]
-
 
 __all__ = ["REGISTRATIONS"]

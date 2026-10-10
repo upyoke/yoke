@@ -40,7 +40,10 @@ def _termination_schema(conn, monkeypatch):
 
 
 def _register_pair(conn) -> None:
-    _register(conn, session_id="operator", actor_id=41, mode="operator")
+    _register(conn, session_id="operator", actor_id=41, mode="wait")
+    from yoke_core.domain.steering_claims import acquire
+
+    acquire(conn, session_id="operator", project_id=1, reason="terminate session")
     _register(conn, session_id=WORKER, actor_id=42, machine_id=MACHINE_ID)
 
 
@@ -73,8 +76,7 @@ def _insert_launch(conn, *, native_session_id, registered_session_id) -> None:
 
 def _reap_launch_id(conn) -> str | None:
     return conn.execute(
-        "SELECT launch_id FROM session_termination_reaps "
-        "WHERE target_session_id=%s",
+        "SELECT launch_id FROM session_termination_reaps WHERE target_session_id=%s",
         (WORKER,),
     ).fetchone()["launch_id"]
 

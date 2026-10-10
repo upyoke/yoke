@@ -200,6 +200,12 @@ def dispatch_for(
                 {
                     "item_id": 0,
                     "dependencies": list(shape.get("dependencies") or []),
+                    "integration_gate": shape.get("integration_gate")
+                    or {
+                        "evaluated": True,
+                        "is_blocked": False,
+                        "blockers": [],
+                    },
                 }
             )
         raise AssertionError(f"unexpected function {function_id}")

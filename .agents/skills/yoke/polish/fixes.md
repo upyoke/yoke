@@ -1,52 +1,31 @@
 # Polish — Apply Finishing Fixes
 
-Covers polish step 7: apply targeted finishing fixes to the worktree. Includes the DB-claim stop-and-amend gate when governed DB mutation is discovered.
+## 7. Fix within the item
 
-**Context variables** (set by earlier phases): `ITEM_REF`, `WORKTREE_PATH`, `WORKTREE_PATHS`.
+Edit each fix in its owning registered lane. Copy to a sibling only after
+verifying that sibling has the same gap. Close all AC/end-to-end gaps with
+test co-modification, helper dependencies, present-tense docs/help/comments,
+zero rename/removal residue and prompt/readability fixes. Delete verified dead
+code/tests/config/docs and unused compatibility, **retain permanent ordered
+migration history**. Each edit or deletion needs verifiable evidence.
 
----
-
-## 7. Apply Finishing Fixes
-
-Make targeted code and test changes within the relevant implementation worktree. For multi-worktree epics, apply each fix in the worktree that owns the changed files; do not copy a fix into sibling worktrees unless that sibling has the same verified gap. Fixes include:
-- Closing AC gaps and end-to-end wiring gaps (ALL ACs, not just core implementation)
-- Updating test files alongside implementation files (check for test-{module}.sh for every modified module)
-- Deleting dead code, dead tests, dead config, dead migration scripts, and dead documentation
-- Removing archaeological comments, compatibility shims, and legacy re-exports that serve nothing
-- Replacing graceful migrations with hard cutovers when the old data no longer exists
-- Updating docs, help text, and comments to describe the present as if the old way never existed
-- Fixing blast-radius misses found via grep (callers, importers, configs, scripts that still reference old behavior)
-- Running residue grep (`grep -r OLD_PATTERN .`) after any rename/removal to confirm zero remaining references
-- Recording any prompt-surface or large-file size findings when they materially affect readability, dispatch quality, or future maintenance
-
-Each fix should be verifiable — the fix should be testable or the deletion should be confirmable.
-
-**DB-claim stop-and-amend.** If polish discovers governed DB mutation that the stored `db_mutation_profile` does not declare — schema changes, migration modules, bulk data, `migration_audit` writes — STOP and amend the claim before continuing. Inspect the current state, then route the correction through the unified `db-claim-amend` adapter (the CLI builds the `db_claim.amend` envelope internally):
-
+**DB-claim stop-and-amend:** undeclared schema changes, migration modules,
+bulk data or migration-audit writes STOP work before continuing. Inspect and
+amend through `db_claim.amend`:
 ```bash
 yoke items get "$ITEM_REF" db_mutation_profile
-
-yoke db-claim amend \
-    "$ITEM_REF" \
-    --reason "polish discovered governed DB mutation" \
-    --stdin  # stream the unified DB claim payload on stdin
+yoke db-claim amend "$ITEM_REF" --reason "polish discovered governed DB mutation" --stdin
 ```
 
-The handler demultiplexes the claim payload into the `db_mutation_profile` and `db_compatibility_attestation` columns atomically, and records a best-effort `DbClaimAmended` event alongside them; see [.yoke/docs/reference/db-reference.md](../../../../.yoke/docs/reference/db-reference.md) for the unified shape. Read the pinned target stage's gates before completing the bound segment: a stale negative claim blocks its prose-vs-claim gate (`GATE_DB_CLAIM_PROSE_MISMATCH`) and polish evidence gate wherever the definition declares them.
+Supply the unified claim on stdin; read the
+[DB reference](../../../../.yoke/docs/reference/db-reference.md) and database
+operation rules for its shape. The handler atomically updates
+`db_mutation_profile` and `db_compatibility_attestation` and records a
+best-effort `DbClaimAmended` event. Inspect the pinned target's actual gates:
+a stale negative claim blocks `GATE_DB_CLAIM_PROSE_MISMATCH` and the polish
+evidence gate wherever declared.
 
-Function-call equivalent (for dispatch-surface callers — `db-claim-amend` builds this envelope internally):
-
-```jsonc
-{
-  "function": "db_claim.amend",
-  "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "public_ref": "$ITEM_REF"},
-  "intent": "polish_db_mutation_discovered",
-  "payload": {
-    "reason": "polish discovered governed DB mutation",
-    "claim": { "<unified DB claim payload>": "..." }
-  }
-}
-```
-
-**Fix what's broken, delete what's dead, flag what's big.** Polish fixes implementation gaps, deletes dead weight, and surfaces common-sense requirements the spec missed. If a missing requirement is straightforward and clearly implied by the work item's purpose, fix it inline. If it would materially expand the work item's scope (new subsystem, new user-facing feature, multi-file architectural change), flag it in the review report for the operator to decide. Do not refactor surrounding code or introduce new abstractions beyond what the item requires.
+Fix straightforward requirements clearly implied by the item's purpose inline.
+Flag material expansion—a new subsystem, user feature or multi-file architecture
+change—for operator decision. Do not refactor surrounding code or introduce
+abstractions beyond the item. Then [verify and commit](verify-and-commit.md).

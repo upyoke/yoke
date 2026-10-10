@@ -158,7 +158,12 @@ PROJECT_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Path snapshot header keyed by `id`. Snapshot timestamp is "
-            "`built_at`; there is NO `created_at` column on this table."
+            "`built_at`; there is NO `created_at` column on this table. "
+            "Snapshot builders and payload materializers call "
+            "path_snapshot_targets.resolve_snapshot_target_ids with the "
+            "Native aware `observed_at` keyword; `now_iso` is not accepted. "
+            "Keep this clock Native through target resolution, including "
+            "reuse, and format only the explicit SQLite SQL parameter."
         ),
     },
     "project_capabilities": PROJECT_CAPABILITIES_TABLE,

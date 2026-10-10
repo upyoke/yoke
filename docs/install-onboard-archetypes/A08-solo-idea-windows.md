@@ -26,9 +26,8 @@ If Git Bash/`uname` reports a non-Darwin/Linux kernel:
 
 Exit 1.
 
-If they have no `curl` / no `sh`: the documented command never starts. Public
-doc (`docs/public/install.md`): "Prerequisites: a shell, `curl`, and `uv`
-(the installer can install `uv` with consent)." Windows is not listed.
+If they have no `curl` or `sh`, the command never starts. The installer needs
+the supported shell/OS path and installs uv automatically when absent.
 
 No wizard questions occur.
 
@@ -41,15 +40,10 @@ with Linux PATH files (`.profile`) instead of `.zprofile`.
 
 ## Test setup
 
-**Reality:** no repo yet; native Windows never reaches a suite.
+Native Windows never reaches onboarding in this installer. After WSL, confirm the same explicit posture as A01: offer a minimal scaffold, bind its actual suite or record the operator's no-tests reason. No silent default or invented CI binding.
 
-**Bind today:** none until WSL. Then A01 — no-tests or unregistered scaffold.
-
-**Onboard:** does not run. After WSL the same missing test-setup question
-as A01.
-
-**Ask that should happen (on WSL):** scaffold vs attested no-tests. See
-[test-setup.md](test-setup.md).
+The confirmed profile, command/CI binding and immutable QA attachment follow
+[test-setup.md](test-setup.md); this example is not a live setup receipt.
 
 ## Crux
 
@@ -58,4 +52,4 @@ as A01.
 | Supported OS | Installer `uname` gate | Current fail string | Same string **plus** WSL install + rerun `curl -fsSL https://upyoke.com/install \| sh` inside Ubuntu |
 | Deploy / env | N/A — never onboarded | — | Same as A01 once on WSL |
 
-Ledger: G-windows-native-install, G-windows-wsl-teaching, G-test-setup-unasked, G-no-tests-posture.
+Ledger: G-windows-native-install, G-windows-wsl-teaching.

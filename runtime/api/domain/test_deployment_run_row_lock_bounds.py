@@ -16,6 +16,8 @@ import time
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain import deployment_runs as dr
 from yoke_core.domain.deployment_run_driver_attachment import (
@@ -32,7 +34,7 @@ from yoke_core.domain.deployment_runs_lock import (
 
 pytest_plugins = ["runtime.api.deployment_runs_test_db"]
 
-NOW = "2026-09-21T12:00:00Z"
+NOW = parse_instant("2026-09-21T12:00:00Z")
 
 #: Generous enough that a loaded shared cluster cannot flake it, far below the
 #: unbounded wait this replaces -- the reported stall ran past eleven minutes.

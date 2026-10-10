@@ -228,12 +228,13 @@ def fulfill_admitted_obligations(
     execution_target_digest: str,
     acceptance_qa_kind: str,
 ) -> list[str]:
-    """Require explicit evidence-linked verdicts for aggregate obligations."""
+    """Require evidence-linked verdicts for blocking aggregate obligations."""
     rows = query_rows(
         conn,
         "SELECT id,qa_kind,waived_at FROM qa_requirements "
         "WHERE deployment_run_id=%s AND deployment_stage=%s "
         "AND COALESCE(deployment_member_item_id,0)=%s AND method_id IS NULL "
+        "AND blocking_mode='blocking' "
         "AND qa_kind<>%s AND execution_target_digest=%s ORDER BY id",
         (
             run_id,

@@ -15,7 +15,6 @@ from yoke_cli.commands.adapters.hook_config_dedup import (
     is_cursor_config_invocation,
     should_skip_config_duplicate,
 )
-from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
 from yoke_contracts.hook_runner.config_owner import CONFIG_OWNER_ENV_VAR
 from yoke_contracts.hook_runner.cursor_response import cursor_lifecycle_allow_stdout
 
@@ -88,9 +87,9 @@ def hook_evaluate(args: List[str]) -> int:
 
     client_timing = HookClientWall.start()
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke hook evaluate",
         description=HOOK_EVALUATE_USAGE,
-        epilog=_FIELD_NOTE_FOOTER,
     )
     parser.add_argument(
         "event_name",

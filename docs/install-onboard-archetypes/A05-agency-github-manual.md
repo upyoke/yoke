@@ -85,15 +85,17 @@ and cannot leak into this slug.
 **Reality:** per-client marketing/site repos. Often **no tests**, or a
 Playwright check nobody runs. GitHub without Actions.
 
-**Bind today:** local `command` only if a script exists. No
-`ci_workflow_file`. No `merge_queue`.
-
-**Onboard:** each new project survey is silent on tests; seed never
-attaches a plan.
-
-**Ask that should happen:** per client — register a command, scaffold a
-tiny suite, or attest no-tests. Agency default should be attested
-no-tests unless the SOW paid for QA. See [test-setup.md](test-setup.md).
+**Onboard:** confirm each client's test posture explicitly. Survey an existing
+suite, offer a minimal scaffold when absent, or record the operator's reason
+for no-tests; an undecided posture blocks completion. The agency business
+model does not choose no-tests. Review-only needs blocking review and advisory
+legacy-command evidence. With no eligible Actions test workflow, do not bind
+`command-ci` or a merge queue. A registered command uses this project's exact
+argv and reusable QA plan; seeded items attach its immutable snapshot at the
+required transition. Follow the current
+[profile](../../.agents/skills/yoke/onboard/profile-and-scaffold.md),
+[verification binding](../../.agents/skills/yoke/onboard/verification-binding.md)
+and [work seeding](../../.agents/skills/yoke/onboard/seed-work.md) contracts.
 
 ## Crux
 
@@ -103,4 +105,4 @@ no-tests unless the SOW paid for QA. See [test-setup.md](test-setup.md).
 | Private GitHub | App installation must include the client repo | Pending binding; project GitHub `disabled` | Issues stay in Yoke DB only (`github_sync_mode` disabled) |
 | Agency identity | Owner picker "Where on GitHub?" / `your account` vs `organization` | Cannot publish under the wrong owner | Pick org; do not paste tokens |
 
-Ledger: G-forge-github-only (private App access friction), G-test-setup-unasked, G-no-tests-posture.
+Ledger: G-forge-github-only (private App access friction).

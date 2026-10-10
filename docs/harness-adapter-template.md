@@ -4,7 +4,7 @@
 
 ## Overview
 
-A harness adapter is a thin layer between a specific agent runtime (Claude Code, Codex, a future harness) and Yoke's core operator interface. The adapter does not contain business logic -- it translates harness-native mechanisms (hooks, config files, CLI wrappers) into Yoke's neutral contract surface.
+A harness adapter is a thin layer between a specific agent runtime (Claude Code, Codex, Cursor, another harness) and Yoke's core operator interface. The adapter does not contain business logic -- it translates harness-native mechanisms (hooks, config files, CLI wrappers) into Yoke's neutral contract surface.
 
 Every adapter must implement these parts:
 
@@ -14,7 +14,13 @@ Every adapter must implement these parts:
 4. **Route Wrapper** -- invokes only declared-supported Yoke commands
 5. **Smoke-Test Matrix** -- validates both wrapper-only and hook-enhanced modes
 
-This template defines the adapter-side shape, but instantiating it for a third harness also requires Yoke-core changes: harness identity is enumerated in core constants and per-harness branches (executor labels and emoji, `HARNESS_UNIVERSE`, conditional-block ids, manifest source dicts and directory mapping, identity-detection predicates, process-ancestry classification, decision wire formats, session-dispatch branches, project-install constants, and the doctor checks that read them). The [Cursor Harness Integration Assessment](harness-cursor-assessment.md) carries the current inventory of those enumeration sites.
+Adding a harness also requires verifying the shared executor vocabulary,
+manifest renderer, adapter capability, native identity/container mapping,
+process classification, hook decisions/dispatch, project installation and
+applicable doctor/render checks. Existing Claude Code, Codex and Cursor
+implementations are source references. The [Cursor substrate evidence](harness-cursor-assessment.md)
+retains dated probes; current owner and field authority lives in the
+[manifest schema](../runtime/harness/manifest-schema.md).
 
 ---
 
@@ -50,91 +56,24 @@ If the preferred mechanism (e.g., a hook) is unavailable, the adapter must fall 
 
 The capability manifest is a static or runtime-generated JSON document that declares what the harness is and what it can do. Yoke core reads this manifest to make routing and fallback decisions.
 
-### Manifest JSON shape
+### Schema and owners
 
-```json
-{
- "harness_id": "<string>",
- "runtime_minimums": {
- "wrapper_only": "<string>",
- "hook_enhanced": "<string | null>",
- "tested_locally": "<string | null>"
- },
- "bootstrap": {
- "spec_path": "<string>",
- "mechanisms": ["<string>"]
- },
- "identity": {
- "executor": "<string>",
- "provider_source": "<string>",
- "model_source": "<string>",
- "workspace_source": "<string>"
- },
- "supports": {
- "command_source": "shared_yoke_registry",
- "disabled_entrypoints": ["<string>"],
- "disabled_downstream_paths": ["<string>"],
- "optional_local_affordances": ["<string>"]
- },
- "telemetry": {
- "canonical_source": "<string>",
- "optional_local_sources": ["<string>"]
- }
-}
-```
+Use the complete [manifest schema](../runtime/harness/manifest-schema.md) and
+`yoke_core.domain.agents_render_manifests` renderer; do not instantiate a copied
+partial schema. The current manifests under `runtime/harness/` are executable
+examples, including surface-specific session control, launch-model encoding,
+wake/turn recording, command workdir, hook enablement and canonical agent
+consumption. Required fields and version floors remain schema-owned.
 
-### Field-level descriptions
-
-#### Top-level fields
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `harness_id` | string | Yes | Unique identifier for this harness (e.g., `"claude-code"`, `"codex"`, `"api"`). |
-| `runtime_minimums` | object | Yes | Version or environment requirements for each operating mode. |
-| `bootstrap` | object | Yes | How this harness loads the Yoke startup contract. |
-| `identity` | object | Yes | How this harness resolves session identity fields. |
-| `supports` | object | Yes | What Yoke surfaces this harness can invoke. |
-| `telemetry` | object | Yes | Where canonical telemetry comes from for this harness. |
-
-#### `runtime_minimums`
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `wrapper_only` | string | Yes | Minimum requirement for wrapper-only mode (e.g., `"any supported runtime"`). |
-| `hook_enhanced` | string or null | No | Minimum requirement for hook-enhanced mode. Null means hooks are not available. |
-| `tested_locally` | string or null | No | Specific version/build that has been locally verified. Informational. |
-
-#### `bootstrap`
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `spec_path` | string | Yes | Path to the neutral bootstrap spec JSON (for example `runtime/harness/bootstrap-spec.json`). The spec is the executable source of truth for startup reads. |
-| `mechanisms` | array of strings | Yes | Bootstrap delivery mechanisms this adapter uses (e.g., `"wrapper_command"`, `"session_start_hook"`, `"harness_native_config"`). |
-
-#### `identity`
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `executor` | string | Yes | The harness identity value (e.g., `"claude-code"`, `"codex"`). Matches the `executor` session identity field in the bootstrap contract. |
-| `provider_source` | string | Yes | How the adapter resolves the model provider (e.g., `"hardcoded"`, `"runtime"`, `"config"`). |
-| `model_source` | string | Yes | How the adapter resolves the model identifier (e.g., `"hardcoded"`, `"runtime"`, `"config"`). |
-| `workspace_source` | string | Yes | How the adapter resolves the workspace root (e.g., `"git_root"`). |
-
-#### `supports`
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `command_source` | string | Yes | For Yoke-owned harnesses, use `"shared_yoke_registry"`. Command/path truth is shared by default. |
-| `disabled_entrypoints` | array of strings | No | Shared operator commands this harness cannot execute because of a concrete substrate limitation. Empty means inherit shared support. |
-| `disabled_downstream_paths` | array of strings | No | Shared delivery paths this harness cannot execute because of a concrete substrate limitation. Empty means inherit shared support. |
-| `optional_local_affordances` | array of strings | No | Tool-neutral hook events or local capabilities the harness supports (e.g., `"session_start_hook"`, `"pre_tool_use_hook"`, `"post_tool_use_hook"`). These are opt-in enhancements, not correctness requirements. |
-
-#### `telemetry`
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `canonical_source` | string | Yes | Where correctness-critical telemetry originates. Must be `"yoke_core"` -- harness-local hooks are never the canonical source. |
-| `optional_local_sources` | array of strings | No | Additional local telemetry sources (e.g., `"hook_logs"`). These are informational, not authoritative. |
+| Contract | Adapter obligation |
+|---|---|
+| `harness_id` / `identity` | Unique canonical executor; truthful provider/model/workspace sources and family normalization. |
+| `runtime_minimums` | Separate wrapper-only and hook-enhanced floors; measured build is informational. |
+| `bootstrap` | Name the executable spec and actual native delivery mechanisms. |
+| `supports` | `command_source: shared_yoke_registry`; declare only concrete disabled entrypoints/paths and actual optional affordances. |
+| `session_control` and wake/turn contracts | Declare each CLI/desktop surface's actual creation, injection, resume, ending, observation and wake behavior; no borrowed harness claims. |
+| `telemetry` | Canonical source is `yoke_core`; local hook/transcript logs are informational. |
+| Hook and agent consumption | Declare native config, trust/byte constraints, identity export, omissions and generated/native consumption truth. |
 
 ### Entrypoints vs downstream paths
 
@@ -221,7 +160,7 @@ Every adapter must include a smoke-test matrix that validates both operating mod
 
 - Wrapper-only tests verify correctness without any hook infrastructure.
 - Hook-enhanced tests verify that hooks fire and produce expected side effects, but also verify that removing hooks does not break correctness.
-- The test matrix should be runnable as a shell script or test suite, not just a manual checklist.
+- Execute the smoke matrix through Python-owned tests; a checklist alone is not proof.
 
 ---
 
@@ -249,7 +188,7 @@ Additional downstream paths may be added later. The vocabulary is intentionally 
 Use this checklist when creating a new harness adapter.
 
 - [ ] **Bootstrap loader implemented.** The adapter loads all required files from the [Harness Bootstrap Contract](harness-bootstrap.md) section 1 via at least one mechanism (wrapper command, hook, or harness-native config).
-- [ ] **Capability manifest defined.** A JSON manifest matching the schema above exists for this harness, with all required fields populated.
+- [ ] **Capability manifest defined.** A JSON manifest matching the authoritative manifest schema exists for this harness, with all required fields populated.
 - [ ] **`harness_id` is unique.** No other adapter uses the same `harness_id`.
 - [ ] **`supports.command_source` is shared.** Yoke-owned harnesses use `"shared_yoke_registry"` and do not copy command/path lists into the manifest.
 - [ ] **Manifest limitations are truthful.** Every disabled entrypoint or downstream path names a concrete substrate limitation. No aspirational support or vague unsupported-by-default posture.
@@ -259,5 +198,5 @@ Use this checklist when creating a new harness adapter.
 - [ ] **Wrapper-only mode works.** All correctness-critical behavior works without hooks. Hooks are opt-in enhancements.
 - [ ] **Hook-enhanced mode is gated.** If the adapter uses hooks, they are gated by runtime/version checks. Missing hooks degrade to wrapper-only mode silently.
 - [ ] **Smoke-test matrix passes.** Both wrapper-only and hook-enhanced columns pass for all applicable test dimensions.
-- [ ] **No Yoke core modifications.** The adapter fits entirely within this template's five parts. No changes to Yoke core scripts, skills, or DB schema are required for the adapter itself.
+- [ ] **Shared owners verified.** Vocabulary, native identity, adapter/render/install and doctor changes agree; preserve shared workflow and state semantics.
 - [ ] **No Tier 3 raw-entrypoint invocations.** The adapter never calls lower-level DB routers, event emitters, or other internal Python entrypoints directly.

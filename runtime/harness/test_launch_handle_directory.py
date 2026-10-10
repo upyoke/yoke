@@ -91,13 +91,16 @@ def _sleeper() -> subprocess.Popen:
 def test_a_hook_written_handle_is_read_by_a_relay_with_its_own_state_dir(
     tmp_path: Path,
 ) -> None:
-    assert _hook_written_handle(os.getpid())
+    process = _sleeper()
+    try:
+        assert _hook_written_handle(process.pid)
+    finally:
+        process.terminate()
+        process.wait(timeout=5)
 
     dead = verified_dead_sessions(
         state_dir=_relay_state(tmp_path),
         anchors_dir=tmp_path / "anchors",
-        # A reused pid names a different process, so this native reads as gone.
-        start_time_of=lambda _pid: "some-other-start",
     )
 
     assert [entry.session_id for entry in dead] == [SESSION_ID]
@@ -116,8 +119,13 @@ def test_a_live_hook_written_handle_is_not_reported_dead(tmp_path: Path) -> None
     assert dead == ()
 
 
-def test_a_landed_report_prunes_the_hook_written_handle(tmp_path: Path) -> None:
+def test_a_landed_report_prunes_the_hook_written_handle(
+    tmp_path: Path, monkeypatch
+) -> None:
     assert _hook_written_handle(os.getpid())
+    monkeypatch.setattr(
+        "yoke_harness.session_process_custody.group_members", lambda group: {}
+    )
     dispatcher = _Dispatcher([SESSION_ID])
 
     ended = report_verified_dead_sessions(

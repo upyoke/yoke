@@ -47,8 +47,6 @@ _CORE_DOMAIN_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/domain"
 # startup rules every session already receives.
 IMPORTING_CONSUMERS: Tuple[str, ...] = (
     "packages/yoke-cli/src/yoke_cli/main.py",
-    "packages/yoke-cli/src/yoke_cli/commands/_helpers.py",
-    "packages/yoke-cli/src/yoke_cli/commands/group_help.py",
     "packages/yoke-cli/src/yoke_cli/commands/adapters/ouroboros_field_note.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/agents_render_field_note.py",
     "packages/yoke-core/src/yoke_core/tools/render_field_note_inline.py",
@@ -78,17 +76,20 @@ def _consumer_imports_canonical(repo_root: Path, relpath: str) -> Optional[bool]
 
 
 def scan_importing_consumers(
-    repo_root: Path, *, consumers: Sequence[str] = IMPORTING_CONSUMERS,
+    repo_root: Path,
+    *,
+    consumers: Sequence[str] = IMPORTING_CONSUMERS,
 ) -> List[str]:
     """Return repo-relative paths of importing consumers that don't import."""
     return [
-        rel for rel in consumers
-        if _consumer_imports_canonical(repo_root, rel) is False
+        rel for rel in consumers if _consumer_imports_canonical(repo_root, rel) is False
     ]
 
 
 def scan_packet_seeds(
-    repo_root: Path, *, seeds: Sequence[str] = PACKET_SEED_CONSUMERS,
+    repo_root: Path,
+    *,
+    seeds: Sequence[str] = PACKET_SEED_CONSUMERS,
 ) -> List[str]:
     """Return packet seeds missing the canonical field-note command."""
     missing: List[str] = []
@@ -117,12 +118,13 @@ def _run_renderer_check(
         result = rri.render(repo_root, check=True)
     except Exception as exc:  # noqa: BLE001
         return (f"renderer raised ({exc}) — skipping", [], [])
-    return (None, [o.path for o in result.changed],
-            list(result.orphan_marker_errors))
+    return (None, [o.path for o in result.changed], list(result.orphan_marker_errors))
 
 
 def hc_field_note_coherence(
-    conn, args: DoctorArgs, rec: RecordCollector,
+    conn,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     """Doctor entry. Combines drift + consumer-import checks."""
     repo_root = _project_root()
@@ -163,7 +165,9 @@ def hc_field_note_coherence(
 
     if not findings:
         rec.record(
-            HC_NAME, HC_DESC, "PASS",
+            HC_NAME,
+            HC_DESC,
+            "PASS",
             f"renderer --check clean; {len(IMPORTING_CONSUMERS)} importing "
             f"consumer(s) + {len(PACKET_SEED_CONSUMERS)} packet seed(s) coherent.",
         )
@@ -172,9 +176,14 @@ def hc_field_note_coherence(
 
 
 __all__ = [
-    "HC_NAME", "HC_DESC", "CANONICAL_MODULE",
-    "CANONICAL_COMMAND", "IMPORTING_CONSUMERS", "PACKET_SEED_CONSUMERS",
-    "hc_field_note_coherence", "scan_importing_consumers",
+    "HC_NAME",
+    "HC_DESC",
+    "CANONICAL_MODULE",
+    "CANONICAL_COMMAND",
+    "IMPORTING_CONSUMERS",
+    "PACKET_SEED_CONSUMERS",
+    "hc_field_note_coherence",
+    "scan_importing_consumers",
     "scan_packet_seeds",
 ]
 
@@ -184,5 +193,9 @@ from yoke_project_checks._declare import (  # noqa: E402
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('field-note-coherence', 'Field-note channel coherence: renderer --check + named consumers import from field_note_text', hc_field_note_coherence),
+    (
+        "field-note-coherence",
+        "Field-note channel coherence: renderer --check + named consumers import from field_note_text",
+        hc_field_note_coherence,
+    ),
 )

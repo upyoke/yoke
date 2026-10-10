@@ -10,13 +10,12 @@ The live `events` ledger is production telemetry. Synthetic test rows **must not
 |---|---|
 | `YOKE_EVENTS_ISOLATION=1` | Refuse any live-ledger write unless an escape hatch applies. |
 | `YOKE_PG_DSN=... dbname=yoke_test_*` | Route emissions to an explicit Postgres test DB. Escape hatch. |
-| `YOKE_DB=/path/to/temp.db` | Legacy file-backed tests only: route emissions to an explicit test DB path. Escape hatch. |
 | `YOKE_EVENTS_CAPTURE=1` + `YOKE_EVENTS_FILE=/path/to.ndjson` | Divert emissions to an NDJSON capture file. Escape hatch. |
 | `YOKE_EVENTS_CAPTURE=1` alone (no file) | **Refused** — declared capture intent with no sink is never allowed to fall through to the live ledger. |
 
 **Escape hatches under `YOKE_EVENTS_ISOLATION=1`:**
 
-1. **Explicit test DB authority.** On Postgres, emissions proceed when `YOKE_PG_DSN` targets a database whose name carries the shared `yoke_test_` prefix. Legacy file-backed tests may still use an explicit `YOKE_DB` test path.
+1. **Explicit test DB authority.** On Postgres, emissions proceed when `YOKE_PG_DSN` targets a database whose name carries the shared `yoke_test_` prefix. Legacy file path tokens are inactive compatibility inputs and never establish database authority.
 2. **Explicit connection.** Callers that pass `conn=` directly to `events.emit_event(...)` manage their own lifecycle; the gate always honors them.
 3. **Capture sink.** `YOKE_EVENTS_CAPTURE=1` + `YOKE_EVENTS_FILE=...` writes NDJSON to the sink.
 4. **Intentional smoke lineage.** Emissions tagged with `anomaly_flags="synthetic_smoke"` are an explicit declaration: "this row belongs in the live ledger as a retained smoke-test marker". See "Intentional Smoke Rows" below.

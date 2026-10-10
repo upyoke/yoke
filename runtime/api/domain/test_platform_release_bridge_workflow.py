@@ -100,10 +100,8 @@ def test_bridge_uses_scoped_yoke_api_token_not_cross_repo_github_token() -> None
     text = _text()
 
     assert "secrets.YOKE_PLATFORM_RELEASE_API_TOKEN" in text
-    assert "yoke github-actions trigger" in text
-    assert "upyoke/platform yoke-release-promote.yml" in text
+    assert "python3 -m runtime.api.tools.promote_platform_release" in text
     assert "--project platform" in text
-    assert "yoke github-actions wait-run" in text
     assert "personal access token" not in text.lower()
     for retired_secret_name in (
         "GH_PAT",
@@ -114,12 +112,24 @@ def test_bridge_uses_scoped_yoke_api_token_not_cross_repo_github_token() -> None
 
 
 def test_bridge_forwards_environment_release_mode_and_annotated_tag() -> None:
-    text = _text()
+    promotion = _step("- name: Dispatch and await Platform pin promotion and release")
 
-    assert '--input "target_environment=$TARGET_ENVIRONMENT"' in text
-    assert '--input "product_ref=$PRODUCT_REF"' in text
-    assert '--input "release_mode=$RELEASE_MODE"' in text
-    assert "--correlation-input yoke_dispatch_id" in text
+    assert '--product-ref "$PRODUCT_REF"' in promotion
+    assert '--release-mode "$RELEASE_MODE"' in promotion
+    assert '--candidate-sha "$PRODUCT_SHA"' in promotion
+    assert "PRODUCT_REF: ${{ steps.release.outputs.tag }}" in promotion
+
+
+def test_bridge_hands_promotion_the_proof_and_follows_a_moved_trunk() -> None:
+    """Promotion starts from the pre-tag proof and re-reads the trunk itself."""
+    promotion = _step("- name: Dispatch and await Platform pin promotion and release")
+
+    assert (
+        "PROVEN_CONSUMER_SHA: ${{ steps.consumer_proof.outputs.proven_consumer_sha }}"
+        in promotion
+    )
+    assert '--proven-consumer-sha "$PROVEN_CONSUMER_SHA"' in promotion
+    assert "id: promotion" in promotion
 
 
 def test_bridge_carries_the_registered_environment_name_not_a_promotion_label() -> None:
@@ -136,22 +146,16 @@ def test_bridge_carries_the_registered_environment_name_not_a_promotion_label() 
 def test_bridge_passes_the_registered_environment_name_to_the_platform_dispatch() -> (
     None
 ):
-    text = _text()
-    dispatch = text.split(
-        "- name: Dispatch and await Platform pin promotion and release", 1
-    )[1].split("      - name: ", 1)[0]
+    promotion = _step("- name: Dispatch and await Platform pin promotion and release")
 
     # Platform's promotion train is keyed by the registered environment
     # names, so the bridge passes the name through unchanged and never
-    # reintroduces a translated promotion label.
-    assert 'case "$TARGET_ENVIRONMENT" in' in dispatch
-    assert "stage|prod) ;;" in dispatch
-    assert '--input "target_environment=$TARGET_ENVIRONMENT"' in dispatch
-    assert "platform_target" not in dispatch
-    assert "production" not in dispatch
-    # An unroutable environment stops the release rather than dispatching a
-    # promotion input Platform's own choice list would reject.
-    assert "no Platform promotion route for environment $TARGET_ENVIRONMENT" in dispatch
+    # reintroduces a translated promotion label; the module refuses any
+    # environment Platform's own choice list would reject.
+    assert "TARGET_ENVIRONMENT: ${{ inputs.target_environment }}" in promotion
+    assert '--target-environment "$TARGET_ENVIRONMENT"' in promotion
+    assert "platform_target" not in promotion
+    assert "production" not in promotion
 
 
 def test_bridge_hands_yoke_surfaces_the_registered_environment_name() -> None:
@@ -168,15 +172,13 @@ def test_bridge_hands_yoke_surfaces_the_registered_environment_name() -> None:
     assert '--environment "$TARGET_ENVIRONMENT"' in record
 
 
-def test_bridge_recovers_a_lost_dispatch_response_without_reposting() -> None:
-    text = _text()
+def test_bridge_keys_the_promotion_dispatch_on_this_bridge_attempt() -> None:
+    promotion = _step("- name: Dispatch and await Platform pin promotion and release")
 
-    assert "for attempt in $(seq 1 12)" in text
-    assert 'request_id="bridge:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:' in text
-    assert '--request-id "$request_id"' in text
-    assert 'grep -q "workflow_dispatch_ambiguous"' in text
-    assert "same scoped actor" in text
-    assert 'test -n "$platform_run_id"' in text
+    assert (
+        '--request-id "bridge:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:'
+        '${OUTER_DISPATCH_ID}"' in promotion
+    )
 
 
 def test_bridge_records_pin_only_after_terminal_platform_success() -> None:
@@ -186,7 +188,9 @@ def test_bridge_records_pin_only_after_terminal_platform_success() -> None:
     record = _step(record_marker)
 
     assert text.index(authority_marker) < text.index(record_marker)
-    assert text.rindex("yoke github-actions wait-run") < text.index(record_marker)
+    assert text.index(
+        "- name: Dispatch and await Platform pin promotion and release"
+    ) < text.index(record_marker)
     assert text.count("yoke release-pin record") == 1
     assert 'VERSION="${PRODUCT_REF#v}"' in record
     assert 'receipt="$(yoke release-pin record \\' in record

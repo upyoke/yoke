@@ -78,10 +78,13 @@ speculative call spends budget on detail nobody records.
 `YOKE_API_LOG_LEVEL=DEBUG` without a campaign remains the local
 restart-to-clear path. Do not leave it on in hosted processes.
 
-Query windows still help read what was captured:
+Query windows still help read what was captured. Select the hosting project
+whose `aws-admin` capability owns access; the adapter materializes credentials
+only for the AWS subprocess:
 
 ```bash
-aws logs filter-log-events --log-group-name /yoke/<env>/core \
+yoke aws exec --project <hosting-project> -- logs filter-log-events \
+  --log-group-name /yoke/<env>/core \
   --start-time <epoch-ms> --end-time <epoch-ms> \
   --filter-pattern '"<request-id-or-session-id>"'
 yoke events query --session <session-id> --since '<start>' --until '<end>' --limit 100

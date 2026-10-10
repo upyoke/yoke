@@ -25,7 +25,7 @@ QA_REQUIREMENT_SUPERSEDE_USAGE = (
     "yoke qa requirement supersede --requirement-id N "
     "--superseded-by-requirement-id N "
     "(--rationale TEXT | --content-file PATH | --stdin) "
-    "[--declare-replacement] [--source operator|agent] [--session-id S] [--json]"
+    "[--declare-replacement | --reconcile] [--source operator|agent] [--session-id S] [--json]"
 )
 
 _EPILOG = (
@@ -56,11 +56,24 @@ _EPILOG = (
     "row is untouched and still outstanding, so the next release admits the "
     "same body again. The receipt names that row and how to retire it. To "
     "retire a post_deploy item source, record the corrected body as a new "
-    "item requirement for the same item, transition, phase and --target-env "
+    "item requirement for the same item, transition, phase and resolved environment "
+    "(--target-env names the source snapshot destination; its digest need not match) "
     "('yoke qa requirement add --item ...'), then supersede the source with "
     "it. Neither item row ever executes, so this needs one admitted copy of "
-    "the source already superseded by a passing run case; that case answers "
-    "its own run, and later releases admit only the corrected requirement."
+    "the source replaced or superseded along a chain whose terminal case has a "
+    "current configuration-and-target-qualified pass; that case answers "
+    "its own run, and later releases admit only the corrected requirement. "
+    "Successor links must converge on the named terminal case; supersession "
+    "updates an existing replacement link to that same case. To repair "
+    "inconsistent links, an operator or project steering holder runs this "
+    "command with --reconcile --source operator and the unique terminal "
+    "requirement. Divergent terminals, cycles, missing rows or incompatible "
+    "scopes refuse before writing. The repair preserves intermediate rows, "
+    "captures and prior rationale, and appends the verified actor, seat claim, "
+    "scope and reason. Operator-sourced reconciliation requires a live operator "
+    "session or steering seat covering the requirement, without the item claim. "
+    "The item claim alone is insufficient. The holder is notified and retains "
+    "its claim; the receipt reports notice delivery and any recovery."
 )
 
 
@@ -80,6 +93,11 @@ def _write_supersede_result(
         # Printed here rather than left in the envelope: this is the only
         # moment the operator holds the corrected configuration, and the
         # source row is the only thing that makes the correction stick.
+        repair_notice = result.get("repair_notice")
+        if repair_notice:
+            print(f"Holder notice: {repair_notice['delivery']}", file=stdout)
+            if repair_notice.get("recovery"):
+                print(repair_notice["recovery"], file=_stderr)
         notice = result.get("next_admission_notice")
         if notice:
             print(f"Next release: {notice}", file=stdout)
@@ -138,6 +156,11 @@ def qa_requirement_supersede(args: List[str]) -> int:
         action="store_true",
         help="Link a pending corrected direct case before its pass; the scoped plan runner executes it.",
     )
+    parser.add_argument(
+        "--reconcile",
+        action="store_true",
+        help="Operator-authorized repair of links converging on the named terminal; preserves correction history.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_SUPERSEDE_USAGE)
@@ -164,6 +187,7 @@ def qa_requirement_supersede(args: List[str]) -> int:
             "rationale": rationale,
             "source": parsed.source,
             "declare_replacement": parsed.declare_replacement,
+            "reconcile": parsed.reconcile,
         },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,

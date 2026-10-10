@@ -17,9 +17,10 @@ A run that is settling (``settling_at`` set while it still reads
 may read ``succeeded``. Its delivery happened, so completion authority reads
 it as succeeded; that is what lets those members' own done gates pass while
 the run itself stays non-terminal until they have. Each entry still carries
-``settling`` so a reader that needs the recorded terminal fact — release
-composition, whose dependency gate counts only ``succeeded`` runs — can tell
-a delivery still closing its members from one that finished.
+``settling`` so producer gates can distinguish a delivery still closing its
+members from a terminal run. Dependency readers instead consume the durable
+completion attribution published with each item's successful done transition;
+they do not re-evaluate the carrying run's later status.
 """
 
 from __future__ import annotations

@@ -31,9 +31,7 @@ def spec_dir(tmp_path):
     """Create a minimal bootstrap spec and file tree."""
     spec = {
         "required_files": ["AGENTS.md", "docs/OVERVIEW.md"],
-        "required_commands": [
-            {"label": "Echo test", "command": "echo hello"}
-        ],
+        "required_commands": [{"label": "Echo test", "command": "echo hello"}],
         "recommended_files": [".yoke/BOARD.md"],
     }
     spec_path = tmp_path / "bootstrap-spec.json"
@@ -43,7 +41,7 @@ def spec_dir(tmp_path):
     (tmp_path / "docs").mkdir(parents=True)
     (tmp_path / "docs" / "OVERVIEW.md").write_text("# Overview")
     (tmp_path / "docs" / "prompt-philosophy.md").write_text(
-        'The short form is `**Be the giant.** We stand on inherited shoulders.`'
+        "The short form is `**Be the giant.** We stand on inherited shoulders.`"
     )
     (tmp_path / ".yoke").mkdir(parents=True, exist_ok=True)
     (tmp_path / ".yoke" / "BOARD.md").write_text("# Board")
@@ -157,6 +155,9 @@ class TestRenderFull:
         root, _, spec = spec_dir
         result = render_full(root, spec)
         assert "=== Critical Runtime Invariants ===" in result
+        assert "registered `yoke <subcommand>` operations" in result
+        assert "diagnostic SELECTs use `yoke db read`" in result
+        assert "python3 -m yoke_core.cli.db_router" not in result
         assert "yoke packets render --role main_agent" in result
         assert "=== AGENTS.md ===" in result
         assert "# Claude rules" in result

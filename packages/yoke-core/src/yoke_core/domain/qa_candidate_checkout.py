@@ -97,7 +97,12 @@ def candidate_checkout(case: Mapping[str, Any]) -> Iterator[Path]:
         )
     source = _source_checkout(case)
     sha = _candidate_commit(source, revision, subject)
-    root = Path(tempfile.mkdtemp(prefix=f"{CANDIDATE_CHECKOUT_PREFIX}{sha[:12]}-"))
+    # Resolve at creation. A temp root often sits behind a symlink (/var ->
+    # /private/var on macOS); a later step resolves the project path, and
+    # relative_to refuses to compare the two forms.
+    root = Path(
+        tempfile.mkdtemp(prefix=f"{CANDIDATE_CHECKOUT_PREFIX}{sha[:12]}-")
+    ).resolve()
     try:
         for step in (
             [

@@ -21,9 +21,10 @@ claim holder, and a landing recorded without it is exactly the state the
 report exists to surface.
 
 What each candidate costs depends on which route it is on. An item whose
-queue admission was recorded is waiting on a notification only this
-observer sends, so it gets the full four-fact read and can be told its
-landing stopped. An item that merely has a pull request open is asked one
+queue admission or prior armed/queued observation was recorded is waiting
+on a notification only this observer sends, so it gets the full four-fact
+read even after arming is cleared and can be told its landing stopped.
+An item that merely has a pull request open is asked one
 question — did it merge — because the ordinary answer for a pull request
 still being verified is *not yet*, and a landing that was never armed
 cannot have been ejected from a queue it never entered.
@@ -138,6 +139,23 @@ def observe_pending_landings(
                 read_checks=read_checks,
             )
             if readback.membership is not None or readback.merged:
+                if row.get("previously_held") and not row.get(
+                    "merge_queue_enqueued_at"
+                ):
+                    # Keep this known arming episode until its notice arrives.
+                    # Replacing its observation with STALLED must not erase the
+                    # evidence needed to retry a failed notice transport.
+                    episode = str(row["previous_observed_at"])
+                    updated = conn.execute(
+                        f"UPDATE items SET merge_queue_enqueued_at={marker} "
+                        f"WHERE id={marker} AND merge_queue_pr_number={marker} "
+                        "AND merge_queue_enqueued_at IS NULL",
+                        (episode, item_id, pr_number),
+                    )
+                    if not updated.rowcount:
+                        conn.rollback()
+                        continue  # A concurrent re-arm owns the fresh episode.
+                    row["merge_queue_enqueued_at"] = episode
                 record = from_readback(
                     item_id=item_id,
                     project_id=project_id,

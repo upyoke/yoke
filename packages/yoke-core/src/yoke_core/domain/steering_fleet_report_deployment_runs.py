@@ -163,9 +163,8 @@ class DeploymentRunProgress:
             return f"Nothing is outstanding; re-drive {self.run_id} to start it."
         if self.answered_decision is not None:
             return (
-                f"The answer is already recorded; re-drive {self.run_id} so the "
-                "runner acts on it — an approve proceeds, a reject fails the "
-                "stage. Until then the run waits on a settled question."
+                f"Answer recorded; re-drive {self.run_id} so the runner acts on it: "
+                "an approve proceeds, a reject fails the stage."
             )
         return redrive_recovery(self.run_id, unresolved=self.outstanding)
 

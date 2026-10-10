@@ -20,9 +20,9 @@ from yoke_core.domain.deployment_run_driver_attachment import (
 
 pytest_plugins = ["runtime.api.deployment_runs_test_db"]
 
-NOW = "2026-09-21T12:00:00Z"
-LATER = "2026-09-21T12:01:00Z"
-STALE = "2026-09-21T12:10:01Z"
+NOW = parse_instant("2026-09-21T12:00:00Z")
+LATER = parse_instant("2026-09-21T12:01:00Z")
+STALE = parse_instant("2026-09-21T12:10:01Z")
 
 
 def test_a_second_live_driver_is_refused_by_name(db_path: str) -> None:

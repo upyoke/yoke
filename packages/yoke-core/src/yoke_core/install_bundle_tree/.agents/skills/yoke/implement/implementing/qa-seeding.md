@@ -1,74 +1,39 @@
 # Active — QA Seeding
 
-Seeds QA requirements before implementation begins. Called by the active router as the QA-seeding phase.
+Implement owns seed → implement → test → record in its single lane.
+Project-default and item-attached plans are the primary source.
+[Test and record](test-and-record.md) materializes immutable cases at the
+pinned verification transition. Do not derive consolidated requirements
+from item type, AC prose or Browser posture.
 
-**Context variables** (from router): `{N}`, `{NNN}`, `{title}`, `{WORKTREE_PATH}`
+For explicit coverage outside attached plans, use `qa.requirement.add`:
 
----
-
-## QA Lifecycle for the Implement Skill
-
-When the pinned `implement` binding enters `implementing` under
-`single_implementation_lane`, the implementing agent is responsible for the
-full QA loop: seed -> implement -> test -> record. This ensures the done gate
-has data to check.
-
-### a. Seed QA Requirements (before coding)
-
-Project-default and item-attached plans are the primary source of requirements.
-The test-and-record phase materializes their immutable case snapshots for the
-`reviewing-implementation` transition before execution. Do not derive a
-consolidated requirement from item type, acceptance-criteria prose, or Browser
-posture.
-
-When the item's verification contract calls for coverage outside its attached
-plans, add only that explicit item-specific requirement:
+For a pin whose gated stage is `reviewed-implementation`, the example is:
 
 ```bash
-yoke qa requirement add \
-  --item PREFIX-{N} \
-  --qa-kind ac_verification \
+yoke qa requirement add --item PREFIX-N --qa-kind ac_verification \
   --qa-phase verification \
   --workflow-transition reviewed-implementation \
-  --blocking-mode blocking \
-  --requirement-source ac_derived \
-  --success-policy "{brief description of what passing looks like}"
+  --blocking-mode blocking --requirement-source ac_derived \
+  --success-policy "<observable passing outcome>"
 ```
 
-The write is item-claim-gated; the implement session already holds the work claim, so it dispatches cleanly. The transition must name the QA-gated stage in the item's pinned workflow. Read `yoke qa requirement add --help` for task selectors and deployment-run attachments.
+The session already holds the claim. Read `--help` for methods, task selectors
+and deployment-run attachments; the transition must be the QA-gated stage
+selected by the immutable definition.
 
-The `--success-policy` field is a human-readable description of what "pass"
-means (e.g., "test suite passes with zero failures", "config change verified
-in output"). If no plan is attached and the item has no acceptance criteria,
-seed at minimum one explicit requirement with
-`--qa-kind implementation_review` and
-`--workflow-transition reviewed-implementation` and
-`--success-policy "Implementation matches the item title/description"`.
+Only a genuinely uncategorized item with no attached plan and no AC gets an
+explicit `implementation_review` requirement, with a success policy that the
+implementation matches its title/description. A default-testing workflow
+without a registered command instead structurally seeds
+`no_tests_declared` where quick would run. Record that stored kind as
+`performed_by=agent`: agent-attested/no-tests-declared proves review, not
+an executed suite. `yoke qa no-tests attest --project P --reason "..."`
+adds the operator's reason. The requirement is seeded structurally; command
+absence cannot produce a vacuous empty gate. Replace the example's transition
+with the actual pinned QA stage whenever it differs.
 
-That fallback is for the genuinely uncategorized item. A pinned workflow that
-uses project testing defaults and has no registered command gets a
-`no_tests_declared` requirement seeded structurally at the transition where
-`quick` would run.
-Record its verdict with `performed_by=agent` and the stored kind; the resulting
-`agent-attested / no-tests-declared` evidence is an honest floor, not a claim
-that tests ran. `yoke qa no-tests attest --project P --reason "..."` adds the
-operator's reason. The requirement itself is seeded from command absence, so
-an undecided project cannot reach an empty, vacuously green gate.
-
-### Browser case authoring
-
-When the verification contract calls for Browser proof, read
-`implementing/browser-seeding.md`. It attaches a reusable plan or authors an
-explicit `browser-check` / `browser-inspection` method case. It never derives
-requirements from an item classification field.
-
-### Project-default plan cases
-
-Do not inspect project-structure command settings or seed free-form `quick`,
-`full`, `e2e`, or `smoke` requirements. Project-owned verification is attached
-as QA plan defaults at the workflow transitions where it runs. The transition
-router materializes those cases immediately before execution.
-
-This phase seeds only item-specific and AC-derived requirements.
-Project-default cases remain immutable plan contracts and are
-executed through `yoke qa case run` after materialization.
+For an explicit Browser contract, follow [browser-seeding.md](browser-seeding.md):
+reuse a plan or author a method case. Do not seed free-form quick/full/e2e/smoke
+requirements or inspect structure command settings as a substitute for plan
+defaults. The transition router materializes project-owned cases.

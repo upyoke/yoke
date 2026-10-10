@@ -35,6 +35,7 @@ def test_workflow_skills_resolve_file_budget_and_claims_independently() -> None:
         _command("conduct"),
         _command("dash"),
         _command("blitz"),
+        ROOT / ".yoke/docs/reference/agent-rules/lanes-and-claims.md",
     ]
     for path in paths:
         text = _read(path)
@@ -72,6 +73,7 @@ def test_skills_consume_central_effective_policy_projection() -> None:
 def test_teaching_covers_all_axis_combinations_and_universal_cap() -> None:
     text = _bundle(
         ROOT / "AGENTS.md",
+        ROOT / ".yoke/docs/reference/agent-rules/lanes-and-claims.md",
         _command("idea"),
         _command("refine"),
         _command("dash"),
@@ -80,7 +82,7 @@ def test_teaching_covers_all_axis_combinations_and_universal_cap() -> None:
     assert "both off" in text
     assert "budget off" in text and "claims on" in text
     assert "budget on" in text and "claims off" in text
-    assert "both axes are enabled" in text
+    assert "both effective axes are enabled" in text
     assert "350-line" in text
     assert "file_line_check" in text
 
@@ -90,18 +92,18 @@ def test_each_execution_surface_teaches_the_both_off_composition() -> None:
         SKILLS / "implement" / "entry.md",
         _command("conduct"),
         _command("dash"),
-        ROOT / "runtime" / "agents" / "architect.md",
+        ROOT / "runtime" / "agents" / "architect" / "hard-constraints.md",
     ]
     for path in paths:
         text = _read(path).lower()
-        assert "both off" in text or "both are off" in text
+        assert "both off" in text or "neither: instruction and" in text
 
 
 def test_optional_budget_teaching_does_not_require_parent_section() -> None:
     idea = _read(SKILLS / "idea" / "body-and-sync.md")
     engineer = _read(ROOT / "runtime" / "agents" / "engineer.md")
     assert "When File Budget is off, omit that section." in idea
-    assert "when disabled, use the dispatched execution scope" in engineer
+    assert "disabled: dispatched scope applies without inventing a budget" in engineer
     assert "File Budget is mandatory for any implementation-bearing intake" not in idea
 
 

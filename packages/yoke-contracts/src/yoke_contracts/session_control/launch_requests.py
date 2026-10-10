@@ -72,8 +72,16 @@ class LaunchPreviewRequest(BaseModel):
 
 
 class LaunchCreateRequest(LaunchPreviewRequest):
+    """Create one launch.
+
+    On an item-bound create, ``level`` also becomes the item's level for every
+    stage, recorded with ``level_reason``; an itemless create places that one
+    launch and records nothing.
+    """
+
     use_stage_level: bool = False
     item: Optional[str] = Field(default=None, min_length=1, max_length=64)
+    level_reason: Optional[str] = Field(default=None, min_length=1, max_length=500)
     instructions: str = ""
     compose_mandate: bool = True
     idempotency_key: str
@@ -84,6 +92,16 @@ class LaunchCreateRequest(LaunchPreviewRequest):
         max_length=64,
         pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._-]*$",
     )
+
+    @model_validator(mode="after")
+    def _level_reason_has_a_level_to_explain(self) -> "LaunchCreateRequest":
+        if self.level_reason is not None and not (self.level and self.item):
+            raise ValueError(
+                "level_reason_without_item_level: a level reason explains the "
+                "item level that --level records, so it needs both --level and "
+                "--item; drop it, or name both"
+            )
+        return self
 
     @model_validator(mode="after")
     def _item_or_raw_body(self) -> "LaunchCreateRequest":

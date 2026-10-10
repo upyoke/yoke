@@ -50,6 +50,7 @@ class ItemsGetResponse(BaseModel):
     fields: Dict[str, str | Dict[str, str]]
     # Delivery instructions are separate from the fields they govern.
     execution_instructions: List[Dict[str, Any]] | None = None
+    sections: List[Dict[str, str]] | None = None
 
 
 def handle_items_get(request: FunctionCallRequest) -> HandlerOutcome:
@@ -101,6 +102,17 @@ def handle_items_get(request: FunctionCallRequest) -> HandlerOutcome:
         else:
             out[col] = query_item(item_id, col)
     result: Dict[str, Any] = {"item_id": item_id, "fields": out}
+    if not requested:
+        from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain.render_body_item_sections import fetch_item_sections
+
+        with connect() as conn:
+            rows = fetch_item_sections(conn, item_id, late=False)
+            rows += fetch_item_sections(conn, item_id, late=True)
+        result["sections"] = [
+            {"name": row["section_name"], "content": str(row["content"] or "")}
+            for row in rows
+        ]
     result["execution_instructions"] = _read_instructions(item_id)
     return HandlerOutcome(result_payload=result, primary_success=True)
 

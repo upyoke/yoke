@@ -1,5 +1,19 @@
 # Viewing a Test Machine desktop
 
+Baseline reset and verification clear test-account-owned Yoke, Playwright,
+Chromium and pip run artifacts from system and OS user temporary locations.
+The golden directory and its sidecars, browser-profile baseline and restored
+home remain protected. Receipts record `temp_cleanup.freed_bytes` and removed
+entries. Reset/verify refuse `test_machine_cleanup_live_lease` while a mission
+owns the host: finish or abort that mission first. Run
+`yoke test-machine reset --project P --machine NAME`; read its `--help`.
+
+Mission preparation requires at least 1 GiB free on the home and temporary
+filesystems before package setup or scratch creation. A
+`test_machine_disk_space_low` refusal records the observed space and minimum;
+finish or abort the owning mission, reset the host, and expand its disk if
+reset cannot recover that space before retrying QA.
+
 The named machine's `desktop_password` secret is its administrator password,
 used for desktop access and macOS/Linux administrator commands. Run one setup
 command with `yoke test-machine exec --project P --machine NAME --admin -- COMMAND ARGS...`.
@@ -11,11 +25,27 @@ Run `yoke test-machine desktop-access --project P --machine NAME --view` on the
 workstation holding the registered fixture credentials. Read the command's
 `--help` for route prerequisites, refusals, and cleanup.
 
+A human operator can run this command from a plain terminal while a QA session
+leases the machine, to observe or assist that session. Access keeps the lease's
+owner, heartbeat, and lifetime unchanged. Harness sessions must own the lease
+and still receive `test_machine_leased` for another session's machine. The
+command names the assisting operator and lease, and records desktop access
+authorization as `SessionActionPerformed` in the holder's history with the
+actor and lease id. If audit capture is unavailable, the output names the
+reason and asks the control-plane operator to repair it; access still proceeds.
+
 The viewer uses the registered Linux or Windows WSL user's XFCE display over
 RDP. It measures that display's geometry, supplies the fixture password through
 stdin, and owns the SSH forward until the viewer closes. It does not write a
 password file or put the password in the client arguments. Personal sign-in is
 performed by the operator in the visible desktop.
+
+The resizable viewer scales the shared desktop to fit its window. The initial
+window fits within 1280 by 800 logical pixels, with a doubled framebuffer on
+macOS for Retina readability. Resizing the window changes only the local view;
+the measured remote XFCE geometry stays unchanged. FreeRDP SDL uses the
+`/smart-sizing` dimensions for the remote desktop and `/size` for the initial
+local window; see its [window setup](https://github.com/FreeRDP/FreeRDP/blob/3.32.1/client/SDL/SDL3/sdl_context.cpp).
 
 On macOS, the FreeRDP SDL client uses OpenGL rendering. Continuous remote updates
 can keep its default Metal renderer waiting for drawables inside the update loop,

@@ -17,7 +17,7 @@ level first:
 
 | Level | Surface | Model or selector | Effort | Context |
 |---|---|---|---|---|
-| INTERN 🐣 | claude-cli | `claude-haiku-4-5` | max | default |
+| INTERN 🐣 | claude-cli | `claude-haiku-5-5` | max | default |
 | | codex-cli | `gpt-6-luna` | max | default |
 | JUNIOR 🐥 | cursor-cli | `grok-4.7-high`; when its pool is exhausted, `claude-opus-5-5-medium` | high / medium | default |
 | | codex-cli | `gpt-5.6-terra` | xhigh | default |
@@ -158,18 +158,19 @@ by name. The steering report lists each override beside its level block.
 
 Current published built-in definitions allow the key. Existing items keep
 their immutable workflow pins when a new definition is deployed, so an old
-pin may refuse the amendment. Read `yoke workflows item get PREFIX-N` for
-its actual allowlist. The control-plane operator must select a compatible
-published version and preview `yoke workflows item migrate PREFIX-N
---version N --preview` before applying the migration and retrying the
-amendment. This requires operator-started authority; workers cannot
-self-authorize it. `yoke workflows item-posture amend --help` carries the
+pin may refuse the amendment, or a level-named launch's recording of it. Read
+`yoke workflows item get PREFIX-N` for its actual allowlist. The control-plane
+operator must select a compatible published version and preview `yoke
+workflows item migrate PREFIX-N --version N --preview` before applying the
+migration and retrying the amendment. This requires a live steering seat
+covering the target project or document; workers cannot self-authorize it. `yoke workflows item-posture amend --help` carries the
 recovery decision tree. Publishing a definition never blanket-repins items.
 
 The override applies once to an automatic stage default: shift first, then
-clamp to the named bounds and the project's level range. An explicit
-`--level` or exact surface/model request wins for that launch and bypasses
-the item default. Changing an override never changes a running worker.
+clamp to the named bounds and the project's level range. An exact
+surface/model request bypasses the item default. A `--level` on an item-bound
+create sets the override itself ([Launching by level](#launching-by-level)).
+Changing an override never changes a running worker.
 
 ## Stage levels
 
@@ -202,7 +203,8 @@ retaining a release-wait claim:
 3. Run the returned `next_command` exactly. It launches this item's
    successor from the new stage's effective level. Read `launch create
    --help` for selectors and idempotency. Workers may launch their own
-   successor after release; other workers and in-flight launches still block.
+   successor after release; other workers and in-flight launches still block,
+   and a worker still holding a claim refuses `item_has_live_worker`.
 4. Verify the launch was accepted, then end the session. A refusal names its
    recovery: report it to steering and preserve the checkpoint; do not claim
    success or continue at the previous level. If the predecessor dies before
@@ -215,11 +217,24 @@ staffing, not an operator execution instruction or a workflow skill binding.
 ## Launching by level
 
 A create with no selector uses the item's live effective stage level, and
-Yoke chooses the option and machine. An explicit `--level` overrides one
-launch. A missing stage level without an explicit selector refuses as
-`stage_level_missing`, naming `--level` or the operator-only workflow migration
+Yoke chooses the option and machine; it records nothing. An explicit `--level`
+on an item-bound create also records that level as the item's override for
+every stage, `{"min": L, "max": L, "reason": R}`, in the launch's own
+transaction and with the launching seat's own authority (no claim is acquired
+or released). The worker is therefore not handed off at its first stage edge.
+`--level-reason R` states why (default `launch-time level`); the result's
+`item_level` (`level`, `reason`, `changed`, `previous`) echoes it, and a launch
+that fails records nothing. A pin that does not allow `level` refuses
+`item_level_not_recordable`; an item-bound create against a server that predates
+the recording prints `item_level_unrecorded`. A preview, an itemless create,
+and an exact surface place one launch only. A missing stage level without an
+explicit selector refuses as `stage_level_missing`, naming `--level` or the
+steering-seat workflow migration
 preview/apply prerequisite for an existing old pin. Select a compatible
-published version; new versions never move existing pins automatically:
+published version; new versions never move existing pins automatically.
+`HC-workflow-stage-level-pins` fails naming every non-terminal item pinned to a
+version with a level-less stage, with its exact
+`yoke workflows item migrate PREFIX-N --version N --preview` recipe:
 
 ```text
 yoke session-control launch preview --project P --level SENIOR [--machine M] --json
@@ -250,8 +265,11 @@ that blocked it. Yoke never moves a launch to another level; relaunch at a
 different `--level` or wait for the named reset. An unknown level refuses as
 `level_unknown` with the levels the project reads.
 
-The launch result and `launch get` name the level, the chosen option, every
-pool each option read, and why the winner won (`level_placement`); the
+The launch result, `launch preview`, and `launch get` name the level, the
+chosen option, every pool each option read, and why the winner won
+(`level_placement`). Options name their machine by its registered name, as
+the steering report does; `Selected machine` keeps the id `--machine`
+takes. Each pool shows quota left, headroom, and its reset in UTC. The
 stored launch keeps the level as its ask, and `launch retry` places the
 level again. `--machine` narrows placement to one machine.
 
@@ -281,7 +299,7 @@ such as 🐎 or 🚀 — rather than silently stripping it:
 | Universe level glyph, `levels[N].glyph` | `universe.levels.set` | `yoke universe levels get --json`, correct the glyph, then `yoke universe levels set --stdin` |
 | Project override level glyph, `levels[N].glyph` | `session-routing` capability settings | `yoke projects capability-settings set --project P --cap-type session-routing --settings-json '{"levels": [...]}' --base AS_READ_JSON` |
 | Project emoji, `projects.emoji` (empty clears it) | `projects.create` / `projects.update` | `yoke projects update --slug S --name N --emoji <glyph>` |
-| Workflow stage glyph, `stages[].glyph` | Workflow version publish | Publish a corrected version through the workflow's source (built-in fixture plus `yoke workflows canon-update apply`, or the owning Pack plus `yoke packs update`), then `yoke workflows item migrate ITEM` |
+| Workflow stage glyph, `stages[].glyph` | Workflow version publish | Publish an edited definition with `yoke workflows version publish WORKFLOW --definition-file F --expected-current-version N --reason TEXT` (`--keep-current` preserves the global default), then `yoke workflows item migrate ITEM --version V` |
 
 `HC-stored-glyph-contract` FAILs on every stored value that breaks the
 contract and prints its location with the correction command above.

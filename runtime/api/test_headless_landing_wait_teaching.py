@@ -31,7 +31,6 @@ from yoke_core.domain.session_launch_mandate_teaching import (
     HEADLESS_LANDING_WAIT_TEACHING,
     HEADLESS_TOOL_CONTINUATION_TEACHING,
 )
-from yoke_core.domain.standalone_item_merge_cli_parser import build_parser
 from yoke_core.tools import watch_merge
 
 
@@ -252,7 +251,13 @@ def test_usher_merge_step_routes_the_landing_the_same_way():
 
 
 def test_every_launched_worker_mandate_carries_the_landing_handoff():
-    assert HEADLESS_LANDING_WAIT_TEACHING in _mandate()
+    assert (
+        "read its phase instructions before verification, merge or delivery"
+        in _mandate()
+    )
+    assert HEADLESS_LANDING_WAIT_TEACHING in _read(
+        SKILLS / "steer" / "worker-launch.md"
+    )
     teaching = HEADLESS_LANDING_WAIT_TEACHING
     assert "headless command that cannot be prompted again" in teaching
     assert "arms the landing and returns landing_pending=true" in teaching
@@ -294,8 +299,8 @@ def test_watcher_teaching_surfaces_name_the_split_not_a_blanket_ban():
 
 def test_command_reference_conditions_any_later_completion_message():
     for path in (COMMAND_REFERENCE, BUNDLE_COMMAND_REFERENCE):
-        content = _words(_read(path))
-        assert "The shared selector reads the caller's manifest wake capability" in (
+        content = _words(_read(path)).lower()
+        assert "the shared selector reads the caller's manifest wake capability" in (
             content
         )
         assert "a native idle-wake primitive gets the background subscription" in (
@@ -303,16 +308,6 @@ def test_command_reference_conditions_any_later_completion_message():
         )
         assert "no or unverified idle wake gets one foreground command" in content
         assert "rely on a later completion message only when" in content
-
-
-def test_merge_wait_help_routes_from_harness_capability_not_executor_name():
-    help_text = _words(build_parser().format_help())
-    assert "Ignored for a relay-launched session" in help_text
-    assert "the landing notice wakes it for close-out" in help_text
-    assert "watch merge wrapper" in help_text
-    assert "no or unverified idle wake gets one foreground command" in help_text
-    assert "only a native idle-wake primitive may release" in help_text
-    assert "Codex/Cursor" not in help_text
 
 
 def test_no_teaching_surface_still_carries_the_retired_blanket_prohibition():

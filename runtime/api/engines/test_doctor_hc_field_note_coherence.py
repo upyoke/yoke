@@ -30,16 +30,17 @@ def _project_root() -> Path:
 def _run_hc() -> RecordCollector:
     rec = RecordCollector()
     hc_field_note_coherence(
-        conn=None, args=DoctorArgs(project="yoke"), rec=rec,
+        conn=None,
+        args=DoctorArgs(project="yoke"),
+        rec=rec,
     )
     return rec
 
 
 def test_contract_tuples_are_non_empty() -> None:
     """Regression guard: clearing the enforcement scope would silently PASS."""
-    assert len(IMPORTING_CONSUMERS) >= 5
-    # The `--help` renderers plus the startup-rules marker renderer.
-    assert len(IMPORTING_CONSUMERS) == 6
+    # Root help, field-note help, agent rendering and startup markers.
+    assert len(IMPORTING_CONSUMERS) == 4
     assert len(PACKET_SEED_CONSUMERS) == 2
 
 
@@ -65,17 +66,13 @@ def test_doctor_entry_passes_on_clean_live_tree() -> None:
 def test_named_consumers_import_canonical_on_live_tree() -> None:
     """Every importing consumer reads from the canonical module on disk."""
     missing = scan_importing_consumers(_project_root())
-    assert missing == [], (
-        f"importing consumers missing canonical import: {missing!r}"
-    )
+    assert missing == [], f"importing consumers missing canonical import: {missing!r}"
 
 
 def test_packet_seeds_carry_canonical_command_on_live_tree() -> None:
     """Both packet seeds carry the canonical field-note command verbatim."""
     missing = scan_packet_seeds(_project_root())
-    assert missing == [], (
-        f"packet seeds missing `{CANONICAL_COMMAND}`: {missing!r}"
-    )
+    assert missing == [], f"packet seeds missing `{CANONICAL_COMMAND}`: {missing!r}"
 
 
 def test_consumer_violation_fixture_detected(tmp_path: Path) -> None:
@@ -98,10 +95,7 @@ def test_compliant_fixture_passes(tmp_path: Path) -> None:
     fake_rel = "runtime/api/domain/lint_synthetic_clean.py"
     fake_path = tmp_path / fake_rel
     fake_path.parent.mkdir(parents=True)
-    fake_path.write_text(
-        f"from {CANONICAL_MODULE} import FOOTER\n"
-        "DENY = FOOTER\n"
-    )
+    fake_path.write_text(f"from {CANONICAL_MODULE} import FOOTER\nDENY = FOOTER\n")
     missing = scan_importing_consumers(tmp_path, consumers=(fake_rel,))
     assert missing == []
 
@@ -109,17 +103,15 @@ def test_compliant_fixture_passes(tmp_path: Path) -> None:
 def test_missing_consumer_file_skips_silently(tmp_path: Path) -> None:
     """Absent files do not register as violations (graceful degrade)."""
     missing = scan_importing_consumers(
-        tmp_path, consumers=("runtime/api/domain/nonexistent.py",),
+        tmp_path,
+        consumers=("runtime/api/domain/nonexistent.py",),
     )
     assert missing == []
 
 
 def test_packet_seed_missing_command_detected(tmp_path: Path) -> None:
     """A packet seed that loses the canonical command FAILs detection."""
-    fake_rel = (
-        "packages/yoke-core/src/yoke_core/domain/"
-        "schema_api_context_fake.py"
-    )
+    fake_rel = "packages/yoke-core/src/yoke_core/domain/schema_api_context_fake.py"
     fake_path = tmp_path / fake_rel
     fake_path.parent.mkdir(parents=True)
     fake_path.write_text(
@@ -153,7 +145,9 @@ def test_drift_fixture_fails(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(mod, "_run_renderer_check", _stub_check)
     rec = RecordCollector()
     mod.hc_field_note_coherence(
-        conn=None, args=DoctorArgs(project="yoke"), rec=rec,
+        conn=None,
+        args=DoctorArgs(project="yoke"),
+        rec=rec,
     )
     result = rec.results[-1]
     assert result.check_id == HC_NAME
@@ -167,12 +161,15 @@ def test_renderer_unavailable_self_skips(monkeypatch) -> None:
     from yoke_project_checks import check_field_note_coherence as mod
 
     monkeypatch.setattr(
-        mod, "_run_renderer_check",
+        mod,
+        "_run_renderer_check",
         lambda _root: ("renderer not importable (stub) — skipping", [], []),
     )
     rec = RecordCollector()
     mod.hc_field_note_coherence(
-        conn=None, args=DoctorArgs(project="yoke"), rec=rec,
+        conn=None,
+        args=DoctorArgs(project="yoke"),
+        rec=rec,
     )
     result = rec.results[-1]
     assert result.check_id == HC_NAME

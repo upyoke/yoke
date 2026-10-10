@@ -109,5 +109,5 @@ def test_digest_preamble_is_one_pointer_line() -> None:
     """It rides every digest, so it points at the full report and stops."""
     assert "\n" not in DIGEST_PREAMBLE
     assert len(DIGEST_PREAMBLE) < 160
-    assert "`yoke steering report get`" in DIGEST_PREAMBLE
+    assert "`yoke steering report get --full`" in DIGEST_PREAMBLE
     assert "--help" in DIGEST_PREAMBLE

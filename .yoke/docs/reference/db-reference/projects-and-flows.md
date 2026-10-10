@@ -1,19 +1,19 @@
 # DB Reference — Projects, Sites, Capabilities, Flows
-
 Schemas for the project registry, the Project Structure aggregate, sites/environments, capabilities/secrets/templates, and deployment-flow definitions. Cross-link back from [db-reference.md](../db-reference.md) for entry points, the domain catalog, timestamp discipline, JSON-payload conventions, qa CLI, body write path, and the status lifecycle reference.
 
 ## Table: projects
-
 Registered projects that Yoke can manage. The `projects` table holds only
 shared identity and repo metadata; machine-local checkout paths live in
 machine config. Per-project structure and routing declarations live in the
 Project Structure aggregate. Executable verification lives in project QA
 plans.
-
 Every registered slug uses the same project commands and capability resolution. A project name never unlocks behavior: specialized delivery comes from that project's capability rows, environments, and workflow definitions. Checkout-local or direct-module recipes are valid only when their surface explicitly declares a source-dev/admin boundary.
 
 ```sql
-id TEXT PRIMARY KEY -- short slug (e.g., 'yoke', 'external-webapp')
+id INTEGER PRIMARY KEY -- internal project identity
+slug TEXT NOT NULL -- public project slug
+public_item_prefix TEXT NOT NULL -- project public-ref prefix
+retired_at TEXT -- null while active
 name TEXT NOT NULL -- display name
 emoji TEXT DEFAULT '' -- project emoji (e.g., '🐂', '🧩'); shown in BOARD.md title; obeys the glyph contract (session-level-routing.md)
 github_repo TEXT -- GitHub repo in owner/repo format (e.g., 'example-org/external-webapp')
@@ -22,20 +22,27 @@ github_sync_mode TEXT NOT NULL DEFAULT 'disabled' -- 'enabled' | 'disabled'; leg
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
 ```
 
-**Per-project GitHub sync switch** — new projects start `disabled`, which keeps the project's backlog DB-only: every backlog→GitHub issue sync surface skips the project (logged skip, not an auth failure), `yoke resync` excludes it from fetch/classification/repair, and explicit issue-creating operations refuse. Reader: `yoke_core.domain.projects_github_sync_mode`; flip via `yoke projects update ... --github-sync-mode <mode>`. Enabling requires an active verified private App binding unless `--allow-public-github-sync` is explicit. Dry-run or normalize legacy/empty modes with `yoke projects github-sync-mode repair [--apply]`. The verified App binding is outbound repository authority; `github_repo` is its compatibility display projection. Full semantics and safe repository-rebinding order live in [github-sync.md](../github-sync.md).
+**GitHub sync:** new projects are DB-only (`disabled`); skips precede authentication.
+Explicit issue creation refuses and resync excludes disabled projects. Enable
+only with a verified private App binding or explicit public-sync permission.
+The binding owns outbound repository authority; `github_repo` is display only.
+Read [GitHub sync](../github-sync.md) before changing mode or rebinding; it owns
+repair, disabled semantics and the sync-off-first ordering.
 
 **Project-level deployment-flow default** — read the project default via `yoke project-structure deploy-defaults get --project <project>` or, from Python, `yoke_core.domain.deploy_defaults.get_default_flow(project_id)`. Entries live in `project_structure` with `family='deploy_defaults'`, `attachment_value='project'`, payload `{"deployment_flow": "<flow-id>"}`. Absence is a valid state; callers treat it as "no project default" and fall back to inference.
 
-**Project-level context routing** — read the project-wide always-included docs and per-topic doc lists via `python3 -m yoke_core.domain.context_routing get-always <project>`, `... get-topic <project> <topic>`, and `... list-topics <project>`. From Python: `yoke_core.domain.context_routing.{get_always_docs, get_topic_docs, list_topics, get_topic_map}`. Entries live in `project_structure` with `family='context_routing'`, `attachment_value='project'`, `entry_key='always'` for the project-wide set or any other topic name for topic-keyed sets, payload `{"docs": ["<repo-relative-path>", ...]}`. Absence is a valid state; consumers treat missing entries as "no routing configured for that key" and fall back to discovery heuristics.
+**Context routing:** read `yoke project-structure get --project P --family context_routing --json`.
+Project-attached keyed entries store `{"docs": ["<repo-relative-path>", ...]}`;
+reserved `entry_key="always"` is always-included, other keys are topics. Missing
+entries mean no routing for that key, with ordinary discovery remaining.
+Internal accessors belong to `yoke_core.domain.context_routing`.
 
 **Project-level hosting posture** — read what the project decided about who runs its hosting via `yoke project-structure get --project <project> --family hosting_posture --json`. Entries live in `project_structure` with `family='hosting_posture'`, `attachment_value='project'`, payload `{"posture": "aws-admin" | "no-yoke-managed-host", "provider": "<optional prose>", "note": "<optional prose>"}`. `aws-admin` means Yoke manages hosting on AWS through the capability of that name; `no-yoke-managed-host` means the operator runs the hosting and Yoke applies no infrastructure, asks for no hosting credential, and proposes no infra Packs. `provider` and `note` are operator prose recording where the code actually runs — never acted on. Absence is a valid state meaning the question is still open, so onboarding asks it once rather than assuming AWS; the undecided state is never written as a row. Vocabulary: `yoke_contracts.hosting_posture`.
-
 Seed data: a fresh universe seeds no project rows — projects enter through
 onboarding (`yoke projects create` / `yoke project install`). QA plan
 attachments declare which project checks run at each workflow transition.
 
 ### Deployment Flow Defaulting Rules
-
 Items receive a `deployment_flow` via a two-tiered enforcement model:
 
 **Auto-default at idea time:**
@@ -54,11 +61,9 @@ Items receive a `deployment_flow` via a two-tiered enforcement model:
 - Epic tasks are excluded (they inherit from their parent epic's flow)
 - Operator must explicitly choose a flow before the item can reach `planned`
 - `HC-missing-flow` doctor check surfaces items missing flows at WARN severity
-
-Branch-triggered auto-deploy behaviour (the `{branch: flow_id}` trigger map that once lived on `projects`) is not a live truth source in Yoke. Actions runners and similar substrates may still perform deploys, but Yoke chooses which flow runs for which work item or run. If future branch-level guardrails (for example, "this branch is allowed to deploy production") become necessary, they will land as explicit policy rather than as branch-triggered flow selection.
+Stored item/run flows select delivery. A project branch-trigger map is not a flow authority.
 
 ## Project Structure aggregate
-
 The Project Structure aggregate coexists with `projects` as the unversioned declaration of project-wide policy/family structure. It lives in a single table:
 
 ```
@@ -67,24 +72,20 @@ project_structure   -- family entries with identity
 ```
 
 **Envelope grammar (frozen):**
-
 - Attachment branches: `project` (sentinel), `path_selector` (kind ∈ {`exact`, `glob`, `tree`}).
 - Multiplicity: `singleton` or `keyed_set`.
 - Identity: `(project_id, family, attachment_value)` for singleton, `(project_id, family, attachment_value, entry_key)` for keyed_set.
-- Coherence: per-request `BEGIN IMMEDIATE` transaction; mutation history flows through the shared event ledger.
+- Coherence: one atomic caller-owned transaction (Postgres `BEGIN`); mutation history flows through the shared event ledger.
 
 **Families (fully instantiated):**
-
 `architecture_model`, `areas`, `context_routing`, `deploy_defaults`,
 `hosting_posture`, `integration_targets`, `mappings`, `ownership_defaults`,
 `test_roots`, `verification_posture`, `verification_profiles`.
-
 `deploy_defaults`, `architecture_model`, `hosting_posture`, and
 `verification_posture` are project-attached singletons.
 `context_routing` is a project-attached keyed set whose payload is
 `{"docs": [str, ...]}` and whose reserved `entry_key="always"` denotes the
 project-wide always-included set.
-
 `verification_profiles` is **descriptive, not executable**. Its
 `test_command` payload records what a project's verification is for a human
 reader; no gate reads it. The command the `reviewing-implementation` gate
@@ -93,7 +94,6 @@ actually runs is the project's registered QA plan case, bound with:
 ```sh
 yoke qa registered-command set --project P --scope quick --command "<argv>"
 ```
-
 Writing `verification_profiles.test_command` and stopping there leaves the
 project with no gate command at all.
 
@@ -115,21 +115,19 @@ requirement where `registered-command-quick` would have attached. Its agent
 run is labeled `agent-attested / no-tests-declared`, not as executed tests, and
 registering a command for any scope — the `command-ci` runner included — is
 refused by name. Vocabulary: `yoke_contracts.verification_posture`.
+Path-attached operating context lives in `path_context_values`, per target and family. It is distinct from Project Structure entries and their attachment grammar.
+Project Structure admits only its declared family vocabulary and grammar.
 
-Path-attached operating context lives in `path_context_values` (per-target, keyed by family) under the path-context substrate. Project Structure contains only the project-level families listed above.
-
-Project Structure has no placeholder or named-only family slots. The `family-list` CLI prints only the live family vocabulary and grammar metadata.
-
-**Read/write surface:**
+**Registered read/write surface:**
 
 ```sh
-python3 -m yoke_core.cli.db_router project-structure get <project-id> [--family F]
-python3 -m yoke_core.cli.db_router project-structure patch <project-id> --stdin
-python3 -m yoke_core.cli.db_router project-structure seed <project-id> --recipe yoke-source
-python3 -m yoke_core.cli.db_router project-structure family-list
+yoke project-structure get --project P --family F --json
+yoke project-structure patch apply --project P --ops-json '[{"op": "put", "family": "deploy_defaults", "attachment": "project", "payload": {"deployment_flow": "FLOW"}}]' --json
 ```
-
-The same commands are available through the service-client CLI as `project-structure-get`, `project-structure-patch`, and `project-structure-seed`. `seed` applies a named recipe — `yoke-source` describes a checkout of the Yoke source tree — to any project. The write surface takes a single imperative op list with `ops`; see `yoke_core.domain.project_structure` for the full contract.
+Read command help for payloads. `project_structure.patch.apply` validates the
+imperative `ops` batch before applying it atomically. Family/attachment grammar
+lives in `yoke_core.domain.project_structure`; internal seed/module clients
+are contributor tooling, not agent mutation APIs.
 
 ## Table: sites
 
@@ -172,17 +170,16 @@ Seed data: a fresh universe seeds no sites or environments — projects enter th
 
 ## Table: project_capabilities
 
-Capabilities enabled per project (e.g., SSH access, Docker support). Declares what a project can do. Non-sensitive settings are in the `settings` column; DB-backed secrets are stored separately in `capability_secrets`, while machine-local secret material lives under `~/.yoke/secrets/capability-secrets`. `settings` + the capability secret resolver are the canonical storage path; `config` is compatibility storage and should not receive new secrets.
+Capabilities enabled per project (e.g., SSH access, Docker support). Declares what a project can do. Non-sensitive settings are in the `settings` column; DB-backed secrets are stored separately in `capability_secrets`, while machine-local secret material lives under `~/.yoke/secrets/capability-secrets`. `settings` + the capability secret resolver are the canonical storage path; capability settings contain no secret values.
 
 ```sql
 id INTEGER PRIMARY KEY
-project TEXT NOT NULL REFERENCES projects(id)
+project_id INTEGER NOT NULL REFERENCES projects(id)
 type TEXT NOT NULL -- capability type (e.g., 'ssh', 'docker', 'ephemeral-env')
-config TEXT NOT NULL -- compatibility JSON with settings + secrets mixed
 settings TEXT DEFAULT '{}' -- JSON: non-sensitive capability settings only
 verified_at TEXT -- last verification timestamp (NULL = unverified)
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
-UNIQUE(project, type) -- one capability instance per type per project
+UNIQUE(project_id, type) -- one capability instance per type per project
 ```
 
 Seed data: none — capability rows are configured per project during onboarding (only project-agnostic capability *templates* are seeded; see Table: capability_templates).
@@ -197,13 +194,13 @@ that Yoke core must hold from non-sensitive settings. DB-backed writes store imp
 
 ```sql
 id INTEGER PRIMARY KEY
-project TEXT NOT NULL REFERENCES projects(id)
+project_id INTEGER NOT NULL REFERENCES projects(id)
 type TEXT NOT NULL -- capability type (e.g., 'github')
 key TEXT NOT NULL -- secret key name (e.g., 'token')
 value TEXT NOT NULL DEFAULT '' -- the imported secret value
 source TEXT NOT NULL DEFAULT 'literal' CHECK(source = 'literal')
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
-UNIQUE(project, type, key) -- one secret per key per capability per project
+UNIQUE(project_id, type, key) -- one secret per key per capability per project
 ```
 
 Access DB-backed secrets through the project capability resolver. The same
@@ -259,7 +256,7 @@ supersedes_flow_id TEXT REFERENCES deployment_flows(id)
 UNIQUE(project_id, name)
 ```
 
-Every stage object requires `name` (string) and `step_runner` (string, closed set). Valid step runner types: `auto`, `health-check`, `warm-up`, `environment-activate`, `core-container-deploy`, `ephemeral-deploy`, `ephemeral-teardown`, `ephemeral-verify`, `human-approval`, `github-actions-workflow`. A database is brought up to its code by the boot converge that starts the container, so applying a migration is not a deployment stage and there is no stage `kind` vocabulary.
+Every stage object requires `name` (string) and `step_runner` (string, closed set). Valid step runner types: `auto`, `health-check`, `warm-up`, `environment-activate`, `core-container-deploy`, `ephemeral-deploy`, `ephemeral-teardown`, `ephemeral-verify`, `human-approval`, `github-actions-workflow`, `qa`. A database is brought up to its code by the boot converge that starts the container, so applying a migration is not a deployment stage and there is no stage `kind` vocabulary.
 
 Every stage declares its runner fields at the top level, beside `name` and `step_runner`; a stage carrying a nested `config` object is refused on write, because the pipeline builds a stage's runner config from the stage itself and nested fields would never reach the runner. Normalization for execution keeps the stage the definition declared, so `target`, `stage_kind`, and `scope` are readable by the receipt layer and the preview producer. Python owner: `yoke_core.domain.flow_validation`.
 
@@ -267,55 +264,58 @@ Definition schema v2 adds release-policy configuration without changing the
 schema-v1 executor: every v2 stage declares `stage_kind` (`execution` or `qa`)
 and scope. QA stages use `step_runner: "qa"`, target a persistent environment
 or an earlier preview, may select reusable QA cases, and declare verdict
-authority separately from informational notification. A v2 definition may be
-stored disabled; activation refuses until the engine supports version 2.
+authority separately from informational notification. The current source runtime executes v2. Validate against the serving runtime
+before activation. Schema support and supported QA target kinds are separate
+admission checks; a schema floor does not promise an unsupported target.
 Delivery custody is `takes_delivery_custody`, not a side effect of that
 version: a v2 flow can take none, and adding `stage_kind` changes no
 enrollment. Create accepts `--takes-delivery-custody true|false`; omitting it
 stores `true` for schema version 2 or later and `false` for version 1.
 
-**`human-approval` step runner:** Halts the run at the stage until the
-declared approval policy is satisfied. The driver does not derive the verdict
-itself — it asks the build serving the control plane, naming the exact run and
-stage, through `deployment_runs.stage_approval.evaluate` (operator adapter
-`yoke deployment-runs stage-approval evaluate RUN-ID --stage STAGE`). Code and
-schema are one deployable pair, and a release driver runs the candidate while
-the control plane still runs the deployed build, so a locally derived verdict
-reads the candidate's columns out of the deployed build's database. Evaluating
-raises the decision request the policy calls for and reports what the stage is
-still waiting on; it never approves. Recording an answer stays on
-`deployment_runs.approve`, and recording it acts on it. An approve wakes the
-project's deploy-lock driver -- its steering seat when no session holds the
-lock -- with the commands that re-enter the runner on the same run; the runner
-still performs every advance, so the answer moves no run state by itself. A
-rejection closes the run instead: a rejected stage has nothing left to advance,
-and a run that kept reading `executing` behind a recorded refusal would be
-reporting a release in flight that nobody will ship. Python owners:
-`yoke_core.domain.deployment_approval_requests` (the evaluator),
-`yoke_core.domain.handlers.deployment_stage_approval` (the serving side),
-`yoke_core.domain.deployment_stage_approval_dispatch` (the pipeline side), and
-`yoke_core.domain.deployment_stage_decision_effect` (what the answer does),
-reached through the kind-keyed
-`yoke_core.domain.decision_request_subject_effect`.
+**`human-approval`:** the driver asks the serving control plane to evaluate the
+exact run/stage through `deployment_runs.stage_approval.evaluate` (`yoke
+deployment-runs stage-approval evaluate RUN-ID --stage STAGE`). Evaluation raises
+the declared decision request and reports its wait; it never approves. Candidate
+code must not derive policy from a deployed database's different schema.
+`deployment_runs.approve` records the authorized answer. Approval wakes the
+project's deploy-lock driver, or its steering seat when no holder exists, with
+same-run re-entry commands; the runner alone advances state. Rejection closes
+the run. Owners: `deployment_approval_requests`, `handlers.deployment_stage_approval`,
+`deployment_stage_approval_dispatch`, `deployment_stage_decision_effect`, reached
+through `decision_request_subject_effect` in `yoke_core.domain`.
 
 **`github-actions-workflow` step runner:** Triggers a GitHub Actions workflow and polls for completion. Stage fields: `workflow` (workflow filename, e.g., `deploy.yml`), `watch_for` (state to wait for, e.g., `"completed"`), `on_failure` (`"halt"`). Used by external projects where GitHub Actions owns the pipeline. Python owners: `yoke_core.domain.github_actions` + `yoke_core.domain.deploy_pipeline`.
 
-By default a stage dispatches at its `ref` branch (default `main`), so the workflow file runs from that branch's head even when its `inputs` pin the run's own commit with `{head_sha}`. A workflow that builds and attests the commit it deploys (`actions/attest-build-provenance`, for example) needs the workflow source, the requested ref and the checkout to be one commit, and refuses once the branch has moved past the run. Such a stage declares `run_from_release_commit: true`: before dispatch Yoke creates — or confirms — a lightweight tag `yoke-deploy/<run-id>` on the run's release commit in the stage's repository through `github_actions.dispatch_tag.ensure`, and dispatches the workflow at that tag. The key is boolean, belongs only to `github-actions-workflow` stages, and replaces `ref` (a stage declaring both is refused). The tag is create-only: an existing `yoke-deploy/<run-id>` naming another commit refuses the stage with `dispatch_tag_conflict` rather than being moved, and a commit the repository does not hold refuses with `dispatch_tag_commit_missing`. Dispatch tags are retained — the tag is the ref the GitHub workflow run records, and a re-drive of the same run dispatches at it again — so nothing deletes them; a repository whose workflows trigger on tag pushes should exclude the `yoke-deploy/` namespace. Python owners: `yoke_core.domain.deploy_pipeline_release_commit_ref` + `yoke_core.domain.handlers.github_actions_dispatch_tag`.
+A workflow stage normally dispatches its `ref` branch (default `main`), whose
+workflow source may differ from `{head_sha}` checkout inputs after the branch
+moves. For builds requiring workflow/ref/checkout to be one attested commit,
+set `run_from_release_commit: true`. The boolean applies only to workflow stages
+and excludes `ref`. `github_actions.dispatch_tag.ensure` creates or confirms the
+lightweight `yoke-deploy/<run-id>` tag at the release commit, then dispatches it.
+Tags are retained and create-only: another existing SHA refuses with
+`dispatch_tag_conflict`; an unavailable commit with `dispatch_tag_commit_missing`.
+Re-drive uses the same tag. Exclude `yoke-deploy/` from tag-push workflow triggers.
+Owners: `deploy_pipeline_release_commit_ref`, `handlers.github_actions_dispatch_tag`.
 
-A stage may also declare `input_bindings`, a map from a workflow input name to another registered project's branch — `{"consumer_sha": {"project": "other", "branch": "main"}}` — so the dispatched build ships that project's code beside this run's own candidate. The branch resolves exactly once, when the run starts, and the commit is recorded in `deployment_runs.bound_sources`; the stage substitutes the recorded commit rather than asking the branch again, and a branch that cannot be reached refuses the start. Because the run then durably says which commit it shipped for that project, start-time enrollment admits the bound project's delivery-ready items as ordinary members and delivery for them is judged against that recorded commit. Two bindings naming the same project with different branches are refused: a run holds one source commit per project. The same per-project entry also carries an `outputs` list — `{"commit_sha": "...", "reason": "release_pin_materialization"}` — naming the commits this run's own automation pushed into that project, which lets the next release identify a version-pin commit as recorded release output. Hosted promotions also retain verified attempt artifacts in `promotion_receipts`: served-identity QA uses the artifact's exact deployed SHA, including no-op pins, rather than resolving the bound branch again. Only actual produced commits enter `outputs`. Other unowned commits ship as commits made outside Yoke. Python owners: `yoke_core.domain.deployment_run_bound_sources` (the record) + `yoke_core.domain.deployment_run_project_sources` (the reads) + `yoke_core.domain.deployment_run_release_output` / `..._release_output_record` (the produced commits, read and written).
+`input_bindings` can bind workflow input names to registered project branches,
+e.g. `{"consumer_sha": {"project": "other", "branch": "main"}}`. Run start resolves
+each once into `deployment_runs.bound_sources`; unreachable branches refuse and
+conflicting branches for one project refuse. Stages substitute stored commits.
+Start enrollment admits the bound project's delivery-ready items as ordinary
+members; delivery is judged against that exact recorded commit.
+Each project record's `outputs` stores only commits actually produced by the
+run, e.g. `{"commit_sha": "...", "reason": "release_pin_materialization"}`; other
+unowned commits remain outside-Yoke changes. Hosted `promotion_receipts` retain
+verified attempt artifacts; served-identity QA uses the artifact's deployed SHA,
+including no-op pins, without re-resolving a branch. Owners:
+`deployment_run_bound_sources`, `deployment_run_project_sources`,
+`deployment_run_release_output`, `deployment_run_release_output_record`.
 
-**`warm-up` step runner:** Issues one heavy relayed function call against the
-environment the run just rolled, so the pipeline pays the server cold start
-(engine imports, connection pool, caches) instead of whoever calls first — a
-cold start can outlast the client's relay ceiling and fail at the caller while
-the box is healthy. Stage fields: `connection_env` (required; the client
-connection that serves the rolled environment), `function` (defaults to
-`board.data.get`, a read that exercises the whole server path and needs no
-arguments), and `timeout_s` (defaults to 180). The stage passes only when the
-call answers, and records the function, connection, and measured latency on
-the run as `DeploymentRunWarmedUp`; a failure fails the stage with the real
-transport or function error rather than marking a cold box deployed. Python
-owner: `yoke_core.domain.deploy_warm_up`.
+**`warm-up`:** makes one heavy relayed call against the rolled environment.
+Required `connection_env` names its client connection; `function` defaults to
+read-only `board.data.get`; `timeout_s` defaults to 180. Pass requires an actual
+answer. `DeploymentRunWarmedUp` records function, connection and latency;
+transport/function failure fails the stage. Owner: `yoke_core.domain.deploy_warm_up`.
 
 **`health-check` step runner:** An explicit stage `url` is checked verbatim (plain HTTP 2xx, no request-id contract assumed for arbitrary endpoints). When the stage omits `url`, the URL resolves from the flow's referenced environment settings as the declared `hosts.api` URL plus `health_path` and the check enforces the Yoke core x-request-id echo contract: the request carries a generated `x-request-id` header and fails unless the response echoes the exact same value back.
 

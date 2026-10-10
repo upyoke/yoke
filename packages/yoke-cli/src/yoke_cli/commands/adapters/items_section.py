@@ -154,7 +154,9 @@ def items_section_get(args: List[str]) -> int:
         payload={},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=write_item_content,
+        human_writer=lambda response, stdout, stderr: write_item_content(
+            response, stdout, stderr, item=parsed.item
+        ),
     )
 
 
@@ -176,7 +178,9 @@ def items_progress_log_get(args: List[str]) -> int:
         payload={},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=write_item_content,
+        human_writer=lambda response, stdout, stderr: write_item_content(
+            response, stdout, stderr, item=parsed.item
+        ),
     )
 
 
@@ -257,46 +261,10 @@ def items_structured_field_append_addendum(args: List[str]) -> int:
 # items.structured_field.section_upsert
 # ---------------------------------------------------------------------------
 
-STRUCTURED_FIELD_SECTION_UPSERT_USAGE = (
-    "yoke items structured-field section-upsert <PREFIX-N> --section TEXT "
-    "(--content TEXT | --content-file PATH | --stdin) "
-    "[--ordering N] [--source S] [--session-id S] [--json]"
+from yoke_cli.commands.adapters.items_section_upsert import (  # noqa: E402
+    STRUCTURED_FIELD_SECTION_UPSERT_USAGE,
+    items_structured_field_section_upsert,
 )
-
-
-def items_structured_field_section_upsert(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke items structured-field section-upsert",
-        description=STRUCTURED_FIELD_SECTION_UPSERT_USAGE,
-    )
-    parser.add_argument("item", help="Item id (PREFIX-N).")
-    parser.add_argument("--section", required=True, help="Section heading.")
-    _add_content_group(parser)
-    parser.add_argument(
-        "--ordering", type=int, default=None, help="Optional section ordering rank."
-    )
-    parser.add_argument("--source", default=None, help="Optional source tag.")
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, STRUCTURED_FIELD_SECTION_UPSERT_USAGE)
-    if parsed is None:
-        return 2
-    try:
-        content = _resolve_content(parsed)
-    except ValueError as exc:
-        return usage_error(str(exc))
-    payload: Dict[str, Any] = {"section": parsed.section, "content": content}
-    if parsed.ordering is not None:
-        payload["ordering"] = parsed.ordering
-    if parsed.source:
-        payload["source"] = parsed.source
-    return dispatch_and_emit(
-        function_id="items.structured_field.section_upsert",
-        target=item_target("item", parsed.item, parsed.project),
-        payload=payload,
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-    )
 
 
 # ---------------------------------------------------------------------------

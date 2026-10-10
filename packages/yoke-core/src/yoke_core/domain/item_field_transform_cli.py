@@ -79,6 +79,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     section.add_argument("--item", required=True)
     section.add_argument("--section", required=True)
+    section.add_argument("--field", default=None)
+    section.add_argument("--heading-level", type=int, choices=range(2, 7), default=None)
     section.add_argument("--ordering", type=int, default=None)
     section.add_argument("--source", default=None)
     section.add_argument("--stdin", action="store_true")
@@ -174,6 +176,8 @@ def _run_legacy(operation: str, args, content: str, item_id: int) -> int:
             content=content,
             ordering=args.ordering,
             source=args.source,
+            field=args.field,
+            heading_level=args.heading_level or 2,
         )
 
     print(result.to_json())
@@ -225,6 +229,10 @@ def _dispatch_via_function(operation: str, args, content: str, item_id: str) -> 
         )
     else:  # section-upsert
         payload = {"section": args.section, "content": content}
+        if args.field is not None:
+            payload["field"] = args.field
+        if args.heading_level is not None:
+            payload["heading_level"] = args.heading_level
         if args.ordering is not None:
             payload["ordering"] = args.ordering
         if args.source is not None:
@@ -234,6 +242,10 @@ def _dispatch_via_function(operation: str, args, content: str, item_id: str) -> 
             target=public_item_target(item_id),
             payload=payload,
         )
+    if operation == _SECTION_UPSERT and args.field is not None:
+        from yoke_contracts.section_upsert_receipt import verify_field_receipt
+
+        response = verify_field_receipt(response, args.field)
     return emit_response(response, json_mode=True)
 
 

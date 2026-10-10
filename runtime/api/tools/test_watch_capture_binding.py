@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.tools import _watch_capture_binding as binding
 
 
@@ -100,8 +101,8 @@ def test_refusals_name_the_cause_and_the_recovery_step(tmp_path: Path) -> None:
             run_id="run-1",
             session_id="sess-1",
             pid=99,
-            attached_at="2026-09-21T12:00:00Z",
-            heartbeat_at="2026-09-21T12:00:00Z",
+            attached_at=parse_instant("2026-09-21T12:00:00Z"),
+            heartbeat_at=parse_instant("2026-09-21T12:00:00Z"),
             phase="freezing_source",
             progress_capture=str(capture),
         ),

@@ -20,11 +20,9 @@ MESSAGE_ID = "11111111-2222-4333-8444-555555555555"
 def _delivery(body: str = "hello") -> str:
     return "\n".join(
         (
-            f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {TOKEN} ===",
-            f"--- BEGIN YOKE SESSION MESSAGE {MESSAGE_ID} ---",
+            f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {TOKEN} {MESSAGE_ID} ===",
             body,
-            f"--- END YOKE SESSION MESSAGE {MESSAGE_ID} ---",
-            f"=== END YOKE SESSION MESSAGE DELIVERY {TOKEN} ===",
+            "=== END YOKE SESSION MESSAGE DELIVERY ===",
         )
     )
 
@@ -114,11 +112,11 @@ def test_composed_additional_context_reads_fleet_report_field() -> None:
 def test_stub_carries_sender_and_bounded_first_line() -> None:
     message = "\n".join(
         (
-            f"--- BEGIN YOKE SESSION MESSAGE {MESSAGE_ID} ---",
+            f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {TOKEN} {MESSAGE_ID} ===",
             "Authenticated sender: Ben via session sender",
             '| "First line ' + "x" * 9000 + '"',
             '| "second line must be read"',
-            f"--- END YOKE SESSION MESSAGE {MESSAGE_ID} ---",
+            "=== END YOKE SESSION MESSAGE DELIVERY ===",
         )
     )
     stub = render_message_stub(message)
@@ -151,18 +149,16 @@ HUGE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 def test_fitting_messages_ship_with_an_oversized_sibling_stub() -> None:
     block = "\n".join(
         (
-            f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {TOKEN} ===",
-            f"--- BEGIN YOKE SESSION MESSAGE {SMALL_ID} ---",
+            f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {TOKEN} {SMALL_ID} ===",
             "hello",
-            f"--- END YOKE SESSION MESSAGE {SMALL_ID} ---",
-            f"--- BEGIN YOKE SESSION MESSAGE {HUGE_ID} ---",
+            "=== END YOKE SESSION MESSAGE DELIVERY ===",
+            f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {TOKEN} {HUGE_ID} ===",
             "x" * 9000,
-            f"--- END YOKE SESSION MESSAGE {HUGE_ID} ---",
-            f"=== END YOKE SESSION MESSAGE DELIVERY {TOKEN} ===",
+            "=== END YOKE SESSION MESSAGE DELIVERY ===",
         )
     )
     body = compose_hook_context([block], [], [], harness_id="claude-code")
-    assert f"--- BEGIN YOKE SESSION MESSAGE {SMALL_ID} ---" in body
+    assert f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {TOKEN} {SMALL_ID} ===" in body
     assert "hello" in body
     assert "delivered as a stub" in body
     assert f"Read the full body: yoke messages get {HUGE_ID}" in body

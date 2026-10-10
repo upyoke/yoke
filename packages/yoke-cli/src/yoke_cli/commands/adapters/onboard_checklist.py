@@ -7,7 +7,6 @@ import sys
 from typing import Any, List, Mapping
 
 from yoke_cli.commands._helpers import (
-    attach_help_trailer,
     client_project_context,
     ensure_handlers_loaded,
     parse_or_usage_error,
@@ -38,7 +37,10 @@ ONBOARD_CHECKLIST_USAGE = (
 def onboard_checklist_cmd(args: List[str]) -> int:
     if args and args[0] == "init":
         return _init(args[1:])
-    parser = argparse.ArgumentParser(prog="yoke onboard checklist")
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        prog="yoke onboard checklist",
+    )
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parser.add_argument("--run-id", dest="run_id", default=None)
     parser.add_argument(
@@ -62,7 +64,6 @@ def onboard_checklist_cmd(args: List[str]) -> int:
     view = parser.add_mutually_exclusive_group()
     view.add_argument("--view-path", dest="view_path", default=None)
     view.add_argument("--no-view", dest="no_view", action="store_true")
-    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, ONBOARD_CHECKLIST_USAGE)
     if parsed is None:
         return 2
@@ -100,7 +101,10 @@ def onboard_checklist_init(args: List[str]) -> int:
 
 
 def _init(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke onboard checklist init")
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        prog="yoke onboard checklist init",
+    )
     parser.add_argument("--config", dest="config_path", default=None)
     parser.add_argument("--checkout", dest="checkout_path", default=None)
     parser.add_argument(
@@ -111,7 +115,6 @@ def _init(args: List[str]) -> int:
     )
     parser.add_argument("--project-id", dest="project_id", type=int, default=None)
     parser.add_argument("--json", dest="json_mode", action="store_true")
-    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, ONBOARD_CHECKLIST_INIT_USAGE)
     if parsed is None:
         return 2

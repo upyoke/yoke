@@ -121,9 +121,20 @@ def test_default_page_serves_one_compact_row_per_message() -> None:
     assert row["recipient_count"] == 1
     assert row["recipient_states"] == ["pending"]
     assert row["body_read"] == f"yoke messages get {message_id}"
-    # The prose and the per-recipient receipts are what the row exists to
+    # Each session recipient keeps only the compact receipt the fleet inbox
+    # probe reads; routing detail stays with `yoke messages get`.
+    assert row["recipients"] == [
+        {
+            "session_id": "s1",
+            "state": "pending",
+            "injection_count": 0,
+            "created_at": row["recipients"][0]["created_at"],
+        }
+    ]
+    assert row["recipients"][0]["created_at"]
+    # The prose and the full recipient records are what the row exists to
     # leave behind; `yoke messages get` still serves them whole.
-    for dropped in ("body", "recipients", "actor_recipients", "attempts"):
+    for dropped in ("body", "actor_recipients", "attempts"):
         assert dropped not in row
 
 

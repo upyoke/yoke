@@ -1,97 +1,40 @@
-# Merge — Preflight
+# Usher — generated-task preflight
 
-Covers merge Steps 1 through 5: require integration simulation, verify epic-level acceptance criteria against worktree paths, verify all tasks are complete, read the worktree plan, and determine merge order.
+Require canonical integration simulation:
 
-**Context variables** (consumed by later phases): `{epic-ref}`, `_epic_ref`,
-`_worktrees`, `WORKTREE_PATH`, `_worktree_plan`.
+```text
+yoke workflow-item epic-task simulation-get --epic PREFIX-N --phase integration --json
+```
 
----
+Failed/empty read stops: run /yoke simulate PREFIX-N, then reenter. Unresolved
+reported integration failures are not successful proof. Only explicit authorized
+skip-simulation overrides this check; don't infer a waiver from one lane/manual
+confidence. Retain exact authorization in evidence.
 
-## Steps
+Read parent technical-plan acceptance criteria (body is virtual rendered field,
+never raw items.body SQL) and registered graph/lane paths:
 
-1. **Require integration simulation:**
- Check if a canonical integration simulation report exists in the DB:
- ```bash
- _sim_record=$(yoke workflow-item epic-task simulation-get --epic "$_epic_ref" --phase integration 2>/dev/null) && _sim_rc=0 || _sim_rc=$?
- ```
- If `_sim_rc` is non-zero or `_sim_record` is empty, print the following error and **STOP** (do not proceed to subsequent steps):
- > **Error: Integration simulation required before merge.**
- >
- > No canonical integration simulation report found for epic `{epic-ref}`.
- > Run `/yoke simulate {epic-ref}` to check for integration gaps across worktrees before merging.
- >
- > To bypass this check, re-run with `--skip-simulation`:
- > `usher’s internal generated-task merge step with an explicitly authorized simulation override`
+```text
+yoke items get PREFIX-N technical_plan --json
+yoke epic-tasks list --epic PREFIX-N --json
+yoke item-worktrees list PREFIX-N --json
+yoke items get PREFIX-N worktree_plan
+```
 
- **`--skip-simulation` override:** If the user passes `--skip-simulation`, skip the simulation check entirely and proceed to Step 2 regardless of whether a canonical simulation report exists. This is intended for cases where the user has already verified integration manually or the epic has a single worktree with no cross-branch risk.
+Count every criterion before checks. Check against actual registered lane files,
+not main before landing. If parallel verification is explicitly authorized,
+pass exact paths and file-access scope to each verifier; Usher itself is inline.
+Print before each check "Verifying AC i/total: text..." and afterward PASS or
+FAIL with reason; finish pass_count/total summary. Unverifiable/unmet criteria
+abort for a fix (/yoke amend or authorized current work) or explicit operator
+acknowledgement. No criteria warns clearly; continue per existing contract.
 
- If `_sim_rc` is 0 and `_sim_record` is non-empty, proceed silently to Step 2.
+Every task must be in its pin's accepted completed/reviewed/polished/delivery/
+terminal posture, not predispatch/in-progress/failed. Standard accepted states
+include reviewed-implementation, polishing-implementation, implemented, release
+and done; custom pin owns actual selection. Report unfinished task rows and stop.
 
-2. **Verify epic-level acceptance criteria:**
- Read the rendered body for the epic backlog item via
- `yoke items get "$_epic_ref" body` (the body is a virtual rendered field —
- never selected via raw SQL on `items`). Find the `### Acceptance Criteria`
- section (under `## Technical Plan`). Count the total ACs first, then for each
- AC listed:
-
- **CRITICAL — Scope all checks to worktree paths, not main.** Before verifying
- ACs, read the epic task rows through the registered reader:
- ```bash
- yoke epic-tasks list --epic "$_epic_ref"
- ```
- Retain the distinct non-empty lane branches from the fourth pipe-delimited
- field as `_worktrees`. For each branch, resolve its local path:
- `WORKTREE_PATH=".worktrees/$(echo {branch} | tr '/' '-')"`. All file reads,
- greps, and existence checks **MUST** target these worktree paths (e.g.,
- `grep ... "$WORKTREE_PATH/..."`, `[ -f "$WORKTREE_PATH/..." ]`). **Never
- check files in the main working directory** — before merge, the feature code
- only exists in worktrees. If dispatching sub-agents for parallel AC
- verification, pass the explicit worktree path(s) in the agent prompt and
- instruct them to scope all file operations there.
-
- **Print progress before each check** so the user knows the merge isn't hung:
- ```
- Verifying AC {i}/{total}: {AC text (first 80 chars)}...
- ```
-
- - Check whether the condition is demonstrably satisfied **in the worktree files** (grep for expected strings, verify files exist, check that referenced features are present — all within the `WORKTREE_PATH`).
-
- **Print the result after each check:**
- ```
- AC-{i}: PASS
- ```
- or
- ```
- AC-{i}: FAIL — {specific reason}
- ```
-
- - If an AC cannot be verified, report it and abort. The user must either fix the gap (via `/yoke amend` or direct work) or acknowledge it before proceeding.
-
- **Print a summary after all ACs:**
- ```
- AC verification: {pass_count}/{total} passed
- ```
-
- If the backlog item body has no `### Acceptance Criteria` section (under `## Technical Plan`), warn:
- > **Warning:** No epic-level acceptance criteria found in the backlog item body. Epic requirements may not be fully verified. Consider adding an `### Acceptance Criteria` section under `## Technical Plan`.
-
- Proceed after the warning — this maintains backward compatibility with older epics.
-
-3. **Verify all tasks are complete:**
- Inspect the registered epic-task rows read in step 2. The third
- pipe-delimited field is the task status. If any row is outside
- `reviewed-implementation`, `polishing-implementation`, `implemented`,
- `release`, or `done`, report which tasks are still pre-dispatch, in progress,
- or failed and abort.
-
-4. **Read the worktree plan:**
- Read the `worktree_plan` field through the registered item reader:
- ```bash
- yoke items get "$_epic_ref" worktree_plan
- ```
- Retain the printed content as `_worktree_plan` and parse it for the branch
- merge order. If the field is empty, reuse the lane branches from the
- registered epic-task rows read in step 2.
-
-5. **Determine merge order:**
- The worktree plan specifies execution order. Merge in the same order — branches that were independent can merge in any order, but if there's a suggested sequence, follow it.
+Use worktree_plan's declared merge order; empty plan uses registered graph/lane
+branches. Independent branches can order freely; suggested dependency sequence
+stays. Missing/unresolved path is lane_resolution_unavailable with registered
+reader recovery, not a synthesized pathname. Continue to [lane loop](merge-lanes.md).

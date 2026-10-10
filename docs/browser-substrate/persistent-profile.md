@@ -81,9 +81,9 @@ into through Google at all, which is the sign-in most operators need. The fix
 is to stop presenting as automation, not to mask the signals; hiding
 `navigator.webdriver` is a losing arms race against a published policy.
 
-It has to be the same binary the daemon drives — Playwright's own Chromium,
-resolved through `chromium.executablePath()` — launched with the same
-cookie-encryption switches. Chromium encrypts every stored cookie against a key
+Authorization and the daemon use the same resolved browser: the verified
+system executable selected by setup, or bundled Chromium from
+`chromium.executablePath()`. Both use the same cookie-encryption switches. Chromium encrypts every stored cookie against a key
 it takes from the platform credential store, and silently drops any cookie it
 cannot decrypt when it loads the profile. Playwright always launches with
 `--password-store=basic --use-mock-keychain`, which is a different key domain

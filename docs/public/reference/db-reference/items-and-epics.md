@@ -7,9 +7,9 @@ Schemas for backlog items, epic tasks, and the supporting shepherd / caveat / de
 ## Backlog ontology
 
 Backlog items are flat rows in `items` — there is no parent-child column or
-table relating one item to another. An Epic item pins
-`workflow_id='epic'`; its task decomposition lives in the separate
-`epic_tasks` table.
+table relating one item to another. A pinned workflow whose
+`generated_children` policy creates task graphs stores decomposition in
+`epic_tasks`; workflow names alone do not determine that policy.
 
 Epic tasks are keyed by `(epic_id, task_num)`. The `epic_id` foreign key IS
 the Epic item's own numeric `items.id`. There is no parent-link column on
@@ -59,7 +59,7 @@ resolution_comment TEXT -- free-text resolution notes
 
 > **Stage authority:** The immutable workflow version owns ordered stages,
 > terminal stages, gates, policies, and skill bindings. Read it with
-> `yoke workflows definition get`; transition code loads the item's explicit
+> `yoke workflows item get PREFIX-N`, then `yoke workflows version get WORKFLOW VERSION`; transition code loads the item's explicit
 > version pin rather than a status table in this document.
 
 Structured item mutations use the registered [function surfaces](functions.md).
@@ -71,7 +71,11 @@ Read `yoke items structured-field --help` before replacing or transforming field
 
 `db_mutation_profile` and `db_compatibility_attestation` are two JSON columns on the `items` table (not standalone tables) — the two storage halves of one operator-facing concept: the item's **DB claim**. The claim says (a) what governed DB mutation the work item performs and (b) the safety argument for why pre-merge `main` stays true after it lands.
 
-The canonical write surface is the `db_claim.amend` function id (see [functions.md](functions.md)). Operator/debug CLI adapter: `python3 -m yoke_core.api.service_client db-claim-amend`. Every Yoke command that needs to write or correct a claim — `/yoke idea` late classification, `/yoke refine` stale-claim repair, `/yoke implement` and `/yoke polish` mid-implementation discovery — routes through this function id. Per-field writes via `python3 -m yoke_core.cli.db_router items update <id> db_mutation_profile ...` remain structurally valid but are reserved as internal implementation helpers; do not author them in skill prose, recovery messages, or operator-facing docs.
+The canonical writer is `db_claim.amend` (see [functions-claims.md](functions-claims.md)).
+Use `yoke db-claim amend PREFIX-N --reason TEXT --payload-file /tmp/claim.json`;
+read its `--help` for the flat payload and reviewed-none form. Idea, Refine,
+Implement and Polish use the same atomic writer when classification changes.
+Do not write either storage half independently.
 
 The amendment workflow accepts a single flat payload combining both halves:
 
@@ -98,8 +102,7 @@ For `state="declared"` + `mutation_intent="apply"`, `migration_strategy` is requ
 Negative claims — the reviewed-none decision — use the convenience flag:
 
 ```bash
-python3 -m yoke_core.api.service_client db-claim-amend \
-  --item PREFIX-N --state none --reason "<why>"
+yoke db-claim amend PREFIX-N --state none --reason "<why>"
 ```
 
 Running this is an **explicit reviewed-none decision**: an operator or agent has confirmed the work item does not mutate a governed authoritative DB. The amendment stamps the reviewed-negative attestation onto the stored profile itself — `{"state":"none","reviewed_negative":true,"validated_at":"<ts>"}` — so the decision lives as item state, not in the events ledger. The prose-vs-claim gate reads that attestation as proof the negative claim was deliberately reviewed (not the implicit schema default) and clears vocabulary- and structural-trigger hits alike. Meta work items about DB governance that unavoidably cite `ALTER TABLE`, `ADD COLUMN`, `DROP COLUMN`, `migration_audit`, or similar DDL-shape terms advance once the reviewed-none amendment is on record. The `reviewed_negative` / `validated_at` keys are workflow-managed — amendment payloads that try to supply them are rejected as reserved.
@@ -161,7 +164,7 @@ created_at TIMESTAMPTZ NOT NULL
 
 ## Table: caveat_dispositions
 
-Tracks what happened to each caveat during Shepherd's step 5i triage (RESOLVED or DEFERRED). The UNIQUE constraint includes `attempt` to support rework/retry scenarios where the same transition fires multiple times. Created by Migration 3.
+Tracks what happened to each caveat during Shepherd's step 5i triage (RESOLVED or DEFERRED). The UNIQUE constraint includes `attempt` to support rework/retry scenarios where the same transition fires multiple times.
 
 ```sql
 id INTEGER PRIMARY KEY
@@ -185,9 +188,7 @@ Valid `disposition` values: `RESOLVED`, `DEFERRED`.
 
 ## Table: item_dependencies
 
-**Single source of truth for all inter-item dependencies**. Every row is a canonical enforced blocker. All dependency reads and writes go through this table via `yoke items dependency add` and `yoke items dependency list`. The `items.depends_on` column is a read-only compatibility column and should not be written to.
-
-Cross-item constraints discovered during Shepherd use this table. Remaining `depends_on` values must be repaired before dropping that column.
+**Inter-item edge authority.** Use `yoke items dependency add` and `yoke items dependency list`; read their `--help` before authoring. Activation, integration and closure edges enforce directional waits. `coordination_only` records an attested independent-overlap decision and does not block. Claims/dependency reconciliation lives in [path-claims.md](path-claims.md).
 
 ```sql
 id INTEGER PRIMARY KEY
@@ -212,36 +213,31 @@ Indexes:
 - `idx_id_dependent ON item_dependencies(dependent_item_id)`
 - `idx_id_blocking ON item_dependencies(blocking_item_id)`
 
-Constraints:
-- `UNIQUE(dependent_item_id, blocking_item_id, gate_point)` -- a given pair of items can have at most one dependency at each gate point. Inserts use idempotent `ON CONFLICT DO NOTHING` semantics so re-declaring the same dependency is a silent no-op.
-
-Valid `source` values: `shepherd`, `conduct`, `operator`, `migration`, `feed`.
+The writer uses idempotent `ON CONFLICT DO NOTHING` for the unique edge.
 
 ### Canonical blocker model
 
-Every row in `item_dependencies` is a real enforced blocker with directional meaning: the dependent item cannot pass the relevant gate until the blocking item satisfies the declared condition.
+Activation, integration and closure edges have directional meaning: the dependent cannot pass that gate until the blocker satisfies the condition. Coordination-only edges are excluded from blocker evaluation.
 
 **Gate point** (`gate_point`) -- *when* in the dependent's lifecycle the dependency is enforced:
 - `activation` -- do not start the dependent yet (checked before advancing to `implementing`)
 - `integration` -- may work in parallel, but the dependent must land (merge) after the blocker
-- `closure` -- the dependent may not be considered complete until the blocker reaches a milestone
+- `closure` -- the dependent may not close before the blocker satisfies its condition
+- `coordination_only` -- attested independent overlap; no lifecycle wait
 
 **Satisfaction condition** (`satisfaction`) -- *what* must be true about the blocker:
 - `status:<stage-id>` -- blocking item must reach that stage in its pinned workflow. Use `status:done` for the usual item-to-item wait, including required deployment and closeout. Authoring a stage that workflow version does not have refuses and lists the stages it does
 - `fact:merged` -- blocking item's merge must be confirmed by canonical fact (`merged_at`), branch ancestry when available, or `release`/`done` status as the weakest fallback
-- `fact:deployed:<environment-name>` -- the environment must still be registered for the blocking item's project. A succeeded run targeting an environment with that name satisfies the fact only when `deployment_run_items` names the blocker, even if another project owns the run. Reserve this for a dependent that needs the blocker live before its workflow reaches `done`; code containment alone does not count
+- `fact:deployed:<environment-name>` -- the blocker must be done and its delivery stamp must attribute completion to that registered environment. The persisted attribution names the exact run, member, environment, project and candidate, including source-bound cross-project delivery. Readers never re-check current whole-run status or QA acceptance; subsequent sibling failure or cancellation leaves completed delivery satisfied. Ordinary completion dependencies use `status:done` and ignore run and environment.
 
 **Explanation fields**:
 - `rationale` -- short human-readable reason for the edge (e.g., "Operator-declared activation dependency")
 - `evidence_json` -- structured evidence/provenance payload (e.g., `{"created_by":"operator"}`)
 
-**Domain modules:**
-- `yoke_core.domain.dependencies` -- low-level dependency evaluation primitives (`evaluate_satisfaction()`, `query_unsatisfied_at_gate()`, `query_frontier_blocks()`, `explain_dependency()`).
-- `yoke_core.domain.dependency_planning` -- shared dependency-planning kernel. All gate consumers share this single module for both gate evaluation and ordered planning. Key functions:
- - `evaluate_item_gate(conn, item_id, gate_point)` -- evaluate all dependencies for one item at one gate point; returns `ItemGateEvaluation` with structured `BlockerDetail` for each unsatisfied dependency.
- - `evaluate_batch_gates(conn, gate_point)` -- batch-evaluate all dependencies at a gate point for frontier computation.
- - `plan_candidate_set(conn, candidate_ids, gate_point)` -- plan a candidate set; returns eligible items in topological order and blocked items with detail.
-- Service-client commands: `python3 -m yoke_core.api.service_client evaluate-gate <item-id> <gate-point>` and `python3 -m yoke_core.api.service_client plan-candidates <gate-point> <item1> ...` delegate to the Python kernel.
+**Evaluation owner:** `yoke_core.domain.dependency_planning` shares single-item
+gate evaluation, batched frontier evaluation and topologically ordered
+candidate planning. Registered readers return structured blockers; internal
+Python service clients are not an agent recipe.
 
 **Enforcement:** `evaluate_blockers` (`python3 -m yoke_core.domain.check_hard_blocks`, optional `--gate-point`) is the one evaluator. `implement` / `conduct` / `usher` share it. The authoritative status write runs it for listed `check_hard_blocks` at `activation`, and on every write to `done` at `closure` (not skippable by force or QA bypass). `items.block` refuses a wait a live activation/integration/closure edge already carries — use `yoke items dependency add`. The frontier uses `evaluate_batch_gates()` for activation.
 
@@ -266,22 +262,21 @@ id INTEGER PRIMARY KEY
 epic_id INTEGER NOT NULL
 task_num INTEGER NOT NULL
 title TEXT -- length capped by the parent item's project title policy
-worktree TEXT
+item_worktree_id INTEGER -- registered lane identity
 context_estimate TEXT -- S|M|L|XL
 dependencies TEXT -- comma-separated task nums
 status TEXT DEFAULT 'planning' CHECK(status IN ('planning','plan-drafted','refining-plan','planned','implementing','reviewing-implementation','reviewed-implementation','polishing-implementation','implemented','release','done','failed','blocked','stopped'))
 dispatch_attempts INTEGER DEFAULT 0
 body TEXT
 github_issue TEXT
-branch TEXT
-worktree_path TEXT
+scope_state TEXT NOT NULL DEFAULT 'pending' -- pending|paths|no_files|legacy_deferred
+scope_finalized_at TEXT
 max_attempts INTEGER DEFAULT 5
 agent_id TEXT
 last_heartbeat TIMESTAMPTZ
+last_activity_at TIMESTAMPTZ
 UNIQUE(epic_id, task_num)
 ```
-
-> **Status enum note:** The canonical task status values are `planning|plan-drafted|refining-plan|planned|implementing|reviewing-implementation|reviewed-implementation|polishing-implementation|implemented|release|done|failed|blocked|stopped`. The DDL default is `'planning'`.
 
 ## Table: epic_task_files
 
@@ -291,6 +286,7 @@ epic_id INTEGER NOT NULL
 task_num INTEGER NOT NULL
 file_path TEXT NOT NULL
 action TEXT -- create|modify|delete
+UNIQUE(epic_id, task_num, file_path)
 FOREIGN KEY (epic_id, task_num) REFERENCES epic_tasks(epic_id, task_num)
 ```
 
@@ -299,8 +295,7 @@ FOREIGN KEY (epic_id, task_num) REFERENCES epic_tasks(epic_id, task_num)
 ```sql
 id INTEGER PRIMARY KEY
 epic_id INTEGER NOT NULL
-worktree TEXT NOT NULL
-worktree_path TEXT
+item_worktree_id INTEGER -- registered lane identity
 queue TEXT -- JSON array of task nums
 current_index INTEGER DEFAULT 0
 current_task TEXT
@@ -309,12 +304,12 @@ max_attempts INTEGER DEFAULT 5
 no_chain INTEGER DEFAULT 0
 started_at TIMESTAMPTZ
 last_updated TIMESTAMPTZ
-UNIQUE(epic_id, worktree)
+UNIQUE(epic_id, item_worktree_id)
 ```
 
 ## View: item_progress_view
 
-Read model for item delivery progress. Joins `items`, `deployment_flows`, and (when present) `deployment_runs` / `deployment_run_items` to project a single-row progress summary per item. Created by `python3 -m yoke_core.cli.db_router flows init`.
+Read model for item delivery progress. Joins `items`, `deployment_flows`, and (when present) `deployment_runs` / `deployment_run_items` to project a single-row progress summary per item. Schema convergence owns its construction.
 
 ```sql
 -- Fields returned per item:
@@ -330,9 +325,9 @@ qa_summary TEXT -- latest QA run result summary (NULL if none)
 blocked_reason TEXT -- blocking condition description (NULL if not blocked)
 ```
 
-**Graceful degradation:** When `deployment_runs` table does not exist, the view is created with NULL for all run-specific fields (run_id, current_stage, stage_progress, blocked_reason). The view is re-created idempotently on each `python3 -m yoke_core.cli.db_router flows init` call, using Postgres schema introspection to detect schema availability.
+**Graceful degradation:** When `deployment_runs` table does not exist, the view is created with NULL for all run-specific fields (run_id, current_stage, stage_progress, blocked_reason). Schema convergence uses Postgres introspection when constructing the view.
 
-**Queried by:** `python3 -m yoke_core.cli.db_router items progress <id>` (routed to `python3 -m yoke_core.cli.db_router items`).
+**Read through:** registered item progress/read surfaces; use the function catalog and `yoke items --help` for the served roster.
 
 ## Table: epic_progress_notes
 

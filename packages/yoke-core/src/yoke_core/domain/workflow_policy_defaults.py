@@ -34,9 +34,7 @@ def publish_workflow_policy_defaults(
     published_by_actor_id: Optional[int] = None,
 ) -> dict:
     """Publish one new version after editing only declared policy defaults."""
-    current_rows = {
-        str(row["id"]): row for row in list_current_workflows(conn)
-    }
+    current_rows = {str(row["id"]): row for row in list_current_workflows(conn)}
     current = current_rows.get(workflow_id)
     if current is None:
         raise WorkflowRegistryError(f"unknown workflow {workflow_id!r}")
@@ -46,12 +44,14 @@ def publish_workflow_policy_defaults(
             f"workflow {workflow_id!r} current version changed from "
             f"{expected_current_version} to {current_version}; refresh first"
         )
-    supplied = sum((
-        file_budget_default is not None,
-        path_claims_default is not None,
-        path_survey_default is not None,
-        approval_defaults is not None,
-    ))
+    supplied = sum(
+        (
+            file_budget_default is not None,
+            path_claims_default is not None,
+            path_survey_default is not None,
+            approval_defaults is not None,
+        )
+    )
     if supplied == 0:
         raise WorkflowRegistryError("no workflow policy default was supplied")
     if supplied > 1:
@@ -115,9 +115,7 @@ def publish_workflow_policy_defaults(
         )
         result_fields = {"path_claims_default": bool(path_claims_default)}
     elif path_survey_default is not None:
-        existing = str(
-            policies.get("path_survey", WORKFLOW_PATH_SURVEY_REQUIRED)
-        )
+        existing = str(policies.get("path_survey", WORKFLOW_PATH_SURVEY_REQUIRED))
         if "path_survey" not in set(policies["item_posture_allowlist"]):
             raise WorkflowRegistryError(
                 f"workflow {workflow_id!r} does not expose path survey "
@@ -154,19 +152,18 @@ def publish_workflow_policy_defaults(
                     "actors": actors,
                 }
         actor_ids = {
-            actor_id
-            for gate in normalized.values()
-            for actor_id in gate["actors"]
+            actor_id for gate in normalized.values() for actor_id in gate["actors"]
         }
         marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
         for actor_id in actor_ids:
-            if conn.execute(
-                f"SELECT 1 FROM actors WHERE id={marker}",
-                (actor_id,),
-            ).fetchone() is None:
-                raise WorkflowRegistryError(
-                    f"approval actor {actor_id} does not exist"
-                )
+            if (
+                conn.execute(
+                    f"SELECT 1 FROM actors WHERE id={marker}",
+                    (actor_id,),
+                ).fetchone()
+                is None
+            ):
+                raise WorkflowRegistryError(f"approval actor {actor_id} does not exist")
         policies["approval_defaults"] = normalized
         result_fields = {"approval_defaults": normalized}
     result = publish_workflow_version(
@@ -175,6 +172,7 @@ def publish_workflow_policy_defaults(
         definition=definition,
         published_by_actor_id=published_by_actor_id,
         expected_current_version=current_version,
+        reason="Workflow policy defaults edited",
     )
     return {
         **result,

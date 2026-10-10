@@ -105,8 +105,20 @@
     "gemini.google.com",
     "copilot.microsoft.com"
   ],
+  "excluded_referrer_domains": [
+    "accounts.google.com",
+    "accounts.youtube.com",
+    "login.microsoftonline.com",
+    "login.live.com",
+    "appleid.apple.com",
+    "okta.com",
+    "auth0.com",
+    "onelogin.com",
+    "amazoncognito.com"
+  ],
   "sensitive_query_keys": [
     "token",
+    "user_code",
     "access_token",
     "refresh_token",
     "id_token",
@@ -128,6 +140,10 @@
     "x-amz-credential",
     "x-amz-security-token"
   ],
+  "sensitive_path_parents": [
+    "machine-approval"
+  ],
+  "redacted_path_segment": "redacted",
   "bot_pattern": "bot|crawler|spider|headless|slurp|facebookexternalhit|preview|lighthouse",
   "limits": {
     "envelope_bytes": 65536,

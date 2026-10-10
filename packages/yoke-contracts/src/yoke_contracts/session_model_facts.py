@@ -256,7 +256,7 @@ def requested_facts_of(model_name: object, *, harness_id: str) -> SessionModelFa
 
     One derivation for both directions the ask arrives from — the child
     process reading its own environment, and the control plane stamping a
-    launch's recorded model — so a launched session and an operator-started
+    launch's recorded model — so a launched session and an manually started
     one on the same harness store the same three values. Channels a
     selector cannot carry (a Claude effort level, which rides the
     environment) stay ``None`` here and are filled by the caller that can

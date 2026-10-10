@@ -50,7 +50,7 @@ A failed rotation deletes pending and keeps the prior durable key. The PEM
 never crosses GitHub Actions, SSH stdin, Pulumi state, the control-plane
 database, or the hosted broker response.
 
-The delivery allow matrix is limited to:
+The base delivery allow matrix contains:
 
 - ECR login and image read/write for `<deploy_namespace>-*` repositories;
 - EC2 describe plus start on instances tagged for the deploy namespace;
@@ -60,5 +60,11 @@ The delivery allow matrix is limited to:
 - exact distribution buckets, read-only CloudFront distribution discovery, and
   CloudFront invalidation.
 
-SSH uses DB-declared hosts and keys, and SSM is not part of these delivery
-executors, so neither requires an AWS permission in the delivery role.
+SSH uses DB-declared hosts and keys. The registry-oidc Pack's optional
+`delivery_authority` adds SSM and artifact permissions only when explicitly
+configured; its default is `None`. The descriptor bounds instance tags,
+documents, artifact buckets and key prefixes; malformed configuration refuses.
+SSM `DescribeInstanceInformation` requires account-wide inventory read, an
+explicit tradeoff of opting in. The App-key deny still applies. See the
+[policy source](../packs/registry-oidc/versions/1.6.0/files/infra/webapp_registry_delivery_ssm_policy.py)
+for the descriptor contract; this reference does not attest a project's opt-in.

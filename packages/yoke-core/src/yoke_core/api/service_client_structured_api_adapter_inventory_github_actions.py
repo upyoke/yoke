@@ -34,6 +34,17 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
         ),
     ),
     _read_entry(
+        function_id="github.branch.head",
+        cli_invocation=(
+            "yoke github branch head <branch> [--since SHA] --project <project>"
+        ),
+        notes=(
+            "Reads the bound repository's branch head through the project's "
+            "GitHub binding; --since adds identical / descendant / "
+            "not_descendant ancestry."
+        ),
+    ),
+    _read_entry(
         function_id="github_actions.commit_runs.list",
         cli_invocation=(
             "yoke github-actions commit-runs list <commit-sha> [--workflow NAME] "

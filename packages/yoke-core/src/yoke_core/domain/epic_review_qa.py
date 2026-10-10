@@ -13,6 +13,8 @@ hosts the calling function.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 from typing import Optional
@@ -21,10 +23,16 @@ from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.qa_obligation_settlement import effective_requirement
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.epic_parsing import (
-    _parse_simulation_result,
     _placeholder,
     _require_task_exists,
 )
+from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.simulation_report_headers import (
+    SimulationReceipt,
+    parse_simulation_headers,
+)
+from yoke_core.domain.simulation_attempt_read import verify_simulation_attempt
+from yoke_core.domain.sql_json import json_get
 from yoke_core.domain.qa_workflow_binding_validation import (
     item_transition_for_gate,
 )
@@ -191,26 +199,13 @@ def simulation_upsert(
     body: str,
     *,
     scripts_dir: Optional[str] = None,
-) -> str:
-    """Upsert a simulation report.
-
-    Parses result (CLEAN/GAPS FOUND) from body text.
-    Writes to qa_requirements + qa_runs.
-    """
-    result = _parse_simulation_result(body)
-
-    # Map result to qa_runs verdict
-    verdict = "undetermined"
-    verdict_reason = (
-        "The simulation body did not state CLEAN or GAPS FOUND, so its "
-        "quality outcome could not be established."
-    )
-    if result == "CLEAN":
-        verdict = "pass"
-        verdict_reason = None
-    elif result == "GAPS FOUND":
-        verdict = "fail"
-        verdict_reason = None
+    head_sha: Optional[str] = None,
+) -> SimulationReceipt:
+    """Retain and verify one simulation attempt after validating its public identity."""
+    public_ref = render_item_ref(conn, int(epic_id))
+    result = parse_simulation_headers(body, public_ref)
+    verdict = {"CLEAN": "pass", "GAPS FOUND": "fail"}[result]
+    verdict_reason = None
 
     raw_result = json.dumps({"body": body, "phase": phase}, separators=(",", ":"))
     success_policy = json.dumps(
@@ -219,14 +214,14 @@ def simulation_upsert(
     )
 
     # Check for existing requirement
-    # deliberate case-sensitive match against internal JSON-literal phase token
     row = query_one(
         conn,
         (
             "SELECT id FROM qa_requirements WHERE qa_kind='simulation' "
-            f"AND item_id={_placeholder(conn)} AND success_policy LIKE {_placeholder(conn)}"
+            f"AND item_id={_placeholder(conn)} "
+            f"AND {json_get('success_policy', '$.phase')} = {_placeholder(conn)}"
         ),
-        (str(epic_id), f'%"phase":"{phase}"%'),
+        (str(epic_id), phase),
     )
 
     if row:
@@ -241,34 +236,45 @@ def simulation_upsert(
             item_id=int(epic_id),
             gate_id=gate_id,
         )
+        diagnostic = io.StringIO()
         try:
-            req_id = _qa_req_add(
-                item_id=int(epic_id),
-                qa_kind="simulation",
-                qa_phase="verification",
-                target_env="local",
-                blocking_mode="blocking",
-                requirement_source="explicit",
-                success_policy=success_policy,
-                workflow_transition_id=workflow_transition_id,
-            )
+            with contextlib.redirect_stderr(diagnostic):
+                req_id = _qa_req_add(
+                    item_id=int(epic_id),
+                    qa_kind="simulation",
+                    qa_phase="verification",
+                    target_env=None,
+                    blocking_mode="blocking",
+                    requirement_source="explicit",
+                    success_policy=success_policy,
+                    workflow_transition_id=workflow_transition_id,
+                )
         except SystemExit as exc:
             raise RuntimeError(
-                f"Error creating requirement: qa requirement-add exited with {exc.code}"
+                "simulation_requirement_create_failed: "
+                f"{diagnostic.getvalue().strip() or f'QA requirement creation exited {exc.code}'}. "
+                "Inspect the named refusal and simulation-get before retrying."
             ) from exc
 
+    diagnostic = io.StringIO()
     try:
-        _qa_run_add(
-            requirement_id=int(req_id),
-            performed_by="agent",
-            qa_kind="simulation",
-            verdict=verdict,
-            verdict_reason=verdict_reason,
-            raw_result=raw_result,
-        )
+        with contextlib.redirect_stderr(diagnostic):
+            run_id = _qa_run_add(
+                requirement_id=int(req_id),
+                performed_by="agent",
+                qa_kind="simulation",
+                verdict=verdict,
+                verdict_reason=verdict_reason,
+                raw_result=raw_result,
+                **({"head_sha": head_sha} if head_sha else {}),
+            )
     except SystemExit as exc:
         raise RuntimeError(
-            f"Error creating run: qa run-add exited with {exc.code}"
+            "simulation_run_create_failed: "
+            f"{diagnostic.getvalue().strip() or f'QA run creation exited {exc.code}'}. "
+            f"Requirement {req_id}; inspect simulation-get before retrying."
         ) from exc
 
-    return f"Upserted simulation: {epic_id}/{phase}"
+    receipt = SimulationReceipt(public_ref, phase, int(req_id), int(run_id), result)
+    verify_simulation_attempt(conn, int(epic_id), receipt)
+    return receipt

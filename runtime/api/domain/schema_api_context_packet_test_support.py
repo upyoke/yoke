@@ -32,7 +32,7 @@ CLI_ANCHORS_REQUIRED = (
     "lifecycle.transition",
     'yoke db read "SELECT 1"',
     "worktree paths db",
-    "harness_id",
+    "harness_sessions.executor",
 )
 BANNED_CONFABULATIONS = (
     "pt.path",
@@ -55,13 +55,10 @@ NEW_HARNESS_SESSION_COLUMNS = (
 
 
 def main_body() -> str:
-    """Render the main-agent packet at the depth its teaching lives at.
-
-    Full depth, because these anchors are the per-table and per-command
-    notes — the wrong guesses each one corrects. Compact is a strict subset
-    that ships at session start; an agent reaches this depth through the
-    pointer the compact body closes with.
-    """
-    return schema_api_context.render_role_packet(
-        "main_agent", detail=PACKET_DETAIL_FULL
+    """Fetch full topic depth to verify schema and operation notes."""
+    return "\n".join(
+        schema_api_context.render_topic_packet(
+            topic, role="main_agent", detail=PACKET_DETAIL_FULL
+        )
+        for topic in schema_api_context.seed.ROLE_TOPICS["main_agent"]
     )

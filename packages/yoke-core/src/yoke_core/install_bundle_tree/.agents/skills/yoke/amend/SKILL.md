@@ -5,12 +5,11 @@ description: Add, split, reassign, or remove tasks after sync. Re-verifies overl
 argument-hint: "{epic-ref}"
 ---
 
-# Internal sub-skill -- called by conduct. Not operator-facing.
 
-# /yoke amend {epic-id}
+# /yoke amend {epic-ref}
 
-Modify an epic's tasks after the initial sync. Use when you need to add
-new tasks, split existing ones, reassign worktrees, or remove tasks.
+Internal sub-skill called by Conduct; not operator-facing. Add, split,
+reassign or remove tasks after sync. Use a complete public ref with a task graph.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -18,40 +17,20 @@ yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evide
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
-## Arguments
+Hold the epic's work claim before any task, spec, plan, dependency, File Budget,
+path-claim or GitHub mutation. Another holder's session id is identity, not
+write authority. Stop while a dispatch for the same epic is in progress.
+Every change re-verifies overlap and preserves crisp task boundaries,
+current-state checkpoint and next action.
 
-- `{epic-id}` — The item's PREFIX-N identifier (e.g., `PREFIX-N`). The item
-  must have tasks in the `epic_tasks` table.
+Frame amendments as system corrections (missing boundaries, stale overlap or
+new execution evidence), never as “agent error” or role blame.
 
-## Philosophy
+## Phase map — read before acting
 
-**Be the giant.** We stand on inherited shoulders; leave a leg up for
-the next agent. Amend changes the execution blueprint after work has
-already started, so every split, reassignment, or removal must leave
-crisp task boundaries and an unambiguous next step — a checkpoint, not
-a restated history.
+| Phase | Read |
+|---|---|
+| Amend tasks and reconcile execution | [steps.md](steps.md) |
+| Exact typed surfaces | [surfaces.md](surfaces.md), before a mutation |
 
-**No such thing as "agent error."** If tasks need to be split or
-moved, frame the cause as a system correction — missing task
-boundaries, stale overlap assumptions, or new information discovered
-during execution — not as blame on the Engineer or Architect.
-
-**Artifact writes are work writes.** Work item/spec/body edits,
-epic-task body/metadata mutations, worktree-plan rewrites, dependency
-edits, File Budget adjustments, path-claim amendments, and GitHub
-issue-body edits are shared coordination state — the calling session
-must hold the work claim on the epic before any of these mutations.
-Session ids returned by `who-claims` identify the coordination holder;
-they are not a capability token that re-authorizes amend writes from
-another session.
-
-## Phase map — read one file, at the phase it governs
-
-| Phase | You are here when | Read before acting |
-|---|---|---|
-| Amend | The conduct caller just invoked this sub-skill | [`steps.md`](steps.md) |
-| — Look up a function id | You need an amend operation's exact envelope | [`surfaces.md`](surfaces.md) |
-
-## Start
-
-Read [`steps.md`](steps.md) and follow it.
+Start with steps.md.

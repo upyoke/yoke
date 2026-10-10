@@ -53,6 +53,7 @@ import time
 from typing import Any, Callable, Iterator, Mapping
 
 from yoke_contracts.process_ancestry import process_start_time
+from yoke_harness.session_process_custody import custody_state
 from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
 from yoke_harness.session_relay_native_capture_format import (
     parse_capture,
@@ -163,7 +164,11 @@ def _running(
     recorded_start = record.get("process_start_time")
     if not isinstance(pid, int) or pid <= 0 or not recorded_start:
         return None
-    if start_time_of(pid) != recorded_start:
+    if (
+        custody_state(record) == "gone"
+        if record.get("process_group_id")
+        else start_time_of(pid) != recorded_start
+    ):
         return None
     return RunningNative(
         session_id,
@@ -207,7 +212,10 @@ def running_native_for_session(
     for _path, record in supervised_records(custody_state_dir):
         if str(record.get("supervision_kind") or "") != "resume":
             continue
-        if str(record.get("native_session_id") or "").strip() != wanted:
+        if wanted not in {
+            str(record.get("native_session_id") or "").strip(),
+            str(record.get("target_session_id") or "").strip(),
+        }:
             continue
         found = _running(
             wanted,
@@ -247,13 +255,20 @@ def finished_resume_for_session(
     for _path, record in supervised_records(custody_state_dir):
         if str(record.get("supervision_kind") or "") != "resume":
             continue
-        if str(record.get("native_session_id") or "").strip() != wanted:
+        if wanted not in {
+            str(record.get("native_session_id") or "").strip(),
+            str(record.get("target_session_id") or "").strip(),
+        }:
             continue
         pid = record.get("pid")
         recorded_start = record.get("process_start_time")
         if not isinstance(pid, int) or pid <= 0 or not recorded_start:
             continue
-        if start_time_of(pid) == recorded_start:
+        if (
+            custody_state(record) != "gone"
+            if record.get("process_group_id")
+            else start_time_of(pid) == recorded_start
+        ):
             continue
         reason = record.get("containment_reason")
         return FinishedResume(

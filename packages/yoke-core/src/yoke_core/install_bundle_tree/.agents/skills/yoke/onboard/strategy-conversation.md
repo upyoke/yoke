@@ -1,28 +1,21 @@
 # Onboard Step 1: Strategy Conversation
 
-Strategy document writes: read the selected command’s `--help` for required fields and limits; the canonical contract is `.yoke/docs/reference/db-reference/functions-strategy.md`.
+Entry: wire-up verified and run active. Skip only when all five docs are accepted,
+non-placeholder content. Rows: `repo-survey`, `strategy-setup`.
 
-Strategy is the root: everything later — the execution profile, Packs, environments, the first work items — derives from and is justified by these docs. This step fills all five default strategy docs in one conversation: `MISSION`, `VISION`, `MASTER-PLAN`, `LANDSCAPE`, and `CURRENT-PLAN`.
+Strategy owns every later profile/Pack/environment/work proposal.
+DB strategy documents are authority; `.yoke/strategy/` is a gitignored render.
+Read the selected write's `--help`; contract:
+[project configuration](../../../../.yoke/docs/reference/db-reference/functions-project-configuration.md).
 
-- **Entry:** wire-up verified; checklist run active.
-- **Skip:** all five docs present with accepted, non-placeholder content → report the corpus state and skip.
-- **Rows:** `repo-survey`, `strategy-setup`.
+## Top up, then read
 
-The strategy authority is the DB `strategy_docs` table, scoped per project. `.yoke/strategy/` is only a gitignored local render. Reads go through `yoke strategy doc get`, writes through the compare-and-swap replace below.
-
-## 1. Top Up The Default Corpus
-
-Run the seed top-up first, every time. It seeds any missing default slug as a placeholder and never touches an existing row, so it is safe on every run and heals older projects whose corpus predates the current default roster:
+Run the top-up every time: it seeds missing placeholders without changing
+existing rows. Record each list row's `updated_at` for CAS. Read all five
+documents with plain calls, not a shell loop; the list is metadata only.
 
 ```bash
 yoke strategy seed-defaults --project {project} --json
-```
-
-The result names seeded vs already-present slugs. After this, every default slug has at least a placeholder row, so the writes below are always replaces against an existing row.
-
-## 2. Read The Corpus
-
-```bash
 yoke strategy doc list --project {project} --json
 yoke strategy doc get MISSION --project {project}
 yoke strategy doc get VISION --project {project}
@@ -31,112 +24,62 @@ yoke strategy doc get LANDSCAPE --project {project}
 yoke strategy doc get CURRENT-PLAN --project {project}
 ```
 
-Five plain calls, spelled out on purpose. Do not fold them into a shell
-loop: a harness that has been told to allow commands starting with `yoke`
-matches the command's first word, and a `for` loop presents `for` — so the
-composed form asks the operator for permission again even though every call
-inside it was already allowed. The list carries metadata only, so the five
-reads are real; the loop is not.
+Classify seeded template text as placeholder and operator content as accepted.
+If all are accepted, report and skip drafting.
 
-Record each row's `updated_at` from the list output — the replace write below needs it as the compare-and-swap base. Classify each doc as **placeholder** (still the seeded template text, no project-specific content) or **accepted** (operator-authored content). If all five are accepted, apply the skip: report and move to step 2 of this skill.
+## Ground drafts in the repository
 
-## 3. Repo Survey
+Use `rg --files {checkout}` plus focused manifests, README/runbooks,
+package/build/test/runtime/service entrypoints, deploy configuration and
+`.yoke/` contracts in either repo mode. Name external systems, secrets,
+targets, unknowns and existing docs feeding strategy/profile.
 
-Survey the project checkout in both modes — in a freshly created repo it is trivially quick; in an existing repo it grounds everything downstream. Prefer `rg --files {checkout}` and focused reads of manifests, README/runbooks, package files, CI definitions, deployment config, test config, and existing `.yoke/` contract docs. Identify:
-
-- Project type, package manager, build/test commands, service entrypoints, and runtime versions.
-- Existing docs that should feed the strategy drafts and the later execution profile.
-- External systems, required secrets, deployment targets, and unknowns.
-- **CI, one workflow at a time.** List every file under `.github/workflows/`
-  and classify each by what it does: runs the tests, builds artifacts,
-  deploys, releases, or something else. Record any non-Actions CI system the
-  repo carries — a `Jenkinsfile`, `.gitlab-ci.yml`, `bitbucket-pipelines.yml`,
-  or `fastlane/Fastfile`. Only the workflow that runs the tests can become
-  the project's `ci_workflow_file` in step 5; a deploy or release workflow
-  declared there makes the verification gate report a green that proves
-  something else, and the registration refuses it by name. A project whose CI
-  is Jenkins, GitLab, Bitbucket, or a store upload keeps the local `command`
-  runner — that is a correct outcome, not a gap.
-
-Do not guess what the survey can answer. Then mark:
+Classify every `.github/workflows/` file: runs the tests, builds artifacts,
+deploys, releases, or other. Record `Jenkinsfile`, `.gitlab-ci.yml`,
+`bitbucket-pipelines.yml` and `fastlane/Fastfile` separately.
+Only the actual Actions test workflow can be `ci_workflow_file`; declaring
+a deploy/release workflow gives unrelated proof and registration refuses.
+Non-Actions CI keeps the local `command` runner.
 
 ```bash
-yoke onboard checklist --run-id {run_id} \
-  --row-status repo-survey=verified \
-  --evidence repo-survey="surveyed manifests, docs, CI, and runtime shape: {short facts}; workflows {name=purpose, ...}; other CI {systems or none}"
+yoke onboard checklist --run-id {run_id} --row-status repo-survey=verified --evidence repo-survey="{manifests/docs/build/test/runtime/external facts; each workflow=purpose; other CI or none}"
 ```
 
-## 4. Draft And Refine All Five Docs
+Propose complete drafts from conversation and survey; ask only unresolved
+purpose/audience/priorities. Refine until accepted:
+MISSION = reason; VISION = desired state and deliberate exclusions;
+MASTER-PLAN = route; LANDSCAPE = competitive/technical terrain;
+CURRENT-PLAN = concrete orderable near-term outcomes for step 8.
+Existing reality is the floor, not a blank slate.
 
-Propose complete drafts from the conversation so far plus the survey — a smart proposal, never a blank interrogation. Ask only for what neither the conversation nor the repo can answer (product purpose, who it serves, near-term priorities). Refine each draft in place with the operator until accepted:
+## Write accepted changes under the strategy claim
 
-- **MISSION** — the one-paragraph reason the project exists.
-- **VISION** — the desired end state and what is deliberately out for now.
-- **MASTER-PLAN** — the phased route from here to the vision.
-- **LANDSCAPE** — the competitive/technical terrain the strategy responds to.
-- **CURRENT-PLAN** — the near-term executable plan. Write it as concrete, orderable outcomes: step 8 of this skill derives the first backlog items directly from it.
-
-In existing-repo mode, weave surveyed reality into the drafts (what the repo already does is the floor for MISSION/CURRENT-PLAN, not a blank slate).
-
-## 5. Acquire The Strategy Write Window
-
-`strategy.doc.replace` is authorized by the `STRATEGIZE` process work claim on the target project — the server bounces replace without it. Acquire it before writing, exactly as `/yoke strategize` does (operator/debug adapter shown; the function id family is `claims.work.acquire` with a process target):
+Acquire the explicit project's STRATEGIZE process claim before
+`strategy.doc.replace`; checkout mapping may not yet exist.
+`claim_conflict` means STRATEGIZE/FEED owns the write window: mark
+`strategy-setup=blocked`, name holder recovery, and stop without silently waiting.
 
 ```bash
 yoke claims work acquire --process STRATEGIZE --project {project}
 ```
 
-Name the project explicitly. Every other command in this step already does,
-and onboarding is exactly when the checkout's mapping may not yet resolve one
-for you — the claim refuses without project context rather than guessing.
-
-If acquisition reports `claim_conflict`, another session is running `/yoke strategize` or `/yoke feed` for this project. Do not wait silently: record the block and stop this step.
+Write each accepted draft to a scratch file and CAS against the recorded token.
+Accepted-as-is docs stay untouched. If CURRENT-PLAN exceptionally remains absent
+on an older control plane after top-up, use create instead of replace.
 
 ```bash
-yoke onboard checklist --run-id {run_id} \
-  --row-status strategy-setup=blocked \
-  --blocker strategy-setup="strategy write window held by another session (STRATEGIZE/FEED conflict group); finish or end that session, then re-run /yoke onboard --run-id {run_id}"
-```
-
-## 6. Write The Accepted Docs
-
-For each accepted draft, write the content to a scratch file with the Write tool, then replace with the compare-and-swap base recorded in section 2:
-
-```bash
-yoke strategy doc replace {SLUG} --project {project} \
-  --base-updated-at {updated_at} --content-file {draft_path}
-```
-
-Docs the operator explicitly accepts as-is (already non-placeholder) are left untouched. If `CURRENT-PLAN` unexpectedly has no row (a corpus older than the seed top-up on a control plane that has not run it), create it instead:
-
-```bash
+yoke strategy doc replace {SLUG} --project {project} --base-updated-at {updated_at} --content-file {draft_path}
 yoke strategy doc create CURRENT-PLAN --summary "Near-term executable work." --state "draft" --project {project} --content-file {draft_path}
 ```
 
-After the writes, release the process claim (resolve the claim id from `yoke claims work holder-list` if needed):
+Release the process claim on **every exit**, including failure; obtain its ID
+from the registered holder-list if needed. Preserve completed CAS writes;
+block with exact failure/recovery and retry only remaining slugs.
 
 ```bash
 yoke claims work release --claim-id {claim_id} --reason "onboard strategy writes complete"
-```
-
-Release on every exit from this step, including the failure floor — the claim is the only lock this step holds.
-
-## 7. Render And Mark
-
-Refresh the local rendered views so later steps and the operator read current content:
-
-```bash
 yoke strategy render --project {project} --target-root {checkout}
+yoke onboard checklist --run-id {run_id} --row-status strategy-setup=configured --evidence strategy-setup="{written slugs} written; {accepted slugs} kept; local render refreshed"
 ```
 
-Echo the evidence (slugs written vs kept), then mark:
-
-```bash
-yoke onboard checklist --run-id {run_id} \
-  --row-status strategy-setup=configured \
-  --evidence strategy-setup="strategy corpus filled: {written slugs} written, {kept slugs} kept"
-```
-
-**Failure floor:** on any failure, record `strategy-setup=blocked` with the blocker text and stop. Docs already replaced stay written — the compare-and-swap base makes a retry of the remaining slugs safe.
-
-Continue to step 2 of this skill: read [profile-and-scaffold.md](profile-and-scaffold.md).
+Next: [profile-and-scaffold.md](profile-and-scaffold.md).

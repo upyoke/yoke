@@ -48,6 +48,9 @@ def _executing_run(conn: Any, run_id: str, members: tuple[int, ...]) -> None:
         "VALUES (%s,1,%s,'executing',%s)",
         (run_id, COMPLETION_FLOW, now),
     )
+    from runtime.api.fixtures.completed_delivery import pin_run_delivery
+
+    pin_run_delivery(conn, run_id)
     for item_id in members:
         conn.execute(
             "INSERT INTO deployment_run_items (run_id,item_id,added_at) "

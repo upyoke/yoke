@@ -14,6 +14,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from yoke_contracts.session_control.relay_models import (
     RELAY_REPORT_COLLECTION_LIMIT,
     RelayLivenessRequest,
@@ -116,9 +118,18 @@ def _dead_launches(state_dir: Path, count: int) -> tuple[str, ...]:
     return launches
 
 
+@pytest.mark.parametrize("custody", ["gone", "unresolved"])
 def test_more_dead_sessions_than_one_request_holds_are_sent_as_accepted_batches(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    custody: str,
 ) -> None:
+    # Synthetic pids do not describe this test runner's processes. Control
+    # the final custody recheck too, including its conservative unknown case.
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_process_liveness.custody_state",
+        lambda record: custody,
+    )
     anchors = tmp_path / ANCHORS_DIR_NAME
     anchors.mkdir(parents=True, exist_ok=True)
     sessions = _dead_handles(OVERFLOW)
@@ -137,15 +148,23 @@ def test_more_dead_sessions_than_one_request_holds_are_sent_as_accepted_batches(
         10,
     ]
     assert sorted(ended) == sorted(sessions), "every death is reported, none dropped"
-    assert not any(
-        native_handle_path(f"launch-{index:04d}").exists() for index in range(OVERFLOW)
+    assert all(
+        native_handle_path(f"launch-{index:04d}").exists() == (custody != "gone")
+        for index in range(OVERFLOW)
     )
 
 
+@pytest.mark.parametrize("custody", ["gone", "unresolved"])
 def test_a_refused_session_batch_keeps_its_records_and_the_ones_behind_it(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    custody: str,
 ) -> None:
     """The undelivered tail is read again next poll rather than spent here."""
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_process_liveness.custody_state",
+        lambda record: custody,
+    )
     anchors = tmp_path / ANCHORS_DIR_NAME
     anchors.mkdir(parents=True, exist_ok=True)
     sessions = _dead_handles(OVERFLOW)
@@ -161,8 +180,8 @@ def test_a_refused_session_batch_keeps_its_records_and_the_ones_behind_it(
 
     assert sorted(ended) == sorted(sessions[:RELAY_REPORT_COLLECTION_LIMIT])
     assert len(dispatcher.batches) == 2, "a refusal ends this poll's delivery"
-    assert not any(
-        native_handle_path(f"launch-{index:04d}").exists()
+    assert all(
+        native_handle_path(f"launch-{index:04d}").exists() == (custody != "gone")
         for index in range(RELAY_REPORT_COLLECTION_LIMIT)
     )
     assert all(
@@ -173,8 +192,12 @@ def test_a_refused_session_batch_keeps_its_records_and_the_ones_behind_it(
 
 def test_more_launch_deaths_than_one_request_holds_are_sent_as_accepted_batches(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
     launches = _dead_launches(tmp_path, OVERFLOW)
+    monkeypatch.setattr(
+        "yoke_harness.session_process_custody.group_members", lambda group: {}
+    )
     dispatcher = _BatchDispatcher(collection="launches")
 
     reported = report_unregistered_launch_deaths(
@@ -216,9 +239,13 @@ def test_prunable_session_ids_keeps_only_the_unresolvable_skips() -> None:
 
 def test_a_refused_launch_batch_keeps_its_records_and_the_ones_behind_it(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
     """A custody record is released only for a batch the server received."""
     launches = _dead_launches(tmp_path, OVERFLOW)
+    monkeypatch.setattr(
+        "yoke_harness.session_process_custody.group_members", lambda group: {}
+    )
     dispatcher = _BatchDispatcher(collection="launches", refuse_call=2)
 
     reported = report_unregistered_launch_deaths(

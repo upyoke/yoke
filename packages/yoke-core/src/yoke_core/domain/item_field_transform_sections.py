@@ -99,6 +99,8 @@ def section_upsert(
     content: str,
     ordering: Optional[int] = None,
     source: Optional[str] = None,
+    field: Optional[str] = None,
+    heading_level: int = 2,
 ) -> TransformResult:
     """Upsert a top-level ``## heading`` section.
 
@@ -109,6 +111,36 @@ def section_upsert(
     No match falls through to the canonical ``item_sections`` path.
     """
     op = SECTION_UPSERT
+    if field is not None:
+        from yoke_core.domain.item_field_transform_field_section import (
+            upsert_field_subtree,
+        )
+
+        if (
+            field not in VALID_STRUCTURED_FIELDS
+            or ordering is not None
+            or heading_level not in range(2, 7)
+            or not section.strip()
+            or "\n" in section
+            or "\r" in section
+            or not content
+            or not content.strip()
+        ):
+            return _result(
+                success=False,
+                operation=op,
+                item_id=item_id,
+                error="invalid_payload: choose an allowed field, one-line section, "
+                "non-empty content and heading_level 2–6; omit ordering",
+            )
+        return upsert_field_subtree(
+            item_id=item_id,
+            field=field,
+            section=section,
+            content=content,
+            heading_level=heading_level,
+            source=source,
+        )
     refusal = section_write_refusal(section)
     if refusal:
         return _result(

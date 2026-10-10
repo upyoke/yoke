@@ -56,6 +56,7 @@ class AcquireResponse(BaseModel):
     target_kind: str
     scope: Dict[str, Any]
     linked_path_claim_ids: List[int] = Field(default_factory=list)
+    execution_instructions: List[Dict[str, Any]] | None = None
 
 
 class ReleaseRequest(BaseModel):
@@ -130,6 +131,13 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
 
     session_id = request.actor.session_id
     with _connect_rw() as conn:
+        instructions = []
+        if target_spec.kind == "item":
+            from yoke_core.domain.workflow_execution_instructions import (
+                resolve_for_item,
+            )
+
+            instructions = resolve_for_item(conn, int(target_spec.item_id))
         try:
             if target_spec.kind == "process":
                 from yoke_core.domain.work_claim_targets import resolve_process_target
@@ -171,6 +179,7 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
             "target_kind": acquired_target.kind,
             "scope": acquired_target.scope,
             "linked_path_claim_ids": list(row.get("linked_path_claim_ids") or []),
+            **({"execution_instructions": instructions} if instructions else {}),
         },
     )
 

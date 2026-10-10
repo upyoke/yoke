@@ -16,6 +16,10 @@ from yoke_core.domain.session_native_process_observation import (
     NATIVE_PROCESS_INSTANT_COLUMN_DDL,
 )
 from yoke_core.domain.session_recovery_facts import SESSION_RECOVERY_COLUMNS
+from yoke_core.domain.steering_fleet_report_read import (
+    READ_FINGERPRINTS_COLUMN,
+    READ_FINGERPRINTS_DDL,
+)
 
 
 def apply_harness_session_columns(conn: Any) -> None:
@@ -57,6 +61,7 @@ def apply_harness_session_columns(conn: Any) -> None:
         ("keepalive_reason", "TEXT DEFAULT NULL"),
         ("last_steering_report_at", "TIMESTAMPTZ DEFAULT NULL"),
         ("last_steering_report_fingerprint", "TEXT DEFAULT NULL"),
+        (READ_FINGERPRINTS_COLUMN, READ_FINGERPRINTS_DDL),
         # The ask, stamped once: from the session's own environment at
         # registration, and from the launch record at launch binding.
         ("requested_model", "TEXT DEFAULT NULL"),

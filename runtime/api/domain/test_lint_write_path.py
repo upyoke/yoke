@@ -28,7 +28,7 @@ class TestDollarDollar(unittest.TestCase):
         reason = mod.evaluate_payload(_write("/tmp/scratch.$$", "hello"))
         self.assertIsNotNone(reason)
         assert reason is not None
-        self.assertIn("literal \"$$\"", reason)
+        self.assertIn('literal "$$"', reason)
 
     def test_clean_path_allows(self) -> None:
         self.assertIsNone(mod.evaluate_payload(_write("/tmp/scratch.abc", "hello")))
@@ -51,7 +51,9 @@ class TestWorkflowDetection(unittest.TestCase):
 
     def test_project_workflow_recognized(self) -> None:
         self.assertTrue(
-            mod._is_workflow_yaml("projects/externalwebapp/.github/workflows/deploy.yml")
+            mod._is_workflow_yaml(
+                "projects/externalwebapp/.github/workflows/deploy.yml"
+            )
         )
         self.assertTrue(
             mod._is_workflow_yaml("projects/externalwebapp/ops/deploy.yaml")
@@ -72,13 +74,7 @@ class TestScanSecretsInIf(unittest.TestCase):
     def test_secrets_in_multiline_if(self) -> None:
         # Unclosed ${{ on an if: line — subsequent lines with secrets.* are
         # still flagged until the closing }} appears.
-        content = (
-            "jobs:\n"
-            "  deploy:\n"
-            "    if: ${{\n"
-            "      secrets.X != ''\n"
-            "      }}\n"
-        )
+        content = "jobs:\n  deploy:\n    if: ${{\n      secrets.X != ''\n      }}\n"
         violations = mod._scan_secrets_in_if(content)
         self.assertEqual(len(violations), 1)
         self.assertEqual(violations[0][0], 4)
@@ -90,14 +86,17 @@ class TestScanSecretsInIf(unittest.TestCase):
 
 class TestEvaluatePayload(unittest.TestCase):
     def test_workflow_with_secrets_in_if_blocks(self) -> None:
-        content = "jobs:\n  deploy:\n    if: ${{ secrets.X != '' }}\n    runs-on: ubuntu\n"
-        reason = mod.evaluate_payload(
-            _write(".github/workflows/deploy.yml", content)
+        content = (
+            "jobs:\n  deploy:\n    if: ${{ secrets.X != '' }}\n    runs-on: ubuntu\n"
         )
+        reason = mod.evaluate_payload(_write(".github/workflows/deploy.yml", content))
         self.assertIsNotNone(reason)
         assert reason is not None
         self.assertIn("secrets.*", reason)
         self.assertIn(".github/workflows/deploy.yml", reason)
+        self.assertIn("Line 3:", reason)
+        self.assertIn("env:", reason)
+        self.assertIn("run:", reason)
 
     def test_workflow_without_secrets_in_if_allowed(self) -> None:
         content = (
@@ -113,9 +112,7 @@ class TestEvaluatePayload(unittest.TestCase):
 
     def test_non_workflow_with_secrets_allowed(self) -> None:
         self.assertIsNone(
-            mod.evaluate_payload(
-                _write("src/foo.yaml", "if: ${{ secrets.X != '' }}")
-            )
+            mod.evaluate_payload(_write("src/foo.yaml", "if: ${{ secrets.X != '' }}"))
         )
 
     def test_non_dict_tool_input_handled(self) -> None:
@@ -138,9 +135,7 @@ class TestEvaluate(unittest.TestCase):
         self.assertIs(decision.next, Next.STOP)
         self.assertTrue(decision.block)
         parsed = json.loads(decision.message)
-        self.assertEqual(
-            parsed["hookSpecificOutput"]["permissionDecision"], "deny"
-        )
+        self.assertEqual(parsed["hookSpecificOutput"]["permissionDecision"], "deny")
         emit_mock.assert_called_once()
 
 
@@ -155,15 +150,15 @@ class TestMain(unittest.TestCase):
     def test_deny_prints_json(self) -> None:
         payload = json.dumps(_write("/tmp/foo.tmp.$$", "x"))
         buf = io.StringIO()
-        with mock.patch.object(mod, "_emit_denial"), \
-             mock.patch("sys.stdin", io.StringIO(payload)), \
-             redirect_stdout(buf):
+        with (
+            mock.patch.object(mod, "_emit_denial"),
+            mock.patch("sys.stdin", io.StringIO(payload)),
+            redirect_stdout(buf),
+        ):
             rc = mod.main()
         self.assertEqual(rc, 0)
         parsed = json.loads(buf.getvalue().strip())
-        self.assertEqual(
-            parsed["hookSpecificOutput"]["permissionDecision"], "deny"
-        )
+        self.assertEqual(parsed["hookSpecificOutput"]["permissionDecision"], "deny")
 
 
 if __name__ == "__main__":

@@ -76,11 +76,7 @@ def _format_reason(
     body = (
         "BLOCKED: legacy watcher module form is retired.\n\n"
         f"Found: {old}\n\n"
-        "Use the first-class yoke CLI adapter, which resolves the project "
-        "environment and keeps the wrapper's help/telemetry contract:\n"
-        f"{replacements}\n\n"
-        "The module implementation remains package-owned for the adapter and "
-        "operator tooling; it is not an agent invocation shape."
+        f"Use the first-class yoke CLI adapter:\n{replacements}"
     )
     if mode == "warn":
         body += "\n\n[mode=warn] this hook would block in deny mode."

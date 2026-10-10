@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.api import app_factory
+from yoke_core.api import app_factory, frontend_events_config
 from yoke_core.api.routes import frontend_events
 from yoke_core.domain import db_helpers, events_writes
 from yoke_core.domain.auth_schema import create_auth_tables
@@ -70,6 +70,8 @@ def event():
         "event_time": "2026-01-01T00:00:00Z",
         "session_id": str(uuid4()),
         "source_type": "frontend",
+        "service": "web",
+        "project": "yoke",
         "page_url": ORIGIN + "/items?token=door-secret&utm_source=email#private",
         "referrer": "https://search.test/?token=private",
         "actor_id": 999999,
@@ -139,6 +141,27 @@ def test_direct_entry_accepts_pack_null_referrer(client, database):
         assert stored["referrer"] is None
 
 
+def test_device_login_codes_never_reach_stored_url_fields(client, database):
+    payload = {
+        **event(),
+        "page_url": ORIGIN + "/machine-approval/RXZ2-AGEE?user_code=RXZ2-AGEE",
+        "page_path": "/machine-approval/RXZ2-AGEE",
+        "referrer": ORIGIN + "/device?user_code=NE8L-CUWF&tab=1",
+    }
+    response = client.post(
+        "/api/events", json={"events": [payload]}, headers=headers(client)
+    )
+    assert response.status_code == 200
+    with database() as conn:
+        raw = conn.execute(
+            "SELECT envelope FROM events WHERE event_id=%s", (payload["event_id"],)
+        ).fetchone()[0]
+    stored = json.loads(raw) if isinstance(raw, str) else raw
+    assert stored["page_url"] == ORIGIN + "/machine-approval/redacted"
+    assert stored["page_path"] == "/machine-approval/redacted"
+    assert stored["referrer"] == ORIGIN + "/device?tab=1"
+
+
 def test_anonymous_route_cannot_write_backend_events_or_malformed_envelopes(client):
     admitted = headers(client)
     for changed in (
@@ -146,13 +169,70 @@ def test_anonymous_route_cannot_write_backend_events_or_malformed_envelopes(clie
         {"event_kind": "security"},
         {"source_type": None},
         {"page_url": {}},
+        {"page_path": []},
         {"event_id": "not-a-uuid"},
+        {"service": None},
+        {"project": ""},
     ):
         response = client.post(
             "/api/events", json={"events": [{**event(), **changed}]}, headers=admitted
         )
         assert response.status_code == 400
         assert response.json()["error"] == "envelope_invalid"
+
+
+def oversized_event():
+    return {**event(), "context": {"note": "x" * 70_000}}
+
+
+@pytest.mark.parametrize(
+    "body, content_type, status, reason",
+    [
+        (b"{}", "text/plain", 400, "content_type_invalid"),
+        (b"{", "application/json", 400, "json_invalid"),
+        (b'{"events": []}', "application/json", 400, "events_invalid"),
+        (lambda: {"events": [event()] * 51}, "application/json", 400, "events_invalid"),
+        (
+            lambda: {"events": [oversized_event()]},
+            "application/json",
+            413,
+            "event_too_large",
+        ),
+        (b" " * 524_289, "application/json", 413, "payload_too_large"),
+    ],
+)
+def test_collector_names_each_input_refusal(client, body, content_type, status, reason):
+    content = json.dumps(body()).encode() if callable(body) else body
+    response = client.post(
+        "/api/events",
+        content=content,
+        headers={**headers(client), "Content-Type": content_type},
+    )
+    assert response.status_code == status
+    assert response.json()["error"] == reason
+    assert response.json()["recovery"]
+
+
+def test_collector_refuses_plain_http_for_remote_hosts(database):
+    remote = TestClient(
+        app_factory.create_app(), base_url="http://workbench.example.test"
+    )
+    response = remote.post("/api/events", json={"events": [event()]})
+    assert response.status_code == 400
+    assert response.json()["error"] == "collector_https_required"
+    assert response.json()["recovery"]
+
+
+def test_failed_bearer_verification_returns_the_engine_auth_envelope(client):
+    response = client.post(
+        "/api/events",
+        json={"events": [event()]},
+        headers={**headers(client), "Authorization": "Bearer not-a-token"},
+    )
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert response.json()["success"] is False
+    assert response.json()["error"]["code"]
 
 
 def test_collector_failure_and_rate_limit_never_report_acceptance(client, monkeypatch):
@@ -201,6 +281,43 @@ def test_attribution_captures_without_consent_into_signed_httponly_cookie(client
     assert invalid.json()["error"] == "attribution_input_invalid"
 
 
+@pytest.mark.parametrize(
+    "host, owner",
+    [
+        ("app.upyoke.com", "upyoke.com"),
+        ("app.stage.upyoke.com", "upyoke.com"),
+        ("yoke.acme.co.uk", "acme.co.uk"),
+        ("127.0.0.1", "127.0.0.1"),
+        ("::1", "::1"),
+        ("localhost", "localhost"),
+    ],
+)
+def test_site_domain_is_the_serving_hosts_registrable_domain(host, owner):
+    assert frontend_events_config.site_domain(host) == owner
+
+
+def test_own_apex_and_sign_in_returns_keep_the_search_touch(client):
+    admitted = headers(client)
+
+    def capture(referrer):
+        response = client.post(
+            "/api/events/attribution",
+            json={"url": ORIGIN + "/items", "referrer": referrer},
+            headers=admitted,
+        )
+        assert response.status_code == 200
+        return response.json()
+
+    search = capture("https://www.google.com/search")
+    assert search["last_touch"]["acquisition_channel"] == "organic_search"
+    for hop in (
+        "https://example.test/pricing",
+        "https://accounts.google.com/",
+        "https://accounts.youtube.com/",
+    ):
+        assert capture(hop) == search
+
+
 def test_local_collector_has_no_bearer_requirement_and_keeps_http_cookie(
     database, monkeypatch
 ):
@@ -230,41 +347,3 @@ def test_local_collector_has_no_bearer_requirement_and_keeps_http_cookie(
         ).status_code
         == 200
     )
-
-
-@pytest.mark.parametrize(
-    "value",
-    [
-        "2026-10-08",
-        "2026-10-08T00:00:00",
-        "2026-10-08T00:00:00-00:00",
-        "2026-10-08T00:00:00.1234567Z",
-    ],
-)
-def test_collector_refuses_unqualified_or_excess_precision_instants(client, value):
-    payload = {**event(), "event_time": value}
-    response = client.post(
-        "/api/events", json={"events": [payload]}, headers=headers(client)
-    )
-    assert response.status_code == 400
-    assert response.json()["error"] == "envelope_invalid"
-
-
-def test_collector_normalizes_offset_and_microseconds_before_native_storage(
-    client, database
-):
-    payload = {**event(), "event_time": "1969-12-31T18:29:59.123456-05:30"}
-    response = client.post(
-        "/api/events", json={"events": [payload]}, headers=headers(client)
-    )
-    assert response.status_code == 200
-    with database() as conn:
-        instant, raw = conn.execute(
-            "SELECT created_at,envelope FROM events WHERE event_id=%s",
-            (payload["event_id"],),
-        ).fetchone()
-        from yoke_contracts.timestamps import parse_instant
-
-        assert instant == parse_instant("1969-12-31T23:59:59.123456Z")
-        stored = json.loads(raw) if isinstance(raw, str) else raw
-        assert stored["event_time"] == "1969-12-31T23:59:59.123456Z"

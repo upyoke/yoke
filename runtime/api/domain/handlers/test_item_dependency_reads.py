@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_core.domain.handlers import (
     item_dependency_reads,
     item_dependency_writes,
@@ -69,11 +71,105 @@ class TestItemDependencyList:
         assert by_direction["depends-on"]["gate_point"] == "activation"
 
     def test_empty_graph_returns_no_rows(self, test_db):
+        insert_item(test_db, id=77)
+        test_db.commit()
         outcome = item_dependency_reads.handle_item_dependency_list(
             _request(TargetRef(kind="item", item_id=77))
         )
         assert outcome.primary_success
         assert outcome.result_payload["dependencies"] == []
+        assert outcome.result_payload["integration_gate"] == {
+            "evaluated": True,
+            "is_blocked": False,
+            "blockers": [],
+        }
+
+    @pytest.mark.parametrize(
+        ("gate_point", "reverse", "merged", "blocked"),
+        [
+            ("integration", False, False, True),
+            ("integration", False, True, False),
+            ("integration", True, False, False),
+            ("coordination_only", False, False, False),
+            ("activation", False, False, False),
+        ],
+    )
+    def test_integration_gate_uses_direction_and_satisfaction(
+        self,
+        test_db,
+        gate_point,
+        reverse,
+        merged,
+        blocked,
+    ):
+        subject, other = 10, 20
+        subject_ref, other_ref = f"YOK-{subject}", f"YOK-{other}"
+        for item_id in (subject, other):
+            insert_item(test_db, id=item_id, title=f"item {item_id}")
+        dependent, blocking = (
+            (other_ref, subject_ref) if reverse else (subject_ref, other_ref)
+        )
+        cmd_dependency_add(
+            test_db,
+            dependent,
+            blocking,
+            "operator",
+            gate_point=gate_point,
+            satisfaction=None if gate_point == "coordination_only" else "fact:merged",
+            rationale="independent edits" if gate_point == "coordination_only" else "",
+        )
+        if merged:
+            test_db.execute(
+                "UPDATE items SET merged_at = %s WHERE id = %s",
+                ("2026-01-01T00:00:00Z", other),
+            )
+        test_db.commit()
+        outcome = item_dependency_reads.handle_item_dependency_list(
+            _request(TargetRef(kind="item", item_id=subject))
+        )
+        assert outcome.primary_success
+        assert len(outcome.result_payload["dependencies"]) == 1
+        gate = outcome.result_payload["integration_gate"]
+        assert gate["evaluated"] is True
+        assert gate["is_blocked"] is blocked
+        if blocked:
+            assert len(gate["blockers"]) == 1
+            assert gate["blockers"][0]["public_ref"] == other_ref
+            assert gate["blockers"][0]["reason"]
+        else:
+            assert gate["blockers"] == []
+
+    def test_evaluation_failure_preserves_edges_without_exception_text(
+        self,
+        test_db,
+        monkeypatch,
+    ):
+        from yoke_core.domain import dependency_planning
+
+        subject, other = 10, 20
+        for item_id in (subject, other):
+            insert_item(test_db, id=item_id)
+        cmd_dependency_add(test_db, f"YOK-{subject}", f"YOK-{other}", "operator")
+        test_db.commit()
+
+        def fail(conn, public_ref, gate_point):
+            assert conn is not None
+            assert public_ref == f"YOK-{subject}"
+            assert gate_point == "integration"
+            raise RuntimeError("private exception details")
+
+        monkeypatch.setattr(dependency_planning, "evaluate_item_gate", fail)
+        outcome = item_dependency_reads.handle_item_dependency_list(
+            _request(TargetRef(kind="item", item_id=subject))
+        )
+        assert outcome.primary_success
+        assert len(outcome.result_payload["dependencies"]) == 1
+        assert outcome.result_payload["integration_gate"] == {
+            "evaluated": False,
+            "is_blocked": None,
+            "error_code": "integration_dependency_evaluation_failed",
+        }
+        assert "private exception details" not in str(outcome.result_payload)
 
 
 class TestItemDependencyWrites:

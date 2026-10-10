@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from yoke_contracts.process_ancestry import process_start_time
+from yoke_harness.session_process_custody import custody_state
 from yoke_harness.session_launch_containment import (
     release_supervised_native,
     supervised_records,
@@ -79,7 +80,7 @@ def unregistered_launch_deaths(
         # A finalized fatal capture is authoritative even if the supervisor
         # process has not disappeared yet. Otherwise require proof that its
         # recorded pid is gone (or has been reused).
-        if start_time_of(pid) == payload.get("process_start_time") and not fatal_result:
+        if custody_state(payload) != "gone" and not fatal_result:
             continue
         deaths.append(
             UnregisteredLaunchDeath(

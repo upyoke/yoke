@@ -1,107 +1,56 @@
-# Conduct — Cleanup & Report (6z-cleanup, 7)
+# Conduct — every exit
 
-The cleanup-and-report phase of the conduct epic flow. Main-repo cleanup, final report, and claim release. Runs on **every exit path** — SUCCESS, HALTED, `--no-chain`, and skip-simulation. **Inherited:** `MAIN_ROOT`, `N`, `_epic_ref`, `_title`.
+Run after SUCCESS/HALTED/no-chain/explicit simulation bypass. Resolve cleanup
+against inherited MAIN_ROOT, not the linked lane's rev-parse toplevel. Protect
+all unfinished task code and custody.
 
----
+## Owned temp and generated-view cleanup
 
-## 6z-cleanup. Main-Repo Cleanup
+List only known Yoke helper patterns, null-safe in bash/zsh:
 
-Before the final report, clean up shared-state artifacts that conduct leaves on main (follow-up work-item filing, and any board files an explicit rebuild left behind). This step runs on every exit path — SUCCESS, HALTED, `--no-chain`, and skip-simulation.
-
-### a. Remove orphaned temp files
-
-Resolve cleanup against the owning main repo root, not the active linked worktree root.
-When conduct runs from a linked worktree, shared temp files and generated views live on
-the main repo. Use `MAIN_ROOT` (inherited from conduct context) which already points at
-the correct main repo root via the conduct router's internal main-worktree resolver.
-Do NOT use `git rev-parse --show-toplevel` here — it resolves to the worktree, not main.
-
-The cleanup must be null-safe under both zsh and bash. Do not rely on unmatched shell
-globs falling through to the loop body — zsh raises `nomatch` before the guard runs.
-Use `find` so the cleanup behaves the same on both shells. Missing temp files are a
-normal no-op, not a conduct failure.
-
-```bash
-# MAIN_ROOT (inherited context variable) points at the owning main repo root.
-# Set by the conduct router's internal main-worktree resolver.
+```text
 _yoke_dir="${MAIN_ROOT}/data"
-_cleaned_temps=$(
- find "$_yoke_dir" -maxdepth 1 -type f \
- \( -name 'BOARD.md.lock' -o -name 'BOARD.md.board.*' -o -name 'BOARD.md.reg_*' -o -name 'BOARD.md.ts' \) \
- -print 2>/dev/null | sed 's|.*/||'
-)
-if [ -n "$_cleaned_temps" ]; then
- find "$_yoke_dir" -maxdepth 1 -type f \
- \( -name 'BOARD.md.lock' -o -name 'BOARD.md.board.*' -o -name 'BOARD.md.reg_*' -o -name 'BOARD.md.ts' \) \
- -exec rm -f {} +
-fi
+find "$_yoke_dir" -maxdepth 1 -type f -name 'BOARD.md.board.*' -print
 ```
 
-If any were removed, note them:
-> Cleaned orphaned temp files:{_cleaned_temps}
+_yoke_dir is the verified owning-main legacy temp directory, not DB authority.
+Other known BOARD.md.lock/BOARD.md.reg_*/BOARD.md.ts artifacts require the same
+owner/orphan check. Missing paths no-op. Remove only confirmed orphaned
+Yoke-managed temporary files; never delete a live helper's lock or arbitrary
+matching user file. Report exact removed paths. Avoid unmatched shell globs.
 
-### b. Normalize generated-view index state
+Generated .yoke/BOARD.md is untracked and must never be staged/committed. If its
+index is unmerged, normalize only this generated-view index entry; no tracked
+checkout/clean or broad deletion. Capture current evidence first:
 
-The generated board view (`.yoke/BOARD.md`) is gitignored. After worktree/main divergence it can end up in unmerged (`DU`/`AU`) index state. Reset it silently — it is regenerated on demand and must never be committed:
-
-```bash
-_stale_views=$(git -C "$MAIN_ROOT" status --porcelain -- .yoke/BOARD.md 2>/dev/null | grep -E '^(DU|AU|UU) ' || true)
-if [ -n "$_stale_views" ]; then
- git -C "$MAIN_ROOT" reset --quiet HEAD -- .yoke/BOARD.md 2>/dev/null || true
- git -C "$MAIN_ROOT" checkout HEAD -- .yoke/BOARD.md 2>/dev/null || true
- git -C "$MAIN_ROOT" clean -fdX -- .yoke/BOARD.md 2>/dev/null || true
-fi
+```text
+git -C {MAIN_ROOT} status --porcelain -- .yoke/BOARD.md
+git -C {MAIN_ROOT} reset --quiet HEAD -- .yoke/BOARD.md
+git -C {MAIN_ROOT} status --porcelain -- data/
+git -C {MAIN_ROOT} log origin/main..main --oneline
 ```
 
-If any were normalized:
-> Normalized generated-view index state (gitignored views were in unmerged state).
+Index normalization only when that exact generated entry needs it. Report any
+remaining main artifacts/unpushed history; never push worker bookkeeping by
+hand or hide a cleanup failure. Legacy root DB files stop for investigation.
 
-### c. Report remaining artifacts
+## Outcome and custody
 
-Check for any remaining non-clean state on main:
+Print CONDUCT_RESULT: SUCCESS|HALTED, actual per-task state/attempts/candidate,
+remaining blocked/not-started tasks and exact next action. SUCCESS for a
+no-chain/bypass leg is not parent completion. Refresh item and use
+[the shared handoff recipe](../shared/stage-handoff.md) for its current binding.
+Conduct does not merge, close the issue, remove lanes or mark done.
 
-```bash
-_remaining=$(git -C "$MAIN_ROOT" status --porcelain -- data/ 2>/dev/null | head -5)
-```
+Wrong-epic body, missing-epic body and _epic_ref lost between dispatches remain
+explicit, with the returned code/message, intended/attested refs and recovery.
+Do not collapse identity failure to a generic gap. Retain uncertain-write ids
+and readback recipe; do not repeat the persistence write to get another receipt.
 
-If non-empty, include in final report:
-> **Advisory:** Main has remaining artifacts after cleanup:
-> ```
-> {_remaining}
-> ```
-
-### d. Report unpushed commits on main
-
-```bash
-_unpushed=$(git -C "$MAIN_ROOT" log origin/main..main --oneline 2>/dev/null || true)
-```
-
-If non-empty, include in final report:
-> **Note:** Main is ahead of origin with unpushed commits:
-> ```
-> {_unpushed}
-> ```
-> Consider pushing bookkeeping commits or including them in the next PR.
-
----
-
-## 7. Final Report
-
-Print `CONDUCT_RESULT: {SUCCESS|HALTED}` with a per-item summary. On success,
-read the fresh item's `next_skill_id` and render the command through
-[the shared handoff recipe](../shared/stage-handoff.md). When halted by testing,
-review Tester reports and re-run `/yoke conduct PREFIX-{N}`. When halted by
-simulation gaps, review the gaps, fix integration issues in the preserved
-worktree, then re-run `/yoke conduct PREFIX-{N}`. See `error-handling.md` for notes.
-
-**Halted (simulator epic-identity attestation):** when conduct halts because `persist_simulation` exited 16 (wrong-epic body) or 17 (missing-epic body), the operator-facing line MUST preserve the exact `persist_simulation` error text. Exit 16's error names both the CLI-passed epic and the body-attested epic; relay that text in the final report rather than collapsing it to a generic "simulation halted" line. The operator needs to see *which* epic was attested vs *which* epic was passed so they can decide whether to re-dispatch with corrected context, file a follow-up against the prompt assembly path, or investigate parent-session compaction. The same rule applies when the Layer 4 defensive bail halts conduct because `_epic_ref` was empty before dispatch — surface that exact `_epic_ref lost between dispatches` line, not a paraphrase.
-
-### Release Manual Work Claims
-
-On SUCCESS exits, the claim was already released by `conduct_reviewed_handoff` with reason `handoff-to-polish`. On HALTED exits, release the parent item claim as a fallback:
-
-```bash
-# Fallback release for halted/bypassed paths only (success path is Python-owned T-4)
-yoke claims work release \
- --item "PREFIX-${N}" --reason "completed" >/dev/null 2>&1 || true
-```
+At verified through-stage handoff release only the parent claim still held,
+with truthful handoff reason, then verify holder-list. A release failure keeps
+the handoff incomplete; no already-released double write. Each task closeout
+owns its exact task claim release. A halted leg first checkpoints Progress Log
+and names its actual ownership handoff/recovery; never label unfinished release
+reason completed or release merely to send a report. If custody must remain
+for a current mandate, retain it and record the named wait instead.

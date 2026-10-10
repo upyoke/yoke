@@ -5,94 +5,57 @@ description: "Direct-mode entrypoint — itemless steering loop over a strategy 
 argument-hint: "[STRATEGY-DOC-SLUG] [--project P ...]"
 ---
 
-# /yoke steer [STRATEGY-DOC-SLUG] [--project P ...]
-
-Itemless steering loop. A harness session claims the steering scope of one
-strategy document — `CURRENT-PLAN` unless the operator names another — holds
-that document, and keeps that scope moving:
-read the standing plan, reconcile it with the live frontier, consume worker
-reports, write plan-level state back into the doc, hand work to executors,
-staff unpicked runnable items, and escalate only decisions that need a human.
-The coordinator never implements. Steering covers every pinned workflow;
-each item keeps its own workflow and routed entrypoint from intake through
-its live merge or release boundary.
-
-Steering means continuous small course corrections while something else
-provides the power. The stored claim kind is a **steering-scope claim**;
-the skill id is **steer**. Do not invent a "steer claim".
-
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
-## Phase map — read one file, at the phase it governs
+# /yoke steer [STRATEGY-DOC-SLUG] [--project P ...]
 
-| Phase | You are here when | Read before acting |
-|---|---|---|
-| 1–3. Parse, read the doc, take the seat | `/yoke steer` was just invoked | [`scope-and-authority.md`](scope-and-authority.md) |
-| 4. Run the standing loop | Both halves of the seat are held | [`loop.md`](loop.md) |
-| 5. Close out | An explicit stop, or an orderly handoff | [`close-out.md`](close-out.md) |
-| — Staff a worker | The loop is about to launch, judge, or restaff one | [`worker-lifecycle.md`](worker-lifecycle.md) |
-| — Choose a level for a launch | A launch needs a level, an item level override, or a restaff up or down | [`model-selection.md`](model-selection.md) |
-| — Watch the fleet | The loop is arming or reading the fleet watcher | [`watching.md`](watching.md) |
-| — Read a fleet finding | A worker reported something the seat must triage | [`fleet-findings.md`](fleet-findings.md) |
-| — Hand a Blitz to its executor | The staffed item's pinned workflow is Blitz | [`blitz-handoff.md`](blitz-handoff.md) |
-| — Look up a function id | You need a steering operation's exact envelope | [`function-reference.md`](function-reference.md) |
+Itemless autonomous steering of a claimed strategy document, defaulting to
+CURRENT-PLAN. Read its intent, reconcile live frontier/reports, staff executors,
+and write current plan state. The coordinator never implements.
 
-Do not invoke `/yoke feed`. Feed and steer are unrelated.
+## Phase map
 
-## Invariants — these bind from the first action
+| Phase | Read before acting |
+|---|---|
+| Parse/read/take paired seat | [scope-and-authority.md](scope-and-authority.md) |
+| Continuous pass | [loop.md](loop.md) |
+| Safe stop/handoff/release | [close-out.md](close-out.md) |
+| Staff, judge or restaff | [worker-lifecycle.md](worker-lifecycle.md), [model-selection.md](model-selection.md) |
+| Launch/settle worker | [worker-launch.md](worker-launch.md) |
+| Attach fleet stream | [watching.md](watching.md) |
+| Triage findings | [fleet-findings.md](fleet-findings.md) |
+| Blitz document handoff | [blitz-handoff.md](blitz-handoff.md) |
+| Batch merged delivery | [release-batches.md](release-batches.md) |
+| Exact function lookup | [function-reference.md](function-reference.md) |
 
+Standing invariants:
 
-- **Itemless.** This session holds no work item. One atomic steering acquire
-  pairs the steering-scope claim with its strategy-doc lock; together they
-  are its authority. The doc and its linked items ARE the surviving state.
-- **Vocabulary is steering.** Identifiers, refusal text, and labels use
-  steering-scope claim, steering claim holder, steering scope. "Coordinator"
-  is acceptable role prose. Never name a durable identifier coordination
-  or coordinator. Avoid the bare phrase "steer claim".
-- **No new scheduler.** The loop is message wakes plus periodic frontier
-  checks through existing surfaces. Do not add or call feed.
-- **Every workflow stays itself.** Read each item's pinned `workflow_id` and
-  the scheduler's `next_step`; never convert or re-file incoming work to make
-  it Dash-shaped. One worker owns that one item across its routed legs.
-  Before declaring a capability absent or filing follow-up work, verify
-  that pinned workflow (`yoke workflows item get PREFIX-N --json`) and the
-  full command path; a named refusal is evidence, a guess is not.
-- **Dash is the filing default, not the steering boundary.** New work filed by
-  the steerer uses Dash unless it is genuinely laneless, merge-free Task work
-  (`yoke task TITLE INSTRUCTION --execution-instructions-considered`), needs
-  Issue, Epic, or Blitz structure, or the operator directs another workflow.
-  Pass `--strategy-doc {SLUG}` on either so the filed item lands inside this
-  seat's scope.
-- **Workers merge; the steerer batches delivery.** Worker mandates prohibit
-  deployment-run creation. The loop pins one release SHA, deploys batches,
-  and completes any item parked at its release boundary afterward.
-- **Yoke launches every staffed session.** Read the item's effective stage level (including its override) and
-  preview that level; item-bound create omits `--level` (an exact selection is an operator override),
-  then use `session_control.launch.create` for both item-bound composed mandates
-  (`--item`) and itemless raw mandates (`--raw-instructions --stdin`). After a
-  Yoke refusal, use its named recovery through Yoke; never substitute the
-  Codex app `create_thread`, a direct native CLI, or another launch path.
-- **Every response the operator sees states a live outstanding operator
-  action** — the item it blocks and what it unblocks — until it resolves
-  or the operator asks to mute reminders; fold this into the reply and the
-  standing-plan snapshot already produced each pass, never a separate
-  alert or an extra turn spent only to repeat it. The moment a server or
-  system failure explains the same block, correct the attribution there
-  instead of continuing to ask for the human action.
-- **Autonomous.** Invoking `/yoke steer` authorizes the loop. Do not wait
-  for confirmation before claiming, reading the frontier, acknowledging
-  reports, launching workers, or writing the doc — except the documented
-  offer-to-create and operator-escalation gates.
+- One atomic steering acquire pairs a steering-scope claim and document lock;
+  the document and linked items are durable state. Scope/links/overlap and role
+  mail are governed by scope-and-authority. No doc-less continuation.
+- Use steering-scope claim, steering claim holder, steering scope. Coordinator
+  is role prose, never a durable identifier. Avoid the bare phrase "steer claim".
+- Do not invoke `/yoke feed`. Feed and steer are unrelated. No new scheduler:
+  existing message wakes, fleet watcher and frontier reads drive the loop.
+- Each item keeps its pinned workflow and routed next_step. Never convert or
+  re-file it to fit a remembered workflow. Verify pin/full command before
+  claiming a capability absent or filing replacement work.
+- New filing defaults to Dash; genuinely laneless/merge-free Task, required
+  Issue/Epic/Blitz structure, or operator direction are exceptions. Name
+  --strategy-doc SLUG at intake. Workers merge; the steerer batches delivery
+  at one verified source. Mandates prohibit worker deployment-run creation.
+- All launches use registered preview/create, including raw itemless mandates.
+  Effective item level and judged leg choose staffing; item-bound --level records
+  an every-stage override. No alternate native/app launch after Yoke refusal.
+- Every operator-visible reply states all verified outstanding operator actions,
+  blocked item and unblock condition until resolved/muted. Correct system-caused
+  attribution; fold reminders into normal reply/live snapshot, no extra nag turn.
+- Invoking this skill authorizes reads, claims, acknowledgements, staffing and
+  document writes. Ask only at its explicit missing-document creation or
+  reserved operator-decision gate.
 
-
-The invariants that define what this seat *covers* — scope, document,
-membership, and how workers address it — are in
-[`scope-and-authority.md`](scope-and-authority.md), read at step 1.
-
-## Start
-
-Read [`scope-and-authority.md`](scope-and-authority.md) and follow it.
+Start with scope-and-authority; follow one current phase at a time.

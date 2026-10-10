@@ -154,25 +154,10 @@ def _local_checkout_for_item(item_id: int) -> Optional[str]:
     ``checkout_for_project_id`` (machine config, no DB). Returns
     ``None`` when the project or its checkout mapping is unresolved.
     """
-    from yoke_core.api.service_client_structured_api_adapter import (
-        call_dispatcher,
-    )
-    from yoke_core.domain.project_checkout_locations import (
-        checkout_for_project_id,
-    )
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_core.domain.path_claim_activation_client import local_checkout
 
-    detail = call_dispatcher(
-        function_id="items.detail.get",
-        target=public_item_target(item_id),
-    )
-    if not detail.success:
-        return None
-    project = ((detail.result or {}).get("item") or {}).get("project") or {}
-    project_id = project.get("id")
-    if project_id is None:
-        return None
-    checkout = checkout_for_project_id(int(project_id))
-    return str(checkout) if checkout is not None else None
+    return local_checkout(public_item_target(item_id), call_dispatcher)
 
 
 def activate_path_claims(item_id: int) -> Tuple[bool, str, List[int]]:
@@ -189,92 +174,22 @@ def activate_path_claims(item_id: int) -> Tuple[bool, str, List[int]]:
     ``error_text`` keeps the ``db-lock:`` marker so
     :func:`classify_activation_failure` still routes substrate contention.
     """
-    from yoke_core.api.service_client_structured_api_adapter import (
-        call_dispatcher,
-    )
-    from yoke_core.domain.advance_path_claim_activation_retry import (
-        resolve_integration_head_with_retry,
-    )
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_core.domain.path_claim_activation_client import run_activation
 
-    target = public_item_target(item_id)
-    listed = call_dispatcher(
-        function_id="claims.path.list",
-        target=target,
-        payload={"states": ["planned", "blocked"]},
+    run = run_activation(
+        public_item_target(item_id),
+        dispatch=call_dispatcher,
+        checkout_for_item=lambda: _local_checkout_for_item(item_id),
     )
-    if not listed.success:
-        err = listed.error
-        return (
-            False,
-            (
-                f"{err.code}: {err.message}"
-                if err is not None
-                else "path-claim list failed"
-            ),
-            [],
-        )
-    claims = (listed.result or {}).get("claims") or []
-
-    resolved_heads: dict[int, str] = {}
-    if claims:
-        checkout = _local_checkout_for_item(item_id)
-        if checkout is None:
-            return (
-                False,
-                (
-                    "claim's item has no machine-local checkout mapping; "
-                    "cannot resolve integration head"
-                ),
-                [],
-            )
-        for claim in claims:
-            claim_id = int(claim["id"])
-            integration_target = str(claim.get("integration_target") or "main")
-            rr = resolve_integration_head_with_retry(
-                None,
-                project_id="",
-                repo_path=checkout,
-                integration_target=integration_target,
-            )
-            if rr.error is not None:
-                # A planned claim WILL be activated; surface the resolution
-                # failure (divergence / boundary / db-lock). A blocked claim
-                # short-circuits server-side, so omit it and let the server
-                # decide (a repair-to-planned falls back to local resolution).
-                if str(claim.get("state")) == "planned":
-                    return False, rr.error, []
-                continue
-            resolved_heads[claim_id] = str(rr.commit_sha)
-
-    run = call_dispatcher(
-        function_id="claims.path.activation_run",
-        target=target,
-        payload={"resolved_heads": resolved_heads},
-    )
-    if not run.success:
-        err = run.error
-        return (
-            False,
-            (
-                f"{err.code}: {err.message}"
-                if err is not None
-                else "path-claim activation failed"
-            ),
-            [],
-        )
-    result = run.result or {}
-    outcomes = result.get("outcomes") or []
+    outcomes = (run.result or {}).get("outcomes") or []
     activated = [
         int(o["claim_id"])
         for o in outcomes
         if o.get("state_before") == "planned" and o.get("state_after") == "active"
     ]
-    diverged = result.get("diverged_error")
-    blocked = list(result.get("blocked_errors") or [])
-    if diverged or blocked:
-        parts = ([str(diverged)] if diverged else []) + [str(b) for b in blocked]
-        return False, "\n".join(parts), activated
-    return True, "", activated
+    error = run.error
+    return run.success, (f"{error.code}: {error.message}" if error else ""), activated
 
 
 def check_dirty_main(

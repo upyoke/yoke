@@ -1,19 +1,27 @@
-# /yoke idea — invocation notes and standing cautions
+# Idea — Invocation and Handoff
 
+/yoke idea is a harness skill, not a yoke CLI verb. Its registered create
+adapter is items.create with harness_skill entry. Workflow version owns initial
+stage and fresh next-skill routing; do not print a memorized progression.
+Explicit Blitz selection retains its refine/document boundary.
 
-- **`/yoke idea` is a harness skill entrypoint, not a `yoke` CLI subcommand.** Invoke it as the `/yoke idea` slash command — there is no `yoke idea` CLI adapter, so `yoke idea --help` returns `unknown subcommand`. The `yoke <subcommand>` CLI wraps item/claim/lifecycle operations; work item *intake* is a skill flow, not a CLI verb.
-- An explicit `/yoke idea --workflow blitz "{title}"` selection is passed to
-  the registered `items.create` function as `workflow: "blitz"` with
-  `entry_surface: "harness_skill"`. The new item still starts at `idea`;
-  refinement must link exactly one execution strategy document before
-  document execution begins at the pinned refinement boundary.
-- Status is always `idea` for new items. Follow the workflow-specific
-  handoff in `infer-and-create.md`: read the created item's `next_skill_id`
-  and render its command through [the shared handoff recipe](../shared/stage-handoff.md).
-- The PREFIX-N ID is permanent — it never changes even after GitHub sync.
-- Items are auto-synced to GitHub on creation. If GitHub sync is unavailable, the item is created locally and can be synced later through the internal item sync repair path; do not teach that repair path as normal product flow.
-- This is a write command — it creates a file and inserts a DB row.
-- **Maximum questions rule:** This flow asks at most 3 binary questions total per invocation. Most items should require zero questions (all fields inferred from context). Count your questions — if you have already asked 3, stop asking and use best-guess defaults for remaining ambiguities.
-- **Done-means must be guard-permitted.** Verification commands written into the spec (definition of done, AC verify steps, "run this to prove it") must be a shape PreToolUse allows: `yoke <subcommand>`, `yoke watch pytest -- ...`, or `yoke dev run -- python3 -m ...`. Never prescribe `python3 -c` importing `yoke_core` / `yoke_cli` / `yoke_harness`. Readiness `BLOCKED_AGENT_COMMAND_SHAPE` blocks fenced or backticked prescriptions of that shape.
+Public PREFIX-N identity is permanent; GitHub issue number is separately
+resolved. Creation syncs the issue; degraded GitHub sync can be repaired through
+its registered recovery, not a second create or guessed normal flow.
+Item content is stored structured data, not an authored backlog file.
 
-- **Command case source:** Use `yoke dev run -- <command>` for direct pre-merge Yoke lane checks. Post-deploy Command source tests run `yoke watch pytest -- <test paths>` directly: the runner supplies candidate cwd and the watcher binds it to source. Candidate-bound Yoke cases bind bare `python3` and `yoke` to candidate packages and record import origins; missing or outside-candidate origins record a named refusal instead of a pass. Lane, external-project, and endpoint-only `--allow-tree-mismatch` cases keep product imports.
+**Maximum questions rule: at most3 questions per invocation**, normally zero.
+Use binary decisions where applicable, and the explicit DB ternary when needed.
+After3 use evidence-backed best guesses for remaining routine ambiguity;
+never guess a required project, bypass hard gates or stamp false claims.
+
+Done-means prescriptions must be guard-permitted registered commands/watchers
+or source-dev wrappers. Direct runtime imports in inline Python are refused
+as BLOCKED_AGENT_COMMAND_SHAPE, not usable verification.
+
+Pre-merge Yoke source checks use yoke dev run; post-deploy Command source tests
+use yoke watch pytest directly with runner candidate cwd. Candidate-bound bare
+python/yoke records candidate import origins; missing/outside origins refuse,
+never pass. Lane/external-project/endpoint allow-tree-mismatch cases retain
+product imports. Read fresh next_skill_id through
+[shared handoff](../shared/stage-handoff.md) only after complete intake/release.

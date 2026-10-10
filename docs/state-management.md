@@ -6,8 +6,8 @@ All authoritative Yoke state lives in the configured Postgres authority. Compact
 
 Every work item gets a stable global integer `items.id`. Its user-facing
 reference combines the owning project's `public_item_prefix` with the item's
-per-project `project_sequence` (for example, `EXAMPLE-42`). Both identities persist
-through the item's entire lifecycle. The registry is the single source of
+per-project `project_sequence` (for example, `EXAMPLE-42`). The numeric id and project sequence persist; the read-only `item_refs` view
+derives the public reference from the project's current prefix. The registry is the single source of
 truth for every registered workflow and immutable workflow-version pin.
 
 ### ID System
@@ -19,8 +19,9 @@ truth for every registered workflow and immutable workflow-version pin.
 - **Counters:** the registry assigns the global integer id and the next
   project sequence; `UNIQUE(project_id, project_sequence)` preserves the
   project-local namespace.
-- **Stability:** neither identity changes. A GitHub issue number is separate
-  metadata in `github_issue`.
+- **Stability:** item id and project sequence do not change. A project-prefix
+  change affects its derived public references; GitHub issue numbers remain
+  separate `github_issue` metadata.
 - **Generated tasks** stored in `epic_tasks` keep plan-order numbering
   (001, 002) — internal to their parent item, not global YOK-N IDs.
 
@@ -90,16 +91,9 @@ Items are read via `yoke items get YOK-N <field>`. The `body` field is a virtual
 
 **Item-level dependencies** are stored in the `item_dependencies` table (not as an item field). Every row is a canonical blocker with `gate_point` (`activation`, `integration`, or `closure`) and `satisfaction` (`status:<stage-id>`, `fact:merged`, or `fact:deployed:<environment-name>`). Use the blocker's pinned workflow stage, normally `status:done` when deployment and closeout must finish. Use `fact:merged` when trunk is enough. Reserve the deployed fact for a dependent that needs the blocker live in a registered environment before `done`: it clears when the blocker is a member in `deployment_run_items` of a succeeded run targeting that environment name, across run-owner projects. Code containment alone does not count. Each row carries a `rationale` (human-readable) and `evidence_json` (structured provenance). A shared dependency-planning kernel (`dependency_planning.py`) evaluates gates and plans candidate sets for all consumers. Transition and dispatch gates call the hard-block gate or the dependency-planning service commands. See `.yoke/docs/reference/db-reference.md` for the full schema.
 
-### Counter Mechanics
-
-When the backlog create path inserts an item:
-1. Resolve `project_id` and allocate the next `project_sequence` for it.
-2. Insert the row and receive its global integer `items.id`.
-3. Format the public reference from the project's prefix and sequence.
-4. Make the item accessible through `yoke items get <PREFIX-N> body`.
-
-The counters never decrement. Removed items leave gaps; identities are never
-reused.
+Creation resolves the project, allocates its next sequence, receives the global
+item id, then formats the reference. Counters never decrement; removed items
+leave gaps and numeric identities are not reused.
 
 ## Backlog Item Lifecycle
 
@@ -181,7 +175,9 @@ Run mechanics, halt states, step runner types, and ephemeral environments live i
 
 ## Epic Task State (DB table: `epic_tasks`)
 
-One row per task. Created by `yoke_core.api.service_client_items`. Updated by `yoke_core.domain.update_status`.
+One row per generated task. Registered epic-task operations own its creation
+and transitions; [task functions](public/reference/db-reference/functions-tasks.md)
+name the callable contracts.
 
 **Columns:**
 
@@ -230,29 +226,15 @@ Plus: failed, blocked, stopped
 ## Pinned Item Stage Flow
 
 There is no global backlog-item progression and no Issue/Epic item-type
-branch. The row's `workflow_id` is a registry key; the immutable
-`workflow_version_id` selects the only authoritative ordered stage graph.
+branch. `workflow_id` is a registry key; `workflow_version_id` selects the only authoritative
+ordered stage graph. Read the exact pin and definition as above.
+Find the active half-open skill binding for the current stage.
+Invoke `/yoke <skill_id>`; target-stage gate references and policy remain
+definition-owned. Familiar stage ids do not supply a copied progression. A binding ends at its
+`through_stage_id`, which is a fresh skill and claim handoff.
 
-For a live item:
-
-1. Read the pin with `yoke workflows item get YOK-N`.
-2. Read the exact definition with
-   `yoke workflows version get WORKFLOW VERSION`.
-3. Find the active half-open skill binding for the current stage.
-4. Invoke `/yoke <skill_id>`.
-5. Let the target-stage gate references and definition policies decide whether
-   the transition can commit.
-
-A binding ends at its `through_stage_id`; reaching that stage hands the item to
-the next skill rather than granting the current command ownership of the
-rest of the graph. Definitions may reuse familiar ids such as `idea`,
-`planned`, `implemented`, `release`, and `done`, but documentation must not
-copy those ids into a workflow-independent progression.
-
-During a compatible `release_stage` delivery tail, the skill may encounter
-`needs-capability` or `awaiting-approval` on the deployment run. The item
-remains at the pinned delivery stage while halted; after resolution, the
-registered delivery skill resumes the run.
+Run halt states remain on the deployment run; resolving them resumes its
+registered delivery skill while the item stays at its pinned delivery stage.
 
 ## Dispatch Chain (DB table: `epic_dispatch_chains`)
 
@@ -292,7 +274,9 @@ Queried live from the `epic_tasks` DB table by the board renderer and status-upd
 
 ## Cross-Item Board (`.yoke/BOARD.md`)
 
-BOARD.md is 100% auto-generated by the Python board pipeline. Per-item context goes in backlog item structured fields (read via `items get YOK-N body`). The board section between `<!-- YOKE:BOARD:START -->` and `<!-- YOKE:BOARD:END -->` markers is regenerated on every backlog mutation and status change.
+BOARD.md is 100% auto-generated by the Python board pipeline. Per-item context goes in backlog item structured fields (read via `items get YOK-N body`). Use `yoke board rebuild` to regenerate the projection between
+`<!-- YOKE:BOARD:START -->` and `<!-- YOKE:BOARD:END -->`; read `--help` for
+print modes. Never edit or commit the generated view.
 
 The board is a presentation projection, not lifecycle authority. It classifies
 each item's pinned stage and orthogonal blocked/frozen/run state through
@@ -304,14 +288,14 @@ Each row shows public reference, title, workflow, priority, status, and
 progress (generated-task counts when `epic_tasks` rows exist). Task detail is
 queried live from the DB through Yoke core.
 
-Rebuilt on every status change and backlog mutation via the Python backlog and board surfaces.
+Backlog/status mutations do not automatically rebuild the local board view.
 
 ## GitHub Integration
 
 ### Generated epic tasks
 - The parent backlog item and its generated tasks are represented as linked
   GitHub issues
-- Each task → child Issue (labeled `type:task`, `status:{status}`, `worktree:{branch}`)
+- Each task has a linked issue (labeled `type:task`, `status:{status}`, `worktree:{branch}`)
 - Linked via `gh-sub-issue` (falls back to checkbox list)
 - Status transitions → label swap + comment via `yoke_core.domain.update_status`
 - Progress notes → issue comments via `yoke_core.api.service_client_items`

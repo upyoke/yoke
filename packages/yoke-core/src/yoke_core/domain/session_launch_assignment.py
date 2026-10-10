@@ -135,6 +135,13 @@ def refuse_held_assigned_item(
         f"or run `yoke session-control launch reconcile {launch_id}` "
         "before launching a fresh worker"
     )
+    if live_holder and holder_id == predecessor_session_id:
+        recovery = (
+            "You hold this item's claim yourself, so no other worker may start "
+            "yet. To launch your own level-change successor, release your claims "
+            "first (`yoke claims work release --all-mine --json`, after your "
+            "Progress Log checkpoint), then retry the same command"
+        )
     raise SessionLaunchError(
         "item_has_live_worker",
         compose_refusal(

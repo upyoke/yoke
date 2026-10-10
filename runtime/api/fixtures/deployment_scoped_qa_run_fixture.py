@@ -1,13 +1,7 @@
-"""Seed an already-frozen deployment run for scoped (schema-2) QA stages.
+"""Seed an already-admitted, frozen schema-2 deployment run for scoped QA.
 
-The serving runtime's own creation-time gate (``require_supported_defini
-tion_schema``) refuses to START a new run against a schema-2 (QA-stage)
-flow through ``deployment_runs.create`` at all — a deliberate gate: "keep
-the definition disabled until the matching runtime is deployed." Tests
-that need to execute a real scoped-QA stage (via ``deploy_pipeline.run_
-pipeline`` or the lower-level materialize/gate calls directly) seed an
-already-admitted, already-frozen run instead, exactly as this module does
-and as ``test_deployment_qa_stage_execution.py`` does inline.
+Creation refuses disabled definitions; these fixtures test execution of a run
+that was admitted before the runtime gate, retaining its frozen stage binding.
 """
 
 from __future__ import annotations
@@ -163,6 +157,9 @@ def seed_run_standing_on_qa_stage(
             flow_snapshot,
         ),
     )
+    from runtime.api.fixtures.completed_delivery import pin_run_delivery
+
+    pin_run_delivery(conn, run_id, environment=environment)
     for item_id in members:
         insert_item(
             conn,

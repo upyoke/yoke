@@ -40,7 +40,10 @@ def as_utc(value: datetime) -> datetime:
     """Normalize an aware instant, refusing an implicit local timezone."""
     if not isinstance(value, datetime) or value.utcoffset() is None:
         raise InvalidInstant()
-    return value.astimezone(timezone.utc)
+    try:
+        return value.astimezone(timezone.utc)
+    except OverflowError:
+        raise InvalidInstant() from None
 
 
 def parse_instant(value: str | datetime) -> datetime:

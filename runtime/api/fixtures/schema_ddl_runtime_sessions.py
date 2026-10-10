@@ -21,6 +21,10 @@ from yoke_core.domain.session_recovery_facts import (
     SESSION_RECOVERY_COLUMNS,
 )
 from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
+from yoke_core.domain.steering_fleet_report_read import (
+    READ_FINGERPRINTS_COLUMN,
+    READ_FINGERPRINTS_DDL,
+)
 
 # Rendered from the columns' own declaration so this fixture cannot drift
 # from the schema it stands in for.
@@ -83,7 +87,8 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     turn_posture_at {TURN_POSTURE_INSTANT_COLUMN_DDL},
     native_thread_id TEXT DEFAULT NULL,
     last_steering_report_at TIMESTAMPTZ DEFAULT NULL,
-{_RECOVERY_COLUMNS_DDL}    last_steering_report_fingerprint TEXT DEFAULT NULL
+{_RECOVERY_COLUMNS_DDL}    last_steering_report_fingerprint TEXT DEFAULT NULL,
+    {READ_FINGERPRINTS_COLUMN} {READ_FINGERPRINTS_DDL}
 );
 
 CREATE TABLE IF NOT EXISTS session_tool_calls (

@@ -5,12 +5,6 @@ description: Detect and repair drift between local backlog items and their GitHu
 argument-hint: "[--fix]"
 ---
 
-# /yoke resync
-
-Detect and repair drift between local backlog items (DB) and their
-corresponding GitHub issues. Reports mismatches in title, stage labels,
-priority labels, workflow labels, frozen labels, blocked labels, and body
-content.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -18,52 +12,34 @@ yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evide
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
-## Arguments
+# /yoke resync [--fix]
 
-- `--fix` — Detect drift and automatically repair all fixable mismatches. Without this flag, the command is read-only.
+Compare authoritative backlog state with linked GitHub issues: title, stage,
+priority, workflow, frozen/blocked labels and body. Requires the source-dev/admin
+runtime plus installed/authenticated `gh`.
 
-## Philosophy
+## Phase map
 
-**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent. A drift report should tell the operator exactly what diverged, what is safe to repair, and what still needs judgment — current findings, not a restated history.
+| Phase | Action |
+|---|---|
+| Detect or repair | Run below |
+| Report | Show the complete captured result |
 
-**No silent repair stories.** If resync changes state, the report should make that history explicit so later sessions do not have to infer whether drift was detected, ignored, or repaired.
+## Run
 
-## Steps
+Default detection makes zero GitHub writes. `--fix` repairs fixable drift.
 
-1. **Run the sanctioned resync command:**
+```sh
+yoke resync
+yoke resync --fix
+```
 
- Determine the mode based on arguments:
+Capture the full drift report. Read `yoke resync --help` for command depth.
+Show scanned/mismatch totals, each field's local/GitHub values, actual repairs
+and anything requiring judgment. Report in-sync only when no drift was found;
+in detect-only mode list mismatches and suggest `/yoke resync --fix`. After
+repair, identify fixed and unrepairable items; never imply an unperformed repair.
 
- - **Default (no flags):** Run in detect-only mode:
- ```
- yoke resync
- ```
-
- - **With `--fix`:** Run in fix mode:
- ```
- yoke resync --fix
- ```
-
- Capture the full stdout output (the drift report).
-
-2. **Display the drift report:**
-
- Show the complete output to the user. The report includes:
- - Summary of items scanned and mismatches found
- - Per-item drift details (field, local value, GitHub value)
- - Repair actions taken (when `--fix` is used)
-
-3. **Summarize results:**
-
- - **If no drift found:** Report that local backlog and GitHub are in sync.
- - **If drift found (detect-only):** List the mismatches and suggest running `/yoke resync --fix` to repair them.
- - **If drift found and repaired (`--fix`):** Summarize what was fixed and note any items that could not be auto-repaired.
-
-## Notes
-
-- This command requires the `gh` CLI to be installed and authenticated.
-- Detect-only mode makes zero GitHub API writes — safe to run at any time.
-- The `--fix` mode updates GitHub issues to match local backlog state (local is source of truth).
-- Frozen labels: if `items.frozen=1` in the DB but GitHub lacks the `frozen` label (or vice versa), resync detects and repairs the drift via `sync_frozen_label()`.
-- Blocked labels: same shape as frozen, sourced from `items.blocked`. Repaired via `sync_blocked_label()`. Drift is reported as `HC-blocked-label-drift`. The legacy `status:blocked` label is removed automatically when the flag clears so a row repaired by the migration converges on a single indicator.
-- Run `/yoke resync` periodically or after bulk backlog changes to catch drift early. This is part of Ouroboros — Yoke's self-improvement system.
+Frozen and blocked labels follow `items.frozen`/`items.blocked` through existing
+flag sync. Blocked drift is `HC-blocked-label-drift`; clearing the flag removes
+the legacy blocked-stage indicator. Check periodically or after bulk changes.

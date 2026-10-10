@@ -10,6 +10,15 @@ from __future__ import annotations
 
 CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/claims_path_flow.py",
+        "yoke_core.domain.path_claim_activation_client",
+    ): (
+        "client_local_execution",
+        "standalone claim activation shares preflight's machine-local checkout "
+        "and git-head resolution; all claim state reads and writes still use "
+        "the supplied transport-aware dispatcher, with no local DB authority",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/config_actor_binding.py",
         "yoke_core.domain.control_plane_transport",
     ): (

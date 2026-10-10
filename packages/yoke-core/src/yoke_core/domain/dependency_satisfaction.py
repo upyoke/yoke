@@ -50,7 +50,7 @@ def read_deployed_environment_fact(
     blocking_item_id: int,
     satisfaction: str,
 ) -> DeployedEnvironmentFact | None:
-    """Read cumulative succeeded-run evidence for a deployed satisfaction."""
+    """Read completion-owned attribution for a deployed satisfaction."""
     environment = deployed_environment(satisfaction)
     if environment is None:
         return None
@@ -64,16 +64,13 @@ def read_deployed_environment_fact(
     project_id = int(_row_value(row, "project_id", 0))
     if resolve_environment_id(conn, project_id, environment) is None:
         return DeployedEnvironmentFact(environment, False, False)
-    carried = (
-        conn.execute(
-            "SELECT 1 FROM deployment_run_items member "
-            "JOIN deployment_runs run ON run.id=member.run_id "
-            "JOIN environments target ON target.id=run.target_environment_id "
-            f"WHERE member.item_id={p} AND run.status='succeeded' "
-            f"AND target.name={p} AND target.project_id=run.project_id LIMIT 1",
-            (int(blocking_item_id), environment),
-        ).fetchone()
-        is not None
+    from yoke_core.domain.completed_item_delivery import completed_deliveries
+
+    carried = any(
+        entry["environment"] == environment
+        for entry in completed_deliveries(conn, (blocking_item_id,)).get(
+            blocking_item_id, []
+        )
     )
     return DeployedEnvironmentFact(environment, True, carried)
 
@@ -171,7 +168,7 @@ def evaluate_satisfaction(
                 f"deployment_fact_unavailable: no deployment evidence was read for "
                 f"{environment}.",
             )
-        if blocking_deployed.carried:
+        if blocking_status == "done" and blocking_deployed.carried:
             return GateResult(True, f"Blocking item is deployed to {environment}.")
     if workflow is None or blocking_status is None:
         return GateResult(
@@ -280,6 +277,22 @@ def unsatisfied_dependency_pairs(
     from yoke_core.domain.dependency_workflow_context import workflow_from_joined_values
 
     co_scheduled = {int(item_id) for item_id in co_scheduled_blocker_ids}
+    from yoke_core.domain.completed_item_delivery import (
+        completed_deliveries,
+        registered_item_environments,
+    )
+
+    blockers = tuple(
+        sorted(
+            {
+                int(_row_value(row, "blocking_item_id", 1))
+                for row in rows
+                if deployed_environment(str(_row_value(row, "satisfaction", 2)))
+            }
+        )
+    )
+    completed = completed_deliveries(conn, blockers)
+    registered = registered_item_environments(conn, blockers)
     blocked: list[tuple[int, int, GateResult]] = []
     for row in rows:
         dependent = int(_row_value(row, "dependent_item_id", 0))
@@ -296,10 +309,18 @@ def unsatisfied_dependency_pairs(
             if has_workflow_context
             else builtin_workflow_runtime("issue")
         )
-        deployed = read_deployed_environment_fact(
-            conn,
-            blocking_item_id=blocker,
-            satisfaction=satisfaction,
+        environment = deployed_environment(satisfaction)
+        deployed = (
+            DeployedEnvironmentFact(
+                environment,
+                (blocker, environment) in registered,
+                any(
+                    entry["environment"] == environment
+                    for entry in completed.get(blocker, [])
+                ),
+            )
+            if environment
+            else None
         )
         verdict = evaluate_satisfaction(
             satisfaction,

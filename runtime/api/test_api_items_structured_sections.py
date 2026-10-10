@@ -56,6 +56,8 @@ class TestStructuredFieldSectionRoutes(_ApiSuite):
         body = resp.json()
         self.assertTrue(body["success"])
         self.assertEqual(body["result"]["section"], "Notes")
+        self.assertNotIn("field", body["result"])
+        self.assertNotIn("heading_level", body["result"])
 
     def test_section_append_writes_entry(self) -> None:
         self.db.insert_item(101, spec="x\n")
@@ -86,3 +88,47 @@ class TestProgressLogAppendRoute(_ApiSuite):
         body = resp.json()
         self.assertTrue(body["success"])
         self.assertEqual(body["result"]["section"], "Progress Log")
+
+
+class TestFieldTargetedSectionRoute(_ApiSuite):
+    def test_field_receipt_and_default_depth(self):
+        self.db.insert_item(101, spec="")
+        env = _envelope(
+            "items.structured_field.section_upsert",
+            payload={
+                "field": "spec",
+                "section": "EDGE",
+                "content": "body",
+            },
+        )
+        body = self.client.post("/v1/functions/call", json=env).json()
+        self.assertTrue(body["success"], body)
+        self.assertEqual(body["result"]["field"], "spec")
+        self.assertEqual(body["result"]["heading_level"], 2)
+        self.assertEqual(self.db.fetch_field(101, "spec"), "## EDGE\n\nbody\n")
+
+    def test_invalid_payloads_do_not_write(self):
+        self.db.insert_item(101, spec="original")
+        invalid = [
+            {"field": "unknown"},
+            {"heading_level": 1},
+            {"heading_level": 7},
+            {"ordering": 5},
+            {"section": "two\nlines"},
+            {"section": ""},
+            {"content": " "},
+            {"unexpected": True},
+        ]
+        for change in invalid:
+            with self.subTest(change=change):
+                payload = {"field": "spec", "section": "EDGE", "content": "body"}
+                payload.update(change)
+                body = self.client.post(
+                    "/v1/functions/call",
+                    json=_envelope(
+                        "items.structured_field.section_upsert",
+                        payload=payload,
+                    ),
+                ).json()
+                self.assertFalse(body["success"], body)
+                self.assertEqual(self.db.fetch_field(101, "spec"), "original")

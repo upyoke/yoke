@@ -17,7 +17,9 @@ jobs:
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     services:
       postgres:
-        image: postgres:16
+        # Official image via the AWS public mirror. services.image cannot
+        # read workflow env, so this key is the one declaration.
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: yoke
           POSTGRES_PASSWORD: yoke

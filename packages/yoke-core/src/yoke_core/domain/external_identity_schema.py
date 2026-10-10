@@ -14,6 +14,9 @@ Owns the additive tables behind self-host browser sign-in:
   that actor instead of creating a new one. At most one pending invite
   per case-folded email per org (partial unique index).
 * ``browser_sign_in_links`` — hashed single-use API-token admission links.
+* ``actor_visitor_links`` — anonymous analytics visitor ids linked to the
+  actor that signed in from that browser
+  (:mod:`yoke_core.domain.actor_visitor_links`).
 * ``web_sessions`` — DB-backed hashed browser session tokens, mirroring
   the ``api_tokens`` shape (SHA-256 of a random token; the raw value is
   returned once and never persisted).
@@ -36,6 +39,7 @@ REQUIRED_EXTERNAL_IDENTITY_TABLES = (
     "browser_sign_in_links",
     "machine_authorization_codes",
     "machine_authorization_rate_limits",
+    "actor_visitor_links",
 )
 
 
@@ -104,6 +108,9 @@ def create_external_identity_tables(conn: Any) -> None:
     )
 
     create_machine_authorization_table(conn)
+    from yoke_core.domain.actor_visitor_links import create_actor_visitor_links_table
+
+    create_actor_visitor_links_table(conn)
     conn.commit()
 
 

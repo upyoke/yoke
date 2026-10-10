@@ -11,7 +11,7 @@ account. Goal: get Yoke locally and start capturing work.
 |---|---|
 | Fits | Local destination ("This machine", free, no account). Create-new project with no GitHub. Hosting skip. Confirm merge-only or no default and seed work without a live deploy. |
 | Breaks | No delivery mismatch: the profile does not offer a persistent environment while hosting is deferred. |
-| Gaps | The remaining setup question is an honest test posture for an idea-only repository. |
+| Gaps | The profile must confirm an honest test posture for an idea-only repository. |
 
 ## Transcript — public installer
 
@@ -225,22 +225,10 @@ Init: `yoke onboard checklist init --project notebook-app --checkout ~/code/note
 
 ## Test setup
 
-**Reality:** empty repo — **no tests**. If they accept `webapp-scaffold`,
-pytest / Vitest / Playwright examples and `.github/workflows/ci.yml` land
-unregistered.
+An empty repo has no suite. Offer the minimal scaffold first, then bind its actual project-local command after apply. With GitHub skipped, use local execution. If declined, record the operator's no-tests reason; never invent a command or an environment for a project-targeted QA plan.
 
-**Bind today:** after scaffold, `registered-command-quick` names the Pack's
-test argv and carries a project target; `ci_workflow_file` can name `ci.yml`.
-No hosting environment or stage/prod placeholder is required.
-
-**Onboard:** wizard never asks. Profile never proposes a command or
-`ci_workflow_file`. Seed attaches a plan only if CURRENT-PLAN already names
-one.
-
-**Ask that should happen:** "No tests yet — install the scaffold suite,
-attest no-tests, or stop?" Recommend scaffold, else attested no-tests
-(`implementation_review`). Refuse inventing `command-ci`. See
-[test-setup.md](test-setup.md).
+The confirmed profile, command/CI binding and immutable QA attachment follow
+[test-setup.md](test-setup.md); this example is not a live setup receipt.
 
 ## Crux
 
@@ -249,6 +237,6 @@ attest no-tests, or stop?" Recommend scaffold, else attested no-tests
 | Deployment / environment | Execution-profile confirmation: hosting and env are optional; default flow may be merge-only (`target_tier` NULL) or unset | Usher Route A / omit `--deployment-flow`; never stamp a persistent flow | Local merge, no pipeline |
 | GitHub merge target | Already optional (Skip GitHub / keep local) | GitHub automation disabled until App sees the repo | Local default branch `main` |
 | Migration | Step-2 governed-database box | — | An empty repo answers "no governed database"; `migration-model-setup` records `not-needed` |
-| Tests | Profile test-setup box (missing) | Do not register a command that is not in the tree | Scaffold suite or attested no-tests |
+| Tests | Confirmed profile test-setup box | Do not register a command that is not in the tree | Scaffold suite or attested no-tests |
 
-Ledger: G-installer-handoff-cursor, G-test-setup-unasked, G-no-tests-posture, G-scaffold-tests-unregistered, G-qa-plan-needs-env.
+Ledger: G-installer-handoff-cursor.

@@ -56,6 +56,8 @@ def test_mismatch_notice_names_both_revisions() -> None:
     notice = guard_version_skew_notice(client=CLIENT, server=SERVER)
     assert "server revision bbbbbbbbbbbb" in notice
     assert "client hook is aaaaaaaaaaaa" in notice
+    assert "install a current build" in notice
+    assert len(notice) <= 180
 
 
 def test_the_recovery_differs_by_how_the_server_was_installed() -> None:
@@ -76,6 +78,8 @@ def test_a_checkout_server_is_told_which_tree_a_restart_would_re_read() -> None:
     that path has to come from the server's own provenance."""
     notice = guard_version_skew_notice(client=CLIENT, server=SERVER_FROM_CHECKOUT)
     assert SERVER_FROM_CHECKOUT["install_path"] in notice
+    assert "restart the serving process" in notice
+    assert len(notice) <= 300
 
 
 def test_a_build_server_is_not_told_to_re_read_a_tree_it_does_not_have() -> None:

@@ -235,6 +235,11 @@ def cmd_update(
                     )
 
                     stamp_run_environment(conn, run_id, when=completed_at)
+                    from yoke_core.domain.completed_item_delivery import (
+                        record_completed_run_delivery,
+                    )
+
+                    record_completed_run_delivery(conn, run_id=run_id)
                 # A terminal run keeps its answer, so no reader derives it; a
                 # transient failure on an unsuccessful run is left for a read.
                 record_carried_work(conn, run_id, permanent_only=value != "succeeded")

@@ -59,6 +59,24 @@ FILE_LIKE_SUFFIXES = (
 )
 
 GENERIC_QUOTED_STRINGS = {
+    "yoke --help",  # Stable root command syntax, not retired display copy.
+    "(optional",  # Generic prose fragment, not the Python variable it matches.
+    "and the",  # Generic conjunction fragment, not retired display copy.
+    "PYTHONPATH",  # Active environment contract, not retired display copy.
+    "PATH=",  # Active shell environment assignment.
+    "$PATH",  # Active shell environment expansion, not retired display copy.
+    ".git",  # Repository suffix and domain substring, not display wording.
+    "Write",  # Generic tool/action verb.
+    "AND",  # Generic logical conjunction, not retired display wording.
+    "command not found",  # Active shell failure diagnostic.
+    "not found",  # Generic lookup diagnostic, not a retired message identity.
+    "Retry",  # Generic action heading; also an active HTTP header component.
+    ".run",  # Generic method suffix, not a retired interface.
+    ".execute",  # Generic method suffix, not a retired interface.
+    ".remove",  # Generic method suffix; also occurs inside removeprefix.
+    ".split",  # Generic method suffix, not display wording.
+    ") else",  # Conditional-expression fragment from paired quote extraction.
+    "all Y",  # Schematic enumeration placeholder, not display wording.
     "defaults",
     "default",
     "unknown",

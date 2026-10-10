@@ -57,7 +57,7 @@ def _connection():
     add_coordination_claim_schema(conn)
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
     conn.execute(
-        "UPDATE harness_sessions SET actor_id=10,mode='operator' WHERE session_id='s1'"
+        "UPDATE harness_sessions SET actor_id=10,mode='wait' WHERE session_id='s1'"
     )
     grant_actor_project_role(
         conn,
@@ -65,6 +65,9 @@ def _connection():
         project_id=1,
         role_name=ROLE_ADMIN,
     )
+    from runtime.api.domain.test_session_message_support import seed_steering_seat
+
+    seed_steering_seat(conn, session_id="s1", project_id=1)
     conn.commit()
     return conn
 
@@ -112,14 +115,14 @@ def test_registration_is_operator_override_and_stage_guarded() -> None:
         _register_session_control.register(yoke_function_registry)
         entry = yoke_function_registry.lookup("session_control.qualification.open")
         assert entry is not None
-        assert entry.claim_required_kind == "operator_override"
+        assert entry.claim_required_kind == "steering"
         assert entry.side_effects == ("work_claims_insert",)
         assert entry.target_kinds == ("global",)
         assert "stage_only_exact_release" in entry.guardrails
         adapter = adapter_for("session_control.qualification.open")
         assert adapter is not None
         assert adapter.cli_invocation == QUALIFICATION_OPEN_USAGE
-        assert adapter.agent_path == "operator-only"
+        assert adapter.agent_path == "direct"
         acknowledge = yoke_function_registry.lookup(
             "session_control.message.acknowledge"
         )
@@ -171,16 +174,18 @@ def test_handler_refuses_wrong_project_actor_and_unregistered_session(
 
     assert hidden.error and hidden.error.code == "permission_denied"
     assert (
-        missing_actor.error and missing_actor.error.code == "operator_identity_required"
+        missing_actor.error and missing_actor.error.code == "session_identity_required"
     )
     assert (
-        unknown_session.error
-        and unknown_session.error.code == "operator_session_unregistered"
+        unknown_session.error and unknown_session.error.code == "session_unregistered"
     )
-    assert conn.execute(
-        "SELECT COUNT(*) FROM work_claims WHERE target_kind IN "
-        "('migration_serialization','qa_admission','route_qualification')"
-    ).fetchone()[0] == 0
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) FROM work_claims WHERE target_kind IN "
+            "('migration_serialization','qa_admission','route_qualification')"
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_an_ordinary_coordination_claim_cannot_forge_a_reserved_key() -> None:

@@ -26,14 +26,45 @@ _STUB_PREVIEW_CHAR_LIMIT = 96
 
 _DELIVERY_BEGIN_RE = re.compile(
     r"=== BEGIN YOKE SESSION MESSAGE DELIVERY "
-    r"(YOKE_SESSION_MESSAGE_LEASE:[^\s=]+) ==="
+    r"(YOKE_SESSION_MESSAGE_LEASE:[^\s=]+) "
 )
 _MESSAGE_BLOCK_RE = re.compile(
-    r"--- BEGIN YOKE SESSION MESSAGE ([0-9a-fA-F-]{36}) ---\n"
+    r"^=== BEGIN YOKE SESSION MESSAGE DELIVERY YOKE_SESSION_MESSAGE_LEASE:[^\s=]+ "
+    r"([0-9a-fA-F-]{36}) ===\n"
     r".*?"
-    r"--- END YOKE SESSION MESSAGE \1 ---",
-    re.DOTALL,
+    r"^=== END YOKE SESSION MESSAGE DELIVERY ===$",
+    re.DOTALL | re.MULTILINE,
 )
+
+
+def delivered_message_ids(text: str, token: str) -> set[str]:
+    """Read closed message boundaries from plain or structured hook replies."""
+    if text.lstrip()[:1] in ("{", "["):
+        try:
+            value = json.loads(text)
+        except ValueError:
+            return set()
+
+        def strings(value):
+            if isinstance(value, str):
+                yield value
+            elif isinstance(value, dict):
+                for child in value.values():
+                    yield from strings(child)
+            elif isinstance(value, list):
+                for child in value:
+                    yield from strings(child)
+
+        contexts = strings(value)
+    else:
+        contexts = (text,)
+    prefix = f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {token} "
+    return {
+        match.group(1)
+        for context in contexts
+        for match in _MESSAGE_BLOCK_RE.finditer(context)
+        if match.group(0).startswith(prefix)
+    }
 
 
 def classify_hook_context(text: str) -> str:
@@ -162,11 +193,11 @@ def _is_session_message_delivery(text: str) -> bool:
 
 
 def _wrap_session_delivery(token: str, prefix: str, messages: list[str]) -> str:
-    parts = [f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {token} ==="]
+    del token
+    parts = []
     if prefix:
         parts.append(prefix)
     parts.extend(messages)
-    parts.append(f"=== END YOKE SESSION MESSAGE DELIVERY {token} ===")
     return "\n\n".join(parts)
 
 
@@ -175,15 +206,10 @@ def _session_delivery_parts(block: str) -> tuple[str, str, list[str]] | None:
     if header is None:
         return None
     token = header.group(1)
-    end = f"=== END YOKE SESSION MESSAGE DELIVERY {token} ==="
-    inner_end = block.find(end)
-    if inner_end < 0:
-        return None
-    inner = block[header.end() : inner_end].strip()
-    matches = list(_MESSAGE_BLOCK_RE.finditer(inner))
+    matches = list(_MESSAGE_BLOCK_RE.finditer(block))
     if not matches:
         return None
-    prefix = inner[: matches[0].start()].strip()
+    prefix = block[: matches[0].start()].strip()
     return token, prefix, [match.group(0) for match in matches]
 
 
@@ -265,6 +291,7 @@ __all__ = [
     "classify_hook_context",
     "compose_context_list",
     "compose_hook_context",
+    "delivered_message_ids",
     "render_message_stub",
     "reply_is_well_formed",
     "token_delivered",

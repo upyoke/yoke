@@ -21,24 +21,27 @@ YOKE_ENV=stage yoke db read "SELECT hs.session_id, hs.project_id, hs.actor_id, h
 YOKE_ENV=stage yoke events query --project <external-project-slug> --since '20 minutes ago' --limit 50
 ```
 
-Expected stage evidence: executor/model/lane populated, a DB-backed lane such as
-`DARIUS`, no hook-denied errors, session events carrying the same project id, and
-the visible board's newest session matching the DB row. Angle-bracket Claude
-model values are temporary SDK placeholders and should be upgraded by later
-concrete registration.
+Expected stage evidence: the session row's project/actor and declared harness
+surface match the campaign, and the visible board matches that durable row.
+Inspect any named hook refusal. Model and usage metadata may be unavailable;
+missing metadata is not registration failure. Events can corroborate request
+correlation, but their absence proves nothing about session registration.
 
-For hosted API logs, check CloudWatch from the operator machine with AWS operator
-credentials, not from the test machine:
+For hosted API logs, use the hosting project's `aws-admin` capability on the
+operator machine. Read `yoke aws exec --help` for credential/region resolution
+and named prerequisite refusals. Choose the actual hosting project and log
+group; the test machine does not receive these credentials:
 
 ```bash
-aws logs filter-log-events --log-group-name /yoke/stage/core \
+yoke aws exec --project <hosting-project> -- logs filter-log-events --log-group-name <stage-log-group> \
   --start-time <epoch-ms-before-smoke> --filter-pattern '"POST /v1/hooks/evaluate"'
-aws logs filter-log-events --log-group-name /yoke/stage/core \
+yoke aws exec --project <hosting-project> -- logs filter-log-events --log-group-name <stage-log-group> \
   --start-time <epoch-ms-before-smoke> --filter-pattern '?ERROR ?Error ?error ?Traceback ?Exception'
 ```
 
-Expected CloudWatch evidence: hook relay requests return HTTP `200`, include the
-expected actor/token/request ids, and the error scan is clean.
+For observed hook requests, inspect HTTP outcome and redacted actor/request
+correlation. An empty error scan is bounded diagnostic evidence, not proof that
+every request succeeded. Never print tokens or capability secret values.
 
 For cost-safe metric export, request correlation, and in-process scoped
 debug campaigns (`YOKE_API_DEBUG_SCOPE` / `_UNTIL` / `_MAX_RECORDS`), see

@@ -10,15 +10,21 @@ from __future__ import annotations
 
 import json
 import subprocess
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from runtime.api.domain.test_qa_case_tree_binding_scope import _deployment_case
-from yoke_core.domain.qa_candidate_checkout import CANDIDATE_CHECKOUT_PREFIX
+from yoke_core.domain.qa_candidate_checkout import (
+    CANDIDATE_CHECKOUT_PREFIX,
+    candidate_checkout,
+)
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.domain.qa_case_worktree_run import execute_worktree_case
+from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
+from yoke_core.domain.worktree_test_environment import provision_test_environment
 
 pytestmark = pytest.mark.usefixtures("bound_project_context")
 
@@ -147,3 +153,90 @@ def test_candidate_missing_everywhere_refuses_before_the_command(
     assert missing in message
     assert f'git -C "{checkout}" fetch origin {missing}' in message
     assert not (checkout / "ran.txt").exists()
+
+
+def test_symlinked_temp_candidate_root_keeps_nested_project_labels(
+    tmp_path, monkeypatch
+) -> None:
+    """A temp dir behind a symlink still yields a resolved root and relative labels."""
+    real_temp = tmp_path / "real-temp"
+    real_temp.mkdir()
+    linked_temp = tmp_path / "linked-temp"
+    linked_temp.symlink_to(real_temp, target_is_directory=True)
+    probe = Path(tempfile.mkdtemp(prefix="probe-", dir=str(linked_temp)))
+    assert probe != probe.resolve()
+    probe.rmdir()
+
+    source = tmp_path / "source"
+    nested = source / "services" / "platform-svc"
+    nested.mkdir(parents=True)
+    (nested / "pyproject.toml").write_text(
+        "[project]\nname = 'platform-svc'\nversion = '0.0.0'\n",
+        encoding="utf-8",
+    )
+    (nested / "uv.lock").write_text("", encoding="utf-8")
+    _git(source, "init", "--quiet")
+    _git(source, "config", "user.email", "tester@example.test")
+    _git(source, "config", "user.name", "Tester")
+    _git(source, "add", "services")
+    _git(source, "commit", "--quiet", "-m", "nested uv project")
+    candidate = _git(source, "rev-parse", "HEAD")
+
+    declaration = TestEnvironmentDeclaration(
+        project="fixture", uv_project="services/platform-svc"
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.worktree_test_environment.load_declaration",
+        lambda *_args, **_kwargs: declaration,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.worktree_test_environment.shutil.which",
+        lambda _name: "/usr/bin/uv",
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.worktree_test_environment._run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            [], returncode=0, stdout="", stderr=""
+        ),
+    )
+
+    real_mkdtemp = tempfile.mkdtemp
+
+    def mkdtemp_behind_symlink(*args, **kwargs):
+        kwargs["dir"] = str(linked_temp)
+        return real_mkdtemp(*args, **kwargs)
+
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_candidate_checkout.tempfile.mkdtemp",
+        mkdtemp_behind_symlink,
+    )
+
+    reports = []
+
+    def spy(worktree_path, **kwargs):
+        report = provision_test_environment(worktree_path, **kwargs)
+        reports.append((Path(worktree_path), report))
+        return report
+
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_candidate_checkout.provision_test_environment",
+        spy,
+    )
+
+    case = _deployment_case(method_config={"command": "true"})
+    case["execution_target"]["deployment"]["release_lineage"] = candidate
+    with patch(
+        "yoke_core.domain.project_checkout_locations.checkout_for_project_id",
+        return_value=source,
+    ):
+        with candidate_checkout(case) as root:
+            project = (root / "services" / "platform-svc").resolve()
+            assert root == root.resolve()
+            assert real_temp.resolve() in root.parents
+            assert linked_temp not in root.parents
+            assert project.relative_to(root) == Path("services/platform-svc")
+
+    seen_root, report = reports[0]
+    assert seen_root == seen_root.resolve()
+    assert report.error == ""
+    assert "environment:synced=services/platform-svc" in report.actions

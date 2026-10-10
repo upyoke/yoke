@@ -42,12 +42,12 @@ yoke items dependency add DEPENDENT BLOCKER operator --gate-point closure \
 ```
 
 Read `yoke items dependency add --help` for satisfaction and direction. Use
-`fact:deployed:<environment-name>` when QA needs a registered environment
-before the blocker reaches done. Composition skips release items with an open
+`fact:deployed:<environment-name>` when QA needs the blocker done with delivery
+attributed to that registered environment. Composition skips release items with an open
 blocking edge to an unshipped item and names the blocker in its receipt; the
 first release after the blocker ships enrolls the waiting item automatically.
-A blocker a live or settling release still holds has not shipped: the receipt
-names that run, and the first release after it settles enrolls the item.
+A completed blocker stays satisfied even while its carrying release waits on
+siblings. An incomplete blocker remains held; the receipt names the run.
 Coordination-only and satisfied edges do not delay composition.
 
 Removing a release member also aborts its live run/member QA executions and
@@ -112,7 +112,7 @@ none, naming the choices and baselines; `HC-qa-plan-machine-starting-state`
 fails while a stored plan has one, and `yoke qa plan get` shows each choice:
 
 - `host_baselines: ["fresh-host"]` (or `shell-preconfigured`, or both): the
-  runner resets to each named baseline; one requirement row per baseline.
+  runner resets to each named baseline; one requirement row per baseline. [Temporary cleanup](../test-machine-desktop.md) preserves baseline/home/live scratch and reports freed space.
 - `"starting_state": "inherit"`: start on the machine exactly as the case
   directly before it in the plan left it, at the same baseline position. The
   first case cannot inherit, nor can a case follow or be a mission.

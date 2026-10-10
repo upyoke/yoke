@@ -14,6 +14,7 @@ from events_attribution import (
     capture_touch,
     update_attribution,
     get_attribution_props,
+    sanitize_path,
     sanitize_url,
     is_bot,
 )
@@ -31,6 +32,12 @@ def test_python_matches_browser_rules():
         ("", "https://netflix.com", "referral"),
         ("", "https://www.google.co.uk/search", "organic_search"),
         ("", "https://docs.example.com", "direct"),
+        ("", "https://example.com/", "direct"),
+        ("", "https://accounts.google.com/", "direct"),
+        ("", "https://accounts.youtube.com/", "direct"),
+        ("", "https://login.microsoftonline.com/", "direct"),
+        ("", "https://www.google.com/", "organic_search"),
+        ("", "https://www.youtube.com/", "organic_video"),
         ("", "https://fakegoogle.com", "referral"),
         ("", "https://notchatgpt.com", "referral"),
         ("", "https://chatgpt.com", "ai_assistant"),
@@ -116,6 +123,31 @@ def test_first_touch_never_overwritten_and_last_touch_updates():
     assert get_attribution_props(None) == {}
 
 
+def test_sign_in_and_own_domain_returns_keep_prior_touches():
+    site = "example.com"
+    landing = capture_touch(
+        "https://www.example.com/", "https://www.google.com/", site, "first"
+    )
+    record = update_attribution(None, landing, "visitor")
+    for hop in (
+        "https://accounts.google.com/",
+        "https://accounts.youtube.com/",
+        "https://example.com/pricing",
+    ):
+        touch = capture_touch("https://app.example.com/", hop, site, "later")
+        assert touch["referrer_domain"] is None
+        assert touch["acquisition_channel"] == "direct"
+        assert update_attribution(record, touch, "ignored") == record
+    # A sign-in hop as the very first visit is a direct first touch.
+    first = capture_touch(
+        "https://app.example.com/", "https://accounts.google.com/", site, "first"
+    )
+    assert (
+        update_attribution(None, first, "v")["first_touch"]["acquisition_channel"]
+        == "direct"
+    )
+
+
 def test_server_cookie_persistence_and_integrity():
     cookie = AttributionCookie("s" * 32, "example.com")
     first, header = cookie.capture("", "https://example.com", "")
@@ -156,6 +188,15 @@ def test_url_hygiene_and_bots():
         == "https://example.com/?tab=orders"
     )
     assert sanitize_url("javascript:alert(1)") is None
+    # Device-login codes: the user_code parameter and the /machine-approval/<code> segment.
+    assert (
+        sanitize_url(
+            "https://app.example.com/machine-approval/WTMP-Z9JG/?user_code=WTMP-Z9JG&a=1"
+        )
+        == "https://app.example.com/machine-approval/redacted/?a=1"
+    )
+    assert sanitize_path("/machine-approval/Z9YG-RCUL") == "/machine-approval/redacted"
+    assert sanitize_path("/machine-approval/") == "/machine-approval/"
     assert is_bot("HeadlessChrome") and not is_bot("Mozilla/5.0")
 
 

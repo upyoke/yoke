@@ -162,7 +162,7 @@ Device authorization codes use one aware clock for expiry and pruning and expire
 at their exact deadline. Their protocol lifetime and polling interval stay seconds.
 Installed frontend events, signed attribution cookies and one-time handoffs
 use the same contract. Old numeric expiry payloads are refused and reminted.
-The collector validates and normalizes qualified event times before storage.
+The collector validates client instants at ingress, keeps its own receipt clock Native, stores that receipt as created_at, and emits both clock leaves as fixed-six UTC; offset seconds use exact nearest-second rounding.
 Redemption expiry and rate-window starts are native database instants; rate
 windows retain their 60-second UTC epoch alignment, including before 1970.
 Historical INTEGER rate-window starts explicitly use epoch seconds during
@@ -241,7 +241,7 @@ Decision creation, individual answers, resolution and withdrawal admit supplied
 clocks strictly before mutation, bind aware native instants, and keep absent
 resolution clocks null. Decision events share the caller transaction and use
 the event writer's canonical SQLite/JSON boundary. Run terminalization binds a
-Native completion clock, refuses internal wire/naive clocks before database access, and exposes a fixed-six UTC audit receipt. Claim contention and minted web-session results validate Native handoffs; claim ages use exact timedelta flooring.
+Native completion clock, refuses internal wire/naive clocks before database access, and exposes a fixed-six UTC audit receipt. Driver attachment constructors and injected reference clocks require Native instants; stored attachment JSON has explicit parsing and fixed-six UTC output owners. Claim contention and minted web-session results validate Native handoffs; claim ages use exact timedelta flooring.
 Machine-authorization lifecycle delivery rejects unqualified and numeric clocks
 before coercion. Its declared expiry, occurrence and end-context clocks serialize
 as fixed-six UTC/null; other context strings remain opaque. Expiry checks compare

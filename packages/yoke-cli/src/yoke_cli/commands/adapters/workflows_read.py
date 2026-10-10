@@ -41,9 +41,9 @@ WORKFLOWS_ITEM_MIGRATE_USAGE = (
 )
 WORKFLOWS_ITEM_MIGRATE_DESCRIPTION = (
     f"{WORKFLOWS_ITEM_MIGRATE_USAGE}\n\n"
-    "Requires authority from an operator-started session. A human operator "
-    "must establish that authority; agents must not change their own session "
-    "mode to self-authorize."
+    "Requires a live steering seat covering the item's project or document. "
+    "Acquire it with yoke claims steering acquire --project P --reason TEXT, "
+    "or route via yoke say --steering."
 )
 
 

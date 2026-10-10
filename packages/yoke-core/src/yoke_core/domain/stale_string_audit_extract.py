@@ -115,14 +115,16 @@ def _collect_diff_strings(search_root: str) -> tuple[set, set]:
     diff_cmds = (
         ["git", "-C", search_root, "diff", "--no-color", "--unified=0"],
         ["git", "-C", search_root, "diff", "--staged", "--no-color", "--unified=0"],
-        ["git", "-C", search_root, "diff", "main...HEAD",
-         "--no-color", "--unified=0"],
+        ["git", "-C", search_root, "diff", "main...HEAD", "--no-color", "--unified=0"],
     )
 
     for cmd in diff_cmds:
         try:
             proc = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=30,
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
         except (FileNotFoundError, subprocess.SubprocessError):
             continue
@@ -148,10 +150,27 @@ def _collect_diff_strings(search_root: str) -> tuple[set, set]:
 
 def _normalize_candidate_string(value: str) -> Optional[str]:
     candidate = " ".join(value.split()).strip()
+    if (
+        len(candidate) >= 2
+        and candidate[0] in {"'", '"'}
+        and candidate[-1] == candidate[0]
+    ):
+        # Markdown backticks can wrap an already-quoted value. Classify the
+        # value, so quoting cannot turn a structural identifier into copy.
+        candidate = candidate[1:-1].strip()
     if len(candidate) < 3 or len(candidate) > 120:
         return None
     if candidate.startswith("YOK-") or candidate in GENERIC_QUOTED_STRINGS:
         return None
+    if re.fullmatch(r"\.[A-Za-z_][A-Za-z0-9_]*", candidate):
+        return None  # Member-access or path-component fragment, not display copy.
+    if re.fullmatch(r"[,;]\s*(?:and|or)", candidate):
+        return None  # Prose between adjacent quoted values, not either value.
+    if re.fullmatch(
+        r"[A-Za-z_][\w.]*\s*(?:==|<>|>=|<=|>|<)\s*(?:-?\d+(?:\.\d+)?|None|True|False)",
+        candidate,
+    ):
+        return None  # Execution predicate, not user-visible copy.
     if any(ch in candidate for ch in "{}[]"):
         return None
     lower = candidate.lower()
@@ -173,8 +192,7 @@ def _normalize_candidate_string(value: str) -> Optional[str]:
         return None
     if re.fullmatch(r"[A-Za-z][A-Za-z0-9:.+-]*", candidate):
         if not (
-            candidate.isupper()
-            or (candidate[0].isupper() and candidate[1:].islower())
+            candidate.isupper() or (candidate[0].isupper() and candidate[1:].islower())
         ):
             return None
     if not re.search(r"[A-Za-z]", candidate):

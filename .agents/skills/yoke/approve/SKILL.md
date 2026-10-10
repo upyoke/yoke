@@ -5,11 +5,6 @@ description: "Record your decision on a deployment run paused at a Yoke human-ap
 argument-hint: "RUN-ID [--note \"...\"]"
 ---
 
-# /yoke approve RUN-ID [--note "..."]
-
-Record one approval on one exact deployment run inside Yoke. The run is the
-authority; member item deployment stages are synchronized by the same
-transaction.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -17,58 +12,47 @@ yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evide
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
-## Arguments
+# /yoke approve RUN-ID [--note "..."]
 
-- `RUN-ID` (required): exact deployment run id, such as
-  `run-20260717-003`.
-- `--note` (optional): short operator rationale stored in the Yoke approval
-  event.
+One decision for one exact run; its current stage owns member synchronization.
+
+## Phase map
+
+| Phase | Read |
+|---|---|
+| Record or inspect a decision | Execute below |
+| Decide whether to resume | Result below |
 
 ## Execute
-
-Run the registered mutation directly:
 
 ```sh
 yoke deployment-runs approve RUN-ID [--note "..."] --json
 ```
 
-The command must succeed only when all of these are true:
+Requires an existing executing run, a current flow stage using human-approval,
+and caller authority under that stage's policy without a prior decision.
+The optional note records the operator rationale. A refusal stops with its
+exact structured error; never force another stage or approve a terminal run.
 
-- the exact run exists;
-- its status is `executing`;
-- its current stage exists in the run's deployment flow;
-- that stage uses the `human-approval` executor; and
-- you hold an authority the stage's approval policy addresses, and have not
-  already decided this stage.
+## Result
 
-**One approval is not always an approved stage.** The stage declares the same
-approval policy every Yoke gate declares. Under `any` your approval settles
-it; under `all` it records your decision and the stage keeps waiting for the
-rest. Read `stage_approved` and `approval_progress` in the result: when
-`stage_approved` is false, the stage is still gated, `DeploymentApprovalGranted`
-is deliberately not emitted, and `approval_progress.outstanding` names who the
-run is waiting on. Report that and stop — do not resume the pipeline.
+Read `stage_approved` and `approval_progress`. Under `any` one approval settles;
+under `all` outstanding decisions keep the stage gated. If false, report
+`approval_progress.outstanding` and stop without resuming;
+`DeploymentApprovalGranted` is not emitted yet.
 
-When `stage_approved` is true, Yoke has resolved the stage's decision request
-and emitted `DeploymentApprovalGranted` with run, stage, actor, session, note,
-and member identity. Do not issue separate run or item updates and do not
-create an external approval record. Then resume the exact run through the
-deployment pipeline, which advances from the run's authoritative
-`current_stage`.
+If true, the decision request is resolved and that event records run, stage,
+actor, session, note and members. Resume the exact run's deployment pipeline
+from authoritative `current_stage`; create no separate run/item updates or
+external approval record.
 
-If the command refuses, report the exact structured error and stop. Never
-force a run past a non-approval stage or approve a terminal run.
-
-**To read a stage's verdict without deciding it**, name the exact run and
-stage:
+To inspect without deciding, first read the stage:
 
 ```sh
+yoke deployment-runs stages RUN-ID
 yoke deployment-runs stage-approval evaluate RUN-ID --stage STAGE --json
 ```
 
-That reports whether the stage is satisfied and who it is still waiting on,
-and raises the decision request its policy calls for when none answers for
-it yet. It never approves. The verdict is derived by the build serving the
-control plane, so it is correct even when the caller runs a different
-revision — read the stage name from `yoke deployment-runs stages RUN-ID`,
-because a run standing elsewhere is refused rather than evaluated.
+The serving build computes satisfaction/outstanding actors and creates the
+policy's decision request when needed. It never approves; a run standing at a
+different stage refuses evaluation. Read the operation's help before acting.

@@ -11,12 +11,12 @@ repo, never deployed. They install Yoke to "make it real".
 | | |
 |---|---|
 | Fits | Linux install. Clone from GitHub **or** existing folder. Connect GitHub. Skip hosting. Scaffold mapped. |
-| Breaks | Clone path assumes GitHub URL/App. Profile still pushes web deploy. Vibe-coded repo has no test command for later QA cases. |
+| Breaks | Clone path assumes GitHub URL/App. A missing suite needs an explicit test posture before QA binding. |
 | Gaps | "No deploy yet" profile. Teaching that seed work ≠ first production URL. |
 
 ## Transcript — installer + wizard
 
-Linux. uv Astral consent Yes. This machine. Connect GitHub.
+Linux. uv installs automatically when absent. This machine. Connect GitHub.
 
 Project: **Clone a project from GitHub.**
 
@@ -60,19 +60,10 @@ Seed from CURRENT-PLAN creates implementation issues without a deploy flow.
 
 ## Test setup
 
-**Reality:** vibe-coded — **no tests**, no CI. The explicit no-tests
-archetype (with A01/A08/A12).
+Map existing files without overwriting them. Offer a minimal project-native suite when none exists; if declined, record the operator's no-tests reason. Register only actual runnable argv. No eligible Actions test workflow means no command-ci or queue. A missing suite cannot silently become an empty QA gate.
 
-**Bind today:** nothing honest. `webapp-scaffold` would conflict and must
-map, not overwrite — so Pack tests do not land.
-
-**Onboard:** survey records "no tests" as a fact and never asks what the
-QA gate should mean.
-
-**Ask that should happen:** offer a **minimal** suite (one pytest/vitest
-file, not a full Pack overwrite); if declined, **attest no-tests** so
-reviewing-implementation seeds `implementation_review`. Refuse registering
-`pytest` or `command-ci`. Recommendation in [test-setup.md](test-setup.md).
+The confirmed profile, command/CI binding and immutable QA attachment follow
+[test-setup.md](test-setup.md); this example is not a live setup receipt.
 
 ## Crux
 
@@ -82,4 +73,4 @@ reviewing-implementation seeds `implementation_review`. Refuse registering
 | CI | Optional `ci_workflow_file` | QA command-ci unreachable named reason | Local tests when they exist |
 | Merge target | GitHub App bind | Skip GitHub → local only | They did bind — PRs possible |
 
-Ledger: G-test-setup-unasked, G-no-tests-posture.
+No unresolved test-setup gap is asserted by this example.

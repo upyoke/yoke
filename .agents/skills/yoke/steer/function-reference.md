@@ -1,43 +1,53 @@
-# /yoke steer — registered operation authority
+# Steer — registered operation lookup
 
-Strategy document writes: read the selected command’s `--help` for required fields and limits; the canonical contract is `.yoke/docs/reference/db-reference/functions-strategy.md`.
+Read selected command help for exact envelope/limits; strategy write depth is
+.yoke/docs/reference/db-reference/functions-project-configuration.md. This is
+lookup, not a phase. No feed. All launches go through Yoke; --machine takes
+registered name/id, machine_unresolved is not absent relay.
 
-Read this when you need a steering operation's function id or exact
-adapter shape. It is a lookup, not a phase step.
-
-| Function id | CLI adapter |
+| Function id | CLI read/write surface |
 |---|---|
-| `claims.steering.acquire` | `yoke claims steering acquire --project P [--doc SLUG \| --plan-doc SLUG] [--reason TEXT]` |
-| `claims.steering.release` | `yoke claims steering release CLAIM_ID --reason TEXT` |
-| `claims.steering.list` | `yoke claims steering list --project P --active-only` |
-| `strategy.doc.get` | `yoke strategy doc get SLUG [--project P]` |
-| `strategy.doc.create` | `yoke strategy doc create SLUG --summary TEXT --state TEXT --stdin [--project P]` |
-| `strategy.execution.link` | `yoke strategy execution link ITEM --slug SLUG --project P` |
-| `items.create` (Dash) | `yoke dash "TITLE" "INSTRUCTION" --strategy-doc SLUG --execution-instructions-considered` |
-| `items.detail.get` | `yoke items detail get PREFIX-N --json` |
-| `workflows.item.get` | `yoke workflows item get PREFIX-N --json` |
-| `claims.work.acquire` | `yoke claims work acquire --item PREFIX-N --reason TEXT` |
-| `claims.work.release` | `yoke claims work release (--item PREFIX-N \| --all-mine) --reason TEXT` |
-| `claims.work.holder_list` | `yoke claims work holder-list --session-id-filter S --json` |
-| `claims.coordination_claim.list` | `yoke claims coordination-claim list --session-id S --active-only --json` |
-| `claims.coordination_claim.release` | `yoke claims coordination-claim release (--project P --key K \| --claim-id N) --reason TEXT` |
-| `steering.report.get` | `yoke steering report get [--project P]` |
-| `session_control.launch.preview` | `yoke session-control launch preview --project P --level LEVEL [--machine M] --json`; an operator override replaces `--level` with `--surface S [--model M] [--reasoning-effort E] [--context-window N]` |
-| `session_control.launch.create` | Preview first. Item-bound: read the effective `level` from `workflows.item.get` for preview, then `yoke session-control launch create --project P --item PREFIX-N --idempotency-key K`. Itemless: `yoke session-control launch create --project P --level LEVEL --raw-instructions --stdin --idempotency-key K` with a nonempty stdin body. Both accept `[--machine M]`; an operator override replaces `--level` with `--surface S [--model M] [--reasoning-effort E] [--context-window N]`. `level_no_capacity` names each blocked option; a replay whose session ended refuses as `launch_replay_finished`: no new worker started; relaunch with a new key. |
+| claims.steering.acquire | yoke claims steering acquire --project P --doc SLUG --reason TEXT (use --plan-doc for project coverage) |
+| claims.steering.list | yoke claims steering list --project P --active-only |
+| claims.steering.release | yoke claims steering release CLAIM_ID --reason TEXT |
+| strategy.doc.get | yoke strategy doc get SLUG --project P |
+| strategy.doc.create | yoke strategy doc create SLUG --summary TEXT --state draft --stdin --project P |
+| strategy.execution.link | yoke strategy execution link ITEM --slug SLUG --project P |
+| items.create | yoke dash TITLE INSTRUCTION --strategy-doc SLUG --execution-instructions-considered |
+| items.detail.get | yoke items detail get PREFIX-N --json (use --include '' for index-only) |
+| workflows.item.get | yoke workflows item get PREFIX-N --json |
+| claims.work.acquire | yoke claims work acquire --item PREFIX-N --reason TEXT |
+| claims.work.release | yoke claims work release --item PREFIX-N --reason TEXT (or --all-mine) |
+| claims.work.holder_list | yoke claims work holder-list --session-id-filter SESSION-ID --json |
+| claims.coordination_claim.list | yoke claims coordination-claim list --session-id SESSION-ID --active-only --json |
+| claims.coordination_claim.release | yoke claims coordination-claim release --project P --key KEY --reason TEXT |
+| steering.report.get | yoke steering report get (all held scopes) |
+| session_control.launch.preview | yoke session-control launch preview --project P --level LEVEL --json |
+| session_control.launch.create | yoke session-control launch create --project P --item PREFIX-N --idempotency-key K |
+| session_control.launch.get | yoke session-control launch get LAUNCH-ID --json |
+| session_control.launch.list | yoke session-control launch list --project P |
+| session_control.launch.reconcile | yoke session-control launch reconcile LAUNCH-ID --json |
+| session_control.launch.retry | yoke session-control launch retry LAUNCH-ID --json |
+| session_control.surface_policy.disable | yoke session-control surface-policy disable --project P --machine M --surface S --reason TEXT |
+| session_control.surface_policy.enable | yoke session-control surface-policy enable --project P --machine M --surface S |
+| session_control.surface_policy.list | yoke session-control surface-policy list --machine M |
+| session_control.session.terminate | yoke sessions terminate SESSION-ID --reason R |
+| session_control.session.wake | yoke session-control session wake --item PREFIX-N --json |
+| session_control.evidence.get | yoke session-control evidence get --session SESSION-ID |
+| session_control.message.send | yoke say --item PREFIX-N --stdin (peer copy --steering; workers report --steering) |
+| session_control.message.acknowledge | yoke messages acknowledge MESSAGE-ID |
+| charge.schedule | yoke charge schedule --project P |
+| deployment_runs.create | yoke --env CONTROL_PLANE deployment-runs create PROJECT FLOW --idempotency-key KEY |
 
-| `session_control.launch.get` | `yoke session-control launch get LAUNCH-ID --json` |
-| `session_control.launch.list` | `yoke session-control launch list --project P` |
-| `session_control.launch.reconcile` | `yoke session-control launch reconcile LAUNCH-ID --json` |
-| `session_control.launch.retry` | `yoke session-control launch retry LAUNCH-ID --json` |
-| `session_control.surface_policy.disable` | `yoke session-control surface-policy disable --project P --machine M --surface S --reason TEXT` |
-| `session_control.surface_policy.enable` | `yoke session-control surface-policy enable --project P --machine M --surface S` |
-| `session_control.surface_policy.list` | `yoke session-control surface-policy list [--machine M]` |
-| `session_control.session.terminate` | `yoke sessions terminate SESSION-ID --reason R` |
-| `session_control.message.send` | `yoke say --item PREFIX-N --stdin` (workers reply with `yoke say --steering`) |
-| `session_control.message.acknowledge` | `yoke messages acknowledge MESSAGE-ID` |
-| `charge.schedule` | `yoke charge schedule --project P` |
-| `deployment_runs.create` | `yoke --env <cp> deployment-runs create PROJECT FLOW --idempotency-key KEY ...`; Yoke source-dev self-deploy authority is in [source-dev-delivery.md](source-dev-delivery.md) |
-
-`--machine` accepts the registered name the fleet report prints, or a machine id from `yoke machine list`. An unresolvable value is `machine_unresolved`, not an absent relay.
-
-Do not invoke `/yoke feed`. Feed and steer are unrelated.
+Judge the leg before every item launch: mechanical/small bugs/docs/cleanup →
+`--level JUNIOR`; trivial specified → `--level INTERN`; real design/implementation
+→ stage level (omit `--level`); very complex → PRINCIPAL. Read
+[model-selection.md](model-selection.md). Preview must be launchable; itembound
+--level plus optional level-reason records every-stage override and item_level
+receipt, refuses item_level_not_recordable on incompatible pin. Itemless
+--level/raw-instructions/--stdin requires nonempty body and places only that
+launch. Exact operator --surface/model/effort/context excludes level.
+level_no_capacity names actual options; launch_replay_finished creates nothing,
+so a deliberate successor uses fresh key. --machine optionally narrows.
+See worker-launch for full mandate/receipt/reconcile/deadline and substantive
+peer requester+steering routing; source-dev-delivery owns self-deploy authority.

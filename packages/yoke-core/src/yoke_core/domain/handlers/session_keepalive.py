@@ -32,7 +32,7 @@ def _authorized_target(conn: Any, request: FunctionCallRequest, session_id: str)
     """
     from yoke_core.domain.session_action_authority import authorize_session_action
     from yoke_core.domain.session_message_types import SessionMessageError
-    from yoke_core.domain.session_operator_authority import session_control_target
+    from yoke_core.domain.session_steering_authority import session_control_target
 
     target = session_control_target(conn, session_id)
     project_id = target.get("project_id")

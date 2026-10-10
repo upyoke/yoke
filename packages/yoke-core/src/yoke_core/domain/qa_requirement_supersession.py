@@ -37,6 +37,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain.db_helpers import (
     instant_parameter,
     utc_now,
@@ -50,6 +52,7 @@ from yoke_core.domain.qa_requirement_source_retirement import (
     admitted_source_correction,
     is_source_retirement,
     passing_run_replacement,
+    source_retirement_scope,
 )
 
 
@@ -73,9 +76,9 @@ def _requirement(conn: Any, requirement_id: int, *, label: str) -> dict[str, Any
         conn,
         "SELECT id,item_id,epic_id,task_num,plan_id,"
         "deployment_run_id,deployment_stage,deployment_member_item_id,"
-        "execution_target_digest,target_env,host_baseline,blocking_mode,plan_case_key,method_id,"
+        "execution_target_json,execution_target_digest,target_env,host_baseline,blocking_mode,plan_case_key,method_id,"
         "qa_kind,qa_phase,workflow_transition_id,replacement_requirement_id,"
-        f"waived_at,superseded_by_requirement_id,{requirement_retracted_at_select(conn)} "
+        f"waived_at,superseded_by_requirement_id,superseded_at,supersession_rationale,supersession_source,{requirement_retracted_at_select(conn)} "
         "FROM qa_requirements WHERE id=%s",
         (int(requirement_id),),
     )
@@ -107,12 +110,16 @@ _ITEM_SCOPE = (
 
 def requirement_scope(row: dict[str, Any]) -> tuple[str, ...]:
     """Canonical obligation scope, shared by comparison and mutation locking."""
+    if is_source_retirement(row):
+        row = source_retirement_scope(row)
     fields = _RUN_SCOPE if row.get("deployment_run_id") else _ITEM_SCOPE
     return tuple(str(row.get(column) or "") for column, _label in fields)
 
 
 def same_scope(broken: dict[str, Any], corrected: dict[str, Any]) -> list[str]:
     """Every way the two rows fail to answer for the same obligation."""
+    if is_source_retirement(broken):
+        broken, corrected = map(source_retirement_scope, (broken, corrected))
     mismatches: list[str] = []
     scope = _RUN_SCOPE if broken.get("deployment_run_id") else _ITEM_SCOPE
     for column, label in scope:
@@ -137,6 +144,7 @@ def record_supersession(
     superseded_by_requirement_id: int,
     rationale: str,
     source: str = "agent",
+    reconcile: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Validate and write one supersession on the caller's open transaction.
 
@@ -178,7 +186,9 @@ def record_supersession(
             f"requirement {requirement_id}'s obligation: {'; '.join(mismatches)}. "
             "Bind the corrected case to the same run, stage, member and "
             "deployment target (or, for an item case, the same item, "
-            "transition, phase and target), then record the supersession."
+            "transition, phase and target; post_deploy source retirement uses the "
+            "resolved target environment, with --target-env naming the source "
+            "snapshot destination), then record the supersession."
         )
     if str(corrected.get("blocking_mode") or "") != "blocking":
         raise QaSupersessionError(
@@ -220,21 +230,31 @@ def record_supersession(
             "already discharged it and supersession would leave two "
             "conflicting records of why."
         )
-    existing = broken.get("superseded_by_requirement_id")
-    if existing and int(existing) != int(superseded_by_requirement_id):
-        raise QaSupersessionError(
-            f"requirement {requirement_id} is already superseded by "
-            f"requirement {existing}. A frozen case records one discharge; "
-            "supersede the newer case instead if that one is wrong."
-        )
+    from yoke_core.domain.qa_requirement_successor import validate_successor
 
-    now = utc_now()
+    validate_successor(conn, broken, superseded_by_requirement_id, reconcile=reconcile)
+    if reconcile:
+        if source != "operator":
+            raise QaSupersessionError(
+                "replacement_reconciliation_requires_operator: use --source operator with the authorized repair"
+            )
+        rationale = (
+            str(broken.get("supersession_rationale") or "")
+            + f"\nReconciled successor links (replacement={broken.get('replacement_requirement_id')}, "
+            f"superseded_by={broken.get('superseded_by_requirement_id')}, source={broken.get('supersession_source')}): {rationale}"
+        ).strip()
+
+    previous = broken.get("superseded_at")
+    now = parse_instant(previous) if previous is not None else utc_now()
     conn.execute(
-        "UPDATE qa_requirements SET superseded_by_requirement_id=%s,"
+        "UPDATE qa_requirements SET superseded_by_requirement_id=%s,replacement_requirement_id=%s,"
         "superseded_at=%s,supersession_rationale=%s,supersession_source=%s "
         "WHERE id=%s",
         (
             int(superseded_by_requirement_id),
+            int(superseded_by_requirement_id)
+            if broken.get("replacement_requirement_id")
+            else None,
             instant_parameter(conn, now),
             rationale,
             str(source),
@@ -283,6 +303,7 @@ def supersede_requirement(
     superseded_by_requirement_id: int,
     rationale: str,
     source: str = "agent",
+    reconcile: bool = False,
     db_path: str | None = None,
 ) -> dict[str, Any]:
     """Record, commit and announce that a passing sibling discharges this one."""
@@ -292,6 +313,7 @@ def supersede_requirement(
         superseded_by_requirement_id=superseded_by_requirement_id,
         rationale=rationale,
         source=source,
+        reconcile=reconcile,
     )
     conn.commit()
     emit_supersession_event(conn, receipt, broken, db_path=db_path)

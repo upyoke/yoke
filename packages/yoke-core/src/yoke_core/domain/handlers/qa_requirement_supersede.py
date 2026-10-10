@@ -18,6 +18,7 @@ class QaRequirementSupersedeRequest(BaseModel):
     rationale: str = Field(..., min_length=1)
     source: str = "agent"
     declare_replacement: bool = False
+    reconcile: bool = False
 
 
 class QaRequirementSupersedeResponse(BaseModel):
@@ -33,6 +34,7 @@ class QaRequirementSupersedeResponse(BaseModel):
     item_id: Optional[int] = None
     workflow_transition_id: Optional[str] = None
     correction_notice: Optional[dict[str, str]] = None
+    repair_notice: Optional[dict[str, str]] = None
     #: Present only when the discharged row was an admitted copy whose intake
     #: requirement is still outstanding, because supersession is run-local and
     #: the next release admits that row again untouched.
@@ -69,9 +71,27 @@ def handle_qa_requirement_supersede(
         declare_existing_replacement,
     )
 
+    from yoke_core.domain.qa_requirement_successor import (
+        QaSuccessorError,
+        authorize_reconciliation,
+        notify_repair,
+    )
+
     conn = connect()
     try:
         try:
+            if body.reconcile:
+                if body.declare_replacement or body.source != "operator":
+                    return _error(
+                        "payload_invalid",
+                        "Reconciliation requires --source operator and cannot declare a pending replacement",
+                    )
+            if body.reconcile:
+                authority = authorize_reconciliation(conn, request, int(req_id))
+                body.rationale = (
+                    f"actor={request.actor.actor_id} session={request.actor.session_id} "
+                    f"authority={authority}: {body.rationale}"
+                )
             if body.declare_replacement:
                 declared = declare_existing_replacement(
                     conn,
@@ -118,10 +138,21 @@ def handle_qa_requirement_supersede(
                 superseded_by_requirement_id=int(body.superseded_by_requirement_id),
                 rationale=body.rationale,
                 source=body.source,
+                reconcile=body.reconcile,
             )
+            if body.reconcile:
+                try:
+                    result["repair_notice"] = notify_repair(conn, request, result)
+                except Exception as exc:  # repair is already committed
+                    conn.rollback()
+                    result["repair_notice"] = {
+                        "delivery": "failed",
+                        "recovery": f"QA_REPAIR_NOTICE_FAILED: repair is durable but holder notice failed: {exc}. "
+                        "Inspect the requirement and notify its holder before resuming the gate.",
+                    }
         except LookupError as exc:
             return _error("not_found", str(exc))
-        except QaSupersessionError as exc:
+        except (QaSupersessionError, QaSuccessorError) as exc:
             return _error("supersession_refused", str(exc))
         except QaReplacementError as exc:
             return _error("replacement_refused", str(exc))

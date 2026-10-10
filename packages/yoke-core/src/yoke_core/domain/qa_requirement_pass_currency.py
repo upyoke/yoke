@@ -6,8 +6,9 @@ configuration and execution-target digest it started under inside
 ``method_config`` correction records a revision marker on the requirement;
 once set it stays, including through empty config, and unstamped greens then
 no longer satisfy. Compare and execute the config with that marker stripped.
-A live execution-target digest is proved only by a pass that recorded the
-same digest, or the digest a sanctioned rebind moved the row from.
+A live execution-target digest is proved by its recorded digest or sanctioned
+rebind. Protected CI receipts for an unchanged landing also retain proof when
+the older runner wrote neither snapshot; corrections still invalidate them.
 """
 
 from __future__ import annotations
@@ -239,11 +240,22 @@ def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
         if row["rebound_at"] is not None and rebound_from:
             proving_digests.add(rebound_from)
     recorded_digest = recorded_execution_target_digest(run["raw_result"])
-    if live_digest and recorded_digest not in proving_digests:
-        return False
     recorded = recorded_method_config(run["raw_result"])
+    if recorded is not None and canonical_method_config(recorded) != current:
+        return False
+    if live_digest and recorded_digest and recorded_digest not in proving_digests:
+        return False
+    if (live_digest and not recorded_digest) or (
+        recorded is None
+        and (corrected or executable_method_config(row["method_config"]))
+    ):
+        from yoke_core.domain.qa_merge_receipt_currency import (
+            landed_receipt_proves_unchanged_requirement,
+        )
+
+        return landed_receipt_proves_unchanged_requirement(conn, requirement_id, run)
     if recorded is not None:
-        return canonical_method_config(recorded) == current
+        return True
     return not corrected and not executable_method_config(row["method_config"])
 
 

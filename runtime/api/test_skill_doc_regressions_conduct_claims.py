@@ -37,10 +37,11 @@ def _read_s3b() -> str:
 
 
 class TestEntryActivationS3bContract(unittest.TestCase):
-
     def setUp(self) -> None:
         self.s3b = _read_s3b()
-        self.assertNotEqual(self.s3b, "", "S3b section not found in entry-activation.md")
+        self.assertNotEqual(
+            self.s3b, "", "S3b section not found in entry-activation.md"
+        )
 
     def test_session_touch_stderr_not_swallowed(self) -> None:
         """session-touch stderr must not be redirected to /dev/null."""
@@ -111,7 +112,8 @@ class TestEntryActivationTeachesFunctionCallAdapters(unittest.TestCase):
     def setUp(self) -> None:
         self.s3b = _read_s3b()
         self.assertNotEqual(
-            self.s3b, "",
+            self.s3b,
+            "",
             "S3b section not found in entry-activation.md",
         )
 
@@ -131,10 +133,9 @@ class TestEntryActivationTeachesFunctionCallAdapters(unittest.TestCase):
         """claim-work dispatches through ``claims.work.claim`` — it is
         the canonical work-claim acquisition adapter."""
         self.assertIn(
-            "claim-work",
+            "yoke claims work acquire",
             self.s3b,
-            "S3b must teach claim-work (function id: "
-            "claims.work.claim).",
+            "S3b must teach claim-work (function id: claims.work.claim).",
         )
 
     def test_s3b_recovery_hint_names_claim_work_adapter(self) -> None:

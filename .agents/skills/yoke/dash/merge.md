@@ -1,231 +1,133 @@
-# Dash phase 6 — confirm the verified tree and land it
+# Dash — confirm the verified tree and land it
 
-## Confirm the tree
+Re-survey every actual touched file immediately before merge.
+Contacts stay advisory: independent proceed, ordered wait for landing proof
+and re-survey, unresolved release/name holder/path/evidence.
+Require clean HEAD matching every accepted SHA-bound verdict.
+Edit/commit/amend/rebase invalidates affected proof. No hand merge,
+force-push, CI bypass or landing around a registered claim.
 
-Immediately before merge, resolve the exact touched set again and replace the
-survey with every actual file:
+## Exact human candidate review
 
-```text
-yoke direct-workflow dash survey ITEM --path <actual-file> [--path <actual-file> ...] --json
-yoke direct-workflow dash survey ITEM --no-changes --json  # genuine no-change only
-```
+Selected merge_candidate_review refuses before arming/enqueue/merge and
+names the reviewer's open decision request. The work-holder session cannot
+approve it, clear posture or impersonate another session. Report the request
+id, checkpoint and wait; no retry loop. Any later commit needs new clearance.
+`yoke merge-review candidate evaluate ITEM --commit SHA` is read-only.
+Only an authorized independent reviewer resolves the named request.
 
-Read any reported contacts as advisories here too; a recorded overlap does not
-itself prevent merge. Proceed when the edits are independent. For
-order-dependent work, wait for the holding work to land (merge receipt,
-merged_at, or git ancestry — not status) and re-run the survey; for an
-unresolved contact, release the work claim and present the path, holder, and
-evidence to the operator.
-
-Then require a clean worktree whose HEAD is the tree named by every passing
-SHA-bound verdict. Any intervening edit, commit, amend, or rebase invalidates
-the old verdict: commit the final tree and rerun the affected case. Do not
-merge by hand, force-push, bypass CI, or merge around a registered claim.
-
-## A candidate a person must clear
-
-When the item's posture selects `merge_candidate_review`, `yoke merge item`
-refuses before it arms, enqueues, or merges anything, because the exact
-commit the landing would carry has to be cleared first. The refusal names
-the open decision request; it sits in a reviewer's Inbox, and they answer it
-with `yoke decision-requests resolve REQUEST_ID approve`.
-
-You cannot answer it yourself. The session holding the item's work claim is
-refused by name — the actor you carry is the operator's own, so the session
-is what separates the work from its review. Clearing the posture key is
-refused for the same reason, and passing somebody else's `--session-id` to
-either is denied by the hook before the command runs. The gate is a
-mistake-stopper with an audit trail rather than a security boundary; the
-reasoning is in `docs/archive/decisions/merge-candidate-review.md`.
-
-That refusal is a blocker, not a retry — report it with the request id and
-stop rather than re-running the merge in a loop. The clearance is bound to
-the commit, so commit everything first and merge second: any commit made
-after a clearance is a different candidate and asks again. `yoke merge-review
-candidate evaluate ITEM --commit SHA` reports where a candidate stands
-without attempting a landing.
-
-## The merge command may verify on CI itself
-
-Before any landing shape below, `yoke merge item` itself may dispatch or
-attach to a CI run for post-rebase verification and poll it to a
-conclusion — this happens inside the same command, not as a separate step.
-That poll registers a durable wait, the same mechanism the landing notice
-below uses, so a turn that stops mid-poll is normally woken with the
-verdict. Registration can fail — the command warns by name rather than
-promising a wake it cannot keep — so either way, re-run the same
-`yoke merge item` command: it rejoins the run by exact commit and adopts
-its conclusion instead of dispatching another suite. Never replace either
-path with local GitHub polling.
-
-## Two landing shapes, and the merge decides which
-
-**A relay-launched session arms the landing and stops.** `yoke merge item`
-returns `landing_pending=true` naming the pull request, whatever you passed,
-because a headless command cannot outlive a queue landing: the wait would die
-with the turn and leave the branch landed with the item open. Report the pull
-request, say you are waiting on landing, and end the turn deliberately — the
-Stop gate treats a recorded pending landing as a legitimate stop. The
-control-plane landing notice wakes you, and re-running the same
-`yoke merge item ITEM --result ... --verification ...` command then completes
-close-out, exactly as it does for any landed-but-not-closed-out item. A stopped
-landing arrives the same way and names its recovery.
-
-**Every other session waits.** The watcher invocation's safe wait shape is
-resolved from the calling session's manifest wake capability, never from who
-opened the session, its executor name, or whether Yoke can reach it over a
-relay. A native idle-wake primitive preserves the background subscription; a
-harness with no or unverified idle wake keeps the wait in the current turn.
-The primitive resumes the turn in place, so a desktop conversation waits
-exactly as its CLI sibling does.
-
-Either way the first call opens / rebases / arms the pull request and returns
-`landing_pending=true`, which means GitHub itself reported that it holds the
-landing — armed or already queued, still mergeable, and with none of its own
-required checks already red — read back rather than inferred from the arming
-request succeeding. GitHub creates the queue entry only once those checks pass,
-so armed-and-not-yet-queued is the ordinary state here; an arming that never
-took, a pull request that is no longer mergeable, and one whose required checks
-have already concluded red each refuse instead and name which of those four it
-saw. A red required check refuses before anything is armed, and names the check
-and its run.
+The merge may itself dispatch/adopt postrebase CI with a durable wait.
+Continue its native handle to exit. If interrupted, rerun the same command to
+adopt the exact-commit run, not another suite. A failed wait registration names
+its warning; never promise an unregistered wake or poll GitHub yourself.
 
 ## Wake-routed wait
 
-Pass `--wait` through the merge watcher wrapper. A relay-launched session takes
-the arm-and-stop handoff above instead, so nothing below applies to it. On each
-documented cadence the waiting client calls `merge_queue.landing.observe`. The
-server rate-limits concurrent callers to one project-wide GitHub sweep per
-cadence, refreshes every pending landing, and returns this lane's durable
-record. It preserves the same four-fact landing readback (armed, queued,
-eligible, required checks) as structured pull-request state, queue holding,
-named queue-entry state, merge-when-ready state, head SHA, failed checks, and
-refresh/change times. The waiting machine issues no `gh`, GitHub, or
-`git fetch` read loop. Landing-complete/stopped record changes still use the
-existing explicit session wake for a detached holder. The wrapper streams
-changed records and writes the exit sentinel that ends the follow; it never
-needs a hand-authored `gh` poll loop:
+The first landing call arms/queues the PR and returns landing_pending only
+after GitHub readback proves armed/queued, still eligible/mergeable and no
+required checks already red. Armed before queue entry is ordinary.
+Failed arming, ineligible PR or a concluded red check refuses by name.
+
+A relay-launched session arms the landing and stops. Report by naming the pull
+request, whatever you passed as result/verification, and say you are waiting
+on landing: a headless command cannot outlive a queue landing. Treat its
+recorded pending landing as a legitimate stop. The control-plane landing
+notice wakes you to rerun the same merge with result/verification.
+
+**Every other session waits.** The shape is resolved from the calling session's
+manifest wake capability, never from who opened the session, its executor name,
+or whether Yoke can reach it over a relay. A native idle-wake primitive preserves
+the background subscription; a harness with no or unverified idle wake keeps
+the wait in-turn. Thus a desktop conversation waits exactly as its CLI sibling
+does. A relay-launched session takes the arm-and-stop handoff above.
+
+Ask the watcher for its safe invocation:
 
 ```text
-yoke watch merge --print-streaming-pair merge-item -- ITEM --wait \
-  --result "<what changed>" --verification "<checks and evidence>"
+yoke watch merge --print-streaming-pair merge-item -- ITEM --wait --result "<result>" --verification "<proof>"
 ```
 
-That call only prints: it merges nothing, arms nothing, and records nothing.
-Read the reported `wait_mode` and reason, then run the printed command exactly
-once — that run is the merge.
+That call only prints: it merges nothing, arms nothing; run the printed command
+exactly once. `background-wake` means the caller's harness can resume an ended
+turn and uses its bound background/subscription pair. `in-turn` means the printed
+command is a single foreground invocation. No later completion notice is
+expected. The wrapper's four-fact landing readback (armed, queued, eligible,
+required checks) never needs a hand-authored `gh` poll loop.
 
-A `[phase:authority] tunnel_busy ... elapsed=.../limit=...` line means a
-sibling merge still owns the machine's connected-environment tunnel lifecycle
-step. Leave that holder running and keep this invocation open: the merge waits
-through one more bounded replacement window and continues when the tunnel is
-free.
+For Claude in-turn waits, set the Bash tool's `timeout` to `600000` so the harness
+does not move the call to a background task. If it moves the call anyway, the
+command is still running: continue that same call through the background task's
+output. Reading that output continues the call; only ending the turn kills the
+watcher. Never launch another copy beside it.
 
-- `background-wake` means the caller's harness can resume an ended turn. The
-  printed pair is the bound background command and its subscription; run that
-  pair exactly once on the long-command surface your harness rules name. A
-  completion wake is expected only because the mode line recorded that
-  primitive.
-- `in-turn` means the printed command is a single foreground invocation that
-  holds the wait and will not return until landing finishes. Run it, and keep
-  the call open. No later completion notice is expected. On Claude, set the
-  Bash tool's `timeout` to `600000` on every `in-turn` watcher invocation, so
-  the harness does not move the call to a background task at its 120-second
-  default. Headless Claude watcher Bash that omits it is denied by
-  `lint-headless-watcher-timeout` — not a blanket Bash rule. If it moves the
-  call anyway, the command is still running: continue that same call through
-  the background task's output until it exits. Reading that output continues
-  the call — only ending the turn kills the watcher and the child it was
-  holding. Existing Stop evidence cannot hold after that PostToolUse
-  completion.
+The wrapper observes through control-plane merge_queue.landing.observe with
+one project-wide GitHub sweep per cadence and streams changed durable records
+and an exit sentinel. The waiting machine issues no `gh`, GitHub, or `git fetch`
+read loop. Named outcomes follow; none of them is silence.
+A tunnel_busy sibling owns authority lifecycle: leave it running and retain
+this invocation through the bounded replacement window.
+Read readiness through `yoke github merge-queue readiness ITEM --json`;
+null arming with queue-entry=AWAITING_CHECKS can mean consumed and in flight,
+not cleared.
 
-For a separate point-in-time check, run
-`yoke github merge-queue readiness ITEM --json`. It reads the target branch's
-named queue entry with arming, so null arming plus
-`queue-entry=AWAITING_CHECKS` means consumed and in flight, not cleared.
+## Hold before a correction
 
-## Hold a live candidate before correcting it
-
-While the pull request is armed or queued, every lane publish — the
-verification gate, the remote pytest selection, and the landing's own retry —
-refuses instead of pushing a commit the queue would strand on no branch.
-Disabling auto-merge does not remove an entry GitHub already formed, so the
-hold does both and verifies both are gone:
+Every publish refuses while its PR is live armed/queued. Clear auto-merge and
+queue entry together with verified readback:
 
 ```text
 yoke github merge-queue hold ITEM --json
 ```
 
-It reports `held` only from that readback; `already_landed` or
-`landed_during_hold` names the commit GitHub actually merged, and anything else
-leaves the candidate live and says so. Nothing re-arms on its own — correct the
-lane, commit, re-run the verification gate against the new candidate, then
-re-run `yoke merge item`.
+Only held proves both gone. Already-landed/landed-during-hold names the actual
+merge; other answers leave it live. Nothing auto-rearms.
+Correct, commit, reverify the new candidate and merge again.
 
-## Read the close-out block, not the exit code alone
+## Read the explicit close-out outcome
 
-Every invocation prints an explicit `[close-out]` outcome block on stderr,
-beside the phase markers, while stdout stays the JSON envelope. Its first line
-is the verdict — `PREFIX-N closed: done`, `already closed`,
-`not closed: landing pending`, or `not closed` with the blocker — and the lines
-under it name only what that run confirmed: whether the evidence record now
-holds this invocation's `--result` / `--verification` text, and what a live
-holder read says about the work claim. Read that block rather than inferring
-the outcome from exit 0.
+Stderr's [close-out] block reports actual status, stored result/verification
+and holder fact beside stdout's envelope. Exit0 alone is not done.
 
-Every way either route ends is named, and none of them is silence:
+- **merged** — exit 0: the boundary closed the item out in this turn, or
+  landing_already_recorded names its receipt. Read status/identity; done needs
+  no new claim/transition. Continue denial reporting.
+- **landing stopped** — exit 9: follow named recovery, rebase the lane onto the
+  base branch and re-run the verification gate before the same merge command.
+  It converges on the merge if one happened meanwhile; never discard landed state.
+- **a required check already red** — exit 1, terminal for this tree: fix,
+  commit/reverify, then rearm. A cancelled/not-started check has no verdict;
+  rerun same-head landing for replacement without a fabricated fix.
+- **landing record stale** — landing_record_stale, exit 9: report last
+  record/project refresh times and named control-plane recovery. Do not
+  substitute local polling.
+- **wait budget exhausted** — exit 9: checkpoint PR, last observed reading and
+  exact resume; `yoke sessions touch --mode parked --reason "<observed landing state>"`.
+  Report HUMAN_GATE. The item stays non-terminal and the claim stays held.
 
-- **merged** — exit 0. That same command already recorded the evidence and
-  closed the item out in this turn; continue at the guardrail-denial report in
-  [`close-out.md`](close-out.md). An envelope carrying
-  `result: landing_already_recorded` is the same outcome reached by another
-  close-out first (a second watcher on the same pull request): the item is
-  `done` with its merge identity recorded, the envelope names the session that
-  recorded it, and nothing remains to do — do not acquire a claim or transition
-  the item again.
-- **landing stopped** — exit 9, naming what GitHub reported and the recovery:
-  usually rebase the lane onto the base branch, re-run the verification gate,
-  and re-run the same command, which re-arms it. Re-running is safe — it
-  converges on the merge if one happened meanwhile.
-- **a required check already red** — exit 1, terminal for this tree. Fix the
-  check, re-run the verification gate, then re-run the landing. A required
-  check that was only cancelled or never started is no verdict, not red:
-  re-running the landing re-runs it on the same head and arms once GitHub
-  replaces it — no fix and no new commit.
-- **landing record stale** — exit 9 names `landing_record_stale`, the last
-  record/project refresh times, and the control-plane GitHub recovery. Do not
-  substitute local polling; report the blocker with the named repair step.
-- **wait budget exhausted** — exit 9 with the last observed reading and the
-  exact resume command. Do not re-arm blindly and do not stop quietly: stamp
-  `yoke sessions touch --mode parked --reason "<observed landing state>"`, then
-  end the turn with a `HUMAN_GATE` report naming the pull request, that reading,
-  and the resume command. The item stays non-terminal and the claim stays held,
-  so the seat or operator resumes exactly where this left off.
+Wait budget only covers genuinely pending checks/train; a concluded red head
+with nothing in flight returns immediately. Never rearm blindly after timeout.
+Checkpoint and park with observed state before that legitimate stop.
 
-`--wait` returns immediately with a terminal failure when the pull request's
-required checks have already concluded red and nothing is in flight for that
-head sha; the wait budget applies only while checks or the train are genuinely
-pending.
+## Selected deployment posture
 
-## When deployment posture is selected
-
-Merge first without closing out, so the item-bound deployment can run against
-the recorded merge identity. Skipping the status flip does not skip the review
-stage: admission still requires the item to have reached it, which the verify
-phase already did:
+Merge first with recorded identity; skip-status never skips review admission:
 
 ```text
 yoke merge item ITEM --skip-status --json
 ```
 
-Start item-bound delivery for the returned `merge_sha`, run it through the
-project executor, and wait for `succeeded`. Use the selected control-plane
-connection for ordinary external delivery, including HTTPS. A target replacing that control plane's own serving API requires operator
-authority; escalate its named refusal and recovery:
+Delivery must use the selected item-bound project flow for returned merge_sha,
+with a run succeeded before completion.
+Read [delivery authority](../../../../.yoke/docs/reference/agent-rules/delivery.md)
+first and acquire DEPLOY:P before creating/executing any run, releasing after.
+A steering-batched worker follows its mandate and retains release wait; it
+does not start an independent run. An authorized driver uses:
 
 ```text
-yoke --env <control-plane> deployment-runs start-for-item ITEM \
-  --release-lineage <merge-sha> --json
+yoke --env <control-plane> deployment-runs start-for-item ITEM --release-lineage <merge-sha> --json
 ```
 
-Next: [`close-out.md`](close-out.md).
+Ordinary delivery uses its connected authority, including HTTPS.
+Serving-API self-deploy refusal routes to the control-plane operator with the
+named recovery. Follow the project's executor/watcher to actual success.
+Next: [close-out.md](close-out.md).

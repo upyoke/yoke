@@ -6,7 +6,7 @@ backlog mutation path as normal lifecycle transitions while posting the
 claim bypass on a request-scoped ContextVar, so one HTTPS request cannot leak
 repair authority into another request handled by the same server process.
 
-The dispatcher admits only an operator session.  The handler additionally
+The dispatcher requires a live steering seat covering the target scope.  The handler additionally
 requires an operator-authored reason, validates the target against the
 item's immutable workflow version, supports an optional source-status
 precondition, and makes ``dry_run`` a read-only preview.
@@ -208,13 +208,13 @@ REGISTRATIONS: List[Dict[str, Any]] = [
             "ItemStatusChanged",
         ],
         "guardrails": [
-            "operator_override_required",
+            "steering_seat_required",
             "workflow_stage_validation",
             "precondition_source_status",
             "operator_reason_required",
         ],
         "adapter_status": "live",
-        "claim_required_kind": "operator_override",
+        "claim_required_kind": "steering",
     },
 ]
 

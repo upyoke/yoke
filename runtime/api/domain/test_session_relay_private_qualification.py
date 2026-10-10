@@ -45,9 +45,12 @@ def _candidate_route_requires_grant(monkeypatch) -> None:
 def _connection(*, target_version: str):
     conn = message_connection()
     add_coordination_claim_schema(conn)
+    from runtime.api.domain.test_session_message_support import seed_steering_seat
+
+    seed_steering_seat(conn, session_id="s1", project_id=1)
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
     conn.execute(
-        "UPDATE harness_sessions SET actor_id=10,mode='operator' WHERE session_id='s1'"
+        "UPDATE harness_sessions SET actor_id=10,mode='wait' WHERE session_id='s1'"
     )
     # Activity is a full day old so the target is idle under any staleness
     # window, pinning the wake to the private idle route rather than leaving

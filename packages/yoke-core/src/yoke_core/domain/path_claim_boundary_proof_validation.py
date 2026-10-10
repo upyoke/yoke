@@ -9,9 +9,6 @@ from urllib.parse import quote
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_CONTENTS_READ_PERMISSION_LEVELS,
 )
-from yoke_core.domain.gate_satisfier_ladder_catalog import (
-    PATH_CLAIM_BOUNDARY_LADDER,
-)
 from yoke_core.domain.path_claims_boundary import BoundaryCheckStatus
 
 
@@ -34,6 +31,7 @@ _CHECK_FIELDS = frozenset(
         "diagnostics",
     }
 )
+_LANE_RUNGS = frozenset({"remote_integration_ref", "local_integration_ref"})
 _CLEAR_STATUSES = frozenset(
     {
         BoundaryCheckStatus.VALID.value,
@@ -55,13 +53,19 @@ def validate_proof(
     session_id: str,
     verify_remote: bool,
 ) -> dict:
-    """Bind proof observations to current server-authoritative item facts."""
+    """Bind public-ref proof observations to projected authoritative facts."""
+    from yoke_core.domain.function_response_refs import public_result
+    from yoke_core.domain.item_ref_render import render_item_refs
+
+    public_context = public_result(
+        context, render_item_refs(conn, [context["item_id"]])
+    )
     if not isinstance(proof, dict) or proof.get("kind") != PROOF_KIND:
         raise BoundaryProofError("boundary proof kind is missing or unsupported")
-    if type(proof.get("item_id")) is not int or proof["item_id"] != context["item_id"]:
+    if proof.get("public_ref") != public_context["public_ref"]:
         raise BoundaryProofError("boundary proof targets a different item")
     for key in ("lane", "work_claim", "claims"):
-        if proof.get(key) != context.get(key):
+        if proof.get(key) != public_context.get(key):
             raise BoundaryProofError(f"boundary proof {key} facts are stale")
     holder = context.get("work_claim") or {}
     if not session_id or holder.get("session_id") != session_id:
@@ -136,10 +140,10 @@ def validate_proof(
                 "boundary proof has an invalid integration-base SHA"
             )
     rung_id = str(proof.get("rung_id") or "")
-    try:
-        PATH_CLAIM_BOUNDARY_LADDER.rung(rung_id)
-    except KeyError as exc:
-        raise BoundaryProofError("boundary proof names an unsupported rung") from exc
+    # A lane observation proves only an integration-ref rung; the landed
+    # rung is read by the control plane itself from the recorded merge.
+    if rung_id not in _LANE_RUNGS:
+        raise BoundaryProofError("boundary proof names an unsupported rung")
     if verify_remote and rung_id == "remote_integration_ref":
         expected = _remote_heads(
             conn,

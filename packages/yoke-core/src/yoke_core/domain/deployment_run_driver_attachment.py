@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from yoke_contracts.timestamps import format_instant, parse_instant, utc_now
+from yoke_contracts.timestamps import as_utc, format_instant, parse_instant, utc_now
 from yoke_core.domain.json_helper import dumps_compact, loads_text
 from yoke_core.domain.schema_common import _column_exists
 
@@ -57,8 +57,8 @@ class DriverAttachment:
     machine_id: str = ""
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "attached_at", parse_instant(self.attached_at))
-        object.__setattr__(self, "heartbeat_at", parse_instant(self.heartbeat_at))
+        object.__setattr__(self, "attached_at", as_utc(self.attached_at))
+        object.__setattr__(self, "heartbeat_at", as_utc(self.heartbeat_at))
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -98,9 +98,9 @@ def format_refusal(run_id: str, current: DriverAttachment) -> str:
     )
 
 
-def is_live(attachment: DriverAttachment, *, now: datetime | str) -> bool:
+def is_live(attachment: DriverAttachment, *, now: datetime) -> bool:
     """True at the inclusive native heartbeat window boundary."""
-    current = parse_instant(now)
+    current = as_utc(now)
     return current - attachment.heartbeat_at <= LIVE_HEARTBEAT
 
 
@@ -185,7 +185,7 @@ def attach_driver(
     progress_capture: str = "",
     machine_id: str = "",
     exited_driver_pid: int = 0,
-    now: datetime | str | None = None,
+    now: datetime | None = None,
 ) -> DriverAttachment | None:
     """Record this process as the run's driver, or refuse a live other one.
 
@@ -200,7 +200,7 @@ def attach_driver(
     """
     if phase not in VALID_PHASES:
         raise ValueError(f"driver phase {phase!r} is not registered")
-    clock = utc_now() if now is None else parse_instant(now)
+    clock = utc_now() if now is None else as_utc(now)
     locked = _locked_row(conn, run_id_value)
     if locked is None:
         raise LookupError(f"deployment run {run_id_value!r} not found")
@@ -263,10 +263,10 @@ def release_driver(
 
 
 def live_attachment_for_run(
-    conn: Any, *, run_id_value: str, now: datetime | str
+    conn: Any, *, run_id_value: str, now: datetime
 ) -> DriverAttachment | None:
     """Return the live driver on *run_id_value*, or None."""
-    now = parse_instant(now)
+    now = as_utc(now)
     if not _column_ready(conn):
         return None
     row = conn.execute(
@@ -283,10 +283,10 @@ def live_attachment_for_run(
 
 
 def live_attachment_for_capture(
-    conn: Any, *, progress_capture: str, now: datetime | str
+    conn: Any, *, progress_capture: str, now: datetime
 ) -> DriverAttachment | None:
     """Return the live driver that claimed *progress_capture*, or None."""
-    now = parse_instant(now)
+    now = as_utc(now)
     wanted = str(progress_capture or "").strip()
     if not wanted or not _column_ready(conn):
         return None

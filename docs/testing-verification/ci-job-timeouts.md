@@ -23,6 +23,27 @@ execution outgrows its headroom. The workflow YAML is the source of truth.
 
 ## Recovery
 
+### Pytest hang dumps
+
+The shared `[tool.pytest.ini_options]` in `pyproject.toml` sets pytest's
+built-in `faulthandler_timeout`; its comment records the measured headroom.
+When a test's setup, call, and teardown together exceed that interval, pytest
+dumps every thread's Python stack once and keeps the test running. This is a
+diagnostic alarm; GitHub's job limit still bounds the hung shard.
+
+With xdist's normal capture enabled, the worker writes the dump to the original
+stderr. The shard runner merges stderr into stdout, so it appears in the
+job's **Run pytest** log and the uploaded `pytest-output-<python>-<shard>`
+artifact's `pytest-output.txt`. Search for `Timeout (` and find the test file
+and function in the stack, then inspect the blocking calls and other thread
+stacks for the lock, subprocess, or wait involved. A test still in fixture setup
+may name the fixture rather than the test function.
+
+Fix the deadlock in the owning item when a hang recurs. Keep the diagnostic
+threshold tied to measured normal durations rather than raising it to conceal
+a hang. For a short reproduction, override it with
+`-o faulthandler_timeout=<seconds>`.
+
 Inspect the timed-out job's log to identify the stalled step. Fix a hang
 before rerunning the failed check. If the step was making normal progress
 and the workload has grown, measure recent completed runs and raise that

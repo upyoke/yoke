@@ -54,13 +54,13 @@ def test_state_management_teaches_workflow_labels() -> None:
     assert "Labels: `type:{epic|issue}`" not in text
 
 
-def test_overview_names_every_builtin_workflow_and_pinned_authority() -> None:
+def test_overview_uses_pin_selected_workflow_authority() -> None:
     text = _read(OVERVIEW)
-    assert "Every item — Dash, Blitz, Task, Issue, Epic" in text
-    assert "pinned immutable workflow" in text
-    assert "Dash runs `idea`" in text
-    assert "Blitz adds idea refinement" in text
-    assert "Task is the floor subset" in text
+    assert "immutable workflow/version pin" in text
+    assert "`yoke workflows item get PREFIX-N`" in text
+    assert "`yoke workflows version get WORKFLOW VERSION`" in text
+    assert "live binding" in text
+    assert "names or copied stage sequences do not" in text
 
 
 def test_overview_uses_project_id_as_item_authority() -> None:
@@ -91,5 +91,8 @@ def test_harness_docs_resolve_claude_code_to_claude_manifest() -> None:
         assert "`claude-vscode` -> `runtime/harness/claude/manifest.json`" in text
         assert "runtime/harness/claude-code/manifest.json" not in text
     adapter = _read(HARNESS_ADAPTER_TEMPLATE)
-    assert "Surface-specific executor values normalize back to the family manifest" in adapter
+    assert (
+        "Surface-specific executor values normalize back to the family manifest"
+        in adapter
+    )
     assert "`codex-desktop` -> `runtime/harness/codex/manifest.json`" in adapter

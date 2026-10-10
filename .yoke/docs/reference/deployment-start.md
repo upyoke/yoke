@@ -28,6 +28,12 @@ on refusal, discards the scope; no process-global or cross-request cache exists.
 Mutable member status/intent is read afresh. Freeze reuses one custody resolution
 for both membership and completion-authority checks; unknown custody still refuses.
 
+Completion publishes exact run/member/environment/candidate attribution in the
+existing delivery-stamp facts, in the same transaction as the item's done status.
+An independently completed member stays delivered even if its siblings or run
+later fail or cancel. Dependency and dashboard readers consume this durable
+answer. Accepted QA and a preflight stamp alone do not mean the item completed.
+
 The driver raw capture contains `Deployment start timing: ` JSON lines from
 preflight pin reading onward. Each step has a UTC start/end timestamp, monotonic
 elapsed milliseconds, outcome, run ID, source SHA, member count, and transport.

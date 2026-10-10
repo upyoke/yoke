@@ -1,12 +1,14 @@
 // Generated from the installed structured-events Pack; run build_frontend_events.
 /**
- * One tracker per document; returns cleanup for client frameworks. URL changes
- * produce one view. The owner marker lives on window, so separately bundled
- * copies of this module (a host page and an embedded app) share it.
+ * One tracker per document; returns cleanup for client frameworks. A path
+ * change produces one view; query-only and hash-only changes (filters, the
+ * app's own replaceState rewrites) produce none. The owner marker lives on
+ * window, so separately bundled copies of this module (a host page and an
+ * embedded app) share it.
  */
 import { emitEvent } from './events.js';
 import { captureAttribution } from './events_capture.js';
-import { sanitizeUrl } from './events_attribution.js';
+import { sanitizePath, sanitizeUrl } from './events_attribution.js';
 
 const TRACKER = Symbol.for('structured-events.page-views');
 export function startPageViews()             {
@@ -23,13 +25,14 @@ export function startPageViews()             {
   const view = async (referrer        ) => {
     if (!active) return;
     const url = window.location.href;
-    if (url === seen) return;
-    seen = url;
+    const path = window.location.pathname;
+    if (path === seen) return;
+    seen = path;
     const title = document.title;
     const attribution = await captureAttribution(url, referrer);
     if (!active) return;
     emitEvent({ name: 'PageViewed', kind: 'analytics', eventType: 'page_view', outcome: 'completed' }, {
-      page_url: sanitizeUrl(url), page_path: new URL(url).pathname,
+      page_url: sanitizeUrl(url), page_path: sanitizePath(path),
       page_title: title, referrer: sanitizeUrl(referrer), ...attribution,
     });
   };

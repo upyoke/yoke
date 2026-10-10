@@ -118,7 +118,10 @@ def add_launch_selector(parser: argparse.ArgumentParser) -> None:
         "--level",
         default=None,
         help="Let Yoke choose the option and machine from this level "
-        "(`yoke universe levels get`); create defaults to the item's effective stage level.",
+        "(`yoke universe levels get`). An item-bound create also records it as "
+        "the item's level for every stage, so the worker is not handed off at a "
+        "stage edge; a preview or itemless create places one launch only. "
+        "Omit it to launch at the item's effective stage level.",
     )
     parser.add_argument(
         "--surface",

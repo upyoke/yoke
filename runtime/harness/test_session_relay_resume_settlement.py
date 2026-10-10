@@ -54,9 +54,21 @@ class _Dispatcher:
         return _Response(self._success)
 
 
+def _after_custody(script: str, custody: Path) -> str:
+    """Finish only after the parent has persisted this native's identity."""
+    path = supervision_record_path(ATTEMPT_ID, custody)
+    return (
+        "import time\nfrom pathlib import Path\n"
+        "deadline = time.monotonic() + 30\n"
+        f"while not Path({str(path)!r}).is_file():\n"
+        "    if time.monotonic() >= deadline: raise SystemExit('custody_not_persisted')\n"
+        "    time.sleep(0.01)\n" + script
+    )
+
+
 def _spawn(tmp_path: Path, script: str):
     return spawn_supervised_native(
-        [sys.executable, "-c", script],
+        [sys.executable, "-c", _after_custody(script, tmp_path)],
         checkout=tmp_path,
         environment=dict(os.environ),
         attempt_id=ATTEMPT_ID,
@@ -107,7 +119,11 @@ def test_default_spawn_settles_usage_across_custody_and_relay_directories(
     monkeypatch.setattr(machine_config, "cache_dir", lambda: custody)
     monkeypatch.setattr(diagnostics, "relay_state_dir", lambda: relay)
     resumed = spawn_supervised_native(
-        [sys.executable, "-c", f"print({NATIVE_RESULT_LINE!r})"],
+        [
+            sys.executable,
+            "-c",
+            _after_custody(f"print({NATIVE_RESULT_LINE!r})", custody),
+        ],
         checkout=tmp_path,
         environment=dict(os.environ),
         attempt_id=ATTEMPT_ID,
@@ -117,6 +133,7 @@ def test_default_spawn_settles_usage_across_custody_and_relay_directories(
     )
     assert resumed is not None
     _await_outcome(resumed.capture_path)
+    os.waitpid(resumed.pid, 0)
     assert resumed.capture_path.parent == relay / "native-diagnostics"
     assert supervision_record_path(ATTEMPT_ID, custody).exists()
 
@@ -173,6 +190,7 @@ def test_native_exiting_nonzero_settles_the_attempt_with_a_failure_result(
 
     assert resumed is not None
     _await_outcome(resumed.capture_path)
+    os.waitpid(resumed.pid, 0)
     dispatcher = _Dispatcher()
 
     settled = settle_finished_native_resumes(
@@ -207,6 +225,7 @@ def test_native_exiting_cleanly_settles_the_attempt_as_completed(
 
     assert resumed is not None
     _await_outcome(resumed.capture_path)
+    os.waitpid(resumed.pid, 0)
     dispatcher = _Dispatcher()
 
     settle_finished_native_resumes(
@@ -274,7 +293,7 @@ def test_a_vanished_resume_without_an_outcome_settles_as_died(
     )
     # The supervisor was killed alongside the native it was waiting on, so no
     # outcome was ever written and the recorded process is gone.
-    monkeypatch.setattr(settlement, "process_start_time", lambda pid: None)
+    monkeypatch.setattr(settlement, "custody_state", lambda record: "gone")
 
     finished = finished_native_resumes(state_dir=tmp_path)
 

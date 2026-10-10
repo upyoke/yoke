@@ -273,3 +273,65 @@ class TestErrorShapes:
             "Notes",
         )
         assert rc == 1
+
+
+class TestFieldTargetedSectionDispatch:
+    @pytest.mark.parametrize("json_mode", [False, True])
+    @pytest.mark.parametrize("echo", [False, True])
+    def test_field_flags_and_receipt_guard(self, json_mode, echo):
+        def stub(request):
+            response = _stub_dispatch_ok(request)
+            if echo:
+                response.result = {"field": "spec", "heading_level": 3, "changed": True}
+            return response
+
+        rc = _run_with_dispatch(
+            stub,
+            "items",
+            "structured-field",
+            "section-upsert",
+            _FIXTURE_ITEM_REF,
+            "--field",
+            "spec",
+            "--heading-level",
+            "3",
+            "--section",
+            "EDGE",
+            "--content",
+            "body",
+            *(["--json"] if json_mode else []),
+        )
+        assert rc == (0 if echo else 1)
+        assert _CAPTURED_REQUESTS[-1].payload == {
+            "field": "spec",
+            "heading_level": 3,
+            "section": "EDGE",
+            "content": "body",
+        }
+
+    def test_missing_echo_retains_committed_result_and_names_recovery(self):
+        from yoke_cli.commands.adapters.items_section_upsert import verify_field_receipt
+        from yoke_contracts.function_serving_floors import declared_argument_floors
+
+        response = _stub_dispatch_ok(
+            FunctionCallRequest(
+                function="items.structured_field.section_upsert",
+                actor={"session_id": "test-session"},
+                target={"kind": "item", "public_ref": _FIXTURE_ITEM_REF},
+                payload={},
+            )
+        )
+        guarded = verify_field_receipt(response, "spec")
+        assert guarded.error.code == "section_upsert_field_unsupported"
+        assert "next-release" in guarded.error.message
+        assert "may have landed" in guarded.error.message
+        assert guarded.result == response.result
+        assert set(
+            declared_argument_floors(
+                response.function,
+                {
+                    "field": "spec",
+                    "heading_level": 3,
+                },
+            )
+        ) == {"field", "heading_level"}

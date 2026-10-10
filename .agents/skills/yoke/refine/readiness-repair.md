@@ -1,236 +1,111 @@
-# Refine — Idea-Entry Readiness Repair
+# Refine — Readiness Classification and Repair
 
-Sibling phase doc for [`SKILL.md`](SKILL.md) step 1b. Owns the
-classification-and-repair branch of the pre-handoff
-`idea_readiness_check`. The dispatch lives in `SKILL.md`; the routing
-table, command shapes, and operator semantics live here so the cap-near
-SKILL stays small.
+Run only for item-artifact source entry, and again at final closure.
+Read payload verdict/classification, not exit status. Classify **before**
+release; recoverable drift keeps the chain and work claim.
 
-## Why this exists
+## Classifier
 
-`idea_readiness_check` first consumes the centrally resolved File Budget and
-path-claims posture, then emits a small set of applicable issue codes. They are not
-all equivalent — some are mechanical (a recorded line count drifted
-from the live file) and some name a real design decision (an unresolved
-function reference, a sibling-plan gap above the 330-line threshold,
-a mismatch between the File Budget and the path-claim's coverage when both
-axes are enabled).
+`idea_readiness_results.classify_readiness_issues` (reexported by
+idea_readiness_repair) classifies issues; unavailable is run-level.
 
-Mechanical stale-count drift is repaired in place. The work claim stays
-held while refine re-runs readiness and continues its artifact review.
+| Class | Evidence and action |
+|---|---|
+| pass | No issues: continue |
+| pure_stale_count | All STALE_LINE_COUNT: registered numeric repair, rerun, keep claim on pass; refusal blocks |
+| mixed_stale_count | Only MISSING_FILE_BUDGET, FILE_BUDGET_NOT_IN_CLAIM, CLAIM_NOT_IN_FILE_BUDGET, cross_item_overlap and optional STALE_LINE_COUNT: repair coverage, classify overlap; on residual/refusal continue into refine critique, final rerun still mandatory |
+| unrecoverable | Other/mixed nonrecoverable issues: checkpoint, release readiness-check-blocked, exit1 |
+| unavailable | Unperformed host checks with retryable:false: no repair/retry here; checkpoint, release readiness-validation-unavailable, report every check/recovery |
 
-## The classifier
+A lone missing budget at idea auto-appends the documented UNRESOLVED marker,
+not invented paths; Refine resolves its shape before exit. Coverage helper
+auto-widens/narrows applicable unambiguous claims. Mixed widen+narrow,
+zero/multiple exclusive claims and nonrecoverable mixes return refused_paths,
+which remain critique work. Pure stale repair refusal is terminal, not bypassed.
 
-`yoke_core.domain.idea_readiness_results.classify_readiness_issues(issues)`
-(re-exported from `idea_readiness_repair`) buckets a readiness-check
-`issues` list into four classes. A fifth class, `unavailable`, comes from
-the run as a whole rather than from its issues — read `classification`
-straight out of the readiness payload rather than reclassifying:
-
-| Class | When | Refine entry routing |
-|---|---|---|
-| `pass` | empty issues list | Continue refine; no repair needed. |
-| `pure_stale_count` | every issue is `STALE_LINE_COUNT` | Invoke the repair helper, re-run, continue on pass; block on refusal. |
-| `mixed_stale_count` | at least one recoverable code is present (`MISSING_FILE_BUDGET` / `FILE_BUDGET_NOT_IN_CLAIM` / `CLAIM_NOT_IN_FILE_BUDGET` / `cross_item_overlap`), and every issue code is in that set or optional `STALE_LINE_COUNT` | Dispatch to `yoke readiness repair-claim-coverage`. A lone `MISSING_FILE_BUDGET` at `idea` auto-appends the documented UNRESOLVED File Budget marker (refine still owns resolving that shape before `refining-idea` exit). `FILE_BUDGET_NOT_IN_CLAIM` / `CLAIM_NOT_IN_FILE_BUDGET` auto-widen / auto-narrow / refuse ambiguous shapes. `cross_item_overlap` is agent-attested (see `## Cross-item overlap repair` below); the agent classifies and authors the matching `item_dependencies` row, then refine re-runs `idea_readiness_check` to confirm pass. On refusal or escalation, continue into refine; step 4b's path-claim re-check and step 5/6 critique cover the remainder. The final readiness rerun before status mutation catches anything still unresolved. |
-| `unrecoverable` | anything else (unresolved refs, missing sibling plan, or a code outside the recoverable set) | Release the claim with reason `readiness-check-blocked` and exit 1 — same terminal behavior refine had before. |
-| `unavailable` | the run reports `verdict="unavailable"`: one or more checks could not be performed on the executing host, and no issue outranks them | Do NOT repair and do NOT retry. Release the claim with reason `readiness-validation-unavailable` and report each `unavailable_checks[]` entry's `check` and `recovery` to the operator. |
-
-## When validation could not be performed
-
-Checks that read the item project's files need that project's checkout on
-whichever host runs them. The hosted API host has none, and installing one
-there is not a supported recovery — so the run reports what it could not do
-instead of guessing at a tree or reporting an unperformed check as passed.
-
-The payload carries an `unavailable_checks` list beside `issues`; each entry
-names the `check`, a `reason` (`project_checkout_unavailable`), a `recovery`
-that actually works from where the operator stands, and `retryable: false`.
-The envelope itself still succeeds — this is a result, not a function
-failure — so read `verdict` and `classification`, never the exit status
-alone.
-
-`retryable: false` is literal. Re-running the same check on the same host
-produces the same answer, so a repair loop here spends turns for nothing;
-the work moves to a machine whose checkout for that project is registered
-(`yoke project register <checkout> --project-id <id>`).
-
-The classifier is a pure function with focused regression coverage. Verify its
-behavior through the project's registered test command rather than assuming a
-repository-specific test layout.
-Refine MUST classify before deciding whether to release the claim;
-the order matters because release-then-classify burns the chain step
-even on the recoverable branch.
-
-## The repair helper
-
-`yoke_core.domain.idea_readiness_repair.attempt_stale_count_repair`
-is the Python entry point. It:
-
-1. Re-checks the classification (refuses anything other than
-   `pure_stale_count`).
-2. Reads the spec text via the canonical structured-field read path.
-3. For each `STALE_LINE_COUNT` issue, recomputes the live count from
-   the worktree, refusing the repair when:
-   - the named file does not exist,
-   - the recorded count is missing or non-numeric,
-   - the recomputed count is `>= SIBLING_REQUIRED_THRESHOLD` (330)
-     and the spec lacks a sibling-module plan, or
-   - the targeted ``path = N`` substring is missing or appears more
-     than once in the spec (ambiguous match).
-4. Writes the updated spec through `execute_structured_write` —
-   inheriting the empty/shrinkage/freeze guards. A guarded refusal
-   surfaces as `outcome.error` and is **not** silently bypassed.
-5. Re-runs `idea_readiness_check` against the live DB and reports
-   `rerun_verdict=pass|block` plus the residual `rerun_issues`.
-6. Emits `IdeaReadinessAutofixApplied` with `item_id`, `field`,
-   the repaired paths, and the post-repair verdict (best-effort —
-   audit failure does not fail the repair).
-
-The registered CLI surface is
-``yoke readiness repair-stale-count --item PREFIX-N``; it runs the
-check, classifies, attempts the repair when applicable, re-runs, and
-prints the structured payload.
-
-## Cross-item overlap repair — classify before authoring
-
-Structural gate: `yoke_core.domain.idea_readiness_repair_cross_item_overlap.probe_cross_item_overlap` runs inside `idea_readiness_check.run_all_checks` and emits a `cross_item_overlap` readiness issue per unresolved cluster. The classifier routes that code through `CLASS_MIXED_STALE_COUNT`, so refine-entry sees it on the recoverable branch and stays in the refine flow rather than releasing the claim. The probe self-silences when the cluster is already attested (authored `coordination_only` row, candidate-as-DEPENDENT of a non-coordination edge, candidate-as-BLOCKER reverse case, or active operator override). When readiness surfaces this code, refine MUST classify the overlap before authoring any dependency row. Refine runs without the operator in the loop, so the helper output and both items' specs are the only evidence the agent has. Default to the narrowest edge that fits — `coordination_only` attests the overlap is compatible without gating lifecycle or path-claim activation, so most file-level overlaps in this codebase belong there. `activation` is a heavier hammer and must be backed by explicit directional evidence.
-
-The readiness issue's `context.recovery_command` is a ready-to-paste invocation of the evidence helper; copy it verbatim.
-
-1. Invoke
-   ``yoke claims path coordination-decision-build
-   --item PREFIX-N --conflicting-claim M --paths <shared>``
-   (or run the recovery command emitted on the issue).
-2. Read the returned context packet (both specs, conflicting claim
-   state, three suggested commands — one per decision option).
-3. Decide from the evidence:
-   - **Independent edits** (different sections / no logical coupling) →
-     author ``coordination_only`` with rationale naming the shared paths
-     and the disjoint subsections each work item edits.
-   - **Order-dependent edits** (candidate inherits or restructures what
-     upstream lands) → author explicit ``--gate-point activation`` with
-     directional rationale (`decision=directional, ...`).
-   - **Genuinely ambiguous** → release the claim with reason
-     ``coordination-decision-escalated`` and exit 1; the operator
-     returns to refine to make the call manually.
-
-Authoring command — coordination-only compatible overlap (independent):
+## Helper limits
 
 ```bash
-yoke items dependency add \
-    PREFIX-{candidate} PREFIX-{conflicting-item} refine \
-    --gate-point coordination_only \
-    --rationale "<non-empty: shared paths + disjoint subsections evidence>"
+yoke readiness check "$ITEM_REF" --json
+yoke readiness repair-stale-count --item "$ITEM_REF"
+yoke readiness repair-claim-coverage --item "$ITEM_REF"
 ```
 
-Authoring command — directional activation (order-dependent overlap):
+The stale helper rechecks pure classification, reads canonical spec, updates
+only numeric counts from live files and refuses absent files, missing/nonnumeric
+counts, >=330 (SIBLING_REQUIRED_THRESHOLD) without sibling plan, and missing
+or multiply matched path=count substrings. It uses guarded structured writes:
+empty/shrinkage/freeze refusal is not bypassed. Rerun verdict/remaining issues
+and best-effort IdeaReadinessAutofixApplied record the outcome.
+The **work claim stays** held on successful repair.
 
+Mixed recoverable refusal means **continuing into refine** critique;
+final readiness still owns closure. Coverage repair preserves amendment history,
+reruns readiness and emits
+best-effort IdeaReadinessClaimCoverageRepairApplied. Neither helper rewrites
+unrelated prose or skips sibling-plan/readiness gates. The stale helper never
+adds/removes budget paths or changes claims. Helpers do not author directional
+activation edges; that is an evidence-based authoring decision.
+
+## Terminal checkpoint and release
+
+Before readiness-check-blocked release:
 ```bash
-yoke items dependency add \
-    PREFIX-{candidate} PREFIX-{upstream} refine \
-    --gate-point activation \
-    --satisfaction fact:merged \
-    --rationale "decision=directional. <why order matters: what upstream lands that this candidate inherits>"
+yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item "$ITEM_REF"
+yoke claims work release --item "$ITEM_REF" --reason "readiness-check-blocked"
 ```
 
-Choose the blocker's pinned stage, normally `status:done`, for an item wait
-that includes required delivery and closeout. Choose `fact:merged` for trunk
-code. Reserve `fact:deployed:<environment-name>` for a dependent that needs
-the blocker live in a registered environment before `done`.
+For unavailable, perform the same blocked checkpoint, then release with
+readiness-validation-unavailable. Report release errors and exit1, never
+swallow them. Each unavailable_checks entry names check, reason
+project_checkout_unavailable and actual recovery. Envelope success does not
+mean validation passed. Same-host retry cannot change retryable:false;
+move to a machine with the registered project checkout using the returned
+project-register recovery, not an unsupported hosted checkout installation.
 
-After authoring, re-run ``yoke readiness check`` to confirm the
-readiness repair landed.
+Dependency conditions: choose the blocker's pinned stage, normally
+`status:done`, for an item wait including required delivery and closeout.
+Choose `fact:merged` for trunk code. Reserve `fact:deployed:<environment-name>`
+for a dependent needing the blocker done with persisted delivery attribution
+to a registered environment.
 
-## Refine entry recipe
+## Cross-item overlap repair
 
+The readiness probe emits cross_item_overlap for unresolved physical clusters;
+attested coordination_only, directional dependent/blocker evidence or active
+operator override satisfies its respective branch. Copy the returned
+context.recovery_command, or:
 ```bash
-_readiness_json=$(yoke readiness check "$ITEM_REF" 2>/dev/null) || true
-_class=$(printf '%s' "$_readiness_json" | python3 -c "
-import json, sys
-data = json.loads(sys.stdin.read() or '{}')
-print(data.get('classification', 'unrecoverable'))
-")
-case "$_class" in
-  pass)
-    : # readiness clean; continue refine
-    ;;
-  pure_stale_count)
-    _repair_json=$(yoke readiness repair-stale-count --item "$ITEM_REF" 2>&1)
-    _repair_rc=$?
-    if [ "$_repair_rc" -ne 0 ]; then
-      printf '%s\n' "$_repair_json"
-      yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item "$ITEM_REF"
-      yoke claims work release \
-        --item "$ITEM_REF" --reason "readiness-check-blocked" \
-        >/dev/null 2>&1 || true
-      exit 1
-    fi
-    # Repair succeeded — keep the claim, continue refine.
-    ;;
-  mixed_stale_count)
-    yoke readiness repair-claim-coverage \
-      --item "$ITEM_REF" || {
-      # Helper refused (mixed widen+narrow, zero/multiple exclusive claims,
-      # or non-recoverable code mixed in). Continue into refine for repair;
-      # step 4b's path-claim re-check + step 5/6 critique cover the
-      # remaining work; the final readiness rerun catches any drift.
-      printf 'Recoverable readiness gaps not auto-repaired; continuing into refine:\n%s\n' "$_readiness_json"
-    }
-    ;;
-  unavailable)
-    # A check the executing host could not perform. Non-retryable here:
-    # each unavailable_checks[] entry names the check and the recovery.
-    printf '%s\n' "$_readiness_json"
-    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item "$ITEM_REF"
-    yoke claims work release \
-      --item "$ITEM_REF" --reason "readiness-validation-unavailable" \
-      >/dev/null 2>&1 || true
-    exit 1
-    ;;
-  unrecoverable)
-    printf '%s\n' "$_readiness_json"
-    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item "$ITEM_REF"
-    yoke claims work release \
-      --item "$ITEM_REF" --reason "readiness-check-blocked" \
-      >/dev/null 2>&1 || true
-    exit 1
-    ;;
-esac
+yoke claims path coordination-decision-build --item PREFIX-N --conflicting-claim <claim-id> --paths <shared-paths>
 ```
 
-The auto-widen branch for pure `FILE_BUDGET_NOT_IN_CLAIM` (and the
-symmetric narrow path for pure `CLAIM_NOT_IN_FILE_BUDGET`) is now owned
-by the Python helper
-`yoke readiness repair-claim-coverage`. Refine dispatches to it from
-`SKILL.md` step 1b's `mixed_stale_count` branch.
-The helper applies the matching amendment via the existing
-`path_claims_amend.widen` / `narrow` domain functions, re-runs
-`yoke readiness check`, and emits
-`IdeaReadinessClaimCoverageRepairApplied` for telemetry. Refusals
-(mixed widen+narrow, zero or multiple non-terminal exclusive claims,
-non-recoverable codes mixed in) surface structured `refused_paths`
-entries and fall through into the rest of refine.
+Read both specs/claim states and returned proposals **before** authoring.
+Independent disjoint edits use coordination_only with shared-path/subsection
+rationale. Directional activation requires the upstream change this candidate
+inherits. Ambiguous evidence: release coordination-decision-escalated and
+exit1 for operator decision.
+```bash
+yoke items dependency add <candidate-ref> <conflicting-ref> refine --gate-point coordination_only --rationale "<shared-paths-and-disjoint-subsections>"
+yoke items dependency add <candidate-ref> <upstream-ref> refine --gate-point activation --satisfaction fact:merged --rationale "decision=directional. <upstream-change-this-item-inherits>"
+```
 
-## What the helper deliberately does NOT do
+Choose the blocker's pinned status (normally status:done) for delivery/closeout
+wait; fact:merged for trunk code; fact:deployed:ENV only when live environment
+proof is needed before dependent completion. Rerun readiness after attestation.
+No edge is authored simply because two path strings match.
 
-- The stale-count helper does **not** add or remove File Budget paths.
-  Numeric drift is its only write. A missing section at `idea` is a
-  different mechanical repair: `repair-claim-coverage` appends the
-  documented UNRESOLVED marker and does not invent path rows.
-- It does **not** widen or narrow path claims. Claim mismatches flow
-  through `SKILL.md` step 4b's path-claim re-check
-  (`FILE_BUDGET_NOT_IN_CLAIM` / `CLAIM_NOT_IN_FILE_BUDGET`).
-- It does **not** rewrite unrelated spec prose. Every other refine
-  improvement happens in step 5/6 critique, where the operator's
-  judgement is in the loop.
-- It does **not** auto-skip the readiness gate. A `MISSING_SIBLING_PLAN`
-  result — including one that emerges *after* repair when the new
-  count crosses the threshold — still blocks the handler.
-- It does **not** author directional `activation` edges. Those reflect a
-  real serial ordering and should be authored manually via `/yoke
-  refine` (see the `## Cross-item overlap repair` section above) or via
-  `/yoke idea`'s path-claim reconciliation step
-  ([path-claim-blocking.md](../idea/path-claim-blocking.md) section 3).
+## Tentative and symlink coverage
+
+Exact likely-but-unconfirmed paths may be tentative, not broad directories.
+List them in every enabled surface, and use --tentative-paths as a subset of
+registered --paths. They participate in overlap; untouched tentative targets
+release without a broken promise. Planned/observed states are not downgraded.
+Explicit new registration without that subset upgrades intent; automatic
+re-resolution retains sticky tentative state. Verify the amendment result.
+
+Symlink and canonical file form one physical coordination unit. Registration
+auto-pairs both; with both axes enabled, readiness advises adding the canonical
+path to the budget without blocking. Underlying coverage already spans both.
 
 ## Verification
 
@@ -240,60 +115,7 @@ yoke readiness repair-stale-count --item PREFIX-N
 yoke watch pytest --impacted main --bounded
 ```
 
-That last one runs on the project's CI against the pushed lane commit
-when the project declares a `ci_workflow_file` capability, so commit
-and let CI run it. `--local` is only a small targeted check expected to
-finish in about one minute; uncommitted work does not justify a slow
-local run.
-
-Plus your project's registered verification command for the paths this repair
-touched — the anchor paths are per-project, so read them from that command (or
-the project rules file) rather than hardcoding a test-file list.
-
-## When to use tentative path-claim coverage
-
-When a File Budget entry names an exact path the operator believes is
-**likely but not guaranteed** to be touched (a fixture schema mirror
-that may be unnecessary if a sibling refactor extracts the canonical
-form first; a re-export shim whose creation depends on a renaming
-decision deferred to implementation; a doctrine-comment update that
-might be redundant once an upstream documentation pass lands), declare
-the path as **tentative** rather than planned.
-
-Tentative coverage participates in overlap detection and renders
-distinctly in the rendered ``## Path Claims`` section. Untouched
-tentative paths release with the claim without flagging a missed
-promise — there was never a promise. Tentative is *not* a substitute
-for broad parent-directory coverage; it is exact-path coverage with a
-weaker reservation.
-
-Operator surface for refine: include the path in every enabled surface. When
-both File Budget and path claims are enabled, that means the spec budget and
-the claim's ``--paths`` list. With budget off, derive it from the execution
-artifact. Additionally pass ``--tentative-paths`` for the subset that should mint as
-``materialization_state='tentative'``. Path targets already at
-``planned`` or ``observed`` are not downgraded — tentative declarations
-on top of stronger existing state are no-ops. To upgrade tentative to
-planned, amend the claim through the same ``--paths`` flow without
-``--tentative-paths`` after a fresh ``register-claim`` (the runtime's
-sticky-tentative rule prevents implicit upgrades through automatic
-re-resolution; see
-`yoke_core.domain.path_targets_planning`).
-
-## Symlink-aware repair advisory
-
-When both axes are enabled and a File Budget entry resolves to an in-repo symlink on disk, the
-readiness-repair check surfaces a one-line authoring hint and continues
-without blocking:
-
-> ``<symlink>`` is a symlink to ``<canonical>``; Yoke will claim both —
-> list ``<canonical>`` in the File Budget so the human-readable surface
-> matches.
-
-Registration-time canonicalization (in
-``yoke_core.domain.path_claims_resolve.expand_symlinks_to_canonical``)
-auto-pairs the symlink-name with its canonical target_id, so the
-overlap classifier sees the equivalence class regardless of which name
-the operator authored. The hint nudges the next refinement pass toward
-listing the canonical name in the File Budget; the underlying claim
-already covers both target_ids either way.
+Use your project's registered verification command for touched paths,
+rather than hardcoding a test-file list. CI uses the committed lane when
+configured; commit first. Local checks are only small targeted runs expected
+within about one minute, never a slow run justified by dirty work.

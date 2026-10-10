@@ -1,63 +1,26 @@
-# Shepherd: Final Planning Quality Gates
+# Shepherd — final handoff gates
 
-Run these checks before advancing to `_shepherd_through_stage`. Gate 0a is a hard block. Gates 0b-3 are advisory.
+Before through-stage: flow is hard; remaining checks advisory.
+PRD validation enforces AC presence upstream; Boss checks defensively.
 
-AC presence is enforced upstream by the internal PRD validator (runs at the plan-production edge, before the Architect plans). The `boss-verdict.md` assertion is a defense-in-depth backup.
-
-## Gate 0a (Hard Block): Missing Deployment Flow
-
-Check `yoke items get $_item_ref deployment_flow --json`:
-`result.fields.deployment_flow` is `{value, source}` (the item pin, else the
-project default). The plain read prints `flow (source)` for people, not a flow id.
-
-If `source` is `unreadable`, stop and name it. If `value` is empty, block and require a flow assignment. Show available flows for the item's project and wait for the operator to pick one.
-
-## Gate 0b (Advisory): Missing Pack-Reuse Stance
-
-For non-`yoke` items, inspect the spec/body for a `## Pack Reuse` section and a valid `**Stance:**` line containing one of:
-- `project-owned`
-- `pack-update`
-
-If no valid stance is present, emit an advisory with the decision test:
+**Flow:** registered items.get.run deployment_flow JSON yields {value,source},
+item pin else project default. Plain "flow (source)" is not an ID.
 
 ```text
-Would another project reasonably want this reusable capability change when it updates the same Pack?
+yoke items get ITEM deployment_flow --json
 ```
 
-Also validate supporting fields:
-- `project-owned` -> should include `**Reason:**`
-- `pack-update` -> should include `**Pack scope:**` and follow the cross-project companion-item rule in `AGENTS.md` (`## Project Scoping`): the Pack publish lands in the Pack-owning project's item, and applying it lands in a linked companion item filed in the consuming project.
+Unreadable source stops by name. Empty value blocks: show registered flows for
+the item's project and obtain an authorized selection. Never invent a route.
 
-## Gate 1 (Advisory): Vague Or Untestable Acceptance Criteria
+**Pack reuse:** for a project consuming Packs, spec stance must be project-owned
+with Reason, or pack-update with Pack scope. Ask whether another consumer would
+want the change on update. Publishing belongs to owning project; consumer apply
+needs the mandatory linked companion item. Missing stance/support is advisory.
 
-Inspect AC checkbox lines and flag any that:
-- Use vague language
-- Have no measurable outcome
-- Combine multiple unrelated checks in one AC
-
-Emit rewrite suggestions when you flag an AC.
-
-## Gate 2 (Advisory): Overlap With Planned Or In-Flight Work
-
-Query planned and in-flight items:
-
-```bash
-_active_items=$(yoke db read --format lines "SELECT id, title FROM items WHERE status NOT IN ('idea','done','cancelled','failed','stopped') AND id <> $_num")
-```
-
-If substantial overlap is found in scope, subsystem, or files touched, emit an advisory describing the overlap and recommend confirming the split before conduct.
-
-## Gate 3 (Advisory): Epic Tasks Not Sufficiently Independent
-
-For epic items, inspect the task list:
-
-```bash
-_tasks=$(yoke db read --format lines "SELECT task_num, title FROM epic_tasks WHERE epic_id = $_num ORDER BY task_num")
-```
-
-Flag when:
-- Multiple tasks modify the same file extensively
-- One task consumes another's output with no interface contract
-- Tasks have circular implicit dependencies
-
-Recommend explicit contracts or task restructuring when problems are found.
+**ACs:** flag vague, unmeasurable or combined checks; propose independent testable
+rewrites. **Overlap:** bounded registered inventory of planned/inflight work,
+excluding self, idea and terminal states; advise on subsystem/scope/files and
+confirm split before execution. **Task independence:** inspect persisted tasks
+for extensive same-file edits, uncontracted output consumption and implicit
+cycles; suggest explicit contracts/restructuring. Advisory is never a gate waiver.

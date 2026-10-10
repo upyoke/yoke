@@ -28,6 +28,7 @@ import threading
 import time
 from pathlib import Path
 
+from yoke_contracts.timestamps import parse_instant
 from yoke_core.tools import _watch_capture_binding as binding
 from yoke_core.tools import watch_tail
 
@@ -202,8 +203,8 @@ def test_refuses_an_unwritten_capture_by_naming_the_live_driver(
             run_id="run-9",
             session_id="sess-9",
             pid=7,
-            attached_at="2026-09-21T12:00:00Z",
-            heartbeat_at="2026-09-21T12:00:00Z",
+            attached_at=parse_instant("2026-09-21T12:00:00Z"),
+            heartbeat_at=parse_instant("2026-09-21T12:00:00Z"),
             phase="freezing_source",
             progress_capture=str(progress),
         ),

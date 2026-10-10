@@ -26,6 +26,7 @@ from runtime.api.skill_doc_regressions_test_helpers import (
     REPO,
     SKILLS,
     _read,
+    _read_bundle,
 )
 
 
@@ -40,19 +41,19 @@ class TestFileBudgetIdeaSeeding:
         }
 
     def test_body_and_sync_seeds_file_budget_section(self, docs):
-        text = _read(docs["body_and_sync"])
+        text = _read(docs["body_and_sync"]) + _read(SKILLS / "idea" / "file-budget.md")
         assert "## File Budget" in text
         assert "350" in text
         assert "300" in text  # design target
-        assert "yoke_core.domain.file_line_check" in text
+        assert "Universal350 authored lines" in text
 
     def test_body_and_sync_handles_three_shapes(self, docs):
-        text = _read(docs["body_and_sync"])
+        text = _read(docs["body_and_sync"]) + _read(SKILLS / "idea" / "file-budget.md")
         # Implementation-bearing with known shape names example files.
-        assert "Expected implementation shape" in text
+        assert "Known shape: literal every file" in text
         # Unknown shape forces refine to resolve.
         assert "UNRESOLVED" in text
-        assert "/yoke refine" in text
+        assert "Refine must resolve before" in text
         # Non-code shape uses N/A with reason.
         assert "N/A" in text
 
@@ -63,10 +64,10 @@ class TestFileBudgetIdeaSeeding:
             "implementation-bearing intake" in text or "implementation-bearing" in text
         )
         # The minimal-body section explicitly covers File Budget.
-        idx = text.find("If the user provided no body content")
+        idx = text.find("No supplied description")
         assert idx >= 0
         tail = text[idx:]
-        assert "File Budget" in tail
+        assert "appropriate enabled budget shape" in tail
 
     def test_skill_md_references_file_budget(self, docs):
         text = _read(docs["skill"])
@@ -147,20 +148,30 @@ class TestFileBudgetConductDispatch:
     def docs(self) -> dict[str, Path]:
         return {
             "dispatch_context_gates": SKILLS / "conduct" / "dispatch-context-gates.md",
+            "dispatch_context_prompts": SKILLS
+            / "conduct"
+            / "dispatch-context-prompts.md",
+            "engineer": REPO / "runtime" / "agents" / "engineer.md",
             "engineer_tester_dispatch": SKILLS
             / "conduct"
             / "engineer-tester-dispatch.md",
         }
 
     def test_engineer_dispatch_packet_mentions_file_budget(self, docs):
-        text = _read(docs["engineer_tester_dispatch"])
+        text = _read_bundle(
+            docs["engineer_tester_dispatch"],
+            docs["dispatch_context_prompts"],
+            docs["engineer"],
+        )
         assert "FILE BUDGET" in text or "File Budget" in text
         assert "350" in text
         # Dispatch packet must reference the canonical backstop.
         assert "yoke_core.domain.file_line_check" in text
 
     def test_submission_gate_requires_file_budget_key(self, docs):
-        text = _read(docs["engineer_tester_dispatch"])
+        text = _read_bundle(
+            docs["engineer_tester_dispatch"], docs["dispatch_context_gates"]
+        )
         # Submission gate must list `file_budget` among the required keys.
         assert "`file_budget`" in text or "file_budget" in text
         # And explicitly call out PASS/SKIP semantics.
@@ -173,7 +184,9 @@ class TestFileBudgetConductDispatch:
         assert "FAIL" in text and "UNKNOWN" in text
 
     def test_submission_gate_redispatches_on_failure(self, docs):
-        text = _read(docs["engineer_tester_dispatch"])
+        text = _read_bundle(
+            docs["engineer_tester_dispatch"], docs["dispatch_context_gates"]
+        )
         # Missing/malformed/FAIL/UNKNOWN must trigger re-dispatch.
         assert "FAIL" in text and "UNKNOWN" in text
 

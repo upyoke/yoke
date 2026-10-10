@@ -312,9 +312,13 @@ class TestClaimRequiredPaths(_ClaimMatrixSuite):
             _Req,
             _Resp,
             **_stable_kwargs(target_kinds=["global"]),
-            claim_required_kind="operator_override",
+            claim_required_kind="steering",
         )
-        with patch.object(claims_module, "is_operator_session", return_value=True):
+        with patch.object(
+            claims_module,
+            "steering_seat_for_request",
+            return_value=({"claim_id": 5}, "alpha"),
+        ):
             req = _make_request("opclaim.family.op", kind="global", item_id=0)
             resp = dispatch(req)
         self.assertTrue(resp.success)
@@ -326,16 +330,18 @@ class TestClaimRequiredPaths(_ClaimMatrixSuite):
             _Req,
             _Resp,
             **_stable_kwargs(target_kinds=["global"]),
-            claim_required_kind="operator_override",
+            claim_required_kind="steering",
         )
-        with patch.object(claims_module, "is_operator_session", return_value=False):
+        with patch.object(
+            claims_module, "steering_seat_for_request", return_value=(None, "alpha")
+        ):
             req = _make_request("opclaim2.family.op", kind="global", item_id=0)
             resp = dispatch(req)
         self.assertFalse(resp.success)
         assert resp.error is not None
-        self.assertEqual(resp.error.code, "operator_override_required")
-        self.assertIn("operator-started session", resp.error.recovery_hint or "")
-        self.assertIn("not sanctioned remediation", resp.error.recovery_hint or "")
+        self.assertEqual(resp.error.code, "steering_seat_required")
+        self.assertIn("yoke say --steering", resp.error.recovery_hint or "")
+        self.assertIn("live steering seat", resp.error.message)
 
 
 if __name__ == "__main__":

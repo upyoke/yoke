@@ -1,6 +1,6 @@
 # Marketing attribution
 
-The executable reference is [Structured Events Pack 4.0.0](../../packs/structured-events/versions/4.0.0/files/events/README.md).
+The executable reference is [Structured Events Pack 4.4.0](../../packs/structured-events/versions/4.4.0/files/events/README.md).
 Python and TypeScript share attribution_rules.json. Install the whole bundle;
 this standard does not maintain another implementation.
 
@@ -13,9 +13,24 @@ utm_source, utm_medium, utm_campaign, utm_term, utm_content, utm_id,
 utm_source_platform, gclid, fbclid, msclkid, li_fat_id, referrer_domain,
 acquisition_channel and captured_at. First touch never changes. Last touch
 updates on external-referrer or campaign/click-id visits; direct/internal visits
-preserve it. Configure the owned registrable site domain so sibling subdomains
-are internal. Exact/dot-boundary suffix matching prevents netflix.com from
-matching x.com. Regional search domains include google.co.uk.
+preserve it. Configure the owned registrable site domain (example.com, not
+app.example.com) so the apex and sibling subdomains are internal. Exact/dot-boundary
+suffix matching prevents netflix.com from matching x.com. Regional search domains
+include google.co.uk.
+
+Sign-in hops are internal: after an identity-provider round trip the first
+page's referrer is the provider (accounts.google.com, accounts.youtube.com),
+not an acquisition. excluded_referrer_domains in attribution_rules.json lists
+those hosts; a referrer matching it or the site domain records
+referrer_domain null, never replaces last touch, and makes a first visit
+direct. Never list a host that also sends real visitors. Older rows that
+recorded referrer_domain accounts.google.com or accounts.youtube.com are
+sign-in returns; read them as direct.
+
+The Yoke workbench derives its site domain from the serving host's registrable
+domain on the Public Suffix List: app.upyoke.com and app.stage.upyoke.com use
+upyoke.com, a self-hosted yoke.acme.co.uk uses acme.co.uk, and an IP or
+localhost is its own site. No setting is needed in any mode.
 
 Click IDs override manual/referrer classification: gclid and msclkid map to
 paid_search; fbclid and li_fat_id map to paid_social, even without UTMs.
@@ -47,6 +62,26 @@ names signing settings, refusals and the server-record alternative.
 Invalid or rotated signed cookies are discarded with attribution_cookie_reminted.
 The next capture mints a fresh visitor and cookie using the current secret.
 Site domains are case-insensitive, trim a trailing dot and remove leading www.
+
+## Visitor links: tying page views to actors
+
+Follow the identity-stitching model: many anonymous visitor ids per account,
+one account per visitor id. Each sign-in on each browser records
+(visitor_id, account) for that browser's verified visitor_id in a durable link
+list owned by the account; signup attribution stays a separate snapshot. A
+visitor_id already linked to a different account is never re-linked: refuse
+by name (visitor_linked_to_other_actor), record the refusal, and let sign-in
+proceed. Sign-out clears the attribution cookie so a shared browser starts a
+fresh visitor_id. Events are never rewritten; join each frontend event's
+envelope visitor_id to the link list at query time. The engine's list is
+actor_visitor_links; [workbench telemetry](../public/events-doctor-ouroboros.md#visitor-links)
+gives the join.
+
+The collector stamps the actor only from a verified credential sent with the
+request, keeps the emitter's service and project, and sets the serving
+environment. A host serving several universes points each mount at its own
+universe's collector; a shared collector would store one tenant's page views
+in another's universe.
 
 ## Verified attribution and sign-in hand-off
 

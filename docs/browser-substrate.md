@@ -167,7 +167,7 @@ python3 -m yoke_core.domain.browser_client exec step '<step-json>' --base-url <u
 ## Scenario Orchestration
 
 `yoke qa case run` executes one immutable Browser case and validates deployed
-code freshness. Direct Advance and Conduct/Tester share this [runner](browser-substrate/scenario-orchestration.md).
+code freshness. Pinned stage executors and Conduct/Tester share this [runner](browser-substrate/scenario-orchestration.md).
 
 ## QA Artifact Integration
 
@@ -196,7 +196,7 @@ Fine-grained orchestration events (e.g., `BrowserScenarioStarted`, `BrowserScena
 
 ## Exit Codes
 
-All shell wrapper scripts use consistent exit codes:
+The diagnostic browser client uses these exit codes:
 
 | Code | Meaning |
 |------|---------|

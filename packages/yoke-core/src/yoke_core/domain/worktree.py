@@ -1,30 +1,11 @@
 """Worktree lifecycle front door.
 
-Thin top-level surface for the worktree subsystem. Owns:
-
-* re-exports of the public worktree API so
-  ``from yoke_core.domain.worktree import resolve_main_root`` and sibling
-  public imports remain the stable front door;
-* the CLI dispatchers (``python3 -m yoke_core.domain.worktree
-  {create,resolve,install,paths,playwright-cache}``) and the top-level
-  ``main()`` entry point.
-
-Heavy implementation lives in three responsibility-named siblings:
-
-* :mod:`yoke_core.domain.worktree_paths` — repo / state / named-path
-  resolution. Also owns the low-level ``_run`` primitive shared with the
-  other siblings. Imported eagerly because it is the lightweight
-  foundation every path-only reader depends on.
-* :mod:`yoke_core.domain.worktree_create` — ``create_worktree`` and provisioning
-* :mod:`yoke_core.domain.worktree_deps` — dependency install + Playwright cache
-* :mod:`yoke_core.domain.worktree_item_resolve` — DB-backed item-to-worktree lookup
-
-Heavy siblings are deferred via PEP 562 ``__getattr__`` so the
-``paths`` CLI and any other path-only reader can resolve the DB path
-without importing provisioning code that might be broken mid-refactor.
-Heavy-module attributes resolve on first access (or on the local
-imports inside ``main_create`` / ``main_resolve`` / ``main_install`` /
-``main_playwright_cache``).
+Owns stable public re-exports and create/resolve/install/paths/cache dispatch.
+``worktree_paths`` is the lightweight eager resolver and shared ``_run`` owner.
+Provisioning, dependency/cache and item lookup live in ``worktree_create``,
+``worktree_deps`` and ``worktree_item_resolve``. PEP 562 lazy attributes defer
+those imports until access, preserving path-only reads even when a provisioning
+sibling is broken. Dispatchers use module attributes so test patches still apply.
 """
 
 from __future__ import annotations
@@ -110,6 +91,7 @@ def __getattr__(name: str):
 # ---------------------------------------------------------------------------
 # CLI entry points
 # ---------------------------------------------------------------------------
+
 
 def main_create() -> int:
     """CLI entry point for ``create-worktree`` (``python3 -m yoke_core.domain.worktree create``)."""
@@ -197,8 +179,16 @@ def main_resolve() -> int:
             return 2
 
     supported_fields = (
-        "path", "branch", "repo", "project", "exists", "scope",
-        "paths", "branches", "count", "missing",
+        "path",
+        "branch",
+        "repo",
+        "project",
+        "exists",
+        "scope",
+        "paths",
+        "branches",
+        "count",
+        "missing",
     )
     if field not in supported_fields:
         print(f"Error: unsupported field '{field}'", file=sys.stderr)
@@ -257,7 +247,10 @@ def main_install() -> int:
 
     args = sys.argv[2:]  # skip module path and subcommand
     if not args:
-        print("Usage: python3 -m yoke_core.domain.worktree install <worktree-path> [project-id]", file=sys.stderr)
+        print(
+            "Usage: python3 -m yoke_core.domain.worktree install <worktree-path> [project-id]",
+            file=sys.stderr,
+        )
         return 1
 
     worktree_path = args[0]
@@ -269,13 +262,18 @@ def main_install() -> int:
 def main_paths() -> int:
     """CLI entry point for ``paths`` subcommand."""
     args = sys.argv[2:]
-    if not args:
-        print("Usage: python3 -m yoke_core.domain.worktree paths <mode> [args]", file=sys.stderr)
+    help_requested = bool(args and args[0] in ("-h", "--help"))
+    if not args or help_requested:
+        output = sys.stdout if help_requested else sys.stderr
+        print(
+            "Usage: python3 -m yoke_core.domain.worktree paths <mode> [args]",
+            file=output,
+        )
         print(
             "Modes: main, worktree, main-file, yoke-root, db, config, config-example, backlog, board, docs, epics, ouroboros, backups",
-            file=sys.stderr,
+            file=output,
         )
-        return 1
+        return 0 if help_requested else 1
 
     mode = args[0]
     rel_path = args[1] if len(args) > 1 else None
@@ -311,12 +309,13 @@ def main_playwright_cache() -> int:
 
 def main() -> int:
     """Top-level CLI dispatcher."""
-    if len(sys.argv) < 2:
+    help_requested = len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help")
+    if len(sys.argv) < 2 or help_requested:
         print(
-            "Usage: python3 -m yoke_core.domain.worktree <create|resolve|install|paths|playwright-cache> ...",
-            file=sys.stderr,
+            "Usage: python3 -m yoke_core.domain.worktree {create,resolve,install,paths,playwright-cache} ...",
+            file=sys.stdout if help_requested else sys.stderr,
         )
-        return 1
+        return 0 if help_requested else 1
 
     subcmd = sys.argv[1]
     if subcmd == "create":

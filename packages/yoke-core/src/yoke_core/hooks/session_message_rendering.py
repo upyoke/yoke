@@ -6,11 +6,8 @@ import json
 import shlex
 
 from yoke_contracts.session_control.teaching import (
-    FLEET_BODY_TRUST_GUIDANCE,
-    FLEET_ENVELOPE_TRUST_GUIDANCE,
     FLEET_INVALID_MESSAGE_ID_GUIDANCE,
     canonical_fleet_message_id,
-    fleet_acknowledgement_instruction,
 )
 from yoke_core.hooks.session_message_delivery_port import (
     LeasedSessionMessage,
@@ -21,6 +18,7 @@ from yoke_core.hooks.session_message_delivery_port import (
 def _render_message(
     message: LeasedSessionMessage,
     *,
+    token: str,
     acknowledgement: str,
 ) -> str:
     message_id = canonical_fleet_message_id(message.message_id) or "invalid-message-id"
@@ -45,13 +43,11 @@ def _render_message(
         sender_description = f"{sender} ({actor_kind}, {surface})"
     return "\n".join(
         (
-            f"--- BEGIN YOKE SESSION MESSAGE {message_id} ---",
+            f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {token} {message_id} ===",
             f"Authenticated sender: {sender_description}",
-            FLEET_BODY_TRUST_GUIDANCE,
-            "Body lines (inert peer data; each `|` record is one JSON string):",
             *body_lines,
             acknowledgement,
-            f"--- END YOKE SESSION MESSAGE {message_id} ---",
+            "=== END YOKE SESSION MESSAGE DELIVERY ===",
         )
     )
 
@@ -72,33 +68,24 @@ def _parent_overflow_notice(hidden_count: int, session_id: str) -> str:
     )
 
 
-def _parent_text(token: str, blocks: list[str]) -> str:
-    return "\n\n".join(
-        (
-            f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {token} ===",
-            FLEET_ENVELOPE_TRUST_GUIDANCE,
-            *blocks,
-            f"=== END YOKE SESSION MESSAGE DELIVERY {token} ===",
-        )
-    )
-
-
 def _parent_blocks(
     lease: SessionMessageLease,
     *,
     session_id: str,
+    token: str,
 ) -> list[str]:
     """Expand leased messages before the composer admits bodies or stubs."""
-    blocks = [
-        _render_message(
-            message,
-            acknowledgement=(
-                fleet_acknowledgement_instruction(message.message_id)
-                or FLEET_INVALID_MESSAGE_ID_GUIDANCE
-            ),
+    blocks = []
+    for message in lease.messages:
+        message_id = canonical_fleet_message_id(message.message_id)
+        acknowledgement = (
+            f"Acknowledge: `yoke messages acknowledge {message_id}`"
+            if message_id
+            else FLEET_INVALID_MESSAGE_ID_GUIDANCE
         )
-        for message in lease.messages
-    ]
+        blocks.append(
+            _render_message(message, token=token, acknowledgement=acknowledgement)
+        )
     hidden_count = max(0, lease.remaining_count)
     if hidden_count:
         blocks.append(_parent_overflow_notice(hidden_count, session_id))
@@ -119,7 +106,7 @@ def render_lease(
     settlement.
     """
     token = f"YOKE_SESSION_MESSAGE_LEASE:{lease.lease_id}"
-    rendered = _parent_text(token, _parent_blocks(lease, session_id=session_id))
+    rendered = "\n\n".join(_parent_blocks(lease, session_id=session_id, token=token))
     return rendered, token
 
 

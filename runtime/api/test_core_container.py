@@ -168,8 +168,11 @@ def test_container_healthcheck_rejects_schema_not_ready() -> None:
 def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
     dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
 
-    assert "FROM python:3.13-slim AS builder" in dockerfile
-    assert "FROM python:3.13-slim AS runtime" in dockerfile
+    assert (
+        "ARG PYTHON_IMAGE=public.ecr.aws/docker/library/python:3.13-slim" in dockerfile
+    )
+    assert "FROM ${PYTHON_IMAGE} AS builder" in dockerfile
+    assert "FROM ${PYTHON_IMAGE} AS runtime" in dockerfile
     assert "COPY .git_archival.txt ./" in dockerfile
     assert 'ARG YOKE_ENGINE_VERSION=""' in dockerfile
     assert dockerfile.count('ARG YOKE_ENGINE_VERSION=""') == 2

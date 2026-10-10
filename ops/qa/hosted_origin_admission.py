@@ -55,6 +55,8 @@ def page_view(origin):
                 "event_time": format_instant(utc_now()),
                 "session_id": str(uuid4()),
                 "source_type": "frontend",
+                "service": "web",
+                "project": "yoke",
                 "page_url": origin + "/?qa=hosted-origin-admission",
                 "referrer": "",
             }

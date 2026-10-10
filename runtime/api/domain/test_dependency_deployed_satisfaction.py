@@ -138,6 +138,12 @@ def _insert_run(
             "INSERT INTO deployment_run_items (run_id,item_id) VALUES (%s,%s)",
             (run_id, item_id),
         )
+    if status == "succeeded":
+        from runtime.api.domain.dependency_delivery_test_support import (
+            stamp_completed_members,
+        )
+
+        stamp_completed_members(conn, run_id)
 
 
 @pytest.mark.parametrize(
@@ -204,7 +210,7 @@ def test_deployed_evaluation_names_each_unsatisfied_state() -> None:
     assert removed.reason.startswith("environment_unregistered:")
 
 
-def test_carried_work_is_the_authoritative_deployed_fact() -> None:
+def test_completion_fact_cannot_satisfy_an_incomplete_item() -> None:
     result = evaluate_satisfaction(
         "fact:deployed:prod",
         "implementing",
@@ -212,8 +218,7 @@ def test_carried_work_is_the_authoritative_deployed_fact() -> None:
         blocking_deployed=DeployedEnvironmentFact("prod", True, True),
         workflow=WORKFLOW,
     )
-    assert result.satisfied is True
-    assert result.reason == "Blocking item is deployed to prod."
+    assert result.satisfied is False
 
 
 def test_any_succeeded_run_for_the_environment_satisfies_cumulatively(

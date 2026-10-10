@@ -11,15 +11,15 @@ exit codes are 0 for success, 1 for error/not-found, and 2 for usage errors.
 
 from __future__ import annotations
 
+from yoke_core.domain.simulation_report_headers import SimulationReceipt
+
 import contextlib
 import io
 import select
 import sys
 from typing import List, Optional
 
-# ---------------------------------------------------------------------------
 # Re-exports from child modules (backward compatibility)
-# ---------------------------------------------------------------------------
 from yoke_core.domain.epic_parsing import (  # noqa: F401
     CHAIN_FIELD_WHITELIST,
     DISPATCH_CHAIN_COLUMNS,
@@ -79,12 +79,7 @@ from yoke_core.domain.qa import cmd_requirement_add, cmd_run_add
 
 
 def _read_stdin_safe() -> str:
-    """Read stdin without blocking when no data is available.
-
-    Returns empty string if stdin is a tty, if stdin is closed/empty,
-    or if no data is available (e.g., /dev/null redirection in tests).
-    Only blocks when stdin is a pipe with data (the intended usage).
-    """
+    """Read a ready stdin pipe; return empty for tty, closed or unready input."""
     if sys.stdin.isatty():
         return ""
     # On Unix, use select to check if stdin has data
@@ -107,9 +102,7 @@ def _qa_run_add_silent(**kwargs) -> int:
         return cmd_run_add(**kwargs)
 
 
-# ---------------------------------------------------------------------------
 # Mutations: files
-# ---------------------------------------------------------------------------
 
 
 def file_add(
@@ -149,9 +142,7 @@ def file_add(
     return f"Added file {file_path} (action: {action}) to {epic_id}/{task_num}"
 
 
-# ---------------------------------------------------------------------------
 # Mutations: history / events
-# ---------------------------------------------------------------------------
 
 
 def history_insert(
@@ -203,10 +194,8 @@ def history_insert(
     return f"Inserted history: {epic_id}/{task_num} {from_status} -> {to_status}"
 
 
-# ---------------------------------------------------------------------------
 # Review / progress-notes / simulation / proceed-triage
 # (implementations live in epic_review.py — lazy wrappers keep epic.* patch targets)
-# ---------------------------------------------------------------------------
 
 
 def _ensure_implementation_review_requirement(
@@ -256,11 +245,17 @@ def progress_note_mark_synced(conn, epic_id: str, task_num: int, note_num: int) 
 
 
 def simulation_upsert(
-    conn, epic_id: str, phase: str, body: str, *, scripts_dir: Optional[str] = None
-) -> str:
+    conn,
+    epic_id: str,
+    phase: str,
+    body: str,
+    *,
+    scripts_dir: Optional[str] = None,
+    head_sha: Optional[str] = None,
+) -> SimulationReceipt:
     from yoke_core.domain.epic_review import simulation_upsert as _impl
 
-    return _impl(conn, epic_id, phase, body, scripts_dir=scripts_dir)
+    return _impl(conn, epic_id, phase, body, scripts_dir=scripts_dir, head_sha=head_sha)
 
 
 def proceed_triage_and_handoff(
@@ -282,9 +277,7 @@ def proceed_triage_and_handoff(
     )
 
 
-# ---------------------------------------------------------------------------
 # Migration
-# ---------------------------------------------------------------------------
 
 
 def _epic_task_files_has_unique(conn) -> bool:
@@ -327,9 +320,7 @@ def migrate_task_files(conn) -> str:
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
 # CLI entry point (implementation lives in epic_cli.py)
-# ---------------------------------------------------------------------------
 
 
 def main(argv=None):

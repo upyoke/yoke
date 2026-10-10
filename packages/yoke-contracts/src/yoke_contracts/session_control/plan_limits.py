@@ -68,6 +68,7 @@ _WINDOW_KEYS = (
 )
 _READING_KEYS = ("surface", "plan_tier", "observed_at", "windows")
 _STRING_MAX = 128
+_REASON_MAX = 4096
 
 
 def iso_from_epoch_seconds(seconds: float) -> str:
@@ -161,13 +162,13 @@ def reading_is_ok(reading: Mapping[str, Any]) -> bool:
     )
 
 
-def _clip(value: object) -> str | None:
+def _clip(value: object, *, limit: int = _STRING_MAX) -> str | None:
     if value is None:
         return None
     text = str(value).strip()
     if not text:
         return None
-    return text[:_STRING_MAX]
+    return text[:limit]
 
 
 def _sanitize_window(raw: Mapping[str, Any]) -> dict[str, Any]:
@@ -196,7 +197,7 @@ def _sanitize_window(raw: Mapping[str, Any]) -> dict[str, Any]:
         if raw.get("resets_at") is not None
         else None,
         "status": status,
-        "reason": _clip(raw.get("reason")),
+        "reason": _clip(raw.get("reason"), limit=_REASON_MAX),
     }
 
 

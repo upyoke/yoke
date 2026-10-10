@@ -31,7 +31,7 @@ ERROR_TO_STATUS: Dict[str, int] = {
     "claim_not_found": 404,
     "claim_error": 409,
     "hook_context": 403,
-    "operator_override_required": 409,
+    "steering_seat_required": 409,
     "human_operator_required": 403,
     "idempotency_key_collision": 409,
     "actor_id_mismatch": 403,

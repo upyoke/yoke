@@ -116,7 +116,7 @@ def register_session(
     ``native_thread_id`` is the harness's own thread/session identity
     (Codex's ``CODEX_THREAD_ID``) when the environment or a relayed hook
     payload carries it — distinct from ``session_id``, which an
-    operator-started session may register under a different value. Wake
+    manually started session may register under a different value. Wake
     resolves against that column rather than assuming the two agree.
     """
     now = instant_parameter(conn, utc_now())

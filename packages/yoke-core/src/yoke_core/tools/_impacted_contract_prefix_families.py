@@ -10,7 +10,6 @@ the pack manifest. Each names the prefixes that owe it and its tests.
 from __future__ import annotations
 
 from yoke_core.tools._impacted_pack_contracts import PACK_PREFIX_CONTRACTS
-
 from yoke_contracts.project_contract.install_manifest import (
     PACKAGED_INSTALL_BUNDLE_TREE_REL,
 )
@@ -75,6 +74,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_skill_prose_schema_drift.py",
     "runtime/api/test_skill_workflow_authority.py",
     "runtime/api/test_steer_prompt.py",
+    "runtime/api/test_steer_discovery_defaults.py",
     "runtime/api/test_steer_prompt_worker_lifecycle.py",
     # Keep the roster's own completeness check in every skill selection.
     "runtime/api/tools/test_impacted_skill_contracts.py",

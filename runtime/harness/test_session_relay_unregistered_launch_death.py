@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -70,7 +72,14 @@ def test_a_gone_native_that_never_registered_is_reported_with_its_capture(
 ) -> None:
     custody = tmp_path / "custody"
     relay = tmp_path / "relay"
-    _supervised(custody)
+    process = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(30)"], start_new_session=True
+    )
+    assert record_supervised_native(
+        LAUNCH_ID, process.pid, native_session_id="native-session", state_dir=custody
+    )
+    process.kill()
+    process.wait()
     _capture(relay)
     dispatcher = _Dispatcher()
 
@@ -136,5 +145,8 @@ def test_fatal_native_capture_reports_before_supervisor_pid_disappears(
     )
 
     assert reported == (LAUNCH_ID,)
-    assert dispatcher.payloads[0]["launches"][0]["evidence"]["native_stderr_tail"] == REFUSAL
-    assert not supervision_record_path(LAUNCH_ID, custody).exists()
+    assert (
+        dispatcher.payloads[0]["launches"][0]["evidence"]["native_stderr_tail"]
+        == REFUSAL
+    )
+    assert supervision_record_path(LAUNCH_ID, custody).exists()

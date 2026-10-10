@@ -82,7 +82,7 @@ class TestBeginSessionStampsLevel:
             ),
             (
                 "claude-cli",
-                SessionModelFacts(model="claude-haiku-4-5", reasoning_effort="max"),
+                SessionModelFacts(model="claude-haiku-5-5", reasoning_effort="max"),
                 "INTERN",
             ),
             ("claude-code", SessionModelFacts(model="claude-unlisted"), "primary"),

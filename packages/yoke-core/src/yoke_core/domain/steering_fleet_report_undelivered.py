@@ -1,11 +1,7 @@
 """Envelopes nobody has read yet, each carrying why it has not landed.
 
-A steering seat reads this section to find a worker still waiting on a
-message. What it needs is not that nothing arrived -- it is which of several
-unrelated reasons nothing arrived, and that vocabulary lives in
-:mod:`steering_fleet_report_delivery_states`. This module asks the database
-for every undelivered receipt in a project, classifies each one, and folds
-them into the rows the report renders.
+Classify undelivered project receipts through steering_fleet_report_delivery_states
+and group their reasons for the steering report.
 
 Two decisions shape the query. Terminal receipts are never included, on the
 delivery plane's own test rather than the receipt's ``state`` column, so an
@@ -27,10 +23,8 @@ from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 
 from yoke_core.domain.db_helpers import instant_parameter
 
-from datetime import datetime
-
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, Mapping
 
 from yoke_contracts.session_control.capabilities import native_wake_supported
@@ -44,10 +38,14 @@ from yoke_core.domain.session_tool_call_projections import (
     OPEN_TOOL_CALL_COLUMN,
     open_tool_call_select,
 )
-from yoke_core.domain.session_explicit_wake import explicit_stopped_wake_requested
 from yoke_core.domain.session_message_authorization import project_policy
+from yoke_core.domain.session_message_types import timestamp
 from yoke_core.domain.session_relay_policy import relay_policy
 from yoke_core.domain.steering_fleet_report_attempt_summary import last_attempts
+from yoke_core.domain.steering_fleet_report_queued_wake import (
+    unattempted_explicit_wake,
+    wake_release_times,
+)
 from yoke_core.domain.steering_fleet_report_delivery_states import (
     ATTEMPT_FAILED,
     WAKE_HELD_FOR_NATIVE_TURN,
@@ -103,11 +101,16 @@ class UndeliveredMessages:
     #: its machine could measure that. Set only for the held state, where it
     #: is the difference between a turn that is working and one to look at.
     held_native_silent_for_seconds: int | None = None
-    #: True when an explicit wake was requested for this recipient and the
-    #: delivery plane has still made no attempt on it. The row then names a
-    #: queued wake rather than an absence of one, because the receipt itself
-    #: is what refuses the next wake request until it is released.
+    #: True when an explicit wake was requested for this recipient, the
+    #: delivery plane has still made no attempt on it, and every such receipt
+    #: has waited out the wake grace. The row then names a queued wake and
+    #: the wake command that releases it, because the receipt itself is what
+    #: refuses the next wake request until it is released.
     queued_wake: bool = False
+    #: When the recipient's unattempted explicit wakes become releasable, set
+    #: while one is still inside the wake grace. The wake command refuses a
+    #: release before then, so the row names the moment instead of a recovery.
+    wake_releasable_at: str = ""
 
     @property
     def needs_seat_action(self) -> bool:
@@ -135,13 +138,22 @@ class _Group:
     recipient_gone_at: datetime | None = None
     held_native_silent_for_seconds: int | None = None
     queued_wake: bool = False
+    wake_releasable_at: str = ""
     failed_attempt_count: int = 0
 
     def __post_init__(self) -> None:
         if self.message_ids is None:
             self.message_ids = []
 
-    def absorb(self, record: Mapping[str, Any], *, state: str, waited: int) -> None:
+    def absorb(
+        self,
+        record: Mapping[str, Any],
+        *,
+        state: str,
+        waited: int,
+        wake_release_at: datetime | None,
+        current: datetime,
+    ) -> None:
         """Fold one receipt's facts into this row."""
         self.envelope_count += 1
         self.oldest_seconds = max(self.oldest_seconds, waited)
@@ -158,12 +170,16 @@ class _Group:
         # An explicit wake still at zero attempts is not a missing wake, it
         # is a wake the plane never picked up — and that receipt blocks the
         # next wake request for this session until something releases it.
+        # The wake command releases it only once it has waited out the grace.
         if (
             state == NEVER_ATTEMPTED
-            and int(record.get("wake_attempt_count") or 0) == 0
-            and explicit_stopped_wake_requested(record.get("routing_snapshot"))
+            and unattempted_explicit_wake(record)
+            and wake_release_at is not None
         ):
-            self.queued_wake = True
+            if wake_release_at <= current:
+                self.queued_wake = True
+            else:
+                self.wake_releasable_at = timestamp(wake_release_at)
         if state in (RECIPIENT_ENDED, RECIPIENT_TERMINATED):
             self.recipient_gone_at = parse_stamp(
                 record.get("terminated_at")
@@ -253,9 +269,10 @@ def undelivered_messages(
         (int(project_id), instant_parameter(conn, parse_stamp(now))),
     ).fetchall()
     current = parse_stamp(now)
+    records = [dict(raw) for raw in rows]
+    wake_release_at = wake_release_times(records, grace=grace)
     groups: dict[tuple[str, str], _Group] = {}
-    for raw in rows:
-        record = dict(raw)
+    for record in records:
         sent_at = parse_stamp(record.get("created_at"))
         waited = age_seconds(sent_at, now)
         if waited is None:
@@ -275,7 +292,13 @@ def undelivered_messages(
             failed_count=failed_count,
         )
         group = groups.setdefault((session_id, state), _Group())
-        group.absorb(record, state=state, waited=waited)
+        group.absorb(
+            record,
+            state=state,
+            waited=waited,
+            wake_release_at=wake_release_at.get(session_id),
+            current=current,
+        )
         group.failed_attempt_count = max(group.failed_attempt_count, failed_count)
         if state == ATTEMPT_FAILED:
             # An in-flight retry has no result of its own; name the last
@@ -302,6 +325,7 @@ def undelivered_messages(
             turn_in_flight_since=group.turn_in_flight_since,
             recipient_gone_at=group.recipient_gone_at,
             queued_wake=group.queued_wake,
+            wake_releasable_at=group.wake_releasable_at,
         )
         for (session_id, state), group in sorted(
             groups.items(),

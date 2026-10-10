@@ -8,6 +8,8 @@ import json
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
+from yoke_core.domain.handlers import direct_workflow_execution as execution_handlers
+from yoke_core.domain.handlers import field_note_dash_promotion as promotion_handlers
 from yoke_core.domain import (
     conflict_survey_gate,
     dash_evidence_gate,
@@ -23,12 +25,6 @@ from yoke_core.domain.field_note_dash_promotion import (
     ensure_field_note_dash_promotion_schema,
     promote_field_note_to_dash,
 )
-from yoke_core.domain.handlers.direct_workflow_execution import (
-    REGISTRATIONS as EXECUTION_REGISTRATIONS,
-)
-from yoke_core.domain.handlers.field_note_dash_promotion import (
-    REGISTRATIONS as PROMOTION_REGISTRATIONS,
-)
 from yoke_core.domain.strategy_execution_schema import (
     ensure_strategy_execution_schema,
 )
@@ -40,7 +36,8 @@ def _item_sections_contract(test_db):
         "CREATE TABLE IF NOT EXISTS item_sections ("
         "item_id INTEGER NOT NULL REFERENCES items(id), section_name TEXT NOT NULL, content TEXT NOT NULL, "
         "ordering INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL, "
-        "created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL, PRIMARY KEY(item_id, section_name))"
+        "created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL, "
+        "PRIMARY KEY(item_id, section_name))"
     )
     test_db.commit()
 
@@ -232,7 +229,10 @@ def test_field_note_promotion_is_idempotent(test_db, monkeypatch):
 def test_registered_execution_functions_keep_claim_boundaries_explicit():
     registrations = {
         row["function_id"]: row
-        for row in [*EXECUTION_REGISTRATIONS, *PROMOTION_REGISTRATIONS]
+        for row in [
+            *execution_handlers.REGISTRATIONS,
+            *promotion_handlers.REGISTRATIONS,
+        ]
     }
 
     assert registrations["direct_workflow.dash.survey"]["claim_required_kind"] is None

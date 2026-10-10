@@ -18,7 +18,9 @@ jobs:
     timeout-minutes: 30
     services:
       registry:
-        image: registry:2
+        # Official image via the AWS public mirror. services.image cannot
+        # read workflow env, so this key is the one declaration.
+        image: public.ecr.aws/docker/library/registry:2
         ports:
           - 5200:5000
     steps:

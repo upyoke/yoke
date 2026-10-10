@@ -170,6 +170,7 @@ def test_cli_instruction_crosses_stdin_not_process_arguments(
         "Child",
         (),
         {
+            "pid": 4567,
             "stdin": _Input(bodies.append),
             "stdout": BytesIO(),
             # The transport drains stderr from the spawn onward, so a native
@@ -188,6 +189,7 @@ def test_cli_instruction_crosses_stdin_not_process_arguments(
         lambda binary: ResolvedNativeCli(binary, "explicit"),
     )
 
+    monkeypatch.setattr(cli_module, "record_supervised_native", lambda *a, **kw: True)
     process, binary_source = cli_module.CodexCliTransport(
         binary="/opt/codex",
         worker=True,
@@ -268,7 +270,7 @@ def test_cli_drain_thread_is_non_daemon(monkeypatch) -> None:
         def wait(self):
             return 0
 
-    monkeypatch.setattr(cli_module.threading, "Thread", Thread)
+    monkeypatch.setattr(process_module.threading, "Thread", Thread)
     cli_module._retain_and_reap(
         Process(),
         cli_module.BoundedStreams(),

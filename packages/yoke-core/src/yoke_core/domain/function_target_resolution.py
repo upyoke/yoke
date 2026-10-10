@@ -1,12 +1,7 @@
-"""Resolve the target project / org for a dispatched function call.
+"""Resolve persisted target project/org authority for dispatched calls.
 
-Split from :mod:`yoke_core.domain.yoke_function_permissions` (which owns the
-scope routing) to keep each module under the authored-file line cap. These
-helpers turn a request's payload/target hints — and, when those are absent,
-the target row's own project — into the concrete project or org the
-permission check runs against. A project-scoped op that still cannot name
-its target resolves to ``None`` and is denied upstream (never silently
-aimed at the yoke project).
+Payloads and target rows identify the concrete permission scope. An operation
+without a resolvable project is denied rather than aimed at a default project.
 """
 
 from __future__ import annotations
@@ -56,6 +51,13 @@ def resolve_project_context(
     visible_project_ids: Collection[int] | None = None,
 ) -> tuple[int, str] | None:
     """Resolve the real target project for a PROJECT-scoped op (or None)."""
+    if entry.function_id == "claims.path.override":
+        try:
+            return resolve_path_claim_project(
+                conn, int(request.payload["path_claim_id"])
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
     if entry.function_id == "ephemeral_env.update":
         try:
             env_id = int(request.payload.get("env_id"))
@@ -199,9 +201,7 @@ def resolve_project_context(
             entry_project = None
         if entry_project is not None:
             return entry_project
-    # No project hint or target-row project resolved. Authority is the actor's
-    # identity, not a default project — a project-scoped op that cannot name
-    # its target is denied upstream (no "fall back to yoke" guess).
+    # An unresolved target is denied upstream.
     return None
 
 

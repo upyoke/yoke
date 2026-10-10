@@ -111,7 +111,7 @@ def test_options_without_published_values_are_unverified_not_refused() -> None:
     )
     assert conflicts == []
     reasons = {(u["model"], u["reason"]) for u in unverified}
-    assert ("claude-haiku-4-5", "model not in catalog") in reasons
+    assert ("claude-haiku-5-5", "model not in catalog") in reasons
     assert (
         "claude-opus-5-5",
         "catalog publishes no efforts or context windows",
@@ -131,7 +131,7 @@ def test_conflicts_refuse_by_name_with_the_recovery() -> None:
 def test_authored_add_move_retire_and_change_apply_in_order() -> None:
     haiku = {
         "surface": "claude-cli",
-        "model": "claude-haiku-4-5",
+        "model": "claude-haiku-5-5",
         "reasoning_effort": "max",
     }
     sol = {"surface": "codex-cli", "model": "gpt-6.1-sol", "reasoning_effort": "medium"}
@@ -149,7 +149,7 @@ def test_authored_add_move_retire_and_change_apply_in_order() -> None:
             },
         ],
     )
-    assert _options(proposed, "INTERN")[0] == ("claude-cli", "claude-haiku-4-5", "high")
+    assert _options(proposed, "INTERN")[0] == ("claude-cli", "claude-haiku-5-5", "high")
     assert ("codex-cli", "gpt-6.1-sol", "medium") not in _options(proposed, "JUNIOR")
     assert _options(proposed, "SENIOR")[0] == ("codex-cli", "gpt-6-sol", "medium")
 
@@ -191,7 +191,7 @@ def test_authored_add_move_retire_and_change_apply_in_order() -> None:
                 "kind": "change",
                 "option": {
                     "surface": "claude-cli",
-                    "model": "claude-haiku-4-5",
+                    "model": "claude-haiku-5-5",
                     "reasoning_effort": "max",
                 },
                 "reasoning_effort": "turbo",

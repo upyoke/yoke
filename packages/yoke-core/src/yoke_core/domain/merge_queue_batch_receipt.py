@@ -127,14 +127,11 @@ def observe_batch(
                     "commit was resolved for the work the base already holds"
                 ),
                 recovery=(
-                    "This lane's content reached the base under some other "
-                    f"landing, so pull request {pr_num} has no merge_group "
-                    "run to attribute. Find the pull request whose merge the "
-                    "base actually holds and repoint this item at it: `yoke "
+                    f"Pull request {pr_num} has no attributable merge_group run. "
+                    "Find the PR for the other landing the base holds, then run `yoke "
                     "items merge-provenance operator-correct <PREFIX-N> "
-                    "--pr-number <N> --reason ...`, which verifies that "
-                    "pull request merged before it writes. Retrying this "
-                    "command unchanged asks the same open pull request again."
+                    "--pr-number <N> --reason ...`; it verifies the PR merged "
+                    "before writing. Retrying unchanged reads the same open PR."
                 ),
                 retryable=False,
             )

@@ -122,11 +122,11 @@ def register(registry) -> None:
         side_effects=["work_claims_insert"],
         owner_module=_qualification.__name__,
         guardrails=[
-            "operator_override_required",
+            "steering_seat_required",
             "handler_enforced_project_authority",
             "stage_only_exact_release",
         ],
-        claim_required_kind="operator_override",
+        claim_required_kind="steering",
     )
     register_message_functions(registry, _register)
 

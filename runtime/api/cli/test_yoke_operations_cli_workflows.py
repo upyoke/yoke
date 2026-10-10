@@ -249,12 +249,12 @@ def test_current_set_and_item_migrate_build_typed_payloads() -> None:
     }
 
 
-def test_item_migrate_help_teaches_operator_authority(capsys) -> None:
+def test_item_migrate_help_teaches_steering_authority(capsys) -> None:
     with pytest.raises(SystemExit) as raised:
         workflows_item_migrate(["--help"])
 
     assert raised.value.code == 0
     help_text = capsys.readouterr().out
-    assert "authority from an operator-started session" in help_text
-    assert "must not change their own session mode" in help_text
+    assert "live steering seat covering" in help_text
+    assert "yoke say --steering" in help_text
     assert "--preview" in help_text

@@ -127,9 +127,16 @@ def present_deployment_runs(
         else {}
     )
     if include_item_delivery:
+        from yoke_core.domain.completed_item_delivery import completed_deliveries
+
+        completed = completed_deliveries(
+            conn,
+            (int(member["id"]) for entries in members.values() for member in entries),
+        )
         for run_id, run_members in members.items():
             for member in run_members:
                 member["item_qa"] = qa.get((run_id, int(member["id"])))
+                member["completed_deliveries"] = completed.get(int(member["id"]), [])
     gates = run_gates(conn, run_ids, actor_id=actor_id)
     delivery_items = (
         candidate_delivery_items(conn, base) if include_item_delivery else {}
@@ -166,6 +173,7 @@ def present_deployment_runs(
                         "project_id",
                         "project_sequence",
                         "item_qa",
+                        "completed_deliveries",
                     )
                     if key in member
                 }

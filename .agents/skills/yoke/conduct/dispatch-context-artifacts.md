@@ -1,131 +1,63 @@
-# Dispatch Context — Artifacts and QA Lifecycle
+# Conduct — reflections, artifacts and QA
 
-Extracted from `dispatch-context.md`. Contains artifact formats, output capture, QA lifecycle management, and commit patterns used during and after dispatch.
+Read raw/progress capture paths printed by the wrapper. Helpers mint them
+under the session scratch root; never guess OS-temp watcher paths. --raw-capture
+is the operator's explicit pin. A yielded watcher continues through its owning
+handle to exit; capture observation is not command completion.
 
-**Watcher capture paths.** When conduct invokes a Yoke watcher (`watch_pytest`, `watch_merge`, `watch_doctor`, `watch_qa_case`, `watch_advance`, `watch_lifecycle`) the raw + progress captures land under the helper-resolved `<scratch_root>/watcher-captures/` — they are minted by `yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair(...)` (or `watcher_capture_path(...)` for one stream) and the wrapper prints the resolved paths through `--print-streaming-pair`. Read the path the wrapper printed; do not hardcode an OS-temp watcher-capture literal in dispatch artifacts. The operator carve-out for pinning the capture file is `--raw-capture <path>` (CI / artifact collection).
+## Reflections
 
----
+Use the installed harness manifest and capture receipts. Claude's PostToolUse
+Agent hook (`yoke_core.domain.reflection_capture_hook`) normally captures the
+complete delimited response once; no duplicate
+manual insert. Codex custom-agent returns do not fire that Agent matcher; the
+retained operator/debug parity owner consumes the captured response with actual
+project and canonical role before continuing:
 
-## Anticipated path coverage (pre-authorized)
-
-When effective path claims are enabled, the Architect runs the plan-time
-**Anticipation Checklist** (the Architect prompt's *Anticipation
-Checklist*) and widens claim coverage to include cross-cutting surfaces.
-When File Budget is also enabled, its explicit paths seed that checklist;
-otherwise the task execution spec does. The Architect persists the resulting
-anticipated paths in the task body.
-
-The Engineer prompt template surfaces this block under the heading `Anticipated path coverage (pre-authorized)` (see `dispatch-context-prompts.md` step 5g). It is **read-only context for the Engineer**:
-
-- The set comes from existing persisted task body content. No new DB column, event type, function id, or storage surface is introduced for this surfacing.
-- Conduct, the Engineer, the Tester, and downstream phases do **not** mutate the anticipated-paths list. Mid-implementation discoveries that fall outside it still route through the Engineer's commit-time claim-widening discipline; cross-task or new-surface discoveries require authoring-phase repair. Resolve that segment from the pinned workflow before presenting a re-entry command, using [the shared handoff recipe](../shared/stage-handoff.md).
-- When a task body has no `## Anticipated Paths` block (older plans, simple non-cross-cutting tasks), conduct omits the heading from the dispatch prompt entirely — there is no "empty section" placeholder.
-
----
-
-## 5m. Ouroboros Reflection Capture
-
-**Claude (primary harness): captured automatically by the PostToolUse Agent-tool hook** at `yoke_core.domain.reflection_capture_hook`. No skill-body action required — the hook reads the subagent's full `tool_response`, runs the multi-shape parser, persists entries to `ouroboros_entries`, and emits `ReflectionCaptureHookFired` (always) plus `ReflectionCaptureHookUnhandled` (when an unrecognized shape appears).
-
-**Codex (parity capture): subagent dispatch is the custom-agent path** (`.codex/agents/yoke-*.toml`), not an in-process `Agent` tool call. The PostToolUse `Agent` matcher does not fire on Codex. When `$YOKE_EXECUTOR=codex` AND the conduct session has just received a subagent response, run the operator/debug CLI to capture the reflection block before continuing the next step:
-
-```bash
-if [ "${YOKE_EXECUTOR:-}" = "codex" ]; then
-    _project=$(yoke items get "${_id}" project 2>/dev/null || echo yoke)
-    printf '%s' "$_subagent_response" | python3 -m yoke_core.domain.reflection_capture \
-        --default-agent "$_role" \
-        --project "$_project" || true
-fi
+```text
+python3 -m yoke_core.domain.reflection_capture --default-agent {ROLE} --project {PROJECT} --output-text {RESPONSE_TEXT}
 ```
 
-Where `$_subagent_response` is the captured subagent response text (the same text the conduct flow already reads to dispatch the next phase), `$_role` is the canonical agent role (`engineer`, `tester`, `simulator`, etc.), and `$_id` is the in-flight item id. The Codex-conditional shape keeps Claude sessions on the hook path (zero skill-body action) while restoring deterministic capture for Codex.
+For large output use its documented stdin form. No silent project=yoke fallback.
+Recovery/backfill requires evidence automatic capture was absent; preserve
+ReflectionCaptureHookFired/Unhandled diagnostics. Reflection failures report a
+field-note, not a fabricated capture. Keep full response only until captured.
 
-`python3 -m yoke_core.domain.reflection_capture --output-text ...` remains the operator/debug CLI for both harnesses — call it directly when ad-hoc backfilling lost reflections.
+## Tester artifacts and anticipated coverage
 
----
+Inspect actual lane dirt after return. Commit only verified review artifacts
+the Tester produced; reviews/reflections normally live in DB, not filesystem.
+Capture git status/diff and preserve other work; no blind auto-add of unrelated
+files. Claimed lane authority still governs every file.
 
-## 5n. Tester Artifact Commit
+Anticipated Paths comes from Architect's persisted task body and is read-only
+for Conduct/Engineer/Tester. Omit absent block, no placeholder/new storage.
+Uncovered required edits widen via existing claim discipline; cross-task or
+new-surface scope routes pinned authoring repair. Claims never narrow scope.
 
-After the Tester returns, check if any files were created in the worktree and commit them so the later merge/polish handoff does not fail on a dirty worktree:
+## Exact task and parent QA
 
-```bash
-cd {_worktree_path}
-git add -A 2>/dev/null
-git diff --cached --quiet || git commit -m "chore: commit Tester review artifacts [${_id}]"
+```text
+yoke workflow-item epic-task review-seed --epic PREFIX-N --task-num {task_num}
+yoke workflow-item epic-task review-insert --epic PREFIX-N --task-num {task_num} --verdict PASS --body-file {REVIEW_FILE}
+yoke qa requirement list --epic PREFIX-N --json
+yoke qa requirement list --item PREFIX-N --json
+yoke qa run list --requirement-id {requirement_id}
 ```
 
-**Note:** Reviews and Ouroboros reflections are written directly to the DB, not to the worktree filesystem. This catches any other filesystem artifacts the Tester may have created.
+Seed once idempotently before review. Insert ACTUAL verdict with per-AC body
+reuses that requirement; no duplicate requirement or manual qa run add for task
+review. Parent requirements remain distinct. Execute each materialized native
+case with its exact subject; task passes and simulation do not blanket-credit
+command/Browser cases. Aggregate evidence may satisfy only the requirement's
+declared evidence policy with a current claimed candidate and real results.
 
----
+Never auto-waive blocking QA. Unavailable target/infrastructure HALTs for
+operator repair or explicit waiver through registered help; authenticated
+operator source/force only when actually authorized. Nonblocking waiver follows
+its own allowed surface and records rationale. Raw DB/router mutation is not
+normal flow; never substitute it when the registered command refuses.
 
-## Epic-Task QA Lifecycle
-
-Conduct owns the full epic-task QA gate lifecycle. Standard sessions use registered `yoke qa ...` and `yoke workflow-item epic-task ...` surfaces; direct DB-router QA calls are operator-debug only.
-
-### Automatic QA Seeding
-
-Before each epic-task `reviewing-implementation` transition, conduct calls:
-```bash
-yoke workflow-item epic-task review-seed --epic "$_epic_ref" --task-num "$_task_id"
-```
-This idempotently creates a single blocking `implementation_review` requirement for the task. The Tester's verdict (via `review-insert`) reuses this requirement rather than creating a new one.
-
-### Tester Verdict Recording
-
-The Tester writes its verdict via `yoke workflow-item epic-task review-insert`, which:
-1. Finds the existing review requirement (seeded above) — does NOT create a duplicate
-2. Records a `qa_run` with the Tester's verdict against that requirement
-
-### Parent Epic Reviewed-Implementation Gate
-
-After all tasks pass and integration simulation succeeds, conduct satisfies any unsatisfied parent-item-level verification requirements from conduct evidence before advancing the parent to `reviewed-implementation`.
-
-### Recovery Commands
-
-If a conduct session is interrupted and you need to manually recover:
-```bash
-# Seed a review requirement for a task (idempotent):
-yoke workflow-item epic-task review-seed --epic "{epic_ref}" --task-num {task_num}
-
-# Record a Tester verdict for a task — write the body to a file first, then pass --body-file:
-yoke workflow-item epic-task review-insert --epic "{epic_ref}" --task-num {task_num} --verdict PASS --body-file /tmp/yoke-review.{task_num}.md
-
-# List requirements for an epic (filter to the task_num client-side):
-yoke qa requirement list --epic "{epic_ref}"
-
-# Do NOT use `yoke qa run add` (or db_router qa run-add) for epic-task review verdicts:
-# yoke workflow-item epic-task review-insert is the only supported write path.
-# The --body-file form is the taught path; stdin fallback remains supported for callers
-# that cannot land a tempfile (the lint blocks plain heredoc/pipe shapes through that adapter).
-```
-
----
-
-## QA Quick Reference (for conduct orchestrator)
-
-**HARD RULE: NEVER auto-waive blocking QA requirements.** If a blocking requirement (`blocking_mode='blocking'`) cannot be satisfied (e.g., no ephemeral URL for browser QA, test infrastructure unavailable), **HALT immediately** and ask the operator to either:
-1. Waive manually through the retained operator-debug waiver path with `--source operator --force`
-2. Fix the underlying issue (e.g., deploy the ephemeral environment, fix test infra)
-
-The retained internal QA waiver path **rejects waiving blocking requirements without `--force`**. It is operator-debug only; do not present it as the normal product QA flow. Non-blocking requirements can still be waived without `--force`. Always include `--source operator` when the operator explicitly authorizes a waiver, or `--source agent` for automated non-blocking waivers.
-
-When the conduct orchestrator needs to interact with QA tables directly (e.g., waiving non-blocking requirements, recording runs for the `reviewed-implementation` gate), use these exact flags:
-
-```bash
-# Waive a NON-BLOCKING requirement through the retained operator-debug waiver path:
-db_router qa requirement-waive {requirement-id} "Rationale text" --source agent
-
-# Waive a BLOCKING requirement (ONLY when operator explicitly authorizes):
-db_router qa requirement-waive {requirement-id} "Rationale text" --source operator --force
-
-# Record a passing non-review QA run (NOT for simulation — use yoke workflow-item epic-task simulation-upsert instead):
-yoke qa run add --requirement-id {req-id} --performed-by "agent" --qa-kind "ac_verification" --verdict "pass" --raw-result "Brief evidence"
-
-# List requirements for an item:
-yoke qa requirement list --item "PREFIX-{N}"
-
-# List runs for a requirement:
-yoke qa run list --requirement-id {req-id}
-```
-
-**Required flags for `yoke qa run add`:** `--requirement-id`, `--performed-by`. Optional: `--qa-kind` (defaults to the requirement's stored kind; mismatch is a hard error), `--verdict`, `--execution-status`, `--raw-result` (evidence text, not identity), `--duration-ms`. A blocking pass without a head sha is refused. Multi-line evidence or score/confidence fields stay on the retained operator-debug `db_router qa run-add` fallback.
+Keep required result/evidence, exact run/requirement ids and candidate currency.
+Capture/review pending is not pass. The simulation owner alone persists its
+typed report receipt. Completed parent handoff still verifies every owed gate.

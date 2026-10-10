@@ -111,8 +111,29 @@ def _whole_text_gate(source: str):
     context a whole-file search sees differently, so those patterns keep the
     per-line scan alone.
     """
-    if re.search(r"\(\?<?[=!]|\\[AZ]|[$^]", source):
+    # A negated class contains a caret without anchoring the match. Treating
+    # it as an anchor forced common SQL candidates through every file line.
+    if "(?#" in source or re.search(r"\(\?[aiLmsux-]*x", source):
         return None
+    index = 0
+    while index < len(source):
+        char = source[index]
+        if char == "\\":
+            if source[index + 1 : index + 2] in {"A", "Z", "z"}:
+                return None
+            index += 2
+            continue
+        if char == "[":
+            index += 1
+            if source[index : index + 1] == "^":
+                index += 1
+            if source[index : index + 1] == "]":
+                index += 1
+            while index < len(source) and source[index] != "]":
+                index += 2 if source[index] == "\\" else 1
+        elif char in "^$" or source.startswith(("(?=", "(?!", "(?<=", "(?<!"), index):
+            return None
+        index += 1
     return re.compile(source, re.MULTILINE)
 
 

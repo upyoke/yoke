@@ -8,106 +8,28 @@ names are code references, not command recipes.
 Cross-link back from [qa-platform.md](../../.yoke/docs/reference/qa-platform.md) for the four-layer
 model, table schemas, success-policy types, and gating semantics that this CLI
 reads and writes. See [`.yoke/docs/reference/db-reference/functions.md`](../../.yoke/docs/reference/db-reference/functions.md)
-for the function-call envelope. Render the operator-readable Atlas of
-registered surfaces locally with `python3 -m yoke_core.tools.atlas_render_docs render`.
+for the function-call envelope. The generated [Atlas](../atlas.md) indexes registered surfaces; regenerate it
+only through its source-dev owner and wrapper.
 
 ## Public QA Commands
 
+Read the exact operation's `--help` before writing. The table below is the
+single payload/discovery index; schema and method depth stays with its owner.
+
 ```sh
-# Add an item-bound review requirement
-yoke qa requirement add \
- --item YOK-N --qa-kind implementation_review --qa-phase verification \
- --blocking-mode blocking --requirement-source explicit \
+yoke qa requirement add --item PREFIX-N --qa-kind implementation_review \
+ --qa-phase verification --blocking-mode blocking --requirement-source explicit \
  --workflow-transition reviewed-implementation \
  --success-policy '{"type":"deterministic","criteria":"verdict_pass"}'
-
-# Add multiple item-bound requirements
-yoke qa requirement add-batch --item YOK-N --rows-file qa-requirements.json
-
-# Materialize project-default and item-attached plan cases
-yoke qa plan materialize --item YOK-N --transition reviewing-implementation
-
-# Refresh corrected plan cases without losing their QA run history.
-# The one route that reaches instructions and expected_outcome; refuses by
-# name when a live walk or an admitted run copy has already frozen a row.
-yoke qa plan rematerialize --item YOK-N --transition reviewing-implementation
-
-# Execute the materialized cases in immutable plan/case/baseline order
-yoke qa plan run \
- --item YOK-N --transition reviewing-implementation \
- --base-url https://preview.example --machine test-mac-pro
-
-# Execute an item-scoped stage for a member of a shared release. The project
-# is the member's project, even when the deployment run belongs to another.
-yoke qa plan run --deployment-run-id RUN --stage item-qa \
- --member PREFIX-N --project MEMBER-PROJECT
-
-# Submit the complete verdict batch requested by an exit-12 review descriptor
-printf '%s' '{"verdicts":[{"requirement_id":1,"verdict":"pass","rationale":"The captured frame matches the expected outcome."}]}' |
- yoke qa plan review-submit \
- --item-id PREFIX-N --execution-id <execution-id> --bundle-id <bundle-id> \
- --bundle-digest <sha256> --stdin
-
-# Execute one materialized case
-yoke qa case run --requirement-id 1
-
-# Waive one requirement without claiming it passed
-yoke qa requirement waive \
- --requirement-id 1 --rationale "Known environment limitation" \
- --source operator --force
-
-# List requirements for an item, epic, or deployment run
-yoke qa requirement list --item YOK-N
-yoke qa requirement list --epic PREFIX-N --json
-yoke qa requirement list --deployment-run-id run-20260616-001 --json
-
-# Get or update a single requirement
-yoke qa requirement get 1
-yoke qa requirement update --requirement-id 1 --field blocking_mode --value non_blocking
-yoke qa requirement update --requirement-id 1 --field method_config --value '{"steps":[{"action":"navigate","route":"/dashboard"},{"action":"assert","target":"[data-ready=true]","check":"visible"}]}'
-yoke qa requirement update --requirement-id 1 --field target_env --value local
-
-# Record or complete QA runs. --raw-result is evidence text; a blocking
-# pass stamps verification_tree.head_sha from the claimed lane HEAD (or --head-sha).
-yoke qa run add \
- --requirement-id 1 --performed-by agent --qa-kind implementation_review \
- --verdict pass --raw-result "Tester review passed"
-yoke qa run complete \
- --requirement-id 1 --run-id 10 --verdict pass --execution-status captured
-yoke qa run record-verdict \
- --requirement-id 1 --performed-by agent --verdict pass
-
-# List runs for a requirement
-yoke qa run list --requirement-id 1
-
-# Attach durable, explicit-local, or inline artifacts
-yoke qa artifact presign --requirement-id 1 --run-id 10 --filename screenshot.png
-yoke qa artifact add \
- --requirement-id 1 --run-id 10 --artifact-type screenshot \
- --content-type image/png \
- --artifact-handle '{"backend":"local","path":"/tmp/screenshot.png"}' \
- --metadata '{"width":1920,"height":1080}'
-yoke qa artifact add \
- --requirement-id 1 --run-id 10 --artifact-type screenshot \
- --content-type image/png --filename capture.png --content-file PATH
-
-# Move evidence recorded only on this capture machine into the serving
-# build's store, in place (same artifact row, run, and verdict). Evidence
-# writes from a *-db-admin connection relay to its paired https connection.
-yoke qa artifact rehome --requirement-id 1 --artifact-id 10 --artifact-id 11
-
-# Resolve one artifact through the transport-safe evidence read surface.
-# It lands the bytes under this machine's temp root and reports that
-# path as `path`. The output omits the presigned download URL.
-yoke qa artifact read --requirement-id 1 --artifact-id 10 --json
-
-# Read one part of a tall full-page screenshot, enlarged enough to judge.
-# --region x,y,w,h is measured from the capture's top-left; --scale applies
-# after it. The stored artifact is untouched and the response reports the
-# `artifact_view` it rendered.
-yoke qa artifact read --requirement-id 1 --artifact-id 10 \
-  --region 0,900,1440,600 --scale 1.5
+yoke qa plan materialize --item PREFIX-N --transition reviewing-implementation
+yoke qa plan run --item PREFIX-N --transition reviewing-implementation
+yoke qa case run --requirement-id N
 ```
+
+Plan review uses the returned immutable `submit_command`; feed one complete
+batch on stdin, e.g. `{"verdicts":[{"requirement_id":1,"verdict":"pass",
+"rationale":"Observed evidence matches the expected outcome."}]}`. Every case
+needs exactly one permitted verdict. Do not copy bundle identities between runs.
 
 Every item-attached requirement must name a stage in the item's pinned
 workflow through `--workflow-transition`. The stage must carry, or precede,
@@ -134,7 +56,7 @@ the exact deployed candidate; a newer deployment cannot certify an older run.
 | `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
 | `yoke qa plan rematerialize` | `--item PREFIX-N --transition T` | Bring live rows to their plan's current text, retaining QA run history; refuses by name rather than move a row a live walk or an in-flight admitted copy has frozen |
 | `yoke qa plan run` | `--item PREFIX-N --transition T [--machine NAME] [--continue-mission] [runner opts]` | Execute one durable roster; without a pin, prefer a verified free Test Machine. `--continue-mission` resumes a mission walk the stale sweep settled while its walker was parked, reaching no host baseline so the machine keeps that walk's state |
-| `yoke qa plan review-submit` | `(--item-id PREFIX-N \| --deployment-run-id RUN) --execution-id ID --bundle-id ID --bundle-digest SHA256 --stdin` | Persist one complete agent-verdict batch for an immutable review bundle |
+| `yoke qa plan review-submit` | `(--item PREFIX-N \| --deployment-run-id RUN) --execution-id ID --bundle-id ID --bundle-digest SHA256 --stdin` | Persist one complete agent-verdict batch for an immutable review bundle |
 | `yoke qa case run` | `--requirement-id N [runner opts]` | Authorize and execute one immutable case snapshot locally |
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic PREFIX-N \| --deployment-run-id ID]` | List requirements, each materialized row reporting `plan_currency` and `plan_diverging_fields` against its plan case |
 | `yoke qa requirement get` | `N` or `--requirement-id N` | Get one requirement |
@@ -273,13 +195,22 @@ tests assigned to that shard without launching the suite. Yoke's own shards do
 not spell those arguments in the workflow — ask the module that runs them:
 
 ```sh
-python3 -c "from yoke_core.tools.ci_shards import pytest_command; print(*pytest_command(GROUP))"
+yoke dev run -- python3 -c "from yoke_core.tools.ci_shards import pytest_command; print(*pytest_command(GROUP))"
 ```
 
-When the plan runner returns `state="awaiting_agent_review"` it exits `12` and
-includes `review_bundle.dispatch`. The harness must immediately dispatch the
-named reviewer subagent with that immutable bundle and prompt, then use the
-exact returned submission command. The execution remains live and the QA gate
+When the plan runner returns `state="awaiting_agent_review"`, exit `12` carries
+`review_bundle.dispatch`. Continue its exact immutable descriptor/prompt:
+`dispatch_kind=subagent` names the reviewer; `main_agent_mission` keeps main
+ownership, dispatches its returned walkers and aggregates the complete verdict.
+A descriptor without immutable target authority forbids host access, dispatch
+and submission; preserve historical evidence. Use its exact returned submit
+command. Host contention is a hold, not a verdict: the review-submit owner can
+accept the returned `host_wait` shape to keep requirements open and queue a
+fresh mission. HUMAN_GATE needs the exact action/resume checkpoint; route to
+covering steering or the human owner, verify completion and dispatch a fresh
+walker. Receipt acknowledgement never proves sign-in. Keep target-naive walkers
+free of added project context; preserve declared host-state continuation.
+The execution remains live and the QA gate
 remains unsatisfied until submission. Pending dispatch creates no human work.
 Until then the result carries `review_status="pending"`: the capture is
 complete but no QA verdict exists, so it is never reported as a pass. A verdict
@@ -320,10 +251,9 @@ yoke qa gate-summary --epic PREFIX-N --task-num 5 --target reviewed-implementati
 yoke qa gate-summary --item YOK-N --target implemented --json
 ```
 
-| Command | Returns | Description |
-|---|---|---|
-| `yoke qa gate-summary --target reviewed-implementation` | JSON/text summary; exit 0 when dispatch succeeds | Shows blocking verification requirements that still lack satisfying evidence |
-| `yoke qa gate-summary --target implemented` | JSON/text summary; exit 0 when dispatch succeeds | Shows blocking requirements across phases that still lack satisfying evidence |
+The reviewed-implementation preview covers blocking verification requirements;
+implemented covers the phase union. Exit 0 says the read succeeded, not that its
+QA gate is satisfied. Read the returned missing/unsatisfied evidence.
 
 **Argument format:**
 

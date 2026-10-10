@@ -87,7 +87,11 @@ def capture_touch(url, referrer, site_domain, now):
         params.setdefault(key, value)
     touch = {key: params.get(key) or None for key in RULES["campaign_keys"]}
     domain = extract_referrer_domain(referrer)
-    if domain and domain_matches(domain, site_domain):
+    # Own domains and sign-in hops are internal: they never start or replace a touch.
+    if domain and any(
+        domain_matches(domain, d)
+        for d in (site_domain, *RULES["excluded_referrer_domains"])
+    ):
         domain = None
     touch.update(referrer_domain=domain, captured_at=format_instant(now))
     touch["acquisition_channel"] = infer_channel(
@@ -115,6 +119,15 @@ def get_attribution_props(record):
     return dict(record) if record else {}
 
 
+def sanitize_path(path):
+    """Mask the segment after a sensitive parent such as /machine-approval/<code>."""
+    parts = path.split("/")
+    for i in range(1, len(parts)):
+        if parts[i] and parts[i - 1].lower() in RULES["sensitive_path_parents"]:
+            parts[i] = RULES["redacted_path_segment"]
+    return "/".join(parts)
+
+
 def sanitize_url(value):
     try:
         url = urlsplit(value)
@@ -130,7 +143,9 @@ def sanitize_url(value):
             for k, v in parse_qsl(url.query, keep_blank_values=True)
             if k.lower() not in RULES["sensitive_query_keys"]
         ]
-        return urlunsplit((url.scheme, host, url.path or "/", urlencode(params), ""))
+        return urlunsplit(
+            (url.scheme, host, sanitize_path(url.path or "/"), urlencode(params), "")
+        )
     except ValueError:
         return None
 

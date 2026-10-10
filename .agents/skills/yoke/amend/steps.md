@@ -1,152 +1,72 @@
-# /yoke amend — the amend sequence
+# Amend — Task Changes and Reconciliation
 
-1. **Verify the item has epic tasks.** Read via the
-   `epic_tasks.list.run` function call (`target = {kind: "epic_task",
-   public_ref: "PREFIX-N"}`, empty payload). If `result.tasks` is empty, inform
-   the user and suggest next steps:
+## 1–2. Resolve the graph and show state
 
-   > task_graph_missing: PREFIX-{epic-ref} has no epic tasks. Restore its task
-   > graph through the authoring binding in its pinned workflow before retrying.
-   > Read `yoke items detail get PREFIX-{epic-ref} --json` to resolve the pin.
+Read `epic_tasks.list.run` with target
+`{kind: "epic_task", public_ref: "PREFIX-N"}`, empty payload.
+No tasks: stop `task_graph_missing`; read
+`yoke items detail get PREFIX-N --json` and restore through the pin's
+authoring binding. An empty graph does not mean “not an epic” and never
+authorizes a direct body-edit workaround.
 
-   Do NOT conclude from an empty result that the item is "not an epic"
-   — its pinned authoring segment may need to complete first. Do NOT fall back to
-   directly editing the item body as a workaround.
+Show task_num, title, worktree, context_estimate, dependencies, status and
+dispatch_attempts. The caller retains its work claim; apply
+[surfaces.md](surfaces.md)'s envelopes to every mutation.
 
-2. **Show current task state.** Render the `epic_tasks.list.run`
-   response as a readable table with one row per task (task_num,
-   title, worktree, context_estimate, dependencies, status,
-   dispatch_attempts).
+## 3–4. Select the approved action
 
-3. **Check for simulation gaps.** Query simulation reports through the
-   registered epic-task read wrapper:
+```sh
+yoke workflow-item epic-task simulation-get --epic "{epic-ref}" --phase integration
+```
 
-   ```bash
-   yoke workflow-item epic-task simulation-get --epic "{epic-ref}" --phase integration
-   ```
+Use plan only when no integration report exists. Parse `## Gaps Found` /
+`### GAP #N`: critical/warning gaps and notes with concrete fix guidance are
+actionable. Summarize severity/guidance and recommend one fix task. On
+confirmation derive its title, root-cause/fix body, one AC per gap and touched
+files from guidance; skip gathering task details again. Otherwise ask Add,
+Split, Reassign or Remove (remove only planning/planned).
 
-   Fall back to `plan` if no integration report exists. If a report
-   has gaps:
+## 5–8. Apply one change
 
-   - Parse the `## Gaps Found` section for each `### GAP #N` entry.
-   - Filter to gaps with severity `[WARNING]` or `[CRITICAL]`
-     (include `[NOTE]` gaps when they have concrete fix guidance).
-   - Present a summary to the user:
+All task targets are `{kind: "epic_task", public_ref: "PREFIX-N", task_num}`.
 
-     > **Simulation report found {N} gaps with fix guidance:**
-     > - GAP #1 [SEVERITY]: {one-line summary}
-     > - GAP #2 [SEVERITY]: {one-line summary}
-     >
-     > **Recommended:** Create a single fix task covering all
-     > actionable gaps.
+| Action | Registered call and payload | Follow-through |
+|---|---|---|
+| Add | `workflow_item.epic_task.add`; next task_num = prior MAX + 1; `{title, body, worktree, context_estimate, dependencies}` | New row/history starts planning. Create its GitHub issue, then `metadata_update` with `fields.github_issue`; optionally `lifecycle.transition.execute` to planned to skip planning review. Refresh parent worktree_plan. |
+| Split | `workflow_item.epic_task.split`; `{children: [{title, body, worktree, context_estimate, dependencies}, ...]}` | Handler creates children, rewrites parent dependents to them and marks parent replaced. Create each child's issue and record its github_issue. |
+| Reassign | `workflow_item.epic_task.reassign`; `{new_worktree: "<path>"}` | Handler updates row/audit. Refresh parent plan and worktree-name issue labels. |
+| Remove | `workflow_item.epic_task.remove`; `{reason: "<why>"}` | Only planning/planned; handler rewrites dependencies. Close the issue. In-progress/completed tasks use the ordinary retirement path, typically wrapup. |
 
-   - If the user confirms, skip step 4's "gather task details" —
-     auto-generate the task: title `"Fix integration simulation gaps
-     (GAP #1-#N)"`, body composed of each gap's root cause + fix
-     guidance, ACs one per gap, files-touched derived from each gap's
-     fix guidance.
+Parent plan refresh uses `items.structured_field.replace`, item target with
+the complete public ref, payload
+`{field: "worktree_plan", content: "<updated full plan>", source: "amend"}`.
+Keep the new task id and lane assignment reflected in that authoritative plan.
 
-   If no simulation report exists or it has no gaps, proceed to step 4.
+## 9–11. Reconcile after every change
 
-4. **Ask what the user wants to do** (skip if step 3 already
-   determined the action):
+Read refreshed tasks/file assignments:
 
-   - **Add** a new task
-   - **Split** an existing task into smaller tasks
-   - **Reassign** a task to a different worktree
-   - **Remove** a task (only at `planning` / `planned`)
+```sh
+yoke epic-tasks list --epic "{epic-ref}"
+yoke workflow-item epic-dispatch-chain list --epic "{epic-ref}"
+```
 
-5. **For adding a task** (including simulation-gap tasks from step 3),
-   dispatch the `workflow_item.epic_task.add` function call (envelope
-   in [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)):
+Check duplicate physical files assigned across worktrees. On overlap, warn
+and reconcile via task reassign/metadata operations before dispatch. Resolve
+missing worktree paths from registered lane/chain authority and create them
+through the [worktree surfaces](surfaces.md), with current upstream/path claims.
 
-   - `target = {kind: "epic_task", public_ref: "PREFIX-N", task_num: <next>}`
-     where `<next>` is `MAX(task_num) + 1` from the prior
-     `epic_tasks.list.run` response.
-   - `payload = {title, body, worktree, context_estimate, dependencies}`.
+For each affected worktree:
 
-   The handler mints the row, history record, and starts at `planning`.
-   Then assign the new task's GitHub issue number via
-   `workflow_item.epic_task.metadata_update` once the REST
-   issue-create step lands the issue id (`payload.fields =
-   {"github_issue": "<number>"}`). After the metadata write, dispatch
-   `lifecycle.transition.execute` against the same task to advance to
-   `planned` if you want to skip the `planning` review step.
+```sh
+yoke workflow-item epic-dispatch-chain get --epic "{epic-ref}" --worktree "{worktree}"
+```
 
-   Finally, refresh the parent epic's `worktree_plan` via
-   `items.structured_field.replace` (`target = {kind: "item", public_ref:
-   <epic-ref>}`, `payload = {field: "worktree_plan", content:
-   "<updated worktree plan>", source: "amend"}`) so the new task id
-   appears in the rendered plan.
+An existing chain receiving a task needs its queue extended:
 
-6. **For splitting a task**, dispatch
-   `workflow_item.epic_task.split` with `target = {kind: "epic_task",
-   public_ref: "PREFIX-N", task_num: <parent>}` and `payload = {children: [{title,
-   body, worktree, context_estimate, dependencies}, ...]}`. The
-   handler mints each child task row, rewrites dependencies that
-   pointed at the parent task to point at the children, and marks
-   the parent task `replaced`. Create the GitHub issues for each
-   child afterwards, then update each child's `github_issue` via
-   `workflow_item.epic_task.metadata_update`.
+```sh
+yoke workflow-item epic-dispatch-chain update --epic "{epic-ref}" --worktree "{worktree}" --field queue --value "{updated_queue_json}"
+```
 
-7. **For reassigning a worktree**, dispatch
-   `workflow_item.epic_task.reassign` with `target = {kind:
-   "epic_task", public_ref: "PREFIX-N", task_num}` and `payload = {new_worktree:
-   "<path>"}`. The handler updates the task row and emits the
-   matching audit event. Refresh the parent epic's `worktree_plan`
-   via `items.structured_field.replace` afterwards, and update any
-   GitHub issue labels that reference worktree names.
-
-8. **For removing a task**, dispatch `workflow_item.epic_task.remove`
-   with `target = {kind: "epic_task", public_ref: "PREFIX-N", task_num}` and
-   `payload = {reason: "<why the task is no longer needed>"}`. The
-   handler refuses tasks that are not at `planning` / `planned`;
-   in-progress or completed tasks must be retired through a
-   different path (typically by routing through `/yoke wrapup`).
-   The handler also cascades dependency rewrites (other tasks that
-   depended on this one are updated). Close the GitHub issue
-   afterwards.
-
-9. **Re-verify file overlap.** Read the refreshed task list and file
-   assignments via `yoke epic-tasks list --epic "{epic-ref}"`. Check for
-   duplicate file paths across different
-   worktrees. If overlap is detected, warn the user and help
-   reassign files via `workflow_item.epic_task.reassign` or
-   `metadata_update`.
-
-10. **Create any missing worktrees.** If the worktree plan now
-    references worktrees that don't exist yet, create them. Query
-    dispatch chains via `yoke workflow-item epic-dispatch-chain list
-    --epic "{epic-ref}"` to find worktree paths.
-
-11. **Update dispatch chain (if one exists).** Read the chain via the
-    registered dispatch-chain wrapper:
-
-    ```bash
-    yoke workflow-item epic-dispatch-chain get --epic "{epic-ref}" --worktree "{worktree}"
-    ```
-
-    If a chain exists and a new task was added to that worktree,
-    extend the chain queue:
-
-    ```bash
-    yoke workflow-item epic-dispatch-chain update --epic "{epic-ref}" --worktree "{worktree}" --field queue --value "{updated_queue_json}"
-    ```
-
-    If no dispatch chain exists for the worktree, skip — one will be
-    created when `/yoke conduct` is first run.
-
-## Notes
-
-- This command modifies state. Don't run it while a dispatch is in
-  progress for the same epic.
-- File overlap is re-verified after every change. This is the safety
-  net.
-- New tasks created via amend get new GitHub issue numbers, following
-  the same pattern as sync.
-- All workflow-item task data (titles, bodies, statuses, dependencies)
-  flows through the `workflow_item.epic_task.*` function family.
-  Simulation and dispatch-chain reads/writes flow through
-  `yoke workflow-item epic-task simulation-get` and
-  `yoke workflow-item epic-dispatch-chain ...`; `db_router query`
-  remains the retained operator-debug surface for ad hoc SQL/counts.
+No chain: Conduct creates one at its first run. Re-read receipts/state to verify
+the mutation, plan, overlap and queue agree before returning to the caller.

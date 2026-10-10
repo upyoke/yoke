@@ -48,6 +48,7 @@ from __future__ import annotations
 
 WATCHERS_COMMANDS: list[dict] = [
     {
+        "startup_roles": ("main_agent",),
         "topic": "core",
         "purpose": "Run pytest with a wake-routed watcher",
         "recipe": (
@@ -118,6 +119,7 @@ WATCHERS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("engineer_agent", "tester_agent"),
         "topic": "core",
         "purpose": "Run pytest foreground inside one tool call (subagent)",
         "recipe": (
@@ -135,6 +137,7 @@ WATCHERS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "core",
         "purpose": "Run doctor with a wake-routed watcher",
         "recipe": (
@@ -152,6 +155,7 @@ WATCHERS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "core",
         "purpose": ("Run merge or done-transition with watcher (main session)"),
         "recipe": (
@@ -179,6 +183,7 @@ WATCHERS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "core",
         "purpose": "Wait on a commit's CI runs with watcher (main session)",
         "recipe": (
@@ -191,6 +196,7 @@ WATCHERS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": (),
         "topic": "core",
         "purpose": (
             "Run pytest with explicit raw-capture path (post-completion inspection)"
@@ -212,6 +218,7 @@ WATCHERS_COMMANDS: list[dict] = [
         ),
     },
     {
+        "startup_roles": ("main_agent",),
         "topic": "core",
         "purpose": "Run doctor focused on specific HC rules",
         "recipe": (

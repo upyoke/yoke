@@ -1,242 +1,134 @@
-# Curate Phase: Cluster Entries And Route Them To An Output
+# Curate — Cluster and File
 
-This phase owns entry loading, clustering, code validation, duplicate checking, routing each cluster to a Dash or a work item, and reviewed/archive state updates for `/yoke curate`.
+## 1. Read a bounded queue
 
-## 1. Read Unreviewed Ouroboros Entries From The DB
+Field-notes are the primary channel; use the indexed dedicated reader when
+curating them. For a mixed queue use the shared entry reader. Count first,
+then page in batches of 50; both default to newest 50 with no time window:
 
-The shared entry reader is always bounded (default newest 50) so the
-https relay cannot exceed its response size ceiling. Start with a count,
-then page:
-
-```bash
+```sh
+yoke ouroboros field-note list --unreviewed --count
+yoke ouroboros field-note list --unreviewed --limit 50
+yoke ouroboros field-note list --unreviewed --limit 50 --offset 50
 yoke ouroboros entry list --unreviewed --count
 yoke ouroboros entry list --unreviewed --limit 50
 yoke ouroboros entry list --unreviewed --limit 50 --offset 50
-```
-
-Each list response is a JSON object whose `entries` array carries one typed
-record per entry (plus `limit` / `offset` for the page). A `--count` call
-returns `{ "count": N }` instead of entry bodies:
-
-- `id` — integer entry ID
-- `timestamp` — when the observation was made
-- `agent` — author label: the subagent role that logged it (`engineer`,
-  `tester`, ...) or the harness executor for a top-level session
-- `context` — epic/task or session context
-- `category` — `problem`, `friction`, `idea`, `cross-critique`, or
-  `field-note-{kind}` for the field-note channel
-- `body` — observation content
-- `reviewed_at` — empty for unreviewed entries
-- `project` — project slug or empty for system-level observations
-- `corrects` — entry this one supersedes, or empty
-- `superseded_by` — entry that supersedes this one, or empty
-- `promoted_dash` — the Dash this entry already produced, or empty
-
-To filter by project:
-```bash
-yoke ouroboros entry list --unreviewed --project P --limit 50
-```
-
-Read one full entry by id (preserves newlines in `body`):
-```bash
 yoke ouroboros entry get {id}
 ```
 
-Page until a page returns fewer than `--limit` rows (or `count` is
-exhausted). Collect the working set for clustering from those pages —
-do not request an unbounded list.
+A bare list uses the checkout's project; `--project P` selects another.
+List JSON carries `entries`, `limit`, `offset`; count returns `count`.
+Typed records carry id, timestamp, agent, context, category, body, project,
+reviewed_at, corrects, superseded_by and promoted_dash. Categories include
+problem/friction/idea/cross-critique and field-note kinds. Read full bodies
+by id when needed. Stop paging on a short page or exhausted count.
+Empty first page: “No new Ouroboros entries to review.” Malformed entry:
+warn and skip.
 
-- If `entries` is empty on the first page: report "No new Ouroboros entries to review." and stop.
-- If an entry record is malformed: log a warning and skip it.
+## 2. Cluster
 
-## 2. Cluster Related Observations
+Group the same root cause or improvement across contexts; unrelated signals
+stand alone. Already-promoted entries have their output; skip them.
+A correction's `corrects` link supersedes the older note: cluster the correction
+rather than both. Unlinked duplicate/restatement notes belong together and
+are both reviewed when handled.
 
-Review all unreviewed entries and group them by semantic similarity:
-- Same root cause -> one cluster
-- Same improvement idea from different contexts -> one cluster
-- Unrelated observations -> clusters of one
+Optional current Progress Logs/field-notes may supply context; proceed when
+none is relevant. Corroborating events start narrow:
 
-An entry carrying `promoted_dash` already produced its output — do not re-cluster it. An entry carrying `superseded_by` has been replaced; cluster the correction instead.
+```sh
+yoke events query --event-name {EventName} --project P --since "2 days ago" --limit 20
+```
 
-For each cluster, synthesize a summary that captures the core observation across all entries.
+Widen only after a useful result. Multi-day anomaly sweeps return full
+envelopes and are unsuitable queue browsing.
 
-## 3. For Each Actionable Cluster, Validate Against Current Code, Check For Duplicates, And Propose An Output
+## 3. Validate and propose
 
-### Optional session continuity context
+Scan current item titles, then specs for near misses; classify matches as
+title match, body match or scope overlap. Check done-item overlap too:
 
-Review recent item Progress Log entries and Ouroboros field-notes when they
-provide useful context. If no relevant continuity exists, proceed without it.
-
-### a. Duplicate check
-
-Pass 1 — Title scan:
-```bash
+```sh
 yoke items list --fields "id,title,status"
+yoke items get PREFIX-N spec
+yoke items list --status done --fields "id,title,status"
 ```
 
-Pass 2 — Spec scan for near-misses and overlapping keywords:
-```bash
-yoke items get {N} spec
-```
+Extract the observation's paths, functions, scripts, keys and patterns;
+verify them in current code. Classify Still present, Likely resolved or
+Inconclusive with evidence. One repair executable from a complete instruction
+is Dash; acceptance agreement or generated parallel lanes calls for an item.
+Volume alone does not change that choice.
 
-Classify each match as `[title match]`, `[body match]`, or `[scope overlap]`.
+Resolve the target project and use `workflow.execution_instruction.resolve`
+to read all filing instructions for the selected output before drafting:
 
-### b. Code validation
+Run only the resolver for the selected output; these are alternatives.
+For Dash:
 
-Before presenting the cluster, verify the problem still exists in the current codebase:
-
-1. Extract specific file paths, function names, script names, config keys, or code patterns from the observation body.
-2. Use Grep/Read to check whether the described problem is still present.
-3. Check done items for likely overlap:
- ```bash
- yoke items list --status done --fields "id,title,status"
- yoke items get {N} spec
- ```
-4. Assign one verdict:
- - **Still present**
- - **Likely resolved**
- - **Inconclusive**
-
-### c. Choose the output shape
-
-Pick by how the cluster is executed, not by how big it is:
-
-- **Dash** — the cluster names one concrete repair a single session can carry out from a written instruction: a recipe naming the wrong flag, a stale doc reference, an unhelpful denial message, a missing `--help` body. This is the common case for field-note clusters.
-- **Work item** — the cluster names a root cause that needs agreed acceptance criteria to settle, or a generated task graph across parallel lanes. Volume alone does not qualify: a large repair stated as one instruction is still a Dash.
-
-### d. Resolve the filing contract
-
-Resolve the cluster's target project before finalizing its proposed output.
-Use workflow `dash` for a Dash and `issue` for a work item, then call the
-registered `workflow.execution_instruction.resolve` read:
-
-```bash
-yoke workflow execution-instruction resolve \
- --workflow {dash|issue} --project {project} --full
-```
-
-Apply every returned instruction to the proposed title, Dash instruction, or
-work-item body. The create receipt remains defense in depth, not the first
-delivery point.
-
-### e. Present the cluster
-
-```text
-Cluster {N}: {synthesized title}
-Based on {count} observation(s) from: {agent list}
-Category: {problem | friction | idea | cross-critique | field-note-{kind}}
-Entry IDs: {comma-separated list}
-
-Summary: {synthesized description}
-
-Code validation: {Still present | Likely resolved | Inconclusive}
-{validation details}
-
-Proposed output: {dash | work item}
- Title: {title}
- Instruction / Priority: {instruction for a dash | low | medium | high}
-
-Similar existing items:
- - PREFIX-{N}: {existing title} (status: {status})
-
-Likely resolved -- recommend skip
- Evidence: {brief explanation}
-
-Action? (create / skip / defer)
-```
-
-- `create` -> promote or file in step 4
-- `skip` -> mark entries as reviewed without producing an output
-- `defer` -> leave entries unreviewed for the next curate run
-
-## 4. Produce Approved Outputs
-
-### Dash — the default for field-note clusters
-
-Promote the entry that best states the signal. The promotion creates the Dash, links it to the note, and marks that note reviewed:
-
-```bash
+```sh
 yoke workflow execution-instruction resolve --workflow dash --project {project} --full
-yoke ouroboros field-note promote {entry-id} \
-  --title "{specific title}" \
-  --instruction "{the complete requested scope, in one paragraph}"
 ```
 
-The instruction defaults to the note's own body — pass `--instruction` when the cluster says more than any single note does. A note with no project needs `--project {slug}`; notes written after project attribution landed carry their own. Mark the cluster's other entries reviewed in step 5.
+For an Issue:
 
-### Work item — for root causes
-
-Invoke:
-
-```bash
+```sh
 yoke workflow execution-instruction resolve --workflow issue --project {project} --full
-yoke items create "{title}" issue --priority {priority} --entry-surface harness_skill --execution-instructions-considered
 ```
 
-Immediately write a body with the cluster context:
+Apply every returned instruction before the effect; the create receipt is
+defense in depth. Present each cluster's title, count/authors/category/entry
+ids, summary, code verdict/proof, proposed output/title/instruction or priority,
+and similar items with refs/status. Recommend skip with evidence for likely
+resolved work. Ask `create / skip / defer`: create routes below, skip reviews
+without output, defer keeps entries unreviewed.
 
-1. Create a temp file containing:
- ```text
- # {work item title}
+## 4. Produce approved outputs
 
- ## Observation Summary
- {synthesized cluster summary}
+For Dash, promote the representative field-note:
 
- ## Source Entries
- - Entry IDs: {comma-separated entry IDs}
- - Agents: {comma-separated agent list}
- - Categories: {category or categories}
+```sh
+yoke ouroboros field-note promote {entry-id} --title "{specific title}" --instruction "{complete scope}"
+```
 
- ## Code Validation
- - Verdict: {Still present | Likely resolved | Inconclusive}
- - {validation details}
+Promotion links the output and reviews that note. Instruction defaults to its
+body; override when the cluster has broader scope. A note with no project
+requires `--project {slug}`; attributed notes use their own project.
+Review the other handled cluster entries below.
 
- ## File Budget
- UNRESOLVED — this work item creates/grows authored code but the file shape is not yet known. `/yoke refine` MUST resolve the expected implementation shape before this item advances past `refining-idea`.
- ```
+For a work item, use the issue workflow's authorized `harness_skill` filing
+contract, the same contract `/yoke idea` uses. After the full instruction read,
+create once:
 
-When the target project's effective File Budget policy is required, that
-UNRESOLVED marker is the minimum idea-status shape. `/yoke refine` resolves
-it before the item leaves `refining-idea`. Include the section even when
-the policy is currently optional — an extra documented deferral does not
-fail optional-budget workflows.
-2. Write the spec via the `items.structured_field.replace` function
-   call (envelope in
-   [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)):
-   `target = {kind: "item", public_ref: "PREFIX-N"}`, `payload = {field: "spec",
-   content: "<spec content>", source: "curate"}`. `items.body` is a
-   virtual rendered field — writes always route through the structured
-   `spec` field.
-3. Verify the write succeeded by checking the response
-   `success=true` and the
-   `result.new_line_count` / `result.verification` fields.
+```sh
+yoke items create "{title}" issue --project {project} --priority {priority} --entry-surface harness_skill --execution-instructions-considered
+```
 
-If `gh` is available:
-- Ensure the `source:ouroboros` label exists
-- Tag the GitHub issue with that label
+Immediately write the spec through `items.structured_field.replace`:
+target `{kind: "item", public_ref: "PREFIX-N"}`, payload
+`{field: "spec", content: "<full spec>", source: "curate"}`.
+Use [typed envelopes](../idea/body-and-sync-functions.md).
+The spec includes observation summary, source entry ids/authors/categories,
+code verdict/evidence and File Budget. Mark unknown authored-file shape
+`UNRESOLVED`; Refine must resolve it before leaving `refining-idea`.
+Include that deferral even when budget is optional. Verify `success=true`,
+`result.new_line_count` and `result.verification`; virtual body is read-only.
+When gh is available, ensure `source:ouroboros` exists and tag the resolved
+`github_issue`, rather than treating a public ref as an issue number.
 
-## 5. Mark Entries As Reviewed
+## 5–6. Review and archive
 
-For every entry examined during this curate run, mark it as reviewed:
+Mark each handled entry, except deferred entries or a promoted note already
+reviewed by promotion:
 
-```bash
+```sh
 yoke ouroboros entry mark-reviewed {id}
-```
-
-Entries where the operator chose `defer` should not be marked reviewed. A promoted entry is already marked reviewed by its promotion.
-
-The entry's own project authorizes the write, so an id from another
-project is refused rather than closed out under this checkout's project.
-
-## 6. Archive Reviewed Entries
-
-After marking entries as reviewed, archive all reviewed-but-not-yet-archived entries:
-
-```bash
 yoke ouroboros entry mark-archived --all-reviewed
 ```
 
-The command returns the count of archived entries. It archives this
-checkout's project (pass `--project P` to name another), and refuses to run
-with no project rather than archiving every project's queue. Add
-`--include-unattributed` to also cover entries that belong to no project.
+Review timestamps prevent repeated processing; archive immediately and retain
+DB history. A named id is authorized by its own project. Unnamed selectors
+(`--all-reviewed`, `--before`, `--field-notes-before`) target the checkout
+project or explicit `--project P` and refuse without one. Unattributed entries
+remain unless `--include-unattributed` explicitly includes them. Record the
+archive receipt count; then return to the retrospective in run.md.

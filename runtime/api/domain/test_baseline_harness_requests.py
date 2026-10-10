@@ -180,7 +180,7 @@ def test_zero_exit_login_status_is_not_a_native_request_response(program):
     control = _Control(program, stdout="Logged in")
     result = prove_linux_probes(control, control.document)
     assert not result.ok
-    assert result.evidence["probes"][0]["cause"] == "harness_request_failed"
+    assert result.evidence["probes"][0]["cause"] == "probe_reply_unanswered"
 
 
 @pytest.mark.parametrize(

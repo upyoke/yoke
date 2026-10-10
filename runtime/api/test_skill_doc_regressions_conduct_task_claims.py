@@ -13,7 +13,7 @@ class TestConductPerTaskClaims:
     CONDUCT = SKILLS / "conduct"
 
     def test_dispatch_acquires_per_task_claim(self):
-        text = _read(self.CONDUCT / "engineer-tester-dispatch.md")
+        text = " ".join(_read(self.CONDUCT / "engineer-tester-dispatch.md").split())
         for needle in (
             "yoke claims work acquire",
             "--epic",
@@ -51,7 +51,7 @@ class TestConductPerTaskClaims:
             "Same-session re-acquire",
             "Other-session-held",
             "Stale-by-absent-session",
-            "chain_head_freshness",
+            "head_dispatch",
             "claim_conflict",
         ):
             assert needle in text, f"loop.md missing: {needle}"

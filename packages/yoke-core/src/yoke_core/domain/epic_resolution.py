@@ -307,14 +307,12 @@ def simulation_get(conn, epic_id: str, phase: str) -> str:
            JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id
            WHERE qreq.qa_kind = 'simulation'
              AND qreq.item_id = {_p(conn)}
-             -- deliberate case-sensitive match against internal JSON-literal values
-             AND qreq.success_policy LIKE {_p(conn)}
+             AND {json_get("qreq.success_policy", "$.phase")} = {_p(conn)}
              AND substr(qr.raw_result, 1, 1) = '{{'
-             -- deliberate case-sensitive match against internal JSON-literal values
-             AND qr.raw_result LIKE {_p(conn)}
+             AND {json_get("qr.raw_result", "$.phase")} = {_p(conn)}
            ORDER BY qr.created_at DESC, qr.id DESC
            LIMIT 1""",
-        (int(epic_id), f'%"phase":"{phase}"%', f'%"phase":"{phase}"%'),
+        (int(epic_id), phase, phase),
     )
     if row is None:
         raise LookupError(f"simulation '{epic_id}/{phase}' not found")

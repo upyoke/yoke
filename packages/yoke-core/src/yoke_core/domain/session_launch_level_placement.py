@@ -23,16 +23,19 @@ never borrows another level's options: steering decides whether to relaunch.
 from __future__ import annotations
 
 from datetime import datetime
-
-from dataclasses import asdict, dataclass, replace
+from dataclasses import replace
 from typing import Any, Sequence
 
 from yoke_contracts.levels import Level, LevelOption
 from yoke_contracts.timestamps import as_utc
 from yoke_core.domain.machine_launch_access import filter_by_machine_access
+from yoke_core.domain.machine_registry import display_name, machine_names
 from yoke_core.domain.refusal_recovery import compose_refusal
+from yoke_core.domain.session_launch_level_candidate import (
+    LevelCandidate,
+    LevelPlacement,
+)
 from yoke_core.domain.session_launch_level_pools import (
-    PoolCheck,
     binding_pool,
     exhausted_pool,
     live_workers,
@@ -57,59 +60,6 @@ RULE_SPREAD = "spread"
 RULE_HEADROOM = "most_headroom"
 #: Above this headroom a surface with no live worker takes the launch.
 SPREAD_HEADROOM_PERCENT = 100.0
-
-
-@dataclass(frozen=True)
-class LevelCandidate:
-    """One option weighed on one machine, and what decided it."""
-
-    option_index: int
-    surface: str
-    model: str
-    reasoning_effort: str
-    context_window_tokens: int | None
-    machine_id: str | None
-    fallback: bool
-    pools: tuple[PoolCheck, ...] = ()
-    headroom_percent: float | None = None
-    headroom_window: str | None = None
-    live_workers: int = 0
-    blocked: str | None = None
-    chosen: bool = False
-
-    @property
-    def label(self) -> str:
-        where = f" on {self.machine_id}" if self.machine_id else ""
-        via = " (fallback)" if self.fallback else ""
-        return f"{self.surface} {self.model} {self.reasoning_effort}{via}{where}"
-
-    def to_dict(self) -> dict[str, Any]:
-        out = asdict(self)
-        out["pools"] = [pool.to_dict() for pool in self.pools]
-        out["label"] = self.label
-        return out
-
-
-@dataclass(frozen=True)
-class LevelPlacement:
-    """The level a launch asked for, every candidate weighed, and the winner."""
-
-    level: str
-    levels_source: str
-    candidates: tuple[LevelCandidate, ...]
-    chosen: LevelCandidate | None
-    rule: str | None
-    reason: str
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "level": self.level,
-            "levels_source": self.levels_source,
-            "chosen": self.chosen.to_dict() if self.chosen else None,
-            "rule": self.rule,
-            "reason": self.reason,
-            "candidates": [candidate.to_dict() for candidate in self.candidates],
-        }
 
 
 def _level(levels: Sequence[Level], name: str, source: str) -> Level:
@@ -144,6 +94,7 @@ def _weigh(
     *,
     index: int,
     relay: EligibleRelay,
+    names: dict[str, str],
     limits: Sequence[Any],
     workers: dict[str, int],
     now: datetime,
@@ -165,6 +116,7 @@ def _weigh(
         reasoning_effort=option.reasoning_effort,
         context_window_tokens=option.context_window_tokens,
         machine_id=relay.machine_id,
+        machine_name=display_name(names, relay.machine_id),
         fallback=fallback,
         pools=pools,
         headroom_percent=binding.headroom_percent if binding else None,
@@ -190,6 +142,7 @@ def _candidates(
 ) -> list[LevelCandidate]:
     limits = load_plan_limits(conn, project_id=project_id, now=now)
     workers = live_workers(conn)
+    names = machine_names(conn)
     weighed: list[LevelCandidate] = []
     for index, option in enumerate(level.options):
         snapshot, denials = filter_by_machine_access(
@@ -225,6 +178,7 @@ def _candidates(
                 option,
                 index=index,
                 relay=relays[machine],
+                names=names,
                 limits=limits,
                 workers=workers,
                 now=now,
@@ -237,6 +191,7 @@ def _candidates(
                         option.fallback,
                         index=index,
                         relay=relays[machine],
+                        names=names,
                         limits=limits,
                         workers=workers,
                         now=now,

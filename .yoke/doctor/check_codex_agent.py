@@ -30,6 +30,7 @@ from yoke_core.engines.doctor_report import (
     _resolve_repo_root,
 )
 from yoke_core.domain.agents_render_codex import render_codex_agent
+from yoke_core.domain.agents_render import AGENTS
 
 
 _CANONICAL_AGENTS_DIR = Path("runtime/agents")
@@ -40,15 +41,7 @@ _CODEX_DOC = Path("docs/public/guides/codex-harness.md")
 _AGENTS_DOC = Path("docs/agents.md")
 
 # Canonical agents for which Codex adapter parity is meaningful.
-_CANONICAL_AGENTS = (
-    "product-manager",
-    "product-designer",
-    "architect",
-    "engineer",
-    "tester",
-    "simulator",
-    "boss",
-)
+_CANONICAL_AGENTS = tuple(AGENTS)
 
 
 def _root_path(rel: Path) -> Path:

@@ -22,7 +22,12 @@ PACKAGED_SKILLS = (
     / "yoke"
 )
 SOURCE_FUNCTION_REFERENCE = (
-    REPO_ROOT / ".yoke" / "docs" / "reference" / "db-reference" / "functions.md"
+    REPO_ROOT
+    / ".yoke"
+    / "docs"
+    / "reference"
+    / "db-reference"
+    / "functions-worktrees.md"
 )
 PACKAGED_FUNCTION_REFERENCE = (
     REPO_ROOT
@@ -35,7 +40,7 @@ PACKAGED_FUNCTION_REFERENCE = (
     / "public"
     / "reference"
     / "db-reference"
-    / "functions.md"
+    / "functions-worktrees.md"
 )
 RECIPE_PATHS = (
     "implement/SKILL.md",
@@ -99,7 +104,11 @@ def test_evidence_only_recovery_releases_active_lane_records(
 ) -> None:
     for relative_path in ("implement/evidence-only.md", "usher/deploy.md"):
         text = (root / relative_path).read_text()
-        clean_check = text.find('git -C "$_wt_path" status --porcelain')
+        clean_match = re.search(
+            r'git -C (?:"\$_wt_path"|ABSOLUTE_REGISTERED_LANE) status --porcelain',
+            text,
+        )
+        clean_check = clean_match.start() if clean_match else -1
         release = text.find("yoke item-worktrees release PREFIX-N --all-active")
         assert clean_check != -1
         assert release != -1

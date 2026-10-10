@@ -9,7 +9,6 @@ from typing import List
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
-    attach_help_trailer,
     parse_or_usage_error,
 )
 from yoke_cli.config import onboard_github_copy
@@ -152,7 +151,11 @@ def onboard_project(args: List[str]) -> int:
 
 
 def _project_parser(prog: str, usage: str) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog=prog, description=usage)
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        prog=prog,
+        description=usage,
+    )
     parser.add_argument("--slug", required=True)
     parser.add_argument("--name", required=True)
     parser.add_argument(
@@ -174,7 +177,6 @@ def _project_parser(prog: str, usage: str) -> argparse.ArgumentParser:
     mode.add_argument("--dry-run", dest="dry_run", action="store_true")
     parser.set_defaults(apply=False, dry_run=False)
     add_json_arg(parser)
-    attach_help_trailer(parser)
     return parser
 
 

@@ -185,3 +185,45 @@ class TestDocUnarchive:
         assert (tmp_path / ".yoke" / "strategy" / "PAD.md").read_text(
             encoding="utf-8"
         ) == "<!-- h -->\n# PAD\n"
+
+
+def test_section_replace_receipt_names_only_the_edited_document(tmp_path):
+    from yoke_cli.commands.adapters import strategy_doc_write as owner
+    from types import SimpleNamespace
+
+    response = SimpleNamespace(
+        success=True, result={"slug": "MISSION", "changed": True}, warnings=[]
+    )
+    report = dict.fromkeys(
+        ["MISSION", "LANDSCAPE", "VISION", "MASTER-PLAN", "CURRENT-PLAN"], "rendered"
+    )
+    output = io.StringIO()
+
+    def emit(actual, **kwargs):
+        assert actual is response
+        kwargs["human_writer"](actual, output, io.StringIO())
+        return 0
+
+    with (
+        patch.object(owner, "call_dispatcher", return_value=response) as dispatch,
+        patch.object(owner, "apply_rendered_docs", return_value=(report, [])),
+        patch.object(owner, "emit_response", side_effect=emit),
+    ):
+        assert (
+            owner.dispatch_and_render(
+                function_id="strategy.doc.section_replace",
+                payload={"slug": "MISSION"},
+                actor=None,
+                target=None,
+                json_mode=False,
+                target_root=tmp_path,
+                anchor_error=None,
+                skipped_verb="edited",
+            )
+            == 0
+        )
+    assert dispatch.call_args.kwargs["payload"]["slugs"] == ["MISSION"]
+    assert len(output.getvalue()) <= 75
+    assert "MISSION\trendered" in output.getvalue()
+    assert "LANDSCAPE" not in output.getvalue()
+    assert report["LANDSCAPE"] == "rendered"

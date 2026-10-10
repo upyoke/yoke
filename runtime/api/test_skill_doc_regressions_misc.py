@@ -16,10 +16,18 @@ from runtime.api.skill_doc_regressions_test_helpers import (
 
 
 class TestSystemSimulationAgentPrompts:
-    """System-wide simulation reads installed agent prompts without source-layout assumptions."""
+    """Source-only audits preserve native prompt identities behind their guard."""
+
+    @staticmethod
+    def _system_guide():
+        phase = _read(SKILLS / "simulate" / "system.md")
+        assert "--system requires a Yoke source checkout" in phase
+        assert "before reading that guide" in phase
+        assert "docs/source-dev/system-simulation.md" in phase
+        return _read(REPO / "docs/source-dev/system-simulation.md")
 
     def test_system_simulation_reads_installed_agent_prompts(self):
-        text = _read(SKILLS / "simulate" / "system.md")
+        text = self._system_guide()
         assert (
             "Rendered agent prompts: all `.claude/agents/yoke-*.md`, "
             "`.codex/agents/yoke-*.toml`, and `.cursor/agents/yoke-*.md`"
@@ -30,7 +38,7 @@ class TestSystemSimulationAgentPrompts:
         )
 
     def test_system_simulation_does_not_treat_claude_agents_as_canonical(self):
-        text = _read(SKILLS / "simulate" / "system.md")
+        text = self._system_guide()
         assert "Agent definitions: all `.claude/agents/yoke-*.md`" not in text
         assert (
             "{contents of each .claude/agents/yoke-*.md file, labeled with filename}"
@@ -38,7 +46,7 @@ class TestSystemSimulationAgentPrompts:
         )
 
     def test_system_simulation_uses_system_scope_attestation(self):
-        system = _read(SKILLS / "simulate" / "system.md")
+        system = self._system_guide()
         simulator = _read(AGENTS / "yoke-simulator.md")
         assert "SCOPE: SYSTEM" in system
         assert "SCOPE: SYSTEM" in simulator

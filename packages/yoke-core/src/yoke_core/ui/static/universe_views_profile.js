@@ -139,6 +139,39 @@ function onboardingSetting(context, profile) {
   return host;
 }
 
+// A host whose browser holds its own web session names where it ends. Signing
+// out also drops this browser's analytics visitor id, so whoever uses the
+// browser next is not counted as this person.
+function signOutSetting(context, signOutPath) {
+  const documentNode = context.document;
+  const button = el(documentNode, "button", "item-button", "Sign out");
+  button.type = "button";
+  const error = el(documentNode, "div");
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    error.replaceChildren();
+    try {
+      const view = documentNode.defaultView;
+      const response = await view.fetch(signOutPath, { method: "POST", credentials: "same-origin" });
+      if (response.ok) { view.location.assign("/"); return; }
+      const body = await response.json().catch(() => ({}));
+      error.textContent = `${body.error?.code || `HTTP ${response.status}`}: `
+        + `${body.error?.message || "sign-out did not complete; try again"}`;
+    } catch (failure) {
+      error.textContent = `sign_out_unavailable: ${failure}; check the connection and try again`;
+    }
+    button.disabled = false;
+  });
+  const row = settingRow(
+    documentNode, "Sign out",
+    "End this browser's session. Whoever signs in here next starts as a new visitor.",
+    [button],
+  );
+  const host = el(documentNode, "div");
+  host.replaceChildren(row, error);
+  return host;
+}
+
 export function renderProfileView(context, main, scope, chrome) {
   const documentNode = context.document;
   if (chrome && typeof chrome.setPageHead === "function") {
@@ -176,6 +209,8 @@ export function renderProfileView(context, main, scope, chrome) {
     settings.renderEnvelope(result, (body) => {
       body.appendChild(timeZoneSetting(context, profile));
       body.appendChild(onboardingSetting(context, profile));
+      const signOutPath = context.capabilities?.data?.session?.signOutPath;
+      if (signOutPath) body.appendChild(signOutSetting(context, signOutPath));
     });
   };
   return load();

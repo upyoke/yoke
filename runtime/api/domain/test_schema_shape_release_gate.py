@@ -102,7 +102,9 @@ class TestReceiptSchemaShape:
         assert "prod" in message
         assert _DIGEST in message
         assert "schema-shape" in message
-        assert "missing column" in message
+        assert "Release refused" in message
+        assert "yoke watch preflight" in message
+        assert "--record-receipt" in message
 
 
 class TestReleaseGateSchemaShape:

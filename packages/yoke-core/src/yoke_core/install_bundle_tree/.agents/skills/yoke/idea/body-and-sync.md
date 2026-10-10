@@ -1,294 +1,112 @@
-# Idea Phase: Persist Body And Sync
+# Idea — Persist, Verify, Close
 
-This phase owns the mandatory body write, additive-only handling, AC normalization, verification, and GitHub body sync for `/yoke idea`.
+## 8. Full spec is mandatory
 
-## 8. Persist The Body
+Anything beyond title is description. Preserve every user line, code block,
+table, mockup, question and ASCII artifact **verbatim**; add structure/notes,
+never summarize or paraphrase. Include Pack Reuse when inferred.
 
-This step is mandatory, not optional.
+Every body has an advisory **Simplify Pre-Check**: reuse (what existing item,
+feature, Pack/helper/skill/command was searched), quality (one outcome/non-goals),
+efficiency (cheapest valuable path, no speculative temporary work), future-concept
+(shared-state primitive or absorption), codebase-reader naming (current-purpose
+surfaces without planning artifact). One-line no concerns is valid first intake.
 
-### Body detection
+Read result.effective_policies.file_budget and .path_claims once through workflows.item.get:
+required item, required_per_task tasks, optional off; no raw-policy reconstruction.
+Universal350 still applies. Follow [file-budget.md](file-budget.md) for the
+sole complete budget structure and current counts/sibling rules. Pair axes only
+when both enabled; claims alone derive full scope, budget alone has no claim,
+neither creates neither. Required overlapping files never disappear.
+When File Budget is off, omit that section.
 
-Scan the user's message for body content. Any text beyond the title counts as a description. This includes inline descriptions, multi-line specs, references to plans, implementation details, acceptance criteria, or any other context the user provided. Do not silently discard it.
+Enabled implementation-bearing budget follows pre-check before ACs:
+known exact file shape, UNRESOLVED unknown shape (Refine must resolve before
+handoff), or N/A with honest no-code-growth reason. If code is discovered later,
+add a real budget before coding. The design target is<=300, hard350.
+ACs use canonical `- [ ] AC-N: ...`; normalize labels without losing content.
 
-### Additive-only rule
+No supplied description: ask once whether to add one. If declined, still write
+title plus all pre-check lenses and the appropriate enabled budget shape.
+Do not leave a title-only row as successful intake.
 
-You may add structure, headings, cross-references, or clarifying notes. You must not summarize, condense, paraphrase, or omit any of the user's original content. Every line, code block, mockup, table, and ASCII artifact the user wrote must appear verbatim in the body.
-
-### Simplify pre-check (advisory)
-
-Every new body carries a `## Simplify Pre-Check` block applying the simplify three-axis vocabulary at the idea stage. The vocabulary lives in `AGENTS.md`'s `## Simplify — three-axis doctrine` section: **reuse**, **quality**, **efficiency**. The pre-check is **advisory, not a blocker** — its structural presence at intake matters more than its depth. A one-line "no concerns" entry under each axis is a valid first pass.
-
-- **Reuse** — does an existing work item, completed feature, Pack, helper, skill, or command surface already cover this outcome? If unsure, name what was searched.
-- **Quality** — is this one concrete outcome, or a bundle that should split or become an epic? Are there explicit non-goals that prevent scope creep?
-- **Efficiency** — is this speculative transitional work ("do X so maybe later we can do Y") when Y is not committed? Or the cheapest valuable path?
-- **Future-concept lens** — if the idea mentions actors, sessions, heartbeats, ownership, leases, claims, approvals, overrides, evidence, runs, journals, packets, locks, or shared-state coordination, should it consume/pull forward an end-state primitive instead of creating a temporary local surface?
-- **Codebase-reader naming** — assume future readers will not have the work item, strategy doc, plan, phase, task, or AC that produced this work. Any proposed file, module, helper, test, doc, command, event, config key, or symbol must be named for current function/purpose/mechanics, not for planning-artifact provenance.
-
-Compose the block as part of the body content the user provided. Example:
-
-```markdown
-## Simplify Pre-Check
-
-- Reuse: no relevant existing surface (searched `rg ...`).
-- Quality: one concrete outcome (no scope creep).
-- Efficiency: no concerns.
-- Future-concept lens: no later-generation primitive implicated.
-- Codebase-reader naming: proposed names describe current functionality, not planning artifacts.
-```
-
-### File Budget (upstream of the 350-line cap)
-
-The full File Budget contract — effective-policy resolution, required
-structure, current line counts, sibling-module plan when any file is at-cap,
-and conditional File Budget/path-claim consistency — lives in
-[`file-budget.md`](file-budget.md). Read it once.
-
-Before composing the body, read the registered effective-policy projection:
-
-```text
-yoke workflows item get ITEM --json
-```
-
-Consume `result.effective_policies.file_budget` and
-`result.effective_policies.path_claims`. `required` is on at item scope,
-`required_per_task` is on at generated-task scope, and `optional` is off.
-Do not index raw `policies.file_budget` or combine raw policy and posture
-locally: schema-v1/v2 compatibility and allowed tightening are owned by
-`workflows.item.get`.
-- The 350-line authored-file limit is universal and never depends on either
-  policy.
-
-File Budget paths and responsibility notes must pass the codebase-reader naming rule from `AGENTS.md`: do not name expected files after the work item, strategy doc, plan, phase, task, AC, branch, or worktree that produced the work. Name the file by the current responsibility a future repository reader will see.
-
-**Pair only when both axes are enabled.** In that posture, author the File
-Budget and path claim together from the same enumeration. When File Budget is
-off and path claims are on, derive the claim set from the investigated
-execution scope. When File Budget is on and path claims are off, keep the
-budget for sizing and conflict evidence and do not register a claim. When
-both are off, author neither artifact. An overlap never removes a required
-path from any enabled surface.
-
-When effective File Budget is enabled, every new body for an
-**implementation-bearing** work item carries a `## File Budget` section. The
-hard limit is 350 lines per authored file (owned by
-`yoke_core.domain.file_line_check`); the design target is `<=300` lines so
-implementors have editing headroom without crossing the cap mid-iteration.
-When policy is off, omit the section without weakening the universal cap.
-
-Three valid shapes — pick the one that matches what the operator described:
-
-1. **Implementation-bearing, known shape** — name the likely files/modules and a one-line single responsibility for each.
-2. **Implementation-bearing, unknown shape** — record the work as creating/growing authored code AND mark the budget unresolved so `/yoke refine` is forced to resolve it before `refined-idea`.
-3. **Non-code (docs-only / config-only / no authored-code growth)** — record `N/A` plus a one-line reason. If implementation later discovers authored-code work while effective File Budget is enabled, refine/implement must add a real File Budget before coding.begins.
-
-Compose the block immediately after `## Simplify Pre-Check` so it is
-visible before acceptance criteria. Three valid examples:
-
-```markdown
-## File Budget
-
-- Hard limit: 350 lines per authored file.
-- Design target: <=300 lines per authored file.
-- Expected implementation shape:
-  - `path/to/file_a.py` — current 120 lines; remaining headroom 230;
-    at-or-over-limit: false; responsibility: single responsibility A.
-  - `path/to/file_b.py` — current 0 lines; remaining headroom 350;
-    at-or-over-limit: false; responsibility: single responsibility B.
-```
-
-Every known-shape entry carries those same three sizing fields. Use the
-survey result when the surface follows a direct-workflow survey; otherwise
-read the target checkout. A negative remaining-headroom value is preserved,
-not clamped, and `at-or-over-limit` is true when current lines are >=350.
-
-```markdown
-## File Budget
-
-UNRESOLVED — this work item creates/grows authored code but the file shape is not yet known. `/yoke refine` MUST resolve the expected implementation shape before this item advances past `refining-idea`.
-```
-
-```markdown
-## File Budget
-
-N/A — docs-only updates to README. If implementation discovers authored-code changes while effective File Budget is enabled, refine/implement must add a real File Budget before coding.
-```
-
-The File Budget is upstream guidance, not a write-time denial —
-late-stage enforcement (`yoke_core.domain.file_line_check`) is the
-canonical backstop. The contract here shapes the work earlier so
-implementors are not asked to invent oversized modules in the first
-place.
-
-### AC format rule
-
-**Always use checkbox format for acceptance criteria.** Write `- [ ] AC-N: {description}` — never bare `- AC-N:` or `- ACN:`. The AC-presence gate (PRD-9 at Refine closure) requires checkboxes; writing them correctly here avoids a round-trip rewrite later.
-
-### If the user provided body content
-
-1. Compose the full body content and dispatch it through the
-   `items.structured_field.replace` function call (see
-   [`body-and-sync-functions.md`](body-and-sync-functions.md) for the
-   envelope shape and payload contract):
-
-   - `function = "items.structured_field.replace"`
-   - `target = {kind: "item", public_ref: "PREFIX-N"}`
-   - `payload = {field: "spec", content: "<full body>", source: "idea", force: false}`
-
-   The body content is the same per-section composition the prior
-   choreography emitted (title + verbatim user content + the
-   `## Pack Reuse` block when `_pack_stance` is non-empty).
-   The handler enforces the empty-payload / shrinkage / freeze guards
-   and emits `YokeFunctionCalled` plus the field-specific update event.
-   Operator/debug adapter: Write the body to a local artifact via the harness Write tool, then `yoke items structured-field replace PREFIX-{id-number} --field spec --source idea --stdin < <artifact-path>` (inline shell payloads are denied by `lint_shell_quoted_function_payload`).
-
-2. Normalize non-canonical ACs when needed: the live `python3 -m yoke_core.domain.normalize_ac_labels` reads stdin or `--file FILE` (no `--item`); normalization of DB-resident specs runs inside `/yoke shepherd PREFIX-{id-number}`.
-
-3. Verify the body was written via `items.get.run`
-   (`fields: ["spec", "body"]`). If the returned `spec` contains only
-   `# {title}` or is empty, retry the `items.structured_field.replace`
-   call once.
-
-### If the user provided no body content
-
-Ask the user explicitly:
-> Do you want to add a description? (Yes / No)
-
-If yes, collect the description and run the same body-write flow. If no, still write a minimal spec containing `# {title}` plus `## Simplify Pre-Check` with one-line entries for reuse, quality, efficiency, the future-concept lens, and codebase-reader naming (for example, `no concerns from title-only intake`). When effective File Budget is enabled, also include `## File Budget` using the appropriate shape from the section above: a title-only work item whose nature is genuinely unknown records `UNRESOLVED` so refine resolves it before implementation, or `N/A` with a reason if the operator confirmed no authored code will change. When File Budget is off, omit that section.
-
-Important: do not edit a rendered body directly. Always update via the
-structured-field function calls — `items.structured_field.replace` for
-full rewrites, `items.structured_field.append_addendum` /
-`section_upsert` / `section_append` for additive transforms. See
-[`body-and-sync-functions.md`](body-and-sync-functions.md).
-
-## 8b. Late DB-Claim Classification
-
-Read [db-claim-classification.md](db-claim-classification.md) before this step.
-
-## 9. Path-Claim Policy
-
-Only an item whose effective path-claims axis is enabled must carry a
-non-terminal claim with declared coverage or a non-terminal
-`mode='exception'` row with a non-empty `exception_reason`. Item-driven
-registers land `owner_kind='item'` automatically; the registering session is
-recorded as provenance (`registered_by_session_id`), never authority.
-
-If path claims are off, skip registration and the required gate. A File
-Budget may still be enabled and remains valid sizing/conflict evidence. If
-path claims are on while File Budget is off, derive the complete `--paths`
-set from the execution document, spec, and investigation.
-
-### Decide the claim shape
-
-Use the simplest form that matches reality:
-
-| Situation | Claim shape |
-|---|---|
-| Item edits one or more files that already exist | `register --paths a.py,b.py` (default `--mode exclusive`, no `--allow-planned` flag needed) |
-| Item adds new files that do not yet exist | `register --paths runtime/new_module.py --allow-planned` (mints planned `path_targets` rows attributed to the item) |
-| Item legitimately touches no repo surface (validation-only, evidence-only, meta) | `register --mode exception --reason "<concrete justification>"` |
-
-### Register the claim
-
-If the effective path-claims value is `required_per_task` and no
-generated tasks exist yet, skip item-level registration here. Task ownership
-cannot be inferred at intake; Shepherd registers each task only after its
-persisted `epic_task_files` budget exists. Continue to the required gate below,
-which returns a deliberate pre-task deferral as `verdict=pass`.
-
-Dispatch `claims.path.register` (envelope in
-[`body-and-sync-functions.md`](body-and-sync-functions.md)) with
-`target = {kind: "item", public_ref: "PREFIX-N"}` and one of these payload
-shapes:
-
-- Existing files only: `{public_ref: "PREFIX-N", paths: ["file1.py", "file2.py"],
-  mode: "exclusive"}`. Omit `integration_target` to default to the
-  project trunk; pass it explicitly only when gating against a
-  non-trunk branch.
-- Includes future files: same payload plus `allow_planned: true` (mints
-  planned `path_targets` rows attributed to the item).
-- No-claim exception: `{public_ref: "PREFIX-N", mode: "exception", exception_reason:
-  "<concrete justification>"}`.
-
-### What to do if registration fails
-
-When `claims.path.register` returns `success=false` (vague coverage,
-overlap with an active claim, schema not yet migrated), follow the
-canonical resolution protocol at
-`.agents/skills/yoke/idea/path-claim-blocking.md`. Workflow: first
-classify the overlap via `yoke claims path coordination-decision-build`; for
-independent same-file edits author `--gate-point coordination_only`
-(compatible overlap, no lifecycle gate); for order-dependent edits author
-explicit `--gate-point activation` with directional rationale; fall
-back to an `upstream_claim_id` payload pin, `mode="exception"`, or last-resort
-item-level block via `items.scalar.update` on the `blocked` field
-(see your `items` packet stanza for the column) only when none of those
-fit (do NOT mutate `status` to `'blocked'`).
-
-Roll-back is acceptable only before any GitHub issue has been synced. The forbidden state is a normal synced issue at `status='idea'` / `status='refined-idea'` with zero claim, no exception, and the item-level `blocked` field unset (see your `items` packet stanza) — the catch-up audit surfaces it and refine refuses to advance it past `refining-idea`.
-### Verify before exiting idea
-
-When effective path claims are enabled, after registering or deliberately
-deferring per-task coverage, confirm the posture by running the gate:
-
+Write authored complete spec through items.structured_field.replace, guards
+enabled; additions use dedicated additive/section transforms:
 ```bash
-yoke claims path required-gate PREFIX-{id-number}
+yoke items structured-field replace "$ITEM_REF" --field spec --source idea --stdin < <authored-artifact-path>
 ```
 
-`verdict=pass` means coverage is satisfied; the item is ready to leave the idea workflow. `verdict=block` surfaces a remediation `reason` — read it and amend the claim before continuing.
+No inline payload or direct rendered-body write. Read back spec, rather than
+duplicate body+spec. Empty/title-only unexpected result retries once after
+checking live state. Standalone normalize_ac_labels reads stdin/file only;
+DB normalization belongs to the pinned planning procedure.
 
-## 10. Sync Body To GitHub
+## 8b. Finished-spec DB claim
 
-Body sync does not derive QA requirements from item type or Browser posture.
-Project-default and item-attached plans materialize at their declared lifecycle
-transitions. Use `qa.requirement.add` only for an explicitly authored,
-item-specific requirement outside those plans.
+Follow [db-claim-classification.md](db-claim-classification.md) after readback.
 
-If step 8 wrote body content, push it to the linked GitHub issue via
-the `items sync-body` CLI — this is the explicit GitHub-side-effect
-sync surface; the `github.body.sync` function-call dispatch is a
-follow-up. For now this CLI is the explicit retained-boundary
-surface for "rendered body → GitHub issue body":
+## 9. Complete enabled claims
 
+Exclusive existing paths, allow_planned new paths, or justified exception;
+session is provenance, owner_kind=item. Required_per_task before persisted task
+files deliberately defers registration; never substitute an unbound parent.
+After tasks exist repair each task scope. Registered adapters:
 ```bash
-# Retained-boundary: explicit GitHub body sync.
-yoke items github-sync PREFIX-{id-number}
+yoke claims path register --item "$ITEM_REF" --paths <complete-paths>
+yoke claims path register --item "$ITEM_REF" --paths <complete-paths> --allow-planned
+yoke claims path register --item "$ITEM_REF" --mode exception --exception-reason "<verified-no-repo-surface>"
+yoke claims path required-gate "$ITEM_REF"
 ```
 
-Skip this step only if the user explicitly declined to add a
-description and the item remains title-only.
+Pass/deferred pre-task pass continues; block reads the reason and repairs.
+Overlap first follows [path-claim-blocking.md](path-claim-blocking.md):
+attested independent coordination_only versus directional activation;
+secondary upstream pin, honest exception or item blocked flag only when warranted.
+Never set status=blocked or drop required scope. A synced normal idea without
+claim/exception/blocked flag is forbidden. Any rollback before GitHub sync still
+uses sanctioned mutation authority; never delete history ad hoc.
 
-## 10b. Pre-Handoff Readiness Check
+## 10. Sync and readiness before release
 
-The draft claim acquired in `infer-and-create.md` 5b **stays held** until
-readiness passes. Run the check before any release:
-
+Default/attached QA plans materialize at their transitions; no type/Browser
+posture-derived requirements. Add qa.requirement.add only for authored coverage
+outside plans. Explicit body sync:
 ```bash
-# PREFIX-N only — never a bare global DB id (items.id). Project-local
-# numbers need `--project <slug>`; prefer the public PREFIX-N form.
-yoke readiness check PREFIX-{N}
+yoke items github-sync "$ITEM_REF"
+yoke readiness check "$ITEM_REF" --json
 ```
 
-* **`verdict=pass`** — readiness passed; proceed to section 10c and release the draft claim, then display the creation confirmation. A documented `## File Budget` / `UNRESOLVED` deferral is a pass at `idea` (and at refine entry while status is still `idea`); refine's exit re-run at `refining-idea` still requires a resolved budget.
-* **`verdict=block`** — print the structured remediation block, **leave the draft claim held**, leave the item at `idea` (do NOT print "next step: /yoke refine"), and surface the remediation so the operator can fix the artifact before refine sees it. Do NOT call `claims.work.release` on the failure path — the held claim is the live-race fix; releasing it on a failed artifact lets a second worker route `/yoke refine` against the unfinished spec.
-* **`verdict=unavailable`** — one or more checks could not be performed where this ran, so the spec is neither proved nor disproved. Print each `unavailable_checks[]` entry's `check` and `recovery`, leave the draft claim held, and leave the item at `idea`. Do NOT re-run: every entry carries `retryable: false` because the executing host is missing an input it cannot acquire (a project checkout is not installed on the hosted API host). The recovery names the machine that can answer.
+Skip GitHub body sync only for the expressly declined-description title-only
+case allowed by the actual persisted result, not a lost body write.
 
-The check runs the validations enabled by the effective posture. The three
-that read the project's files run against the checkout registered for the
-ITEM's project on the host executing the check; where that host has none,
-they are reported in `unavailable_checks` rather than skipped, guessed at
-against another tree, or counted as passed:
+The draft claim **stays held** until actual verdict=pass:
+- pass, including documented UNRESOLVED deferral at idea/source entry:
+  complete path closure, release then confirm.
+- block: keep claim and actual idea stage; show remediation, not next-step refine.
+- unavailable: unperformed checks neither prove nor disprove; show every
+  unavailable_checks check/recovery. Keep claim; retryable:false means no
+  same-host loop. Recover on a registered target-project checkout host.
 
-* Every `module.function_name` reference in the spec resolves to a real `def function_name`.
-* When File Budget is enabled, it records current `wc -l` for every existing-file edit target, and any file >=330 lines has a sibling-module plan.
-* When both File Budget and path claims are enabled, their coverage agrees at the applicable item/task scope.
+Checks use the item's registered project tree: function refs, current budget
+counts and sibling plan at>=330, conditional coverage parity. Missing host inputs
+are unavailable, never guessed against another repo or called passed.
 
-**Gate classification: `repair-before-block`.** Idea-time readiness is advisory in scope (it surfaces gaps but does not mutate path claims itself) and **blocking in ordering** (the draft claim cannot release until the check passes). The mandatory repair pass is at `/yoke refine` entry, where the readiness handler distinguishes recoverable claim-coverage codes (`FILE_BUDGET_NOT_IN_CLAIM`, `CLAIM_NOT_IN_FILE_BUDGET`) from unrecoverable ones and routes recoverable cases to `claims.path.widen` / `claims.path.amend` — or, when explicit removal is appropriate, the operator-debug surface `path-claims narrow --keep-paths <kept>` — rather than releasing the work claim. The idea-time check stays declarative; refine is the first place where the spec is settled enough for safe automatic widening.
+This is **repair-before-block**: advisory diagnostic scope, blocking release
+order. Refine's mandatory classifier repairs recoverable budget/claim drift
+through claims.path.widen and claims.path.amend, retaining the work claim.
+Its registered removal adapter binds named removed paths and integration target.
+An audited --skip-readiness-check may yield a passing override; it cannot bypass
+release-after-pass ordering. Read actual verdict, never exit0 alone.
 
-Remediation is **advisory at idea-time** — the operator can override with `--skip-readiness-check` (recorded in the audit trail) — but **mandatory at refine-time entry**. The release-only-on-pass ordering is NOT overridable by `--skip-readiness-check`; an override produces a passing check (and therefore a clean release) without bypassing the order.
+## 10c. Release and confirm
 
-## 10c. Release The Draft Claim (Layer 1)
+Only after pass and [path-closure.md](path-closure.md):
+```bash
+yoke claims work release --item "$ITEM_REF" --reason idea-complete
+```
 
-Only reachable when section 10b returned exit 0. Release the draft claim acquired in `infer-and-create.md` 5b via the `claims.work.release` function call: `target = {kind: "claim", claim_id: <id>}` plus `payload = {claim_id: <id>, reason: "idea-complete"}`. The `claim_id` comes from the response of the prior `claims.work.acquire` call. `idea-complete` is the canonical idea→refine handoff intent; the release path canonicalizes it through `_RELEASE_REASON_SCHEMA_MAP` to the schema-enum value `handed_off` for storage, preserves the original intent on the `WorkReleased` event as `release_reason_intent`, and emits `IdeaClaimHeld` (duration, claim_id, original `draft-in-progress` claim intent) for observability.
-
-Skip on error / `--dry-run`; the Layer 2 frontier guard keeps title-only rows out of `runnable` regardless.
+Use acquire's actual claim_id on typed dispatch. Idea-complete stores handed_off,
+preserves release_reason_intent on WorkReleased, and emits IdeaClaimHeld with
+duration/claim/draft-in-progress provenance. No error/dry-run release; name
+release failure. Frontier guards incomplete bodies even after stale reclaim.
+Then render infer-and-create's fresh confirmation/handoff.
