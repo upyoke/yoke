@@ -53,7 +53,7 @@ def format_session_missing(
     return opening + (
         "Yoke infrastructure gap: registration or process-anchor resolution "
         "failed. File a field-note, or report it to the operator if unavailable. "
-        "Only operator-debug --session-id may override ambient resolution."
+        "Operator-debug --session-id is the only ambient-resolution override."
     )
 
 

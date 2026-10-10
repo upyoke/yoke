@@ -15,8 +15,9 @@ Required_per_task intake retains full parent execution budget while deferring
 claims until Shepherd persists tasks and epic_task_files. No unbound parent
 claim substitutes for task ownership.
 
-Claim overlap never narrows scope: keep required files in intent and each
-enabled surface. Independent edits use attested coordination_only;
+Claim overlap does NOT narrow scope: the file stays in the File Budget when
+enabled. Claims are coordination/dependency/blocking facts; keep every required
+file in intent and each enabled surface. Independent edits use attested coordination_only;
 order-dependent overlap needs directional activation evidence.
 Follow [path-claim-blocking.md](path-claim-blocking.md) for conflict repair.
 

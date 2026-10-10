@@ -6,9 +6,10 @@ from runtime.api.skill_doc_regressions_test_helpers import SKILLS, _read
 def test_merge_argument_validation_preserves_public_ref_before_task_reads() -> None:
     text = _read(SKILLS / "usher" / "merge-arguments.md")
 
-    resolve = text.index('yoke workflows item get "$_epic_ref"')
-    task_read = text.index('yoke epic-tasks list --epic "$_epic_ref"')
+    resolve = text.index("yoke workflows item get PREFIX-N --json")
+    task_read = text.index("yoke epic-tasks list --epic PREFIX-N --json")
     assert resolve < task_read
+    assert "supplied complete public ref unchanged" in text
     assert "SELECT COUNT(*) FROM epic_tasks" not in text
     assert "epic_id={epic-id}'" not in text
 

@@ -13,6 +13,10 @@ failures/recovery, no dispatch. PASS warnings enter prompt. Descriptor role
 architect, reflection schema, filled with original ref/title/workflow/root,
 current caveats, attempt/Boss feedback and Simulator gaps on retry.
 
+```text
+yoke readiness prd-validate ITEM
+```
+
 Architect reads spec/design from DB, body only when a structured field is empty;
 no inline body. Require live code references, Simplify reuse (or explicit no
 relevant existing surface), smallest complete scope/declared exclusions,

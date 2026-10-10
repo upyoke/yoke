@@ -10,7 +10,7 @@ python3 -m yoke_core.domain.worktree paths main
 ```
 
 Missing project halts project_required. MAIN_ROOT is control-plane/branch-ref
-access; registered task paths are execution lanes, never local DB authority.
+access; registered task paths are worktree lanes, never local DB authority.
 
 ### S3b. Acquire and verify work ownership
 

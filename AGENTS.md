@@ -64,7 +64,7 @@ Current-item verification failures belong to the current item; a future item or 
 
 ### Bash tool calls
 
-Capture non-trivial commands once; use watchers for long runs. Continue yielded handles until exit, never relaunch or manually poll. Read verification before local interruption. Shell variables reset per call; Claude's sticky cwd may persist. Use absolute paths, `git -C`, `python3`, quoted patterns and `rg --files`. Commit before CI; workers never push by hand.
+Capture non-trivial commands once; use watchers for long runs. Iterate with `yoke watch pytest --impacted main --bounded`; the attached QA case owns the final full execution. Continue yielded handles until exit, never relaunch or manually poll. Read verification before local interruption. Shell variables reset per call; Claude's sticky cwd may persist. Use absolute paths, `git -C`, `python3`, quoted patterns and `rg --files`. Commit before CI; workers never push by hand.
 
 Never discard changes/stashes/files without sanctioned or user authority. Read destruction rules first; `git stash push -u -m "reason" -- <paths>` keeps the message before the separator.
 
@@ -105,5 +105,5 @@ Sync install-bundle edits in the same commit: author public docs under `docs/pub
 
 ## Source-Dev Doctrine
 Read [`docs/source-dev-doctrine.md`](docs/source-dev-doctrine.md) before tests, releases, renders, deploys, preflight or cleanup. Direct authority is source-dev/operator only; Yoke self-deploy and migration rehearsal use paired `prod-db-admin`. Missing registered mutations escalate through its audited operator-debug recovery.
-Lane checks: `yoke dev run -- <command>`. Post-deploy Command tests: `yoke watch pytest -- <paths>` directly, bound to candidate cwd. `--local` means a targeted check expected within about a minute, with `-n auto`; dirty work does not justify slow local checks. CI anchors: `runtime/api/ runtime/harness/ tests/`; lint: `yoke dev ruff-changed --base <ref>`.
+Lane checks: `yoke dev run -- <command>`. Post-deploy Command tests: `yoke watch pytest -- <paths>` directly, bound to candidate cwd. `--local` means a targeted check expected within about a minute; inject xdist `-n auto`; uncommitted work does not justify a slow local run. CI: `yoke watch pytest -- runtime/api/ runtime/harness/ tests/`; lint: `yoke dev ruff-changed --base <ref>`.
 Yoke releases have two concurrent runs on one lineage: stage on HTTPS, production on paired `prod-db-admin`. Stage carries only members owing stage QA; completion needs both stage proof and production delivery. Ordinary projects may have a real stage promotion gate.

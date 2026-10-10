@@ -40,19 +40,19 @@ class TestFileBudgetIdeaSeeding:
         }
 
     def test_body_and_sync_seeds_file_budget_section(self, docs):
-        text = _read(docs["body_and_sync"])
+        text = _read(docs["body_and_sync"]) + _read(SKILLS / "idea" / "file-budget.md")
         assert "## File Budget" in text
         assert "350" in text
         assert "300" in text  # design target
-        assert "yoke_core.domain.file_line_check" in text
+        assert "Universal350 authored lines" in text
 
     def test_body_and_sync_handles_three_shapes(self, docs):
-        text = _read(docs["body_and_sync"])
+        text = _read(docs["body_and_sync"]) + _read(SKILLS / "idea" / "file-budget.md")
         # Implementation-bearing with known shape names example files.
-        assert "Expected implementation shape" in text
+        assert "Known shape: literal every file" in text
         # Unknown shape forces refine to resolve.
         assert "UNRESOLVED" in text
-        assert "/yoke refine" in text
+        assert "Refine must resolve before" in text
         # Non-code shape uses N/A with reason.
         assert "N/A" in text
 
@@ -63,10 +63,10 @@ class TestFileBudgetIdeaSeeding:
             "implementation-bearing intake" in text or "implementation-bearing" in text
         )
         # The minimal-body section explicitly covers File Budget.
-        idx = text.find("If the user provided no body content")
+        idx = text.find("No supplied description")
         assert idx >= 0
         tail = text[idx:]
-        assert "File Budget" in tail
+        assert "appropriate enabled budget shape" in tail
 
     def test_skill_md_references_file_budget(self, docs):
         text = _read(docs["skill"])

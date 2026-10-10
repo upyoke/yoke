@@ -76,7 +76,9 @@ def render_package_roots_block() -> list[str]:
     return [
         "**Package roots:** read "
         "`yoke project-structure get --project P --family architecture_model "
-        "--json`. Check every `package_roots` entry: `package_under_root` "
+        "--json`. A package name never implies a directory at the repo root; "
+        "one package may declare several roots. Check every `package_roots` "
+        "entry: `package_under_root` "
         "holds the package directory; `package_is_root` is that directory.",
     ]
 
@@ -115,6 +117,10 @@ def render_function_call_surface_block() -> list[str]:
         + ", ".join(f"`{fid}`" for fid in seed.AGENT_WRITE_FUNCTION_IDS)
         + ". CLI grammar: "
         "(dots→spaces, underscores→hyphens).",
+        "Adapters build the function-call envelope: `actor.session_id` "
+        "binds the harness; optional `actor_id` resolves server-side and "
+        "must agree if supplied. `target` selects the subject; `preconditions` "
+        "guard the write and `options` carry execution choices.",
         "",
         "**`harness_sessions.executor`:** `claude-code | codex | cursor`; "
         "surface variants normalize to these ids.",

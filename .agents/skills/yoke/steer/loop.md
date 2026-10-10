@@ -163,6 +163,9 @@ same item, re-verifies/re-lands/re-enters release. Read
 
 ## 5. Preserve current snapshot and verified reminders
 
+On cold-start refresh, do not copy historical status sections into the current
+checkpoint; retain only still-open obligations with links to durable evidence.
+
 After material frontier/gate/launch/report/escalation/dead-end change, refresh
 one dated section rather than accumulate history:
 

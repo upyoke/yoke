@@ -1,11 +1,10 @@
 """Skill-prompt-assembly tests for simulator dispatch.
 
 Owns the contract: assembled retry-tier prompts must contain the epic
-ID verbatim in the correct templated location, and empty ``_epic_ref`` must
-halt before any dispatch invocation. The actual prompt assembly happens
-inside conduct's bash flow as it reads ``simulation-gate-criteria.md``;
-these tests pin the doc-level contract so a future template refactor cannot
-silently strip the ``EPIC:`` placeholder or the defensive bail.
+ID verbatim in the common contract applied to each mode, and empty
+``_epic_ref`` must halt before any dispatch invocation. Native persistence
+validates the leading headers and returns named identity errors; these tests
+pin the corresponding teaching and exact-item recovery.
 
 Sibling justification: ``test_skill_doc_regressions_conduct_simulation.py``
 keeps the broader conduct skill-doc regression coverage focused on
@@ -54,10 +53,7 @@ class TestEmptyEpicIdHaltsBeforeDispatch:
         assert "[CRITICAL] _epic_ref lost between dispatches" in criteria_text
 
     def test_bail_documented_for_initial_and_retry_dispatch(self, criteria_text: str):
-        assert (
-            "before any Simulator dispatch" in criteria_text
-            or "before any simulator dispatch" in criteria_text.lower()
-        )
+        assert "before any simulator invocation" in criteria_text.lower()
         assert "initial dispatch" in criteria_text.lower()
         assert "retry" in criteria_text.lower()
 
@@ -75,24 +71,11 @@ class TestEmptyEpicIdHaltsBeforeDispatch:
     def test_bail_appears_before_first_dispatch_block(self, criteria_text: str):
         bail_idx = criteria_text.find('if [ -z "${_epic_ref:-}" ]; then')
         assert bail_idx >= 0
-        # The standard dispatch block starts with the marker '### Standard Dispatch'
-        std_idx = criteria_text.find("### Standard Dispatch")
-        # If the standard dispatch block exists, the bail must be documented
-        # before the Output Gate that controls retries — but the precondition
-        # also runs before initial dispatch. Either ordering works as long as
-        # the bail text explicitly says "before any Simulator dispatch."
-        assert (
-            "before any Simulator dispatch" in criteria_text
-            or "before any simulator dispatch" in criteria_text.lower()
-        )
-        # Output Gate retries definitely come after the bail definition
-        gate_idx = criteria_text.find("### Simulator Output Gate")
-        assert gate_idx > 0
-        # The bail must live inside the Output Gate section (we documented it
-        # as the preamble to the gate's retry logic)
-        assert bail_idx > gate_idx
-        if std_idx > 0:
-            assert std_idx < gate_idx
+        assert "before any simulator invocation" in criteria_text.lower()
+        mode_idx = criteria_text.find("## Mode and evidence")
+        retry_idx = criteria_text.find("## Parse and bounded output retry")
+        assert bail_idx < mode_idx < retry_idx
+        assert "Reread the identity check before each invocation" in criteria_text
 
 
 # ---------------------------------------------------------------------------
@@ -109,21 +92,25 @@ class TestRetryPromptsCarryEpicIdVerbatim:
         # Match the documented retry-tier instruction
         assert "EPIC: ${_epic_ref}" in criteria_text
         # And the formatting-omission section names the requirement
-        assert "FIRST TWO LINES" in criteria_text
+        assert (
+            "Formatting retry explicitly demands SIMULATION: then EPIC: ${_epic_ref} first"
+            in criteria_text
+        )
 
     def test_aggressive_retry_carries_epic_placeholder(self, criteria_text: str):
         # The aggressive retry tier instruction is explicit
         assert (
-            "two-line verdict block requirement (`SIMULATION:` line then "
-            "`EPIC: ${_epic_ref}` line)" in criteria_text
+            "Compressed aggressive retry repeats SIMULATION: then EPIC: ${_epic_ref}"
+            in criteria_text
         )
 
     def test_ultra_compressed_no_tool_fallback_carries_epic_placeholder(
         self, criteria_text: str
     ):
         # The fallback section requires the same two-line block
+        assert "Retry2's no-tool" in criteria_text
         assert (
-            "Two-line verdict block (`SIMULATION:` then `EPIC: ${_epic_ref}`)"
+            "prompt likewise repeats SIMULATION: then EPIC: ${_epic_ref}"
             in criteria_text
         )
 
@@ -131,11 +118,17 @@ class TestRetryPromptsCarryEpicIdVerbatim:
         self, dispatch_prompts_text: str
     ):
         # Dispatch templates carry the complete public ref.
-        matches = re.findall(r"EPIC: \{public_ref\}", dispatch_prompts_text)
-        assert len(matches) >= 3, (
-            f"expected EPIC placeholder in plan/integration/compressed prompts, "
-            f"got {len(matches)} occurrence(s)"
-        )
+        common = dispatch_prompts_text.split("## Common contract", 1)[1].split(
+            "## Plan mode", 1
+        )[0]
+        assert re.search(r"EPIC: \{public_ref\}", common)
+        for heading in (
+            "## Plan mode",
+            "## Standard integration mode",
+            "## Compressed integration mode",
+        ):
+            mode = dispatch_prompts_text.split(heading, 1)[1].split("\n## ", 1)[0]
+            assert "common contract" in mode.lower(), heading
 
     def test_retry_placeholder_count_at_least_three(self, criteria_text: str):
         # Three retry tiers (formatting-omission, aggressive, ultra-compressed)
@@ -153,18 +146,17 @@ class TestCompressedContextCommitBoundaryEvidence:
     def test_dispatch_prompt_has_commit_boundary_section(
         self, dispatch_prompts_text: str
     ):
-        assert "## Commit-Boundary Evidence" in dispatch_prompts_text
-        assert "git log --oneline -- {file}" in dispatch_prompts_text
-        assert "commit evidence unavailable: no affected file named" in (
-            dispatch_prompts_text
-        )
+        normalized = " ".join(dispatch_prompts_text.split())
+        assert "Commit-Boundary Evidence:" in normalized
+        assert "parent-supplied git log --oneline -- path" in normalized
+        assert "commit evidence unavailable: no affected file named" in normalized
 
     def test_dispatch_prompt_keeps_simulator_git_archaeology_forbidden(
         self, dispatch_prompts_text: str
     ):
-        assert "Parent-supplied" in dispatch_prompts_text
+        assert "parent-supplied" in dispatch_prompts_text
         assert "do not run" in dispatch_prompts_text
-        assert "git log or git blame yourself" in dispatch_prompts_text
+        assert "git log/blame unless explicitly requested" in dispatch_prompts_text
 
     def test_conduct_retry_context_carries_commit_boundary_evidence(
         self, criteria_text: str
@@ -185,16 +177,17 @@ class TestCompressedContextShimReExports:
     def test_dispatch_prompt_has_shim_re_export_contracts(
         self, dispatch_prompts_text: str
     ):
-        assert "## Shim Re-Export Contracts" in dispatch_prompts_text
-        assert "underscore-prefixed names such as _BLOCKS" in dispatch_prompts_text
+        assert "Shim exports:" in dispatch_prompts_text
+        assert "public and private names such as _BLOCKS" in dispatch_prompts_text
         assert "shim import list is the source of truth" in dispatch_prompts_text
 
     def test_conduct_compressed_context_includes_private_shim_exports(
         self, criteria_text: str
     ):
-        assert "shim re-export contracts" in criteria_text
-        assert "underscore-prefixed names such as `_BLOCKS`" in criteria_text
-        assert "from yoke_core.board.X import (...)" in criteria_text
+        normalized = " ".join(criteria_text.split())
+        assert "Shim Re-Export Contracts" in normalized
+        assert "underscore-prefixed re-export such as _BLOCKS" in normalized
+        assert "source import list is the source of truth" in normalized
 
 
 # ---------------------------------------------------------------------------
@@ -202,24 +195,30 @@ class TestCompressedContextShimReExports:
 # ---------------------------------------------------------------------------
 
 
-class TestExitCodeContractSurfacedToOperator:
-    """Operator-facing diagnostics must name exit 16 (wrong-epic) and 17 (missing-epic)."""
+class TestIdentityDiagnosticContract:
+    """Native persistence errors retain identity and exact-header recovery."""
 
-    def test_criteria_diagnostic_table_includes_exit_16(self, criteria_text: str):
-        assert "| 16 | wrong-epic body" in criteria_text
+    def test_wrong_item_diagnostic(self, criteria_text: str):
+        assert "simulation_identity_mismatch" in criteria_text
+        assert "wrong-epic body" in criteria_text
 
-    def test_criteria_diagnostic_table_includes_exit_17(self, criteria_text: str):
-        assert "| 17 | missing-epic body" in criteria_text
+    def test_missing_identity_diagnostic(self, criteria_text: str):
+        assert "simulation_identity_missing" in criteria_text
+        assert "absent leading headers" in criteria_text
 
-    def test_exit_16_diagnostic_names_both_epics(self, criteria_text: str):
-        assert "CLI passed ${_epic_ref}" in criteria_text
-        assert "body attested a different epic" in criteria_text
+    def test_diagnostic_retains_intended_and_attested_refs(self, criteria_text: str):
+        assert "intended ref and report's attested ref" in criteria_text
 
-    def test_exit_17_diagnostic_names_attestation_requirement(self, criteria_text: str):
-        assert "EPIC: PREFIX-N attestation line" in criteria_text
+    def test_recovery_requires_the_intended_items_headers(self, criteria_text: str):
+        assert (
+            "SIMULATION and EPIC headers for the exact intended item" in criteria_text
+        )
 
     def test_dispatch_prompts_warn_about_persistence_rejection(
         self, dispatch_prompts_text: str
     ):
-        assert dispatch_prompts_text.count("exit 16") >= 3
-        assert dispatch_prompts_text.count("exit 17") >= 3
+        common = dispatch_prompts_text.split("## Common contract", 1)[1].split(
+            "## Plan mode", 1
+        )[0]
+        assert "simulation_identity_missing" in common
+        assert "simulation_identity_mismatch" in common

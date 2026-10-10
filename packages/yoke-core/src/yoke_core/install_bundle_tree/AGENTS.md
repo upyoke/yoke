@@ -64,7 +64,7 @@ Current-item verification failures belong to the current item; a future item or 
 
 ### Bash tool calls
 
-Capture non-trivial commands once; use watchers for long runs. Continue yielded handles until exit, never relaunch or manually poll. Read verification before local interruption. Shell variables reset per call; Claude's sticky cwd may persist. Use absolute paths, `git -C`, `python3`, quoted patterns and `rg --files`. Commit before CI; workers never push by hand.
+Capture non-trivial commands once; use watchers for long runs. Iterate with `yoke watch pytest --impacted main --bounded`; the attached QA case owns the final full execution. Continue yielded handles until exit, never relaunch or manually poll. Read verification before local interruption. Shell variables reset per call; Claude's sticky cwd may persist. Use absolute paths, `git -C`, `python3`, quoted patterns and `rg --files`. Commit before CI; workers never push by hand.
 
 Never discard changes/stashes/files without sanctioned or user authority. Read destruction rules first; `git stash push -u -m "reason" -- <paths>` keeps the message before the separator.
 

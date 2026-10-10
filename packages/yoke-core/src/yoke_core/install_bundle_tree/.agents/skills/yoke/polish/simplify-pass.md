@@ -4,7 +4,7 @@ Run this **first**, before staleness/blast-radius review and any test rerun.
 Inspect each registered lane's `git diff main...HEAD` plus uncommitted changes;
 stay within those implementation diffs, never whole-repository cleanup.
 
-Walk once as a **single sequential pass**, carrying all three axes together:
+Walk once as a **single sequential pass**, carrying all axes together:
 - **Reuse:** replace duplicate files, helpers, templates, skills, events,
   commands or prompts with existing surfaces; share constants/types/APIs.
 - **Quality:** smallest concrete request shape; remove redundant state,
@@ -13,7 +13,9 @@ Walk once as a **single sequential pass**, carrying all three axes together:
 - **Efficiency:** collapse redundant computation/reads/API calls, N+1 work,
   missed useful concurrency, hot-path bloat, recurring no-op writes, unnecessary
   prechecks, unbounded structures and missing cleanup. Justify new infrastructure.
-- Apply the doctrine's future-concept and codebase-reader naming lenses.
+
+Apply the doctrine's future-concept and codebase-reader naming lenses across
+those three axes.
 
 **do not argue with the finding, just skip false positives.**
 Fix applicable findings inline; carry fixes through normal review/verification.

@@ -153,6 +153,7 @@ def redrive_recovery(run_id: str, *, unresolved: int) -> str:
     """
     if unresolved:
         return (
+            "The run finishes by itself when blocking QA settles. "
             f"Blocking QA remains: `yoke deployment-runs get {run_id}` (red member: "
             "`yoke deployment-runs remove-item --help`)."
         )

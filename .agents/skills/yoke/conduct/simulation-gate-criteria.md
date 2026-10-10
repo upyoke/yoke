@@ -13,7 +13,8 @@ if [ -z "${_epic_ref:-}" ]; then
 fi
 ```
 
-This check applies before the initial invocation too. No hallucinated identity.
+This check halts before any simulator invocation, initial dispatch or retry.
+Follow [cleanup-report.md](cleanup-report.md) with HALTED; no hallucinated identity.
 Render DispatchDescriptor(role="simulator") through the harness owner. Every
 standard, compressed and retry prompt starts with the two-line verdict block:
 SIMULATION: CLEAN or SIMULATION: GAPS FOUND, then EPIC: PREFIX-{N} using the
@@ -45,8 +46,10 @@ yoke db read --format lines "SELECT task_num, title, dependencies FROM epic_task
 
 For shims, the source import list is the source of truth: include every public
 and underscore-prefixed re-export such as _BLOCKS, never infer from child
-internals. Commit-Boundary Evidence supplies a bounded parent git log --oneline
--- {file} line for each discrete/separate-commit AC. If no file named, say
+internals. Commit-Boundary Evidence supplies a bounded parent
+`git log --oneline -- {file}` line for each discrete-commit/NFR-style AC or
+separate-commit requirement.
+If no file named, say
 `commit evidence unavailable: no affected file named`. Parent evidence is
 allowed; do not run git log or git blame yourself in Simulator.
 
@@ -89,8 +92,11 @@ Missing receipt fields is producer_unavailable: named control-plane deployment
 repair, then readback. Never use a retired source helper or repeat write for a
 different output format.
 
-Wrong-epic body or missing-epic body returns its exact named identity error,
-intended/attested refs and recovery. Readback failure retains any returned ids:
+`simulation_identity_mismatch` diagnoses a wrong-epic body;
+`simulation_identity_missing` diagnoses absent leading headers. Retain the
+intended ref and report's attested ref; recover with the required leading
+SIMULATION and EPIC headers for the exact intended item. Readback failure
+retains any returned ids:
 
 ```text
 yoke workflow-item epic-task simulation-get --epic PREFIX-N --phase integration --json

@@ -172,9 +172,10 @@ non-PASS clean_worktree result blocks the item from advancing to validate.
 
 **Control-plane DB invariant:** authority is Postgres, never a constructed worktree DB path. Use registered `yoke <subcommand>` and diagnostic `yoke db read "SELECT ..."`. Normal prod authority is HTTPS/API; retain it on retry. Escalate missing mutations to the control-plane operator with the operation and surfaces checked.
 
-**Package roots:** read `yoke project-structure get --project P --family architecture_model --json`. Check every `package_roots` entry: `package_under_root` holds the package directory; `package_is_root` is that directory.
+**Package roots:** read `yoke project-structure get --project P --family architecture_model --json`. A package name never implies a directory at the repo root; one package may declare several roots. Check every `package_roots` entry: `package_under_root` holds the package directory; `package_is_root` is that directory.
 
 **Registered writes** (use their `yoke` CLI adapters): `items.structured_field.replace`, `items.progress_log.append`, `lifecycle.transition.execute`, `claims.work.acquire`, `claims.work.release`, `claims.path.register`, `db_claim.amend`. CLI grammar: (dots→spaces, underscores→hyphens).
+Adapters build the function-call envelope: `actor.session_id` binds the harness; optional `actor_id` resolves server-side and must agree if supplied. `target` selects the subject; `preconditions` guard the write and `options` carry execution choices.
 
 **`harness_sessions.executor`:** `claude-code | codex | cursor`; surface variants normalize to these ids.
 

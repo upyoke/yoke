@@ -71,7 +71,7 @@ authority independently. Missing dispatch path: read the item's spec.
 
 **Control-plane DB invariant:** authority is Postgres, never a constructed worktree DB path. Use registered `yoke <subcommand>` and diagnostic `yoke db read "SELECT ..."`. Normal prod authority is HTTPS/API; retain it on retry. Escalate missing mutations to the control-plane operator with the operation and surfaces checked.
 
-**Package roots:** read `yoke project-structure get --project P --family architecture_model --json`. Check every `package_roots` entry: `package_under_root` holds the package directory; `package_is_root` is that directory.
+**Package roots:** read `yoke project-structure get --project P --family architecture_model --json`. A package name never implies a directory at the repo root; one package may declare several roots. Check every `package_roots` entry: `package_under_root` holds the package directory; `package_is_root` is that directory.
 
 **Wrapper commands (prefer over raw SQL):**
 

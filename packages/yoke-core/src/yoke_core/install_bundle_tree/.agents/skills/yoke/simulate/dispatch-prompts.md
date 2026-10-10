@@ -8,6 +8,8 @@ one mode below. Keep the complete public ref in every initial/retry prompt.
 ```text
 Item: {public_ref}; phase: {phase}. Read-only: do not edit or file work.
 Begin with SIMULATION: CLEAN or SIMULATION: GAPS FOUND, then EPIC: {public_ref}.
+Native persistence refuses simulation_identity_missing or
+simulation_identity_mismatch; the exact leading identity is mandatory.
 Trace concrete trigger paths through actual consumers/callers, contracts and
 failure paths. For every modified write trace external-call failures, safe
 set -e propagation, compatibility with the previous error model and failure

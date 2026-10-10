@@ -44,7 +44,7 @@ commit with exact affected files, Ouroboros record and synthetic progress note;
 the rescue remains a blocker, never automatic review readiness. No generated
 board/legacy DB staged; preserve others' work.
 
-## Same-attempt submit-only remediation
+## Same-attempt submit-only remediation contract
 
 Every missing receipt/key/note, failed line, dirty safety-net or rescue case
 re-dispatches Engineer at SAME attempt; do not increment attempt or seed review.

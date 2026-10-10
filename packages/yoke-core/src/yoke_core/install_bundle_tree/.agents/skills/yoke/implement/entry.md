@@ -1,5 +1,9 @@
 # /yoke implement — resolve the pin, then enter or re-enter
 
+The item's immutable pin owns the workflow definition used below.
+Its workflow id is the registry key for the version read; no implementation
+behavior branches on its value. Read policies and bindings from that version.
+
 Keep the complete public ref; its numeric tail is not `items.id`.
 Read `workflows.item.get` and the exact `workflows.version.get`:
 ```bash

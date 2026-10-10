@@ -31,8 +31,8 @@ def _read(path: Path) -> str:
 
 
 def _case_run_block(text: str) -> str:
-    match = re.search(r"yoke qa case run \\\n.*?```", text, re.DOTALL)
-    assert match is not None, "missing multiline yoke qa case run recipe"
+    match = re.search(r"yoke qa case run\b.*?```", text, re.DOTALL)
+    assert match is not None, "missing yoke qa case run recipe"
     return match.group(0)
 
 
@@ -78,11 +78,12 @@ def test_conduct_dispatch_forwards_resolved_branch_and_sha_to_each_case() -> Non
     text = _read(CONDUCT_EPHEMERAL)
     recipe = _case_run_block(text)
 
-    assert '_expected_browser_branch="${_worktree_branch}"' in text
-    assert '_expected_browser_sha=$(git -C "${_worktree_path}" rev-parse HEAD)' in text
-    assert '--expected-branch "{_expected_browser_branch}"' in recipe
-    assert '--expected-sha "{_expected_browser_sha}"' in recipe
-    assert "do not omit the\nexpected branch or SHA from any case invocation" in text
+    assert "git -C {WORKTREE_PATH} rev-parse HEAD" in text
+    assert "Record expected branch and exact current Engineer commit" in text
+    assert "every subsequent Browser case" in text
+    assert "--expected-branch {BRANCH}" in recipe
+    assert "--expected-sha {HEAD_SHA}" in recipe
+    assert "omitted identity" in text
 
 
 def test_browser_docs_link_candidate_verification() -> None:
