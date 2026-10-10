@@ -11,8 +11,11 @@ Schema scaffolding shared via _doctor_filesystem_full_test_helpers (private modu
 from __future__ import annotations
 
 import os
+from datetime import datetime, timedelta, timezone
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from yoke_project_checks.check_agents import (
     hc_stale_session_reclaimer_alive,
@@ -236,6 +239,36 @@ class TestStaleSessions:
 
 
 class TestStaleSessionReclaimerAlive:
+    @pytest.mark.parametrize("representation", ["aware", "naive", "iso", "iso-z"])
+    def test_recent_native_and_legacy_timestamps_pass(self, representation):
+        latest = datetime.now(timezone.utc) - timedelta(minutes=30)
+        if representation == "naive":
+            latest = latest.replace(tzinfo=None)
+        elif representation == "iso":
+            latest = latest.isoformat()
+        elif representation == "iso-z":
+            latest = latest.isoformat().replace("+00:00", "Z")
+        conn = MagicMock()
+        conn.execute.return_value.fetchone.return_value = {"latest": latest}
+        with patch(
+            "yoke_core.engines.doctor_hc_agents_sessions._table_exists",
+            return_value=True,
+        ):
+            rec = _run_hc(hc_stale_session_reclaimer_alive, conn=conn)
+        assert rec.results[0].result == "PASS"
+        assert "Last sweep 30m ago" in rec.results[0].detail
+
+    @pytest.mark.parametrize("latest", ["invalid", 42, None, datetime(2000, 1, 1)])
+    def test_missing_stale_and_unparseable_timestamps_warn(self, latest):
+        conn = MagicMock()
+        conn.execute.return_value.fetchone.return_value = {"latest": latest}
+        with patch(
+            "yoke_core.engines.doctor_hc_agents_sessions._table_exists",
+            return_value=True,
+        ):
+            rec = _run_hc(hc_stale_session_reclaimer_alive, conn=conn)
+        assert rec.results[0].result == "WARN"
+
     def test_passes_without_events_table(self):
         rec = _run_hc(hc_stale_session_reclaimer_alive)
         assert rec.results[0].result == "PASS"
