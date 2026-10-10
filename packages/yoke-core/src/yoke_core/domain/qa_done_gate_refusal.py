@@ -6,6 +6,8 @@ clears it, which differs by phase: a row that has never run is executed, while
 a post_deploy row may already have a passing run recorded against a candidate
 this delivery is not about, and is cleared instead by delivery, by a corrected
 case that supersedes the defective admitted copy, or by an authorized waiver.
+A row whose stored replacement link no longer answers for its obligation is
+reported as that graph error and its repair, not as missing proof.
 """
 
 from __future__ import annotations
@@ -30,6 +32,13 @@ def _run_id(row: Any) -> str:
     return str(value or "").strip()
 
 
+def _graph_error(row: Any) -> str:
+    try:
+        return str(row["replacement_graph_error"] or "")
+    except (KeyError, IndexError, TypeError):
+        return ""
+
+
 def done_gate_refusal_errors(conn: Any, rows: Sequence[Any], *, name: str) -> list[str]:
     """The operator-facing refusal for rows that still hold ``done``."""
     errors = [
@@ -40,6 +49,16 @@ def done_gate_refusal_errors(conn: Any, rows: Sequence[Any], *, name: str) -> li
         "surface with explicit authorization.",
     ]
     for row in rows:
+        graph_error = _graph_error(row)
+        if graph_error:
+            errors.extend(
+                [
+                    f"  - Requirement #{row['id']} ({row['qa_kind']}, "
+                    f"phase={row['qa_phase']}): its replacement link is invalid",
+                    f"    {graph_error}",
+                ]
+            )
+            continue
         waiting = requirement_awaits_human_review(conn, int(row["id"]))
         if waiting:
             errors.extend([f"  - {waiting.detail}", f"    {waiting.recovery}"])
@@ -59,7 +78,7 @@ def done_gate_refusal_errors(conn: Any, rows: Sequence[Any], *, name: str) -> li
             f"  - Requirement #{row['id']} ({row['qa_kind']}, "
             f"phase={row['qa_phase']}{bound}): {reason}"
         )
-    if any(_phase(row) == POST_DEPLOY_PHASE for row in rows):
+    if any(_phase(row) == POST_DEPLOY_PHASE and not _graph_error(row) for row in rows):
         errors.append(f"  {POST_DEPLOY_RECOVERY}")
     return errors
 

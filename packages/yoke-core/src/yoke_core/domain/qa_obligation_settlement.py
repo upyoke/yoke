@@ -118,7 +118,10 @@ def effective_requirement(conn: Any, requirement_id: int) -> dict[str, Any]:
     """Follow the durable correction graph to its final same-scope obligation."""
     from yoke_core.domain.db_helpers import query_one
     from yoke_core.domain.qa_plan_execution_store import marker
-    from yoke_core.domain.qa_requirement_supersession import same_scope
+    from yoke_core.domain.qa_replacement_scope_guard import (
+        LINK_REPAIR,
+        link_mismatches,
+    )
 
     seen: set[int] = set()
     previous = None
@@ -138,11 +141,12 @@ def effective_requirement(conn: Any, requirement_id: int) -> dict[str, Any]:
                 "replacement_graph_invalid: missing successor; restore the named requirement through the control-plane operator"
             )
         row = dict(stored)
-        if previous is not None and (
-            same_scope(previous, row) or row.get("blocking_mode") != "blocking"
-        ):
+        mismatches = link_mismatches(previous, row) if previous is not None else []
+        if mismatches:
             raise ValueError(
-                "replacement_graph_invalid: successor changes obligation scope; restore the original scope through registered correction surfaces"
+                f"replacement_graph_invalid: requirement #{previous['id']} links to "
+                f"#{row['id']}, which no longer answers for the same obligation "
+                f"({'; '.join(mismatches)}); {LINK_REPAIR}"
             )
         edges = {
             int(row[key])

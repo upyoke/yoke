@@ -19,6 +19,7 @@ from yoke_core.domain.deployment_runs_lock import (
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_attachment_retract import retract_requirements
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_item_binding_lock import lock_item_workflow_bindings
 
 
@@ -107,6 +108,31 @@ def _require_removable(conn: Any, run_id: str, item_id: int) -> str:
     return status
 
 
+def retract_outstanding_member_copies(
+    conn: Any, run_id: str, *, item_id: int | None = None, reason: str
+) -> list[int]:
+    """Retract the run's unsettled, never-passed blocking member QA copies.
+
+    One member when *item_id* is named, every member otherwise. Standing item
+    plans and passing evidence survive; the next release materializes fresh
+    run-bound copies.
+    """
+    if not _table_exists(conn, "qa_requirements"):
+        return []
+    member = " AND r.deployment_member_item_id=%s" if item_id is not None else ""
+    rows = query_rows(
+        conn,
+        "SELECT r.id FROM qa_requirements r WHERE r.deployment_run_id=%s "
+        f"AND r.deployment_member_item_id IS NOT NULL{member} "
+        f"AND r.blocking_mode='blocking' AND NOT {settled_obligation_sql(conn, 'r')} "
+        "AND NOT EXISTS (SELECT 1 FROM qa_runs qr WHERE qr.qa_requirement_id=r.id AND qr.verdict='pass')",
+        (run_id, item_id) if item_id is not None else (run_id,),
+    )
+    ids = [int(r["id"]) for r in rows]
+    retract_requirements(conn, ids, reason=reason, source="operator")
+    return ids
+
+
 def remove_member_on(
     conn: Any,
     run_id: str,
@@ -139,17 +165,7 @@ def remove_member_on(
     )
 
     abort_removed_member_executions(conn, run_id=run_id, item_id=item_id)
-    rows = query_rows(
-        conn,
-        "SELECT r.id FROM qa_requirements r WHERE r.deployment_run_id=%s "
-        "AND r.deployment_member_item_id=%s AND r.blocking_mode='blocking' "
-        f"AND NOT {settled_obligation_sql(conn, 'r')} "
-        "AND NOT EXISTS (SELECT 1 FROM qa_runs qr WHERE qr.qa_requirement_id=r.id AND qr.verdict='pass')",
-        (run_id, item_id),
-    )
-    retract_requirements(
-        conn, [int(r["id"]) for r in rows], reason=reason, source="operator"
-    )
+    retract_outstanding_member_copies(conn, run_id, item_id=item_id, reason=reason)
     from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
         withdraw_deployment_qa_wait_wakes,
     )

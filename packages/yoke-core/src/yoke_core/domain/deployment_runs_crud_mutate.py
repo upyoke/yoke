@@ -243,6 +243,14 @@ def cmd_update(
                 # A terminal run keeps its answer, so no reader derives it; a
                 # transient failure on an unsuccessful run is left for a read.
                 record_carried_work(conn, run_id, permanent_only=value != "succeeded")
+                if value == "cancelled":
+                    from yoke_core.domain.deployment_run_member_removal import (
+                        retract_outstanding_member_copies,
+                    )
+
+                    retract_outstanding_member_copies(
+                        conn, run_id, reason="deployment run cancelled"
+                    )
                 from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
                     withdraw_deployment_qa_wait_wakes,
                 )
