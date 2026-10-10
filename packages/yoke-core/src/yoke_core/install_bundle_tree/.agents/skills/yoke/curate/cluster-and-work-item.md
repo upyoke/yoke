@@ -63,8 +63,16 @@ Volume alone does not change that choice.
 Resolve the target project and use `workflow.execution_instruction.resolve`
 to read all filing instructions for the selected output before drafting:
 
+Run only the resolver for the selected output; these are alternatives.
+For Dash:
+
 ```sh
 yoke workflow execution-instruction resolve --workflow dash --project {project} --full
+```
+
+For an Issue:
+
+```sh
 yoke workflow execution-instruction resolve --workflow issue --project {project} --full
 ```
 
@@ -93,7 +101,7 @@ contract, the same contract `/yoke idea` uses. After the full instruction read,
 create once:
 
 ```sh
-yoke items create "{title}" issue --priority {priority} --entry-surface harness_skill --execution-instructions-considered
+yoke items create "{title}" issue --project {project} --priority {priority} --entry-surface harness_skill --execution-instructions-considered
 ```
 
 Immediately write the spec through `items.structured_field.replace`:

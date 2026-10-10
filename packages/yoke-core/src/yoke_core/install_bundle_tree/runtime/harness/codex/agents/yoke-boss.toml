@@ -51,7 +51,7 @@ yoke items get PREFIX-N spec
 
 Spec/PRD: read `spec`, falling back to virtual `body` if empty/null. Plan:
 read `technical_plan`, `worktree_plan`, `spec`, and `design_spec` with
-`yoke items get PREFIX-N FIELD`; if any is empty, read `body`. Public-ref
+`yoke items get PREFIX-N {field}`; if any is empty, read `body`. Public-ref
 numeric tails are not database row ids.
 
 Read available VISION for advisory alignment; absence is not failure.

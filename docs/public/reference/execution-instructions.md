@@ -59,8 +59,8 @@ clears it. Disable stage delivery in the same edit when clearing an enabled targ
 
 ```text
 yoke workflow execution-instruction create --content "Run implementation checks." --no-before-creation --no-on-every-read --when-entering-stage --stage-bucket implementing
-yoke workflow execution-instruction set-scope ID --all-workflows --all-projects
-yoke workflow execution-instruction update ID --content "Run review checks." --stage-bucket reviewing
+yoke workflow execution-instruction set-scope {instruction_id} --all-workflows --all-projects
+yoke workflow execution-instruction update {instruction_id} --content "Run review checks." --stage-bucket reviewing
 ```
 
 Read each operation's `--help` before changing scope or delivery. Delivery and

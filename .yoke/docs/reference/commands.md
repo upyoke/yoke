@@ -72,7 +72,7 @@ Read the item's pin, then follow the binding containing its live stage:
 
 ```text
 yoke workflows item get PREFIX-N
-yoke workflows version get WORKFLOW VERSION
+yoke workflows version get {workflow} {version}
 ```
 
 The half-open interval owns entry, forward edges and handoff. Never route from

@@ -79,7 +79,7 @@ registered authoring, in the same release.
 ```text
 yoke qa plan edit PLAN_SLUG --project P
 yoke qa plan get PLAN --project P --full --json
-yoke qa plan-cases replace --project P --plan-id N --stdin
+yoke qa plan-cases replace --project P --plan-id {plan_id} --stdin
 ```
 
 Reads include `starting_state` / `starting_state_reason`; preserve unchanged
