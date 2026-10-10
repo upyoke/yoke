@@ -110,7 +110,9 @@ def _coerce_request(
 ) -> Tuple[Optional[FunctionCallRequest], Optional[FunctionCallResponse]]:
     """Return ``(typed_request, error_response)``; one is always None."""
     if isinstance(request, FunctionCallRequest):
-        return request, None
+        # Resolution adds engine join keys; never mutate the caller's envelope
+        # or a target it will reuse for a subsequent public dispatch.
+        return request.model_copy(deep=True), None
     try:
         typed = FunctionCallRequest.model_validate(request)
         return typed, None

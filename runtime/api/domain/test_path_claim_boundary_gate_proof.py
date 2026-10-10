@@ -26,6 +26,8 @@ from yoke_core.domain.path_claim_boundary_gate_proof import (
 from yoke_core.domain.path_claim_boundary_proof_validation import _remote_heads
 from yoke_core.domain.project_github_auth import MissingCapability, MissingPermission
 from yoke_core.domain.gate_satisfier_stamp import read_rungs
+from yoke_core.domain.function_response_refs import public_result
+from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.path_claims import register
 from yoke_core.domain.path_claims_gate_boundary import check_boundary_for_item
 
@@ -57,7 +59,9 @@ def _seed_proof_case(project_repo, real_db):
             (head_sha,),
         )
         conn.commit()
-        context = boundary_context(conn, 7777)
+        context = public_result(
+            boundary_context(conn, 7777), render_item_refs(conn, [7777])
+        )
     proof = build_local_boundary_proof(context, str(lane))
     return claim_id, lane, context, proof
 
