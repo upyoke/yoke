@@ -189,7 +189,7 @@ blank or malformed supplied clocks refuse before the entry writer. Governed
 exception audit fingerprints bind native start/completion clocks through the
 shared adapter, retaining explicit backup/no-backup authority requirements.
 
-Governed apply/rehearsal helpers retain native audit and result clocks. Both
+Governed apply/rehearsal helpers retain Native audit and result clocks; rehearsal/adoption result constructors refuse internal wire/naive clocks and preserve nullable rehearsal absence. Both
 audit writer surfaces use one finite parameter owner; native update clocks keep
 nullable absence and reject malformed values before mutation. New verification
 command outcomes and console projections format their declared clocks as

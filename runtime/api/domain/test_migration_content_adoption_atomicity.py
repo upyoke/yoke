@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -245,10 +246,16 @@ def test_adoption_generates_native_fact_until_sqlite_evidence_owner(tmp_path, cl
     )
 
 
+@pytest.mark.parametrize("microsecond", [0, 123456])
 @pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])
-def test_adoption_evidence_sql_owner_binds_native_microseconds(test_db, zone):
+def test_adoption_evidence_sql_owner_binds_native_microseconds(
+    test_db, zone, microsecond
+):
     test_db.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
-    clock = parse_instant("1970-01-01T05:29:59.123456+05:30")
+    clock = parse_instant("1970-01-01T05:29:59.123456+05:30").replace(
+        microsecond=microsecond
+    )
+    supplied = clock.astimezone(timezone(timedelta(hours=5, minutes=30)))
     record = AdoptionRecord(
         "0001_native_clock",
         "a" * 64,
@@ -258,8 +265,10 @@ def test_adoption_evidence_sql_owner_binds_native_microseconds(test_db, zone):
         "c" * 40,
         "d" * 64,
         "operator:test",
-        clock,
+        supplied,
     )
+    assert record.adopted_at == clock
+    assert record.adopted_at.tzinfo is timezone.utc
     write_adoption_evidence(test_db, (record,), YOKE_ADOPTION_EVIDENCE_CONTRACT)
     row = test_db.execute(
         f"SELECT adopted_at,content_sha256,source_sha256 FROM {YOKE_ADOPTION_EVIDENCE_TABLE} WHERE migration_name=%s",
@@ -269,7 +278,19 @@ def test_adoption_evidence_sql_owner_binds_native_microseconds(test_db, zone):
 
 
 @pytest.mark.parametrize(
-    "clock", ["", "1970-01-01", "1970-01-01T00:00:00", "1970-01-01T00:00:00-00:00"]
+    "clock",
+    [
+        None,
+        0,
+        False,
+        datetime(1970, 1, 1),
+        "1969-12-31T23:59:59.123456Z",
+        "1970-01-01T05:29:59.123456+05:30",
+        "",
+        "1970-01-01",
+        "1970-01-01T00:00:00",
+        "1970-01-01T00:00:00-00:00",
+    ],
 )
 def test_adoption_record_refuses_unverifiable_clock(clock):
     with pytest.raises(InvalidInstant):

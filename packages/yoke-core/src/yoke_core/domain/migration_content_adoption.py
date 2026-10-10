@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime
-from yoke_contracts.timestamps import parse_instant, utc_now
+from yoke_contracts.timestamps import as_utc, parse_instant, utc_now
 from collections.abc import Mapping
 from typing import Any, Callable, ContextManager, Sequence, Tuple
 
@@ -49,7 +49,7 @@ class AdoptionRecord:
     adopted_at: datetime
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "adopted_at", parse_instant(self.adopted_at))
+        object.__setattr__(self, "adopted_at", as_utc(self.adopted_at))
 
 
 EvidenceWriter = Callable[[Any, Tuple[AdoptionRecord, ...]], None]

@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.timestamps import as_utc
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import db_helpers
@@ -93,7 +93,7 @@ class RehearseResult:
 
     def __post_init__(self) -> None:
         if self.rehearsed_at is not None:
-            self.rehearsed_at = parse_instant(self.rehearsed_at)
+            self.rehearsed_at = as_utc(self.rehearsed_at)
 
     @property
     def all_succeeded(self) -> bool:
