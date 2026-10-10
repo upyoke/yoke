@@ -61,3 +61,18 @@ test("SQL projector preserves the caller expression and transaction clock", () =
   assert.equal(instantWireSql("owned.created_at"),
     `to_char((owned.created_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`);
 });
+
+test("UTC conversion bounds agree across standalone and browser kernels", () => {
+  for (const format of [standalone.formatInstant, formatInstant]) {
+    for (const input of [
+      "0001-01-01T00:00:00+05:30",
+      "9999-12-31T23:59:59.999999-05:30",
+    ]) assert.throws(() => format(input), /invalid_instant/);
+    for (const [input, wire] of [
+      ["0001-01-01T00:00:00Z", "0001-01-01T00:00:00.000000Z"],
+      ["0001-01-01T05:30:00+05:30", "0001-01-01T00:00:00.000000Z"],
+      ["9999-12-31T23:59:59.999999Z", "9999-12-31T23:59:59.999999Z"],
+      ["9999-12-31T18:29:59.999999-05:30", "9999-12-31T23:59:59.999999Z"],
+    ]) assert.equal(format(input), wire);
+  }
+});

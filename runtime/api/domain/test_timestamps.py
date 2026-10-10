@@ -84,6 +84,48 @@ def test_invalid_or_unknown_inputs_refuse_without_guessing(value):
         parse_instant(value)
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        "0001-01-01T00:00:00+05:30",
+        "9999-12-31T23:59:59.999999-05:30",
+        datetime(1, 1, 1, tzinfo=timezone(timedelta(hours=5, minutes=30))),
+        datetime(
+            9999,
+            12,
+            31,
+            23,
+            59,
+            59,
+            999999,
+            tzinfo=timezone(timedelta(hours=-5, minutes=-30)),
+        ),
+    ],
+)
+def test_utc_conversion_bounds_refuse_with_named_instant_recovery(value):
+    for convert in (parse_instant, format_instant):
+        with pytest.raises(InvalidInstant, match="invalid_instant"):
+            convert(value)
+    if isinstance(value, datetime):
+        with pytest.raises(InvalidInstant, match="invalid_instant"):
+            temporal_wire({"clock": value})
+
+
+@pytest.mark.parametrize(
+    "value,wire",
+    [
+        ("0001-01-01T00:00:00Z", "0001-01-01T00:00:00.000000Z"),
+        ("0001-01-01T05:30:00+05:30", "0001-01-01T00:00:00.000000Z"),
+        ("9999-12-31T23:59:59.999999Z", "9999-12-31T23:59:59.999999Z"),
+        ("9999-12-31T18:29:59.999999-05:30", "9999-12-31T23:59:59.999999Z"),
+    ],
+)
+def test_representable_utc_boundaries_keep_canonical_bytes(value, wire):
+    assert format_instant(value) == wire
+    assert format_instant(parse_instant(value)) == wire
+    assert parse_instant(value) == parse_instant(wire)
+
+
 def test_whole_seconds_are_padded_without_recovering_precision():
     assert format_instant("2026-10-08T16:30:00Z") == "2026-10-08T16:30:00.000000Z"
 

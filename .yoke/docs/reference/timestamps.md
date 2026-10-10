@@ -10,7 +10,8 @@ Supplied inputs require a valid calendar and an explicit UTC offset. Naive
 datetimes, date-only values, unknown `-00:00` offsets and precision beyond
 microseconds refuse as `invalid_instant`; supply a qualified instant instead.
 Offset-qualified inputs normalize to the same UTC instant without dropping
-microseconds. The runtime parser never guesses a timezone or repairs history.
+microseconds. UTC conversion outside years 1 through 9999 also refuses.
+The runtime parser never guesses a timezone or repairs history.
 
 `actor_state.set_actor_enabled(..., now=...)` requires an aware `datetime`.
 Its owning handler uses `utc_now()`; an adapter with a qualified wire input
