@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from yoke_contracts.timestamps import utc_now as _utc_now_iso
+from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -76,7 +76,7 @@ def materialize_snapshot_payload(
 
     targets = all_paths_with_kinds(entry.path for entry in payload.files)
     files = {entry.path: entry for entry in payload.files}
-    now_iso = instant_parameter(conn, _utc_now_iso())
+    observed_at = utc_now()
     p = _p(conn)
     try:
         conn.execute("BEGIN")
@@ -99,13 +99,17 @@ def materialize_snapshot_payload(
             conn,
             project_id=resolved_project_id,
             targets=targets,
-            now_iso=now_iso,
+            observed_at=observed_at,
         )
         cur = conn.execute(
             "INSERT INTO path_snapshots "
             f"(project_id, commit_sha, built_at) VALUES ({p}, {p}, {p}) "
             "RETURNING id",
-            (resolved_project_id, payload.commit_sha, now_iso),
+            (
+                resolved_project_id,
+                payload.commit_sha,
+                instant_parameter(conn, observed_at),
+            ),
         )
         snapshot_id = int(cur.fetchone()[0])
         _write_entries(

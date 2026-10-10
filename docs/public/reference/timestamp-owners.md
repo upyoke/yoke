@@ -39,7 +39,7 @@ retain native clocks. Session drift/rework and presentation ordering compare
 aware instants; naive external presentation observations are rejected. Shepherd
 pipe output formats native instants; its verdict date remains a UTC date label.
 
-Path claim, amendment, target planning/materialization and snapshot writes bind native clocks. Snapshot and target resolution retain Native clocks through internal calls and validate even reused targets; only SQL binds format SQLite clocks.
+Path claim, amendment, target planning/materialization and snapshot writes bind native clocks. Snapshot, client-scanned materialization and target resolution retain Native clocks through internal calls and validate even reused targets; only SQL binds format SQLite clocks.
 Claim-age and Pack freshness reads preserve native microseconds;
 malformed internal clock facts refuse instead of assuming a timezone.
 
