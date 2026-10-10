@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.timestamps import parse_instant
+
 from yoke_core.domain.org_schema import org_id_by_slug, seed_default_org
 from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 from yoke_core.domain.projects_upsert import cmd_upsert
+
+PROJECT_CREATED_AT = parse_instant("2026-01-01T00:00:00Z")
 
 
 def test_create_project_in_requested_org(test_db):
@@ -16,7 +20,7 @@ def test_create_project_in_requested_org(test_db):
     org_id = conn.execute(
         "INSERT INTO organizations (slug, name, created_at) "
         "VALUES (%s, %s, %s) RETURNING id",
-        ("installer-e2e", "Installer E2E", "2026-01-01T00:00:00Z"),
+        ("installer-e2e", "Installer E2E", PROJECT_CREATED_AT),
     ).fetchone()[0]
     conn.commit()
 
@@ -72,7 +76,7 @@ def test_create_allows_same_slug_in_different_orgs(test_db):
     seed_default_org(conn)
     conn.execute(
         "INSERT INTO organizations (slug, name, created_at) VALUES (%s, %s, %s)",
-        ("other", "Other Org", "2026-01-01T00:00:00Z"),
+        ("other", "Other Org", PROJECT_CREATED_AT),
     )
     conn.commit()
 
@@ -106,7 +110,7 @@ def test_update_by_authorized_project_id_uses_that_org_scope(test_db):
     other_org = conn.execute(
         "INSERT INTO organizations (slug, name, created_at) "
         "VALUES (%s, %s, %s) RETURNING id",
-        ("other-update", "Other Update", "2026-01-01T00:00:00Z"),
+        ("other-update", "Other Update", PROJECT_CREATED_AT),
     ).fetchone()[0]
     conn.execute(
         "INSERT INTO projects "
@@ -115,9 +119,9 @@ def test_update_by_authorized_project_id_uses_that_org_scope(test_db):
         "(311, %s, 'shared-update', 'Other Shared', 'OSH', %s)",
         (
             default_org,
-            "2026-01-01T00:00:00Z",
+            PROJECT_CREATED_AT,
             other_org,
-            "2026-01-01T00:00:00Z",
+            PROJECT_CREATED_AT,
         ),
     )
     conn.commit()
