@@ -266,7 +266,7 @@ Their owned JSON ingress parses clocks and output formats only declared leaves. 
 Carried usage storage canonicalizes its observation while preserving unrelated
 JSON facts; malformed clocks refuse before SQL or capacity probes.
 
-Fleet readers retain native activity, launch, message, landing, decision and
+Scheduled-step constructors require Native clocks or null; exceptional-item SQL readers decode stored creation clocks before handoff. Fleet readers retain native activity, launch, message, landing, decision and
 report-delivery clocks through ranking and exact elapsed comparisons. Earliest
 landing and latest decision selection compare instants, with explicit null and
 identity tie order. Report JSON emits fixed-six UTC/null; calendar reset labels

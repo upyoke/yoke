@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.timestamps import as_utc
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -205,7 +205,7 @@ class ScheduledStep:
 
     def __post_init__(self) -> None:
         if self.created_at is not None:
-            self.created_at = parse_instant(self.created_at)
+            self.created_at = as_utc(self.created_at)
 
 
 # ---------------------------------------------------------------------------

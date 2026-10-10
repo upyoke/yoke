@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from yoke_contracts.timestamps import InvalidInstant
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.domain.scheduler_types import ScheduledStep, NextStep
 
 import os
@@ -285,7 +285,7 @@ def test_scheduled_creation_clock_keeps_native_microseconds():
         title="Clock",
         priority="medium",
         next_step=NextStep.DASH,
-        created_at="2060-10-08T05:45:00.123456+05:45",
+        created_at=parse_instant("2060-10-08T05:45:00.123456+05:45"),
     )
     assert step.created_at == datetime(
         2060, 10, 8, 0, 0, 0, 123456, tzinfo=timezone.utc
