@@ -39,7 +39,8 @@ class TestItemsGetDefaultProjection(unittest.TestCase):
             "yoke_core.domain.render_body_item_sections.fetch_item_sections",
             side_effect=lambda conn, item_id, *, late: (
                 [{"section_name": "Progress Log", "content": "Checkpoint"}]
-                if late else []
+                if late
+                else []
             ),
         )
         sections.start()
@@ -92,9 +93,12 @@ class TestItemsGetDefaultProjection(unittest.TestCase):
         self.assertEqual(fields["id"], _FIXTURE_ITEM_REF)
         self.assertEqual(set(fields), set(DEFAULT_GET_FIELDS))
         self.assertNotIn("body", fields)
-        self.assertEqual(outcome.result_payload["sections"], [
-            {"name": "Progress Log", "content": "Checkpoint"},
-        ])
+        self.assertEqual(
+            outcome.result_payload["sections"],
+            [
+                {"name": "Progress Log", "content": "Checkpoint"},
+            ],
+        )
 
     def test_explicit_field_subset_still_projects_only_requested(self):
         queried = []

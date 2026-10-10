@@ -20,6 +20,7 @@ from yoke_cli.commands.adapters.session_control_roster_diagnostics_output import
 )
 from yoke_cli.commands.adapters.session_control_recipient_output import (
     display_recipients,
+    message_sender,
     recipient_count,
     recipient_party,
     recipient_project,
@@ -207,15 +208,6 @@ def _write_recipients(
     write_table("RECIPIENTS", columns, rows, stdout, empty="No recipients found.")
 
 
-def _sender(row: Mapping[str, Any]) -> Any:
-    """However a row spells its sender; a compact row resolves it for us."""
-    return (
-        row.get("sender")
-        or row.get("sender_session_id")
-        or row.get("sender_actor_label")
-    )
-
-
 def _message_state(message: Mapping[str, Any]) -> str:
     if message.get("cancelled_at"):
         reason = humanize(message.get("cancellation_reason"))
@@ -239,7 +231,10 @@ def _write_message_detail(
         print(command, file=stdout)
     if with_body:
         message_id = message.get("message_id")
-        print(f"msg {message_id} from {_fit(_sender(message), 48)}; state {_message_state(message)}; {recipient_count(message)} recipient(s)", file=stdout)
+        print(
+            f"msg {message_id} from {_fit(message_sender(message), 48)}; state {_message_state(message)}; {recipient_count(message)} recipient(s)",
+            file=stdout,
+        )
         write_body(message, stdout)
         print(f"details: yoke messages get {message_id} --json --full", file=stdout)
         return
@@ -257,9 +252,7 @@ def _write_message_detail(
         ("Expires (UTC)", utc_time(message.get("expires_at"))),
     ]
     if message.get("cancellation_reason"):
-        fields.append(
-            ("Cancellation reason", humanize(message["cancellation_reason"]))
-        )
+        fields.append(("Cancellation reason", humanize(message["cancellation_reason"])))
     summary = steering_summary(message)
     if summary:
         fields.append(("Steering", summary))
@@ -315,7 +308,7 @@ def write_message_result(
                 print(command, file=stdout)
         columns: tuple[Column, ...] = (
             ("MESSAGE", lambda row: row.get("message_id"), None),
-            ("FROM", _sender, 24),
+            ("FROM", message_sender, 24),
             ("STATE / REASON", _message_state, 28),
             ("TO", recipient_count, 4),
             ("CREATED (UTC)", lambda row: utc_time(row.get("created_at")), 22),

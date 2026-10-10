@@ -56,6 +56,9 @@ NEW_HARNESS_SESSION_COLUMNS = (
 
 def main_body() -> str:
     """Fetch full topic depth to verify schema and operation notes."""
-    return "\n".join(schema_api_context.render_topic_packet(
-        topic, role="main_agent", detail=PACKET_DETAIL_FULL
-    ) for topic in schema_api_context.seed.ROLE_TOPICS["main_agent"])
+    return "\n".join(
+        schema_api_context.render_topic_packet(
+            topic, role="main_agent", detail=PACKET_DETAIL_FULL
+        )
+        for topic in schema_api_context.seed.ROLE_TOPICS["main_agent"]
+    )

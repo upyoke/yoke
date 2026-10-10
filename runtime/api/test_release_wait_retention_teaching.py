@@ -53,7 +53,9 @@ def _mandate() -> str:
 def test_the_retention_teaching_is_one_of_the_standing_mandate_paragraphs():
     assert RELEASE_WAIT_RETENTION_TEACHING in STANDING_TEACHINGS
     assert "A release wait retains the claim and park" in _mandate()
-    assert RELEASE_WAIT_RETENTION_TEACHING in _read(SKILLS / "steer" / "worker-launch.md")
+    assert RELEASE_WAIT_RETENTION_TEACHING in _read(
+        SKILLS / "steer" / "worker-launch.md"
+    )
 
 
 def test_the_worker_lifecycle_copy_matches_the_composed_teaching():

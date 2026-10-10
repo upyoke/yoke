@@ -80,9 +80,12 @@ def _parent_blocks(
         message_id = canonical_fleet_message_id(message.message_id)
         acknowledgement = (
             f"Acknowledge: `yoke messages acknowledge {message_id}`"
-            if message_id else FLEET_INVALID_MESSAGE_ID_GUIDANCE
+            if message_id
+            else FLEET_INVALID_MESSAGE_ID_GUIDANCE
         )
-        blocks.append(_render_message(message, token=token, acknowledgement=acknowledgement))
+        blocks.append(
+            _render_message(message, token=token, acknowledgement=acknowledgement)
+        )
     hidden_count = max(0, lease.remaining_count)
     if hidden_count:
         blocks.append(_parent_overflow_notice(hidden_count, session_id))

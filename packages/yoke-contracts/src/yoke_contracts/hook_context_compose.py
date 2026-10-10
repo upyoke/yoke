@@ -60,7 +60,8 @@ def delivered_message_ids(text: str, token: str) -> set[str]:
         contexts = (text,)
     prefix = f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {token} "
     return {
-        match.group(1) for context in contexts
+        match.group(1)
+        for context in contexts
         for match in _MESSAGE_BLOCK_RE.finditer(context)
         if match.group(0).startswith(prefix)
     }

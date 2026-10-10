@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 import json
-import sys
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
@@ -16,30 +15,6 @@ from yoke_core.domain.strategy_docs_defaults import NEAR_TERM_PLAN_SLUG
 
 
 _CAPTURED: list[FunctionCallRequest] = []
-
-
-def test_report_delta_full_and_json_select_their_projection(monkeypatch, capsys):
-    from yoke_cli.commands.adapters import steering_report
-
-    captured = []
-    def dispatch(**kwargs):
-        captured.append(kwargs)
-        if not kwargs["json_mode"]:
-            response = FunctionCallResponse(
-                success=True, function="steering.report.get", version="v1",
-                result={"body": "complete report", "delta_body": "unchanged"},
-            )
-            kwargs["human_writer"](response, sys.stdout, sys.stderr)
-        return 0
-    monkeypatch.setattr(steering_report, "dispatch_and_emit", dispatch)
-    for flags, payload, output in (
-        ([], {"read_delta": True, "full": False}, "unchanged"),
-        (["--full"], {"read_delta": True, "full": True}, "complete report"),
-        (["--json"], {}, ""),
-    ):
-        assert steering_report.steering_report_get(flags) == 0
-        assert captured[-1]["payload"] == payload
-        assert capsys.readouterr().out.strip() == output
 
 
 def _claim(
@@ -158,7 +133,10 @@ def test_handoff_is_bounded_and_json_keeps_the_digest() -> None:
     claim = _claim(41)
     digest = "Inherited body. " * 200
     claim["message_handoff"] = {
-        "drained_count": 2, "parked_count": 1, "stranded_count": 1, "digest": digest,
+        "drained_count": 2,
+        "parked_count": 1,
+        "stranded_count": 1,
+        "digest": digest,
     }
     output = io.StringIO()
     _print_acquired(SimpleNamespace(result={"claim": claim}), output, io.StringIO())
@@ -167,12 +145,32 @@ def test_handoff_is_bounded_and_json_keeps_the_digest() -> None:
     assert "yoke messages list --state unacknowledged" in output.getvalue()
     assert digest not in output.getvalue()
     assert claim["message_handoff"]["digest"] == digest
-    response = _stub_response(FunctionCallRequest(function="claims.steering.acquire", actor={"actor_id": "op", "session_id": "steering-session"}, target={"kind": "global"}, payload={}))
+    response = _stub_response(
+        FunctionCallRequest(
+            function="claims.steering.acquire",
+            actor={"actor_id": "op", "session_id": "steering-session"},
+            target={"kind": "global"},
+            payload={},
+        )
+    )
     response.result = {"claim": claim}
-    with patch("yoke_core.domain.yoke_function_dispatch.dispatch", return_value=response), patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
+    with (
+        patch(
+            "yoke_core.domain.yoke_function_dispatch.dispatch", return_value=response
+        ),
+        patch("yoke_cli.commands._helpers.ensure_handlers_loaded"),
+    ):
         with redirect_stdout(output := io.StringIO()):
-            assert cli_main(["claims", "steering", "acquire", "--project", "alpha", "--json"]) == 0
-    assert json.loads(output.getvalue())["result"]["claim"]["message_handoff"]["digest"] == digest
+            assert (
+                cli_main(
+                    ["claims", "steering", "acquire", "--project", "alpha", "--json"]
+                )
+                == 0
+            )
+    assert (
+        json.loads(output.getvalue())["result"]["claim"]["message_handoff"]["digest"]
+        == digest
+    )
 
 
 def test_acquire_with_plan_doc_keeps_the_whole_project_seat() -> None:

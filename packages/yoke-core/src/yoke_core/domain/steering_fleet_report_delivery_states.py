@@ -34,7 +34,9 @@ from yoke_contracts.session_control.wake_delivery import (
 from yoke_core.domain.session_tool_call_projections import OPEN_TOOL_CALL_COLUMN
 from yoke_core.domain.session_message_starvation import hook_route_silent_since
 from yoke_core.domain.session_tool_call_liveness import session_call_is_live
-from yoke_core.domain.session_message_ended_recipient import recipient_has_no_delivery_route
+from yoke_core.domain.session_message_ended_recipient import (
+    recipient_has_no_delivery_route,
+)
 
 #: An attempt was made and settled badly. It names its own reason.
 ATTEMPT_FAILED = "attempt_failed"

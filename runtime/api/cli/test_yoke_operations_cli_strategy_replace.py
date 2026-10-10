@@ -48,27 +48,31 @@ def _run(
             "yoke_core.domain.yoke_function_dispatch.dispatch",
             side_effect=_stub_ok,
         ):
-            with patch(
-                "yoke_cli.commands._helpers."
-                "ensure_handlers_loaded"
-            ):
+            with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
                 with patch("sys.stdin", io.StringIO(stdin_text or "")):
-                    with redirect_stdout(io.StringIO()), \
-                            redirect_stderr(io.StringIO()):
+                    with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
                         return cli_main(list(argv))
 
 
 class TestDocReplace:
     def test_dispatches_with_stdin_content(self, tmp_path: Path) -> None:
         rc = _run(
-            "strategy", "doc", "replace", "MISSION", "--stdin",
-            "--base-updated-at", "2026-06-10T00:00:00Z",
-            "--target-root", str(tmp_path),
+            "strategy",
+            "doc",
+            "replace",
+            "MISSION",
+            "--stdin",
+            "--base-updated-at",
+            "2026-06-10T00:00:00Z",
+            "--target-root",
+            str(tmp_path),
             stdin_text="# Mission\n\nNew mission body.\n",
         )
         assert rc == 0
         assert [r.function for r in _CAPTURED_REQUESTS] == [
-            "strategy.doc.list", "strategy.doc.replace", "strategy.render.run",
+            "strategy.doc.list",
+            "strategy.doc.replace",
+            "strategy.render.run",
         ]
         req = _CAPTURED_REQUESTS[1]
         assert req.function == "strategy.doc.replace"
@@ -82,22 +86,34 @@ class TestDocReplace:
         assert _CAPTURED_REQUESTS[2].payload == {"slugs": ["MISSION"]}
 
     def test_dispatches_with_content_flag_and_force(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         rc = _run(
-            "strategy", "doc", "replace", "PAD",
-            "--content", "# PAD\n", "--force",
-            "--base-updated-at", "2026-06-10T00:00:00Z",
-            "--target-root", str(tmp_path),
+            "strategy",
+            "doc",
+            "replace",
+            "PAD",
+            "--content",
+            "# PAD\n",
+            "--force",
+            "--base-updated-at",
+            "2026-06-10T00:00:00Z",
+            "--target-root",
+            str(tmp_path),
         )
         assert rc == 0
         assert [r.function for r in _CAPTURED_REQUESTS] == [
-            "strategy.doc.list", "strategy.doc.replace", "strategy.render.run",
+            "strategy.doc.list",
+            "strategy.doc.replace",
+            "strategy.render.run",
         ]
         req = _CAPTURED_REQUESTS[1]
         assert req.payload == {
-            "slug": "PAD", "content": "# PAD\n",
-            "base_updated_at": "2026-06-10T00:00:00Z", "force": True,
+            "slug": "PAD",
+            "content": "# PAD\n",
+            "base_updated_at": "2026-06-10T00:00:00Z",
+            "force": True,
         }
         assert _CAPTURED_REQUESTS[2].payload == {"slugs": ["PAD"]}
 
@@ -105,17 +121,25 @@ class TestDocReplace:
         content_file = tmp_path / "doc.md"
         content_file.write_text("# From file\n", encoding="utf-8")
         rc = _run(
-            "strategy", "doc", "replace", "WISPS",
-            "--content-file", str(content_file),
-            "--base-updated-at", "2026-06-10T00:00:00Z",
-            "--target-root", str(tmp_path),
+            "strategy",
+            "doc",
+            "replace",
+            "WISPS",
+            "--content-file",
+            str(content_file),
+            "--base-updated-at",
+            "2026-06-10T00:00:00Z",
+            "--target-root",
+            str(tmp_path),
         )
         assert rc == 0
         assert _CAPTURED_REQUESTS[1].payload["content"] == "# From file\n"
         assert _CAPTURED_REQUESTS[2].function == "strategy.render.run"
 
     def test_writes_full_render_after_success(
-        self, tmp_path: Path, capsys,
+        self,
+        tmp_path: Path,
+        capsys,
     ) -> None:
         def _stub(request: FunctionCallRequest) -> FunctionCallResponse:
             _CAPTURED_REQUESTS.append(request)
@@ -140,8 +164,10 @@ class TestDocReplace:
                     ],
                 }
             return FunctionCallResponse(
-                success=True, function=request.function,
-                version=request.version, request_id=request.request_id,
+                success=True,
+                function=request.function,
+                version=request.version,
+                request_id=request.request_id,
                 result=result,
             )
 
@@ -151,27 +177,34 @@ class TestDocReplace:
                 "yoke_core.domain.yoke_function_dispatch.dispatch",
                 side_effect=_stub,
             ):
-                with patch(
-                    "yoke_cli.commands._helpers."
-                    "ensure_handlers_loaded"
-                ):
-                    rc = cli_main([
-                        "strategy", "doc", "replace", "MISSION",
-                        "--content", "# Mission\n",
-                        "--base-updated-at", "2026-06-10T00:00:00Z",
-                        "--target-root", str(tmp_path),
-                    ])
+                with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
+                    rc = cli_main(
+                        [
+                            "strategy",
+                            "doc",
+                            "replace",
+                            "MISSION",
+                            "--content",
+                            "# Mission\n",
+                            "--base-updated-at",
+                            "2026-06-10T00:00:00Z",
+                            "--target-root",
+                            str(tmp_path),
+                        ]
+                    )
         assert rc == 0
         assert [r.function for r in _CAPTURED_REQUESTS] == [
-            "strategy.doc.list", "strategy.doc.replace", "strategy.render.run",
+            "strategy.doc.list",
+            "strategy.doc.replace",
+            "strategy.render.run",
         ]
         assert _CAPTURED_REQUESTS[2].payload == {"slugs": ["MISSION"]}
-        assert (
-            tmp_path / ".yoke" / "strategy" / "MISSION.md"
-        ).read_text(encoding="utf-8") == "<!-- h -->\n# MISSION\n"
-        assert (
-            tmp_path / ".yoke" / "strategy" / "PAD.md"
-        ).read_text(encoding="utf-8") == "<!-- h -->\n# PAD\n"
+        assert (tmp_path / ".yoke" / "strategy" / "MISSION.md").read_text(
+            encoding="utf-8"
+        ) == "<!-- h -->\n# MISSION\n"
+        assert (tmp_path / ".yoke" / "strategy" / "PAD.md").read_text(
+            encoding="utf-8"
+        ) == "<!-- h -->\n# PAD\n"
         out = capsys.readouterr().out
         assert "MISSION\twritten" in out
         assert "PAD\twritten" not in out
@@ -183,14 +216,18 @@ class TestDocReplace:
         # write. The replace still dispatches and the command still
         # succeeds; the render does not dispatch.
         with patch(
-            "yoke_cli.commands.adapters.strategy_doc_write."
-            "resolve_target_root_for_cli",
+            "yoke_cli.commands.adapters.strategy_doc_write.resolve_target_root_for_cli",
             side_effect=RuntimeError("no anchor"),
         ):
             rc = _run(
-                "strategy", "doc", "replace", "MISSION",
-                "--content", "# x\n",
-                "--base-updated-at", "2026-06-10T00:00:00Z",
+                "strategy",
+                "doc",
+                "replace",
+                "MISSION",
+                "--content",
+                "# x\n",
+                "--base-updated-at",
+                "2026-06-10T00:00:00Z",
             )
         assert rc == 0
         assert [r.function for r in _CAPTURED_REQUESTS] == [
@@ -198,7 +235,9 @@ class TestDocReplace:
         ]
 
     def test_target_root_for_another_project_refuses_before_dispatch(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         # A KNOWN project mismatch is caught by resolving identity via
         # strategy.doc.list before the mutation dispatches at all: zero
@@ -224,8 +263,10 @@ class TestDocReplace:
             if request.function == "strategy.doc.list":
                 result = {"project_id": 1, "project_slug": "yoke", "docs": []}
             return FunctionCallResponse(
-                success=True, function=request.function,
-                version=request.version, request_id=request.request_id,
+                success=True,
+                function=request.function,
+                version=request.version,
+                request_id=request.request_id,
                 result=result,
             )
 
@@ -235,16 +276,21 @@ class TestDocReplace:
                 "yoke_core.domain.yoke_function_dispatch.dispatch",
                 side_effect=_stub,
             ):
-                with patch(
-                    "yoke_cli.commands._helpers."
-                    "ensure_handlers_loaded"
-                ):
-                    rc = cli_main([
-                        "strategy", "doc", "replace", "MISSION",
-                        "--content", "# Mission\n",
-                        "--base-updated-at", "2026-06-10T00:00:00Z",
-                        "--target-root", str(other_checkout),
-                    ])
+                with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
+                    rc = cli_main(
+                        [
+                            "strategy",
+                            "doc",
+                            "replace",
+                            "MISSION",
+                            "--content",
+                            "# Mission\n",
+                            "--base-updated-at",
+                            "2026-06-10T00:00:00Z",
+                            "--target-root",
+                            str(other_checkout),
+                        ]
+                    )
         assert rc == 2
         assert [r.function for r in _CAPTURED_REQUESTS] == [
             "strategy.doc.list",
@@ -253,8 +299,12 @@ class TestDocReplace:
 
     def test_missing_content_source_returns_two(self) -> None:
         rc = _run(
-            "strategy", "doc", "replace", "MISSION",
-            "--base-updated-at", "2026-06-10T00:00:00Z",
+            "strategy",
+            "doc",
+            "replace",
+            "MISSION",
+            "--base-updated-at",
+            "2026-06-10T00:00:00Z",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []

@@ -99,7 +99,9 @@ def handle_items_search(request: FunctionCallRequest) -> HandlerOutcome:
         else:
             try:
                 project_id = resolve_visible_project_id(
-                    conn, explicit_project, scoped,
+                    conn,
+                    explicit_project,
+                    scoped,
                 )
             except AmbiguousProjectRefError as exc:
                 return ambiguous_project_error(str(exc), "$.payload.project")

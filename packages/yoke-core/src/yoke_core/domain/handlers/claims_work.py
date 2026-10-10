@@ -133,7 +133,9 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
     with _connect_rw() as conn:
         instructions = []
         if target_spec.kind == "item":
-            from yoke_core.domain.workflow_execution_instructions import resolve_for_item
+            from yoke_core.domain.workflow_execution_instructions import (
+                resolve_for_item,
+            )
 
             instructions = resolve_for_item(conn, int(target_spec.item_id))
         try:

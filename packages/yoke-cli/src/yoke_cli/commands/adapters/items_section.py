@@ -154,7 +154,9 @@ def items_section_get(args: List[str]) -> int:
         payload={},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=lambda response, stdout, stderr: write_item_content(response, stdout, stderr, item=parsed.item),
+        human_writer=lambda response, stdout, stderr: write_item_content(
+            response, stdout, stderr, item=parsed.item
+        ),
     )
 
 
@@ -176,7 +178,9 @@ def items_progress_log_get(args: List[str]) -> int:
         payload={},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=lambda response, stdout, stderr: write_item_content(response, stdout, stderr, item=parsed.item),
+        human_writer=lambda response, stdout, stderr: write_item_content(
+            response, stdout, stderr, item=parsed.item
+        ),
     )
 
 

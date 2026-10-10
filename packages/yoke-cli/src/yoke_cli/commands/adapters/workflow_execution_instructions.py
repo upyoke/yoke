@@ -20,6 +20,10 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.read_detail import DETAIL_FULL
+from yoke_cli.commands.adapters.workflow_instruction_delivery_args import (
+    _delivery_args,
+    _delivery_payload,
+)
 from yoke_cli.commands.adapters.item_flow_output import render_item_instruction_summary
 
 EXECUTION_INSTRUCTION_BLOCK_HEADER = (
@@ -78,46 +82,6 @@ def _dispatch(
         json_mode=parsed.json_mode,
         human_writer=human_writer,
     )
-
-
-def _delivery_args(parser: argparse.ArgumentParser) -> None:
-    for flag, label in (
-        ("before-creation", "Before creation"),
-        ("on-every-read", "On every read"),
-        ("when-entering-stage", "When entering stage"),
-    ):
-        parser.add_argument(
-            f"--{flag}",
-            action=argparse.BooleanOptionalAction,
-            default=None,
-            help=f"Enable/disable {label}; omitted settings are preserved.",
-        )
-    parser.add_argument(
-        "--stage-bucket",
-        action="append",
-        dest="stage_buckets",
-        help="Stage target: idea, planning, refined, implementing, reviewing, implemented, release; repeatable.",
-    )
-    parser.add_argument(
-        "--clear-stage-buckets",
-        action="store_true",
-        help="Clear targets (disable When entering stage in the same edit).",
-    )
-
-
-def _delivery_payload(parsed: argparse.Namespace) -> dict:
-    fields = (
-        "before_creation",
-        "on_every_read",
-        "when_entering_stage",
-        "stage_buckets",
-    )
-    result = {
-        key: getattr(parsed, key) for key in fields if getattr(parsed, key) is not None
-    }
-    if parsed.clear_stage_buckets:
-        result["stage_buckets"] = []
-    return result
 
 
 def _content_args(parser: argparse.ArgumentParser) -> None:
@@ -339,7 +303,8 @@ def write_item_content(response, stdout, stderr, *, item: str | None = None) -> 
     result = response.result or {}
     stdout.write(
         render_item_instruction_summary(
-            result.get("execution_instructions") or [], item or str(result.get("public_ref") or "ITEM"),
+            result.get("execution_instructions") or [],
+            item or str(result.get("public_ref") or "ITEM"),
         )
     )
     text = str(result.get("content") or "")

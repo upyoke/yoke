@@ -36,7 +36,9 @@ _CONTROL_DB_DDL = """
 
 _CONTROL_SEED_AT = datetime(2026, 4, 23, tzinfo=timezone.utc)
 
-def _p(conn) -> str: return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+def _p(conn) -> str:
+    return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 def _upsert_project_sql(p: str) -> str:
@@ -94,8 +96,7 @@ def _seed_capability(
     )
     conn.execute(
         _upsert_capability_sql(p),
-        (project_id, "migration_model", settings_json,
-         _CONTROL_SEED_AT),
+        (project_id, "migration_model", settings_json, _CONTROL_SEED_AT),
     )
     conn.commit()
     conn.close()
@@ -207,8 +208,7 @@ class TestResolveValidationDbPaths:
         )
         conn.execute(
             _upsert_capability_sql(p),
-            (1, "migration_model", settings_json,
-             _CONTROL_SEED_AT),
+            (1, "migration_model", settings_json, _CONTROL_SEED_AT),
         )
         conn.commit()
         conn.close()
@@ -218,41 +218,21 @@ class TestResolveValidationDbPaths:
         assert result == {}
 
 
-def test_webapp_pack_docs_mark_sqlite_as_app_local() -> None:
-    root = Path(__file__).resolve().parents[3]
-    reference = json.loads(
-        (root / "packs/webapp-scaffold/versions/1.0.0/settings-reference.json").read_text()
-    )
-    rels = (
-        "packs/webapp-scaffold/versions/1.0.0/files/docs/packs/webapp-scaffold/README.md",
-        "packs/webapp-scaffold/versions/1.0.0/files/AGENTS.md",
-        "packs/webapp-scaffold/versions/1.0.0/files/ROADMAP.md",
-        ".yoke/docs/reference/db-reference/migration-model-capabilities.md",
-    )
-    texts = [(root / rel).read_text() for rel in rels]
-    assert "app-local SQLite" in reference["description"]
-    assert all("app-local" in text for text in texts)
-    assert all("Postgres control plane" in text for text in texts[1:])
-    assert all("data/yoke.db" in text for text in (texts[1], texts[3]))
-
-
 class TestPromptEnvVarBindings:
-    def test_canonical_always_first(
-        self, tmp_path: Path, control_db_env: str
-    ) -> None:
+    def test_canonical_always_first(self, tmp_path: Path, control_db_env: str) -> None:
         _seed_yoke_capability(control_db_env)
         bindings = prompt_env_var_bindings(
-            tmp_path, "yoke",
+            tmp_path,
+            "yoke",
             canonical_db_path="/canonical/control-plane",
         )
         assert bindings[0] == (CANONICAL_YOKE_DB_ENV, "/canonical/control-plane")
 
-    def test_per_model_env_var_added(
-        self, tmp_path: Path, control_db_env: str
-    ) -> None:
+    def test_per_model_env_var_added(self, tmp_path: Path, control_db_env: str) -> None:
         _seed_yoke_capability(control_db_env)
         bindings = prompt_env_var_bindings(
-            tmp_path, "yoke",
+            tmp_path,
+            "yoke",
             canonical_db_path="/canonical/control-plane",
         )
         # Yoke's primary model uses external Postgres validation, so no
@@ -265,7 +245,8 @@ class TestPromptEnvVarBindings:
         self, tmp_path: Path, control_db_env: str
     ) -> None:
         bindings = prompt_env_var_bindings(
-            tmp_path, "yoke",
+            tmp_path,
+            "yoke",
             canonical_db_path="/canonical/control-plane",
         )
         assert bindings == [

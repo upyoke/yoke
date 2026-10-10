@@ -166,7 +166,9 @@ def test_the_send_summary_names_a_collapse_that_discarded_the_body() -> None:
     rendered = io.StringIO()
     write_message_result(retry, rendered)
 
-    assert "Collapsed into an earlier message; body NOT delivered" in rendered.getvalue()
+    assert (
+        "Collapsed into an earlier message; body NOT delivered" in rendered.getvalue()
+    )
     assert "track: yoke messages get" in rendered.getvalue()
     assert len(rendered.getvalue()) <= 200
 

@@ -140,7 +140,8 @@ def compose_item_launch_instructions(
     )
     return (
         f"Operator execution instructions (obey these):\n{instruction_text}\n\n{mandate}"
-        if instruction_text else mandate
+        if instruction_text
+        else mandate
     )
 
 

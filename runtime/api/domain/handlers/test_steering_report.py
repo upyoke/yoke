@@ -172,7 +172,9 @@ def test_read_delta_is_durable_and_keeps_full_facts(test_db, monkeypatch) -> Non
     changed = handle_get(request)
     assert "## alpha" in changed.result_payload["delta_body"]
     assert "## beta" not in changed.result_payload["delta_body"]
-    single = _request(PROJECT_ALPHA).model_copy(update={"payload": {"read_delta": True}})
+    single = _request(PROJECT_ALPHA).model_copy(
+        update={"payload": {"read_delta": True}}
+    )
     assert handle_get(single).primary_success
     again = handle_get(request)
     assert "## beta" not in again.result_payload["delta_body"]
@@ -197,6 +199,8 @@ def test_full_read_repairs_invalid_checkpoint(test_db, monkeypatch) -> None:
     refused = handle_get(request)
     assert refused.error.code == "steering_report_read_state_invalid"
     assert "get --full" in refused.error.message
-    repaired = handle_get(request.model_copy(update={"payload": {"read_delta": True, "full": True}}))
+    repaired = handle_get(
+        request.model_copy(update={"payload": {"read_delta": True, "full": True}})
+    )
     assert repaired.primary_success
     assert "## alpha" in repaired.result_payload["body"]

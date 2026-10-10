@@ -106,7 +106,8 @@ def _resolve_conflicts(
     # _blocking_conflicts_for expects when no row is in flight yet.
     try:
         rows = _blocking_conflicts_for(
-            conn, 0,
+            conn,
+            0,
             state="planned",
             integration_target=integration_target,
             target_ids=candidate_target_ids,
@@ -122,7 +123,8 @@ def _resolve_conflicts(
             (other_id,),
         ).fetchone()
         holder_ref = (
-            _display_item_ref(conn, int(holder[0])) if holder and holder[0]
+            _display_item_ref(conn, int(holder[0]))
+            if holder and holder[0]
             else unresolved_item_ref(consulted=True)
         )
         out.append((other_id, _path_strings_for(conn, overlap_ids), holder_ref))
@@ -130,7 +132,8 @@ def _resolve_conflicts(
 
 
 def _path_strings_for(
-    conn: Any, target_ids: Iterable[int],
+    conn: Any,
+    target_ids: Iterable[int],
 ) -> List[str]:
     ids = [int(t) for t in (target_ids or [])]
     if not ids:
@@ -179,12 +182,17 @@ def render_overlap_denial_for_register(
         project_id = _fetch_item_project(conn, item_id)
         if allow_planned:
             target_ids = resolve_or_plan_paths_to_target_ids(
-                conn, project_id, list(paths),
-                item_id=item_id, session_id=session_id,
+                conn,
+                project_id,
+                list(paths),
+                item_id=item_id,
+                session_id=session_id,
             )
         else:
             target_ids = resolve_paths_to_target_ids(
-                conn, project_id, list(paths),
+                conn,
+                project_id,
+                list(paths),
             )
     except Exception:
         target_ids = []

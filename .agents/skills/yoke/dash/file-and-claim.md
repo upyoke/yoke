@@ -47,7 +47,7 @@ uses [intake obligations](../idea/delivery-requirements.md) before surveying.
 Read detail and effective policy:
 
 ```text
-yoke items detail get ITEM --json
+yoke items detail get ITEM --include '' --json
 yoke workflows item get ITEM --json
 ```
 

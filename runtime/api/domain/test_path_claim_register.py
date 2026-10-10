@@ -79,7 +79,9 @@ class TestComposeOverlapDenialWithConflicts:
         )
         # Minimal schema needed by _blocking_conflicts_for + the inline
         # path_strings query in path_claim_register.
-        apply_fixture_ddl(conn, """
+        apply_fixture_ddl(
+            conn,
+            """
             CREATE TABLE path_claims (
                 id INTEGER PRIMARY KEY,
                 state TEXT NOT NULL,
@@ -117,13 +119,13 @@ class TestComposeOverlapDenialWithConflicts:
                 project_id INTEGER NOT NULL,
                 project_sequence INTEGER
             );
-        """)
+        """,
+        )
         # The denial names the item by its public ref, so the identity the
         # renderer reads has to exist here; its sequence is deliberately its
         # own, not the internal id repeated back.
         conn.execute(
-            "INSERT INTO projects (id, slug, public_item_prefix) "
-            "VALUES (%s, %s, %s)",
+            "INSERT INTO projects (id, slug, public_item_prefix) VALUES (%s, %s, %s)",
             (PROJECT_ID, "yoke", ITEM_PREFIX),
         )
         conn.execute(
@@ -133,10 +135,15 @@ class TestComposeOverlapDenialWithConflicts:
         )
         conn.execute(
             "INSERT" + " INTO items (id, project_id, project_sequence) "
-            "VALUES (%s, %s, %s)", (999, PROJECT_ID, OVERLAP_SEQUENCE + 1),
+            "VALUES (%s, %s, %s)",
+            (999, PROJECT_ID, OVERLAP_SEQUENCE + 1),
         )
-        conn.execute("INSERT INTO path_targets VALUES (10, 'a.py', 'file', NULL, 'observed')")
-        conn.execute("INSERT INTO path_targets VALUES (11, 'b.py', 'file', NULL, 'observed')")
+        conn.execute(
+            "INSERT INTO path_targets VALUES (10, 'a.py', 'file', NULL, 'observed')"
+        )
+        conn.execute(
+            "INSERT INTO path_targets VALUES (11, 'b.py', 'file', NULL, 'observed')"
+        )
         # Conflicting active claim covering both targets.
         conn.execute(
             "INSERT INTO path_claims "

@@ -280,7 +280,9 @@ def scope_actionable_digest(
     return "\n".join(work).strip()
 
 
-def scope_inner_body(report: FleetReport, shared: ProjectRows, *, include_header: bool = True) -> str:
+def scope_inner_body(
+    report: FleetReport, shared: ProjectRows, *, include_header: bool = True
+) -> str:
     """Scope facts under a combined heading: no preamble, no shared machine block."""
     work = _scope_work_lines(report, shared)
     if work[:1] == ["available: none"]:

@@ -149,9 +149,7 @@ def _wake_suffix(entry: UndeliveredMessages) -> str:
     if entry.wake_releasable_at and not entry.operator_wake:
         return ""
     if entry.operator_wake:
-        return (
-            ", operator wake needed — ask them to type in that chat"
-        )
+        return ", operator wake needed — ask them to type in that chat"
     if entry.wake_escalation:
         return f", wake escalated ({entry.wake_escalation})"
     return ""

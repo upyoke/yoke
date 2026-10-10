@@ -55,7 +55,10 @@ def test_subagent_packets_use_native_parent_communication() -> None:
     for role in set(sac.seed.ROLE_TOPICS) - {"main_agent"}:
         body = sac.render_role_packet(role, detail=PACKET_DETAIL_FULL)
         assert "harness-native parent/subagent channel" in body
-        assert "Fleet messages belong to the registered top-level session" in sac.render_topic_packet("core", role=role, detail=PACKET_DETAIL_FULL)
+        assert (
+            "Fleet messages belong to the registered top-level session"
+            in sac.render_topic_packet("core", role=role, detail=PACKET_DETAIL_FULL)
+        )
         assert "receive no Fleet delivery at all" in body
         assert "never sees its parent's inbox" in body
         assert "yoke say --session SESSION-ID --stdin" not in body

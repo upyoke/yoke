@@ -80,15 +80,28 @@ def test_claim_receipt_delivers_full_applicable_item_instructions(conn, monkeypa
 
     reading = seed(conn, "Reader rule", before_creation=False)
     monkeypatch.setattr(claims_work, "_connect_rw", lambda: conn)
-    monkeypatch.setattr(sessions_lifecycle_claim, "claim_work", lambda *a, **k: {
-        "id": 1, "session_id": "worker", "target_kind": "item", "scope": {"item_id": 51},
-    })
-    outcome = claims_work.handle_acquire(FunctionCallRequest(
-        function="claims.work.acquire", actor=ActorContext(actor_id="2", session_id="worker"),
-        target=TargetRef(kind="item", item_id=51), payload={"target": {"kind": "item"}},
-    ))
+    monkeypatch.setattr(
+        sessions_lifecycle_claim,
+        "claim_work",
+        lambda *a, **k: {
+            "id": 1,
+            "session_id": "worker",
+            "target_kind": "item",
+            "scope": {"item_id": 51},
+        },
+    )
+    outcome = claims_work.handle_acquire(
+        FunctionCallRequest(
+            function="claims.work.acquire",
+            actor=ActorContext(actor_id="2", session_id="worker"),
+            target=TargetRef(kind="item", item_id=51),
+            payload={"target": {"kind": "item"}},
+        )
+    )
     assert ids(outcome.result_payload["execution_instructions"]) == [reading]
-    assert outcome.result_payload["execution_instructions"][0]["content"] == "Reader rule"
+    assert (
+        outcome.result_payload["execution_instructions"][0]["content"] == "Reader rule"
+    )
 
 
 def test_bucket_matching_uses_the_pinned_definition(conn):

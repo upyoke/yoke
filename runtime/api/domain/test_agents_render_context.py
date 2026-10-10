@@ -148,9 +148,9 @@ def test_expand_markers_replaces_body_with_packet() -> None:
 
 
 def test_expand_markers_idempotent_on_fresh_text() -> None:
-    body = schema_api_context.render_topic_packet("core", role="engineer_agent", include_schema=False).rstrip(
-        "\n"
-    )
+    body = schema_api_context.render_topic_packet(
+        "core", role="engineer_agent", include_schema=False
+    ).rstrip("\n")
     text = f"{_make_marker('engineer_agent', 'core')}\n\n{body}\n\n{MARKER_END}\n"
     once = expand_markers(text)
     twice = expand_markers(once)

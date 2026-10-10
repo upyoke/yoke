@@ -103,17 +103,33 @@ def test_document_seats_do_not_repeat_shared_facts_or_multiply_counts() -> None:
     from yoke_core.domain.steering_fleet_report_native_models import MachineNativeModels
 
     report = replace(
-        _report(1, NOW, launchable=(_ready("machine-a"),),
-                session_counts=(_count("machine-a", 2),),
-                origin_counts=(("steering", 2),),
-                plan_limits=(_limit("machine-a"), _limit("machine-b"))),
+        _report(
+            1,
+            NOW,
+            launchable=(_ready("machine-a"),),
+            session_counts=(_count("machine-a", 2),),
+            origin_counts=(("steering", 2),),
+            plan_limits=(_limit("machine-a"), _limit("machine-b")),
+        ),
         levels=_READOUT,
         test_machines=(("test-host", "Linux"),),
-        native_models=(MachineNativeModels("machine-a", "host-a", "codex-cli",
-                      "ok", None, "native", NOW, 1, ("gpt-6.1-sol",)),),
+        native_models=(
+            MachineNativeModels(
+                "machine-a",
+                "host-a",
+                "codex-cli",
+                "ok",
+                None,
+                "native",
+                NOW,
+                1,
+                ("gpt-6.1-sol",),
+            ),
+        ),
     )
-    combined = _combined(*(ScopedFleetReport(f"alpha · document-{n}", report)
-                            for n in range(6)))
+    combined = _combined(
+        *(ScopedFleetReport(f"alpha · document-{n}", report) for n in range(6))
+    )
     body = combined_body(combined)
     assert body.count("launch balance ") == 1
     assert "codex-cli 2" in body and "codex-cli 12" not in body
@@ -129,10 +145,15 @@ def test_document_seats_do_not_repeat_shared_facts_or_multiply_counts() -> None:
 def test_different_project_placements_share_heading_and_keep_each_result() -> None:
     from dataclasses import replace
 
-    left = replace(_report(1, NOW), levels=replace(_READOUT, unavailable="alpha denial"))
-    right = replace(_report(2, NOW), levels=replace(_READOUT, unavailable="beta denial"))
-    body = combined_body(_combined(ScopedFleetReport("alpha", left),
-                                   ScopedFleetReport("beta", right)))
+    left = replace(
+        _report(1, NOW), levels=replace(_READOUT, unavailable="alpha denial")
+    )
+    right = replace(
+        _report(2, NOW), levels=replace(_READOUT, unavailable="beta denial")
+    )
+    body = combined_body(
+        _combined(ScopedFleetReport("alpha", left), ScopedFleetReport("beta", right))
+    )
     assert body.count(f"{LEVELS_HEADING} (universe)") == 1
     assert "alpha denial" in body and "beta denial" in body
     assert "placement for project 2" in body

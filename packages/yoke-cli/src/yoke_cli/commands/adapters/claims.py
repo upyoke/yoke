@@ -39,7 +39,9 @@ from yoke_cli.commands.adapters.project_snapshot import (
     sync_local_snapshot_for_write,
 )
 from yoke_contracts.api.function_call import TargetRef
-from yoke_cli.commands.adapters.workflow_execution_instructions import write_transition_instructions
+from yoke_cli.commands.adapters.workflow_execution_instructions import (
+    write_transition_instructions,
+)
 
 
 __all__ = [

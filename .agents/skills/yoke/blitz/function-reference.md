@@ -4,7 +4,7 @@ Use registered function ids; command adapters build those envelopes.
 Exact target/payload contracts are in the existing catalog:
 
 - [Items/workflow runtime](../../../../.yoke/docs/reference/db-reference/functions-items.md):
-  `items.detail.get`; omit `include` for posture/`content_index`, or request
+  `items.detail.get`; use `--include ''` for posture/`content_index`, or request
   `narrative`, `body`, `progress_log`. Lifecycle transitions use
   `lifecycle.transition.execute`.
 - [Workflows](../../../../.yoke/docs/reference/db-reference/functions-workflows.md):

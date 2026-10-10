@@ -15,7 +15,10 @@ from dataclasses import replace
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
 from yoke_core.domain.session_launch_capacity import MachineCapacity
 from yoke_core.domain.steering_fleet_report import FleetReport
-from yoke_core.domain.steering_fleet_report_balance import aggregate_session_counts, launch_balance_lines
+from yoke_core.domain.steering_fleet_report_balance import (
+    aggregate_session_counts,
+    launch_balance_lines,
+)
 from yoke_core.domain.steering_fleet_report_test_machines import test_machine_lines
 from yoke_core.domain.steering_fleet_report_capacity import (
     SurfaceReadiness,
@@ -126,12 +129,14 @@ def machine_shared_lines(reports: Sequence[FleetReport], *, now: str) -> list[st
         )
         lines.extend(
             native_model_lines(
-                tuple({
-                    (row.machine_id, row.surface): row
-                    for report in reports
-                    for row in report.native_models
-                    if row.machine_id == machine_id
-                }.values())
+                tuple(
+                    {
+                        (row.machine_id, row.surface): row
+                        for report in reports
+                        for row in report.native_models
+                        if row.machine_id == machine_id
+                    }.values()
+                )
             )
         )
     if any(report.plan_limits for report in reports):
@@ -156,15 +161,28 @@ def fleet_shared_lines(reports: Sequence[FleetReport]) -> list[str]:
     for report in projects:
         for name, count in report.origin_counts:
             origins[name] = origins.get(name, 0) + count
-    balance = replace(projects[0],
+    balance = replace(
+        projects[0],
         session_counts=aggregate_session_counts(projects),
-        launchable=tuple({(row.machine_id, row.surface): row for report in projects
-                          for row in report.launchable}.values()),
+        launchable=tuple(
+            {
+                (row.machine_id, row.surface): row
+                for report in projects
+                for row in report.launchable
+            }.values()
+        ),
         origin_counts=tuple(sorted(origins.items())),
-        machine_names=tuple(dict(row for report in projects for row in report.machine_names).items()),
+        machine_names=tuple(
+            dict(row for report in projects for row in report.machine_names).items()
+        ),
     )
-    hosts = tuple(dict.fromkeys(row for report in projects for row in report.test_machines))
-    return [*test_machine_lines(hosts), *launch_balance_lines(balance, with_capacity=False)]
+    hosts = tuple(
+        dict.fromkeys(row for report in projects for row in report.test_machines)
+    )
+    return [
+        *test_machine_lines(hosts),
+        *launch_balance_lines(balance, with_capacity=False),
+    ]
 
 
 __all__ = ["machine_shared_lines", "fleet_shared_lines"]

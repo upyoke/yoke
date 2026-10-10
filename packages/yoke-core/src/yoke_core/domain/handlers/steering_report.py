@@ -138,7 +138,10 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
 
             try:
                 result["delta_body"] = report_read_delta(
-                    conn, session_id=session_id, combined=combined, full=payload.full,
+                    conn,
+                    session_id=session_id,
+                    combined=combined,
+                    full=payload.full,
                 )
             except ValueError as exc:
                 conn.rollback()

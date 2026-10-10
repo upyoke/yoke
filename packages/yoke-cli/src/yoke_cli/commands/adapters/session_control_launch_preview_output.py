@@ -26,11 +26,18 @@ def selection_rows(label: str, requested: Any, effective: Any) -> list[tuple[str
     """Equal selections need one row; changed selections retain both facts."""
     if requested == effective:
         return [(label, effective)]
-    return [(f"Requested {label.lower()}", requested), (f"Effective {label.lower()}", effective)]
+    return [
+        (f"Requested {label.lower()}", requested),
+        (f"Effective {label.lower()}", effective),
+    ]
 
 
 def nonempty_rows(fields: list[tuple[str, Any]]) -> list[tuple[str, Any]]:
-    return [(label, value) for label, value in fields if value is not None and value != "" and value != EMPTY_VALUE]
+    return [
+        (label, value)
+        for label, value in fields
+        if value is not None and value != "" and value != EMPTY_VALUE
+    ]
 
 
 def _machine_capacity(result: Mapping[str, Any]) -> str | None:
@@ -105,44 +112,46 @@ def write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
     )
     write_summary(
         "LAUNCH PREVIEW",
-        nonempty_rows([
-            ("Outcome", humanize(result.get("outcome"))),
-            *level_rows(result.get("level_placement")),
-            ("Requested surface", result.get("requested_surface")),
-            *selection_rows("Model", requested_model, carried_model),
-            *selection_rows("Effort", requested_effort, carried_effort),
-            *selection_rows("Context tokens", requested_context, carried_context),
-            ("Model decided by", result.get("model_source")),
-            ("Effort decided by", result.get("reasoning_effort_source")),
-            ("Context decided by", result.get("context_window_source")),
-            (
-                "Selection verification",
-                "at session registration" if carries_selection else "not requested",
-            ),
-            ("Selected surface", result.get("selected_surface")),
-            ("Fallback used", bool(result.get("fallback_used"))),
-            ("Launchable", bool(result.get("launchable"))),
-            (
-                "Considered machines",
-                ", ".join(result.get("considered_machine_ids") or []),
-            ),
-            (
-                "Eligibility failures",
-                ", ".join(
-                    humanize(code) for code in result.get("rejection_codes") or []
+        nonempty_rows(
+            [
+                ("Outcome", humanize(result.get("outcome"))),
+                *level_rows(result.get("level_placement")),
+                ("Requested surface", result.get("requested_surface")),
+                *selection_rows("Model", requested_model, carried_model),
+                *selection_rows("Effort", requested_effort, carried_effort),
+                *selection_rows("Context tokens", requested_context, carried_context),
+                ("Model decided by", result.get("model_source")),
+                ("Effort decided by", result.get("reasoning_effort_source")),
+                ("Context decided by", result.get("context_window_source")),
+                (
+                    "Selection verification",
+                    "at session registration" if carries_selection else "not requested",
                 ),
-            ),
-            (
-                "Enable command",
-                "surface_disabled" in (result.get("rejection_codes") or [])
-                and "yoke session-control surface-policy enable --machine M --surface S"
-                or None,
-            ),
-            ("Selected relay", selected_row.get("relay_id")),
-            ("Selected machine", selected_row.get("machine_id")),
-            ("Machine capacity", _machine_capacity(result)),
-            ("Placement", result.get("placement_reason")),
-        ]),
+                ("Selected surface", result.get("selected_surface")),
+                ("Fallback used", bool(result.get("fallback_used"))),
+                ("Launchable", bool(result.get("launchable"))),
+                (
+                    "Considered machines",
+                    ", ".join(result.get("considered_machine_ids") or []),
+                ),
+                (
+                    "Eligibility failures",
+                    ", ".join(
+                        humanize(code) for code in result.get("rejection_codes") or []
+                    ),
+                ),
+                (
+                    "Enable command",
+                    "surface_disabled" in (result.get("rejection_codes") or [])
+                    and "yoke session-control surface-policy enable --machine M --surface S"
+                    or None,
+                ),
+                ("Selected relay", selected_row.get("relay_id")),
+                ("Selected machine", selected_row.get("machine_id")),
+                ("Machine capacity", _machine_capacity(result)),
+                ("Placement", result.get("placement_reason")),
+            ]
+        ),
         stdout,
     )
     write_level_candidates(result.get("level_placement"), stdout)
@@ -158,5 +167,16 @@ def write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
         ("CHOSEN", lambda row: "yes" if row.get("selected") else "", 7),
     )
     candidates = result.get("machine_candidates") or []
-    if candidates and (len(candidates) > 1 or result.get("placement_reason") or result.get("rejection_codes") or any(not row.get("may_use") or row.get("model_pool") for row in candidates)):
-        write_table("MACHINES WEIGHED", placement_columns, candidates, stdout, empty="No machines were weighed.")
+    if candidates and (
+        len(candidates) > 1
+        or result.get("placement_reason")
+        or result.get("rejection_codes")
+        or any(not row.get("may_use") or row.get("model_pool") for row in candidates)
+    ):
+        write_table(
+            "MACHINES WEIGHED",
+            placement_columns,
+            candidates,
+            stdout,
+            empty="No machines were weighed.",
+        )

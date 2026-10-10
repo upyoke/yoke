@@ -120,8 +120,7 @@ def test_cli_cheat_sheet_contains_canonical_flag_sets() -> None:
     body = main_body()
     for anchor in CLI_ANCHORS_REQUIRED:
         assert anchor in body, (
-            f"CLI cheat sheet must teach canonical flag set anchor "
-            f"{anchor!r}."
+            f"CLI cheat sheet must teach canonical flag set anchor {anchor!r}."
         )
 
 

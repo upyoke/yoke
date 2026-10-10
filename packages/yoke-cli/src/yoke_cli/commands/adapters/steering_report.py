@@ -65,7 +65,10 @@ def _print_report(response: Any, stdout, _stderr) -> None:
 
 
 def _print_full_report(response: Any, stdout, _stderr) -> None:
-    print((response.result or {}).get("body") or "steering report: nothing to show", file=stdout)
+    print(
+        (response.result or {}).get("body") or "steering report: nothing to show",
+        file=stdout,
+    )
 
 
 def steering_report_get(args: List[str]) -> int:
@@ -81,7 +84,9 @@ def steering_report_get(args: List[str]) -> int:
         help="Optional filter: one held scope (slug or id). Omit to compose all.",
     )
     add_json_arg(parser)
-    parser.add_argument("--full", action="store_true", help="Print every report section.")
+    parser.add_argument(
+        "--full", action="store_true", help="Print every report section."
+    )
     parsed = parse_or_usage_error(parser, args, STEERING_REPORT_GET_USAGE)
     if parsed is None:
         return 2
@@ -95,7 +100,13 @@ def steering_report_get(args: List[str]) -> int:
         payload=({} if parsed.json_mode else {"read_delta": True, "full": parsed.full}),
         session_id=None,
         json_mode=parsed.json_mode,
-        human_writer=(None if parsed.json_mode else _print_full_report if parsed.full else _print_report),
+        human_writer=(
+            None
+            if parsed.json_mode
+            else _print_full_report
+            if parsed.full
+            else _print_report
+        ),
     )
 
 

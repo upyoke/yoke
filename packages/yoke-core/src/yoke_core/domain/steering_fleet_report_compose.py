@@ -28,7 +28,10 @@ from yoke_core.domain.steering_fleet_report_levels import (
     LevelReadout,
     level_readout_lines,
 )
-from yoke_core.domain.steering_fleet_report_machine_block import machine_shared_lines, fleet_shared_lines
+from yoke_core.domain.steering_fleet_report_machine_block import (
+    machine_shared_lines,
+    fleet_shared_lines,
+)
 from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_fingerprint import (
     digest,
@@ -263,9 +266,7 @@ def combined_body(combined: CombinedFleetReport) -> str:
         first = section.report.project_id not in projects
         projects.add(section.report.project_id)
         body = scope_inner_body(section.report, rows, include_header=first)
-        parts.extend(
-            [f"## {section.descriptor}", *([body] if body else []), ""]
-        )
+        parts.extend([f"## {section.descriptor}", *([body] if body else []), ""])
     parts.extend(fleet_shared_lines(reports))
     parts.extend(machine_shared_lines(reports, now=combined.composed_at))
     parts.extend(_level_lines(reports))

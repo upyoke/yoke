@@ -27,8 +27,10 @@ from yoke_contracts.items_projection import DEFAULT_SEARCH_LIMIT
 
 
 __all__ = [
-    "items_list", "items_search",
-    "ITEMS_LIST_USAGE", "ITEMS_SEARCH_USAGE",
+    "items_list",
+    "items_search",
+    "ITEMS_LIST_USAGE",
+    "ITEMS_SEARCH_USAGE",
 ]
 
 
@@ -49,25 +51,31 @@ def _parse_binary_flag(raw: str, flag: str):
 
 def items_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke items list", description=ITEMS_LIST_USAGE,
+        prog="yoke items list",
+        description=ITEMS_LIST_USAGE,
     )
     parser.add_argument("--status", default=None, help="Filter by status.")
     parser.add_argument("--priority", default=None, help="Filter by priority.")
     parser.add_argument(
-        "--workflow", default=None, help="Filter by workflow identity.",
+        "--workflow",
+        default=None,
+        help="Filter by workflow identity.",
     )
     parser.add_argument("--frozen", default=None, help="Filter frozen flag (0|1).")
     parser.add_argument("--blocked", default=None, help="Filter blocked flag (0|1).")
     add_project_arg(parser)
     parser.add_argument(
-        "--fields", default=None,
+        "--fields",
+        default=None,
         help=(
             "Comma-separated column projection "
             "(default id,title,status,priority,workflow_id,source)."
         ),
     )
     parser.add_argument(
-        "--limit", default=None, help="Max rows returned, 1..1000.",
+        "--limit",
+        default=None,
+        help="Max rows returned, 1..1000.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -133,14 +141,19 @@ def _write_search(response, stdout, stderr) -> None:
 
 def items_search(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke items search", description=ITEMS_SEARCH_USAGE,
+        prog="yoke items search",
+        description=ITEMS_SEARCH_USAGE,
     )
     parser.add_argument(
         "keywords",
         help="Keyword phrase matched against title/spec/design/plan.",
     )
     add_project_arg(parser)
-    parser.add_argument("--limit", type=int, help=f"Maximum matches (default {DEFAULT_SEARCH_LIMIT}; 1..1000).")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        help=f"Maximum matches (default {DEFAULT_SEARCH_LIMIT}; 1..1000).",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_SEARCH_USAGE)

@@ -52,7 +52,21 @@ def _launch(**overrides):
 
 
 def test_empty_launch_rows_and_equal_settings_are_compact():
-    launch = {"launch_id": "00000000-0000-4000-8000-000000000001", "state": "awaiting_registration", "project": "yoke", "requested_surface": "codex-cli", "selected_surface": "codex-cli", "requested_model": "gpt-6-sol", "resolved_model": "gpt-6-sol", "requested_reasoning_effort": "high", "resolved_reasoning_effort": "high", "requested_context_window_tokens": 1000000, "resolved_context_window_tokens": 1000000, "identity_correlation": "awaiting_registration", "instruction_delivery": "pending"}
+    launch = {
+        "launch_id": "00000000-0000-4000-8000-000000000001",
+        "state": "awaiting_registration",
+        "project": "yoke",
+        "requested_surface": "codex-cli",
+        "selected_surface": "codex-cli",
+        "requested_model": "gpt-6-sol",
+        "resolved_model": "gpt-6-sol",
+        "requested_reasoning_effort": "high",
+        "resolved_reasoning_effort": "high",
+        "requested_context_window_tokens": 1000000,
+        "resolved_context_window_tokens": 1000000,
+        "identity_correlation": "awaiting_registration",
+        "instruction_delivery": "pending",
+    }
     for create in (False, True):
         result = {"launch": launch}
         if create:

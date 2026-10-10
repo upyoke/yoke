@@ -38,8 +38,11 @@ class TestShepherdFileBackedInputContract:
         # scratch root override (YOKE_SCRATCH_ROOT / machine config) flows
         # through one resolver.
         assert "_pm_input_path=" in text
-        assert 'yoke scratch dispatch-inputs "$_item_ref" "$_session_id" "$_attempt"' in text
-        assert 'PREFIX-${_num}' not in text
+        assert (
+            'yoke scratch dispatch-inputs "$_item_ref" "$_session_id" "$_attempt"'
+            in text
+        )
+        assert "PREFIX-${_num}" not in text
         assert 'printf \'%s\' "$_pre_pm_spec" >"$_pm_input_path"' in text
 
     def test_pm_prompt_names_input_path_and_requires_read(self) -> None:
@@ -61,7 +64,10 @@ class TestShepherdFileBackedInputContract:
         # The dispatch prompt's context block (substituted at runtime) must
         # advertise the absolute path and the MUST-Read contract, with a
         # fail-closed branch when the path is unreadable.
-        assert "Your input ${_pre_pm_source} for ${_item_ref} is at ${_pm_input_path}" in text
+        assert (
+            "Your input ${_pre_pm_source} for ${_item_ref} is at ${_pm_input_path}"
+            in text
+        )
         assert "If the path is unreadable" in text
         assert "stop from that premise" in text
 
@@ -91,7 +97,10 @@ class TestShepherdFileBackedInputContract:
 
     def test_designer_context_block_advertises_file_path_to_agent(self) -> None:
         text = self.text
-        assert "Your input ${_pre_designer_source} for ${_item_ref} is at ${_pd_input_path}" in text
+        assert (
+            "Your input ${_pre_designer_source} for ${_item_ref} is at ${_pd_input_path}"
+            in text
+        )
         assert "If the path is unreadable" in text
 
     def test_doc_does_not_re_introduce_inline_data_fences(self) -> None:
@@ -108,7 +117,10 @@ class TestShepherdFileBackedInputContract:
                 "file-backed input contract instead (write to a per-dispatch "
                 "input file and name the path in the dispatch prompt)."
             )
-        for legacy_prose in ("embedded below inside explicit data fences", "embedded it below"):
+        for legacy_prose in (
+            "embedded below inside explicit data fences",
+            "embedded it below",
+        ):
             assert legacy_prose not in text, (
                 f"Regression: prose {legacy_prose!r} describes the retired "
                 "inline-embed shape. The dispatch must name a file path, not "
@@ -143,7 +155,10 @@ class TestPMAgentBodyTeachesFileBackedContract:
         assert "Missing/empty/unreadable/bad-encoding input" in body
         assert "MUST Read" in body
         lowered = body.lower()
-        assert "do not rely on any inline copy" in lowered or "never trust an inline copy" in lowered
+        assert (
+            "do not rely on any inline copy" in lowered
+            or "never trust an inline copy" in lowered
+        )
         assert "stop from that premise" in " ".join(body.split())
 
     def test_pd_body_names_input_file_contract(self) -> None:
@@ -153,7 +168,10 @@ class TestPMAgentBodyTeachesFileBackedContract:
         assert "Missing/empty/unreadable/bad-encoding input" in body
         assert "MUST Read" in body
         lowered = body.lower()
-        assert "do not rely on any inline copy" in lowered or "never trust an inline copy" in lowered
+        assert (
+            "do not rely on any inline copy" in lowered
+            or "never trust an inline copy" in lowered
+        )
         assert "stop from that premise" in " ".join(body.split())
 
 
@@ -176,8 +194,11 @@ class TestLargeSpecPreservationByConstruction:
         # The write step pipes the variable directly; no head/cut/truncation.
         text = self.text
         assert 'printf \'%s\' "$_pre_pm_spec" >"$_pm_input_path"' in text
-        for truncator in (' | head ', ' | head\n', ' | head -', ' | cut ', ' | sed '):
-            assert truncator not in text or "_pre_pm_spec" not in text.split(truncator, 1)[0][-200:]
+        for truncator in (" | head ", " | head\n", " | head -", " | cut ", " | sed "):
+            assert (
+                truncator not in text
+                or "_pre_pm_spec" not in text.split(truncator, 1)[0][-200:]
+            )
 
     def test_pd_file_write_uses_full_pre_designer_spec(self) -> None:
         text = self.text

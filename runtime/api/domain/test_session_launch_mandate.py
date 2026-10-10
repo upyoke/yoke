@@ -59,11 +59,17 @@ def test_composed_launch_delivers_full_item_instructions(monkeypatch):
         lambda conn, item_id: [{"id": 7, "content": "Required operator instruction"}],
     )
     parsed = LaunchCreateRequest(
-        project="yoke", executor_surface="cursor-cli", item="YOK-12",
-        compose_mandate=True, instructions="", idempotency_key="instruction-launch",
+        project="yoke",
+        executor_surface="cursor-cli",
+        item="YOK-12",
+        compose_mandate=True,
+        instructions="",
+        idempotency_key="instruction-launch",
     )
     body = compose_item_launch_instructions(SimpleNamespace(), parsed, 1)
-    assert body.startswith("Operator execution instructions (obey these):\nRequired operator instruction")
+    assert body.startswith(
+        "Operator execution instructions (obey these):\nRequired operator instruction"
+    )
     assert body.count("Required operator instruction") == 1
     assert "acquire the YOK-12 work claim" in body
 
@@ -72,7 +78,10 @@ def test_composed_mandate_claims_first_then_follows_the_live_bound_skill() -> No
     body = _mandate()
     assert body.startswith("/yoke dash YOK-12\n")
     assert "acquire the YOK-12 work claim" in body
-    assert 'yoke claims work acquire --item YOK-12 --reason "<why you are claiming it>"' in body
+    assert (
+        'yoke claims work acquire --item YOK-12 --reason "<why you are claiming it>"'
+        in body
+    )
     assert "the Dash leg to its merge/evidence close" in body
     assert body.index("as your FIRST action") < body.index("next live bound skill")
     assert "read its phase instructions before verification, merge or delivery" in body
@@ -127,20 +136,29 @@ def test_a_successor_reads_the_checkpoint_before_any_gate_or_merge() -> None:
 def test_composed_mandate_delivers_operation_depth_when_the_skill_is_read() -> None:
     body = _mandate()
     assert "read its phase instructions before verification, merge or delivery" in body
-    for teaching in (CANDIDATE_REVIEW_TEACHING, COMMITTED_GATE_TEACHING,
-                     HEADLESS_TOOL_CONTINUATION_TEACHING, PROGRESS_CHECKPOINT_TEACHING,
-                     RELEASE_WAIT_RETENTION_TEACHING):
+    for teaching in (
+        CANDIDATE_REVIEW_TEACHING,
+        COMMITTED_GATE_TEACHING,
+        HEADLESS_TOOL_CONTINUATION_TEACHING,
+        PROGRESS_CHECKPOINT_TEACHING,
+        RELEASE_WAIT_RETENTION_TEACHING,
+    ):
         assert teaching not in body
 
 
-def test_composed_mandate_reports_substantive_facts_and_closes_only_at_terminal() -> None:
+def test_composed_mandate_reports_substantive_facts_and_closes_only_at_terminal() -> (
+    None
+):
     body = _mandate()
     assert "failures, blockers, conflicts, outside-scope defects or decisions" in body
     assert "Keep progress in your own output" in body
     assert "Only at the item's terminal status" in body
     assert "A release wait retains the claim and park" in body
     assert "it owes no DONE or END" in body
-    assert 'printf %s "DONE YOK-12 <one-line summary>" | yoke say --stdin --steering' in body
+    assert (
+        'printf %s "DONE YOK-12 <one-line summary>" | yoke say --stdin --steering'
+        in body
+    )
     assert "before releasing a claim you still hold, then END your session" in body
     assert "Ending a turn sends no Fleet message" in body
 

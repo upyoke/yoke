@@ -205,7 +205,10 @@ def test_item_reads_deliver_operator_prose_once(fields):
     result = {
         "item_id": 17,
         "fields": {"spec": "Specification", "design_spec": "", "blocked": False},
-        "sections": [{"name": "Progress Log", "content": "Checkpoint"}, {"name": "Empty", "content": ""}],
+        "sections": [
+            {"name": "Progress Log", "content": "Checkpoint"},
+            {"name": "Empty", "content": ""},
+        ],
         "execution_instructions": [instruction],
         "section_found": True,
         "content": "## Scope\nSpecification",
@@ -223,7 +226,10 @@ def test_item_reads_deliver_operator_prose_once(fields):
     rendered = output.getvalue()
     assert rendered.count(prose.rstrip()) == (0 if fields else 1)
     if fields:
-        assert rendered.splitlines()[0] == "Execution instructions 4 apply; full text: `yoke items get EX-1 --json`."
+        assert (
+            rendered.splitlines()[0]
+            == "Execution instructions 4 apply; full text: `yoke items get EX-1 --json`."
+        )
     assert len(rendered) <= len(prose) + 750
     assert instruction["content"] == prose
     if not fields:
@@ -235,7 +241,9 @@ def test_item_reads_deliver_operator_prose_once(fields):
         assert descriptor["on_every_read"] is True
         assert "content" not in descriptor
         assert receipt["fields"] == {"spec": "Specification", "blocked": False}
-        assert receipt["sections"] == [{"name": "Progress Log", "content": "Checkpoint"}]
+        assert receipt["sections"] == [
+            {"name": "Progress Log", "content": "Checkpoint"}
+        ]
 
 
 def test_json_item_read_retains_the_complete_instruction_envelope(monkeypatch, capsys):
@@ -265,20 +273,36 @@ def test_json_item_read_retains_the_complete_instruction_envelope(monkeypatch, c
     assert envelope["result"]["execution_instructions"] == [instruction]
 
 
-@pytest.mark.parametrize("function,args", [
-    ("items_section_get", ["EX-1", "--section", "Progress Log"]),
-    ("items_progress_log_get", ["EX-1"]),
-])
-def test_section_and_log_reads_name_rules_without_repeating_prose(monkeypatch, function, args):
+@pytest.mark.parametrize(
+    "function,args",
+    [
+        ("items_section_get", ["EX-1", "--section", "Progress Log"]),
+        ("items_progress_log_get", ["EX-1"]),
+    ],
+)
+def test_section_and_log_reads_name_rules_without_repeating_prose(
+    monkeypatch, function, args
+):
     from yoke_cli.commands.adapters import items_section
 
     output = io.StringIO()
+
     def dispatch(**kwargs):
-        kwargs["human_writer"](SimpleNamespace(success=True, result={
-            "execution_instructions": [{"id": 4, "content": "Required operator rule"}],
-            "content": "Checkpoint",
-        }), output, io.StringIO())
+        kwargs["human_writer"](
+            SimpleNamespace(
+                success=True,
+                result={
+                    "execution_instructions": [
+                        {"id": 4, "content": "Required operator rule"}
+                    ],
+                    "content": "Checkpoint",
+                },
+            ),
+            output,
+            io.StringIO(),
+        )
         return 0
+
     monkeypatch.setattr(items_section, "dispatch_and_emit", dispatch)
     assert getattr(items_section, function)(args) == 0
     assert output.getvalue() == (
@@ -292,8 +316,18 @@ def test_default_item_output_size_excludes_empty_fields():
 
     fields = dict.fromkeys(DEFAULT_GET_FIELDS, "")
     scope, plan = "Stored scope. " * 250, "Stored plan. " * 250
-    fields.update(id="EX-1", title="Fixture", status="implementing", spec=scope, technical_plan=plan)
-    result = {"item_id": 17, "fields": fields, "sections": [{"name": "Progress Log", "content": "Checkpoint."}]}
+    fields.update(
+        id="EX-1",
+        title="Fixture",
+        status="implementing",
+        spec=scope,
+        technical_plan=plan,
+    )
+    result = {
+        "item_id": 17,
+        "fields": fields,
+        "sections": [{"name": "Progress Log", "content": "Checkpoint."}],
+    }
     output = json.dumps(compact_item_result(result, "EX-1"), sort_keys=True)
     assert len(output) <= 7000
     assert output.count(scope) == 1

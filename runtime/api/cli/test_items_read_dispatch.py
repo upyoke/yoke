@@ -112,7 +112,12 @@ class TestItemsListingDispatch:
         assert req.payload == {"keywords": "dedup keywords"}
 
     def test_items_search_forwards_explicit_limit(self):
-        assert _run_with_dispatch(_stub_dispatch_ok, "items", "search", "wibble", "--limit", "60") == 0
+        assert (
+            _run_with_dispatch(
+                _stub_dispatch_ok, "items", "search", "wibble", "--limit", "60"
+            )
+            == 0
+        )
         assert _CAPTURED_REQUESTS[-1].payload == {"keywords": "wibble", "limit": 60}
 
     def test_search_human_output_retains_status_and_more_count(self):
@@ -120,10 +125,19 @@ class TestItemsListingDispatch:
         from types import SimpleNamespace
         from yoke_cli.commands.adapters.listing import _write_search
 
-        rows = [{"id": f"EX-{n}", "title": f"Match {n}", "status": "done" if n % 2 else "implementing"} for n in range(60, 40, -1)]
+        rows = [
+            {
+                "id": f"EX-{n}",
+                "title": f"Match {n}",
+                "status": "done" if n % 2 else "implementing",
+            }
+            for n in range(60, 40, -1)
+        ]
         result = {"matches": rows, "total_count": 60}
         output = io.StringIO()
-        _write_search(SimpleNamespace(success=True, result=result), output, io.StringIO())
+        _write_search(
+            SimpleNamespace(success=True, result=result), output, io.StringIO()
+        )
         assert len(output.getvalue()) <= 750
         assert len(output.getvalue().splitlines()) == 22
         assert "40 more; add --limit N" in output.getvalue()

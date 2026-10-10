@@ -121,7 +121,9 @@ def render_field_catalog(*, indent: str = "  ") -> str:
         ("additional scalars", sorted(ADDITIONAL_SCALAR_FIELDS)),
         ("virtual", sorted(ADDITIONAL_VIRTUAL_FIELDS)),
     )
-    lines = ["Accepted fields (omit all for metadata, stored fields and sections; body is explicit):"]
+    lines = [
+        "Accepted fields (omit all for metadata, stored fields and sections; body is explicit):"
+    ]
     for label, names in groups:
         lines.append(f"{indent}{label}: {', '.join(names)}")
     return "\n".join(lines)

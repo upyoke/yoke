@@ -3,7 +3,7 @@
 ## 1. Read authority
 
 ```sh
-yoke items detail get ITEM --json
+yoke items detail get ITEM --include '' --json
 yoke workflows item get ITEM --json
 yoke strategy execution get ITEM --json
 yoke strategy doc get <SLUG> --project <PROJECT>

@@ -4,7 +4,9 @@ from typing import Any
 from yoke_contracts.read_detail import excerpt
 
 
-def render_item_instruction_summary(instructions: list[dict[str, Any]], item: str) -> str:
+def render_item_instruction_summary(
+    instructions: list[dict[str, Any]], item: str
+) -> str:
     """Name applicable rules and the existing read that prints their full text."""
     if not instructions:
         return ""
@@ -16,11 +18,13 @@ def compact_item_result(result: dict[str, Any], item: str) -> dict[str, Any]:
     """Omit empty human fields and describe instructions already delivered as prose."""
     projected = dict(result)
     projected["fields"] = {
-        key: value for key, value in (result.get("fields") or {}).items()
+        key: value
+        for key, value in (result.get("fields") or {}).items()
         if value is not None and value != ""
     }
     projected["sections"] = [
-        section for section in result.get("sections", [])
+        section
+        for section in result.get("sections", [])
         if str(section.get("content") or "").strip()
     ]
     projected["execution_instructions"] = [
