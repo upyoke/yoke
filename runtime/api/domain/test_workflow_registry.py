@@ -266,12 +266,14 @@ def test_new_publication_keeps_native_clocks_and_preserves_published_bytes(
     test_db, monkeypatch, zone
 ):
     from yoke_contracts.timestamps import parse_instant
+    from yoke_core.domain import workflow_publication
     from yoke_core.domain import workflow_registry as owner
 
     stamp = parse_instant("1969-12-31T23:59:59.123456Z")
     test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
     old_rows = _version_one_rows(test_db)
     monkeypatch.setattr(owner, "utc_now", lambda: stamp)
+    monkeypatch.setattr(workflow_publication, "utc_now", lambda: stamp)
     definition = _definition()
     definition["stages"][0]["label"] = "Native publication"
     published = owner.publish_workflow_version(

@@ -307,6 +307,7 @@ def test_pool_projection_preserves_null_reset_and_opaque_window() -> None:
         "remaining_percent": None,
         "headroom_percent": None,
         "resets_at": None,
+        "resets_utc": None,
         "status": "unknown",
         "exhausted": False,
     }

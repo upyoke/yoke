@@ -127,7 +127,7 @@ def test_an_ended_recipient_with_a_declared_wait_keeps_its_route(fleet, mode, po
 
     (entry,) = undelivered_messages(fleet, project_id=PROJECT_ID, now=NOW)
     assert entry.delivery_state == NEVER_ATTEMPTED
-    assert entry.recipient_gone_at == ""
+    assert entry.recipient_gone_at is None
     assert "no delivery route" not in undelivered_line(entry)
 
 
