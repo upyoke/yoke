@@ -48,7 +48,7 @@ render headers and staleness checks compare instants. Board calendar buckets
 project native instants to UTC dates; age windows use aware timestamps.
 
 Idle wake eligibility validates aware native clocks and exact microsecond cutoffs. Cleanup age displays use exact timedelta minute flooring across valid UTC years. Hook envelopes and new Progress Log entries format six fractional digits;
-event SQL binds native clocks. Recent-session attribution compares aware
+event SQL binds native clocks. Dependency-edge creation and reconciliation validate Native clocks and format only explicit SQLite binds; reconciliation validates before its write transaction. Recent-session attribution compares aware
 instants at its exact 30-minute boundary, including microseconds.
 
 Dispatcher ledger and workflow-dispatch intent retention use native cutoffs;
