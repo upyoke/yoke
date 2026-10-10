@@ -14,6 +14,7 @@ from typing import Any, List
 
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.workflow_runtime import ENGINE_TERMINAL_STAGE_IDS
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 CHECK_ID = "HC-workflow-stage-level-pins"
@@ -24,9 +25,15 @@ def _definition(raw: Any) -> dict[str, Any]:
     return json.loads(raw) if isinstance(raw, str) else dict(raw or {})
 
 
+def _terminal_stage_ids(definition: dict[str, Any]) -> set[str]:
+    """Declared terminal stages plus the engine-owned exits every version shares."""
+    declared = {str(value) for value in definition.get("terminal_stage_ids") or ()}
+    return declared | ENGINE_TERMINAL_STAGE_IDS
+
+
 def levelless_stage_ids(definition: dict[str, Any]) -> list[str]:
     """Non-terminal stages that declare no launch level."""
-    terminal = {str(value) for value in definition.get("terminal_stage_ids") or ()}
+    terminal = _terminal_stage_ids(definition)
     return [
         str(stage["id"])
         for stage in definition.get("stages") or ()
@@ -67,8 +74,7 @@ def hc_workflow_stage_level_pins(conn, args: DoctorArgs, rec: RecordCollector) -
     findings: List[str] = []
     for row in rows:
         definition = _definition(row["definition_json"])
-        terminal = {str(value) for value in definition.get("terminal_stage_ids") or ()}
-        if str(row["status"]) in terminal:
+        if str(row["status"]) in _terminal_stage_ids(definition):
             continue
         missing = levelless_stage_ids(definition)
         if not missing:

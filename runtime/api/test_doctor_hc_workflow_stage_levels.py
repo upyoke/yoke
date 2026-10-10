@@ -138,3 +138,11 @@ def test_levelless_current_version_names_publish_recovery(conn):
     assert record.verdict == "FAIL"
     assert "current version is not levelled either" in record.detail
     assert "--version 1" not in record.detail
+
+
+@pytest.mark.parametrize("status", ["cancelled", "stopped"])
+def test_engine_terminal_items_are_ignored_on_versions_declaring_only_done(
+    conn, status
+):
+    _item(conn, 6, 706, status, 10)
+    assert _run(conn).verdict == "PASS"
