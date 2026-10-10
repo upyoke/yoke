@@ -1,7 +1,5 @@
 """PreToolUse hook: Write tool path + content safety.
 
-Python owner for ``.agents/skills/yoke/scripts/lint-write-path.sh``.
-
 Two checks:
 
 1. Block Write tool calls where ``file_path`` contains a literal ``$$``.
@@ -10,9 +8,8 @@ Two checks:
    to the PID — causing "file not found" errors.
 
 2. Block Write tool calls that write ``secrets.*`` in ``if:`` conditions
-   of workflow YAML files. GitHub Actions silently fails to
-   parse workflows with ``secrets.*`` in ``if:`` — the entire workflow
-   shows zero jobs with no error message.
+   of workflow YAML files: GitHub does not support direct secret references
+   in conditionals. Pass them through env and check inside a step instead.
 
 Typed entry: ``evaluate(record: HookContext) -> HookDecision``. The CLI
 ``__main__`` form (stdin -> payload -> HookContext -> evaluate) is
@@ -87,33 +84,28 @@ def _scan_secrets_in_if(content: str) -> list[tuple[int, str]]:
 
 def _dollar_dollar_reason() -> str:
     return (
-        "BLOCKED: Write file_path contains literal \"$$\".\n"
+        'BLOCKED: Write file_path contains literal "$$".\n'
         "The Write tool does NOT expand shell variables — the file will be created\n"
-        "with a literal \"$$\" in the name, but Bash will expand $$ to the PID,\n"
-        "causing \"file not found\" errors.\n\n"
+        'with a literal "$$" in the name, but Bash will expand $$ to the PID,\n'
+        'causing "file not found" errors.\n\n'
         "Fix: use mktemp in Bash first to get a concrete path, then Write to it:\n"
         "  _tmpfile=$(mktemp /tmp/my-prefix.XXXXXX)\n"
-        "Then use the Write tool with file_path=\"$_tmpfile\".\n\n"
-        "See AGENTS.md: \"Temp files\" rule."
+        'Then use the Write tool with file_path="$_tmpfile".\n\n'
+        'See AGENTS.md: "Temp files" rule.'
     )
 
 
 def _secrets_reason(file_path: str, violations: list[tuple[int, str]]) -> str:
     detail = "\n".join("  Line %d: %s" % (ln, txt) for ln, txt in violations)
     return (
-        "BLOCKED: secrets.* in GitHub Actions if: condition.\n\n"
-        "GitHub Actions silently fails to parse workflows when secrets.*\n"
-        "appears in if: conditions — the entire workflow shows ZERO JOBS\n"
-        "with no error message. This is a GitHub platform limitation.\n\n"
+        "BLOCKED: secrets.* in GitHub Actions if: condition.\n"
+        "Direct secret references are unsupported in conditionals.\n"
         "Violations found in %s:\n%s\n\n"
         "Fix: Pass secrets via env: and check the env var in run: instead:\n"
-        "  # WRONG — silently breaks the entire workflow:\n"
-        "  if: ${{ secrets.MY_SECRET != '' }}\n\n"
-        "  # RIGHT — pass via env, check in run:\n"
         "  env:\n"
         "    MY_SECRET: ${{ secrets.MY_SECRET }}\n"
         "  run: |\n"
-        "    if [ -z \"$MY_SECRET\" ]; then echo \"skipping\"; exit 0; fi"
+        '    if [ -z "$MY_SECRET" ]; then echo "skipping"; exit 0; fi'
     ) % (file_path, detail)
 
 

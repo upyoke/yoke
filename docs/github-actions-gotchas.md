@@ -1,54 +1,29 @@
-# GitHub Actions Gotchas
+# GitHub Actions workflow conditions
 
-Platform limitations and anti-patterns in GitHub Actions workflow files.
-
-## secrets.* in if: conditions
-
-**Severity:** Catastrophic (silent, zero-feedback failure)
-
-### The Problem
-
-GitHub Actions silently fails to parse workflows when `secrets.*` appears in `if:` conditions. The entire workflow shows **zero jobs** with no error message — not even a syntax error in the Actions UI.
+GitHub does not support direct `secrets.*` references in `if:` conditions.
+Pass non-AWS credentials through `env:` and check them inside a step, or use
+the job environment to conditionally run steps. An unset secret expands to an
+empty string. See [GitHub's secret guidance](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets).
 
 ```yaml
-# WRONG — this silently breaks the entire workflow:
 jobs:
- deploy:
- if: ${{ secrets.DEPLOY_KEY != '' }}
- runs-on: ubuntu-latest
- steps: ...
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy when configured
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "DEPLOY_KEY not set — skipping deploy"
+            exit 0
+          fi
+          # Required deploy logic follows.
 ```
 
-When this workflow triggers, GitHub shows "0 jobs" and no runs appear. There is no log, no error, no indication of what went wrong.
-
-### Why It Happens
-
-GitHub evaluates `if:` conditions during workflow parsing, before any job context exists. The `secrets` context is not available at parse time for `if:` conditions at the job or step level in certain evaluation paths. Instead of raising an error, GitHub silently drops the entire workflow.
-
-### The Fix
-
-Pass secrets via `env:` and check the environment variable in `run:`:
-
-```yaml
-# RIGHT — pass via env, check in run:
-jobs:
- deploy:
- runs-on: ubuntu-latest
- steps:
- - name: Deploy (if key available)
- env:
- DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
- run: |
- if [ -z "$DEPLOY_KEY" ]; then
- echo "DEPLOY_KEY not set — skipping deploy"
- exit 0
- fi
- # ... deploy logic here
-```
-
-AWS operations in CI are not optional secret-gated steps. Grant the job the
-minimum OIDC permissions, assume the IaC-owned delivery role through a pinned
-action revision, and let required work fail closed:
+AWS delivery is required work, not an optional secret-gated step. Grant minimum
+OIDC permissions and assume the IaC-owned role through a reviewed action revision;
+credential failure fails the stage. Long-lived AWS access keys are unsupported.
 
 ```yaml
 permissions:
@@ -66,29 +41,16 @@ steps:
     run: aws cloudfront create-invalidation --distribution-id "$CF_ID" --paths "/*"
 ```
 
-The production-deploy Pack workflows own the reviewed action pin,
-CloudFront discovery, bounded diagnostics, and fail-closed behavior. Long-lived
-AWS access keys are not a supported GitHub Actions credential path.
+The production-deploy Pack owns the reviewed pin, CloudFront discovery,
+bounded diagnostics and fail-closed behavior. Read its capability settings
+rather than invent a credential path.
 
-### Automated Guards
+Yoke enforces the conditional restriction in the shared Python write policy
+`yoke_core.domain.lint_write_path` and the Bash guard `lint_db_cmd`
+(stable audit id `lint-sqlite-cmd`). Workflow YAML writes through Write or
+Bash heredoc/cat/tee/redirection are checked before effects; no separate lint
+script owns a second rule. A refusal names file/line and the env/run recovery.
 
-Yoke has three layers of protection against this anti-pattern:
-
-1. **PreToolUse Write policy** (`yoke_core.domain.lint_write_path`): Blocks
-   file writes that would create workflow YAML containing `secrets.*` in
-   `if:` conditions.
-
-2. **PreToolUse Bash hook** (`yoke_core.domain.lint_db_cmd`, legacy stable check id `lint-sqlite-cmd`, Check 8): Blocks Bash commands that write workflow content with this pattern via heredocs, cat, tee, or redirects.
-
-3. The same Python policy is the single owner for this write-side check; there
-   is no separate workflow-secret lint script to keep in sync.
-
-### Safe Uses of secrets.*
-
-The lint checks are scoped narrowly. These patterns are **safe** and will NOT trigger:
-
-- `secrets.*` in `env:` blocks for non-AWS credentials that must be injected
-- `secrets.*` in `run:` blocks (e.g., inline shell references)
-- `secrets.*` in step `with:` parameters
-- `secrets.*` in comments
-- `if: success()`, `if: failure()`, `if: always()` (no secrets reference)
+The predicate remains narrow: secret references in `env:`, `run:`, step `with:`
+or comments are permitted; `success()`, `failure()` and `always()` conditions
+without a secret reference are permitted.
