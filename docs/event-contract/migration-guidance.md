@@ -4,37 +4,33 @@ Pure-log tables are consolidated into the `events` table. Current read and write
 
 Cross-link back from [event-contract.md](../event-contract.md) for the envelope structure, registry rules, and isolation contract that govern emission paths.
 
-## Migration Pattern for Future Tables
+## Governed log-table cutover
 
-1. **Create a temporary compatibility view FIRST** when a phased read-path cutover is required. Route JSON-field extraction through the helper (`yoke_core.domain.sql_json.json_get`) from Python call sites; the SQL view body below shows the COALESCE structure, and `json_get` emits the active backend's JSON accessor (on Postgres, the jsonb path form `envelope ... #>> '{context,detail,<field>}'`).
-   ```sql
-   CREATE OR REPLACE VIEW <old_table> AS
-   SELECT
-     id,
-     -- Map events columns back to the old table's column names. Python call
-     -- sites should build the JSON-field accessor via
-     -- `json_get("envelope", "$.context.detail.<field>")`, which emits the
-     -- Postgres jsonb accessor and keeps the dialect in one file
-     -- (`packages/yoke-core/src/yoke_core/domain/sql_json.py`).
-     COALESCE(
-       <json_get_canonical>, -- f"""{json_get("envelope", "$.context.detail.<field>")}"""
-       <json_get_nested>,    -- f"""{json_get("envelope", "$.context.<field>")}"""
-       <json_get_flat>       -- f"""{json_get("envelope", "$.<field>")}"""
-     ) AS <old_column_name>,
-     created_at
-   FROM events
-   WHERE event_type = '<your_event_type>';
-   ```
+Read [database authority](../public/reference/agent-rules/databases.md) before
+changing schema or bulk data. Declare/amend the item's DB claim, author a
+permanent ordered migration, name the restore point and serving floor where
+required, then rehearse through `yoke migration rehearse PREFIX-N`. Rehearse
+all live universes through the model's fleet before release. Boot convergence
+applies history transactionally and fail-hard; items and flows do not apply
+ad hoc SQL or standalone transformation scripts.
 
-2. **Update read paths** to query `events` directly. The compatibility view is temporary scaffolding only.
+Inside that governed history:
 
-3. **Write the migration script** that inserts existing rows into `events` within a transaction, preserving original timestamps in `created_at`.
+1. Register the event contract through its source-dev/admin owner and update
+   emitters/readers against the canonical envelope and serializer.
+2. Copy existing log rows into `events`, preserving original `created_at`.
+   Make transformation idempotent against output already present; carry
+   references to a surviving row when uniqueness requires convergence.
+3. Use a temporary compatibility view only when phased readers require it.
+   An old-name view replaces the table after its data and references have
+   converged; it cannot be created over an existing same-name table. Preserve
+   required live readers/writers and validate the actual cutover order.
+4. Retire the old log table only after read/write and reference proof. Remove
+   any compatibility view in later permanent history when no caller needs it.
 
-4. **Update write paths** to emit through the standard event helper instead of INSERT into the old table.
-
-5. **Drop the old table** only after verifying the compatibility view works and all read paths are updated.
-6. **Remove the temporary compatibility view** in a follow-up convergence migration once no live caller depends on it.
-7. **Register the event name** in `event_registry` through the source-dev/admin registry workflow.
+Pure-log tables may retire; domain-state tables remain queryable authority and
+emit events alongside successful state writes. The project's breakage policy
+and migration strategy decide whether a phased bridge needs justification.
 
 ## Compatibility View Design
 
@@ -52,11 +48,12 @@ coalesce_fragment = (
 )
 ```
 
-This ensures views work regardless of which code path inserted the event row, and keeps the dialect localized to one file (`sql_json.py`).
+Keep the three envelope layouts readable during the bridge; remove fallbacks
+only after stored rows and callers converge.
 
 ## Domain-State Event Emission Pattern
 
-For state tables that should NOT be dropped (they serve as queryable state, not just logs), add event emission alongside the existing INSERT:
+For domain-state tables, add emission after the successful state write:
 
 ```sh
 # After the state table INSERT succeeds:
@@ -67,7 +64,7 @@ yoke events emit \
  --source-type <appropriate_source> \
  --severity INFO \
  --outcome completed \
- --item-id "<item-id>" \
+ --item PREFIX-N \
  --context '{"state_specific_field":"value"}'
 ```
 
