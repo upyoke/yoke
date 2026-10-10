@@ -115,7 +115,7 @@ every Yoke API and workbench) and the Pack reference collector
 contract is the HTTP status plus the `error` name; `recovery` text is advice
 and differs between the two implementations. Limits come from
 `attribution_rules.json` `limits`. The [Pack collector
-contract](../packs/structured-events/versions/4.3.0/files/events/README.md)
+contract](../packs/structured-events/versions/4.4.0/files/events/README.md)
 covers consuming-project wiring, delivery retries and attribution.
 
 **GET /api/events/config** returns `{"publishableKey": "..."}` with

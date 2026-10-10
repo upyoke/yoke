@@ -39,22 +39,22 @@
       "version": "1.1.0"
     },
     "structured-events": {
-      "content_digest": "de90fa747c28ccc0014c4a1e3b529653fb6900c29435a81d61f2f31e61c2ffc7",
+      "content_digest": "d075f72eb8738f23eb02609d1d083f8e63109244c2f3ebf314da2d00f4c7d364",
       "files": {
         "docs/packs/structured-events/README.md": {
           "mode": 420,
           "path": "docs/packs/structured-events/README.md",
-          "sha256": "08d60a944c46818d4104f4cf7d727a72a73bad22bef223097b9dbd3570434d86"
+          "sha256": "085c693e9a06a4f8188dd74819a2c7dc3693071d4d546d9ea5481afacbb62177"
         },
         "events/README.md": {
           "mode": 420,
           "path": "events/README.md",
-          "sha256": "6fd68fe226e4d127f0528f6a80d1ed18778351f7d5e84408ceee3d3b88962f9c"
+          "sha256": "41478d8a5ff1aaee4a346558ef7bd6c280701799739816731c0210291473d0ec"
         },
         "events/api-route.ts": {
           "mode": 420,
           "path": "events/api-route.ts",
-          "sha256": "ca8fa6a1482f4a859e6db972e456e8133f862ff21f8fda6ed9994b732a204a20"
+          "sha256": "2544fb0e3aa0449b2c2457031650d25e1908ebe08c394684a0daf2cb1f3d2fe4"
         },
         "events/attribution_rules.json": {
           "mode": 420,
@@ -101,6 +101,16 @@
           "path": "events/events_delivery.py",
           "sha256": "575a6358f5021e7ba874ce0044a9067f287e94bd854096b1e7f6675b23e66e62"
         },
+        "events/events_device.py": {
+          "mode": 420,
+          "path": "events/events_device.py",
+          "sha256": "3dab5ee909216d756bf06fb71dd6a910ece1831d75d146e89cf224a8b8fb26b2"
+        },
+        "events/events_device.ts": {
+          "mode": 420,
+          "path": "events/events_device.ts",
+          "sha256": "43289c19b1d0d424be3554572b0075dafd6be355d3a9ca15a0ffa607ae2eba01"
+        },
         "events/events_handoff.py": {
           "mode": 420,
           "path": "events/events_handoff.py",
@@ -124,7 +134,7 @@
         "events/events_props.ts": {
           "mode": 420,
           "path": "events/events_props.ts",
-          "sha256": "bb7b87e319c0134f0d83618e970c46eb30e38332977ec6ddae803c0d24ea409b"
+          "sha256": "0edf56e0b544ed66539cf3d427c5e70dcc1cb35981ef294350042dad9fea28e1"
         },
         "events/events_types.ts": {
           "mode": 420,
@@ -139,7 +149,12 @@
         "events/test_browser.mjs": {
           "mode": 420,
           "path": "events/test_browser.mjs",
-          "sha256": "e3d346c28b82a928c7083051ae29d2a6708a4d9107bb1ad72b4e517bba67be64"
+          "sha256": "0c73a2ec8faae53abc9261d371b73f236a1550827002b1357d77db52b670a09d"
+        },
+        "events/test_device.py": {
+          "mode": 420,
+          "path": "events/test_device.py",
+          "sha256": "6f414cc33e663ffd7b189160a56c3179bdab715dba7b2e637ade80c1e0ba3834"
         },
         "events/test_events.py": {
           "mode": 420,
@@ -178,10 +193,10 @@
         "project_name": "yoke"
       },
       "source": {
-        "commit": "b93b1c42941f41bff38fb52c895ecb27cc595715",
+        "commit": "fa5d075e77a93c339071c75132395c1668bf7ab4",
         "kind": "lane"
       },
-      "version": "4.3.0"
+      "version": "4.4.0"
     }
   },
   "project_id": 1,

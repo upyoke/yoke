@@ -1,4 +1,4 @@
-# Structured Events Pack 4.3.0
+# Structured Events Pack 4.4.0
 
 Python and TypeScript envelopes, first/last-touch attribution,
 a signed server-set visitor cookie, SPA views, retrying batches, and an anonymous
