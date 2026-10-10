@@ -186,11 +186,11 @@ test("a destination's page head names the destination, not a parent view", async
 
 test("Runs fills from deployment runs, newest first, with grounded status pills", async (t) => {
   const requests = [];
-  const runRow = (id, status, stage) => ({
+  const runRow = (id, status, stage, createdAt) => ({
     id, project: "yoke", flow: "yoke-hosted-production",
     target_tier: "persistent", target_environment: "prod",
     release_lineage: null, status, current_stage: stage,
-    created_at: `${id}-created`, started_at: null, completed_at: null,
+    created_at: createdAt, started_at: null, completed_at: null,
     created_by: "usher",
     stage_index: stage ? 1 : -1,
     stage_count: 2,
@@ -220,10 +220,10 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
         // Engine order: newest first.
         return okEnvelope({
           rows: [
-            runRow("run-20260103-002", "executing", "ci-gate"),
-            runRow("run-20260103-001", "created", null),
-            runRow("run-20260102-001", "failed", "test-failed"),
-            runRow("run-20260101-001", "succeeded", "complete"),
+            runRow("run-20260103-002", "executing", "ci-gate", "2026-01-03T02:00:00.000000Z"),
+            runRow("run-20260103-001", "created", null, "2026-01-03T01:00:00.000000Z"),
+            runRow("run-20260102-001", "failed", "test-failed", "2026-01-02T01:00:00.000000Z"),
+            runRow("run-20260101-001", "succeeded", "complete", "2026-01-01T01:00:00.000000Z"),
           ],
           unfinished_count: 2,
           completed_match_count: 2,
