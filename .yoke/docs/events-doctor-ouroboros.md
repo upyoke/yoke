@@ -62,6 +62,16 @@ Refusals include `origin_not_allowed`, `publishable_key_invalid`, `rate_limited`
 step. The Pack retries failed batches with their original event IDs. Telemetry
 remains disposable: using Yoke never depends on its successful delivery.
 
+Each refusal also records one `FrontendCollectorRefused` backend event (reason,
+status, route, truncated Origin, serving host; no body, cookie, key or client
+address), at most once per reason, status and route per minute, so floods stay
+bounded. The rows carry no project, so read them with `yoke db read`:
+`yoke db read "SELECT created_at, event_outcome, envelope::jsonb -> 'context' -> 'detail' AS detail FROM events WHERE event_name = 'FrontendCollectorRefused' ORDER BY created_at DESC LIMIT 20"`.
+Accepted frontend events take `created_at` from the collector's receipt time;
+the envelope keeps the client `event_time` with `received_at` and
+`client_time_offset_seconds`, and rows more than 300 seconds off carry
+`anomaly_flags = 'client_time_skew'`.
+
 Source maintainers install the project-owned Structured Events Pack, then run
 `yoke dev run -- python3 -m yoke_core.tools.build_frontend_events` from the lane.
 This derives browser JavaScript and package-relative Python helpers from the

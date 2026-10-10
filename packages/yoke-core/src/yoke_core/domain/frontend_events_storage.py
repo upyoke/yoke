@@ -4,6 +4,7 @@ import hashlib
 import json
 import secrets
 import time
+from datetime import datetime, timezone
 
 from yoke_core.domain import db_helpers
 from yoke_core.domain.external_identities import default_org_id
@@ -11,6 +12,10 @@ from yoke_core.domain.events_writes import cmd_insert
 
 RATE_WINDOW_SECONDS = 60
 RATE_REQUESTS = 60
+# Beyond this distance from receipt a client clock or a long-queued retry is
+# flagged; the event is still accepted and ordered by receipt time.
+CLIENT_TIME_TOLERANCE_SECONDS = 300
+CLIENT_TIME_SKEW_FLAG = "client_time_skew"
 
 
 def collector_identity(conn):
@@ -57,19 +62,32 @@ def admit_client(conn, *, org_id, client, now=None):
     return RATE_WINDOW_SECONDS - (now - window) if count > RATE_REQUESTS else 0
 
 
-def write_frontend_events(events, *, org_id, environment, actor_id=None):
+def write_frontend_events(
+    events, *, org_id, environment, actor_id=None, received_at=None
+):
     """Use the existing event gateway; retries dedupe on the browser event UUID.
 
     The emitter's own ``service`` and ``project`` names are kept as sent;
     the serving universe supplies the organization, environment and actor.
+    ``created_at`` is the collector's receipt time, never the browser clock;
+    the envelope keeps the client ``event_time`` beside ``received_at`` and
+    the signed offset between them.
     """
+    received_at = received_at or datetime.now(timezone.utc)
+    received = received_at.strftime("%Y-%m-%dT%H:%M:%SZ")
     for event in events:
+        client_time = datetime.fromisoformat(event["event_time"].replace("Z", "+00:00"))
+        if client_time.tzinfo is None:
+            client_time = client_time.replace(tzinfo=timezone.utc)
+        offset = round((client_time - received_at).total_seconds())
         envelope = {
             **event,
             "org_id": str(org_id),
             "actor_id": actor_id,
             "environment": environment,
         }
+        envelope["received_at"] = received
+        envelope["client_time_offset_seconds"] = offset
         envelope["session_id"] = "browser:" + event["session_id"]
         context = event.get("context")
         if isinstance(context, dict):
@@ -104,8 +122,13 @@ def write_frontend_events(events, *, org_id, environment, actor_id=None):
             actor_id=actor_id,
             environment=environment,
             service=event["service"],
+            anomaly_flags=(
+                CLIENT_TIME_SKEW_FLAG
+                if abs(offset) > CLIENT_TIME_TOLERANCE_SECONDS
+                else None
+            ),
             envelope=json.dumps(envelope, separators=(",", ":")),
-            created_at=event["event_time"],
+            created_at=received,
             skip_severity=True,
         )
 
