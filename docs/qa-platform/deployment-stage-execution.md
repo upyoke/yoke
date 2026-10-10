@@ -24,15 +24,11 @@ admission snapshots, excluding retracted requirements and withdrawn member plan 
 the executor supplies `--plan`; its frozen cases are materialized separately
 from admitted aggregate obligations, so evidence retains both identities.
 
-`--plan` is only for that empty stage. A subject already naming cases —
-pinned in the stage config, frozen into the run or member snapshot, attached
-to the member, admitted from the member's own post-deploy obligations,
-authored directly onto the stage, or materialized by an earlier selection —
-refuses `--plan` by name, because a plan there materializes a second set of
-obligations beside the ones the stage credits and the stage then waits on
-both. The wake that wants a selection prints `--plan` in its recipe; every
-other wake omits it. Correcting an already-materialized selection is
-`yoke qa plan rematerialize` below, not a second run.
+`--plan` is only for an empty stage. A subject already naming stage-pinned,
+run/member-snapshotted, member-attached/admitted, directly authored or previously
+selected cases refuses it; adding a second plan would create obligations beside
+those credited. Selection wakes include `--plan`, other wakes omit it. Correct
+an existing selection with rematerialization, not a second plan.
 
 A direct admitted copy belongs to no plan and stores no case/baseline positions.
 The roster assigns its order; stored positions instead trigger plan drift at
@@ -78,25 +74,18 @@ Item-stage acceptance for every member is a
 hard prerequisite for later run-scoped QA. Resume/from-stage and flow failure
 policy cannot skip these acceptances.
 
-Advanced definitions remain disabled while
-`CURRENT_EXECUTION_SCHEMA_VERSION` is 1. Enabling schema 2 belongs to the
-coordinated lifecycle/runtime rollout after its consumers are verified. The
-receipt table and read/write contract are additive, but no current flow writes
-receipts until that rollout lands its executor integration.
+The current source runtime executes schema 2. Definition-schema support and
+supported QA target kinds are independent admission checks; validate against the
+actual serving build before activating a definition. Receipt lineage and exact
+hosted-consumer evidence remain required regardless of schema admission.
 
 ## Correcting a case, and discharging one that cannot be corrected
 
-A run-bound case is a frozen acceptance snapshot, but the freeze starts when
-the case answers, not when it is materialized. Until it records a `pass` or
-`fail`, `yoke qa requirement update --field method_config` corrects it in
-place. That window exists because the defects worth catching are not visible
-in the case text: materialization already rejects a case pinned to another
-environment's endpoints or one whose configuration breaks its method
-contract, so what is left — a probe asserting a response field the endpoint
-does not project, a case asserting data the environment does not have — only
-appears the first time the case runs against the real deployed target. An
-`undetermined` or `error` verdict does not close the window; neither reached
-a judgement.
+A run-bound case freezes on a determinate `pass`/`fail`. Before that,
+`yoke qa requirement update --field method_config` can correct it in place;
+`undetermined`/`error` remain unjudged. Materialization already rejects
+wrong-environment endpoints or invalid method contracts; live probes can still
+expose assertions unsupported by the actual target.
 
 A plan-owned member requirement is admitted through its plan snapshot, preserving
 case and host-baseline positions. Close-out finds its copies by plan id and
@@ -120,11 +109,8 @@ active, either reaches it or refuses:
   answered, supersede it;
 - a copy whose own obligation is already **settled** — waived, or superseded
   by a corrected case that carries the obligation now — is not reconciled and
-  does not refuse. Nothing is waiting on it, so it has no claim to hold its
-  source row still. Reading only the waiver here closed the exit the supersede
-  receipt names: the operator superseded the frozen copy exactly as the
-  refusal above instructed, then found correcting the source refused because
-  of that same copy, sent back to the supersession they had just recorded;
+  does not refuse. It no longer holds the source row still; both waiver and supersession
+  discharge are recognized;
 - a copy on a terminal run is left alone. It is the acceptance record of what
   that release was judged against, and rewriting it would be the corruption
   the freeze exists to prevent.
@@ -142,26 +128,13 @@ and every case begin check the copy against its live source and raise
 moved. A stage that cannot run the current definition says so by name; it
 never quietly runs the old one.
 
-That refusal names the recovery that exists, which depends on what moved and
-on what stands behind the source row. Reconciliation can only reach a field
-`yoke qa requirement update` accepts, so a divergence confined to those is
-repaired by aborting the execution and re-applying the amendment.
-`instructions` and `expected_outcome` are not on that allowlist.
-
-When the source row was materialized from a QA plan, `yoke qa plan
-rematerialize` is still the answer for those fields: it rewrites the source
-from the plan and carries that same body onto the copy, so both come current
-together. The refusal names that exact invocation, chosen from the row's own
-subject. See [Plan case currency](plan-case-currency.md) for the plan-to-row
-link and where that refresh refuses in turn.
-
-When no plan stands behind the source, its prose can be written by no path at
-all, and telling an operator to refresh it would teach an action nobody can
-perform. For that divergence the refusal says so and names the three remedies
-that do exist: supersede the copy with a corrected case bound to the same run,
-stage, member and target; waive it through the registered waiver surface with
-explicit authorization; or deliver the item on a new run, whose admission
-freezes the corrected body.
+Follow the refusal's source-specific recovery:
+- Allowlisted update fields: abort the frozen execution, re-apply the amendment.
+- Plan-backed `instructions` / `expected_outcome`: `yoke qa plan rematerialize`
+  refreshes source and reachable copy together; see [currency](plan-case-currency.md).
+- Plan-less prose has no update route: supersede with a corrected same-run/stage/
+  member/target case, authorize a registered waiver, or deliver a new run whose
+  admission freezes the corrected body. Do not teach a refresh nobody can perform.
 
 `yoke qa requirement list --deployment-run-id <run-id>` reports
 `source_currency` (`current` or `stale`), `source_requirement_id`, and
@@ -169,11 +142,11 @@ freezes the corrected body.
 is the item's current definition is readable from the run without opening the
 item's row beside it.
 
-Relatedly, a Command case that reads `BASE_URL` must set
-`method_config.requires_base_url`. The runner injects `BASE_URL` only for a
-case that declares it, so an undeclared probe does not fail — it falls
-through to whatever default it hardcodes and quietly tests a different
-environment than the stage deployed.
+A Command case that requires `BASE_URL` declares `method_config.requires_base_url`
+so missing URL refuses before execution. The runner exports every provided URL,
+including a direct run-attached case without that flag. The flag controls
+required input, not injection. Keep target declarations explicit; a command's
+hardcoded fallback cannot certify the stage's deployed environment.
 
 When the plan itself was corrected, refresh the whole subject rather than
 each row:
@@ -265,18 +238,11 @@ case is materialized:
   source that is missing, or itself already discharged, is named by neither,
   because no future release admits it. Supersession refuses a
   replacement in another subject, one that is non-blocking, waived, already
-  superseded, or that has not recorded a passing verdict. A case's evidence is
-  counted first on the run whose verdict the gate accepted — the newest run
-  for that requirement, which is where a reviewer attaches evidence — and then
-  through any completed execution of that same subject and target, not only
-  the newest one. Both halves are load-bearing: asking only the execution
-  record named the capture run it wrote and refused a member whose evidence
-  was attached to the accepted pass, while a corrected case normally runs
-  under its own plan and therefore its own execution, and reading a single
-  execution made such a case report "no attached evidence" and hold the stage
-  it had just satisfied. A pass carrying artifacts on no run at all still
-  refuses, and that refusal names every run id it inspected plus the run to
-  attach evidence to.
+  superseded, or that has not recorded a passing verdict. Evidence first comes from the newest run for that requirement whose verdict
+  the gate accepted, then any completed execution of that same subject/target.
+  Both are required: reviewer evidence may attach to the accepted pass, and a
+  corrected case may execute under its own plan. A pass with artifacts on no
+  run refuses, naming inspected run ids and where to attach evidence.
 - **Waiver.** `yoke qa requirement waive --force` remains the authorized
   operator discharge when no corrected case answers.
 
@@ -343,7 +309,7 @@ floor is `NEXT_RELEASE` because an old boot can recreate the retired run-wide
 index.
 
 Permitted deployment order is: drain every old serving build; boot the new
-release so additive convergence runs; apply the ordered migration; then admit
+release so additive convergence and ordered history apply fail-hard; then admit
 scoped writers after exact hosted-consumer verification. A binary-only rollback
 after migration is forbidden. To return to old binaries, stop the new build and
 restore the pre-migration database backup first.

@@ -1,151 +1,89 @@
 # Plan Case Currency
 
-Materializing a QA plan case writes a *copy* of it onto a requirement row. The
-only link back is `(plan_id, plan_case_key, host_baseline)`, and for a long
-time nothing read that link in the edit direction — so correcting a plan
-reached the plan and nothing else. A correction could read back perfectly
-while the only copy that would actually run still carried the old text, and
-the failure it produced looked like a product defect rather than a stale case.
+Materialization copies executable plan fields onto a requirement, linked by
+`(plan_id, plan_case_key, host_baseline)`. Inheriting machine cases retain their
+chain's initial baseline position. Copied `starting_state` and reason are compared
+like other fields; a pre-declaration row may be behind its current plan.
 
-An inheriting machine case's rows carry the baseline its chain started from as
-`host_baseline`, so that link stays unique per baseline position. The copied
-`starting_state` and `starting_state_reason` are compared like any other
-field: a row materialized before its plan declared a starting state reads as
-behind the plan.
+## Edit receipts and reads
 
-Three surfaces close that, and this page is where they meet.
+`qa.plan.edit` / `qa.plan_cases.replace` report `requirements_behind_plan` and
+`requirements_behind_plan_count`. Each live divergent row names requirement id,
+case key, baseline, state, diverging fields and its exact recovery. A plan edit
+alone does not update the case that executes.
 
-## An edit names the rows it did not reach
+`yoke qa requirement list` reports materialized row currency:
 
-`qa.plan.edit` and `qa.plan_cases.replace` each report:
-
-| Field | Meaning |
+| Field/value | Meaning |
 |---|---|
-| `requirements_behind_plan` | One entry per live materialized row that no longer matches the plan |
-| `requirements_behind_plan_count` | How many — `0` is the whole answer |
+| `plan_currency=current` | Row matches the materialization derivation. |
+| `stale` | Executable fields differ; `plan_diverging_fields` names them. |
+| `orphaned` | Case/baseline no longer exists; refresh waives it. |
+| `unreadable` | Current case cannot materialize; the row carries its reason. |
 
-Each entry carries the `requirement_id`, its `case_key` and `host_baseline`,
-the `state`, the `diverging_fields` that moved, and a `recovery` string naming
-the exact command that reaches that row. Read it: a correction that stops at
-the plan is a correction the case that actually runs never received.
+Currency re-runs the same transformation used by insert/refresh, not a raw field
+digest. Plan policy documents versus row policy id/params, baseline arrays versus
+rows, and derived method/runner/verdict/capability fields have different shapes.
+Only a refresh that would change the derived executable row reports stale.
+Attachment-owned `qa_phase` and resolved/frozen execution targets are excluded:
+those differences are healthy and do not repoint a row.
 
-## One operation brings a live row current
+## Refresh the correct subject
 
 ```text
-yoke qa plan rematerialize --item <PREFIX-N> --transition <stage>
-yoke qa plan rematerialize --deployment-run-id <RUN> --stage <S> [--member <PREFIX-N>]
+yoke qa plan rematerialize --item PREFIX-N --transition STAGE
+yoke qa plan rematerialize --deployment-run-id RUN --stage STAGE [--member PREFIX-N]
 ```
 
-It refreshes matching rows in place, retains their QA run history, creates
-cases the plan has gained, and waives cases it has lost. It reaches **every**
-executable column — `instructions` and `expected_outcome` included, which
-`yoke qa requirement update` cannot write at all — because it rewrites the
-materialization derivation whole rather than one allowlisted field.
+The operation refreshes matching live rows in place, preserves QA run history,
+creates added cases and waives removed ones. It reaches all executable columns,
+including `instructions` / `expected_outcome`, which individual requirement
+update cannot write. It also corrects reachable unjudged admitted deployment
+copies and reports `corrected_admitted_copy_ids`.
 
-A refresh also carries its just-written body onto every admitted
-deployment-stage copy frozen from a refreshed row that can still be reached,
-and reports them as `corrected_admitted_copy_ids`. Without that, the safe
-correction would strand the run: the copy would keep the pre-refresh body and
-the stage walking it would refuse the case as superseded.
+Item rows use item/transition; stage rows use run/stage/member. These subjects
+are not interchangeable. Follow each receipt's exact recovery.
+All-or-nothing refusal precedes writes:
 
-The two subjects are not interchangeable. An item row is refreshed by its item
-and transition; a row materialized onto a deployment stage is refreshed by its
-run, stage and member. Each reported `recovery` names the one that fits the row
-it is attached to.
-
-## Where it refuses instead
-
-A refresh will not move a row something else has already frozen a copy of, and
-it decides that **before writing anything** — so a refused refresh leaves every
-row exactly as it was. Half a refresh is the state hardest to reason about
-afterwards, and it is the state that made the original defect invisible.
-
-| Refusal | When | Recovery it names |
-|---|---|---|
-| `plan_execution_in_flight` | A live QA plan execution is walking a roster built from these rows | The full `yoke qa plan abort` invocation for that execution, then refresh and start the walk again |
-| `admitted_copy_in_flight` | An admitted deployment-stage copy of a row has answered, or a live execution froze it into the roster it is being walked against | The remedy available for that copy — see [Deployment QA Stage Execution](deployment-stage-execution.md) |
-| answered deployment case | A deployment-stage row has already recorded a determinate verdict | `yoke qa requirement supersede`, because an answered case is an acceptance record |
-| declaration-corrected target | Stored digest moved because declared facts changed, same environment row/subject, **or** the snapshot's endpoints already match the resolved environment while its identity labels are stale, **and** resolved host authority is unchanged | `yoke qa requirement rebind-target` — see [Execution-target rebind](execution-target-declaration-rebind.md). A repointed host is a different target. A live item requirement cannot be superseded. |
-
-Each refusal names a command that is actually reachable for the case that
-raised it. A recovery that would answer with a usage error, or that names a
-field no write surface can reach, is not a recovery.
-
-## A walk refuses a row behind its plan
-
-A walk never executes a superseded body, and it refuses by name rather than
-quietly running the old one. Where the check happens depends on what a row
-answers to:
-
-- **An item row** answers to its live plan. `yoke qa plan run` checks every
-  row when it builds its roster, and a machine case re-checks its row before
-  each step; a row whose plan case was amended refuses as
-  `plan_case_superseded`.
-- **A deployment-stage row** answers to the plan snapshot its stage
-  materializes from — frozen at admission for a stage that pins its cases, so
-  a later plan edit never reaches that run. A stage that selects its plan at
-  walk time re-reads that plan when it materializes, and there an unjudged
-  row whose case has since changed refuses as `plan_case_superseded`. A row
-  that failed or was discharged is re-minted beside it instead.
-
-Either refusal names the rows and the refresh that reaches them; run that,
-then start the walk again. An admitted deployment copy whose source row moved
-refuses the same way, one link further down.
-
-## Reading drift without two bodies
-
-`yoke qa requirement list` reports, for every materialized row:
-
-| Field | Values |
+| Refusal/condition | Recovery |
 |---|---|
-| `plan_currency` | `current`, `stale`, `orphaned`, `unreadable` |
-| `plan_diverging_fields` | The executable columns that moved, when `stale` |
+| `plan_execution_in_flight` | Abort the named live execution with its complete `yoke qa plan abort` command, refresh, then restart. |
+| `admitted_copy_in_flight` | A live roster or determinate answer froze the copy; use [deployment-stage correction](deployment-stage-execution.md). |
+| Answered deployment case | `yoke qa requirement supersede`; an acceptance result is immutable. |
+| Declaration-corrected target | `yoke qa requirement rebind-target` when environment/subject and resolved host authority remain the same; [rebind rules](execution-target-declaration-rebind.md) also cover stale identity labels with already-matching endpoints. A repointed host is a different target; live item requirements cannot be superseded. |
 
-`orphaned` means the plan no longer carries that case at that baseline — a
-refresh waives it. `unreadable` means the plan case can no longer be
-materialized at all, and the reason travels with the row rather than surfacing
-later as a runner refusal.
+Each refusal must name the reachable remedy for that specific row, not a field
+or subject its write API cannot address.
 
-The comparison is not a field digest. A plan case and a requirement row do not
-share a shape: one `success_policy` document against the case's id plus params,
-one row per host baseline against the case's array, and `method_name`,
-`runner_id`, `verdict_path` and `capability_requirements` that exist on no plan
-case at all. So the currency read re-runs the materialization transform to
-derive what the row *should* be and diffs that against what it *is* — the same
-derivation the insert and the refresh write. A row is reported stale only when
-a refresh would genuinely change it.
+## Execution refuses superseded bodies
 
-What materialization decides for itself is excluded on purpose: `qa_phase`
-comes from the attachment, and the execution target from environment
-resolution or from the target a run already froze. Those differ on healthy
-rows and are drift in neither direction.
+- Item plan-run roster construction and each machine step compare against the
+  live plan; an amended case refuses as `plan_case_superseded`.
+- Deployment-stage rows compare against their stage snapshot. Admission-pinned
+  cases ignore later plan edits. Walk-time plan selection re-reads the plan:
+  changed unjudged rows refuse; failed/discharged cases can be re-minted beside
+  their historical rows under the replacement rules.
+- An admitted copy whose source row moved refuses at the next source link too.
 
-## Stored plans converge with the case contract
+Follow the named refresh, then restart. Historical acceptance is never rewritten
+or quietly credited to the changed case.
 
-The links above compare a row with its plan. The plan itself can also fall
-behind: authoring validates the case contract on every write, but a plan stored
-before the contract last tightened only fails when its QA runs. The machine
-starting-state contract is the standing example — a machine-run case stored
-before declarations existed refuses to materialize, naming the plan, the case,
-and the edit that fixes it.
+## Stored plan convergence
 
-`HC-qa-plan-machine-starting-state` closes that gap from the other end. It reads
-every live plan with a machine-run case through the same derivation the writers
-use and fails, naming each plan and its refusal, while any of them cannot
-materialize. A change that tightens the contract therefore converges the stored
-plans in every universe in the same release, through the registered authoring
-surfaces, before the check goes green.
+Authoring validates every write, but older stored plans may fail a tightened
+contract during materialization. `HC-qa-plan-machine-starting-state` checks each
+live machine-run plan through that same derivation and reports every refusal.
+A tightened contract must converge stored plans in every universe, through
+registered authoring, in the same release.
 
-Converge a stored plan with `yoke qa plan edit PLAN_SLUG --project P`, or read it
-with `yoke qa plan get PLAN --project P --full --json` and write the corrected
-array back with `yoke qa plan-cases replace`. The read carries each case's
-`starting_state` and `starting_state_reason`, so that round trip keeps every
-declaration it does not change.
+```text
+yoke qa plan edit PLAN_SLUG --project P
+yoke qa plan get PLAN --project P --full --json
+yoke qa plan-cases replace --project P --plan-id N --stdin
+```
 
-## The link one level down
-
-This page covers plan case → requirement row. The next link — requirement row →
-the copy a deployment stage admitted from it — is
-[Deployment QA Stage Execution](deployment-stage-execution.md), which reports
-`source_currency` on the same rows. A row can be behind its plan, behind its
-source, both, or neither, and each is named by the reader that owns it.
+Reads include `starting_state` / `starting_state_reason`; preserve unchanged
+declarations when writing the corrected array. The next link, requirement to
+admitted stage copy, reports `source_currency` in
+[Deployment QA Stage Execution](deployment-stage-execution.md). Plan/source
+currency are separate: a row may be behind either, both or neither.
