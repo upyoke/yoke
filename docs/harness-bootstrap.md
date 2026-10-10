@@ -130,6 +130,11 @@ aliases remain display facts, not a second identity. Client hooks may enrich a
 previously unknown surface when observed; a relay server cannot infer the
 client's surface from its own process.
 
+Surface aliases normalize to family manifests, for example:
+`claude-vscode` -> `runtime/harness/claude/manifest.json`,
+`codex-desktop` -> `runtime/harness/codex/manifest.json`, and
+`cursor-cli` -> `runtime/harness/cursor/manifest.json`.
+
 Model/provider/effort/context metadata is truthful observed evidence, not
 required invented data. Requested launch choices remain separate from served
 identity. UI/fleet views label requests and retain differing values. Manifest

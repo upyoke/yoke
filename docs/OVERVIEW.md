@@ -49,8 +49,9 @@ retry bounds and handoffs. At a binding boundary enter the next skill freshly.
 
 One item belongs to one deployment project. A contract consumed by another
 project requires linked companion work and exact-candidate consumer evidence.
-Project identity is an integer; slugs and public prefixes are display/context
-values. Items use stable integer `items.id` and project-local `project_sequence`
+Items bind their deployment project through integer `items.project_id`;
+`projects.slug` is a resolved display value, and public prefixes provide context.
+Items use stable integer `items.id` and project-local `project_sequence`
 for `PREFIX-N`; resolve the reference before using an item id or GitHub issue.
 
 The rendered item `body` is virtual, composed from structured fields and
@@ -132,7 +133,8 @@ session-sized tasks must fit their declared execution budget. See
 Items, epic tasks, universal `item_worktrees`, dispatch chains, QA requirements/
 runs/artifacts, progress notes, simulations, approvals, flows and concrete runs
 are linked durable facts. Task queues reference lane identity; branch/path facts
-belong to the lane. Reviews and simulation receipts live in QA records, not
+belong to the lane; dispatch chains join it through `item_worktree_id`.
+Reviews and simulation receipts live in QA records, not
 conversation claims. Native dispatch freshness and dependency reads govern
 execution. Registered commands return the facts needed at the boundary, with
 explicit full-depth reads when necessary.

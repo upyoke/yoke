@@ -37,8 +37,17 @@ def test_normalize_candidate_string_filters_paths_and_commands():
     assert _normalize_candidate_string("RACING") == "RACING"
 
 
+def test_normalize_quoted_values_preserves_copy_and_filters_identifiers():
+    for value in ('"api"', "'config'", '"runtime"'):
+        assert _normalize_candidate_string(value) is None
+    assert _normalize_candidate_string('"Launch failed"') == "Launch failed"
+    assert _normalize_candidate_string("'Retired'") == "Retired"
+    assert _normalize_candidate_string('"RACING"') == "RACING"
+    assert _normalize_candidate_string("Don't close this window") == "Don't close this window"
+
+
 def test_normalize_candidate_string_rejects_route_paths():
-    """Issue 5: URL route paths are structural references, not copy."""
+    """URL route paths are structural references, not copy."""
     assert _normalize_candidate_string("/login") is None
     assert _normalize_candidate_string("/forgot-password") is None
     assert _normalize_candidate_string("/api/v1/users") is None
@@ -55,6 +64,7 @@ def test_extract_candidate_strings_uses_spec_and_filters_noise():
                     'Replace "Drop a Log & Enter" everywhere.',
                     "Ignore `smoke.spec.ts` and `python3 -m yoke_core.domain.foo`.",
                     'The button title is "RACING".',
+                    'Metadata examples: `"api"`, `"runtime"`, `"config"`.',
                 ]
             ),
             "body": "",
