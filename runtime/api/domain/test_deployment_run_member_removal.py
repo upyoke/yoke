@@ -2,6 +2,7 @@
 
 import pytest
 
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     ITEM_QA_STAGE,
     record_case_verdict,
@@ -72,6 +73,7 @@ def test_red_member_removal_retracts_only_its_outstanding_run_qa(
     assert (
         qa_stage_outstanding(test_db, run_id=RUN, stage_name=ITEM_QA_STAGE).waiting == 1
     )
+    release_seeded_driver(test_db, RUN)
     message = cmd_remove_item(
         RUN, ITEM, reason=REASON, session_id="remover", actor_id=2
     )
@@ -162,6 +164,7 @@ def test_failed_item_qa_resume_excludes_removed_member(test_db, monkeypatch):
         (f"{ITEM_QA_STAGE}-failed", RUN),
     )
     test_db.commit()
+    release_seeded_driver(test_db, RUN)
     cmd_remove_item(RUN, ITEM, reason=REASON)
     stages = pinned_stages(test_db, RUN)
     context = {

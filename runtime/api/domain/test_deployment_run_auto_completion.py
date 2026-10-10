@@ -12,6 +12,7 @@ from runtime.api.domain.test_independent_member_delivery_close_out import (
     _status,
 )
 from runtime.api.domain.test_status_transition_preflight import _isolate_status_effects
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from yoke_core.domain.deployment_run_auto_completion import finish_ready_run
 
 
@@ -23,12 +24,18 @@ def _run_status(conn: Any, run_id: str) -> str:
     )
 
 
+def _seed_undriven(conn: Any, run_id: str, **shape: bool) -> None:
+    """Seed the final run with no live driver, so completion is automatic."""
+    _seed_final_run(conn, run_id, **shape)
+    release_seeded_driver(conn, run_id)
+
+
 def test_independent_members_finish_run_after_both_close(
     test_db: Any, monkeypatch
 ) -> None:
     _isolate_status_effects(monkeypatch)
     run_id = "run-independent-auto-finish"
-    _seed_final_run(test_db, run_id, shared_qa=False)
+    _seed_undriven(test_db, run_id, shared_qa=False)
     _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
     assert _status(test_db, MEMBER_A) == "done"
     assert _status(test_db, MEMBER_B) == "release"
@@ -51,7 +58,7 @@ def test_shared_qa_keeps_members_until_all_subjects_pass(
 ) -> None:
     _isolate_status_effects(monkeypatch)
     run_id = "run-shared-auto-finish"
-    _seed_final_run(test_db, run_id, shared_qa=True)
+    _seed_undriven(test_db, run_id, shared_qa=True)
     _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
     _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_B)
 
@@ -81,7 +88,7 @@ def test_approval_and_live_driver_prevent_parallel_completion(
 ) -> None:
     _isolate_status_effects(monkeypatch)
     run_id = "run-approval-auto-hold"
-    _seed_final_run(test_db, run_id, shared_qa=False, shared_approval=True)
+    _seed_undriven(test_db, run_id, shared_qa=False, shared_approval=True)
     _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
     _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_B)
 
@@ -104,7 +111,7 @@ def test_approval_and_live_driver_prevent_parallel_completion(
 def test_failed_blocking_qa_does_not_complete_run(test_db: Any, monkeypatch) -> None:
     _isolate_status_effects(monkeypatch)
     run_id = "run-failed-qa-auto-hold"
-    _seed_final_run(test_db, run_id, shared_qa=False)
+    _seed_undriven(test_db, run_id, shared_qa=False)
     test_db.execute(
         "INSERT INTO deployment_run_qa(run_id,check_name,source,blocking,status) "
         "VALUES (%s,'smoke','flow_default',1,'failed')",

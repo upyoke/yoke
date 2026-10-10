@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from runtime.api.domain import test_independent_member_delivery_close_out as delivery
 from runtime.api.domain.test_deployment_qa_admission_execution import (
     _original_requirement,
@@ -197,6 +198,7 @@ def test_run_settlement_closes_retracted_source_with_accepted_replacement(
     test_db.commit()
     assert delivery._status(test_db, member) == "release"
     # Accepting the last gate finishes the detached run on that same event.
+    release_seeded_driver(test_db, run_id)
     delivery._settle(
         test_db, run_id=run_id, stage="run-qa", member=None, may_complete_run=True
     )

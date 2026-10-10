@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from runtime.api.deployment_stage_approval_fixture import seed_gate_run
 from runtime.api.domain.coordination_claim_test_support import PROJECT_YOKE
 from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
@@ -92,6 +93,7 @@ def _seat(conn: Any, session_id: str, *, driving: str = "") -> None:
     """Seat *session_id* as the live driver of run *driving*, else as steering."""
     seed_session(conn, session_id)
     if driving:
+        release_seeded_driver(conn, driving)
         attach_driver(
             conn, driving, session_id=session_id, pid=4242, phase=PHASE_EXECUTING
         )
@@ -119,6 +121,7 @@ def test_a_resolved_approve_finishes_an_undriven_ready_run_waking_nobody(
         run_id=run_id,
         stages_json=ROLE_GATE_STAGES,
     )
+    release_seeded_driver(test_db, run_id)
     _seat(test_db, STEERING_SESSION)
     request_id = _pending_request(test_db, run_id)
 

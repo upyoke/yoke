@@ -1,5 +1,6 @@
 """Removed member owners receive cancellation, never a QA-pass notice."""
 
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from runtime.api.domain.test_deployment_run_member_removal import (
     ITEM,
     RUN,
@@ -21,6 +22,7 @@ def test_removal_tells_the_holder_even_when_remaining_run_succeeds(
     _project(test_db)
     _red_member(test_db)
     _parked_owner(test_db, HOLDER_A, ITEM)
+    release_seeded_driver(test_db, RUN)
 
     cmd_remove_item(RUN, ITEM, reason=REASON, session_id="remover", actor_id=2)
 
@@ -49,6 +51,7 @@ def test_removal_tells_the_holder_even_when_remaining_run_succeeds(
 
 def test_send_failure_keeps_removal_and_retraction(test_db, monkeypatch, capsys):
     requirement = _red_member(test_db)
+    release_seeded_driver(test_db, RUN)
 
     def fail(conn, **_kwargs):
         # A real Postgres statement failure aborts the savepoint until rollback.
@@ -70,6 +73,7 @@ def test_done_gate_ignores_retracted_run_qa_without_calling_it_passed(
     test_db, monkeypatch
 ):
     requirement = _red_member(test_db)
+    release_seeded_driver(test_db, RUN)
     target = GateTarget(item_id=ITEM)
     assert not check_done_gate(target, "").passed
 

@@ -7,6 +7,7 @@ from unittest import mock
 
 import pytest
 
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from runtime.api.domain.test_deployment_qa_stage_execution import (
     _complete_case,
     _plan,
@@ -114,6 +115,7 @@ def test_item_review_decision_reaches_the_run_driver(test_db, action):
     )
     # A live driver owns the run's continuation, so a passing review hands it
     # the run instead of finishing it from the serving control plane.
+    release_seeded_driver(test_db, run_id)
     attach_driver(
         test_db, run_id, session_id="run-driver", pid=4242, phase=PHASE_EXECUTING
     )

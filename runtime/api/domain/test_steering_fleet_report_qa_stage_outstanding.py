@@ -8,6 +8,7 @@ count came from settled ``qa_requirements`` rows. The stage gate does not.
 
 from __future__ import annotations
 
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     ITEM_QA_STAGE,
     item_qa_stage_definitions,
@@ -80,6 +81,7 @@ def test_a_qa_stage_reports_the_gate_not_the_settled_requirement_count(test_db) 
         members=MEMBERS,
         lineage=LINEAGE,
     )
+    release_seeded_driver(conn, RUN_ID)
     # Three passing blocking rows: the completion reader calls that
     # "0 of 3 outstanding". The gate still waits on every member.
     _passed_requirement(conn, requirement_id=9101, member_item_id=None, method_id=None)

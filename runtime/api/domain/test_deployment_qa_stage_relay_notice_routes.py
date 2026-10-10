@@ -22,6 +22,7 @@ from unittest import mock
 
 import pytest
 
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from runtime.api.domain.coordination_claim_test_support import (
     PROJECT_YOKE,
     seed_project,
@@ -131,6 +132,7 @@ def _seed(conn: Any, stages_json: str | None = None) -> None:
     # The driver session is the run's live driver: run-scoped notices reach
     # it, and the relay handler answers no other session while it is live.
     seed_session(conn, DRIVER_SESSION)
+    release_seeded_driver(conn, RUN_ID)
     attach_driver(
         conn, RUN_ID, session_id=DRIVER_SESSION, pid=4242, phase=PHASE_EXECUTING
     )

@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from runtime.api.domain.steering_claim_test_support import (
     seed_session,
     seed_strategy_doc,
@@ -87,6 +88,7 @@ def _request(requirement_id, *, source="operator", function="qa.requirement.waiv
 
 def _drive(conn, session_id, *, now=None):
     """Attach *session_id* as the run's driver; an old *now* leaves it stale."""
+    release_seeded_driver(conn, RUN_ID)
     attach_driver(
         conn, RUN_ID, session_id=session_id, pid=4242, phase=PHASE_EXECUTING, now=now
     )

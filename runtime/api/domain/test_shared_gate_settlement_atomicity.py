@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from runtime.api.domain.test_deployment_delivery_close_out_notice import (
     COMPLETION_FLOW,
     _project,
@@ -203,6 +204,7 @@ def test_clearing_the_blocker_replays_settlement_without_a_hand_re_drive(
     # it then detaches with only the members' own close-outs left. Residue
     # with a recorded result is a real blocker, not something settlement may
     # supersede on its own.
+    release_seeded_driver(test_db, run_id)
     attach_driver(
         test_db, run_id, session_id="deploy-driver", pid=4242, phase=PHASE_EXECUTING
     )
