@@ -101,6 +101,15 @@ def test_simulation_requirement_is_not_an_environment_observation(tmp_path) -> N
                     f"SIMULATION: CLEAN\nEPIC: {render_item_ref(conn, 42)}",
                     head_sha="a" * 40,
                 )
+                latest = epic.simulation_upsert(
+                    conn,
+                    "42",
+                    "plan",
+                    f"SIMULATION: CLEAN\nEPIC: {render_item_ref(conn, 42)}",
+                    head_sha="a" * 40,
+                )
+            assert latest.run_id > receipt.run_id
+            assert latest.requirement_id == receipt.requirement_id
             assert bind.call_count == 1
             row = conn.execute(
                 "SELECT target_env FROM qa_requirements WHERE id=%s",
@@ -113,6 +122,28 @@ def test_simulation_requirement_is_not_an_environment_observation(tmp_path) -> N
                 "SELECT raw_result FROM qa_runs WHERE id=%s", (receipt.run_id,)
             ).fetchone()
             assert json.loads(run[0])["verification_tree"]["head_sha"] == "a" * 40
+            report = epic.simulation_get(conn, "42", "plan").split("|", 6)
+            assert int(report[0]) == latest.run_id
+            assert report[2:5] == [
+                "plan",
+                "CLEAN",
+                f"SIMULATION: CLEAN\nEPIC: {render_item_ref(conn, 42)}",
+            ]
+            conn.execute(
+                "UPDATE qa_requirements SET success_policy=%s WHERE id=%s",
+                (json.dumps({"phase": "plan"}), receipt.requirement_id),
+            )
+            conn.commit()
+            with patch(
+                "yoke_core.domain.epic._qa_run_add_silent", return_value=receipt.run_id
+            ):
+                repeated = epic.simulation_upsert(
+                    conn,
+                    "42",
+                    "plan",
+                    f"SIMULATION: CLEAN\nEPIC: {render_item_ref(conn, 42)}",
+                )
+            assert repeated.requirement_id == receipt.requirement_id
         finally:
             conn.close()
 
