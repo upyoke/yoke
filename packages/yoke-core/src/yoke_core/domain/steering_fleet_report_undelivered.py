@@ -39,7 +39,6 @@ from yoke_core.domain.session_tool_call_projections import (
     open_tool_call_select,
 )
 from yoke_core.domain.session_message_authorization import project_policy
-from yoke_core.domain.session_message_types import timestamp
 from yoke_core.domain.session_relay_policy import relay_policy
 from yoke_core.domain.steering_fleet_report_attempt_summary import last_attempts
 from yoke_core.domain.steering_fleet_report_queued_wake import (
@@ -110,7 +109,7 @@ class UndeliveredMessages:
     #: When the recipient's unattempted explicit wakes become releasable, set
     #: while one is still inside the wake grace. The wake command refuses a
     #: release before then, so the row names the moment instead of a recovery.
-    wake_releasable_at: str = ""
+    wake_releasable_at: datetime | None = None
 
     @property
     def needs_seat_action(self) -> bool:
@@ -138,7 +137,7 @@ class _Group:
     recipient_gone_at: datetime | None = None
     held_native_silent_for_seconds: int | None = None
     queued_wake: bool = False
-    wake_releasable_at: str = ""
+    wake_releasable_at: datetime | None = None
     failed_attempt_count: int = 0
 
     def __post_init__(self) -> None:
@@ -179,7 +178,7 @@ class _Group:
             if wake_release_at <= current:
                 self.queued_wake = True
             else:
-                self.wake_releasable_at = timestamp(wake_release_at)
+                self.wake_releasable_at = wake_release_at
         if state in (RECIPIENT_ENDED, RECIPIENT_TERMINATED):
             self.recipient_gone_at = parse_stamp(
                 record.get("terminated_at")

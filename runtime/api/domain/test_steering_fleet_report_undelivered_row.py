@@ -11,6 +11,7 @@ refused saw only a worker that had gone quiet.
 from __future__ import annotations
 
 from dataclasses import replace
+from yoke_contracts.timestamps import parse_instant
 
 from runtime.api.domain.test_steering_fleet_report_populated_body import (
     _populated_report,
@@ -32,6 +33,9 @@ SESSION = "undelivered-session"
 
 
 def _row(**overrides) -> str:
+    for field in ("wake_releasable_at", "turn_in_flight_since", "recipient_gone_at"):
+        if overrides.get(field) is not None:
+            overrides[field] = parse_instant(overrides[field])
     entry = UndeliveredMessages(
         session_id=SESSION,
         delivery_state=overrides.pop("delivery_state", NEVER_ATTEMPTED),
@@ -100,7 +104,7 @@ def test_a_queued_wake_inside_its_grace_names_when_it_becomes_releasable():
     )
 
     assert "wake queued but unattempted" in young
-    assert "releasable at 2026-08-26T12:03:00Z" in young
+    assert "releasable at 2026-08-26T12:03:00.000000Z" in young
     assert "yoke session-control session wake" not in young
     assert "wake escalated" not in young
     assert "no delivery attempted" not in young

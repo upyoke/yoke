@@ -86,7 +86,7 @@ def _state_phrase(entry: UndeliveredMessages) -> str:
         # when a release becomes possible rather than offering one.
         return (
             "never injected, wake queued but unattempted — releasable at "
-            f"{entry.wake_releasable_at}"
+            f"{format_instant(entry.wake_releasable_at)}"
         )
     if entry.delivery_state == TURN_IN_FLIGHT:
         return (
