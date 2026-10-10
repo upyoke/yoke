@@ -55,7 +55,7 @@ def test_stale_event_schema_binds_native_microseconds(test_db, zone):
         TestStaleSessionSweepEvent,
     )
 
-    test_db.execute("SELECT set_config('TimeZone', %s, true)", (zone,))
+    test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
     # Verify the actual three event DDL owners on separate empty tables,
     # preventing the canonical test schema from masking their declarations.
     test_db.execute("ALTER TABLE events RENAME TO retained_fixture_events")
@@ -66,6 +66,7 @@ def test_stale_event_schema_binds_native_microseconds(test_db, zone):
             TestStaleSessionSweepEvent._SWEEP_EVENT_TABLES,
         ]:
             fixtures.apply_ddl_statements(test_db, ddl)
+            assert test_db.execute("SHOW TimeZone").fetchone()[0] == zone
             kind = test_db.execute(
                 "SELECT data_type FROM information_schema.columns "
                 "WHERE table_schema='public' AND table_name='events' AND column_name='created_at'"
