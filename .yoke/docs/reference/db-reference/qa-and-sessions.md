@@ -94,14 +94,13 @@ concerns:
 
 Every downstream gate that filters `verdict='pass'` (status-transition, pre-merge, pre-deploy, flow-gate updates) therefore gates on inspection outcome, not capture.
 
-**Browser run freshness:** For Browser method cases, the QA gate checks that passing runs are **fresh** — i.e., their `created_at` is at or after the
-latest commit timestamp on the item's branch. If an Engineer retry changes
-code after a Browser case was recorded, the prior passing run is stale and
-does not satisfy the gate. This prevents evidence for a different deployed
-revision from passing. The freshness check applies only to rows that already
-carry `verdict='pass'`; unresolved inspection rows fail the verdict predicate
-first. When no branch can be resolved (for example, an item without a
-worktree), the freshness check is skipped gracefully.
+**Evidence currency:** a pass must answer for the exact code and frozen
+target the gate evaluates. Commit-time ordering or an unavailable branch is
+not identity proof. The [case attachment contract](../qa-platform/case-attachment.md)
+owns immutable target binding, receipt supersession and candidate checkout;
+the [QA platform](../qa-platform.md) owns current gate and evidence rules.
+Stale or out-of-scope evidence retains its history and names the rerun or
+rebind recovery rather than satisfying a different candidate.
 
 ## Table: qa_artifacts
 
@@ -304,7 +303,7 @@ token. QA_HOST keys are machine-scoped: list with `yoke coordination-claim list 
 releases by hand: creating and executing a deployment run both refuse
 without it. Its operator surface, refusal shape, and terminal-caller
 recovery live with the runs it gates, in
-[`events-and-deployments.md`](events-and-deployments.md).
+[`deployment-run-records.md`](deployment-run-records.md).
 
 ### BOARD.md Claims column rendering
 
