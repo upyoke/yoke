@@ -10,6 +10,8 @@ project-owned settings. No provider secrets belong in browser code or Pack sourc
 The durable account/signup attribution owner, storage adapter,
 shared rate limiter and retention policy belong to the consuming project.
 
+The collector classifies browser, OS and device type from request headers; add
+`ua-parser[regex]>=1.0` to Python dependencies and `bowser` to package.json.
 Run `python3 -m pytest events` and
 `node --experimental-strip-types --test events/test_browser.mjs` (Node >=22.6).
 Events, page views and attribution capture run from first load with no consent

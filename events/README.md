@@ -3,7 +3,10 @@
 Install all sibling modules and attribution_rules.json. Runtime configuration
 belongs to the consuming project. TypeScript uses explicit .ts imports and JSON
 import attributes; configure your bundler accordingly. Tests require Node >=22.6
-and pytest.
+and pytest. The collector's device classification needs one parser per
+language: add ua-parser[regex]>=1.0 to Python dependencies (events_device.py
+refuses to import with events_device_parser_missing until it is installed) and
+bowser to package.json for api-route.ts.
 
 ## Browser setup
 
@@ -123,6 +126,21 @@ beyond CLIENT_TIME_TOLERANCE_SECONDS, 300). Store received_at as the row time
 so ordering and time-based reports never depend on a browser clock; event_time
 stays in the envelope as the client's claim. Skewed events are still accepted.
 
+## Browser, OS and device type
+
+The collector is the only authority for browser, browser_version, os and
+device_type: it derives them from each request's headers and overwrites
+whatever an emitter sent. events_device.py (device_props, ua-parser) and
+events_device.ts (deviceProps, Bowser) parse the User-Agent, then apply the
+User-Agent Client Hints browsers send by default: Sec-CH-UA-Platform names os,
+and Sec-CH-UA-Mobile ?1 means mobile. Otherwise the parser's tablet or mobile
+classification (iPad, Android without a mobile token, a phone OS) wins, and
+everything else is desktop. A request without a User-Agent records nulls.
+Browser names are each parser's own (Python: Mobile Safari, Chrome Mobile;
+TypeScript: Safari, Chrome). The browser sends only user_agent and is_bot;
+viewport width is layout, never device type. A relay in front of the collector
+forwards User-Agent, Sec-CH-UA-Mobile and Sec-CH-UA-Platform unchanged.
+
 ## Delivery and privacy
 
 One fetch per batch; no parallel beacon. Only network failures, 429 and 5xx
@@ -159,7 +177,8 @@ Run python3 -m pytest events and
 node --experimental-strip-types --test events/test_browser.mjs. Tests execute
 classification in both languages, signed cookies, identity, SPA views,
 network/429/5xx retries, permanent refusal drops, bounded queues, key routing,
-cookie rotation/domain parity, URL hygiene, bot flags and anonymous collector checks.
+cookie rotation/domain parity, URL hygiene, bot flags, device classification
+and anonymous collector checks.
 
 ## Verified attribution and sign-in hand-off
 

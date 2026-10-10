@@ -36,7 +36,10 @@ through the same path. The receiver deduplicates event_id. Memory queues are
 disposable and product work never depends on delivery. URLs strip sensitive query
 keys (including the device-login user_code), credentials and fragments, and
 page_url, page_path and referrer mask /machine-approval/<code> as
-/machine-approval/redacted; bot user agents are flagged.
+/machine-approval/redacted; bot user agents are flagged. The browser sends no
+device classification: the collector sets browser, browser_version, os and
+device_type from the request User-Agent (Bowser) and the Sec-CH-UA-Platform and
+Sec-CH-UA-Mobile Client Hints.
 
 api-route.ts supplies anonymous collector and attribution factories. The project
 wires a public key, exact Origin checks, shared limiter, deduplicating sink, HTTPS

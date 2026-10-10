@@ -110,6 +110,10 @@ capture and return Set-Cookie. get_attribution_props(record) attaches
 visitor_id and both touches, or an empty group when there is no record.
 Required signup facts belong to
 the account owner. sanitize_url and is_bot share the browser's privacy/bot rules.
+events_device.device_props(headers) is the collector's browser, browser_version,
+os and device_type classification: ua-parser over the request User-Agent plus
+the Sec-CH-UA-Platform and Sec-CH-UA-Mobile Client Hints. Apply it to every
+accepted event; it needs ua-parser[regex]>=1.0 installed.
 EventBatch retries only network failures, 429 and 5xx with batch_requeued;
 429 honors Retry-After. Other HTTP refusals discard the batch and report
 batch_refused with the collector's error and recovery. The queue holds at most
