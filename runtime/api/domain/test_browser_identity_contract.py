@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -194,3 +195,17 @@ def test_walker_dispatch_verifies_each_named_identity_before_browsing():
     ]
     assert "HUMAN_GATE" in clause and "--identity NAME" in clause
     assert walker_identity_dispatch({"method_config": {}}, base) == ([], [], "")
+
+
+def test_browser_control_settings_refuse_a_malformed_identity_on_write():
+    from yoke_core.domain.projects_capability_settings_validation import (
+        canonicalize_capability_settings,
+    )
+
+    good = '{"identities": {"buyer": ' + json.dumps(BUYER) + "}}"
+    assert "buyer" in canonicalize_capability_settings("browser-control", good)
+    assert canonicalize_capability_settings("browser-control", "{}") == "{}"
+    with pytest.raises(BrowserIdentityError, match="browser_identity_name_invalid"):
+        canonicalize_capability_settings(
+            "browser-control", '{"identities": {"Bad Name": {"sites": []}}}'
+        )
