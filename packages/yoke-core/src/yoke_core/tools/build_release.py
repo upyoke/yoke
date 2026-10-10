@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL
-from yoke_contracts.timestamps import format_instant, utc_now
+from yoke_contracts.timestamps import parse_instant, utc_now
 
 from yoke_core.domain.migration_history_manifest import SOURCE_COMMIT_PATTERN
 from yoke_core.tools import (
@@ -64,7 +64,7 @@ def build_release(
             "source_commit must be the full 40-character lowercase Git commit "
             "whose wheel attestations cover this release"
         )
-    generated_at = format_instant(utc_now() if generated_at is None else generated_at)
+    generated_at = parse_instant(utc_now() if generated_at is None else generated_at)
     if output_root.exists():
         shutil.rmtree(output_root)
     wheelhouse = output_root / "_build" / "wheelhouse"

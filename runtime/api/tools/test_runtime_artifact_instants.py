@@ -1,5 +1,6 @@
 """Runtime telemetry and artifact metadata share one strict instant boundary."""
 
+from dataclasses import fields
 from datetime import datetime
 import json
 import logging
@@ -10,7 +11,12 @@ import pytest
 from yoke_contracts.timestamps import InvalidInstant, parse_instant
 from yoke_core.api import observability
 from yoke_core.cli import board_rebuild_timing_events as board
-from yoke_core.tools import build_release, distribution_channel, distribution_publish
+from yoke_core.tools import (
+    build_release,
+    distribution_channel,
+    distribution_publish,
+    release_artifacts,
+)
 
 STAMP = parse_instant("1970-01-01T05:29:59.123456+05:30")
 WIRE = "1969-12-31T23:59:59.123456Z"
@@ -134,3 +140,48 @@ def test_invalid_channel_clock_retains_existing_output(tmp_path, bad):
         distribution_publish._write_channel("latest", channel_input, output)
     assert output.read_text() == "existing pointer bytes"
     assert channel_input.read_bytes() == before
+
+
+@pytest.mark.parametrize("clock", [STAMP, "1970-01-01T05:29:59.123456+05:30"])
+def test_release_result_retains_native_clock_until_json(tmp_path, clock):
+    paths = release_artifacts.ReleasePaths(
+        **{
+            field.name: tmp_path / field.name
+            for field in fields(release_artifacts.ReleasePaths)
+        }
+    )
+    build = release_artifacts.ReleaseBuild(
+        "1.0.0",
+        "latest",
+        clock,
+        "https://example.test/1970-01-01T00:00:00Z/",
+        paths,
+        [],
+        "b" * 64,
+        {},
+    )
+    assert build.generated_at == STAMP
+    assert isinstance(build.generated_at, datetime)
+    assert build.to_json()["generated_at"] == WIRE
+    assert build.to_json()["index_url"] == build.index_url
+
+
+@pytest.mark.parametrize(
+    "bad",
+    ["then", "1970-01-01T00:00:00", "1970-01-01T00:00:00-00:00", datetime(1970, 1, 1)],
+)
+def test_artifact_materialization_invalid_clock_refuses_before_output(tmp_path, bad):
+    output = tmp_path / "release"
+    with pytest.raises(InvalidInstant):
+        release_artifacts.materialize_release_artifacts(
+            records=[],
+            output_root=output,
+            version="1.0.0",
+            channel="latest",
+            base_url="https://example.test/",
+            generated_at=bad,
+            source_commit="a" * 40,
+            installer_asset_dir=tmp_path,
+            aws_bootstrap_asset_dir=tmp_path,
+        )
+    assert not output.exists()
