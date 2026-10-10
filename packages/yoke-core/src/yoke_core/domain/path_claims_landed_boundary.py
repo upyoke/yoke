@@ -45,6 +45,7 @@ from yoke_core.domain.path_claims_boundary_git import (
 )
 from yoke_core.domain.path_claims_boundary_targets import path_strings_for_target_ids
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.schema_common import _table_exists
 
 #: GitHub's compare endpoint lists at most this many changed files.
 GITHUB_COMPARE_FILE_LIMIT = 300
@@ -56,7 +57,13 @@ class LandedBoundaryUnprovable(RuntimeError):
 
 
 def landing_for_boundary(conn: Any, item_id: int) -> Optional[ItemLanding]:
-    """The landing that answers this item's boundary, or ``None`` before one."""
+    """The landing that answers this item's boundary, or ``None`` before one.
+
+    A database that has not converged ``item_landings`` has recorded no
+    landing either, so it takes the lane-based check rather than failing.
+    """
+    if not _table_exists(conn, "item_landings"):
+        return None
     landings = landings_for_item(conn, item_id)
     if not landings:
         return None
