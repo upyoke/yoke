@@ -62,9 +62,11 @@ def geometry(command, **kw):
 
 
 @pytest.mark.parametrize("interrupted", [False, True])
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
 def test_view_uses_actual_geometry_stdin_and_always_closes_forward(
-    monkeypatch, interrupted
+    monkeypatch, interrupted, platform
 ):
+    monkeypatch.setattr(viewer.sys, "platform", platform)
     events = []
     process = Client(interrupted=interrupted)
     # Retain the received bytes while allowing the product to close stdin.
@@ -85,7 +87,9 @@ def test_view_uses_actual_geometry_stdin_and_always_closes_forward(
         events.append(("client", argv, kw))
         assert PASSWORD not in repr(argv) + repr(kw)
         assert "/from-stdin:force" in argv
-        assert "/size:1280x1024" in argv and "/bpp:24" in argv
+        assert "/smart-sizing:1280x1024" in argv and "/bpp:24" in argv
+        assert ("/size:2000x1600" if platform == "darwin" else "/size:1000x800") in argv
+        assert not any("dynamic-resolution" in arg for arg in argv)
         assert "/u:fixture" in argv and "/v:127.0.0.1:5555" in argv
         assert "SDL_VIDEODRIVER" not in kw["env"]
         assert kw["stdout"] == subprocess.PIPE

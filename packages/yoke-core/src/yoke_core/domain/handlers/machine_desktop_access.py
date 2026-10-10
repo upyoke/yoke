@@ -75,7 +75,7 @@ def handle_desktop_access(request):
                 EVENT_SESSION_ACTION_PERFORMED,
                 event_kind="lifecycle",
                 event_type="session_action",
-                source_type="api",
+                source_type="backend",
                 session_id=lease["session_id"],
                 project=detail["project"],
                 request_id=request.request_id,

@@ -1,12 +1,15 @@
 """Human assistance preserves a QA host lease; harness sessions remain bound."""
 
 from copy import deepcopy
+import json
 from types import SimpleNamespace
 
 import pytest
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers import machine_desktop_access as handler
+from yoke_core.domain import db_backend
+from runtime.api.fixtures.pg_testdb import test_database
 
 
 @pytest.fixture
@@ -66,6 +69,30 @@ def test_human_access_records_actor_against_unchanged_lease(route, monkeypatch):
     assert events[0][1]["session_id"] == "holder"
     assert events[0][1]["context"]["actor_id"] == "3"
     assert events[0][1]["context"]["lease_id"] == 17
+
+
+def test_human_access_audit_persists_through_event_schema(route, monkeypatch):
+    # Exercise the real emitter and schema, including source-type constraints.
+    # The handler owns a separate connection, so inspect after it closes.
+    with test_database() as conn:
+        monkeypatch.setattr(handler.db_helpers, "connect", db_backend.connect)
+        outcome = handler.handle_desktop_access(request())
+        assert outcome.result_payload["operator_access"]["audit_recorded"]
+        row = conn.execute(
+            "SELECT actor_id, session_id, envelope FROM events "
+            "WHERE event_name=%s AND session_id=%s",
+            (
+                handler.EVENT_SESSION_ACTION_PERFORMED,
+                route["active_lease"]["session_id"],
+            ),
+        ).fetchone()
+        assert row["actor_id"] == 3
+        assert row["session_id"] == route["active_lease"]["session_id"]
+        envelope = json.loads(row["envelope"])
+        assert envelope["request_id"] == request().request_id
+        context = envelope["context"]
+        assert context["lease_id"] == route["active_lease"]["id"]
+        assert context["actor_id"] == "3"
 
 
 @pytest.mark.parametrize("session_id", ["foreign", "holder"])
