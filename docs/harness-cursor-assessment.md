@@ -1,13 +1,13 @@
-# Cursor Harness Integration Assessment (internal)
+# Cursor Harness Substrate Evidence (internal)
 
-*Feasibility and parity assessment for integrating Cursor as a third Yoke
-harness alongside Claude Code and Codex. Cursor is **not yet a supported
-harness**; this document records what its substrate offers, how each
-Yoke-handled axis maps, and what remains open. Companion docs:
-[Harness Adapter Template](harness-adapter-template.md),
-[Harness Substrate](harness-substrate.md),
-[Hook Parity Map](hook-parity-map.md),
-[Manifest Schema](../runtime/harness/manifest-schema.md).*
+Cursor is a supported Yoke harness. Current support, version floors, native
+entrypoints, launch/wake and agent consumption facts come from
+[`runtime/harness/cursor/manifest.json`](../runtime/harness/cursor/manifest.json)
+and the shared registries it names. This reference retains dated substrate
+probes and their limitations; a probe is not a current capability declaration.
+Companion depth: [Adapter Template](harness-adapter-template.md),
+[Harness Substrate](harness-substrate.md), [Hook Parity Map](hook-parity-map.md),
+and [Manifest Schema](../runtime/harness/manifest-schema.md).
 
 *Measured basis: Cursor IDE 3.14.7 and `cursor-agent` 2026.07.23-e383d2b on
 macOS, via a disposable project carrying a `.cursor/hooks.json` that wired
@@ -34,42 +34,14 @@ implementation; hook payloads and event coverage are vendor-owned.*
 - **Discovery is free**: `AGENTS.md`, `.agents/skills/`, `.cursor/agents/`,
   and `.claude/agents/` (including tolerated Claude-only frontmatter keys)
   all resolved without configuration.
-- **The cost is on Yoke's side**: harness identity is a hardcoded two-member
-  vocabulary across many core modules (inventory below), so a third harness
-  is a core change, not a template instantiation.
+## Runtime owners
 
-## Harness vocabulary and core enumeration sites
-
-Claude and Codex are enumerated in code, not discovered. Every site below
-needs a third member (or a registry seam) before any Cursor adapter can
-exist. Ids in play: directory `runtime/harness/{id}/`, canonical executor id
-(`claude-code` / `codex` style), and the short conditional-block id
-(`claude` / `codex`) — note the existing two-vocabulary split.
-
-| Surface | Module |
-|---|---|
-| `CANONICAL_HARNESS_IDS`, `EXECUTOR_EMOJI` (drives `KNOWN_EXECUTOR_LABELS` / surface labels) | `yoke_contracts.executor_labels` |
-| `HARNESS_UNIVERSE` (default `OperatorCommand.harness_support`) | `yoke_core.domain.harness_capability_registry` |
-| `HARNESS_IDS` for `<!-- YOKE:HARNESS <id> -->` blocks | `yoke_core.domain.agents_render_conditional` |
-| `CLAUDE_MANIFEST` / `CODEX_MANIFEST` source dicts | `yoke_core.domain.agents_render_manifests` |
-| `_MANIFEST_DIRECTORY_BY_HARNESS_ID` (capability resolution) | `yoke_core.domain.sessions_queries_lookup` |
-| `render_for_harness` explicit per-harness branches | `yoke_core.domain.dispatch_descriptors` |
-| Executor/provider/entrypoint detection — **two duplicated copies** | `yoke_core.hooks.helpers_identity` and `yoke_harness.hooks.identity_runtime` |
-| `AMBIENT_ENV_VARS` session-id env chain | `yoke_core.domain.session_ambient_identity` |
-| `HARNESS_PROCESS_BASENAMES` / `MULTIPLEXED_PROCESS_BASENAMES` | `yoke_contracts.process_ancestry` |
-| Binary family fallback (`codex` prefix else `claude`) — an unknown executor silently inherits Claude's wire format | `yoke_core.hooks.capability_resolve` |
-| `render_claude_decision` / `render_codex_decision` wire formats | `yoke_core.hooks.decision_render` |
-| Per-family lifecycle branches (orientation, stop shape, env delivery) | `yoke_core.hooks.session_dispatch` |
-| Hook-block renderers + `_CODEX_VERB_BY_EVENT` + identity env pin | `yoke_core.domain.agents_render_hooks` |
-| `SETTINGS_FILE_BY_HOOKS_KEY`, `HOOK_MERGE_TARGETS`, bundle hook-key validation | `yoke_cli.project_install` (`hooks.py`, `files.py`, `validate.py`) |
-| `INSTALL_BUNDLE_SOURCE_DIRS` | `yoke_core.domain.install_bundle` |
-| Rendered packet text naming the `harness_id` enum | `yoke_core.domain.schema_api_context_render` (+ claims-table stanza) |
-| Canonical-session-id gate for known harnesses | `yoke_core.domain.session_ambient_identity` |
-
-`AdapterCapability` (`yoke_core.hooks.adapter_capability`) is
-the designed plug seam — payload parser, decision renderer, chain omissions —
-and a Cursor integration authors one instance plus the surrounding
-enumeration edits above.
+The canonical vocabulary is `yoke_contracts.executor_labels`; manifests are
+rendered by `yoke_core.domain.agents_render_manifests`. Adapter parsing,
+matcher translation, decision rendering and advisory omissions belong to
+`AdapterCapability`; identity/container mapping, hook dispatch, project-install
+and doctor owners are indexed in the [Hook Parity Map](hook-parity-map.md).
+Read those owners before changing an integration boundary.
 
 ## Hook events: mapping and measured coverage
 
@@ -166,7 +138,7 @@ started it (`yoke_harness.cursor_native_result_usage`).
 | Container correlation | n/a (subagents share session) | n/a (in-process) | Subagents get **their own `session_id`** and transcript. Two recovery channels: `subagentStart`/`subagentStop` payloads carry `parent_conversation_id`; every hook process env (`CURSOR_TRANSCRIPT_PATH`) points at the **top-level** session transcript, including inside subagent hooks (unset for a session's first events — take the id from `sessionStart`'s payload, use the env var thereafter) |
 
 Yoke's model treats the top-level session as the container for main-agent and
-subagent work. The adapter must therefore register only the top-level
+subagent work. The container boundary registers only the top-level
 `session_id` as a `harness_sessions` row and fold sub-session hook events
 into that container via the channels above — the ensure-register reflex that
 treats any unknown session id as registrable would otherwise mint phantom
@@ -213,20 +185,19 @@ Also observed: `Grep` as a distinct tool name. MCP tools surface as
 | Adapter format | `runtime/harness/claude/agents/yoke-*.md`, YAML frontmatter (`tools`, `disallowedTools`, `model`, `maxTurns`, `permissionMode`, `hooks`) | `runtime/harness/codex/agents/yoke-*.toml` (`developer_instructions`, optional pinned `model`, `sandbox_mode`) | `.cursor/agents/*.md`, frontmatter `name` + `description` (vendor docs add `model`, `readonly`, `is_background`) |
 | Per-tool restriction | `tools` allowlist enforces PM/PD non-Bash | `sandbox_mode` posture | **none** — no `tools` field. Mitigate with hook policy: deny `Shell` at `preToolUse` inside sessions whose container mapping says the active subagent is a non-Bash role, or deny at `subagentStart` |
 | Subagent hook wiring | per-agent `hooks` frontmatter composed by `agents_render_subagent_hooks` (`YOKE_HOOK_AGENT_TYPE=<role>` env wrap) | none (in-process) | hooks are global; role identity must come from `subagentStart.subagent_type` + sub-session mapping rather than per-agent env wraps — `lint_subagent_background`'s context detection needs this channel |
-| Compat consumption | — | native `.agents/skills` scan | reads `.claude/agents/` directly (measured; Claude-only frontmatter keys tolerated). Viable interim `canonical_agents.consumption` posture; a rendered `.cursor/agents/` pass is the clean end state |
+| Compat consumption | — | native `.agents/skills` scan | reads `.claude/agents/` directly (measured; Claude-only frontmatter keys tolerated). current `canonical_agents.consumption` is manifest-owned |
 | Skills | `.claude/skills/yoke` symlink | native `.agents/skills` scan | **native `.agents/skills` scan (measured)** — probe skill discovered and loaded; no mirror needed in the source repo |
 | Conditional prose | `<!-- YOKE:HARNESS claude -->` fences Monitor/background primitives | elided | elision is correct only where the fenced text names a Claude tool; it is wrong wherever Cursor has its own primitive, which `agent_wake` in the manifests decides. Every fenced block needs an audit: a Cursor render inherits *neither* branch by default |
 
 ## Install surface and operational hazards
 
-- Repo/root artifacts a Cursor adapter adds: `runtime/harness/cursor/`
+- Installed Cursor artifacts include: `runtime/harness/cursor/`
   (manifest, hooks.json, adapter, agents, smoke-test runbook), a
   materialized `.cursor/hooks.json` copy kept byte-identical to the canonical
   runtime file (Cursor rejects symlinked project hook configs), a root
   `docs/public/guides/cursor-harness.md` reference guide, entries in the
   project-install hook-key/merge-target/bundle-validation constants and
-  `INSTALL_BUNDLE_SOURCE_DIRS`, and managed-install links for
-  `.cursor/skills` parity decisions.
+  `INSTALL_BUNDLE_SOURCE_DIRS`, and managed install behavior for native skill discovery.
 - `.cursor/cli.json` schema is strict: `permissions.allow` is **required**
   (an allow-less deny-only file aborts every run before the agent starts) —
   the same all-or-nothing failure class as Claude's `settings.json`.
@@ -253,44 +224,13 @@ Also observed: `Grep` as a distinct tool name. MCP tools surface as
 - `cursor-agent` has native worktree flags (`-w`, `--worktree-base`); Yoke
   owns worktree placement, so adapters should leave these unused.
 
-## Registry, registration, board, doctor
+## Registration and render authority
 
-- `HARNESS_UNIVERSE` + per-command `harness_support` drive
-  `supported_paths`; the manifest declares limitations only. Cursor's
-  print-mode gaps (no `beforeSubmitPrompt`/`stop`) belong in
-  per-surface affordance declarations, not disabled paths.
-- Registration requires the canonical session identity; Cursor resolves its conversation mapping when the process hosts multiple sessions.
-- Board/labels: new `EXECUTOR_EMOJI` entry (glyph must satisfy the glyph
-  contract in `yoke_contracts.glyph_contract`), surface labels for IDE vs CLI
-  (`CURSOR_INVOKED_AS` is the discriminator), and a
-  Cursor options in the execution levels (see
-  `public/reference/session-level-routing.md`).
-- Doctor updates: `HC-executor-canonicalization` (hardcoded `claude-%` /
-  `codex-%` patterns), `HC-session-identity-provenance` label roster,
-  `HC-harness-substrate-drift` render coverage, `HC-install-bundle-drift`.
-  New checks clone the Codex pattern: hook-matcher completeness and
-  hook-floor version gate (per `check_codex_hooks.py`), adapter drift and
-  subagent surface truth (per `check_codex_agent.py`), plus a deny smoke.
-  `runtime/harness/test_hook_runner_parity.py` needs the third
-  `AdapterCapability` in its chain-equality matrix.
-
-## Landing tiers
-
-1. **Wrapper-only** (correctness without hooks, per the adapter template):
-   manifest + vocabulary/enumeration edits + identity predicates (both
-   copies) + process-ancestry classification + registration identity gate +
-   Cursor reference guide + doctor roster updates. Yields truthful registration,
-   routing, and board presence.
-2. **Hook-enhanced**: `.cursor/hooks.json` renderer, Cursor
-   `AdapterCapability` (stdin payload parser, `Shell→Bash` matcher mapping,
-   decision renderer, advisory omissions), session-dispatch branches
-   (orientation via `sessionStart`, non-destructive end handling), container
-   mapping for sub-session events, hook-floor HC + deny smoke, parity-test
-   entry.
-3. **Subagents and render**: consumption-mode decision (`.claude/agents`
-   compat vs rendered `.cursor/agents`), role-aware subagent policy over
-   `subagentStart`/`Task`, conditional-block audit, managed project-install
-   layer.
+Shared command support drives supported paths; manifests declare per-surface
+limitations. Print-mode prompt/stop omissions are surface facts, not disabled
+workflow paths. Registration uses canonical identity and conversation mapping
+for a multiplexed process. Labels, model selectors, hook/render and doctor
+coverage come from their current registries and source.
 
 ## Launched-worker turn semantics and binding
 
@@ -323,8 +263,8 @@ existing registration deadline remain authoritative.
   `subagentStart`/`subagentStop` in `-p` mode — vendor gap or intended?
 - How quickly new Cursor builds expose a new-chat identity to the shared
   registration-candidate lookup; the registration deadline remains the bound.
-- Minimum Cursor version for the hook surface (the manifest's
-  `hook_enhanced` floor) — the measured builds are single data points.
+- Revalidate hook coverage on later builds; manifest floors are current
+  authority, while these measured builds are single data points.
 - `beforeShellExecution` vs `preToolUse(Shell)`: run the Bash chain on one,
   both, or split gate/advisory roles between them?
 - Whether `updated_input` rewriting and `beforeReadFile` gating open
