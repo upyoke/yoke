@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
+from yoke_contracts.timestamps import format_instant
 
 from yoke_contracts.session_control.launch_registration import (
     BACKGROUND_IDENTITY_MISSING_CODE,
@@ -97,7 +98,7 @@ def retain_private_diagnostic(
         evidence.update(
             {
                 "diagnostic_availability": "relay_local",
-                "diagnostic_expires_at": receipt.expires_at,
+                "diagnostic_expires_at": format_instant(receipt.expires_at),
                 "native_diagnostic_ref": receipt.reference,
                 "native_error_sha256": receipt.fingerprint_sha256,
             }

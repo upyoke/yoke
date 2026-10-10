@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from io import BytesIO, StringIO
+import json
+import pytest
+from yoke_contracts.timestamps import InvalidInstant, parse_instant, format_instant
 
 from yoke_cli.commands import registry_session_control
 from yoke_cli.commands.adapters import session_control_relay as relay
@@ -16,6 +19,45 @@ class _BinaryStdout(StringIO):
     def __init__(self) -> None:
         super().__init__()
         self.buffer = BytesIO()
+
+
+@pytest.mark.parametrize(
+    "wire",
+    [
+        None,
+        "1969-12-31T23:59:59.123456Z",
+        "1970-01-01T00:00:00.000000Z",
+        "2026-10-10T05:30:00.123456+05:30",
+    ],
+)
+def test_relay_cli_projects_native_deadline_and_keeps_unknown_and_opaque_values(
+    monkeypatch, capsys, wire
+):
+    native = None if wire is None else parse_instant(wire)
+    outcome = ServeOnceOutcome(
+        "reported",
+        jobs=(
+            ServeOnceJobOutcome(
+                "reported", diagnostic_expires_at=native, job_id="2020-01-01T00:00:00Z"
+            ),
+        ),
+    )
+    monkeypatch.setattr(relay, "is_subagent_execution", lambda: False)
+    monkeypatch.setattr(relay, "_serve_once", lambda **kwargs: outcome)
+
+    assert relay.relay_serve_once(["--json"]) == 0
+    row = json.loads(capsys.readouterr().out)["jobs"][0]
+    assert row["diagnostic_expires_at"] == (
+        None if native is None else format_instant(native)
+    )
+    assert row["job_id"] == "2020-01-01T00:00:00Z"
+    assert outcome.jobs[0].diagnostic_expires_at == native
+
+
+@pytest.mark.parametrize("clock", [0, "2026-10-10T00:00:00Z"])
+def test_relay_internal_outcome_refuses_wire_and_epoch_deadlines(clock):
+    with pytest.raises(InvalidInstant):
+        ServeOnceJobOutcome("reported", diagnostic_expires_at=clock)
 
 
 def test_relay_diagnostic_emits_exact_private_capture_to_operator(

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import stat
 
 import pytest
+from yoke_contracts.timestamps import InvalidInstant
 
 from yoke_harness.session_relay_native_capture_format import parse_capture
 from yoke_harness.session_relay_native_diagnostics import (
@@ -15,6 +17,7 @@ from yoke_harness.session_relay_native_diagnostics import (
     NATIVE_DIAGNOSTIC_MAX_FILES,
     NATIVE_DIAGNOSTIC_TTL_SECONDS,
     NativeDiagnosticError,
+    NativeDiagnosticReceipt,
     cleanup_native_diagnostics,
     diagnostic_reference,
     read_native_diagnostic,
@@ -54,7 +57,9 @@ def test_private_capture_is_bounded_owner_only_and_round_trips(
     assert b"--- stdout ---" in payload
     assert b"--- stderr ---" in payload
     assert receipt.reference not in payload.decode(errors="ignore")
-    assert receipt.expires_at == 1000 + NATIVE_DIAGNOSTIC_TTL_SECONDS
+    assert receipt.expires_at == datetime.fromtimestamp(1000, timezone.utc) + timedelta(
+        seconds=NATIVE_DIAGNOSTIC_TTL_SECONDS
+    )
     # The capture is named after the attempt that produced it, so a reader
     # holding that id needs nothing else to find the file.
     assert receipt.reference == f"nd-{ATTEMPT_ID}"
@@ -168,3 +173,24 @@ def test_reader_refuses_capture_replaced_with_oversized_file(tmp_path: Path) -> 
 def test_a_reference_needs_a_launch_or_attempt_identifier(tmp_path: Path) -> None:
     with pytest.raises(NativeDiagnosticError, match="launch id or wake attempt id"):
         diagnostic_reference("../../escape")
+
+
+@pytest.mark.parametrize("clock", [-1000000.0, -1000000.876544, 1000.123456])
+def test_diagnostic_receipt_deadline_retains_native_utc_microseconds(tmp_path, clock):
+    receipt = store_native_diagnostic(
+        b"out", b"err", reference=_reference(5), state_dir=tmp_path, now=clock
+    )
+    expected = datetime.fromtimestamp(clock, timezone.utc) + timedelta(
+        seconds=NATIVE_DIAGNOSTIC_TTL_SECONDS
+    )
+    assert receipt.expires_at == expected
+    assert receipt.expires_at.tzinfo == timezone.utc
+    assert receipt.expires_at.microsecond == expected.microsecond
+
+
+@pytest.mark.parametrize(
+    "clock", [None, 0, "2026-10-10T00:00:00Z", datetime(2026, 10, 10)]
+)
+def test_internal_diagnostic_receipt_refuses_non_native_deadline(clock):
+    with pytest.raises(InvalidInstant):
+        NativeDiagnosticReceipt("nd-reference", "fingerprint", clock)

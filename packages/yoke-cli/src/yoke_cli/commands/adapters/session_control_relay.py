@@ -23,6 +23,7 @@ from yoke_cli.commands.adapters.session_control_relay_release import (
 from yoke_contracts.session_control.teaching import FLEET_OWNERSHIP_GUIDANCE
 from yoke_contracts.session_control.relay_health import RELAY_NEWER_THAN_SERVER
 from yoke_contracts.session_execution import is_subagent_execution
+from yoke_contracts.timestamps import temporal_wire
 
 
 RELAY_INSTALL_USAGE = "yoke relay install [--json]"
@@ -89,6 +90,7 @@ def _parser(prog: str, usage: str) -> argparse.ArgumentParser:
 
 
 def _emit(payload: dict[str, Any], *, json_mode: bool, title: str) -> None:
+    payload = temporal_wire(payload)
     if json_mode:
         print(json.dumps(payload, sort_keys=True))
         return

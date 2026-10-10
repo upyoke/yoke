@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+from yoke_contracts.timestamps import as_utc
 
 
 @dataclass(frozen=True)
@@ -18,10 +20,16 @@ class ServeOnceJobOutcome:
     machine_id: str | None = None
     native_diagnostic_ref: str | None = None
     native_diagnostic_command: str | None = None
-    diagnostic_expires_at: int | None = None
+    diagnostic_expires_at: datetime | None = None
     diagnostic_availability: str | None = None
     native_error_class: str | None = None
     native_error_step: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.diagnostic_expires_at is not None:
+            object.__setattr__(
+                self, "diagnostic_expires_at", as_utc(self.diagnostic_expires_at)
+            )
 
 
 @dataclass(frozen=True)
