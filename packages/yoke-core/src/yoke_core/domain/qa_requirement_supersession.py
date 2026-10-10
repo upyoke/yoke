@@ -45,6 +45,7 @@ from yoke_core.domain.qa_requirement_source_retirement import (
     admitted_source_correction,
     is_source_retirement,
     passing_run_replacement,
+    source_retirement_scope,
 )
 
 
@@ -68,7 +69,7 @@ def _requirement(conn: Any, requirement_id: int, *, label: str) -> dict[str, Any
         conn,
         "SELECT id,item_id,epic_id,task_num,plan_id,"
         "deployment_run_id,deployment_stage,deployment_member_item_id,"
-        "execution_target_digest,target_env,host_baseline,blocking_mode,plan_case_key,method_id,"
+        "execution_target_json,execution_target_digest,target_env,host_baseline,blocking_mode,plan_case_key,method_id,"
         "qa_kind,qa_phase,workflow_transition_id,replacement_requirement_id,"
         f"waived_at,superseded_by_requirement_id,superseded_at,supersession_rationale,supersession_source,{requirement_retracted_at_select(conn)} "
         "FROM qa_requirements WHERE id=%s",
@@ -102,12 +103,16 @@ _ITEM_SCOPE = (
 
 def requirement_scope(row: dict[str, Any]) -> tuple[str, ...]:
     """Canonical obligation scope, shared by comparison and mutation locking."""
+    if is_source_retirement(row):
+        row = source_retirement_scope(row)
     fields = _RUN_SCOPE if row.get("deployment_run_id") else _ITEM_SCOPE
     return tuple(str(row.get(column) or "") for column, _label in fields)
 
 
 def same_scope(broken: dict[str, Any], corrected: dict[str, Any]) -> list[str]:
     """Every way the two rows fail to answer for the same obligation."""
+    if is_source_retirement(broken):
+        broken, corrected = map(source_retirement_scope, (broken, corrected))
     mismatches: list[str] = []
     scope = _RUN_SCOPE if broken.get("deployment_run_id") else _ITEM_SCOPE
     for column, label in scope:
@@ -174,7 +179,9 @@ def record_supersession(
             f"requirement {requirement_id}'s obligation: {'; '.join(mismatches)}. "
             "Bind the corrected case to the same run, stage, member and "
             "deployment target (or, for an item case, the same item, "
-            "transition, phase and target), then record the supersession."
+            "transition, phase and target; post_deploy source retirement uses the "
+            "resolved target environment, with --target-env naming the source "
+            "snapshot destination), then record the supersession."
         )
     if str(corrected.get("blocking_mode") or "") != "blocking":
         raise QaSupersessionError(
