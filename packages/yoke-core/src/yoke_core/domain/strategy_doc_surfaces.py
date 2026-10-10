@@ -6,9 +6,10 @@ from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
 
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Any, Optional
 
+from yoke_contracts.board.sql import day_from_timestamp_expr
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.actor_render import render_actor_name
 from yoke_core.domain.item_terminal_resources import item_is_terminal
@@ -158,16 +159,17 @@ def strategy_write_activity(
     days: int = 120,
 ) -> list[dict[str, Any]]:
     """Return real per-day revision counts for the corpus activity sparkline."""
-    cutoff = (
-        datetime.now(timezone.utc) - timedelta(days=max(int(days), 1) - 1)
-    ).strftime("%Y-%m-%d")
+    cutoff = utc_now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
+        days=max(int(days), 1) - 1
+    )
     marker = _marker(conn)
+    day = day_from_timestamp_expr("created_at")
     rows = conn.execute(
-        "SELECT SUBSTRING(created_at, 1, 10) AS day, COUNT(*) AS writes "
+        f"SELECT {day} AS day, COUNT(*) AS writes "
         "FROM strategy_doc_revisions "
         f"WHERE project_id = {marker} AND created_at >= {marker} "
-        "GROUP BY SUBSTRING(created_at, 1, 10) ORDER BY day",
-        (int(project_id), cutoff),
+        f"GROUP BY {day} ORDER BY day",
+        (int(project_id), instant_parameter(conn, cutoff)),
     ).fetchall()
     return [{"day": str(row["day"]), "writes": int(row["writes"])} for row in rows]
 
