@@ -1,18 +1,26 @@
 # Hook Parity Map (internal)
 
-*Three-tier classification of Yoke's hook surface by harness availability. This document defines which hooks exist, what Yoke behavior they provide, and which harnesses can use them.*
+Use this source-maintainer map to trace a native hook to its shared Yoke
+behavior. Current availability is declared by each
+`runtime/harness/<harness-dir>/manifest.json`, not by a copied event matrix.
+The [hook guide](hooks.md) owns runtime teaching;
+[bootstrap](harness-bootstrap.md) and the
+[adapter contract](harness-adapter-template.md) own startup and adapter shape.
 
-## Overview
+## Capability authority
 
-Yoke's hook infrastructure provides startup orientation, Bash tool guardrails, post-tool telemetry, and agent lifecycle safety nets. Not all harnesses support the same hook events. This map classifies every hook by its availability tier and documents the Yoke behavior coverage for each.
+The manifests own identity, runtime minima, optional local affordances,
+bootstrap mechanisms, worktree enablement, telemetry and unsupported paths.
+The shared registry owns command and stage-skill availability, including
+`/yoke implement` and `/yoke conduct`. A hook gap
+does not imply a missing stage skill or subagent path: inspect the manifest
+and the shared dispatch descriptor separately. Core lifecycle/claim
+correctness works without hooks; missing hooks use the declared wrapper-only
+mode, while unsupported paths return a named unsupported answer to core.
 
-The tested Codex hook events (`SessionStart`, `UserPromptSubmit`, `PreToolUse` Bash/apply_patch matchers, `PostToolUse` Bash/apply_patch matchers, and `Stop`) are the basis for the cross-harness parity slice. `PostToolUseFailure` is not part of the Codex hook surface. Bash failure classification on Codex is handled inside the `PostToolUse` path, not by a separate event. Hooks outside this tested set remain Claude-Code-only until verified in additional harnesses.
+## Harness wake capability
 
-## Harness Wake Capability
-
-Whether a harness can resume an ended turn from an out-of-band signal decides
-which tier a watcher-shaped behavior can live in, so the tables below depend
-on these facts rather than restating them.
+Watcher subscription and continuation depend on these generated facts:
 
 <!-- BEGIN GENERATED: harness-wake-capability -->
 Wake capability is a manifest fact, not prose. Source of truth:
@@ -33,118 +41,101 @@ Evidence behind each row:
 - `cursor` — Live probe: the session ends its turn after a Shell call with block_until_ms=0 and a notify_on_output pattern, then receives system_notification pattern matches while idle — a working equivalent of Claude's Monitor. No timer wake was observed.
 <!-- END GENERATED: harness-wake-capability -->
 
-## Three-Tier Classification
+## Shared dispatch and native adapters
 
-### Universal (no hook dependency)
+Generated hook commands invoke `yoke hook evaluate <event>` once per native
+event/matcher. The Python-owned runner walks
+`yoke_contracts.hook_runner.hook_ordering.ordered_pipeline_for`; adapters do
+not copy lint ordering, per-policy shell choreography or runtime import paths.
+Session start/prompt boundaries register identity and inject orientation;
+pre-tool hooks apply command/write guardrails; post-tool hooks record
+telemetry; Stop attempts bounded empty-session ending. Claimed or
+chain-pending sessions retain custody. Registration separates requested
+identity from provider-attested served facts.
 
-Behaviors in this tier work in any harness, including wrapper-only mode with zero hook support. They rely on Yoke core paths, explicit entry commands, or harness-native configuration -- never on hooks.
+Commands use non-login `/bin/sh` and the configured XDG launcher directory,
+`~/.local/bin`, Homebrew and system paths, avoiding interactive shell startup
+inside native hooks. Codex's generated commands pin
+`YOKE_EXECUTOR=codex YOKE_PROVIDER=openai`; Cursor pins `YOKE_EXECUTOR=cursor`
+with provider derived from payload. Claude Write/Edit and Codex `apply_patch`
+are distinct native tools feeding shared write-side authority.
 
-| Behavior | Mechanism | Harness requirement |
-|----------|-----------|---------------------|
-| Bootstrap orientation (startup reads) | `python3 -m yoke_core.hooks.bootstrap render-full` or harness-native config | Bash tool only |
-| Session identity declaration | Environment variables (`YOKE_EXECUTOR`, `YOKE_PROVIDER`, `YOKE_MODEL`) | Bash tool only |
-| Route wrapper (command invocation) | Entry launcher delegates to `/yoke` operator commands | Bash tool only |
+Cursor's Bash chain uses `beforeShellExecution`, avoiding a second Shell
+pre-tool chain. Allow-time context is available at `sessionStart` and
+`postToolUse`; advisory-only pre-tool hints are explicitly omitted where
+there is no channel. Native event coverage differs between IDE and print-mode
+CLI. The [dated Cursor assessment](harness-cursor-assessment.md) retains the
+measured matrix, deny behavior and subagent payload folding; current
+manifest/runtime contracts select behavior. Streaming thought events have no
+configured hook. Cursor command bytes must satisfy the manifest's JSONC
+restrictions or hooks may disappear before dispatch.
 
-### Cross-harness (tested hook subset)
+## Hook trust and lane lifecycle
 
-Behaviors in this tier use hooks that have been verified in both Claude Code and Codex (>= 0.128.0-alpha.1). They provide optional enhancements over the Tier 1 baseline. Correctness never depends on them.
+Codex trust is keyed by literal hook path and normalized handler identity.
+Project install/refresh mints current hashes only for the Yoke-authored file
+it installs, replacing that path's stale hashes. Failure to update config
+refuses with the native Hooks/Trust recovery. Changes outside that install
+boundary remain the operator's trust decision.
 
-| Hook event | Yoke behavior | Claude Code | Codex (tested) |
-|------------|----------------|-------------|-----------------|
-| `SessionStart` | Register session in harness_sessions, stamping the requested model and any already-attested served facts (emits `HarnessSessionStarted`) | Via `yoke hook evaluate SessionStart` | Via `.codex/hooks.json` + bounded non-login `/bin/sh` wrapper around `env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate SessionStart` |
-| `UserPromptSubmit` | First-prompt orientation injection (emits `HarnessSessionSentFirstUserPromptSubmit`); idempotent re-registration safety net | `yoke hook evaluate UserPromptSubmit` | Via `.codex/hooks.json` + bounded non-login `/bin/sh` wrapper around `env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate UserPromptSubmit` |
-| `PreToolUse` (Bash matcher) | Python-owned lint guardrails and command validation. The Codex adapter derives the Bash chain from `yoke_contracts.hook_runner.hook_ordering.ordered_pipeline_for("PreToolUse", "Bash")` — including `lint_long_command_polling` for polling discipline and `lint_pipe_to_truncator` for the live-long-command pipe-to-truncator clause. The shared `yoke_core.hooks` runner enforces parity behind the CLI. | `.claude/settings.json` hook commands | Via `.codex/hooks.json` + bounded non-login `/bin/sh` wrapper around `env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PreToolUse` |
-| `PreToolUse` (`apply_patch` matcher) | Python-owned write-side path and lifecycle guardrails on Codex's file-edit tool | Equivalent on Write/Edit matchers | Via `.codex/hooks.json` + bounded non-login `/bin/sh` wrapper around `env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PreToolUse` |
-| `PostToolUse` (Bash matcher) | Python-owned telemetry, DB-query failure detection, and Bash failure classification. Claude Code delivers explicit failures via `PostToolUseFailure`; Codex does not — see below for how Codex failure telemetry is recovered inside the `PostToolUse` handler. | `.claude/settings.json` hook commands | Via `.codex/hooks.json` + bounded non-login `/bin/sh` wrapper around `env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PostToolUse` |
-| `PostToolUseFailure` (Bash matcher) | Python-owned telemetry for Bash tool failures — `HarnessToolCallFailed` classification with nonzero exit semantics. | `.claude/settings.json` hook commands | **Not supported by Codex.** OpenAI's hooks docs do not list this event; live Codex sessions confirm it never fires. Codex Bash failure telemetry is recovered inside the `PostToolUse` handler via (1) `Exit code N` parsing of `tool_response` content, (2) a hard-failure text fallback for `No such file or directory` / `command not found` / `Permission denied`, and (3) last-resort transcript reconciliation against `transcript_path` — matching `tool_use_id` to the rollout's `call_id` to recover silent nonzero exits like `false` or `exit 7`. |
+A lane has a different literal path. Preparation mirrors only the main
+checkout's current byte-identical trust; relay launches use the manifested
+opening-hook enablement so registration is not stranded. Removal deletes the
+lane's hook tables and project record. `yoke codex hook-trust sweep --dry-run`
+reports deleted-path residue; the non-dry-run form removes only stale
+absolute paths, preserving existing paths and unrecognized third-party
+entries. Read its `--help` before cleanup. `HC-worktree-hook-trust` checks
+current hashes and names sweep recovery for residue.
 
-**Runtime floor:** Codex hook-enhanced mode requires Codex >= 0.128.0-alpha.1 with hook support. The proven Desktop setup is the repo-local hook pack in `.codex/hooks.json` plus a clean app relaunch. When the runtime floor is not met, the adapter falls back to wrapper-only mode (Tier 1) silently.
+Claude's trust boundary is the project directory, with
+`hasTrustDialogAccepted` in its project record rather than a per-hook hash
+store. Cursor workspace trust is separate from hook approval; Yoke inventory
+records its hook `approval_state=not_applicable`. The manifests and installed
+configuration own enablement; this map grants no trust or authorization.
 
-**Cross-harness hook dispatch:** the per-event command lines in the rendered manifests (`runtime/harness/claude/settings.json`, `runtime/harness/codex/hooks.json`) collapse to a single `yoke hook evaluate <event>` invocation per `(event, matcher)` pair — for example, `yoke hook evaluate PreToolUse` and `yoke hook evaluate UserPromptSubmit`. The CLI currently delegates to the local `yoke_core.hooks` implementation, which walks the universal ordering chain inside the process; the manifest no longer enumerates per-lint module command lines or injects a repo-root `PYTHONPATH`.
+## Codex failure telemetry
 
-**Hook shell startup is deterministic:** generated Claude, Codex, and Cursor commands use non-login `/bin/sh` and prepend the configured XDG launcher directory, `~/.local/bin`, Homebrew, and system binary directories. Hooks therefore resolve `yoke` from a minimal GUI environment without reading operator shell startup files, which may contain interactive or blocking work that is unsafe inside a native hook.
+Codex has no separate `PostToolUseFailure` event in the tested surface.
+The post-tool parser recovers Bash failures in order:
 
-**Codex identity pin:** the Codex hooks.json command shape pins `YOKE_EXECUTOR=codex` and `YOKE_PROVIDER=openai` before `yoke hook evaluate` so the hook subprocess attributes correctly even when the parent launcher does not export `CODEX_THREAD_ID`. Without the pin, `yoke_core.hooks.helpers_identity.detect_executor` falls back to the Claude family and stores `executor=claude-code` / `provider=anthropic` on the Codex Desktop session row plus `context.executor=claude` on every `HookDispatchTelemetry` envelope. The pin is owned by `packages/yoke-core/src/yoke_core/domain/agents_render_hooks.py` (`_CODEX_IDENTITY_ENV`) so any future Codex command-shape change keeps the executor/provider signal attached at one place.
+1. Parse a literal `Exit code N` in `tool_response`.
+2. With no explicit error/exit code, recognize command-prefixed hard-failure
+   text (`No such file or directory`, `command not found`, `Permission denied`)
+   only on `PostToolUse`, recording a failed event with sentinel exit code `1`.
+3. If still unreconciled and `transcript_path`/`tool_use_id` exist, read a
+   bounded 2MB rollout tail and match `exec_command_end.call_id` to that tool
+   id. Its exit code/status catches silent failures such as `false`.
 
-**Codex hook trust is path-keyed, so Yoke owns its installed lifecycle.** Every Tier 2 Codex behavior above depends on trusted hooks: Codex records `$CODEX_HOME/config.toml` tables keyed by the literal `.codex/hooks.json` path and normalized handler identity. `yoke project install` and refresh mint the exact current hashes only for the Yoke-authored hooks file they install, replacing stale hashes for that same path. If config cannot be updated, install refuses and directs the operator to open Codex in the checkout and choose Hooks, Trust. A content change outside that install boundary still requires the operator's own Codex trust decision.
+I/O, JSON, missing-field and schema errors leave the unreconciled result;
+they do not crash the hook. The transcript format is a measured native
+artifact, not a vendor-published schema. Non-Bash failure parity remains a
+separate substrate limitation. Historical event rows are not rewritten;
+synthetic canonical-DB telemetry is a separate concern. Existing regressions:
+[Bash classification](../runtime/api/test_observe_codex_bash.py) and
+[bounded transcript reconciliation](../runtime/api/test_observe_codex_transcript.py).
 
-A linked worktree has a different literal hooks path, so preparation mirrors only the main checkout's current, byte-identical trust. Relay-launched Codex workers also receive Codex's `--dangerously-bypass-hook-trust` flag so the opening registration hook cannot be stranded behind the prompt. Every lane-removal path deletes that lane's hook tables and `[projects."<lane>"]` record. `yoke codex hook-trust sweep --dry-run` reports deleted-path residue, and the command without `--dry-run` removes only those stale absolute paths while preserving every path still on disk and every unrecognized third-party entry. `HC-worktree-hook-trust` fails when the main checkout or a lane lacks exact current hashes and warns with the sweep command when stale paths accumulate.
+## Long commands and lifecycle evidence
 
-**Claude Code has no equivalent per-path hook gate.** Its per-project records in `~/.claude.json` carry a directory-level `hasTrustDialogAccepted` flag and no per-hook hash store, so hooks from a project's `.claude/settings.json` fire once the directory is trusted. A Claude session rooted at a worktree would prompt the one-time directory trust dialog and then run its hooks normally; there is no silent hash-keyed dead zone to mirror around.
+Claude's Monitor guardrails reject bare watcher `tail -f`/`tail -F`, enforce
+one subscription per capture and supply the relay reminder. Denial
+suppression is audit-only. These native Monitor behaviors do not create a
+Monitor tool on another harness. Codex continues the same yielded
+`exec_command` handle with `write_stdin` while its turn remains active;
+ending the turn is not an output-driven wake. Current watcher recipes and
+capture discipline live in [full-suite authority](testing-verification/full-suite-authority.md)
+and the installed agent rules. Never start a second invocation beside a live
+one or infer completion from partial output.
 
-**Cursor has no documented hook-approval prompt.** Official hooks docs (https://cursor.com/docs/hooks) say project `.cursor/hooks.json` automatically loads in a trusted workspace, reloads on save, and requires workspace trust for security. They do not document a hook-specific approval or reapproval prompt. Desktop and CLI both fire hooks (CLI omits some events, below); cloud agents load project hooks, while user-level `~/.cursor/hooks.json` is not available in cloud agents. Workspace trust is a separate VS Code gate, not a Yoke-owned hook-approval receipt, so inventory reports Cursor `approval_state=not_applicable` like Claude.
+Canonical session lifecycle and claim events originate in shared core
+operations. Local hook/transcript logs are disposable diagnostics and are
+never gate authority. Current agent bodies are rendered from the shared
+registry/dispatch contract into every supported harness; manifests declare
+limitations instead of this document maintaining a second safe-command or
+agent roster.
 
-### Cursor coverage
+## Related owners
 
-Cursor's hook surface is a near-superset of the tested cross-harness tier, with camelCase native event names mapped to canonical verbs in the rendered `runtime/harness/cursor/hooks.json` (surfaced as `.cursor/hooks.json`). Measured facts (Cursor IDE 3.14.7 / cursor-agent 2026.07.23; full matrix in [Cursor Harness Integration Assessment](harness-cursor-assessment.md)):
-
-- The Bash chain anchors on `beforeShellExecution` (raw command + sandbox state), not a `preToolUse` Shell matcher — wiring both would run the chain twice per command. A hook deny holds even under the terminal agent's force mode, and `postToolUseFailure` fires with `failure_type=permission_denied` — an explicit failure event Codex lacks.
-- Context injection is event-scoped: `sessionStart` and `postToolUse` accept `additional_context`; `preToolUse` has no allow-time channel, so the Cursor adapter's `pretool_omissions` elides advisory-only hint modules instead of silently dropping their output.
-- Coverage differs per surface: the IDE fires the full set; the non-interactive terminal agent (`cursor-agent -p`) omits `beforeSubmitPrompt`, `stop`, and the subagent lifecycle events, so orientation rides `sessionStart` (both surfaces) rather than prompt-submit.
-- Identity pin: the rendered command pins `YOKE_EXECUTOR=cursor` (provider stays payload-derived — Cursor multiplexes model vendors in one session). Subagents run under their own session ids; the payload parser folds them into the top-level container session, so telemetry and registration never mint per-subagent sessions.
-- Model identity is read from the supported session events and Cursor's per-conversation store through `yoke_harness.model_attestation`. The served value stays unattested until its evidence exists; a requested model stays in `harness_sessions.requested_model`. Streaming thought events have no hook configured. Deny-capable shell and file events run the full command between operations. See the [Cursor assessment](harness-cursor-assessment.md).
-
-### Claude-Code-only (no cross-harness equivalent)
-
-Behaviors in this tier use hook events or matchers that have no tested equivalent in Codex or other harnesses. They remain Claude-Code-exclusive until a cross-harness equivalent is verified.
-
-| Hook event | Yoke behavior | Why no cross-harness equivalent |
-|------------|----------------|---------------------------------|
-| `PreToolUse` (Write matcher) | Write-side path and label guardrails on Claude's `Write` tool | Codex's equivalent file-edit surface is `apply_patch`, covered as Tier 2 above; the Claude Write/Edit matchers stay Claude-specific |
-| `PreToolUse` (Edit matcher) | Write-side guardrails via the Claude `Edit` tool | Same — covered cross-harness through Codex's `apply_patch` matcher in Tier 2 |
-| `PostToolUse` (Write/Edit/Read) | Python-owned telemetry on non-Bash tools | Codex `PostToolUse` is only tested with the Bash matcher; non-Bash tool telemetry remains Claude-only |
-| `PostToolUseFailure` (any matcher) | Python-owned telemetry for tool failures routed through a distinct event | Not a Codex hook event — OpenAI's hooks docs only document `SessionStart`, `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`. Codex Bash failures are recovered inside `PostToolUse` via text parsing + transcript reconciliation; non-Bash tool failures on Codex remain unrecovered for now. |
-| `PreToolUse` (Monitor matcher) | Python-owned Monitor guardrails: (1) `lint_monitor_watcher_tail` denies a bare `tail -f`/`tail -F` first arm on a watcher capture and prints the sentinel-aware `yoke watch tail` replacement; (2) `lint_long_command_polling.evaluate_duplicate_monitor` enforces one Monitor subscription per capture for the full session; (3) `hint_monitor_relay` injects the canonical relay-only reminder into `additionalContext`. Both denial suppressions are audit-only. | **Not a Codex event.** The manifest records `agent_wake.idle_wake = none` for codex, so nothing can resume an ended turn per match: there is no `Monitor` tool to wake on, no duplicate-Monitor failure mode, and no `tail -f`-style watcher arming to gate against. A long Codex `exec_command` that outlives its yield returns a `session_id` that must be continued with `write_stdin`; PTY output does not resume an ended turn. Codex callers run watcher wrappers (`watch_pytest`, `watch_merge`) as foreground commands and continue them that way; the floor-level rule from AGENTS.md's `## Command Output — Hard Rule` (capture-first, fallback cadence 60s -> 90s -> 120s -> max ~300s) is the complete Codex-side surface. |
-| `PostToolUse` (Bash, Engineer-only) | Python-owned progress sync to GitHub | Agent-scoped hooks require subagent dispatch infrastructure |
-| `Stop` | `yoke hook evaluate Stop` for both Claude Code and Codex. Codex pins `YOKE_EXECUTOR=codex YOKE_PROVIDER=openai` in the rendered command. Both routes run bounded `session-end-if-empty` through the CLI-backed local runner; Codex stdout stays `{}`. Claimless sessions end during the hook, while claimed or chain-pending sessions stay active for prompt reactivation. | Codex Stop event not tested as a true archive/session-end equivalent |
-
-## Tested Hook Coverage Summary
-
-The following table summarizes the Codex hook events that actually fire in hook-enhanced Codex builds and are used by Yoke.
-
-| Hook | Tested in Codex | Yoke behavior covered | Gap vs Claude Code |
-|------|-----------------|------------------------|--------------------|
-| `SessionStart` | Yes | Bootstrap injection | Claude Code uses `UserPromptSubmit` instead; functionally equivalent |
-| `UserPromptSubmit` | Yes | First-prompt orientation | Equivalent coverage |
-| `PreToolUse` (Bash) | Yes | Bash lint guardrails (5 lint scripts) | Write/Edit matchers not covered |
-| `PostToolUse` (Bash) | Yes | Python-owned DB guardrails, tool telemetry, and Bash failure classification (see below — Codex lacks a `PostToolUseFailure` event, so failure recovery happens inside `PostToolUse`) | Write/Edit/Read telemetry not covered; Bash failure recovery depends on transcript reconciliation rather than a dedicated hook event |
-| `PreToolUse` (`apply_patch`) | Yes | Python-owned write-side guardrails (path-claim coverage, lifecycle-mutation lint, write-path lint) on Codex's file-edit tool | None — this is Codex's structural equivalent to Claude's Write/Edit matchers |
-| `PostToolUseFailure` | **Not a Codex event.** | — | Claude-only. Codex failure classification is handled via text parsing + transcript reconciliation inside the `PostToolUse` handler. |
-
-### Codex Bash failure classification (three-layer recovery inside `PostToolUse`)
-
-Because Codex does not emit a `PostToolUseFailure` event, Codex Bash failure telemetry must be recovered from the `PostToolUse` payload itself. The `observe.parse_hook_event` pipeline applies three layers in order:
-
-1. **`Exit code N` parse.** When `tool_response` content carries a literal `Exit code 1` / `Exit code 2` / … string, `parse_hook_event` reads the number directly. Works for any runtime that mirrors the exit code into the response text (Claude Code, Codex's own stderr formatting for some commands).
-2. **Hard-failure text fallback.** When the payload lacks both a top-level `error` and an `Exit code N` string but the response contains a stderr-shaped hard-failure indicator (`No such file or directory`, `command not found`, `Permission denied`) prefixed with a recognized command name, the record is reclassified as `HarnessToolCallFailed` with sentinel `exit_code=1`. Scoped to `hook_event == "PostToolUse"` so it only affects paths that would otherwise default to clean success.
-3. **Transcript reconciliation (Codex follow-up to).** When the first two layers leave the record as `is_failure=False, exit_code in (None, 0)` and the payload carries a `transcript_path` plus `tool_use_id`, `_reconcile_codex_exit_code` reads the last 2 MB of the Codex rollout JSONL and looks for an `exec_command_end` entry whose `call_id` matches `tool_use_id`. If found, the entry's `exit_code` and `status` fields are authoritative. This is the only layer that catches silent nonzero exits like `false` or `exit 7`, which produce no output.
-
-The transcript reader degrades gracefully on any I/O error, JSON decode failure, missing field, or schema mismatch — the hook path never crashes, and classification falls through to the unreconciled result. The Codex transcript JSONL schema (`payload.type == "exec_command_end"`, `payload.call_id`, `payload.exit_code`, `payload.status`) is not published by OpenAI on the public hooks docs page; it was derived from live rollouts under `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`.
-
-Coverage tests live in `runtime/api/test_observe_codex_bash.py::TestCodexBashFailureTruth` (layers 1 and 2) and `runtime/api/test_observe_codex_transcript.py::TestCodexTranscriptReconciliation` (layer 3, including graceful-degradation assertions for missing files, schema mismatches, and the tail-bytes cap).
-
-### What is not covered
-
-- Non-Bash Codex tool failures (Write/Edit/Read/other). No hook-level parity with Claude Code's `PostToolUseFailure`; would require either native Codex field support or a per-tool reconciliation path.
-- Historical event rows recorded before the transcript reconciliation landed — Yoke does not rewrite history, only fixes forward telemetry.
-- Synthetic test telemetry in the canonical DB — tracked separately.
-
-## Cross-Harness Coverage
-
-The skill registry supplies both capability views. The safe operator surface derives from public skills; the downstream registry derives from stage skills, including `implement` and `conduct`. Conduct is a stage skill with the `/yoke conduct` entrypoint, and implementation uses `/yoke implement`. [runtime/harness/codex/manifest.json](../runtime/harness/codex/manifest.json) declares Codex identity, affordances, and explicit limitations rather than copying either registry view. The generated inventory in [docs/harness-bootstrap.md](harness-bootstrap.md) is part of Codex's safe surface unless the manifest declares an additional substrate limitation.
-
-`/yoke conduct` is a current Codex-safe direct command. The shared dispatch descriptor module is the source for its agent lanes: phase files emit one task envelope per agent, and the substrate renderer ships the canonical agent body to both `runtime/harness/claude/agents/yoke-*.md` and `runtime/harness/codex/agents/yoke-*.toml` (surfaced at `.claude/agents/` and `.codex/agents/`). The `shepherd` path remains the quality-gated proof lane for PM, Designer, Boss, Architect, and Simulator work in both harnesses.
-
-The remaining named substrate gap is the `PostToolUseFailure` event for non-Bash Codex tools; Bash failures are recovered through transcript reconciliation as documented above.
-
-## Canonical Session Lifecycle
-
-Session lifecycle and claim events originate in shared core operations.
-
-Harness-local hook output (e.g., Codex hook logs) is informational. It is never the canonical source for session lifecycle telemetry. This keeps lifecycle evidence consistent across harnesses.
-
-## Related Docs
-
-- [Harness Bootstrap Contract](harness-bootstrap.md) -- neutral startup expectations for all harnesses
-- [Harness Adapter Template](harness-adapter-template.md) -- five-part adapter template with manifest schema
-- [Harness README](../runtime/harness/README.md) -- adapter directory convention
+- [Harness manifest schema](../runtime/harness/manifest-schema.md)
+- [Harness adapter directory contract](../runtime/harness/README.md)
+- [Canonical hooks](hooks.md)
+- [Bootstrap orientation](harness-bootstrap.md)
