@@ -12,7 +12,7 @@ from yoke_contracts.machine_config.test_machine import (
 )
 
 MIGRATION = importlib.import_module(
-    "yoke_core.domain.migrations.0070_remove_browser_profile_baseline_setting"
+    "yoke_core.domain.migrations.0071_remove_browser_profile_baseline_setting"
 )
 DECLARED = {
     "resource_name": "test-mac",
