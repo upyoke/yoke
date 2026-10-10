@@ -7,221 +7,38 @@ fleet are seeded here once rather than copied into each of them.
 
 from __future__ import annotations
 
-import json
-
 from yoke_contracts.timestamps import parse_instant
+from runtime.api.steering_fleet_seed_rows import (
+    NOW as NOW,
+    LONG_AGO as LONG_AGO,
+    BEFORE_THAT as BEFORE_THAT,
+    JUST_NOW as JUST_NOW,
+    NOT_YET_EXPIRED as NOT_YET_EXPIRED,
+    STAFFING_SECONDS as STAFFING_SECONDS,
+    IDLE_SECONDS as IDLE_SECONDS,
+    SURFACE as SURFACE,
+    STEERING_SESSION as STEERING_SESSION,
+    WORKER_SESSION as WORKER_SESSION,
+    ASKER as ASKER,
+    ANSWERER as ANSWERER,
+    PROJECT_ID as PROJECT_ID,
+    PLAN_LIMIT_HOST as PLAN_LIMIT_HOST,
+    RELAY_HOSTNAME as RELAY_HOSTNAME,
+    ACTOR_ID as ACTOR_ID,
+    seed_session as seed_session,
+    seed_tool_call as seed_tool_call,
+    seed_denial as seed_denial,
+    seed_message as seed_message,
+    seed_delivery_attempt as seed_delivery_attempt,
+    seed_relay as seed_relay,
+)
 
 from runtime.api.fixtures.backlog import insert_item
 from yoke_contracts.session_control.plan_limits import ALL_MODELS_SCOPE
-from yoke_core.domain.events_tool_call_outcome import OUTCOME_DENIED
 from yoke_core.domain.steering_claims import acquire as acquire_steering
 from yoke_core.domain.steering_fleet_report import ClaimHolder, compose_report
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 from yoke_core.domain.strategy_docs_defaults import seed_default_docs
-
-
-NOW = "2026-08-26T12:00:00.000000Z"
-LONG_AGO = "2026-08-26T09:00:00.000000Z"
-BEFORE_THAT = "2026-08-26T08:00:00.000000Z"
-JUST_NOW = "2026-08-26T11:58:00.000000Z"
-#: Well past every seeded message's expiry, so an envelope sent at
-#: :data:`LONG_AGO` is still deliverable at :data:`NOW`.
-NOT_YET_EXPIRED = "2026-08-26T23:00:00.000000Z"
-STAFFING_SECONDS = 5 * 60
-IDLE_SECONDS = 20 * 60
-SURFACE = "codex-cli"
-STEERING_SESSION = "steering-holder"
-WORKER_SESSION = "another-worker"
-ASKER = "asking-worker"
-ANSWERER = "answering-worker"
-PROJECT_ID = 1
-PLAN_LIMIT_HOST = "beebauman-macbook-pro-16"
-#: The host name the seeded relay reports — what an unregistered machine
-#: falls back to on any row that carries the relay's own hostname.
-RELAY_HOSTNAME = "relay-host"
-ACTOR_ID = 2
-
-
-def seed_session(conn, session_id: str, **columns) -> None:
-    """One live session, defaulting to an ordinary idle worker."""
-    conn.execute(
-        "INSERT INTO harness_sessions "
-        "(session_id, executor, provider, model, execution_level, workspace, "
-        "project_id, mode, offered_at, last_heartbeat, actor_id, "
-        "executor_surface, machine_id, last_tool_call_at, ended_at, "
-        "terminated_at, current_item_id) "
-        "VALUES (%s, %s, 'openai', 'test-model', 'primary', %s, %s, "
-        "%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-        (
-            session_id,
-            columns.get("executor", "codex"),
-            f"/tmp/{session_id}",
-            PROJECT_ID,
-            columns.get("mode", "wait"),
-            NOW,
-            NOW,
-            ACTOR_ID,
-            columns.get("executor_surface", SURFACE),
-            columns.get("machine_id", "machine-1"),
-            columns.get("last_tool_call_at"),
-            columns.get("ended_at"),
-            columns.get("terminated_at"),
-            columns.get("current_item_id"),
-        ),
-    )
-
-
-def seed_tool_call(
-    conn,
-    session_id: str,
-    *,
-    tool_use_id: str,
-    started_at: str,
-    command_summary: str,
-    completed_at: str | None = None,
-    tool_name: str = "Bash",
-) -> None:
-    """One call; unfinished calls also stamp their accepted hook's posture.
-
-    Completed history leaves the session's current turn posture intact.
-    """
-    if completed_at is None:
-        conn.execute(
-            "UPDATE harness_sessions SET turn_posture='running', "
-            "turn_posture_at=%s WHERE session_id=%s",
-            (started_at, session_id),
-        )
-    conn.execute(
-        "INSERT INTO session_tool_calls "
-        "(session_id, tool_use_id, tool_name, started_at, completed_at, "
-        "command_summary) VALUES (%s, %s, %s, %s, %s, %s)",
-        (
-            session_id,
-            tool_use_id,
-            tool_name,
-            started_at,
-            completed_at,
-            command_summary,
-        ),
-    )
-
-
-def seed_denial(conn, session_id: str, *, tool_use_id: str, at: str) -> None:
-    """Close a start row the way a PreToolUse guardrail's refusal closes it.
-
-    The refusal stamps the call's own row rather than leaving it open with
-    a separate telemetry event beside it, so a reader asks the row what
-    happened and gets an answer that outlives event retention.
-    """
-    conn.execute(
-        "UPDATE session_tool_calls SET completed_at = %s, outcome = %s "
-        "WHERE session_id = %s AND tool_use_id = %s",
-        (at, OUTCOME_DENIED, session_id, tool_use_id),
-    )
-
-
-def seed_message(
-    conn,
-    message_id: str,
-    *,
-    sender: str,
-    to: str,
-    at: str,
-    state: str = "pending",
-    expires_at: str = NOT_YET_EXPIRED,
-    cancelled_at: str | None = None,
-    routing_snapshot: dict | None = None,
-    idempotency_key: str | None = None,
-) -> None:
-    """One envelope and its single receipt, undelivered by default.
-
-    ``routing_snapshot`` carries the receipt's routing facts; an explicit
-    wake is one of them, so a caller that needs this receipt to read as a
-    requested wake passes that flag rather than patching the row after.
-    """
-    conn.execute(
-        "INSERT INTO session_messages "
-        "(message_id, sender_actor_id, sender_session_id, body, body_sha256, "
-        "selector_snapshot, created_at, expires_at, cancelled_at, "
-        "idempotency_key) "
-        "VALUES (%s, %s, %s, 'a question', 'sha', %s, %s, %s, %s, %s)",
-        (
-            message_id,
-            ACTOR_ID,
-            sender,
-            json.dumps({}),
-            at,
-            expires_at,
-            cancelled_at,
-            idempotency_key,
-        ),
-    )
-    conn.execute(
-        "INSERT INTO session_message_recipients "
-        "(message_id, session_id, project_id, resolution_evidence, "
-        "routing_snapshot, state, created_at, wake_after, injection_count) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0)",
-        (
-            message_id,
-            to,
-            PROJECT_ID,
-            json.dumps({}),
-            json.dumps(routing_snapshot or {}),
-            state,
-            at,
-            at,
-        ),
-    )
-
-
-def seed_delivery_attempt(
-    conn,
-    attempt_id: str,
-    *,
-    message_id: str,
-    to: str,
-    result_code: str,
-    evidence: dict | None = None,
-    started_at: str = JUST_NOW,
-    kind: str = "wake_relay",
-) -> None:
-    """One settled delivery attempt against a receipt."""
-    conn.execute(
-        "INSERT INTO session_message_attempts "
-        "(attempt_id, message_id, target_session_id, attempt_kind, started_at, "
-        "completed_at, result_code, evidence) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-        (
-            attempt_id,
-            message_id,
-            to,
-            kind,
-            started_at,
-            started_at,
-            result_code,
-            json.dumps(evidence or {}),
-        ),
-    )
-
-
-def seed_relay(conn) -> None:
-    """One connected relay, so a launch has somewhere it could land."""
-    conn.execute(
-        "INSERT INTO session_relays "
-        "(relay_id, actor_id, machine_id, hostname, surface_versions, "
-        "project_checkouts, first_seen_at, last_seen_at, connected_until, state) "
-        "VALUES ('relay-1', %s, 'machine-1', %s, %s, %s, %s, %s, "
-        "%s, 'active')",
-        (
-            ACTOR_ID,
-            RELAY_HOSTNAME,
-            json.dumps({SURFACE: "0.148.0a15"}),
-            json.dumps([PROJECT_ID]),
-            NOW,
-            NOW,
-            "2026-08-26T23:00:00.000000Z",
-        ),
-    )
 
 
 def compose(
