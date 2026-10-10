@@ -2,8 +2,8 @@
 
 An item-scoped stage wakes that member's claim holder (or the project's
 steering seat, when the claim holder is gone); a run-scoped stage has no
-single member to address, so it wakes the project's deploy-lock driver
-instead. The item-scoped branch reuses
+single member to address, so it wakes the run's live driver (or the
+project's steering seat when none is attached) instead. The item-scoped branch reuses
 :mod:`yoke_core.domain.merge_queue_landing_notice`'s recipient/delivery
 primitives; the run-scoped branch reuses
 :mod:`yoke_core.domain.deployment_run_driver_notice`, which owns the
@@ -150,9 +150,9 @@ def run_stage_wait_message(
     """The run-scoped counterpart to :func:`stage_wait_message`."""
     context = _execution_context(target_tier=target_tier, revision=revision)
     addressed = (
-        "its deploy-lock driver"
+        "its live driver"
         if route == DRIVER
-        else "the project's steering seat (no session holds its deploy lock)"
+        else "the project's steering seat (no driver is attached to the run)"
     )
     return (
         f"Deployment run {run_id} reached run-scoped QA stage {stage_name!r} "
@@ -233,13 +233,14 @@ def notify_run_scoped_qa_wait(
     target_digest: str = "",
     now: Optional[datetime] = None,
 ) -> str:
-    """Wake the project's deploy-lock driver (or steering) for a run-scoped wait.
+    """Wake the run's live driver (or steering) for a run-scoped wait.
 
     Same contract as :func:`notify_item_scoped_qa_wait`, addressed to
     whoever is driving the release instead of an attached item.
     """
     return push_run_scoped_notice(
         conn,
+        run_id=run_id,
         project_id=project_id,
         body_for_route=lambda route: run_stage_wait_message(
             run_id=run_id,

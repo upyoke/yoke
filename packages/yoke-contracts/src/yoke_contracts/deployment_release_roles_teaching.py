@@ -14,21 +14,22 @@ from __future__ import annotations
 RELEASE_ROLE_RECIPE = """\
 Item-bound batch release — who runs what:
 
-  Steering (the seat driving delivery) owns the run and nothing else. It holds
-  the project deploy lock for the whole pair, pins ONE source SHA, creates the
-  stage and production runs from that SHA, and starts each one. On a flow
+  Steering (the seat driving delivery) owns the run and nothing else. It pins
+  ONE source SHA, creates the stage and production runs from that SHA, and
+  starts each one. No claim is taken: a run occupies the servers it deploys to
+  until its QA settles or it is terminal, so a run aimed at an occupied server
+  refuses naming the holder, and a run's live driver is the only session its
+  execution answers to. On a flow
   that waits for CI that SHA needs its own CI run: create the CI-gated run
   without --source-ref to bind one, then pin its release_lineage. The start
   enrolls every delivery-ready item its candidate carries that no live or
   succeeded release already holds — whether the work landed since the last
   release or long before it — and applies the composition check itself, so
   membership needs no separate step:
-    yoke claims coordination-claim acquire --project P --key DEPLOY:P --reason R
     yoke --env CONTROL-PLANE deployment-runs create P FLOW --environment ENV \\
       --project-repo-path /path/to/checkout --source-ref PINNED_SHA \\
       --idempotency-key ENV-PINNED_SHA-1
     yoke --env CONTROL-PLANE watch deploy -- RUN-ID
-    yoke claims coordination-claim release --project P --key DEPLOY:P --reason R
   `deployment-runs add-item RUN-ID PREFIX-N` is for the other case: an item
   whose code the candidate does not carry but which the run should still
   deliver. `deployment-runs validate-composition RUN-ID` composes the run now

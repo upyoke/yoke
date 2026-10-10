@@ -1,7 +1,8 @@
 """An answered deployment stage decision reaches its run.
 
-A resolved decision must change the run: an approved ready run can finish,
-while a rejection closes it. These cover both answers, the stage nobody has
+A resolved decision must change the run: an approved ready run can finish
+unless a live driver owns it, while a rejection closes it. These cover both
+answers, the stage nobody has
 answered yet, and — because a recovery nobody can perform is not a recovery —
 that the commands the wake carries are ones the CLI actually serves.
 """
@@ -10,11 +11,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from runtime.api.deployment_stage_approval_fixture import seed_gate_run
-from runtime.api.domain.coordination_claim_test_support import (
-    PROJECT_YOKE,
-    deploy_target,
-)
+from runtime.api.domain.coordination_claim_test_support import PROJECT_YOKE
 from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
     _bodies,
     _claim,
@@ -27,10 +26,18 @@ from yoke_core.domain.decision_request_schema import create_decision_request_tab
 from yoke_core.domain.deployment_approval_requests import (
     evaluate_deployment_stage_approval,
 )
+from yoke_core.domain.deploy_pipeline_environment import watch_deploy_command
+from yoke_core.domain.deployment_run_driver_attachment import (
+    PHASE_EXECUTING,
+    attach_driver,
+)
+from yoke_core.domain.deployment_run_driver_notice import DRIVER
 from yoke_core.domain.deployment_stage_decision_effect import (
     drive_recipe,
     stage_decision_idempotency_key,
+    stage_decision_message,
 )
+from yoke_core.domain.merge_queue_landing_notice import STEERING
 
 DRIVER_SESSION = "sess-stage-driver"
 STEERING_SESSION = "sess-stage-steering"
@@ -82,16 +89,15 @@ def _run_row(conn: Any, run_id: str) -> tuple[str, str, Any]:
     return str(row["status"]), str(row["current_stage"]), row["completed_at"]
 
 
-def _seat(conn: Any, session_id: str, *, driver: bool) -> None:
+def _seat(conn: Any, session_id: str, *, driving: str = "") -> None:
+    """Seat *session_id* as the live driver of run *driving*, else as steering."""
     seed_session(conn, session_id)
-    if driver:
-        target = deploy_target(PROJECT_YOKE, "yoke")
-        _claim(
-            conn,
-            session_id=session_id,
-            target_kind=target.kind,
-            scope_json=target.scope_json(),
+    if driving:
+        release_seeded_driver(conn, driving)
+        attach_driver(
+            conn, driving, session_id=session_id, pid=4242, phase=PHASE_EXECUTING
         )
+        conn.commit()
         return
     _claim(
         conn,
@@ -101,10 +107,10 @@ def _seat(conn: Any, session_id: str, *, driver: bool) -> None:
     )
 
 
-def test_a_resolved_approve_finishes_a_ready_run_without_waking_the_driver(
+def test_a_resolved_approve_finishes_an_undriven_ready_run_waking_nobody(
     test_db: Any,
 ) -> None:
-    """The held deploy lock lets the answered final gate finish the run."""
+    """With no live driver attached, the answered final gate finishes the run."""
     create_decision_request_tables(test_db)
     _project(test_db)
     owner = _owner_with_role(test_db)
@@ -115,7 +121,8 @@ def test_a_resolved_approve_finishes_a_ready_run_without_waking_the_driver(
         run_id=run_id,
         stages_json=ROLE_GATE_STAGES,
     )
-    _seat(test_db, DRIVER_SESSION, driver=True)
+    release_seeded_driver(test_db, run_id)
+    _seat(test_db, STEERING_SESSION)
     request_id = _pending_request(test_db, run_id)
 
     resolve_decision_request(
@@ -147,7 +154,7 @@ def test_a_resolved_reject_closes_the_run_instead_of_leaving_it_executing(
         run_id=run_id,
         stages_json=ROLE_GATE_STAGES,
     )
-    _seat(test_db, DRIVER_SESSION, driver=True)
+    _seat(test_db, DRIVER_SESSION, driving=run_id)
     request_id = _pending_request(test_db, run_id)
 
     resolve_decision_request(
@@ -189,7 +196,7 @@ def test_a_stage_nobody_has_answered_is_left_alone(test_db: Any) -> None:
         run_id=run_id,
         stages_json=ROLE_GATE_STAGES,
     )
-    _seat(test_db, DRIVER_SESSION, driver=True)
+    _seat(test_db, DRIVER_SESSION, driving=run_id)
     request_id = _pending_request(test_db, run_id)
 
     assert _run_row(test_db, run_id)[:2] == ("executing", STAGE)
@@ -211,21 +218,22 @@ def test_a_stage_nobody_has_answered_is_left_alone(test_db: Any) -> None:
     )
 
 
-def test_the_steering_seat_is_told_to_take_the_lock_the_executor_requires(
+def test_a_resolved_approve_hands_a_driven_run_to_its_live_driver(
     test_db: Any,
 ) -> None:
-    """The seat that answers in practice holds no lock, and executing needs one."""
+    """A live driver owns its continuation, so it is woken instead."""
     create_decision_request_tables(test_db)
     _project(test_db)
     owner = _owner_with_role(test_db)
-    run_id = "run-stage-steering"
+    run_id = "run-stage-driven"
     seed_gate_run(
         test_db,
-        flow_id="stage-steering",
+        flow_id="stage-driven",
         run_id=run_id,
         stages_json=ROLE_GATE_STAGES,
     )
-    _seat(test_db, STEERING_SESSION, driver=False)
+    _seat(test_db, STEERING_SESSION)
+    _seat(test_db, DRIVER_SESSION, driving=run_id)
     request_id = _pending_request(test_db, run_id)
 
     resolve_decision_request(
@@ -236,13 +244,25 @@ def test_the_steering_seat_is_told_to_take_the_lock_the_executor_requires(
         session_id="deciding-session",
     )
 
+    assert _run_row(test_db, run_id)[0] == "executing"
     key = stage_decision_idempotency_key(run_id, STAGE, request_id, "approve")
-    assert _recipients(test_db, key) == [STEERING_SESSION]
+    assert _recipients(test_db, key) == [DRIVER_SESSION]
     [body] = _bodies(test_db, key)
-    from yoke_core.domain.deploy_lock import acquire_command, release_command
+    assert "you are this run's live driver" in body
+    assert watch_deploy_command(run_id) in body
 
-    assert acquire_command("yoke") in body
-    assert release_command("yoke") in body
+
+def test_the_steering_seat_is_told_no_driver_is_attached() -> None:
+    """The seat that answers for an undriven run gets the same runner recipe."""
+    body = stage_decision_message(
+        run_id="run-stage-steering", stage=STAGE, request_id=7, route=STEERING
+    )
+    assert "no driver is attached to this run" in body
+    assert watch_deploy_command("run-stage-steering") in body
+    driver_body = stage_decision_message(
+        run_id="run-stage-steering", stage=STAGE, request_id=7, route=DRIVER
+    )
+    assert "you are this run's live driver" in driver_body
 
 
 def test_every_command_the_recipe_carries_is_one_the_cli_serves() -> None:
@@ -256,23 +276,18 @@ def test_every_command_the_recipe_carries_is_one_the_cli_serves() -> None:
     from yoke_cli.commands.registry import resolve
     from yoke_cli.commands.watchers import TOOL_SHAPED_USAGE
 
-    recipes = (
-        drive_recipe("run-recipe-check", "yoke", holds_lock=True),
-        drive_recipe("run-recipe-check", "yoke", holds_lock=False),
-    )
     checked = 0
-    for recipe in recipes:
-        for line in recipe.splitlines():
-            tokens = line.split()
-            assert tokens[0] == "yoke"
-            tokens = tokens[1:]
-            if tokens[0] == "--env":
-                tokens = tokens[2:]
-            form = " ".join(["yoke", *tokens[:2]])
-            if form in TOOL_SHAPED_USAGE:
-                checked += 1
-                continue
-            # Raises KeyError on an unknown route, which is the failure.
-            resolve(tokens)
+    for line in drive_recipe("run-recipe-check").splitlines():
+        tokens = line.split()
+        assert tokens[0] == "yoke"
+        tokens = tokens[1:]
+        if tokens[0] == "--env":
+            tokens = tokens[2:]
+        form = " ".join(["yoke", *tokens[:2]])
+        if form in TOOL_SHAPED_USAGE:
             checked += 1
-    assert checked == 4
+            continue
+        # Raises KeyError on an unknown route, which is the failure.
+        resolve(tokens)
+        checked += 1
+    assert checked == 1

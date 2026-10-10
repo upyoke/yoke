@@ -12,6 +12,7 @@ from runtime.api.domain.test_independent_member_delivery_close_out import (
     _status,
 )
 from runtime.api.domain.test_status_transition_preflight import _isolate_status_effects
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from yoke_core.domain.deployment_run_auto_completion import finish_ready_run
 
 
@@ -23,21 +24,10 @@ def _run_status(conn: Any, run_id: str) -> str:
     )
 
 
-def _held_lock(monkeypatch) -> None:
-    from yoke_core.domain import coordination_claims
-
-    from yoke_core.domain.coordination_claim_record import CoordinationClaim
-
-    monkeypatch.setattr(
-        coordination_claims,
-        "active_claim",
-        lambda _conn, target: CoordinationClaim(
-            id=1,
-            target=target,
-            session_id="deployment-driver",
-            claimed_at="2026-10-01T00:00:00Z",
-        ),
-    )
+def _seed_undriven(conn: Any, run_id: str, **shape: bool) -> None:
+    """Seed the final run with no live driver, so completion is automatic."""
+    _seed_final_run(conn, run_id, **shape)
+    release_seeded_driver(conn, run_id)
 
 
 def test_independent_members_finish_run_after_both_close(
@@ -45,17 +35,16 @@ def test_independent_members_finish_run_after_both_close(
 ) -> None:
     _isolate_status_effects(monkeypatch)
     run_id = "run-independent-auto-finish"
-    _seed_final_run(test_db, run_id, shared_qa=False)
+    _seed_undriven(test_db, run_id, shared_qa=False)
     _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
     assert _status(test_db, MEMBER_A) == "done"
     assert _status(test_db, MEMBER_B) == "release"
     assert _run_status(test_db, run_id) == "executing"
 
-    _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_B)
-    _held_lock(monkeypatch)
-    result = finish_ready_run(test_db, run_id)
+    _settle(
+        test_db, run_id=run_id, stage="item-qa", member=MEMBER_B, may_complete_run=True
+    )
 
-    assert result.completed, result
     assert _run_status(test_db, run_id) == "succeeded"
     assert (_status(test_db, MEMBER_A), _status(test_db, MEMBER_B)) == (
         "done",
@@ -69,10 +58,9 @@ def test_shared_qa_keeps_members_until_all_subjects_pass(
 ) -> None:
     _isolate_status_effects(monkeypatch)
     run_id = "run-shared-auto-finish"
-    _seed_final_run(test_db, run_id, shared_qa=True)
+    _seed_undriven(test_db, run_id, shared_qa=True)
     _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
     _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_B)
-    _held_lock(monkeypatch)
 
     waiting = finish_ready_run(test_db, run_id)
     assert not waiting.completed
@@ -100,10 +88,9 @@ def test_approval_and_live_driver_prevent_parallel_completion(
 ) -> None:
     _isolate_status_effects(monkeypatch)
     run_id = "run-approval-auto-hold"
-    _seed_final_run(test_db, run_id, shared_qa=False, shared_approval=True)
+    _seed_undriven(test_db, run_id, shared_qa=False, shared_approval=True)
     _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
     _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_B)
-    _held_lock(monkeypatch)
 
     approval = finish_ready_run(test_db, run_id)
     assert "approve-release" in approval.waiting
@@ -124,16 +111,15 @@ def test_approval_and_live_driver_prevent_parallel_completion(
 def test_failed_blocking_qa_does_not_complete_run(test_db: Any, monkeypatch) -> None:
     _isolate_status_effects(monkeypatch)
     run_id = "run-failed-qa-auto-hold"
-    _seed_final_run(test_db, run_id, shared_qa=False)
-    _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
-    _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_B)
+    _seed_undriven(test_db, run_id, shared_qa=False)
     test_db.execute(
         "INSERT INTO deployment_run_qa(run_id,check_name,source,blocking,status) "
         "VALUES (%s,'smoke','flow_default',1,'failed')",
         (run_id,),
     )
     test_db.commit()
-    _held_lock(monkeypatch)
+    _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
+    _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_B)
 
     result = finish_ready_run(test_db, run_id)
 

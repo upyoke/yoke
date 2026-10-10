@@ -273,7 +273,7 @@ def test_page_module_wires_the_workbench_shell():
         # The frontier bands and the shipping page own their own reads.
         "universe_frontier_bands.js": ("items.overview.list", "frontier.list"),
         "universe_views_frontier.js": ("sessions.list", "deployment_runs.list"),
-        "universe_shipping_runs.js": ("deployment_runs.list", "sessions.list"),
+        "universe_shipping_runs.js": ("deployment_runs.list",),
         # The Items view composes the page; the loader beside it owns the
         # roster read, its paging state, and its request criteria.
         "universe_views_items.js": ("createRosterLoader",),

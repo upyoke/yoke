@@ -203,7 +203,7 @@ Domain validation requires each kind's keys and permits steering's optional docu
 ```sql
 id INTEGER PRIMARY KEY
 session_id TEXT NOT NULL -- FK to harness_sessions.session_id
-target_kind TEXT NOT NULL -- item|epic_task|process|steering|migration_serialization|qa_admission|route_qualification|deploy_serialization
+target_kind TEXT NOT NULL -- item|epic_task|process|steering|migration_serialization|qa_admission|route_qualification (deploy_serialization: retired, release by id)
 scope TEXT NOT NULL -- canonical JSON object; exact shape is validated by target_kind
 claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive')
 claimed_at TEXT NOT NULL
@@ -250,7 +250,7 @@ Inside the Yoke source repo only, the in-tree `python3 -m yoke_core.hooks.sessio
 
 ## Shared-operation coordination claims
 
-Four `work_claims` target kinds coordinate a resource that is not a unit
+Three `work_claims` target kinds coordinate a resource that is not a unit
 of backlog work. They live in the same table as every other claim, so one
 system carries session binding, heartbeat, telemetry, and the board's
 Claims column for every hold.
@@ -260,38 +260,32 @@ Claims column for every hold.
 | `migration_serialization` | `{"project_id":N,"model":M,"item_id":N}` | Migration territory for one model, owned by the authoring item |
 | `qa_admission` | `{"machine_id":ID}` | One physical test machine, globally |
 | `route_qualification` | `{"project_id":N,"grant_key":K}` | One private-route qualification grant |
-| `deploy_serialization` | `{"project_id":N,"project_slug":S}` | Every deployment run for one project |
 
 Each has a unique partial index over its exclusivity unit, so a second
 holder is refused at the database rather than by a read-then-write race.
 `migration_serialization` conflicts on `(project_id, model)` — the
 `item_id` in scope records who owns the hold, not what is held, which is
 what lets the same item re-enter and heartbeat while any other lane is
-refused. `deploy_serialization` conflicts on `project_id` alone for the
-same reason: the slug rides in the scope so the operator key renders
-without a database read, and renaming a project must not hand out a
-second live deploy lock. `qa_admission` has no project in scope on
+refused. `qa_admission` has no project in scope on
 purpose: a physical machine is one resource whichever project drives the
 run.
 
 **Stickiness is the property that separates these kinds from the rest.**
-`migration_serialization`, `qa_admission`, and `deploy_serialization` are
-sticky: the stale-session sweep, the session-end release, and the
-claim-free end check all skip them, because the migration, the remote
-suite, and the deployment pipeline keep running after the session that
-started them goes quiet. Recovery is the audited human operator release,
+`migration_serialization` and `qa_admission` are sticky: the
+stale-session sweep, the session-end release, and the claim-free end
+check all skip them, because the migration and the remote suite keep
+running after the session that started them goes quiet. Recovery is the audited human operator release,
 never an automatic reclaim. `route_qualification` is liveness-bound like
 the backlog kinds — a grant is only valid while its steering session
 lives — so the sweep reclaims it normally.
 
 Each claim is addressed by one operator key: `LIVE_DB_MIGRATION:<model>`,
-`QA_HOST:<machine>`, `DEPLOY:<project-slug>`, and the qualification grant
-token. QA_HOST keys are machine-scoped: list with `yoke coordination-claim list --key QA_HOST:<machine> --active-only --json`, ignoring any project filter. Signed-in humans outside harness sessions recover a reviewed row with `yoke coordination-claim release --key QA_HOST:<machine> --claim-id N --holder-session-id S --reason R`; permission remains the holder's project `claims.release`. Other key kinds still require `--project P` for operator release. QA host holders can release by claim id with `yoke claims work release --claim-id N --reason TEXT` after run completion; requirement reads and artifact uploads retain the stored member's project authority after membership ends.
+`QA_HOST:<machine>`, and the qualification grant token. QA_HOST keys are machine-scoped: list with `yoke coordination-claim list --key QA_HOST:<machine> --active-only --json`, ignoring any project filter. Signed-in humans outside harness sessions recover a reviewed row with `yoke coordination-claim release --key QA_HOST:<machine> --claim-id N --holder-session-id S --reason R`; permission remains the holder's project `claims.release`. Other key kinds still require `--project P` for operator release. QA host holders can release by claim id with `yoke claims work release --claim-id N --reason TEXT` after run completion; requirement reads and artifact uploads retain the stored member's project authority after membership ends.
 
-`deploy_serialization` is the one kind an ordinary workflow takes and
-releases by hand: creating and executing a deployment run both refuse
-without it. Its operator surface, refusal shape, and terminal-caller
-recovery live with the runs it gates, in
+Deployment runs take no coordination claim. `deploy_serialization` is the
+retired per-project deploy lock: nothing takes one, a `DEPLOY:` key refuses
+with `deploy_lock_retired`, a hold from before the retirement is released by
+its claim id, and runs serialize by the servers they occupy, described in
 [`deployment-run-records.md`](deployment-run-records.md).
 
 ### BOARD.md Claims column rendering
@@ -309,7 +303,7 @@ The Active Harness Sessions and Recent Sessions tables share one Claims column t
 | work_claim + same-item path_claim decoration | `PREFIX-N 📁<total>`           | `PREFIX-N 📁23`                    |
 | path_claim orphan       | `📁<total> (PREFIX-N)`         | `📁5 (PREFIX-N)`                   |
 | path_claim process anchor | `📁<total> (⚙ process_key)` | `📁3 (⚙ FEED)`                     |
-| coordination claim      | `🔒 <key>`                  | `🔒 QA_HOST:mac-mini-lab`, `🔒 DEPLOY:yoke` |
+| coordination claim      | `🔒 <key>`                  | `🔒 QA_HOST:mac-mini-lab` |
 | coordination claim (item-owned) | `🔒 <key> (PREFIX-N)` | `🔒 LIVE_DB_MIGRATION:primary (PREFIX-N)` |
 
 Rules: same-session multiple `path_claims` on the same item roll up into one keycap with the summed declared-path total; coordination claims never decorate work_claims (they stay `🔒` keycaps and are omitted from the work-claim list so they do not also render as `?`); ordering inside a row is work_claims → uncovered document locks → orphan path_claim keycaps → coordination claims. A steering seat folds in document locks from the same project: current seats name current locks, while released seats name released locks whose hold windows overlapped. Project id is part of the lock key, so same-named documents in two projects remain separate rows; a lock with no matching seat keeps its own keycap. A seat without a lock renders `no doc lock`. During a server/client rollout, an older recorded board payload without the pairing read keeps the seat and lock as separate rows instead of failing the render. Repeat work claims on the same rendered target and repeat coordination claims on the same key each collapse to the most recent row (one keycap). Steering occupancy is this column, not a separate Steering section. Release reasons are not rendered on Claims — drill into claim detail surfaces for audit history. Released path_claims and coordination claims do not appear on active-session rows. Per-file enumeration is intentionally out of scope — operators drill into per-file detail via `path-claims list --item PREFIX-N`.

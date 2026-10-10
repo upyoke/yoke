@@ -81,10 +81,10 @@ def test_an_unreadable_branch_head_refuses_by_name() -> None:
 
 
 def test_a_refused_check_is_not_a_clear_one() -> None:
-    refusal = _refusal(_answer(code="forbidden", message="no deploy lock held"))
+    refusal = _refusal(_answer(code="forbidden", message="permission denied"))
 
     assert BOUND_SOURCES_CURRENT_FUNCTION_ID in refusal
-    assert "no deploy lock held" in refusal
+    assert "permission denied" in refusal
     assert "re-drive run-test" in refusal
 
 

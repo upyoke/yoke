@@ -53,53 +53,15 @@ test("Shipping shows every run in its window, newest first", async (t) => {
   mounted.unmount();
 });
 
-test("a waiting run names the project deploy lock holding it", async (t) => {
+test("a run card names no project-wide lock; Shipping reads no session roster", async (t) => {
   stubFetch(t);
-  const holder = {
-    session_id: "s-lock", liveness: "active", project: "yoke", project_id: 1,
-    executor: "claude-cli", execution_level: "delivery",
-    activity_at: new Date().toISOString(),
-    holdings: {
-      current: [{
-        holding_kind: "coordination", target_kind: "deploy_serialization",
-        lease_key: "DEPLOY:yoke", target: "DEPLOY:yoke",
-      }],
-      previous: [], previous_remainder: 0,
-    },
-  };
-  const { mounted, root } = await mountAt("/shipping?project=1", workbenchClient({
-    "sessions.list": { rows: [holder] },
-  }));
+  const client = workbenchClient({});
+  const { mounted, root } = await mountAt("/shipping?project=1", client);
 
-  const locks = byClass(root, "shipping-run-lock");
-  // The executing run carries it; the finished one does not, because
-  // nothing a terminal run is waiting on can still apply to it.
-  assert.equal(locks.length, 1);
-  assert.match(
-    byClass(locks[0], "shipping-run-lock-label")[0].textContent,
-    /holds deploy lock \(yoke, project-wide\)/,
-  );
-  // The session owns the lock, not the other way round: the lock reads
-  // inside the holding session's own chip, after its status.
-  const mini = byClass(root, "item-claimant-mini");
-  assert.equal(mini.length, 1);
-  assert.equal(byClass(mini[0], "shipping-run-lock").length, 1);
-  assert.match(
-    mini[0].textContent,
-    /claude-cli.*active.*holds deploy lock \(yoke, project-wide\)/,
-  );
-  // The box is gone, but the weight acceptance asked for is not: that
-  // verdict rejected the lock for reading as one more line of card copy,
-  // which is about its weight and not about which element contains it. The
-  // label keeps the warn hue and the heavier stroke inside the chip.
-  const signals = readFileSync(new URL(
-    "../../packages/yoke-core/src/yoke_core/ui/static/universe_item_signals.css",
-    import.meta.url,
-  ), "utf8");
-  const labelRule = signals.slice(signals.indexOf(".shipping-run-lock-label {"));
-  const labelBody = labelRule.slice(0, labelRule.indexOf("}"));
-  assert.match(labelBody, /color: var\(--yoke-warn\)/);
-  assert.match(labelBody, /font-weight: 650/);
+  // Deployment runs serialize by the servers they occupy, so a run waits on
+  // another run (its start refusal names it), never on a session's lock.
+  assert.equal(byClass(root, "shipping-run-lock").length, 0);
+  assert.ok(!client.requests.some((request) => request.function === "sessions.list"));
   mounted.unmount();
 });
 

@@ -136,7 +136,7 @@ def qa_requirement_waive(args: List[str]) -> int:
         epilog=(
             "Record the operator's decision with --source operator and its rationale. "
             "The recorder must hold the item work claim, a live steering seat covering "
-            "the item, or the deploy lock for its requirement's run. Agent-sourced "
+            "the item, or be the live driver of its requirement's run. Agent-sourced "
             "waivers retain the normal QA subject claim rule."
         ),
     )

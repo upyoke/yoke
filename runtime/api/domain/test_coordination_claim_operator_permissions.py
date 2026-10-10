@@ -39,7 +39,7 @@ def test_coordination_operator_release_is_project_scoped() -> None:
                 target=TargetRef(kind="global"),
                 payload={
                     "project_id": project,
-                    "key": f"DEPLOY:{project}",
+                    "key": "LIVE_DB_MIGRATION:core",
                     "claim_id": 42,
                     "holder_session_id": "holder",
                     "reason": "reviewed stranded holder",

@@ -18,7 +18,6 @@ from fastapi.testclient import TestClient
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain.deployment_run_item_qa_membership import NO_MEMBER_OWES_TARGET
 from yoke_core.api import app_factory
-from yoke_core.domain import coordination_claims
 from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
     grant_actor_project_role,
@@ -27,8 +26,11 @@ from yoke_core.domain.actor_permissions import (
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.api_tokens import mint_token
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.deployment_run_driver_attachment import (
+    PHASE_EXECUTING,
+    attach_driver,
+)
 from yoke_core.domain.project_identity import resolve_project_id
-from yoke_core.domain.work_claim_targets import make_deploy_serialization_target
 
 
 PROJECT = "externalwebapp"
@@ -128,16 +130,10 @@ def qa_stage_plane():
         owner_session = "qa-stage-owner"
         owner_id, owner_token = _project_owner(conn, PROJECT, owner_session)
         # Same project, same admin role — the only difference from
-        # owner_session is that this one never acquires the deploy lock,
-        # so a refusal here is specifically the lock check, not authz.
-        other_session = "qa-stage-no-lock"
+        # owner_session is that this one never drives the run, so a refusal
+        # here is specifically the live-driver check, not authz.
+        other_session = "qa-stage-not-driving"
         other_id, other_token = _project_owner(conn, PROJECT, other_session)
-        coordination_claims.acquire(
-            conn,
-            make_deploy_serialization_target(project_id, PROJECT),
-            owner_session,
-            reason="scoped QA authority test",
-        )
         conn.commit()
         with TestClient(app_factory.create_app()) as client:
             yield {
@@ -162,8 +158,17 @@ def _create_run(plane) -> str:
     return created.json()["result"]["run_id"]
 
 
-def test_dispatch_refuses_a_session_that_holds_no_deploy_lock(qa_stage_plane):
+def _owner_drives(plane, run_id: str) -> None:
+    conn = plane["conn"]
+    attach_driver(
+        conn, run_id, session_id=plane["owner_session"], pid=4242, phase=PHASE_EXECUTING
+    )
+    conn.commit()
+
+
+def test_dispatch_refuses_a_session_other_than_the_live_driver(qa_stage_plane):
     run_id = _create_run(qa_stage_plane)
+    _owner_drives(qa_stage_plane, run_id)
 
     response = _call(
         qa_stage_plane["client"],
@@ -174,11 +179,16 @@ def test_dispatch_refuses_a_session_that_holds_no_deploy_lock(qa_stage_plane):
         payload={"stage_name": ITEM_QA_STAGE},
     )
     assert response.status_code == 400, response.text
-    assert response.json()["error"]["code"] == "deploy_lock_required"
+    error = response.json()["error"]
+    assert error["code"] == "run_driven_elsewhere"
+    assert qa_stage_plane["owner_session"] in error["message"]
 
 
-def test_resume_refusals_refuses_a_session_that_holds_no_deploy_lock(qa_stage_plane):
+def test_resume_refusals_refuses_a_session_other_than_the_live_driver(
+    qa_stage_plane,
+):
     run_id = _create_run(qa_stage_plane)
+    _owner_drives(qa_stage_plane, run_id)
 
     response = _call(
         qa_stage_plane["client"],
@@ -189,7 +199,23 @@ def test_resume_refusals_refuses_a_session_that_holds_no_deploy_lock(qa_stage_pl
         payload={"start_stage": "complete"},
     )
     assert response.status_code == 400, response.text
-    assert response.json()["error"]["code"] == "deploy_lock_required"
+    error = response.json()["error"]
+    assert error["code"] == "run_driven_elsewhere"
+    assert qa_stage_plane["owner_session"] in error["message"]
+
+
+def test_an_undriven_run_answers_any_authorized_session(qa_stage_plane):
+    run_id = _create_run(qa_stage_plane)
+
+    response = _call(
+        qa_stage_plane["client"],
+        qa_stage_plane["other_headers"],
+        qa_stage_plane["other_session"],
+        "deployment_runs.qa_stage.dispatch",
+        run_id=run_id,
+        payload={"stage_name": ITEM_QA_STAGE},
+    )
+    assert response.status_code == 200, response.text
 
 
 def test_dispatch_derives_the_stage_scope_from_the_stored_flow_not_the_caller(

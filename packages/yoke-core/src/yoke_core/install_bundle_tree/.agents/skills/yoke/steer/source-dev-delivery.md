@@ -2,8 +2,8 @@
 
 Read only for Yoke self-deploy; source docs/source-dev-doctrine.md owns setup,
 operator database authority, rehearsal and release-pair contract.
-All real records/receipts are prod, including stage-targeted work. Hold
-DEPLOY:project through creation/execution and both runs. Stage drives on HTTPS
+All real records/receipts are prod, including stage-targeted work. Runs take
+no claim; each occupies its target servers until its QA settles. Stage drives on HTTPS
 prod; production uses configured paired prod-db-admin because it replaces
 the serving API. Its refusal names that connection; discover with yoke env list.
 Only source-dev/operator provisions it through yoke dev db-admin setup.

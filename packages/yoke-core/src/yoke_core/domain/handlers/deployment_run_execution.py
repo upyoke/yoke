@@ -17,6 +17,10 @@ from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.deployment_common import error, pipe_to_dict, run_id
 
 
+#: Error code an execution call carries when another session drives the run.
+RUN_DRIVEN_ELSEWHERE_CODE = "run_driven_elsewhere"
+
+
 class DeploymentExecutionContextRequest(BaseModel):
     pass
 
@@ -52,29 +56,37 @@ class DeploymentExecutionUpdateResponse(BaseModel):
     start_timings: List[Dict[str, Any]] = []
 
 
-def _require_execution_lock(
+def require_run_driver(
     request: FunctionCallRequest, resolved_run_id: str
 ) -> Optional[HandlerOutcome]:
-    from yoke_core.domain.db_helpers import connect, query_scalar
-    from yoke_core.domain.deploy_lock import DeployLockError, require_deploy_lock
+    """Refuse a caller other than the run's live driver.
+
+    A run with no live driver may be driven by any authorized session; one
+    that has a live driver answers only to that driver's session, so a
+    second session cannot interleave writes into a pipeline in flight. A
+    driver whose heartbeat lapsed frees the run by itself: no human
+    release is ever needed.
+    """
+    from yoke_core.domain.db_helpers import connect, iso8601_now, query_scalar
+    from yoke_core.domain.deployment_run_driver_attachment import (
+        format_refusal,
+        live_attachment_for_run,
+    )
 
     with connect() as conn:
-        project_id = query_scalar(
+        exists = query_scalar(
             conn,
-            "SELECT project_id FROM deployment_runs WHERE id=%s",
+            "SELECT 1 FROM deployment_runs WHERE id=%s",
             (resolved_run_id,),
         )
-        if project_id is None:
+        if exists is None:
             return error("not_found", f"deployment run {resolved_run_id!r} not found")
-        try:
-            require_deploy_lock(
-                conn,
-                int(project_id),
-                session_id=request.actor.session_id,
-                operation="deployment run execution",
-            )
-        except DeployLockError as exc:
-            return error("deploy_lock_required", str(exc))
+        driver = live_attachment_for_run(
+            conn, run_id_value=resolved_run_id, now=iso8601_now()
+        )
+    caller = str(request.actor.session_id or "").strip()
+    if driver is not None and driver.session_id != caller:
+        return error(RUN_DRIVEN_ELSEWHERE_CODE, format_refusal(resolved_run_id, driver))
     return None
 
 
@@ -151,7 +163,7 @@ def handle_deployment_execution_context(
     resolved_run_id = run_id(request, "deployment_runs.execution.context")
     if isinstance(resolved_run_id, HandlerOutcome):
         return resolved_run_id
-    if refusal := _require_execution_lock(request, resolved_run_id):
+    if refusal := require_run_driver(request, resolved_run_id):
         return refusal
     bound_sources = timed_call(
         "context_bound_sources", _record_bound_sources, resolved_run_id
@@ -250,7 +262,7 @@ def handle_deployment_execution_update(
         )
     if value is None:
         return error("payload_invalid", "value is required", jsonpath="$.payload.value")
-    if refusal := _require_execution_lock(request, resolved_run_id):
+    if refusal := require_run_driver(request, resolved_run_id):
         return refusal
     from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
 
@@ -284,7 +296,8 @@ __all__ = [
     "DeploymentExecutionUpdateRequest",
     "DeploymentExecutionUpdateResponse",
     "_record_bound_sources",
-    "_require_execution_lock",
+    "RUN_DRIVEN_ELSEWHERE_CODE",
+    "require_run_driver",
     "handle_deployment_execution_context",
     "handle_deployment_execution_update",
 ]

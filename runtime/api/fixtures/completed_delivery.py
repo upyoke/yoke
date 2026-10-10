@@ -4,6 +4,7 @@ import json
 from typing import Any
 
 from runtime.api.domain.test_deployment_qa_stage_execution import _environment
+from runtime.api.fixtures.deployment_run_driver_fixture import attach_seeded_driver
 from yoke_core.domain.deployment_flow_versioning import cmd_create
 from yoke_core.domain.deployment_stage_receipts import (
     allocate_deployment_stage_receipt,
@@ -154,4 +155,5 @@ def seed_selected_requirement_run(
         "UPDATE deployment_runs SET current_stage='member-qa' WHERE id=%s",
         (run_id,),
     )
+    attach_seeded_driver(conn, run_id)
     conn.commit()

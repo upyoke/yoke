@@ -15,9 +15,7 @@ ACTIVE_ROUTE_QUALIFICATION_INDEX_NAME = "idx_work_claims_active_route_qualificat
 ACTIVE_MIGRATION_SERIALIZATION_INDEX_NAME = (
     "idx_work_claims_active_migration_serialization"
 )
-ACTIVE_DEPLOY_SERIALIZATION_INDEX_NAME = (
-    "idx_work_claims_active_deploy_serialization"
-)
+ACTIVE_DEPLOY_SERIALIZATION_INDEX_NAME = "idx_work_claims_active_deploy_serialization"
 
 ACTIVE_ITEM_INDEX_DDL = (
     "CREATE UNIQUE INDEX IF NOT EXISTS "
@@ -68,11 +66,12 @@ def active_migration_serialization_index_ddl(conn: Any) -> str:
 
 
 def active_deploy_serialization_index_ddl(conn: Any) -> str:
-    """Build the per-project deployment exclusivity index.
+    """Build the exclusivity index of the retired per-project deploy lock.
 
-    The slug rides in the scope so the operator key renders without a
-    database read, but the project id alone is the unit: renaming a
-    project must not hand out a second live deploy lock.
+    Nothing takes that kind any more, so the index matches only holds taken
+    before the retirement. It stays declared because every existing
+    universe already carries it: a fresh schema without it would fingerprint
+    differently from a restored one, and archive import compares the two.
     """
     project = scope_text_sql(conn, "scope", "project_id")
     return (

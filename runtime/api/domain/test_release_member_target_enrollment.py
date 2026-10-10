@@ -15,6 +15,7 @@ from runtime.api.domain.test_post_deploy_original_pass_needs_admission import (
     _record_evidence,
 )
 from runtime.api.fixtures.backlog_inserts import insert_qa_run
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from yoke_core.domain.deployment_item_completion_runs import completion_runs
 from yoke_core.domain.gate_satisfier_resolution import record_delivery_evidence_rung
 from yoke_core.domain.deployment_member_post_deploy_admission import (
@@ -297,7 +298,6 @@ def test_stage_proof_for_another_candidate_cannot_close_current_delivery(test_db
 
 
 def test_supplemental_run_finishes_without_final_item_close_out(test_db, monkeypatch):
-    from runtime.api.domain.test_deployment_run_auto_completion import _held_lock
     from yoke_core.domain.deployment_run_auto_completion import _readiness
 
     item_id = 9689
@@ -308,7 +308,7 @@ def test_supplemental_run_finishes_without_final_item_close_out(test_db, monkeyp
         ("run-stage",),
     )
     test_db.commit()
-    _held_lock(monkeypatch)
+    release_seeded_driver(test_db, "run-stage")
     ready, reason = _readiness(test_db, "run-stage")
     assert ready is not None, reason
     assert (

@@ -22,10 +22,6 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.handlers import deployment_runs
 
-#: Where the create handler reads the project deploy lock. Holding it is a
-#: separate gate from the membership these tests are about.
-DEPLOY_LOCK = "yoke_core.domain.handlers.deployment_run_creation.deploy_lock_refusal"
-
 LINEAGE = "a" * 40
 SNAPSHOT = json.dumps({"schema": 1, "requirement_ids": [7]})
 SELECTION = json.dumps({"schema": 1, "plan_ids": [], "requirement_ids": [7]})
@@ -102,10 +98,9 @@ def _members(db_path: str, run_id: str) -> list[tuple]:
 
 
 def _create(payload: dict):
-    with patch(DEPLOY_LOCK, return_value=None):
-        return deployment_runs.handle_deployment_run_create(
-            _request(function="deployment_runs.create", payload=payload),
-        )
+    return deployment_runs.handle_deployment_run_create(
+        _request(function="deployment_runs.create", payload=payload),
+    )
 
 
 def test_a_retry_carries_the_frozen_membership_of_the_run_it_retries(

@@ -18,7 +18,12 @@ TARGET_KIND_STEERING = "steering"
 TARGET_KIND_MIGRATION_SERIALIZATION = "migration_serialization"
 TARGET_KIND_QA_ADMISSION = "qa_admission"
 TARGET_KIND_ROUTE_QUALIFICATION = "route_qualification"
+#: The per-project deploy lock deployment runs once required. Nothing takes
+#: one now; the kind stays readable because rows of it remain — released
+#: history, and holds taken before the retirement until their holder
+#: releases them by id.
 TARGET_KIND_DEPLOY_SERIALIZATION = "deploy_serialization"
+RETIRED_TARGET_KINDS = (TARGET_KIND_DEPLOY_SERIALIZATION,)
 ALL_TARGET_KINDS = (
     TARGET_KIND_ITEM,
     TARGET_KIND_EPIC_TASK,
@@ -27,7 +32,7 @@ ALL_TARGET_KINDS = (
     TARGET_KIND_MIGRATION_SERIALIZATION,
     TARGET_KIND_QA_ADMISSION,
     TARGET_KIND_ROUTE_QUALIFICATION,
-    TARGET_KIND_DEPLOY_SERIALIZATION,
+    *RETIRED_TARGET_KINDS,
 )
 
 #: The strategy document a steering seat is narrowed to, when it has one.
@@ -38,14 +43,10 @@ REQUIRED_SCOPE_KEYS = {
     TARGET_KIND_EPIC_TASK: frozenset({"epic_id", "task_num"}),
     TARGET_KIND_PROCESS: frozenset({"process_key", "conflict_group"}),
     TARGET_KIND_STEERING: frozenset({"project_id"}),
-    TARGET_KIND_MIGRATION_SERIALIZATION: frozenset(
-        {"project_id", "model", "item_id"}
-    ),
+    TARGET_KIND_MIGRATION_SERIALIZATION: frozenset({"project_id", "model", "item_id"}),
     TARGET_KIND_QA_ADMISSION: frozenset({"machine_id"}),
     TARGET_KIND_ROUTE_QUALIFICATION: frozenset({"project_id", "grant_key"}),
-    TARGET_KIND_DEPLOY_SERIALIZATION: frozenset(
-        {"project_id", "project_slug"}
-    ),
+    TARGET_KIND_DEPLOY_SERIALIZATION: frozenset({"project_id", "project_slug"}),
 }
 
 OPTIONAL_SCOPE_KEYS = {
@@ -127,9 +128,6 @@ def normalize_scope(kind: str, scope: Mapping[str, Any]) -> Dict[str, Any]:
             "grant_key": nonempty_text(raw["grant_key"], "grant_key"),
         }
     if kind == TARGET_KIND_DEPLOY_SERIALIZATION:
-        # The slug rides in the scope so the operator key renders without a
-        # database read, while exclusivity stays on the project id alone: a
-        # rename cannot hand out a second live lock.
         return {
             "project_id": positive_integer(raw["project_id"], "project_id"),
             "project_slug": nonempty_text(raw["project_slug"], "project_slug"),
@@ -146,6 +144,7 @@ __all__ = [
     "ALL_TARGET_KINDS",
     "OPTIONAL_SCOPE_KEYS",
     "REQUIRED_SCOPE_KEYS",
+    "RETIRED_TARGET_KINDS",
     "STEERING_DOCUMENT_KEY",
     "TARGET_KIND_DEPLOY_SERIALIZATION",
     "TARGET_KIND_EPIC_TASK",

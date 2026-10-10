@@ -24,8 +24,8 @@ APPROVE_COMMAND_DESCRIPTION = (
     "approval_progress in the result — the stage cleared only when "
     "stage_approved is true, and DeploymentApprovalGranted is emitted only "
     "then. A cleared stage does not advance the run by itself: clearing it "
-    "wakes the project's deploy-lock driver (its steering seat when nobody "
-    "holds the lock) with the commands that re-enter the runner, which this "
+    "wakes the run's live driver (the project's steering seat when no driver "
+    "is attached) with the command that re-enters the runner, which this "
     "command also prints."
 )
 

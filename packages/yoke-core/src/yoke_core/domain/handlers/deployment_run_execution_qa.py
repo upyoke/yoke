@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.deployment_common import error, run_id
 from yoke_core.domain.handlers.deployment_run_execution import (
-    _require_execution_lock,
+    require_run_driver,
 )
 
 
@@ -55,17 +55,17 @@ class DeploymentExecutionEphemeralQaReadyResponse(BaseModel):
     ready: bool
 
 
-def _locked_run(request: FunctionCallRequest, function_id: str):
+def _driven_run(request: FunctionCallRequest, function_id: str):
     resolved = run_id(request, function_id)
     if isinstance(resolved, HandlerOutcome):
         return resolved
-    return _require_execution_lock(request, resolved) or resolved
+    return require_run_driver(request, resolved) or resolved
 
 
 def handle_deployment_execution_qa_seed(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    resolved = _locked_run(request, "deployment_runs.execution.qa_seed")
+    resolved = _driven_run(request, "deployment_runs.execution.qa_seed")
     if isinstance(resolved, HandlerOutcome):
         return resolved
     from yoke_core.domain.deploy_qa_recorder import cmd_seed_from_flow
@@ -82,7 +82,7 @@ def handle_deployment_execution_qa_seed(
 def handle_deployment_execution_qa_record(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    resolved = _locked_run(request, "deployment_runs.execution.qa_record")
+    resolved = _driven_run(request, "deployment_runs.execution.qa_record")
     if isinstance(resolved, HandlerOutcome):
         return resolved
     payload = request.payload or {}
@@ -116,7 +116,7 @@ def handle_deployment_execution_qa_record(
 def handle_deployment_execution_qa_pending(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    resolved = _locked_run(request, "deployment_runs.execution.qa_pending")
+    resolved = _driven_run(request, "deployment_runs.execution.qa_pending")
     if isinstance(resolved, HandlerOutcome):
         return resolved
     from yoke_core.domain.db_helpers import connect
@@ -146,7 +146,7 @@ def handle_deployment_execution_qa_pending(
 def handle_deployment_execution_ephemeral_qa_ready(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    resolved = _locked_run(request, "deployment_runs.execution.ephemeral_qa_ready")
+    resolved = _driven_run(request, "deployment_runs.execution.ephemeral_qa_ready")
     if isinstance(resolved, HandlerOutcome):
         return resolved
     from yoke_core.domain.db_helpers import connect, query_scalar

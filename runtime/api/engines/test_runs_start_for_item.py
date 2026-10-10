@@ -12,8 +12,6 @@ from __future__ import annotations
 
 from unittest import mock
 
-import pytest
-
 from runtime.api.engines.runs_start_for_item_test_support import _patches
 from yoke_core.engines import runs_start_for_item as composer
 from yoke_core.engines.runs_start_for_item import (
@@ -26,18 +24,6 @@ from yoke_core.engines.runs_start_for_item import (
     start_for_item,
 )
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
-
-
-@pytest.fixture(autouse=True)
-def holding_the_deploy_lock():
-    """Run every composer test as the session that holds the deploy lock.
-
-    The gate opens a control-plane connection, which this mocked surface
-    deliberately does not have. The lock's own behavior is covered by the
-    two tests at the end of this module, which override this.
-    """
-    with mock.patch.object(composer, "deploy_lock_refusal", return_value=None):
-        yield
 
 
 def test_success_returns_structured_handle():
@@ -60,23 +46,31 @@ def test_success_returns_structured_handle():
 
 def test_explicit_kwargs_override_item_row():
     helpers = mock.patch.object(
-        composer, "_lookup_item_project_and_flow",
+        composer,
+        "_lookup_item_project_and_flow",
         return_value=("ignored", "ignored-flow"),
     )
     resolve = mock.patch.object(
-        composer, "cmd_resolve_target",
+        composer,
+        "cmd_resolve_target",
         return_value=("persistent", 102, "preview"),
     )
     create = mock.patch.object(
-        composer, "cmd_create_run", return_value="R1",
+        composer,
+        "cmd_create_run",
+        return_value="R1",
     )
     add = mock.patch.object(composer, "cmd_add_item", return_value="OK")
     validate = mock.patch.object(
-        composer, "cmd_validate_composition", return_value=(True, "ok"),
+        composer,
+        "cmd_validate_composition",
+        return_value=(True, "ok"),
     )
     with helpers, resolve as resolve_m, create as create_m, add, validate:
         result = start_for_item(
-            42, project="externalwebapp", flow="to-staging",
+            42,
+            project="externalwebapp",
+            flow="to-staging",
         )
     assert result.project == "externalwebapp"
     assert result.flow == "to-staging"
@@ -86,20 +80,25 @@ def test_explicit_kwargs_override_item_row():
     assert args[0] == "externalwebapp"
     assert args[1] == "to-staging"
     resolve_m.assert_called_once_with(
-        "externalwebapp", "to-staging", environment_override=None,
+        "externalwebapp",
+        "to-staging",
+        environment_override=None,
     )
 
 
 def test_item_without_flow_uses_its_workflow_specific_project_default():
     conn = mock.MagicMock()
     conn.execute.return_value.fetchone.return_value = ("yoke", None, "dash")
-    with mock.patch(
-        "yoke_core.domain.db_helpers.connect",
-        return_value=conn,
-    ), mock.patch(
-        "yoke_core.domain.workflow_project_defaults.get_delivery_default",
-        return_value="dash-production",
-    ) as resolve_default:
+    with (
+        mock.patch(
+            "yoke_core.domain.db_helpers.connect",
+            return_value=conn,
+        ),
+        mock.patch(
+            "yoke_core.domain.workflow_project_defaults.get_delivery_default",
+            return_value="dash-production",
+        ) as resolve_default,
+    ):
         project, flow = composer._lookup_item_project_and_flow(42)
 
     assert (project, flow) == ("yoke", "dash-production")
@@ -141,7 +140,9 @@ def test_missing_flow_refusal_carries_the_flow_selection_recovery():
     # is handed the rendered reference rather than the internal id.
     recovery = "PREFIX-N has no deployment_flow; pass --flow with one of: to-prod"
     describe = mock.patch.object(
-        composer, "_describe_missing_flow", return_value=recovery,
+        composer,
+        "_describe_missing_flow",
+        return_value=recovery,
     )
     with helpers, resolve, create, add, validate, describe as describe_m:
         result = start_for_item(42)
@@ -182,16 +183,26 @@ def test_stage_run_without_lineage_binds_exact_remote_head_before_create():
     helpers, resolve, create, add, validate = _patches(
         target=("persistent", 103, "stage"),
     )
-    with helpers, resolve, create as create_m, add, validate, mock.patch.object(
-        composer,
-        "_resolve_remote_release_head",
-        return_value=(remote_sha, ""),
-    ) as resolve_head:
+    with (
+        helpers,
+        resolve,
+        create as create_m,
+        add,
+        validate,
+        mock.patch.object(
+            composer,
+            "_resolve_remote_release_head",
+            return_value=(remote_sha, ""),
+        ) as resolve_head,
+    ):
         result = start_for_item(42)
 
     assert result.ok is True
     resolve_head.assert_called_once_with(
-        "yoke", "persistent", "stage", "",
+        "yoke",
+        "persistent",
+        "stage",
+        "",
     )
     assert create_m.call_args.kwargs["release_lineage"] == remote_sha
 
@@ -244,6 +255,7 @@ def test_validate_composition_failure_preserves_run_id_and_blocks_deploy():
     # absence by ensuring deploy_pipeline is not imported by this module
     # (and therefore not callable from the composer's call graph).
     import yoke_core.engines.runs_start_for_item as mod
+
     assert "deploy_pipeline" not in dir(mod)
 
 
@@ -261,9 +273,15 @@ def test_validate_composition_raise_captured():
 
 def test_to_dict_omits_error_fields_on_success():
     handle = StartForItemResult(
-        ok=True, project="p", flow="f", target_tier="persistent",
-        target_environment_id=101, target_environment_name="prod",
-        run_id="R", validation_message="ok", item_ids=[42],
+        ok=True,
+        project="p",
+        flow="f",
+        target_tier="persistent",
+        target_environment_id=101,
+        target_environment_name="prod",
+        run_id="R",
+        validation_message="ok",
+        item_ids=[42],
     )
     out = handle.to_dict()
     assert out["ok"] is True
@@ -274,8 +292,13 @@ def test_to_dict_omits_error_fields_on_success():
 
 def test_to_dict_includes_error_fields_on_failure():
     handle = StartForItemResult(
-        ok=False, project="p", flow="f", run_id=None,
-        error="missing", error_phase=PHASE_RESOLVE, item_ids=[42],
+        ok=False,
+        project="p",
+        flow="f",
+        run_id=None,
+        error="missing",
+        error_phase=PHASE_RESOLVE,
+        item_ids=[42],
     )
     out = handle.to_dict()
     assert out["ok"] is False

@@ -14,7 +14,6 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.api import app_factory
-from yoke_core.domain import coordination_claims
 from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
     grant_actor_project_role,
@@ -25,10 +24,7 @@ from yoke_core.domain.api_tokens import mint_token
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
-from yoke_core.domain.work_claim_targets import (
-    make_deploy_serialization_target,
-    make_item_target,
-)
+from yoke_core.domain.work_claim_targets import make_item_target
 from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 from yoke_core.domain.yoke_function_dispatch import dispatch
 
@@ -149,12 +145,6 @@ def serving_plane():
         )
         other_session = "yoke-only-owner"
         other_id, other_token = _project_owner(conn, "yoke", other_session)
-        coordination_claims.acquire(
-            conn,
-            make_deploy_serialization_target(project_id, PROJECT),
-            owner_session,
-            reason="external deployment test",
-        )
         claim_work(
             conn,
             session_id=owner_session,

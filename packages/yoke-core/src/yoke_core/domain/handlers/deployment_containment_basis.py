@@ -3,7 +3,7 @@
 from pydantic import BaseModel
 from yoke_contracts.api.function_call import HandlerOutcome
 from yoke_core.domain.handlers.deployment_common import error, run_id
-from yoke_core.domain.handlers.deployment_run_execution import _require_execution_lock
+from yoke_core.domain.handlers.deployment_run_execution import require_run_driver
 
 FUNCTION_ID = "deployment_runs.execution.containment_basis"
 
@@ -20,7 +20,7 @@ def handle(request):
     resolved = run_id(request, FUNCTION_ID)
     if isinstance(resolved, HandlerOutcome):
         return resolved
-    if refusal := _require_execution_lock(request, resolved):
+    if refusal := require_run_driver(request, resolved):
         return refusal
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.deployment_run_contained_items import (
@@ -53,7 +53,7 @@ def register(registry):
         target_kinds=["workflow_run"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["deploy_lock_required"],
+        guardrails=["run_driver_required"],
         adapter_status="live",
         claim_required_kind=None,
         minimum_serving_version="next-release",

@@ -18,10 +18,10 @@ a lineage is observed without deriving another commit or handing it off
 again. An explicit release lineage still requests hand-off recovery and
 must agree with the immutable pin.
 
-Binding is where this stops. Executing a run needs the project's deploy lock
-and a direct control-plane connection, and a merging worker holds neither —
-so the completed pair is handed to the session that does hold that authority
-as a durable Fleet message, keyed so that re-running this after a crash, or
+Binding is where this stops. Executing a run needs a direct control-plane
+connection and a session that will drive it to the end, and a merging worker
+is neither — so the completed pair is handed to the session that drives the
+project's deployments as a durable Fleet message, keyed so that re-running this after a crash, or
 running it once per member of the same pair, delivers exactly one hand-off
 rather than one per attempt. No merge acquires deploy authority, and a merge
 with no prepared run waiting on it takes none of this path at all.
@@ -32,7 +32,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
-from yoke_core.domain.deploy_lock import AMBIENT_SESSION
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.deployment_run_lineage_rebind import (
     lineage_of,
@@ -46,6 +45,11 @@ from yoke_core.domain.deployment_run_pair_obligations import (
 from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
 from yoke_core.domain.project_identity import render_item_ref
 
+
+#: Passed as ``session_id`` by a call site that has no session of its own
+#: to name and wants the ambient one resolved — what a terminal caller has.
+#: Distinct from ``None``, which asserts "no session".
+AMBIENT_SESSION = "<ambient>"
 
 #: No prepared run is waiting on this item. The ordinary case for an ordinary
 #: merge, and explicitly not a failure.

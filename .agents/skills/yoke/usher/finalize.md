@@ -60,7 +60,7 @@ Send Fleet DONE/END only at actual terminal when the mandate requires it,
 with DONE before releasing a claim still held. Never create a run when the
 mandate reserves batching to the orchestrator.
 
-Run-based groups execute once under project DEPLOY holds, seed QA automatically
+Run-based groups execute once, occupying their target servers, seed QA automatically
 and close members through selected-flow evidence. Proven premerge ephemeral
 stage alone allows from-stage continuation; unresolved preview/environment/
 lineage/occupancy choices remain explicit operator decisions.

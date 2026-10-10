@@ -69,9 +69,13 @@ def _approved(conn: Any, run_id: str, stage: str) -> bool:
     )
 
 
+def _drive(run_id: str) -> str:
+    from yoke_core.domain.deploy_pipeline_environment import watch_deploy_command
+
+    return watch_deploy_command(run_id)
+
+
 def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
-    from yoke_core.domain.coordination_claims import active_claim
-    from yoke_core.domain.deploy_lock import deploy_lock_key
     from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
     from yoke_core.domain.deployment_run_completion_preconditions import (
         unresolved_blocking_qa,
@@ -82,8 +86,6 @@ def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
     from yoke_core.domain.no_obligation_member_close_out import (
         satisfied_delivery_member,
     )
-    from yoke_core.domain.project_identity import resolve_project
-    from yoke_core.domain.work_claim_targets import make_deploy_serialization_target
 
     row = conn.execute(
         "SELECT dr.project_id,dr.status,dr.current_stage,dr.target_tier,"
@@ -100,17 +102,6 @@ def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
         return None, "already succeeded"
     if status != "executing":
         return None, f"run status is {status}, not executing"
-    project_id = int(_row_value(row, "project_id", 0))
-    project = resolve_project(conn, project_id)
-    assert project is not None
-    claim = active_claim(
-        conn, make_deploy_serialization_target(project_id, project.slug)
-    )
-    if claim is None and str(_row_value(row, "current_stage", 2) or "") != "complete":
-        return None, (
-            f"project deploy lock {deploy_lock_key(project.slug)} is unheld; "
-            "acquire it and re-drive this run"
-        )
     current_stage = str(_row_value(row, "current_stage", 2) or "")
     attached = live_attachment_for_run(conn, run_id_value=run_id, now=iso8601_now())
     if attached is not None and current_stage != "complete":
@@ -207,8 +198,9 @@ def finish_ready_run(conn: Any, run_id: str) -> CompletionAttempt:
     """Adopt settled evidence once, using the existing succeeded close-out.
 
     Call after the settlement transaction commits. An attached driver owns
-    its continuation; a detached one can be finished by the serving control
-    plane while the project's deploy claim still serializes the release.
+    its continuation; a detached one is finished here by the serving
+    control plane, and the run's target occupancy still keeps any other
+    run off its servers until it is terminal.
     """
     from yoke_core.domain.backlog_item_db_writes import _update_item_multi
     from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
@@ -232,7 +224,7 @@ def finish_ready_run(conn: Any, run_id: str) -> CompletionAttempt:
         refusal = cmd_update(run_id, "status", "succeeded")
         if refusal:
             return CompletionAttempt(
-                failure=f"{refusal}; re-drive {run_id} under its project deploy lock"
+                failure=f"{refusal}; re-drive it with `{_drive(run_id)}`"
             )
         return CompletionAttempt(completed=True)
     except Exception as exc:  # noqa: BLE001 - settlement remains durable
@@ -240,7 +232,7 @@ def finish_ready_run(conn: Any, run_id: str) -> CompletionAttempt:
         return CompletionAttempt(
             failure=(
                 f"automatic completion of {run_id} failed: {exc}; "
-                f"re-drive {run_id} under its project deploy lock"
+                f"re-drive it with `{_drive(run_id)}`"
             )
         )
 
@@ -252,9 +244,7 @@ def continue_after_settlement(
     result = finish_ready_run(conn, run_id)
     if not notify_recovery:
         return result
-    detail = result.failure or (
-        result.waiting if "deploy lock" in result.waiting else ""
-    )
+    detail = result.failure
     if not detail:
         return result
     from yoke_core.domain.deployment_run_driver_notice import push_run_scoped_notice
@@ -274,6 +264,7 @@ def continue_after_settlement(
             return result
         delivered = push_run_scoped_notice(
             conn,
+            run_id=run_id,
             project_id=project.id,
             body_for_route=lambda _route: (
                 f"Deployment run {run_id} did not finish automatically: {detail}. "

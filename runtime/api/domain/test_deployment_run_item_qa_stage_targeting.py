@@ -83,7 +83,7 @@ def targeted_out(test_db: Any) -> Any:
 def _pre_start(monkeypatch: pytest.MonkeyPatch, run_id: str):
     _isolate_candidate_reads(monkeypatch)
     for name, value in (
-        ("_require_execution_lock", lambda _request, _run_id: None),
+        ("require_run_driver", lambda _request, _run_id: None),
         ("_record_bound_sources", lambda _run_id: {}),
     ):
         monkeypatch.setattr(

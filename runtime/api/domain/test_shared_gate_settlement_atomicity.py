@@ -14,9 +14,9 @@ with it.
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Any
 
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from runtime.api.domain.test_deployment_delivery_close_out_notice import (
     COMPLETION_FLOW,
     _project,
@@ -48,8 +48,8 @@ def _executing_run(conn: Any, run_id: str, members: tuple[int, ...]) -> None:
     """A run whose stages are done and whose shared gate has passed.
 
     ``current_stage='complete'`` is the state settlement actually runs in: the
-    driver finished the pinned stages and released the project deploy lock
-    before the shared gate resolved.
+    driver finished the pinned stages and detached before the shared gate
+    resolved.
     """
     now = iso8601_now()
     conn.execute(
@@ -112,23 +112,6 @@ def _status(conn: Any, item_id: int) -> str:
     return conn.execute("SELECT status FROM items WHERE id=%s", (item_id,)).fetchone()[
         "status"
     ]
-
-
-DRIVER_SESSION = "deploy-driver"
-
-
-def _driver_holds_deploy_lock(conn: Any, monkeypatch) -> None:
-    """Stand in for the deploy-lock holder completion and notices both read.
-
-    The holder must be a real session: a refusal addresses its recovery
-    notice to whoever holds the lock, and an unknown id is refused by name.
-    """
-    from runtime.api.domain.test_deployment_qa_stage_wake_delivery import seed_session
-    from yoke_core.domain import coordination_claims
-
-    seed_session(conn, DRIVER_SESSION)
-    holder = SimpleNamespace(actor_id=2, session_id=DRIVER_SESSION)
-    monkeypatch.setattr(coordination_claims, "active_claim", lambda *_args: holder)
 
 
 def _two_ready_members(conn: Any) -> str:
@@ -200,6 +183,11 @@ def test_clearing_the_blocker_replays_settlement_without_a_hand_re_drive(
         _settle,
     )
     from yoke_core.domain.deployment_run_auto_completion import finish_ready_run
+    from yoke_core.domain.deployment_run_driver_attachment import (
+        PHASE_EXECUTING,
+        attach_driver,
+        release_driver,
+    )
     from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
     from yoke_core.domain.qa_plan_execution_store import lock_plan_execution
 
@@ -212,14 +200,21 @@ def test_clearing_the_blocker_replays_settlement_without_a_hand_re_drive(
         "UPDATE deployment_runs SET current_stage='run-qa' WHERE id=%s", (run_id,)
     )
     test_db.commit()
-    # Every gate the run carries is now accepted, so only the members' own
-    # close-outs are left. Residue with a recorded result is a real blocker,
-    # not something settlement may supersede on its own.
+    # The live driver owns the continuation while the last gate is accepted;
+    # it then detaches with only the members' own close-outs left. Residue
+    # with a recorded result is a real blocker, not something settlement may
+    # supersede on its own.
+    release_seeded_driver(test_db, run_id)
+    attach_driver(
+        test_db, run_id, session_id="deploy-driver", pid=4242, phase=PHASE_EXECUTING
+    )
+    test_db.commit()
     _settle(test_db, run_id=run_id, stage="run-qa", member=None, may_complete_run=True)
     execution_id = _item_level_execution(
         test_db, "execution-cleared", MEMBER_B, cursor_ordinal=1
     )
-    _driver_holds_deploy_lock(test_db, monkeypatch)
+    assert release_driver(test_db, run_id, session_id="deploy-driver", pid=4242)
+    test_db.commit()
 
     assert not finish_ready_run(test_db, run_id).completed
     assert _run_status(test_db, run_id) == ("executing", True)

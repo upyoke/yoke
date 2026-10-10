@@ -86,7 +86,7 @@ status TEXT NOT NULL DEFAULT 'active' -- 'active' | 'deprecated'
 
 ## Deployment run authority
 
-[Deployment run records](deployment-run-records.md) defines run lineage, composition and custody, stage receipts, membership and settlement, the deploy lock, idempotent creation, and blocking QA. Read it before creating or executing a run or interpreting release completion.
+[Deployment run records](deployment-run-records.md) defines run lineage, composition and custody, stage receipts, membership and settlement, target occupancy and run drivers, idempotent creation, and blocking QA. Read it before creating or executing a run or interpreting release completion.
 
 ## Table: deployment_preview_environments
 

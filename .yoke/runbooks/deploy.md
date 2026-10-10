@@ -76,11 +76,9 @@ Record the obligation before either side merges, and the merges carry it:
    `--gate-point integration --satisfaction fact:merged`, naming the host item
    as the blocker. This gates delivery, not activation, so both sides are still
    built in parallel and either may merge first.
-2. Take the deploy lock and prepare the run:
+2. Prepare the run:
 
    ```bash
-   yoke claims coordination-claim acquire --project yoke --key DEPLOY:yoke \
-       --reason "driving the breaking-contract pair"
    yoke --env prod-db-admin deployment-runs start-for-item YOK-N --prepare
    ```
 
@@ -88,8 +86,8 @@ Record the obligation before either side merges, and the merges carry it:
    not exist yet — and remembers which partners have still to merge.
 3. Merge both sides normally. Each merge close-out asks whether it completed
    the pair. The earlier merge reports what it is still waiting for; the last
-   merge binds the run to the merge commit and hands the run to whoever holds
-   `DEPLOY:yoke`, as a durable Fleet message keyed so one completed pair
+   merge binds the run to the merge commit and hands the run to its live
+   driver, or the project's steering seat, as a durable Fleet message keyed so one completed pair
    produces one hand-off however many times close-out re-runs.
 4. Execute the run you were handed. Nothing deploys until you do:
 

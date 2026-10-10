@@ -171,7 +171,18 @@ def cmd_update(
                 from yoke_core.domain.deployment_run_composition_freeze import (
                     freeze_run_composition,
                 )
+                from yoke_core.domain.deploy_target_occupancy import (
+                    DeployTargetOccupiedError,
+                    require_target_unoccupied,
+                )
 
+                try:
+                    # Held through the stamp below: the next start on this
+                    # origin reads this run as executing, not as free.
+                    require_target_unoccupied(conn, run_id)
+                except DeployTargetOccupiedError as exc:
+                    conn.rollback()
+                    return f"Error: {exc}"
                 try:
                     timed_call(
                         "composition_freeze", freeze_run_composition, conn, run_id

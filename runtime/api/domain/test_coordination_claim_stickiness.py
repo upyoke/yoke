@@ -13,7 +13,6 @@ from yoke_core.domain.steering_claims import acquire as acquire_steering
 from yoke_core.domain.strategy_docs_defaults import seed_default_docs
 from yoke_core.domain.work_claim_targets import (
     STICKY_TARGET_KINDS,
-    TARGET_KIND_DEPLOY_SERIALIZATION,
     TARGET_KIND_MIGRATION_SERIALIZATION,
     TARGET_KIND_QA_ADMISSION,
     TARGET_KIND_ROUTE_QUALIFICATION,
@@ -21,7 +20,6 @@ from yoke_core.domain.work_claim_targets import (
 )
 from runtime.api.domain.coordination_claim_test_support import (
     PROJECT_YOKE,
-    deploy_target,
     migration_target,
     qa_target,
     qualification_target,
@@ -61,9 +59,6 @@ def _hold_everything(conn) -> dict[str, int]:
         TARGET_KIND_ROUTE_QUALIFICATION: coordination_claims.acquire(
             conn, qualification_target(), HOLDER
         ).id,
-        TARGET_KIND_DEPLOY_SERIALIZATION: coordination_claims.acquire(
-            conn, deploy_target(), HOLDER
-        ).id,
     }
 
 
@@ -80,7 +75,6 @@ class TestPolicy:
         assert STICKY_TARGET_KINDS == {
             TARGET_KIND_MIGRATION_SERIALIZATION,
             TARGET_KIND_QA_ADMISSION,
-            TARGET_KIND_DEPLOY_SERIALIZATION,
         }
         assert not is_sticky(TARGET_KIND_ROUTE_QUALIFICATION)
         assert not is_sticky("item")

@@ -4,16 +4,17 @@ Workers merge, never create/dispatch runs. Steerer uses prod control plane even
 for stage target; ordinary external delivery is HTTPS. Yoke self-deploy first
 reads [source-dev-delivery.md](source-dev-delivery.md).
 
-## Hold and compose exact code/selected flow
+## Compose exact code/selected flow
 
 ```text
-yoke claims coordination-claim acquire --project {_project} --key DEPLOY:{_project} --reason "driving the release pair"
 yoke items get PREFIX-N deployment_flow project --json
 yoke deployment-flows stages {FLOW}
 ```
 
-Hold DEPLOY before creation/execution through the whole declared release.
-Read each selected flow/bound projects; same-project final delivery uses its
+No claim is taken. A run occupies its target servers from start until its QA
+settles or it is terminal; a start aimed at an occupied server refuses
+`target_occupied` naming the holding run and its open QA. Wait for it, or
+terminalize a holder nobody will finish. Read each selected flow/bound projects; same-project final delivery uses its
 member flow. Cross-project carrying run closes only recorded bound source it
 actually ships. Differing selections need their selected run or deliberate
 reconciliation+composition validation, never silent rewrite.
@@ -110,15 +111,5 @@ yoke merge item PREFIX-N --result "what shipped" --verification "run evidence"
 ```
 
 Release only if close-out did not already release. Release-wait path claims/
-dependencies remain until done. Final settled release returns DEPLOY:
-
-```text
-yoke claims coordination-claim release --project {_project} --key DEPLOY:{_project} --reason "release pair complete"
-```
-
-No automatic reclaim. Stranded hold requires signed-in human outside harness,
-after pipeline settled, exact claim/holder and recorded reason/WARN:
-
-```text
-yoke coordination-claim release --project P --key DEPLOY:P --claim-id {claim_id} --holder-session-id S --reason REASON
-```
+dependencies remain until done. A run whose driver died needs no release: its
+attachment lapses after ten minutes and the same `watch deploy` re-drives it.

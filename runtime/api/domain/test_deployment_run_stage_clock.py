@@ -1,7 +1,7 @@
 """Stage changes stamp an atomic clock; re-entry never resets stage age."""
 
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from runtime.api.domain.test_steering_fleet_report_deployment_run_facts import _seed_run
-from runtime.api.domain.test_deployment_run_auto_completion import _held_lock
 from runtime.api.domain.test_deployment_run_member_removal import (
     ITEM,
     RUN,
@@ -47,7 +47,7 @@ def test_stage_update_stamps_entry_and_repeated_update_preserves_it(
 
 def test_automatic_completion_stamps_complete(test_db, monkeypatch):
     _red_member(test_db)
-    _held_lock(monkeypatch)
+    release_seeded_driver(test_db, RUN)
     monkeypatch.setattr(clock, "iso8601_now", lambda: ENTERED)
 
     cmd_remove_item(RUN, ITEM, reason=REASON)

@@ -36,8 +36,8 @@ yoke github-actions wait-run {OWNER_REPO} {RUN_ID} --timeout 1800 --project {PRO
 ```
 
 Store actual run id and starting only once found. Flow trigger requires its
-validated flow_id; hold DEPLOY:<run-owning project> before composition/execution
-and release after settlement. A mandate forbidding worker run creation routes
+validated flow_id; the run occupies its target until its QA settles, so a start
+refused `target_occupied` waits for the named holding run. A mandate forbidding worker run creation routes
 this preview request to covering steering, not a self-authorized exception.
 An authorized driver uses the declared composer and transport:
 

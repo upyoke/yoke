@@ -83,8 +83,8 @@ def replay_settling_runs_for_item(conn: Any, *, item_id: int) -> None:
                 pass
             print(
                 f"Deployment run {run_id} could not replay settlement after "
-                f"item {render_item_ref(conn, item_id)} cleared: {exc}. Re-drive it under the "
-                f"project deploy lock with `yoke deployment-runs update "
+                f"item {render_item_ref(conn, item_id)} cleared: {exc}. Re-drive it with "
+                f"`yoke deployment-runs update "
                 f"{run_id} status succeeded`."
             )
 

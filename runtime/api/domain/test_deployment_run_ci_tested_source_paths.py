@@ -176,9 +176,6 @@ def test_retry_of_an_untested_candidate_refuses_without_source_ref_advice():
     )
     with (
         mock.patch.object(
-            deployment_run_creation, "deploy_lock_refusal", return_value=None
-        ),
-        mock.patch.object(
             deployment_run_creation, "_retry_candidate", return_value=(HEAD, None)
         ),
         mock.patch.object(tested, "ci_gate_target", return_value=TARGET),

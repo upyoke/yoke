@@ -88,7 +88,7 @@ def test_run_message_names_the_run_stage_target_revision_and_reasons():
     assert "ephemeral" in body
     assert ("b" * 12) in body
     assert "awaiting agent verdict" in body
-    assert "deploy-lock driver" in body
+    assert "its live driver" in body
 
 
 def test_run_message_names_steering_when_the_route_is_steering():
@@ -103,7 +103,7 @@ def test_run_message_names_steering_when_the_route_is_steering():
     )
 
     assert "steering seat" in body
-    assert "no session holds its deploy lock" in body
+    assert "no driver is attached to the run" in body
 
 
 def test_item_message_names_the_stage_and_member_bound_invocation():
