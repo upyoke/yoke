@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 
 import pytest
 
@@ -23,6 +24,7 @@ from yoke_harness.session_relay_native_capture_format import (
     parse_capture,
     utc_stamp,
 )
+from yoke_harness.session_relay_native_spawn import SupervisedNative
 from yoke_harness.session_relay_native_streams import BoundedStreams
 from yoke_harness.session_relay_native_turn_custody import _silent_for_seconds
 
@@ -172,3 +174,28 @@ def test_capacity_refuses_a_bad_clock_before_any_probe(monkeypatch, bad):
         capacity.observe_machine_capacity({}, observed_at=bad)
     with pytest.raises(InvalidInstant):
         capacity.sanitize_machine_capacity({"observed_at": bad})
+
+
+@pytest.mark.parametrize("clock", [parse_instant(CANONICAL), QUALIFIED])
+def test_native_spawn_result_keeps_aware_clock_until_evidence(tmp_path, clock):
+    result = SupervisedNative(42, "native", "path", tmp_path / "capture", "ref", clock)
+    assert isinstance(result.started_at, datetime)
+    assert result.started_at == parse_instant(CANONICAL)
+    assert result.evidence["native_started_at"] == CANONICAL
+    assert result.evidence["native_binary"] == "native"
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "then",
+        "2026-09-03",
+        "2026-09-03T12:00:00",
+        "2026-09-03T12:00:00-00:00",
+        datetime(2026, 9, 3),
+        None,
+    ],
+)
+def test_native_spawn_result_refuses_ambiguous_clock(tmp_path, bad):
+    with pytest.raises(InvalidInstant):
+        SupervisedNative(42, "native", "path", tmp_path / "capture", "ref", bad)

@@ -20,6 +20,7 @@ different readers of the one custody record.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 import os
 import signal
@@ -28,6 +29,7 @@ import sys
 import time
 from typing import Callable, Mapping, Sequence
 
+from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_contracts.session_control.resume import (
     RESUME_ATTEMPT_ENV,
     RESUMED_RUNNING_RESULT,
@@ -41,7 +43,6 @@ from yoke_harness.session_launch_containment import record_supervised_native
 from yoke_harness.session_relay_native_capture_format import (
     STATE_RUNNING,
     compose_capture,
-    utc_stamp,
 )
 from yoke_harness.session_relay_native_diagnostics import (
     NativeDiagnosticError,
@@ -84,8 +85,11 @@ class SupervisedNative:
     binary_source: str
     capture_path: Path
     diagnostic_ref: str
-    started_at: str
+    started_at: datetime
     extra_evidence: Mapping[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "started_at", parse_instant(self.started_at))
 
     @property
     def evidence(self) -> dict[str, str | int]:
@@ -99,7 +103,7 @@ class SupervisedNative:
             # its capture from another seat, so it is reported on the running
             # spawn and not held back until the outcome settles.
             "native_diagnostic_ref": self.diagnostic_ref,
-            "native_started_at": self.started_at,
+            "native_started_at": format_instant(self.started_at),
             **self.extra_evidence,
         }
 
@@ -203,7 +207,7 @@ def spawn_supervised_native(
         binary_source,
         capture_path,
         reference,
-        utc_stamp(now),
+        datetime.fromtimestamp(now, timezone.utc),
         dict(extra_evidence or {}),
     )
 
