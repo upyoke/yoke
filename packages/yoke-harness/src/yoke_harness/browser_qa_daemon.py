@@ -16,20 +16,33 @@ def _log(message: str) -> None:
     print(f"[browser-runtime] {message}", file=sys.stderr)
 
 
-def ensure_daemon_running(project: Optional[str] = None) -> Optional[str]:
-    """Ensure the daemon runs on ``project``'s persistent browser profile.
+def ensure_daemon_running(
+    project: Optional[str] = None, identity: Optional[str] = None
+) -> Optional[str]:
+    """Ensure the daemon runs on one project identity's persistent profile.
 
     An authorized profile makes every context the daemon hands out signed into
-    whatever the operator signed into; a project with no profile keeps the
+    whatever the operator signed into; an identity with no profile keeps the
     clean-context behavior. Every profile owns an independent daemon;
-    another project's live capture is never stopped or reused.
+    another identity's or project's live capture is never stopped or reused.
+    A named identity must be declared, so a mistyped name refuses instead of
+    silently running signed out.
     """
-    from yoke_cli.config.browser_profile import resolve_authorized_profile
+    from yoke_contracts.browser_identity import BrowserIdentityError
+    from yoke_cli.config.browser_identities import resolve_identity
+    from yoke_cli.config.browser_profile import (
+        profile_project_key,
+        resolve_authorized_profile,
+    )
     from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 
     try:
-        profile_path, profile_note = resolve_authorized_profile(project)
-    except (ProjectSlugLookupError, MissingProjectError) as exc:
+        key = profile_project_key(project)
+        selected = resolve_identity(key, identity) if identity else None
+        profile_path, profile_note = resolve_authorized_profile(
+            key, **({"identity": selected.name} if selected else {})
+        )
+    except (ProjectSlugLookupError, MissingProjectError, BrowserIdentityError) as exc:
         return str(exc)
     _log(profile_note)
     profile = str(profile_path) if profile_path else None

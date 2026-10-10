@@ -3,13 +3,14 @@
 /**
  * Operator sign-in window for one project's persistent browser profile.
  *
- * Usage: node authorize.js --profile-dir path [--url URL]
+ * Usage: node authorize.js --profile-dir path [--url URL ...]
  *
  * Opens the profile in a plain window of the daemon's own Chromium and blocks
  * until the operator closes it. Whatever they sign into is written into the
  * profile, so every worker context the daemon later opens from it is already
  * signed in. This process never types a credential and never navigates on the
- * operator's behalf beyond the optional starting URL.
+ * operator's behalf beyond the optional starting URLs, one tab each -- the
+ * sites whose sign-in has expired when the caller names them.
  *
  * The window is a directly spawned browser process, not a Playwright context.
  * Playwright's launchPersistentContext runs the browser under automation
@@ -74,7 +75,7 @@ function macWindowCount(pid) {
 }
 
 /** Command-line flags for a plain, human-driven browser window. */
-function buildLaunchArgs({ profileDir, url }) {
+function buildLaunchArgs({ profileDir, urls = [] }) {
   const args = [
     `--user-data-dir=${profileDir}`,
     '--no-first-run',
@@ -86,9 +87,7 @@ function buildLaunchArgs({ profileDir, url }) {
     '--password-store=basic',
     '--use-mock-keychain',
   ];
-  if (url) {
-    args.push(url);
-  }
+  args.push(...urls);
   return args;
 }
 
@@ -107,14 +106,14 @@ function resolveExecutablePath() {
 }
 
 function parseArgs(argv) {
-  const args = { profileDir: '', url: '' };
+  const args = { profileDir: '', urls: [] };
   for (let i = 2; i < argv.length; i++) {
     switch (argv[i]) {
       case '--profile-dir':
         args.profileDir = argv[++i];
         break;
       case '--url':
-        args.url = argv[++i];
+        args.urls.push(argv[++i]);
         break;
       default:
         console.error(`Unknown argument: ${argv[i]}`);
@@ -135,7 +134,7 @@ function parseArgs(argv) {
  * real browser; production callers pass nothing.
  */
 function openSignInWindow(
-  { profileDir, url },
+  { profileDir, urls },
   {
     spawnProcess = spawn, executablePath = resolveExecutablePath,
     platform = process.platform, windowCount = macWindowCount,
@@ -144,7 +143,7 @@ function openSignInWindow(
   } = {},
 ) {
   const binary = executablePath();
-  const child = spawnProcess(binary, buildLaunchArgs({ profileDir, url }), {
+  const child = spawnProcess(binary, buildLaunchArgs({ profileDir, urls }), {
     stdio: ['ignore', 'ignore', 'pipe'],
   });
   let stderr = '';

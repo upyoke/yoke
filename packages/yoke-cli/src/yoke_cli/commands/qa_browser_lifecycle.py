@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Callable, List
 
+from yoke_contracts.browser_identity import DEFAULT_IDENTITY, BrowserIdentityError
 from yoke_contracts.project_defaults import MissingProjectError
 from yoke_cli.config.project_selection import required_project_context
 from yoke_cli import browser_node_toolchain
@@ -15,10 +16,12 @@ from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.commands.qa_browser_stop import qa_browser_stop
 
 
-QA_BROWSER_STATUS_USAGE = "yoke qa browser status [--project PROJECT] [--json]"
+QA_BROWSER_STATUS_USAGE = (
+    "yoke qa browser status [--project PROJECT] [--identity NAME] [--json]"
+)
 QA_BROWSER_SETUP_USAGE = (
-    "yoke qa browser setup [--dry-run] [--project PROJECT] [--port PORT] "
-    "[--headed] [--idle-timeout SECONDS] [--profile-baseline /abs/path] [--json]"
+    "yoke qa browser setup [--dry-run] [--project PROJECT] [--identity NAME] "
+    "[--port PORT] [--headed] [--idle-timeout SECONDS] [--json]"
 )
 MILLISECONDS_PER_SECOND = 1000
 
@@ -29,6 +32,7 @@ def qa_browser_status(args: List[str]) -> int:
         description=QA_BROWSER_STATUS_USAGE,
     )
     parser.add_argument("--project", default=None)
+    parser.add_argument("--identity", default=DEFAULT_IDENTITY)
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_STATUS_USAGE)
     if parsed is None:
@@ -52,6 +56,7 @@ def qa_browser_status(args: List[str]) -> int:
         browser_client,
         browser_runtime_home,
         project=parsed.project,
+        identity=parsed.identity,
     )
     if parsed.json_mode:
         print(json.dumps(payload))
@@ -75,7 +80,8 @@ def _format_status_human(payload: dict[str, object]) -> str:
         f"chromium:         {chromium.get('status', 'unknown')}",
         f"daemon:           {daemon.get('status', 'unknown')}",
         f"profile:          {profile.get('status', 'unknown')} "
-        f"({profile.get('project', 'unknown')}) {profile.get('path', '')}",
+        f"({profile.get('project', 'unknown')} identity "
+        f"{profile.get('identity', 'unknown')}) {profile.get('path', '')}",
     ]
     repairs = payload.get("repairs") or []
     if repairs:
@@ -100,20 +106,18 @@ def qa_browser_setup(args: List[str]) -> int:
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--project", default=None)
+    parser.add_argument(
+        "--identity",
+        default=None,
+        help="Declared browser identity whose profile the daemon opens (default: `default`).",
+    )
     parser.add_argument("--port", type=int, default=None)
     parser.add_argument("--headed", action="store_true")
-    parser.add_argument(
-        "--profile-baseline",
-        help="Explicitly restore a sealed test-machine profile for --project before starting the daemon; ordinary setup never restores it.",
-    )
     parser.add_argument("--idle-timeout", type=int, default=None)
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_SETUP_USAGE)
     if parsed is None:
         return 2
-
-    if parsed.profile_baseline and not parsed.project:
-        return usage_error("--profile-baseline requires an explicit --project")
 
     try:
         from yoke_harness import browser_client, browser_runtime_home
@@ -127,15 +131,7 @@ def qa_browser_setup(args: List[str]) -> int:
 
     try:
         parsed.project = required_project_context(parsed.project)
-        profile_restoration = None
-        if parsed.profile_baseline and not parsed.dry_run:
-            from yoke_cli.commands.qa_browser_profile_baseline import (
-                restore_profile_baseline,
-            )
-
-            profile_restoration = restore_profile_baseline(
-                parsed.project, parsed.profile_baseline
-            )
+        identity = _declared_identity(parsed.project, parsed.identity)
         runtime_dir = browser_runtime_home.ensure_materialized()
         prerequisite_actions: list[dict[str, str]] = []
         if not parsed.dry_run:
@@ -146,6 +142,7 @@ def qa_browser_setup(args: List[str]) -> int:
             browser_client,
             browser_runtime_home,
             project=parsed.project,
+            identity=identity,
         )
         if parsed.dry_run:
             result = {
@@ -162,7 +159,7 @@ def qa_browser_setup(args: List[str]) -> int:
                 "runtime_dir": str(runtime_dir),
                 "prerequisite_actions": prerequisite_actions,
                 "daemon": browser_client.daemon_start(
-                    profile_dir=_profile_dir_arg(parsed.project),
+                    profile_dir=_profile_dir_arg(parsed.project, identity),
                     port=parsed.port,
                     headed=parsed.headed,
                     idle_timeout=(
@@ -172,25 +169,17 @@ def qa_browser_setup(args: List[str]) -> int:
                     ),
                 ),
             }
-    except (RuntimeError, MissingProjectError) as exc:
-        from yoke_cli.commands.qa_browser_profile_baseline import (
-            ProfileBaselineRestoreError,
-        )
-
+    except (RuntimeError, MissingProjectError, BrowserIdentityError) as exc:
         failure: dict[str, object] = {"ok": False, "error": str(exc)}
         if isinstance(exc, browser_node_toolchain.NodeToolchainError):
             failure["error_code"] = exc.code
             failure["recovery"] = exc.recovery
-        if isinstance(exc, ProfileBaselineRestoreError):
-            failure.update(exc.details)
         if parsed.json_mode:
             print(json.dumps(failure))
         else:
             print(f"yoke qa browser setup: {json.dumps(failure)}", file=sys.stderr)
         return 2
 
-    if profile_restoration is not None:
-        result["profile_restore"] = profile_restoration
     if parsed.json_mode:
         print(json.dumps(result))
     else:
@@ -199,15 +188,25 @@ def qa_browser_setup(args: List[str]) -> int:
     return 0
 
 
-def _profile_dir_arg(project: str | None) -> str | None:
+def _declared_identity(project: str, identity: str | None) -> str:
+    """The identity setup opens; a named one must be declared by the project."""
+    if not identity:
+        return DEFAULT_IDENTITY
+    from yoke_cli.config.browser_identities import resolve_identity
+    from yoke_cli.config.browser_profile import profile_project_key
+
+    return resolve_identity(profile_project_key(project), identity).name
+
+
+def _profile_dir_arg(project: str | None, identity: str) -> str | None:
     """The authorized profile the daemon should launch, or ``None`` for clean."""
     from yoke_cli.config.browser_profile import authorized_profile_dir
 
-    authorized = authorized_profile_dir(project)
+    authorized = authorized_profile_dir(project, identity=identity)
     return str(authorized) if authorized is not None else None
 
 
-def _profile_readiness(project: str | None) -> dict[str, object]:
+def _profile_readiness(project: str | None, identity: str) -> dict[str, object]:
     """Report which project profile a daemon started here would open.
 
     Status is a diagnostic surface, so a project reference that does not
@@ -219,12 +218,13 @@ def _profile_readiness(project: str | None) -> dict[str, object]:
     from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
 
     try:
-        directory = browser_profile.profile_dir(project)
+        directory = browser_profile.profile_dir(project, identity=identity)
         key = browser_profile.profile_project_key(project)
-    except ProjectSlugLookupError as exc:
+    except (ProjectSlugLookupError, ValueError) as exc:
         return {"project": "unresolved", "path": "", "status": str(exc)}
     return {
         "project": key,
+        "identity": identity,
         "path": str(directory),
         "status": "authorized" if directory.is_dir() else "not authorized",
     }
@@ -234,6 +234,7 @@ def _browser_readiness(
     browser_client,
     browser_runtime_home,
     project: str | None = None,
+    identity: str = DEFAULT_IDENTITY,
 ) -> dict[str, object]:
     runtime_dir = browser_runtime_home.runtime_dir()
     expected_hash = browser_runtime_home.source_hash()
@@ -251,9 +252,9 @@ def _browser_readiness(
         "npm_dependencies": {"status": "ready" if deps_ready else "missing"},
         "chromium": {"status": chromium},
         "daemon": browser_client.daemon_status(
-            profile_dir=_profile_dir_arg(project) or ""
+            profile_dir=_profile_dir_arg(project, identity) or ""
         ),
-        "profile": _profile_readiness(project),
+        "profile": _profile_readiness(project, identity),
         "repairs": repairs,
     }
 

@@ -200,7 +200,7 @@ def _process_requirement(
             subject=subject,
             route=current_route,
             actor=actor,
-            project=project,
+            sign_in=sign_in,
             color_scheme=scheme,
         )
         if failed is not None:

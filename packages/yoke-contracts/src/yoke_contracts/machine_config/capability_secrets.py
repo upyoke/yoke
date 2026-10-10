@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
+from yoke_contracts.browser_identity import DEFAULT_IDENTITY, validate_identity_name
 from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
 
 CAPABILITY_SECRETS_DIR_NAME = "capability-secrets"
@@ -25,6 +26,9 @@ BROWSER_CONTROL_CAPABILITY = "browser-control"
 #: rather than a secret key file, so it never routes through the
 #: secret-key contract above.
 BROWSER_PROFILE_DIR_NAME = "profile"
+#: Directory, under the browser-control capability, holding one profile per
+#: named identity other than ``default``.
+BROWSER_IDENTITIES_DIR_NAME = "identities"
 TEST_MACHINE_CAPABILITY = "test-machine"
 TEST_MACHINE_SECRET_KEYS = frozenset({"ssh_private_key"})
 MACHINE_LOCAL_SECRET_KEYS_BY_CAPABILITY = {
@@ -88,20 +92,27 @@ def capability_secret_directory_relative_path(
     )
 
 
-def browser_profile_relative_path(project_ref: str) -> Path:
-    """Return the path under ``~/.yoke/secrets`` for a project's browser profile.
+def browser_profile_relative_path(
+    project_ref: str, identity: str = DEFAULT_IDENTITY
+) -> Path:
+    """Return the path under ``~/.yoke/secrets`` for one identity's browser profile.
 
     The profile carries live signed-in cookies for whatever the operator
     signed into, so it lives beside the project's other machine-local
     capability secrets and never in the database, the repository, QA
-    artifacts, or a transcript.
+    artifacts, or a transcript. The ``default`` identity keeps the project's
+    original single-profile path, so a profile signed in before identities
+    existed is that identity's profile; every other identity has its own.
     """
-    return (
+    capability = (
         Path(CAPABILITY_SECRETS_DIR_NAME)
         / safe_secret_component(project_ref, "project")
         / BROWSER_CONTROL_CAPABILITY
-        / BROWSER_PROFILE_DIR_NAME
     )
+    name = validate_identity_name(identity)
+    if name == DEFAULT_IDENTITY:
+        return capability / BROWSER_PROFILE_DIR_NAME
+    return capability / BROWSER_IDENTITIES_DIR_NAME / name / BROWSER_PROFILE_DIR_NAME
 
 
 def safe_secret_component(raw: str, label: str) -> str:
@@ -119,6 +130,7 @@ __all__ = [
     "AWS_ADMIN_CAPABILITY",
     "AWS_ADMIN_SECRET_KEYS",
     "BROWSER_CONTROL_CAPABILITY",
+    "BROWSER_IDENTITIES_DIR_NAME",
     "BROWSER_PROFILE_DIR_NAME",
     "CAPABILITY_SECRETS_DIR_NAME",
     "MACHINE_LOCAL_SECRET_KEYS_BY_CAPABILITY",

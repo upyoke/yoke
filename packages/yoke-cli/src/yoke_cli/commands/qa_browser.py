@@ -22,17 +22,22 @@ from yoke_contracts.project_defaults import MissingProjectError
 
 QA_BROWSER_SCREENSHOT_USAGE = (
     "yoke qa browser screenshot <url> --output PATH "
-    "[--viewport WxH] [--annotate] [--project PROJECT]"
+    "[--viewport WxH] [--annotate] [--project PROJECT] [--identity NAME]"
 )
 QA_BROWSER_STEP_USAGE = (
     "yoke qa browser step --base-url URL --step-json JSON "
-    "[--output-dir PATH] [--project PROJECT]"
+    "[--output-dir PATH] [--project PROJECT] [--identity NAME]"
 )
 
 _PROJECT_FLAG_HELP = (
     "Project whose authorized browser profile the daemon opens "
     "(explicit flag, YOKE_PROJECT, or caller checkout binding; "
     "missing context refuses with project_required and accessible projects)."
+)
+_IDENTITY_FLAG_HELP = (
+    "Browser identity whose profile the daemon opens (default: `default`). "
+    "Each identity has its own profile and daemon; a name the project does "
+    "not declare refuses with browser_identity_undeclared."
 )
 
 _QA_BROWSER_SCREENSHOT_HELP_DEEP = """\
@@ -78,6 +83,7 @@ def qa_browser_screenshot(args: List[str]) -> int:
         help="Annotate interactive elements in the capture.",
     )
     parser.add_argument("--project", default=None, help=_PROJECT_FLAG_HELP)
+    parser.add_argument("--identity", default=None, help=_IDENTITY_FLAG_HELP)
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_SCREENSHOT_USAGE)
     if parsed is None:
         return 2
@@ -98,7 +104,7 @@ def qa_browser_screenshot(args: List[str]) -> int:
         parsed.project = required_project_context(parsed.project)
     except MissingProjectError as exc:
         return usage_error(str(exc))
-    daemon_error = ensure_daemon_running(parsed.project)
+    daemon_error = ensure_daemon_running(parsed.project, parsed.identity)
     if daemon_error:
         print(
             f"yoke qa browser screenshot: browser daemon unavailable: {daemon_error}",
@@ -106,7 +112,7 @@ def qa_browser_screenshot(args: List[str]) -> int:
         )
         return 2
 
-    with project_scope(parsed.project):
+    with project_scope(parsed.project, parsed.identity):
         try:
             result = browser_client.snapshot_screenshot(
                 parsed.url,
@@ -132,6 +138,7 @@ def qa_browser_step(args: List[str]) -> int:
     parser.add_argument("--step-json", required=True)
     parser.add_argument("--output-dir")
     parser.add_argument("--project", default=None, help=_PROJECT_FLAG_HELP)
+    parser.add_argument("--identity", default=None, help=_IDENTITY_FLAG_HELP)
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_STEP_USAGE)
     if parsed is None:
         return 2
@@ -157,14 +164,14 @@ def qa_browser_step(args: List[str]) -> int:
         parsed.project = required_project_context(parsed.project)
     except MissingProjectError as exc:
         return usage_error(str(exc))
-    daemon_error = ensure_daemon_running(parsed.project)
+    daemon_error = ensure_daemon_running(parsed.project, parsed.identity)
     if daemon_error:
         print(
             f"yoke qa browser step: browser daemon unavailable: {daemon_error}",
             file=sys.stderr,
         )
         return 2
-    with project_scope(parsed.project):
+    with project_scope(parsed.project, parsed.identity):
         try:
             # One exploratory agent, one page: the steps it submits across
             # separate commands land on the same screen, and an authored QA case
