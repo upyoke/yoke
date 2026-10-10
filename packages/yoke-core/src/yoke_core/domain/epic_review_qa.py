@@ -32,6 +32,7 @@ from yoke_core.domain.simulation_report_headers import (
     parse_simulation_headers,
 )
 from yoke_core.domain.simulation_attempt_read import verify_simulation_attempt
+from yoke_core.domain.sql_json import json_get
 from yoke_core.domain.qa_workflow_binding_validation import (
     item_transition_for_gate,
 )
@@ -213,14 +214,14 @@ def simulation_upsert(
     )
 
     # Check for existing requirement
-    # deliberate case-sensitive match against internal JSON-literal phase token
     row = query_one(
         conn,
         (
             "SELECT id FROM qa_requirements WHERE qa_kind='simulation' "
-            f"AND item_id={_placeholder(conn)} AND success_policy LIKE {_placeholder(conn)}"
+            f"AND item_id={_placeholder(conn)} "
+            f"AND {json_get('success_policy', '$.phase')} = {_placeholder(conn)}"
         ),
-        (str(epic_id), f'%"phase":"{phase}"%'),
+        (str(epic_id), phase),
     )
 
     if row:
