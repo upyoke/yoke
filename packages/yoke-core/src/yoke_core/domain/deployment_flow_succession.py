@@ -52,7 +52,7 @@ def succession_chains(conn: Any, flow_ids: Iterable[str]) -> dict[str, tuple[str
         str(row[0]): (
             row[1],
             str(row[2] or ""),
-            parse_instant(row[4]) if row[4] is not None else None,
+            row[4],
             (row[5], row[6]),
         )
         for row in rows
@@ -85,7 +85,16 @@ def succession_chains(conn: Any, flow_ids: Iterable[str]) -> dict[str, tuple[str
             frontier.extend(successors.get(current, ()))
         if not active:
             continue
-        chain = [max(active, key=lambda f: (flows[f][2] is not None, flows[f][2], f))]
+        chain = [
+            max(
+                active,
+                key=lambda f: (
+                    flows[f][2] is not None,
+                    parse_instant(flows[f][2]) if flows[f][2] is not None else None,
+                    f,
+                ),
+            )
+        ]
         while chain[-1] != flow_id:
             chain.append(predecessor[chain[-1]])
         chains[flow_id] = tuple(reversed(chain))
