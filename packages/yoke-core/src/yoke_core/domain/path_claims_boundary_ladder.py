@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import Any, Dict, Sequence, Tuple
 
 from yoke_core.domain.gate_satisfier_facts import (
+    OBSERVED_LANDED_MERGE,
     OBSERVED_LOCAL_INTEGRATION_REF,
     OBSERVED_REMOTE_INTEGRATION_REF,
     load_project_facts,
@@ -36,7 +37,8 @@ from yoke_core.domain.path_claims_boundary_git import (
 
 
 def probe_integration_refs(
-    repo_path: str, integration_targets: Sequence[str],
+    repo_path: str,
+    integration_targets: Sequence[str],
 ) -> Dict[str, Tuple[bool, str]]:
     """Report which integration rung this worktree can actually reach.
 
@@ -79,11 +81,18 @@ def resolve_boundary_rung(
     integration_targets: Sequence[str],
 ) -> LadderResolution:
     """Return the reachable boundary rung, or raise ``LadderUnsatisfied``."""
+    observed = probe_integration_refs(repo_path, integration_targets)
+    # This ladder runs only for work no recorded landing describes yet; the
+    # landed rung is proved by ``path_claims_landed_boundary`` instead.
+    observed[OBSERVED_LANDED_MERGE] = (
+        False,
+        "no recorded landing describes the item's current lane head",
+    )
     facts = load_project_facts(
         conn,
         project_id,
         item_id=item_id,
-        observed=probe_integration_refs(repo_path, integration_targets),
+        observed=observed,
     )
     return require_rung(PATH_CLAIM_BOUNDARY_LADDER, facts)
 

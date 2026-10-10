@@ -117,7 +117,9 @@ def claims_path_boundary_prove(args: List[str]) -> int:
     if not repo_path or not Path(repo_path).is_dir():
         return _local_error(
             "boundary_lane_unreadable",
-            "run this command on the machine holding the item's recorded lane",
+            "run this command on the machine holding the item's recorded "
+            "lane; a landed item needs no proof, so re-run its close-out "
+            "(`yoke merge item`), which proves the boundary from the merge",
         )
     retry = f"yoke claims path boundary-prove --item {parsed.item}"
     sync = sync_local_snapshot_for_write(
