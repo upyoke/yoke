@@ -23,7 +23,7 @@ class HarnessRequest:
     def recovery(self) -> str:
         return f"Re-sign-in to {self.name} with `{shlex.join(self.login_argv)}`, then retry."
 
-    def failure_evidence(self, stdout: str, stderr: str) -> dict[str, str]:
+    def native_refusal(self, stdout: str, stderr: str) -> dict[str, str] | None:
         """Classify fixed native refusals without recording account output."""
         if (
             self.name == "Cursor"
@@ -38,11 +38,7 @@ class HarnessRequest:
                 "reason": f"Cursor refused: Workspace Trust Required. {recovery}",
                 "recovery": recovery,
             }
-        return {
-            "cause": "harness_request_failed",
-            "reason": f"{self.name} real request failed. {self.recovery}",
-            "recovery": self.recovery,
-        }
+        return None
 
     def answered(self, stdout: str) -> bool:
         """Require a successful native response with no tool calls; discard output."""

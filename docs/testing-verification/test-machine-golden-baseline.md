@@ -22,9 +22,15 @@ macOS capture excludes the exact root:wheel regular audiovisual preference
 `Library/Group Containers/group.com.apple.secure-control-center-preferences/Library/Preferences/group.com.apple.secure-control-center-preferences.av.plist`.
 The shared preservation contract validates its owner/type and rejects symlink
 ancestors, records the exclusion in the sealed manifest, and keeps the live
-entry during reset alongside SSH access and user TCC. Every other foreign
-entry still refuses. Older manifests remain readable; a present preservation
-declaration must match the contract and the excluded entry must not be captured.
+entry during reset alongside SSH access, user TCC and the live harness logins:
+the login Keychain (`Library/Keychains`), `.claude/.credentials.json` and
+`.codex/auth.json`. `PRESERVED_HOME_ENTRIES` is the one declared list; capture
+prunes every entry on it, the manifest seals it as `preserved_home_entries`,
+and a reset keeps each one live, requiring only SSH access and user TCC to be
+present. A restored login would be the golden's rotated token. Every other
+foreign entry still refuses. Older manifests remain readable and their captured
+copies of preserved entries are never restored; a present declaration must
+match the contract and its entries must not be captured.
 The archive is private fixture material, not a QA artifact. Whole-home content,
 CLI liveness, persistent OS grants and the actual visible desktop are separate
 proofs: a passing one cannot establish the others.
@@ -53,7 +59,10 @@ jobs remain loaded. A failed prerequisite preserves its diagnostic in the
 operation receipt, and a partial restore cannot establish a new baseline.
 On macOS a booted iOS Simulator device is such a writer: it runs from the
 home's CoreSimulator device set and repopulates it through the clear, so the
-reset reaps its device tree first. A restore that stops names each unrestored
+reset reaps its device tree first. Other macOS daemons keep running and can
+recreate their directory while the restore copies it, so each captured
+directory is merged into place with `ditto` rather than created by `cp -R`,
+which would stop on `File exists`. A restore that stops names each unrestored
 entry with a bounded, printable excerpt of its copier stderr
 (`restore_state.entry_errors`), because the scratch log holding that stderr is
 removed when the reset program exits.
@@ -70,9 +79,9 @@ and unsettled job. Archive failures preserve bounded, redacted native exit,
 stdout and stderr through mission preparation, including malformed receipts.
 
 The SSH access needed to finish restore remains live. Linux/WSL Claude's
-post-request credential refresh is preserved through the owned restore path;
-other harness credentials and macOS Keychain use their own baseline/context
-contracts. Windows state and WSL registration remain outside the Linux home.
+post-request credential refresh is preserved through the owned restore path,
+matching the macOS reset's live `.claude/.credentials.json`; macOS also keeps
+the login Keychain and Codex login live, as described above. Windows state and WSL registration remain outside the Linux home.
 System packages remain outside home-only restoration and may additionally be
 owned by a mission fixture's package journal.
 
@@ -81,6 +90,11 @@ standard per-OS probes are sealed with every new capture, alongside extra
 checks. A named harness check requires a tiny native request; status-only
 output and credential-file presence are insufficient. Output stays on the
 host, while readiness records retain classified cause, reason and recovery.
+Each sealed standard probe exits with a code from one table
+(`yoke_harness.baseline_probe_failure_causes`) that the classifier reads back:
+executable missing, request timed out, launch failed, harness non-zero exit,
+unanswered reply, or check unmet. No failure defaults to "not signed in", and
+`expectation_met` is null when nothing was expected.
 An undelivered bridge probe is distinct from a program that ran and refused.
 Older sealed sidecars remain historical state, not implicit inputs to a new
 capture's required check set.

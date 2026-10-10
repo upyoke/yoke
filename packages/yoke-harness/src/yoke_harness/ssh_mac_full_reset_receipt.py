@@ -6,6 +6,7 @@ from collections.abc import Mapping
 
 from pathlib import PurePosixPath
 
+from yoke_harness.ssh_mac_preserved_state import REQUIRED_PRESERVED_HOME_ENTRIES
 from yoke_harness.ssh_mac_full_reset_contract import (
     FULL_DISK_ACCESS_PROBE_PATH,
     FULL_RESET_MARKER,
@@ -230,8 +231,15 @@ def success_evidence(
         {"path": golden_baseline_path, "outcome": "restored"},
         {"path": FULL_DISK_ACCESS_PROBE_PATH, "outcome": "readable"},
     ]
+    # Only the required entries are verified present; a harness login or
+    # OS-managed entry is kept live when the host has one.
     rows.extend(
-        {"path": f"{home}/{suffix}", "outcome": "preserved"}
+        {
+            "path": f"{home}/{suffix}",
+            "outcome": "preserved"
+            if suffix in REQUIRED_PRESERVED_HOME_ENTRIES
+            else "preserved-if-present",
+        }
         for suffix in PRESERVED_HOME_ENTRIES
     )
     rows.extend(

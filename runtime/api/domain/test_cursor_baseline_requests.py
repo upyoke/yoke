@@ -45,11 +45,9 @@ def test_cursor_workspace_trust_refusal_is_never_a_sign_in_failure(
     assert "private-account" not in repr(result.evidence)
 
 
-def test_other_harness_refusals_keep_their_existing_recovery():
+def test_only_cursor_names_the_workspace_trust_refusal():
     request = harness_request(["/bin/claude"])
-    evidence = request.failure_evidence("Workspace Trust Required", "")
-    assert evidence["cause"] == "harness_request_failed"
-    assert "Re-sign-in to Claude" in evidence["reason"]
+    assert request.native_refusal("Workspace Trust Required", "") is None
 
 
 @pytest.mark.parametrize("program", ["cursor-agent", "agent"])
@@ -59,6 +57,6 @@ def test_signed_out_cursor_still_names_its_sign_in_recovery(program):
     result = prove_linux_probes(control, control.document)
     row = result.evidence["probes"][0]
     assert not result.ok
-    assert row["cause"] == "harness_request_failed"
+    assert row["cause"] == "probe_harness_exit_nonzero"
     assert "Re-sign-in to Cursor" in row["reason"]
     assert f"/home/test/.local/bin/{program} login" in row["recovery"]

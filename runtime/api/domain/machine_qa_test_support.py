@@ -133,7 +133,7 @@ class FakeHostControl(FakeOperatorOperations):
             path
             for path in self.existing_paths
             if any(
-                path.startswith(f"{self.home}/{entry}/")
+                f"{path}/".startswith(f"{self.home}/{entry}/")
                 for entry in PRESERVED_HOME_ENTRIES
             )
             or not path.startswith(f"{self.home}/")

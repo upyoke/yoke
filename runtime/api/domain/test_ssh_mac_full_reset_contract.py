@@ -96,7 +96,8 @@ def test_clear_and_restore_walk_the_same_levels_and_keep_the_same_names() -> Non
             )
             assert name in restore_line
         assert "/bin/rm -rf" in clear_line
-    assert "/bin/cp -Rpf" in FULL_RESET_SCRIPT
+    assert '/usr/bin/ditto "$captured" "$destination"' in FULL_RESET_SCRIPT
+    assert '/bin/cp -Rpf "$captured" "$target_dir"' in FULL_RESET_SCRIPT
     assert '/bin/chmod -RN "$destination"' in FULL_RESET_SCRIPT
     # Restore records why it failed; the clear tolerates cosmetic ACL refusals.
     # Each entry's diagnostics are captured by the per-entry wrapper rather than
@@ -111,6 +112,9 @@ def test_preserved_and_absent_surfaces_are_reachable_from_the_program() -> None:
     assert PRESERVED_HOME_ENTRIES == (
         ".ssh",
         "Library/Application Support/com.apple.TCC",
+        "Library/Keychains",
+        ".claude/.credentials.json",
+        ".codex/auth.json",
         *OS_MANAGED_HOME_ENTRIES,
     )
     assert ".yoke" in YOKE_ABSENT_RELATIVE_DIRECTORIES

@@ -7,6 +7,14 @@ import shlex
 from pathlib import Path
 
 from yoke_harness import baseline_harness_requests
+from yoke_harness.baseline_probe_failure_causes import (
+    CHECK_UNMET,
+    HARNESS_EXIT_NONZERO,
+    PROBE_EXIT_CODES,
+    PROBE_FAILURE_CAUSES,
+    UNDECLARED_EXIT,
+    failure_evidence,
+)
 from yoke_harness.ssh_mac_host_session_state import (
     SCREEN_SAVER_DISABLE_COMMAND,
     SCREEN_SAVER_READ_COMMAND,
@@ -19,26 +27,46 @@ RECOVERIES = {
     "Codex real request": "Sign in Codex with codex login in the test user's session.",
     "Cursor real request": "Sign in Cursor with agent login in the test user's session.",
     "Claude bypass accepted": "Have the operator accept Claude's one-time bypass prompt in the test user's session.",
-    "macOS login keychain readable": "Use GUI Terminal to unlock/re-key the login keychain after a password change, sign in Claude again, and re-save.",
+    "macOS login keychain readable": "Use GUI Terminal to unlock/re-key the login keychain after a password change and sign in Claude again; the keychain stays live through resets.",
     "macOS screen saver disabled": f"As the GUI test user run {SCREEN_SAVER_DISABLE_COMMAND} before capture; save a new golden and prove the reset roundtrip.",
     "Linux desktop input available": "Provision xdotool as a baseline package before capture, not as a QA package; capture a new golden and prove the fresh-host reset roundtrip.",
 }
 
 
-def standard_probe_recovery(name: str) -> str | None:
+# Each sealed program exits with a code from the one cause table. The future
+# import leads, because a program embedding module source must hoist it.
+_FUTURE = "from __future__ import annotations\n"
+_PREAMBLE = f"{_FUTURE}EXIT = {PROBE_EXIT_CODES!r}\n"
+
+
+def standard_probe_failure(name: str, exit_code: int) -> dict[str, str] | None:
+    """Name a sealed standard probe's failure from its exit code, or None."""
     step = RECOVERIES.get(name)
-    return f"{step} Follow {CHECKLIST}, then retry capture/reset." if step else None
+    if step is None:
+        return None
+    failure = PROBE_FAILURE_CAUSES.get(exit_code, UNDECLARED_EXIT)
+    # The named step is the fix only when the program ran and reported the
+    # state absent; a missing executable or a timeout has its own fix.
+    if failure in (HARNESS_EXIT_NONZERO, CHECK_UNMET):
+        recovery = f"{step} Follow {CHECKLIST}, then retry capture/reset."
+    else:
+        recovery = f"{failure.recovery} See {CHECKLIST}."
+    return failure_evidence(failure, name, recovery)
 
 
 def _probe(name: str, program: str) -> dict:
-    return {"name": name, "argv": ["/usr/bin/python3", "-c", program]}
+    return {"name": name, "argv": ["/usr/bin/python3", "-c", _PREAMBLE + program]}
 
 
 def standard_probes(os_name: str) -> list[dict]:
     """Run harnesses without tools; only bounded success leaves the remote process."""
     if os_name not in {"macos", "linux", "windows"}:
         raise ValueError("baseline_probe_os_unsupported")
-    source = Path(baseline_harness_requests.__file__).read_text(encoding="utf-8")
+    source = (
+        Path(baseline_harness_requests.__file__)
+        .read_text(encoding="utf-8")
+        .replace(_FUTURE, "", 1)
+    )
     probes = []
     for name, executables in (
         ("Claude", ("claude",)),
@@ -55,14 +83,16 @@ import os, shutil, subprocess, sys
 from pathlib import Path
 search = os.pathsep.join([str(Path.home() / '.local/bin'), os.environ.get('PATH', '')])
 executable = next((p for x in {executables!r} if (p := shutil.which(x, path=search))), None)
-if not executable: sys.exit(1)
+if not executable: sys.exit(EXIT['probe_executable_missing'])
 request = harness_request([executable])
 try:
     result = subprocess.run(request.argv, cwd=REQUEST_WORKSPACE, capture_output=True, text=True, timeout=110)
-    ok = result.returncode == 0 and request.answered(result.stdout)
-except (OSError, subprocess.TimeoutExpired):
-    ok = False
-sys.exit(0 if ok else 1)
+except subprocess.TimeoutExpired:
+    sys.exit(EXIT['probe_request_timed_out'])
+except OSError:
+    sys.exit(EXIT['probe_launch_failed'])
+if result.returncode != 0: sys.exit(EXIT['probe_harness_exit_nonzero'])
+sys.exit(0 if request.answered(result.stdout) else EXIT['probe_reply_unanswered'])
 """
         )
         probes.append(_probe(f"{name} real request", program))
@@ -77,7 +107,7 @@ try:
     ok = settings.get('skipDangerousModePermissionPrompt') is True
 except (OSError, ValueError, AttributeError):
     ok = False
-sys.exit(0 if ok else 1)
+sys.exit(0 if ok else EXIT['probe_check_unmet'])
 """,
         )
     )
@@ -90,10 +120,12 @@ sys.exit(0 if ok else 1)
 import subprocess, sys
 try:
     result = subprocess.run({saver_argv!r}, capture_output=True, text=True, timeout=10)
-    ok = result.returncode == 0 and result.stdout.strip() == '0'
-except (OSError, subprocess.TimeoutExpired):
-    ok = False
-sys.exit(0 if ok else 1)
+except subprocess.TimeoutExpired:
+    sys.exit(EXIT['probe_request_timed_out'])
+except OSError:
+    sys.exit(EXIT['probe_launch_failed'])
+ok = result.returncode == 0 and result.stdout.strip() == '0'
+sys.exit(0 if ok else EXIT['probe_check_unmet'])
 """,
             )
         )
@@ -104,10 +136,12 @@ sys.exit(0 if ok else 1)
 import pathlib, subprocess, sys
 try:
     result = subprocess.run(['/usr/bin/security', 'find-generic-password', '-s', 'Claude Code-credentials', '-w', str(pathlib.Path.home() / 'Library/Keychains/login.keychain-db')], capture_output=True, timeout=30)
-    ok = result.returncode == 0 and bool(result.stdout.strip())
-except (OSError, subprocess.TimeoutExpired):
-    ok = False
-sys.exit(0 if ok else 1)
+except subprocess.TimeoutExpired:
+    sys.exit(EXIT['probe_request_timed_out'])
+except OSError:
+    sys.exit(EXIT['probe_launch_failed'])
+ok = result.returncode == 0 and bool(result.stdout.strip())
+sys.exit(0 if ok else EXIT['probe_check_unmet'])
 """,
             )
         )
@@ -119,7 +153,7 @@ sys.exit(0 if ok else 1)
 import pathlib, shutil, sys
 # Detect desktop provisioning after logout; the home archive does not own OS packages.
 desktop = any(pathlib.Path('/usr/share/xsessions').glob('*.desktop')) or shutil.which('xfce4-session') is not None
-sys.exit(0 if not desktop or shutil.which('xdotool') else 1)
+sys.exit(0 if not desktop or shutil.which('xdotool') else EXIT['probe_check_unmet'])
 """,
             )
         )

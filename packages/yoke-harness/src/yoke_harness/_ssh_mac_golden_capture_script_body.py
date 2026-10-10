@@ -126,6 +126,7 @@ write_manifest() {
     print -r -- "kilobyte_count $captured_kilobyte_count"
     print -r -- "probes_digest $probes_digest"
     print -r -- "$os_managed_manifest_line"
+    print -r -- "$preserved_manifest_line"
   } > "$destination$manifest_suffix" || return 1
   /bin/chmod -- "$golden_sidecar_mode" "$destination$manifest_suffix" || return 1
   manifest_digest=$(
