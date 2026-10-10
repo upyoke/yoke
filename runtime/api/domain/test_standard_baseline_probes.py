@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_harness.baseline_probe_failure_causes import PROBE_EXIT_CODES
 from yoke_harness.standard_baseline_probes import (
     CHECKLIST,
     capture_probes_document,
@@ -15,6 +16,8 @@ from yoke_harness.standard_baseline_probes import (
 )
 from yoke_harness.ssh_linux_baseline import capture_linux_golden
 from yoke_harness.ssh_mac_golden_capture import capture_golden_baseline
+
+CHECK_UNMET_EXIT = PROBE_EXIT_CODES["probe_check_unmet"]
 
 
 @pytest.mark.parametrize("os_name,count", [("macos", 6), ("linux", 5), ("windows", 4)])
@@ -126,7 +129,7 @@ def test_keychain_probe_discards_the_credential_and_uses_login_keychain(
     )
     with pytest.raises(SystemExit) as exit_info:
         exec(compile(probe["argv"][2], "keychain-probe", "exec"), {})
-    assert exit_info.value.code == (0 if readable else 1)
+    assert exit_info.value.code == (0 if readable else CHECK_UNMET_EXIT)
     assert calls[0][0][0] == "/usr/bin/security"
     assert calls[0][0][-1].endswith("Library/Keychains/login.keychain-db")
     assert calls[0][1]["capture_output"] is True
@@ -158,7 +161,7 @@ def test_linux_input_check_distinguishes_headless_and_desktop(
     )
     with pytest.raises(SystemExit) as exit_info:
         exec(compile(probe["argv"][2], "desktop-input-probe", "exec"), {})
-    assert exit_info.value.code == (0 if passes else 1)
+    assert exit_info.value.code == (0 if passes else CHECK_UNMET_EXIT)
 
 
 @pytest.mark.parametrize("os_name", ["macos", "linux", "windows"])

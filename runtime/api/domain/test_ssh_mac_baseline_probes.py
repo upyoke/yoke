@@ -193,9 +193,33 @@ def test_a_failing_probe_names_its_cause_and_recovery_without_the_output() -> No
     assert not result.ok
     assert result.error_code == "baseline_probe_failed"
     row = result.evidence["probes"][0]
-    assert row["cause"] == "probe_reported_not_signed_in"
-    assert "recapture the golden" in row["recovery"]
+    assert row["cause"] == "probe_exit_nonzero"
+    assert "correct the probe argv" in row["recovery"]
     assert "a@b.c" not in repr(result.evidence)
+
+
+def test_a_declared_expectation_missing_from_output_is_named_as_unmet() -> None:
+    result = run_baseline_probes(
+        parse_baseline_probes(_document()),
+        run_gui_command=_Recorder(_completed(0, stdout="loggedOut")),
+    )
+
+    row = result.evidence["probes"][0]
+    assert row["cause"] == "probe_expectation_unmet"
+    assert row["expectation_met"] is False
+
+
+def test_a_probe_with_nothing_expected_does_not_report_an_expectation_met() -> None:
+    document = _document()
+    probe = json.loads(document)["probes"][0]
+    del probe["expect_output_contains"]
+    result = run_baseline_probes(
+        parse_baseline_probes(json.dumps({"probes": [probe]})),
+        run_gui_command=_Recorder(_completed(0)),
+    )
+
+    assert result.ok
+    assert result.evidence["probes"][0]["expectation_met"] is None
 
 
 def test_an_unreadable_credential_recovers_by_recapture_not_by_host_repair() -> None:

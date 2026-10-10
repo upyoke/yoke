@@ -8,6 +8,7 @@ import pytest
 import shlex
 import shutil
 import subprocess
+import sys
 from types import SimpleNamespace
 
 from yoke_harness.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
@@ -85,10 +86,27 @@ def closed_reset_stdout(
 _DRIVER_MARKER = '\nreset_step="$reset_phase_validate_home"\n'
 
 
+#: Linux runners have no ditto. This stand-in keeps its merge-into-existing
+#: semantics so the restore walk still executes there; macOS runs the real one.
+_PORTABLE_DITTO = r"""
+portable_ditto() {
+  if [[ -d "$1" && ! -L "$1" ]]; then
+    /bin/mkdir -p -- "$2" && /bin/cp -a -- "$1"/. "$2"/
+  else
+    /bin/cp -a -- "$1" "$2"
+  fi
+}
+"""
+
+
 def function_program() -> str:
     """Return the rendered program's function definitions without its driver."""
     functions, separator, _driver = FULL_RESET_SCRIPT.partition(_DRIVER_MARKER)
     assert separator
+    if sys.platform != "darwin":
+        functions = _PORTABLE_DITTO + functions.replace(
+            "/usr/bin/ditto ", "portable_ditto "
+        )
     return functions
 
 
