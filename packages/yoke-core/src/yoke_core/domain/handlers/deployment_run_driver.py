@@ -22,7 +22,6 @@ from yoke_core.domain.deployment_run_driver_attachment import (
     release_driver,
 )
 from yoke_core.domain.deployment_runs_lock import DeploymentRunRowLockBusy
-from yoke_core.domain.handlers import deployment_run_execution as execution
 from yoke_core.domain.handlers.deployment_common import error, require_global, run_id
 
 
@@ -84,8 +83,6 @@ def handle_attach_driver(request: FunctionCallRequest) -> HandlerOutcome:
     session_id = str(request.actor.session_id or "").strip()
     if not session_id:
         return error("unauthenticated", "a session is required to attach a driver")
-    if refusal := execution._require_execution_lock(request, resolved):
-        return refusal
     from yoke_core.domain.db_helpers import connect
 
     with connect() as conn:
@@ -133,8 +130,6 @@ def handle_release_driver(request: FunctionCallRequest) -> HandlerOutcome:
         return error("unauthenticated", "a session is required to release a driver")
     if pid <= 0:
         return error("payload_invalid", "pid is required")
-    if refusal := execution._require_execution_lock(request, resolved):
-        return refusal
     from yoke_core.domain.db_helpers import connect
 
     with connect() as conn:
@@ -193,7 +188,7 @@ def register(registry) -> None:
             target_kinds=["workflow_run"],
             side_effects=["deployment_runs_update"],
             emitted_event_names=["YokeFunctionCalled"],
-            guardrails=["deploy_lock_required"],
+            guardrails=["run_driver_required"],
             adapter_status="internal",
             claim_required_kind=None,
             minimum_serving_version="next-release",

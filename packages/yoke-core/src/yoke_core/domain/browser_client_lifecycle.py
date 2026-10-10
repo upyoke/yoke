@@ -46,7 +46,9 @@ def daemon_start(
     from yoke_cli import browser_node_toolchain
     from yoke_core.domain import browser_client as _bc
     from yoke_harness import browser_client_readiness, browser_setup
+    from yoke_harness.browser_human_gate import refuse_during_human_gate
 
+    refuse_during_human_gate(_bc._browser_dir())
     requested_profile = canonical_profile(profile_dir)
     state_path = _bc._state_file_path(requested_profile)
     state = _bc.DaemonState.load(state_path)

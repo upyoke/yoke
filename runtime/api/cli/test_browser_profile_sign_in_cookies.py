@@ -13,7 +13,8 @@ import pytest
 from runtime.api.cli.browser_toolchain_test_support import (
     install_fake_toolchain,
 )
-from yoke_cli.config import browser_profile
+from yoke_contracts.browser_identity import parse_identity_declarations
+from yoke_cli.config import browser_identities, browser_profile
 from yoke_cli.config.browser_profile_cookies import (
     SIGN_IN_COOKIE_LIFETIME_DAYS,
     SignInCookieError,
@@ -102,7 +103,7 @@ def test_an_unusable_cookie_store_names_its_recovery(tmp_path) -> None:
     with pytest.raises(SignInCookieError) as raised:
         keep_sign_in_cookies(profile)
 
-    assert "yoke browser authorize --reset" in str(raised.value)
+    assert "yoke browser authorize --identity NAME --reset" in str(raised.value)
 
 
 def _stub_authorize_runtime(tmp_path, monkeypatch) -> list[dict]:
@@ -128,6 +129,11 @@ def _stub_authorize_runtime(tmp_path, monkeypatch) -> list[dict]:
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(authorize_command.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        browser_identities,
+        "declared_identities",
+        lambda key, **kwargs: parse_identity_declarations({}),
+    )
     install_fake_toolchain(monkeypatch, tmp_path / "node-bin")
     return calls
 
@@ -215,7 +221,10 @@ def test_reset_removes_the_profile_before_opening_the_window(
     assert not cookie_store_path(profile).exists()
     assert profile.is_dir(), "the fresh window still gets a profile directory"
     assert calls[0]["command"][2:4] == ["--profile-dir", str(profile)]
-    assert "Removed the previous acme browser profile" in capsys.readouterr().out
+    assert (
+        "Removed the previous project acme identity default browser profile"
+        in capsys.readouterr().out
+    )
 
 
 def test_reset_without_a_profile_still_opens_the_window(
@@ -229,7 +238,10 @@ def test_reset_without_a_profile_still_opens_the_window(
     assert authorize_command.browser_authorize(["--project", "acme", "--reset"]) == 0
 
     assert len(calls) == 1
-    assert "No acme browser profile to remove" in capsys.readouterr().out
+    assert (
+        "No project acme identity default browser profile to remove"
+        in capsys.readouterr().out
+    )
 
 
 def test_remove_profile_dir_reports_an_absent_profile(machine_home) -> None:

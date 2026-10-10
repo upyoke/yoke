@@ -7,7 +7,7 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
-from yoke_core.domain.deploy_lock import deploy_lock_refusal
+from yoke_core.domain.handlers.deployment_run_execution import require_run_driver
 from yoke_core.domain.handlers.deployment_common import error, run_id
 
 
@@ -47,45 +47,6 @@ class DeploymentRunValidateCompositionResponse(BaseModel):
     run_id: str
     valid: bool
     message: str
-
-
-def _project_for_run(
-    resolved_run_id: str,
-    *,
-    run_id_jsonpath: str,
-) -> str | HandlerOutcome:
-    from yoke_core.domain.deployment_runs_crud_query import cmd_get
-
-    project = cmd_get(resolved_run_id, field="project")
-    if project is None:
-        return error(
-            "not_found",
-            f"deployment run '{resolved_run_id}' not found",
-            jsonpath=run_id_jsonpath,
-        )
-    return str(project)
-
-
-def _require_deploy_lock(
-    request: FunctionCallRequest,
-    resolved_run_id: str,
-    *,
-    run_id_jsonpath: str,
-) -> HandlerOutcome | None:
-    project = _project_for_run(
-        resolved_run_id,
-        run_id_jsonpath=run_id_jsonpath,
-    )
-    if isinstance(project, HandlerOutcome):
-        return project
-    refusal = deploy_lock_refusal(
-        project,
-        operation=request.function,
-        session_id=request.actor.session_id,
-    )
-    if refusal is not None:
-        return error("deploy_lock_required", refusal)
-    return None
 
 
 def handle_deployment_run_add_item(
@@ -132,11 +93,7 @@ def handle_deployment_run_add_item(
                 jsonpath=f"$.payload.{key}",
             )
         selections[key] = values
-    if refusal := _require_deploy_lock(
-        request,
-        resolved_run_id,
-        run_id_jsonpath="$.payload.run_id",
-    ):
+    if refusal := require_run_driver(request, resolved_run_id):
         return refusal
 
     from yoke_core.domain.deployment_runs_crud_mutate import cmd_add_item
@@ -189,11 +146,7 @@ def handle_deployment_run_remove_item(
             jsonpath="$.payload.reason",
         )
     resolved_run_id = raw_run_id.strip()
-    if refusal := _require_deploy_lock(
-        request,
-        resolved_run_id,
-        run_id_jsonpath="$.payload.run_id",
-    ):
+    if refusal := require_run_driver(request, resolved_run_id):
         return refusal
 
     from yoke_core.domain.deployment_runs_crud_mutate import cmd_remove_item
@@ -228,11 +181,7 @@ def handle_deployment_run_validate_composition(
     resolved_run_id = run_id(request, "deployment_runs.validate_composition")
     if isinstance(resolved_run_id, HandlerOutcome):
         return resolved_run_id
-    if refusal := _require_deploy_lock(
-        request,
-        resolved_run_id,
-        run_id_jsonpath="$.target.workflow_run_id",
-    ):
+    if refusal := require_run_driver(request, resolved_run_id):
         return refusal
 
     from yoke_core.domain.deployment_runs_validation import (

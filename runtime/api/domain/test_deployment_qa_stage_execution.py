@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
+from runtime.api.fixtures.deployment_run_driver_fixture import attach_seeded_driver
 from yoke_core.domain.deployment_flow_versioning import cmd_create
 from yoke_core.domain.deployment_qa_execution_target import (
     validate_deployment_execution_target,
@@ -187,6 +188,7 @@ def _seed_run(
         "UPDATE deployment_runs SET current_stage=%s WHERE id=%s",
         (str(stages[1]["name"]), run_id),
     )
+    attach_seeded_driver(conn, run_id)
     conn.commit()
 
 

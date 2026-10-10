@@ -40,7 +40,7 @@ RESET_USAGE = (
 )
 GOLDEN_CAPTURE_USAGE = (
     "yoke test-machine golden-capture --project P [--machine NAME] "
-    "[--destination /abs/path] [--probes-file FILE] [--component browser-profile] [--json]"
+    "[--destination /abs/path] [--probes-file FILE] [--json]"
 )
 SCREENSHOT_USAGE = "yoke test-machine screenshot --project P [--machine NAME] [--json]"
 BRIDGE_DIAGNOSE_USAGE = (

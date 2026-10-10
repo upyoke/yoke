@@ -11,6 +11,9 @@ from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE,
 )
 from yoke_contracts.qa_mission_scratch import mission_scratch_path
+from yoke_core.domain.agent_mission_browser_identities import (
+    walker_identity_dispatch,
+)
 from yoke_core.domain.dispatch_descriptors import DispatchDescriptor
 from yoke_core.domain.qa_review_evidence import case_artifact_read_commands
 from yoke_core.domain.qa_plan_review_subject import subject_flag as review_subject_flag
@@ -61,11 +64,14 @@ def _walker_dispatch(
     host_command = f"{host_command_base} -- ARGV..."
     browser_setup_command = (
         f"{host_command_base} [--timeout-seconds N] -- yoke qa browser setup "
-        "[--project PROJECT --profile-baseline ABSOLUTE_SEALED_PATH]"
+        "--project PROJECT [--identity NAME]"
     )
     browser_step_command = (
         f"{host_command_base} -- yoke qa browser step --base-url BASE_URL "
-        "--step-json STEP_JSON [--output-dir PATH]"
+        "--step-json STEP_JSON [--identity NAME] [--output-dir PATH]"
+    )
+    identities, browser_verify_commands, identity_clause = walker_identity_dispatch(
+        case, host_command_base
     )
     walks_on_target = executor != "informed_subagent"
     artifact_bytes_source = (
@@ -133,7 +139,9 @@ def _walker_dispatch(
         "installed it, materialize the target browser with "
         f"`{browser_setup_command}` using a bounded timeout long enough for "
         "first setup, then drive it one chosen step at a time with "
-        f"`{browser_step_command}`. Otherwise open the host's own browser "
+        f"`{browser_step_command}`. "
+        f"{identity_clause}"
+        "Otherwise open the host's own browser "
         "(Safari on macOS; the desktop's default browser elsewhere) and "
         "drive it with screenshots and keystrokes through the remote command. "
         "Never install Yoke on a Test Machine to get a browser. "
@@ -182,6 +190,8 @@ def _walker_dispatch(
         "walk_end_command": walk_end_command,
         "browser_setup_command": browser_setup_command,
         "browser_step_command": browser_step_command,
+        "browser_identities": identities,
+        "browser_verify_commands": browser_verify_commands,
         "artifact_add_command": artifact_add_command,
         "artifact_limit": AGENT_MISSION_ARTIFACT_LIMIT,
         "prompt": prompt,
@@ -259,7 +269,7 @@ def agent_mission_dispatch_contract(
             "executing host, browser substrate, project profile, target URL, "
             "and live access route from this run. A Test Machine inventory "
             "is not where the browser ran. Managed sign-in is `yoke browser "
-            "authorize` on that host and profile; `yoke qa browser setup` "
+            "authorize --identity NAME` on that host; `yoke qa browser setup` "
             "only starts the runtime. A host-native browser uses its declared "
             "human access surface, not a fabricated authorize command. Put no "
             "credential content in the request. Preview with `yoke say "

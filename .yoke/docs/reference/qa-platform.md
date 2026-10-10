@@ -155,6 +155,10 @@ with supersession recovery. Item correction reconciles active admitted copies
 copies update atomically; answered/live-frozen copies refuse admitted_copy_in_flight
 before either write. Terminal-run copies remain acceptance history. Already
 waived/superseded copies are settled and cannot block correction.
+A scope change (target_env, qa_phase, workflow_transition_id, blocking_mode)
+or rebind-target that would break a replacement link refuses
+replacement_link_scope_changed before writing; see
+[requirement state model](qa-platform/requirement-state-model.md#links-that-stop-answering-for-their-obligation).
 
 Copies execute their admitted definitions despite source drift. source_currency
 diagnoses correction/refresh/new admission; drift alone never invalidates frozen
@@ -204,7 +208,7 @@ commit. No supplied identity flags are needed. Missing/mismatched hosted
 promotion, no delivered commit, conflicting supplied commit or unprovable served
 environment refuses by name. Browser setup/status/screenshot/step are substrate
 utilities; diagnostic captures create no parallel verdict. Use
-[per-OS saved-profile baselines](qa-platform/browser-profile-baseline.md).
+[browser sign-in identities](qa-platform/browser-identities.md).
 
 ## AC-Derived Requirements and Suite Graduation
 
@@ -231,8 +235,8 @@ without --plan. Predecessor leaves roster; successor still must pass.
 **Waiver:** qa.requirement.waive stores waived_at/rationale/source; blocking
 needs --force. Operator decides. Recording --source operator for item/member
 needs its item claim, a covering steering seat (including document membership),
-or deploy lock for the run holding it. Steering can record the rationale while
-worker keeps item custody; re-drive that run. Another project's lock/unrelated
+or the live driver of the run holding it. Steering can record the rationale while
+worker keeps item custody; re-drive that run. Another run's driver or an unrelated
 item grants nothing. Agent waivers keep normal QA subject-claim authority.
 Read `yoke qa requirement waive --help`.
 

@@ -3,8 +3,8 @@ import { navIcon } from "./universe_nav_sidebar.js";
 import { el } from "./universe_view_support.js";
 
 // Who is running this session, as the one mark and label every surface that
-// shows a session uses: the roster card, the claimant preview on an item, the
-// deploy-lock holder on a run card. A CI runner is a machine rather than a
+// shows a session uses: the roster card and the claimant preview on an item.
+// A CI runner is a machine rather than a
 // harness, and says so.
 export function harnessIdentity(row) {
   const executor = String(row.executor_surface || row.executor || "unreported");

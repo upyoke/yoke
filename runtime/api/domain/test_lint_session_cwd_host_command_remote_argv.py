@@ -50,12 +50,9 @@ class TestRemoteArgvIsNotALocalWriteTarget:
         command = f"{_SUBJECT} --gui-session -- /usr/sbin/screencapture /tmp/shot.png"
         assert extract_command_targets(command) == []
 
-    def test_profile_baseline_after_the_separator_is_remote(self):
-        sealed = "/Users/Shared/yoke-golden/testy-browser-profile-20261002T204122Z"
-        command = (
-            f"{_SUBJECT} --gui-session -- yoke qa browser setup "
-            f"--project yoke --profile-baseline {sealed}"
-        )
+    def test_remote_path_after_the_gui_session_separator_is_remote(self):
+        golden = "/Users/Shared/yoke-golden/testy-home-20261002"
+        command = f"{_SUBJECT} --gui-session -- /bin/ls {golden}"
         assert extract_command_targets(command) == []
 
 

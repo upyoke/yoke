@@ -49,9 +49,9 @@ Explicit yes only: [y/N] defaults No. Otherwise record
 infra-apply-first-deploy=deferred, operator declined apply, then allow step 8.
 
 After approval, execute Pack-documented infrastructure order, project-declared
-stage build/deploy flow and stage smoke. Read the delivery rules and hold the
-project DEPLOY coordination claim before creating/executing a deployment run;
-release it afterward. Pack entrypoints own invocation and capability resolution.
+stage build/deploy flow and stage smoke. Read the delivery rules before
+creating/executing a deployment run; runs take no claim and occupy their target
+servers until QA settles. Pack entrypoints own invocation and capability resolution.
 `yoke aws exec --project {project} -- {aws-args}` is an operator raw-AWS
 pass-through, not a generic Pulumi/app launcher. Capture and stream long
 commands, inspecting their capture on failure.

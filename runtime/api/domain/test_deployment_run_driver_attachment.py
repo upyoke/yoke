@@ -25,6 +25,36 @@ LATER = parse_instant("2026-09-21T12:01:00Z")
 STALE = parse_instant("2026-09-21T12:10:01Z")
 
 
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+@pytest.mark.parametrize("microsecond", [0, 123456])
+def test_run_notice_resolves_native_driver_clock(
+    db_path, monkeypatch, zone, microsecond
+):
+    from yoke_core.domain import deployment_run_driver_notice as notice
+
+    stamp = parse_instant("1970-01-01T05:29:59+05:30").replace(microsecond=microsecond)
+    monkeypatch.setattr(notice, "utc_now", lambda: stamp)
+    monkeypatch.setattr(notice, "_session_actor", lambda conn, session: 1)
+    run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
+    conn = connect_test_db(db_path)
+    try:
+        conn.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
+        conn.commit()
+        attach_driver(
+            conn, run_id, session_id="sess-a", pid=11, phase=PHASE_EXECUTING, now=stamp
+        )
+        conn.commit()
+        assert notice.resolve_run_driver_recipient(
+            conn, run_id=run_id, project_id=1
+        ) == ("sess-a", 1, "driver")
+        found = live_attachment_for_run(conn, run_id_value=run_id, now=stamp)
+        assert found.attached_at == stamp
+        assert found.heartbeat_at == stamp
+        assert conn.execute("SHOW TimeZone").fetchone()[0] == zone
+    finally:
+        conn.close()
+
+
 def test_a_second_live_driver_is_refused_by_name(db_path: str) -> None:
     run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
     conn = connect_test_db(db_path)

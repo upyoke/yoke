@@ -76,11 +76,7 @@ def operator_release(
         raise CoordinationClaimError("the following arguments are required: --project")
     identity = None if machine_scoped else resolve_project(conn, project_id)
     numeric_project_id = identity.id if identity is not None else None
-    target = target_for_key(
-        key,
-        project_id=numeric_project_id,
-        project_slug=identity.slug if identity is not None else None,
-    )
+    target = target_for_key(key, project_id=numeric_project_id)
     label = key if machine_scoped else f"{project_id}:{key}"
     list_scope = "" if machine_scoped else "--project P "
     claim = active_claim(conn, target, for_update=True)

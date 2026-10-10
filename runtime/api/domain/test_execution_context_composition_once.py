@@ -34,7 +34,7 @@ def test_execution_context_composes_once_and_returns_its_enrollment():
         target=TargetRef(kind="workflow_run", workflow_run_id="run-once"),
     )
     with (
-        patch.object(execution, "_require_execution_lock", return_value=None),
+        patch.object(execution, "require_run_driver", return_value=None),
         patch.object(execution, "_record_bound_sources", return_value={}),
         patch.object(execution, "_member_rows", return_value=[]),
         patch(

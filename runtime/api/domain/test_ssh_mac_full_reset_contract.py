@@ -116,6 +116,7 @@ def test_preserved_and_absent_surfaces_are_reachable_from_the_program() -> None:
         ".claude/.credentials.json",
         ".codex/auth.json",
         *OS_MANAGED_HOME_ENTRIES,
+        ".yoke-browser-identities",
     )
     assert ".yoke" in YOKE_ABSENT_RELATIVE_DIRECTORIES
     assert YOKE_ABSENT_TEMP_FILES == ("/tmp/yoke-install",)

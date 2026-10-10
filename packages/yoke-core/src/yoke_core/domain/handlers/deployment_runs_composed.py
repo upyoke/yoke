@@ -18,7 +18,11 @@ def handle_deployment_run_start_for_item(
         )
     payload = request.payload or {}
     for key in (
-        "project", "flow", "environment", "release_lineage", "created_by",
+        "project",
+        "flow",
+        "environment",
+        "release_lineage",
+        "created_by",
     ):
         value = payload.get(key)
         if value is not None and not isinstance(value, str):
@@ -43,7 +47,6 @@ def handle_deployment_run_start_for_item(
         release_lineage=(payload.get("release_lineage") or None),
         created_by=created_by,
         prepare=bool(payload.get("prepare") or False),
-        session_id=request.actor.session_id,
     )
     if not result.ok:
         suffix = f"; run_id={result.run_id}" if result.run_id else ""

@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.deployment_common import error, run_id
 from yoke_core.domain.handlers.deployment_run_execution import (
-    _require_execution_lock,
+    require_run_driver,
 )
 
 
@@ -54,17 +54,17 @@ class DeploymentExecutionStageReceiptLatestResponse(BaseModel):
     receipt: Optional[Dict[str, Any]] = None
 
 
-def _locked_run(request: FunctionCallRequest, function_id: str):
+def _driven_run(request: FunctionCallRequest, function_id: str):
     resolved = run_id(request, function_id)
     if isinstance(resolved, HandlerOutcome):
         return resolved
-    return _require_execution_lock(request, resolved) or resolved
+    return require_run_driver(request, resolved) or resolved
 
 
 def handle_deployment_execution_stage_receipt_allocate(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    resolved = _locked_run(request, "deployment_runs.execution.stage_receipt_allocate")
+    resolved = _driven_run(request, "deployment_runs.execution.stage_receipt_allocate")
     if isinstance(resolved, HandlerOutcome):
         return resolved
     payload = request.payload or {}
@@ -108,7 +108,7 @@ def handle_deployment_execution_stage_receipt_allocate(
 def handle_deployment_execution_stage_receipt_complete(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    resolved = _locked_run(request, "deployment_runs.execution.stage_receipt_complete")
+    resolved = _driven_run(request, "deployment_runs.execution.stage_receipt_complete")
     if isinstance(resolved, HandlerOutcome):
         return resolved
     payload = request.payload or {}
@@ -161,7 +161,7 @@ def handle_deployment_execution_stage_receipt_latest(
     retry of an in-flight attempt (reuse its correlation) or an intentional
     new physical attempt (mint a fresh one) — never both from the same call.
     """
-    resolved = _locked_run(request, "deployment_runs.execution.stage_receipt_latest")
+    resolved = _driven_run(request, "deployment_runs.execution.stage_receipt_latest")
     if isinstance(resolved, HandlerOutcome):
         return resolved
     stage_name = str((request.payload or {}).get("stage_name") or "").strip()

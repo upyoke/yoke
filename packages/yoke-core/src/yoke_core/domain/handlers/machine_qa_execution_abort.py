@@ -8,7 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.machine_qa import _failure
-from yoke_core.domain.handlers.machine_qa_operation import OperatorOperation
+from yoke_core.domain.handlers.machine_qa_operation import (
+    OperatorOperation,
+    refuse_browser_profile_capture,
+)
 from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
 
 
@@ -30,7 +33,6 @@ class TestMachineOperationAbortRequest(BaseModel):
     # is releasing.
     baseline: str | None = None
     destination: str | None = None
-    capture_component: Literal["browser-profile"] | None = None
     reason: AbortReason
 
 
@@ -61,7 +63,6 @@ def _release(
     baselines: Sequence[str] = (),
     cases: Sequence[dict[str, Any]] = (),
     golden_destination: str | None = None,
-    capture_component: Literal["browser-profile"] | None = None,
 ) -> dict[str, Any]:
     from yoke_core.domain.machine_qa_execution_protocol import (
         validate_host_control_submission,
@@ -88,7 +89,6 @@ def _release(
         baselines=baselines,
         cases=cases,
         golden_destination=golden_destination,
-        capture_component=capture_component,
     )
     released = finish_operation_execution(
         conn,
@@ -105,10 +105,11 @@ def _release(
 
 def handle_operation_abort(request: FunctionCallRequest) -> HandlerOutcome:
     """Release the lease of an operation whose local execution never finished."""
+    payload = refuse_browser_profile_capture(request.payload)
+    if isinstance(payload, HandlerOutcome):
+        return payload
     try:
-        parsed = TestMachineOperationAbortRequest.model_validate(
-            request.payload or {},
-        )
+        parsed = TestMachineOperationAbortRequest.model_validate(payload or {})
     except ValidationError as exc:
         return _failure("payload_invalid", str(exc))
     from yoke_core.domain import db_helpers
@@ -134,7 +135,6 @@ def handle_operation_abort(request: FunctionCallRequest) -> HandlerOutcome:
                 parsed.operation,
                 baseline=parsed.baseline,
                 golden_destination=parsed.destination,
-                capture_component=parsed.capture_component,
             ),
         )
     except (

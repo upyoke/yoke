@@ -57,7 +57,9 @@ def test_wait_for_timeout_on_authentication_wall_is_unauthorized(
     with init_test_db(tmp_path) as db_path:
         _seed_item(db_path, 810)
         req_id = _seed_requirement(
-            db_path, 810, "browser-check",
+            db_path,
+            810,
+            "browser-check",
             {
                 "base_url": "https://app.example.test",
                 "steps": _browser_check_steps(
@@ -66,7 +68,9 @@ def test_wait_for_timeout_on_authentication_wall_is_unauthorized(
             },
         )
         result = _run_scenario(
-            db_path, 810, requirement_id=req_id,
+            db_path,
+            810,
+            requirement_id=req_id,
             base_url="https://app.example.test",
             execute_step_responses=[
                 {"success": True, "authenticationWall": True},
@@ -84,10 +88,14 @@ def test_wait_for_timeout_on_authentication_wall_is_unauthorized(
         assert run.verdict == "error"
         assert run.execution_status == "captured"
         assert EXECUTION_TARGET_UNAUTHORIZED in run.errors
-        assert "yoke browser authorize --project testproj" in run.errors
+        assert (
+            "yoke browser authorize --project testproj --identity default" in run.errors
+        )
         assert "https://app.example.test" in run.errors
         payload = _raw_result(db_path, req_id)
         assert payload["sign_in"] == {
+            "project": "testproj",
+            "identity": "default",
             "profile": PROFILE_THROWAWAY,
             "authenticated": False,
         }
@@ -98,7 +106,9 @@ def test_wait_for_timeout_without_wall_stays_capture_failed(tmp_path: Path) -> N
     with init_test_db(tmp_path) as db_path:
         _seed_item(db_path, 811)
         req_id = _seed_requirement(
-            db_path, 811, "browser-check",
+            db_path,
+            811,
+            "browser-check",
             {
                 "base_url": "http://localhost:9999",
                 "steps": _browser_check_steps(
@@ -107,7 +117,9 @@ def test_wait_for_timeout_without_wall_stays_capture_failed(tmp_path: Path) -> N
             },
         )
         result = _run_scenario(
-            db_path, 811, requirement_id=req_id,
+            db_path,
+            811,
+            requirement_id=req_id,
             execute_step_responses=[
                 {"success": True},
                 {"success": False, "error": "Timeout 200ms exceeded."},
@@ -131,7 +143,9 @@ def test_authorized_profile_without_wall_records_authenticated(
     with init_test_db(tmp_path) as db_path:
         _seed_item(db_path, 812)
         req_id = _seed_requirement(
-            db_path, 812, "browser-check",
+            db_path,
+            812,
+            "browser-check",
             {
                 "base_url": "http://localhost:9999",
                 "steps": _browser_check_steps(
@@ -147,7 +161,9 @@ def test_authorized_profile_without_wall_records_authenticated(
             },
         ):
             result = _run_scenario(
-                db_path, 812, requirement_id=req_id,
+                db_path,
+                812,
+                requirement_id=req_id,
                 execute_step_responses=[
                     {"success": True},
                     {"success": True, "artifacts": [str(shot)]},
@@ -170,7 +186,9 @@ def test_sign_in_visible_on_passing_login_case_is_not_a_failure(
     with init_test_db(tmp_path) as db_path:
         _seed_item(db_path, 813)
         req_id = _seed_requirement(
-            db_path, 813, "browser-check",
+            db_path,
+            813,
+            "browser-check",
             {
                 "base_url": "http://localhost:9999",
                 "steps": _browser_check_steps(
@@ -180,7 +198,9 @@ def test_sign_in_visible_on_passing_login_case_is_not_a_failure(
             },
         )
         result = _run_scenario(
-            db_path, 813, requirement_id=req_id,
+            db_path,
+            813,
+            requirement_id=req_id,
             execute_step_responses=[
                 {"success": True, "authenticationWall": True},
                 {"success": True, "authenticationWall": True},
@@ -206,7 +226,9 @@ def test_describe_sign_in_authorized_when_profile_directory_exists(
         "yoke_cli.config.browser_profile.resolve_authorized_profile",
         return_value=(profile, "authorized"),
     ):
-        assert describe_sign_in("demo") == {
+        assert describe_sign_in("demo", "admin") == {
+            "project": "demo",
+            "identity": "admin",
             "profile": PROFILE_AUTHORIZED,
             "authenticated": True,
         }
@@ -218,6 +240,47 @@ def test_describe_sign_in_throwaway_without_profile() -> None:
         return_value=(None, "no profile"),
     ):
         assert describe_sign_in("demo") == {
+            "project": "demo",
+            "identity": "default",
             "profile": PROFILE_THROWAWAY,
             "authenticated": False,
         }
+
+
+def test_a_case_runs_on_its_declared_identity_daemon(tmp_path: Path) -> None:
+    from runtime.api.domain.browser_qa_test_helpers import _patch_external_deps
+    from yoke_core.domain import browser_qa
+
+    with init_test_db(tmp_path) as db_path:
+        _seed_item(db_path, 812)
+        req_id = _seed_requirement(
+            db_path,
+            812,
+            "browser-check",
+            {
+                "base_url": "https://app.example.test",
+                "browser_identity": "admin",
+                "steps": _browser_check_steps(),
+            },
+        )
+        patches = _patch_external_deps(
+            db_path, execute_step_responses=[{"success": True}]
+        )
+        for active in patches:
+            active.start()
+        try:
+            with patch.object(
+                browser_qa, "_ensure_daemon_running", return_value=None
+            ) as ensure:
+                result = browser_qa.execute_scenario(
+                    item_id=812,
+                    project="testproj",
+                    requirement_id=req_id,
+                    base_url="https://app.example.test",
+                )
+        finally:
+            for active in patches:
+                active.stop()
+        assert result.runs, result
+        assert [call.kwargs["identity"] for call in ensure.call_args_list] == ["admin"]
+        assert _raw_result(db_path, req_id)["sign_in"]["identity"] == "admin"

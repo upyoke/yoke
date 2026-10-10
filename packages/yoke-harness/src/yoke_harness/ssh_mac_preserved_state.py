@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import shlex
 
+from yoke_contracts.browser_identity import LIVE_IDENTITY_STORE_HOME_ENTRY
+
 
 # SSH carries the restore; the live TCC grant cannot be recreated by copying.
 # The OS-managed secure audiovisual preference is root-owned inside the user
@@ -26,10 +28,15 @@ HARNESS_LOGIN_HOME_ENTRIES = (
     ".claude/.credentials.json",
     ".codex/auth.json",
 )
+# The live browser identity profiles. Sites rotate session cookies, so a
+# restored copy is the golden's stale sign-in for the same reason a restored
+# harness login is; the store stays live and is kept only when present.
+LIVE_IDENTITY_HOME_ENTRIES = (LIVE_IDENTITY_STORE_HOME_ENTRY,)
 PRESERVED_HOME_ENTRIES = (
     *REQUIRED_PRESERVED_HOME_ENTRIES,
     *HARNESS_LOGIN_HOME_ENTRIES,
     *OS_MANAGED_HOME_ENTRIES,
+    *LIVE_IDENTITY_HOME_ENTRIES,
 )
 PRESERVED_MANIFEST_KEY = "preserved_home_entries"
 PRESERVED_MANIFEST_VALUE = json.dumps(
@@ -121,9 +128,10 @@ assert_os_managed_preserved_state() {
 validate_preserved_manifest() {
   # Older sealed baselines predate a declaration. The restore never copies a
   # preserved entry, so their captured copies stay inert and the live entries
-  # are kept for them too; a present declaration must match the current closed
-  # contract and the baseline must not carry what it declares kept.
-  local suffix
+  # are kept for them too. A present declaration may name only entries the
+  # current contract keeps -- a baseline sealed before an entry was added
+  # declares a subset -- and the baseline must not carry any entry kept now.
+  local suffix declared
   if /usr/bin/grep -q "^$os_managed_manifest_key " "$golden$manifest_suffix"; then
     /usr/bin/grep -Fxq -- "$os_managed_manifest_line" "$golden$manifest_suffix" || return 1
     for suffix in "${os_managed_entries[@]}"; do
@@ -131,7 +139,12 @@ validate_preserved_manifest() {
     done
   fi
   if /usr/bin/grep -q "^$preserved_manifest_key " "$golden$manifest_suffix"; then
-    /usr/bin/grep -Fxq -- "$preserved_manifest_line" "$golden$manifest_suffix" || return 1
+    declared=$(/usr/bin/grep -m 1 "^$preserved_manifest_key " "$golden$manifest_suffix")
+    declared="${declared#$preserved_manifest_key }"
+    for suffix in "${preserved_entries[@]}"; do
+      declared="${declared//\"$suffix\"/}"
+    done
+    [[ "${declared//,/}" == "[]" ]] || return 1
     for suffix in "${preserved_entries[@]}"; do
       lexists "$golden/$suffix" && return 1
     done

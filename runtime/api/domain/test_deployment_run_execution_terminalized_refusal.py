@@ -2,7 +2,7 @@
 
 Only ``cancelled`` is a deliberate, final stop (an operator or the
 pipeline itself declaring "this work is superseded"); a still-legitimate
-driver holding the project's deploy lock must not be able to record a new
+driver of the run must not be able to record a new
 status, a new stage, or a late stage-receipt completion against a run an
 operator has since cancelled -- while diagnostics (reading the run's own
 context) and the pipeline's own established failed-run retry-in-place
@@ -69,7 +69,12 @@ def test_a_cancelled_run_refuses_further_status_and_stage_advancement(
 
     run_id = _create_and_cancel(client, headers, session_id)
     _terminalize(
-        client, headers, session_id, serving_plane["conn"], serving_plane["owner_id"], run_id
+        client,
+        headers,
+        session_id,
+        serving_plane["conn"],
+        serving_plane["owner_id"],
+        run_id,
     )
 
     for field, value in (("status", "executing"), ("current_stage", "hosted-release")):
@@ -94,7 +99,12 @@ def test_a_cancelled_runs_context_stays_readable(serving_plane) -> None:
 
     run_id = _create_and_cancel(client, headers, session_id)
     _terminalize(
-        client, headers, session_id, serving_plane["conn"], serving_plane["owner_id"], run_id
+        client,
+        headers,
+        session_id,
+        serving_plane["conn"],
+        serving_plane["owner_id"],
+        run_id,
     )
 
     context = _call(
@@ -138,7 +148,12 @@ def test_a_late_stage_receipt_completion_is_refused_once_cancelled(
     receipt_id = allocated.json()["result"]["receipt_id"]
 
     _terminalize(
-        client, headers, session_id, serving_plane["conn"], serving_plane["owner_id"], run_id
+        client,
+        headers,
+        session_id,
+        serving_plane["conn"],
+        serving_plane["owner_id"],
+        run_id,
     )
 
     completed = _call(

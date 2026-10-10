@@ -91,9 +91,10 @@ def _unreadable_message(store: Path, exc: sqlite3.Error) -> str:
     return (
         f"the browser profile's cookie store at {store} could not be updated "
         f"({exc}). A running browser locks it: close the sign-in window and "
-        "stop the daemon with `yoke qa browser stop`, then retry. If the "
-        "store is damaged, sign in again from a clean profile with "
-        "`yoke browser authorize --reset`."
+        "stop the daemon with `yoke qa browser stop --identity NAME` for the "
+        "identity this profile belongs to, then retry. If the store is "
+        "damaged, sign in again from a clean profile with "
+        "`yoke browser authorize --identity NAME --reset`."
     )
 
 

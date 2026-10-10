@@ -49,7 +49,6 @@ def test_local_failure_reports_accepted_abort_lease_state(monkeypatch, released)
             machine=None,
             baseline=None,
             destination=None,
-            capture_component=None,
             probes_document=None,
             session_id=None,
             json_mode=True,

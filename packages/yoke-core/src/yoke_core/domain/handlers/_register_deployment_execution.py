@@ -24,7 +24,7 @@ def register(registry) -> None:
         side_effects=["deployment_run_items_insert"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
-            "deploy_lock_required",
+            "run_driver_required",
             "created_only_membership",
             "item_workflow_binding",
         ],
@@ -41,7 +41,7 @@ def register(registry) -> None:
         target_kinds=["workflow_run"],
         side_effects=["deployment_runs_update"],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["deploy_lock_required", "execution_fields_only"],
+        guardrails=["run_driver_required", "execution_fields_only"],
         adapter_status="internal",
         claim_required_kind=None,
     )
@@ -85,7 +85,7 @@ def register(registry) -> None:
             target_kinds=["workflow_run"],
             side_effects=side_effects,
             emitted_event_names=["YokeFunctionCalled"],
-            guardrails=["deploy_lock_required"],
+            guardrails=["run_driver_required"],
             adapter_status="internal",
             claim_required_kind=None,
         )
@@ -122,7 +122,7 @@ def register(registry) -> None:
             target_kinds=["workflow_run"],
             side_effects=side_effects,
             emitted_event_names=["YokeFunctionCalled"],
-            guardrails=["deploy_lock_required"],
+            guardrails=["run_driver_required"],
             adapter_status="internal",
             claim_required_kind=None,
         )
@@ -136,7 +136,7 @@ def register(registry) -> None:
         target_kinds=["workflow_run"],
         side_effects=["qa_requirements_insert"],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["deploy_lock_required"],
+        guardrails=["run_driver_required"],
         adapter_status="internal",
         claim_required_kind=None,
     )
@@ -150,7 +150,7 @@ def register(registry) -> None:
         target_kinds=["workflow_run"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["deploy_lock_required"],
+        guardrails=["run_driver_required"],
         adapter_status="internal",
         claim_required_kind=None,
     )

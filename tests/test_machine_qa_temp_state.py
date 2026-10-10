@@ -82,7 +82,6 @@ def test_shared_baseline_receipt_includes_cleanup_and_protects_declared_paths(os
         assert argv[4:] == [
             "/home/test",
             "/tmp/yoke-golden",
-            "/tmp/playwright-baseline",
             "/tmp/yoke-golden.manifest",
             "/tmp/yoke-golden.probes",
         ]
@@ -94,7 +93,6 @@ def test_shared_baseline_receipt_includes_cleanup_and_protects_declared_paths(os
         os=os_name,
         home="/home/test",
         golden_baseline_path="/tmp/yoke-golden",
-        browser_profile_baseline_path="/tmp/playwright-baseline",
         run_command=run,
         reset_installer_test_host=lambda: HostActionResult(True, {"restored": True}),
         prove_user_equivalent=lambda: HostActionResult(True, {"proven": True}),

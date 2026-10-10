@@ -12,6 +12,7 @@ from typing import Any
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
+from runtime.api.fixtures.deployment_run_driver_fixture import attach_seeded_driver
 from yoke_core.domain.deployment_requirement_snapshots import (
     requirement_selection,
     snapshot_flow_requirements,
@@ -210,6 +211,7 @@ def seed_run_standing_on_qa_stage(
         "UPDATE deployment_runs SET current_stage=%s WHERE id=%s",
         (str(stages[1]["name"]), run_id),
     )
+    attach_seeded_driver(conn, run_id)
     conn.commit()
 
 

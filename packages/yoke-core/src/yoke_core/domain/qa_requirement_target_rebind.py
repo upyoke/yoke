@@ -183,6 +183,14 @@ def rebind_requirement(
             int(requirement_id),
         ),
     )
+    from yoke_core.domain.qa_replacement_scope_guard import linked_scope_refusal
+
+    refusal = linked_scope_refusal(
+        conn, (int(requirement_id),), change="rebinding the execution target"
+    )
+    if refusal:
+        conn.rollback()
+        raise QaRebindError(refusal)
     if commit:
         conn.commit()
     emit_qa_requirement_event(

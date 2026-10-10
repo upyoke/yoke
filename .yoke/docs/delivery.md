@@ -72,8 +72,8 @@ id (`run-YYYYMMDD-NNN`).
 Legacy (schema 1) flows settle delivered members using that run's run-wide
 post-deploy requirements; scoped flows require exact member binding. Failing
 or unanswered requirements still block, and superseded requirements hand the
-obligation to their successors. Re-drive a settling run under its project
-deploy lock with `yoke deployment-runs update RUN status succeeded`.
+obligation to their successors. Re-drive a settling run with
+`yoke deployment-runs update RUN status succeeded`.
 
 Membership is not by itself completion. A member closes only on a succeeded
 run with completion authority for it: a run of the item's own selected flow,

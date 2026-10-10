@@ -11,7 +11,7 @@ has real work to do — is the quietest of all.
 Recipient is the same one the wait itself addressed, so a verdict lands
 where the question did: an item-scoped stage reaches that member's claim
 holder (or the project's steering seat when the holder is gone), a
-run-scoped stage reaches the project's deploy-lock driver. A requirement
+run-scoped stage reaches the run's live driver (or steering). A requirement
 that is not a deployment-stage subject is not this module's business and
 reports no recipient rather than guessing at one.
 """
@@ -154,6 +154,7 @@ def notify_deployment_qa_verdict(
     if member_item_id is None:
         return push_run_scoped_notice(
             conn,
+            run_id=run_id,
             project_id=subject["project_id"],
             body_for_route=lambda route: verdict_message(
                 run_id=run_id,

@@ -34,13 +34,8 @@ def operation_contract_shape(
     *,
     baseline: str | None = None,
     golden_destination: str | None = None,
-    capture_component: str | None = None,
 ) -> dict[str, Any]:
     """Return the checks, baselines, and destination one operation carries."""
-    if capture_component is not None and (
-        operation != GOLDEN_CAPTURE_OPERATION or capture_component != "browser-profile"
-    ):
-        raise TestMachineOperationShapeError("unknown capture component or operation")
     if operation == VERIFY_OPERATION:
         return {
             "checks": list(VERIFICATION_CHECKS),
@@ -64,7 +59,6 @@ def operation_contract_shape(
             "checks": [],
             "baselines": [],
             "golden_destination": golden_destination,
-            "capture_component": capture_component,
         }
     if operation in {BRIDGE_DIAGNOSE_OPERATION, "screenshot"}:
         return {"checks": [], "baselines": [], "golden_destination": None}

@@ -19,15 +19,11 @@ RECOVERY = (
 
 
 def _run(control: Any, operation: str) -> dict:
-    protected = [
-        str(value)
-        for key in ("golden_baseline_path", "browser_profile_baseline_path")
-        if (value := getattr(control, key, None))
-    ]
+    protected: list[str] = []
     # macOS seals its manifest and probes beside the golden directory.
     golden = getattr(control, "golden_baseline_path", None)
     if golden:
-        protected.extend([golden + ".manifest", golden + ".probes"])
+        protected.extend([str(golden), golden + ".manifest", golden + ".probes"])
     protected.extend(getattr(control, "baseline_preserved_temp_paths", ()))
     source = Path(test_machine_temp_script.__file__).read_text(encoding="utf-8")
     result = control.run_command(

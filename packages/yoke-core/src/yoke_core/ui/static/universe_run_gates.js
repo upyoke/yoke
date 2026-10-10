@@ -87,7 +87,7 @@ export function runFinalizationNote(documentNode, row) {
   if (!(row.current_stage === "complete" && row.status === "executing")) return null;
   return el(documentNode, "p", "run-finalization-note",
     row.settling_at
-      ? "Stages complete. Finalizing member delivery; the run remains open until every member closes. If settlement stopped, re-drive this run under the project deploy lock."
+      ? "Stages complete. Finalizing member delivery; the run remains open until every member closes. If settlement stopped, re-drive this run."
       : "Stages complete. Waiting for final checks and member delivery before this run can succeed.");
 }
 

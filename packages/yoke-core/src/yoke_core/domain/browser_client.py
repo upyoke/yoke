@@ -36,7 +36,7 @@ keep working.
 CLI usage::
 
     python3 -m yoke_core.domain.browser_client daemon status
-    python3 -m yoke_core.domain.browser_client daemon start [--port N] [--headed] [--project P]
+    python3 -m yoke_core.domain.browser_client daemon start [--port N] [--headed] [--project P] [--identity NAME]
     python3 -m yoke_core.domain.browser_client daemon stop
     python3 -m yoke_core.domain.browser_client daemon health
     python3 -m yoke_core.domain.browser_client snapshot accessibility <url>

@@ -29,10 +29,14 @@ def profile_scope(profile_dir: str | Path | None):
 
 
 @contextmanager
-def project_scope(project: str | None):
+def project_scope(project: str | None, identity: str | None = None):
+    """Route calls to one project identity's daemon (``default`` when omitted)."""
+    from yoke_contracts.browser_identity import DEFAULT_IDENTITY
     from yoke_cli.config.browser_profile import authorized_profile_dir
 
-    with profile_scope(authorized_profile_dir(project)):
+    with profile_scope(
+        authorized_profile_dir(project, identity=identity or DEFAULT_IDENTITY)
+    ):
         yield
 
 

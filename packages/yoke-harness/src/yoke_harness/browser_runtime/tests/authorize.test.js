@@ -158,7 +158,7 @@ async function testSpawnsTheDaemonsBinaryOnTheProfile() {
   const spawned = [];
   const child = fakeChild();
   const pending = authorize.openSignInWindow(
-    { profileDir: '/profiles/acme', url: 'https://app.upyoke.com' },
+    { profileDir: '/profiles/acme', urls: ['https://app.upyoke.com', 'https://www.paypal.com'] },
     {
       spawnProcess: (binary, args, options) => {
         spawned.push({ binary, args, options });
@@ -180,8 +180,8 @@ async function testSpawnsTheDaemonsBinaryOnTheProfile() {
     'Opens the project profile directory',
   );
   assert(
-    spawned[0].args.includes('https://app.upyoke.com'),
-    'Passes the starting URL as a plain argument',
+    spawned[0].args.slice(-2).join(' ') === 'https://app.upyoke.com https://www.paypal.com',
+    'Passes each starting URL as a plain argument, one tab per expired site',
   );
   assert(
     spawned[0].args.includes('--no-first-run')
@@ -232,7 +232,7 @@ async function testOmitsTheUrlWhenNoneIsGiven() {
   const spawned = [];
   const child = fakeChild();
   const pending = authorize.openSignInWindow(
-    { profileDir: '/profiles/acme', url: '' },
+    { profileDir: '/profiles/acme', urls: [] },
     {
       spawnProcess: (binary, args) => {
         spawned.push(args);

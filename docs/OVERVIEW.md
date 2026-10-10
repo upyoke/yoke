@@ -149,8 +149,8 @@ changes or be rerun. [QA](public/qa.md) and
 CI continuation and failure responsibility.
 
 Merge and delivery remain separate. Queue-declared projects use their protected
-merge-group gate. A push is not release authority. Hold `DEPLOY:<project>` before
-creating/executing a concrete run; flows are immutable referenced definitions,
+merge-group gate. A push is not release authority. Runs take no claim: a run
+occupies its target servers until its QA settles; flows are immutable referenced definitions,
 run ids are executions, and the hosted flow owns exact commits/artifacts,
 environment proof and promotion. Retain history when disabling definitions.
 Project migration models govern data transforms: permanent ordered entries,

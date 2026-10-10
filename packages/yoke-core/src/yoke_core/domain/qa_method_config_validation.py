@@ -189,11 +189,28 @@ def validate_method_config(
             violation = browser_cleanup_contract_violation(config["cleanup_steps"])
             if violation is not None:
                 raise QaMethodConfigError(violation.message)
+        if "browser_identity" in config:
+            from yoke_contracts.browser_identity import (
+                BrowserIdentityError,
+                case_browser_identity,
+            )
+
+            try:
+                config["browser_identity"] = case_browser_identity(config)
+            except BrowserIdentityError as exc:
+                raise QaMethodConfigError(str(exc)) from exc
     elif config_contract_id == "agent-mission":
         executor = config.get("executor")
         if (
             "executor" not in config
-            or set(config) - {"executor", "machine", "machines", "host_starting_state"}
+            or set(config)
+            - {
+                "executor",
+                "machine",
+                "machines",
+                "host_starting_state",
+                "browser_identities",
+            }
             or executor
             not in {
                 "informed_subagent",
@@ -201,10 +218,21 @@ def validate_method_config(
             }
         ):
             raise QaMethodConfigError(
-                "Agent missions require one executor, may name a driving machine and its simultaneous machines: "
+                "Agent missions require one executor, may name a driving machine and its simultaneous machines "
+                "and the browser_identities they need signed in: "
                 "informed_subagent or naive_target_session"
             )
         config["executor"] = str(executor)
+        if "browser_identities" in config:
+            from yoke_contracts.browser_identity import (
+                BrowserIdentityError,
+                mission_browser_identities,
+            )
+
+            try:
+                config["browser_identities"] = mission_browser_identities(config)
+            except BrowserIdentityError as exc:
+                raise QaMethodConfigError(str(exc)) from exc
         if "host_starting_state" in config:
             from yoke_contracts.qa_host_starting_state import (
                 validate_host_starting_state,

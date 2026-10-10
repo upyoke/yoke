@@ -50,7 +50,6 @@ from yoke_core.domain.handlers.machine_qa_operation_receipt import (
 )
 from yoke_core.domain.machine_qa_golden_destination import (
     resolve_golden_capture_destination,
-    resolve_browser_profile_capture_destination,
     selected_test_machine_row,
 )
 from yoke_core.domain.machine_qa_operation_shape import (
@@ -78,7 +77,6 @@ class TestMachineOperationBeginRequest(BaseModel):
     operation: OperatorOperation
     baseline: str | None = None
     destination: str | None = None
-    capture_component: Literal["browser-profile"] | None = None
 
 
 class TestMachineOperationBeginResponse(BaseModel):
@@ -97,7 +95,6 @@ class TestMachineOperationSubmitRequest(BaseModel):
     # taken on trust.
     baseline: str | None = None
     destination: str | None = None
-    capture_component: Literal["browser-profile"] | None = None
     status: Literal["verified", "error"]
     checks: list[dict[str, Any]]
     error_code: str | None = None
@@ -113,7 +110,6 @@ class TestMachineOperationResponse(BaseModel):
     checks: list[dict[str, Any]]
     error_code: str | None
     golden_baseline_path: str | None = None
-    browser_profile_baseline_path: str | None = None
     surfaces: dict[str, dict[str, Any]] | None = None
 
     @field_validator("performed_at", mode="before")
@@ -130,12 +126,34 @@ def _operation(operation: str) -> HostControlOperation:
     return operation  # type: ignore[return-value]
 
 
+def refuse_browser_profile_capture(payload: Any) -> HandlerOutcome | Any:
+    """Name the removed sealed browser-profile capture instead of a schema error.
+
+    Clients that predate live browser identities send a capture component on
+    golden capture: a named component gets the reason and its replacement, and
+    the null they send on every ordinary operation is dropped so it proceeds.
+    Returns the refusal, or the payload to validate.
+    """
+    if not isinstance(payload, dict) or "capture_component" not in payload:
+        return payload
+    if payload["capture_component"] is not None:
+        return _failure(
+            "browser_profile_capture_removed",
+            "sealed browser-profile capture was removed: browser sign-in "
+            "sessions are never sealed or restored as copies; keep a live "
+            "identity instead with `yoke browser authorize --identity NAME` "
+            "on the host, and upgrade this client",
+        )
+    return {key: value for key, value in payload.items() if key != "capture_component"}
+
+
 def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
     """Take the machine's lease and issue the contract for one operation."""
+    payload = refuse_browser_profile_capture(request.payload)
+    if isinstance(payload, HandlerOutcome):
+        return payload
     try:
-        parsed = TestMachineOperationBeginRequest.model_validate(
-            request.payload or {},
-        )
+        parsed = TestMachineOperationBeginRequest.model_validate(payload or {})
     except ValidationError as exc:
         return _invalid(exc)
     from yoke_core.domain.machine_qa_execution_protocol import (
@@ -146,12 +164,7 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         destination = parsed.destination
         if parsed.operation == GOLDEN_CAPTURE_OPERATION:
-            resolver = (
-                resolve_browser_profile_capture_destination
-                if parsed.capture_component
-                else resolve_golden_capture_destination
-            )
-            destination = resolver(
+            destination = resolve_golden_capture_destination(
                 selected_test_machine_row(
                     conn, project=parsed.project, machine=parsed.machine
                 ),
@@ -167,7 +180,6 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 parsed.operation,
                 baseline=parsed.baseline,
                 golden_destination=destination,
-                capture_component=parsed.capture_component,
             ),
         )
     except (
@@ -187,10 +199,11 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
 
 def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
     """Validate one executed operation's result and record its receipt."""
+    payload = refuse_browser_profile_capture(request.payload)
+    if isinstance(payload, HandlerOutcome):
+        return payload
     try:
-        parsed = TestMachineOperationSubmitRequest.model_validate(
-            request.payload or {},
-        )
+        parsed = TestMachineOperationSubmitRequest.model_validate(payload or {})
     except ValidationError as exc:
         return _invalid(exc)
     from yoke_core.domain.machine_qa_execution_protocol import (
@@ -217,7 +230,6 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
                 parsed.operation,
                 baseline=parsed.baseline,
                 golden_destination=parsed.destination,
-                capture_component=parsed.capture_component,
             ),
         )
         validate_operation_result(parsed, contract)
@@ -242,11 +254,6 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
                 for key in ("status", "checks", "error_code")
             ):
                 raise ValueError("replayed result differs from the recorded receipt")
-            if parsed.operation == GOLDEN_CAPTURE_OPERATION and (
-                recorded["checks"][0].get("capture_component")
-                != contract.capture_component
-            ):
-                raise ValueError("replayed capture component differs from its receipt")
         if recorded is None:
             if not lease.is_active:
                 raise ValueError(
@@ -298,9 +305,7 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
         result = {
             "project": contract.project,
             "machine": machine,
-            "browser_profile_baseline_path"
-            if contract.capture_component
-            else "golden_baseline_path": golden_baseline_path,
+            "golden_baseline_path": golden_baseline_path,
             **performed_at_row(recorded),
         }
         if parsed.operation == VERIFY_OPERATION:
@@ -333,4 +338,5 @@ __all__ = [
     "TestMachineOperationSubmitRequest",
     "handle_operation_begin",
     "handle_operation_submit",
+    "refuse_browser_profile_capture",
 ]

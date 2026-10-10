@@ -122,19 +122,6 @@ def validate_operation_result(
         _validate_single_row(parsed, expected_name=contract.baselines[0])
     elif parsed.operation == GOLDEN_CAPTURE_OPERATION:
         _validate_single_row(parsed, expected_name=GOLDEN_CAPTURE_OPERATION)
-        if contract.capture_component and parsed.status == "verified":
-            row = parsed.checks[0]
-            if (
-                row.get("capture_component") != contract.capture_component
-                or row.get("browser_profile_baseline_path")
-                != contract.golden_destination
-                or row.get("sealed") is not True
-                or not isinstance(row.get("manifest_digest"), str)
-                or len(row["manifest_digest"]) != 64
-            ):
-                raise ValueError(
-                    "browser profile result must prove the issued sealed snapshot"
-                )
     elif parsed.operation == "screenshot":
         _validate_single_row(parsed, expected_name="screenshot")
         if (

@@ -264,9 +264,6 @@ def test_create_refusal_mints_no_run():
     )
     refusal = tested.ReleaseSourceRefused("release_source_untested", "untested")
     with (
-        mock.patch.object(
-            deployment_run_creation, "deploy_lock_refusal", return_value=None
-        ),
         mock.patch.object(tested, "bind_tested_release_source", side_effect=refusal),
         mock.patch(
             "yoke_core.domain.deployment_runs_crud_mutate.create_run"

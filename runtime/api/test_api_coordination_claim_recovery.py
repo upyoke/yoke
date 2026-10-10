@@ -19,7 +19,7 @@ from yoke_core.domain import yoke_function_dispatch_events as events_module
 from yoke_core.domain.coordination_claims import acquire, active_claim
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
 from yoke_core.domain.work_claim_targets import (
-    make_deploy_serialization_target,
+    make_migration_serialization_target,
     make_qa_admission_target,
 )
 from yoke_contracts.coordination_claim_recovery import operator_release_command
@@ -39,7 +39,7 @@ def _apply_schema() -> None:
         conn.close()
 
 
-@pytest.fixture(params=("deploy", "qa_host"))
+@pytest.fixture(params=("migration", "qa_host"))
 def recovery_api(tmp_path, request):
     with ExitStack() as stack:
         db_path = stack.enter_context(
@@ -52,7 +52,7 @@ def recovery_api(tmp_path, request):
         target = (
             make_qa_admission_target("test-mac")
             if request.param == "qa_host"
-            else make_deploy_serialization_target(auth.project_id, "yoke")
+            else make_migration_serialization_target(auth.project_id, "core", 7)
         )
         claim = acquire(conn, target, "stranded-holder")
         reset_registry_for_tests()
@@ -84,7 +84,7 @@ def _envelope(claim, *, session_id: str = "") -> dict:
             "key": claim.key,
             "claim_id": claim.id,
             "holder_session_id": "stranded-holder",
-            "reason": "confirmed deployment pipeline settled",
+            "reason": "confirmed the rehearsal driver exited",
         },
     }
 

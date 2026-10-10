@@ -20,8 +20,8 @@ from runtime.api.fixtures.qa_declared_replacement_fixture import (
     declare,
     requirement_row,
 )
-from runtime.api.domain.test_deployment_run_auto_completion import _held_lock
 from runtime.api.domain.test_status_transition_preflight import _isolate_status_effects
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 from yoke_core.domain.qa_deployment_case_content_refresh import (
@@ -226,9 +226,9 @@ def test_existing_corrected_case_replaces_failed_capture_with_sibling_pending(
     test_db, monkeypatch, verdict
 ) -> None:
     _isolate_status_effects(monkeypatch)
-    _held_lock(monkeypatch)
     run_id = "run-direct-correction-and-sibling"
     failed_id = seed_member_qa_case(test_db, run_id=run_id, member_item_id=MEMBER)
+    release_seeded_driver(test_db, run_id)
     record_case_verdict(test_db, failed_id, verdict, evidence=True)
     corrected_id = corrected_case(
         test_db, failed_id=failed_id, case_key="selector-scoped"

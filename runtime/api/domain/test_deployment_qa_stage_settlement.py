@@ -7,6 +7,7 @@ from unittest import mock
 
 import pytest
 
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from runtime.api.domain.test_deployment_qa_stage_execution import (
     _complete_case,
     _plan,
@@ -23,6 +24,10 @@ from yoke_core.domain.deployment_qa_stage_settlement import (
     settle_subject,
 )
 from yoke_core.domain.deployment_qa_stage_wake import run_stage_wait_message
+from yoke_core.domain.deployment_run_driver_attachment import (
+    PHASE_EXECUTING,
+    attach_driver,
+)
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 
 
@@ -108,6 +113,13 @@ def test_item_review_decision_reaches_the_run_driver(test_db, action):
             "WHERE kind='qa_needs_review' AND status='pending'"
         ).fetchone()[0]
     )
+    # A live driver owns the run's continuation, so a passing review hands it
+    # the run instead of finishing it from the serving control plane.
+    release_seeded_driver(test_db, run_id)
+    attach_driver(
+        test_db, run_id, session_id="run-driver", pid=4242, phase=PHASE_EXECUTING
+    )
+    test_db.commit()
     with mock.patch(
         "yoke_core.domain.deployment_run_driver_notice.push_run_scoped_notice",
         return_value="delivered",
@@ -230,13 +242,11 @@ def test_run_visual_wait_assigns_inspection_to_driver():
     assert "--member" not in message
 
 
-def test_continuation_keeps_existing_run_and_lock():
+def test_continuation_keeps_existing_run():
     message = continuation_message(
         run_id="run-existing",
         stage="item-qa",
         outcome="passed",
-        project_slug="yoke",
-        route="driver",
     )
     assert "Continue this same run" in message
     assert "watch deploy -- run-existing" in message

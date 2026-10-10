@@ -226,7 +226,7 @@ def test_validate_and_pre_start_refuse_a_run_owing_delivery_without_members(
     assert "item_qa_run_without_members" in message
 
     monkeypatch.setattr(
-        "yoke_core.domain.handlers.deployment_run_execution._require_execution_lock",
+        "yoke_core.domain.handlers.deployment_run_execution.require_run_driver",
         lambda _request, _run_id: None,
     )
     monkeypatch.setattr(

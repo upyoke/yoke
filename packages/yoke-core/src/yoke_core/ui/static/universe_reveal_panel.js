@@ -1,6 +1,5 @@
 // One disclosure behaviour, shared by every panel a card reveals: the status
-// detail behind a state pill, the claiming session behind a mini card, the
-// deploy-lock holder on a run card.
+// detail behind a state pill and the claiming session behind a mini card.
 //
 // Pointer hover opens it, a click pins it open, and focus opens it for a
 // keyboard, so the same control answers a mouse, a finger and a Tab key. Only

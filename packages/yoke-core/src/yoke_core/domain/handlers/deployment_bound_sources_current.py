@@ -13,7 +13,7 @@ from yoke_core.domain.deployment_run_stale_bound_sources import (
     BOUND_SOURCES_CURRENT_FUNCTION_ID as FUNCTION_ID,
 )
 from yoke_core.domain.handlers.deployment_common import run_id
-from yoke_core.domain.handlers.deployment_run_execution import _require_execution_lock
+from yoke_core.domain.handlers.deployment_run_execution import require_run_driver
 
 
 class Request(BaseModel):
@@ -29,7 +29,7 @@ def handle(request):
     resolved = run_id(request, FUNCTION_ID)
     if isinstance(resolved, HandlerOutcome):
         return resolved
-    if refusal := _require_execution_lock(request, resolved):
+    if refusal := require_run_driver(request, resolved):
         return refusal
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.deployment_run_stale_bound_sources import (
@@ -55,7 +55,7 @@ def register(registry):
         target_kinds=["workflow_run"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["deploy_lock_required"],
+        guardrails=["run_driver_required"],
         adapter_status="internal",
         claim_required_kind=None,
         minimum_serving_version="next-release",

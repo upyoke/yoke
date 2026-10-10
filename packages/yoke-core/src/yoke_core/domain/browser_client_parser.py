@@ -29,6 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
     dsub.add_parser("stop")
     for command in dsub.choices.values():
         command.add_argument("--project", default=None)
+        command.add_argument("--identity", default=None)
 
     # snapshot
     s = sub.add_parser("snapshot")
@@ -49,12 +50,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     for command in ssub.choices.values():
         command.add_argument("--project", default=None)
+        command.add_argument("--identity", default=None)
 
     # exec
     e = sub.add_parser("exec")
     esub = e.add_subparsers(dest="exec_cmd")
     es = esub.add_parser("step")
     es.add_argument("--project", default=None)
+    es.add_argument("--identity", default=None)
     es.add_argument("step_json")
     es.add_argument("--base-url", required=True, dest="base_url")
     es.add_argument("--output-dir", dest="output_dir")

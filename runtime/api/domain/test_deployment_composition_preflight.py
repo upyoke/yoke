@@ -125,7 +125,7 @@ def test_start_context_refuses_before_returning_dispatchable_stages(
 ) -> None:
     unexplained = _blocked_candidate(test_db, tmp_path, monkeypatch)
     monkeypatch.setattr(
-        "yoke_core.domain.handlers.deployment_run_execution._require_execution_lock",
+        "yoke_core.domain.handlers.deployment_run_execution.require_run_driver",
         lambda _request, _run_id: None,
     )
     request = deployment_request(

@@ -138,7 +138,7 @@ def register(registry) -> None:
         side_effects=["deployment_run_items_insert"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
-            "deploy_lock_required",
+            "run_driver_required",
             "created_only_membership",
             "item_workflow_binding",
             "same_project",
@@ -156,7 +156,7 @@ def register(registry) -> None:
         target_kinds=["item"],
         side_effects=["deployment_run_items_delete", "deployment_runs_update"],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["deploy_lock_required", "created_only_membership"],
+        guardrails=["run_driver_required", "created_only_membership"],
         adapter_status="live",
         claim_required_kind=None,
         minimum_serving_version="next-release",
@@ -172,7 +172,7 @@ def register(registry) -> None:
         side_effects=["deployment_run_items_insert"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
-            "deploy_lock_required",
+            "run_driver_required",
             "composition_validation",
             "created_only_membership",
             "item_workflow_binding",

@@ -217,7 +217,7 @@ def failed_step_from_response(
     subject: int | str,
     route: str,
     actor: Optional[ActorContext] = None,
-    project: str = "",
+    sign_in: Optional[Dict[str, Any]] = None,
     color_scheme: Optional[str] = None,
 ) -> Optional[FailedStep]:
     """Return a ``FailedStep`` when the daemon said the step failed."""
@@ -244,7 +244,7 @@ def failed_step_from_response(
         EXECUTION_TARGET_UNAUTHORIZED in str(error) or "timeout" in str(error).lower()
     )
     if unauthorized:
-        error = authorize_recovery(project, base_url)
+        error = authorize_recovery(sign_in or {}, base_url)
     _bqa._log(f"  Step {step_idx}: FAILED (error={error})")
     errors, paths, ids, capture_missed = apply_failed_step(
         assertion_expected=assertion_expected,

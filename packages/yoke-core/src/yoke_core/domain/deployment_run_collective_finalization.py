@@ -247,7 +247,7 @@ def _settle_refusal(run_id: str, unsettled: list[str], *, closed: bool) -> str:
         f"{'; '.join(unsettled)}. A shared gate passes for the run, not for "
         f"one member at a time, so {held}. Repair each named member; "
         "settlement replays on its own once the last blocker clears. If the "
-        "run stays executing, re-drive it under the project deploy lock with "
+        "run stays executing, re-drive it with "
         f"`yoke deployment-runs update {run_id} status succeeded`."
     )
 

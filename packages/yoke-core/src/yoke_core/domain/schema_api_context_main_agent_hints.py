@@ -24,9 +24,9 @@ DEPLOYMENT_RUN_QUERY_HINT = (
 #: an item unclosed.
 RELEASE_ROLE_HINT = (
     "**Release-time commands by role:** the seat driving delivery "
-    "holds `DEPLOY:<project>` for the whole pair, pins one source "
-    "SHA, and owns `deployment-runs create` plus `watch deploy` for "
-    "each run -- the start enrolls every delivery-ready item the "
+    "pins one source SHA and owns `deployment-runs create` plus "
+    "`watch deploy` for each run, taking no claim (a run occupies its "
+    "target servers until its QA settles) -- the start enrolls every delivery-ready item the "
     "candidate carries that no live or succeeded release already "
     "holds, and applies the composition check itself. `add-item` is "
     "for an item whose code the candidate does not carry but which "

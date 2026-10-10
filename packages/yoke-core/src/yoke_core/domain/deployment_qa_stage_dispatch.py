@@ -84,7 +84,7 @@ def _notify_stage_wait(
             target_digest=target_digest,
         )
     else:
-        no_recipient = "no deploy-lock driver and no covering project steering seat"
+        no_recipient = "no live run driver and no covering project steering seat"
         notify = lambda: notify_run_scoped_qa_wait(  # noqa: E731
             conn,
             run_id=run_id,

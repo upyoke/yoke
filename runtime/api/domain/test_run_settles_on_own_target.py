@@ -13,6 +13,7 @@ from runtime.api.domain.test_status_transition_preflight import (
     _isolate_status_effects,
 )
 from runtime.api.fixtures.backlog_inserts import insert_qa_run
+from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
 from yoke_core.domain.deployment_qa_member_acceptance_notice import (
     notify_item_qa_accepted,
 )
@@ -158,7 +159,6 @@ def test_member_closes_when_its_stage_obligation_passes(test_db, monkeypatch):
 def test_auto_completion_does_not_wait_on_another_targets_obligation(
     test_db, monkeypatch
 ):
-    from runtime.api.domain.test_deployment_run_auto_completion import _held_lock
     from yoke_core.domain.deployment_run_auto_completion import _readiness
 
     item_id = 9755
@@ -167,7 +167,7 @@ def test_auto_completion_does_not_wait_on_another_targets_obligation(
         "UPDATE deployment_runs SET current_stage='member-qa' WHERE id='run-prod'"
     )
     test_db.commit()
-    _held_lock(monkeypatch)
+    release_seeded_driver(test_db, "run-prod")
 
     ready, reason = _readiness(test_db, "run-prod")
 

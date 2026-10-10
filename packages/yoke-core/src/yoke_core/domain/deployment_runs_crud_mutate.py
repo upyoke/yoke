@@ -171,7 +171,18 @@ def cmd_update(
                 from yoke_core.domain.deployment_run_composition_freeze import (
                     freeze_run_composition,
                 )
+                from yoke_core.domain.deploy_target_occupancy import (
+                    DeployTargetOccupiedError,
+                    require_target_unoccupied,
+                )
 
+                try:
+                    # Held through the stamp below: the next start on this
+                    # origin reads this run as executing, not as free.
+                    require_target_unoccupied(conn, run_id)
+                except DeployTargetOccupiedError as exc:
+                    conn.rollback()
+                    return f"Error: {exc}"
                 try:
                     timed_call(
                         "composition_freeze", freeze_run_composition, conn, run_id
@@ -243,6 +254,14 @@ def cmd_update(
                 # A terminal run keeps its answer, so no reader derives it; a
                 # transient failure on an unsuccessful run is left for a read.
                 record_carried_work(conn, run_id, permanent_only=value != "succeeded")
+                if value == "cancelled":
+                    from yoke_core.domain.deployment_run_member_removal import (
+                        retract_outstanding_member_copies,
+                    )
+
+                    retract_outstanding_member_copies(
+                        conn, run_id, reason="deployment run cancelled"
+                    )
                 from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
                     withdraw_deployment_qa_wait_wakes,
                 )

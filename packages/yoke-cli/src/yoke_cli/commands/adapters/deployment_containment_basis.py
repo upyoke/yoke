@@ -18,7 +18,7 @@ CONTAINMENT_BASIS_USAGE = (
 def containment_basis(args):
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs execution containment-basis",
-        description="Read a fresh containment basis without recomposing membership. Hold the project deploy lock; re-drive after repairing a named source refusal.",
+        description="Read a fresh containment basis without recomposing membership. Refused while another session is the run's live driver; re-drive after repairing a named source refusal.",
     )
     parser.add_argument("run_id")
     add_json_arg(parser)

@@ -278,7 +278,7 @@ deployment-runs stage-approval evaluate RUN-ID --stage STAGE`). Evaluation raise
 the declared decision request and reports its wait; it never approves. Candidate
 code must not derive policy from a deployed database's different schema.
 `deployment_runs.approve` records the authorized answer. Approval wakes the
-project's deploy-lock driver, or its steering seat when no holder exists, with
+run's live driver, or the project's steering seat when none is attached, with
 same-run re-entry commands; the runner alone advances state. Rejection closes
 the run. Owners: `deployment_approval_requests`, `handlers.deployment_stage_approval`,
 `deployment_stage_approval_dispatch`, `deployment_stage_decision_effect`, reached

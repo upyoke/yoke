@@ -120,6 +120,18 @@ def handle_plan_execution_begin(
                 session_id=request.actor.session_id,
             )
         result = plan_execution_view(conn, execution)
+        if deployment_run_id is not None and parsed.deployment_stage:
+            from yoke_core.domain.deployment_qa_start_identity import (
+                START_IDENTITY_FIELD,
+                start_identity_expectation,
+            )
+
+            result[START_IDENTITY_FIELD] = start_identity_expectation(
+                conn,
+                run_id=str(deployment_run_id),
+                stage_name=parsed.deployment_stage,
+                member_item_id=member_item_id,
+            )
     except QaPlanRosterDischarged as exc:
         conn.rollback()
         return _error(DISCHARGED_BEGIN_CODE, str(exc), "$.payload")

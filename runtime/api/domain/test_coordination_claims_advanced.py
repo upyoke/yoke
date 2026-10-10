@@ -21,7 +21,6 @@ from runtime.api.domain.coordination_claim_test_support import (
     MODEL,
     PROJECT_OTHER,
     PROJECT_YOKE,
-    deploy_target,
     migration_target,
     qa_target,
     qualification_target,
@@ -158,7 +157,6 @@ class TestListing:
                     "sess-a",
                     f"FLEET_PRIVATE_ROUTE_QUALIFICATION:v1:{GRANT_KEY}",
                 ),
-                (deploy_target(), "sess-b", "DEPLOY:yoke"),
             )
             for target, session_id, key in targets:
                 coordination_claims.acquire(conn, target, session_id)
