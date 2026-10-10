@@ -1,4 +1,4 @@
-import { formatInstant } from "./timestamps.js";
+import { formatInstant, instantMicros } from "./timestamps.js";
 
 // The dashboard's one "how long ago" convention: minute granularity rolling
 // over to hours past an hour and days past 48 hours. Every "X ago" display
@@ -8,13 +8,22 @@ import { formatInstant } from "./timestamps.js";
 // the deliberate seconds-granular exception for facts that change faster
 // than a minute (a relay heartbeat), not a second convention to choose
 // between.
+function elapsedSeconds(value, now) {
+  if (!Number.isSafeInteger(now)) return null;
+  try {
+    const elapsed = BigInt(now) * 1000n - instantMicros(value);
+    return elapsed <= 0n ? 0 : Number(elapsed / 1_000_000n);
+  } catch {
+    return null;
+  }
+}
+
 export function relativeAge(value, now = Date.now()) {
   if (!value) return "recently";
-  const timestamp = new Date(value).getTime();
-  if (Number.isNaN(timestamp)) return String(value);
-  const elapsedSeconds = Math.max(0, Math.floor((now - timestamp) / 1000));
-  if (elapsedSeconds < 60) return "now";
-  const minutes = Math.floor(elapsedSeconds / 60);
+  const seconds = elapsedSeconds(value, now);
+  if (seconds === null) return String(value);
+  if (seconds < 60) return "now";
+  const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
   if (hours < 48) return `${hours}h`;
@@ -34,9 +43,8 @@ export function relativeAgePhrase(value, now = Date.now()) {
 // arriving. `relativeAge` stays the default everywhere a minute is the
 // smallest interval that carries meaning.
 export function preciseAge(value, now = Date.now()) {
-  const timestamp = Date.parse(String(value || ""));
-  if (Number.isNaN(timestamp)) return null;
-  const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
+  const seconds = elapsedSeconds(value, now);
+  if (seconds === null) return null;
   if (seconds < 60) return `${seconds}s`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
@@ -44,7 +52,8 @@ export function preciseAge(value, now = Date.now()) {
 }
 
 export function isInstantRelativeTime(value, now = Date.now()) {
-  return relativeAge(value, now) === "now";
+  const seconds = elapsedSeconds(value, now);
+  return seconds !== null && seconds < 60;
 }
 
 // The viewer's time-zone preference (Profile → Preferences). Empty means
