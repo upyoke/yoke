@@ -40,22 +40,28 @@ import copy
 import json
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.timestamps import InvalidInstant, parse_instant
+
 
 # Authored fields (operator-supplied).  When the profile is
 # ``pre_merge_safe`` these must all be present and non-empty;
 # the joint gate enforces that.  Per-write validation only checks shape.
-AUTHORED_FIELDS = frozenset({
-    "pre_merge_readers_writers",
-    "invariants",
-    "rehearsal_commands",
-    "residual_risk_notes",
-})
+AUTHORED_FIELDS = frozenset(
+    {
+        "pre_merge_readers_writers",
+        "invariants",
+        "rehearsal_commands",
+        "residual_risk_notes",
+    }
+)
 
 # Yoke-maintained append-only companions.
-APPEND_ONLY_FIELDS = frozenset({
-    "rehearsal_outcomes",
-    "class_escalations",
-})
+APPEND_ONLY_FIELDS = frozenset(
+    {
+        "rehearsal_outcomes",
+        "class_escalations",
+    }
+)
 
 # Freeze timestamp stamped by the joint gate on pass.
 FREEZE_FIELD = "frozen_at"
@@ -103,7 +109,9 @@ def _normalize_readers_writers(value: Any) -> List[Dict[str, Any]]:
             raise DbCompatibilityAttestationError(
                 f"pre_merge_readers_writers[{idx}] has unknown keys: {sorted(extra)}"
             )
-        path = _require_string(entry.get("path", ""), field=f"pre_merge_readers_writers[{idx}].path")
+        path = _require_string(
+            entry.get("path", ""), field=f"pre_merge_readers_writers[{idx}].path"
+        )
         role = entry.get("role")
         if role not in VALID_ROLES:
             raise DbCompatibilityAttestationError(
@@ -112,7 +120,11 @@ def _normalize_readers_writers(value: Any) -> List[Dict[str, Any]]:
         out: Dict[str, Any] = {"path": path, "role": role}
         symbol = entry.get("symbol")
         if symbol is not None:
-            out["symbol"] = _require_string(symbol, field=f"pre_merge_readers_writers[{idx}].symbol", allow_empty=True)
+            out["symbol"] = _require_string(
+                symbol,
+                field=f"pre_merge_readers_writers[{idx}].symbol",
+                allow_empty=True,
+            )
         normalized.append(out)
     return normalized
 
@@ -159,8 +171,11 @@ def _normalize_frozen_at(value: Any) -> Optional[str]:
     if value is None:
         return None
     frozen = _require_string(value, field=FREEZE_FIELD)
-    # Structural-only check: joint gate owns the stamping; here we just
-    # verify shape.  Full ISO-8601 validation lives at the freeze site.
+    # Validate chronology without rewriting an immutable stamp's bytes.
+    try:
+        parse_instant(frozen)
+    except InvalidInstant as exc:
+        raise DbCompatibilityAttestationError(f"{FREEZE_FIELD}: {exc}") from None
     if not frozen.endswith("Z"):
         raise DbCompatibilityAttestationError(
             f"{FREEZE_FIELD} must be UTC ISO-8601 ending in 'Z'; got {frozen!r}"
@@ -209,9 +224,13 @@ def validate(payload: Any) -> Dict[str, Any]:
             allow_empty=True,  # joint gate checks non-emptiness on pre_merge_safe
         )
     if "rehearsal_outcomes" in payload:
-        result["rehearsal_outcomes"] = _normalize_outcomes(payload["rehearsal_outcomes"])
+        result["rehearsal_outcomes"] = _normalize_outcomes(
+            payload["rehearsal_outcomes"]
+        )
     if "class_escalations" in payload:
-        result["class_escalations"] = _normalize_escalations(payload["class_escalations"])
+        result["class_escalations"] = _normalize_escalations(
+            payload["class_escalations"]
+        )
 
     return result
 
