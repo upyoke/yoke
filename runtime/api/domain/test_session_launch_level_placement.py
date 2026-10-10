@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.timestamps import format_instant, parse_instant
 
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
 from yoke_core.domain.session_launch_level_placement import (
@@ -321,3 +321,29 @@ def test_pool_constructor_refuses_unverifiable_reset(reset) -> None:
 
     with pytest.raises(InvalidInstant):
         PoolCheck("weekly", 30.0, 60.0, reset, "ok", False)
+
+
+@pytest.mark.parametrize("microsecond", [None, 0, 123456])
+@pytest.mark.parametrize("offset", [0, 330, -240])
+def test_exhausted_pool_refusal_formats_native_reset(microsecond, offset):
+    expected = (
+        None
+        if microsecond is None
+        else datetime(2026, 8, 26, microsecond=microsecond, tzinfo=timezone.utc)
+    )
+    supplied = (
+        None
+        if expected is None
+        else expected.astimezone(timezone(timedelta(minutes=offset))).isoformat()
+    )
+    conn = level_connection(CODEX_SOL)
+    add_surface(
+        conn, "m-codex", "codex-cli", [window("rolling_7d", 0.0, resets_at=supplied)]
+    )
+    placement = _place(conn)
+    assert placement.chosen is None
+    (candidate,) = placement.candidates
+    assert candidate.pools[0].resets_at == expected
+    rendered = "unknown" if expected is None else format_instant(expected)
+    assert f"(resets {rendered})" in candidate.blocked
+    assert candidate.blocked in placement.reason

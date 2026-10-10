@@ -261,7 +261,7 @@ instants; new headers and exit evidence use fixed-six UTC, preserving the raw
 native streams. Missing headers remain unknown; malformed supplied headers make
 an envelope unreadable, without a file-modification-time substitute. Supervisors
 retain aware wall clocks, and silence subtracts exact native instants.
-Session usage and machine-capacity readings require Native observation clocks internally; result constructors and capacity probes refuse wire/naive clocks. Shared level placement, launch eligibility and lane-capacity helpers also require Native reference clocks and refuse invalid input before SQL; stored relay JSON observations decode at their owner.
+Session usage and machine-capacity readings require Native observation clocks internally; result constructors and capacity probes refuse wire/naive clocks. Shared level placement, launch eligibility and lane-capacity helpers also require Native reference clocks and refuse invalid input before SQL; exhausted-pool refusal text reuses the owned UTC/null reset projection; stored relay JSON observations decode at their owner.
 Their owned JSON ingress parses clocks and output formats only declared leaves. Missing usage observations are null.
 Carried usage storage canonicalizes its observation while preserving unrelated
 JSON facts; malformed clocks refuse before SQL or capacity probes.
