@@ -10,6 +10,7 @@ from __future__ import annotations
 from yoke_contracts.timestamps import parse_instant
 
 import textwrap
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Iterable, List
 from unittest import mock
@@ -77,7 +78,7 @@ def _seed_event(
     event_id: str,
     event_name: str,
     event_outcome: str,
-    created_at: str,
+    created_at: datetime | str,
 ) -> None:
     conn.execute(
         "INSERT INTO events (event_id, event_name, event_outcome, "
@@ -317,3 +318,23 @@ class TestLiveEventsScan:
         with patched_repo_root(repo):
             hc_event_outcome_enum_coverage(db_conn, _args(), rec)
         assert rec.results[0].result == "PASS"
+
+
+@pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kolkata"])
+def test_live_scan_cutoff_retains_microseconds_across_database_zones(
+    db_conn, monkeypatch, zone
+):
+    now = parse_instant("2024-03-03T00:00:00.123456Z")
+    cutoff = now - timedelta(days=3)
+    monkeypatch.setattr(mod, "utc_now", lambda: now)
+    db_conn.execute("SELECT set_config('TimeZone',%s,false)", (zone,))
+    for name, delta in [("before", -1), ("equal", 0), ("after", 1)]:
+        _seed_event(
+            db_conn,
+            event_id=name,
+            event_name="HarnessToolCallDenied",
+            event_outcome="ghost_outcome",
+            created_at=cutoff + timedelta(microseconds=delta),
+        )
+    rows = mod._live_events_scan(db_conn)
+    assert [tuple(row) for row in rows] == [("ghost_outcome", "after", 1)]

@@ -79,7 +79,7 @@ clocks. Browser, Doctor control-plane, done-transition, resync and merge-audit f
 
 Path-claim CLI JSON and body renderers format owned instants; worktree lane
 responses normalize declared clocks before model validation. Doctor receipts bind
-native run clocks and format only their response projection. Done bookkeeping
+native run clocks and format only their response projection; the live outcome scan binds its exact native three-day cutoff. Done bookkeeping
 and merge marker writes retain native landing facts, including null unknowns; queue adapters parse local and relayed clock ingress, preserve native arming episodes, and format only request payloads and human landing text;
 provider corrections accept qualified RFC3339 and compare native instants. Claim contention, run terminalization, minted web-session and strategy-ingest plan models retain native clocks; ingest CAS compares native plan facts and formats conflict reports; claim reports and terminalization responses format only their owned output leaves. Queue
 refresh cadence keeps native cutoffs and facts across database timezones.
