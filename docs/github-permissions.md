@@ -11,26 +11,20 @@ mirror see [GitHub Sync](../.yoke/docs/reference/github-sync.md). The machine-ch
 for the permission set is
 `packages/yoke-contracts/src/yoke_contracts/github_app_installation_permissions.py`.
 
-## The short version
+## Permission boundary
 
-Yoke is an operating system for software delivery, so it acts on your
-repository the way a teammate would: it mirrors your backlog to GitHub Issues,
-opens and merges pull requests, delivers code over git, and triggers the CI/CD
-workflows that ship your app. GitHub only lets an app do those things if it
-holds the matching **repository permissions**. Yoke asks for the smallest set
-that covers those jobs — **9 baseline permissions** every connection requests,
-plus **2 privileged permissions** that stay **off by default** and are only
-requested if you opt into heavier automation (auto-creating repositories, or
-running your own CI runner fleet).
+Yoke mirrors enabled backlog issues, manages pull requests/git delivery and
+starts CI/deploy workflows. The Product App declares nine baseline repository
+permissions. Administration and repository Webhooks belong to separately
+selected privileged authority; opting into a feature does not add an optional
+per-repository grant to the Product App. App permissions are registration-wide
+and presented to every installation; use a dedicated privileged binding and
+selected repositories for runner-fleet authority.
 
-Two facts are the trust foundation:
-
-- **Yoke never asks you to paste a GitHub token or password.** You authorize
-  through GitHub's own device-authorization flow and GitHub's own
-  App-installation screen. Yoke stores only non-secret metadata.
-- **The App's private key never leaves Yoke's control plane.** Every action is
-  performed with a **short-lived token** that GitHub mints on demand and that
-  is scoped down to just the operation at hand.
+Authorize through GitHub's device/install ceremonies. Installation and project
+bindings store verified non-secret metadata; machine authorization retains an
+owner-only rotating refresh credential. App keys stay in control-plane secret
+custody, and operations use short-lived downscoped tokens.
 
 ## The connection is three separate layers
 
@@ -107,7 +101,7 @@ Authoritative source:
 | **Secrets** | write | Seed the encrypted deploy credentials your generated pipelines need |
 | **Variables** | write | Set non-secret Actions config (CI-enable flags, runner routing) |
 
-### Privileged — NOT baseline, off by default, opt-in only
+### Privileged — separate authority, outside the Product baseline
 
 | Permission | Access | Only if you… |
 | --- | --- | --- |
@@ -232,8 +226,9 @@ Each of these is absent from the code, not merely unlisted:
   entire contract is repository-scoped.
 - **No email / `user:email` scope** — the device flow reads only your login and
   numeric id.
-- **No branch-protection write** — Yoke only *reads* protection to warn you if
-  merges are not gated; you configure it yourself.
+- **Branch protection and queue policy are privileged** — ordinary reads warn
+  when required protection is absent; applying a declared merge-queue ruleset
+  requires separately granted Administration authority.
 - **No classic OAuth scopes at all** — GitHub Apps derive access from
   installation permissions, not scopes. The device flow sends only a client id.
 
@@ -256,31 +251,16 @@ Each of these is absent from the code, not merely unlisted:
 - **Secrets are sealed before upload and are write-only** — GitHub never returns
   a secret value, and Yoke never logs one.
 
-## Permission-hygiene recommendations
+## Registration review
 
-The current 9 + 2 set is verified minimal-and-sufficient: every permission has
-a real consumer, no operation is unmapped, and there are no permissions with
-zero consumers. Two items are nonetheless worth revisiting the next time the
-App registration is touched. Both are judgment calls with real trade-offs, not
-defects — they are recorded here so the decision is deliberate.
-
-1. **`Workflows: write` is currently only read-exercised by the App token.**
-   The one place workflow files are committed today pushes them with the
-   machine's stored GitHub authorization; the App token only reads them back to confirm
-   they landed, and no code path uses the write-level workflows constant. The
-   grant is defensible as a registration-time declaration matching Yoke's role
-   of owning your workflow files (and as forward-looking headroom for a hosted
-   control-plane write). If no near-term App-token workflow-file write is
-   planned, the exercised level is `Workflows: read`.
-
-2. **`Secrets: write` and `Variables: write` are baseline but only used by
-   deploy / runner-fleet projects.** A strict least-privilege split would move
-   `Variables: write` into the privileged tier alongside Administration and
-   Webhooks (its only writer is CI/runner-fleet arming), and could drop
-   `Secrets: write` for installs that will never run the webapp deploy pipeline.
-   They sit in the baseline today because GitHub App permissions are declared
-   once at registration and presented to every installation, and the single
-   canonical App also serves projects that do run a deploy pipeline or fleet.
+Review requested and exercised authority separately. Workflows write permits
+workflow-file delivery even where a path currently reads through an App token
+and pushes through machine authorization. Secrets/Variables remain baseline
+registration grants, while their write consumers are deploy and CI/runner
+setup. A permission-tier change requires changing the registration contract
+and affected consumers together; runtime token downscoping does not shrink
+what a compromised registration key could request. The operator runbook owns
+registration, selected repository scope and privileged binding review.
 
 ## Source of truth
 
