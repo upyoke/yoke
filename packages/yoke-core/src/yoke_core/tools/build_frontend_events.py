@@ -23,7 +23,12 @@ BROWSER_MODULES = (
     "events_props",
     "events_types",
 )
-SERVER_MODULES = ("events_attribution", "events_cookie", "events_handoff")
+SERVER_MODULES = (
+    "events_attribution",
+    "events_cookie",
+    "events_device",
+    "events_handoff",
+)
 HEADER = "// Generated from the installed structured-events Pack; run build_frontend_events.\n"
 PYTHON_HEADER = "# Generated from the installed structured-events Pack; run build_frontend_events.\n"
 NODE_STRIP = """

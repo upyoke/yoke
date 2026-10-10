@@ -2,6 +2,7 @@
 import { MAX_BATCH_SIZE, MAX_ENVELOPE_BYTES, MAX_REQUEST_BYTES } from './events_types.ts';
 import { sanitizePath, sanitizeUrl, isBot } from './events_attribution.ts';
 import { createAttributionCookie } from './events_cookie.ts';
+import { deviceProps } from './events_device.ts';
 import { createAttributionHandoff, handoffOrigin } from './events_handoff.ts';
 
 export interface CollectorConfig {
@@ -96,6 +97,7 @@ export function createCollector(config: CollectorConfig) {
       if (!body || !Array.isArray(body.events) || !body.events.length || body.events.length > MAX_BATCH_SIZE) {
         return reply(400, 'events_invalid', 'Send 1..50 frontend analytics envelopes in events.');
       }
+      const device = deviceProps(request.headers);
       for (const event of body.events) {
         if (!event || typeof event !== 'object' || Array.isArray(event) ||
           ['event_id', 'event_name', 'event_kind', 'event_type', 'event_time', 'session_id'].some(k => typeof event[k] !== 'string' || !event[k]) ||
@@ -109,6 +111,7 @@ export function createCollector(config: CollectorConfig) {
         event.referrer = sanitizeUrl(event.referrer || '');
         if (typeof event.page_path === 'string') event.page_path = sanitizePath(event.page_path);
         event.is_bot = isBot(request.headers.get('User-Agent') || '');
+        Object.assign(event, device);
         delete event.actor_id; delete event.org_id;
         // Order by receipt, never the browser clock; keep event_time as the client's claim.
         event.received_at = new Date(receivedAt).toISOString();
