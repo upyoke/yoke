@@ -33,34 +33,23 @@ created_at TEXT NOT NULL
 
 ### success_policy JSON Schema
 
-The `success_policy` column stores a JSON object defining what counts as success. It must support non-binary, statistical, and composite assessments. Examples:
+The registered aggregate policy is all-pass:
 
 ```json
-// Deterministic
-{"type": "deterministic", "check": "exit_code", "expected": 0}
-
-// Threshold
-{"type": "threshold", "metric": "score", "min": 3.5, "max": 5.0}
-
-// Statistical
-{"type": "statistical", "required_passes": 7, "total_runs": 10}
-
-// Agent judgment with confidence
-{"type": "agent_judgment", "min_confidence": 0.8, "pass_threshold": 0.8, "fail_threshold": 0.4}
-
-// Composite (multi-criteria)
-{"type": "composite", "criteria": [
- {"metric": "layout_score", "min": 4},
- {"check": "no_missing_elements"},
- {"metric": "color_match", "min_pct": 80}
-]}
+{"id":"all-pass","params":{}}
 ```
 
-Downstream consumers (conduct, usher) implement policy evaluation. A centralized evaluation engine is deferred. Full per-type semantics live in [qa-platform/success-policy-schema.md](../qa-platform/success-policy-schema.md).
+Each effective requirement needs a completed passing current actual attempt
+with its own definition, review and subject proof. Historical passes and
+attempt voting do not rescue a newer failure or pending attempt;
+`qa_success_policy_invalid` names the policy correction. A method may measure
+thresholds or multiple criteria inside that one attempt. Full policy and
+judgment semantics live in [success-policy-schema.md](../qa-platform/success-policy-schema.md)
+and [requirement-state-model.md](../qa-platform/requirement-state-model.md).
 
 ## Table: qa_runs
 
-Records individual QA executions against a requirement. Multiple runs per requirement support statistical success policies.
+Records actual executions and their history. Gates select the current actual attempt before grading; multiple rows are not votes.
 
 ```sql
 id INTEGER PRIMARY KEY

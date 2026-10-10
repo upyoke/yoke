@@ -20,7 +20,11 @@ Audience: All system components (agent scripts, backend services, frontend clien
 
 ## Section A: Canonical Event Envelope
 
-Every event in the system -- regardless of source -- conforms to a single JSON envelope. The envelope has two parts: **property groups** at the root level (universal, queryable fields) and a **context** object (event-specific payload). Any consumer can filter by root-level fields without parsing `context`.
+Events share root query dimensions and an event-specific `context` object.
+The examples below describe the frontend/Pack envelope. Core in-process
+`events.py` uses `created_at` and its explicit caller context; hook observation
+has its own producer. See [Python templates](structured-logging-standard/python-templates.md)
+and [event contract](event-contract.md) before choosing an implementation.
 
 ### Naming Conventions
 
@@ -30,8 +34,8 @@ All fields across all source types and all languages MUST follow these rules:
 |---|---|---|
 | Field names | `snake_case` | `event_name`, `session_id`, `user_email` |
 | Timestamps | ISO 8601 UTC, always with `Z` suffix | `2026-03-12T14:30:00.000Z` |
-| Enums | Lowercase strings | `"info"`, `"agent"`, `"completed"` |
-| IDs | UUIDs or deterministic slugs, never exposed integers | `"a1b2c3d4-..."`, `"yoke"` |
+| Enums | Declared casing; severity uppercase | `"INFO"`, `"agent"`, `"completed"` |
+| IDs | Owner-defined identity; resolve public item refs | UUID session, project slug, bare `items.id`, authenticated integer actor |
 | Booleans | `is_` prefix | `is_retryable`, `is_anonymous`, `is_bot` |
 | Durations | `_ms` suffix (integer milliseconds) | `duration_ms`, `ttfb_ms` |
 | Counts | `_count` suffix (integer) | `item_count`, `retry_count` |
@@ -65,7 +69,7 @@ This enum enables cross-source queries without reasoning about `service` values.
  "service_version": "1.0.0",
  "project": "yoke",
 
- "session_id": "uuid-or-fallback",
+ "session_id": "registered-session-id",
  "trace_id": "optional-uuid",
  "parent_id": "optional-uuid",
  "request_id": "optional-uuid",
@@ -97,7 +101,7 @@ For query performance, the following fields are promoted from `context` to root-
 - `tool_name` (TEXT) -- the tool invoked (Bash, Read, Write, Edit, Grep, Glob, Agent)
 - `exit_code` (INTEGER) -- tool exit code (null for non-Bash tools)
 - `agent` (TEXT) -- the agent that emitted the event
-- `item_id` (TEXT) -- backlog item ID (canonical bare-numeric text; display may render `YOK-N`)
+- `item_id` (INTEGER) -- bare `items.id` in storage; core JSON uses numeric text
 - `task_num` (INTEGER) -- epic task number
 - `actor_id` (INTEGER) -- authenticated engine actor
 - `org_id` (TEXT) -- organization identifier
@@ -166,8 +170,9 @@ Admission rules (both collectors):
 - Dedupe is silent: a repeated `event_id` is dropped by the sink
   (`ON CONFLICT (event_id) DO NOTHING`) and still counts as accepted.
 
-The 100-character `event_name` limit and the 2 KB per-context-field limit are
-emitter-side shrinking rules, not collector refusals.
+The frontend/Pack's 100-character event-name and context shrinking rules are
+emitter-side behavior, not collector refusals. Core limits differ as described
+in the Python template.
 
 Success response (200), where `accepted` is the number of envelopes submitted:
 ```json
@@ -214,8 +219,8 @@ account/actor owner, never only to events.
 | Request body | 512 KB | Collector (`payload_too_large`) |
 | Events per request | 50 | Collector (`events_invalid`) |
 | Total envelope | 64 KB | Collector (`event_too_large`) |
-| Single context field | 2 KB | Emitter (shrunk before send) |
-| Stacktrace field | 4 KB (truncated from tail) | Emitter |
+| Single context field | 2 KB | Frontend/Pack emitter; core string limit is 2,048 characters |
+| Stacktrace field | 4 KB (truncated from tail) | Frontend/Pack emitter |
 
 ### Consideration: exit_code and tool_name Placement
 

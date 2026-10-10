@@ -46,7 +46,7 @@ Property groups are named, reusable sets of fields. Every implementation (shell,
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `session_id` | TEXT | Yes | Session identifier. For agents: Claude session ID or fallback `$(date +%s)-$$`. For frontend: client-generated UUID held in memory for the page lifetime. For backend: request-scoped or extracted from auth token. |
+| `session_id` | TEXT | Yes | Session identifier. For agents: registered harness session identity; never fabricate a shell fallback. For frontend: client-generated UUID held in memory for the page lifetime. For backend: request-scoped or extracted from auth token. |
 | `session_start_time` | TEXT (ISO 8601 UTC) | No | When the session began. |
 
 ### request_props
@@ -77,7 +77,7 @@ Agent-specific fields for Yoke CLI agent events.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `agent` | TEXT | Yes (for agents) | Agent name: `engineer`, `tester`, `architect`, `product-manager`, `product-designer`, `simulator` |
-| `item_id` | TEXT | No | Backlog item. E.g., `42`. |
+| `item_id` | numeric text | No | Bare `items.id` in core JSON; indexed storage is INTEGER. Resolve a public ref before emission. |
 | `task_num` | INTEGER | No | Epic task number. |
 | `tool_name` | TEXT | No | Tool invoked: `Bash`, `Read`, `Write`, `Edit`, `Grep`, `Glob`, `Agent`. |
 | `worktree_path` | TEXT | No | Worktree path for the current dispatch. |

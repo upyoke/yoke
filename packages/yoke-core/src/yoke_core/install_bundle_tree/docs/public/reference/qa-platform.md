@@ -16,7 +16,7 @@ Keep these dimensions independent; never collapse them into one enum.
 | `qa_kind` | Free-form purpose: implementation_review, simulation, smoke, e2e, visual-regression, manual-acceptance; new kinds need no schema change. |
 | `performed_by` | Execution: agent, agent_mission (walker captures, main agent judges), shell, playwright, manual, github-actions. |
 | `capability_requirements` | JSON capability slugs checked against project capability and executing host/session authority. |
-| `success_policy` | Acceptance: deterministic, threshold, statistical, composite, agent_judgment; [schema and decisions](qa-platform/success-policy-schema.md). |
+| `success_policy` | All-pass aggregation over current actual attempts; method-local measurement thresholds; [schema and decisions](qa-platform/success-policy-schema.md). |
 
 Admission exemptions are runner-specific: browser_substrate supplies its local
 browser runtime; agent_mission requires walker setup on the target host before

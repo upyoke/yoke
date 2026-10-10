@@ -10,7 +10,12 @@ The `## Simplify — three-axis doctrine` section in `AGENTS.md` defines the sha
 
 ## Bootstrap
 
-Codex loads its Yoke orientation automatically from the canonical auto-loaded `AGENTS.md` plus the session-start hook, which injects the same orientation and the generated `main_agent` packet block other supported harness sessions receive. That gives Codex's main session the same compact `core` + `claims` schema/API spine the Bash-capable subagents see. Substrate capability truth (hooks, env / session identity, cwd binding, adapter render format, supported commands, parity limits) is documented separately as the `harness_contract` manifest, which the Codex adapter carries alongside this shell. `harness_contract` is the manifest layer; `main_agent` and `*_agent` are the LLM-facing packet layer — the two never overlap.
+Native `AGENTS.md` and the opening hook provide shared startup orientation.
+The generated `main_agent` packet contains decisions and executable recipes
+needed by that role; it is not a copied full schema/topic roster. Explicit
+topic depth stays available through `yoke packets render --help`.
+`harness_contract` separately owns manifest/bootstrap substrate facts.
+See the [packet reference](../reference/db-reference.md#agent-context-packet).
 
 ### Repo-local skill discovery
 
@@ -90,16 +95,11 @@ Future shared-registry additions inherit to Codex unless a real substrate limita
 
 ## Shell differences on Codex
 
-`AGENTS.md` and the Yoke skills write their search recipes around `rg`, which
-Claude Code ships as a shell builtin. Codex has no such builtin, so unless
-ripgrep is separately installed those recipes are `command not found` and a few
-neighbouring shapes need translating. Everything not listed here applies to
-Codex unchanged.
+Use the search tool available on the current machine: prefer `rg`; if it
+is absent, use `git grep -n 'pattern'` or `grep -rn 'pattern' <known-dir>`.
+Do not translate flags mechanically: grep `-r` is recursive, while rg `-r`
+selects replacement text.
 
-- **Search with `grep -rn 'pattern' <dir>` or `git grep -n 'pattern'`.** Do not
-  translate an `rg` recipe flag-for-flag: `-r` means *recursive* in grep and
-  *replace* in rg, so a copied `-r` silently rewrites what the search returns
-  instead of widening it.
 - **Enumerate paths; never pass a shell glob.** The path-glob guard denies an
   unmatched zsh glob before the command runs, and its recovery line names
   `rg --files`. List candidates with `git ls-files` or search a directory you
@@ -113,9 +113,9 @@ Codex unchanged.
   `ModuleNotFoundError: yoke_contracts` or, worse, passes while testing the
   wrong source. `yoke dev run -- <command>` binds any other lane-source command
   the same way.
-- **Yoke adapters take `--item PREFIX-N`, never a positional ref.** For example
-  `yoke claims work acquire --item PREFIX-N --reason "..."`; the positional form
-  is refused.
+- **Work acquisition takes the explicit item flag:**
+  `yoke claims work acquire --item PREFIX-N --reason "..."`. Other registered
+  adapters have their own grammar; read that operation's `--help`.
 
 ## Tool use on Codex
 

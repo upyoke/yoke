@@ -84,9 +84,9 @@ Emitted by PostToolUse hook on every successful tool call.
  "duration_ms": 342,
  "context": {
  "detail": {
- "command_preview": "npm test",
- "exit_code": 0,
- "output_bytes": 4096
+ "tool_name": "Bash",
+ "tool_input": "npm test",
+ "tool_response_preview": "tests passed"
  }
  }
 }
@@ -114,9 +114,9 @@ Emitted by PostToolUseFailure hook on every failed tool call.
  "anomaly_flags": "nonzero_exit",
  "context": {
  "detail": {
- "command_preview": "npm test",
- "exit_code": 1,
- "error_output": "Error: test suite failed"
+ "tool_name": "Bash",
+ "tool_input": "npm test",
+ "tool_response_preview": "Error: test suite failed"
  }
  }
 }
@@ -224,7 +224,7 @@ SELECT
  COUNT(*) FILTER (WHERE event_name = 'HarnessToolCallFailed') AS tools_failed,
  COUNT(*) FILTER (WHERE event_name = 'HarnessToolCallStructuredExit') AS structured_exit_count,
  COUNT(*) FILTER (WHERE anomaly_flags IS NOT NULL AND anomaly_flags <> '') AS anomaly_count,
- SUM(duration_ms) FILTER (WHERE event_name LIKE 'ToolCall%') AS total_tool_ms
+ SUM(duration_ms) FILTER (WHERE event_name LIKE 'HarnessToolCall%') AS total_tool_ms
 FROM events
 WHERE session_id = :session_id
 GROUP BY session_id, agent, item_id, task_num;
@@ -246,7 +246,7 @@ SELECT
  SUM(CASE WHEN event_name = 'HarnessToolCallFailed' THEN 1 ELSE 0 END) AS tools_failed,
  SUM(CASE WHEN event_name = 'HarnessToolCallStructuredExit' THEN 1 ELSE 0 END) AS structured_exit_count,
  SUM(CASE WHEN anomaly_flags IS NOT NULL AND anomaly_flags <> '' THEN 1 ELSE 0 END) AS anomaly_count,
- SUM(CASE WHEN event_name LIKE 'ToolCall%' THEN duration_ms ELSE 0 END) AS total_tool_ms
+ SUM(CASE WHEN event_name LIKE 'HarnessToolCall%' THEN duration_ms ELSE 0 END) AS total_tool_ms
 FROM events
 WHERE session_id = :session_id
 GROUP BY session_id, agent, item_id, task_num;
@@ -284,7 +284,7 @@ SELECT
  MAX(duration_ms) AS max_ms,
  SUM(CASE WHEN event_outcome = 'failed' THEN 1 ELSE 0 END) AS failure_count
 FROM events
-WHERE event_name LIKE 'ToolCall%'
+WHERE event_name LIKE 'HarnessToolCall%'
  AND created_at >= :since
 GROUP BY tool_name
 ORDER BY call_count DESC;
@@ -314,7 +314,7 @@ ORDER BY occurrence_count DESC;
 - **session_id is the primary key for session analysis.** All events in a session share the same `session_id`. Query `WHERE session_id = :id` for a complete transcript.
 - **item_id + task_num is the primary key for task analysis.** Multiple sessions may work on the same task (retries, multi-session work). Query `WHERE item_id = :id AND task_num = :num` for all sessions related to a task.
 - **Anomalies live on the primary tool-call row.** Yoke stores anomaly signals in `anomaly_flags` on `HarnessToolCallCompleted`, `HarnessToolCallFailed`, or `HarnessToolCallStructuredExit` rather than emitting a second anomaly event.
-- **`created_at` is the first-class table timestamp.** `event_time` lives in the JSON envelope; use `created_at` for SQL against the live `events` table.
+- **`created_at` is the first-class table timestamp.** Frontend/Pack and hook envelopes use `event_time`; the core emitter uses `created_at` in JSON too. Use the table column for SQL.
 - **Durations are always in milliseconds.** The `duration_ms` field on `HarnessSessionStopped` represents total session wall time. On `HarnessToolCallCompleted`/`HarnessToolCallFailed` it represents tool execution time.
 
 ---

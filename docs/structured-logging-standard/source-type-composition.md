@@ -39,9 +39,11 @@ Emission pattern: Hook-emitted (PostToolUse/PostToolUseFailure) or explicit `yok
  "worktree_path": "/Users/dev/yoke/.worktrees/YOK-N",
 
  "context": {
- "command": "npm test",
- "exit_code": 0,
- "output_bytes": 4096
+ "detail": {
+ "tool_name": "Bash",
+ "tool_input": "npm test",
+ "tool_response_preview": "tests passed"
+ }
  }
 }
 ```
