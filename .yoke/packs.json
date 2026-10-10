@@ -39,7 +39,7 @@
       "version": "1.1.0"
     },
     "structured-events": {
-      "content_digest": "d075f72eb8738f23eb02609d1d083f8e63109244c2f3ebf314da2d00f4c7d364",
+      "content_digest": "7885a605e496cc98769696ffef1bd2f08f3864737beb46b335a66f30d8a10304",
       "files": {
         "docs/packs/structured-events/README.md": {
           "mode": 420,
@@ -49,12 +49,12 @@
         "events/README.md": {
           "mode": 420,
           "path": "events/README.md",
-          "sha256": "41478d8a5ff1aaee4a346558ef7bd6c280701799739816731c0210291473d0ec"
+          "sha256": "bfcc7b3900464d73fdccb9af57c1aea034bad8be4f0ccc36d1f33cde11ea57ee"
         },
         "events/api-route.ts": {
           "mode": 420,
           "path": "events/api-route.ts",
-          "sha256": "2544fb0e3aa0449b2c2457031650d25e1908ebe08c394684a0daf2cb1f3d2fe4"
+          "sha256": "9be1c39e2f64f8c6dff3c3c70a84d584bc7f9421292d7ae4ffbaf53a27787591"
         },
         "events/attribution_rules.json": {
           "mode": 420,
@@ -104,12 +104,12 @@
         "events/events_device.py": {
           "mode": 420,
           "path": "events/events_device.py",
-          "sha256": "3dab5ee909216d756bf06fb71dd6a910ece1831d75d146e89cf224a8b8fb26b2"
+          "sha256": "345bba71a3ea4c873181639b92b31ca26c56e0f843cb23362932556364afce08"
         },
         "events/events_device.ts": {
           "mode": 420,
           "path": "events/events_device.ts",
-          "sha256": "43289c19b1d0d424be3554572b0075dafd6be355d3a9ca15a0ffa607ae2eba01"
+          "sha256": "730409bbaa8fa582def4bff28e2f1623f6580a3c8b690de0244d8055b6141df5"
         },
         "events/events_handoff.py": {
           "mode": 420,
@@ -149,12 +149,12 @@
         "events/test_browser.mjs": {
           "mode": 420,
           "path": "events/test_browser.mjs",
-          "sha256": "0c73a2ec8faae53abc9261d371b73f236a1550827002b1357d77db52b670a09d"
+          "sha256": "a8de494538f0a7e85957d0cefdd62c9ad6b8b2784b833b0f00bbb3b261b9c590"
         },
         "events/test_device.py": {
           "mode": 420,
           "path": "events/test_device.py",
-          "sha256": "6f414cc33e663ffd7b189160a56c3179bdab715dba7b2e637ade80c1e0ba3834"
+          "sha256": "1226dcb60b76f2971fef9b7c31c9cb58a4dfe3640d3f9a5145984352cb2cc0dc"
         },
         "events/test_events.py": {
           "mode": 420,
@@ -193,7 +193,7 @@
         "project_name": "yoke"
       },
       "source": {
-        "commit": "fa5d075e77a93c339071c75132395c1668bf7ab4",
+        "commit": "dbaa4da89e9e45895078eb1e1fad502b17829f09",
         "kind": "lane"
       },
       "version": "4.4.0"
