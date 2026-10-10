@@ -9,6 +9,7 @@ Everything before that line stays local.
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import datetime
 
 import pytest
 
@@ -28,6 +29,43 @@ from yoke_harness.session_relay_claude import run_claude_cli_adapter
 from yoke_harness.session_relay_native_capture_format import compose_capture
 from yoke_harness.session_relay_native_diagnostics import classify_native_failure
 from yoke_harness.session_relay_native_spawn import SupervisedNative
+from yoke_contracts.timestamps import parse_instant
+
+
+@pytest.mark.parametrize(
+    "value",
+    [None, "1970-01-01T00:00:00Z", "1970-01-01T05:29:59.123456+05:30"],
+)
+def test_diagnostic_expiry_survives_owned_evidence_projection(value):
+    evidence = {"diagnostic_expires_at": value, "result_code": "2020-01-01T00:00:00Z"}
+    clean = redacted_evidence_document(evidence)
+    assert clean["result_code"] == evidence["result_code"]
+    if value is None:
+        assert "diagnostic_expires_at" not in clean
+    else:
+        native = parse_instant(value)
+        assert redacted_evidence_document({"diagnostic_expires_at": native}) == {
+            "diagnostic_expires_at": clean["diagnostic_expires_at"]
+        }
+        assert parse_instant(clean["diagnostic_expires_at"]) == native
+        assert clean["diagnostic_expires_at"].endswith("Z")
+        assert len(clean["diagnostic_expires_at"].split(".")[1]) == 7
+    assert evidence["diagnostic_expires_at"] == value
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        0,
+        False,
+        datetime(1970, 1, 1),
+        "1970-01-01T00:00:00",
+        "1970-01-01T00:00:00.1234567Z",
+    ],
+)
+def test_diagnostic_evidence_refuses_ambiguous_or_scalar_expiry(value):
+    with pytest.raises(ValueError, match="invalid_instant"):
+        redacted_evidence_document({"diagnostic_expires_at": value})
 
 
 @pytest.mark.parametrize(
