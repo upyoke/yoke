@@ -10,8 +10,10 @@ RESUME_ATTEMPT_ENV = "YOKE_HEADLESS_RESUME_ATTEMPT_ID"
 # therefore reacts to a sustained quiet window and to process identity, and
 # to nothing else: how long a resume has been running is not evidence about
 # whether it is working, and reading it as such terminated live workers
-# mid-turn. A native that keeps stamping activity keeps its process; one that
-# goes quiet for this window, or whose pid no longer names it, is contained.
+# mid-turn. A native that keeps proving activity -- a hook stamp, output in its
+# capture, or growth of its own session record -- keeps its process; one whose
+# every proof goes quiet for this window, or whose pid no longer names it, is
+# contained.
 RESUME_INACTIVITY_SECONDS = 20 * 60
 
 RESUMED_RUNNING_RESULT = "resumed_running"

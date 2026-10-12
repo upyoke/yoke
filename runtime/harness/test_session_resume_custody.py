@@ -15,6 +15,8 @@ import subprocess
 import sys
 import time
 
+import pytest
+
 from yoke_contracts.session_control.resume import RESUME_INACTIVITY_SECONDS
 from yoke_harness.session_launch_containment import (
     record_supervised_native,
@@ -26,6 +28,7 @@ from yoke_harness.session_launch_containment_sweep import (
 
 
 LAUNCH_ID = "11111111-1111-4111-8111-111111111111"
+CODEX_THREAD_ID = "019a0000-0000-7000-8000-000000000001"
 
 
 def _sleeper() -> subprocess.Popen:
@@ -189,3 +192,55 @@ def test_recent_capture_output_keeps_silent_resume_alive(tmp_path: Path) -> None
     finally:
         process.kill()
         process.wait()
+
+
+def _codex_session_record(home: Path, written_at: float) -> Path:
+    """A Codex rollout for the resumed thread, last written at ``written_at``."""
+    day = home / ".codex" / "sessions" / "2026" / "10" / "12"
+    day.mkdir(parents=True)
+    rollout = day / f"rollout-2026-10-12T16-00-00-{CODEX_THREAD_ID}.jsonl"
+    rollout.write_text('{"type":"response_item","payload":{"type":"reasoning"}}\n')
+    os.utime(rollout, (written_at, written_at))
+    return rollout
+
+
+@pytest.mark.parametrize(
+    ("record_age", "contained"),
+    [(60, False), (RESUME_INACTIVITY_SECONDS + 1, True)],
+    ids=["growing-session-record-keeps-it", "stale-session-record-reaps-it"],
+)
+def test_codex_session_record_counts_as_resume_activity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    record_age: int,
+    contained: bool,
+) -> None:
+    # A Codex turn that reasons without a tool call fires no hook, and a
+    # Codex resume has no capture: its own rollout is the only proof of life.
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    process = _sleeper()
+    now = time.time()
+    _codex_session_record(home, now - record_age)
+    try:
+        record_supervised_native(
+            LAUNCH_ID,
+            process.pid,
+            native_session_id=CODEX_THREAD_ID,
+            supervision_kind="resume",
+            state_dir=tmp_path,
+            now=now - RESUME_INACTIVITY_SECONDS - 1,
+        )
+
+        outcomes = contain_stranded_launch_natives(state_dir=tmp_path, now=now)
+
+        if contained:
+            assert [outcome.reason for outcome in outcomes] == ["inactivity"]
+            process.wait(timeout=10)
+        else:
+            assert outcomes == []
+            assert process.poll() is None
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()

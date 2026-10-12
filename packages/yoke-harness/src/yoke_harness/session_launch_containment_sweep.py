@@ -47,6 +47,7 @@ from yoke_harness.session_launch_containment import (
     supervision_record_path,
 )
 from yoke_harness.session_launch_handles import native_handle_path
+from yoke_harness.session_relay_codex_turn_record import session_record_written_at
 
 
 # A native is contained only after the launch could no longer register, plus
@@ -91,7 +92,7 @@ def contain_stranded_launch_natives(
             # A resume is judged on whether it is still working, never on how
             # long it has been at it: the record's own age says nothing about
             # the turn, and reaping on it killed live workers mid-task.
-            if current - _resume_activity_at(payload) < RESUME_INACTIVITY_SECONDS:
+            if not _resume_is_quiet(payload, current):
                 continue
             reason = "inactivity"
         elif current - recorded_at < ttl_seconds:
@@ -135,16 +136,31 @@ def _registration_handle_exists(payload: dict[str, object]) -> bool:
         return False
 
 
-def _resume_activity_at(payload: dict[str, object]) -> float:
-    """The newest moment this resume proved it was alive.
+def _resume_is_quiet(payload: dict[str, object], now: float) -> bool:
+    """Whether every fact this resume writes has been still for the threshold.
 
-    Two facts carry that proof, and both are written by the native itself:
-    the custody stamp each of its hooks refreshes, and the mtime of the
-    capture its output lands in. Absent or unreadable evidence never stands
-    in for activity — it leaves the epoch floor in place, so a resume that can
-    prove nothing is contained on the next sweep rather than living forever
-    behind a missing file.
+    Three facts carry proof of life, all written by the native itself: the
+    custody stamp each of its hooks refreshes, the mtime of the capture its
+    output lands in, and the mtime of its own session record. Hooks fire only
+    on tool calls and a Codex resume has no capture, so a turn that reasons
+    for a long stretch without a tool call is alive only by the record it
+    keeps growing. That record is read last because finding it searches the
+    native's whole session store. Absent or unreadable evidence never stands
+    in for activity, so a resume that can prove nothing is contained on the
+    next sweep rather than living forever behind a missing file.
     """
+    if now - _resume_activity_at(payload) < RESUME_INACTIVITY_SECONDS:
+        return False
+    native_session_id = payload.get("native_session_id")
+    if isinstance(native_session_id, str) and native_session_id:
+        written_at = session_record_written_at(native_session_id)
+        if written_at is not None and now - written_at < RESUME_INACTIVITY_SECONDS:
+            return False
+    return True
+
+
+def _resume_activity_at(payload: dict[str, object]) -> float:
+    """The newest moment the hook stamp or the capture proved life."""
     activity_at = payload.get("last_activity_at")
     latest = float(activity_at) if isinstance(activity_at, int) else 0.0
     capture_path = payload.get("capture_path")

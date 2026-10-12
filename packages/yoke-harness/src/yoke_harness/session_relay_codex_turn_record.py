@@ -92,6 +92,28 @@ def _tail_event(path: Path) -> Mapping[str, Any] | None:
     return terminal
 
 
+def session_record_written_at(
+    session_id: str,
+    *,
+    transcript_roots: list[Path] | None = None,
+) -> float | None:
+    """When Codex last wrote this session's rollout, if it keeps one.
+
+    Codex appends every reasoning item to the rollout as it streams, so a
+    growing rollout proves a turn is alive even when no tool call has fired a
+    hook. ``None`` means no rollout exists for the id, which proves nothing.
+    """
+    if not session_id:
+        return None
+    path = _rollout_path(session_id, transcript_roots)
+    if path is None:
+        return None
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return None
+
+
 def terminal_turn(
     session_id: str,
     *,
@@ -132,5 +154,6 @@ def terminal_turn(
 
 __all__ = [
     "ObservedTurnEnd",
+    "session_record_written_at",
     "terminal_turn",
 ]
