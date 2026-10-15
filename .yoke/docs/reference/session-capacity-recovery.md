@@ -46,3 +46,18 @@ turn endings fire hooks; extracting provider-capacity evidence from those hooks
 is a designed deferral until a supported signal is declared. Desktop surfaces
 without a verified provider-error record do not inherit their CLI's reader;
 steering owns their recovery until that surface declares an observation path.
+
+## Message and survey recovery during a slow read
+
+Inspect the original message with `yoke messages get MESSAGE-ID --json --full`.
+Repeated processing of the same wake failure reuses its uncancelled notice
+before resolving recipients again. A changed failure or a cancelled notice
+still follows the ordinary delivery path, including its retry and ownership
+checks. Narrow recipient anchors load only the sessions they address; explicit
+ended-session addresses and deliberate broad selectors retain their semantics.
+
+If a survey command loses its response, read its saved state with
+`yoke direct-workflow conflict-survey status ITEM --json --full` before retrying
+the write. The status rechecks live claims and overlaps; an earlier saved survey
+alone does not clear that gate. Survey content reads exclude terminal and frozen
+items before fetching their documents, while every eligible overlap still counts.

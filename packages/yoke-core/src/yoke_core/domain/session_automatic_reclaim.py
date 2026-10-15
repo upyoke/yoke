@@ -22,6 +22,18 @@ from .sessions_analytics_core import (
     DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
 )
 
+RECLAIM_SESSION_FIELDS = (
+    "executor",
+    "last_heartbeat",
+    "last_tool_call_at",
+    "ended_at",
+    "terminated_at",
+    "mode",
+    "turn_posture",
+    "tool_call_count",
+    "episode_started_at",
+)
+
 
 def automatic_reclaim(
     row: Mapping[str, Any],
@@ -74,7 +86,12 @@ def automatic_reclaim(
     )
 
 
-def reclaim_facts(conn: Any, rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+def reclaim_facts(
+    conn: Any,
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    session_facts_complete: bool = False,
+) -> list[dict[str, Any]]:
     """Complete roster or sweep rows in bounded reads, independent of harness.
 
     Session, open-call, and holdings facts have durable owners. No telemetry
@@ -86,12 +103,18 @@ def reclaim_facts(conn: Any, rows: Iterable[Mapping[str, Any]]) -> list[dict[str
         return page
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     placeholders = ",".join(marker for _ in ids)
-    sessions = {
-        str(row["session_id"]): dict(row)
-        for row in conn.execute(
-            f"SELECT * FROM harness_sessions WHERE session_id IN ({placeholders})", ids
-        ).fetchall()
-    }
+    sessions = {}
+    if not session_facts_complete:
+        columns = _get_columns(conn, "harness_sessions")
+        fields = [name for name in RECLAIM_SESSION_FIELDS if name in columns]
+        sessions = {
+            str(row["session_id"]): dict(row)
+            for row in conn.execute(
+                f"SELECT {','.join(['session_id', *fields])} FROM harness_sessions "
+                f"WHERE session_id IN ({placeholders})",
+                ids,
+            ).fetchall()
+        }
     claims = active_work_claim_sessions(conn)
     holdings = active_holding_sessions(conn)
     tools: dict[str, Any] = {}
@@ -109,17 +132,7 @@ def reclaim_facts(conn: Any, rows: Iterable[Mapping[str, Any]]) -> list[dict[str
     for row in page:
         sid = str(row["session_id"])
         facts = sessions.get(sid, {})
-        for name in (
-            "executor",
-            "last_heartbeat",
-            "last_tool_call_at",
-            "ended_at",
-            "terminated_at",
-            "mode",
-            "turn_posture",
-            "tool_call_count",
-            "episode_started_at",
-        ):
+        for name in RECLAIM_SESSION_FIELDS:
             if name in facts:
                 row[name] = facts[name]
         row["holds_work_claim"] = sid in claims
