@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import json
 from typing import Any
 
+from yoke_contracts.fleet_policy import RELAY_POLL_SECONDS
 from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.timestamps import utc_now as utc_now
 from yoke_core.domain.db_helpers import instant_parameter
@@ -57,7 +58,10 @@ def heartbeat_relay(
     # take, which outlasts a poll interval. It owes a report by the batch
     # horizon, so it stays connected at least that long — otherwise it drops
     # out of the eligible roster mid-burst and new launches find no relay.
-    connected_until = shifted(now, seconds=max(1, next_poll_seconds) * 2)
+    # Drain cadence controls throughput, not whether the persistent relay is alive.
+    connected_until = shifted(
+        now, seconds=max(RELAY_POLL_SECONDS, next_poll_seconds) * 2
+    )
     if existing is not None and existing[2] is not None:
         connected_until = max(connected_until, parse_instant(existing[2]))
     surfaces = json_helper.dumps_compact(dict(heartbeat.surface_versions))

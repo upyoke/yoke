@@ -61,3 +61,11 @@ If a survey command loses its response, read its saved state with
 the write. The status rechecks live claims and overlaps; an earlier saved survey
 alone does not clear that gate. Survey content reads exclude terminal and frozen
 items before fetching their documents, while every eligible overlap still counts.
+
+## Relay freshness during queue draining
+
+A one-second drain cadence speeds up admission without shortening the relay
+liveness window. Heartbeats retain at least two ordinary poll intervals and
+any longer active launch lease, so a healthy persistent relay keeps peer
+brokers from taking its work. A relay that stops reporting still expires;
+shorter polling does not reset message attempts or bypass native custody.

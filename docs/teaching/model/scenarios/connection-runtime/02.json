@@ -8,8 +8,8 @@
  "disclosure": "audit needed",
  "surface": "core/local-postgres/relay/ui/self-host operation families; Linux supervision guidance",
  "gap": "Runtime control commands are exposed, but this census does not decide which are ordinary product operations versus source-development tools. Review question: should existing status/help docs provide a small component-to-recovery map?",
- "review": "Pending exact recipe proof.",
+ "review": "Pending exact recipe proof. Candidate regression proof covers fast drain heartbeats retaining ordinary relay freshness, suppressing peer recruitment without consuming message attempts, real offline expiry, and longer active lease protection; deployed proof remains pending.",
  "plan_notes": ["FIRST-USER 6", "FIRST-USER 15", "FIRST-USER 32", "FIRST-USER E", "JOURNEYS row 8"],
- "sources": ["docs/public/install.md", "docs/public/reference/linux-relay.md", "docs/public/windows-wsl.md", "docs/self-host.md", "docs/source-dev-doctrine.md"],
+ "sources": ["docs/public/install.md", "docs/public/reference/linux-relay.md", "docs/public/windows-wsl.md", "docs/self-host.md", "docs/source-dev-doctrine.md", "docs/public/reference/session-capacity-recovery.md", "packages/yoke-core/src/yoke_core/domain/session_relay_storage.py"],
  "position": 1
 }
