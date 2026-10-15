@@ -8,7 +8,7 @@
  "disclosure": "current cue",
  "surface": "Message receipt/output -> get; Items and Sessions recovery examples.",
  "review": "Candidate source tests prove every declared surface delivers at its hook, intentional operator waits remain uncharged, exhausted native routes notify the original sender, and verified containment releases matching pending holds. Candidate recovery preserves process start-time evidence, supersedes old holds after a later delivered wake, and dates Fleet silence observations. Live release proof remains pending. Narrow recipient reads exclude unrelated session history; duplicate failure notices check their durable identity before resolving recipients. Survey recovery retains the accepted write and rechecks live conflicts over eligible items.",
- "recipes": ["yoke messages get MESSAGE-ID --json --full", "yoke messages cancel --help"],
+ "recipes": ["yoke messages get MESSAGE-ID --json --full", "yoke messages acknowledge MESSAGE-ID", "yoke messages cancel --help"],
  "plan_notes": ["outside both"],
  "sources": ["docs/public/items-and-sessions.md", "packages/yoke-cli/src/yoke_cli/commands/registry_session_control.py", "packages/yoke-core/src/yoke_core/domain/session_relay_versions.py", "docs/public/reference/session-capacity-recovery.md", "packages/yoke-core/src/yoke_core/domain/session_message_candidates.py", "packages/yoke-core/src/yoke_core/domain/session_wake_failure_notice.py", "packages/yoke-core/src/yoke_core/domain/conflict_survey_blockers.py"],
  "position": 2

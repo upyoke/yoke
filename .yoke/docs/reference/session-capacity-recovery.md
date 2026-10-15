@@ -50,6 +50,8 @@ steering owns their recovery until that surface declares an observation path.
 ## Message and survey recovery during a slow read
 
 Inspect the original message with `yoke messages get MESSAGE-ID --json --full`.
+`yoke messages acknowledge MESSAGE-ID` settles receipts addressed to both your
+session or steering seat and your actor. Other recipients remain unchanged.
 Repeated processing of the same wake failure reuses its uncancelled notice
 before resolving recipients again. A changed failure or a cancelled notice
 still follows the ordinary delivery path, including its retry and ownership
