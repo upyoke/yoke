@@ -1,3 +1,12 @@
 {
-   "signedContributors": []
+  "signedContributors": [
+    {
+      "name": "twoquarterrican",
+      "id": 2991639,
+      "comment_id": 6203656162,
+      "created_at": "2026-10-15T22:33:33Z",
+      "repoId": 1291420841,
+      "pullRequestNo": 2294
+    }
+  ]
 }
