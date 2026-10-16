@@ -53,7 +53,6 @@ from yoke_cli.commands.registry_workflows import WORKFLOW_SUBCOMMAND_REGISTRY
 AdapterFn = Callable[[List[str]], int]
 # (cli_tokens) -> (function_id, adapter_fn)
 SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
-    **_admission.ADMISSION_SUBCOMMAND_REGISTRY,
     ("items", "create"): ("items.create", _adapters.items_create),
     ("items", "get"): ("items.get.run", _adapters.items_get),
     ("items", "list"): ("items.list.run", _adapters.items_list),
@@ -260,6 +259,7 @@ SUBCOMMAND_REGISTRY.update(_product_surfaces.PRODUCT_SURFACE_SUBCOMMAND_REGISTRY
 
 # Aliases keep the primary registry 1:1 with function-id grammar.
 SUBCOMMAND_ALIAS_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
+    **_admission.ADMISSION_SUBCOMMAND_REGISTRY,
     **_product_surfaces.PRODUCT_SURFACE_SUBCOMMAND_ALIAS_REGISTRY,
     ("projects", "capability", "secret", "set"): (
         "projects.capability_secret.set",
