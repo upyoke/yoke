@@ -6,13 +6,13 @@
  "audience": "Humans learning the product and agents needing a compact product model",
  "scope": "Global/static; applies across local, self-hosted and hosted modes",
  "trigger": "First intentional read after the docs landing, help link or setup handoff",
- "current": "The existing index.md and concepts.md split introductory material and contain some duplicated or stale workflow/navigation descriptions.",
+ "current": "The existing index.md and start/concepts.md split introductory material and contain some duplicated or stale workflow/navigation descriptions.",
  "proposed_purpose": "Give the minimum model needed to make a good first request.",
  "content": ["Humans choose outcomes and make required decisions; agents and deterministic workers execute and retain evidence.", "A universe holds shared state; projects own their work; a machine runs sessions against that state.", "A current plan states near-term intent; items make work concrete; workflows determine how that work proceeds.", "Use an agent for planning/execution, the workbench for progress/decisions, and CLI help for exact commands.", "Direct work, document-led work and decomposed work are choices based on the task; the agent can recommend the workflow.", "Steering staffs work from a strategy document; selecting one ready item is a separate action.", "Verification proves an outcome; QA review and deployment approval are different decisions; merge-only work need not deploy.", "A new project and a mature project both fit: adopt existing direction, tests and delivery before adding new machinery.", "Local reachability, optional GitHub integration and projectless coordination are boundaries worth knowing; deeper details remain linked."],
- "authority_and_reuse": "Consolidate introductory prose into one canonical overview, reusing concepts.md if practical. Keep deep definitions in their canonical chapters and link them. Do not include the exhaustive TOC, command table or Yoke-maintainer production policy.",
+ "authority_and_reuse": "Consolidate introductory prose into one canonical overview, reusing start/concepts.md if practical. Keep deep definitions in their canonical chapters and link them. Do not include the exhaustive TOC, command table or Yoke-maintainer production policy.",
  "distinct_from": "This is authored explanation with one compact work-cycle picture if helpful, not a navigation catalog or setup wizard.",
  "proposal_status": "Proposed consolidation and correction of existing introductory docs",
  "plan_notes": ["FIRST-USER 8/24", "FIRST-USER P1/P4", "JOURNEYS rows 4–15"],
- "sources": ["docs/public/index.md", "docs/public/concepts.md", "docs/public/operating-with-agents.md", ".agents/skills/yoke/steer/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md"],
+ "sources": ["docs/public/index.md", "docs/public/start/concepts.md", "docs/public/operating-with-agents.md", ".agents/skills/yoke/steer/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md"],
  "position": 3
 }

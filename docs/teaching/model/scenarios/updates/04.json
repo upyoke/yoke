@@ -10,6 +10,6 @@
  "review": "Source and unit tests; live proof is the release's post-deploy QA.",
  "recipes": ["yoke env use --help", "yoke relay status", "yoke update --help"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/install.md", "packages/yoke-cli/src/yoke_cli/config/operator_cli_release_follow.py", "packages/yoke-cli/src/yoke_cli/transport/installed_cli_staleness.py", "packages/yoke-cli/src/yoke_cli/config/session_relay_instance.py"],
+ "sources": ["docs/public/start/install.md", "packages/yoke-cli/src/yoke_cli/config/operator_cli_release_follow.py", "packages/yoke-cli/src/yoke_cli/transport/installed_cli_staleness.py", "packages/yoke-cli/src/yoke_cli/config/session_relay_instance.py"],
  "position": 3
 }

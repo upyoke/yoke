@@ -6,6 +6,6 @@
  "verification": "Source and scripted setup flow tests; live delivery remains unproved.",
  "topics": ["workbench/onboarding"],
  "plan_refs": ["FIRST-USER.25"],
- "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_board_art.py", "runtime/api/cli/test_onboard_board_art.py", "docs/public/guides/terminal-onboarding.md"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/config/onboard_wizard_flow_board_art.py", "runtime/api/cli/test_onboard_board_art.py", "docs/public/start/terminal-onboarding.md"],
  "position": 14
 }

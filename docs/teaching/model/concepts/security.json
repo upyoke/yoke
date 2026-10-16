@@ -2,7 +2,7 @@
  "id": "security",
  "title": "Security and privacy",
  "status": "draft-copy",
- "sources": ["docs/public/modes.md", "docs/public/reference/agent-rules/code-and-cli.md", "docs/public/reference/machine-authorization.md", "docs/public/reference/qa-platform/browser-identities.md"],
+ "sources": ["docs/public/start/modes.md", "docs/public/reference/agent-rules/code-and-cli.md", "docs/public/reference/machine-authorization.md", "docs/public/reference/qa-platform/browser-identities.md"],
  "page": "security",
  "position": 37
 }

@@ -1,5 +1,9 @@
 # Concepts
 
+<!-- yoke:breadcrumbs -->
+[Yoke](../index.md) > [Get started](index.md) > Concepts
+<!-- /yoke:breadcrumbs -->
+
 ## Universe
 
 A universe is one Yoke control-plane database plus the projects, workflows,
@@ -44,7 +48,7 @@ Every item pins an immutable workflow version. Built-ins:
 | **Epic** | Architect decomposition + task lanes |
 | **Blitz** | Document-led plan as integrated slices |
 
-See [Workflows](workflows.md) and [reference/lifecycle.md](reference/lifecycle.md).
+See [Workflows](../workflows.md) and [reference/lifecycle.md](../reference/lifecycle.md).
 
 ## Workbench destinations
 

@@ -10,6 +10,6 @@
  "gap": "The visible homepage entry has shipped. The complete first-turn fetch → correct install action still needs real-agent proof. Copy interaction proof is not install or onboarding proof.",
  "review": "Public evidence: https://upyoke.com/. Producer acceptance covers desktop and phone presentation and Copy interactions; private captures remain with the authorized producer record. Complete install journey proof remains pending.",
  "plan_notes": ["FIRST-USER B", "FIRST-USER D", "JOURNEYS 1"],
- "sources": ["docs/public/install.md"],
+ "sources": ["docs/public/start/install.md"],
  "position": 0
 }

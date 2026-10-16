@@ -147,7 +147,7 @@ Checks declare applicability (project scope, capabilities, runtime). Results
 are pass, warning, fail, or not-applicable — N/A is not a silent pass.
 On Linux, Doctor warns about project checkouts under `/mnt/<drive>`; inside
 WSL it also warns when systemd is not PID 1. See
-[Yoke on Windows (WSL)](windows-wsl.md) for the recovery steps. These machine
+[Yoke on Windows (WSL)](start/windows-wsl.md) for the recovery steps. These machine
 checks report N/A on other operating systems.
 
 Each check has a 45-second budget. Each PostgreSQL transaction arms the

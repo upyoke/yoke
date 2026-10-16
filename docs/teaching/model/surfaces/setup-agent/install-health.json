@@ -6,5 +6,5 @@
  "topics": ["installation/entry"],
  "plan_refs": ["FIRST-USER.E"],
  "verification": "Source composes the install Doctor roster and includes the result in the durable apply report and human/JSON output; live delivery awaits the released campaign.",
- "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/onboard_apply.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_install.py", "docs/public/install.md"]
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/onboard_apply.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_install.py", "docs/public/start/install.md"]
 }

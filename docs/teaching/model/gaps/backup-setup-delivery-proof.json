@@ -4,6 +4,6 @@
  "status": "observed",
  "text": "The local and self-host setup paths now validate before Apply and offer restored projects afterward. Source and focused pilot/command-order tests cover this behavior; the batched release still owes installer-campaign execution and deployed backup proof. This is a delivery obligation of the current change, not deferred implementation.",
  "plan_refs": ["FIRST-USER.9"],
- "sources": ["runtime/api/cli/test_onboard_wizard_backup.py", "runtime/api/cli/test_onboard_backup.py", "docs/public/install.md"],
+ "sources": ["runtime/api/cli/test_onboard_wizard_backup.py", "runtime/api/cli/test_onboard_backup.py", "docs/public/start/install.md"],
  "position": 22
 }

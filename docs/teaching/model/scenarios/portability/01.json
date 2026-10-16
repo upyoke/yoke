@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke universe export --help", "yoke status"],
  "plan_notes": ["FIRST-USER item 9", "FIRST-USER P6"],
- "sources": ["docs/public/actors-members-billing.md", "docs/public/install.md", "packages/yoke-cli/src/yoke_cli/commands/local_universe.py", "packages/yoke-core/src/yoke_core/domain/universe_export.py"],
+ "sources": ["docs/public/actors-members-billing.md", "docs/public/start/install.md", "packages/yoke-cli/src/yoke_cli/commands/local_universe.py", "packages/yoke-core/src/yoke_core/domain/universe_export.py"],
  "position": 0
 }

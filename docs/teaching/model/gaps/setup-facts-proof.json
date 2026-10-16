@@ -4,6 +4,6 @@
  "status": "observed",
  "text": "Source tests cover scoped resume, saved profiles, setting changes and machine observations. Run the existing installer campaign against the released candidate before claiming installed proof; preserve its current execution and owner.",
  "plan_refs": ["FIRST-USER.42"],
- "sources": ["docs/public/guides/terminal-onboarding.md", "runtime/api/domain/handlers/test_onboard_checklist.py"],
+ "sources": ["docs/public/start/terminal-onboarding.md", "runtime/api/domain/handlers/test_onboard_checklist.py"],
  "position": 22
 }

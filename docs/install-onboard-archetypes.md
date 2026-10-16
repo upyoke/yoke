@@ -14,7 +14,7 @@ forbidden. Sources:
 |---|---|
 | Public installer shim | `packaging/public-installer/install` |
 | Installer Python helper | `packaging/public-installer/install.py` |
-| Public install doc | `docs/public/install.md` |
+| Public install doc | `docs/public/start/install.md` |
 | Destination / Account | `onboard_destination_rows.py`, `onboard_wizard_flow_destination.py` |
 | PATH / Install step | `onboard_wizard_path.py` |
 | GitHub copy | `onboard_github_copy.py`, `onboard_wizard_flow_github.py` |
@@ -23,7 +23,7 @@ forbidden. Sources:
 | Hosting | `onboard_wizard_hosting_steps.py` |
 | Review | `onboard_wizard_review_steps.py` |
 | Board art | `onboard_wizard_flow_board_art.py`, `project_contract/board_art/__init__.py` |
-| Modes | `docs/public/modes.md` |
+| Modes | `docs/public/start/modes.md` |
 | Harness onboard skill | `.agents/skills/yoke/onboard/` (SKILL + step files) |
 | Idea deploy-default | `.agents/skills/yoke/idea/infer-deployment-flow.md` |
 | Usher routing | `.agents/skills/yoke/usher/deploy.md` |

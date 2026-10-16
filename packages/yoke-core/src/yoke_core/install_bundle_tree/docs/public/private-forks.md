@@ -60,7 +60,7 @@ version, derive an index from the API URL, or substitute upstream's Yoke
 index. Public dependencies still resolve from PyPI. Hosted upstream stage
 and production connections use their respective hosted indexes.
 
-Configure the server connection through [Onboard](install.md), then run:
+Configure the server connection through [Onboard](start/install.md), then run:
 
 ```bash
 yoke --env team relay install
@@ -91,7 +91,7 @@ published image, use `yoke core start --image IMAGE` or initialize a team
 server bundle with `yoke self-host init --dir /path/to/server --image IMAGE`.
 Supply your fork's exact immutable image reference; explicitly selecting
 an image avoids selecting an upstream image from release metadata. Follow
-[Self-hosted mode](modes.md) for starting the bundle, connecting, and TLS.
+[Self-hosted mode](start/modes.md) for starting the bundle, connecting, and TLS.
 Your image, client wheels, and handshake version must describe the same build.
 
 `yoke update` and `yoke self-host upgrade` protect an active source-checkout

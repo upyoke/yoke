@@ -17,7 +17,7 @@ project-local operating layer:
 - DB-rendered strategy views under `.yoke/strategy/`.
 
 Refresh and uninstall are manifest-tracked:
-For full machine removal, use [`yoke uninstall`](public/install.md#uninstall).
+For full machine removal, use [`yoke uninstall`](public/start/uninstall.md#uninstall).
 
 ```bash
 yoke project refresh ~/work/my-app --config ~/.yoke/config.json

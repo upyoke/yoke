@@ -2,7 +2,7 @@
  "id": "architecture",
  "title": "Project Structure and architecture",
  "status": "draft-copy",
- "sources": ["docs/public/reference/agent-rules/architecture-model.md", "docs/public/reference/db-reference/projects-and-flows.md", "docs/public/concepts.md"],
+ "sources": ["docs/public/reference/agent-rules/architecture-model.md", "docs/public/reference/db-reference/projects-and-flows.md", "docs/public/start/concepts.md"],
  "commands": ["yoke project-structure architecture-draft get", "yoke project-structure architecture-health get"],
  "functions": ["project_structure.architecture_draft.get", "project_structure.architecture_health.get"],
  "page": "architecture",

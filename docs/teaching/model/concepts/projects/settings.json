@@ -6,7 +6,7 @@
  "surface_refs": ["project-orientation"],
  "commands": ["yoke projects get", "yoke projects list", "yoke projects update", "yoke onboard checklist get"],
  "functions": ["projects.get", "projects.github_state.read", "projects.github_sync_receipt.record", "projects.list", "projects.update", "onboard.checklist.get"],
- "sources": ["docs/public/guides/terminal-onboarding.md"],
+ "sources": ["docs/public/start/terminal-onboarding.md"],
  "page": "projects",
  "position": 3
 }

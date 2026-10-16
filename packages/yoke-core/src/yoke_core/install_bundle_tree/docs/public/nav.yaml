@@ -4,6 +4,31 @@ root:
   summary: Software delivery from direction through verified delivery.
   path: index.md
   children:
+    - title: Get started
+      summary: Install, connect, add a project and file your first item.
+      path: start/index.md
+      children:
+        - title: Install
+          summary: Prepare the CLI and complete machine onboarding.
+          path: start/install.md
+        - title: Modes
+          summary: Choose local, hosted or self-hosted ownership.
+          path: start/modes.md
+        - title: Concepts
+          summary: Understand universes, projects, items and workflows.
+          path: start/concepts.md
+        - title: Project installation
+          summary: Install repository guidance and manage source launcher ownership.
+          path: start/project-install.md
+        - title: Terminal onboarding
+          summary: Copy approval links and resume setup in local or remote terminals.
+          path: start/terminal-onboarding.md
+        - title: Windows and WSL
+          summary: Keep Yoke, agents and checkouts inside supported Linux on Windows.
+          path: start/windows-wsl.md
+        - title: Uninstall
+          summary: Preserve chosen data and remove machine or project guidance.
+          path: start/uninstall.md
     - title: Documentation
       summary: Write, navigate and verify complete, concise teaching.
       path: documentation/index.md

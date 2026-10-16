@@ -1,5 +1,14 @@
 # Install
 
+<!-- yoke:breadcrumbs -->
+[Yoke](../index.md) > [Get started](index.md) > Install
+<!-- /yoke:breadcrumbs -->
+
+Install the released CLI and connect this machine through setup. For the
+complete path from a new machine to its first work item, follow
+[Get started](index.md); project-only installation and removal have their own
+pages below.
+
 ```bash
 curl -fsSL https://upyoke.com/install | sh
 yoke setup
@@ -41,7 +50,7 @@ world-writable `~/.yoke`, run `chmod 700 ~/.yoke` and retry. For a custom machin
 home, use the exact directory and `chmod` command named in the refusal.
 Select an isolated config with `YOKE_MACHINE_HOME=/tmp/yoke-worker yoke status`;
 that home takes precedence over a config-file environment override. See
-[Machine config](cli-and-config.md#machine-config) for selection and write ownership.
+[Machine config](../cli-and-config.md#machine-config) for selection and write ownership.
 
 ## Onboard wizard
 
@@ -73,7 +82,7 @@ unsupported pre-fill parameter.
 
 From a coding agent, or anywhere without a terminal, `yoke setup` runs in
 agent mode: it asks these same questions one at a time as JSON lines, and the
-agent relays each one to the person. See [Agent setup](guides/agent-setup.md)
+agent relays each one to the person. See [Agent setup](../guides/agent-setup.md)
 for the loop, browser steps and refusals. `yoke setup --tui` forces the
 wizard; `yoke setup --agent` forces agent mode.
 
@@ -199,135 +208,15 @@ checkout whose operating layer predates the new engine is named once, with
 the `yoke project install <checkout>` that refreshes it. Run that when it
 appears; otherwise the checkout keeps teaching the previous release.
 
-## Project-only install
-
-If the project already exists in the universe and you only need the repo
-operating layer:
-
-```bash
-yoke project install ~/path/to/checkout
-```
-
-That materializes skills, agents, hooks, and `.yoke/docs` from the engine's
-public docs corpus.
-
-Check readiness: `yoke doctor run --install --project P`.
-Checks cover machine/relay, hook version, unattended permissions, GitHub auth,
-CLI sign-in, dashboard build, this session's hook delivery, foreign residue,
-guidance versions and instruction discovery. Each failure names its next step.
-Intentional GitHub disablement is N/A; unknown evidence cannot pass.
-Non-interactive setup shows and saves the result; machine-only runs omit project
-checks. Installed hooks need a new harness session to prove actual delivery.
-See [Doctor](events-doctor-ouroboros.md#doctor) for full checks.
-
-The run finishes the job rather than leaving you a commit to push. It fetches
-the branch's remote first and fast-forwards when the checkout is simply
-behind, so the layer is generated against current upstream; it commits the
-paths it owns; and it pushes that commit. If the remote advanced while the
-run was writing, it moves onto the new revision and **regenerates** the layer
-there — never a merge, which would keep whichever obsolete generated content
-the older side happened to carry.
-
-Where the branch does not accept a direct push, the same commit is pushed to
-a `yoke-install/<sha>` branch and proposed as a pull request. Where the push
-cannot land at all, the report says `publication_pending` and names the
-commit plus the command that finishes it — and the command exits `3` rather
-than reporting a clean install the remote never saw.
-
-Two refusals are deliberate. A default branch carrying commits of your own
-that the remote lacks is reported instead of pushed, because publishing the
-layer is not permission to publish your work-in-progress — and a commit
-merely *titled* like an install counts as yours unless its changes stay
-inside what the install writes. Files it shares with you rather than owns are
-on your side of that line: it merges its hook entries into your
-`.claude/settings.json`, appends one line to your `.gitignore`, and writes
-into the file-line policy config, so it cannot tell its content there from
-yours. A commit it did not just make that touches one of those is reported —
-never pushed, and never rewritten while reconciling with the remote. And a
-checkout with no remote is a local-only project: publication is skipped, not
-failed, as it is for `--no-commit`. Pass `--no-publish` to commit without
-pushing.
-
-An unreachable remote does **not** stop the install, which is the one place
-it differs from starting other work. Creating a worktree refuses an
-unverifiable remote, because new work would have no current revision to
-start from; installing writes a local layer, so an offline machine still
-gets the thing it asked for. The run records why it could not read the
-remote and publication then reports `publication_pending` — you are never
-told the remote has a layer it never received.
-
-## Source-maintainer launcher
-
-A source-maintainer launcher also runs the released `yoke-cli` uv tool by
-default, using isolated Python so a checkout, active venv or PYTHONPATH cannot
-change operator commands. Missing or source-bound tool installs refuse with
-`released_cli_unavailable` or `released_cli_required`; rerun the installer above.
-From the registered source main checkout, repair the launcher with
-`python3 -m yoke_core.tools.install_yoke_launcher --repair`.
-Use `yoke dev run -- <command>` for claimed-lane source checks. Operators can
-explicitly choose source code for one command with
-`YOKE_SOURCE_DEV=1 YOKE_HOME=/absolute/source/checkout yoke <command>`.
-Do not export that opt-in for everyday fleet or steering commands.
-
-## Uninstall
-
-```bash
-yoke uninstall
-```
-
-On a machine holding a local universe or a self-host server, the first output
-warns that uninstall deletes its only copy of the universe data. Choose **back
-up first** to run `yoke universe export` for each owned universe, or **uninstall
-without backing up**. There is no automatic backup. Uninstall's backups land
-in the current directory; run uninstall outside the machine home. A manual
-`yoke universe export` defaults to the machine Yoke home exports folder;
-pass `--out PATH` outside that home before uninstall. A failed export stops
-removal and names the recovery. Hosted-only clients see no data warning.
-
-Next, the command lists registered checkouts with a Yoke install manifest.
-Choose all, none, or a selection to also run `yoke project uninstall` on.
-A Git checkout must be on the project's default branch before its layer is
-removed. When the Yoke install that owns a project no longer answers, its layer
-is still removed and committed on the current branch, with a warning to merge
-that commit into the default branch.
-It then removes the relay and stops its workers, removes the selected project
-layers, disconnects Yoke's GitHub credentials and checkout helpers, removes
-Yoke's entries from your Cursor user hooks (`~/.cursor/hooks.json`), reverts the
-approval and folder-trust settings Yoke wrote into Claude Code, Codex, and
-Cursor, stops the hook evaluator, local UI and embedded Postgres, tears down
-local self-host stacks including their universe volumes, and deletes the machine home
-(`~/.yoke` or `YOKE_MACHINE_HOME`). A harness setting you changed after Yoke
-wrote it is left in place and reported. Docker is only checked when this
-machine runs a self-host install. No further confirmation is required. Finally a detached
-worker removes the CLI with `uv tool uninstall yoke-cli` after the uninstall
-process exits. Its result log is printed by the command.
-
-Each step reports done, skipped with a reason, or failed with a named recovery.
-Independent cleanup continues after a failure; the machine home and CLI stay
-available when cleanup needs recovery. Fix the reported problem and retry.
-Source-checkout CLI installs refuse; retire those through your source-dev workflow.
-
-For unattended removal, make the same choices explicitly:
-
-```bash
-yoke uninstall --projects all --yes                 # hosted-only client
-yoke uninstall --backup --projects none --yes       # machine holding data
-yoke uninstall --no-backup --projects ~/work/app --yes
-```
-
-`--projects` accepts all, none, or comma-separated registered checkout paths.
-`--yes` never selects data loss or a project choice for you. The command leaves
-uv, the PATH line in your shell profile, and the GitHub App installed; remove
-the App in GitHub settings if desired. Push the removal commits made in the
-chosen checkouts. Project-owned edits and strategy documents are preserved by
-the existing project uninstall.
-
 ## Related
 
-- [Maintaining a private fork](private-forks.md)
+- [Maintaining a private fork](../private-forks.md)
 - [Modes](modes.md)
-- [CLI and config](cli-and-config.md)
-- [Projects](projects.md)
+- [CLI and config](../cli-and-config.md)
+- [Projects](../projects.md)
+- [Project installation](project-install.md)
+- [Remove Yoke](uninstall.md)
+- [Get started](index.md)
 
 If a fresh login shell cannot find `yoke`, run `uv tool update-shell`, check any
 shell configuration that overrides PATH, and open a new terminal. If uv cannot

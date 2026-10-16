@@ -19,7 +19,7 @@ def test_project_install_wheel_smoke_survives_bounded_doc_deferral(
     tmp_path: Path,
     source: str,
 ) -> None:
-    docs = "docs/public/install.md"
+    docs = "docs/public/start/install.md"
     smoke = "tests/import_graph/test_yoke_cli_wheel_smoke.py"
     for path, body in (
         (source, "VALUE = 1\n"),

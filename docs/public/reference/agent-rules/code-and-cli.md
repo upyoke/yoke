@@ -188,7 +188,7 @@ CLI first with `curl -fsSL https://upyoke.com/install | sh`. The canonical
 UV_TOOL_BIN_DIR/XDG_BIN_HOME or `~/.local/bin/yoke` shim runs that released
 CLI; `YOKE_SOURCE_DEV=1` explicitly opts into YOKE_HOME source imports.
 Claimed-lane checks use `yoke dev run -- <command>`. Repair/Doctor quick fix
-quarantines PATH shadows, retaining them. Consult [install](../../install.md)
+quarantines PATH shadows, retaining them. Consult [install](../../start/install.md)
 and launcher help before repair.
 DB-router/service-client forms are operator-debug only. HTTP function-call
 server/curl-localhost/YOKE_API/direct runtime-API imports are not agent surfaces.

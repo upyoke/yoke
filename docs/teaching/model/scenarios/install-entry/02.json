@@ -10,6 +10,6 @@
  "gap": "Live harness proof that an agent relays each question to a person through install and first-work remains pending.",
  "review": "Source and focused regression tests; no live pass asserted.",
  "plan_notes": ["FIRST-USER A", "FIRST-USER 8", "FIRST-USER 35", "JOURNEYS 1"],
- "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/onboard_agent.py", "docs/public/guides/agent-setup.md", "docs/public/guides/terminal-onboarding.md"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/onboard_agent.py", "docs/public/guides/agent-setup.md", "docs/public/start/terminal-onboarding.md"],
  "position": 1
 }

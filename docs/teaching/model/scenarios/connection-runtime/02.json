@@ -10,6 +10,6 @@
  "gap": "Runtime control commands are exposed, but this census does not decide which are ordinary product operations versus source-development tools. Review question: should existing status/help docs provide a small component-to-recovery map?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER 6", "FIRST-USER 15", "FIRST-USER 32", "FIRST-USER E", "JOURNEYS row 8"],
- "sources": ["docs/public/install.md", "docs/public/reference/linux-relay.md", "docs/public/windows-wsl.md", "docs/self-host.md", "docs/source-dev-doctrine.md"],
+ "sources": ["docs/public/start/install.md", "docs/public/reference/linux-relay.md", "docs/public/start/windows-wsl.md", "docs/self-host.md", "docs/source-dev-doctrine.md"],
  "position": 1
 }

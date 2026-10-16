@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke uninstall --help", "yoke project uninstall --help"],
  "plan_notes": ["FIRST-USER item 1", "FIRST-USER item 9"],
- "sources": ["docs/public/install.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/machine_uninstall.py", "packages/yoke-cli/src/yoke_cli/config/machine_uninstall.py"],
+ "sources": ["docs/public/start/uninstall.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/machine_uninstall.py", "packages/yoke-cli/src/yoke_cli/config/machine_uninstall.py"],
  "position": 0
 }

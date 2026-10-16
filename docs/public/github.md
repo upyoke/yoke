@@ -90,7 +90,7 @@ person and continue the same command. A valid saved authorization is reused;
 `--replace` requests fresh approval. `--add-installation` returns the App
 installation link while reusing the saved authorization. Setup's TUI opens
 these links only after an “Opening your browser…” notice and offers Ctrl-Y
-copy. See [setup browser steps](install.md#onboard-wizard).
+copy. See [setup browser steps](start/install.md#onboard-wizard).
 
 Optional during `yoke setup` Account/GitHub steps. The onboard GitHub
 rail stays incomplete until that same `ready` contract is true — skipping

@@ -2,7 +2,7 @@
  "id": "installation",
  "title": "Installation and setup",
  "status": "observed",
- "sources": ["docs/public/install.md", "docs/public/guides/terminal-onboarding.md", "docs/public/guides/agent-setup.md", "docs/public/windows-wsl.md", "runtime/harness/manifest-schema.md"],
+ "sources": ["docs/public/start/install.md", "docs/public/start/terminal-onboarding.md", "docs/public/guides/agent-setup.md", "docs/public/start/windows-wsl.md", "runtime/harness/manifest-schema.md"],
  "page": "installation",
  "position": 17,
  "current": "The public homepage at https://upyoke.com/ ships an agent install entry beside the terminal install route. This observes the entry only; complete install, setup and onboarding proof remain separate."

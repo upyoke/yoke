@@ -31,11 +31,12 @@ item from the frontier for the current session.
 
 ## Read next
 
-- [Modes](modes.md) — Local, Cloud, Self-hosted
-- [Install](install.md) — one installer, then onboard
+- [Modes](start/modes.md) — Local, Cloud, Self-hosted
+- [Install](start/install.md) — one installer, then onboard
 - [Maintaining a private fork](private-forks.md) — operator-supplied releases and indexes
-- [Concepts](concepts.md) — universe, projects, items, workflows
+- [Concepts](start/concepts.md) — universe, projects, items, workflows
 
 <!-- yoke:contents -->
+- [Get started](start/index.md) — Install, connect, add a project and file your first item.
 - [Documentation](documentation/index.md) — Write, navigate and verify complete, concise teaching.
 <!-- /yoke:contents -->

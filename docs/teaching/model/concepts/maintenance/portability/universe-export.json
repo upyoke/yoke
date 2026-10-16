@@ -5,5 +5,5 @@
  "page": "maintenance",
  "position": 0,
  "note": "Candidate exports default to the machine Yoke home exports folder; an explicit output path chooses elsewhere and an unavailable destination names the repair. Serving proof is pending.",
- "sources": ["docs/public/modes.md", "packages/yoke-core/src/yoke_core/domain/universe_export_destination.py", "runtime/api/cli/test_projectless_operation_boundaries.py"]
+ "sources": ["docs/public/start/modes.md", "packages/yoke-core/src/yoke_core/domain/universe_export_destination.py", "runtime/api/cli/test_projectless_operation_boundaries.py"]
 }

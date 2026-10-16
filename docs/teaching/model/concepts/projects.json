@@ -2,7 +2,7 @@
  "id": "projects",
  "title": "Projects and adoption",
  "status": "draft-copy",
- "sources": ["docs/public/projects.md", "docs/public/concepts.md", ".agents/skills/yoke/onboard/SKILL.md"],
+ "sources": ["docs/public/projects.md", "docs/public/start/concepts.md", ".agents/skills/yoke/onboard/SKILL.md"],
  "surface_refs": ["manual-overview"],
  "page": "projects",
  "position": 30

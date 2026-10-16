@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke status"],
  "plan_notes": ["FIRST-USER 3", "FIRST-USER 31", "JOURNEYS 8"],
- "sources": ["docs/public/modes.md", "docs/public/install.md"],
+ "sources": ["docs/public/start/modes.md", "docs/public/start/install.md"],
  "position": 0
 }

@@ -10,6 +10,6 @@
  "gap": "Trace expiration, denial, partial Apply, Back, reinstall leftovers and mode switching. Preserve original intent, project and run identity. A checkout linked to another install's project offers Unlink and set up fresh before Apply.",
  "review": "The campaign distinguishes an intentional isolated write refusal from complete installation. Dedicated-machine approval requires the exact displayed code and declared origin, including the organization approval redirect, and navigation from the matched tab. Local universe birth supplies a validated first-admin name before GitHub, preserving Apply/report/exit/parent-handoff checks. Full campaign completion still needs live rerun proof.",
  "plan_notes": ["FIRST-USER 1", "FIRST-USER 7", "FIRST-USER 14", "FIRST-USER 17", "FIRST-USER 19", "FIRST-USER 26", "FIRST-USER 37", "FIRST-USER 38", "FIRST-USER 39", "FIRST-USER D"],
- "sources": ["docs/public/install.md", "packages/yoke-cli/src/yoke_cli/config/project_onboarding_handoff.py", "docs/testing-verification/installer-campaign.md"],
+ "sources": ["docs/public/start/install.md", "packages/yoke-cli/src/yoke_cli/config/project_onboarding_handoff.py", "docs/testing-verification/installer-campaign.md"],
  "position": 2
 }

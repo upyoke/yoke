@@ -5,12 +5,12 @@
  "scope": "Public global",
  "audience": "Human + agent",
  "encounter": "First intentional overview read",
- "location": "One canonical introduction; consolidate current index.md / concepts.md prose",
+ "location": "One canonical introduction; consolidate current index.md / start/concepts.md prose",
  "basis": "Proposed consolidation",
  "note": "The first summary participates in the cascade. Its category links are generated from the shared tree; deeper pages own the full definitions.",
  "current": "Existing source references; delivered content is not yet proved.",
  "desired": "Broad concise introduction with immediate children; final article structure and copy remain to be designed.",
  "plan_notes": ["FIRST-USER 8/24", "JOURNEYS operating model", "New documentation proposal"],
  "plan_refs": ["FIRST-USER.40"],
- "sources": ["docs/public/index.md", "docs/public/concepts.md", "docs/public/operating-with-agents.md", ".agents/skills/yoke/steer/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md"]
+ "sources": ["docs/public/index.md", "docs/public/start/concepts.md", "docs/public/operating-with-agents.md", ".agents/skills/yoke/steer/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md"]
 }

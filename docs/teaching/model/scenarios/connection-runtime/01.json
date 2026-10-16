@@ -10,6 +10,6 @@
  "gap": "Mode selection is mapped, but ongoing connection lifecycle is not yet traced. Review question: should connection errors and switching help explain the affected machine/universe before recommending repair?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER 1", "FIRST-USER 3", "FIRST-USER 35", "outside both"],
- "sources": ["docs/public/cli-and-config.md", "docs/public/modes.md", "docs/public/reference/https-connection-diagnostics.md", "docs/public/reference/db-reference/functions-project-configuration.md"],
+ "sources": ["docs/public/cli-and-config.md", "docs/public/start/modes.md", "docs/public/reference/https-connection-diagnostics.md", "docs/public/reference/db-reference/functions-project-configuration.md"],
  "position": 0
 }

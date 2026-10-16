@@ -2,7 +2,7 @@
  "id": "modes",
  "title": "Running modes",
  "status": "draft-copy",
- "sources": ["docs/public/modes.md", "docs/self-host.md", "docs/public/private-forks.md"],
+ "sources": ["docs/public/start/modes.md", "docs/self-host.md", "docs/public/private-forks.md"],
  "surface_refs": ["manual-overview", "setup-tui", "workbench-cues"],
  "page": "modes",
  "position": 25

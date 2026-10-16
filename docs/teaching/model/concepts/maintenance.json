@@ -2,7 +2,7 @@
  "id": "maintenance",
  "title": "Updates, backup and removal",
  "status": "draft-copy",
- "sources": ["docs/public/install.md", "docs/public/modes.md", "docs/public/private-forks.md"],
+ "sources": ["docs/public/start/install.md", "docs/public/start/uninstall.md", "docs/public/start/modes.md", "docs/public/private-forks.md"],
  "page": "maintenance",
  "position": 22
 }

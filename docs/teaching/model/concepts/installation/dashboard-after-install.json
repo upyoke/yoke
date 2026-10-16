@@ -5,7 +5,7 @@
  "plan_refs": ["FIRST-USER.15"],
  "surface_refs": ["docs-landing"],
  "scenario_refs": ["install-entry"],
- "sources": ["docs/public/install.md", "packaging/public-installer/install.py", "packages/yoke-cli/src/yoke_cli/config/universe_ui_daemon.py"],
+ "sources": ["docs/public/start/install.md", "packaging/public-installer/install.py", "packages/yoke-cli/src/yoke_cli/config/universe_ui_daemon.py"],
  "page": "installation",
  "position": 5
 }
