@@ -55,6 +55,7 @@ class ReviewSeedResponse(BaseModel):
 class ReviewInsertRequest(BaseModel):
     verdict: str
     body: str
+    head_sha: Optional[str] = None
 
     @field_validator("verdict")
     @classmethod
@@ -184,6 +185,11 @@ def handle_review_insert(request: FunctionCallRequest) -> HandlerOutcome:
                 task_num,
                 payload.verdict,
                 payload.body,
+                **(
+                    {"head_sha": payload.head_sha}
+                    if payload.head_sha is not None
+                    else {}
+                ),
             )
         except LookupError as exc:
             return _not_found(str(exc))

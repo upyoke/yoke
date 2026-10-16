@@ -100,8 +100,6 @@ def _result(
 
 
 def _finished(record: SupervisedResume) -> FinishedNativeResume | None:
-    if not record.attempt_id or not record.lease_id:
-        return None
     capture = read_native_capture(record.capture_path)
     settled = capture is not None and capture.exited
     if not settled and record.running:
@@ -134,6 +132,10 @@ def supervised_resumes(state_dir: Path | None = None) -> tuple[SupervisedResume,
     for _path, payload in supervised_records(state_dir):
         if str(payload.get("supervision_kind") or "") != "resume":
             continue
+        attempt_id = str(payload.get("launch_id") or "")
+        lease_id = str(payload.get("lease_id") or "")
+        if not attempt_id or not lease_id:
+            continue
         pid = payload.get("pid")
         if not isinstance(pid, int) or pid <= 0:
             continue
@@ -143,9 +145,9 @@ def supervised_resumes(state_dir: Path | None = None) -> tuple[SupervisedResume,
         reason = payload.get("containment_reason")
         resumes.append(
             SupervisedResume(
-                attempt_id=str(payload.get("launch_id") or ""),
+                attempt_id=attempt_id,
                 pid=pid,
-                lease_id=str(payload.get("lease_id") or ""),
+                lease_id=lease_id,
                 capture_path=Path(capture) if isinstance(capture, str) else None,
                 diagnostic_ref=reference if isinstance(reference, str) else None,
                 running=custody_state(payload) != "gone",

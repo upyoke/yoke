@@ -108,12 +108,21 @@ def fetch_case_execution_context(
     requirement_id: int,
     *,
     actor: Optional[ActorContext] = None,
+    checkout_path: Optional[str | Path] = None,
+    expected_branch: Optional[str] = None,
 ) -> dict:
     """Authorize and fetch one immutable case before local side effects."""
     result = _dispatch(
         "qa.case_execution.begin",
         requirement_id,
-        {},
+        {
+            **(
+                {"checkout_path": str(Path(checkout_path).resolve())}
+                if checkout_path is not None
+                else {}
+            ),
+            **({"expected_branch": expected_branch} if expected_branch else {}),
+        },
         actor=actor,
     )
     case = result.get("case")
@@ -128,6 +137,9 @@ def _execution_checkout(case: dict) -> Path:
         worktree_path_for_branch,
     )
 
+    selected = case.get("lane_path")
+    if selected and Path(selected).is_dir():
+        return Path(selected).resolve()
     project_id = int(case["project_id"])
     branch = str(case.get("lane_branch") or "").strip()
     if branch and branch != "null":
@@ -213,6 +225,8 @@ def execute_case_context(
             checkout_path=checkout_path,
             allow_tree_mismatch=allow_tree_mismatch,
             actor=actor,
+            expected_branch=expected_branch,
+            expected_sha=expected_sha,
         )
     if runner_id == "browser_substrate":
         return _browser_result(

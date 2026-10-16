@@ -66,15 +66,34 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
     if subcmd == "review-insert":
         if not epic_id or len(rest) < 2:
             _cli_usage_error(
-                "Usage: review-insert <epic-id> <task_num> <verdict> [--body-file <path>]"
+                "Usage: review-insert <epic-id> <task_num> <verdict> [--head-sha <reviewed-commit>] [--body-file <path>]"
             )
+        body_args = list(rest[2:])
+        head_sha = None
+        if "--head-sha" in body_args:
+            index = body_args.index("--head-sha")
+            if index + 1 >= len(body_args):
+                _cli_usage_error(
+                    "review-insert: --head-sha requires the full reviewed commit"
+                )
+            head_sha = body_args.pop(index + 1)
+            body_args.pop(index)
         body = _load_body_arg(
-            rest[2:],
+            body_args,
             _epic,
-            "review-insert <epic-id> <task_num> <verdict> [--body-file <path>]",
+            "review-insert <epic-id> <task_num> <verdict> [--head-sha <reviewed-commit>] [--body-file <path>]",
         )
         try:
-            print(_epic.review_insert(conn, epic_id, int(rest[0]), rest[1], body))
+            print(
+                _epic.review_insert(
+                    conn,
+                    epic_id,
+                    int(rest[0]),
+                    rest[1],
+                    body,
+                    **({"head_sha": head_sha} if head_sha is not None else {}),
+                )
+            )
         except RuntimeError as exc:
             _cli_error(str(exc))
         return True

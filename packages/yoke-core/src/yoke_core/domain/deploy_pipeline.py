@@ -284,9 +284,13 @@ def run_pipeline(
             try:
                 lines = control_plane.held_qa_report_lines(run_id, s_name)
             except control_plane.DeploymentControlPlaneError as exc:
-                print(f"Error: {exc}", file=sys.stderr)
+                print(
+                    "scoped_qa_report_unavailable: fresh QA report unavailable; "
+                    f"retaining the last QA blocker diagnostic. {exc}",
+                    file=sys.stderr,
+                )
                 print(exec_diag, file=sys.stderr)
-                return EXIT_USAGE
+                return EXIT_AWAITING_QA
             for line in lines:
                 print(line, file=sys.stderr)
             print(exec_diag, file=sys.stderr)

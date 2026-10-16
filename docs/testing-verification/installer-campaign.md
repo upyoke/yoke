@@ -70,6 +70,12 @@ home and sign-in files stay in place. Configuration checks do not
 replace the exploration's real
 received-context proof.
 
+Hosted recovery journeys repeat their prepared marker after the installer
+exits successfully, then emit a ready marker that the final capture waits for.
+The backup journey also repeats its nonempty-backup assertion after exit;
+preparation, installer or backup failures never emit readiness. This keeps
+the assertion visible after the installer's full-screen display clears.
+
 ## Complete machine approval links
 
 ```text

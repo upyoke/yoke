@@ -37,9 +37,15 @@ therefore asks for the relay's ordinary deadline instead.
 from __future__ import annotations
 
 import shlex
+import re
+import subprocess
 import sys
+from pathlib import Path
 from typing import TextIO
-from yoke_core.domain.project_attribution import UnattributedProjectError, required_project
+from yoke_core.domain.project_attribution import (
+    UnattributedProjectError,
+    required_project,
+)
 
 
 def rerecord_command(project: str, checkout_path: str) -> str:
@@ -53,8 +59,14 @@ def rerecord_command(project: str, checkout_path: str) -> str:
     """
     return shlex.join(
         [
-            "yoke", "project", "snapshot", "sync", str(checkout_path),
-            "--project", str(project), "--head-only",
+            "yoke",
+            "project",
+            "snapshot",
+            "sync",
+            str(checkout_path),
+            "--project",
+            str(project),
+            "--head-only",
         ]
     )
 
@@ -110,11 +122,57 @@ def record_lane_head(project: str, checkout_path: str) -> str:
     return f"{detail}; record it with `{repair}`, which needs no commit"
 
 
+def _published_checkout_matches(
+    project: str,
+    checkout_path: str,
+    selected_checkout: str | None,
+    branch: str | None,
+    source_ref: str,
+    stream: TextIO | None,
+) -> bool:
+    """A full SHA is stampable only as the selected clean live lane's HEAD."""
+    if not selected_checkout or not branch:
+        return False
+    checkout = Path(checkout_path).resolve()
+    if not checkout.is_dir() or Path(selected_checkout).resolve() != checkout:
+        return False
+    try:
+
+        def git(*args: str) -> str:
+            return subprocess.run(
+                ["git", "-C", str(checkout), *args],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            ).stdout.strip()
+
+        matches = (
+            re.fullmatch(r"[0-9a-f]{40}", source_ref) is not None
+            and git("symbolic-ref", "--quiet", "--short", "HEAD") == branch
+            and git("rev-parse", "HEAD") == source_ref
+            and not git("status", "--porcelain", "--untracked-files=normal")
+        )
+    except (OSError, subprocess.SubprocessError):
+        matches = False
+    if not matches:
+        print(
+            "warning: qa_published_head_unproven: selected checkout is not the "
+            f"clean published {branch}@{source_ref}; no candidate was stamped. "
+            "Restore that exact live lane identity under its matching claim, "
+            f"then run `{rerecord_command(project, checkout_path)}`.",
+            file=stream or sys.stderr,
+        )
+    return matches
+
+
 def record_published_lane_head(
     project: str,
     checkout_path: str,
     *,
     source_ref: str = "HEAD",
+    selected_checkout: str | None = None,
+    branch: str | None = None,
     stream: TextIO | None = None,
 ) -> None:
     """Record a just-published lane's HEAD, naming a failure but never raising.
@@ -124,12 +182,20 @@ def record_published_lane_head(
     local and provisional, and after it every reader expects the control
     plane to name the same candidate CI was handed.
 
-    ``source_ref`` is what the caller published. Only ``HEAD`` is this
-    checkout's own lane: a publisher naming a recorded commit instead has
-    lost its lane worktree, so this checkout sits on some other tree and
-    recording its HEAD would invent exactly the drift this prevents. The
-    registered surface can only read HEAD, so that case records nothing.
+    A full SHA does not establish a live checkout. First prove the selected
+    checkout, branch and clean HEAD equal that SHA; only then use the existing
+    HEAD recorder. Missing/cleaned lanes and other checkouts record nothing.
+    The registered surface retains all claim and ownership checks.
     """
+    if source_ref != "HEAD" and _published_checkout_matches(
+        project,
+        checkout_path,
+        selected_checkout,
+        branch,
+        source_ref,
+        stream,
+    ):
+        source_ref = "HEAD"
     if source_ref != "HEAD":
         return
     detail = record_lane_head(project, checkout_path)

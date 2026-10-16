@@ -99,6 +99,7 @@ def route_shared_refresh(refresh):
                         **{
                             **kwargs,
                             "deployment_member_item_id": None,
+                            "_selection_member_item_id": member,
                             "commit": False,
                             "plan": plan["id"],
                             "_execution_target_digest": target_digest(

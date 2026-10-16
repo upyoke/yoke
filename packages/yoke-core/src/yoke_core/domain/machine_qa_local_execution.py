@@ -165,7 +165,8 @@ def execute_machine_case_contract(
     The case resets to its declared baseline first when it opens a chain;
     a reset that does not prove the baseline leaves the case unstarted. The
     chain's starting state is restored after the case when it ends its chain
-    or did not pass, including when local execution raises.
+    or its capture failed, including when local execution raises. Successful
+    captures awaiting independent review preserve intermediate chain state.
     """
     contract = HostControlExecutionContract.model_validate(raw_contract)
     if contract.operation not in {"case", "plan_case"}:
@@ -200,7 +201,9 @@ def execute_machine_case_contract(
         exc.add_note(restore_summary(restore))
         raise
     evidence = dict(result.evidence)
-    if restore_due(case, result.case_outcome):
+    if restore_due(
+        case, result.case_outcome, error_code=result.error_code, verdict=result.verdict
+    ):
         evidence[STARTING_STATE_RESTORE] = restore_chain_start(
             case, execution.reach_baseline, machine=machine
         )

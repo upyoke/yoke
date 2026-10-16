@@ -87,6 +87,23 @@ before either definition changes. Supersede an answered copy, or abort the
 live execution before retrying refresh. Discharged copies and copies on
 terminal runs retain their original definitions and acceptance history.
 
+Refresh corrects eligible cases in the existing frozen selected plan in the
+same transaction as their requirement rows, under the run lock. It resolves
+the existing flow or attaching member owner first; missing or ambiguous
+ownership refuses before writes. Other owners, unchanged siblings, passed
+acceptance, source provenance and execution targets stay frozen. A historical
+capture awaiting review remains evidence of its original definition and cannot
+prove the corrected definition.
+Shared correction may enter through any attaching member; it reaches only
+already-frozen owners of that exact plan/source/target group and creates no
+selection on a peer whose plan was not frozen yet.
+
+A successful machine capture awaiting independent review preserves intermediate
+chain state and permits its immediate inherited follower in the same execution.
+The last case restores the baseline; failed captures still restore and block
+followers. Independent review remains mandatory after capture completes and
+pending captures do not discharge requirements.
+
 Proof must describe the same selected attempt and subject. Code proof records
 the observed build identity; an expected release SHA is not an observation.
 Browser capture time never substitutes for observed identity. A build may

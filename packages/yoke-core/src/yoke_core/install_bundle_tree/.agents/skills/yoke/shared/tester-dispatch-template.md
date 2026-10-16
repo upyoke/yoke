@@ -94,8 +94,12 @@ tests and materialized cases. Compare failing test NAMES on main and branch
 for regressions, rather than counts.
 
 {generated task only:}
-Write the review body to a temp file, then persist:
-yoke workflow-item epic-task review-insert --epic {epic_ref} --task-num {task_num} --verdict <pass|fail> --body-file <review-path>
+Before reviewing, capture the full HEAD of the exact clean registered task
+lane as REVIEWED_HEAD_SHA. Write the review body to a temp file, then persist:
+yoke workflow-item epic-task review-insert --epic {epic_ref} --task-num {task_num} --verdict <pass|fail> --head-sha {REVIEWED_HEAD_SHA} --body-file <review-path>
+PASS requires that candidate to match the task's registered worker lane;
+FAIL needs no passing candidate. On refusal, retain the complete report,
+inspect review-get, and repair the named cause before retrying persistence.
 Text alone does not satisfy Conduct's durable-review gate.
 
 End with VERDICT: PASS or VERDICT: FAIL and a brief summary.

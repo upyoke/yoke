@@ -91,8 +91,15 @@ def test_source_identity_failure_names_mapped_checkout_fallback(
     monkeypatch.setattr(doctor_source_root.subprocess, "run", run)
     with pytest.warns(RuntimeWarning, match="doctor_source_checkout_fallback") as seen:
         assert doctor_source_root.preferred_source_checkout(mapped) == mapped
-    assert str(mapped) in str(seen[0].message)
-    assert "Recovery: restore Git access" in str(seen[0].message)
+    matching = [
+        str(warning.message)
+        for warning in seen
+        if issubclass(warning.category, RuntimeWarning)
+        and "doctor_source_checkout_fallback" in str(warning.message)
+    ]
+    assert len(matching) == 1
+    assert str(mapped) in matching[0]
+    assert "Recovery: restore Git access" in matching[0]
 
 
 def test_deployed_clone_belongs_to_its_mapped_source(tmp_path, monkeypatch):

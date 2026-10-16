@@ -1,6 +1,8 @@
 """Personal approval, machine ownership, and one-time credential delivery."""
 
 import pytest
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from yoke_contracts.self_host_bootstrap_output import TOKEN_PREFIX
 from runtime.api.domain.decision_request_test_support import decision_request_connection
 from runtime.api.domain.machine_registry_test_support import (
@@ -8,6 +10,7 @@ from runtime.api.domain.machine_registry_test_support import (
     OTHER_MACHINE_ID,
 )
 from yoke_core.domain import machine_authorization_codes as codes
+from yoke_core.domain import machine_authorization_decisions as decisions
 from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.external_identity_schema import create_external_identity_tables
 from yoke_core.domain.machine_authorization_schema import (
@@ -58,18 +61,20 @@ def test_member_approves_own_machine_and_delivery_consumes_code(conn):
     ).fetchone()
     assert authorization["device_code"] not in row[0]
     assert row[1] == 1
-    before_poll = codes.inspect(conn, code=authorization["user_code"], actor_id=1)
+    before_poll = decisions.inspect(conn, code=authorization["user_code"], actor_id=1)
     assert before_poll["machine"] == "Pat's laptop"
     assert before_poll["platform"] == "macOS"
     with pytest.raises(codes.MachineAuthorizationError, match="authorization_pending"):
         poll(conn, authorization)
-    details = codes.inspect(conn, code=authorization["user_code"], actor_id=1)
+    details = decisions.inspect(conn, code=authorization["user_code"], actor_id=1)
     assert details["machine"] == "Pat's laptop"
-    codes.resolve(conn, code=authorization["user_code"], actor_id=1, action="approve")
+    decisions.resolve(
+        conn, code=authorization["user_code"], actor_id=1, action="approve"
+    )
     with pytest.raises(
         codes.MachineAuthorizationError, match="authorization_owner_mismatch"
     ):
-        codes.resolve(
+        decisions.resolve(
             conn, code=authorization["user_code"], actor_id=5, action="approve"
         )
     credential = poll(conn, authorization)
@@ -91,7 +96,7 @@ def test_denied_expired_and_mismatched_machine_codes_never_mint(conn):
         codes.MachineAuthorizationError, match="machine_identity_mismatch"
     ):
         poll(conn, authorization, machine_id=OTHER_MACHINE_ID)
-    codes.resolve(conn, code=authorization["user_code"], actor_id=1, action="deny")
+    decisions.resolve(conn, code=authorization["user_code"], actor_id=1, action="deny")
     with pytest.raises(codes.MachineAuthorizationError, match="authorization_denied"):
         poll(conn, authorization)
     conn.execute(
@@ -107,10 +112,12 @@ def test_nonmember_and_disabled_approver_cannot_get_credential(conn):
     with pytest.raises(
         codes.MachineAuthorizationError, match="organization_membership_required"
     ):
-        codes.resolve(
+        decisions.resolve(
             conn, code=authorization["user_code"], actor_id=2, action="approve"
         )
-    codes.resolve(conn, code=authorization["user_code"], actor_id=1, action="approve")
+    decisions.resolve(
+        conn, code=authorization["user_code"], actor_id=1, action="approve"
+    )
     conn.execute("UPDATE actors SET status='disabled' WHERE id=1")
     with pytest.raises(codes.MachineAuthorizationError, match="actor_disabled"):
         poll(conn, authorization)
@@ -119,7 +126,9 @@ def test_nonmember_and_disabled_approver_cannot_get_credential(conn):
 
 def test_mint_failure_rolls_back_consumption_and_can_retry(conn, monkeypatch):
     authorization = pending(conn)
-    codes.resolve(conn, code=authorization["user_code"], actor_id=1, action="approve")
+    decisions.resolve(
+        conn, code=authorization["user_code"], actor_id=1, action="approve"
+    )
     real_mint = codes.register_with_credential
 
     def broken(*args, **kwargs):
@@ -178,7 +187,7 @@ def test_one_client_cannot_fill_the_server_by_changing_machine_identity(conn):
 
 def test_consumed_codes_free_client_capacity(conn):
     values = [pending(conn) for _ in range(codes.CLIENT_PENDING_CODES)]
-    codes.resolve(conn, code=values[0]["user_code"], actor_id=1, action="approve")
+    decisions.resolve(conn, code=values[0]["user_code"], actor_id=1, action="approve")
     poll(conn, values[0])
     assert pending(conn)["device_code"]
 
@@ -188,23 +197,150 @@ def test_inspection_retains_expired_facts_but_decision_refuses(conn):
     conn.execute(
         "UPDATE machine_authorization_codes SET expires_at='2000-01-01T00:00:00Z'"
     )
-    details = codes.inspect(conn, code=authorization["user_code"], actor_id=1)
+    details = decisions.inspect(conn, code=authorization["user_code"], actor_id=1)
     assert details["expires_at"] == "2000-01-01T00:00:00.000000Z"
     with pytest.raises(codes.MachineAuthorizationError, match="authorization_expired"):
-        codes.resolve(
+        decisions.resolve(
             conn, code=authorization["user_code"], actor_id=1, action="approve"
         )
 
 
 def test_inspection_retains_approved_facts_after_delivery(conn):
     authorization = pending(conn)
-    codes.resolve(conn, code=authorization["user_code"], actor_id=1, action="approve")
+    decisions.resolve(
+        conn, code=authorization["user_code"], actor_id=1, action="approve"
+    )
     poll(conn, authorization)
     assert (
-        codes.inspect(conn, code=authorization["user_code"], actor_id=1)["decision"]
+        decisions.inspect(conn, code=authorization["user_code"], actor_id=1)["decision"]
         == "approve"
     )
     with pytest.raises(
         codes.MachineAuthorizationError, match="authorization_unavailable"
     ):
-        codes.inspect(conn, code="UNKNOWN", actor_id=1)
+        decisions.inspect(conn, code="UNKNOWN", actor_id=1)
+
+
+@pytest.mark.parametrize("action,opposite", [("approve", "deny"), ("deny", "approve")])
+def test_decision_binds_actor_and_replays_without_inbox_mirror(conn, action, opposite):
+    code = pending(conn)["user_code"]
+    assert decisions.resolve(conn, code=code.lower(), actor_id=1, action=action) == {
+        "decision": action
+    }
+    stored = tuple(
+        conn.execute(
+            "SELECT actor_id,decision,decided_at FROM machine_authorization_codes"
+        ).fetchone()
+    )
+    assert stored[:2] == (1, action)
+    assert stored[2] is not None
+    assert decisions.resolve(conn, code=code, actor_id=1, action=action) == {
+        "decision": action
+    }
+    with pytest.raises(
+        codes.MachineAuthorizationError, match="authorization_already_decided"
+    ):
+        decisions.resolve(conn, code=code, actor_id=1, action=opposite)
+    with pytest.raises(
+        codes.MachineAuthorizationError, match="authorization_owner_mismatch"
+    ):
+        decisions.resolve(conn, code=code, actor_id=5, action=action)
+    assert (
+        tuple(
+            conn.execute(
+                "SELECT actor_id,decision,decided_at FROM machine_authorization_codes"
+            ).fetchone()
+        )
+        == stored
+    )
+    assert conn.execute("SELECT count(*) FROM decision_requests").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize(
+    "kind,status,error",
+    [
+        ("human", "disabled", "actor_disabled"),
+        ("machine", "active", "authorization_human_required"),
+        ("system", "active", "authorization_human_required"),
+    ],
+)
+def test_only_active_human_members_can_resolve(conn, kind, status, error):
+    code = pending(conn)["user_code"]
+    conn.execute("UPDATE actors SET kind=?,status=? WHERE id=1", (kind, status))
+    with pytest.raises(codes.MachineAuthorizationError, match=error):
+        decisions.resolve(conn, code=code, actor_id=1, action="approve")
+    assert tuple(
+        conn.execute(
+            "SELECT actor_id,decision,decided_at FROM machine_authorization_codes"
+        ).fetchone()
+    ) == (None, None, None)
+
+
+@pytest.mark.parametrize("code", ["ABCDE-F1234", "ABCDEF1234"])
+def test_in_flight_long_codes_still_resolve(conn, code):
+    authorization = pending(conn)
+    conn.execute("UPDATE machine_authorization_codes SET user_code=?", (code,))
+    assert decisions.inspect(conn, code=code, actor_id=1)["code"] == code
+    decisions.resolve(conn, code=code, actor_id=1, action="approve")
+    assert poll(conn, authorization)["token"]
+
+
+def test_concurrent_opposite_decisions_have_one_winner(tmp_path):
+    from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+    from yoke_core.domain.api_tokens import bootstrap_admin_token
+
+    with init_test_db(tmp_path) as token:
+        with connect_test_db(token) as worker:
+            actor_id = bootstrap_admin_token(worker).actor_id
+            code = pending(worker)["user_code"]
+        ready = Barrier(2)
+
+        def decide(action):
+            with connect_test_db(token) as worker:
+                ready.wait(timeout=10)
+                try:
+                    return decisions.resolve(
+                        worker, code=code, actor_id=actor_id, action=action
+                    )["decision"]
+                except codes.MachineAuthorizationError as error:
+                    return error.code
+
+        with ThreadPoolExecutor(max_workers=2) as workers:
+            results = list(workers.map(decide, ["approve", "deny"]))
+        assert results.count("authorization_already_decided") == 1
+        with connect_test_db(token) as worker:
+            stored = worker.execute(
+                "SELECT actor_id,decision,decided_at FROM machine_authorization_codes"
+            ).fetchone()
+            assert stored[0] == actor_id
+            assert stored[1] in results
+            assert stored[2] is not None
+
+
+def test_boot_converges_decision_columns_for_born_and_existing_universes(tmp_path):
+    from runtime.api.domain import test_boot_schema_column_convergence as boot
+    from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+    from yoke_core.domain.schema_init import converge_core_schema
+
+    with init_test_db(
+        tmp_path, apply_schema=boot._apply_complete_control_plane_schema
+    ) as token:
+        with connect_test_db(token) as worker:
+            names = {"decision", "decided_at"}
+            assert names <= boot._column_map(worker)["machine_authorization_codes"]
+            authorization = pending(worker)
+            worker.execute(
+                "ALTER TABLE machine_authorization_codes DROP COLUMN decision"
+            )
+            worker.execute(
+                "ALTER TABLE machine_authorization_codes DROP COLUMN decided_at"
+            )
+            worker.commit()
+            converge_core_schema(worker)
+            converge_core_schema(worker)
+            assert names <= boot._column_map(worker)["machine_authorization_codes"]
+            assert tuple(
+                worker.execute(
+                    "SELECT user_code,decision,decided_at FROM machine_authorization_codes"
+                ).fetchone()
+            ) == (authorization["user_code"], None, None)

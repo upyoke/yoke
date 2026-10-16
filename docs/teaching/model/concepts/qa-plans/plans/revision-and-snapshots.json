@@ -3,5 +3,6 @@
  "title": "Revision and snapshots",
  "status": "draft-copy",
  "page": "qa-plans",
- "position": 3
+ "position": 3,
+ "summary": "Explicit refresh updates eligible admitted cases and their existing owner snapshot atomically, preserving targets, provenance, passed acceptance and capture history. Successful captures awaiting review can continue an inherited machine chain; independent judgment still follows complete capture."
 }

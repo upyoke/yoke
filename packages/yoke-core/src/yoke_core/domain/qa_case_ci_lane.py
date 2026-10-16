@@ -150,6 +150,7 @@ def push_lane(
     project: str,
     target: str,
     source_ref: str = "HEAD",
+    selected_checkout: str | None = None,
 ) -> None:
     """Publish the lane branch so CI can check out the tree under test.
 
@@ -197,6 +198,8 @@ def push_lane(
         project,
         str(checkout),
         source_ref=source_ref,
+        selected_checkout=selected_checkout,
+        branch=branch,
     )
 
 

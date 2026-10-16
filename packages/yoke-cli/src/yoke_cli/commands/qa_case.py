@@ -68,7 +68,9 @@ def qa_case_run(args: List[str]) -> int:
     if show_delegate_help(
         args,
         QA_CASE_RUN_USAGE,
-        "Requires the named immutable QA case or execution; item cases require the item work claim.",
+        "Requires the named immutable QA case and matching item/task work claim. "
+        "With multiple lanes, select --checkout-path PATH --expected-branch BRANCH "
+        "--expected-sha FULL_SHA; CI refuses source mismatches before publication.",
     ):
         return 0
     return _run_execution_module(

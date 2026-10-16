@@ -2,8 +2,8 @@
  "id": "task-level-qa",
  "title": "Task-level QA",
  "status": "observed",
- "sources": ["packages/yoke-core/src/yoke_core/domain/epic_review_qa.py", ".agents/skills/yoke/conduct/dispatch-context-gates.md"],
- "summary": "Task implementation review is blocking source review without a deployment environment or URL. Seeding preserves the epic/task and workflow binding; creation refusals retain their diagnostic and recovery. Retry the same task after correcting the cause, retaining its submission and CI evidence.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/epic_review_qa.py", "packages/yoke-core/src/yoke_core/domain/epic_review.py", "packages/yoke-core/src/yoke_core/domain/qa_task_review_candidate.py", ".agents/skills/yoke/conduct/dispatch-context-gates.md", ".agents/skills/yoke/conduct/dispatch-context-artifacts.md"],
+ "summary": "Task implementation review is blocking source review without a deployment environment or URL. PASS persistence names the full reviewed commit and validates the task's own active worker lane and recorded candidate. FAIL preserves the actual verdict before retry work. Creation refusals retain diagnostics and recovery; retain the review report, submission and CI evidence.",
  "page": "qa-plans",
  "position": 2
 }

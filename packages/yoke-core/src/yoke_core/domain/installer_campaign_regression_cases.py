@@ -60,7 +60,7 @@ def _command_case(
     )
 
 
-def _hosted_case(position, key, prefix, *, instructions, outcome):
+def _hosted_case(position, key, prefix, *, instructions, outcome, after_installer=":"):
     source = next(
         row
         for row in CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES
@@ -69,6 +69,14 @@ def _hosted_case(position, key, prefix, *, instructions, outcome):
     config = deepcopy(source["method_config"]["baseline_configs"][SHELL_PRECONFIGURED])
     config["setup_operations"] = current_release_setup(key, path_ready=True)
     config["expected_text"].append(key + "-prepared")
+    config["expected_text"].append(key + "-ready")
+    config["actions"].append(
+        action(
+            key + "-ready",
+            ready_text=[key + "-ready"],
+            ready_timeout_seconds=45,
+        )
+    )
     config["notes"] = instructions
     return terminal_case(
         position,
@@ -79,6 +87,10 @@ def _hosted_case(position, key, prefix, *, instructions, outcome):
         entry_surface=(
             f"set -eu; {prefix}; printf '%s\\n' {shlex.quote(key + '-prepared')}; "
             + PUBLIC_INSTALL
+            + f"; {after_installer}; printf '%s\\n' "
+            + shlex.quote(key + "-prepared")
+            + " "
+            + shlex.quote(key + "-ready")
         ),
         required_completion="complete-onboarding",
         host_baselines=[FRESH_HOST],
@@ -145,6 +157,7 @@ LOCAL_HOSTED_BACKUP = _hosted_case(
     _LOCAL_SETUP
     + f"; {YOKE_BIN} universe export --out {FIXTURE_ROOT}/local-backup.tar --json"
     + f"; test -s {FIXTURE_ROOT}/local-backup.tar",
+    after_installer=f"test -s {FIXTURE_ROOT}/local-backup.tar",
     instructions=(
         "Create a local universe on the isolated host, export a portable backup, then switch to the "
         "declared hosted target through its real approval and Apply path. Keep backup and setup proof."

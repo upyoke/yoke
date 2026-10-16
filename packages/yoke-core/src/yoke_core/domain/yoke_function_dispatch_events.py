@@ -35,6 +35,10 @@ from yoke_contracts.timestamps import temporal_wire
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.api.observability import debug_detail_allowed, service_name
+from yoke_core.domain.admission_result_redaction import (
+    ONE_TIME_SECRET_GUARDRAIL,
+    debug_capture_result,
+)
 from yoke_core.domain.auth_context import auth_context_from_actor
 from yoke_core.domain.events import emit_event
 from yoke_core.domain.function_call_ledger import record_call
@@ -109,8 +113,6 @@ def detailed_capture_context(
     per dispatch, because a true answer consumes one unit of the
     campaign's record budget.
     """
-    if "one_time_secret_result" in entry.guardrails:
-        return {}
     if not debug_detail_allowed(
         {
             "function": entry.function_id,
@@ -120,7 +122,7 @@ def detailed_capture_context(
         }
     ):
         return {}
-    return {"result": dict(response.result)}
+    return debug_capture_result(entry, response)
 
 
 def emit_called(
@@ -146,14 +148,8 @@ def emit_called(
     unregistered-session provenance marking). Event attribution
     (``session_id``) always uses the bound session.
     """
-    # Routine telemetry carries the result's SIZE and DIGEST, never the
-    # document. Over the most recent 2,000 production calls the copied
-    # result was 8,876,530 of 11,982,526 envelope characters (74%), and
-    # no reader consumed it: the caller already holds the result on the
-    # response, and a ledgered call keeps it in ``function_call_ledger``.
-    # Exceptional detailed capture belongs behind a scoped, expiring,
-    # record-capped debug campaign (:func:`debug_detail_allowed` below),
-    # never in the routine INFO event.
+    # Routine telemetry carries only size and digest. A scoped debug
+    # campaign can capture results, with one-time credentials redacted.
     result_bytes, result_hash = serialize_payload(dict(response.result))
     context = {
         "function": entry.function_id,
@@ -191,6 +187,7 @@ def emit_called(
         entry.side_effects
         and response.success
         and "handler_managed_idempotency" not in entry.guardrails
+        and ONE_TIME_SECRET_GUARDRAIL not in entry.guardrails
     ):
         record_call(
             request.request_id,

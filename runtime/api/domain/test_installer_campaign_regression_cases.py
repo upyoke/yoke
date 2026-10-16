@@ -4,6 +4,7 @@ from io import BytesIO
 from pathlib import Path
 from subprocess import CompletedProcess
 import shutil
+import shlex
 import subprocess
 import sys
 import time
@@ -271,3 +272,52 @@ def test_issue_sync_probe_checks_installed_value_and_permission_refusal(
     exec(compile(ISSUE_SYNC_DEFAULT_SCRIPT, "issue-sync-probe", "exec"), {})
     assert len(calls) == 4
     assert "deliberate unbound enable refused" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("failure", [None, "installer", "backup", "preparation"])
+def test_hosted_ready_marker_follows_successful_exit_and_real_backup_check(
+    monkeypatch,
+    tmp_path,
+    failure,
+):
+    from yoke_core.domain import installer_campaign_regression_cases as recipes
+
+    backup = shlex.quote(str(tmp_path / "backup.tar"))
+    installer = tmp_path / "installer.sh"
+    installer.write_text(
+        "printf '\\033[2Jinstaller TUI exited\\n'; "
+        + (
+            "exit 7"
+            if failure == "installer"
+            else f"rm {backup}"
+            if failure == "backup"
+            else "exit 0"
+        )
+    )
+    monkeypatch.setattr(
+        recipes, "PUBLIC_INSTALL", f"/bin/sh {shlex.quote(str(installer))}"
+    )
+    case = recipes._hosted_case(
+        1,
+        "backup-journey",
+        "false"
+        if failure == "preparation"
+        else f"printf backup > {backup}; test -s {backup}",
+        instructions="Preserve backup through hosted install.",
+        outcome="Ready after exit.",
+        after_installer=f"test -s {backup}",
+    )
+    result = subprocess.run(
+        ["/bin/sh", "-c", case["entry_surface"]], capture_output=True, text=True
+    )
+    if failure:
+        assert result.returncode != 0
+        assert "backup-journey-ready" not in result.stdout
+    else:
+        assert result.returncode == 0
+        visible = result.stdout.rsplit("\x1b[2J", 1)[-1]
+        assert "backup-journey-prepared" in visible
+        assert "backup-journey-ready" in visible
+    assert case["method_config"]["actions"][-1]["ready_text"] == [
+        "backup-journey-ready"
+    ]

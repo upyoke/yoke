@@ -1,29 +1,4 @@
-"""Refresh an already-materialized deployment stage's cases from its plan.
-
-:mod:`qa_plan_rematerialize` does this for an item transition. A deployment
-run, stage and member subject had no equivalent, and one unique index is why
-it mattered: a materialized case is unique on
-``(run, stage, member, plan_id, plan_case_key, host_baseline, target)``, so a
-corrected plan case could never arrive as a second row. Correcting a case
-meant publishing a whole new plan, or giving up and waiving the broken one.
-
-Rematerializing converges the subject on its plans in one pass, case by
-case, so one answered sibling never holds the rest of the roster hostage:
-
-* a case added to the plan gets its first row;
-* a row nobody has judged is refreshed in place from the plan;
-* a case whose rows all failed or were discharged, and whose content has
-  since changed, gets one corrected row under a distinct key, declared the
-  replacement of the failed attempts (:mod:`qa_requirement_replacement`) --
-  the failed rows keep their evidence and are superseded once it passes;
-* a case already passed stays an acceptance record and is not rewritten;
-* a row whose case left the plan is waived.
-
-The subject's target is never moved. A deployment row is pinned to the target
-its stage receipt observed, so every refresh re-uses the digest already on the
-rows rather than re-resolving the plan's own environment -- re-resolving would
-silently re-point a frozen run at whatever the plan points at today.
-"""
+"""Refresh pending deployment cases and their existing frozen selection atomically."""
 
 from __future__ import annotations
 
@@ -58,10 +33,15 @@ from yoke_core.domain.qa_plan_requirement_snapshot import (
     insert_requirement,
     refresh_requirement,
 )
+from yoke_core.domain.deployment_qa_snapshot_correction import (
+    selected_plan_owners,
+    refresh_selected_cases,
+)
+from yoke_core.domain.workflow_item_binding_lock import (
+    rollback_workflow_binding_write_errors,
+)
 
 
-#: Deployment stages materialize post-deploy obligations; the attachment
-#: shape the snapshot writers expect carries only that phase.
 _DEPLOYMENT_ATTACHMENT = {"qa_phase": "post_deploy"}
 
 
@@ -118,13 +98,7 @@ def _pinned_target(rows: list[dict[str, Any]], *, subject: str) -> dict[str, Any
 def _needs_corrected_row(
     conn: Any, case: Mapping[str, Any], group: list[dict[str, Any]]
 ) -> bool:
-    """Whether this case owes a row it does not have yet.
-
-    True for a case never materialized here, and for one whose every row has
-    failed or been discharged while its content moved on since -- unless a
-    declared replacement already carries those attempts. An unchanged
-    case stays idempotent however its rows ended, and a passed row stands.
-    """
+    """New or changed failed/discharged cases owe a row; passed cases stand."""
     if not group:
         return True
     if carried_by_declared_replacement(conn, group):
@@ -182,6 +156,7 @@ def _insert_case(
 
 
 @route_shared_refresh
+@rollback_workflow_binding_write_errors
 def rematerialize_for_deployment_stage(
     conn: Any,
     *,
@@ -191,12 +166,16 @@ def rematerialize_for_deployment_stage(
     plan: str | int | None = None,
     commit: bool = True,
     _execution_target_digest: str | None = None,
+    _selection_member_item_id: int | None = None,
 ) -> dict[str, Any]:
     """Refresh this subject's plan cases from their current plan definitions."""
     subject = (
         f"deployment run {str(deployment_run_id)!r} stage "
         f"{str(deployment_stage)!r} member {render_item_ref(conn, deployment_member_item_id) if deployment_member_item_id is not None else 'run'}"
     )
+    conn.execute(
+        "SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE", (deployment_run_id,)
+    ).fetchone()
     rows = _scoped_rows(
         conn,
         deployment_run_id=deployment_run_id,
@@ -246,6 +225,14 @@ def rematerialize_for_deployment_stage(
 
     for plan_id in rows_by_plan:
         require_candidate_plan(conn, _plan_row(conn, plan_id), str(deployment_run_id))
+        selected_plan_owners(
+            conn,
+            run_id=deployment_run_id,
+            stage=deployment_stage,
+            plan_id=plan_id,
+            member_item_id=_selection_member_item_id or deployment_member_item_id,
+            shared_target_digest=_execution_target_digest,
+        )
     created: list[int] = []
     refreshed: list[int] = []
     retained: set[int] = set()
@@ -266,7 +253,9 @@ def rematerialize_for_deployment_stage(
         cases = [
             case for case in cases if case_applies_to_target(case, execution_target)
         ]
+        corrected_cases = []
         for case in cases:
+            corrected = False
             for baseline_position, baseline in enumerate(case_baselines(case), start=1):
                 group = groups.get((str(case["case_key"]), baseline), [])
                 retained.update(int(row["id"]) for row in group)
@@ -291,6 +280,7 @@ def rematerialize_for_deployment_stage(
                         execution_target=execution_target,
                     )
                     refreshed.append(int(row["id"]))
+                    corrected = True
                 if live or not _needs_corrected_row(conn, case, group):
                     continue
                 key = str(case["case_key"])
@@ -310,6 +300,20 @@ def rematerialize_for_deployment_stage(
                         execution_target=execution_target,
                     )
                 )
+                corrected = True
+            if corrected:
+                corrected_cases.append(case)
+        if corrected_cases:
+            refresh_selected_cases(
+                conn,
+                run_id=deployment_run_id,
+                stage=deployment_stage,
+                plan_id=plan_id,
+                member_item_id=_selection_member_item_id or deployment_member_item_id,
+                cases=corrected_cases,
+                allow_added=True,
+                shared_target_digest=_execution_target_digest,
+            )
     declare_refreshed_replacements(conn, created)
     waived = [
         int(row["id"])

@@ -84,7 +84,8 @@ def inherit_blocker(
     """Why an inheriting case cannot run, or ``None`` when it may.
 
     It may run only directly after its plan predecessor, in this same plan
-    execution, once that predecessor passed.
+    execution, once that predecessor completed its capture successfully.
+    Independent judgment remains pending until the final review batch.
     """
     if case.get("starting_state") != INHERIT:
         return None
@@ -110,21 +111,24 @@ def inherit_blocker(
             "in this plan run"
         )
         return blocker
-    outcome = next(
+    result = next(
         (
-            (row["result"] or {}).get("case_outcome")
+            (row["result"] or {})
             for row in result_rows(conn, str(execution["id"]))
             if int(row["ordinal"]) == ordinal - 1
         ),
-        None,
+        {},
     )
-    if outcome == "passed":
+    from yoke_core.domain.machine_qa_chain_restore import capture_allows_chain
+
+    if capture_allows_chain(result):
         return None
+    outcome = result.get("case_outcome")
     blocker["predecessor_case_outcome"] = outcome
     blocker["reason"] = (
         f"case {case['case_key']!r} inherits the machine case "
         f"{previous['case_key']!r} (requirement {predecessor_id}) left, and "
-        f"that case did not pass (outcome {outcome!r}); it was not run"
+        f"that case did not complete a successful capture (outcome {outcome!r}); it was not run"
     )
     return blocker
 

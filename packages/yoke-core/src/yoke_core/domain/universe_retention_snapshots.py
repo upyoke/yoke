@@ -4,20 +4,26 @@ from yoke_core.domain.retention_table_policies import Cleanup
 
 
 def snapshot_policy():
+    # Compute protection sets once, rather than rescan inventory for each
+    # snapshot. Materialization prevents the join from repeating sighting work.
     where = """
-    t.id <> (SELECT MAX(s.id) FROM path_snapshots s WHERE s.project_id=t.project_id)
-    AND t.id <> COALESCE((
-        SELECT MAX(s.id) FROM path_snapshots s WHERE s.project_id=t.project_id
-        AND EXISTS (SELECT 1 FROM path_snapshot_entries e JOIN path_targets p
-                    ON p.id=e.target_id WHERE e.snapshot_id=s.id AND p.kind='file')
-    ), -1)
-    AND NOT EXISTS (
-        SELECT 1 FROM path_snapshot_entries e JOIN path_targets p ON p.id=e.target_id
-        WHERE e.snapshot_id=t.id AND p.generation=(
-            SELECT MAX(g.generation) FROM path_targets g
-            WHERE g.project_id=p.project_id AND g.path_string=p.path_string
-        ) AND t.id=(SELECT MAX(sighting.snapshot_id) FROM path_snapshot_entries sighting
-                    WHERE sighting.target_id=p.id)
+    t.id NOT IN (SELECT MAX(id) FROM path_snapshots GROUP BY project_id)
+    AND t.id NOT IN (
+        SELECT MAX(s.id) FROM path_snapshots s
+        WHERE EXISTS (SELECT 1 FROM path_snapshot_entries e JOIN path_targets p
+                      ON p.id=e.target_id WHERE e.snapshot_id=s.id AND p.kind='file')
+        GROUP BY s.project_id
+    )
+    AND t.id NOT IN (
+        WITH sightings AS MATERIALIZED (
+            SELECT target_id,MAX(snapshot_id) AS snapshot_id
+            FROM path_snapshot_entries GROUP BY target_id
+        ), current_targets AS MATERIALIZED (
+            SELECT DISTINCT ON (project_id,path_string) id FROM path_targets
+            ORDER BY project_id,path_string,generation DESC
+        )
+        SELECT DISTINCT s.snapshot_id FROM sightings s
+        JOIN current_targets p ON p.id=s.target_id
     )
     AND NOT EXISTS (
         SELECT 1 FROM item_worktrees w JOIN items i ON i.id=w.item_id

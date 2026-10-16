@@ -121,7 +121,7 @@ def test_cross_item_cleanup_preserves_active_holders_without_lock_inversion(
     )
     holders = test_db.execute(
         "SELECT session_id,scope FROM work_claims "
-        "WHERE released_at IS NULL AND target_kind='item' ORDER BY session_id",
+        "WHERE released_at IS NULL AND target_kind='item' ORDER BY session_id,id",
     ).fetchall()
     assert [(row[0], int(decode_scope(row[1])["item_id"])) for row in holders] == [
         ("stale-holder", item_ids[0]),

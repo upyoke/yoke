@@ -1,7 +1,9 @@
 {
  "id": "device-authorization-codes",
  "title": "Device authorization codes",
- "status": "draft-copy",
+ "status": "observed",
  "page": "identity",
- "position": 4
+ "position": 4,
+ "text": "A connecting machine receives a four-character match code such as K7F2. Codes use 32 uppercase letters and digits without 0, O, 1 or I, accept lowercase input and expire after ten minutes. An active human organization member approves or denies the code, binding the decision to that person. Repeating the same decision is safe; another person or the opposite decision is refused. Polling delivers the credential once. In-flight longer codes remain usable until expiry.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/machine_match_codes.py", "packages/yoke-core/src/yoke_core/domain/machine_authorization_decisions.py"]
 }

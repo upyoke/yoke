@@ -11,6 +11,31 @@ from __future__ import annotations
 
 
 AUTH_TABLES: dict[str, dict] = {
+    "teammate_invite_codes": {
+        "columns": [
+            ("id", "INTEGER"),
+            ("actor_id", "INTEGER"),
+            ("org_id", "INTEGER"),
+            ("role", "TEXT"),
+            ("code_hash", "TEXT"),
+            ("request_id", "TEXT"),
+            ("invited_by_actor_id", "INTEGER"),
+            ("created_at", "TIMESTAMPTZ"),
+            ("expires_at", "TIMESTAMPTZ"),
+            ("consumed_at", "TIMESTAMPTZ"),
+            ("consumed_machine_id", "TEXT"),
+            ("revoked_at", "TIMESTAMPTZ"),
+            ("replaced_at", "TIMESTAMPTZ"),
+        ],
+        "notes": (
+            "Single-use teammate machine admission. Only the SHA-256 code hash "
+            "is stored; request_id is unique for one-time result replay refusal. "
+            "Actor, person's org role and invite are created atomically. Codes "
+            "expire after 24 hours; reissue keeps the actor and replaces earlier "
+            "unconsumed codes. Consumption and machine credential issuance "
+            "commit together. No outcome depends on telemetry."
+        ),
+    },
     "frontend_event_rate_limits": {
         "columns": [
             ("client_key", "TEXT"),
@@ -40,8 +65,10 @@ AUTH_TABLES: dict[str, dict] = {
             ("platform", "TEXT"),
             ("consumed_at", "TIMESTAMPTZ"),
             ("client_key", "TEXT"),
+            ("decision", "TEXT"),
+            ("decided_at", "TIMESTAMPTZ"),
         ],
-        "notes": "Self-host pending personal machine approval. Start requires machine_id, machine_name and platform before polling; direct domain callers also supply platform rather than assuming identity is collected by poll. Omitting platform from a schema birth fixture causes UndefinedColumn, not absent client metadata. Boot adds the nullable platform column. Device secrets are hashed, raw credentials are never stored, and consumption is single-use. client_key hashes trusted transport identity for pending admission. Inspection retains expired/consumed facts; resolve and poll still refuse them.",
+        "notes": "Self-host pending personal machine approval. Start requires machine_id, machine_name and platform before polling; direct domain callers also supply platform rather than assuming identity is collected by poll. Omitting platform from a schema birth fixture causes UndefinedColumn, not absent client metadata. Boot adds nullable platform, decision and decided_at columns. A human member binds actor_id and one approve/deny decision atomically on this row, without an Inbox mirror. Device secrets are hashed, raw credentials are never stored, and consumption is single-use. client_key hashes trusted transport identity for pending admission. Inspection retains expired/consumed facts; resolve and poll still refuse them.",
     },
     "roles": {
         "columns": [
