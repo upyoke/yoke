@@ -209,8 +209,9 @@ def test_invite_choice_uses_teammate_identity_and_private_persistence(
     from runtime.api.fixtures.machine_config_test import select_machine_config_file
 
     config = tmp_path / "config.json"
-    config.write_text(json.dumps({"machine_id": MACHINE_ID}))
+    config.write_text(json.dumps({"schema_version": 1, "machine_id": MACHINE_ID}))
     select_machine_config_file(monkeypatch, config)
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path))
     before = config.read_bytes()
     code, token = "yinv_private", "invited-machine-token"
     calls = []
