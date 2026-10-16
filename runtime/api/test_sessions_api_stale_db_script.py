@@ -31,6 +31,7 @@ _STALE_DB_SCHEMA = f"""
             VALUES (1, 'yoke', 'Yoke', 'YOK', '2026-01-01T00:00:00Z');
             CREATE TABLE items (
                 id INTEGER PRIMARY KEY,
+                title TEXT NOT NULL DEFAULT 'Test item',
                 project_id INTEGER NOT NULL,
                 project_sequence INTEGER NOT NULL
             );

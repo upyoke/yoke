@@ -143,9 +143,9 @@ def register_live_session(
         "(session_id, executor, provider, model, reasoning_effort, execution_level, "
         " executor_version, machine_id, workspace, mode, offered_at, last_heartbeat, "
         " ended_at, offer_envelope, current_item_id, "
-        " current_item_set_at) "
+        " current_item_set_at, project_id) "
         f"VALUES ({p}, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', "
-        f" 'medium', 'SENIOR', NULL, NULL, {p}, 'wait', {p}, {p}, NULL, NULL, {p}, {p})",
+        f" 'medium', 'SENIOR', NULL, NULL, {p}, 'wait', {p}, {p}, NULL, NULL, {p}, {p}, 1)",
         (
             session_id,
             WORKSPACE,
