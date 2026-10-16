@@ -146,14 +146,13 @@ def completed_execution(
             markers = ",".join("%s" for _ in runs)
             return query_rows(
                 conn,
-                "SELECT id,deployment_run_id,deployment_stage,deployment_member_item_id,"
-                "execution_target_digest FROM qa_plan_executions "
+                "SELECT * FROM qa_plan_executions "
                 f"WHERE deployment_run_id IN ({markers}) AND state='completed' "
                 "ORDER BY created_at DESC,id DESC",
                 runs,
             )
 
-        rows = presentation_read(conn, ("qa_completed_execution_ids", runs), read)
+        rows = presentation_read(conn, ("qa_completed_executions", runs), read)
         row = next(
             (
                 value
@@ -164,6 +163,17 @@ def completed_execution(
                 and value["execution_target_digest"] == execution_target_digest
             ),
             None,
+        )
+        if row is None:
+            return None
+        from yoke_core.domain.qa_plan_execution_target_snapshot import (
+            materialized_execution,
+        )
+
+        return presentation_read(
+            conn,
+            ("qa_completed_execution", str(row["id"])),
+            lambda: materialized_execution(row),
         )
     else:
         row = conn.execute(

@@ -6,6 +6,32 @@ import json
 from typing import Any, Iterable, Mapping
 
 
+def materialized_execution(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Normalize a selected row and retain the canonical snapshot checks."""
+    from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError
+
+    row = dict(value)
+    row["cursor_ordinal"] = int(row["cursor_ordinal"])
+    for field in ("item_id", "machine_lease_id", "deployment_member_item_id"):
+        if row.get(field) is not None:
+            row[field] = int(row[field])
+    try:
+        roster = json.loads(str(row["roster_json"]))
+    except (TypeError, ValueError) as exc:
+        raise QaPlanExecutionStateError(
+            "QA plan execution contains an invalid roster snapshot"
+        ) from exc
+    if not isinstance(roster, list) or any(
+        not isinstance(value, dict) for value in roster
+    ):
+        raise QaPlanExecutionStateError(
+            "QA plan execution contains an invalid roster snapshot"
+        )
+    row["roster"] = roster
+    row["execution_target"] = validate_execution_snapshot(row, roster)
+    return row
+
+
 def _captured_inspection_review_recovery() -> str:
     from yoke_core.domain.qa_captured_inspection_review import (
         CAPTURED_INSPECTION_REVIEW_RECOVERY,
@@ -227,6 +253,7 @@ def _requirement_has_runs(conn: Any, requirement_id: int, marker: str) -> bool:
 
 __all__ = [
     "decode_execution_target",
+    "materialized_execution",
     "execution_target_for_roster",
     "rebind_unresolvable_targets",
     "require_execution_target",
