@@ -60,6 +60,10 @@ _DIGEST_LENGTH = 12
 
 def _normalized(value: Any) -> Any:
     """Compare stored JSON text and decoded payloads as the same content."""
+    # Typed execution configs may serialize an integer timeout as a float.
+    # Its numeric value has not changed, so neither has executable content.
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
     if isinstance(value, Mapping):
         return {str(key): _normalized(value[key]) for key in sorted(value)}
     if isinstance(value, list):

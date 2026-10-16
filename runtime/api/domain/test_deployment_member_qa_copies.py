@@ -1,5 +1,7 @@
 """Deployment copy identity, shared membership and release history in the UI read."""
 
+import json
+
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_run
 from runtime.api.domain.test_deployment_qa_admission_execution import (
@@ -147,3 +149,36 @@ def test_active_source_edit_does_not_borrow_the_old_copy_pass(test_db):
     assert result["current"][0]["instructions"] == "Corrected probe"
     assert result["current"][0]["artifacts"] == []
     assert [row["requirement_id"] for row in result["history"]] == [copy]
+
+
+def test_numeric_encoding_does_not_make_an_existing_copy_source_only(test_db):
+    item = 9713
+    insert_item(
+        test_db, id=item, project_sequence=713, workflow_id="issue", status="done"
+    )
+    source = _original_requirement(
+        test_db, item_id=item, method_id="browser-inspection"
+    )
+    source_config = {
+        "steps": [{"action": "wait_for", "target": "main", "timeout_ms": 180}]
+    }
+    test_db.execute(
+        "UPDATE qa_requirements SET method_config=%s WHERE id=%s",
+        (json.dumps(source_config), source),
+    )
+    test_db.commit()
+    run_id = "run-numeric-content-identity"
+    seed_selected_requirement_run(
+        test_db, run_id=run_id, item_id=item, requirement_id=source
+    )
+    copy = admitted_copy(test_db, run_id=run_id, item_id=item)
+    source_config["steps"][0]["timeout_ms"] = 180.0
+    test_db.execute(
+        "UPDATE qa_requirements SET method_config=%s WHERE id=%s",
+        (json.dumps(source_config), copy),
+    )
+    test_db.commit()
+    current = read(test_db, run_id, [item])[(run_id, item)]
+    assert [row["requirement_id"] for row in current["current"]] == [copy]
+    assert not current["current"][0].get("pending_obligation")
+    assert current["history"] == []
