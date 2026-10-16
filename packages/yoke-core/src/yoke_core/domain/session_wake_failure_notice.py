@@ -111,8 +111,12 @@ def notify_failed_wake(
     )
     policy = project_policy(conn, project_id)
     seat_id, seat = seat_session_id(conn, address)
-    recipients = resolve_recipients(
-        conn, selector, now=now, steering_target=address.coverage_target()
+    recipients = (
+        resolve_recipients(
+            conn, selector, now=now, steering_target=address.coverage_target()
+        )
+        if seat_id
+        else []
     )
     details, created = insert_message(
         conn,
