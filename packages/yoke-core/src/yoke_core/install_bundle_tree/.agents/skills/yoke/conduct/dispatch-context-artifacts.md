@@ -11,14 +11,18 @@ Use the installed harness manifest and capture receipts. Claude's PostToolUse
 Agent hook (`yoke_core.domain.reflection_capture_hook`) normally captures the
 complete delimited response once; no duplicate
 manual insert. Codex custom-agent returns do not fire that Agent matcher; the
-retained operator/debug parity owner consumes the captured response with actual
+registered `ouroboros.reflection.capture` owner consumes the captured response with actual
 project and canonical role before continuing:
 
 ```text
-python3 -m yoke_core.domain.reflection_capture --default-agent {ROLE} --project {PROJECT} --output-text {RESPONSE_TEXT}
+yoke ouroboros reflection capture --default-agent {ROLE} --project {PROJECT} --text-file {RESPONSE_FILE}
 ```
 
-For large output use its documented stdin form. No silent project=yoke fallback.
+Use `--stdin` to pipe a captured response instead. The result carries parser,
+duplicate and persistence counts; incomplete capture refuses with the failed
+counts and recovery. Keep the file until that receipt succeeds. An older
+server names the serving floor; ask the control-plane operator to serve the
+carrying release. No silent project=yoke fallback.
 Recovery/backfill requires evidence automatic capture was absent; preserve
 ReflectionCaptureHookFired/Unhandled diagnostics. Reflection failures report a
 field-note, not a fabricated capture. Keep full response only until captured.
@@ -39,11 +43,19 @@ new-surface scope routes pinned authoring repair. Claims never narrow scope.
 
 ```text
 yoke workflow-item epic-task review-seed --epic PREFIX-N --task-num {task_num}
-yoke workflow-item epic-task review-insert --epic PREFIX-N --task-num {task_num} --verdict PASS --body-file {REVIEW_FILE}
+yoke workflow-item epic-task review-insert --epic PREFIX-N --task-num {task_num} --verdict PASS --head-sha {REVIEWED_HEAD_SHA} --body-file {REVIEW_FILE}
 yoke qa requirement list --epic PREFIX-N --json
 yoke qa requirement list --item PREFIX-N --json
 yoke qa run list --requirement-id {requirement_id}
 ```
+
+Capture REVIEWED_HEAD_SHA from the exact clean registered task lane before
+Tester reviews it. PASS must name that full commit; persistence checks the
+task's own active worker lane and recorded candidate, never a parent or
+integration checkout. FAIL needs no passing candidate. A refusal retains its
+cause: inspect review-get, repair that cause, then retry the same actual verdict
+with the complete report. A stale lane/head needs its normal post-commit
+snapshot repaired by the control-plane operator.
 
 Seed once idempotently before review. Insert ACTUAL verdict with per-AC body
 reuses that requirement; no duplicate requirement or manual qa run add for task

@@ -77,7 +77,7 @@ def test_actor_state_binds_aware_utc_revocation_and_audit_instants(monkeypatch):
     from yoke_core.domain import actor_state
 
     bindings = []
-    rows = iter([[], ("human", None, True, "active"), None, [(9,)]])
+    rows = iter([[], ("human", None, "active"), None, [(9,)]])
 
     def execute(sql, params=()):
         if sql.startswith("SELECT"):

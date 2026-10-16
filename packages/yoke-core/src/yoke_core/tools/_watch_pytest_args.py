@@ -40,8 +40,10 @@ BARE_RUNTIME_REJECTION_MESSAGE = (
     'initial-conftest status and collection fails with "Defining '
     "'pytest_plugins' in a non-top-level conftest is no longer "
     'supported".\n'
-    "Full-suite shape: python3 -m yoke_core.tools.watch_pytest -- "
-    "runtime/api/ runtime/harness/ tests/"
+    "Iterate with yoke watch pytest --impacted main --bounded, or "
+    "yoke watch pytest -- <test-file-or-node-id>. Run full coverage once "
+    "through the item attached QA case: yoke qa requirement list --item <item>, "
+    "then yoke qa case run --requirement-id <id>."
 )
 
 PYTEST_USAGE_ERROR_EXIT_STATUS = 4
@@ -101,10 +103,14 @@ def parse_args(argv: Sequence[str], prog: str) -> argparse.Namespace:
             "expected to finish in about one minute."
         ),
         epilog=(
-            "Full-suite shape: pass the three anchors 'runtime/api/ "
-            "runtime/harness/ tests/' — never bare 'runtime/', which "
-            "demotes runtime/api/conftest.py from initial-conftest status "
-            "and fails collection. The wrapper refuses bare 'runtime/'. "
+            "Iterate with yoke watch pytest --impacted main --bounded or "
+            "targeted files/node IDs after --. Full coverage runs once through "
+            "the item's attached QA case: yoke qa requirement list --item "
+            "<item>, then yoke qa case run --requirement-id <id>. Remote "
+            "selection refuses redundant unfiltered full-suite requests when "
+            "a registered full CI gate is available, before push/dispatch. "
+            "Filtered -k/-m and --collect-only runs remain available. "
+            "The wrapper refuses bare 'runtime/' because it breaks conftest collection. "
             "A remote run refuses an uncommitted tree (commit, then run "
             "on CI — uncommitted work does not justify --local) and a "
             "checkout on the base branch; it drops -n/--numprocesses "

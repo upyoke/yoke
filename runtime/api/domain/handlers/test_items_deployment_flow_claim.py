@@ -20,8 +20,8 @@ from yoke_core.domain.handlers.items_deployment_flow_claim import (
 
 def _flow(conn: Any, flow_id: str, project_id: int = 1) -> None:
     conn.execute(
-        "INSERT INTO deployment_flows (id,project_id,name,stages,created_at) "
-        "VALUES (%s,%s,%s,'[]','2026-09-15T00:00:00Z')",
+        "INSERT INTO deployment_flows (id,project_id,name,stages,definition_schema_version,created_at) "
+        "VALUES (%s,%s,%s,'[]',2,'2026-09-15T00:00:00Z')",
         (flow_id, project_id, flow_id),
     )
     conn.commit()

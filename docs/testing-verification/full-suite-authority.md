@@ -222,18 +222,26 @@ the changed module's paths, `yoke watch pytest --impacted main --bounded`.
 Those are the recommended loop, and running impacted selection repeatedly
 while fixing is exactly what it is for.
 
-`--bounded` changes only what happens when selection comes back
-*unbounded*. Plain `--impacted` answers an unbounded change with the full
-sweep, which is right when nothing runs after you. With `--bounded` the
-selector declines to widen: it prints
+`--impacted` is bounded by default; `--bounded` is an explicit no-op.
+An unbounded change prints
 `selection unbounded (<rule>: <paths>) — deferring full coverage to the
-final QA gate` and runs the subset reachability could still compute. Mid
-iteration that verdict means *keep testing what you judge relevant* — the
-gate run covers the rest. The verdict itself is never suppressed.
+final QA gate` and runs the subset reachability can compute. Keep testing
+the relevant subset; the gate covers the rest. Only an explicit local
+CI-outage fallback uses `--local --impacted main --widen`.
 
 The registered QA gate is the one full execution per tree. A hand-run full
 sweep beforehand duplicates its work without replacing the native verdict.
-Use the targeted iteration layers above, then `yoke qa case run`.
+Use the targeted iteration layers above, then `yoke qa requirement list
+--item PREFIX-N` and `yoke qa case run --requirement-id <id>`.
+Remote selection refuses proven unfiltered full-root coverage as
+`redundant_full_suite` before publishing or dispatching when the project's
+registered full CI gate is available. The refusal names the attached case
+when resolvable, otherwise its registered lookup. Project-declared test
+roots define coverage, including equivalent ancestor paths; files/node IDs,
+nonempty keyword/marker expressions and collect-only retain their routes.
+An empty effective `-k`/`-m` expression is diagnosed as unfiltered. CI itself,
+explicit local outage checks and projects without an available registered
+full CI gate retain their existing execution routes.
 
 That run is watchable rather than opaque, which is what made the
 hand-run-first habit tempting. The case runner streams the command's
@@ -318,7 +326,7 @@ When CI is unreachable, the local full gate returns as the documented
 exception:
 
 ```bash
-yoke watch pytest -- runtime/api/ runtime/harness/ tests/
+yoke watch pytest --local -- runtime/api/ runtime/harness/ tests/
 ```
 
 Record in the verification evidence that the local sweep substituted for CI

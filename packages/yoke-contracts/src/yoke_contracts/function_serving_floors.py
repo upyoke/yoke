@@ -14,6 +14,12 @@ from typing import Any, Mapping
 
 #: function_id -> minimum serving version. Do not copy already-served ids here.
 FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
+    "teammate_invites.create": "next-release",
+    "teammate_invites.list": "next-release",
+    "teammate_invites.revoke": "next-release",
+    "teammate_invites.reissue": "next-release",
+    "merge.audit.snapshot": "next-release",
+    "ouroboros.reflection.capture": "next-release",
     "actors.role.set": "next-release",
     "actors.roster": "next-release",
     "actors.state.set": "next-release",
@@ -26,6 +32,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "machine_authorization.get": "next-release",
     "machine_authorization.handoff": "next-release",
     "machine_authorization.handoff_poll": "next-release",
+    "machine_authorization.pending": "next-release",
     "machine_authorization.resolve": "next-release",
     "deployment_runs.driver.for_capture": "next-release",
     "deployment_runs.execution.attach_driver": "next-release",
@@ -112,6 +119,8 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "universe.level_capacity.get": "next-release",
     "universe.levels.get": "next-release",
     "universe.levels.set": "next-release",
+    "universe.retention.get": "next-release",
+    "universe.prune.run": "next-release",
     "universe.cursor_quota_order.get": "next-release",
     "universe.cursor_quota_order.set": "next-release",
     "workflows.canon_status.list": "next-release",

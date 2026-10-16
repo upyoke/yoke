@@ -1,12 +1,4 @@
-"""A start completes its own membership from the candidate it pinned.
-
-The candidate carries a delivery-ready item's merged code whether or not
-anyone attached the item, so these tests drive the real deriver against a real
-repository and assert that the run gains the member, names it, and freezes it
-with the rest of the composition. The refusals that must survive automation are
-here too: an answer nobody could compute, an item this run cannot admit, and a
-retry whose membership was already frozen by the run it retries.
-"""
+"""Candidate-based member enrollment preserves attribution, custody and retry safety."""
 
 from __future__ import annotations
 
@@ -18,8 +10,12 @@ import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.carried_release_candidate import (
-    insert_run, item_ref, record_landing_receipt, release_repository,
-    serve_repository, stage_environment,
+    insert_run,
+    item_ref,
+    record_landing_receipt,
+    release_repository,
+    serve_repository,
+    stage_environment,
 )
 from yoke_core.domain import deployment_run_carried_membership as carried_membership
 from yoke_core.domain.deployment_run_carried_membership import (
@@ -38,7 +34,7 @@ from yoke_core.domain.flow_create import cmd_create
 
 
 RELEASE_FLOW = "carried-enrollment-flow"
-LEGACY_FLOW = "carried-enrollment-legacy-flow"
+ANCILLARY_FLOW = "carried-enrollment-ancillary-flow"
 RELEASE_STAGES = json.dumps(
     [
         {
@@ -49,7 +45,6 @@ RELEASE_STAGES = json.dumps(
         }
     ]
 )
-LEGACY_STAGES = json.dumps([{"name": "stage", "step_runner": "auto"}])
 CARRIED_ITEM_ID = 9501
 
 
@@ -66,11 +61,12 @@ def _flows(conn: Any) -> None:
     )
     cmd_create(
         conn,
-        LEGACY_FLOW,
+        ANCILLARY_FLOW,
         "yoke",
-        "Legacy",
+        "Ancillary",
         "",
-        LEGACY_STAGES,
+        RELEASE_STAGES,
+        takes_delivery_custody=False,
         status="disabled",
     )
 
@@ -210,7 +206,7 @@ def test_unknown_attribution_enrolls_nothing_and_keeps_refusing(
 def test_a_carried_item_bound_to_another_flow_is_still_admitted(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    item_ref = _candidate(test_db, tmp_path, monkeypatch, item_flow=LEGACY_FLOW)
+    item_ref = _candidate(test_db, tmp_path, monkeypatch, item_flow=ANCILLARY_FLOW)
 
     enrolled = enroll_carried_members(test_db, "run-candidate")
 
@@ -232,7 +228,11 @@ def test_a_flow_without_delivery_custody_enrolls_nothing(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _candidate(
-        test_db, tmp_path, monkeypatch, run_flow=LEGACY_FLOW, item_flow=LEGACY_FLOW
+        test_db,
+        tmp_path,
+        monkeypatch,
+        run_flow=ANCILLARY_FLOW,
+        item_flow=ANCILLARY_FLOW,
     )
 
     assert (

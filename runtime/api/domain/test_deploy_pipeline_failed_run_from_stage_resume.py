@@ -79,11 +79,6 @@ def test_failed_from_stage_resume_reenters_executing_without_replay(capsys):
             return_value="",
         ),
         mock.patch.object(
-            deploy_pipeline.control_plane,
-            "seed_qa",
-            return_value=0,
-        ),
-        mock.patch.object(
             deploy_pipeline,
             "resolve_project_checkout_path",
             return_value="/repo",
@@ -100,7 +95,6 @@ def test_failed_from_stage_resume_reenters_executing_without_replay(capsys):
         ),
         mock.patch.object(deploy_pipeline, "_emit_run_event"),
         mock.patch.object(deploy_pipeline_run_context, "_emit_run_event"),
-        mock.patch.object(deploy_pipeline.control_plane, "record_qa_stage"),
         mock.patch.object(
             deploy_pipeline.control_plane,
             "unresolved_qa",

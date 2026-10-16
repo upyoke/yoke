@@ -95,7 +95,7 @@ def test_pep503_simple_index_and_clean_venv_install(
     assert "yoke status" in help_result.stdout
 
 
-def test_validate_release_rejects_version_without_local_segment(
+def test_validate_release_rejects_version_without_commit_clock(
     tmp_path: Path,
 ) -> None:
     version = "0.2.0"
@@ -116,7 +116,7 @@ def test_validate_release_rejects_version_without_local_segment(
         wheel_base_url=f"https://api.upyoke.com/dist/releases/{version}/wheels",
     )
 
-    with pytest.raises(ValueError, match="PEP 440 local segment"):
+    with pytest.raises(ValueError, match="release_version_invalid"):
         distribution_publish.validate_release_directory(release_dir)
 
 
@@ -124,7 +124,7 @@ def test_validate_release_rejects_unpinned_sibling(tmp_path: Path) -> None:
     # A product wheel whose sibling Requires-Dist is bare (unpinned) would let a
     # pip-based install resolve a same-named public-index package; validation
     # must fail closed on it.
-    version = "0.2.0+gabc123"
+    version = "0.2.0.202610140941"
     output_root = tmp_path / "release"
     release_dir = output_root / "dist" / "releases" / version
     wheels_dir = release_dir / "wheels"
@@ -153,7 +153,7 @@ def test_validate_release_rejects_unpinned_sibling(tmp_path: Path) -> None:
 
 
 def test_validate_release_rejects_manifest_version_drift(tmp_path: Path) -> None:
-    version = "0.2.0+gabc123"
+    version = "0.2.0.202610140941"
     output_root = tmp_path / "release"
     release_dir = output_root / "dist" / "releases" / version
     wheels_dir = release_dir / "wheels"
@@ -162,7 +162,7 @@ def test_validate_release_rejects_manifest_version_drift(tmp_path: Path) -> None
 
     records, wheel_records = _sample_release(wheels_dir, version=version)
     for record in records:
-        record["version"] = "0.2.0+different"
+        record["version"] = "0.2.0.202610140942"
     (release_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
         json.dumps(records, indent=2) + "\n",
         encoding="utf-8",
@@ -178,7 +178,7 @@ def test_validate_release_rejects_manifest_version_drift(tmp_path: Path) -> None
 
 
 def test_validate_release_rejects_invalid_wheel_record(tmp_path: Path) -> None:
-    version = "0.2.0+gabc123"
+    version = "0.2.0.202610140941"
     output_root = tmp_path / "release"
     release_dir = output_root / "dist" / "releases" / version
     wheels_dir = release_dir / "wheels"

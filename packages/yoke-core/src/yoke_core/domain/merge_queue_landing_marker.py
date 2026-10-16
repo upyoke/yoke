@@ -96,18 +96,9 @@ def point_item_at_pull_request(
         "merge_queue_notified_at = {0} WHERE id = {0}".format(p),
         (
             pr_number,
-            instant_parameter(
-                conn,
-                recorded_enqueued_at,
-                table="items",
-                column="merge_queue_enqueued_at",
-            ),
-            instant_parameter(
-                conn, landed_at, table="items", column="merge_queue_landed_at"
-            ),
-            instant_parameter(
-                conn, notified_at, table="items", column="merge_queue_notified_at"
-            ),
+            instant_parameter(conn, recorded_enqueued_at),
+            instant_parameter(conn, landed_at),
+            instant_parameter(conn, notified_at),
             int(item_id),
         ),
     )

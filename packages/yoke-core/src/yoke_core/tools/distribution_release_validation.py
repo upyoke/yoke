@@ -42,9 +42,7 @@ def validate_product_release_records(
     names = [record.canonical_name for record in wheel_records]
     expected_names = set(package_index.PRODUCT_PACKAGE_NAMES)
     if len(names) != len(expected_names) or set(names) != expected_names:
-        raise ValueError(
-            "release records must contain exactly one record per product"
-        )
+        raise ValueError("release records must contain exactly one record per product")
     filenames = [record.filename for record in wheel_records]
     if len(filenames) != len(set(filenames)):
         raise ValueError("release records contain duplicate filenames")
@@ -62,8 +60,7 @@ def validate_wheel_records_match(
 
     actual_records = package_index.read_wheel_records(wheels_dir)
     actual_by_filename = {
-        record.filename: record.to_record_entry()
-        for record in actual_records
+        record.filename: record.to_record_entry() for record in actual_records
     }
     expected_by_filename = {
         str(record["filename"]): {
@@ -77,30 +74,25 @@ def validate_wheel_records_match(
         for record in records
     }
     if set(actual_by_filename) != set(expected_by_filename):
-        raise ValueError(
-            "release wheel files do not exactly match release records"
-        )
+        raise ValueError("release wheel files do not exactly match release records")
     for filename, expected in expected_by_filename.items():
         if actual_by_filename[filename] != expected:
-            raise ValueError(
-                f"{filename} release record does not match wheel metadata"
-            )
+            raise ValueError(f"{filename} release record does not match wheel metadata")
     universe_asset_artifact.validate_universe_asset_contract(wheels_dir)
 
 
 def validate_sibling_pins(
     records: Sequence[Mapping[str, object]], wheels_dir: Path
 ) -> None:
-    """Require an unforgeable shared version and the exact sibling DAG."""
+    """Require a canonical shared version and the exact sibling DAG."""
 
     versions = {str(record["version"]) for record in records}
     if len(versions) != 1:
         raise ValueError(
-            "release records span multiple versions: "
-            + ", ".join(sorted(versions))
+            "release records span multiple versions: " + ", ".join(sorted(versions))
         )
     expected_version = versions.pop()
-    product_release_version.assert_public_index_unforgeable(expected_version)
+    product_release_version.assert_release_version(expected_version)
     for record in records:
         wheel = wheels_dir / str(record["filename"])
         wheel_record_validation.assert_wheel_record_valid(wheel)

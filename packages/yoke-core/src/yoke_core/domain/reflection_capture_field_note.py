@@ -15,6 +15,7 @@ surface stale PM/PD body teaching, and the field-note is NOT fired.
 The reflection text itself is captured as plain entry body by the main
 parser; this module only governs the field-note side effect.
 """
+
 from __future__ import annotations
 
 import re
@@ -88,6 +89,8 @@ def _dispatch_field_note(
     evidence: str,
     session_id: str,
     correlation_id: Optional[str],
+    project: Optional[str] = None,
+    agent: Optional[str] = None,
 ) -> Optional[str]:
     """Dispatch one ``ouroboros.field_note.append``; return its refusal, if any.
 
@@ -116,10 +119,19 @@ def _dispatch_field_note(
     payload = {"kind": kind, "evidence": evidence}
     if correlation_id:
         payload["correlation_id"] = correlation_id
+    if project:
+        payload["project"] = project
+    if agent:
+        payload["actor_role"] = agent
 
     request = FunctionCallRequest(
         function="ouroboros.field_note.append",
-        request_id=str(uuid.uuid4()),
+        request_id=str(
+            uuid.uuid5(
+                uuid.NAMESPACE_URL,
+                repr((session_id, project, correlation_id, kind, evidence)),
+            )
+        ),
         actor=ActorContext(session_id=session_id),
         target=TargetRef(kind="global"),
         payload=payload,
@@ -141,6 +153,7 @@ def dispatch_markers_for_entry(
     session_id: str,
     correlation_id: Optional[str] = None,
     errors: Optional[List[str]] = None,
+    project: Optional[str] = None,
 ) -> int:
     """Process every field-note marker found in one reflection entry.
 
@@ -165,6 +178,8 @@ def dispatch_markers_for_entry(
                     evidence=evidence,
                     session_id=session_id,
                     correlation_id=correlation_id,
+                    project=project,
+                    agent=agent,
                 )
             except Exception as exc:  # noqa: BLE001 - reported, never raised
                 refusal = f"field-note {raw_value!r} dispatch failed: {exc!r}"
@@ -173,6 +188,11 @@ def dispatch_markers_for_entry(
             elif errors is not None:
                 errors.append(refusal)
         else:
+            if errors is not None:
+                errors.append(
+                    f"reflection_marker_invalid: field_note_kind {raw_value!r}; "
+                    f"use one of {', '.join(FIELD_NOTE_KIND_VALUES)} and retry capture"
+                )
             try:
                 _emit_parse_failed(
                     raw_value=raw_value,

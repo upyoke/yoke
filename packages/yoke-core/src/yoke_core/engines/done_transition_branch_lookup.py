@@ -8,8 +8,7 @@ constructed name therefore misses the branch and the transition silently
 continues without a merge.
 
 :func:`branch_exists_for_item` probes every name the item could carry —
-its current public ref, the legacy internal-id form, and any branch
-recorded on a released lane — locally first, then on the remote.
+its current public ref and any branch recorded on a released lane — locally first, then on the remote.
 """
 
 from __future__ import annotations

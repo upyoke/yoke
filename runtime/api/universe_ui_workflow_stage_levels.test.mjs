@@ -9,9 +9,12 @@ test("stage cards show served level glyphs beneath checks and omit terminal leve
     { id: "prove", label: "Proving", gates: [{ id: "evidence_check" }], level: "JUNIOR" },
     { id: "ship", label: "Shipped", gates: [] },
   ] });
+  workflow.definition.policies.item_posture_allowlist = ["level"];
   workflow.level_glyphs = { SENIOR: "🦉", JUNIOR: "🐥" };
   const { root } = await mountWorkflows(t, workflowsClient([workflow]));
   assert.deepEqual(classText(root, "workflow-stage-level"), ["🦉 SENIOR", "🐥 JUNIOR"]);
+  assert.ok(!classText(root, "workflow-posture-name").includes("Level"));
+  assert.ok(!classText(root, "workflow-posture-name").includes("Execution level"));
   const cards = byClass(root, "workflow-stage");
   assert.deepEqual(cards[1].children.map((node) => node.textContent), ["Proving", "1 check", "🐥 JUNIOR"]);
   assert.equal(byClass(cards[2], "workflow-stage-level").length, 0);

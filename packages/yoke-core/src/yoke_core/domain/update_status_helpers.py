@@ -170,7 +170,9 @@ def _emit_event(
 # ---------------------------------------------------------------------------
 
 
-def _verify_claim(epic_id: int, task_num: str, *, stderr: TextIO) -> None:
+def _verify_claim(
+    epic_id: int, task_num: str, *, session_id: str | None = None, stderr: TextIO
+) -> None:
     """In-process claim verification.
 
     Replaces the former ``verify-claim.sh`` subprocess dispatch with a direct
@@ -180,7 +182,9 @@ def _verify_claim(epic_id: int, task_num: str, *, stderr: TextIO) -> None:
 
     epic_id_int = int(epic_id)
     try:
-        rc, result = _verify_claim_mod.verify(epic_id_int)
+        rc, result = _verify_claim_mod.verify(
+            epic_id_int, task_num=int(task_num), session_id=session_id
+        )
     except Exception:  # pragma: no cover - degrade open on domain errors
         return
 
@@ -192,8 +196,8 @@ def _verify_claim(epic_id: int, task_num: str, *, stderr: TextIO) -> None:
             file=stderr,
         )
         print(
-            f"  Claim first: yoke claims work acquire --item "
-            f'{item_ref_for_id(epic_id_int)} --reason "<intent>"',
+            f"  Claim first: yoke claims work acquire --epic "
+            f'{item_ref_for_id(epic_id_int)} --task-num {task_num} --reason "<intent>"',
             file=stderr,
         )
         print(

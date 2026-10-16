@@ -69,12 +69,16 @@ def _end_blocker(row: Mapping[str, Any]) -> str | None:
     return str(status or "end blocked").replace("_", " ")
 
 
-def _stale_context(row: Mapping[str, Any]) -> str | None:
-    eligible = _parse_time(row.get("stale_eligible_at"))
+def _activity_context(row: Mapping[str, Any]) -> str | None:
+    eligible = _parse_time(row.get("activity_quiet_at"))
     if eligible is None:
         return None
     remaining = ceil(max(0, (eligible - utc_now()).total_seconds()) / 60)
-    state = "stale-eligible now" if remaining == 0 else f"stale in {remaining}m"
+    state = (
+        "activity window reached"
+        if remaining == 0
+        else f"activity window in {remaining}m"
+    )
     ttl = row.get("effective_stale_ttl_minutes")
     return f"{state} (TTL {ttl}m)" if ttl is not None else state
 
@@ -83,7 +87,7 @@ def roster_diagnostics(row: Mapping[str, Any]) -> str:
     """Render compact message, end-blocker, and stale-TTL context."""
     return "; ".join(
         part
-        for part in (_latest_message(row), _end_blocker(row), _stale_context(row))
+        for part in (_latest_message(row), _end_blocker(row), _activity_context(row))
         if part
     )
 

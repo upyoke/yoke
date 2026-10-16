@@ -19,68 +19,6 @@ from runtime.api.engines._done_transition_test_helpers import (
 )
 
 
-class TestRunQaGates:
-    """TC-run-qa-gates: blocking QA requirement check.
-
-    These runs carry a legacy flow definition, so the scoped per-stage
-    acceptance read contributes nothing and the legacy
-    ``deployment_run_qa`` projection is the whole answer.
-    """
-
-    ITEM_ID = 5000
-
-    def test_unsatisfied_blocking_qa_blocks(self, dt_db):
-        db_path, _ = dt_db
-        _insert_item(db_path, self.ITEM_ID)
-        conn = connect_dt_db(db_path)
-        conn.execute(
-            "INSERT INTO deployment_runs (id, project_id, status, created_at) "
-            "VALUES ('r5', 1, 'succeeded', '2025-01-01')"
-        )
-        conn.execute(
-            "INSERT INTO deployment_run_qa (run_id, check_name, blocking, status) "
-            "VALUES ('r5', 'smoke-test', 1, 'failed')"
-        )
-        conn.commit()
-        conn.close()
-
-        assert done_transition.check_run_qa_gates(f"YOK-{self.ITEM_ID}", "r5") is True
-
-    def test_all_passed_qa_passes(self, dt_db):
-        db_path, _ = dt_db
-        _insert_item(db_path, self.ITEM_ID)
-        conn = connect_dt_db(db_path)
-        conn.execute(
-            "INSERT INTO deployment_runs (id, project_id, status, created_at) "
-            "VALUES ('r6', 1, 'succeeded', '2025-01-01')"
-        )
-        conn.execute(
-            "INSERT INTO deployment_run_qa (run_id, check_name, blocking, status) "
-            "VALUES ('r6', 'smoke-test', 1, 'passed')"
-        )
-        conn.commit()
-        conn.close()
-
-        assert done_transition.check_run_qa_gates(f"YOK-{self.ITEM_ID}", "r6") is False
-
-    def test_waived_qa_passes(self, dt_db):
-        db_path, _ = dt_db
-        _insert_item(db_path, self.ITEM_ID)
-        conn = connect_dt_db(db_path)
-        conn.execute(
-            "INSERT INTO deployment_runs (id, project_id, status, created_at) "
-            "VALUES ('r7', 1, 'succeeded', '2025-01-01')"
-        )
-        conn.execute(
-            "INSERT INTO deployment_run_qa (run_id, check_name, blocking, status) "
-            "VALUES ('r7', 'smoke-test', 1, 'waived')"
-        )
-        conn.commit()
-        conn.close()
-
-        assert done_transition.check_run_qa_gates(f"YOK-{self.ITEM_ID}", "r7") is False
-
-
 class TestEmptyBranchGuard:
     """TC-empty-branch: empty worktree branch guard."""
 

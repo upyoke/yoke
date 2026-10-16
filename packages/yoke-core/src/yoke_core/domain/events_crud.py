@@ -1,7 +1,7 @@
 """Events CRUD, registry, and reporting logic for the Yoke event platform.
 
 This module exports the full public surface; implementation is split into
-events_writes.py (schema/init/insert/prune/severity), events_queries.py
+events_writes.py (schema/init/insert/severity), events_queries.py
 (list/count/tail/query), and events_reporting.py (registry/discovery).
 
 CLI usage::
@@ -10,7 +10,7 @@ CLI usage::
 
 Subcommands:
 
-    init, insert, list, query, count, anomalies, prune, tail,
+    init, insert, list, query, count, anomalies, tail,
     severity-config, severity-check, registry (add/get/list/update/
     deprecate/delete/count/discover/audit/diff)
 
@@ -51,10 +51,6 @@ from yoke_core.domain.events_select import (  # noqa: E402,F401
     VALID_SEVERITIES,
     _format_rows,
     severity_num,
-)
-from yoke_core.domain.events_prune import (  # noqa: E402,F401
-    EVENT_RETENTION_DAYS as _RETENTION_DAYS,
-    prune_cli_kwargs,
 )
 
 
@@ -154,7 +150,6 @@ from yoke_core.domain.events_writes import (  # noqa: E402,F401
     check_severity,
     cmd_init,
     cmd_insert,
-    cmd_prune,
     cmd_severity_check,
     cmd_severity_config_list,
     cmd_severity_config_set,

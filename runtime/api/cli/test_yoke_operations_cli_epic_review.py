@@ -118,13 +118,19 @@ class TestReviewInsert:
             "3",
             "--verdict",
             "PASS",
+            "--head-sha",
+            "a" * 40,
             "--body",
             "looks good",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "workflow_item.epic_task.review_insert"
-        assert req.payload == {"verdict": "pass", "body": "looks good"}
+        assert req.payload == {
+            "verdict": "pass",
+            "body": "looks good",
+            "head_sha": "a" * 40,
+        }
 
     def test_invalid_verdict_returns_two(self) -> None:
         rc = _run(

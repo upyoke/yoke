@@ -147,37 +147,14 @@ class TestRunStageConsistency:
 
 
 class TestRunQaGates:
-    """Both QA authorities are read, and either one alone can block."""
-
-    def test_blocking_unsatisfied_blocks(self, monkeypatch, capsys):
-        _install(
-            monkeypatch,
-            _router(
-                {
-                    "done_transition.run_blocking_qa": _resp(
-                        "done_transition.run_blocking_qa",
-                        {"blocking": ["smoke (failed)"]},
-                    ),
-                    "done_transition.run_stage_qa_acceptance": _resp(
-                        "done_transition.run_stage_qa_acceptance", {"blocking": []}
-                    ),
-                }
-            ),
-        )
-        assert run_qa_gates.check_run_qa_gates(_FIXTURE_ITEM_REF, "run-1") is True
-        out = capsys.readouterr().out
-        assert "QA obligations that are unsatisfied" in out
-        assert "- smoke (failed)" in out
+    """Pinned stage QA acceptance is read and can block."""
 
     def test_unsettled_scoped_stage_blocks(self, monkeypatch, capsys):
-        """A scoped stage verdict blocks even with the legacy table clean."""
+        """An unsettled scoped stage verdict blocks completion."""
         _install(
             monkeypatch,
             _router(
                 {
-                    "done_transition.run_blocking_qa": _resp(
-                        "done_transition.run_blocking_qa", {"blocking": []}
-                    ),
                     "done_transition.run_stage_qa_acceptance": _resp(
                         "done_transition.run_stage_qa_acceptance",
                         {
@@ -199,9 +176,6 @@ class TestRunQaGates:
             monkeypatch,
             _router(
                 {
-                    "done_transition.run_blocking_qa": _resp(
-                        "done_transition.run_blocking_qa", {"blocking": []}
-                    ),
                     "done_transition.run_stage_qa_acceptance": _resp(
                         "done_transition.run_stage_qa_acceptance", {"blocking": []}
                     ),
@@ -216,9 +190,6 @@ class TestRunQaGates:
             monkeypatch,
             _router(
                 {
-                    "done_transition.run_blocking_qa": _resp(
-                        "done_transition.run_blocking_qa", {"blocking": []}
-                    ),
                     "done_transition.run_stage_qa_acceptance": _resp(
                         "done_transition.run_stage_qa_acceptance", success=False
                     ),
@@ -273,9 +244,6 @@ class TestDeploymentFlowGuard:
                     ),
                     "done_transition.run_stage": _resp(
                         "done_transition.run_stage", {"current_stage": "complete"}
-                    ),
-                    "done_transition.run_blocking_qa": _resp(
-                        "done_transition.run_blocking_qa", {"blocking": []}
                     ),
                 }
             ),

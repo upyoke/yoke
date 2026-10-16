@@ -1,0 +1,11 @@
+{
+ "id": "member-completion-blockers",
+ "title": "Member closure",
+ "status": "observed",
+ "text": "Run-bound QA counts and item closure debt are separate populations. Settlement diagnostics reuse current canonical membership and completion checks, name requirement, phase and target, distinguish independent blockers from atomic siblings and other-target deferrals, and never execute close-out during a read. Zero run-bound QA cannot establish that member closure or finalization effects have finished.",
+ "commands": ["yoke deployment-runs get"],
+ "functions": ["deployment_runs.get"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_run_completion_preview.py", "runtime/api/domain/test_deployment_run_completion_preview.py", "docs/public/reference/db-reference/steering-fleet-report.md"],
+ "page": "delivery-outcomes",
+ "position": 5
+}

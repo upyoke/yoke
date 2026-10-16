@@ -64,9 +64,6 @@ def _series(
         "GROUP BY day"
     )
     params = tuple(project_ids)
-    probe = getattr(db, "has_query_quiet", None)
-    if callable(probe) and not probe(sql, params):
-        return {}
     counts: Dict[str, int] = {}
     for row in db.query_quiet(sql, params):
         if row and row[0] is not None:
@@ -91,9 +88,6 @@ def code_commit_days_all_time(
         "GROUP BY day"
     )
     params = tuple(project_ids)
-    probe = getattr(db, "has_query_quiet", None)
-    if callable(probe) and not probe(sql, params):
-        return {}
     counts: Dict[str, int] = {}
     for row in db.query_quiet(sql, params):
         if row and row[0] is not None and int(row[1] or 0) > 0:

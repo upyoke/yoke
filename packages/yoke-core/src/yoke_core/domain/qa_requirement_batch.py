@@ -13,7 +13,6 @@ from yoke_core.domain.qa_deployment_run_stage_scope import (
 )
 from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.qa_cli_transition_binding import require_cli_workflow_transition
-from yoke_core.domain.qa_constants import _normalize_qa_kind, _normalize_qa_phase
 from yoke_core.domain.qa_events import emit_qa_requirement_event
 from yoke_core.domain.qa_method_capabilities import (
     QaMethodCapabilityError,
@@ -168,8 +167,8 @@ def _validate_row(row, index: int) -> None:
     if targets > 1:
         _exit(f"row {index} must specify exactly one attachment target")
 
-    row["qa_phase"] = _normalize_qa_phase(qa_phase)
-    row["qa_kind"] = _normalize_qa_kind(qa_kind)
+    row["qa_phase"] = qa_phase
+    row["qa_kind"] = qa_kind
     try:
         row["capability_requirements"] = encoded_capability_kinds(
             row.get("capability_requirements"),

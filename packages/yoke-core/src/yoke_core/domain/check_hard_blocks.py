@@ -4,9 +4,8 @@ Queries ``item_dependencies`` for blocking entries where the given item is
 the dependent, evaluates each blocker's satisfaction condition, and
 reports unsatisfied blockers. Exits 0 when clear, 1 when blocked.
 
-CLI contract::
-
-    python3 -m yoke_core.domain.check_hard_blocks <item-id> [--gate-point <point>]
+Public adapter: ``yoke advance preflight hard-blocks PREFIX-N``.
+The registered handler owns database evaluation for both transports.
 
 Output format (when blocked, one line per unresolved blocker)::
 
@@ -16,7 +15,6 @@ Output format (when blocked, one line per unresolved blocker)::
 
 from __future__ import annotations
 
-import argparse
 import subprocess
 import sys
 from typing import Any, List, Optional, Tuple
@@ -236,38 +234,10 @@ def _blocker_lines(
     return output
 
 
-def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(prog="check-hard-blocks")
-    parser.add_argument("item_id", help="Item ID (YOK-N or N)")
-    parser.add_argument(
-        "--gate-point",
-        dest="gate_point",
-        default=None,
-        help="Optional gate-point filter (activation|integration|closure)",
-    )
-    args = parser.parse_args(argv)
-
-    from yoke_core.domain.yok_n_parser import parse_item_argument
-
-    try:
-        number = parse_item_argument(args.item_id)
-    except ValueError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return 2
-
-    try:
-        lines = evaluate_blockers(number, gate_filter=args.gate_point)
-    except Exception as exc:
-        print("Error: check-hard-blocks failed: %s" % exc, file=sys.stderr)
-        return 2
-
-    if not lines:
-        return 0
-
-    for line in lines:
-        print(line)
-    return 1
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    print(
+        "direct_database_entrypoint_retired: use yoke advance preflight "
+        "hard-blocks PREFIX-N on your selected connection.",
+        file=sys.stderr,
+    )
+    sys.exit(2)

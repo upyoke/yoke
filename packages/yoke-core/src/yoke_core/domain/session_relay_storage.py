@@ -6,9 +6,7 @@ from datetime import datetime, timedelta
 import json
 from typing import Any
 
-from yoke_contracts.session_control.wake_delivery import (
-    WAKE_DELIVERY_UNVERIFIED_RESULTS,
-)
+from yoke_contracts.fleet_policy import RELAY_POLL_SECONDS
 from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.timestamps import utc_now as utc_now
 from yoke_core.domain.db_helpers import instant_parameter
@@ -60,7 +58,10 @@ def heartbeat_relay(
     # take, which outlasts a poll interval. It owes a report by the batch
     # horizon, so it stays connected at least that long — otherwise it drops
     # out of the eligible roster mid-burst and new launches find no relay.
-    connected_until = shifted(now, seconds=max(1, next_poll_seconds) * 2)
+    # Drain cadence controls throughput, not whether the persistent relay is alive.
+    connected_until = shifted(
+        now, seconds=max(RELAY_POLL_SECONDS, next_poll_seconds) * 2
+    )
     if existing is not None and existing[2] is not None:
         connected_until = max(connected_until, parse_instant(existing[2]))
     surfaces = json_helper.dumps_compact(dict(heartbeat.surface_versions))
@@ -185,11 +186,9 @@ def mark_relay_batch(
     expires_at: datetime,
     now: datetime | str,
 ) -> None:
-    """Record that this relay owns one outstanding batch until ``expires_at``.
+    """Publish the outstanding launch group as a relay liveness hint.
 
-    A batch spans every job leased by a single poll. Each job keeps its own
-    lease id on its attempt row; this marker carries only the relay-level
-    ownership and the horizon by which the whole batch must be reported.
+    Each launch owns its deadline; this marker never authorizes a report.
     """
     p = marker(conn)
     cursor = conn.execute(
@@ -230,24 +229,6 @@ def clear_relay_batch_when_drained(
     ).fetchone()
     if launch is not None:
         return
-    unverified = tuple(sorted(WAKE_DELIVERY_UNVERIFIED_RESULTS))
-    wake = conn.execute(
-        "SELECT 1 FROM session_message_attempts "
-        f"WHERE lease_id={p} AND attempt_kind IN ('wake_relay','wake_broker') "
-        "AND completed_at IS NULL AND (result_code IS NULL OR result_code NOT IN ("
-        + ",".join(p for _ in unverified)
-        + ")) LIMIT 1",
-        (batch_id, *unverified),
-    ).fetchone()
-    if wake is not None:
-        return
-    termination = conn.execute(
-        "SELECT 1 FROM session_termination_reaps "
-        f"WHERE lease_id={p} AND state='leased' LIMIT 1",
-        (batch_id,),
-    ).fetchone()
-    if termination is not None:
-        return
     conn.execute(
         "UPDATE session_relays SET lease_id=NULL,lease_expires_at=NULL "
         f"WHERE relay_id={p} AND lease_id={p}",
@@ -267,44 +248,28 @@ def relay_has_live_batch(conn: Any, *, relay_id: str, now: datetime | str) -> bo
     )
 
 
-def relay_holds_batch(
-    conn: Any, *, relay_id: str, batch_id: str, now: datetime | str
+def relay_holds_launch(
+    conn: Any, *, relay_id: str, launch_id: str, now: datetime | str
 ) -> bool:
-    """Report whether this exact batch is the one the relay still owns."""
-    if not batch_id:
-        return False
+    """A launch remains held until its own lease ends, regardless of other jobs."""
+    from yoke_core.domain.session_launch_types import LAUNCH_LEASE_SECONDS
+
     p = marker(conn)
     return (
         conn.execute(
-            "SELECT 1 FROM session_relays "
-            f"WHERE relay_id={p} AND lease_id={p} AND lease_expires_at>{p}",
-            (relay_id, batch_id, instant_parameter(conn, parse_instant(now))),
+            "SELECT 1 FROM session_launch_attempts a JOIN session_launches l "
+            "ON l.launch_id=a.launch_id "
+            f"WHERE a.relay_id={p} AND a.launch_id={p} AND a.completed_at IS NULL "
+            f"AND a.started_at>{p} AND l.deadline_at>{p} LIMIT 1",
+            (
+                relay_id,
+                launch_id,
+                instant_parameter(conn, shifted(now, seconds=-LAUNCH_LEASE_SECONDS)),
+                instant_parameter(conn, parse_instant(now)),
+            ),
         ).fetchone()
         is not None
     )
-
-
-def require_relay_batch(conn: Any, *, relay_id: str, now: datetime | str) -> None:
-    """Refuse a report once the batch horizon has passed.
-
-    Which job the report belongs to is settled by the attempt row's own lease
-    id; this guard only establishes that the relay still owns the batch it is
-    reporting under.
-    """
-    p = marker(conn)
-    row = conn.execute(
-        "SELECT lease_expires_at FROM session_relays "
-        f"WHERE relay_id={p} AND lease_id IS NOT NULL LIMIT 1",
-        (relay_id,),
-    ).fetchone()
-    if row is None:
-        raise SessionRelayError(
-            "relay_lease_mismatch", "relay does not hold an outstanding batch"
-        )
-    if parse_instant(row[0]) <= parse_instant(now):
-        raise SessionRelayError(
-            "relay_lease_expired", "relay batch expired before the report"
-        )
 
 
 __all__ = [
@@ -314,9 +279,8 @@ __all__ = [
     "mark_relay_batch",
     "marker",
     "relay_has_live_batch",
-    "relay_holds_batch",
+    "relay_holds_launch",
     "require_relay_actor",
-    "require_relay_batch",
     "shifted",
     "utc_now",
     "validate_heartbeat",

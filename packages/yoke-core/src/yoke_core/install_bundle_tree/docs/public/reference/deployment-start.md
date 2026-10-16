@@ -48,6 +48,23 @@ on refusal, discards the scope; no process-global or cross-request cache exists.
 Mutable member status/intent is read afresh. Freeze reuses one custody resolution
 for both membership and completion-authority checks; unknown custody still refuses.
 
+Create validates provisionally before the creation lock, rolls that transaction
+back, then validates again under the lock. Each enrollment pass first pins
+members' completion flows, reads their outstanding intake together, and locks selected requirements in ID
+order. It reads attachments together, locks distinct plans in ID order, and
+reads their cases once. Every member still passes the existing ownership,
+waiver, retraction, attachment, project, retirement and case-chain checks.
+These mutable inputs belong only to that enrollment; the locked pass reads
+them again after provisional rollback. Membership and takeover still commit
+atomically, and derived selections are still derived again at composition freeze.
+Old runs continue to use their saved QA contracts.
+
+After each member removal, the read-only orphaned shared-plan check shares
+peer snapshots and attachment facts within that check. It still resolves every
+remaining member through the canonical validators. The read scope ends before
+retraction or the next deletion, so a removed member cannot keep a group alive
+through cached membership. The outer schema/source cache is a separate scope.
+
 Completion publishes exact run/member/environment/candidate attribution in the
 existing delivery-stamp facts, in the same transaction as the item's done status.
 An independently completed member stays delivered even if its siblings or run
@@ -99,15 +116,27 @@ still owes manual acceptance or post-deploy QA on another named target; that
 requirement stays unmet and the item stays at release until it is accepted.
 Same-target or untargeted acceptance still blocks completion.
 
-A timeout or connection loss is `deployment_outcome_unknown`, not a deployment
-failure. Bound-source preparation commits its exact request receipt beside the
-consumed sources on the run; the driver reads that receipt before proceeding
+A mutation timeout or connection loss is `deployment_outcome_unknown`, not a
+deployment failure. Bound-source preparation commits its exact request receipt
+beside the consumed sources on the run; the driver reads that receipt before proceeding
 after response loss. An absent, mismatched or unreadable receipt leaves the
 attempt pending, with no retry, provider dispatch or failed transition. Inspect
 `yoke deployment-runs get RUN-ID` and the existing driver's capture, and reconcile
 the request or provider attempt before re-driving the same run; never use
 `--fresh` to recover a lost response. The live attachment's phase and capture
 show preparation even while run status remains `created`.
+
+When the bounded scoped-QA wait ends with blockers, the driver returns
+awaiting QA (exit code 5). If the following fresh diagnostic report read fails,
+it explicitly reports that fresh QA details are unavailable and retains the
+last known blocker diagnostic. That read failure does not change the established
+awaiting-QA outcome, supply fresh counts, waive a gate or record success.
+Inspect the existing driver's capture and scoped QA state, resolve the remaining
+obligations, then re-drive the same run.
+
+Whole-run reads project each stored field directly. Shell pipes, newlines and
+quotes in frozen member instructions remain part of the complete receipt;
+they cannot split its fields or displace source identities and timestamps.
 
 Timing records distinguish `start_source_preparation`, `start_item_run_locks`,
 `target_occupancy`, `composition_freeze`, `bound_source_provider`,
@@ -133,3 +162,17 @@ These timing lines reach the deployment progress capture even in outcome-only
 mode, so the attached driver's capture identifies preparation before any
 provider dispatch. They carry run/source identity when supplied and no DSNs.
 A missing end marker is unfinished evidence, never a successful receipt.
+
+Creation uses the same timing format for `create_source`,
+`create_provisional_composition`, `create_lock`, `create_locked_composition`,
+`create_takeover`, `create_validation`, `enrollment_inputs`,
+`enrollment_members`, `create_commit`, `create_takeover_settlement` and
+`create_response`. Source refresh attempts have their own marker. Long phases
+emit the same thirty-second pending heartbeat; member validation also reports
+record/completed counts. The creation handler flushes these diagnostics to
+stderr while it runs and returns them in `start_timings`. Local callers see
+stderr immediately; HTTPS callers receive the records with the response, while
+the server's stderr retains in-flight progress. Nested phase durations overlap
+and must not be added as independent wall time. A missing response or end marker
+does not authorize another create; keep the request's idempotency key and
+reconcile the existing attempt.

@@ -1,0 +1,10 @@
+{
+ "id": "ended-recipient-debt",
+ "title": "Unresolved mail after a recipient ends",
+ "status": "observed",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/steering_fleet_report_undelivered.py", "docs/public/reference/db-reference/steering-fleet-report.md"],
+ "commands": ["yoke messages get", "yoke messages cancel"],
+ "functions": ["session_control.message.get", "session_control.message.cancel"],
+ "page": "messaging",
+ "position": 2
+}

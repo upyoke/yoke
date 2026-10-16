@@ -62,9 +62,11 @@ sessions are excluded from holder alarms, not repeatedly called idle.
 ## Undelivered messages
 
 Rows group recipient + delivery state, count, up to three ids and oldest age.
-Membership uses the delivery plane's deliverable-receipt predicate, not stored
-pending alone: injected/acknowledged/expired/cancelled receipts are finished,
-including between expiry and sweep. Sender is not a filter.
+Live/resumable recipients use the delivery plane's deliverable-receipt predicate.
+Ended recipients without a remaining route also report pending/injected receipts
+still awaiting acknowledgement; settled, expired or cancelled mail stays out.
+Message visibility applies; confirmed current/recent item attribution retains
+document coverage after claim release. Sender is not a filter; bodies stay private.
 
 Send once to a parked wake-capable worker; relay resumes it and hook reads mail.
 Relay leases one job at a time: termination/evidence, eligible wakes, then
@@ -87,7 +89,9 @@ Eight states remain distinct:
 Ended parked/waiting recipients retain their supported transcript routes;
 ended_at alone is not proof mail is undeliverable. Terminated always has no
 route. For gone recipients use `yoke messages cancel MESSAGE-ID`; cancel does
-not deliver content.
+not deliver content. Read `yoke messages get MESSAGE-ID`, handle or re-address
+the work, then cancel obsolete mail as sender actor or target-project admin.
+Report composition never acknowledges, cancels, reruns QA or gates worker exit.
 
 Queued explicit wake with no attempt names `yoke session-control session wake
 SESSION-ID` only after every receipt reaches its own acknowledgement grace.
@@ -215,6 +219,17 @@ require decision; re-drive recovers a proven dead driver. No timeout/auto-cancel
 Current-stage resolved approval/rejection shows request/time while run remains
 there; decision_requests.consumed_at is item-lifecycle consumption and cannot
 prove deployment-stage action.
+
+Member closure is a separate population from run-bound QA. Once settlement
+begins, current canonical membership, target deferral, delivery/QA prerequisites,
+landing evidence and closure dependencies explain each independently blocked
+member. Ready siblings are labelled held atomically; they need no separate
+repair. Deferred other-target acceptance stays owed without becoming a run
+blocker. Resolved requirements disappear on the next read and change the report
+fingerprint. A settling run never infers all-clear from zero run-bound QA;
+closed members can still have finalization effects pending. Read
+`yoke deployment-runs get RUN` for the same member diagnostics and recovery.
+Reads never prepare close-out, materialize plans, accept QA or dispatch a driver.
 
 Stage age is deployment_runs.current_stage_entered_at, atomic on stage change
 including complete; same-stage re-drive preserves age. NULL/no source clock is

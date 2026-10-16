@@ -299,20 +299,20 @@ def test_default_directory_lands_under_cwd(tmp_path, monkeypatch):
 
 
 def test_published_image_pin_shape():
-    image = pinned_server_image("a" * 40)
-    assert image == f"{PUBLISHED_SERVER_IMAGE_REPOSITORY}:{'a' * 12}"
+    image = pinned_server_image("0.2.0.202610140334")
+    assert image == f"{PUBLISHED_SERVER_IMAGE_REPOSITORY}:0.2.0.202610140334"
     assert PUBLISHED_SERVER_IMAGE_REPOSITORY.startswith("ghcr.io/")
 
 
 def test_init_pins_the_image_matching_the_installed_cli_release(
     target, capsys, monkeypatch
 ):
-    version = "0.1.1+launch.334"
+    version = "0.2.0.202610140334"
     source_commit = "b" * 40
     monkeypatch.setattr(release_target, "local_handshake_version", lambda: version)
 
     def fetch(url: str) -> bytes:
-        assert "/dist/releases/0.1.1%2Blaunch.334/migration-history.json" in url
+        assert "/dist/releases/0.2.0.202610140334/migration-history.json" in url
         return json.dumps(
             {
                 "artifact": {
@@ -329,7 +329,7 @@ def test_init_pins_the_image_matching_the_installed_cli_release(
     )
     report = json.loads(capsys.readouterr().out)
     env_text = (target / ".env").read_text(encoding="utf-8")
-    expected = pinned_server_image(source_commit)
+    expected = pinned_server_image(version)
     assert report["matched_cli_version"] == version
     assert report["image"] == expected
     assert f"YOKE_SERVER_IMAGE={expected}" in env_text

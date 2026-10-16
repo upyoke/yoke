@@ -148,15 +148,6 @@ def register(registry) -> None:
     )
     _register_read(
         registry,
-        "done_transition.run_blocking_qa",
-        _dep.handle_run_blocking_qa,
-        _dep.RunBlockingQaRequest,
-        _dep.RunBlockingQaResponse,
-        owner_module=_DEPLOY_MODULE,
-        target_kinds=["global"],
-    )
-    _register_read(
-        registry,
         "done_transition.run_stage_qa_acceptance",
         _dep.handle_run_stage_qa_acceptance,
         _dep.RunStageQaAcceptanceRequest,

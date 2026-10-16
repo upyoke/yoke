@@ -73,23 +73,11 @@ class TestSeed:
                 f"Net-new family '{family}' was not seeded for yoke"
             )
 
-    def test_yoke_seeds_deploy_defaults(self, initialized_db: str):
-        """Yoke ships with a `deploy_defaults` entry pointing at its
-        internal delivery flow. Other projects may legitimately have no
-        entry — the helper returns None in that case."""
-        ps.cmd_seed("yoke", "yoke-source", db_path=initialized_db)
-        structure = ps.read_structure(
-            "yoke", family="deploy_defaults", db_path=initialized_db
-        )
-        assert len(structure["entries"]) == 1
-        assert structure["entries"][0]["payload"] == {
-            "deployment_flow": "yoke-internal"
-        }
 
     def test_recipe_applies_to_any_project(self, initialized_db: str):
         ps.cmd_seed("externalwebapp", "yoke-source", db_path=initialized_db)
         structure = ps.read_structure(
-            "externalwebapp", family="deploy_defaults", db_path=initialized_db
+            "externalwebapp", family="context_routing", db_path=initialized_db
         )
         assert len(structure["entries"]) == 1
 

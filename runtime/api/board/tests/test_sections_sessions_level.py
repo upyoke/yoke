@@ -13,8 +13,7 @@ import json
 
 import pytest
 
-from yoke_contracts.board.data import BOARD_DATA_VERSION, ReplayBoardDB
-from yoke_contracts.board.sections_sessions import _render_level
+from yoke_contracts.board.sections_sessions_rendering import _render_level
 from yoke_contracts.board.sections_sessions_levels import _PROJECT_SQL, _UNIVERSE_SQL
 from yoke_contracts.board.sections_sessions_scope import session_level_presentation
 from yoke_contracts.level_defaults import DEFAULT_LEVELS
@@ -38,30 +37,17 @@ def _research_levels(glyph: str = "\U0001f52c") -> list[dict]:
     ]
 
 
-def _replay(*, universe=None, project=None, project_id: int = 1) -> ReplayBoardDB:
-    """A board handle serving the two level stores the board reads."""
-    entries = []
-    if universe is not None:
-        entries.append(
-            {
-                "kind": "query_quiet",
-                "sql": _UNIVERSE_SQL,
-                "params": [LEVELS_KEY],
-                "rows": [[json.dumps(universe)]],
-            }
-        )
-    if project is not None:
-        entries.append(
-            {
-                "kind": "query_quiet",
-                "sql": _PROJECT_SQL,
-                "params": [project_id, SESSION_ROUTING_CAPABILITY],
-                "rows": [[json.dumps(project)]],
-            }
-        )
-    return ReplayBoardDB.from_payload(
-        {"version": BOARD_DATA_VERSION, "entries": entries}
-    )
+def _stores(*, universe=None, project=None, project_id: int = 1):
+    class DB:
+        def query_quiet(self, sql, params):
+            if sql == _UNIVERSE_SQL:
+                assert params == (LEVELS_KEY,)
+                return [] if universe is None else [(json.dumps(universe),)]
+            assert sql == _PROJECT_SQL
+            assert params == (project_id, SESSION_ROUTING_CAPABILITY)
+            return [] if project is None else [(json.dumps(project),)]
+
+    return DB()
 
 
 @pytest.mark.parametrize("level", [None, "", "   ", "primary", "PRIMARY"])
@@ -110,54 +96,54 @@ def test_unknown_stamped_level_renders_its_name_and_no_glyph() -> None:
 
 
 def test_board_reads_the_shipped_scheme_when_nothing_is_stored() -> None:
-    replay = _replay()
-    assert session_level_presentation(replay, 1, "SENIOR") == {
+    db = _stores()
+    assert session_level_presentation(db, 1, "SENIOR") == {
         "label": "SENIOR",
         "glyph": "\U0001f989",
     }
-    assert session_level_presentation(replay, None, "JUNIOR") == {
+    assert session_level_presentation(db, None, "JUNIOR") == {
         "label": "JUNIOR",
         "glyph": "\U0001f425",
     }
 
 
 def test_board_reads_the_stored_universe_levels() -> None:
-    replay = _replay(universe=_research_levels())
-    assert session_level_presentation(replay, 1, "RESEARCH") == {
+    db = _stores(universe=_research_levels())
+    assert session_level_presentation(db, 1, "RESEARCH") == {
         "label": "RESEARCH",
         "glyph": "\U0001f52c",
     }
     # The stored universe document replaces the shipped scheme outright.
-    assert session_level_presentation(replay, 1, "SENIOR") == {
+    assert session_level_presentation(db, 1, "SENIOR") == {
         "label": "SENIOR",
         "glyph": "",
     }
 
 
 def test_board_prefers_the_project_override() -> None:
-    replay = _replay(
+    db = _stores(
         universe=list(DEFAULT_LEVELS),
         project={LEVELS_KEY: _research_levels("\U0001f680")},
         project_id=7,
     )
-    assert session_level_presentation(replay, 7, "RESEARCH") == {
+    assert session_level_presentation(db, 7, "RESEARCH") == {
         "label": "RESEARCH",
         "glyph": "\U0001f680",
     }
-    assert session_level_presentation(replay, 7, "INTERN") == {
+    assert session_level_presentation(db, 7, "INTERN") == {
         "label": "INTERN",
         "glyph": "",
     }
 
 
 def test_project_routing_without_levels_falls_back_to_the_universe() -> None:
-    replay = _replay(universe=_research_levels(), project={}, project_id=3)
-    assert session_level_presentation(replay, 3, "RESEARCH")["glyph"] == ("\U0001f52c")
+    db = _stores(universe=_research_levels(), project={}, project_id=3)
+    assert session_level_presentation(db, 3, "RESEARCH")["glyph"] == ("\U0001f52c")
 
 
 def test_unreadable_stored_levels_render_label_only() -> None:
-    replay = _replay(universe=[{"name": "bad name", "glyph": "x", "options": []}])
-    assert session_level_presentation(replay, 1, "SENIOR") == {
+    db = _stores(universe=[{"name": "bad name", "glyph": "x", "options": []}])
+    assert session_level_presentation(db, 1, "SENIOR") == {
         "label": "SENIOR",
         "glyph": "",
     }

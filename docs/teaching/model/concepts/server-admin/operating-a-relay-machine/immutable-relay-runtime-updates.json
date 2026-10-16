@@ -4,5 +4,7 @@
  "status": "draft-copy",
  "audience": "Administrators",
  "page": "server-admin",
+ "description": "The relay fetches four exact environment product wheels with encoded release-directory and filename segments, preserving its prior pin on failure. Bootstrap a stuck installer by updating the operator CLI through the official installer to the served release carrying the fix, then run relay install and check the pin in relay status and verify the actual running version with a fresh heartbeat in the dashboard Machine relays view. Server deployment alone does not prove convergence.",
+ "sources": ["packages/yoke-core/src/yoke_core/tools/session_relay_release_install.py", "docs/public/reference/linux-relay.md"],
  "position": 2
 }

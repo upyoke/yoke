@@ -9,7 +9,6 @@ from yoke_contracts.api.function_call import (
 
 from yoke_core.domain.handlers.deployment_common import (
     error,
-    pipe_to_dict,
     require_global,
     run_id,
     update_refusal_code,
@@ -32,11 +31,13 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
             jsonpath="$.payload.field",
         )
 
-    from yoke_core.domain.deployment_runs_crud_query import cmd_get
+    from yoke_core.domain.deployment_runs_crud_query import cmd_get, get_run
     from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
 
     try:
-        raw = cmd_get(resolved_run_id, field=field)
+        raw = (
+            cmd_get(resolved_run_id, field=field) if field else get_run(resolved_run_id)
+        )
     except ValueError as exc:
         return error("invalid_field", str(exc), jsonpath="$.payload.field")
     if raw is None:
@@ -54,9 +55,13 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
             },
             primary_success=True,
         )
-    parsed = pipe_to_dict(raw, RUN_FIELDS)
+    parsed = raw
     from yoke_core.domain.deployment_run_carried_work import parse_carried_work
     from yoke_core.domain.release_delivery_attestation import attestation_warnings
+
+    from yoke_core.domain.deployment_run_completion_preview import (
+        run_completion_diagnostics,
+    )
 
     parsed["carried_work"] = parse_carried_work(parsed.get("carried_work"))
     return HandlerOutcome(
@@ -65,6 +70,7 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
             "fields": list(RUN_FIELDS),
             "run": parsed,
             "attestation_warnings": attestation_warnings(parsed.get("carried_work")),
+            "member_closure": run_completion_diagnostics(resolved_run_id),
         },
         primary_success=True,
     )

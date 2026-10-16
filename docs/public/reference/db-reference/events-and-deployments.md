@@ -47,7 +47,7 @@ Engine identity is actor-only. Historical JSON envelopes may retain a null human
 
 **Write-side severity filtering:** Before inserting, events are checked against the `severity_config` table. Events below the configured minimum severity for their `(event_name, source_type)` pair are silently dropped without error. The acknowledged anonymous frontend collector bypasses this optional filter; retention still applies.
 
-**Retention (prune):** DEBUG=1d, INFO=30d, WARN=90d, STATUS/ERROR/FATAL=forever. Event preview and delete are LIMIT-batched (`--batch-size`, default 1000). LIMIT caps matching rows, not scanned rows or query duration; the monotonic `--max-seconds` deadline (default 30) is checked between statements, and each event count/delete/leftover probe sets `statement_timeout` to the remaining budget so a sparse scan, `ORDER BY`, or leftover peek cannot outlive the pass. That timeout is event-only: after each event probe it is restored to the incoming `SHOW statement_timeout` (not forced to zero) before ledger, dispatch-intent, and `session_tool_calls` helpers, which keep their existing retention contracts. Optionally batch-capped (`--max-batches`); counts are exact or labeled `>=N (partial)`. A statement timeout is a graceful stop: already-committed batches stay. Referenced `event_id` rows (path-audit tables) are kept on every event delete path. Live invocation: `python3 -m yoke_core.cli.db_router events prune [--dry-run]`. Rerun after `stopped: batch/time budget`. No automatic prune timer lives in this repo; do not invent a parallel scheduler. DEBUG is the on-demand-capture tier (dropped at the default INFO write floor; enable by lowering `severity_config` to DEBUG), so it carries the shortest retention.
+**Retention:** `yoke universe prune --dry-run` previews the connected universe using its effective settings; `yoke universe retention get` shows them. [Universe retention](../../universe-retention.md) owns severity/name windows, durable-reference protection, bounded foreground apply, counts and recovery. DEBUG remains the on-demand capture tier and has the shortest retention.
 
 ## Table: severity_config
 
@@ -105,7 +105,7 @@ UNIQUE(project, env_name)
 
 ## Table: ephemeral_environments
 
-Tracks per-branch ephemeral environments for pre-merge E2E validation. GitHub Actions creates environments; Yoke tracks lifecycle via `python3 -m yoke_core.cli.db_router envs`.
+Tracks per-branch ephemeral environments for pre-merge E2E validation. GitHub Actions creates environments; Yoke tracks lifecycle through the registered `yoke ephemeral-env get`, `create` and `update` adapters on the selected connection.
 
 ```sql
 id INTEGER PRIMARY KEY

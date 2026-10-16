@@ -131,6 +131,7 @@ def handle_update_status(request: FunctionCallRequest) -> HandlerOutcome:
                 str(task_num),
                 payload.status,
                 payload.note,
+                session_id=request.actor.session_id,
                 no_github=payload.no_github,
                 no_derive=payload.no_derive,
                 stdout=stdout,

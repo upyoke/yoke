@@ -197,6 +197,7 @@ def project_uninstall(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         prog="yoke project uninstall",
+        description="Remove this checkout's installed layer, installer-owned registration and exact folder trust. Shared, edited or unproven entries stay with a reason and recovery; the manifest stays for retry. Credentials, shared tools and server history stay intact.",
     )
     parser.add_argument(
         "repo_root", nargs="?", default=None, help="Project repo root (default: cwd)."
@@ -230,6 +231,8 @@ def _run(operation, *, json_mode: bool = False) -> int:
         write_local(result, sys.stdout)
     if publication_outcome.is_publication_pending(result):
         return PUBLICATION_PENDING_EXIT
+    if result.get("outcome") == "partial":
+        return 1
     return 0
 
 

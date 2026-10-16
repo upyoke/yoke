@@ -264,11 +264,6 @@ if (
     )
     _body_match = _body_write_pat.search(command)
     if _body_match:
-        _item_token = _body_match.group(1).strip(chr(34) + chr(39))
-        _resolved_id = _item_token
-        if _resolved_id.lower().startswith("yok-"):
-            _resolved_id = _resolved_id[4:]
-        _resolved_id = _resolved_id.lstrip("0") or "0"
         result = {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
@@ -276,10 +271,10 @@ if (
                 "permissionDecisionReason": (
                     "BLOCKED: Raw body writes are no longer supported.\n"
                     "items.body is a rendered projection owned by the in-process render path.\n"
-                    "Use: python3 -m yoke_core.cli.db_router items update %s <field> --body-file <path>\n"
+                    "Use the item's full public ref: yoke items structured-field replace PREFIX-N --field FIELD --content-file PATH\n"
                     "Valid structured fields: spec, design_spec, technical_plan, worktree_plan, shepherd_log, shepherd_caveats, test_results, deploy_log.\n"
-                    "For supplemental sections: python3 -m yoke_core.domain.sections upsert <id> <name> --content-file <path>"
-                ) % (_resolved_id,),
+                    "For supplemental sections: yoke items section upsert PREFIX-N --section NAME --content-file PATH"
+                ),
             }
         }
         print(json.dumps(result))
@@ -298,7 +293,7 @@ if "ingest-body" in command_stripped:
                     "BLOCKED: ingest-body is no longer supported.\n"
                     "items.body is a rendered projection. .md files are generated views.\n"
                     "Use structured field writes instead: "
-                    "python3 -m yoke_core.cli.db_router items update <id> spec --body-file <path>"
+                    "yoke items structured-field replace PREFIX-N --field spec --content-file PATH"
                 ),
             }
         }

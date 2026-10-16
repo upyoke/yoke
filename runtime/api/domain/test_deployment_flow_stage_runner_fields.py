@@ -25,7 +25,7 @@ class TestNestedRunnerConfigIsRefusedBeforeDispatch:
             [
                 {
                     "name": "release-preview",
-                    "step_runner": "github-actions-workflow",
+                    "stage_kind": "execution", "step_runner": "github-actions-workflow",
                     "config": {"workflow": "deploy-preview.yml"},
                 }
             ]
@@ -46,7 +46,7 @@ class TestNestedRunnerConfigIsRefusedBeforeDispatch:
         with pytest.raises(ValueError) as refusal:
             require_top_level_runner_fields(
                 json.dumps(
-                    [{"name": "deploy", "step_runner": "github-actions-workflow"}]
+                    [{"name": "deploy", "stage_kind": "execution", "step_runner": "github-actions-workflow"}]
                 )
             )
 
@@ -55,10 +55,10 @@ class TestNestedRunnerConfigIsRefusedBeforeDispatch:
     def test_flat_workflow_stage_is_accepted(self) -> None:
         flat = json.dumps(
             [
-                {"name": "deploy", "step_runner": "auto"},
+                {"name": "deploy", "stage_kind": "execution", "step_runner": "auto"},
                 {
                     "name": "release-preview",
-                    "step_runner": "github-actions-workflow",
+                    "stage_kind": "execution", "step_runner": "github-actions-workflow",
                     "workflow": "deploy-preview.yml",
                 },
             ]

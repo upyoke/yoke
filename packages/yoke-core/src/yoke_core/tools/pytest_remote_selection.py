@@ -263,6 +263,11 @@ def resolve_route(
     workflow = selection_workflow(settings)
     if not (root / WORKFLOWS_DIR / workflow).is_file():
         return LocalRoute(f"this tree has no {WORKFLOWS_DIR / workflow}")
+    from yoke_core.tools.pytest_remote_full_scope import full_scope_refusal
+
+    refusal = full_scope_refusal(root, project, pytest_args)
+    if refusal:
+        return Refusal(refusal, EXIT_REFUSED)
     from yoke_core.domain.qa_case_ci_lane import repo_slug
     from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 

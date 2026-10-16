@@ -99,8 +99,9 @@ two editable rows. Level configuration is edited through the registered CLI.
 
 ## Item level override
 
-An item may carry its own override of the level its stage launches at, as the
-`level` key of its workflow posture:
+An item may override the level its workflow stage launches at. Level belongs
+to the stage, independently of execution posture; the override is stored in
+the `level` key of workflow posture and edited through its registered command:
 
 ```text
 yoke workflows item-posture amend PREFIX-N --key level \
@@ -142,8 +143,12 @@ strip shows the level glyph and name below the checks.
 
 An item's effective level is its stage level plus the override's `shift`,
 clamped to `min` and `max` and the project's lowest and highest available
-levels. The item page shows the effective level after Status, its stage
-default, and the override and reason in Execution posture. Clearing the
+levels. Item details shows a Level row after Status only when the effective
+level differs from the current stage default. That row labels the stage value
+Default and the effective item value Override, with the adjustment and reason.
+A stored override resolving to the default shows no row. Missing or terminal
+level data shows no row. Execution posture has no Level card on either the
+item or Workflow page; workflow stage cards retain their level. Clearing the
 override restores the stage default.
 
 ## Stage-level handoff

@@ -209,7 +209,8 @@ test("carried items show required QA and recorded no-obligation reasons", async 
   assert.equal(members.length, 20);
   const byRef = Object.fromEntries(MEMBERS.map((item, index) => {
     const evidence = byClass(members[index], "carried-item-evidence")[0];
-    return [item.ref, evidence ? evidence.textContent : ""];
+    return [item.ref, evidence?.textContent
+      || byClass(members[index], "carried-item-qa-diagnostic")[0]?.textContent || ""];
   }));
   // The check this release recorded leads the entry's Item QA.
   const lead = byClass(byClass(members[0], "item-qa-section")[0], "run-qa-check")[0];
@@ -218,8 +219,8 @@ test("carried items show required QA and recorded no-obligation reasons", async 
   assert.match(byRef["YOK-3294"], /Waived/);
   assert.match(byRef["YOK-3297"], /No obligation/);
   assert.match(byRef["YOK-3297"], /Nothing about this item is observable/);
-  // An item with no QA at all shows no QA block.
-  assert.equal(byRef["YOK-3290"], "");
+  // An older read without a projection cannot establish no obligation.
+  assert.match(byRef["YOK-3290"], /item_qa_requirements_unavailable/);
   assert.doesNotMatch(host.textContent,
     /verified before merge|not the revision that is deployed|deployed revision/);
 });
@@ -292,4 +293,23 @@ test("Shipping paints shared releases once while auxiliary reads are pending", a
   paint();
   assert.equal(byClass(host, "shipping-run-card").length, 1);
   assert.match(host.textContent, /Evidence service unavailable/);
+});
+
+test("Shipping shows source-only pending requirements before any evidence read completes", async () => {
+  const document = new FakeDocument();
+  const host = document.createElement("div");
+  const pending = { requirement_id: 10, project: 1, qa_phase: "post_deploy",
+    deployment_run_id: RUN_ID, pending_obligation: true, run_id: null,
+    outcome: "queued", method_name: "Browser inspection", artifacts: [] };
+  const carried = member(1, ["SAMPLE", 1].join("-"), {
+    qa_obligations: { current: [pending], history: [] },
+  });
+  const client = shippingClient([], { members: [carried] });
+  await loadDelivery({ document, client, projects: () => [{ id: 1, slug: "yoke" }],
+    isMounted: () => true }, host, () => "all");
+  assert.equal(byClass(host, "is-pending-obligation").length, 1);
+  assert.match(host.textContent, /Item QA.*Not started.*Browser inspection/);
+  await settle();
+  assert.equal(byClass(host, "is-pending-obligation").length, 1);
+  assert.equal(byClass(host, "review-shot").length, 0);
 });

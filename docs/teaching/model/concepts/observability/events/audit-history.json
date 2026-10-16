@@ -1,7 +1,10 @@
 {
  "id": "audit-history",
  "title": "Audit history",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "Token check/lifecycle audit has explicit retention windows. Maintenance audit history stays; universe prune writes command output only and stores no prune audit or replay receipt. Source behavior has disposable-database tests; deployed preview remains pending.",
+ "sources": ["docs/public/universe-retention.md", "packages/yoke-core/src/yoke_core/domain/retention_table_policies.py"],
+ "related": "universes/universe/retention",
  "page": "observability",
  "position": 3
 }

@@ -10,13 +10,14 @@ from runtime.api.engines.merge_audit_test_schema import apply_merge_audit_schema
 
 
 @pytest.fixture()
-def tmp_db(tmp_path):
+def tmp_db(tmp_path, monkeypatch):
     """Backend-aware DB with the merge-audit tables; yields its path.
 
     ``merge_audit.generate_report`` reads through the backend factory, so the
     schema and seed must land in the same backend (the file on SQLite, the
     repointed per-test database on Postgres).
     """
+    monkeypatch.setenv("YOKE_PROJECT", "yoke")
     with init_test_db(tmp_path, apply_schema=apply_merge_audit_schema) as path:
         yield path
 

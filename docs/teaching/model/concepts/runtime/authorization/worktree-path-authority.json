@@ -1,7 +1,10 @@
 {
  "id": "worktree-path-authority",
  "title": "Worktree path authority",
- "status": "draft-copy",
+ "status": "observed",
+ "current": "Candidate path recording validates client syntax independently of the server OS: POSIX absolute, Windows drive-rooted and complete backslash UNC paths round-trip without rewriting. Leading forward slashes keep POSIX meaning, including double-slash forms that resemble Windows namespaces. Backslash device namespaces, incomplete UNC and drive-relative or drive-unspecified paths refuse. Existing-checkout recovery uses the current active lane id and branch under the item work claim and preserves physical contents. This metadata change does not promise native Windows runtime support.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/item_worktree_path_recording.py", "docs/public/reference/db-reference/functions-worktrees.md", "runtime/api/domain/handlers/test_item_worktree_paths_handler.py", "runtime/api/cli/test_item_worktree_path_recovery.py"],
+ "commands": ["yoke item-worktrees path-record", "yoke item-worktrees list"],
  "audience": "Maintainers",
  "page": "runtime",
  "position": 3

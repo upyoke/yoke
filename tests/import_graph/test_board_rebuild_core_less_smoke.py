@@ -1,12 +1,12 @@
 """Core-less ``yoke board rebuild`` capability smoke.
 
 Proves a product-wheel install (no ``yoke_core`` on the path) can run
-``yoke board rebuild`` end to end: fetch the recorded ``board.data.get``
+``yoke board rebuild`` end to end: fetch the named ``board.data.get``
 payload over the CLI transport, render with the pure ``yoke_contracts.board``
 renderer, and write ``.yoke/BOARD.md``.
 
-The recorded payload is captured once in the parent process (where
-``yoke_core`` is available) against a disposable board DB, then replayed inside
+The snapshot is captured once in the parent process (where
+``yoke_core`` is available) against a disposable board DB, then rendered inside
 a subprocess that:
   * runs from a src-only ``PYTHONPATH`` (no repo-root editable installs), and
   * installs a ``find_spec`` finder that makes ``yoke_core`` / ``runtime`` /
@@ -37,13 +37,7 @@ PACKAGE_SRC = {
 
 
 class _EmptyBoardDB:
-    """Fake BoardDB seam: an all-empty board with no Postgres connection.
-
-    ``collect_board_data`` runs the full ``_assemble`` query plan against this
-    handle (wrapped in ``RecordingBoardDB``), capturing a complete,
-    self-consistent empty-board payload that replays without a parity miss — the
-    same shape ``test_parity_empty_board`` renders for a real empty DB.
-    """
+    """Read interface for collecting an empty board without Postgres."""
 
     def query(self, sql, params=None):
         return []
@@ -56,13 +50,7 @@ class _EmptyBoardDB:
 
 
 def _capture_empty_board_payload(repo_root_token: str) -> dict:
-    """Capture a real ``board.data.get`` payload (parent process, core present).
-
-    Uses the same query-shaping inputs the core-less rebuild will compute for
-    ``repo_root_token`` — default board config, no vision entries — so the
-    recorded plan replays without a parity miss. No Postgres: the query plan is
-    recorded against an all-empty fake DB seam.
-    """
+    """Collect the same named snapshot used by a core-free rebuild."""
     from yoke_contracts.board.config import BoardConfig
     from yoke_contracts.board.policy_settings import board_settings_from_config
     from yoke_core.board.data import collect_board_data
@@ -157,7 +145,7 @@ def _fake_call_dispatcher(*, function_id, target, payload=None, **_kwargs):
 
 payload_result = payload
 # The rebuild fetches board.data.get over the CLI's own transport; stub it to
-# the recorded payload so the subprocess needs no live server.
+# the snapshot so the subprocess needs no live server.
 _dispatcher.call_dispatcher = _fake_call_dispatcher
 
 result = rebuild_mod.rebuild(

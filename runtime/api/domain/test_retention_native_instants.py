@@ -6,6 +6,10 @@ from datetime import datetime, timedelta
 import pytest
 
 from yoke_contracts.timestamps import parse_instant
+from yoke_contracts.universe_retention import RetentionPolicy, PruneRequest
+from yoke_core.domain.retention_table_policies import policies
+from yoke_core.domain.universe_retention import _table_pass
+import time
 from yoke_core.domain import db_helpers, function_call_ledger as ledger
 from yoke_core.domain import github_workflow_dispatch_intents as intents
 
@@ -19,7 +23,8 @@ def test_ledger_expiration_is_strict_at_native_microsecond_cutoff(
     test_db.execute(ledger.FUNCTION_CALL_LEDGER_CREATE_SQL)
     monkeypatch.setattr(ledger, "utc_now", lambda: STAMP)
     test_db.execute("SELECT set_config('TimeZone', %s, false)", (zone,))
-    cutoff = STAMP - timedelta(days=ledger.LEDGER_TTL_DAYS)
+    policy = RetentionPolicy()
+    cutoff = STAMP - timedelta(days=policy.windows["replay"])
     for name, stamp in [
         ("before", cutoff - timedelta(microseconds=1)),
         ("at", cutoff),
@@ -35,8 +40,14 @@ def test_ledger_expiration_is_strict_at_native_microsecond_cutoff(
             created_at=stamp,
             conn=test_db,
         )
-    assert ledger.count_expired(test_db) == 1
-    assert ledger.prune_expired(test_db) == 1
+    test_db.commit()
+    rule = next(r for r in policies(policy, STAMP) if r.table == "function_call_ledger")
+    assert (
+        _table_pass(test_db, policy, time.monotonic() + 8, rule, False)["eligible"] == 1
+    )
+    assert _table_pass(test_db, policy, time.monotonic() + 8, rule, True)[
+        "deleted"
+    ] == {"function_call_ledger": 1}
     remaining = test_db.execute(
         "SELECT request_id, created_at FROM function_call_ledger ORDER BY created_at"
     ).fetchall()
@@ -78,7 +89,8 @@ def test_dispatch_birth_and_terminal_retention_use_native_clocks(
             "SELECT created_at, updated_at FROM github_workflow_dispatch_intents"
         ).fetchall()
     )
-    cutoff = STAMP - timedelta(days=intents.INTENT_TTL_DAYS)
+    policy = RetentionPolicy()
+    cutoff = STAMP - timedelta(days=policy.windows["dispatch_intents"])
     for name, state, stamp in [
         ("pending", "pending", cutoff - timedelta(microseconds=1)),
         ("before", "rejected", cutoff - timedelta(microseconds=1)),
@@ -88,8 +100,18 @@ def test_dispatch_birth_and_terminal_retention_use_native_clocks(
             "UPDATE github_workflow_dispatch_intents SET state=%s, updated_at=%s WHERE request_id=%s",
             (state, stamp, name),
         )
-    assert intents.count_expired(test_db) == 1
-    assert intents.prune_expired(test_db) == 1
+    test_db.commit()
+    rule = next(
+        r
+        for r in policies(policy, STAMP)
+        if r.table == "github_workflow_dispatch_intents"
+    )
+    assert (
+        _table_pass(test_db, policy, time.monotonic() + 8, rule, False)["eligible"] == 1
+    )
+    assert _table_pass(test_db, policy, time.monotonic() + 8, rule, True)[
+        "deleted"
+    ] == {"github_workflow_dispatch_intents": 1}
     assert [
         row[0]
         for row in test_db.execute(
@@ -100,9 +122,8 @@ def test_dispatch_birth_and_terminal_retention_use_native_clocks(
 
 @pytest.mark.parametrize("value", ["", "2026-10-08T12:34:56", datetime(2026, 10, 8), 1])
 def test_retention_cutoffs_refuse_unqualified_supplied_clock(value):
-    for owner in [ledger, intents]:
-        with pytest.raises(ValueError):
-            owner.ttl_cutoff_iso(value)
+    with pytest.raises(ValueError):
+        PruneRequest(cutoff=value)
 
 
 @pytest.mark.parametrize("zone", ["UTC", "America/New_York", "Asia/Kathmandu"])

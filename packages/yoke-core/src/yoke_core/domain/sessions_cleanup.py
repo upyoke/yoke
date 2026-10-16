@@ -7,22 +7,20 @@ from typing import Any, Dict, List, Optional
 
 from . import sessions_analytics as _sa
 from . import db_backend
-from .session_cleanup_holdings import (
-    active_holding_sessions,
-    active_work_claim_sessions,
-    effective_cleanup_ttl,
-    session_has_active_work_claim,
-)
+from .session_automatic_reclaim import automatic_reclaim, reclaim_facts
 from .session_reclaim_activity import (
     SCOPE_SESSION_CLEANUP,
     classify_reclaimable,
-    current_episode_progress_stamp,
-    in_flight_activity_is_hard_stale,
     read_activity_signals,
 )
-from .time_parse import age_minutes_since
+from .session_cleanup_holdings import (
+    active_holding_sessions,
+    active_work_claim_sessions,
+    session_has_active_work_claim,
+)
+from .schema_common import _get_columns as _schema_get_columns
 from .session_staleness import activity_is_stale
-from .sessions_analytics_core import DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES
+from .time_parse import age_minutes_since
 from .sessions_analytics import (
     DEFAULT_PROGRESS_THRESHOLD_MINUTES,
     DEFAULT_STALE_THRESHOLD_MINUTES,
@@ -32,15 +30,11 @@ from .sessions_analytics import (
     SessionError,
 )
 from .sessions_queries import _now_iso
+from yoke_contracts.timestamps import utc_now
 from .sessions_render_end_chain_pending import chain_pending_state
 from .sessions_render import reclaim_stale_session
 from .scratch_auto_prune import ScratchPruneResult, auto_prune_stale_scratch
-from .session_cleanup_receipt import (
-    bucket_holdings_spared_session,
-    reclaim_ttl_for_candidate,
-    sweep_receipt,
-)
-from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
+from .session_cleanup_receipt import sweep_receipt
 
 
 def clean_stale_harness_sessions(
@@ -69,15 +63,17 @@ def clean_stale_harness_sessions(
     _sweep_start = _time.monotonic()
 
     active_cols = set(_schema_get_columns(conn, "harness_sessions"))
-    executor_col = "executor" if "executor" in active_cols else None
-    activity_cols = "last_tool_call_at" in active_cols
     select_cols = "session_id, offered_at"
-    if executor_col:
-        select_cols += ", executor"
-    if activity_cols:
-        select_cols += ", last_tool_call_at, tool_call_count"
-    if "episode_started_at" in active_cols:
-        select_cols += ", episode_started_at"
+    for name in (
+        "executor",
+        "last_tool_call_at",
+        "tool_call_count",
+        "episode_started_at",
+        "turn_posture",
+        "terminated_at",
+    ):
+        if name in active_cols:
+            select_cols += f", {name}"
 
     if project_ids is None:
         all_active = conn.execute(
@@ -101,107 +97,54 @@ def clean_stale_harness_sessions(
     heartbeat_stale: List[Dict[str, Any]] = []
     progress_stale: List[Dict[str, Any]] = []
     skipped_between_turns: List[Dict[str, Any]] = []
-    holding_sessions = active_holding_sessions(conn)
-    work_claim_sessions = active_work_claim_sessions(conn)
-
     now_iso = _now_iso()
-
-    for sess_row in all_active:
-        sid = sess_row["session_id"]
-        executor = (
-            sess_row["executor"] if executor_col and sess_row["executor"] else "unknown"
-        )
-        has_active_holdings = sid in holding_sessions
-        effective_ttl = effective_cleanup_ttl(
-            executor,
-            base_ttl_minutes=stale_threshold_minutes,
-            executor_ttl_overrides=executor_ttl_overrides,
-            has_active_holdings=has_active_holdings,
-            holdings_ttl_minutes=DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
-        )
-        effective_progress_ttl = (
-            max(progress_threshold_minutes, effective_ttl)
-            if has_active_holdings
-            else progress_threshold_minutes
-        )
-
-        if activity_cols:
-            tool_count = sess_row["tool_call_count"] or 0
-            latest_event_at = sess_row["last_tool_call_at"]
-        else:
-            tool_count = 0
-            latest_event_at = None
-        episode_started_at = (
-            sess_row["episode_started_at"]
-            if "episode_started_at" in active_cols
-            else None
-        )
-
-        evidence = read_activity_signals(
-            conn, sid, base_ttl_minutes=effective_ttl, overrides={}
-        )
-        activity_at = evidence.activity_at
-        if evidence.in_flight:
-            is_stale = in_flight_activity_is_hard_stale(
-                activity_at,
-                effective_ttl_minutes=effective_ttl,
-            )
-        else:
-            is_stale = activity_is_stale(
-                activity_at,
-                executor=None,
-                base_ttl_minutes=effective_ttl,
-                executor_ttl_overrides={},
-            )
-        stale_minutes = age_minutes_since(activity_at)
-
+    now = utc_now()
+    options = dict(
+        stale_threshold_minutes=stale_threshold_minutes,
+        progress_threshold_minutes=progress_threshold_minutes,
+        executor_ttl_overrides=executor_ttl_overrides,
+    )
+    holdings = active_holding_sessions(conn)
+    claims = active_work_claim_sessions(conn)
+    for raw in all_active:
+        row = dict(raw)
+        sid = row["session_id"]
+        signals = read_activity_signals(conn, sid)
+        row["holds_work_claim"] = sid in claims
+        row["has_active_holdings"] = sid in holdings
+        row["last_heartbeat"] = signals.activity_at
+        # A protected holder needs no open-call query interpretation. Its
+        # durable activity still supplies the exact elapsed-age diagnostic.
+        row["open_tool_call_at"] = None if sid in claims else signals.open_tool_call_at
+        decision = automatic_reclaim(row, now=now, **options)
+        evidence = decision.evidence
         entry = {
-            "session_id": sid,
-            "executor": executor,
-            "effective_ttl_minutes": effective_ttl,
-            "has_active_holdings": has_active_holdings,
-            "activity_at": activity_at,
-            "last_event_at": latest_event_at,
-            "stale_minutes": stale_minutes,
+            "session_id": row["session_id"],
+            "executor": evidence.executor,
+            "effective_ttl_minutes": evidence.effective_ttl_minutes,
+            "has_active_holdings": row["has_active_holdings"],
+            "activity_at": signals.activity_at,
+            "last_event_at": evidence.last_event_at,
+            "stale_minutes": age_minutes_since(signals.activity_at),
+            "reason": decision.reason,
         }
-
-        if sid in work_claim_sessions:
-            skipped_between_turns.append({**entry, "reason": "active_work_claim"})
+        if not decision.is_reclaimable:
+            if decision.reason == "active_work_claim":
+                skipped_between_turns.append(entry)
+            elif activity_is_stale(
+                evidence.activity_at,
+                executor=evidence.executor,
+                now=now,
+                base_ttl_minutes=stale_threshold_minutes,
+            ):
+                skipped_between_turns.append({**entry, "reason": "between_turns"})
             continue
-
-        progress_stale_flag = False
-        progress_at = current_episode_progress_stamp(
-            latest_event_at,
-            episode_started_at,
-        )
-        if tool_count > 0 and progress_at:
-            progress_stale_flag = activity_is_stale(
-                progress_at,
-                executor=None,
-                base_ttl_minutes=effective_progress_ttl,
-                executor_ttl_overrides={},
-            )
-
-        if not is_stale:
-            bucket_holdings_spared_session(
-                conn,
-                sid,
-                entry,
-                progress_stale_flag,
-                activity_at,
-                stale_threshold_minutes,
-                progress_stale,
-                heartbeat_stale,
-                skipped_between_turns,
-            )
-            continue
-
-        if tool_count == 0:
+        if not row.get("tool_call_count"):
             never_engaged.append({**entry, "reason": "never_engaged"})
-        elif progress_stale_flag:
-            progress_stale.append({**entry, "reason": "progress_stale"})
+        elif decision.reason == "progress_stale":
+            progress_stale.append(entry)
         else:
-            heartbeat_stale.append({**entry, "reason": "heartbeat_stale"})
+            heartbeat_stale.append(entry)
 
     # Reclaim all identified sessions and emit one HarnessSessionStaleReclaimed per
     # session.  Each candidate is re-classified inside this loop via
@@ -212,28 +155,27 @@ def clean_stale_harness_sessions(
     reclaim_batches = never_engaged + heartbeat_stale + progress_stale
     for entry in reclaim_batches:
         sid = entry["session_id"]
-        if session_has_active_work_claim(conn, sid):
-            continue
-        has_active_holdings = sid in active_holding_sessions(conn)
-        effective_ttl = reclaim_ttl_for_candidate(
-            entry,
-            has_active_holdings=has_active_holdings,
-            stale_threshold_minutes=stale_threshold_minutes,
-            executor_ttl_overrides=executor_ttl_overrides,
-        )
+        from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 
-        recheck = classify_reclaimable(
-            conn,
-            sid,
-            base_ttl_minutes=effective_ttl,
-            overrides={},
-            progress_threshold_minutes=(
-                max(progress_threshold_minutes, effective_ttl)
-                if has_active_holdings
-                else progress_threshold_minutes
-            ),
-        )
+        lock_session_rows_for_claim_lifecycle(conn, (sid,))
+        row = reclaim_facts(conn, [{"session_id": sid}])[0]
+        has_active_holdings = row["has_active_holdings"]
+        row["holds_work_claim"] = session_has_active_work_claim(conn, sid)
+        if row["holds_work_claim"]:
+            recheck = automatic_reclaim(row, **options)
+        else:
+            recheck = classify_reclaimable(
+                conn,
+                sid,
+                scope=SCOPE_SESSION_CLEANUP,
+                base_ttl_minutes=stale_threshold_minutes,
+                overrides=executor_ttl_overrides,
+                progress_threshold_minutes=progress_threshold_minutes,
+            )
         if not recheck.is_reclaimable:
+            skipped_between_turns.append(
+                {**entry, "reason": recheck.reason, "recheck": True}
+            )
             evidence_payload = recheck.evidence.as_payload()
             _sa._emit_session_event(
                 EVENT_RECLAIM_ABORTED,
@@ -267,8 +209,15 @@ def clean_stale_harness_sessions(
 
         try:
             reclaim_stale_session(conn, sid)
-        except SessionError:
-            # Concurrently reclaimed or already ended — still report attempt
+        except SessionError as exc:
+            skipped_between_turns.append(
+                {
+                    **entry,
+                    "reason": exc.code.lower(),
+                    "recheck": True,
+                    "recovery": exc.message,
+                }
+            )
             continue
         total_reclaimed += 1
 

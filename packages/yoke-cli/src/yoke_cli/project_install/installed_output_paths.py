@@ -18,7 +18,6 @@ from yoke_contracts.project_contract.file_line_policy import PROJECT_CONFIG_REL
 
 GITIGNORE_REL = ".gitignore"
 YOKE_GITIGNORE_REL = ".yoke/.gitignore"
-RETIRED_EXCEPTIONS_REL = ".yoke/file-line-exceptions"
 HOOK_SETTINGS = (
     ".claude/settings.json",
     ".codex/hooks.json",
@@ -63,10 +62,6 @@ def owned_paths(report: Mapping[str, Any] | None) -> list[str]:
     exceptions = report.get("file_line_managed_exceptions") or {}
     if isinstance(exceptions, dict) and exceptions.get("status") == "ok":
         paths.append(PROJECT_CONFIG_REL)
-    migration = report.get("file_line_config_migration") or {}
-    if isinstance(migration, dict) and migration.get("status") == "ok":
-        paths.append(PROJECT_CONFIG_REL)
-        paths.append(RETIRED_EXCEPTIONS_REL)
     paths.append(MANIFEST_REL)
     paths.extend(HOOK_SETTINGS)
     return normalized(paths)
@@ -126,7 +121,6 @@ def shared_paths(
         *CURSOR_CONFIG_RELS,
         GITIGNORE_REL,
         YOKE_GITIGNORE_REL,
-        RETIRED_EXCEPTIONS_REL,
         PROJECT_CONFIG_REL,
     ]
     for key in ("contract_files", "hook_entries"):
@@ -193,7 +187,6 @@ __all__ = [
     "managed_region_paths",
     "manifest_owned_paths",
     "HOOK_SETTINGS",
-    "RETIRED_EXCEPTIONS_REL",
     "YOKE_GITIGNORE_REL",
     "normalized",
     "owned_paths",

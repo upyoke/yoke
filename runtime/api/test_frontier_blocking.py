@@ -1,19 +1,4 @@
-"""Frontier behavior under the items.blocked flag.
-
-Covers:
-
-- An item with ``blocked=1`` and a non-empty ``blocked_reason`` lands in
-  ``FrontierResult.blocked`` with a reason that names the operator-supplied
-  text verbatim — the invariant against synthesizing
-  ``blocking_item="unknown"`` when a real reason exists.
-- A blocked-flag item lands in WAIT regardless of its preserved lifecycle
-  status — implementing/refined-idea/idea all route to blocked.
-- Legacy ``status='blocked'`` still classifies as blocked (drift safety)
-  and surfaces the legacy reason wording; the doctor health check
-  ``HC-blocked-status-drift`` is the post-cutover follow-up.
-- A row with both ``blocked=1`` and an unsatisfied ``item_dependencies``
-  edge surfaces both the operator reason and the typed blocker_details.
-"""
+"""Current item flags and dependency waits retain their reasons."""
 
 from __future__ import annotations
 
@@ -88,17 +73,6 @@ def test_blocked_flag_overrides_lifecycle_status():
     result = compute_frontier(conn, project_scope=["yoke"])
     blocked_ids = {fi.item_id for fi in result.blocked}
     assert blocked_ids == {10, 11, 12}
-
-
-def test_legacy_blocked_status_still_blocked_drift_safety():
-    conn = make_test_db()
-    insert_item(conn, 10, status="blocked")
-    conn.commit()
-
-    result = compute_frontier(conn, project_scope=["yoke"])
-    assert len(result.blocked) == 1
-    fi = result.blocked[0]
-    assert any("legacy blocked status" in r for r in fi.blocked_reasons)
 
 
 def test_blocked_flag_combines_with_dependency_blocker_details():

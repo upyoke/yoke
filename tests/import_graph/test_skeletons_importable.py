@@ -59,7 +59,7 @@ PRODUCT_SMOKE_MODULES = {
         "yoke_contracts.project_contract.scaffolds",
         # The board render ships in contracts so a managed project can render
         # its board without loading engine code: render_board_from_payload +
-        # ReplayBoardDB must import with no yoke_core / psycopg on the path.
+        # The board value codec must import with no yoke_core / psycopg on the path.
         "yoke_contracts.board.renderer",
         "yoke_contracts.board.data",
     ),

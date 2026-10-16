@@ -13,15 +13,14 @@ from yoke_contracts.self_host_bootstrap_output import (
     TOKEN_BODY_LENGTH,
     TOKEN_PREFIX,
 )
-
 from yoke_contracts.timestamps import parse_instant, utc_now
+
 from yoke_core.domain import db_backend
+from yoke_core.domain.actor_state import actor_is_active, require_actor_active
 from yoke_core.domain.api_token_audit import _metadata_json
 from yoke_core.domain.api_token_audit import record_token_audit as record_token_audit
 from yoke_core.domain.db_helpers import instant_parameter
-from yoke_core.domain.actor_state import actor_is_active, require_actor_active
 from yoke_core.domain.hosted_service_authority import HOSTED_SERVICE_TOKEN_NAME
-
 
 TOKEN_STATUS_ACTIVE = "active"
 TOKEN_STATUS_REVOKED = "revoked"
@@ -37,6 +36,10 @@ _TOKEN_BODY_ALPHABET = string.ascii_letters + string.digits
 
 class TokenError(Exception):
     """Base class for token verification failures."""
+
+
+class TokenCreationReplayed(TokenError):
+    """This creation request already issued its one-time token."""
 
 
 class TokenNotFound(TokenError):
@@ -105,6 +108,7 @@ def mint_token(
     raw_token: str | None = None,
     expires_at: datetime | str | None = None,
     diagnostic_metadata: dict[str, Any] | None = None,
+    creation_request_id: str | None = None,
 ) -> CreatedToken:
     """Create an active actor-bound token and return its raw value once."""
     raw = raw_token or generate_token()
@@ -112,20 +116,40 @@ def mint_token(
     expiry = parse_instant(expires_at) if expires_at is not None else None
     p = _p(conn)
     require_actor_active(conn, actor_id, lock=True)
-    row = conn.execute(
-        "INSERT INTO api_tokens "
-        "(token_hash, actor_id, name, status, created_at, expires_at, diagnostic_metadata) "
-        f"VALUES ({p}, {p}, {p}, 'active', {p}, {p}, {p}) "
-        "RETURNING id",
-        (
-            token_hash,
-            actor_id,
-            name,
-            instant_parameter(conn, _now()),
-            instant_parameter(conn, expiry),
-            _metadata_json(diagnostic_metadata),
-        ),
-    ).fetchone()
+    replay_sql = f"SELECT 1 FROM api_tokens WHERE creation_request_id = {p}"
+    if (
+        creation_request_id is not None
+        and conn.execute(
+            replay_sql,
+            (creation_request_id,),
+        ).fetchone()
+    ):
+        raise TokenCreationReplayed("Token creation result is no longer available")
+    try:
+        row = conn.execute(
+            "INSERT INTO api_tokens "
+            "(token_hash, actor_id, name, status, created_at, expires_at, "
+            "diagnostic_metadata, creation_request_id) "
+            f"VALUES ({p}, {p}, {p}, 'active', {p}, {p}, {p}, {p}) RETURNING id",
+            (
+                token_hash,
+                actor_id,
+                name,
+                instant_parameter(conn, _now()),
+                instant_parameter(conn, expiry),
+                _metadata_json(diagnostic_metadata),
+                creation_request_id,
+            ),
+        ).fetchone()
+    except db_backend.integrity_error_types(conn):
+        if creation_request_id is None:
+            raise
+        conn.rollback()
+        if conn.execute(replay_sql, (creation_request_id,)).fetchone():
+            raise TokenCreationReplayed(
+                "Token creation result is no longer available"
+            ) from None
+        raise
     conn.commit()
     token_id = int(row[0])
     record_token_audit(
@@ -152,6 +176,19 @@ def verify_token(
     older than one minute, and it writes no audit row. A refusal still
     appends an audit row.
     """
+
+    def audit_refusal(api_token_id, actor_id, outcome):
+        record_token_audit(
+            conn,
+            api_token_id=api_token_id,
+            actor_id=actor_id,
+            project_id=project_id,
+            event_type="verify",
+            outcome=outcome,
+            permission_key=permission_key,
+            diagnostic_metadata=diagnostic_metadata,
+        )
+
     token_hash = hash_token(raw_token)
     p = _p(conn)
     row = conn.execute(
@@ -160,16 +197,7 @@ def verify_token(
         (token_hash,),
     ).fetchone()
     if row is None:
-        record_token_audit(
-            conn,
-            api_token_id=None,
-            actor_id=None,
-            project_id=project_id,
-            event_type="verify",
-            outcome="not_found",
-            permission_key=permission_key,
-            diagnostic_metadata=diagnostic_metadata,
-        )
+        audit_refusal(None, None, "not_found")
         raise TokenNotFound("API token not found")
     token_id, actor_id, name, status, expires_at, machine_id = row
     token_id = int(token_id)
@@ -186,44 +214,17 @@ def verify_token(
             (bound_machine,),
         ).fetchone()
         if retired is not None and retired[0] is not None:
-            record_token_audit(
-                conn,
-                api_token_id=token_id,
-                actor_id=actor_id,
-                project_id=project_id,
-                event_type="verify",
-                outcome="machine_retired",
-                permission_key=permission_key,
-                diagnostic_metadata=diagnostic_metadata,
-            )
+            audit_refusal(token_id, actor_id, "machine_retired")
             raise TokenMachineRetired(
                 "Machine credential belongs to a retired machine. Recovery: "
                 "run the installer again to reconnect with a new machine identity."
             )
     if status != TOKEN_STATUS_ACTIVE:
-        record_token_audit(
-            conn,
-            api_token_id=token_id,
-            actor_id=actor_id,
-            project_id=project_id,
-            event_type="verify",
-            outcome="revoked",
-            permission_key=permission_key,
-            diagnostic_metadata=diagnostic_metadata,
-        )
+        audit_refusal(token_id, actor_id, "revoked")
         raise TokenRevoked("API token is revoked")
     now = _now()
     if expires_at is not None and parse_instant(expires_at) <= now:
-        record_token_audit(
-            conn,
-            api_token_id=token_id,
-            actor_id=actor_id,
-            project_id=project_id,
-            event_type="verify",
-            outcome="expired",
-            permission_key=permission_key,
-            diagnostic_metadata=diagnostic_metadata,
-        )
+        audit_refusal(token_id, actor_id, "expired")
         raise TokenExpired("API token is expired")
     wrote_last_used = conn.execute(
         f"UPDATE api_tokens SET last_used_at = {p} "

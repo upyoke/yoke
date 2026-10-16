@@ -57,6 +57,7 @@ _SCHEMA_DDL = """
         name TEXT NOT NULL,
         description TEXT,
         stages TEXT NOT NULL,
+        definition_schema_version INTEGER NOT NULL DEFAULT 2,
         on_failure TEXT DEFAULT 'halt',
         created_at TIMESTAMPTZ NOT NULL,
         target_env TEXT DEFAULT NULL,

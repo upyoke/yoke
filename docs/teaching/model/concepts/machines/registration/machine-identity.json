@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "machines",
  "position": 0,
- "text": "Start sends the configured UUID, the OS display hostname and platform before polling. The page omits an absent name instead of showing a placeholder.",
+ "text": "Start sends the configured UUID, the OS display hostname and platform before polling. Hosted routing preserves these facts with the code when selecting the organization and supplies the actual engine org_id, never a registry org ID or inferred default. Compare machine, code, organization and local expiry before personal approval. The page omits an absent name instead of showing a placeholder.",
  "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "docs/public/reference/machine-authorization.md"]
 }

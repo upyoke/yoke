@@ -56,8 +56,14 @@ run owns the item's delivery; a `carried`
 run contains its code without owning its QA. Member outcomes use that member's
 own QA: a passed item reads `deployed · QA passed` even while its run stays
 open. Only that finished member gets a sub-line naming the run's remaining
-wait. In-progress rows name the current stage and elapsed time; an environment
-awaiting a run reads `not yet · next release`. The run id links to its history.
+wait. In-progress rows name the current stage and elapsed time. An environment
+awaiting a run reads `not yet · next release` only when that item's workflow
+delivery policy owes a delivery and the item is not cancelled. Inheriting the
+project's default flow is not that obligation. A cancelled item, and a workflow
+whose delivery policy is `merge_free`, leave the delivery box off when nothing
+has been delivered. A delivery that did happen stays on the card, including
+after cancellation and on a workflow that does not owe one. The run id links
+to its history.
 
 ```bash
 yoke items dependency list PREFIX-N

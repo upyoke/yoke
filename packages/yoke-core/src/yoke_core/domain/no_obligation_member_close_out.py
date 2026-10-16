@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_scalar, query_rows
-from yoke_core.domain.deployment_qa_member_scope import legacy_run_credits_run_wide
 from yoke_core.domain.post_deploy_verification_answer import answer_for_item
 from yoke_core.domain.qa_obligation_settlement import (
     settled_obligation_sql,
@@ -57,8 +56,6 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
     if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
         return discharges_without_cases
     member_scope = "r.deployment_member_item_id=%s"
-    if legacy_run_credits_run_wide(conn, run_id=run_id, item_id=item_id):
-        member_scope = f"({member_scope} OR r.deployment_member_item_id IS NULL)"
     total = query_scalar(
         conn,
         "SELECT COUNT(*) FROM qa_requirements r "

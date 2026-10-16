@@ -64,6 +64,9 @@ _MINIMAL_SCHEMA_DDL = """
         project_id INTEGER NOT NULL REFERENCES projects(id),
         name TEXT,
         stages TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        definition_schema_version INTEGER NOT NULL DEFAULT 2,
+        takes_delivery_custody INTEGER NOT NULL DEFAULT 0,
         target_tier TEXT,
         target_environment_id INTEGER REFERENCES environments(id),
         status TEXT NOT NULL DEFAULT 'active'
@@ -71,12 +74,12 @@ _MINIMAL_SCHEMA_DDL = """
     INSERT INTO deployment_flows
         (id, project_id, name, stages, target_tier, target_environment_id)
     VALUES ('flow-main', 1, 'Main Flow',
-            '[{"name":"merged"},{"name":"deployed"},{"name":"complete"}]',
+            '[{"name":"merged","stage_kind":"execution","step_runner":"auto"},{"name":"deployed","stage_kind":"execution","step_runner":"auto"},{"name":"complete","stage_kind":"execution","step_runner":"auto"}]',
             'persistent', 201);
     INSERT INTO deployment_flows
         (id, project_id, name, stages, target_tier, target_environment_id)
     VALUES ('flow-preview', 1, 'Preview Flow',
-            '[{"name":"preview-deploy"},{"name":"preview-verify"}]',
+            '[{"name":"preview-deploy","stage_kind":"execution","step_runner":"auto"},{"name":"preview-verify","stage_kind":"execution","step_runner":"auto"}]',
             NULL, NULL);
 
     CREATE TABLE IF NOT EXISTS items (
@@ -86,7 +89,8 @@ _MINIMAL_SCHEMA_DDL = """
         project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),
         project_sequence INTEGER NOT NULL DEFAULT 0,
         deployment_flow TEXT,
-        merged_at TIMESTAMPTZ
+        merged_at TIMESTAMPTZ,
+        merge_queue_landed_at TIMESTAMPTZ
     );
 
     CREATE TABLE IF NOT EXISTS item_dependencies (
@@ -106,6 +110,11 @@ def _apply_schema() -> None:
     """
     apply_inline_ddl(_MINIMAL_SCHEMA_DDL)
     dr.cmd_init()
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.flow_init import converge_flow_catalog
+
+    with connect() as conn:
+        converge_flow_catalog(conn)
 
 
 @pytest.fixture()

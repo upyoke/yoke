@@ -19,7 +19,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             workflow_run_id="run-20260616-001",
         )
 
-    def test_run_get_returns_pipe_row_as_dict(self):
+    def test_run_get_returns_structured_fields(self):
         from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
 
         values = [
@@ -37,9 +37,9 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             "operator",
             '{"schema":1,"items":[],"commits":[]}',
         ]
-        raw = "|".join(values[: len(RUN_FIELDS)])
+        raw = {name: value or None for name, value in zip(RUN_FIELDS, values)}
         with patch(
-            "yoke_core.domain.deployment_runs_crud_query.cmd_get",
+            "yoke_core.domain.deployment_runs_crud_query.get_run",
             return_value=raw,
         ):
             outcome = deployment_runs.handle_deployment_run_get(
@@ -86,9 +86,9 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             "operator",
             carried,
         ]
-        raw = "|".join(values[: len(RUN_FIELDS)])
+        raw = {name: value or None for name, value in zip(RUN_FIELDS, values)}
         with patch(
-            "yoke_core.domain.deployment_runs_crud_query.cmd_get",
+            "yoke_core.domain.deployment_runs_crud_query.get_run",
             return_value=raw,
         ):
             outcome = deployment_runs.handle_deployment_run_get(
@@ -107,7 +107,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
 
     def test_run_get_not_found_returns_not_found(self):
         with patch(
-            "yoke_core.domain.deployment_runs_crud_query.cmd_get",
+            "yoke_core.domain.deployment_runs_crud_query.get_run",
             return_value=None,
         ):
             outcome = deployment_runs.handle_deployment_run_get(

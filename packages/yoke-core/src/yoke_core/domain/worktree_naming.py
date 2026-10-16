@@ -1,27 +1,4 @@
-"""Single source of truth for item worktree/branch names.
-
-The name a user sees for a git worktree directory or a git branch is the
-item's public reference (``{public_item_prefix}-{project_sequence}`` — for
-example ``YOK-1913`` or ``BUZ-4``), never the raw internal ``items.id``.
-Every worktree/branch *name-creation* site imports
-:func:`worktree_name_for_item` so the public ref is the only name minted for
-new worktrees and branches.
-
-Minting and recognising are opposite concerns and only one of them may guess.
-A name that cannot be resolved is refused rather than assembled from the
-storage key: the minted name lands on a branch, a directory, a push, and
-every later lookup, so a wrong one is not a phrase a reader discounts but an
-identity the repository carries. Recognising an *existing* lane is the other
-direction — worktrees created before names carried the public ref are on disk
-under :func:`legacy_worktree_name`, and they keep resolving, unrenamed.
-
-Recovering an item from a worktree/branch *name* is the inverse concern and
-lives in
-:func:`yoke_core.domain.item_worktree_resolution.resolve_item_id_by_worktree_name`;
-that reverse-lookup reads ``item_worktrees`` so worktrees created under either
-the new public-ref scheme or the legacy scheme keep resolving to the correct
-internal id.
-"""
+"""Public item references name new lanes; recorded branches identify existing lanes."""
 
 from __future__ import annotations
 
@@ -36,17 +13,6 @@ class ItemWorktreeIdentityUnresolved(LookupError):
     independent counters, so such a name reads as — and in another project's
     numbering *is* — a different item's reference.
     """
-
-
-def legacy_worktree_name(item_id: int) -> str:
-    """The pre-public-ref name shape, for FINDING an existing lane only.
-
-    Worktrees created before lane names carried the public ref sit on disk as
-    ``YOK-{items.id}`` with branches recorded that way, and they are not
-    renamed. Recognising them is the whole reason this shape still exists;
-    it is never minted for a new lane.
-    """
-    return f"YOK-{int(item_id)}"
 
 
 def worktree_name_for_item(conn: Optional[Any], item_id: int) -> str:
@@ -97,15 +63,9 @@ def worktree_name_for_item(conn: Optional[Any], item_id: int) -> str:
 
 
 def candidate_worktree_names(conn: Any, item_id: int) -> Set[str]:
-    """Return every name that could identify this item's worktree/branch.
-
-    Covers the current public-ref name, the legacy name, and every branch
-    recorded in ``item_worktrees`` (active or released). This is the
-    recognising direction, so an item whose public ref does not resolve
-    still offers its legacy and recorded names rather than refusing.
-    """
+    """Return the public reference and branches recorded for this item."""
     item_id = int(item_id)
-    names: Set[str] = {legacy_worktree_name(item_id)}
+    names: Set[str] = set()
     try:
         names.add(worktree_name_for_item(conn, item_id))
     except ItemWorktreeIdentityUnresolved:
@@ -125,6 +85,5 @@ def candidate_worktree_names(conn: Any, item_id: int) -> Set[str]:
 __all__ = [
     "ItemWorktreeIdentityUnresolved",
     "candidate_worktree_names",
-    "legacy_worktree_name",
     "worktree_name_for_item",
 ]

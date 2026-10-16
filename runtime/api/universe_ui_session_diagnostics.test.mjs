@@ -33,11 +33,11 @@ function statusExplanation(rendered) {
 function quietHolder(extra) {
   return {
     session_id: "session-1",
-    liveness: "stale",
+    liveness: "active",
     executor: "codex",
     claims: ITEM_CLAIM,
     activity_at: "2026-08-22T11:00:00Z",
-    stale_eligible_at: "2026-08-22T11:20:00Z",
+    activity_quiet_at: "2026-08-22T11:20:00Z",
     messageability: { messageable: false },
     ...extra,
   };
@@ -59,7 +59,7 @@ test("session card keeps the latest message badge and drops the removed facts", 
     },
     end_blocker: { status: "has_claims", active_claim_count: 1 },
     effective_stale_ttl_minutes: 60,
-    stale_eligible_at: new Date(Date.now() + 11.2 * 60000).toISOString(),
+    activity_quiet_at: new Date(Date.now() + 11.2 * 60000).toISOString(),
     machine_name: "test-mac",
     relay: "connected",
     messageability: {
@@ -118,7 +118,7 @@ test("a declared wait reads as waiting, not as a session suspected of being gone
   assert.equal(posture.detail, "turn parked for an answer");
 });
 
-test("an open probe replaces possibly-stale, which needs no declaration at all", () => {
+test("an open probe replaces quiet, which needs no declaration at all", () => {
   const probed = sessionHealthState(
     quietHolder({
       stale_alive_probe: {
@@ -136,15 +136,15 @@ test("an open probe replaces possibly-stale, which needs no declaration at all",
     quietHolder({}),
     Date.parse("2026-08-22T12:00:00Z"),
   );
-  assert.equal(unaccounted.state, "stale");
-  assert.equal(unaccounted.label, "stale");
+  assert.equal(unaccounted.state, "quiet");
+  assert.equal(unaccounted.label, "quiet");
 
   const uncertain = sessionHealthState(
     quietHolder({ liveness: "active" }),
     Date.parse("2026-08-22T12:00:00Z"),
   );
-  assert.equal(uncertain.state, "possibly stale");
-  assert.equal(uncertain.label, "possibly stale");
+  assert.equal(uncertain.state, "quiet");
+  assert.equal(uncertain.label, "quiet");
 
   // A declared wait outranks a probe: the session already said why it is quiet.
   const both = sessionHealthState(
@@ -166,7 +166,7 @@ test("process-gone evidence outranks age and tells the operator how to act", () 
       state: "gone",
       observed_at: "2026-08-22T11:59:00Z",
     },
-    stale_eligible_at: "2026-08-22T12:30:00Z",
+    activity_quiet_at: "2026-08-22T12:30:00Z",
   });
   const health = sessionHealthState(row, Date.parse("2026-08-22T12:00:00Z"));
   assert.deepEqual(health, {
@@ -191,7 +191,7 @@ test("health stays silent for active, claim-free, and ended sessions", () => {
   const now = Date.parse("2026-08-22T12:00:00Z");
   assert.equal(
     sessionHealthState(
-      quietHolder({ liveness: "active", stale_eligible_at: "2026-08-22T12:30:00Z" }),
+      quietHolder({ liveness: "active", activity_quiet_at: "2026-08-22T12:30:00Z" }),
       now,
     ),
     null,
@@ -202,7 +202,7 @@ test("health stays silent for active, claim-free, and ended sessions", () => {
 
 test("the health pill renders its state and detail on the card", () => {
   const rendered = card(quietHolder({
-    stale_eligible_at: "2020-01-01T00:00:00Z",
+    activity_quiet_at: "2020-01-01T00:00:00Z",
     declared_wait: {
       kind: "dependency",
       item: "YOK-1",
@@ -238,7 +238,7 @@ test("a kill reads as a cause of death on ended, never as its own liveness", () 
     terminated_at: "2026-08-22T12:05:00Z",
     executor: "codex",
     claims: [],
-    stale_eligible_at: "2099-01-01T00:00:00Z",
+    activity_quiet_at: "2099-01-01T00:00:00Z",
     messageability: { messageable: false },
   });
   assert.equal(byClass(rendered, "session-health").length, 0);
@@ -272,14 +272,14 @@ test("one primary status covers the meaningful combinations without restating st
   assert.equal(primary({ liveness: "ended" }).label, "ended");
   assert.equal(primary({}).label, "unknown");
 
-  const confirmed = card(quietHolder({ activity_at: quiet }));
+  const confirmed = card(quietHolder({ liveness: "stale", claims: [], activity_at: quiet }));
   assert.deepEqual(
     byClass(confirmed, "session-status-pill").map((n) => n.textContent),
     ["stale"],
   );
   assert.equal(confirmed.classList.contains("is-stale"), true);
   assert.equal(byClass(confirmed, "session-health-pill").length, 0);
-  assert.ok(!confirmed.textContent.includes("possibly stale"));
+  assert.ok(!confirmed.textContent.includes("quiet"));
   assert.deepEqual(
     byClass(confirmed, "session-age-prefix").map((n) => n.textContent),
     ["idle "],
@@ -288,7 +288,7 @@ test("one primary status covers the meaningful combinations without restating st
   const uncertain = card(quietHolder({ liveness: "active", activity_at: quiet }));
   assert.deepEqual(
     byClass(uncertain, "session-status-pill").map((n) => n.textContent),
-    ["possibly stale"],
+    ["quiet"],
   );
   assert.equal(uncertain.classList.contains("is-stale"), false);
   assert.equal(byClass(uncertain, "session-stale-pill").length, 0);
@@ -311,7 +311,7 @@ test("one pill covers a self-declared park, and its reasons meet in one place", 
   const selfParked = { liveness: "active", activity_at: new Date(now).toISOString(), mode: "parked" };
   assert.equal(sessionPrimaryStatus(selfParked, now).state, "parked");
   const rendered = card({ ...selfParked, session_id: "s", executor: "codex", claims: [],
-    stale_eligible_at: "2099-01-01T00:00:00Z", messageability: { messageable: false } });
+    activity_quiet_at: "2099-01-01T00:00:00Z", messageability: { messageable: false } });
   assert.deepEqual(
     byClass(rendered, "session-status-pill").map((n) => n.textContent),
     ["parked"],
@@ -324,15 +324,15 @@ test("one pill covers a self-declared park, and its reasons meet in one place", 
   // The state's own detail and the recorded quiet reason are one answer.
   assert.equal(
     sessionStatusExplanation({ ...selfParked, quiet_reason: "waiting on the operator" }, now),
-    "parked by the session itself; its next tool call takes it back"
+    "parked by the session itself; its next accepted prompt takes it back"
     + " · waiting on the operator",
   );
   // A quiet reason that only restates the state is said once.
   assert.equal(
     sessionStatusExplanation(
-      { ...selfParked, quiet_reason: "parked by the session itself; its next tool call takes it back" },
+      { ...selfParked, quiet_reason: "parked by the session itself; its next accepted prompt takes it back" },
       now,
     ),
-    "parked by the session itself; its next tool call takes it back",
+    "parked by the session itself; its next accepted prompt takes it back",
   );
 });

@@ -10,20 +10,11 @@ just stopped — which is what these tests pin down.
 from __future__ import annotations
 
 from pathlib import Path
-import plistlib
 import subprocess
 
 import pytest
 
-from yoke_cli.config.session_relay_instance import (
-    PROD_RELAY_LABEL,
-    resolve_relay_instance,
-)
 from yoke_core.tools import launchctl_boundary as boundary
-from yoke_core.tools.session_relay_legacy import (
-    LegacyRelayError,
-    retire_unpinned_legacy_relay,
-)
 from yoke_core.tools.session_relay_plist import (
     RelayInstallError,
     install_relay_launchd,
@@ -151,35 +142,3 @@ def test_a_relay_that_stays_loaded_is_refused_before_any_bootstrap(
     assert "kept the machine relay loaded after bootout" in str(refusal.value)
     assert "relay install" in str(refusal.value)
     assert "bootstrap" not in [call[1] for call in calls]
-
-
-def test_a_legacy_relay_that_stays_loaded_keeps_its_plist_and_names_recovery(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The legacy retirement probe waits out a teardown too, then teaches."""
-    monkeypatch.setattr(boundary, "UNLOAD_WAIT_SECONDS", 0.0)
-    legacy_path = tmp_path / "Library" / "LaunchAgents" / f"{PROD_RELAY_LABEL}.plist"
-    legacy_path.parent.mkdir(parents=True)
-    legacy_path.write_bytes(plistlib.dumps({"Label": PROD_RELAY_LABEL}))
-
-    def runner(command, **_kwargs):
-        return subprocess.CompletedProcess(list(command), 0, "", "")
-
-    with pytest.raises(LegacyRelayError) as refusal:
-        retire_unpinned_legacy_relay(
-            instance=resolve_relay_instance(
-                config_path=_config(tmp_path),
-                environment="stage",
-                yoke_home=tmp_path / ".yoke",
-            ),
-            home=tmp_path,
-            runner=runner,
-            uid=501,
-        )
-
-    assert "kept the unpinned legacy machine relay loaded after bootout" in str(
-        refusal.value
-    )
-    assert "yoke --env stage relay install" in str(refusal.value)
-    assert legacy_path.exists()

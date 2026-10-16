@@ -15,6 +15,8 @@ from yoke_contracts.session_control.liveness import holds_work_claim_sql
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project_slug
 from yoke_core.domain.session_message_anchors import anchor_hits
+from yoke_core.domain.session_message_candidates import candidate_identities
+from yoke_core.domain.schema_common import _get_columns
 from yoke_core.domain.session_message_liveness import (
     applied_liveness,
     is_bulk_evidence,
@@ -39,18 +41,33 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _session_rows(conn: Any) -> dict[str, dict[str, Any]]:
+def _session_rows(conn: Any, session_ids) -> dict[str, dict[str, Any]]:
     # A fixture composed by hand carries no declared posture, so no session
     # there reads as parked and none is waiting.
     mode_select = "mode, " if session_mode_column_present(conn) else ""
+    if not session_ids:
+        return {}
+    columns = _get_columns(conn, "harness_sessions")
+    extra = "".join(
+        f"{name}, "
+        for name in ("turn_posture", "tool_call_count", "episode_started_at")
+        if name in columns
+    )
     rows = conn.execute(
         "SELECT session_id, project_id, executor, executor_surface, "
         f"executor_version, machine_id, execution_level, {mode_select}"
-        "last_heartbeat, last_tool_call_at, ended_at, terminated_at, "
+        f"last_heartbeat, last_tool_call_at, ended_at, terminated_at, {extra}"
         f"{holds_work_claim_sql('harness_sessions')} AS holds_work_claim "
-        "FROM harness_sessions ORDER BY session_id"
+        f"FROM harness_sessions WHERE session_id IN ({','.join(_p(conn) for _ in session_ids)}) "
+        "ORDER BY session_id",
+        tuple(session_ids),
     ).fetchall()
-    return {str(row["session_id"]): row_dict(row) for row in rows}
+    from .session_automatic_reclaim import reclaim_facts
+
+    return {
+        str(row["session_id"]): row
+        for row in reclaim_facts(conn, rows, session_facts_complete=True)
+    }
 
 
 def _claim_rows(conn: Any) -> list[dict[str, Any]]:
@@ -155,11 +172,15 @@ def resolve_recipients(
     states = applied_liveness(selector)
     explicit_liveness = () if narrows_by_default or not selector.liveness else states
     bulk_liveness = states if narrows_by_default else ()
-    sessions = _session_rows(conn)
     claims = _claim_rows(conn)
     hits = anchor_hits(
-        conn, selector, sessions, claims, steering_target=steering_target
+        conn,
+        selector,
+        candidate_identities(conn, selector),
+        claims,
+        steering_target=steering_target,
     )
+    sessions = _session_rows(conn, tuple(hits))
     relay_routes = connected_relay_routes(conn, now=current)
     excluded = set(selector.exclude_session_ids)
     resolved: list[ResolvedRecipient] = []

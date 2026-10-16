@@ -12,12 +12,10 @@ read instead of restating it.
 
 from __future__ import annotations
 
-from typing import List
-
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.project_scope import project_filter
 
-_ARCHITECTURE_EMOJI = "\U0001f5fa"  # 🗺
+from yoke_contracts.board.architecture_data import render_architecture_rows
 
 _CONTEXT_FAMILIES = (
     "'architecture_layer','architecture_domain',"
@@ -49,42 +47,28 @@ def _coverage_sql(project_id: int) -> str:
     )
 
 
-def render_architecture_section(db: BoardDBLike, scope: str) -> str:
-    """Render the section text, or empty when no scoped map exists.
-
-    Quiet reads throughout: a database without the map or snapshot
-    tables (minimal fixtures, older universes) collapses the section
-    instead of failing the whole board render.
-    """
+def collect_architecture_rows(db: BoardDBLike, scope: str) -> list[dict]:
+    """Read coverage facts for projects with a declared architecture map."""
     scope_sql, scope_params = project_filter(scope, "ps")
     declared = db.query_quiet(
         "SELECT ps.project_id, p.slug FROM project_structure ps "
         "JOIN projects p ON p.id = ps.project_id "
-        "WHERE ps.family = 'architecture_model'" + scope_sql +
-        " ORDER BY p.slug",
+        "WHERE ps.family = 'architecture_model'" + scope_sql + " ORDER BY p.slug",
         scope_params,
     )
-    if not declared:
-        return ""
-    lines: List[str] = [f"### {_ARCHITECTURE_EMOJI} Architecture", ""]
+    result = []
     for project_id, slug in declared:
         row = db.query_quiet(_coverage_sql(int(project_id)))
-        total, covered = (row[0] if row else (0, 0))
-        total = int(total or 0)
-        covered = int(covered or 0)
-        if total:
-            pct = round(100.0 * covered / total, 1)
-            lines.append(
-                f"  {slug}: {pct}% classified · "
-                f"{total - covered} unclassified of {total} python files"
-            )
-        else:
-            lines.append(f"  {slug}: map declared · no snapshot yet")
-    lines.append(
-        "  violations: `yoke project-structure architecture-health get "
-        "--project <slug>`"
-    )
-    return "\n".join(lines)
+        total, covered = row[0] if row else (0, 0)
+        result.append(
+            {"project": slug, "total": int(total or 0), "covered": int(covered or 0)}
+        )
+    return result
 
 
-__all__ = ["render_architecture_section"]
+def render_architecture_section(db: BoardDBLike, scope: str) -> str:
+    """Render the scoped architecture coverage facts."""
+    return render_architecture_rows(collect_architecture_rows(db, scope))
+
+
+__all__ = ["collect_architecture_rows", "render_architecture_section"]

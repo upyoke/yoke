@@ -13,7 +13,6 @@ from datetime import datetime
 import json
 from typing import Any, Iterable, Mapping, Optional
 
-from yoke_core.domain.qa_converging_columns import converged_values
 from yoke_core.domain.db_helpers import instant_parameter, query_one
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder
 from yoke_core.domain.qa_events import emit_qa_requirement_event
@@ -159,7 +158,7 @@ def insert_requirement(
         target_env=target_env,
     )
     require_case_target(case_target_subject(case, definition), execution_target)
-    stored = converged_values(conn, "qa_requirements", definition)
+    stored = definition
     subject = {
         "standalone_execution_id": standalone_execution_id,
         "item_id": item_id,
@@ -238,7 +237,7 @@ def refresh_requirement(
         target_env=target_env,
     )
     require_case_target(case_target_subject(case, definition), execution_target)
-    stored = converged_values(conn, "qa_requirements", definition)
+    stored = definition
     assignments = ", ".join(f"{column}={marker}" for column in stored)
     conn.execute(
         f"UPDATE qa_requirements SET {assignments}, "

@@ -29,7 +29,7 @@ from yoke_core.domain.flow_create import cmd_create
 from yoke_core.domain.flow_crud import cmd_update_stages
 
 ENTRY_NAME = "0047_deployment_flow_delivery_custody"
-V2_STAGES = json.dumps(
+EXECUTION_STAGES = json.dumps(
     [
         {
             "name": "stage",
@@ -39,7 +39,6 @@ V2_STAGES = json.dumps(
         }
     ]
 )
-V1_STAGES = json.dumps([{"name": "stage", "step_runner": "auto"}])
 ITEM_ID = 9601
 
 
@@ -58,9 +57,7 @@ def _create(
     kwargs: dict[str, Any] = {}
     if takes_delivery_custody is not None:
         kwargs["takes_delivery_custody"] = takes_delivery_custody
-    cmd_create(
-        conn, flow_id, "yoke", name, "", stages, status="disabled", **kwargs
-    )
+    cmd_create(conn, flow_id, "yoke", name, "", stages, status="disabled", **kwargs)
 
 
 def _custody(conn: Any, flow_id: str) -> int:
@@ -98,25 +95,23 @@ def seeded(test_db: Any) -> Any:
     return test_db
 
 
-def test_omitted_flag_stores_the_schema_version_default(seeded: Any) -> None:
-    _create(seeded, "v2-default", V2_STAGES, name="V2 default")
-    _create(seeded, "v1-default", V1_STAGES, name="V1 default")
-    assert _custody(seeded, "v2-default") == 1
-    assert _custody(seeded, "v1-default") == 0
+def test_omitted_flag_takes_delivery_custody(seeded: Any) -> None:
+    _create(seeded, "default-custody", EXECUTION_STAGES, name="Default custody")
+    assert _custody(seeded, "default-custody") == 1
 
 
-def test_v2_vocabulary_can_decline_delivery_custody(
+def test_execution_flow_can_decline_delivery_custody(
     seeded: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _create(
         seeded,
-        "v2-none",
-        V2_STAGES,
-        name="V2 no custody",
+        "without-custody",
+        EXECUTION_STAGES,
+        name="Without custody",
         takes_delivery_custody=False,
     )
-    _candidate(seeded, tmp_path, monkeypatch, "v2-none")
-    assert _custody(seeded, "v2-none") == 0
+    _candidate(seeded, tmp_path, monkeypatch, "without-custody")
+    assert _custody(seeded, "without-custody") == 0
     assert requires_release_admission(seeded, "run-candidate") is False
     assert carried_enrollment_blocked(seeded, "run-candidate") == (
         "flow_without_delivery_custody"
@@ -124,32 +119,38 @@ def test_v2_vocabulary_can_decline_delivery_custody(
     assert enroll_carried_members(seeded, "run-candidate") == ()
 
 
-def test_v1_vocabulary_can_take_delivery_custody(
+def test_execution_flow_can_take_delivery_custody(
     seeded: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _create(
         seeded,
-        "v1-yes",
-        V1_STAGES,
-        name="V1 with custody",
+        "with-custody",
+        EXECUTION_STAGES,
+        name="With custody",
         takes_delivery_custody=True,
     )
-    ref = _candidate(seeded, tmp_path, monkeypatch, "v1-yes")
+    ref = _candidate(seeded, tmp_path, monkeypatch, "with-custody")
     assert requires_release_admission(seeded, "run-candidate") is True
     assert enroll_carried_members(seeded, "run-candidate") == (ref,)
 
 
-def test_adding_stage_kind_does_not_change_custody(seeded: Any) -> None:
-    _create(seeded, "annotate", V1_STAGES, name="Annotate")
+def test_editing_stages_does_not_change_custody(seeded: Any) -> None:
+    _create(
+        seeded,
+        "annotate",
+        EXECUTION_STAGES,
+        name="Annotate",
+        takes_delivery_custody=False,
+    )
     assert _custody(seeded, "annotate") == 0
-    cmd_update_stages(seeded, "annotate", V2_STAGES)
+    stages = json.loads(EXECUTION_STAGES)
+    stages[0]["name"] = "release"
+    cmd_update_stages(seeded, "annotate", json.dumps(stages))
     row = seeded.execute(
         "SELECT definition_schema_version, takes_delivery_custody "
         "FROM deployment_flows WHERE id='annotate'"
     ).fetchone()
-    version = (
-        row["definition_schema_version"] if hasattr(row, "keys") else row[0]
-    )
+    version = row["definition_schema_version"] if hasattr(row, "keys") else row[0]
     custody = row["takes_delivery_custody"] if hasattr(row, "keys") else row[1]
     assert int(version) == 2
     assert int(custody) == 0
@@ -157,17 +158,16 @@ def test_adding_stage_kind_does_not_change_custody(seeded: Any) -> None:
 
 def test_backfill_fills_nulls_and_leaves_authored_zero(seeded: Any) -> None:
     entry = _entry()
-    _create(seeded, "backfill-v2", V2_STAGES, name="Backfill v2")
+    _create(seeded, "backfill-v2", EXECUTION_STAGES, name="Backfill v2")
     _create(
         seeded,
         "authored-zero",
-        V2_STAGES,
+        EXECUTION_STAGES,
         name="Authored zero",
         takes_delivery_custody=False,
     )
     seeded.execute(
-        "ALTER TABLE deployment_flows ALTER COLUMN takes_delivery_custody "
-        "DROP NOT NULL"
+        "ALTER TABLE deployment_flows ALTER COLUMN takes_delivery_custody DROP NOT NULL"
     )
     seeded.execute(
         "UPDATE deployment_flows SET takes_delivery_custody = NULL "
@@ -183,10 +183,8 @@ def test_backfill_fills_nulls_and_leaves_authored_zero(seeded: Any) -> None:
 
 def test_backfill_adds_the_column_when_absent(seeded: Any) -> None:
     entry = _entry()
-    _create(seeded, "pre-column", V2_STAGES, name="Pre column")
-    seeded.execute(
-        "ALTER TABLE deployment_flows DROP COLUMN takes_delivery_custody"
-    )
+    _create(seeded, "pre-column", EXECUTION_STAGES, name="Pre column")
+    seeded.execute("ALTER TABLE deployment_flows DROP COLUMN takes_delivery_custody")
     seeded.commit()
     entry.apply(seeded)
     seeded.commit()

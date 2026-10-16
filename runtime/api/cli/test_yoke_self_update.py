@@ -39,7 +39,7 @@ def _target(version: str, channel: str = "stable") -> release_target.ReleaseTarg
     return release_target.ReleaseTarget(
         version=version,
         source_commit=source_commit,
-        image=pinned_server_image(source_commit),
+        image=pinned_server_image(version),
         base_url="https://distribution.example",
         channel=channel,
         installer_url="https://distribution.example/dist/install.py",
@@ -71,7 +71,7 @@ def test_already_current_skips_reinstall_but_repairs_helper_in_process(monkeypat
     monkeypatch.setattr(
         self_update.install_binding,
         "detect",
-        lambda: _binding(KIND_PACKAGED_WHEEL, "0.1.1+launch.434"),
+        lambda: _binding(KIND_PACKAGED_WHEEL, "0.2.0.202610140434"),
     )
     monkeypatch.setattr(
         self_update.shutil, "which", lambda _name: "/usr/local/bin/yoke"
@@ -79,7 +79,7 @@ def test_already_current_skips_reinstall_but_repairs_helper_in_process(monkeypat
     monkeypatch.setattr(
         self_update.release_target,
         "channel_release_target",
-        lambda **_kwargs: _target("0.1.1+launch.434"),
+        lambda **_kwargs: _target("0.2.0.202610140434"),
     )
     monkeypatch.setattr(
         self_update.release_target,
@@ -95,8 +95,8 @@ def test_already_current_skips_reinstall_but_repairs_helper_in_process(monkeypat
     result = self_update.run_update()
 
     assert result == {
-        "old_version": "0.1.1+launch.434",
-        "new_version": "0.1.1+launch.434",
+        "old_version": "0.2.0.202610140434",
+        "new_version": "0.2.0.202610140434",
         "already_current": True,
         "channel": "stable",
         "base_url": "https://distribution.example",
@@ -113,7 +113,7 @@ def _stub_version_change(
     monkeypatch.setattr(
         self_update.install_binding,
         "detect",
-        lambda: _binding(KIND_PACKAGED_WHEEL, "0.1.1+launch.433"),
+        lambda: _binding(KIND_PACKAGED_WHEEL, "0.2.0.202610140433"),
     )
     monkeypatch.setattr(
         self_update.shutil, "which", lambda _name: "/usr/local/bin/yoke"
@@ -121,7 +121,7 @@ def _stub_version_change(
     monkeypatch.setattr(
         self_update.release_target,
         "channel_release_target",
-        lambda **_kwargs: _target("0.1.1+launch.434"),
+        lambda **_kwargs: _target("0.2.0.202610140434"),
     )
     monkeypatch.setattr(
         self_update.release_target, "fetch_installer", lambda _target: b"installer"
@@ -146,7 +146,7 @@ def test_version_change_reinstall_success_has_no_independent_repair_signal(
 
     def run(command, **_kwargs):
         calls.append(tuple(command))
-        return _completed(command, stdout="0.1.1+launch.434\n")
+        return _completed(command, stdout="0.2.0.202610140434\n")
 
     monkeypatch.setattr(self_update, "_RUN", run)
 
@@ -154,8 +154,8 @@ def test_version_change_reinstall_success_has_no_independent_repair_signal(
 
     # No second subprocess call for the repair: only the version probe runs.
     assert calls == [("/usr/local/bin/yoke", "--version")]
-    assert result["old_version"] == "0.1.1+launch.433"
-    assert result["new_version"] == "0.1.1+launch.434"
+    assert result["old_version"] == "0.2.0.202610140433"
+    assert result["new_version"] == "0.2.0.202610140434"
     assert result["already_current"] is False
     assert result["credential_helper_configured"] is None
     assert result["credential_helper_repaired"] is None
@@ -182,7 +182,7 @@ def test_stale_version_after_successful_installer_run_raises(monkeypatch):
     monkeypatch.setattr(
         self_update.install_binding,
         "detect",
-        lambda: _binding(KIND_PACKAGED_WHEEL, "0.1.1+launch.433"),
+        lambda: _binding(KIND_PACKAGED_WHEEL, "0.2.0.202610140433"),
     )
     monkeypatch.setattr(
         self_update.shutil, "which", lambda _name: "/usr/local/bin/yoke"
@@ -190,7 +190,7 @@ def test_stale_version_after_successful_installer_run_raises(monkeypatch):
     monkeypatch.setattr(
         self_update.release_target,
         "channel_release_target",
-        lambda **_kwargs: _target("0.1.1+launch.434"),
+        lambda **_kwargs: _target("0.2.0.202610140434"),
     )
     monkeypatch.setattr(
         self_update.release_target, "fetch_installer", lambda _target: b"installer"
@@ -206,14 +206,14 @@ def test_stale_version_after_successful_installer_run_raises(monkeypatch):
     monkeypatch.setattr(
         self_update,
         "_RUN",
-        lambda command, **_k: _completed(command, stdout="0.1.1+launch.433\n"),
+        lambda command, **_k: _completed(command, stdout="0.2.0.202610140433\n"),
     )
 
     with pytest.raises(self_update.SelfUpdateError) as raised:
         self_update.run_update()
 
-    assert "0.1.1+launch.433" in str(raised.value)
-    assert "0.1.1+launch.434" in str(raised.value)
+    assert "0.2.0.202610140433" in str(raised.value)
+    assert "0.2.0.202610140434" in str(raised.value)
 
 
 def test_credential_repair_failure_surfaces_distinctly_from_a_legitimate_no_op(
@@ -222,7 +222,7 @@ def test_credential_repair_failure_surfaces_distinctly_from_a_legitimate_no_op(
     monkeypatch.setattr(
         self_update.install_binding,
         "detect",
-        lambda: _binding(KIND_PACKAGED_WHEEL, "0.1.1+launch.434"),
+        lambda: _binding(KIND_PACKAGED_WHEEL, "0.2.0.202610140434"),
     )
     monkeypatch.setattr(
         self_update.shutil, "which", lambda _name: "/usr/local/bin/yoke"
@@ -230,7 +230,7 @@ def test_credential_repair_failure_surfaces_distinctly_from_a_legitimate_no_op(
     monkeypatch.setattr(
         self_update.release_target,
         "channel_release_target",
-        lambda **_kwargs: _target("0.1.1+launch.434"),
+        lambda **_kwargs: _target("0.2.0.202610140434"),
     )
     monkeypatch.setattr(
         self_update.github_repo_helper_reconnect,
@@ -253,7 +253,7 @@ def test_installer_failure_raises_with_diagnostic(monkeypatch):
     monkeypatch.setattr(
         self_update.install_binding,
         "detect",
-        lambda: _binding(KIND_PACKAGED_WHEEL, "0.1.1+launch.433"),
+        lambda: _binding(KIND_PACKAGED_WHEEL, "0.2.0.202610140433"),
     )
     monkeypatch.setattr(
         self_update.shutil, "which", lambda _name: "/usr/local/bin/yoke"
@@ -261,7 +261,7 @@ def test_installer_failure_raises_with_diagnostic(monkeypatch):
     monkeypatch.setattr(
         self_update.release_target,
         "channel_release_target",
-        lambda **_kwargs: _target("0.1.1+launch.434"),
+        lambda **_kwargs: _target("0.2.0.202610140434"),
     )
     monkeypatch.setattr(
         self_update.release_target, "fetch_installer", lambda _target: b"installer"
@@ -285,8 +285,8 @@ def test_command_reports_update_and_repair(monkeypatch, capsys):
         command.self_update,
         "run_update",
         lambda **_kwargs: {
-            "old_version": "0.1.1+launch.433",
-            "new_version": "0.1.1+launch.434",
+            "old_version": "0.2.0.202610140433",
+            "new_version": "0.2.0.202610140434",
             "already_current": False,
             "channel": "stable",
             "base_url": "https://distribution.example",
@@ -299,7 +299,7 @@ def test_command_reports_update_and_repair(monkeypatch, capsys):
 
     assert command.update([]) == 0
     output = capsys.readouterr().out
-    assert "0.1.1+launch.433 -> 0.1.1+launch.434" in output
+    assert "0.2.0.202610140433 -> 0.2.0.202610140434" in output
     assert "Rebuilt the git credential helper bundle" in output
 
 
@@ -311,8 +311,8 @@ def test_command_surfaces_a_repair_failure_as_a_warning_and_non_zero_exit(
         command.self_update,
         "run_update",
         lambda **_kwargs: {
-            "old_version": "0.1.1+launch.433",
-            "new_version": "0.1.1+launch.434",
+            "old_version": "0.2.0.202610140433",
+            "new_version": "0.2.0.202610140434",
             "already_current": False,
             "channel": "stable",
             "base_url": "https://distribution.example",
@@ -324,7 +324,7 @@ def test_command_surfaces_a_repair_failure_as_a_warning_and_non_zero_exit(
 
     assert command.update([]) == 1
     output = capsys.readouterr().out
-    assert "0.1.1+launch.433 -> 0.1.1+launch.434" in output
+    assert "0.2.0.202610140433 -> 0.2.0.202610140434" in output
     assert "warning: git credential helper repair failed: permission denied" in output
 
 

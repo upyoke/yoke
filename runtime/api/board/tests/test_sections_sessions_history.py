@@ -60,7 +60,9 @@ def test_active_and_closed_rows_render_the_same_holdings_shape(monkeypatch) -> N
     monkeypatch.setattr(
         sections_sessions, "session_level_presentation", lambda *_args: None
     )
-    monkeypatch.setattr(sections_sessions, "_format_session_age", lambda _value: "1h")
+    monkeypatch.setattr(
+        "yoke_contracts.board.session_data._format_session_age", lambda _value: "1h"
+    )
 
     rendered = sections_sessions.render_sessions_section(object())
 

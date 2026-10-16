@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import sqlite3
+from runtime.api.domain.session_roster_test_support import add_launch_read_schema
 
 from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_contracts.session_control.wake_delivery import WAKE_DELIVERED_RESULT
@@ -86,6 +87,7 @@ def _conn() -> sqlite3.Connection:
         );
         """
     )
+    add_launch_read_schema(conn)
     return conn
 
 

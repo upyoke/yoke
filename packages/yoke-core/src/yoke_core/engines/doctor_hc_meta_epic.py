@@ -255,9 +255,6 @@ def hc_missing_flow(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         )
         return
 
-    # blocked is now a flag; the legacy 'blocked' status survives
-    # only as drift (HC-blocked-status-drift owns it). Exclude blocked-flag
-    # rows via the canonical flag check.
     rows = query_rows(
         conn,
         "SELECT i.id, i.status, p.slug AS project FROM items i "

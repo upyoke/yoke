@@ -32,6 +32,8 @@ PRODUCT_AUTHZ_BY_ID = {
     # Universe levels label every session and choose every launch in every
     # project that has no override of its own.
     "universe.levels.get": AuthzSpec(ACTOR_SESSION, None),
+    "universe.retention.get": AuthzSpec(ORG, PERM_ORG_ADMIN),
+    "universe.prune.run": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "universe.level_capacity.get": AuthzSpec(ACTOR_SESSION, None),
     "universe.levels.set": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "universe.cursor_quota_order.get": AuthzSpec(ACTOR_SESSION, None),
@@ -51,6 +53,7 @@ PRODUCT_AUTHZ_BY_ID = {
     "machine_authorization.handoff": AuthzSpec(ACTOR_SESSION, None),
     "machine_authorization.handoff_poll": AuthzSpec(ACTOR_SESSION, None),
     "machine_authorization.get": AuthzSpec(ACTOR_SESSION, None),
+    "machine_authorization.pending": AuthzSpec(ACTOR_SESSION, None),
     "machine_authorization.resolve": AuthzSpec(ACTOR_SESSION, None),
     "decision_requests.create": AuthzSpec(ACTOR_SESSION, None),
     "decision_requests.get": AuthzSpec(ACTOR_SESSION, None),
@@ -87,6 +90,8 @@ PRODUCT_AUTHZ_BY_ID = {
     "session_ci_wait.resolve": AuthzSpec(ACTOR_SESSION, None),
     # Promotion materializes a Dash in the note's project (payload.project overrides).
     "ouroboros.field_note.promote": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "ouroboros.reflection.capture": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "merge.audit.snapshot": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     # Merge / done-transition engine-internal writes. Each mutates one
     # project's tenant data (path snapshot, item deployed_to/merged_at,
     # post-rebase QA), so the blast radius is PROJECT; they are
@@ -206,8 +211,6 @@ PRODUCT_AUTHZ_BY_ID = {
     "deployment_runs.execution.ephemeral_qa_ready": AuthzSpec(
         PROJECT, PERM_PROJECT_ADMIN
     ),
-    "deployment_runs.execution.qa_seed": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
-    "deployment_runs.execution.qa_record": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "deployment_runs.execution.qa_pending": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "deployment_runs.execution.stage_receipt_allocate": AuthzSpec(
         PROJECT, PERM_PROJECT_ADMIN

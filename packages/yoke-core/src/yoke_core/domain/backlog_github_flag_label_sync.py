@@ -21,6 +21,7 @@ from yoke_core.domain.backlog_github_fetch import (
 def _flag_engine():
     """Live shared flag-label engine (call-time patch target)."""
     from yoke_core.domain import backlog_github_state_sync as mod
+
     return mod._sync_flag_label
 
 
@@ -33,10 +34,15 @@ def sync_frozen_label(
     stderr: Optional[TextIO] = None,
 ) -> int:
     return _flag_engine()(
-        item_id, frozen_value,
-        label="frozen", color=FROZEN_LABEL_COLOR,
-        description="Item is frozen", log_name="frozen",
-        conn=conn, stdout=stdout or sys.stdout, stderr=stderr or sys.stderr,
+        item_id,
+        frozen_value,
+        label="frozen",
+        color=FROZEN_LABEL_COLOR,
+        description="Item is frozen",
+        log_name="frozen",
+        conn=conn,
+        stdout=stdout or sys.stdout,
+        stderr=stderr or sys.stderr,
     )
 
 
@@ -48,19 +54,17 @@ def sync_blocked_label(
     stdout: Optional[TextIO] = None,
     stderr: Optional[TextIO] = None,
 ) -> int:
-    """Add or remove the GitHub `blocked` label based on items.blocked.
-
-    flag-driven label. The obsolete ``status:blocked`` label is no
-    longer written by any code path; whenever the flag clears, this also
-    scrubs ``status:blocked`` from the issue so a row repaired by the
-    migration converges on a single blocked indicator.
-    """
+    """Add or remove the GitHub `blocked` label based on items.blocked."""
     return _flag_engine()(
-        item_id, blocked_value,
-        label="blocked", color=BLOCKED_LABEL_COLOR,
-        description="Item blocked (flag)", log_name="blocked",
-        conn=conn, stdout=stdout or sys.stdout, stderr=stderr or sys.stderr,
-        extra_remove_on_clear=("status:blocked",),
+        item_id,
+        blocked_value,
+        label="blocked",
+        color=BLOCKED_LABEL_COLOR,
+        description="Item blocked (flag)",
+        log_name="blocked",
+        conn=conn,
+        stdout=stdout or sys.stdout,
+        stderr=stderr or sys.stderr,
     )
 
 

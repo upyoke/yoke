@@ -85,7 +85,12 @@ def execute_authorized_case(
     """Authorize a case, refuse an uncredited item-scoped stage, then run it."""
     from yoke_core.domain import qa_case_execution as cases
 
-    case = cases.fetch_case_execution_context(requirement_id, actor=actor)
+    selection = {}
+    if checkout_path is not None:
+        selection["checkout_path"] = checkout_path
+    if expected_branch:
+        selection["expected_branch"] = expected_branch
+    case = cases.fetch_case_execution_context(requirement_id, actor=actor, **selection)
     refusal = item_scoped_stage_credit_refusal(case)
     if refusal:
         raise cases.QaCaseExecutionError(refusal)

@@ -177,35 +177,6 @@ def replayed_run_note(run_id: str, key: str) -> str:
 
 #: ``deployment_runs.create`` receipt ``idempotency_basis`` values.
 BASIS_RECORDED_KEY = "recorded_key"
-BASIS_UNCONVERGED_REQUEST_MATCH = "unconverged_request_match"
-
-
-def unconverged_key_note(run_id: str, key: str, replayed: bool) -> str:
-    """Post-create stderr line when the database cannot store the key yet."""
-    found = (
-        f"returned {run_id}, the one not-yet-started run with this exact request"
-        if replayed
-        else f"created {run_id}"
-    )
-    return (
-        f"note: {found}. This control plane's deployment_runs has not "
-        f"converged its idempotency columns, so key {key!r} is not stored; "
-        "they arrive when the serving build boots the current release. Until "
-        f"{run_id} starts, repeating this identical command returns it. Once "
-        "it has started, a repeat creates another run — check `yoke "
-        "deployment-runs list` first."
-    )
-
-
-def unkeyed_server_warning(run_id: str) -> str:
-    """Post-create stderr line when the control plane ignored the key."""
-    return (
-        f"warning: created {run_id}, but the serving control plane predates "
-        "idempotent create and ignored --idempotency-key, so repeating this "
-        "command WILL mint another run. Before any repeat, check "
-        "`yoke deployment-runs list` for a run already created; install the "
-        "current Yoke release on that control plane to make create retry-safe."
-    )
 
 
 def takeover_note(run_id: str, superseded: str) -> str:
@@ -227,7 +198,6 @@ def execute_created_run_note(authority: str, run_id: str) -> str:
 
 __all__ = [
     "BASIS_RECORDED_KEY",
-    "BASIS_UNCONVERGED_REQUEST_MATCH",
     "CREATE_DESCRIPTION",
     "CREATE_RETRY_GUIDANCE",
     "FINALIZATION_PENDING_PREFIX",
@@ -238,6 +208,4 @@ __all__ = [
     "execute_created_run_note",
     "replayed_run_note",
     "takeover_note",
-    "unconverged_key_note",
-    "unkeyed_server_warning",
 ]

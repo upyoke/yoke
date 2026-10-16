@@ -7,8 +7,8 @@ Lives in its own module to keep ``test_watch_pytest.py`` under the
 - Bare ``runtime/`` as a pytest path anchors collection at ``runtime/``
   and demotes ``runtime/api/conftest.py`` from initial-conftest status
   (``pytest_plugins`` in a non-top-level conftest fails collection).
-  The wrapper refuses the shape with a repair message naming the
-  three-anchor full-suite shape ``runtime/api/ runtime/harness/ tests/``.
+  The wrapper refuses the shape with targeted/impacted iteration and
+  attached QA recovery.
 - Collection/usage error lines (``ERROR: file or directory not
   found:``, ``ERROR: usage:``, argparse detail lines, xdist
   ``INTERNALERROR>``/worker-count lines, ``no tests ran`` verdicts)
@@ -125,8 +125,9 @@ class TestBareRuntimeRefusal:
         assert rc == 2
         captured = capsys.readouterr()
         assert "refuses bare 'runtime/'" in captured.err
-        # The repair message names the three-anchor full-suite shape.
-        assert "runtime/api/ runtime/harness/ tests/" in captured.err
+        # The repair names bounded iteration and the registered full gate.
+        assert "--impacted main --bounded" in captured.err
+        assert "yoke qa case run --requirement-id" in captured.err
         assert "non-top-level conftest" in captured.err
         # Nothing lands on stdout: no streaming pair, no progress.
         assert captured.out == ""
@@ -141,7 +142,7 @@ class TestBareRuntimeRefusal:
         assert "refuses bare 'runtime/'" in captured.err
         assert "watch_tail" not in captured.out
 
-    def test_help_teaches_three_anchor_full_suite_shape(
+    def test_help_teaches_iteration_then_attached_full_gate(
         self,
         capsys: pytest.CaptureFixture[str],
         monkeypatch: pytest.MonkeyPatch,
@@ -153,7 +154,9 @@ class TestBareRuntimeRefusal:
             watch_pytest.main(["--help"])
         assert exc_info.value.code == 0
         out = capsys.readouterr().out
-        assert "runtime/api/ runtime/harness/ tests/" in out
+        assert "--impacted main --bounded" in out
+        assert "yoke qa case run --requirement-id" in out
+        assert "before push/dispatch" in out
         assert "bare 'runtime/'" in out
 
 

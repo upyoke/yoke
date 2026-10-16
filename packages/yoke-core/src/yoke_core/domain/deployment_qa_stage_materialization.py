@@ -84,6 +84,11 @@ def materialize_deployment_qa_stage(
             MaterializationProjection,
         )
 
+        from yoke_core.domain.deployment_qa_snapshot_selection import (
+            freeze_selected_plans,
+        )
+
+        freeze_selected_plans(conn, subject, snapshots)
         projection = MaterializationProjection(
             conn, deployment_run_id, deployment_stage
         )

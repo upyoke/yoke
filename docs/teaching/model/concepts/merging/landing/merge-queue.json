@@ -4,5 +4,5 @@
  "status": "draft-copy",
  "page": "merging",
  "position": 1,
- "description": "A queue entry marked UNMERGEABLE stops the landing even before GitHub removes it. The landing notice names rebase onto the base, verification, and governed merge re-entry."
+ "description": "A merged PR receives an atomic item-owned merge receipt and landing stamps before the holder is notified. Worker closeout still owns results and verification. A queue entry marked UNMERGEABLE stops the landing even before GitHub removes it. The landing notice names rebase onto the base, verification, and governed merge re-entry."
 }

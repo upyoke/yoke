@@ -236,9 +236,6 @@ class TestClassifyItemState:
     def test_release_is_active_work(self):
         assert classify_item_state("release", 0) == "active_work"
 
-    def test_blocked_is_active_work(self):
-        assert classify_item_state("blocked", 0) == "active_work"
-
     def test_idea_is_pipeline(self):
         assert classify_item_state("idea", 0) == "pipeline"
 

@@ -1,17 +1,6 @@
-"""Scheduler-side blocked details name real dependency edges only.
-
-``GateEvaluation`` describes a dependency edge: ``blocking_item``,
-``gate_point``, ``satisfaction``. Only typed ``blocker_details`` from the
-shared planning kernel populate ``gate_evaluations``. Non-edge causes
-(idea_incomplete, operator-flagged via ``items.blocked``, legacy
-``status='blocked'`` drift) leave ``gate_evaluations`` empty; the human
-message lives in ``blocked_reasons``. ``"unknown"`` should never appear
-as a synthesized blocker.
-"""
+"""Current item flags and dependency waits retain their reasons."""
 
 from __future__ import annotations
-
-import pytest
 
 from yoke_core.domain.scheduler import compute_schedule
 from runtime.api.frontier_test_helpers import (
@@ -57,23 +46,7 @@ def test_operator_block_emits_no_synthesized_gate_evaluation():
     sched = compute_schedule(conn, project_scope=["yoke"])
     blocked = next(s for s in sched.blocked_steps if s.item_id == 10)
     assert blocked.gate_evaluations == []
-    assert any(
-        "Awaiting external API contract" in r for r in blocked.blocked_reasons
-    )
-
-
-def test_legacy_blocked_status_emits_no_synthesized_gate_evaluation():
-    """Legacy status='blocked' (no flag, no deps) produces no GateEvaluation."""
-    conn = make_test_db()
-    insert_item(conn, 10, status="blocked")
-    conn.commit()
-
-    sched = compute_schedule(conn, project_scope=["yoke"])
-    blocked = next(s for s in sched.blocked_steps if s.item_id == 10)
-    assert blocked.gate_evaluations == []
-    assert any(
-        "legacy blocked status" in r for r in blocked.blocked_reasons
-    )
+    assert any("Awaiting external API contract" in r for r in blocked.blocked_reasons)
 
 
 def test_blocked_flag_with_dependency_surfaces_both():

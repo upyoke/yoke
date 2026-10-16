@@ -201,11 +201,66 @@ def require_reachable_admitted_copies(conn: Any, requirement_ids: list[int]) -> 
     refusals = []
     for requirement_id in requirement_ids:
         copies = admitted_copies_in_flight(conn, int(requirement_id))
+        for run_id in sorted({copy.run_id for copy in copies}):
+            query_one(
+                conn, "SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE", (run_id,)
+            )
+        copies = admitted_copies_in_flight(conn, int(requirement_id))
         refusal = unreachable_copy_refusal(int(requirement_id), copies)
         if refusal:
             refusals.append(refusal)
     if refusals:
         raise QaPlanError(" ".join(refusals))
+    for requirement_id in requirement_ids:
+        for copy in admitted_copies_in_flight(conn, int(requirement_id)):
+            _correct_selected_copy(
+                conn, requirement_id, copy.requirement_id, write=False
+            )
+
+
+def _correct_selected_copy(conn, source_id, copy_id, *, write):
+    from yoke_core.domain.deployment_qa_snapshot_correction import (
+        selected_plan_owners,
+        refresh_selected_cases,
+    )
+    from yoke_core.domain.qa_plan_case_definition import plan_cases
+    from yoke_core.domain.qa_plan_source_revision import require_candidate_plan
+    from yoke_core.domain.qa_plan_management import _plan_row
+
+    row = query_one(
+        conn,
+        "SELECT q.plan_id,q.plan_case_key,q.deployment_run_id,q.deployment_stage,"
+        "q.execution_target_json,q.execution_target_digest,"
+        "s.item_id FROM qa_requirements q JOIN qa_requirements s ON s.id=%s "
+        "WHERE q.id=%s",
+        (source_id, copy_id),
+    )
+    if row["plan_id"] is None:
+        return
+    require_candidate_plan(
+        conn, _plan_row(conn, row["plan_id"]), row["deployment_run_id"]
+    )
+    scope = dict(
+        run_id=row["deployment_run_id"],
+        stage=row["deployment_stage"],
+        plan_id=row["plan_id"],
+        member_item_id=row["item_id"],
+    )
+    import json
+
+    target = row["execution_target_json"]
+    target = target if isinstance(target, dict) else json.loads(str(target or "{}"))
+    if (target.get("deployment") or {}).get("shared_plan"):
+        scope["shared_target_digest"] = row["execution_target_digest"]
+    if not write:
+        selected_plan_owners(conn, **scope)
+        return
+    cases = [
+        case
+        for case in plan_cases(conn, row["plan_id"])
+        if case["case_key"] == row["plan_case_key"]
+    ]
+    refresh_selected_cases(conn, **scope, cases=cases)
 
 
 def correct_admitted_copies(
@@ -244,6 +299,8 @@ def correct_admitted_copies(
             # keeps the caller's rollback the single outcome.
             raise QaPlanError(refusal)
         corrected.update(reached)
+    for copy_id in sorted(corrected):
+        _correct_selected_copy(conn, source_requirement_id, copy_id, write=True)
     return sorted(corrected)
 
 

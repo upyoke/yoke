@@ -190,7 +190,7 @@ class TestPerformance:
         statuses = [
             "idea", "refining-idea", "refined-idea", "planning", "planned",
             "implementing", "reviewing-implementation", "implemented",
-            "release", "blocked",
+            "release",
         ]
         priorities = ["high", "medium", "low"]
         for i in range(1, 501):

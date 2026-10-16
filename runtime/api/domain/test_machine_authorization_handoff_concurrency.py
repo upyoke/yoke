@@ -12,7 +12,7 @@ from yoke_core.domain.api_tokens import (
     bootstrap_admin_token,
     bootstrap_hosted_service_token,
 )
-from yoke_core.domain import machine_authorization_codes as codes
+from yoke_core.domain import machine_authorization_decisions as decisions
 from yoke_core.domain.external_identities import default_org_id
 from yoke_core.domain.machine_authorization_handoff import handoff
 from yoke_core.domain.machine_authorization_handoff_poll import handoff_poll
@@ -35,7 +35,9 @@ def test_concurrent_service_polls_deliver_one_token(tmp_path):
                 org_id=org_id,
                 actor_id=service.actor_id,
             )
-            codes.resolve(conn, code="K7F2", actor_id=human.actor_id, action="approve")
+            decisions.resolve(
+                conn, code="K7F2", actor_id=human.actor_id, action="approve"
+            )
         ready = threading.Barrier(2)
 
         def poll():

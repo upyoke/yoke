@@ -43,12 +43,14 @@ def _run(monkeypatch, contract, *, outcome="passed", reset_ok=True, raises=None)
         ran.append(case.requirement_id)
         if raises is not None:
             raise raises
-        verdict = {"passed": "pass", "failed": "fail"}[outcome]
+        verdict = {"passed": "pass", "failed": "fail", "needs_review": "pending"}[
+            outcome
+        ]
         return MachineCaseResult(
             case_outcome=outcome,
             verdict=verdict,
             evidence={"runner_id": "host_control", "machine": "mac-mini-lab"},
-            error_code=None if outcome == "passed" else "check_failed",
+            error_code="check_failed" if outcome == "failed" else None,
         )
 
     execution = SimpleNamespace(
@@ -112,3 +114,39 @@ def test_a_local_error_still_restores_and_says_so(monkeypatch) -> None:
             raises=RuntimeError("terminal bridge lost"),
         )
     assert "starting state restored to 'fresh-host'" in raised.value.__notes__
+
+
+@pytest.mark.parametrize("ends_chain", [False, True])
+def test_successful_pending_review_capture_preserves_only_intermediate_state(
+    monkeypatch,
+    ends_chain,
+):
+    row, reached, _ = _run(
+        monkeypatch,
+        _contract(baselines=["fresh-host"], ends_chain=ends_chain),
+        outcome="needs_review",
+    )
+    assert row["case_outcome"] == "needs_review"
+    assert row["verdict"] == "pending"
+    assert reached == ["fresh-host"] * (2 if ends_chain else 1)
+    assert ("starting_state_restore" in row["evidence"]) == ends_chain
+
+
+@pytest.mark.parametrize(
+    "capture",
+    [
+        {"case_outcome": "needs_review", "error_code": "capture_failed"},
+        {"case_outcome": "needs_review", "execution_status": "capture_failed"},
+        {"case_outcome": "needs_review", "verdict": "fail"},
+        {"case_outcome": "waiting"},
+        {"case_outcome": "error"},
+    ],
+)
+def test_unsuccessful_capture_never_permits_chain_continuation(capture):
+    from yoke_core.domain.machine_qa_chain_restore import (
+        capture_allows_chain,
+        restore_due,
+    )
+
+    assert not capture_allows_chain(capture)
+    assert restore_due(SimpleNamespace(ends_chain=False), **capture)

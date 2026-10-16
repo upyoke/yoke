@@ -33,9 +33,17 @@ def test_handshake_build_is_an_exact_wheel_version(build: str) -> None:
         release_version_from_build("not-a-version")
 
 
-def test_numeric_served_build_installs_exact_origin_then_reuses(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("release", "encoded"),
+    [
+        ("0.2.0.202610150430", "0.2.0.202610150430"),
+        ("0.1.1+launch.633", "0.1.1%2Blaunch.633"),
+    ],
+)
+def test_served_build_installs_exact_origin_then_reuses(
+    tmp_path: Path, release: str, encoded: str
+) -> None:
     instance = relay_instance(tmp_path)
-    release = "0.2.0.202610150430"
     calls: list[list[str]] = []
     status = pin_relay_release(
         instance=instance,
@@ -46,10 +54,11 @@ def test_numeric_served_build_installs_exact_origin_then_reuses(tmp_path: Path) 
     assert status.current
     assert status.pinned_release == status.served_build == release
     assert calls[0][-4:] == [
-        f"https://wheels.example.test/dist/releases/{release}/wheels/"
-        f"yoke_{name}-{release}-py3-none-any.whl"
+        f"https://wheels.example.test/dist/releases/{encoded}/wheels/"
+        f"yoke_{name}-{encoded}-py3-none-any.whl"
         for name in ("contracts", "cli", "harness", "core")
     ]
+    assert calls[0][1:5] == ["-I", "-m", "pip", "--isolated"]
     assert "--extra-index-url" not in calls[0]
     prior = (instance.state_dir / "release").resolve()
     reused = pin_relay_release(
@@ -82,7 +91,7 @@ def test_numeric_served_build_installs_exact_origin_then_reuses(tmp_path: Path) 
     ],
 )
 def test_undeclared_or_invalid_distribution_refuses_before_install(
-    tmp_path: Path, record: dict | None, reason: str
+    tmp_path: Path, record: dict | None, reason: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     instance = relay_instance(tmp_path)
     payload = json.loads(instance.config_path.read_text())
@@ -106,12 +115,29 @@ def test_undeclared_or_invalid_distribution_refuses_before_install(
     assert reason in message
     assert "requires a declared install distribution" in message
     assert "yoke config distribution set --origin URL --channel NAME" in message
+    assert "yoke update --version VERSION" in message
+    assert "official installer" in message
+    assert "yoke --env prod relay status" in message
     assert "yoke --env prod relay install" in message
     assert "secret@" not in message
     observed = relay_release_status(instance=instance, refresh_served=False)
     assert observed.error_code == RELAY_RELEASE_FETCH_FAILED
     assert reason in observed.error_message
     assert not (instance.state_dir / "release").exists()
+
+    from types import SimpleNamespace
+    from yoke_cli.commands.adapters.session_control_relay_release import (
+        release_status_payload,
+    )
+
+    monkeypatch.setattr(
+        "yoke_cli.config.session_relay_instance.resolve_relay_instance",
+        lambda **_kwargs: instance,
+    )
+    payload = release_status_payload(
+        SimpleNamespace(environment=instance.environment), refresh_served=False
+    )
+    assert payload["release_recovery"] == message.split("Recovery: ", 1)[1]
 
 
 def test_recorded_origin_is_normalized_without_reading_ambient_selection(

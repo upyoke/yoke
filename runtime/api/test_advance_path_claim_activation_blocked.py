@@ -2,8 +2,7 @@
 
 Sibling of :mod:`test_advance_path_claim_activation`. Pins the behavior of
 ``run_activation_phase`` when a downstream item is ``state='blocked'`` and
-the upstream is held by a real activation-edge claim, so the block must
-survive the coord-only repair pass at activation entry.
+the upstream is held by an activation-edge claim, so activation must wait.
 
 Fixtures and seed helpers are duplicated rather than shared via
 ``runtime/api/conftest.py`` because that conftest is in scope for every test
@@ -149,10 +148,7 @@ def stub_resolver(monkeypatch):
 
 
 def _seed_real_upstream_block(conn, *, downstream_item_id, target_id):
-    """Seed an active upstream claim on the same target with a real
-    activation dep edge so the downstream's blocked state survives the
-    coord-only repair pass.
-    """
+    """Seed an active upstream claim that blocks downstream activation."""
     upstream_actor = seed_human_actor(conn)
     upstream_item_id = downstream_item_id - 100
     conn.execute(
@@ -202,8 +198,7 @@ def _seed_real_upstream_block(conn, *, downstream_item_id, target_id):
 
 class TestBlocked:
     def test_blocked_claim_surfaces_error(self, conn, stub_resolver):
-        # A real activation-edge upstream claim must exist so the block
-        # survives the coord-only repair pass at activation entry.
+        # An unsatisfied activation dependency keeps the claim blocked.
         actor = seed_human_actor(conn)
         item_id = _seed_item(conn)
         target_id = _seed_target(conn)

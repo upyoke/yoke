@@ -58,7 +58,7 @@ DIRECT_UNDELIVERED_TURN_RETRIES = 1
 
 def _latest_wake_result(
     conn: Any, *, message_id: str, session_id: str
-) -> tuple[str, str, str] | None:
+) -> tuple[str, str, datetime | str | None] | None:
     p = marker(conn)
     row = conn.execute(
         "SELECT attempt_kind,result_code,completed_at FROM session_message_attempts "
@@ -67,9 +67,7 @@ def _latest_wake_result(
         "AND completed_at IS NOT NULL ORDER BY started_at DESC,attempt_id DESC LIMIT 1",
         (message_id, session_id),
     ).fetchone()
-    return (
-        (str(row[0]), str(row[1] or ""), str(row[2] or "")) if row is not None else None
-    )
+    return (str(row[0]), str(row[1] or ""), row[2]) if row is not None else None
 
 
 def _undelivered_direct_turns(conn: Any, *, message_id: str, session_id: str) -> int:

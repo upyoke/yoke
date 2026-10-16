@@ -58,7 +58,7 @@ def test_pack_receipt_is_machine_generated_but_installed_files_are_authored(
 def test_default_exceptions_are_project_contract_wide_not_yoke_specific() -> None:
     # Rendered strategy views are untracked local renders, so no built-in
     # exception glob exists; project-local additions come from
-    # .yoke/file-line-exceptions.
+    # file_line_exception entries in .yoke/project.config.
     assert core_gate.TEMPORARY_EXCEPTIONS == ()
     assert "packaging/public-installer/install" not in core_gate.TEMPORARY_EXCEPTIONS
 

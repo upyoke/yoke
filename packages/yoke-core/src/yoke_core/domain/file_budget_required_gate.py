@@ -11,7 +11,7 @@ from yoke_core.domain.path_claim_task_coverage import (
     eligible_task_status_clause,
 )
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_effective_policies import (
     load_item_effective_workflow_policies,
 )
@@ -37,22 +37,6 @@ def _load_effective_policy(conn: Any, item_id: int):
     return effective
 
 
-def workflow_policy_schema_available(conn: Any) -> bool:
-    """Whether policy-aware gates can read a complete immutable item pin."""
-    required = {
-        "items": ("workflow_id", "workflow_version_id", "workflow_posture"),
-        "workflow_versions": (
-            "id", "workflow_id", "version", "definition_json",
-            "definition_digest",
-        ),
-    }
-    return all(
-        _table_exists(conn, table)
-        and all(_column_exists(conn, table, column) for column in columns)
-        for table, columns in required.items()
-    )
-
-
 def _required_task_budgets(
     conn: Any,
     item_id: int,
@@ -61,8 +45,7 @@ def _required_task_budgets(
 ) -> dict[str, object]:
     public_ref = render_item_ref(conn, int(item_id))
     if not all(
-        _table_exists(conn, table)
-        for table in ("epic_tasks", "epic_task_files")
+        _table_exists(conn, table) for table in ("epic_tasks", "epic_task_files")
     ):
         return {
             "verdict": GATE_BLOCK,
@@ -70,7 +53,6 @@ def _required_task_budgets(
             "missing_tasks": [],
         }
     from yoke_core.domain.epic_task_scope import (
-        schema_available as task_scope_schema_available,
         task_scope_issues,
     )
 
@@ -94,53 +76,29 @@ def _required_task_budgets(
             ),
             "missing_tasks": [],
         }
-    if task_scope_schema_available(conn):
-        issues = task_scope_issues(
-            conn,
-            int(item_id),
-            require_finalized=require_finalized,
-        )
-        if issues:
-            missing = [
-                int(row["task_num"] if hasattr(row, "keys") else row[0])
-                for row in rows
-                if int(row["file_count"] if hasattr(row, "keys") else row[1]) == 0
-            ]
-            return {
-                "verdict": GATE_BLOCK,
-                "reason": (
-                    f"item {public_ref} generated task scope is incomplete: "
-                    + "; ".join(issues)
-                ),
-                "missing_tasks": missing,
-            }
-        return {
-            "verdict": GATE_PASS,
-            "reason": (
-                f"item {public_ref} has finalized explicit scope for every "
-                "generated task"
-            ),
-            "missing_tasks": [],
-        }
-    missing = [
-        int(row["task_num"] if hasattr(row, "keys") else row[0])
-        for row in rows
-        if int(row["file_count"] if hasattr(row, "keys") else row[1]) == 0
-    ]
-    if missing:
+    issues = task_scope_issues(
+        conn,
+        int(item_id),
+        require_finalized=require_finalized,
+    )
+    if issues:
+        missing = [
+            int(row["task_num"] if hasattr(row, "keys") else row[0])
+            for row in rows
+            if int(row["file_count"] if hasattr(row, "keys") else row[1]) == 0
+        ]
         return {
             "verdict": GATE_BLOCK,
             "reason": (
-                f"item {public_ref} generated task(s) lack a persisted "
-                "File Budget: " + ", ".join(map(str, missing))
+                f"item {public_ref} generated task scope is incomplete: "
+                + "; ".join(issues)
             ),
             "missing_tasks": missing,
         }
     return {
         "verdict": GATE_PASS,
         "reason": (
-            f"item {public_ref} has a persisted File Budget for every "
-            "generated task"
+            f"item {public_ref} has finalized explicit scope for every generated task"
         ),
         "missing_tasks": [],
     }
@@ -170,9 +128,7 @@ def evaluate_required_budget(
         }
     return {
         "verdict": GATE_BLOCK,
-        "reason": (
-            f"item {public_ref} has no resolved ## File Budget section"
-        ),
+        "reason": (f"item {public_ref} has no resolved ## File Budget section"),
         "missing_tasks": [],
     }
 
@@ -180,20 +136,13 @@ def evaluate_required_budget(
 def evaluate(conn: Any, item_id: int) -> dict[str, object]:
     """Evaluate the effective File Budget requirement for one item."""
     public_ref = render_item_ref(conn, int(item_id))
-    if not workflow_policy_schema_available(conn):
-        return {
-            "verdict": GATE_PASS,
-            "reason": "workflow pin schema unavailable; legacy gate applies",
-            "missing_tasks": [],
-        }
     try:
         effective = _load_effective_policy(conn, int(item_id))
     except Exception as exc:
         return {
             "verdict": GATE_BLOCK,
             "reason": (
-                f"item {public_ref} has an unreadable pinned File Budget "
-                f"policy: {exc}"
+                f"item {public_ref} has an unreadable pinned File Budget policy: {exc}"
             ),
             "missing_tasks": [],
         }
@@ -218,5 +167,4 @@ __all__ = [
     "GATE_PASS",
     "evaluate",
     "evaluate_required_budget",
-    "workflow_policy_schema_available",
 ]

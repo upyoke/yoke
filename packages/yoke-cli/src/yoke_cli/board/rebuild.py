@@ -1,6 +1,6 @@
 """Import-isolated ``yoke board rebuild`` flow.
 
-Resolve the repo root, fetch the recorded board data via ``board.data.get`` over
+Resolve the repo root, fetch the named board data via ``board.data.get`` over
 the CLI's own function-call transport, render markdown with the pure
 ``yoke_contracts.board`` renderer, then write ``.yoke/BOARD.md`` (+ its ``.ts``
 timestamp sidecar) locally. None of that needs ``yoke_core``.
@@ -66,7 +66,7 @@ def _parse_seed() -> Optional[int]:
 
 
 def fetch_board_data(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Fetch the recorded board data payload over the CLI's own transport."""
+    """Fetch the named board data payload over the CLI's own transport."""
     from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 
     response = call_dispatcher(

@@ -17,7 +17,6 @@ from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import (
     control_plane_transport,
     deploy_pipeline,
-    deploy_pipeline_control_plane,
     deploy_pipeline_failure,
 )
 
@@ -60,7 +59,7 @@ def _replace_flow(conn, stages: list[dict]) -> None:
     # custody flow freezes, so composition refuses one without custody.
     custody = any(stage.get("scope") == "item" for stage in stages)
     conn.execute(
-        "UPDATE deployment_flows SET stages=%s,takes_delivery_custody=%s WHERE id=%s",
+        "UPDATE deployment_flows SET stages=%s,takes_delivery_custody=%s,definition_schema_version=2 WHERE id=%s",
         (json.dumps(stages), int(custody), FLOW),
     )
     conn.commit()
@@ -129,35 +128,26 @@ def _decision_request_id(conn, run_id: str) -> int:
     return int(row[0])
 
 
-def _qa_statuses(conn, run_id: str) -> dict[str, str]:
-    rows = conn.execute(
-        "SELECT check_name,status FROM deployment_run_qa "
-        "WHERE run_id=%s ORDER BY check_name",
-        (run_id,),
-    ).fetchall()
-    return {str(row[0]): str(row[1]) for row in rows}
-
-
-def test_https_driver_preserves_approval_and_qa_through_failure_retry(
+def test_https_driver_preserves_approval_through_failure_retry(
     serving_plane, monkeypatch
 ) -> None:
     conn = serving_plane["conn"]
     _replace_flow(
         conn,
         [
-            {"name": "preflight", "step_runner": "auto", "qa_kind": "preflight"},
+            {"name": "preflight", "step_runner": "auto", "stage_kind": "execution"},
             {
                 "name": "approve-deploy",
                 "step_runner": "human-approval",
-                "qa_kind": "approval",
+                "stage_kind": "execution",
                 "approvals": {"roles": ["owner"], "actors": []},
             },
             {
                 "name": "hosted-release",
-                "step_runner": "auto",
-                "qa_kind": "release",
+                "step_runner": "health-check",
+                "stage_kind": "execution",
             },
-            {"name": "complete", "step_runner": "auto"},
+            {"name": "complete", "step_runner": "auto", "stage_kind": "execution"},
         ],
     )
     relayed = _install_test_https(monkeypatch, serving_plane)
@@ -170,9 +160,11 @@ def test_https_driver_preserves_approval_and_qa_through_failure_retry(
     release_fails = {"once": True}
 
     def dispatch_stage(stage, **kwargs):
-        if stage["name"] == "hosted-release" and release_fails["once"]:
-            release_fails["once"] = False
-            return 17, "simulated external runner failure"
+        if stage["name"] == "hosted-release":
+            if release_fails["once"]:
+                release_fails["once"] = False
+                return 17, "simulated external runner failure"
+            return 0, "simulated external runner success"
         return original_dispatch(stage, **kwargs)
 
     monkeypatch.setattr(
@@ -189,11 +181,6 @@ def test_https_driver_preserves_approval_and_qa_through_failure_retry(
     assert (
         deploy_pipeline.run_pipeline(run_id) == deploy_pipeline.EXIT_AWAITING_APPROVAL
     )
-    assert _qa_statuses(conn, run_id) == {
-        "approve-deploy": "pending",
-        "hosted-release": "pending",
-        "preflight": "passed",
-    }
     _invoke(
         "decision_requests.resolve",
         {"request_id": _decision_request_id(conn, run_id), "action": "approve"},
@@ -205,11 +192,6 @@ def test_https_driver_preserves_approval_and_qa_through_failure_retry(
         (run_id,),
     ).fetchone()
     assert tuple(failed) == ("failed", "hosted-release-failed")
-    assert _qa_statuses(conn, run_id) == {
-        "approve-deploy": "passed",
-        "hosted-release": "failed",
-        "preflight": "passed",
-    }
 
     retry_id = str(
         _invoke(
@@ -230,69 +212,9 @@ def test_https_driver_preserves_approval_and_qa_through_failure_retry(
         (retry_id,),
     ).fetchone()
     assert tuple(succeeded) == ("succeeded", "complete")
-    assert set(_qa_statuses(conn, retry_id).values()) == {"passed"}
     assert {
         "deployment_runs.execution.context",
         "deployment_runs.execution.update",
-        "deployment_runs.execution.qa_seed",
-        "deployment_runs.execution.qa_record",
         "deployment_runs.execution.qa_pending",
         "deployment_runs.stage_approval.evaluate",
     }.issubset(relayed)
-
-
-def test_a_qa_write_failure_warns_but_never_reports_a_false_pass(
-    serving_plane, monkeypatch
-) -> None:
-    """A QA-record write failure must not fabricate a passing verdict.
-
-    Recording is eventually-consistent, non-blocking: the pipeline keeps
-    going and the stage stays reported as completed. But nothing was
-    actually persisted, so the projection this gate reads must still show
-    the check unresolved — never silently "passed".
-    """
-    conn = serving_plane["conn"]
-    _replace_flow(
-        conn,
-        [
-            {"name": "preflight", "step_runner": "auto", "qa_kind": "preflight"},
-            {"name": "complete", "step_runner": "auto"},
-        ],
-    )
-    _install_test_https(monkeypatch, serving_plane)
-    monkeypatch.setattr(deploy_pipeline, "resolve_project_checkout_path", lambda _p: "")
-
-    original_record = deploy_pipeline_control_plane.record_qa_stage
-
-    def failing_record(run_id, stage, verdict, **kwargs):
-        if stage == "preflight":
-            raise deploy_pipeline_control_plane.DeploymentControlPlaneError(
-                "simulated qa_record write failure"
-            )
-        return original_record(run_id, stage, verdict, **kwargs)
-
-    monkeypatch.setattr(
-        deploy_pipeline_control_plane, "record_qa_stage", failing_record
-    )
-    run_id = str(
-        _invoke(
-            "deployment_runs.create",
-            {"project": PROJECT, "flow": FLOW, "release_lineage": LINEAGE},
-        )["run_id"]
-    )
-
-    # The write failure must not crash the driver — every stage still runs
-    # to completion — but nothing was actually recorded for "preflight", so
-    # the required-QA gate must hold the run back rather than reporting
-    # success. A warning must never read back as a passing verdict.
-    assert (
-        deploy_pipeline.run_pipeline(run_id, timeout_min=0)
-        == deploy_pipeline.EXIT_AWAITING_QA
-    )
-    unresolved = conn.execute(
-        "SELECT status,current_stage FROM deployment_runs WHERE id=%s",
-        (run_id,),
-    ).fetchone()
-    assert tuple(unresolved) != ("succeeded", "complete")
-    statuses = _qa_statuses(conn, run_id)
-    assert statuses.get("preflight") != "passed"

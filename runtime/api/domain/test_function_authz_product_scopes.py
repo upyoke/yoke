@@ -109,6 +109,25 @@ def test_execution_instruction_resolve_is_an_authenticated_read() -> None:
     assert spec.permission_key is None
 
 
+@pytest.mark.parametrize(
+    "function", ["ouroboros.reflection.capture", "merge.audit.snapshot"]
+)
+def test_agent_capture_and_merge_snapshot_enforce_target_project(conn, function):
+    from yoke_contracts.api.function_call import TargetRef
+
+    allowed_project = resolve_project_id(conn, "externalwebapp")
+    denied_project = resolve_project_id(conn, "yoke")
+    actor = _project_owner(conn, allowed_project)
+    for project, allowed in ((allowed_project, True), (denied_project, False)):
+        request = _payload_request(actor, function, {}).model_copy(
+            update={
+                "target": TargetRef(kind="global", project_id=str(project)),
+            }
+        )
+        permission = check_dispatch_permission(conn, _entry(function), request)
+        assert (permission.error is None) is allowed
+
+
 def test_session_ci_wait_writes_are_actor_session() -> None:
     record = PRODUCT_AUTHZ_BY_ID["session_ci_wait.record"]
     resolve = PRODUCT_AUTHZ_BY_ID["session_ci_wait.resolve"]

@@ -1,11 +1,4 @@
-"""Release-policy validation for deployment-flow stage definitions.
-
-Legacy flow stages remain ordinary execution steps.  The richer definition
-schema adds explicit execution/QA kinds, per-stage target selectors, QA scope,
-case selection, verdict authority, and informational notification policy.
-Runtime support is versioned separately so configuration can land before an
-executor starts accepting those definitions.
-"""
+"""Release-policy validation for execution and QA deployment stages."""
 
 from __future__ import annotations
 
@@ -23,7 +16,6 @@ from yoke_core.domain.deployment_flow_stage_references import (
 )
 
 
-LEGACY_DEFINITION_SCHEMA_VERSION = 1
 RELEASE_POLICY_SCHEMA_VERSION = 2
 #: The richest definition schema this serving runtime executes. Raising it
 #: is what makes those definitions activatable, assignable and startable, so
@@ -48,10 +40,6 @@ QA_SCOPES = frozenset({"item", "run"})
 VERDICT_MODES = frozenset({"agent_only", "human_if_unsure", "required_human"})
 HUMAN_VERDICT_MODES = frozenset({"human_if_unsure", "required_human"})
 TARGET_KINDS = frozenset({"persistent_environment", "run_preview"})
-
-_ADVANCED_STAGE_KEYS = frozenset(
-    {"stage_kind", "scope", "target", "cases", "verdict", "notification"}
-)
 
 
 def _mapping(raw: Any, *, path: str) -> Mapping[str, Any]:
@@ -175,9 +163,10 @@ def _validate_target(
                     f"{source_stage!r}"
                 )
             source = prior_stages[source_stage]
-            if source.get("stage_kind") == STAGE_KIND_QA or source.get(
-                "step_runner"
-            ) == QA_STEP_RUNNER:
+            if (
+                source.get("stage_kind") == STAGE_KIND_QA
+                or source.get("step_runner") == QA_STEP_RUNNER
+            ):
                 raise ValueError(
                     f"{path}.source_stage must name an earlier receipt-producing "
                     "non-QA stage"
@@ -187,9 +176,7 @@ def _validate_target(
                 source_target.get("kind") != kind
                 or source_target.get("environment") != environment
             ):
-                raise ValueError(
-                    f"{path}.source_stage targets a different environment"
-                )
+                raise ValueError(f"{path}.source_stage targets a different environment")
         elif source_stage is not None:
             raise ValueError(
                 f"{path}.source_stage is only valid when a QA stage consumes "
@@ -198,7 +185,10 @@ def _validate_target(
         return
 
     extra = set(target) - {
-        "kind", "capability", "source_stage", "preview_discriminator",
+        "kind",
+        "capability",
+        "source_stage",
+        "preview_discriminator",
     }
     if extra:
         raise ValueError(f"{path} has unknown fields: {sorted(extra)}")
@@ -245,21 +235,14 @@ def _validate_target(
 
 
 def validate_release_stage_policy(stages: list[dict[str, Any]]) -> int:
-    """Validate advanced policy fields and return the required schema version."""
+    """Validate stage policy and return its schema version."""
     seen: dict[str, Mapping[str, Any]] = {}
     previews: list[tuple[str, str]] = []
-    required_version = LEGACY_DEFINITION_SCHEMA_VERSION
     for index, stage in enumerate(stages):
         name = str(stage.get("name") or "")
         if name in seen:
             raise ValueError(f"stage {index} duplicates stage name {name!r}")
         seen[name] = stage
-        if not (
-            _ADVANCED_STAGE_KEYS & set(stage)
-            or stage.get("step_runner") == QA_STEP_RUNNER
-        ):
-            continue
-        required_version = RELEASE_POLICY_SCHEMA_VERSION
         path = f"stage {index} ({name})"
         stage_kind = stage.get("stage_kind")
         if stage_kind not in STAGE_KINDS:
@@ -279,9 +262,7 @@ def validate_release_stage_policy(stages: list[dict[str, Any]]) -> int:
                 and target.get("kind") == "run_preview"
                 and target.get("capability")
             ):
-                previews.append(
-                    (name, str(target.get("preview_discriminator") or ""))
-                )
+                previews.append((name, str(target.get("preview_discriminator") or "")))
         if stage_kind == STAGE_KIND_EXECUTION:
             if stage.get("step_runner") == QA_STEP_RUNNER:
                 raise ValueError(f"{path} execution stage cannot use the QA runner")
@@ -311,7 +292,7 @@ def validate_release_stage_policy(stages: list[dict[str, Any]]) -> int:
     collision = distinct_previews_error(previews)
     if collision:
         raise ValueError(collision)
-    return required_version
+    return RELEASE_POLICY_SCHEMA_VERSION
 
 
 def definition_schema_version(stages_json: str) -> int:
@@ -324,18 +305,17 @@ def require_supported_definition_schema(
     *,
     operation: str,
 ) -> None:
-    if int(schema_version) <= CURRENT_EXECUTION_SCHEMA_VERSION:
+    if int(schema_version) == CURRENT_EXECUTION_SCHEMA_VERSION:
         return
     raise ValueError(
         f"{operation} requires deployment-flow schema {schema_version}, but this "
-        f"serving runtime executes through schema {CURRENT_EXECUTION_SCHEMA_VERSION}; "
-        "keep the definition disabled until the matching runtime is deployed"
+        f"serving runtime executes schema {CURRENT_EXECUTION_SCHEMA_VERSION}; "
+        "use a definition authored for the serving runtime"
     )
 
 
 __all__ = [
     "CURRENT_EXECUTION_SCHEMA_VERSION",
-    "LEGACY_DEFINITION_SCHEMA_VERSION",
     "QA_STEP_RUNNER",
     "RELEASE_POLICY_SCHEMA_VERSION",
     "definition_schema_version",

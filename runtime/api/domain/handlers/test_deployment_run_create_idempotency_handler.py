@@ -15,10 +15,17 @@ from yoke_core.domain.handlers import deployment_run_creation, deployment_runs
 
 REPLAY = "yoke_core.domain.deployment_run_create_idempotency.replay_run"
 CREATE = "yoke_core.domain.deployment_runs_crud_mutate.create_run"
-ROW = (
-    "run-20260928-006|yoke|yoke-hosted-prod|persistent|prod|"
-    "||created||2026-09-28T00:00:00Z|||operator"
-)
+ROW = {
+    "id": "run-20260928-006",
+    "project": "yoke",
+    "flow": "yoke-hosted-prod",
+    "target_tier": "persistent",
+    "target_environment": "prod",
+    "release_lineage": None,
+    "status": "created",
+    "created_at": "2026-09-28T00:00:00Z",
+    "created_by": "operator",
+}
 
 
 def _create(key):
@@ -39,7 +46,7 @@ def test_replay_returns_the_recorded_run_without_creating() -> None:
     with (
         patch(REPLAY, return_value="run-20260928-006"),
         patch(CREATE) as create,
-        patch("yoke_core.domain.deployment_runs_crud_query.cmd_get", return_value=ROW),
+        patch("yoke_core.domain.deployment_runs_crud_query.get_run", return_value=ROW),
         patch.object(deployment_run_creation, "_member_item_ids", return_value=()),
     ):
         outcome = _create("k1")
@@ -58,7 +65,7 @@ def test_fresh_keyed_create_passes_key_and_canonical_request() -> None:
         patch(
             CREATE, return_value=CreatedRun("run-20260928-006", False, "recorded_key")
         ) as create,
-        patch("yoke_core.domain.deployment_runs_crud_query.cmd_get", return_value=ROW),
+        patch("yoke_core.domain.deployment_runs_crud_query.get_run", return_value=ROW),
         patch.object(deployment_run_creation, "_member_item_ids", return_value=()),
     ):
         outcome = _create(" k1 ")

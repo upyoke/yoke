@@ -41,9 +41,8 @@ These are reachable from multiple points and are not part of the normal forward 
 > `yoke items block PREFIX-N --reason "<reason>"`; clear via
 > `yoke items unblock PREFIX-N`.
 > The board renders blocked items in their own section and the frontier
-> routes them to WAIT. The doctor health checks `HC-blocked-status-drift`
-> and `HC-blocked-flag-consistency` surface leftover flags and
-> legacy `status='blocked'` rows. **Epic-task** `blocked` stays
+> routes them to WAIT. The doctor check `HC-blocked-flag-consistency`
+> surfaces inconsistent flags and reasons. **Epic-task** `blocked` stays
 > as a status. Full architectural-why (yoke source repo):
 > `docs/archive/decisions/blocked-flag-retirement.md`.
 

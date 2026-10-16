@@ -99,8 +99,7 @@ def _event_count(conn: Any) -> int:
 def _apply_events_full_schema() -> None:
     """``apply_schema`` strategy for the ``db_path`` fixture.
 
-    Bootstraps ``migration_audit`` (canonical DDL — ``cmd_prune`` writes an audit
-    fingerprint through the exception pathway) then runs ``events_crud.cmd_init``
+    Prepares the shared audit fixture and runs ``events_crud.cmd_init``
     against the repointed ``YOKE_PG_DSN``. Test bodies assert table presence
     through ``schema_common`` rather than SQLite catalog probes, so no
     introspection shim is needed.

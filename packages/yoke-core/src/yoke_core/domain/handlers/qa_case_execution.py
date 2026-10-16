@@ -14,7 +14,8 @@ from yoke_contracts.api.function_call import (
 
 
 class CaseExecutionBeginRequest(BaseModel):
-    pass
+    checkout_path: Optional[str] = None
+    expected_branch: Optional[str] = None
 
 
 class CaseExecutionBeginResponse(BaseModel):
@@ -85,6 +86,7 @@ def handle_case_execution_begin(
     )
 
     try:
+        selection = CaseExecutionBeginRequest.model_validate(request.payload or {})
         with connect() as conn:
             host_capabilities = execution_host_capability_kinds(
                 conn,
@@ -94,6 +96,9 @@ def handle_case_execution_begin(
                 conn,
                 requirement_id=int(requirement_id),
                 host_capability_kinds=host_capabilities,
+                session_id=request.actor.session_id,
+                checkout_path=selection.checkout_path,
+                expected_branch=selection.expected_branch,
             )
             # The dispatcher just verified this session's claim to admit
             # the call. Hand that verified claim back on the contract so
@@ -108,6 +113,8 @@ def handle_case_execution_begin(
                 )
     except QaCaseExecutionError as exc:
         return _error("not_found", str(exc), "$.target.qa_requirement_id")
+    except ValueError as exc:
+        return _error("payload_invalid", str(exc), "$.payload")
     return HandlerOutcome(
         result_payload={"case": result},
         primary_success=True,

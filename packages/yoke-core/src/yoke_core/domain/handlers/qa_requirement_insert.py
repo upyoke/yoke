@@ -115,13 +115,8 @@ def execute_insert(
 ) -> Any:
     """Insert one requirement row and return the cursor holding its id."""
     from yoke_core.domain import db_backend
-    from yoke_core.domain.qa_converging_columns import converged_values
 
-    stored = converged_values(
-        conn,
-        "qa_requirements",
-        dict(zip(_COLUMNS, insert_params(subject, row, created_at))),
-    )
+    stored = dict(zip(_COLUMNS, insert_params(subject, row, created_at)))
     stored["created_at"] = instant_parameter(conn, stored["created_at"])
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     cursor = conn.execute(

@@ -44,7 +44,6 @@ from yoke_core.domain.agents_render_references import (
 from yoke_core.domain.agents_render_subagent_hooks import (
     CANONICAL_DIR,
     CLAUDE_SPEC_KEY_ORDER,  # noqa: F401 - preserve the renderer's public exports
-    is_bash_capable_subagent,  # noqa: F401 - preserve the renderer's public exports
     load_canonical,  # noqa: F401 - preserve the renderer's public exports
     load_claude_spec,  # noqa: F401 - preserve the renderer's public exports
     render_claude_agent,
@@ -96,9 +95,7 @@ AGENTS = [
 
 # Derived, never listed: a hand-written copy of this set went stale the moment
 # a reference moved from embedded to materialized, and nothing caught it.
-ROLES_WITH_INLINE_REFERENCES = {
-    path.parent.name for path in INLINE_REFERENCE_PATHS
-}
+ROLES_WITH_INLINE_REFERENCES = {path.parent.name for path in INLINE_REFERENCE_PATHS}
 
 
 def _agent_adapter_path(out_dir: Path, agent: str) -> Path:
@@ -109,12 +106,18 @@ def _resolve_reader_root(target_root: Optional[Path]) -> Path:
     """Resolve ``target_root`` for reader helpers — see ``require_reader_root``."""
     return require_reader_root(target_root)
 
-def write_all_claude(*, target_root: Path, dry_run: bool = False) -> dict[str, tuple[str, str]]:
+
+def write_all_claude(
+    *, target_root: Path, dry_run: bool = False
+) -> dict[str, tuple[str, str]]:
     """Render Claude agents and on-demand references for an explicit checkout."""
     results: dict[str, tuple[str, str]] = {}
     root = Path(target_root)
     outputs = [
-        (_agent_adapter_path(CLAUDE_OUT_DIR, agent), render_claude_agent(agent, target_root=root))
+        (
+            _agent_adapter_path(CLAUDE_OUT_DIR, agent),
+            render_claude_agent(agent, target_root=root),
+        )
         for agent in AGENTS
     ]
     outputs.extend(rendered_reference_outputs(root / CANONICAL_DIR))
@@ -149,6 +152,7 @@ def detect_drift(*, target_root: Optional[Path] = None) -> list[str]:
             drift.append(f"drift: {CLAUDE_OUT_DIR}/yoke-{agent}.md")
     return drift
 
+
 def _atomic_write(out_path: Path, rendered: str, *, target_root: Path) -> None:
     assert_target_under_session_work_authority(out_path)
     assert_renderer_seed(target_root)
@@ -165,7 +169,10 @@ def _enumerate_outputs(target_root: Optional[Path] = None) -> list[tuple[Path, s
     outputs: list[tuple[Path, str]] = []
     for agent in AGENTS:
         outputs.append(
-            (_agent_adapter_path(CLAUDE_OUT_DIR, agent), render_claude_agent(agent, target_root=root))
+            (
+                _agent_adapter_path(CLAUDE_OUT_DIR, agent),
+                render_claude_agent(agent, target_root=root),
+            )
         )
     outputs.extend(rendered_reference_outputs(root / CANONICAL_DIR))
     outputs.append((CLAUDE_SETTINGS_PATH, render_claude_settings_json()))
@@ -193,7 +200,9 @@ def _enumerate_outputs(target_root: Optional[Path] = None) -> list[tuple[Path, s
     return outputs
 
 
-def write_all(*, target_root: Path, dry_run: bool = False) -> dict[str, tuple[str, str]]:
+def write_all(
+    *, target_root: Path, dry_run: bool = False
+) -> dict[str, tuple[str, str]]:
     """Render every substrate output. Returns ``{relpath: (action, rendered)}``.
 
     ``target_root`` is required and keyword-only — there is no implicit cwd
@@ -202,7 +211,9 @@ def write_all(*, target_root: Path, dry_run: bool = False) -> dict[str, tuple[st
     results: dict[str, tuple[str, str]] = {}
     root = Path(target_root)
     assert_renderer_seed(root)
-    project_results = agents_render_project_install.write_if_applicable(target_root=root, dry_run=dry_run)
+    project_results = agents_render_project_install.write_if_applicable(
+        target_root=root, dry_run=dry_run
+    )
     if project_results is not None:
         return project_results
     for rel_path, rendered in _enumerate_outputs(root):
@@ -264,9 +275,7 @@ def detect_substrate_drift(*, target_root: Optional[Path] = None) -> list[str]:
             continue
         canonical_text = canonical_path.read_text(encoding="utf-8")
         drift.extend(
-            detect_canonical_body_drift(
-                canonical_text, f"{CANONICAL_DIR}/{agent}.md"
-            )
+            detect_canonical_body_drift(canonical_text, f"{CANONICAL_DIR}/{agent}.md")
         )
         drift.extend(
             detect_conditional_marker_drift(
@@ -299,34 +308,29 @@ def detect_substrate_drift(*, target_root: Optional[Path] = None) -> list[str]:
 
 
 def write_all_and_record(
-    *, target_root: Path, dry_run: bool = False,
+    *,
+    target_root: Path,
+    dry_run: bool = False,
 ) -> dict[str, tuple[str, str]]:
     """Render, then idempotently register render relationships in the DB.
 
-    Wraps :func:`write_all` so the canonical CLI surface and the
-    ``agents.render.run`` function-call handler share one post-render
-    registration step. File writes remain client-local while relationship
-    registration follows the active control-plane transport. Registration is
-    opportunistic — when the authority or the ``path_targets`` rows are
-    unavailable, the helper returns ``0`` and the renderer flow continues. Dry-runs
-    skip registration so a check-only invocation never mutates
-    ``path_context_values``.
-
-    A non-dry-run write also re-syncs the packaged install-bundle
-    snapshot: the render rewrites several of its source dirs (Claude
-    agents, Codex agents, Claude rules), so chaining the idempotent
-    :func:`install_bundle_tree_sync.sync` here keeps the wheel-packaged
-    copy byte-identical instead of drifting until the next manual sync.
+    CLI and handler share client-local writes and transport-aware relationship
+    registration. Registration is opportunistic: unavailable authority or
+    path targets leave rendering complete without recording relationships.
+    Non-dry runs also sync the packaged install bundle to the rendered bytes;
+    dry runs neither register path context nor sync the package.
     """
     results = write_all(target_root=target_root, dry_run=dry_run)
     if not dry_run:
         from yoke_core.domain.agents_render_path_context import (
             record_render_relationships_to_canonical_db,
         )
+
         record_render_relationships_to_canonical_db()
         from yoke_core.domain.install_bundle_tree_sync import (
             sync as sync_install_bundle_tree,
         )
+
         sync_install_bundle_tree(target_root=target_root)
     return results
 

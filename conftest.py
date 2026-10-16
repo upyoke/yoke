@@ -187,9 +187,9 @@ def harness_family(monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture(autouse=True)
 def _isolate_commit_cache(tmp_path, monkeypatch: pytest.MonkeyPatch):
-    """Redirect the on-disk commit/activity caches to a per-test tmp dir.
+    """Redirect the on-disk commit cache to a per-test tmp dir.
 
-    Both caches resolve their file location through
+    The cache resolves its file location through
     ``machine_config.cache_dir()`` (``~/.yoke/cache`` by default). Tests
     that rebuild the board against real temp repos otherwise write their
     throwaway-repo entries into the developer's real cache and, under xdist,
@@ -207,17 +207,11 @@ def _isolate_commit_cache(tmp_path, monkeypatch: pytest.MonkeyPatch):
     machine config (see ``test_board_rebuild_core_less_smoke``).
     """
     from yoke_contracts.board import widgets_commit_cache as _commit_cache
-    from yoke_contracts.board import activity_cache as _activity_cache
 
     monkeypatch.setattr(
         _commit_cache,
         "_cache_path",
         lambda: tmp_path / "cache" / ".commit-cache.json",
-    )
-    monkeypatch.setattr(
-        _activity_cache,
-        "_cache_path",
-        lambda: tmp_path / "cache" / "board-activity-day-counts.json",
     )
     _commit_cache._reset_memo_for_tests()
     yield

@@ -52,9 +52,8 @@ def scoped_run(test_db, monkeypatch):
     return run_id, member, stages
 
 
-def test_driver_wait_counts_member_without_selected_cases(
-    scoped_run, monkeypatch, capsys
-):
+@pytest.fixture
+def awaiting_driver(scoped_run, monkeypatch):
     run_id, member, stages = scoped_run
     context = {
         "run": {
@@ -68,7 +67,6 @@ def test_driver_wait_counts_member_without_selected_cases(
     }
     monkeypatch.setattr(pipeline.control_plane, "execution_context", lambda r: context)
     monkeypatch.setattr(pipeline.control_plane, "project_field", lambda *a: "")
-    monkeypatch.setattr(pipeline.control_plane, "seed_qa", lambda r: None)
     monkeypatch.setattr(pipeline, "resolve_project_checkout_path", lambda p: "/repo")
     monkeypatch.setattr(pipeline, "resolve_flow_gate_branch", lambda *a: "main")
     monkeypatch.setattr(
@@ -85,6 +83,11 @@ def test_driver_wait_counts_member_without_selected_cases(
         ),
     )
 
+    return run_id, member
+
+
+def test_driver_wait_counts_member_without_selected_cases(awaiting_driver, capsys):
+    run_id, member = awaiting_driver
     assert pipeline.run_pipeline(run_id, sd="/tmp/sd") == pipeline.EXIT_AWAITING_QA
     report = capsys.readouterr().err
     assert "1 blocking QA obligation(s)" in report
@@ -92,6 +95,47 @@ def test_driver_wait_counts_member_without_selected_cases(
     assert "Blocking QA remains:" in report
     assert "remove-item" in report
     assert "Nothing is outstanding" not in report
+
+
+@pytest.mark.parametrize(
+    "error_code", ["read_deadline_exceeded", "scoped_qa_report_unavailable"]
+)
+def test_failed_report_preserves_awaiting_qa_outcome(
+    awaiting_driver, monkeypatch, capsys, error_code
+):
+    run_id, member = awaiting_driver
+    diagnostic = (
+        f"member {member}: no completed scoped QA execution exists; "
+        "timed out after 1800s awaiting scoped QA."
+    )
+    monkeypatch.setattr(
+        pipeline, "dispatch_until_qa_resolves", lambda *a, **k: (-4, diagnostic)
+    )
+    report_reads = []
+    events = []
+
+    def unavailable(run, stage):
+        report_reads.append((run, stage))
+        raise pipeline.control_plane.DeploymentControlPlaneError(
+            f"{error_code}: fresh report read failed", code=error_code
+        )
+
+    monkeypatch.setattr(pipeline.control_plane, "held_qa_report_lines", unavailable)
+    monkeypatch.setattr(
+        pipeline, "_emit_run_event", lambda event, *a, **k: events.append(event)
+    )
+
+    assert pipeline.run_pipeline(run_id, sd="/tmp/sd") == pipeline.EXIT_AWAITING_QA
+    captured = capsys.readouterr()
+    assert diagnostic in captured.err
+    assert error_code in captured.err
+    assert "fresh QA report unavailable" in captured.err
+    assert "last QA blocker diagnostic" in captured.err
+    assert "blocking QA obligation(s)" not in captured.err
+    assert "Nothing is outstanding" not in captured.err
+    assert "completed successfully" not in captured.out
+    assert report_reads == [(run_id, ITEM_QA_STAGE)]
+    assert events == ["DeploymentRunStageStarted"]
 
 
 def test_several_blockers_count_one_member(scoped_run, monkeypatch):

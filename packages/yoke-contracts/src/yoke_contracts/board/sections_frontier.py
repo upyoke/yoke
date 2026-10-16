@@ -44,14 +44,7 @@ def frontier_counts(
     since_filter = f"AND i.id >= {art_frontier_since}" if art_frontier_since > 0 else ""
     _tts_in = ", ".join(f"'{s}'" for s in sorted(TASK_TERMINAL_SUCCESS))
 
-    # The blocked-flag column on items partitions an item into the blocked
-    # bucket regardless of its lifecycle status. The legacy `status='blocked'`
-    # branch is preserved (for the `eff_status IN ('blocked','stopped','failed')`
-    # leg) so a row that still holds the legacy lifecycle position counts as
-    # blocked too — drift detection is the doctor's job; the board renders
-    # consistently across the cutover. `i.blocked = 1` is propagated as
-    # `is_blocked_flag` so downstream stats can count blocked-flagged items
-    # whose effective status is not the legacy blocked token.
+    # Propagate the item block flag separately from its lifecycle position.
     sql = f"""
     WITH task_counts AS (
         SELECT et.epic_id, et.status AS task_status, COUNT(*) AS cnt
@@ -76,7 +69,7 @@ def frontier_counts(
                            OR (is_blocked_flag = 0 AND eff_status = 'reviewing-implementation' AND workflow_id = 'epic')
                           THEN weight ELSE 0 END), 0),
         COALESCE(SUM(CASE WHEN is_blocked_flag = 1
-                           OR eff_status IN ('blocked','stopped','failed')
+                           OR eff_status IN ('stopped','failed')
                           THEN weight ELSE 0 END), 0),
         COALESCE(SUM(CASE WHEN is_blocked_flag = 0 AND (eff_status IN ('reviewed-implementation','polishing-implementation')
                            OR (eff_status = 'reviewing-implementation' AND workflow_id <> 'epic'))

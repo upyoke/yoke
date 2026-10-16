@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import plistlib
 import subprocess
 from types import SimpleNamespace
 
 import pytest
 
 from yoke_cli.config.session_relay_instance import (
-    PROD_RELAY_LABEL,
     RelayInstanceError,
     resolve_relay_instance,
 )
@@ -134,56 +132,6 @@ def test_multiple_prod_https_connections_refuse_the_legacy_identity(
             environment="prod",
             yoke_home=tmp_path / ".yoke",
         )
-
-
-def test_stage_upgrade_retires_the_unpinned_legacy_job(tmp_path: Path) -> None:
-    config_path = _write_config(tmp_path)
-    executable = tmp_path / "bin" / "yoke"
-    executable.parent.mkdir()
-    executable.touch()
-    legacy_path = tmp_path / "Library" / "LaunchAgents" / f"{PROD_RELAY_LABEL}.plist"
-    legacy_path.parent.mkdir(parents=True)
-    legacy_path.write_bytes(
-        plistlib.dumps(
-            {
-                "Label": PROD_RELAY_LABEL,
-                "ProgramArguments": [str(executable), "relay", "serve-once"],
-            }
-        )
-    )
-    calls: list[list[str]] = []
-    stage = resolve_relay_instance(
-        config_path=config_path,
-        environment="stage",
-        yoke_home=tmp_path / ".yoke",
-    )
-
-    def runner(command, **_kwargs):
-        command = list(command)
-        calls.append(command)
-        returncode = 0
-        if command[1] == "print":
-            stage_loaded = any(call[1] == "bootstrap" for call in calls)
-            returncode = 0 if stage_loaded and command[-1].endswith(stage.label) else 3
-        return subprocess.CompletedProcess(command, returncode, "", "")
-
-    installed = install_relay_launchd(
-        home=tmp_path,
-        yoke_home=tmp_path / ".yoke",
-        config_path=config_path,
-        environment="stage",
-        pin_release=_pin_release,
-        runner=runner,
-        platform="darwin",
-        uid=501,
-    )
-
-    assert installed.loaded and installed.plist_current
-    assert not legacy_path.exists()
-    assert calls[:2] == [
-        ["launchctl", "bootout", f"gui/501/{PROD_RELAY_LABEL}"],
-        ["launchctl", "print", f"gui/501/{PROD_RELAY_LABEL}"],
-    ]
 
 
 def test_install_waits_for_unload_and_retries_transient_bootstrap(

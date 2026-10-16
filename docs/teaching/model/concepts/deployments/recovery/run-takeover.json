@@ -2,9 +2,9 @@
  "id": "run-takeover",
  "title": "Run takeover",
  "status": "observed",
- "page": "deployments",
+ "page": "deployment-recovery",
  "position": 5,
- "summary": "Creating a run on the flow and target of a run waiting only on item QA takes it over when the new candidate contains the old one: waiting members move (every unclosed member under run-level QA or approval, which cancels the old run as superseded), passed members close in the old run, and both runs record the supersession. A non-containing candidate refuses naming the members to release by hand.",
+ "summary": "Successor creation evaluates the older run through complete frozen QA selections. An incomplete historical selection refuses with reviewed operator repair recovery before resumption. Original source and target identities remain authoritative. A containing successor on the same flow and target takes over waiting members under existing QA and approval rules; accepted members close in the old run.",
  "commands": ["yoke deployment-runs create"],
  "functions": ["deployment_runs.create"],
  "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_run_target_takeover.py", "docs/public/reference/agent-rules/delivery.md", "docs/public/reference/db-reference/deployment-run-records.md"]

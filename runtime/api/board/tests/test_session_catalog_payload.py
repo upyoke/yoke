@@ -1,18 +1,19 @@
-"""Session catalogs stay revision-sized across board record and replay."""
+"""Session costs share immutable catalogs and travel as named facts."""
 
 import json
 from datetime import timedelta
 
 import pytest
 
-from yoke_contracts.board.data import BOARD_DATA_VERSION, ReplayBoardDB
+from yoke_contracts.board.data import _encode_value, _decode_value
+from yoke_contracts.board.sections_sessions import collect_session_rows
+from yoke_contracts.board.session_data import render_session_rows
 from yoke_contracts.board.sections_sessions_cells import _display_usage
 from yoke_contracts.model_reference_data import MODEL_RECORDS
 from yoke_contracts.session_usage_display import usage_cell
 from yoke_contracts.session_usage_facts import ModelUsage, SessionUsage, usage_document
 from yoke_contracts.session_usage_pricing import estimated_session_cost
 from yoke_contracts.timestamps import parse_instant
-from yoke_core.board.data import RecordingBoardDB
 
 
 class CatalogDB:
@@ -46,26 +47,15 @@ def test_many_sessions_share_catalogs_and_preserve_start_time_costs():
     from yoke_contracts.model_reference_catalog import validate_catalog
 
     db = CatalogDB()
-    recorder = RecordingBoardDB(db)
     usage = SessionUsage(
         status="complete",
         models=(ModelUsage(model=MODEL_RECORDS[0].model_id, input=1_000_000),),
     )
     document = usage_document(usage)
     starts = [db.boundary + timedelta(seconds=index - 100) for index in range(200)]
-    cells = [_display_usage(recorder, document, start) for start in starts]
+    cells = [_display_usage(db, document, start) for start in starts]
     assert db.catalog_reads == ["older", "newer"]
     assert cells[0] != cells[-1]
-    entries = recorder.encoded_entries()
-    catalog_entries = [
-        entry for entry in entries if "SELECT catalog_json" in entry["sql"]
-    ]
-    assert len(catalog_entries) == 2
-    payload = {"version": BOARD_DATA_VERSION, "entries": entries}
-    wire = json.dumps(payload)
-    assert len(wire.encode()) < 250_000
-    replay = ReplayBoardDB.from_payload(json.loads(wire))
-    assert [_display_usage(replay, document, start) for start in starts] == cells
     for start, cell in zip(starts, cells):
         revision = "older" if start < db.boundary else "newer"
         expected = estimated_session_cost(
@@ -77,13 +67,6 @@ def test_many_sessions_share_catalogs_and_preserve_start_time_costs():
             },
         )
         assert cell == usage_cell(usage, expected)
-
-
-def test_recording_cache_is_per_board_read():
-    db = CatalogDB()
-    for _ in range(2):
-        _display_usage(RecordingBoardDB(db), None, db.boundary)
-    assert db.catalog_reads == ["newer", "newer"]
 
 
 def test_live_session_table_carries_one_catalog(tmp_path, monkeypatch):
@@ -118,37 +101,12 @@ def test_live_session_table_carries_one_catalog(tmp_path, monkeypatch):
                     ),
                 )
         direct = render(db)
-        recorder = RecordingBoardDB(db)
-        assert render(recorder) == direct
-        entries = recorder.encoded_entries()
-        assert (
-            len([entry for entry in entries if "SELECT catalog_json" in entry["sql"]])
-            == 1
-        )
-        wire = json.dumps({"version": BOARD_DATA_VERSION, "entries": entries})
-        assert len(wire.encode()) < 600_000
-        assert render(ReplayBoardDB.from_payload(json.loads(wire))) == direct
+        facts = collect_session_rows(db, scope="all", active_only=True)
+        wire = json.dumps(_encode_value(facts))
+        assert "catalog_json" not in wire
+        assert len(wire.encode()) < 100_000
+        assert render_session_rows(_decode_value(json.loads(wire)), []) == direct
         assert "live-session-99" in direct
-
-
-def test_archived_payload_without_catalog_keeps_tokens():
-    db = CatalogDB()
-    usage = SessionUsage(
-        status="complete",
-        models=(ModelUsage(model=MODEL_RECORDS[0].model_id, input=1_000),),
-    )
-    recorder = RecordingBoardDB(db)
-    document = usage_document(usage)
-    _display_usage(recorder, document, db.boundary)
-    entries = [
-        entry
-        for entry in recorder.encoded_entries()
-        if "SELECT catalog_json" not in entry["sql"]
-    ]
-    replay = ReplayBoardDB.from_payload(
-        {"version": BOARD_DATA_VERSION, "entries": entries}
-    )
-    assert _display_usage(replay, document, db.boundary) == usage_cell(usage, None)
 
 
 def test_missing_effective_revision_teaches_publication():

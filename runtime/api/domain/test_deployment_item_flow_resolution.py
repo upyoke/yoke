@@ -97,7 +97,7 @@ def _active_flow(conn: Any, flow_id: str) -> None:
         "yoke",
         flow_id,
         "",
-        json.dumps([{"name": "deploy", "step_runner": "auto"}]),
+        json.dumps([{"name": "deploy", "stage_kind": "execution", "step_runner": "auto"}]),
         status="active",
     )
 

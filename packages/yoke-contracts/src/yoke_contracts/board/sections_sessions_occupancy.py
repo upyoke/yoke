@@ -1,8 +1,6 @@
 """Project-slug and strategy-doc occupancy used by the sessions Claims column.
 
-These reads match the query shapes the board collector already records for
-visible projects and session-owned document locks, so replay can label
-steering seats and uncovered document-lock keycaps from a live payload.
+Read visible projects and session-owned document locks once per collection.
 """
 
 from __future__ import annotations
@@ -21,9 +19,6 @@ def _optional_query(
     sql: str,
     params: tuple[Any, ...] = (),
 ) -> list[tuple]:
-    probe = getattr(db, "has_query_quiet", None)
-    if callable(probe) and not probe(sql, params):
-        return []
     return db.query_quiet(sql, params)
 
 

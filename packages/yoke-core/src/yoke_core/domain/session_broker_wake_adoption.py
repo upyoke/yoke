@@ -15,6 +15,7 @@ from yoke_contracts.session_control.wake_instruction import (
     native_wake_instruction_sha256,
 )
 from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_broker_wake_settlement import (
     settle_broker_wake_losses,
 )
@@ -23,14 +24,11 @@ from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_model_columns import resume_model_selection
 from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
 from yoke_core.domain.session_relay_storage import (
-    mark_relay_batch,
     marker,
-    shifted,
 )
 from yoke_core.domain.session_relay_types import (
     RelayHeartbeat,
     RelayJob,
-    WAKE_LEASE_SECONDS,
     WakeMode,
 )
 from yoke_core.domain.session_relay_private_qualification import (
@@ -88,6 +86,20 @@ def _adopt_attempt(
     p = marker(conn)
     _begin(conn)
     try:
+        conn.execute(
+            f"SELECT session_id FROM harness_sessions hs WHERE session_id={p}"
+            + _lock(conn, "hs"),
+            (candidate["session_id"],),
+        ).fetchone()
+        other = conn.execute(
+            "SELECT 1 FROM session_message_attempts "
+            f"WHERE target_session_id={p} AND attempt_id<>{p} "
+            "AND attempt_kind IN ('wake_relay','wake_broker') AND completed_at IS NULL LIMIT 1",
+            (candidate["session_id"], attempt_id),
+        ).fetchone()
+        if other is not None:
+            conn.rollback()
+            return None
         attempt = conn.execute(
             "SELECT lease_id,result_code,completed_at,evidence "
             "FROM session_message_attempts a "
@@ -125,9 +137,12 @@ def _adopt_attempt(
         message_id = str(candidate["message_id"])
         instruction = native_wake_instruction(message_id)
         conn.execute(
-            "UPDATE session_message_attempts SET result_code='broker_native_claimed',"
+            "UPDATE session_message_attempts SET result_code='broker_native_claimed',started_at="
+            + p
+            + ","
             "evidence=" + p + f" WHERE attempt_id={p}",
             (
+                instant_parameter(conn, now),
                 merge_redacted_evidence(
                     attempt[3],
                     {
@@ -140,13 +155,6 @@ def _adopt_attempt(
             ),
         )
         lease_id = str(attempt[0])
-        mark_relay_batch(
-            conn,
-            relay_id=heartbeat.relay_id,
-            batch_id=lease_id,
-            expires_at=shifted(now, seconds=WAKE_LEASE_SECONDS),
-            now=now,
-        )
         if qualification is not None:
             from yoke_core.domain.session_private_route_qualification import (
                 consume_qualification_grant,

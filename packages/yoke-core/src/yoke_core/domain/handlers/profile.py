@@ -1,11 +1,9 @@
 """Profile handlers: the signed-in person's own page.
 
 ``profile.get`` reads everything the Profile page shows for the calling
-actor in one dispatch (:mod:`yoke_core.domain.profile_read`). The four
-mutations act only on the caller's own rows: a token is minted or revoked
-for the bound actor, a preference is written for the bound actor, and the
-onboarding reset deletes the bound actor's dismissal preferences and
-nothing else. Every handler refuses cleanly without a bound actor,
+actor in one dispatch (:mod:`yoke_core.domain.profile_read`). Preferences
+and onboarding reset act only on the caller's own rows. Token creation
+and revocation live in :mod:`yoke_core.domain.handlers.profile_tokens`. Every handler refuses cleanly without a bound actor,
 because there is no profile to show or change for nobody.
 """
 
@@ -36,8 +34,6 @@ from yoke_core.domain.profile_read import (
 
 PREFERENCE_KEYS = (TIME_ZONE_PREF_KEY,)
 
-MAX_TOKEN_NAME_LENGTH = 80
-
 
 class ProfileGetRequest(BaseModel):
     pass
@@ -50,25 +46,6 @@ class ProfileGetResponse(BaseModel):
     tokens: List[Dict[str, Any]]
     preferences: Dict[str, Any]
     onboarding: Dict[str, Any]
-
-
-class ProfileTokenCreateRequest(BaseModel):
-    name: str
-
-
-class ProfileTokenCreateResponse(BaseModel):
-    token_id: int
-    name: str
-    raw_token: str
-
-
-class ProfileTokenRevokeRequest(BaseModel):
-    token_id: int
-
-
-class ProfileTokenRevokeResponse(BaseModel):
-    token_id: int
-    status: str
 
 
 class ProfilePreferenceSetRequest(BaseModel):
@@ -146,82 +123,6 @@ def handle_profile_get(request: FunctionCallRequest) -> HandlerOutcome:
     finally:
         conn.close()
     return HandlerOutcome(result_payload=payload, primary_success=True)
-
-
-def handle_profile_token_create(request: FunctionCallRequest) -> HandlerOutcome:
-    actor_id, invalid = _bound_actor(request, "profile.token.create")
-    if invalid is not None:
-        return invalid
-    name = str((request.payload or {}).get("name") or "").strip()
-    if not name or len(name) > MAX_TOKEN_NAME_LENGTH:
-        return _error(
-            "payload_invalid",
-            f"name must be 1-{MAX_TOKEN_NAME_LENGTH} characters",
-            jsonpath="$.payload.name",
-        )
-    from yoke_core.domain import db_helpers
-    from yoke_core.domain.api_tokens import mint_token
-
-    conn = db_helpers.connect()
-    try:
-        created = mint_token(conn, actor_id=actor_id, name=name)
-    finally:
-        conn.close()
-    return HandlerOutcome(
-        result_payload={
-            "token_id": created.token_id,
-            "name": name,
-            "raw_token": created.raw_token,
-        },
-        primary_success=True,
-    )
-
-
-def handle_profile_token_revoke(request: FunctionCallRequest) -> HandlerOutcome:
-    actor_id, invalid = _bound_actor(request, "profile.token.revoke")
-    if invalid is not None:
-        return invalid
-    raw_id = (request.payload or {}).get("token_id")
-    if not isinstance(raw_id, int) or isinstance(raw_id, bool):
-        return _error(
-            "payload_invalid",
-            "token_id must be an integer",
-            jsonpath="$.payload.token_id",
-        )
-    from yoke_core.domain import db_helpers
-    from yoke_core.domain.api_tokens import revoke_token
-
-    conn = db_helpers.connect()
-    try:
-        row = conn.execute(
-            "SELECT actor_id, machine_id, status FROM api_tokens WHERE id = %s",
-            (raw_id,),
-        ).fetchone()
-        if row is None or int(row[0]) != actor_id:
-            return _error(
-                "token_not_found",
-                f"token {raw_id} is not one of yours",
-                jsonpath="$.payload.token_id",
-            )
-        if row[1]:
-            return _error(
-                "token_machine_bound",
-                "this token belongs to a machine; retire the machine "
-                "on the Machines page to end it",
-                jsonpath="$.payload.token_id",
-            )
-        if row[2] != "active":
-            return _error(
-                "token_not_active",
-                f"token {raw_id} is already {row[2]}",
-            )
-        revoke_token(conn, token_id=raw_id, actor_id=actor_id)
-    finally:
-        conn.close()
-    return HandlerOutcome(
-        result_payload={"token_id": raw_id, "status": "revoked"},
-        primary_success=True,
-    )
 
 
 def handle_profile_preference_set(
@@ -313,6 +214,4 @@ __all__ = [
     "handle_profile_get",
     "handle_profile_onboarding_reset",
     "handle_profile_preference_set",
-    "handle_profile_token_create",
-    "handle_profile_token_revoke",
 ]

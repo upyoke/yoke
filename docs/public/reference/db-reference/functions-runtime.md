@@ -41,8 +41,6 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `deployment_runs.execution.context` | `none` |
 | `deployment_runs.execution.ephemeral_qa_ready` | `none` |
 | `deployment_runs.execution.qa_pending` | `none` |
-| `deployment_runs.execution.qa_record` | `none` |
-| `deployment_runs.execution.qa_seed` | `none` |
 | `deployment_runs.execution.release_driver` | `none` |
 | `deployment_runs.execution.stage_receipt_allocate` | `none` |
 | `deployment_runs.execution.stage_receipt_complete` | `none` |
@@ -82,7 +80,6 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `github.merge_queue.readiness` | `none` |
 | `github.open_work.list` | `none` |
 | `github.pr.create` | `none` |
-| `github.release.create_next_tag` | `none` |
 | `github.release.create_commit_tag` | `none` |
 | `github_actions.check_ci` | `none` |
 | `github_actions.commit_runs.list` | `none` |
@@ -120,6 +117,7 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `machine_authorization.get` | `none` |
 | `machine_authorization.handoff` | `none` |
 | `machine_authorization.handoff_poll` | `none` |
+| `machine_authorization.pending` | `none` |
 | `machine_authorization.resolve` | `none` |
 | `migration.content_identity.verify` | `none` |
 | `models.diff.run` | `none` |
@@ -146,6 +144,7 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `ouroboros.field_note.get` | `none` |
 | `ouroboros.field_note.list` | `none` |
 | `ouroboros.field_note.promote` | `none` |
+| `ouroboros.reflection.capture` | `none` |
 | `overview.activation.get` | `none` |
 | `overview.module.dismiss` | `none` |
 | `overview.module.restore` | `none` |
@@ -202,6 +201,12 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 | `sessions.steering_groups.list` | `none` |
 | `sessions.touch` | `none` |
 | `steering.report.get` | `none` |
+| `teammate_invites.create` | `none` |
+| `teammate_invites.list` | `none` |
+| `teammate_invites.reissue` | `none` |
+| `teammate_invites.revoke` | `none` |
+| `universe.retention.get` | `none` |
+| `universe.prune.run` | `none` |
 | `ui_preferences.nav_group.list` | `none` |
 | `ui_preferences.nav_group.set` | `none` |
 | `ui_preferences.screen_selection.list` | `none` |
@@ -211,9 +216,18 @@ Read [envelope and authority](functions.md) first. `none` means no dispatcher wo
 
 ## Runtime authority and output
 
+`yoke universe retention get` and `yoke universe prune --dry-run` require
+organization admin authority and target one connected universe. Both ids
+declare their function serving floor. [Retention](../../universe-retention.md)
+owns apply, permanent protections and the command-output-only audit exception;
+prune stores no replay receipt and a lost pass reply has an unknown count.
+
 The board data read is the server half of explicit board rebuilding: it returns
-the recorded DB plan and the checkout project's VISION identity; the client
-renders/writes markdown with local inputs. Nothing rebuilds automatically.
+named item, task, session, activity, timeline and architecture facts plus the
+checkout project's VISION identity. The client renders/writes markdown with
+local art and VISION labels. SQL stays inside collection; changing a query
+requires no matching client query or fallback. Optional added facts do not
+change the snapshot contract. Nothing rebuilds automatically.
 Packet budget reports configured line usage/headroom per role and in aggregate;
 character counts measure usage and are not enforced limits. Agent render/check
 compose native adapters from the same canonical sources.

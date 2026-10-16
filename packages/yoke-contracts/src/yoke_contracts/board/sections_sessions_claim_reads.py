@@ -10,7 +10,7 @@ the engine's key decoder.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.coordination_claim_keys import (
@@ -82,9 +82,6 @@ def path_claims_for_session(
         ORDER BY pc.id DESC
         """
     params = (session_id, session_id)
-    probe = getattr(db, "has_query_quiet", None)
-    if callable(probe) and not probe(sql, params):
-        return []
     return db.query_quiet(sql, params)
 
 
@@ -120,9 +117,6 @@ def path_claims_for_items(
         ORDER BY pc.id DESC
         """
     params = tuple(item_ids)
-    probe = getattr(db, "has_query_quiet", None)
-    if callable(probe) and not probe(sql, params):
-        return []
     return db.query_quiet(sql, params)
 
 
@@ -156,12 +150,6 @@ def coordination_claims_for_session(
         ORDER BY cc.id DESC
         """
     params = (session_id, session_id)
-    # Replay coverage: a payload recorded before this read existed has no
-    # entry for it, and the board must render without coordination keycaps
-    # rather than fail the whole rebuild.
-    probe = getattr(db, "has_query_quiet", None)
-    if callable(probe) and not probe(typed_sql, params):
-        return []
     return db.query_quiet(typed_sql, params)
 
 
@@ -180,21 +168,14 @@ def strategy_doc_claims_for_session(
                  sdc.released_at DESC, sdc.project_id, sdc.strategy_doc_slug
         """
     params = (session_id,)
-    probe = getattr(db, "has_query_quiet", None)
-    if callable(probe) and not probe(sql, params):
-        return []
     return db.query_quiet(sql, params)
 
 
 def steered_document_slugs_for_session(
     db: BoardDBLike,
     session_id: str,
-) -> Optional[Dict[tuple[str, str, str], List[str]]]:
-    """Return document slugs paired to this session's steering seats.
-
-    ``None`` means a replay payload predates this read; callers retain the
-    separate seat and document rows until the serving engine converges.
-    """
+) -> Dict[tuple[str, str, str], List[str]]:
+    """Return document slugs paired to this session's steering seats."""
     sql = """
         SELECT CAST(claim.scope::jsonb ->> 'project_id' AS INTEGER),
                claim.claimed_at, claim.released_at,
@@ -211,9 +192,6 @@ def steered_document_slugs_for_session(
         ORDER BY claim.id, doc.strategy_doc_slug
         """
     params = (session_id,)
-    probe = getattr(db, "has_query_quiet", None)
-    if callable(probe) and not probe(sql, params):
-        return None
     rows = db.query_quiet(sql, params)
     candidates: list[dict[str, Any]] = []
     for row in rows:

@@ -136,6 +136,7 @@ def release_unusable_execution(
     for want of a subject.
     """
     from yoke_core.domain.qa_plan_execution_abort_reason import (
+        ABORT_REASON_MAX_LENGTH,
         REASON_DETAIL_SEPARATOR,
         UNUSABLE_BEGIN_REASON,
     )
@@ -147,7 +148,9 @@ def release_unusable_execution(
             target=target,
             payload={
                 "execution_id": execution_id,
-                "reason": f"{UNUSABLE_BEGIN_REASON}{REASON_DETAIL_SEPARATOR}{detail}",
+                "reason": (f"{UNUSABLE_BEGIN_REASON}{REASON_DETAIL_SEPARATOR}{detail}")[
+                    :ABORT_REASON_MAX_LENGTH
+                ],
             },
             actor=actor,
         )

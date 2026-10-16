@@ -27,7 +27,6 @@ from yoke_core.domain.session_item_stage_states import (
 )
 from yoke_core.domain.sessions_steering_visibility import steering_visibility
 from yoke_core.domain.session_message_routing import messageability
-from yoke_contracts.session_control.liveness import LIVENESS_WAITING
 from yoke_core.domain.session_staleness import activity_liveness
 from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
@@ -200,6 +199,7 @@ def _project_row(
     row: dict[str, Any],
     *,
     identity: dict[str, Any],
+    now: datetime | None,
     connected_relays: dict[str, tuple[dict[str, Any], ...]],
     machine_names: Mapping[str, str],
     worktree: str | None,
@@ -217,8 +217,8 @@ def _project_row(
     # Wake routing keys on activity: a waiting row is parked on its claim, and
     # whether its hooks still run is answered by its activity alone.
     liveness = str(row.get("liveness") or "ended")
-    if liveness == LIVENESS_WAITING:
-        liveness = activity_liveness(merged)
+    if liveness == "waiting" or (liveness == "active" and row.get("claims")):
+        liveness = activity_liveness(merged, now=now)
     versions = surface_versions_for(routes, project_id=merged.get("project_id"))
     routing = messageability(
         merged,
@@ -299,6 +299,7 @@ def session_control_roster_result(
             _project_row(
                 row,
                 identity=identities.get(str(row.get("session_id") or ""), {}),
+                now=now,
                 connected_relays=connected,
                 machine_names=names,
                 worktree=worktrees.get(str(row.get("session_id") or "")),

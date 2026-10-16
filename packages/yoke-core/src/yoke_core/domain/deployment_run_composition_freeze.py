@@ -27,7 +27,6 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_run_bound_sources import record_bound_sources
 from yoke_core.domain.deployment_run_carried_work import record_carried_work
-from yoke_core.domain.deployment_runs_schema import _run_field_available
 from yoke_core.domain.deployment_flow_delivery_custody import COLUMN, from_cell
 from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
@@ -37,7 +36,6 @@ from yoke_core.domain.deployment_requirement_snapshots import (
     snapshot_flow_requirements,
     snapshot_member_requirements,
 )
-from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.workflow_delivery_binding_validation import (
     COMPLETED_ITEM_STAGE_ID,
     attached_item_binding_runtime_state,
@@ -126,8 +124,6 @@ def validate_delivery_intent_for_item(
 
 def requires_release_admission(conn: Any, run_id: str) -> bool:
     """Whether the run's flow takes delivery custody of carried items."""
-    if not _column_exists(conn, "deployment_flows", COLUMN):
-        return False
     row = conn.execute(
         f"SELECT df.{COLUMN} FROM deployment_runs dr "
         f"JOIN deployment_flows df ON df.id=dr.flow WHERE dr.id={_p(conn)}",
@@ -154,8 +150,6 @@ def inherited_frozen_membership(conn: Any, run_id: str) -> bool:
     anything can only have been inherited, which is the durable mark of a
     retry — and the reason its membership is read rather than derived again.
     """
-    if not _column_exists(conn, "deployment_run_items", "requirement_snapshot"):
-        return False
     row = conn.execute(
         f"SELECT COUNT(*) FROM deployment_run_items WHERE run_id={_p(conn)} "
         "AND COALESCE(requirement_snapshot,'')<>''",
@@ -199,37 +193,11 @@ def item_requires_release_membership(conn: Any, item_id: int) -> bool:
     return delivery_ready_for_stage(runtime, str(status))
 
 
-def _require_schema(conn: Any) -> None:
-    missing: list[str] = []
-    for column in (
-        "artifact_identity",
-        "composition_resolution",
-        "composition_frozen_at",
-        "requirement_snapshot",
-    ):
-        if not _run_field_available(conn, column):
-            missing.append(f"deployment_runs.{column}")
-    for column in (
-        "delivery_intent",
-        "requirement_selection",
-        "requirement_snapshot",
-    ):
-        if not _column_exists(conn, "deployment_run_items", column):
-            missing.append(f"deployment_run_items.{column}")
-    if missing:
-        raise RuntimeError(
-            "deployment composition schema has not converged: "
-            + ", ".join(missing)
-            + "; apply the current additive schema before execution"
-        )
-
-
 @composition_operation
 def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
     """Freeze member intent/requirements and candidate evidence once."""
     if not requires_release_admission(conn, run_id):
-        return {"run_id": run_id, "frozen_at": None, "legacy": True}
-    _require_schema(conn)
+        return {"run_id": run_id, "frozen_at": None}
     marker = _p(conn)
     row = conn.execute(
         f"SELECT dr.flow,dr.release_lineage,dr.composition_frozen_at,"
@@ -340,9 +308,7 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
         f"UPDATE deployment_runs SET composition_frozen_at={marker},"
         f"requirement_snapshot={marker} WHERE id={marker}",
         (
-            instant_parameter(
-                conn, frozen_at, table="deployment_runs", column="composition_frozen_at"
-            ),
+            instant_parameter(conn, frozen_at),
             flow_snapshot,
             run_id,
         ),

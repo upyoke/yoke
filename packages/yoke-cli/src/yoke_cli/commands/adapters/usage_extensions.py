@@ -15,6 +15,7 @@ from yoke_cli.commands.adapters import qa
 from yoke_cli.commands.adapters import shepherd_writes
 from yoke_cli.commands.adapters import strategy_event_usage
 from yoke_cli.commands.adapters import universe_levels
+from yoke_cli.commands.adapters import universe_retention
 from yoke_cli.commands.adapters import quota_pool_order
 from yoke_cli.commands.adapters import usage_composed_operations
 from yoke_cli.commands.adapters import usage_product_surfaces
@@ -39,6 +40,7 @@ def extend_adapter_usage(target: Dict[str, str]) -> None:
     target.update(config_actor_binding.USAGE_BY_FUNCTION_ID)
     target.update(steering_report.USAGE_BY_FUNCTION_ID)
     target.update(universe_levels.USAGE_BY_FUNCTION_ID)
+    target.update(universe_retention.USAGE_BY_FUNCTION_ID)
     target.update(quota_pool_order.USAGE_BY_FUNCTION_ID)
 
 

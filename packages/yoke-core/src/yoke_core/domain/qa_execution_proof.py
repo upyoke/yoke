@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_run_conclusion import conclusion_proof_summary
 from yoke_core.domain.qa_run_outcome import _row_value, qa_run_outcome
 
@@ -252,24 +252,40 @@ def qa_evidence_run_id(
     """
     if run_id is None:
         return None
+    return qa_evidence_run_ids(conn, [(requirement_id, run_id)]).get(int(run_id))
+
+
+def qa_evidence_run_ids(conn: Any, pairs) -> dict[int, int]:
+    """Resolve the same durable ownership relation once for a bounded read."""
+    requested = {
+        int(run): int(requirement) for requirement, run in pairs if run is not None
+    }
+    if not requested:
+        return {}
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = query_one(
+    rows = query_rows(
         conn,
-        "SELECT COALESCE(capture.id,actual.id) AS id FROM qa_runs actual "
+        "SELECT actual.id AS run_id,actual.qa_requirement_id,"
+        "COALESCE(capture.id,actual.id) AS id FROM qa_runs actual "
         "LEFT JOIN qa_plan_review_verdicts judgment ON judgment.review_run_id=actual.id "
         "AND judgment.requirement_id=actual.qa_requirement_id "
         "LEFT JOIN qa_runs capture ON capture.id=judgment.capture_run_id "
         "AND capture.qa_requirement_id=actual.qa_requirement_id "
-        f"WHERE actual.id={marker} AND actual.qa_requirement_id={marker}",
-        (int(run_id), int(requirement_id)),
+        f"WHERE actual.id IN ({','.join(marker for _ in requested)})",
+        tuple(requested),
     )
-    return int(row["id"]) if row is not None else None
+    return {
+        int(row["run_id"]): int(row["id"])
+        for row in rows
+        if requested[int(row["run_id"])] == int(row["qa_requirement_id"])
+    }
 
 
 __all__ = [
     "qa_artifact_counts_by_run",
     "qa_artifact_rows_by_run",
     "qa_evidence_run_id",
+    "qa_evidence_run_ids",
     "qa_precondition_reason",
     "qa_proof_summary",
     "qa_run_outcome",

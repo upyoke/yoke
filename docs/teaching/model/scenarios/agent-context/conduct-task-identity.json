@@ -1,0 +1,13 @@
+{
+ "id": "conduct-task-identity",
+ "title": "Start a claimed task through the hosted Conduct pipeline",
+ "status": "observed",
+ "audience": "agent",
+ "when": "A Conduct worker starts its owned generated task through a connected server.",
+ "need": "Use the authenticated session and an active exact task claim. Parent authority remains valid; another task claim, released claim or payload identity cannot authorize the write. A refusal names the task claim recovery command.",
+ "disclosure": "current cue",
+ "surface": "Conduct task-status command and its refusal; task function catalog",
+ "review": "Real handler, updater and verifier regression uses disposable production-schema data without server ambient identity. Deployed proof belongs to the attached Command case.",
+ "topics": ["sessions/identity", "agents/skills/implement-and-conduct"],
+ "sources": ["docs/public/reference/db-reference/functions-tasks.md", "runtime/api/domain/handlers/test_conduct_task_actor_identity.py"]
+}

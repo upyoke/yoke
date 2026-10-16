@@ -6,12 +6,10 @@ import json
 from typing import Any
 
 from yoke_contracts.qa_case_starting_state import is_machine_runner
-from yoke_core.domain.qa_converging_columns import STARTING_STATE_COLUMNS as _SS
-from yoke_core.domain.qa_converging_columns import converged_select
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.deployment_run_project_sources import run_source_sha
-from yoke_core.domain.item_worktree_resolution import recorded_item_worktree_value_sql
+from yoke_core.domain.qa_case_source_lane import resolve_source_lane, SourceLaneError
 from yoke_core.domain.qa_method_capabilities import (
     QaMethodCapabilityError,
     capability_kinds,
@@ -77,24 +75,24 @@ def get_case_execution_context(
     *,
     requirement_id: int,
     host_capability_kinds: Any | None = None,
+    session_id: str = "",
+    checkout_path: str | None = None,
+    expected_branch: str | None = None,
 ) -> dict[str, Any]:
     """Return the client-local runner contract for a method-backed case."""
     marker = _p(conn)
     row = query_one(
         conn,
-        "SELECT q.id AS requirement_id, q.item_id, q.deployment_run_id, "
+        "SELECT q.id AS requirement_id, q.item_id, q.task_num, q.deployment_run_id, "
         "q.deployment_stage,q.deployment_member_item_id,q.standalone_execution_id, "
         "q.plan_id, q.target_env, "
         "q.plan_case_key, q.method_id, q.qa_kind, q.instructions, "
         "q.expected_outcome, q.method_config, q.host_baseline, "
-        f"{converged_select(conn, 'qa_requirements', _SS, 'q')}, "
+        f"{'q.starting_state,q.starting_state_reason'}, "
         "q.workflow_transition_id, q.entry_surface, "
         "q.required_completion, q.method_name, q.runner_id, "
         "q.capability_requirements, q.verdict_path, "
         "q.execution_target_json, q.execution_target_digest, "
-        f"{recorded_item_worktree_value_sql('i.id', 'branch')} AS lane_branch, "
-        f"{recorded_item_worktree_value_sql('i.id', 'commit_sha')} "
-        "AS lane_commit_sha, "
         "p.id AS project_id, "
         "p.slug AS project, "
         "mp.public_item_prefix AS member_prefix, "
@@ -237,33 +235,32 @@ def get_case_execution_context(
         "workflow_transition_id": row["workflow_transition_id"],
         "project_id": int(row["project_id"]),
         "project": str(row["project"]),
-        "lane_branch": row["lane_branch"],
+        "lane_branch": None,
     }
+    if context["runner_id"] in {"ci_run", "worktree_run"}:
+        context.update(lane_id=None, lane_path=None, lane_commit_sha=None)
     if is_machine_runner(context["runner_id"]):
         context.update(
             (key, row[key]) for key in ("starting_state", "starting_state_reason")
         )
-    if str(method_snapshot["runner_id"]) == "ci_run":
-        context["lane_commit_sha"] = row["lane_commit_sha"]
+    try:
+        context.update(
+            resolve_source_lane(
+                conn,
+                item_id=context["item_id"],
+                task_num=row["task_num"],
+                session_id=session_id,
+                checkout_path=checkout_path,
+                expected_branch=expected_branch,
+                case=context,
+            )
+        )
+    except SourceLaneError as exc:
+        raise QaCaseExecutionError(str(exc)) from exc
     if row["deployment_run_id"] and context["runner_id"] in ("worktree_run", "ci_run"):
         context["deployment_source_revision"] = run_source_sha(
             conn, str(row["deployment_run_id"]), int(row["project_id"])
         )
-    if (
-        "lane_commit_sha" in context
-        and not context["lane_commit_sha"]
-        and context["item_id"] is not None
-    ):
-        from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
-        from yoke_core.domain.item_json_sections import read_json_section
-
-        evidence = read_json_section(
-            conn,
-            item_id=int(context["item_id"]),
-            section=DASH_EVIDENCE_SECTION,
-        )
-        if evidence:
-            context["lane_commit_sha"] = evidence.get("commit_sha")
     raw_target = row["execution_target_json"]
     if raw_target and row["execution_target_digest"]:
         try:

@@ -2,8 +2,9 @@
 
 The runner resets the Test Machine to a chain's declared baseline before the
 chain's first case and restores that baseline after the chain's last case —
-or after any case that did not pass, since its inheriting followers will not
-run. A chain that started ``as_is`` has no declared state to go back to, and
+or after an unsuccessful capture, since its inheriting followers will not
+run. Successful captures awaiting independent review preserve intermediate
+state without receiving a verdict. A chain that started ``as_is`` has no declared state to go back to, and
 says so in its evidence instead of pretending to restore.
 """
 
@@ -39,9 +40,21 @@ def baseline_receipt(
     }
 
 
-def restore_due(case: Any, case_outcome: str | None) -> bool:
+def capture_allows_chain(result: Any) -> bool:
+    """Mechanical completion permits continuation, never early acceptance."""
+    return (
+        result.get("case_outcome") in {"passed", "needs_review"}
+        and not result.get("error_code")
+        and result.get("verdict") not in {"fail", "error", "blocked", "waiting"}
+        and result.get("execution_status") != "capture_failed"
+    )
+
+
+def restore_due(case: Any, case_outcome: str | None, **capture: Any) -> bool:
     """Whether the machine goes back to the chain's start after this case."""
-    return bool(case.ends_chain) or case_outcome != "passed"
+    return bool(case.ends_chain) or not capture_allows_chain(
+        {"case_outcome": case_outcome, **capture}
+    )
 
 
 def restore_chain_start(case: Any, reach: Any, *, machine: str) -> dict[str, Any]:
@@ -84,6 +97,7 @@ __all__ = [
     "STARTING_STATE_RESTORE",
     "STARTING_STATE_RESTORE_FAILED",
     "baseline_receipt",
+    "capture_allows_chain",
     "restore_chain_start",
     "restore_due",
     "restore_summary",
