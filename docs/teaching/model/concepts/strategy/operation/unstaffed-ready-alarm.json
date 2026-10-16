@@ -1,0 +1,11 @@
+{
+ "id": "unstaffed-ready-alarm",
+ "title": "Unstaffed ready work alarm",
+ "status": "observed",
+ "current": "The fleet watcher emits one urgent fleet ALARM unstaffed-ready line when an item in the report's available set (runnable, unclaimed, no launch in flight) has waited past the staffing threshold the report already marks with !. The line names the item, project, wait, rank, next skill, and the stage-level yoke session-control launch create reach command. It fires once per waiting episode and again only after another staffing interval. A launch in assigned, launching, or awaiting_registration does not alarm. Staffing the item ends the episode.",
+ "commands": ["yoke watch fleet", "yoke session-control launch create"],
+ "sources": [".agents/skills/yoke/steer/fleet-findings.md", ".agents/skills/yoke/steer/watching.md"],
+ "skills": ["steer"],
+ "page": "strategy",
+ "position": 4
+}

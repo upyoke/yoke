@@ -21,6 +21,7 @@ from yoke_core.domain.fleet_delta_alarms import (
     unowned_item_alarms,
 )
 from yoke_core.domain.fleet_delta_snapshot import FleetSnapshot
+from yoke_core.domain.fleet_delta_unstaffed import unstaffed_ready_alarms
 
 
 def item_deltas(previous: FleetSnapshot | None, current: FleetSnapshot) -> list[str]:
@@ -93,6 +94,7 @@ def compare(
     lines.extend(idle_holder_alarms(current, state))
     lines.extend(unowned_item_alarms(current, state))
     lines.extend(starved_envelope_alarms(current, state))
+    lines.extend(unstaffed_ready_alarms(current, state))
     return lines
 
 
