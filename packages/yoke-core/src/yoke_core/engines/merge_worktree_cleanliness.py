@@ -33,6 +33,7 @@ from fnmatch import fnmatchcase
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
+from yoke_contracts.doctor_budget import pause_check_budget
 from yoke_contracts.project_contract.install_policy import YOKE_TREE_IGNORED_NAMES
 from yoke_contracts.project_contract.installed_layer import (
     INSTALLED_LAYER_RECEIPT_REL,
@@ -115,6 +116,9 @@ def _cache_root(
 
 
 def _status(run_git: Callable[..., Any], path: Path) -> Any:
+    # ``normal`` reports an ignored or untracked directory as one line. The
+    # classification only needs that root, and listing every file inside it
+    # spends the check budget once a machine holds a full set of lanes.
     return run_git(
         [
             "-C",
@@ -122,7 +126,7 @@ def _status(run_git: Callable[..., Any], path: Path) -> Any:
             "status",
             "--porcelain",
             "--ignored=matching",
-            "--untracked-files=all",
+            "--untracked-files=normal",
         ],
         cwd=str(path),
         capture=True,
@@ -208,6 +212,12 @@ def clear_lane_residue(
     assessment = assess_lane_residue(run_git, root, declared_roots)
     if not assessment.disposable:
         return assessment
+    with pause_check_budget():
+        return _delete_disposable_caches(run_git, root, assessment)
+
+
+def _delete_disposable_caches(run_git, root: Path, assessment: LaneResidueAssessment):
+    """Delete named caches off the check clock, then prove the lane is empty."""
     for relative in sorted(
         assessment.cache_roots, key=lambda item: len(item.parts), reverse=True
     ):

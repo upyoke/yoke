@@ -1,10 +1,11 @@
 """HC-worktree-health retires many landed lanes inside its check budget.
 
-A machine holding dozens of landed lanes used to spend the whole budget on one
-control-plane verdict and one target fetch per lane, then abort before pruning
-any. These tests drive real git lanes through the check under the real budget:
-one batched verdict read, one fetch per target, and each lane retired as soon
-as it is proved, so an aborted run keeps what it already retired.
+A machine holding a full set of landed lanes used to spend the budget on one
+control-plane verdict, one target fetch, one worktree listing and one ancestry
+read per lane, then abort before pruning any. These tests drive real git lanes
+through the check under the real budget: one batched verdict read, one fetch
+per target, one merged-ref read, and each lane retired as soon as it is
+proved, so an aborted run keeps what it already retired.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from yoke_core.engines import doctor_worktree_terminal_lanes as terminal_lanes
 from yoke_core.engines.doctor_https_compose import UnavailableControlPlane
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
-LANES = 50
+LANES = 80
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -114,9 +115,7 @@ def _fix_within_budget() -> RecordCollector:
     return rec
 
 
-def test_fifty_landed_lanes_retire_with_one_verdict_read_and_one_fetch(
-    landed_lanes, relay_calls
-):
+def test_eighty_landed_lanes_retire_inside_the_check_budget(landed_lanes, relay_calls):
     repo, lanes = landed_lanes
     git_commands: List[List[str]] = []
     real_run = hc._base._run
@@ -142,6 +141,22 @@ def test_fifty_landed_lanes_retire_with_one_verdict_read_and_one_fetch(
     assert len(verdict_reads[0]["lanes"]) == LANES
     fetches = [cmd for cmd in git_commands if "fetch" in cmd]
     assert fetches == [["git", "-C", str(repo), "fetch", "origin", "main"]]
+    merged = [cmd for cmd in git_commands if "--merged" in cmd]
+    assert merged == [
+        [
+            "git",
+            "-C",
+            str(repo),
+            "for-each-ref",
+            "--format=%(refname:short)",
+            "--merged",
+            "origin/main",
+            "refs/heads",
+        ]
+    ]
+    assert not any("merge-base" in cmd for cmd in git_commands)
+    # Lane inventory, then one deploy-driver inventory. Neither repeats per lane.
+    assert sum("worktree" in cmd and "list" in cmd for cmd in git_commands) == 2
 
 
 def test_a_run_the_budget_aborts_keeps_the_lanes_it_already_retired(

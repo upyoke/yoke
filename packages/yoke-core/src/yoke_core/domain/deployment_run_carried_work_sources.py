@@ -208,6 +208,18 @@ def _resolve_recorded_evidence(
                 )
 
 
+def _landed_at(row: Any) -> Any:
+    return _cell(row, "merge_queue_landed_at", 2) or _cell(row, "merged_at", 1)
+
+
+def _token(row: Any, key: str, index: int) -> str:
+    return str(_cell(row, key, index) or "").strip()
+
+
+def _tokens(rows: Sequence[Any], key: str, index: int) -> list[str]:
+    return [token for row in rows if (token := _token(row, key, index))]
+
+
 def _resolve_item_metadata(
     conn: Any,
     *,
@@ -247,30 +259,26 @@ def _resolve_item_metadata(
         recovery="Restore item and lane metadata reads, then retry run completion.",
         warnings=warnings,
     )
+    # A lane names its item's contribution only once the item has landed.
+    # An open lane's head keeps moving while workers commit, so reading it
+    # would turn unrelated lane activity into new repository questions
+    # between release preparation and its locked validation. Each lane's
+    # recorded sha is asked first; its branch only when that sha misses.
+    landed = [row for row in rows if _landed_at(row)]
+    shas = source.resolve_commits(_tokens(landed, "commit_sha", 5))
+    missed = [row for row in landed if not shas.get(_token(row, "commit_sha", 5))]
+    branches = source.resolve_commits(_tokens(missed, "branch", 4))
     for row in rows:
         item_id = _cell(row, "id", 0)
         resolution_ref = str(_cell(row, "resolution_ref", 3) or "").strip()
         if _HEX_REF.fullmatch(resolution_ref):
-            _add_resolution(
-                resolved,
-                commits,
-                resolution_ref,
-                item_id,
-                known_items,
-            )
-        landed_at = _cell(row, "merge_queue_landed_at", 2) or _cell(row, "merged_at", 1)
+            _add_resolution(resolved, commits, resolution_ref, item_id, known_items)
+        landed_at = _landed_at(row)
         lane_commit = ""
-        # A lane names its item's contribution only once the item has landed.
-        # An open lane's head keeps moving while workers commit, so reading it
-        # would turn unrelated lane activity into new repository questions
-        # between release preparation and its locked validation.
-        lane_tokens = (_cell(row, "commit_sha", 5), _cell(row, "branch", 4))
-        for raw_token in lane_tokens if landed_at else ():
-            lane_token = str(raw_token or "").strip()
-            if lane_token:
-                lane_commit = source.resolve_commit(lane_token)
-            if lane_commit:
-                break
+        if landed_at:
+            lane_commit = shas.get(_token(row, "commit_sha", 5)) or branches.get(
+                _token(row, "branch", 4), ""
+            )
         if lane_commit:
             carrier = source.carrying_commit(
                 lane_commit, base=base, head=head, commits=commits

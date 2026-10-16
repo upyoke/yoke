@@ -25,10 +25,15 @@ from runtime.api.fixtures.bound_source_release import (
     CONSUMER_ITEM_ID,
     two_project_release,
 )
+from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.carried_release_candidate import insert_run
 from yoke_core.domain import deploy_pipeline_github_workflow_bindings as branch_reads
 from yoke_core.domain import deployment_run_create_idempotency as idempotency
 from yoke_core.domain import deployment_run_create_write as create_write
+from yoke_core.domain import deployment_run_carried_work_sources as carried_sources
+from yoke_core.domain.deployment_prepared_source import PreparedSource
+from yoke_core.domain.deployment_source_reads import prepared_sources_only
+from yoke_core.domain.schema_read_scope import composition_reads
 from yoke_core.domain.deployment_run_carried_work_source import LocalCheckoutSource
 from yoke_core.domain.deployment_run_create_write import CreatedRun, create_run
 from yoke_core.domain.handlers import deployment_run_execution as execution
@@ -235,3 +240,75 @@ def test_execution_context_resolves_each_bound_branch_once(
     assert outcome.result_payload["run"]["bound_sources"]["inputs"] == {
         "consumer_sha": release["consumer_tip"]
     }
+
+
+LANDED_AT = "2026-10-16T15:00:00Z"
+
+
+class _Lanes:
+    origin, location = "checkout", "/repo"
+
+    def __init__(self) -> None:
+        self.batches: list[tuple[str, ...]] = []
+
+    def resolve_commits(self, refs) -> dict[str, str]:
+        self.batches.append(tuple(refs))
+        return {ref: ref if ref.startswith("sha-") else "" for ref in refs}
+
+    def carrying_commit(self, lane_commit, *, base, head, commits):
+        return ""
+
+    def commit_time(self, sha: str) -> None:
+        return None
+
+    def warnings(self) -> list:
+        return []
+
+
+def test_locked_validation_reading_lanes_in_another_order_asks_nothing_new(
+    test_db: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for item_id in (1, 2, 3, 4):
+        insert_item(test_db, id=item_id, status="done", merged_at=LANDED_AT)
+        # Even items record a sha the source lacks, so their branch is asked.
+        sha = f"sha-{item_id}" if item_id % 2 else f"gone-{item_id}"
+        test_db.execute(
+            "INSERT INTO item_worktrees (item_id, branch, path, lane_role, state, "
+            "commit_sha, created_at, updated_at) VALUES (%s, %s, NULL, "
+            "'implementation', 'active', %s, now(), now())",
+            (item_id, f"YOK-{item_id}", sha),
+        )
+    real_rows = carried_sources._safe_rows
+    reverse = {"lanes": False}
+
+    def rows(conn, sql, *args, **kwargs):
+        found = real_rows(conn, sql, *args, **kwargs)
+        flip = reverse["lanes"] and "item_worktrees" in sql
+        return list(reversed(found)) if flip else found
+
+    monkeypatch.setattr(carried_sources, "_safe_rows", rows)
+    project_id = int(
+        test_db.execute("SELECT id FROM projects WHERE slug='yoke'").fetchone()[0]
+    )
+    lanes = _Lanes()
+
+    def derive() -> None:
+        carried_sources.resolve_carried_items(
+            test_db,
+            project_id=project_id,
+            source=source,
+            base="base",
+            head="head",
+            commits=["d" * 40],
+        )
+
+    with composition_reads():
+        source = PreparedSource(test_db, ("carried_source", project_id, ""), lanes)
+        derive()
+        reverse["lanes"] = True
+        with prepared_sources_only():
+            derive()
+    assert lanes.batches == [
+        ("gone-2", "gone-4", "sha-1", "sha-3"),
+        ("YOK-2", "YOK-4"),
+    ]

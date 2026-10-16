@@ -23,7 +23,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from yoke_contracts.doctor_budget import remaining_budget
+from yoke_contracts.doctor_budget import pause_check_budget, remaining_budget
 
 TOMBSTONE_PREFIX = ".removing-"
 # git steps are bounded on their own clock, never the caller's deadline.
@@ -60,7 +60,8 @@ def remove_worktree(
     deferred = removal_deferral()
     if deferred:
         return WorktreeRemoval(False, deferred)
-    return _remove(Path(repo_root), Path(worktree_path))
+    with pause_check_budget():
+        return _remove(Path(repo_root), Path(worktree_path))
 
 
 def tombstones(repo_root: str | Path) -> list[Path]:
@@ -84,7 +85,8 @@ def finish_tombstones(repo_root: str | Path) -> list[WorktreeRemoval]:
     leftovers = tombstones(repo_root)
     if not leftovers:
         return []
-    return _finish(Path(repo_root), leftovers)
+    with pause_check_budget():
+        return _finish(Path(repo_root), leftovers)
 
 
 def _tombstone_home(repo_root: Path, path: Path) -> Path:
