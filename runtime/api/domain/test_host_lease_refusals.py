@@ -113,3 +113,45 @@ def test_released_receipt_refusal_does_not_advise_repeating_host_action():
     assert "session owner" in text
     assert "recover its receipt" in text
     assert "do not repeat the host action" in text
+
+
+@pytest.mark.parametrize("operation", ["baseline", "case"])
+def test_closed_local_execution_names_host_and_readmission(operation):
+    from yoke_core.domain.machine_qa_execution import (
+        MachineQaLease,
+        MachineQaExecutionError,
+    )
+
+    execution = MachineQaLease(
+        conn=None,
+        control=None,
+        material=SimpleNamespace(settings={"resource_name": "linux-lab"}),
+        lease=SimpleNamespace(id=7),
+        closed=True,
+    )
+    with pytest.raises(MachineQaExecutionError) as error:
+        if operation == "baseline":
+            execution.reach_baseline("fresh-host")
+        else:
+            execution.execute(
+                method_id="unused",
+                method_config={},
+                entry_surface=None,
+                required_completion=None,
+            )
+    assert "execution on linux-lab is closed" in str(error.value)
+    assert "scoped plan" in str(error.value)
+
+
+def test_local_case_busy_refusal_names_actual_holder():
+    from yoke_core.domain.machine_qa_case_result import MachineQaLeaseHeld
+
+    text = str(
+        MachineQaLeaseHeld(
+            lease=SimpleNamespace(id=7, session_id="owner", actor_id="1"),
+            machine="linux-lab",
+        )
+    )
+    assert "linux-lab" in text
+    assert "session owner and actor 1" in text
+    assert "Wait for that execution" in text

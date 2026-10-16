@@ -41,6 +41,7 @@ from yoke_core.domain.machine_qa_host_selection import (
 from yoke_core.domain.machine_verification_recording import (
     record_test_machine_verification,
 )
+from yoke_core.domain.machine_qa_lease_messages import invalid_lease
 
 
 @dataclass
@@ -59,7 +60,12 @@ class MachineQaLease:
 
     def reach_baseline(self, name: str) -> HostBaselineResult:
         if self.closed:
-            raise MachineQaExecutionError("test-machine lease is closed")
+            raise MachineQaExecutionError(
+                invalid_lease(
+                    self.lease.id,
+                    f"the execution on {self.material.settings['resource_name']} is closed",
+                )
+            )
         self.baseline = run_host_baseline(self.control, name)
         if not self.baseline.ok and self.conn is not None and self.owns_lease:
             record_test_machine_verification(
@@ -81,7 +87,12 @@ class MachineQaLease:
         required_completion: str | None,
     ) -> MachineCaseResult:
         if self.closed:
-            raise MachineQaExecutionError("test-machine lease is closed")
+            raise MachineQaExecutionError(
+                invalid_lease(
+                    self.lease.id,
+                    f"the execution on {self.material.settings['resource_name']} is closed",
+                )
+            )
         if self.baseline is not None and not self.baseline.ok:
             baseline_evidence = redact_machine_qa_value(
                 self.baseline.evidence,

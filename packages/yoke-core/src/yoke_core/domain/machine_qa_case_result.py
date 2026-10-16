@@ -11,6 +11,7 @@ from yoke_core.domain.coordination_claim_contention import (
 )
 from yoke_core.domain.coordination_claim_record import CoordinationClaim
 from yoke_core.domain.machine_qa_method_contracts import MachineQaExecutionError
+from yoke_core.domain.machine_qa_lease_messages import held_host
 
 
 @dataclass(frozen=True)
@@ -32,7 +33,7 @@ class MachineQaLeaseHeld(MachineQaExecutionError):
         machine: str,
         contention: ClaimContention | None = None,
     ) -> None:
-        super().__init__(f"test machine {machine!r} is in use by another execution")
+        super().__init__(held_host(lease, machine))
         self.lease = lease
         self.machine = machine
         self.contention = contention
