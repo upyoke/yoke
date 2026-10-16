@@ -49,7 +49,7 @@ function groupPanel(documentNode, title, shown, table) {
   return panel;
 }
 
-export function renderActorsView(context, main) {
+export function renderTeamView(context, main) {
   return renderActors(context, main, { showDisabled: false });
 }
 
@@ -63,7 +63,7 @@ async function renderActors(context, main, view) {
   const localNotice = el(documentNode, "div", "panel actors-local-notice");
   localNotice.hidden = true;
   const controls = el(documentNode, "div", "actors-controls");
-  const body = el(documentNode, "div", "actors-body", "Loading actors…");
+  const body = el(documentNode, "div", "actors-body", "Loading team…");
   const feedback = el(documentNode, "p", "actors-muted");
   feedback.setAttribute("role", "status");
   body.setAttribute("role", "status");

@@ -1,7 +1,9 @@
 {
  "id": "members",
  "title": "Members",
- "status": "draft-copy",
+ "status": "observed",
+ "summary": "Cloud Members is the Platform-fed seats destination. People, roles, and invites live on Team; Billing holds the plan and payments.",
+ "sources": ["docs/public/actors-members-billing.md"],
  "related": "identity/accounts",
  "page": "workbench-destinations",
  "position": 12

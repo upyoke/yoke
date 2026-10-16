@@ -48,9 +48,9 @@ function client(answer) {
   };
 }
 
-async function mountActors(answer, mode = "local") {
+async function mountTeam(answer, mode = "local") {
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.href = "/actors";
+  documentNode.defaultView.location.href = "/team";
   const root = documentNode.createElement("div");
   const reads = client(answer);
   const mounted = mountUniverseApp(root, {
@@ -71,9 +71,9 @@ function headings(root) {
 const panelTitles = (root) => byClass(root, "actors-panel")
   .map((panel) => byClass(panel, "panel-header")[0].textContent);
 
-test("Actors route groups people and machine accounts with readable grants", async () => {
-  const { root, reads, mounted } = await mountActors(() => ok(roster), "hosted");
-  assert.deepEqual(byClass(root, "page-head").map((node) => node.textContent), ["Actors"]);
+test("Team route groups people and machine accounts with readable grants", async () => {
+  const { root, reads, mounted } = await mountTeam(() => ok(roster), "hosted");
+  assert.deepEqual(byClass(root, "page-head").map((node) => node.textContent), ["Team"]);
   assert.deepEqual(panelTitles(root), ["People· 1", "Machine accounts· 1"]);
   const [people, machines] = byClass(root, "actors-panel");
   assert.deepEqual(headings(people), [
@@ -95,7 +95,7 @@ test("Actors route groups people and machine accounts with readable grants", asy
   const text = root.textContent;
   for (const removed of [
     "Grant access", "engine roles · two scopes", "Accounts come from Members.",
-    "Actors · 4", "deployment_ci · yoke", "Account",
+    "Team · 4", "deployment_ci · yoke", "Account",
     "Everyone and everything that can act in this universe",
   ]) assert.ok(!text.includes(removed), removed);
   mounted.unmount();
@@ -103,7 +103,7 @@ test("Actors route groups people and machine accounts with readable grants", asy
 
 test("local roster omits Member email and names a sole human actor", async () => {
   const onlyHuman = { ...roster, rows: [roster.rows[0]] };
-  const { root, mounted } = await mountActors(() => ok(onlyHuman));
+  const { root, mounted } = await mountTeam(() => ok(onlyHuman));
   assert.deepEqual(panelTitles(root), ["People· 1"]);
   assert.deepEqual(headings(byClass(root, "actors-panel")[0]), [
     "Actor", "State", "Org role", "Project access", "API keys", "Action",
@@ -114,8 +114,8 @@ test("local roster omits Member email and names a sole human actor", async () =>
   mounted.unmount();
 });
 
-test("empty, loading and refused reads retain a meaningful Actors screen", async () => {
-  const empty = await mountActors(() => ok({ rows: [], current_actor_id: null }));
+test("empty, loading and refused reads retain a meaningful Team screen", async () => {
+  const empty = await mountTeam(() => ok({ rows: [], current_actor_id: null }));
   assert.equal(byClass(empty.root, "actors-panel").length, 0);
   assert.ok(empty.root.textContent.includes("No actors are registered"));
   empty.mounted.unmount();
@@ -123,18 +123,18 @@ test("empty, loading and refused reads retain a meaningful Actors screen", async
   let release;
   const pending = new Promise((resolve) => { release = resolve; });
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.href = "/actors";
+  documentNode.defaultView.location.href = "/team";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, {
     client: client(() => pending),
   });
   await settle();
-  assert.ok(root.textContent.includes("Loading actors…"));
+  assert.ok(root.textContent.includes("Loading team…"));
   release(ok(roster));
   await settle();
   mounted.unmount();
 
-  const failed = await mountActors(() => ({
+  const failed = await mountTeam(() => ({
     status: 403,
     envelope: { success: false, error: { message: "actor access denied" } },
   }));
