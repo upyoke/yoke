@@ -1,7 +1,8 @@
 """Refuse to publish a release the hosted consumer has not been built against.
 
-Pass full --candidate-sha and --consumer-sha commits. Dispatch follows main
-until sessionless tag creation is served; exact-pair verdicts still refuse drift.
+Pass full --candidate-sha and --consumer-sha commits. An immutable consumer
+tag binds workflow source, so the main-push proof, retries and simultaneous
+stage/prod releases of one exact pair join one consumer run.
 
 On success it writes ``proven_consumer_sha`` to ``$GITHUB_OUTPUT``.
 Exits 0 when proven, 1 when refused or unattributable, 2 when unavailable.
@@ -17,6 +18,10 @@ import subprocess
 import sys
 from typing import Any, Dict, Optional, Sequence, Tuple
 
+from runtime.api.tools.platform_consumer_dispatch_ref import (
+    bound_dispatch_ref,
+    consumer_dispatch_tag,
+)
 from runtime.api.tools.platform_consumer_run_wait import wait_run
 from yoke_contracts.api_urls import HOSTED_PROD_API_URL
 from yoke_contracts.github_workflow_dispatch import (
@@ -26,7 +31,7 @@ from yoke_contracts.github_workflow_dispatch import (
 CONSUMER_REPO = "upyoke/platform"
 CONSUMER_PROJECT = "platform"
 CONSUMER_CHECK_WORKFLOW = "platform-release-pin-check.yml"
-#: Required and advisory runs currently dispatch from the consumer trunk.
+#: Advisory runs follow trunk; exact-pair runs use an immutable commit tag.
 CONSUMER_TRUNK_REF = "main"
 CANDIDATE_INPUT = "product_ref"
 
@@ -41,7 +46,7 @@ _COMMAND_TIMEOUT_SECONDS = 300
 def pair_request_id(candidate_sha: str, consumer_sha: str) -> str:
     """Identical pairs join; different commits never adopt that proof."""
     return (
-        f"consumer-compat:{candidate_sha}:{consumer_sha}:ref={CONSUMER_TRUNK_REF}:"
+        f"consumer-compat:{candidate_sha}:{consumer_dispatch_tag(consumer_sha)}:"
         f"{CONSUMER_CHECK_WORKFLOW}"
     )
 
@@ -119,9 +124,19 @@ def dispatch(
     exact_pair: bool = True,
     request_id: str = "",
 ) -> Tuple[str, str]:
-    """Dispatch from trunk, rejoining the exact pair or advisory content key."""
+    """Dispatch the bound consumer commit; advisory calls follow trunk."""
     ref = CONSUMER_TRUNK_REF
-    request_id = request_id or pair_request_id(candidate_sha, consumer_sha)
+    if exact_pair:
+        ref, error = bound_dispatch_ref(
+            _yoke,
+            repo=CONSUMER_REPO,
+            project=CONSUMER_PROJECT,
+            sha=consumer_sha,
+            timeout=_COMMAND_TIMEOUT_SECONDS,
+        )
+        if error:
+            return "", error
+        request_id = pair_request_id(candidate_sha, consumer_sha)
     code, stdout, stderr = _yoke(
         [
             "github-actions",
@@ -243,19 +258,20 @@ def classify(
 
 
 def prove(
-    candidate_sha: str,
-    consumer_sha: str,
-    *,
-    timeout_sec: int,
-    exact_pair: bool = True,
+    candidate_sha: str, consumer_sha: str, *, timeout_sec: int
 ) -> Tuple[int, str, str]:
     """Bind, dispatch, wait, classify — code, narrative, proven revision."""
     unavailable = bind_consumer_authority()
     if unavailable:
         return UNAVAILABLE, f"consumer compatibility unproven: {unavailable}", ""
-    run_id, dispatch_error = dispatch(
-        candidate_sha, consumer_sha, exact_pair=exact_pair
-    )
+    return prove_pair(candidate_sha, consumer_sha, timeout_sec=timeout_sec)
+
+
+def prove_pair(
+    candidate_sha: str, consumer_sha: str, *, timeout_sec: int
+) -> Tuple[int, str, str]:
+    """Dispatch or join the exact pair, wait and classify under bound authority."""
+    run_id, dispatch_error = dispatch(candidate_sha, consumer_sha)
     if dispatch_error:
         return UNAVAILABLE, f"consumer compatibility unproven: {dispatch_error}", ""
     print(f"consumer check run: {CONSUMER_REPO} run {run_id}", flush=True)
@@ -267,7 +283,6 @@ def prove(
         candidate_sha=candidate_sha,
         consumer_sha=consumer_sha,
         run_id=run_id,
-        exact_pair=exact_pair,
     )
 
 

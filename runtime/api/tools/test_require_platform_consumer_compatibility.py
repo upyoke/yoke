@@ -191,7 +191,9 @@ def test_one_candidate_can_never_adopt_another_candidate_s_run(
         f"{gate.CANDIDATE_INPUT}={CANDIDATE}"
     )
     for argv in seen:
-        assert argv[argv.index("--ref") + 1] == gate.CONSUMER_TRUNK_REF
+        assert argv[argv.index("--ref") + 1] == (
+            f"yoke-deploy/consumer-{CONSUMER_REVISION}"
+        )
         assert argv[argv.index("--request-id") + 1].endswith(
             gate.CONSUMER_CHECK_WORKFLOW
         )
@@ -209,8 +211,7 @@ def test_a_different_consumer_commit_is_a_different_pair(
     request_ids = [argv[argv.index("--request-id") + 1] for argv in seen]
     assert request_ids[0] != request_ids[1]
     assert CONSUMER_REVISION in request_ids[0]
-    assert seen[1][seen[1].index("--ref") + 1] == gate.CONSUMER_TRUNK_REF
-    assert not gate.is_full_commit_sha(seen[1][seen[1].index("--ref") + 1])
+    assert seen[1][seen[1].index("--ref") + 1] == f"yoke-deploy/consumer-{'c' * 40}"
 
 
 def test_advisory_dispatch_uses_its_explicit_content_key(monkeypatch):
@@ -219,6 +220,7 @@ def test_advisory_dispatch_uses_its_explicit_content_key(monkeypatch):
     gate.dispatch(CANDIDATE, CONSUMER_REVISION, exact_pair=False, request_id="tree-key")
     gate.dispatch(CANDIDATE, CONSUMER_REVISION, exact_pair=False, request_id="tree-key")
     assert {argv[argv.index("--request-id") + 1] for argv in seen} == {"tree-key"}
+    assert {argv[argv.index("--ref") + 1] for argv in seen} == {gate.CONSUMER_TRUNK_REF}
 
 
 def test_the_gate_reuses_the_consumer_s_own_required_check(
