@@ -310,3 +310,25 @@ def test_poll_threads_authenticated_actor_to_pending_scope(org_world, monkeypatc
             "now": NOW,
         }
     ]
+
+
+def test_pinned_org_meter_does_not_abort_project_wake_collection(org_world):
+    w = org_world
+    enqueue(w)
+    project_mid = request_session_wake(
+        w.conn,
+        actor_id=w.owner,
+        caller_session_id="org-sender",
+        session_id="project-target",
+        public_ref=None,
+        prompt=None,
+        now=NOW,
+    )["message_id"]
+    w.conn.execute(
+        "UPDATE harness_sessions SET model='gpt-5.4' WHERE session_id='org-target'"
+    )
+    w.conn.commit()
+    rows = wake_candidates(w.conn, heartbeat(w, (1,)), now=NOW)
+    assert [(row["message_id"], row["session_id"]) for row in rows] == [
+        (project_mid, "project-target")
+    ]
