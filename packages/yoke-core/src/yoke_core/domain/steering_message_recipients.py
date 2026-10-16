@@ -8,7 +8,8 @@ business, and nothing has to be redirected by hand.
 
 The row moves through three states. ``awaiting_seat`` means no live seat
 covered it -- the message is parked, not lost, and no session was asked to
-receive it. ``delivered`` names the seat that holds it now. ``acknowledged``
+receive it. ``delivered`` names the seat that holds it now; that seat also
+holds an ordinary session receipt, so the delivery hook injects it. ``acknowledged``
 records that seat acting on it and settles the row for every later handoff.
 A seat that ends without acknowledging or answering leaves its delivered
 row drainable again: the message outlives the session, so the successor
@@ -235,46 +236,6 @@ def awaiting_seat_count(conn: Any, *, project_id: int, scope: Mapping[str, Any])
     return len(_drainable_candidates(conn, scope=scope, project_id=project_id))
 
 
-def hand_to_seat(
-    conn: Any,
-    *,
-    rows: Sequence[Mapping[str, Any]],
-    session_id: str,
-    claim_id: int,
-    now: datetime,
-) -> int:
-    """Mark drained rows delivered to the seat that just took the scope."""
-    marker = _marker(conn)
-    stamp = instant_parameter(conn, now)
-    lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
-    handed = 0
-    for row in rows:
-        message_id = str(row["message_id"])
-        conn.execute(
-            f"SELECT state FROM {TABLE} "
-            f"WHERE recipient_kind = {marker} AND message_id = {marker}" + lock,
-            (STEERING_KIND, message_id),
-        )
-        cursor = conn.execute(
-            f"UPDATE {TABLE} SET state = {marker}, seat_session_id = {marker}, "
-            f"seat_claim_id = {marker}, delivered_at = {marker}, "
-            "acknowledged_at = NULL "
-            f"WHERE recipient_kind = {marker} AND message_id = {marker} "
-            f"AND state <> {marker}",
-            (
-                STATE_DELIVERED,
-                str(session_id),
-                int(claim_id),
-                stamp,
-                STEERING_KIND,
-                message_id,
-                STATE_ACKNOWLEDGED,
-            ),
-        )
-        handed += int(cursor.rowcount or 0)
-    return handed
-
-
 def acknowledge_steering_recipient(
     conn: Any,
     *,
@@ -338,7 +299,6 @@ __all__ = [
     "awaiting_seat_count",
     "decode_steering_scope",
     "drainable_rows",
-    "hand_to_seat",
     "holding_seat_session_id",
     "record_steering_recipient",
     "role_addressed_message_ids",

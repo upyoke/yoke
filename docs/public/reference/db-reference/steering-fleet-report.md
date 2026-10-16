@@ -296,7 +296,8 @@ marked control-plane facts. Message leases do not wait for report composition:
 one structured event reply carries envelope; report follows empty hook rather
 than holding 30-second lease/ranking or appending unparsable second bytes.
 Hook and watcher use same compact digest/closing marker/actionable sections,
-own unacked inbox and full-read/help pointer; deliver=true/shared delivered
+and full-read/help pointer (unacknowledged messages are re-presented by
+message delivery, not the report); deliver=true/shared delivered
 record prevents reprinting other's report. Worker mail wakes normally; no mail
 is still followed by next due hook report.
 
