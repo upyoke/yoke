@@ -82,6 +82,19 @@ def github(monkeypatch):
         return SimpleNamespace(success=len(state["records"]) != fail)
 
     monkeypatch.setattr(subject, "rest_get", get)
+    monkeypatch.setattr(
+        "yoke_core.domain.github_actions_rerun_safety.list_run_jobs",
+        lambda *a, **kw: state.get(
+            "jobs",
+            [
+                {
+                    "runner_name": "runner",
+                    "steps": [{}],
+                    "conclusion": state["run"]["conclusion"],
+                }
+            ],
+        ),
+    )
     monkeypatch.setattr(subject, "rest_post", post)
     monkeypatch.setattr(subject.item_field_transform, "section_append", record)
     return state
@@ -197,3 +210,35 @@ def test_cli_dispatches_item_target(monkeypatch):
     assert calls[0]["target"].kind == "item"
     assert calls[0]["target"].public_ref == "APP-1"
     assert calls[0]["payload"] == {"run_id": "100"}
+
+
+@pytest.mark.parametrize(
+    "started,endpoint", [(True, "rerun-failed-jobs"), (False, "rerun")]
+)
+def test_cancelled_run_selects_recovery_from_started_jobs(github, started, endpoint):
+    github["run"]["conclusion"] = "cancelled"
+    github["jobs"] = [{"conclusion": "cancelled", "steps": [{}] if started else []}]
+    result = subject.handle_rerun_failed(_request())
+    assert result.primary_success
+    assert github["posts"] == [(f"/repos/owner/app/actions/runs/100/{endpoint}", 1)]
+
+
+def test_repeated_cancellation_is_bounded(github):
+    github["run"].update(conclusion="cancelled", run_attempt=3)
+    result = subject.handle_rerun_failed(_request())
+    assert result.error.code == "ci_rerun_limit"
+    assert not github["posts"]
+
+
+def test_attempt_changing_after_intent_does_not_post(github, monkeypatch):
+    original = subject.item_field_transform.section_append
+
+    def record(**kwargs):
+        result = original(**kwargs)
+        github["run"]["run_attempt"] += 1
+        return result
+
+    monkeypatch.setattr(subject.item_field_transform, "section_append", record)
+    result = subject.handle_rerun_failed(_request())
+    assert result.error.code == "ci_rerun_attempt_changed"
+    assert not github["posts"]

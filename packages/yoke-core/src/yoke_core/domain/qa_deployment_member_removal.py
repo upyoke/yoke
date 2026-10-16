@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
 from yoke_core.domain.qa_host_turns import cancel_host_waits
 from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 from yoke_core.domain.qa_plan_execution_schema import (
@@ -87,8 +88,13 @@ def abort_removed_member_executions(conn: Any, *, run_id: str, item_id: int) -> 
         )
 
 
+@presentation_operation
 def _plan_still_attached(conn: Any, run_id: str, stage_name: str, plan_id: int) -> bool:
-    """Whether any remaining run member still resolves this shared plan group."""
+    """Resolve the group with shared peer facts, before any retraction writes.
+
+    This read scope ends before the next member deletion so removed peers
+    cannot keep an orphaned group alive through a cached membership answer.
+    """
     from yoke_core.domain.deployment_qa_shared_plans import resolve_shared_subject
 
     try:

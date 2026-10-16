@@ -43,6 +43,8 @@ from collections.abc import Mapping
 from typing import Any, Iterable
 
 from yoke_core.domain.deployment_run_member_targeting import needed_member_ids
+from yoke_core.domain.deployment_admission_reads import read_enrollment_inputs
+from yoke_core.domain.deployment_start_timing import start_step, timed_preparation
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.deployment_item_flow_resolution import (
@@ -81,7 +83,6 @@ from yoke_core.domain.deployment_requirement_snapshots import (
     snapshot_member_requirements,
 )
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.workflow_delivery_binding_validation import (
     validate_deployment_run_item,
 )
@@ -106,6 +107,8 @@ def admit_run_item(
     delivery_intent: str | None = None,
     requirement_ids: Iterable[int] = (),
     plan_ids: Iterable[int] = (),
+    admission=None,
+    derived_requirement_ids=None,
 ) -> str:
     """Insert one validated membership row in the caller's transaction.
 
@@ -128,14 +131,19 @@ def admit_run_item(
     if requires_release_admission(conn, run_id):
         if refusal := completion_flow_refusal(conn, int(item_id)):
             raise ValueError(refusal)
-    freeze_item_completion_flow(conn, int(item_id))
+    if admission is None:
+        freeze_item_completion_flow(conn, int(item_id))
     intent = validate_delivery_intent_for_item(conn, int(item_id), delivery_intent)
     selected_requirements = tuple(requirement_ids)
     selected_plans = tuple(plan_ids)
     derived = not selected_requirements and not selected_plans
     if derived:
-        selected_requirements = admissible_post_deploy_requirement_ids(
-            conn, run_id=run_id, item_id=int(item_id)
+        selected_requirements = (
+            derived_requirement_ids
+            if derived_requirement_ids is not None
+            else admissible_post_deploy_requirement_ids(
+                conn, run_id=run_id, item_id=int(item_id)
+            )
         )
     selection = requirement_selection(
         requirement_ids=selected_requirements, plan_ids=selected_plans
@@ -143,7 +151,11 @@ def admit_run_item(
     # Validated now so an unusable obligation refuses here rather than at the
     # freeze, even though a derived list is not what gets stored.
     snapshot_member_requirements(
-        conn, run_id=run_id, item_id=int(item_id), selection_json=selection
+        conn,
+        run_id=run_id,
+        item_id=int(item_id),
+        selection_json=selection,
+        admission=admission,
     )
     conn.execute(
         "INSERT INTO deployment_run_items "
@@ -177,8 +189,6 @@ def carried_enrollment_blocked(
     """Name why this run enrolls nothing, or ``''`` when it may enroll."""
     if not requires_release_admission(conn, run_id):
         return "flow_without_delivery_custody"
-    if not _column_exists(conn, "deployment_runs", "composition_resolution"):
-        return "composition_schema_unconverged"
     if not refreshing_bound_sources and has_frozen_composition(conn, run_id):
         return "composition_already_frozen"
     if not refreshing_bound_sources and inherited_frozen_membership(conn, run_id):
@@ -278,18 +288,36 @@ def enroll_carried_members(
         dependent for dependent, _, _ in unshipped_dependency_pairs(conn, candidates)
     }
     enrolled: list[str] = []
-    for item_id in candidates:
-        if item_id in blocked:
-            continue
-        try:
-            enrolled.append(admit_run_item(conn, run_id=run_id, item_id=item_id))
-        except (LookupError, ValueError) as exc:
-            raise ValueError(
-                f"deployment run {run_id!r} carries "
-                f"{render_item_ref(conn, item_id)} but cannot admit it: {exc}; "
-                "align that item's deployment flow and stage with this run, or "
-                "choose a candidate that excludes its code"
-            ) from exc
+    candidates = [item_id for item_id in candidates if item_id not in blocked]
+    selections, admission = timed_preparation(
+        "enrollment_inputs",
+        read_enrollment_inputs,
+        conn,
+        run_id=run_id,
+        item_ids=candidates,
+    )
+    with start_step(
+        "enrollment_members", heartbeat=True, record_count=len(candidates)
+    ) as progress:
+        for item_id in candidates:
+            try:
+                enrolled.append(
+                    admit_run_item(
+                        conn,
+                        run_id=run_id,
+                        item_id=item_id,
+                        admission=admission,
+                        derived_requirement_ids=selections[item_id],
+                    )
+                )
+                progress["completed_count"] += 1
+            except (LookupError, ValueError) as exc:
+                raise ValueError(
+                    f"deployment run {run_id!r} carries "
+                    f"{render_item_ref(conn, item_id)} but cannot admit it: {exc}; "
+                    "align that item's deployment flow and stage with this run, or "
+                    "choose a candidate that excludes its code"
+                ) from exc
     return tuple(enrolled)
 
 

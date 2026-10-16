@@ -31,6 +31,7 @@ from yoke_core.tools.release_artifacts import (
     ReleaseBuildError,
     materialize_release_artifacts,
 )
+from yoke_core.tools.commit_release_identity import identity
 
 
 PRODUCT_PACKAGE_NAMES = package_index.PRODUCT_PACKAGE_NAMES
@@ -80,6 +81,7 @@ def build_release(
         record for record in records if record.canonical_name in PRODUCT_PACKAGE_NAMES
     ]
     version = _shared_product_version(product_records)
+    product_release_version.assert_release_version(version)
     asset_dir = (
         installer_asset_dir
         if installer_asset_dir is not None
@@ -142,16 +144,16 @@ def build_product_wheelhouse(
     # Pin product-sibling Requires-Dist to the shared lockstep version before the
     # third-party closure step reads the wheels from disk. Bare siblings would let
     # a pip-based install resolve a same-named public-index package; exact pins
-    # constrain resolution to the real channel wheels.
+    # constrain sibling resolution. Explicit local roots also prevent a public
+    # index wheel with the identical numeric version from replacing our bytes.
     version = wheel_sibling_pins.pin_wheelhouse_product_siblings(
         wheelhouse, PRODUCT_PACKAGE_NAMES
     )
     product_wheel_validation.assert_core_wheel_completeness(repo_root, wheelhouse)
-    # Fail before pip consults the public index. Without a local segment, a
-    # same-version public wheel can outrank the channel wheel by build tag.
-    product_release_version.assert_public_index_unforgeable(version)
+    # Every publication surface uses the same immutable commit-clock version.
+    product_release_version.assert_release_version(version)
     requirements = [
-        f"{record.name}=={record.version}"
+        str(record.source.resolve())
         for record in package_index.read_wheel_records(wheelhouse)
         if record.canonical_name in PRODUCT_PACKAGE_NAMES
     ]
@@ -250,6 +252,15 @@ def create_seeded_pip_venv(root: Path, *, system_site_packages: bool = False) ->
 def _run(command: Sequence[str], *, cwd: Path) -> None:
     env = os.environ.copy()
     env.pop("PYTHONPATH", None)
+    if "build" in command and "--package" in command:
+        source = subprocess.run(
+            ["git", "-C", str(cwd), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        ).stdout.strip()
+        env["SETUPTOOLS_SCM_PRETEND_VERSION"] = identity(cwd, source)["release_version"]
     completed = subprocess.run(
         list(command),
         cwd=cwd,

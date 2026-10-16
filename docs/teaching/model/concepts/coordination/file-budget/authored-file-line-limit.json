@@ -3,5 +3,7 @@
  "title": "Authored-file line limit",
  "status": "draft-copy",
  "page": "coordination",
- "position": 4
+ "position": 4,
+ "summary": "Project-owned file-line limits and exception globs live in .yoke/project.config; installation adds exceptions for its managed output.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/project_install/file_line_managed_exceptions.py"]
 }

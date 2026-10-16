@@ -105,7 +105,6 @@ _CANONICAL_LABELS = (
     ),
     ("status:done", "Backlog item — finished", "label_color_status_done", "0E8A16"),
     ("status:failed", "Backlog item — failed", "label_color_status_failed", "D93F0B"),
-    ("status:blocked", "Backlog item — blocked", "label_color_blocked", "B60205"),
     (
         "status:stopped",
         "Backlog item — stopped",

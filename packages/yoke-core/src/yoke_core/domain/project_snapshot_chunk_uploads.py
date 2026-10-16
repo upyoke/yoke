@@ -13,6 +13,10 @@ from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.db_helpers import instant_parameter, utc_now
 from yoke_core.domain.project_snapshot_base import apply_snapshot_delta, offer_base
 from yoke_core.domain.project_snapshot_sync_refusals import ChunkUploadMissingError
+from yoke_core.domain.retention_operational_policy import (
+    require_fresh_upload,
+    upload_lock,
+)
 
 SyncSnapshotPayload = Callable[[str, PathSnapshotSyncPayload], Dict[str, Any]]
 
@@ -26,18 +30,20 @@ def sync_chunk(
     from yoke_core.domain.project_identity import resolve_project_id
 
     with db_helpers.connect() as conn:
-        _ensure_chunk_tables(conn)
-        if payload.operation == "begin":
-            assert project_ref is not None
-            project_id = resolve_project_id(conn, project_ref)
-            result = _begin_chunk_upload(conn, project_ref, project_id, payload)
-            result["project_id"] = project_id
-            return result
-        if payload.operation == "append":
-            return _append_chunk_upload(conn, payload)
-        if payload.operation == "abort":
-            return _delete_chunk_upload(conn, payload.upload_id, status="aborted")
-        return _finalize_chunk_upload(conn, payload, sync_payload)
+        with upload_lock(conn, payload.upload_id):
+            _ensure_chunk_tables(conn)
+            if payload.operation == "begin":
+                assert project_ref is not None
+                project_id = resolve_project_id(conn, project_ref)
+                result = _begin_chunk_upload(conn, project_ref, project_id, payload)
+                result["project_id"] = project_id
+                return result
+            if payload.operation == "abort":
+                return _delete_chunk_upload(conn, payload.upload_id, status="aborted")
+            require_fresh_upload(conn, payload.upload_id)
+            if payload.operation == "append":
+                return _append_chunk_upload(conn, payload)
+            return _finalize_chunk_upload(conn, payload, sync_payload)
 
 
 def _ensure_chunk_tables(conn: Any) -> None:

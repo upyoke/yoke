@@ -29,7 +29,7 @@ from yoke_core.domain.deployment_run_candidate_containment import (
 from yoke_core.domain.flow_create import cmd_create
 from yoke_core.domain.session_item_delivery_status import _chosen_run
 
-_STAGES = json.dumps([{"name": "deploy", "step_runner": "auto"}])
+_STAGES = json.dumps([{"name": "deploy", "stage_kind": "execution", "step_runner": "auto"}])
 
 
 def _flow(conn: Any, flow_id: str, *, status: str = "active", **extra: Any) -> None:

@@ -16,7 +16,6 @@ from yoke_core.domain.approval_policy import (
 )
 from yoke_core.domain.deployment_flow_policy import (
     QA_STEP_RUNNER,
-    validate_release_stage_policy,
 )
 
 WORKFLOW_STEP_RUNNER = "github-actions-workflow"
@@ -152,7 +151,7 @@ def _validate_run_from_release_commit(index: int, stage: dict[str, Any]) -> None
 
 
 def validate_stages(stages_json: str) -> None:
-    """Validate stages JSON.
+    """Validate runner shape independently of the release policy schema.
 
     Every stage carries a ``name`` and a ``step_runner`` from the
     VALID_STEP_RUNNERS vocabulary. When a stage carries ``approvals``,
@@ -197,4 +196,3 @@ def validate_stages(stages_json: str) -> None:
                 stage["approvals"],
                 path=f"stage {i} ({stage.get('name')}) approvals",
             )
-    validate_release_stage_policy(stages)

@@ -26,6 +26,11 @@ YOKE_CI = REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml"
 FILE_LINE_CHECK = "yoke_harness.git_hooks.file_line_check.changed_files_check"
 
 
+@pytest.fixture(autouse=True)
+def isolate_step_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+
+
 def _git(repo: Path, *args: str) -> str:
     return subprocess.run(
         ["git", "-C", str(repo), *args],

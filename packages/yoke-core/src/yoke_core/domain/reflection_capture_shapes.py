@@ -10,6 +10,7 @@ this file stays comfortably under the 350-line authored-file cap.
 Catalogues the recognized entry shapes plus the false-positive patterns;
 this module is the authoritative production parser the hook reads from.
 """
+
 from __future__ import annotations
 
 import re
@@ -62,12 +63,12 @@ class CaptureResult:
     """Structured capture result.
 
     Carries the nine structured counts alongside the
-    legacy field names (``entries_parsed``, ``entries_skipped``,
-    ``errors``) the existing CLI summary in
-    :mod:`yoke_core.domain.reflection_capture` prints. The legacy
+    compatibility field names (``entries_parsed``, ``entries_skipped``,
+    ``errors``) included in the public capture receipt. These
     fields are concrete attributes (not properties) so callers that
     instantiate ``CaptureResult(entries_parsed=N, ...)`` continue to work.
     """
+
     blocks_seen: int = 0
     blocks_parsed_successfully: int = 0
     blocks_skipped_known_falsepositive: int = 0
@@ -78,7 +79,7 @@ class CaptureResult:
     entries_persist_failed: int = 0
     unrecognized_block_examples: List[dict] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
-    # Legacy field names (kept for the CLI summary and prior persist_entries
+    # Compatibility field names (kept for public receipts and persist_entries
     # callers). ``entries_parsed`` is the total entries the parse pass
     # extracted; ``entries_skipped`` is the duplicate-on-insert count
     # (aliased by ``entries_duplicate_skipped`` in the structured set).
@@ -98,7 +99,8 @@ def _looks_like_code_fence_documentation(window_around_start: str) -> bool:
 
 
 _SHAPE_A_INNER_RE = re.compile(
-    r"---BEGIN ENTRY---\s*\n(.*?)\n\s*---END ENTRY---", re.DOTALL,
+    r"---BEGIN ENTRY---\s*\n(.*?)\n\s*---END ENTRY---",
+    re.DOTALL,
 )
 _TEMPLATE_FIELD_VALUE_RE = re.compile(r":\s*\{[^}]+\}\s*$")
 _ELLIPSIS_BODY_RE = re.compile(r"^\.{2,}$")
@@ -118,7 +120,9 @@ def _looks_like_canonical_documentation_template(block_text: str) -> bool:
 
 
 def _classify_block(
-    block_text: str, block_window: str, default_agent: str,
+    block_text: str,
+    block_window: str,
+    default_agent: str,
 ) -> Tuple[str, Optional[List[ReflectionEntry]], Optional[str]]:
     """Return ``(classification, entries, fp_kind)`` for one block.
 
@@ -170,7 +174,9 @@ def _block_errors(block_text: str) -> list[str]:
 
 
 def parse_text(
-    text: str, *, default_agent: str = "unknown",
+    text: str,
+    *,
+    default_agent: str = "unknown",
 ) -> Tuple[List[ReflectionEntry], CaptureResult]:
     """Scan ``text``, classify every reflection-bounded block, return entries + result.
 
@@ -196,11 +202,12 @@ def parse_text(
         result.blocks_seen += 1
         s = start_match.start()
         window_around = text[
-            max(0, s - 2): min(len(text), s + len("---REFLECTION-START---") + 2)
+            max(0, s - 2) : min(len(text), s + len("---REFLECTION-START---") + 2)
         ]
         # Find the next end marker after this start (if any).
         end_match = next(
-            (e for e in ends if e.start() > start_match.end()), None,
+            (e for e in ends if e.start() > start_match.end()),
+            None,
         )
         recovered_from_missing_end = False
         if end_match is None:
@@ -212,16 +219,20 @@ def parse_text(
             # the block is trimmed so it does not confuse shape parsers.
             next_start = starts[i + 1] if i + 1 < len(starts) else None
             end_offset = next_start.start() if next_start else len(text)
-            block_text = text[start_match.end(): end_offset].strip("\n")
+            block_text = text[start_match.end() : end_offset].strip("\n")
             block_text = re.sub(
-                r"\n\s*---END ENTRY---\s*$", "", block_text,
+                r"\n\s*---END ENTRY---\s*$",
+                "",
+                block_text,
             )
             recovered_from_missing_end = True
         else:
-            block_text = text[start_match.end(): end_match.start()].strip("\n")
+            block_text = text[start_match.end() : end_match.start()].strip("\n")
 
         classification, parsed_entries, _fp_kind = _classify_block(
-            block_text, window_around, default_agent,
+            block_text,
+            window_around,
+            default_agent,
         )
         # Block lacked a proper outer end marker but its content classified
         # to something — count it as parsed (or fp) per the classification,
@@ -245,10 +256,12 @@ def parse_text(
         else:
             result.blocks_unrecognized += 1
             excerpt = block_text[:400]
-            result.unrecognized_block_examples.append({
-                "excerpt": excerpt,
-                "classification_attempt": "unrecognized_shape",
-            })
+            result.unrecognized_block_examples.append(
+                {
+                    "excerpt": excerpt,
+                    "classification_attempt": "unrecognized_shape",
+                }
+            )
 
     return entries, result
 

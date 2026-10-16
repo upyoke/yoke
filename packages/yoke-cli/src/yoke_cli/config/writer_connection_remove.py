@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from yoke_cli.config import machine_config
-from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config.machine_config_mutation import (
     MachineConfigWriteError,
     load_payload,
@@ -99,10 +98,8 @@ def remove_connections(
         for env in selected:
             entry = entries_by_env[env]
             if entry is None:
-                tombstone = _existing_recovery_tombstone(
-                    env, _retirement_tombstone(env)
-                )
-                if tombstone is not None:
+                tombstone = _retirement_tombstone(env)
+                if tombstone.exists():
                     _require_owner_only(tombstone, env=env)
                     recovery_tombstones.append((tombstone, env))
                     credential_removed.add(env)
@@ -115,12 +112,7 @@ def remove_connections(
                 target.add(env)
                 continue
             retirement = _retirement_tombstone(env)
-            legacy = secret.with_name(secret.name + ".retiring")
-            existing = (
-                retirement
-                if retirement.exists()
-                else (legacy if legacy.exists() else None)
-            )
+            existing = retirement if retirement.exists() else None
             if existing is not None and secret.exists():
                 raise MachineConfigWriteError(
                     f"credential retirement for {env!r} is ambiguous"
@@ -248,23 +240,6 @@ def _retirement_tombstone(env: str) -> Path:
         / contract.SECRETS_DIR_NAME
         / f".connection-{digest}.retiring"
     )
-
-
-def _existing_recovery_tombstone(env: str, retirement: Path) -> Path | None:
-    if retirement.exists():
-        return retirement
-    candidates = [
-        machine_secrets.secret_path_no_create(env, suffix).with_name(
-            machine_secrets.secret_path_no_create(env, suffix).name + ".retiring"
-        )
-        for suffix in ("token", "dsn")
-    ]
-    existing = [candidate for candidate in candidates if candidate.exists()]
-    if len(existing) > 1:
-        raise MachineConfigWriteError(
-            f"multiple interrupted credential retirements found for {env!r}"
-        )
-    return existing[0] if existing else None
 
 
 def _require_owner_only(path: Path, *, env: str) -> None:

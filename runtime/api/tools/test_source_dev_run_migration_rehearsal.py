@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -63,6 +64,77 @@ def test_source_runner_rehearses_migration_with_lane_only_import(
     )
 
     assert source_dev_run.run(["python3", "-c", probe]) == 0
+
+
+def test_selected_worker_reaches_public_rehearsal_runner(apply_env, monkeypatch):
+    from runtime.api.fixtures.backlog import insert_item_worktree
+    from runtime.api.fixtures.session_holdings import insert_item_claim
+    from runtime.api.test_backlog import _conn
+    from yoke_cli.commands.migration_rehearse import migration_rehearse
+    from yoke_contracts.install_binding import SOURCE_DEV_RUN_ROOT_ENV
+    from yoke_core.domain import migration_apply
+    from yoke_core.domain.migration_apply_resolve import default_worktree_path
+
+    worker = Path(apply_env["worktree"])
+    integration = worker.parent / "integration"
+    integration.mkdir()
+    item_id = 5041
+    public_ref = f"YOK-{item_id}"
+    _seed_apply_item(apply_env["control_db"], item_id=item_id)
+    with _conn(apply_env["control_db"]) as conn:
+        insert_item_worktree(
+            conn,
+            item_id=item_id,
+            branch="integration",
+            path=str(integration),
+            lane_role="integration",
+        )
+        insert_item_worktree(
+            conn,
+            item_id=item_id,
+            branch="schema-worker",
+            path=str(worker),
+            lane_role="worker",
+        )
+        insert_item_claim(conn, "test-session", item_id)
+        assert default_worktree_path(conn, item_id) == integration
+    assert not (integration / "sample_migration.py").exists()
+
+    def selected_root(selected):
+        assert selected == worker
+        return worker, None, None
+
+    monkeypatch.setattr(source_dev_run, "_claimed_root", selected_root)
+    monkeypatch.setattr(
+        _source_pythonpath, "import_origins", lambda *_a, **_kw: ({}, None)
+    )
+    monkeypatch.setattr(
+        migration_apply, "resolve_ambient_session_id", lambda: "test-session"
+    )
+
+    # Only the process boundary is in-process; the public adapter, authority
+    # validation, target isolation, runner and durable receipt are real.
+    def child(command, *, cwd, env, check):
+        assert command[-3:] == ["migration", "rehearse", public_ref]
+        assert cwd == env[SOURCE_DEV_RUN_ROOT_ENV] == str(worker)
+        with monkeypatch.context() as child_context:
+            child_context.setenv(SOURCE_DEV_RUN_ROOT_ENV, env[SOURCE_DEV_RUN_ROOT_ENV])
+            child_context.chdir(cwd)
+            return SimpleNamespace(returncode=migration_rehearse([public_ref]))
+
+    monkeypatch.setattr(source_dev_run.subprocess, "run", child)
+    assert (
+        source_dev_run.run(["yoke", "migration", "rehearse", public_ref], lane=worker)
+        == 0
+    )
+    with _conn(apply_env["control_db"]) as conn:
+        receipt = conn.execute(
+            "SELECT state, test_copy_path FROM migration_audit "
+            "WHERE migration_name = %s",
+            ("sample_migration",),
+        ).fetchone()
+        assert receipt[0] == "rehearsed"
+        assert receipt[1].startswith("postgres-validation:")
 
 
 @pytest.fixture(autouse=True)

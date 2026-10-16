@@ -23,7 +23,7 @@ from yoke_core.domain.project_identity import render_item_ref
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 ENGINE_TERMINAL_STAGE_IDS = frozenset({"cancelled", "stopped"})
-ENGINE_WAIT_STAGE_IDS = frozenset({"blocked", "failed"})
+ENGINE_WAIT_STAGE_IDS = frozenset({"failed"})
 ENGINE_EXCEPTIONAL_STAGE_IDS = ENGINE_TERMINAL_STAGE_IDS | ENGINE_WAIT_STAGE_IDS
 #: Delivery policies whose second-to-last stage is a release-stage wait,
 #: whether the whole item uses it or only a still-implementing Blitz's

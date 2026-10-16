@@ -17,7 +17,7 @@ function holder(nativeProcess) {
     executor: "claude-code",
     claims: [{ target_kind: "item", target: "YOK-1" }],
     activity_at: "2026-08-22T11:00:00Z",
-    stale_eligible_at: "2026-08-22T12:30:00Z",
+    activity_quiet_at: "2026-08-22T12:30:00Z",
     native_process: nativeProcess,
   };
 }

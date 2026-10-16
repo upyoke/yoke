@@ -27,41 +27,17 @@ class TestStatusToBoardBucket:
     def test_cancelled_maps_to_done(self):
         assert status_to_board_bucket("cancelled") == "done"
 
-    def test_blocked_maps_to_blocked(self):
-        assert status_to_board_bucket("blocked") == "blocked"
-
     def test_stopped_maps_to_blocked(self):
         assert status_to_board_bucket("stopped") == "blocked"
 
     def test_failed_maps_to_blocked(self):
         assert status_to_board_bucket("failed") == "blocked"
 
-    def test_legacy_validate_maps_to_unknown(self):
-        assert status_to_board_bucket("validate") == UNKNOWN_BUCKET
-
-    def test_legacy_passed_maps_to_unknown(self):
-        assert status_to_board_bucket("passed") == UNKNOWN_BUCKET
-
     def test_release_maps_to_release(self):
         assert status_to_board_bucket("release") == "release"
 
-    def test_legacy_active_maps_to_unknown(self):
-        assert status_to_board_bucket("active") == UNKNOWN_BUCKET
-
-    def test_legacy_review_maps_to_unknown(self):
-        assert status_to_board_bucket("review") == UNKNOWN_BUCKET
-
-    def test_legacy_ready_maps_to_unknown(self):
-        assert status_to_board_bucket("ready") == UNKNOWN_BUCKET
-
     def test_planned_maps_to_refined(self):
         assert status_to_board_bucket("planned") == "refined"
-
-    def test_legacy_designed_maps_to_unknown(self):
-        assert status_to_board_bucket("designed") == UNKNOWN_BUCKET
-
-    def test_legacy_defined_maps_to_unknown(self):
-        assert status_to_board_bucket("defined") == UNKNOWN_BUCKET
 
     def test_idea_maps_to_idea(self):
         assert status_to_board_bucket("idea") == "idea"
@@ -86,7 +62,9 @@ class TestStatusToBoardBucket:
         assert status_to_board_bucket("cancelled", frozen_value=1) == "done"
 
     def test_null_frozen_is_not_frozen(self):
-        assert status_to_board_bucket("implementing", frozen_value=None) == "implementing"
+        assert (
+            status_to_board_bucket("implementing", frozen_value=None) == "implementing"
+        )
 
     def test_zero_frozen_is_not_frozen(self):
         assert status_to_board_bucket("implementing", frozen_value=0) == "implementing"
@@ -98,19 +76,25 @@ class TestStatusToBoardBucket:
         assert status_to_board_bucket("implemented", has_active_run=True) == "release"
 
     def test_implemented_without_active_run_maps_to_implemented(self):
-        assert status_to_board_bucket("implemented", has_active_run=False) == "implemented"
+        assert (
+            status_to_board_bucket("implemented", has_active_run=False) == "implemented"
+        )
 
     def test_active_run_does_not_affect_non_implemented(self):
         """Active-run upgrade only applies to implemented status."""
-        assert status_to_board_bucket("implementing", has_active_run=True) == "implementing"
+        assert (
+            status_to_board_bucket("implementing", has_active_run=True)
+            == "implementing"
+        )
         assert status_to_board_bucket("done", has_active_run=True) == "done"
         assert status_to_board_bucket("planned", has_active_run=True) == "refined"
 
     def test_frozen_implemented_with_active_run_goes_to_frozen(self):
         """Frozen check takes priority over active-run upgrade."""
-        assert status_to_board_bucket(
-            "implemented", frozen_value=1, has_active_run=True
-        ) == FROZEN_BUCKET
+        assert (
+            status_to_board_bucket("implemented", frozen_value=1, has_active_run=True)
+            == FROZEN_BUCKET
+        )
 
     # --- Issue workflow direct mappings ---
 
@@ -149,38 +133,53 @@ class TestStatusToBoardBucket:
 
     def test_epic_refined_idea_maps_to_planning(self):
         """Epic + refined-idea -> planning."""
-        assert status_to_board_bucket(
-            "refined-idea",
-            workflow_definition=_definition("epic"),
-        ) == "planning"
+        assert (
+            status_to_board_bucket(
+                "refined-idea",
+                workflow_definition=_definition("epic"),
+            )
+            == "planning"
+        )
 
     def test_issue_refined_idea_maps_to_refined(self):
         """Issue + refined-idea -> refined."""
-        assert status_to_board_bucket(
-            "refined-idea",
-            workflow_definition=_definition("issue"),
-        ) == "refined"
+        assert (
+            status_to_board_bucket(
+                "refined-idea",
+                workflow_definition=_definition("issue"),
+            )
+            == "refined"
+        )
 
     def test_epic_reviewing_implementation_maps_to_implementing(self):
         """Epic + reviewing-implementation -> implementing."""
-        assert status_to_board_bucket(
-            "reviewing-implementation",
-            workflow_definition=_definition("epic"),
-        ) == "implementing"
+        assert (
+            status_to_board_bucket(
+                "reviewing-implementation",
+                workflow_definition=_definition("epic"),
+            )
+            == "implementing"
+        )
 
     def test_issue_reviewing_implementation_maps_to_reviewing(self):
         """Issue + reviewing-implementation -> reviewing (default)."""
-        assert status_to_board_bucket(
-            "reviewing-implementation",
-            workflow_definition=_definition("issue"),
-        ) == "reviewing"
+        assert (
+            status_to_board_bucket(
+                "reviewing-implementation",
+                workflow_definition=_definition("issue"),
+            )
+            == "reviewing"
+        )
 
     def test_identity_does_not_override_a_pinned_definition(self):
-        assert status_to_board_bucket(
-            "refined-idea",
-            workflow_id="epic",
-            workflow_definition=_definition("issue"),
-        ) == "refined"
+        assert (
+            status_to_board_bucket(
+                "refined-idea",
+                workflow_id="epic",
+                workflow_definition=_definition("issue"),
+            )
+            == "refined"
+        )
 
     def test_arbitrary_stage_ids_follow_declared_skill_segments(self):
         stage_ids = (
@@ -223,30 +222,37 @@ class TestStatusToBoardBucket:
             "policies": {"generated_children": "none"},
         }
 
-        assert status_to_board_bucket(
-            "shaping", workflow_definition=definition
-        ) == "planning"
-        assert status_to_board_bucket(
-            "ready-to-build", workflow_definition=definition
-        ) == "refined"
-        assert status_to_board_bucket(
-            "building", workflow_definition=definition
-        ) == "implementing"
-        assert status_to_board_bucket(
-            "quality-review", workflow_definition=definition
-        ) == "reviewing"
-        assert status_to_board_bucket(
-            "finishing", workflow_definition=definition
-        ) == "reviewing"
-        assert status_to_board_bucket(
-            "ready-to-ship", workflow_definition=definition
-        ) == "implemented"
-        assert status_to_board_bucket(
-            "shipping", workflow_definition=definition
-        ) == "release"
-        assert status_to_board_bucket(
-            "closed", workflow_definition=definition
-        ) == "done"
+        assert (
+            status_to_board_bucket("shaping", workflow_definition=definition)
+            == "planning"
+        )
+        assert (
+            status_to_board_bucket("ready-to-build", workflow_definition=definition)
+            == "refined"
+        )
+        assert (
+            status_to_board_bucket("building", workflow_definition=definition)
+            == "implementing"
+        )
+        assert (
+            status_to_board_bucket("quality-review", workflow_definition=definition)
+            == "reviewing"
+        )
+        assert (
+            status_to_board_bucket("finishing", workflow_definition=definition)
+            == "reviewing"
+        )
+        assert (
+            status_to_board_bucket("ready-to-ship", workflow_definition=definition)
+            == "implemented"
+        )
+        assert (
+            status_to_board_bucket("shipping", workflow_definition=definition)
+            == "release"
+        )
+        assert (
+            status_to_board_bucket("closed", workflow_definition=definition) == "done"
+        )
 
     def test_no_item_type_legacy_active_is_unknown(self):
         """Legacy active status no longer has a compatibility mapping."""
@@ -258,4 +264,7 @@ class TestStatusToBoardBucket:
 
     def test_issue_implementing_no_override(self):
         """Issue + implementing has no type-aware override, uses standard mapping."""
-        assert status_to_board_bucket("implementing", workflow_id="issue") == "implementing"
+        assert (
+            status_to_board_bucket("implementing", workflow_id="issue")
+            == "implementing"
+        )

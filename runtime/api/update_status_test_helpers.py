@@ -16,7 +16,6 @@ from yoke_core.domain import db_backend
 from yoke_core.domain import update_status
 from yoke_core.domain.epic_task_scope import (
     finalize_generated_task_scopes,
-    schema_available as task_scope_schema_available,
     set_no_files_scope,
 )
 
@@ -47,7 +46,6 @@ def update(conn, epic_id, task_num, new_status, note="", **kwargs):
     """Call update_task_status with captured output and mocked externals."""
     if (
         new_status == "implementing"
-        and task_scope_schema_available(conn)
         and task_field(conn, epic_id, task_num, "scope_state") == "pending"
     ):
         set_no_files_scope(conn, int(epic_id), int(task_num))
@@ -68,10 +66,16 @@ def update(conn, epic_id, task_num, new_status, note="", **kwargs):
     out = io.StringIO()
     err = io.StringIO()
     # Mock external integration hooks to keep tests in-process.
-    with mock.patch.object(update_status, "_history_insert"), \
-         mock.patch.object(update_status, "_verify_claim"):
+    with (
+        mock.patch.object(update_status, "_history_insert"),
+        mock.patch.object(update_status, "_verify_claim"),
+    ):
         rc = update_status.update_task_status(
-            conn, str(epic_id), str(task_num), new_status, note,
+            conn,
+            str(epic_id),
+            str(task_num),
+            new_status,
+            note,
             no_github=True,
             stdout=out,
             stderr=err,

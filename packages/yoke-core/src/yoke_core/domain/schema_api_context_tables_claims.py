@@ -96,8 +96,8 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("command_summary", "TEXT"),
         ],
         "notes": (
-            "Rolling per-tool-call state (short retention, ~7d via the "
-            "events prune). The observe pipeline opens a row on "
+            "Rolling per-tool-call state (seven days after completed_at via "
+            "universe prune, with live-reference protection). The observe pipeline opens a row on "
             "HarnessToolCallStarted and closes it (completed_at + "
             "outcome) on the completion event; open rows "
             "(completed_at IS NULL) are the orphan set the session-end "

@@ -211,16 +211,16 @@ def test_concurrent_duplicate_reports_refund_once(tmp_path) -> None:
     assert count == 0
 
 
-def test_duplicate_settled_before_batch_check_is_accepted(monkeypatch) -> None:
-    """The winner may clear the relay batch before the duplicate checks it."""
+def test_duplicate_settled_before_lease_check_is_accepted(monkeypatch) -> None:
+    """A duplicate report remains idempotent after another copy settles."""
     from yoke_core.domain import session_relay_jobs
 
     conn = _connection()
     _add_wake_recipient(conn)
     job = _claim_wake(conn)
-    original = session_relay_jobs.require_relay_batch
+    original = session_relay_jobs.require_job_lease
 
-    def settle_and_clear(inner_conn, *, relay_id: str, now: str) -> None:
+    def settle_and_clear(inner_conn, *, relay_id: str, now: str, **lease) -> None:
         inner_conn.execute(
             "UPDATE session_message_attempts SET completed_at=?,result_code=? "
             "WHERE attempt_id=?",
@@ -231,10 +231,12 @@ def test_duplicate_settled_before_batch_check_is_accepted(monkeypatch) -> None:
             "WHERE relay_id=?",
             (relay_id,),
         )
-        original(inner_conn, relay_id=relay_id, now=now)
+        original(inner_conn, relay_id=relay_id, now=now, **lease)
 
     monkeypatch.setattr(
-        session_relay_jobs, "require_relay_batch", settle_and_clear,
+        session_relay_jobs,
+        "require_job_lease",
+        settle_and_clear,
     )
 
     answered = _report(conn, job)
@@ -248,22 +250,22 @@ def _settle_between_read_and_write(conn, *, result_code: str, monkeypatch) -> No
 
     The race this guards is narrow — both copies read the attempt open, then
     one writes first — so it is produced deterministically rather than waited
-    for, by settling the row from inside the batch check the reporting path
+    for, by settling the row from inside the job lease check the reporting path
     already runs between its own read and its own write.
     """
     from yoke_core.domain import session_relay_jobs
 
-    original = session_relay_jobs.require_relay_batch
+    original = session_relay_jobs.require_job_lease
 
-    def settle_first(inner_conn, *, relay_id: str, now: str) -> None:
+    def settle_first(inner_conn, *, relay_id: str, now: str, **lease) -> None:
         inner_conn.execute(
             "UPDATE session_message_attempts SET completed_at=?,result_code=? "
             "WHERE completed_at IS NULL",
             (now, result_code),
         )
-        original(inner_conn, relay_id=relay_id, now=now)
+        original(inner_conn, relay_id=relay_id, now=now, **lease)
 
-    monkeypatch.setattr(session_relay_jobs, "require_relay_batch", settle_first)
+    monkeypatch.setattr(session_relay_jobs, "require_job_lease", settle_first)
 
 
 def test_a_report_that_loses_the_settling_write_refunds_nothing(monkeypatch) -> None:
@@ -326,4 +328,3 @@ def _connection_at(path) -> sqlite3.Connection:
     memory.close()
     disk.row_factory = sqlite3.Row
     return disk
-

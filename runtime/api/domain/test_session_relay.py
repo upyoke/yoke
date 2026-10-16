@@ -56,14 +56,17 @@ def _clock(value: str = NOW):
     return lambda: value
 
 
-def _add_wake_recipient(conn, *, message_id: str = "message-1") -> None:
+def _add_wake_recipient(
+    conn, *, message_id: str = "message-1", session_id="target"
+) -> None:
     conn.execute(
         "INSERT INTO harness_sessions "
         "(session_id,project_id,executor_surface,executor_version,machine_id,"
         "model,offered_at,last_tool_call_at,ended_at,turn_posture) "
-        "VALUES ('target',10,'codex-cli','0.148.0a15',?,'gpt-5',?,NULL,?,"
+        "VALUES (?,10,'codex-cli','0.148.0a15',?,'gpt-5',?,NULL,?,"
         "'waiting')",
         (
+            session_id,
             MACHINE_ID,
             "2026-08-22T10:00:00.000000Z",
             "2026-08-22T10:30:00.000000Z",
@@ -84,9 +87,9 @@ def _add_wake_recipient(conn, *, message_id: str = "message-1") -> None:
         "INSERT INTO session_message_recipients "
         "(message_id,session_id,project_id,resolution_evidence,routing_snapshot,"
         "executor_surface,executor_version,machine_id,state,created_at,wake_after) "
-        "VALUES (?,'target',10,'{}','{}','codex-cli','0.148.0a15',?,"
+        "VALUES (?,?,10,'{}','{}','codex-cli','0.148.0a15',?,"
         "'pending','2026-08-22T11:00:00.000000Z','2026-08-22T11:10:00.000000Z')",
-        (message_id, MACHINE_ID),
+        (message_id, session_id, MACHINE_ID),
     )
     conn.commit()
 

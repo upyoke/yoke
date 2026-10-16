@@ -115,18 +115,6 @@ def _coalesce(val: Any, default: str = "") -> str:
     return format_instant(val) if isinstance(val, datetime) else str(val)
 
 
-def _normalize_qa_phase(qa_phase: str) -> str:
-    """Normalize retired qa_phase values to canonical vocab."""
-    _phase_map = {"validation": "verification"}
-    return _phase_map.get(qa_phase, qa_phase)
-
-
-def _normalize_qa_kind(qa_kind: str) -> str:
-    """Normalize retired qa_kind values to canonical vocab."""
-    _kind_map = {"review": "implementation_review"}
-    return _kind_map.get(qa_kind, qa_kind)
-
-
 def _pipe_row(row, cols: Optional[Sequence[str]] = None) -> str:
     if cols:
         return "|".join(_coalesce(row[c]) for c in cols)
@@ -181,7 +169,7 @@ REQ_COLUMNS = (
     "created_at",
 )
 
-_REQ_SELECT_TEMPLATE = (
+_REQ_SELECT = (
     "id, COALESCE(CAST(item_id AS TEXT),''), COALESCE(CAST(epic_id AS TEXT),''), "
     "COALESCE(CAST(task_num AS TEXT),''), "
     "COALESCE(deployment_run_id,''), COALESCE(standalone_execution_id,''), COALESCE(deployment_stage,''), "
@@ -197,31 +185,12 @@ _REQ_SELECT_TEMPLATE = (
     "COALESCE(method_id,''), COALESCE(method_name,''), "
     "COALESCE(runner_id,''), COALESCE(verdict_path,''), "
     "COALESCE(host_baseline,''), "
-    "{starting_state}"
+    "COALESCE(starting_state,''), COALESCE(starting_state_reason,''), "
     "COALESCE(entry_surface,''), COALESCE(required_completion,''), "
     "COALESCE(workflow_transition_id,''), "
     "COALESCE(instructions,''), COALESCE(expected_outcome,''), "
     "COALESCE(method_config,''), created_at"
 )
-_STARTING_STATE_SELECT = (
-    "COALESCE(starting_state,''), COALESCE(starting_state_reason,''), "
-)
-_REQ_SELECT = _REQ_SELECT_TEMPLATE.format(starting_state=_STARTING_STATE_SELECT)
-
-
-def requirement_select(conn: Any) -> str:
-    """``_REQ_SELECT``, reading the starting-state columns as empty until the
-    database has converged them (see ``qa_converging_columns``)."""
-    from yoke_core.domain.qa_converging_columns import (
-        STARTING_STATE_COLUMNS,
-        present_columns,
-    )
-
-    if set(STARTING_STATE_COLUMNS) <= present_columns(conn, "qa_requirements"):
-        return _REQ_SELECT
-    return _REQ_SELECT_TEMPLATE.format(starting_state="'', '', ")
-
-
 # Canonical qa_runs column roster for typed reads. Superset note:
 # ``qa_execution._RUN_SELECT`` (the pipe-format CLI projection) predates
 # ``execution_status`` and omits it; the typed surface includes it because

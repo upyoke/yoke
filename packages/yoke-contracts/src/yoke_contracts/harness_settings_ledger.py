@@ -20,6 +20,9 @@ from __future__ import annotations
 
 import json
 import os
+import fcntl
+from contextlib import contextmanager
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional
 
@@ -51,14 +54,9 @@ def record(entry: Mapping[str, Any]) -> Optional[str]:
     """
     path = ledger_path()
     try:
-        entries = read()
-        if dict(entry) in entries:
-            return None
-        entries.append(dict(entry))
-        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        tmp = path.with_suffix(path.suffix + ".yoke-tmp")
-        tmp.write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8")
-        os.replace(tmp, path)
+        with mutation() as entries:
+            if dict(entry) not in entries:
+                entries.append(dict(entry))
     except (OSError, ValueError) as exc:
         return (
             f"not recorded in {path} ({exc}); yoke uninstall will not revert "
@@ -108,6 +106,22 @@ def created_file_entry(file: Path) -> Dict[str, Any]:
     return {"kind": "created_file", "file": str(file)}
 
 
+@contextmanager
+def mutation():
+    """Serialize ledger read, selective consumption and atomic replacement."""
+    path = ledger_path()
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with path.with_suffix(".lock").open("a") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        entries = read()
+        before = deepcopy(entries)
+        yield entries
+        if entries != before:
+            tmp = path.with_suffix(path.suffix + ".yoke-tmp")
+            tmp.write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8")
+            os.replace(tmp, path)
+
+
 __all__ = [
     "LEDGER_NAME",
     "codex_key_entry",
@@ -116,6 +130,7 @@ __all__ = [
     "existing_depth",
     "json_entry",
     "ledger_path",
+    "mutation",
     "read",
     "record",
 ]

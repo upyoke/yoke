@@ -26,7 +26,6 @@ from yoke_core.tools.launchctl_boundary import (
     run_launchctl,
     wait_for_launchd_unload,
 )
-from yoke_core.tools import session_relay_legacy as relay_legacy
 from yoke_core.tools import session_relay_release as relay_release
 from yoke_core.tools.session_relay_executable import relay_executable_search_path
 from yoke_core.tools import session_relay_release_install as relay_install
@@ -244,15 +243,6 @@ def install_relay_launchd(
         relay_install.converge_relay_launcher(selected, pin_release=pin_release)
     except relay_release.RelayReleaseError as exc:
         raise RelayInstallError(str(exc), code=exc.code) from exc
-    try:
-        relay_legacy.retire_unpinned_legacy_relay(
-            instance=selected,
-            home=launch_agents_home(home, yoke_home=selected.yoke_home),
-            runner=runner,
-            uid=uid,
-        )
-    except relay_legacy.LegacyRelayError as exc:
-        raise RelayInstallError(str(exc)) from exc
     create_private_directory(paths.state_dir)
     target = launchd_target(paths.label, uid)
 

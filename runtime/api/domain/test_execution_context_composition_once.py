@@ -9,8 +9,6 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.handlers import deployment_run_execution as execution
-from yoke_core.domain.deployment_run_pipe_format import pipe_row
-from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
 from yoke_core.domain.deployment_run_carried_work import require_bound_project_coverage
 
 
@@ -21,7 +19,6 @@ def test_execution_context_composes_once_and_returns_its_enrollment():
         "flow": "flow",
         "release_lineage": "a" * 40,
     }
-    raw = pipe_row([values.get(field, "") for field in RUN_FIELDS])
 
     conn = Mock()
 
@@ -44,7 +41,9 @@ def test_execution_context_composes_once_and_returns_its_enrollment():
             "yoke_core.domain.deployment_runs_validation.cmd_validate_composition",
             side_effect=compose,
         ) as composition,
-        patch("yoke_core.domain.deployment_runs_crud_query.cmd_get", return_value=raw),
+        patch(
+            "yoke_core.domain.deployment_runs_crud_query.get_run", return_value=values
+        ),
         patch("yoke_core.domain.db_helpers.connect", return_value=nullcontext(conn)),
         patch("yoke_core.domain.flow.cmd_stages", return_value="[]"),
         patch(

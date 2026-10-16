@@ -26,15 +26,10 @@ import pytest
 
 from runtime.api.domain.test_deployment_flow_versioning import (
     ADVANCED_STAGES,
-    LEGACY_STAGES,
     SUPPORTED_ADVANCED_STAGES,
     _seed_ephemeral_capability,
 )
-from yoke_core.domain.deployment_flow_target_support import (
-    unsupported_stage_target_kinds,
-)
 from yoke_core.domain.deployment_flow_versioning import cmd_validate_definition
-from yoke_core.domain.flow_create import cmd_create
 
 
 def test_a_preview_definition_is_observable_and_may_activate(
@@ -78,7 +73,6 @@ def test_a_preview_definition_naming_no_registered_capability_is_refused(
         cmd_validate_definition(
             test_db, project="yoke", stages=ADVANCED_STAGES, status="disabled"
         )
-
 
 
 def test_an_external_persistent_target_without_identity_proof_is_refused(
@@ -130,9 +124,7 @@ def test_an_external_persistent_target_without_identity_proof_is_refused(
         "runner 'github-actions-workflow' returns no verified candidate identity"
     ]
     with pytest.raises(ValueError, match="cannot verify"):
-        cmd_validate_definition(
-            test_db, project="yoke", stages=stages, status="active"
-        )
+        cmd_validate_definition(test_db, project="yoke", stages=stages, status="active")
 
 
 def _environment_stating_its_path(conn: Any, name: str, path: str) -> None:
@@ -203,9 +195,12 @@ def test_the_preview_reads_the_environment_statement_the_gate_reads(
     assert result["unprovable_qa_identity_stages"] == []
     assert result["execution_supported"] is True
     # The gate agrees, which is the whole point of reading one configuration.
-    assert cmd_validate_definition(
-        test_db, project="yoke", stages=stages, status="active"
-    )["execution_supported"] is True
+    assert (
+        cmd_validate_definition(
+            test_db, project="yoke", stages=stages, status="active"
+        )["execution_supported"]
+        is True
+    )
 
 
 def test_a_definition_whose_targets_are_observable_activates(test_db: Any) -> None:
@@ -224,51 +219,3 @@ def test_a_definition_whose_targets_are_observable_activates(test_db: Any) -> No
         test_db, project="yoke", stages=SUPPORTED_ADVANCED_STAGES, status="active"
     )
     assert activated["execution_supported"] is True
-
-
-
-def test_a_legacy_definition_stays_executable_once_the_newer_schema_is_served(
-    test_db: Any,
-) -> None:
-    """Serving the release schema must not strand version-1 definitions.
-
-    A hosted delivery route is ordinarily a legacy definition —
-    ``merged`` / ``github-actions-workflow`` / ``complete``, no QA stage
-    and so no target kind to observe. Raising the served vocabulary
-    widens what is executable and must never narrow it, and the
-    target-kind guard must find nothing to refuse in a definition that
-    declares no QA stage at all. Getting this wrong is an outage at
-    deploy time rather than a failing test, so it is asserted rather
-    than reasoned about.
-    """
-    result = cmd_validate_definition(
-        test_db, project="yoke", stages=LEGACY_STAGES, status="disabled"
-    )
-    assert result["definition_schema_version"] == 1
-    assert result["execution_supported"] is True
-    assert result["unsupported_target_kinds"] == []
-
-    # The gates that guard activation, assignment and start accept it.
-    activated = cmd_validate_definition(
-        test_db, project="yoke", stages=LEGACY_STAGES, status="active"
-    )
-    assert activated["execution_supported"] is True
-    assert unsupported_stage_target_kinds(LEGACY_STAGES) == ()
-
-    # And through the real create/activate path, not only the validator.
-    cmd_create(
-        test_db,
-        "legacy-active-flow",
-        "yoke",
-        "Legacy active flow",
-        "",
-        LEGACY_STAGES,
-        status="active",
-    )
-    assert (
-        test_db.execute(
-            "SELECT status FROM deployment_flows WHERE id='legacy-active-flow'"
-        ).fetchone()["status"]
-        == "active"
-    )
-

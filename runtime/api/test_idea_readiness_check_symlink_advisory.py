@@ -54,7 +54,7 @@ def test_readiness_check_reports_advisory_without_blocking(
         "item_project_checkout",
         lambda conn, item_id: symlink_repo,
     )
-    # This focused fixture models only path advisories, not pinned workflows.
+    # Acceptance criteria are outside this focused path-advisory check.
     monkeypatch.setattr(
         idea_readiness_check,
         "verify_refine_acceptance_criteria",
@@ -63,7 +63,15 @@ def test_readiness_check_reports_advisory_without_blocking(
     db_name = pg_testdb.create_test_database()
     conn = pg_testdb.connect_test_database(db_name)
     pg_testdb.drop_database_on_close(conn, db_name)
-    conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, spec TEXT)")
+    from yoke_core.domain.workflow_schema import ensure_workflow_schema
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+
+    conn.execute(
+        "CREATE TABLE items (id INTEGER PRIMARY KEY, spec TEXT, status TEXT, "
+        "workflow_id TEXT, workflow_version_id INTEGER, workflow_posture TEXT)"
+    )
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
     conn.execute(
         "CREATE TABLE path_claims ("
         "id INTEGER PRIMARY KEY, owner_kind TEXT, "
@@ -77,7 +85,9 @@ def test_readiness_check_reports_advisory_without_blocking(
         "CREATE TABLE path_claim_targets (claim_id INTEGER, target_id INTEGER)"
     )
     conn.execute(
-        "INSERT INTO items (id, spec) VALUES (1, %s)",
+        "INSERT INTO items (id, spec, status, workflow_id, workflow_version_id, "
+        "workflow_posture) VALUES (1, %s, 'idea', 'dash', "
+        "(SELECT current_version_id FROM workflows WHERE id='dash'), '{}')",
         (_budget_spec(),),
     )
     conn.execute(

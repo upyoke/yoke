@@ -9,7 +9,6 @@ import pytest
 from yoke_core.domain.session_staleness import (
     activity_liveness,
     session_liveness,
-    stale_reclaim_candidate,
 )
 
 NOW = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
@@ -37,7 +36,8 @@ def _row(**fields):
             "waiting",
             "active",
         ),
-        ({"holds_work_claim": True}, "stale", "stale"),
+        ({"holds_work_claim": True}, "active", "stale"),
+        ({"holds_work_claim": True, "turn_posture": "waiting"}, "waiting", "stale"),
         ({"mode": "parked"}, "stale", "stale"),
         ({"last_heartbeat": FRESH}, "active", "active"),
         (
@@ -61,9 +61,7 @@ def test_a_read_without_the_claim_fact_refuses_rather_than_calling_it_stale():
 
 
 def test_only_a_claim_free_quiet_session_is_a_reclaim_candidate():
-    assert stale_reclaim_candidate(
-        QUIET, executor="claude-code", holds_work_claim=False
-    )
-    assert not stale_reclaim_candidate(
-        QUIET, executor="claude-code", holds_work_claim=True
-    )
+    from yoke_core.domain.session_automatic_reclaim import automatic_reclaim
+
+    assert automatic_reclaim(_row(), now=NOW).is_reclaimable
+    assert not automatic_reclaim(_row(holds_work_claim=True), now=NOW).is_reclaimable

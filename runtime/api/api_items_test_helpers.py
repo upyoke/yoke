@@ -133,9 +133,12 @@ def _apply_schema_and_seed() -> None:
             create_decision_request_tables,
         )
 
+        from yoke_core.domain.session_control_schema import create_session_control_tables
+
         create_actor_identity_tables(conn)
         create_auth_tables(conn)
         seed_default_org(conn)
+        create_session_control_tables(conn)
         from runtime.api.fixtures.qa_attempt_history import ensure_qa_attempt_history
 
         ensure_qa_attempt_history(conn)

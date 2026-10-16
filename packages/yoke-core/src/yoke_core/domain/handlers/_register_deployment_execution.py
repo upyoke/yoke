@@ -54,20 +54,6 @@ def register(registry) -> None:
             [],
         ),
         (
-            "deployment_runs.execution.qa_seed",
-            qa.handle_deployment_execution_qa_seed,
-            qa.DeploymentExecutionQaSeedRequest,
-            qa.DeploymentExecutionQaSeedResponse,
-            ["qa_requirements_insert", "deployment_run_qa_insert"],
-        ),
-        (
-            "deployment_runs.execution.qa_record",
-            qa.handle_deployment_execution_qa_record,
-            qa.DeploymentExecutionQaRecordRequest,
-            qa.DeploymentExecutionQaRecordResponse,
-            ["qa_runs_insert", "deployment_run_qa_update"],
-        ),
-        (
             "deployment_runs.execution.qa_pending",
             qa.handle_deployment_execution_qa_pending,
             qa.DeploymentExecutionQaPendingRequest,

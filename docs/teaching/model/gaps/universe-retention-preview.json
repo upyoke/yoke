@@ -1,0 +1,9 @@
+{
+ "id": "universe-retention-preview",
+ "title": "Deployed universe retention preview evidence",
+ "status": "observed",
+ "need": "After release, verify the registered retention read and dry-run on the selected deployed universe. Confirm admin authority, effective policy/cutoff, truthful bounded counts and no maintenance mutation. Production apply needs separate explicit authorization.",
+ "evidence": "Source help and focused disposable-database command/protection tests exist; no deployed preview has been performed.",
+ "topics": ["universes/universe/retention"],
+ "sources": ["docs/public/universe-retention.md", "runtime/api/domain/test_universe_retention.py"]
+}

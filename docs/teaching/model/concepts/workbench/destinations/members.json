@@ -1,8 +1,10 @@
 {
  "id": "members",
  "title": "Members",
- "status": "draft-copy",
+ "status": "observed",
  "related": "identity/accounts",
  "page": "workbench-destinations",
- "position": 12
+ "position": 12,
+ "text": "Hosted Members keeps seats and billing. Its role editor and invite controls remain until the materialized Team contract declares the people destination; that same contract predicate retires the old site controls and routes people management to Team. Hosted email invitations behind Team still use Platform identity.invite.create, identity.invite.list and identity.invite.revoke. Conditional consumer source is observed; Team availability and deployed behavior require separate proof.",
+ "sources": ["docs/public/reference/machine-authorization.md"]
 }

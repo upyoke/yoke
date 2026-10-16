@@ -26,7 +26,6 @@ from typing import Any, Mapping
 
 from yoke_core.domain.deployment_run_bound_sources import (
     BOUND_SOURCES_FIELD,
-    bound_sources_recorded,
     parse_bound_sources,
 )
 
@@ -75,8 +74,6 @@ def release_output_runs(conn: Any, project_id: int) -> dict[str, dict[str, str]]
     claim, so a retry that inherited its predecessor's record still credits
     the release that actually wrote the commit.
     """
-    if not bound_sources_recorded(conn):
-        return {}
     rows = conn.execute(
         f"SELECT id,COALESCE({BOUND_SOURCES_FIELD},'') AS {BOUND_SOURCES_FIELD} "
         "FROM deployment_runs "

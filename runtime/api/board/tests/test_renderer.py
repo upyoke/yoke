@@ -11,11 +11,8 @@ Covers:
 from __future__ import annotations
 
 from yoke_core.board.__main__ import main
-from yoke_core.board.renderer import (
-    _count_expected_tasks,
-    _project_filter,
-    render_board,
-)
+from yoke_core.board.renderer import render_board
+from yoke_contracts.board.project_scope import project_filter as _project_filter
 from yoke_contracts.board.renderer_dashboard import _combine_row
 from runtime.api.fixtures.file_test_db import connect_test_db
 
@@ -269,24 +266,3 @@ class TestCLIPreview:
         main(["preview", "--rainbow", "--seed", "42"])
         out2 = capsys.readouterr().out
         assert out1 == out2
-
-
-# ---------------------------------------------------------------------------
-# Expected tasks count helper
-# ---------------------------------------------------------------------------
-
-
-class TestCountExpectedTasks:
-    def test_with_epic_tasks(self, populated_db):
-        from yoke_core.board.db import BoardDB
-
-        with BoardDB(populated_db) as db:
-            count = _count_expected_tasks(db, "yoke")
-            assert count == 2
-
-    def test_empty_db(self, test_db_path):
-        from yoke_core.board.db import BoardDB
-
-        with BoardDB(test_db_path) as db:
-            count = _count_expected_tasks(db, "yoke")
-            assert count == 0

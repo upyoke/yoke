@@ -47,7 +47,7 @@ ARG YOKE_ENGINE_VERSION=""
 # Build the root `yoke` wheel (the runtime* tree) plus the four split packages
 # under packages/yoke-*/src. The split package names may also exist on public
 # indexes, so the wheelhouse first receives dependency-free local wheels, then
-# pins those exact versions while resolving external dependencies. That keeps a
+# pins those exact local wheel URLs while resolving external dependencies. That keeps a
 # public same-name package from replacing the in-repo wheel.
 RUN if [ -n "$YOKE_ENGINE_VERSION" ]; then \
         export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_YOKE="$YOKE_ENGINE_VERSION"; \

@@ -210,10 +210,11 @@ class UpdateStatusEnv:
             INSERT INTO epic_tasks
                 (epic_id, task_num, title, item_worktree_id, status, github_issue,
                  context_estimate,
-                 dispatch_attempts, max_attempts, dependencies)
+                 dispatch_attempts, max_attempts, dependencies,
+                 scope_state, scope_finalized_at)
             VALUES
                 ({p}, {p}, {p}, {p}, {p}, {p}, 'S',
-                 {p}, 5, {p})
+                 {p}, 5, {p}, 'no_files', CURRENT_TIMESTAMP)
             ON CONFLICT (epic_id, task_num) DO UPDATE SET {_EPIC_TASK_UPSERT_SET}
         """,
             (

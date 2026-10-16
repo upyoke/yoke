@@ -2,7 +2,7 @@
 
 Three layers over the same disposable Postgres fixture:
 
-1. Handler-direct: ``handle_board_data_get`` returns the recorded plan.
+1. Handler-direct: ``handle_board_data_get`` returns the named snapshot.
 2. Dispatcher: the registered function id routes in-process.
 3. Real HTTP route: ``POST /v1/functions/call`` through the real FastAPI
    app with a real minted token — the same path an https-default
@@ -44,17 +44,15 @@ def _request(payload: dict, *, options: dict | None = None) -> FunctionCallReque
     )
 
 
-def test_handler_returns_recorded_plan(populated_db):
+def test_handler_returns_named_snapshot(populated_db):
     outcome = orchestration.handle_board_data_get(
         _request({"scope": "yoke", "config_values": {}})
     )
     assert outcome.primary_success
     result = outcome.result_payload
     assert result["scope"] == "yoke"
-    assert result["entry_count"] == len(result["entries"]) > 0
-    kinds = {entry["kind"] for entry in result["entries"]}
-    assert "query" in kinds  # classify_items
-    assert "scalar" in kinds  # max-id width, weather count
+    assert any(result["items"].values())
+    assert "entries" not in result
     # The payload renders client-side without any DB connection.
     config = BoardConfig()
     markdown = render_board_from_payload(
@@ -99,15 +97,9 @@ def test_handler_records_only_generated_children_policy(populated_db):
     encoded = json.dumps(result)
     assert marker not in encoded
 
-    item_entry = next(
-        entry
-        for entry in result["entries"]
-        if entry["kind"] == "query" and "LEFT JOIN workflow_versions wv" in entry["sql"]
-    )
-    assert "wv.definition_json::jsonb #>>" in item_entry["sql"]
-    generated_children_by_item = {int(row[0]): row[-1] for row in item_entry["rows"]}
-    assert generated_children_by_item[1] == "none"
-    assert generated_children_by_item[3] == "epic_tasks"
+    items = {row["id"]: row for rows in result["items"].values() for row in rows}
+    assert items["YOK-1"]["epic_id"] is None
+    assert items["YOK-3"]["epic_id"] == 3
 
     markdown = render_board_from_payload(
         result,
@@ -130,11 +122,13 @@ def test_handler_ignores_unknown_config_field(populated_db):
 
 
 def test_handler_vision_count_shapes_zen_plan(populated_db):
-    """The vision count feeds zen zone width, which is a SQL parameter —
-    payloads recorded with different counts carry different plans. The
-    vision belongs to the checkout's own project, named by its settings
-    project id."""
+    """VISION count shapes the owning project's timeline width."""
     from yoke_contracts.board.config import config_from_values
+
+    with connect_test_db(populated_db) as conn:
+        conn.execute(
+            "UPDATE items SET created_at=now() - interval '2 days', updated_at=now() WHERE status='done'"
+        )
 
     config_values = {"timeline_widget": "always"}
 
@@ -159,16 +153,9 @@ def test_handler_vision_count_shapes_zen_plan(populated_db):
             )
         assert outcome.primary_success
         assert outcome.result_payload["vision_project"] == "yoke"
-        return outcome.result_payload["entries"]
+        return outcome.result_payload["timeline"]
 
-    def zen_position_params(entries):
-        return [
-            tuple(e["params"] or [])
-            for e in entries
-            if e["kind"] == "query" and "pos_raw" in e["sql"]
-        ]
-
-    assert zen_position_params(entries_for(0)) != zen_position_params(entries_for(3))
+    assert entries_for(0)[0]["past_width"] != entries_for(3)[0]["past_width"]
 
 
 def test_handler_all_scope_filters_to_visible_project_ids(populated_db):
@@ -194,7 +181,6 @@ def test_handler_all_scope_filters_to_visible_project_ids(populated_db):
 
     assert outcome.primary_success
     result = outcome.result_payload
-    assert result["visible_project_ids"] == [1]
     markdown = render_board_from_payload(
         result,
         scope="all",
@@ -225,7 +211,7 @@ def test_dispatcher_routes_board_data_get(populated_db):
     finally:
         reset_registry_for_tests()
     assert response.success, response.error
-    assert response.result["entry_count"] > 0
+    assert any(response.result["items"].values())
 
 
 class TestBoardDataOverHttpBoundary:
@@ -303,7 +289,7 @@ class TestBoardDataOverHttpBoundary:
         body = resp.json()
         assert body["success"], body.get("error")
         result = body["result"]
-        assert result["entry_count"] > 0
+        assert any(result["items"].values())
         # The wire payload feeds a connection-free render client-side.
         markdown = render_board_from_payload(
             result,

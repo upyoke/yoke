@@ -6,6 +6,17 @@ The PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`)
 captures entries when the subagent returns. Parser alternatives in
 `yoke_core.domain.reflection_capture_shapes` are not authoring templates.
 
+When the harness has no automatic Agent capture receipt, the parent captures
+the full response through `ouroboros.reflection.capture`:
+
+```text
+yoke ouroboros reflection capture --text-file RESPONSE_FILE --project PROJECT --default-agent ROLE
+```
+
+Keep the response file until the receipt succeeds. Incomplete capture returns
+the parser and persistence counts with a named recovery; an older server
+requires the control-plane operator to serve the carrying release.
+
 ## Category Enum (use one of these values)
 
 Use exactly one lowercase, hyphenated value per observation; no aliases:

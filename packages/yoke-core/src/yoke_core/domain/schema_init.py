@@ -66,7 +66,7 @@ from yoke_core.domain.schema_ouroboros_columns import apply_ouroboros_columns
 from yoke_core.domain.schema_init_columns import (
     apply_additive_schema,
     apply_harness_session_columns,
-    apply_legacy_data_migrations,
+    finalize_initial_schema,
     apply_work_claim_scope_column,
 )
 from yoke_core.domain.schema_init_tables import (
@@ -170,7 +170,7 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     project database supplied by its caller.
 
     This is the single source of the schema-creation sequence: :func:`cmd_init`
-    runs it, then layers seeds and the birth-only data-shape migrations on top.
+    runs it, then layers seeds and initial schema invariants on top.
     Order matters — ``create_external_identity_tables`` FKs into actors,
     organizations (created by ``create_auth_tables``), and roles, so those
     creation steps precede it.
@@ -341,7 +341,7 @@ def cmd_init() -> None:
         converge_core_schema(conn, backup_target_dsn=db_backend.resolve_pg_dsn())
         seed_roles_and_permissions(conn)
         seed_default_org(conn)
-        apply_legacy_data_migrations(conn)
+        finalize_initial_schema(conn)
         seed_canonical_human(conn)
         seed_shipped_execution_instruction(conn)
     finally:

@@ -17,23 +17,12 @@ orchestrator (:mod:`yoke_core.domain.agents_render`) used to inline:
 
 Single source of truth for subagent hook chains:
 
-The 6 Bash-capable canonical specs
-(``runtime/agents/{architect,boss,engineer,qa-walker,simulator,tester}.claude.json``)
-drop their hand-authored ``hooks`` block; the composer here writes the full
-block from the universal ``HOOK_ORDERING`` registry. Each PreToolUse entry
-emits one runner command of the form
-``YOKE_HOOK_AGENT_TYPE=<role> yoke hook evaluate PreToolUse``
-  (bare shell-builtin env prefix; Claude executes hooks through a shell).
-``yoke_core.domain.lint_subagent_background`` (already wired into the
-Bash / Monitor / ScheduleWakeup / TaskOutput chains in
-:mod:`yoke_contracts.hook_runner.hook_ordering`) reads the
-``YOKE_HOOK_AGENT_TYPE`` env var at runtime to detect subagent context —
-no per-chain ``--agent-type`` CLI injection is needed.
-
-Product Designer / Product Manager are non-Bash agents
-(``Read, Grep, Glob`` tool grant only) and retain their hand-authored
-``hooks`` block in ``<role>.claude.json``. They never invoke the composer.
-The discriminator is :func:`is_bash_capable_subagent`.
+All canonical role specs leave hook composition to this module. PreToolUse,
+PostToolUse and PostToolUseFailure use ``yoke hook evaluate`` with role and
+configuration-owner identity. The shared registry owns chain selection and
+transport. Product Manager and Product Designer keep their non-Bash grants;
+that grant does not change hook transport. SubagentStop remains a machine-local
+auto-commit safety net with best-effort telemetry.
 
 Imports from :mod:`yoke_core.domain.agents_render` would create a cycle;
 this module's only Yoke dependencies are the conditional renderer, the
@@ -87,16 +76,7 @@ CLAUDE_SPEC_KEY_ORDER = [
 # ---------------------------------------------------------------------------
 
 _YOKE_HOOK_EVALUATE = "yoke hook evaluate"
-_OBSERVE_MODULE = "python3 -m yoke_core.domain.observe"
 _SUBAGENT_STOP_MODULE = "python3 -m yoke_core.domain.agent_stop"
-
-def _granted_tools(tools: str) -> set[str]:
-    return {part.strip() for part in tools.split(",") if part.strip()}
-
-
-def is_bash_capable_subagent(tools: str) -> bool:
-    """Return True when the agent's tool grant includes ``Bash``."""
-    return "Bash" in _granted_tools(tools)
 
 
 def _env_prefix(agent: str) -> str:
@@ -110,10 +90,7 @@ def _env_prefix(agent: str) -> str:
     executable. Routing through the ``env`` binary instead would force the
     classifier to special-case ``env`` to find the real executable.
     """
-    return (
-        f"{CONFIG_OWNER_ENV_VAR}={CLAUDE_CONFIG_OWNER} "
-        f"YOKE_HOOK_AGENT_TYPE={agent}"
-    )
+    return f"{CONFIG_OWNER_ENV_VAR}={CLAUDE_CONFIG_OWNER} YOKE_HOOK_AGENT_TYPE={agent}"
 
 
 def _hook_entry(command: str) -> dict:
@@ -124,21 +101,11 @@ def _runner_command(agent: str, event: str) -> str:
     return f"{_env_prefix(agent)} {_YOKE_HOOK_EVALUATE} {event}"
 
 
-def _observe_command(agent: str, hook_event: str) -> str:
-    body = (
-        f'{_OBSERVE_MODULE} --project-dir "${{CLAUDE_PROJECT_DIR:-$PWD}}" '
-        f"--agent-type {agent} --hook-event {hook_event}"
-    )
-    return f"{_env_prefix(agent)} {body}"
-
-
 def _subagent_stop_command(agent: str) -> str:
     return f"{_env_prefix(agent)} {_SUBAGENT_STOP_MODULE}"
 
 
-def render_claude_subagent_hooks_block(
-    agent: str, *, tools: str
-) -> Optional[dict]:
+def render_claude_subagent_hooks_block(agent: str) -> dict:
     """Compose the per-subagent Claude ``hooks`` frontmatter block.
 
     Args:
@@ -146,34 +113,27 @@ def render_claude_subagent_hooks_block(
             ``boss``, ``simulator``, ``product-manager``, ``product-designer``).
             Hyphenated names are preserved verbatim — telemetry uses
             ``--agent-type product-manager`` today.
-        tools: Comma-separated tool grant string from
-            ``<role>.claude.json``.
 
     Returns the dict-shaped ``hooks`` block ready for YAML serialisation
     as the frontmatter ``hooks`` key.
 
-    Caller-side dispatch (``load_claude_spec`` below) uses
-    :func:`is_bash_capable_subagent` to decide whether to invoke this
-    composer or fall back to the canonical JSON's hand-authored block
-    (PM/PD remain hand-authored).
+    Every role uses the same composer; tool grants do not select database
+    authority or a separate telemetry launcher.
     """
     # Matcherless: the runner selects the chain from tool_name. Per-tool
     # matchers here would skip Grep/Glob and any tool the grant later adds.
-    _ = tools
     block: dict[str, list[dict]] = {}
     block["PreToolUse"] = [
         {"hooks": [_hook_entry(_runner_command(agent, "PreToolUse"))]}
     ]
 
     block["PostToolUse"] = [
-        {"hooks": [_hook_entry(_observe_command(agent, "PostToolUse"))]}
+        {"hooks": [_hook_entry(_runner_command(agent, "PostToolUse"))]}
     ]
     block["PostToolUseFailure"] = [
-        {"hooks": [_hook_entry(_observe_command(agent, "PostToolUseFailure"))]}
+        {"hooks": [_hook_entry(_runner_command(agent, "PostToolUseFailure"))]}
     ]
-    block["SubagentStop"] = [
-        {"hooks": [_hook_entry(_subagent_stop_command(agent))]}
-    ]
+    block["SubagentStop"] = [{"hooks": [_hook_entry(_subagent_stop_command(agent))]}]
     return block
 
 
@@ -188,21 +148,15 @@ def load_canonical(agent: str, *, target_root: Optional[Path] = None) -> str:
     return (root / CANONICAL_DIR / f"{agent}.md").read_text(encoding="utf-8")
 
 
-def load_claude_spec(
-    agent: str, *, target_root: Optional[Path] = None
-) -> dict:
+def load_claude_spec(agent: str, *, target_root: Optional[Path] = None) -> dict:
     """Read ``runtime/agents/<role>.claude.json`` and inject the hooks block.
 
-    For Bash-capable subagents (6 of 8), the canonical JSON has no
-    ``hooks`` key — the composed block is injected via
-    :func:`render_claude_subagent_hooks_block`. For PM/PD the canonical
-    JSON's hand-authored ``hooks`` block is preserved verbatim.
+    All roles receive the shared transport-aware hooks block. Canonical role
+    specs carry tool grants and model settings rather than hook commands.
     """
     root = require_reader_root(target_root)
     raw = json.loads(
-        (root / CANONICAL_DIR / f"{agent}.claude.json").read_text(
-            encoding="utf-8"
-        )
+        (root / CANONICAL_DIR / f"{agent}.claude.json").read_text(encoding="utf-8")
     )
     ordered: dict = {}
     for key in CLAUDE_SPEC_KEY_ORDER:
@@ -210,19 +164,11 @@ def load_claude_spec(
             continue
         if key in raw:
             ordered[key] = raw[key]
-    tools_value = raw.get("tools", "")
-    if is_bash_capable_subagent(tools_value):
-        ordered["hooks"] = render_claude_subagent_hooks_block(
-            agent, tools=tools_value
-        )
-    elif "hooks" in raw:
-        ordered["hooks"] = raw["hooks"]
+    ordered["hooks"] = render_claude_subagent_hooks_block(agent)
     return ordered
 
 
-def render_claude_agent(
-    agent: str, *, target_root: Optional[Path] = None
-) -> str:
+def render_claude_agent(agent: str, *, target_root: Optional[Path] = None) -> str:
     """Render the full Claude adapter (.md) for ``agent``."""
     spec = load_claude_spec(agent, target_root=target_root)
     root = require_reader_root(target_root)

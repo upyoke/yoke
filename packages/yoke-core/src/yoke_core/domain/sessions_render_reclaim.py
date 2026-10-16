@@ -44,33 +44,20 @@ def find_stale_sessions(
     conn: Any,
     stale_threshold_minutes: int = DEFAULT_STALE_THRESHOLD_MINUTES,
 ) -> List[Dict[str, Any]]:
-    """Identify the sessions the stale reclaim sweep would act on.
+    """Preview exactly the automatic-reclaim eligible live sessions."""
+    from .session_automatic_reclaim import automatic_reclaim, reclaim_facts
 
-    The predicate is :func:`session_staleness.stale_reclaim_candidate`, the
-    same one the roster's ``reclaimable`` flag reads, so the Sessions page
-    count and this list agree: an active work claim protects its holder.
-    """
-    from .session_reclaim_activity import latest_activity
-    from .session_staleness import stale_reclaim_candidate
-    from .session_cleanup_holdings import active_work_claim_sessions
-
+    now = utc_now()
     rows = conn.execute(
-        "SELECT * FROM harness_sessions WHERE ended_at IS NULL",
+        "SELECT * FROM harness_sessions WHERE ended_at IS NULL"
     ).fetchall()
-    result = []
-    protected = active_work_claim_sessions(conn)
-    for r in rows:
-        d = _row_to_dict(r)
-        session_id = str(d.get("session_id") or "")
-        if not stale_reclaim_candidate(
-            latest_activity(conn, session_id),
-            executor=d.get("executor"),
-            holds_work_claim=session_id in protected,
-            base_ttl_minutes=stale_threshold_minutes,
-        ):
-            continue
-        result.append(d)
-    return result
+    return [
+        row
+        for row in reclaim_facts(conn, rows)
+        if automatic_reclaim(
+            row, now=now, stale_threshold_minutes=stale_threshold_minutes
+        ).is_reclaimable
+    ]
 
 
 @rollback_workflow_binding_write_errors

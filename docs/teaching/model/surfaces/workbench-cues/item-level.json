@@ -1,0 +1,10 @@
+{
+ "id": "item-level",
+ "title": "Stage default and item level override",
+ "status": "observed",
+ "form": "State",
+ "verification": "Focused rendering tests cover labeled effective differences, hidden matching bounds and shifts, absent level data, reasons beside the override, and stage cards without execution-posture level cards. Served browser proof remains a deployment obligation.",
+ "topics": ["levels/scheme/item-level-adjustment", "levels/scheme/stage-defaults"],
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/item_view_facts.js", "runtime/api/universe_ui_item_level_fact.test.mjs", "runtime/api/universe_ui_workflow_stage_levels.test.mjs"],
+ "position": 9
+}

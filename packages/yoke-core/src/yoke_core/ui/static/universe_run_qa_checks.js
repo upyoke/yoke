@@ -52,7 +52,9 @@ function projectIdOf(context, project) {
 
 // The QA case page for the requirement a check or history row ran.
 export function qaCaseHref(context, row) {
-  if (row?.requirement_id == null) return null;
+  if (row?.requirement_id == null) return row?.plan_id == null ? null
+    : buildUniverseRoute("qa-plans", projectIdOf(context, row.project ?? row.project_id),
+      String(row.plan_id));
   return buildUniverseRoute(
     "qa-activity", projectIdOf(context, row.project ?? row.project_id),
     String(row.requirement_id),
@@ -74,7 +76,7 @@ export function checkName(check) {
 }
 
 function outcomeState(check) {
-  if (check?.retracted_at) return "other";
+  if (check?.retracted_at || check?.waived_at) return "other";
   const outcome = String(check?.outcome || "");
   if (outcome === "passed") return "passed";
   if (outcome === "failed") return "failed";
@@ -84,6 +86,8 @@ function outcomeState(check) {
 // The check's own result: "Passed", "Failed", or the state it stands in.
 export function checkOutcome(check) {
   if (check?.retracted_at) return "Cancelled";
+  if (check?.waived_at || check?.qa_kind === QA_KIND.NOT_REQUIRED) return "Waived";
+  if (check?.pending_obligation) return "Not started";
   const state = outcomeState(check);
   if (state === "passed") return "Passed";
   if (state === "failed") return "Failed";
@@ -119,6 +123,10 @@ export function runQaVerdict(checks, decision) {
     QA_STATE.WAIVED, QA_STATE.SUPERSEDED].includes(classifyQaRow(check)?.id));
   if (!checks.length) return { text: "", tone: "" };
   const passed = checks.filter((check) => outcomeState(check) === "passed").length;
+  const pending = checks.filter((check) => check.pending_obligation).length;
+  if (pending === checks.length) return { text: "Not started", tone: "is-awaiting" };
+  if (pending) return { text: `${passed} of ${checks.length} passed · ${pending} pending`,
+    tone: "is-awaiting" };
   return {
     text: `${passed} of ${checks.length} passed`,
     tone: passed === checks.length ? "is-approved" : "is-rejected",
@@ -154,13 +162,15 @@ function separator(documentNode) {
 export function runCheckLine(context, check, options = {}) {
   const documentNode = context.document;
   const state = outcomeState(check);
-  const line = el(documentNode, "div", `run-qa-check is-${state}`);
+  const line = el(documentNode, "div", `run-qa-check is-${state}${check.pending_obligation ? " is-pending-obligation" : ""}`);
   line.appendChild(el(documentNode, "span", "run-qa-check-mark", MARKS[state]));
   const name = el(documentNode, "strong", "run-qa-check-name");
   name.appendChild(qaCaseLink(context, check, checkName(check)));
   line.appendChild(name);
   line.appendChild(separator(documentNode));
   line.appendChild(el(documentNode, "span", "run-qa-check-outcome", checkOutcome(check)));
+  const environment = check.target_env || check.execution_target_json?.environment?.name;
+  if (environment) line.appendChild(el(documentNode, "span", "run-qa-check-target", `Target ${environment}`));
   const origin = provenance(documentNode, check, options);
   if (origin) {
     line.appendChild(separator(documentNode));
@@ -174,6 +184,9 @@ export function runCheckLine(context, check, options = {}) {
     line.appendChild(el(
       documentNode, "p", "run-qa-check-reason", String(reason),
     ));
+  }
+  if (check.pending_obligation && check.instructions) {
+    line.appendChild(el(documentNode, "p", "run-qa-check-reason", String(check.instructions)));
   }
   const strip = evidenceStrip(context, ownArtifacts(check), CHECK_STRIP);
   if (strip) line.appendChild(strip);

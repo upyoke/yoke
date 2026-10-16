@@ -1,6 +1,6 @@
 """Claim verification guard for sanctioned status writers.
 
-Verifies that the current session holds an active exclusive item claim
+Verifies that the acting session holds an active item or exact task claim
 before allowing a status mutation.
 
 CLI contract::
@@ -40,7 +40,11 @@ from typing import Optional
 from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_core.domain.claim_recovery import canonical_item_ref
 from yoke_core.domain.status_claim_bypass_context import resolve_claim_bypass
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.work_claim_targets import (
+    exact_match_clause,
+    make_epic_task_target,
+    scope_int_sql,
+)
 
 
 def _resolve_session_id() -> str:
@@ -90,14 +94,12 @@ def _db_available() -> bool:
     return True
 
 
-def _fetch_claim(item_id: int) -> Optional[dict]:
-    """Return the active item-target claim row for ``item_id``, or None.
+def _fetch_claim(
+    item_id: int, *, task_num: int | None = None, session_id: str = ""
+) -> Optional[dict]:
+    """Find parent authority or an exact task claim, preferring the actor.
 
-    Item claims store canonical ``scope={"item_id":N}`` and require
-    ``target_kind='item'``. Process and epic-task targets are not surfaced
-    through this verifier — status mutation gates are item-scoped.
-
-    Storage: ``id | session_id | target_kind | scope | claim_type | claimed_at``.
+    A task claim never authorizes another task or a parent item write.
     """
     try:
         from yoke_core.domain import db_helpers
@@ -106,15 +108,25 @@ def _fetch_claim(item_id: int) -> Optional[dict]:
     try:
         with db_helpers.connect() as conn:
             item_scope = scope_int_sql(conn, "scope", "item_id")
+            match = f"(target_kind='item' AND {item_scope} = %s)"
+            params = [int(item_id)]
+            ordering = "claimed_at DESC"
+            if task_num is not None:
+                task_match, task_params = exact_match_clause(
+                    conn, make_epic_task_target(item_id, task_num)
+                )
+                match = f"({match} OR ({task_match}))"
+                params.extend(task_params)
+                ordering = "(session_id = %s) DESC, claimed_at DESC"
+                params.append(session_id)
             row = db_helpers.query_one(
                 conn,
                 f"SELECT id, session_id, {item_scope} AS item_id, "
                 "claim_type, claimed_at "
                 "FROM work_claims "
-                f"WHERE target_kind='item' AND {item_scope} = %s "
-                "AND released_at IS NULL "
-                "ORDER BY claimed_at DESC LIMIT 1",
-                (int(item_id),),
+                f"WHERE {match} AND released_at IS NULL "
+                f"ORDER BY {ordering} LIMIT 1",
+                tuple(params),
             )
     except Exception:
         return None
@@ -168,14 +180,16 @@ def _emit_lifecycle_event(
         pass
 
 
-def verify(item_id: int) -> tuple[int, dict]:
+def verify(
+    item_id: int, *, task_num: int | None = None, session_id: str | None = None
+) -> tuple[int, dict]:
     """Evaluate the verification.
 
     Returns ``(exit_code, result_dict)`` where the dict is the JSON
     payload written to stdout by ``main``.
     """
     public_ref = canonical_item_ref(item_id) or unresolved_item_ref()
-    session_id = _resolve_session_id()
+    session_id = _resolve_session_id() if session_id is None else session_id
     bypass_source = _resolve_bypass()
 
     if bypass_source:
@@ -224,7 +238,11 @@ def verify(item_id: int) -> tuple[int, dict]:
             "bypassed": True,
         }
 
-    claim = _fetch_claim(item_id)
+    claim = (
+        _fetch_claim(item_id, task_num=task_num, session_id=session_id)
+        if task_num is not None
+        else _fetch_claim(item_id)
+    )
     if claim is None:
         _emit_lifecycle_event(
             "ClaimVerificationDenied",

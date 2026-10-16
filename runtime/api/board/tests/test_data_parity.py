@@ -1,11 +1,4 @@
-"""Render parity: direct-DB assembly vs the record/replay data path.
-
-The board data layer's core guarantee: a render fed by a recorded
-``board.data.get`` payload (after a JSON transport round-trip) is
-byte-identical to the same assembly running directly against the live
-DB with the same inputs. A divergence is a parity bug — the replay
-handle raises :class:`BoardDataMissError` rather than guessing.
-"""
+"""Named board snapshot transport and rendering behavior."""
 
 from __future__ import annotations
 
@@ -17,33 +10,22 @@ import pytest
 from yoke_contracts.board.config import parse_config
 from yoke_contracts.board.art import ArtConfig, parse_art_config
 from yoke_contracts.board.renderer import render_board_from_payload
-from yoke_core.board.data import (
-    BoardDataMissError,
-    ReplayBoardDB,
-    collect_board_data,
-    entry_key,
-)
+from yoke_core.board.data import collect_board_data
 from yoke_core.board.db import BoardDB
-from yoke_core.board.renderer import _assemble
+from yoke_core.board.renderer import render_board
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 
 def _direct_render(
     db_path, scope, config_path, *, seed, repo_root=None, vision_entries=()
 ):
-    """The pre-data-layer render shape: one live BoardDB, one assembly."""
-    config = parse_config(config_path, repo_root=repo_root)
-    art_config = parse_art_config(config_path, repo_root=repo_root)
-    with BoardDB(db_path) as db:
-        return _assemble(
-            db, config, art_config, scope, seed, repo_root, list(vision_entries)
-        )
+    return render_board(db_path, scope, config_path, seed=seed, repo_root=repo_root)
 
 
 def _data_fed_render(
     db_path, scope, config_path, *, seed, repo_root=None, vision_entries=()
 ):
-    """Collect → JSON round-trip → replay render, same inputs."""
+    """Collect and render through JSON with the same inputs."""
     config = parse_config(config_path, repo_root=repo_root)
     art_config = parse_art_config(config_path, repo_root=repo_root)
     with BoardDB(db_path) as db:
@@ -56,9 +38,14 @@ def _data_fed_render(
         )
     # Prove transport fidelity: everything survives a JSON round trip.
     payload = json.loads(json.dumps(payload))
-    replay = ReplayBoardDB.from_payload(payload)
-    return _assemble(
-        replay, config, art_config, scope, seed, repo_root, list(vision_entries)
+    return render_board_from_payload(
+        payload,
+        scope=scope,
+        config=config,
+        art_config=art_config,
+        seed=seed,
+        repo_root=repo_root,
+        vision_entries=list(vision_entries),
     )
 
 
@@ -76,9 +63,7 @@ def test_parity_empty_board(test_db_path, config_file):
 
 
 def test_parity_velocity_meter_strategy_revisions(populated_db, tmp_path):
-    """The velocity meter's strategy row is sourced from saved doc
-    revisions; the query ``collect_board_data`` records must be the one
-    replay serves, else the render raises ``BoardDataMissError``."""
+    """Saved strategy revisions feed the velocity series."""
     from datetime import date
 
     from runtime.api.board.tests.helpers import insert_doc_revision
@@ -215,9 +200,7 @@ def test_payload_uses_stamped_session_project_identity(populated_db, config_file
 
 
 def test_parity_all_scope_with_zen_and_vision(populated_db, tmp_path):
-    """Zen visible + vision entries: the vision-derived zone width feeds a
-    SQL parameter, so record and replay must agree through the injected
-    entries, not a cwd walk."""
+    """Local VISION labels compose with timeline facts."""
     cfg = tmp_path / "config"
     cfg.write_text(
         textwrap.dedent("""\
@@ -235,13 +218,24 @@ def test_parity_all_scope_with_zen_and_vision(populated_db, tmp_path):
     assert fed == direct
 
 
-def test_replay_miss_raises_loudly(populated_db, config_file):
+def test_named_payload_accepts_additive_facts(populated_db, config_file):
     config = parse_config(config_file)
     with BoardDB(populated_db) as db:
         payload = collect_board_data(db, scope="yoke", config=config)
-    replay = ReplayBoardDB.from_payload(json.loads(json.dumps(payload)))
-    with pytest.raises(BoardDataMissError, match="parity bug"):
-        replay.query("SELECT 1 FROM items WHERE id = %s", (424242,))
+    kwargs = dict(scope="yoke", config=config, art_config=ArtConfig(), seed=42)
+    before = render_board_from_payload(payload, **kwargs)
+    payload["future_section"] = {"value": 7}
+    payload["sessions"]["future_fact"] = "unused"
+    for widget in payload["dashboard"].values():
+        if isinstance(widget, dict):
+            widget["future_fact"] = "unused"
+    for rows in payload["items"].values():
+        for row in rows:
+            row["future_fact"] = "unused"
+    assert (
+        render_board_from_payload(json.loads(json.dumps(payload)), **kwargs) == before
+    )
+    assert "entries" not in payload
 
 
 def test_payload_versions_must_match(populated_db, config_file):
@@ -251,28 +245,17 @@ def test_payload_versions_must_match(populated_db, config_file):
     with BoardDB(populated_db) as db:
         payload = collect_board_data(db, scope="yoke", config=config)
     payload["version"] = 999
-    with pytest.raises(BoardDataError, match="version"):
-        ReplayBoardDB.from_payload(payload)
+    with pytest.raises(BoardDataError, match="contract"):
+        render_board_from_payload(
+            payload, scope="yoke", config=config, art_config=ArtConfig()
+        )
 
 
-def test_entry_key_stable_across_json_round_trip():
-    live = entry_key("query", "SELECT 1", (5, "x"))
-    round_tripped = entry_key(
-        "query", "SELECT 1", tuple(json.loads(json.dumps([5, "x"])))
-    )
-    assert live == round_tripped
-
-
-def test_collection_uses_empty_art_config(populated_db, config_file):
-    """Art shapes only the discarded text; the recorded plan must not
-    depend on it. Rendering the same payload under two different art
-    configs replays cleanly both times."""
+def test_art_is_client_local(populated_db, config_file):
     config = parse_config(config_file)
     with BoardDB(populated_db) as db:
         payload = collect_board_data(db, scope="yoke", config=config)
-    replay_a = ReplayBoardDB.from_payload(payload)
-    replay_b = ReplayBoardDB.from_payload(payload)
-    out_a = _assemble(replay_a, config, ArtConfig(), "yoke", 1, None, [])
-    out_b = _assemble(replay_b, config, ArtConfig(), "yoke", 99, None, [])
-    assert out_a  # both rendered without a miss
-    assert out_b
+    for seed in (1, 99):
+        assert render_board_from_payload(
+            payload, scope="yoke", config=config, art_config=ArtConfig(), seed=seed
+        )

@@ -88,12 +88,7 @@ def window_cutoff(window: timedelta = FINISHED_WINDOW) -> datetime:
 
 
 def _cutoff_parameter(conn: Any, window: timedelta) -> datetime | str:
-    return instant_parameter(
-        conn,
-        window_cutoff(window),
-        table="item_status_transitions",
-        column="created_at",
-    )
+    return instant_parameter(conn, window_cutoff(window))
 
 
 def finished_status_clause(

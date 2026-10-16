@@ -33,8 +33,13 @@ persisted. Record an unpersisted verdict again after repairing the cause; for a
 persisted one, re-drive the run with `yoke watch deploy -- RUN` so its runner
 adopts it.
 
-Use the `--stage` / `--member` command above. It selects that member's
-next unfinished shared group and reuses completed group evidence. Another
+Use the `--stage` / `--member` command above. It runs unfinished private
+member cases first, retaining their own target, order, host prerequisites and
+reviews. Completing that private roster ends this invocation; it does not
+start an attached shared campaign. Private evidence alone does not accept a
+member that still owes shared evidence. Once private acceptance is complete,
+the same command selects the next unfinished shared group and reuses
+completed group evidence. Another
 session's live execution remains owned by that session; continue its watcher
 and retry afterward. `shared_plan_execution_busy` names a different group
 already using the stage's ordered cursor. Refresh and declared corrections

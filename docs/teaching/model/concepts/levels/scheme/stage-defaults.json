@@ -1,7 +1,9 @@
 {
  "id": "stage-defaults",
  "title": "Stage defaults",
- "status": "draft-copy",
+ "status": "observed",
  "page": "levels",
- "position": 6
+ "position": 6,
+ "text": "Workflow stage cards retain the stage level. Item details compares its effective item level with the current stage default; absent or terminal level data shows no row. Execution posture does not present level.",
+ "sources": ["docs/public/reference/session-level-routing.md", "packages/yoke-core/src/yoke_core/ui/static/workflow_view_lifecycle.js"]
 }

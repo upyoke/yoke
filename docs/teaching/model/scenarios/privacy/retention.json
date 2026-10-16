@@ -1,0 +1,15 @@
+{
+ "id": "retention",
+ "title": "Review policy and preview disposable universe records",
+ "status": "observed",
+ "audience": "both",
+ "when": "An organization administrator wants to remove disposable history",
+ "need": "Confirm the connected universe, read effective policy and preview first. Apply only when authorized. Preserve human messages and uncertain/live graphs; report acknowledged commits separately from an unknown lost-pass count. Rerun after fixing a named refusal; there is no saved run or schedule.",
+ "disclosure": "Command help before invocation; identity, cutoffs and counts in output",
+ "surface": "Universe retention guide linked from Events and function/DB references; registered command help and output.",
+ "review": "Focused disposable-database source tests pass; deployed read-only acceptance remains pending.",
+ "topics": ["universes/universe/retention", "security/privacy/retention-and-removal"],
+ "sources": ["docs/public/universe-retention.md", "runtime/api/domain/test_universe_retention.py"],
+ "gaps": ["universe-retention-preview"],
+ "position": 2
+}

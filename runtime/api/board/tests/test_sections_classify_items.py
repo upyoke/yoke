@@ -22,7 +22,13 @@ class TestClassifyItems:
     def test_empty_db(self, test_db):
         result = classify_items(test_db, "yoke")
         for section in (
-            "active", "pipeline", "backlog", "blocked", "freezer", "done", "unknown",
+            "active",
+            "pipeline",
+            "backlog",
+            "blocked",
+            "freezer",
+            "done",
+            "unknown",
         ):
             assert result[section] == []
 
@@ -51,9 +57,7 @@ class TestClassifyItems:
     def test_blocked_flag_outranked_by_frozen(self, test_db):
         """When both flags are set, frozen wins."""
         insert_item(test_db, 1, status="implementing")
-        test_db.execute(
-            "UPDATE items SET blocked = 1, frozen = 1 WHERE id = 1"
-        )
+        test_db.execute("UPDATE items SET blocked = 1, frozen = 1 WHERE id = 1")
         test_db.commit()
         result = classify_items(test_db, "yoke")
         assert any(r.id == "YOK-1" for r in result["freezer"])
@@ -69,7 +73,6 @@ class TestClassifyItems:
                 "polishing-implementation",
                 "implemented",
                 "release",
-                "blocked",
                 "stopped",
                 "failed",
             ],
@@ -77,7 +80,9 @@ class TestClassifyItems:
         ):
             insert_item(test_db, i, status=status)
 
-        for i, status in enumerate(["planned", "refined-idea", "planning", "refining-plan"], start=20):
+        for i, status in enumerate(
+            ["planned", "refined-idea", "planning", "refining-plan"], start=20
+        ):
             insert_item(test_db, i, status=status)
 
         insert_item(test_db, 30, status="idea")
@@ -87,14 +92,14 @@ class TestClassifyItems:
 
         result = classify_items(test_db, "yoke")
 
-        # blocked / stopped / failed render in their own
+        # stopped / failed render in their own
         # blocked section instead of being folded into Active.
         active_ids = {r.id for r in result["active"]}
         for i in range(1, 7):
             assert f"YOK-{i}" in active_ids
 
         blocked_ids = {r.id for r in result["blocked"]}
-        for i in (7, 8, 9):
+        for i in (7, 8):
             assert f"YOK-{i}" in blocked_ids
 
         pipeline_ids = {r.id for r in result["pipeline"]}
@@ -220,7 +225,9 @@ class TestClassifyItems:
                 return self.conn.cursor(*args, **kwargs)
 
             def execute(self, *args, **kwargs):
-                raise AssertionError("classify_items must not do per-item direct lookups")
+                raise AssertionError(
+                    "classify_items must not do per-item direct lookups"
+                )
 
             def rollback(self):
                 return self.conn.rollback()

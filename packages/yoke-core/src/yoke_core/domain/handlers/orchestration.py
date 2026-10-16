@@ -4,7 +4,7 @@ Function ids registered here:
 
 - ``board.data.get`` — runs the board's full DB query plan server-side
   (:func:`yoke_core.board.data.collect_board_data`) and returns the
-  recorded data payload; rendering and all file I/O stay client-side,
+  named board snapshot; rendering and all file I/O stay client-side,
   so the same call works over https against a server with no checkout.
 - ``board.rebuild.run`` — invokes :func:`yoke_core.domain.rebuild_board.rebuild`
   and returns the new board file's hash + line count. Carries
@@ -50,12 +50,19 @@ class BoardDataGetRequest(BaseModel):
 class BoardDataGetResponse(BaseModel):
     version: int
     scope: str
-    entry_count: int
-    entries: List[Dict[str, Any]]
+    items: Dict[str, List[Dict[str, Any]]]
+    epics: List[Dict[str, Any]]
+    frontier: Dict[str, int]
+    dashboard: Dict[str, Any]
+    sessions: Dict[str, List[Dict[str, Any]]]
+    timeline: List[Dict[str, Any]]
+    architecture: List[Dict[str, Any]]
+    max_id_width: int
+    vision_project: Optional[str] = None
 
 
 def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
-    """Collect the board's recorded query plan for a client-side render.
+    """Collect the board's named facts for a client-side render.
 
     Board appearance knobs and default scope come from the checkout
     project's ``project-policy.settings.board``. The client may pass an

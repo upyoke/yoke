@@ -38,19 +38,14 @@ from yoke_core.api.service_client_structured_api_adapter_inventory import (
 CONCRETE_READ_EXAMPLE: str = (
     "Concrete copy-pasteable read examples (no shell choreography needed):\n\n"
     "  # Targeted read by structured field — small, fast, no pipes:\n"
-    "  python3 -m yoke_core.cli.db_router items get YOK-N spec\n"
-    "  python3 -m yoke_core.cli.db_router items get YOK-N spec --json\n\n"
-    "  # Targeted read by body section — returns just the named ``## Heading``\n"
-    "  # block. Exit 0 even when the heading is absent (advisory stays on\n"
-    "  # stderr, stdout empty), so a missing section in a parallel tool-call\n"
-    "  # batch does not cancel siblings:\n"
-    "  python3 -m yoke_core.cli.db_router items get YOK-N body "
+    "  yoke items get PREFIX-N spec\n"
+    "  yoke items get PREFIX-N spec --json\n\n"
+    "  # Read one named body section without shell capture:\n"
+    "  yoke items get PREFIX-N body "
     '--section "## File Budget"\n\n'
-    "  # Full rendered body (large items): write to a temp file, then read\n"
-    "  # the file with your harness Read tool. The render auto-paginates so\n"
-    "  # piping to head/tail is never the answer:\n"
-    "  python3 -m yoke_core.domain.render_body N "
-    "--output-file /tmp/yok-N-body.md"
+    "  # Complete content: use --full and read the saved response file\n"
+    "  # when the adapter names one.\n"
+    "  yoke items get PREFIX-N body --full"
 )
 
 
@@ -173,7 +168,7 @@ def build_choreography_remediation(adapter_key: str, function_id: str) -> str:
         "status probes, pipes, heredocs, tee, or shell-variable capture) "
         "is unnecessary terminal soup -- the adapter already supports "
         "``--json`` returning a typed FunctionCallResponse envelope, and "
-        "the function-call surface is the cheaper escape hatch for "
+        "the registered command preserves the selected connection for "
         "machine callers.\n\n"
         + REMEDIATION_API_FIRST
         + lane_renderer
@@ -211,12 +206,9 @@ def build_domain_remediation(
         "this exact subcommand path; the current lint refuses to attribute "
         "the invocation to an unrelated function id."
         + sub_block
-        + "\nIf this is a one-off operator/debug invocation, run it without "
-        "shell choreography (no ``2>&1``, ``| tee``, ``$(...)`` capture, "
-        "``; echo $?``). Mutation work belongs on the function-call surface "
-        "— see ``docs/atlas.md`` and "
-        "``runtime/api/service_client_structured_api_adapter_inventory.py`` "
-        "for the registered adapters.\n\n"
+        + "\nUse the registered yoke adapter for the operation. If none exists, "
+        "ask the control-plane operator to provide it; keep the original "
+        "connection and request.\n\n"
         + CONCRETE_READ_EXAMPLE
         + "\n\nOverride: add `# lint:no-shell-json-payload-check` to the "
         "command body (audit-only; the rule still denies in deny mode)."

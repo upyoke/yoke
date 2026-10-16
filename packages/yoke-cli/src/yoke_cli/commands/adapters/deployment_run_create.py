@@ -30,13 +30,10 @@ from yoke_cli.commands.deployment_lineage import (
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_contracts.deployment_itemless_teaching import (
-    BASIS_UNCONVERGED_REQUEST_MATCH,
     CREATE_DESCRIPTION,
     execute_created_run_note,
     replayed_run_note,
     takeover_note,
-    unconverged_key_note,
-    unkeyed_server_warning,
 )
 
 
@@ -160,19 +157,7 @@ def deployment_runs_create(args: List[str]) -> int:
         run_id_receipt(response, stdout, stderr)
         result = response.result or {}
         run_id = result.get("run_id")
-        if run_id and "idempotency_key" not in result:
-            print(unkeyed_server_warning(run_id), file=stderr)
-        elif (
-            run_id
-            and result.get("idempotency_basis") == BASIS_UNCONVERGED_REQUEST_MATCH
-        ):
-            print(
-                unconverged_key_note(
-                    run_id, parsed.idempotency_key, bool(result.get("replayed"))
-                ),
-                file=stderr,
-            )
-        elif run_id and result.get("replayed"):
+        if run_id and result.get("replayed"):
             print(replayed_run_note(run_id, parsed.idempotency_key), file=stderr)
         if run_id and result.get("supersedes_run_id"):
             print(takeover_note(run_id, result["supersedes_run_id"]), file=stderr)

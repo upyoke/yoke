@@ -22,8 +22,9 @@ payload's ``build`` field carry code identity instead.
 from __future__ import annotations
 
 import importlib.util
-import re
-from typing import Optional, Tuple
+from typing import Optional
+
+from packaging.version import InvalidVersion, Version
 
 from yoke_contracts.install_binding import distribution_version_for_module
 
@@ -42,65 +43,20 @@ CLIENT_DISTRIBUTION_NAME = "yoke-cli"
 #: metadata. It is deliberately not advertised by image-built servers.
 UNRESOLVED_SCM_FALLBACK_VERSION = "0.1.0"
 
-_VERSION_SHAPE = re.compile(r"^v?(\d+(?:\.\d+)*)(.*)$")
-_LAUNCH_SUFFIX = re.compile(r"^\+launch[.-](\d+)$")
-_DEVELOPMENT_SUFFIX = re.compile(
-    r"^\.dev\d+(?:\+[0-9a-z]+(?:[.-][0-9a-z]+)*)?$",
-    re.IGNORECASE,
-)
-
-
-def _comparable_version_key(
-    version: str,
-) -> Optional[Tuple[Tuple[int, ...], Optional[int], str]]:
-    """Comparable release/launch components, or ``None`` when unknown.
-
-    Yoke's release train advances inside the PEP 440 local segment
-    (``0.1.1+launch.246``), so comparing only the public release would make
-    every launch on that line look equal. Development and git suffixes remain
-    deliberately outside the ordering: their commit relationship is resolved
-    through the source-checkout comparison instead.
-    """
-    raw = (version or "").strip()
-    match = _VERSION_SHAPE.fullmatch(raw)
-    if match is None:
-        return None
-    release = [int(component) for component in match.group(1).split(".")]
-    while len(release) > 1 and release[-1] == 0:
-        release.pop()
-    suffix = match.group(2)
-    if not suffix:
-        return tuple(release), -1, "release"
-    launch_match = _LAUNCH_SUFFIX.fullmatch(suffix)
-    if launch_match is not None:
-        return tuple(release), int(launch_match.group(1)), "launch"
-    if _DEVELOPMENT_SUFFIX.fullmatch(suffix) is not None:
-        return tuple(release), None, "development"
-    return None
-
 
 def compare_engine_versions(left: str, right: str) -> Optional[int]:
-    """Return the ordering of two engine releases, or ``None`` if unknown.
+    """Compare package metadata; publication validates release spelling separately.
 
-    The result is ``-1`` when *left* predates *right*, ``0`` when the
-    comparable release identity matches, and ``1`` when *left* is newer.
+    Different development builds on the same base do not establish Git ancestry.
     """
-    left_key = _comparable_version_key(left)
-    right_key = _comparable_version_key(right)
-    if left_key is None or right_key is None:
+    try:
+        a, b = Version(left), Version(right)
+    except (InvalidVersion, TypeError):
         return None
-    left_release, left_launch, left_kind = left_key
-    right_release, right_launch, right_kind = right_key
-    if left_release != right_release:
-        return (left_release > right_release) - (left_release < right_release)
-    left_text = (left or "").strip().removeprefix("v")
-    right_text = (right or "").strip().removeprefix("v")
-    if left_text == right_text:
-        return 0
-    if "development" in (left_kind, right_kind):
-        return None
-    assert left_launch is not None and right_launch is not None
-    return (left_launch > right_launch) - (left_launch < right_launch)
+    if a != b and Version(a.base_version) == Version(b.base_version):
+        if a.is_devrelease or b.is_devrelease:
+            return None
+    return (a > b) - (a < b)
 
 
 def _module_origin(package_name: str) -> str:

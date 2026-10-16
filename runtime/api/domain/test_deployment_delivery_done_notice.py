@@ -104,7 +104,7 @@ def _run(
         "yoke",
         flow_id,
         "",
-        json.dumps([{"name": "deploy", "step_runner": "auto"}]),
+        json.dumps([{"name": "deploy", "stage_kind": "execution", "step_runner": "auto"}]),
         status="disabled",
     )
     conn.execute(

@@ -174,6 +174,7 @@ export function appendCarried(context, host, row, options = {}) {
     }, runProjectId(context, row, options.scope || "all"), options.facts?.titles);
     const drawn = appendCarriedItemEvidence(context, member, {
       item,
+      requireProjection: true,
       runId: row.id || row.run_id,
       deployedSha: row.release_lineage,
       facts: { ...options.facts, gates: row.gates },

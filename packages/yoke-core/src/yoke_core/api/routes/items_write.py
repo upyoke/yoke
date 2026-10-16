@@ -75,6 +75,11 @@ def create_item(request: Request, req: _main.CreateItemRequest):
         validate_and_lookup_flow_project,
     )
 
+    from yoke_core.domain.workflow_registry import (
+        WorkflowRegistryError,
+        resolve_current_workflow_pin,
+    )
+
     deployment_flow = normalize_deployment_flow_value(req.deployment_flow)
     conn = _main.get_db_readonly()
     try:
@@ -82,10 +87,6 @@ def create_item(request: Request, req: _main.CreateItemRequest):
             conn, deployment_flow, req.project
         )
         title_limit = resolve_title_max_length(conn, req.project)
-        from yoke_core.domain.workflow_registry import (
-            WorkflowRegistryError,
-            resolve_current_workflow_pin,
-        )
         from yoke_core.domain.workflow_runtime import load_workflow_runtime
 
         workflow_id, workflow_version_id = resolve_current_workflow_pin(

@@ -3,8 +3,8 @@
 Classify undelivered project receipts through steering_fleet_report_delivery_states
 and group their reasons for the steering report.
 
-Terminal receipts are excluded; ended recipients stay visible so lost
-envelopes remain actionable.
+Settled receipts are excluded; ended recipients include injected but
+unacknowledged envelopes so unresolved work remains visible.
 
 Grouping stays per recipient, split by state. The action is per recipient:
 one session with four stuck envelopes is one worker to wake, not four
@@ -16,28 +16,25 @@ from __future__ import annotations
 
 from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 
+from yoke_core.domain.steering_fleet_report_message_groups import (
+    MessageGroup,
+    MESSAGE_REFERENCE_LIMIT,
+)
 from yoke_core.domain.db_helpers import instant_parameter
+from yoke_core.domain.session_message_ended_recipient import (
+    recipient_has_no_delivery_route,
+)
+from yoke_core.domain.session_message_visibility import visible_clause
+from yoke_core.domain.session_tool_call_projections import open_tool_call_select
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Mapping
+from typing import Any
 
-from yoke_contracts.session_control.capabilities import native_wake_supported
-from yoke_contracts.session_control.evidence import (
-    valid_native_diagnostic_reference,
-)
-from yoke_contracts.session_control.wake_delivery import (
-    delivery_attempt_diagnostic,
-)
-from yoke_core.domain.session_tool_call_projections import (
-    OPEN_TOOL_CALL_COLUMN,
-    open_tool_call_select,
-)
 from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_relay_policy import relay_policy
 from yoke_core.domain.steering_fleet_report_attempt_summary import last_attempts
 from yoke_core.domain.steering_fleet_report_queued_wake import (
-    unattempted_explicit_wake,
     wake_release_times,
 )
 from yoke_core.domain.steering_fleet_report_delivery_states import (
@@ -45,19 +42,9 @@ from yoke_core.domain.steering_fleet_report_delivery_states import (
     WAKE_HELD_FOR_NATIVE_TURN,
     DELIVERY_STATES,
     IN_DELIVERY_STATES,
-    NEVER_ATTEMPTED,
-    RECIPIENT_ENDED,
-    RECIPIENT_TERMINATED,
     SEAT_ACTION_STATES,
-    TURN_IN_FLIGHT,
-    deliverable_receipt,
     delivery_state,
 )
-
-#: How many message ids one row prints. Enough for the seat to look the
-#: envelopes up, bounded so a recipient with a hundred cannot flood the row;
-#: the count carries the rest.
-MESSAGE_REFERENCE_LIMIT = 3
 
 
 @dataclass(frozen=True)
@@ -69,6 +56,10 @@ class UndeliveredMessages:
     delivery_state: str
     envelope_count: int
     oldest_seconds: int
+    #: Confirmed session item, retained after its work claim ends.
+    item_id: int | None = None
+    public_ref: str = ""
+    item_project: str = ""
     #: Up to :data:`MESSAGE_REFERENCE_LIMIT` ids, oldest first, so the seat
     #: can read the envelope itself rather than infer it from the row.
     message_ids: tuple[str, ...] = ()
@@ -118,97 +109,79 @@ class UndeliveredMessages:
         return self.delivery_state in IN_DELIVERY_STATES
 
 
-@dataclass
-class _Group:
-    """Mutable accumulator for one (recipient, state) row."""
+def report_receipts(
+    conn: Any, *, project_id: int, now: Any, session_id: str | None = None
+) -> list[dict[str, Any]]:
+    """Keep normal deliveries and unresolved mail with no remaining recipient route.
 
-    oldest_seconds: int = 0
-    envelope_count: int = 0
-    message_ids: list[str] = None  # type: ignore[assignment]
-    wake_escalation: str = ""
-    operator_wake: bool = False
-    diagnostic: str = ""
-    evidence_id: str = ""
-    turn_in_flight_since: datetime | None = None
-    recipient_gone_at: datetime | None = None
-    held_native_silent_for_seconds: int | None = None
-    held_native_observed_at: datetime | None = None
-    queued_wake: bool = False
-    wake_releasable_at: datetime | None = None
-    failed_attempt_count: int = 0
+    The report is read-only. Canonical expiry/cancellation and message visibility
+    apply even before receipt-state sweeps converge.
+    """
+    from yoke_core.domain.steering_fleet_report_detectors import marker
 
-    def __post_init__(self) -> None:
-        if self.message_ids is None:
-            self.message_ids = []
-
-    def absorb(
-        self,
-        record: Mapping[str, Any],
-        *,
-        state: str,
-        waited: int,
-        wake_release_at: datetime | None,
-        current: datetime,
-    ) -> None:
-        """Fold one receipt's facts into this row."""
-        self.envelope_count += 1
-        self.oldest_seconds = max(self.oldest_seconds, waited)
-        if len(self.message_ids) < MESSAGE_REFERENCE_LIMIT:
-            self.message_ids.append(str(record["message_id"]))
-        # A recipient the sweep already escalated needs no hand resume, so
-        # the finding says which absence authorized that wake rather than
-        # reading like an envelope nothing has acted on.
-        escalation = str(record.get("wake_escalation") or "")
-        if escalation:
-            self.wake_escalation = escalation
-        if state == TURN_IN_FLIGHT:
-            self.turn_in_flight_since = parse_stamp(record.get(OPEN_TOOL_CALL_COLUMN))
-        # An explicit wake still at zero attempts is not a missing wake, it
-        # is a wake the plane never picked up — and that receipt blocks the
-        # next wake request for this session until something releases it.
-        # The wake command releases it only once it has waited out the grace.
-        if (
-            state == NEVER_ATTEMPTED
-            and unattempted_explicit_wake(record)
-            and wake_release_at is not None
-        ):
-            if wake_release_at <= current:
-                self.queued_wake = True
-            else:
-                self.wake_releasable_at = wake_release_at
-        if state in (RECIPIENT_ENDED, RECIPIENT_TERMINATED):
-            self.recipient_gone_at = parse_stamp(
-                record.get("terminated_at")
-                if record.get("terminated_at") is not None
-                else record.get("ended_at")
-            )
-        # A desktop recipient is never resumed by Yoke, so this row is not
-        # a worker to revive; it names a chat only its operator can open.
-        if not native_wake_supported(str(record.get("executor_surface") or "")):
-            self.operator_wake = True
-
-    def name_the_failure(
-        self, *, result_code: str, evidence: Mapping[str, Any]
-    ) -> None:
-        """Record how the attempt failed and where its capture lives."""
-        reason = delivery_attempt_diagnostic(result_code, evidence) or self.diagnostic
-        if self.failed_attempt_count > 1 and reason:
-            reason = f"{reason} ×{self.failed_attempt_count}"
-        self.diagnostic = reason
-        reference = valid_native_diagnostic_reference(
-            evidence.get("native_diagnostic_ref")
+    placeholder = marker(conn)
+    visibility, visibility_params = "1=1", []
+    if session_id is not None:
+        caller = conn.execute(
+            f"SELECT actor_id FROM harness_sessions WHERE session_id={placeholder}",
+            (session_id,),
+        ).fetchone()
+        if caller is None or caller[0] is None:
+            return []
+        visibility, visibility_params = visible_clause(
+            conn, actor_id=int(caller[0]), caller_session_id=session_id
         )
-        if reference is not None:
-            self.evidence_id = reference
-
-    def note_held_native(
-        self, *, evidence: Mapping[str, Any], observed_at: datetime | None
-    ) -> None:
-        """Keep the measured silence paired with its observation time."""
-        silent = evidence.get("running_native_silent_for_seconds")
-        if isinstance(silent, int) and not isinstance(silent, bool):
-            self.held_native_silent_for_seconds = silent
-            self.held_native_observed_at = observed_at
+    open_call = open_tool_call_select(conn, session_alias="s")
+    rows = conn.execute(
+        f"""SELECT r.message_id AS message_id,
+                   r.session_id AS session_id,
+                   r.created_at AS created_at,
+                   r.state AS receipt_state, r.injection_count AS injection_count,
+                   i.id AS item_id, i.project_sequence AS project_sequence,
+                   p.public_item_prefix AS item_prefix, p.slug AS item_project,
+                   r.wake_escalation AS wake_escalation,
+                   r.wake_attempt_count AS wake_attempt_count,
+                   r.routing_snapshot AS routing_snapshot,
+                   s.executor_surface AS executor_surface,
+                   s.last_tool_call_at AS last_tool_call_at,
+                   s.last_heartbeat AS last_heartbeat,
+                   s.episode_started_at AS episode_started_at,
+                   s.turn_posture AS turn_posture,
+                   s.turn_posture_at AS turn_posture_at,
+                   s.mode AS mode,
+                   s.native_process_gone_at AS native_process_gone_at,
+                   s.native_process_gone_evidence AS native_process_gone_evidence,
+                   s.ended_at AS ended_at,
+                   s.terminated_at AS terminated_at
+                   {open_call}
+              FROM session_message_recipients r
+              JOIN session_messages m ON m.message_id = r.message_id
+              JOIN harness_sessions s ON s.session_id = r.session_id
+              LEFT JOIN items i ON CAST(i.id AS TEXT) =
+                   COALESCE(NULLIF(s.current_item_id, ''), NULLIF(s.recent_item_id, ''))
+                   AND i.project_id = r.project_id
+              LEFT JOIN projects p ON p.id = i.project_id
+             WHERE r.project_id = {placeholder}
+               AND m.cancelled_at IS NULL AND m.expires_at > {placeholder}
+               AND r.acknowledged_at IS NULL
+               AND ((r.state = 'pending' AND COALESCE(r.injection_count, 0) = 0)
+                    OR (r.state IN ('pending', 'injected')
+                        AND (s.ended_at IS NOT NULL OR s.terminated_at IS NOT NULL)))
+               AND {visibility}
+             ORDER BY r.created_at, r.message_id""",
+        (
+            int(project_id),
+            instant_parameter(conn, parse_stamp(now)),
+            *visibility_params,
+        ),
+    ).fetchall()
+    return [
+        record
+        for raw in rows
+        if (record := dict(raw))["receipt_state"] == "pending"
+        and not record.get("injection_count")
+        or recipient_has_no_delivery_route(record)
+    ]
 
 
 def undelivered_messages(
@@ -216,6 +189,7 @@ def undelivered_messages(
     *,
     project_id: int,
     now: str,
+    session_id: str | None = None,
 ) -> tuple[UndeliveredMessages, ...]:
     """Every undelivered envelope in one project, grouped by recipient and state.
 
@@ -235,37 +209,11 @@ def undelivered_messages(
     )
     sla = timedelta(seconds=int(relay_policy().poll_seconds))
     attempts = last_attempts(conn, project_id=project_id, marker=placeholder, now=now)
-    open_call = open_tool_call_select(conn, session_alias="s")
-    rows = conn.execute(
-        f"""SELECT r.message_id AS message_id,
-                   r.session_id AS session_id,
-                   r.created_at AS created_at,
-                   r.wake_escalation AS wake_escalation,
-                   r.wake_attempt_count AS wake_attempt_count,
-                   r.routing_snapshot AS routing_snapshot,
-                   s.executor_surface AS executor_surface,
-                   s.last_tool_call_at AS last_tool_call_at,
-                   s.last_heartbeat AS last_heartbeat,
-                   s.episode_started_at AS episode_started_at,
-                   s.turn_posture AS turn_posture,
-                   s.turn_posture_at AS turn_posture_at,
-                   s.mode AS mode,
-                   s.native_process_gone_at AS native_process_gone_at,
-                   s.native_process_gone_evidence AS native_process_gone_evidence,
-                   s.ended_at AS ended_at,
-                   s.terminated_at AS terminated_at
-                   {open_call}
-              FROM session_message_recipients r
-              JOIN session_messages m ON m.message_id = r.message_id
-              JOIN harness_sessions s ON s.session_id = r.session_id
-             WHERE {deliverable_receipt(placeholder)}
-             ORDER BY r.created_at, r.message_id""",
-        (int(project_id), instant_parameter(conn, parse_stamp(now))),
-    ).fetchall()
+    rows = report_receipts(conn, project_id=project_id, now=now, session_id=session_id)
     current = parse_stamp(now)
     records = [dict(raw) for raw in rows]
     wake_release_at = wake_release_times(records, grace=grace)
-    groups: dict[tuple[str, str], _Group] = {}
+    groups: dict[tuple[str, str], MessageGroup] = {}
     for record in records:
         sent_at = parse_stamp(record.get("created_at"))
         waited = age_seconds(sent_at, now)
@@ -290,7 +238,7 @@ def undelivered_messages(
             failed_count=failed_count,
             attempt_evidence=evidence,
         )
-        group = groups.setdefault((session_id, state), _Group())
+        group = groups.setdefault((session_id, state), MessageGroup())
         group.absorb(
             record,
             state=state,
@@ -313,6 +261,9 @@ def undelivered_messages(
     return tuple(
         UndeliveredMessages(
             session_id=session_id,
+            item_id=group.item_id,
+            public_ref=group.public_ref,
+            item_project=group.item_project,
             delivery_state=state,
             envelope_count=group.envelope_count,
             oldest_seconds=group.oldest_seconds,

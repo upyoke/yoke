@@ -34,22 +34,27 @@ def test_footer_does_not_recommend_nonexistent_function_call_cli() -> None:
     )
     assert "function-call --stdin" not in text
     assert "function-call --payload" not in text
-    assert "yoke_function_dispatch.dispatch(FunctionCallRequest" in text
-    for seed in ("execute-structured-write", "sections upsert", "claim-work"):
+    assert "yoke_function_dispatch.dispatch" not in text
+    for seed in (
+        "yoke --help",
+        "yoke items get PREFIX-N spec",
+        "yoke items get PREFIX-N body --full",
+    ):
         assert seed in text
 
 
 def test_choreography_remediation_teaches_full_body_shape() -> None:
-    """Denials teach section reads, empty results, and full-body output."""
+    """Denials teach scoped reads and complete content through public adapters."""
     text = build_choreography_remediation(
         "yoke_core.cli.db_router items get",
         "items.get.run",
     )
     assert '--section "## File Budget"' in text
-    assert "stays empty" in text or "stdout empty" in text
-    assert "parallel" in text
-    assert "--output-file" in text
-    assert "render_body" in text
+    assert "yoke items get PREFIX-N spec" in text
+    assert "yoke items get PREFIX-N body --full" in text
+    assert "saved response file" in text
+    assert "render_body" not in text
+    assert "yoke_function_dispatch.dispatch" not in text
 
 
 def test_function_call_meta_cli_is_not_exempted() -> None:

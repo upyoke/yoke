@@ -12,6 +12,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Callable, Mapping
 
 from yoke_contracts.api_urls import (
@@ -21,7 +22,8 @@ from yoke_contracts.api_urls import (
 )
 from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.install_binding import source_checkout_root
-from yoke_cli.config.server_image_repository import image_for_commit
+from yoke_cli.config.server_image_repository import image_for_release
+from yoke_contracts.release_version import commit_version
 
 DEFAULT_RELEASE_CHANNEL = "stable"
 FETCH_TIMEOUT_SECONDS = 60.0
@@ -162,13 +164,8 @@ def run_installer(
 ) -> subprocess.CompletedProcess[str]:
     """Run a previously fetched installer, pinned to *target*'s exact version.
 
-    Every caller passes ``--yes --no-setup`` and a resolved version, so a
-    reinstall this pins never re-resolves the channel a second time. The
-    installer script has no dependencies beyond the standard library, so it
-    runs under the caller's own interpreter rather than a fresh ``uv``
-    environment. Callers fetch the bytes separately via :func:`fetch_installer`
-    so a fetch failure and a run failure stay distinguishable. *env* replaces
-    the inherited environment when given.
+    The exact version and ``--yes --no-setup`` prevent channel drift.
+    Fetching and executing stay separate so their failures remain distinct.
     """
     path = ""
     try:
@@ -219,22 +216,28 @@ def _source_checkout_target(
             "repair the CLI with the public installer, then retry"
         )
     completed = _RUN(
-        ("git", "-C", str(root), "rev-parse", "HEAD"),
+        ("git", "-C", str(root), "show", "-s", "--format=%H %cI", "HEAD"),
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
         timeout=15.0,
     )
-    source_commit = str(completed.stdout or "").strip()
+    source_commit, _, clock = str(completed.stdout or "").strip().partition(" ")
     if completed.returncode != 0 or not _SOURCE_COMMIT.fullmatch(source_commit):
         diagnostic = str(completed.stderr or completed.stdout or "").strip()[-1000:]
         raise ReleaseTargetError(
             "source-checkout CLI could not resolve Git HEAD for an exact server "
             f"image; repair the checkout or pass --image explicitly ({diagnostic})"
         )
+    try:
+        version = commit_version(datetime.fromisoformat(clock))
+    except ValueError as exc:
+        raise ReleaseTargetError(
+            "source release clock invalid: repair Git HEAD metadata and retry"
+        ) from exc
     return _target(
-        version=f"source-{source_commit[:12]}",
+        version=version,
         source_commit=source_commit,
         base_url=base_url,
         image_repository=image_repository,
@@ -251,7 +254,7 @@ def _target(
     image_repository: str | None = None,
 ) -> ReleaseTarget:
     try:
-        image = image_for_commit(source_commit, repository=image_repository)
+        image = image_for_release(version, repository=image_repository)
     except ValueError as exc:
         raise ReleaseTargetError(str(exc)) from exc
     return ReleaseTarget(

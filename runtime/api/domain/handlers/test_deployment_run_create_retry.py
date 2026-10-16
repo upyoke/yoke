@@ -11,12 +11,22 @@ from yoke_core.domain.handlers import deployment_runs
 
 
 def test_run_create_rejects_unpinned_retry_without_traceback():
-    source = (
-        "run-old|yoke|yoke-hosted-prod|persistent|prod||failed|"
-        "release|2026-06-15T00:00:00Z||2026-06-15T01:00:00Z|operator"
-    )
+    source = {
+        "id": "run-old",
+        "project": "yoke",
+        "flow": "yoke-hosted-prod",
+        "target_tier": "persistent",
+        "target_environment": "prod",
+        "release_lineage": None,
+        "status": "failed",
+        "current_stage": "release",
+        "created_at": "2026-06-15T00:00:00Z",
+        "started_at": None,
+        "completed_at": "2026-06-15T01:00:00Z",
+        "created_by": "operator",
+    }
     with patch(
-        "yoke_core.domain.deployment_runs_crud_query.cmd_get",
+        "yoke_core.domain.deployment_runs_crud_query.get_run",
         return_value=source,
     ):
         outcome = deployment_runs.handle_deployment_run_create(

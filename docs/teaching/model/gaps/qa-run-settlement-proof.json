@@ -2,6 +2,6 @@
  "id": "qa-run-settlement-proof",
  "title": "Prove QA settlement on the delivered candidate",
  "status": "observed",
- "text": "Source regression tests cover unsuccessful-run cleanup, automatic verdict evidence links, late acceptance and independent review of completed captures from an aborted execution. Live delivery proof remains pending the attached deployment QA plan; source checks do not establish deployed behavior.",
+ "text": "Source regression tests cover unsuccessful-run cleanup, automatic verdict evidence links, late acceptance and independent review of completed captures from an aborted execution. Focused source regression also covers zero run-bound QA with other-target member acceptance, atomic siblings, resolution and driver recovery. Live delivery proof remains pending the attached deployment QA plan; source checks do not establish deployed behavior.",
  "sources": ["runtime/api/domain/test_deployment_qa_run_settlement.py", "runtime/api/domain/test_qa_aborted_capture_review.py", "docs/public/reference/qa-platform/requirement-state-model.md"]
 }

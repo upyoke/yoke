@@ -7,7 +7,6 @@ import json
 import pytest
 
 from yoke_core.domain.deployment_flow_policy import (
-    LEGACY_DEFINITION_SCHEMA_VERSION,
     RELEASE_POLICY_SCHEMA_VERSION,
     definition_schema_version,
     validate_release_stage_policy,
@@ -39,11 +38,11 @@ def _preview_flow(*, verdict: dict | None = None) -> list[dict]:
     ]
 
 
-def test_legacy_execution_stages_remain_schema_one() -> None:
-    stages = [{"name": "deploy", "step_runner": "auto"}]
+def test_execution_stages_use_the_release_policy_schema() -> None:
+    stages = [{"name": "deploy", "step_runner": "auto", "stage_kind": "execution"}]
     validate_stages(json.dumps(stages))
-    assert definition_schema_version(json.dumps(stages)) == (
-        LEGACY_DEFINITION_SCHEMA_VERSION
+    assert (
+        definition_schema_version(json.dumps(stages)) == RELEASE_POLICY_SCHEMA_VERSION
     )
 
 
@@ -101,9 +100,9 @@ def test_preview_qa_requires_a_preview_producing_execution_stage() -> None:
         validate_release_stage_policy(stages)
 
 
-def test_bare_qa_runner_cannot_enter_the_legacy_schema() -> None:
+def test_qa_runner_requires_a_stage_kind() -> None:
     with pytest.raises(ValueError, match="stage_kind"):
-        validate_stages(json.dumps([{"name": "qa", "step_runner": "qa"}]))
+        definition_schema_version(json.dumps([{"name": "qa", "step_runner": "qa"}]))
 
 
 def _second_preview_stage(name: str, **target: object) -> dict:

@@ -115,3 +115,42 @@ def test_removing_the_last_attaching_member_retracts_the_shared_copy(test_db):
     assert retracted_at() is None
     remove_member_on(test_db, RUN, MEMBERS[1], reason="split out of the release")
     assert retracted_at() is not None
+
+
+def test_orphan_check_reads_peers_once_and_refreshes_after_each_removal(test_db):
+    from runtime.api.domain.test_deployment_shipping_reads import CountedConnection
+    from yoke_core.domain.qa_deployment_member_removal import (
+        _plan_still_attached,
+        retract_orphaned_shared_copies,
+    )
+    from yoke_core.domain.schema_read_scope import composition_reads
+
+    members = (9901, 9902, 9903)
+    plan = _plan(test_db, "orphan-read-scope")
+    stages = _stages(plan)
+    stages[1].pop("cases")
+    _seed_run(test_db, run_id=RUN, stages=stages, members=members)
+    for member in members:
+        _attach(test_db, member, plan)
+    (requirement,) = _materialize(test_db, members[0])["created_requirement_ids"]
+    conn = CountedConnection(test_db)
+
+    # Create already shares schema/source reads across all membership writes.
+    with composition_reads():
+        assert _plan_still_attached(conn, RUN, "item-qa", plan)
+        peer_reads = sum(
+            count
+            for sql, count in conn.queries.items()
+            if "SELECT item_id,requirement_snapshot FROM deployment_run_items" in sql
+        )
+        assert peer_reads == 1
+        for index, member in enumerate(members):
+            conn.execute(
+                "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
+                (RUN, member),
+            )
+            assert _plan_still_attached(conn, RUN, "item-qa", plan) is (index < 2)
+            retracted = retract_orphaned_shared_copies(
+                conn, run_id=RUN, reason="member moved to a later release"
+            )
+            assert retracted == ([] if index < 2 else [requirement])

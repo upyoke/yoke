@@ -27,11 +27,10 @@ from yoke_core.domain.session_model_columns import resume_model_selection
 from yoke_core.domain.session_native_process_observation import (
     absorb_completed_wake_report,
 )
+from yoke_core.domain.session_relay_job_leases import require_job_lease
 from yoke_core.domain.session_relay_storage import (
     clear_relay_batch_when_drained,
-    mark_relay_batch,
     marker,
-    require_relay_batch,
 )
 from yoke_core.domain.session_relay_types import (
     LAUNCH_REPORT_CODES as LAUNCH_REPORT_CODES,
@@ -74,15 +73,14 @@ def claim_wake_job(
         )
         if authorized is None:
             continue
-        selected, execution = row, authorized
-        break
+        claim = claim_wake_attempt(conn, candidate=row, now=now)
+        if claim is not None:
+            selected, execution = row, authorized
+            break
     if selected is None:
         return None
     message_id = str(selected["message_id"])
     session_id = str(selected["session_id"])
-    claim = claim_wake_attempt(conn, candidate=selected, now=now)
-    if claim is None:
-        return None
     if qualification is not None:
         from yoke_core.domain.session_private_route_qualification import (
             consume_qualification_grant,
@@ -96,13 +94,6 @@ def claim_wake_job(
     )
     presentation = managed_presentation.managed_session_presentation(
         conn, session_id=session_id, surface=execution[0]
-    )
-    mark_relay_batch(
-        conn,
-        relay_id=heartbeat.relay_id,
-        batch_id=claim.lease_id,
-        expires_at=claim.lease_expires_at,
-        now=now,
     )
     conn.commit()
     return RelayJob(
@@ -163,7 +154,9 @@ def report_wake_job(
         return {"attempt_id": attempt_id, "result_code": result_code}
     if reported not in WAKE_DELIVERY_UNVERIFIED_RESULTS:
         try:
-            require_relay_batch(conn, relay_id=relay_id, now=now)
+            require_job_lease(
+                conn, relay_id=relay_id, job_kind="wake", job_id=attempt_id, now=now
+            )
         except SessionRelayError:
             settled_row = conn.execute(
                 f"SELECT completed_at,result_code FROM session_message_attempts "
@@ -216,7 +209,6 @@ def report_wake_job(
             now=now,
             running_native_pid=(evidence or {}).get("running_native_pid"),
         )
-    clear_relay_batch_when_drained(conn, relay_id=relay_id, batch_id=lease_id)
     conn.commit()
     return {"attempt_id": attempt_id, "result_code": result_code}
 
@@ -294,7 +286,9 @@ def report_launch_job(
     from yoke_core.domain.session_launch_store import get_launch
 
     if not native_attempt_pending(conn, get_launch(conn, launch_id), now=now):
-        require_relay_batch(conn, relay_id=relay_id, now=now)
+        require_job_lease(
+            conn, relay_id=relay_id, job_kind="launch", job_id=launch_id, now=now
+        )
     from yoke_core.domain.session_launch_execution import report_launch_attempt
 
     launch = report_launch_attempt(

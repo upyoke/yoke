@@ -6,6 +6,6 @@
  "surface_refs": ["project-orientation", "skills-roles"],
  "commands": ["yoke project-structure deploy-defaults get", "yoke workflows delivery-default set"],
  "functions": ["project_structure.deploy_defaults.get", "workflows.delivery_default.set"],
- "page": "deployments",
+ "page": "delivery-outcomes",
  "position": 0
 }

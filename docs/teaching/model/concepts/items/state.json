@@ -1,7 +1,8 @@
 {
  "id": "state",
  "title": "State and organization",
- "status": "draft-copy",
+ "status": "observed",
+ "current": "Blocking sets the item flag and reason without changing its lifecycle position. Board and frontier readers use that flag; dependency waits retain their own evidence. The consistency check reports flags without reasons, stale reasons and discharged waits.",
  "commands": ["yoke items block", "yoke items cancel", "yoke items freeze", "yoke items list", "yoke items overview list", "yoke items thaw", "yoke items unblock"],
  "functions": ["items.block.run", "items.cancel.run", "items.freeze.run", "items.list.run", "items.overview.list", "items.thaw.run", "items.unblock.run"],
  "page": "items",

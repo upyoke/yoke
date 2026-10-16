@@ -31,7 +31,6 @@ from yoke_core.domain.session_relay_launch_lease import claim_next_launch
 from yoke_core.domain.session_relay_policy import relay_policy
 from yoke_core.domain.session_wake_drain_cadence import (
     RELAY_DRAIN_POLL_SECONDS,
-    wake_work_pending,
 )
 from yoke_core.domain.session_relay_storage import (
     heartbeat_relay,
@@ -71,7 +70,7 @@ def claim_relay_job(
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> RelayClaimOutcome:
-    """Heartbeat and lease serial control work alongside assigned launches.
+    """Heartbeat and lease independent control work alongside assigned launches.
 
     A pending wake does not monopolize launch admission. Every launch in the
     batch is checked against live machine headroom immediately before spawn.
@@ -152,50 +151,33 @@ def claim_relay_job(
     started = monotonic()
     while True:
         current = parse_instant(now_provider())
-        # Re-read each step: serial work resumes the moment the batch drains.
         live_batch = relay_has_live_batch(
             conn, relay_id=heartbeat.relay_id, now=current
         )
-        termination = (
-            None
-            if broker_only or live_batch
-            else claim_termination_reap(conn, heartbeat, now=current)
+        # One admission per control kind per poll gives both queues service,
+        # even while an unrelated native or diagnostic read is still running.
+        jobs: tuple[Any, ...] = ()
+        wake = claim_wake_job(
+            conn,
+            heartbeat,
+            now=current,
+            broker_only=broker_only,
+            broker_lease_id=broker_lease_id,
+            broker_session_id=broker_session_id,
         )
-        jobs: tuple[Any, ...] = (termination,) if termination is not None else ()
-        if not jobs and not broker_only and not live_batch:
-            # A seat's dispatch is blocked on this read and it costs the
-            # machine one file tail, so it goes ahead of the minutes-long
-            # native work rather than behind it.
-            evidence = claim_evidence_fetch(conn, heartbeat, now=current)
-            jobs = (evidence,) if evidence is not None else ()
-        if not jobs and not live_batch:
-            wake = claim_wake_job(
-                conn,
-                heartbeat,
-                now=current,
-                broker_only=broker_only,
-                broker_lease_id=broker_lease_id,
-                broker_session_id=broker_session_id,
-            )
-            jobs = (wake,) if wake is not None else ()
+        if wake is not None:
+            jobs += (wake,)
+        if not broker_only:
+            for claim in (claim_termination_reap, claim_evidence_fetch):
+                job = claim(conn, heartbeat, now=current)
+                if job is not None:
+                    jobs += (job,)
         if not broker_only:
             jobs += tuple(claim_next_launch(conn, heartbeat, now=current))
         if jobs:
-            # Handing out one job does not mean the machine is done: a live
-            # batch takes newly assigned launches at once, and wakes may wait.
+            # Return promptly for further independent admissions.
             next_poll = (
-                RELAY_DRAIN_POLL_SECONDS
-                if not broker_only
-                and (
-                    relay_has_live_batch(conn, relay_id=heartbeat.relay_id, now=current)
-                    or wake_work_pending(
-                        conn,
-                        machine_id=heartbeat.machine_id,
-                        project_ids=heartbeat.project_ids,
-                        now=current,
-                    )
-                )
-                else policy.poll_seconds
+                RELAY_DRAIN_POLL_SECONDS if not broker_only else policy.poll_seconds
             )
             connected = heartbeat_relay(
                 conn,

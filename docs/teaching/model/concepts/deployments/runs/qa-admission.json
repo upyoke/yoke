@@ -1,7 +1,9 @@
 {
  "id": "qa-admission",
  "title": "QA admission",
- "status": "draft-copy",
+ "status": "observed",
  "page": "deployments",
- "position": 4
+ "position": 4,
+ "summary": "Admission freezes attached post-deploy plans and plans named by admitted requirements. New selections freeze complete plan and case definitions before executable rows. Incomplete historical selections refuse execution with reviewed operator repair recovery; no runtime legacy-plan reconstruction remains.",
+ "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_requirement_snapshots.py", "packages/yoke-core/src/yoke_core/domain/deployment_qa_snapshot_selection.py", "docs/public/reference/db-reference/deployment-run-records.md"]
 }

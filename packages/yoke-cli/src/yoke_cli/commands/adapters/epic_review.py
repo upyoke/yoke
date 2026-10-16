@@ -78,8 +78,10 @@ def epic_task_review_seed(args: List[str]) -> int:
         prog="yoke workflow-item epic-task review-seed",
         description=(
             "Idempotently seed the blocking implementation-review "
-            "requirement for one epic task (auto-advances implementing -> "
-            "reviewing-implementation). Example: yoke workflow-item "
+            "requirement for one epic task without a deployment target or URL. "
+            "On refusal, correct the named cause and retry the same epic/task; "
+            "retain its submission and CI evidence. Auto-advances implementing -> "
+            "reviewing-implementation. Example: yoke workflow-item "
             "epic-task review-seed --epic PREFIX-N --task-num 3"
         ),
     )

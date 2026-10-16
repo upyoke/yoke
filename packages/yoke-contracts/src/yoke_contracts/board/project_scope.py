@@ -1,10 +1,7 @@
 """Board SQL helpers for project-scoped reads.
 
-Every helper here goes through the BoardDBLike query seam (``query`` /
-``scalar`` / ``query_quiet``) — never the raw connection. The board's
-data layer records and replays results at that seam, so a direct
-``db._conn`` reach-around would bypass the recorded board data and
-break https-fed renders.
+Collectors use the read-only BoardDBLike interface and apply the caller's
+visible project IDs to every scoped read.
 """
 
 from __future__ import annotations

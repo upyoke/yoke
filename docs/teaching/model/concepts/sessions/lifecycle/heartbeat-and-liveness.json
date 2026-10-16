@@ -1,7 +1,9 @@
 {
  "id": "heartbeat-and-liveness",
  "title": "Heartbeat and liveness",
- "status": "draft-copy",
+ "status": "observed",
  "page": "sessions",
- "position": 1
+ "position": 1,
+ "summary": "Stale means eligible for automatic reclaim in the same scope and snapshot. Protected work-claim holders never read stale; activity age remains a separate diagnostic.",
+ "sources": ["docs/public/items-and-sessions.md", "packages/yoke-core/src/yoke_core/domain/session_automatic_reclaim.py", "packages/yoke-core/src/yoke_core/domain/session_staleness.py"]
 }

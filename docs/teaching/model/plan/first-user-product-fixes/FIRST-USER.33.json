@@ -3,7 +3,7 @@
  "title": "33. One simple way to add people and machines, in every mode (linked pair: yoke + **platform**)",
  "status": "approved",
  "scope": "Both projects",
- "concepts": ["machines/registration", "identity/actors", "identity/auth", "security/credentials"],
+ "concepts": ["machines/registration", "identity/actors", "identity/auth", "security/credentials", "machines/registration/connect-request", "machines/registration/approve-or-deny", "machines/registration/credential-delivery", "machines/registration/machine-identity", "workbench/destinations/members", "modes/cloud/organization-and-membership"],
  "surfaces": ["setup-tui", "setup-agent", "workbench-cues", "packets-help", "detail-home"],
  "scenarios": ["machine-access", "people-access"],
  "position": 17

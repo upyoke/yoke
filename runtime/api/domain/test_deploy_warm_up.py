@@ -156,7 +156,7 @@ class TestWarmUpStageDispatch:
         return deploy_pipeline_step_runners._dispatch_step_runner(
             {
                 "name": "warm-up",
-                "step_runner": "warm-up",
+                "stage_kind": "execution", "step_runner": "warm-up",
                 "config": {"step_runner": "warm-up", **stage_config},
             },
             run_id="run-1",
@@ -242,7 +242,7 @@ class TestWarmUpStageVocabulary:
                 [
                     {
                         "name": "warm-up",
-                        "step_runner": "warm-up",
+                        "stage_kind": "execution", "step_runner": "warm-up",
                         "connection_env": "prod",
                     },
                 ]

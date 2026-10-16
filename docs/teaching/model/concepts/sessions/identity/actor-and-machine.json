@@ -1,7 +1,8 @@
 {
  "id": "actor-and-machine",
  "title": "Actor and machine",
- "status": "draft-copy",
+ "status": "observed",
+ "current": "Local setup and restore record the known operating actor. Manual machine binding requires an explicit actor ID and records the universe identity. HTTPS connections use the authenticated token identity. Session registration reads that identity; historical sessions are not reassigned to the current operator.",
  "page": "sessions",
  "position": 2
 }

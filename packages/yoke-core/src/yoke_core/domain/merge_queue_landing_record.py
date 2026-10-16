@@ -210,18 +210,8 @@ def from_readback(
 def write_landing_record(conn: Any, record: LandingRecord) -> None:
     """Upsert one observation, preserving ``changed_at`` when facts match."""
     observed, changed = map(parse_instant, (record.observed_at, record.changed_at))
-    observed = instant_parameter(
-        conn,
-        observed,
-        table="merge_queue_landing_records",
-        column="observed_at",
-    )
-    changed = instant_parameter(
-        conn,
-        changed,
-        table="merge_queue_landing_records",
-        column="changed_at",
-    )
+    observed = instant_parameter(conn, observed)
+    changed = instant_parameter(conn, changed)
     p = _p(conn)
     checks = json.dumps(
         [check_payload(check) for check in record.failed_checks],

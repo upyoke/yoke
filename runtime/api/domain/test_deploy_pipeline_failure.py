@@ -34,10 +34,6 @@ def test_failed_stage_reports_terminal_trace_after_recording_state(capsys) -> No
             "_set_deploy_stage",
         ) as set_stage,
         mock.patch.object(
-            deploy_pipeline_failure.control_plane,
-            "record_qa_stage",
-        ) as record_qa,
-        mock.patch.object(
             run_updates,
             "update_run_field",
         ) as update_run,
@@ -62,7 +58,6 @@ def test_failed_stage_reports_terminal_trace_after_recording_state(capsys) -> No
     assert rc == deploy_pipeline.EXIT_STAGE_FAILED
     assert emit_event.call_count == 2
     set_stage.assert_called_once()
-    record_qa.assert_called_once()
     update_run.assert_called_once_with(
         "run-20260829-006",
         "status",

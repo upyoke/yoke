@@ -174,6 +174,9 @@ def _apply_session_schema() -> None:
         create_actor_identity_tables(conn)
         create_auth_tables(conn)
         create_org_tables(conn)
+        from yoke_core.domain.session_control_schema import create_session_control_tables
+
+        create_session_control_tables(conn)
         ensure_local_operating_actor(conn)
         from yoke_core.domain.workflow_registry import (
             converge_builtin_workflows,

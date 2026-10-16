@@ -71,7 +71,7 @@ def test_remote_claude_denial_carries_its_registered_id(
     )
 
 
-def test_raw_body_write_denial_uses_numeric_item_id() -> None:
+def test_raw_body_write_denial_teaches_registered_public_ref_recovery() -> None:
     output = run_hook(
         _payload(
             "sh .agents/skills/yoke/scripts/yoke-db.sh "
@@ -80,8 +80,11 @@ def test_raw_body_write_denial_uses_numeric_item_id() -> None:
     )
     decision = _decision(output)
     assert decision["permissionDecision"] == "deny"
-    assert "items update 42" in decision["permissionDecisionReason"]
-    assert "YOK-42" not in decision["permissionDecisionReason"]
+    reason = decision["permissionDecisionReason"]
+    assert "yoke items structured-field replace PREFIX-N" in reason
+    assert "yoke items section upsert PREFIX-N" in reason
+    assert "items update 42" not in reason
+    assert "yoke-db.sh" not in reason
 
 
 def test_projects_path_column_blocked_by_static_blocklist() -> None:

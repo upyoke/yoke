@@ -95,9 +95,6 @@ def hc_blocked_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     warn_items: List[str] = []
     fail_items: List[str] = []
     now = _base.utc_now()
-    # blocked is a flag; the legacy status='blocked' surface is
-    # drift, owned by HC-blocked-status-drift. Read the flag here so we
-    # only age out flag-driven blocks.
     rows = query_rows(
         conn,
         "SELECT id, status, updated_at FROM items WHERE blocked = 1",
