@@ -103,7 +103,6 @@ def test_process_claim_exempt(monkeypatch):
 def test_unreachable_item_lookup_refuses(monkeypatch, capsys):
     monkeypatch.setattr(guard, "ensure_handlers_loaded", lambda: None)
     monkeypatch.setattr(guard, "build_actor", lambda: None)
-    monkeypatch.setattr(guard, "item_target", lambda *a: None)
     monkeypatch.setattr(
         guard,
         "call_dispatcher",
@@ -136,4 +135,6 @@ def test_items_get_uses_served_projection(monkeypatch):
     monkeypatch.setattr(guard, "call_dispatcher", dispatch)
     assert guard._work_item("GAR-3")["project_id"] == 4
     assert calls[0]["function_id"] == "items.get.run"
+    assert calls[0]["target"].project_id is None
+    assert calls[0]["target"].public_ref == "GAR-3"
     assert calls[0]["payload"]["fields"] == ["project_id", "title"]

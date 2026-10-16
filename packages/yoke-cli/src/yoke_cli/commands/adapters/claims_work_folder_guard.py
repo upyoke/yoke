@@ -5,7 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
-from yoke_cli.commands._helpers import ensure_handlers_loaded, item_target
+from yoke_cli.commands._helpers import ensure_handlers_loaded
+from yoke_contracts.api.function_call import TargetRef
 from yoke_cli.config.project_slug_lookup import resolve_project_slug
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.machine_config.runtime import load_config
@@ -43,7 +44,7 @@ def _work_item(item_ref: str) -> dict:
     ensure_handlers_loaded()
     response = call_dispatcher(
         function_id="items.get.run",
-        target=item_target("item", item_ref, None),
+        target=TargetRef(kind="item", public_ref=item_ref),
         payload={"fields": ["project_id", "title"]},
         actor=build_actor(),
     )

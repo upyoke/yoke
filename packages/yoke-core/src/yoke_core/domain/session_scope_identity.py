@@ -6,7 +6,7 @@ from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from yoke_core.domain import actor_permission_checks, db_backend, db_helpers
+from yoke_core.domain import actor_permissions, db_backend, db_helpers
 from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 from yoke_core.domain.external_identities import default_org_id
 from yoke_core.domain.project_identity import resolve_project_slug
@@ -63,13 +63,14 @@ def resolve_registration_scope(
         return SessionScope(resolve_session_project_id(conn, project_id), None)
     try:
         org_id = default_org_id(conn)
+        member = _member(conn, actor_id, org_id)
     except Exception as exc:
         raise SessionError(
             "SESSION_ORG_UNRESOLVED",
             "The authority could not resolve this session's organization. Recovery: "
             "reconnect with `yoke connection set` or ask an org admin for membership.",
         ) from exc
-    if not _member(conn, actor_id, org_id):
+    if not member:
         raise SessionError(
             "SESSION_ORG_MEMBERSHIP_REQUIRED",
             "Session registration requires membership in this authority's organization. "
@@ -87,7 +88,7 @@ def actor_may_operate_session(
     permission_key: str,
 ) -> bool:
     if scope.project_id is not None:
-        return actor_permission_checks.permission_decision(
+        return actor_permissions.permission_decision(
             conn,
             actor_id=actor_id,
             project_id=scope.project_id,
@@ -97,7 +98,7 @@ def actor_may_operate_session(
         return False
     return (
         actor_id == session_actor_id
-        or actor_permission_checks.org_permission_decision(
+        or actor_permissions.org_permission_decision(
             conn,
             actor_id=actor_id,
             org_id=scope.org_id,
