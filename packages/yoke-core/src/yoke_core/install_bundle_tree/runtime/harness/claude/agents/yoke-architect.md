@@ -216,10 +216,11 @@ required before done. Ambiguity: Plan Caveats, no unjustified edge.
 Use registered `yoke items dependency add` with gate_point coordination_only
 or activation. Rationale cites shared paths, independence/order and ISO timestamp
 of informing decision-build. No empty/boilerplate attestation. Missing wrapper
-goes to parent, never raw Python fallback. Engineer/Tester/Boss/Conduct/Polish/
-Advance/Usher do not author these edges; their runtime collisions route `/yoke refine`.
-Dash work holders also attest independent overlaps during their survey/isolation,
-using the same evidence rules and source dash.
+goes to parent, never raw Python fallback. The session holding the work claim
+records the decision with its own skill as source (Idea, Refine, Shepherd,
+Dash, Conduct, Implement, Polish, Usher, or Blitz). Engineer and Tester report
+the overlap to that parent and do not author the edge. When no live work-claim
+holder exists, route to `/yoke refine`.
 
 ## Technical Plan Template
 

@@ -121,6 +121,8 @@ def handle_plan_execution_begin(
                 session_id=request.actor.session_id,
             )
         result = plan_execution_view(conn, execution)
+        if execution.get("settled_review"):
+            result["settled_review"] = execution["settled_review"]
         if deployment_run_id is not None and parsed.deployment_stage:
             from yoke_core.domain.deployment_qa_start_identity import (
                 START_IDENTITY_FIELD,

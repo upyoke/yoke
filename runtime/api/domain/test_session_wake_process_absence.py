@@ -237,3 +237,21 @@ def test_a_starved_route_keeps_its_own_reason() -> None:
     )
     assert len(eligible) == 1
     assert eligible[0]["wake_escalation"] == STARVED_HOOK_ROUTE
+
+
+@pytest.mark.parametrize(
+    "surface", ["claude-desktop", "codex-desktop", "cursor-desktop"]
+)
+def test_a_gone_desktop_process_is_never_resumed(surface) -> None:
+    """A person's desktop transcript is theirs: an observed exit wakes nothing."""
+    conn = message_connection()
+    _send(conn)
+    for table in ("harness_sessions", "session_message_recipients"):
+        conn.execute(
+            f"UPDATE {table} SET executor_surface=? WHERE session_id=?",
+            (surface, NATIVE_WAKE_SESSION_ID),
+        )
+    conn.commit()
+    stamp_activity(conn, when=NOW)
+    record_process_gone(conn, when=DIED)
+    assert wake_eligible_recipients(conn, now=SWEEP) == []

@@ -11,6 +11,11 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
     seed_item_claim,
 )
 from runtime.api.fixtures.pg_testdb import test_database
+from yoke_contracts.hook_runner.client_facts import (
+    MACHINE_SETTINGS_KEY,
+    SESSION_CWD_STATUS_MODE_SETTING,
+    client_fact,
+)
 from yoke_core.domain import (
     lint_session_cwd,
     lint_session_cwd_pre_implementing,
@@ -57,14 +62,21 @@ def _seed(
     seed_item_claim(conn, "sid-1", item_id)
 
 
+# The client machine's settings, shipped as a fact on every payload.
+_MACHINE_SETTINGS: dict = {}
+
+
+def _payload(tool_name, tool_input):
+    return {
+        **client_fact(MACHINE_SETTINGS_KEY, dict(_MACHINE_SETTINGS)),
+        "session_id": "sid-1",
+        "tool_name": tool_name,
+        "tool_input": tool_input,
+    }
+
+
 def _call(tool_name, tool_input):
-    return lint_session_cwd.evaluate_pre_tool_use(
-        {
-            "session_id": "sid-1",
-            "tool_name": tool_name,
-            "tool_input": tool_input,
-        }
-    )
+    return lint_session_cwd.evaluate_pre_tool_use(_payload(tool_name, tool_input))
 
 
 @pytest.fixture
@@ -84,20 +96,12 @@ def silenced_emit(monkeypatch):
 
 @pytest.fixture
 def deny_mode(monkeypatch):
-    monkeypatch.setattr(
-        lint_session_cwd_pre_implementing,
-        "read_mode",
-        lambda: "deny",
-    )
+    monkeypatch.setitem(_MACHINE_SETTINGS, SESSION_CWD_STATUS_MODE_SETTING, "deny")
 
 
 @pytest.fixture
 def warn_mode(monkeypatch):
-    monkeypatch.setattr(
-        lint_session_cwd_pre_implementing,
-        "read_mode",
-        lambda: "warn",
-    )
+    monkeypatch.setitem(_MACHINE_SETTINGS, SESSION_CWD_STATUS_MODE_SETTING, "warn")
 
 
 class TestPreImplementingDenied:

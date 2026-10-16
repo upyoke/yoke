@@ -5,7 +5,7 @@ is now split across siblings so each authored file stays under the 350-line
 limit. ``evaluate_payload`` cases live in ``test_lint_long_command_polling_evaluate``,
 and ``run`` cases live in ``test_lint_long_command_polling_run``. This file
 covers the smaller helper extraction, mode-config, recent-command lookup,
-mtime signal, and session-scoping checks.
+client capture-state signal, and session-scoping checks.
 
 Most extract/lookup helpers live on the evaluate sibling
 (``lint_long_command_polling_evaluate``) — the alias ``lint_eval`` points
@@ -17,9 +17,7 @@ alias ``lint_entry`` points to the entry-point.
 
 from __future__ import annotations
 
-import os
 import tempfile
-import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -35,6 +33,10 @@ from yoke_core.domain import (
 )
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.lint_long_command_polling_test_helpers import (
+    CAPTURE_ROOTS as ROOTS,
+    FINISHED,
+    RUNNING,
+    STALE,
     _bash_payload,
 )
 
@@ -42,19 +44,23 @@ from yoke_core.domain.lint_long_command_polling_test_helpers import (
 class TestExtractHelpers(unittest.TestCase):
     def test_peek_capture_file_tail(self) -> None:
         self.assertEqual(
-            lint_eval._extract_peek_capture_file("tail -80 /tmp/yoke-pytest.out"),
+            lint_eval._extract_peek_capture_file(
+                "tail -80 /tmp/yoke-pytest.out", ROOTS
+            ),
             "/tmp/yoke-pytest.out",
         )
 
     def test_peek_capture_file_head(self) -> None:
         self.assertEqual(
-            lint_eval._extract_peek_capture_file("head -20 /tmp/run.log"),
+            lint_eval._extract_peek_capture_file("head -20 /tmp/run.log", ROOTS),
             "/tmp/run.log",
         )
 
     def test_peek_capture_file_cat_pipe_tail(self) -> None:
         self.assertEqual(
-            lint_eval._extract_peek_capture_file("cat /tmp/run.log | tail -n 50"),
+            lint_eval._extract_peek_capture_file(
+                "cat /tmp/run.log | tail -n 50", ROOTS
+            ),
             "/tmp/run.log",
         )
 
@@ -63,13 +69,32 @@ class TestExtractHelpers(unittest.TestCase):
         # not a peek. The redirect takes precedence.
         self.assertIsNone(
             lint_eval._extract_peek_capture_file(
-                "sh test.sh > /tmp/run.out 2>&1; tail -80 /tmp/run.out"
+                "sh test.sh > /tmp/run.out 2>&1; tail -80 /tmp/run.out", ROOTS
             )
         )
 
     def test_peek_not_matched_non_tmp(self) -> None:
         self.assertIsNone(
-            lint_eval._extract_peek_capture_file("tail -80 ./local-log.txt")
+            lint_eval._extract_peek_capture_file("tail -80 ./local-log.txt", ROOTS)
+        )
+
+    def test_peek_matches_only_client_roots(self) -> None:
+        # The client's roots decide; a /tmp path is no capture for a client
+        # whose scratch lives elsewhere.
+        command = "tail -80 /tmp/run.log"
+        self.assertIsNone(
+            lint_eval._extract_peek_capture_file(command, ("/var/scratch",))
+        )
+        self.assertEqual(
+            lint_eval._extract_peek_capture_file(
+                "tail -80 /var/scratch/run.log", ("/var/scratch",)
+            ),
+            "/var/scratch/run.log",
+        )
+
+    def test_empty_roots_match_nothing(self) -> None:
+        self.assertIsNone(
+            lint_eval._extract_peek_capture_file("tail -80 /tmp/run.log", ())
         )
 
     def test_sleep_cadence_extracted(self) -> None:
@@ -149,27 +174,46 @@ class TestRecentCommandLookup(unittest.TestCase):
         self.assertEqual(rows[0][2], "tail -80 /tmp/foo.out")
 
 
-class TestMtimeSignal(unittest.TestCase):
-    def test_owning_command_still_running_recent_mtime(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            capture = os.path.join(tmp, "capture.out")
-            with open(capture, "w", encoding="utf-8") as fh:
-                fh.write("x\n")
-            # freshly written — should be considered "still running"
-            self.assertTrue(lint_eval._owning_command_still_running(capture))
+class TestClientCaptureSignal(unittest.TestCase):
+    """The running verdict reads the client's capture fact, never the disk."""
 
-    def test_owning_command_completed_old_mtime(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            capture = os.path.join(tmp, "capture.out")
-            with open(capture, "w", encoding="utf-8") as fh:
-                fh.write("x\n")
-            old = time.time() - 300
-            os.utime(capture, (old, old))
-            self.assertFalse(lint_eval._owning_command_still_running(capture))
+    def test_recently_written_capture_is_running(self) -> None:
+        payload = _bash_payload("x", captures={"/tmp/capture.out": RUNNING})
+        self.assertTrue(
+            lint_eval._owning_command_still_running(payload, "/tmp/capture.out")
+        )
 
-    def test_owning_command_missing_file(self) -> None:
+    def test_stale_capture_is_not_running(self) -> None:
+        payload = _bash_payload("x", captures={"/tmp/capture.out": STALE})
         self.assertFalse(
-            lint_eval._owning_command_still_running("/tmp/nonexistent-file-12345.out")
+            lint_eval._owning_command_still_running(payload, "/tmp/capture.out")
+        )
+
+    def test_completed_capture_is_not_running(self) -> None:
+        payload = _bash_payload("x", captures={"/tmp/capture.out": FINISHED})
+        self.assertFalse(
+            lint_eval._owning_command_still_running(payload, "/tmp/capture.out")
+        )
+
+    def test_capture_missing_on_client_is_not_running(self) -> None:
+        missing = {"completed": False, "age_seconds": None}
+        payload = _bash_payload("x", captures={"/tmp/capture.out": missing})
+        self.assertFalse(
+            lint_eval._owning_command_still_running(payload, "/tmp/capture.out")
+        )
+
+    def test_unreported_capture_is_not_running(self) -> None:
+        # A file the client did not report never falls back to a local stat,
+        # even when the evaluating machine has a fresh file at that path.
+        with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".out") as fh:
+            self.assertFalse(
+                lint_eval._owning_command_still_running(_bash_payload("x"), fh.name)
+            )
+
+    def test_no_capture_fact_is_not_running(self) -> None:
+        payload = {"tool_name": "Bash", "tool_input": {"command": "x"}}
+        self.assertFalse(
+            lint_eval._owning_command_still_running(payload, "/tmp/capture.out")
         )
 
 
@@ -187,9 +231,6 @@ class TestSessionScoping(unittest.TestCase):
             return other_session_events
 
         with (
-            mock.patch.object(
-                lint_eval, "_owning_command_still_running", return_value=True
-            ),
             mock.patch.object(lint_eval, "_db_available", return_value=True),
             mock.patch.object(
                 lint_eval, "_recent_bash_commands", side_effect=fake_recent
@@ -201,6 +242,7 @@ class TestSessionScoping(unittest.TestCase):
                         "tail -80 /tmp/foo.out",
                         session_id="sess-main",
                         turn_id="turn-1",
+                        captures={"/tmp/foo.out": RUNNING},
                     )
                 )
             )

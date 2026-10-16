@@ -73,10 +73,42 @@ def test_batch_answers_each_lane_in_order_like_the_single_read(db):
     ]
 
 
-def test_a_lane_without_a_branch_is_payload_invalid(db):
+def test_one_invalid_lane_is_reported_and_the_rest_are_judged(db):
+    conn = connect_test_db(db)
+    try:
+        source = str(seed_human_actor(conn))
+        insert_item(conn, id=9501, status="done", source=source)
+        insert_item_worktree(conn, item_id=9501, branch="b/done", lane_role="worker")
+    finally:
+        conn.close()
+    lanes = [
+        {"branch": "b/done"},
+        {"path": "/x"},
+        {"branch": ""},
+        {"branch": "b/unknown"},
+    ]
+
     outcome = ops.handle_prune_authority_verdicts(
-        _request("merge.prune.authority_verdicts", {"lanes": [{"path": "/x"}]})
+        _request("merge.prune.authority_verdicts", {"lanes": lanes})
+    )
+
+    assert outcome.primary_success, outcome.error
+    verdicts = outcome.result_payload["verdicts"]
+    assert [v["prunable"] for v in verdicts] == [True, False, False, False]
+    assert verdicts[0]["reason"] == "prunable"
+    assert verdicts[1]["reason"].startswith("lane_invalid:")
+    assert "HC-worktree-health" in verdicts[1]["reason"]
+    assert verdicts[2]["reason"].startswith("lane_invalid:")
+    assert "empty branch" in verdicts[2]["reason"]
+    assert verdicts[3]["reason"] == "no_terminal_owner"
+
+
+def test_a_batch_that_is_not_a_lane_list_is_payload_invalid(db):
+    outcome = ops.handle_prune_authority_verdicts(
+        _request("merge.prune.authority_verdicts", {"lanes": "nope"})
     )
 
     assert not outcome.primary_success
+    assert outcome.error is not None
     assert outcome.error.code == "payload_invalid"
+    assert "lanes must be a list" in outcome.error.message

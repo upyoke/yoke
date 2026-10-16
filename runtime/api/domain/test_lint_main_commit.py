@@ -8,14 +8,34 @@ import unittest
 from contextlib import redirect_stdout
 from unittest import mock
 
-from yoke_core.domain import lint_main_commit, lint_staged_union
+from yoke_contracts.hook_runner.main_commit import (
+    CLIENT_GIT_COMMIT_FACTS_KEY,
+    CLIENT_GIT_COMMIT_FACTS_SCHEMA,
+)
+from yoke_core.domain import lint_main_commit
 from yoke_core.hooks.types import HookContext, Next, Outcome
 
 TEST_ITEM_REF = "YOK-42"
 
 
-def _payload(command: str) -> dict:
+def git_facts(branch: str | None, staged: list[str]) -> dict:
+    """The client's report of its checkout branch and effective staged set."""
     return {
+        CLIENT_GIT_COMMIT_FACTS_KEY: {
+            "schema": CLIENT_GIT_COMMIT_FACTS_SCHEMA,
+            "is_git_commit": True,
+            "repo_cwd": "/client/checkout",
+            "branch": branch,
+            "staged_paths": staged,
+            "staged_probe_ok": True,
+            "status_probe_ok": True,
+        }
+    }
+
+
+def _payload(command: str, facts: dict | None = None) -> dict:
+    return {
+        **(facts or {}),
         "tool_name": "Bash",
         "tool_input": {"command": command},
         "session_id": "sess-test",
@@ -36,7 +56,9 @@ class TestIsBookkeeping(unittest.TestCase):
     def test_prefix_matches(self) -> None:
         self.assertTrue(lint_main_commit.is_bookkeeping("ouroboros/patterns.md"))
         self.assertTrue(lint_main_commit.is_bookkeeping(".claude/agents/x.md"))
-        self.assertTrue(lint_main_commit.is_bookkeeping(".agents/skills/yoke/scripts/foo.sh"))
+        self.assertTrue(
+            lint_main_commit.is_bookkeeping(".agents/skills/yoke/scripts/foo.sh")
+        )
 
     def test_root_data_paths_are_not_bookkeeping(self) -> None:
         self.assertFalse(lint_main_commit.is_bookkeeping("data/orphan.md"))
@@ -44,7 +66,9 @@ class TestIsBookkeeping(unittest.TestCase):
 
     def test_legacy_project_qa_artifacts_are_not_bookkeeping(self) -> None:
         self.assertFalse(
-            lint_main_commit.is_bookkeeping("projects/externalwebapp/qa-artifacts/screenshot.png")
+            lint_main_commit.is_bookkeeping(
+                "projects/externalwebapp/qa-artifacts/screenshot.png"
+            )
         )
 
     def test_non_bookkeeping(self) -> None:
@@ -56,7 +80,9 @@ class TestIsBookkeeping(unittest.TestCase):
 class TestExtractCommand(unittest.TestCase):
     def test_tool_input_command(self) -> None:
         self.assertEqual(
-            lint_main_commit._extract_command({"tool_input": {"command": "git status"}}),
+            lint_main_commit._extract_command(
+                {"tool_input": {"command": "git status"}}
+            ),
             "git status",
         )
 
@@ -89,86 +115,85 @@ class TestEvaluatePayload(unittest.TestCase):
     def test_bypass_comment_allows(self) -> None:
         self.assertIsNone(
             lint_main_commit.evaluate_payload(
-                _payload("git commit -m 'foo'  # lint:no-main-check")
+                _payload(
+                    "git commit -m 'foo'  # lint:no-main-check",
+                    git_facts("main", ["runtime/api/domain/foo.py"]),
+                )
             )
         )
 
-    def test_non_main_branch_allows(self) -> None:
-        with mock.patch.object(lint_main_commit, "_current_branch", return_value="feature-xyz"):
+    def test_missing_client_facts_allows(self) -> None:
+        with mock.patch.object(
+            lint_main_commit, "_active_worktree_items", return_value=["YOK-1|x"]
+        ) as active:
             self.assertIsNone(
                 lint_main_commit.evaluate_payload(_payload("git commit -m 'foo'"))
             )
+        active.assert_not_called()
+
+    def test_non_main_branch_allows(self) -> None:
+        facts = git_facts("feature-xyz", ["runtime/api/domain/foo.py"])
+        self.assertIsNone(
+            lint_main_commit.evaluate_payload(_payload("git commit -m 'foo'", facts))
+        )
+
+    def test_unknown_branch_allows(self) -> None:
+        facts = git_facts(None, ["runtime/api/domain/foo.py"])
+        self.assertIsNone(
+            lint_main_commit.evaluate_payload(_payload("git commit -m 'foo'", facts))
+        )
 
     def test_no_staged_files_allows(self) -> None:
-        with mock.patch.object(lint_main_commit, "_current_branch", return_value="main"), \
-             mock.patch.object(lint_main_commit, "_staged_files", return_value=[]):
-            self.assertIsNone(
-                lint_main_commit.evaluate_payload(_payload("git commit -m 'foo'"))
+        self.assertIsNone(
+            lint_main_commit.evaluate_payload(
+                _payload("git commit -m 'foo'", git_facts("main", []))
             )
+        )
 
     def test_all_bookkeeping_allows(self) -> None:
-        with mock.patch.object(lint_main_commit, "_current_branch", return_value="main"), \
-             mock.patch.object(
-                lint_main_commit,
-                "_staged_files",
-                return_value=["AGENTS.md", "ouroboros/patterns.md"],
-            ):
-            self.assertIsNone(
-                lint_main_commit.evaluate_payload(_payload("git commit -m 'foo'"))
-            )
+        facts = git_facts("main", ["AGENTS.md", "ouroboros/patterns.md"])
+        self.assertIsNone(
+            lint_main_commit.evaluate_payload(_payload("git commit -m 'foo'", facts))
+        )
 
     def test_no_active_items_allows(self) -> None:
-        with mock.patch.object(lint_main_commit, "_current_branch", return_value="main"), \
-             mock.patch.object(
-                lint_main_commit,
-                "_staged_files",
-                return_value=["runtime/api/domain/foo.py"],
-            ), \
-             mock.patch.object(lint_main_commit, "_active_worktree_items", return_value=[]):
+        facts = git_facts("main", ["runtime/api/domain/foo.py"])
+        with mock.patch.object(
+            lint_main_commit, "_active_worktree_items", return_value=[]
+        ):
             self.assertIsNone(
-                lint_main_commit.evaluate_payload(_payload("git commit -m 'foo'"))
+                lint_main_commit.evaluate_payload(
+                    _payload("git commit -m 'foo'", facts)
+                )
             )
 
     def test_blocks_with_active_items(self) -> None:
-        with mock.patch.object(lint_main_commit, "_current_branch", return_value="main"), \
-             mock.patch.object(
-                lint_main_commit,
-                "_staged_files",
-                return_value=["runtime/api/domain/foo.py", "ouroboros/patterns.md"],
-            ), \
-             mock.patch.object(
-                lint_main_commit,
-                "_active_worktree_items",
-                return_value=[f"{TEST_ITEM_REF}|Some item", "YOK-99|Another"],
-            ):
-            reason = lint_main_commit.evaluate_payload(_payload("git commit -m 'foo'"))
-            self.assertIsNotNone(reason)
-            assert reason is not None
-            self.assertIn("BLOCKED", reason)
-            self.assertIn("runtime/api/domain/foo.py", reason)
-            self.assertIn(TEST_ITEM_REF, reason)
+        facts = git_facts(
+            "main", ["runtime/api/domain/foo.py", "ouroboros/patterns.md"]
+        )
+        with mock.patch.object(
+            lint_main_commit,
+            "_active_worktree_items",
+            return_value=[f"{TEST_ITEM_REF}|Some item", "YOK-99|Another"],
+        ):
+            reason = lint_main_commit.evaluate_payload(
+                _payload("git commit -m 'foo'", facts)
+            )
+        self.assertIsNotNone(reason)
+        assert reason is not None
+        self.assertIn("BLOCKED", reason)
+        self.assertIn("runtime/api/domain/foo.py", reason)
+        self.assertIn(TEST_ITEM_REF, reason)
 
     def test_master_branch_also_blocks(self) -> None:
-        # `git commit -a` self-stages, so the effective set widens to the
-        # modified/untracked probe — pinned here for hermeticity.
-        with mock.patch.object(lint_main_commit, "_current_branch", return_value="master"), \
-             mock.patch.object(
-                lint_main_commit,
-                "_staged_files",
-                return_value=["src/main.rs"],
-            ), \
-             mock.patch.object(
-                lint_staged_union,
-                "_modified_and_untracked",
-                return_value=["src/main.rs"],
-            ), \
-             mock.patch.object(
-                lint_main_commit,
-                "_active_worktree_items",
-                return_value=["YOK-1|Something"],
-            ):
-            reason = lint_main_commit.evaluate_payload(_payload("git commit -am 'x'"))
-            self.assertIsNotNone(reason)
+        facts = git_facts("master", ["src/main.rs"])
+        with mock.patch.object(
+            lint_main_commit, "_active_worktree_items", return_value=["YOK-1|Something"]
+        ):
+            reason = lint_main_commit.evaluate_payload(
+                _payload("git commit -am 'x'", facts)
+            )
+        self.assertIsNotNone(reason)
 
 
 class TestEvaluate(unittest.TestCase):
@@ -179,28 +204,52 @@ class TestEvaluate(unittest.TestCase):
         self.assertEqual(decision.message, "")
         self.assertFalse(decision.block)
 
+    def test_verdict_is_the_same_locally_and_remotely(self) -> None:
+        for facts, outcome in (
+            (git_facts("main", ["runtime/api/domain/foo.py"]), Outcome.DENY),
+            (git_facts("feature", ["runtime/api/domain/foo.py"]), Outcome.NOOP),
+            ({}, Outcome.NOOP),
+        ):
+            payload = _payload("git commit -m 'wip'", facts)
+            with (
+                mock.patch.object(
+                    lint_main_commit, "_active_worktree_items", return_value=["YOK-7|x"]
+                ),
+                mock.patch.object(lint_main_commit, "_emit_denial"),
+            ):
+                decisions = [
+                    lint_main_commit.evaluate(
+                        HookContext(
+                            event_name="PreToolUse",
+                            executor_family="claude",
+                            executor_surface="claude",
+                            payload=dict(payload),
+                            remote=remote,
+                        )
+                    )
+                    for remote in (False, True)
+                ]
+            self.assertEqual([d.outcome for d in decisions], [outcome, outcome])
+            self.assertEqual(decisions[0].message, decisions[1].message)
+
     def test_deny_carries_envelope_and_block(self) -> None:
-        payload = _payload("git commit -m 'wip'")
-        with mock.patch.object(lint_main_commit, "_current_branch", return_value="main"), \
-             mock.patch.object(
-                lint_main_commit,
-                "_staged_files",
-                return_value=["runtime/api/domain/foo.py"],
-            ), \
-             mock.patch.object(
+        payload = _payload(
+            "git commit -m 'wip'", git_facts("main", ["runtime/api/domain/foo.py"])
+        )
+        with (
+            mock.patch.object(
                 lint_main_commit,
                 "_active_worktree_items",
                 return_value=["YOK-7|thing"],
-            ), \
-             mock.patch.object(lint_main_commit, "_emit_denial") as emit_mock:
+            ),
+            mock.patch.object(lint_main_commit, "_emit_denial") as emit_mock,
+        ):
             decision = lint_main_commit.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertIs(decision.next, Next.STOP)
         self.assertTrue(decision.block)
         parsed = json.loads(decision.message)
-        self.assertEqual(
-            parsed["hookSpecificOutput"]["permissionDecision"], "deny"
-        )
+        self.assertEqual(parsed["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertIn(
             "BLOCKED", parsed["hookSpecificOutput"]["permissionDecisionReason"]
         )
@@ -228,35 +277,33 @@ class TestMain(unittest.TestCase):
     def test_allow_produces_no_output(self) -> None:
         payload = _payload("git status")
         buf = io.StringIO()
-        with mock.patch("sys.stdin", io.StringIO(json.dumps(payload))), \
-             redirect_stdout(buf):
+        with (
+            mock.patch("sys.stdin", io.StringIO(json.dumps(payload))),
+            redirect_stdout(buf),
+        ):
             rc = lint_main_commit.main()
         self.assertEqual(rc, 0)
         self.assertEqual(buf.getvalue(), "")
 
     def test_deny_prints_envelope(self) -> None:
-        payload = _payload("git commit -m 'wip'")
+        payload = _payload(
+            "git commit -m 'wip'", git_facts("main", ["runtime/api/domain/foo.py"])
+        )
         buf = io.StringIO()
-        with mock.patch.object(lint_main_commit, "_current_branch", return_value="main"), \
-             mock.patch.object(
-                lint_main_commit,
-                "_staged_files",
-                return_value=["runtime/api/domain/foo.py"],
-            ), \
-             mock.patch.object(
+        with (
+            mock.patch.object(
                 lint_main_commit,
                 "_active_worktree_items",
                 return_value=["YOK-7|thing"],
-            ), \
-             mock.patch.object(lint_main_commit, "_emit_denial"), \
-             mock.patch("sys.stdin", io.StringIO(json.dumps(payload))), \
-             redirect_stdout(buf):
+            ),
+            mock.patch.object(lint_main_commit, "_emit_denial"),
+            mock.patch("sys.stdin", io.StringIO(json.dumps(payload))),
+            redirect_stdout(buf),
+        ):
             rc = lint_main_commit.main()
         self.assertEqual(rc, 0)
         parsed = json.loads(buf.getvalue().strip())
-        self.assertEqual(
-            parsed["hookSpecificOutput"]["permissionDecision"], "deny"
-        )
+        self.assertEqual(parsed["hookSpecificOutput"]["permissionDecision"], "deny")
 
 
 class TestQuotedGitCommitEvidence(unittest.TestCase):
@@ -266,22 +313,16 @@ class TestQuotedGitCommitEvidence(unittest.TestCase):
     def test_field_note_evidence_text_is_allowed(self) -> None:
         # A field-note append whose --evidence argument quotes the
         # phrase "git commit" must not be classified as an actual
-        # commit invocation. The branch/staged/items lookups must not
-        # even run -- the classifier short-circuits earlier.
+        # commit invocation. The items lookup must not even run -- the
+        # classifier short-circuits earlier.
         cmd = (
             "yoke ouroboros field-note append --kind failed "
-            "--evidence \"previous attempt: git commit was blocked\""
+            '--evidence "previous attempt: git commit was blocked"'
         )
-        payload = _payload(cmd)
-        with mock.patch.object(lint_main_commit, "_current_branch") as branch, \
-             mock.patch.object(lint_main_commit, "_staged_files") as staged, \
-             mock.patch.object(
-                lint_main_commit, "_active_worktree_items"
-            ) as active:
+        payload = _payload(cmd, git_facts("main", ["runtime/api/domain/foo.py"]))
+        with mock.patch.object(lint_main_commit, "_active_worktree_items") as active:
             result = lint_main_commit.evaluate_payload(payload)
             self.assertIsNone(result)
-            branch.assert_not_called()
-            staged.assert_not_called()
             active.assert_not_called()
 
 

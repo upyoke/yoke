@@ -1,7 +1,6 @@
 """Guard fragments for HOOK_POLICY_SOURCE.
 
-* RULE_TEXT_GUARDS_INPUT — Check 7 (conflict markers), Check 4 (BSD awk),
-  Check 3 (guarded scripts) and the YOKE_SKILL_CONTEXT bypass guard.
+* RULE_TEXT_GUARDS_INPUT — Check 4 (BSD awk), Check 3 (guarded scripts) and the YOKE_SKILL_CONTEXT bypass guard.
 * RULE_TEXT_GUARDS_CLI — Check 5 (claude CLI).
 * RULE_TEXT_BODY_BANS — Check 13 (raw body writes), Check 13b (ingest-body).
 """
@@ -15,35 +14,6 @@ __all__ = (
 )
 
 RULE_TEXT_GUARDS_INPUT = r"""
-# --- Check 7: Block git commit when Yoke files have conflict markers ---
-# Defense in depth: prevent committing conflict markers in Yoke-managed files.
-# Only triggers when the command contains "git commit" or "git add" with yoke/ paths.
-if ("git commit" in command_stripped or "git add" in command_stripped) and "runtime/" in command_stripped:
-    import subprocess
-    try:
-        _conflict_check = subprocess.run(
-            ["grep", "-rlq", "^<<<<<<< \\|^=======$\\|^>>>>>>> ",
-             ".yoke/BOARD.md"],
-            capture_output=True, timeout=5
-        )
-        if _conflict_check.returncode == 0:
-            result = {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": (
-                        "BLOCKED: Conflict markers detected in Yoke-managed files. "
-                        "Resolve conflict markers before committing.\n"
-                        "Run: yoke board rebuild\n"
-                        "Or:  /yoke doctor --fix --only HC-unformalized-deps"
-                    ),
-                }
-            }
-            print(json.dumps(result))
-            sys.exit(0)
-    except Exception:
-        pass  # Non-fatal: do not block on check failure
-
 # --- Check 4: BSD-incompatible awk negation ---
 # BSD awk (macOS) does not support !var as a boolean negation in patterns.
 # It misparses "!varname" causing silent failures or syntax errors that can

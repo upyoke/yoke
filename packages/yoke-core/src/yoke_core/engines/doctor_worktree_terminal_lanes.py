@@ -85,8 +85,13 @@ class TerminalLaneRetirer:
         target: str,
         item_id: str,
         assessment: LaneCleanupAssessment,
+        release_branch: str = "",
     ) -> tuple[str, ...]:
-        """Retire one lane ``assess`` just proved; return what was kept and why."""
+        """Retire one lane ``assess`` just proved; return what was kept and why.
+
+        ``release_branch`` is the recorded branch when ``branch`` is a
+        detached commit marker. The row is released under that name.
+        """
         return prune_landed_lane(
             repo_root=root,
             branch=branch,
@@ -97,6 +102,7 @@ class TerminalLaneRetirer:
             authority_block=self._authority.block(branch, path),
             refresh_target=False,
             assessment=assessment,
+            release_branch=release_branch,
         )
 
     def _refresh(self, root: str, target: str) -> str:

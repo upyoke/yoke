@@ -241,8 +241,7 @@ def _resolve_item_metadata(
         f"iw.branch,iw.commit_sha,({landing_window}) AS landing_in_window "
         "FROM items i LEFT JOIN item_worktrees iw "
         "ON iw.item_id=i.id WHERE i.project_id=%s AND (i.merged_at IS NOT NULL "
-        "OR i.merge_queue_landed_at IS NOT NULL OR i.resolution_ref IS NOT NULL "
-        "OR iw.commit_sha IS NOT NULL)",
+        "OR i.merge_queue_landed_at IS NOT NULL OR i.resolution_ref IS NOT NULL)",
         (*bounds, project_id),
         reason="item_merge_metadata_unavailable",
         recovery="Restore item and lane metadata reads, then retry run completion.",
@@ -261,12 +260,12 @@ def _resolve_item_metadata(
             )
         landed_at = _cell(row, "merge_queue_landed_at", 2) or _cell(row, "merged_at", 1)
         lane_commit = ""
-        # A lane branch names its item's contribution only once the item has
-        # landed: an open lane forked from the trunk points at somebody else's
-        # commit until it has one of its own. The recorded lane head needs no
-        # such proof — it is already the item's own commit.
-        branch_token = [_cell(row, "branch", 4)] if landed_at else []
-        for raw_token in (_cell(row, "commit_sha", 5), *branch_token):
+        # A lane names its item's contribution only once the item has landed.
+        # An open lane's head keeps moving while workers commit, so reading it
+        # would turn unrelated lane activity into new repository questions
+        # between release preparation and its locked validation.
+        lane_tokens = (_cell(row, "commit_sha", 5), _cell(row, "branch", 4))
+        for raw_token in lane_tokens if landed_at else ():
             lane_token = str(raw_token or "").strip()
             if lane_token:
                 lane_commit = source.resolve_commit(lane_token)

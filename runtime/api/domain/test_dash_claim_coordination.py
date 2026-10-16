@@ -12,6 +12,25 @@ from yoke_core.domain.item_posture_amend import amend_item_posture
 from yoke_core.domain.path_claims_overlap import classify_overlap, OverlapClassification
 from yoke_core.domain.path_claim_coordination_decision import _suggested_commands
 from yoke_core.domain.path_claims_overlap_survey import SURVEY_ADVISORY_YIELD
+from yoke_core.domain.work_claim_targets import make_item_target
+
+
+def _hold_as(conn, item_id: int, mode: str) -> None:
+    """Give the item a live exclusive holder whose session mode is the source."""
+    session_id = f"holder-{item_id}"
+    stamp = "2026-10-16T00:00:00Z"
+    conn.execute(
+        "INSERT INTO harness_sessions (session_id, executor, provider, model, "
+        "execution_level, workspace, project_id, mode, offered_at, last_heartbeat) "
+        "VALUES (%s, 'claude-code', 'anthropic', 'claude-opus-5-5', 'primary', "
+        "'/tmp/dash-holder', 1, %s, %s, %s)",
+        (session_id, mode, stamp, stamp),
+    )
+    conn.execute(
+        "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, "
+        "claimed_at, last_heartbeat) VALUES (%s, 'item', %s, 'exclusive', %s, %s)",
+        (session_id, make_item_target(item_id).scope_json(), stamp, stamp),
+    )
 
 
 def test_dash_attestation_removes_only_the_independent_overlap():
@@ -27,6 +46,7 @@ def test_dash_attestation_removes_only_the_independent_overlap():
             candidate_item_id=candidate,
         )
         assert classify_overlap(conn, **args) is OverlapClassification.INCOMPATIBLE
+        _hold_as(conn, candidate, "dash")
         commands = _suggested_commands(conn, candidate, holder, ["shared.py"], claim)
         command = next(c for c in commands if "--gate-point coordination_only" in c)
         assert " dash --gate-point coordination_only" in command

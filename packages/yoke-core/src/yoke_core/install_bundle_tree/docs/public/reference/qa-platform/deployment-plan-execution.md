@@ -59,8 +59,11 @@ For a deployment member whose cases require several Test Machines, the scoped
 command automatically executes one immutable roster per machine. Each roster
 holds its own lease and participates in that host's FIFO. It keeps the same
 run, stage and frozen private-member or shared-plan target.
-A waiting host or independent review stops the command; after the wait or
-review settles, rerun the same scoped command to continue the remaining hosts.
+A waiting host or independent review stops the command. Re-enter the same
+scoped command while review is pending to reprint that bundle without
+recapturing. Once a verdict batch is recorded, the same command reprints
+those verdicts and does not capture the settled requirements; a new capture
+uses --replaces. After review settles, rerun to continue any remaining hosts.
 Completed scoped cases with passing evidence are retained. The member is
 accepted only when every required case passes. Omit --machine for this
 multi-machine form: a single host pin cannot satisfy conflicting constraints.
@@ -77,16 +80,25 @@ with different driving hosts or declared sets use separate execution rosters.
 
 ## Shared host turns and starting state
 
-An occupied Test Machine is a wait, never a FAIL. Plan acquisition keeps its
-cursor open and its session joins the host's waiting line (`qa_host_waits`),
-the same FIFO line a refused manual
-`yoke claims coordination-claim acquire --key QA_HOST:<machine>` joins. A
-session keeps its place from its first wait and across retries. Every release
-of the host — including `yoke claims work release --claim-id N` — reserves it
-for the oldest live waiter and sends that session the exact resume command;
-stopped owners use the same harness-neutral wake route as other control-plane
-notices. Ending the session, settling the execution, or releasing an unused
-reservation cancels the wait and passes a reserved turn to the next waiter.
+An occupied or unhealthy Test Machine is a wait, never a FAIL. If your host
+is busy, let the plan runner queue you, then park; you are woken when it is
+your turn. Start or resume the plan as usual: when a host its case needs is
+leased, or its newest health fact is a failed verification, plan acquisition
+keeps its cursor open and its session joins the host's waiting line
+(`qa_host_waits`), the same FIFO line a refused manual
+`yoke claims coordination-claim acquire --key QA_HOST:<machine>` joins. The
+runner prints `Queued for QA host <machine>, position N of M` with the park
+command; write no host hold of your own. A session keeps its place from its
+first wait and across retries. Every release of the host — including
+`yoke claims work release --claim-id N` — reserves it for the oldest live
+waiter and sends that session the exact resume command; stopped owners use the
+same harness-neutral wake route as other control-plane notices. An unhealthy
+host is never reserved: it stays free for the operator's
+`yoke test-machine verify` or `yoke test-machine golden-capture`, and that
+operation's successful release wakes the first waiter. Reset and diagnosis
+receipts do not change health. Ending the session, settling the execution, or
+releasing an unused reservation cancels the wait and passes a reserved turn to
+the next waiter.
 
 If a walker discovers a second required host is occupied, return
 `WALK_STATUS: HOST_WAIT` and its registered name plus holder evidence. Submit

@@ -10,6 +10,7 @@ subprocess carve-outs are visible in the printed chain.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 
 from yoke_contracts.hook_runner.failures import render_failure_warning
@@ -18,6 +19,24 @@ from yoke_core.hooks.capability_resolve import resolve_capability
 from yoke_core.hooks.remote_policy import RunControls
 from yoke_core.hooks.runner import run_event
 from yoke_harness.hooks.decision_render import write_hook_output
+
+
+def _client_facts(event_name: str, stdin_data: str, executor: str) -> dict:
+    """Collect the client facts every other evaluation path collects too."""
+    from yoke_contracts.hook_runner.project_scope import resolve_hook_project_scope
+    from yoke_harness.hooks.client_facts import collect_client_facts, event_chain
+
+    try:
+        payload = json.loads(stdin_data) if stdin_data else {}
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    try:
+        chain = event_chain(event_name, payload, resolve_hook_project_scope(payload))
+    except (ValueError, OSError, RuntimeError):
+        return {}  # run_event refuses the unresolvable scope by name
+    return collect_client_facts(event_name, payload, executor, chain)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -36,7 +55,11 @@ def main(argv: list[str] | None = None) -> int:
     stdin_data = "" if args.dry_run else sys.stdin.read()
     executor = detect_executor()
     capability = resolve_capability(executor, args.dry_run)
-    controls = RunControls()
+    controls = RunControls(
+        payload_extra={}
+        if args.dry_run
+        else _client_facts(args.event_name, stdin_data, executor)
+    )
     stdout_text, exit_code = run_event(
         args.event_name,
         capability=capability,

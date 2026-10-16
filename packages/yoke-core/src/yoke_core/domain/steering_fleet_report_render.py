@@ -51,6 +51,10 @@ from yoke_core.domain.steering_fleet_report_native_models import native_model_li
 from yoke_core.domain import steering_fleet_report_in_flight as _in_flight
 from yoke_core.domain import steering_fleet_report_stranded as _stranded
 from yoke_core.domain.steering_fleet_report_landings import landing_lines
+from yoke_core.domain.steering_fleet_report_render_manual_wake import (
+    MANUAL_WAKE_HEADING,
+    manual_wake_lines,
+)
 from yoke_core.domain.steering_fleet_report_sections import (
     CLAIMS_HEADING,
     unlisted_holders,
@@ -250,6 +254,7 @@ def _scope_work_lines(report: FleetReport, shared: ProjectRows) -> list[str]:
             f"({OVERDUE_MARK} cannot move without a decision)",
             _run_lines(shared.deployment_runs),
         ),
+        *_section(MANUAL_WAKE_HEADING, manual_wake_lines(shared.deployment_runs)),
         *_awaiting_seat_lines(report),
         *_section(CLAIMS_HEADING, _holder_lines(unlisted_holders(report))),
     ]

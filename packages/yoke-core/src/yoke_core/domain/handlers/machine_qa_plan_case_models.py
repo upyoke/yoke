@@ -32,6 +32,8 @@ class TestMachinePlanCaseBeginResponse(BaseModel):
     #: inherits a predecessor that did not pass in this plan run.
     result: dict[str, Any] | None = None
     lease_context: dict[str, Any] | None = None
+    #: A ``waiting`` case's place in its host's line; the next turn wakes it.
+    host_wait: dict[str, Any] | None = None
     selection_new: bool = False
 
 

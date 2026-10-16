@@ -251,8 +251,11 @@ _PERMISSION_REQUEST: tuple[str, ...] = (
 )
 
 _LIFECYCLE_DISPATCH: tuple[str, ...] = ("yoke_core.hooks.session_dispatch",)
+# The slim resume block reads the session's control-plane row, so it runs
+# wherever the chain runs, after the client-side lifecycle dispatch.
 _FIRST_HOOK_DISPATCH: tuple[str, ...] = (
     *_LIFECYCLE_DISPATCH,
+    "yoke_core.hooks.session_resume_block",
     *_MODEL_DELIVERY,
 )
 _STOP_CHAIN: tuple[str, ...] = (

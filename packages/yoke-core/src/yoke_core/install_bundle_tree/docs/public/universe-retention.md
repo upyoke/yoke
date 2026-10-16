@@ -21,21 +21,36 @@ After reviewing the preview, an authorized administrator may run:
 yoke universe prune --apply
 ```
 
-The command runs in the foreground until no more safely eligible rows remain.
-It commits bounded transactions, up to 5,000 physical rows for scalar records
-and other child/parent graphs. Each inventory snapshot transaction deletes one
-complete eligible inventory, even when its children exceed 5,000 rows. Short internal calls
-normally target eight seconds; the policy caps a pass at twenty seconds,
-each statement at ten seconds or its remaining budget, and locks at one
-second. Progress prints during the command and final output lists actual
-acknowledged deletions, protected counts and stop/failure reasons.
+One invocation runs in the foreground until a full cycle over every table
+deletes nothing. It fixes one UTC cutoff when it starts; records that cross
+their retention age during the run wait for the next invocation, so the run
+always ends. It commits bounded transactions, up to 5,000 physical rows for
+scalar records and other child/parent graphs, and keeps deleting from a table
+while more eligible rows remain. Each inventory snapshot transaction deletes
+one complete eligible inventory, even when its children exceed 5,000 rows.
+
+Short internal passes normally target eight seconds; the policy caps a pass
+at twenty seconds, each statement at ten seconds or its remaining budget, and
+locks at one second. When a pass reaches its budget, the next pass resumes
+the same table; that is never a failure. A table that reaches its own
+statement or lock limit with a full pass budget is skipped while the other
+tables continue; it is retried up to three times per invocation and then
+listed as not finished.
+
+Output stays short. About every 10 seconds the command prints one progress
+line: rows deleted so far, the largest table still being pruned, and elapsed
+time. The final summary gives the total deleted, deletions for each table
+that changed, the duration, and each table not finished with its reason and
+recovery. `--full` adds per-table eligible, deleted and protected detail and
+the policy digest; `--json` returns the complete result. Preview runs one
+cycle and lists eligible counts.
 
 There is no overall invocation timeout, timer, background worker, saved run,
 resume/status command or retention editor. Command options cannot override
-the effective policy. Interrupting leaves committed batches committed. Rerun
-the command to find remaining eligible records. A lost pass reply means its
-outcome/count is unknown: output separates earlier acknowledged totals and
-never resends that mutating pass automatically.
+the effective policy. Ctrl-C keeps committed batches and prints the same
+summary. Rerun the command to find remaining eligible records. A lost pass
+reply means its outcome/count is unknown: output separates earlier
+acknowledged totals and never resends that mutating pass automatically.
 
 ## Settings and defaults
 
@@ -88,9 +103,13 @@ Snapshots retain each project's latest header and latest content-bearing
 inventory, the latest path generations' last sightings, active lane heads,
 nonterminal claim bases, and running/open-failure integrity references.
 Protected inventories remain whole. Other history has no age or count floor.
-Pruning coordinates with reference writers and rechecks protection before
-committing child-first deletion. Each eligible inventory is deleted in one
-atomic transaction under the same time and lock bounds. Other graphs exceeding
+Pruning never locks whole message or reference tables. Each cohort locks
+only its own rows, skipping rows another writer holds, and the `DELETE`
+rechecks protection before committing child-first deletion; a graph whose
+parent stopped qualifying rolls back whole. Inventory snapshots keep one
+table lock on the snapshot tables, which message writers never touch. Each
+eligible inventory is deleted in one atomic transaction under the same time
+and lock bounds. Other graphs exceeding
 the physical row cap stay protected with their reason; no graph is partially thinned.
 
 Temporary upload cleanup shares custody with begin/append/finalize/abort,
@@ -107,12 +126,14 @@ unknown and unrelated tables are left alone without blocking cleanup.
 
 ## Failures and storage
 
-A statement/lock/pass refusal names the affected table and
-`retention_budget_stop` or `retention_table_failed`. The failed transaction
-rolls back; earlier committed counts remain. Restore the named connection or
-table condition and rerun. If a bounded query repeatedly stops, ask the
-universe administrator to investigate; the command does not add an index or
-perform an unbounded scan to force progress.
+A table that keeps reaching its statement or lock limit appears under
+"Not finished" with `retention_table_limit`, its reason and recovery: rerun
+when the table is quieter, and ask the universe administrator to inspect its
+indexes and locks if it repeats. Another database refusal stops the command
+with `retention_table_failed` and the affected table; the failed transaction
+rolls back and earlier committed counts remain. Restore the named connection
+or table condition and rerun. The command never performs an unbounded scan to
+force progress.
 
 Results live in command output only. Pruning is a narrow exception to
 maintenance audit persistence: it writes no prune

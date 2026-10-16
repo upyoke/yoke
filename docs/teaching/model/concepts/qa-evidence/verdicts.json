@@ -6,6 +6,6 @@
  "functions": ["qa.plan_review.begin", "qa.plan_review.submit", "qa.run.complete", "qa.run.record_verdict"],
  "page": "qa-evidence",
  "position": 2,
- "summary": "Verdicts automatically link the actual plan execution and concrete artifact ids. A deployment verdict re-evaluates active frozen-target acceptance after commit. An aborted execution stays terminal while its completed captures receive independent verdicts.",
+ "summary": "Verdicts automatically link the actual plan execution and concrete artifact ids. A deployment verdict re-evaluates active frozen-target acceptance after commit. An aborted execution stays terminal while its completed captures receive independent verdicts. A recorded verdict batch cancels its review wake, and re-entering the plan runner reprints that batch instead of capturing the settled requirements again.",
  "sources": ["packages/yoke-core/src/yoke_core/domain/qa_run_execution_evidence.py", "runtime/api/domain/test_qa_aborted_capture_review.py", "docs/public/reference/qa-platform/requirement-state-model.md"]
 }

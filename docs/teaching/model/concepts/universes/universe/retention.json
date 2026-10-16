@@ -2,10 +2,10 @@
  "id": "retention",
  "title": "Universe retention",
  "status": "observed",
- "summary": "One admin command previews or prunes explicit disposable tables using universe settings, bounded committed transactions and permanent reference protections. Existing faster cleanup keeps its original expiry boundaries and cadence; the one-day cutoff only selects remaining old rows and never creates a minimum hold. The foreground loop has no overall cutoff or saved run. Source and disposable-database behavior are tested; deployed preview proof is still owed.",
+ "summary": "One admin command previews or prunes explicit disposable tables using universe settings, bounded committed transactions and permanent reference protections. One apply run continues until a full cycle deletes nothing under one fixed UTC cutoff; a pass that reaches its budget resumes the same table, and a table that reaches its own statement or lock limit is skipped, retried up to three times and reported with its reason and recovery. Cohorts lock only their own rows. Output is a progress line about every 10 seconds and a short summary; --full and --json keep per-table detail. Existing faster cleanup keeps its original expiry boundaries and cadence; the one-day cutoff only selects remaining old rows and never creates a minimum hold. Source and disposable-database behavior are tested; deployed proof is still owed.",
  "commands": ["yoke universe retention get", "yoke universe prune"],
  "functions": ["universe.retention.get", "universe.prune.run"],
- "sources": ["docs/public/universe-retention.md", "packages/yoke-contracts/src/yoke_contracts/retention_defaults.py", "runtime/api/domain/test_universe_retention.py"],
+ "sources": ["docs/public/universe-retention.md", "packages/yoke-contracts/src/yoke_contracts/retention_defaults.py", "runtime/api/domain/test_universe_retention.py", "runtime/api/domain/test_universe_retention_passes.py", "runtime/api/domain/test_universe_prune_output.py"],
  "gaps": ["universe-retention-preview"],
  "page": "universes",
  "position": 4

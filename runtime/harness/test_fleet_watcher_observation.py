@@ -99,7 +99,7 @@ def test_relay_request_carries_the_observation(monkeypatch) -> None:
         "claude-code",
         None,
         start_hook_deadline(),
-        defer_main_commit=True,
+        collect_facts=True,
     )
     standalone = evaluate_local_subset(
         "PreToolUse", stdin, "claude-code", None, start_hook_deadline()

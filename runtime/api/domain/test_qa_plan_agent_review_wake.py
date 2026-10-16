@@ -15,11 +15,17 @@ from runtime.api.domain.test_qa_capture_pending_review import (
     MEMBER,
     STAGE,
     _seed_pending,
+    _submit,
 )
 from yoke_core.domain.deployment_qa_stage_wake import notify_item_scoped_qa_wait
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_agent_review_wake import notify_scoped_agent_review
+from yoke_core.domain.qa_plan_execution_begin import begin_plan_execution
 from yoke_core.domain.qa_plan_review import begin_plan_review
+from yoke_core.domain.qa_plan_settled_review import (
+    SETTLED_REVIEW_WAKE_REASON,
+    open_unsettled_roster,
+)
 from yoke_core.domain.session_explicit_wake import explicit_stopped_wake_requested
 from yoke_core.domain.work_claim_targets import make_item_target
 
@@ -188,3 +194,135 @@ def test_capture_and_notice_roll_back_together_on_notice_failure(test_db, monkey
         test_db.execute("SELECT COUNT(*) FROM qa_plan_review_bundles").fetchone()[0]
         == 0
     )
+
+
+def _reenter(conn, execution):
+    return begin_plan_execution(
+        conn,
+        deployment_run_id=execution["deployment_run_id"],
+        deployment_stage=execution["deployment_stage"],
+        deployment_member_item_id=execution["deployment_member_item_id"],
+        actor_id="2",
+        session_id=OWNER,
+    )
+
+
+def _count(conn, table):
+    return conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+
+
+def test_pending_reentry_reprints_the_same_bundle(test_db):
+    _owner(test_db)
+    execution, bundle, _requirement = _seed_pending(
+        test_db, "run-review-pending-reentry", "item"
+    )
+    runs = _count(test_db, "qa_runs")
+    executions = _count(test_db, "qa_plan_executions")
+
+    replay = _reenter(test_db, execution)
+
+    assert replay["id"] == execution["id"]
+    assert replay["state"] == "awaiting_agent_review"
+    assert "settled_review" not in replay
+    review = begin_plan_review(test_db, replay)
+    assert review["bundle_id"] == bundle["bundle_id"]
+    assert review["state"] == "pending"
+    assert _count(test_db, "qa_runs") == runs
+    assert _count(test_db, "qa_plan_executions") == executions
+
+
+def test_settled_reentry_reprints_verdict_without_a_new_capture(test_db):
+    _owner(test_db)
+    execution, bundle, requirement_id = _seed_pending(
+        test_db, "run-review-settled-reentry", "item"
+    )
+    _submit(test_db, execution, bundle, requirement_id, "fail")
+    runs = _count(test_db, "qa_runs")
+    executions = _count(test_db, "qa_plan_executions")
+
+    replay = _reenter(test_db, execution)
+
+    assert replay["id"] == execution["id"]
+    assert replay["settled_review"] == [
+        verdict
+        for verdict in replay["settled_review"]
+        if verdict["requirement_id"] == requirement_id
+    ]
+    assert replay["settled_review"][0]["verdict"] == "fail"
+    assert _count(test_db, "qa_runs") == runs
+    assert _count(test_db, "qa_plan_executions") == executions
+
+
+def test_recorded_verdict_cancels_the_review_wake(test_db):
+    _owner(test_db)
+    execution, bundle, requirement_id = _seed_pending(
+        test_db, "run-review-cancel", "item"
+    )
+    key = f"qa-plan-agent-review:{execution['id']}"
+    _submit(test_db, execution, bundle, requirement_id, "fail")
+
+    row = test_db.execute(
+        "SELECT m.cancellation_reason, r.state FROM session_messages m "
+        "JOIN session_message_recipients r ON r.message_id=m.message_id "
+        "WHERE m.idempotency_key=%s",
+        (key,),
+    ).fetchone()
+    assert str(row["cancellation_reason"]).startswith(SETTLED_REVIEW_WAKE_REASON)
+    assert row["state"] == "cancelled"
+    assert notify_scoped_agent_review(test_db, execution) == ""
+    assert _count(test_db, "session_messages") == 1
+
+
+def test_delivery_cancels_a_review_wake_whose_verdict_landed(test_db, monkeypatch):
+    _owner(test_db)
+    execution, bundle, requirement_id = _seed_pending(
+        test_db, "run-review-delivery-cancel", "item"
+    )
+    key = f"qa-plan-agent-review:{execution['id']}"
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_plan_settled_review.withdraw_settled_agent_review_wakes",
+        lambda *args, **kwargs: 0,
+    )
+    _submit(test_db, execution, bundle, requirement_id, "fail")
+    assert (
+        test_db.execute(
+            "SELECT cancellation_reason FROM session_messages WHERE idempotency_key=%s",
+            (key,),
+        ).fetchone()[0]
+        is None
+    )
+    monkeypatch.undo()
+    from yoke_core.domain.session_message_delivery import expire_due_recipients
+
+    assert expire_due_recipients(test_db) >= 0
+    reason = test_db.execute(
+        "SELECT cancellation_reason FROM session_messages WHERE idempotency_key=%s",
+        (key,),
+    ).fetchone()[0]
+    assert str(reason).startswith(SETTLED_REVIEW_WAKE_REASON)
+
+
+def test_unsettled_requirement_remains_eligible_to_capture(test_db):
+    _owner(test_db)
+    execution, bundle, requirement_id = _seed_pending(
+        test_db, "run-review-partial", "item"
+    )
+    _submit(test_db, execution, bundle, requirement_id, "fail")
+    roster = [dict(row) for row in execution["roster"]]
+    extra = dict(roster[0])
+    extra["requirement_id"] = requirement_id + 1
+    extra["ordinal"] = 1
+    roster.append(extra)
+
+    reprint, kept = open_unsettled_roster(
+        test_db,
+        roster,
+        item_id=None,
+        transition_id=None,
+        deployment_run_id=execution["deployment_run_id"],
+        deployment_stage=execution["deployment_stage"],
+        deployment_member_item_id=execution["deployment_member_item_id"],
+    )
+
+    assert reprint is None
+    assert [int(row["requirement_id"]) for row in kept] == [requirement_id + 1]

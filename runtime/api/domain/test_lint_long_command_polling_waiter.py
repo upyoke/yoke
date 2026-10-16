@@ -16,6 +16,10 @@ from yoke_core.domain import lint_long_command_polling_waiter as waiter
 from yoke_core.domain.lint_long_command_polling_constants import (
     BG_WAITER_SUPPRESSION_TOKEN,
 )
+from yoke_core.domain.lint_long_command_polling_test_helpers import (
+    CAPTURE_ROOTS as ROOTS,
+    capture_fact,
+)
 
 
 CAPTURE = "/tmp/yoke-pytest.body-budget.raw.log"
@@ -28,6 +32,7 @@ def _bg_payload(
     session_id: str = "sess-test",
     tool_use_id: str = "tu-current",
     run_in_background: bool = True,
+    roots: tuple[str, ...] = ROOTS,
 ) -> dict:
     return {
         "tool_name": "Bash",
@@ -39,6 +44,7 @@ def _bg_payload(
         "session_id": session_id,
         "tool_use_id": tool_use_id,
         "turn_id": "turn-1",
+        **capture_fact(roots=roots),
     }
 
 
@@ -46,46 +52,60 @@ class TestExtractWaiterTarget(unittest.TestCase):
     """Pure-regex shape detection for the four waiter shapes."""
 
     def test_tail_f_shape(self) -> None:
-        shape, target = waiter._extract_waiter_target(f"tail -f {CAPTURE}")
+        shape, target = waiter._extract_waiter_target(f"tail -f {CAPTURE}", ROOTS)
         self.assertEqual(shape, "tail-f")
         self.assertEqual(target, CAPTURE)
 
     def test_tail_capital_f_shape(self) -> None:
-        shape, target = waiter._extract_waiter_target(f"tail -F {CAPTURE}")
+        shape, target = waiter._extract_waiter_target(f"tail -F {CAPTURE}", ROOTS)
         self.assertEqual(shape, "tail-f")
         self.assertEqual(target, CAPTURE)
 
     def test_sleep_then_peek_shape(self) -> None:
         shape, target = waiter._extract_waiter_target(
-            f"sleep 30 && tail -200 {CAPTURE}"
+            f"sleep 30 && tail -200 {CAPTURE}",
+            ROOTS,
         )
         self.assertEqual(shape, "sleep-then-peek")
         self.assertEqual(target, CAPTURE)
 
     def test_sleep_then_grep_shape(self) -> None:
         shape, target = waiter._extract_waiter_target(
-            f"sleep 30 && grep -E pat {CAPTURE}"
+            f"sleep 30 && grep -E pat {CAPTURE}",
+            ROOTS,
         )
         self.assertEqual(shape, "sleep-then-peek")
         self.assertEqual(target, CAPTURE)
 
     def test_watch_tail_shape(self) -> None:
         shape, target = waiter._extract_waiter_target(
-            f"python3 -m yoke_core.tools.watch_tail {CAPTURE}"
+            f"python3 -m yoke_core.tools.watch_tail {CAPTURE}",
+            ROOTS,
         )
         self.assertEqual(shape, "watch-tail")
         self.assertEqual(target, CAPTURE)
 
     def test_while_sentinel_shape(self) -> None:
         shape, target = waiter._extract_waiter_target(
-            f"while [ ! -f {SENTINEL} ]; do sleep 5; done"
+            f"while [ ! -f {SENTINEL} ]; do sleep 5; done",
+            ROOTS,
         )
         self.assertEqual(shape, "while-sentinel")
         self.assertEqual(target, SENTINEL)
 
+    def test_path_outside_client_roots_no_match(self) -> None:
+        self.assertEqual(
+            waiter._extract_waiter_target(f"tail -f {CAPTURE}", ("/var/scratch",)),
+            (None, None),
+        )
+        self.assertEqual(
+            waiter._extract_waiter_target(f"tail -f {CAPTURE}", ()), (None, None)
+        )
+
     def test_substantive_command_no_match(self) -> None:
         shape, target = waiter._extract_waiter_target(
-            "python3 -m pytest runtime/api/"
+            "python3 -m pytest runtime/api/",
+            ROOTS,
         )
         self.assertIsNone(shape)
         self.assertIsNone(target)
@@ -110,7 +130,8 @@ class TestEvaluateBgWaiter(unittest.TestCase):
             self.assertIsNone(
                 waiter.evaluate_bg_waiter(
                     _bg_payload(
-                        f"tail -f {CAPTURE}", run_in_background=False,
+                        f"tail -f {CAPTURE}",
+                        run_in_background=False,
                     )
                 )
             )
@@ -121,17 +142,13 @@ class TestEvaluateBgWaiter(unittest.TestCase):
         # background tail).
         with self._existing_captures_patch(set()):
             self.assertIsNone(
-                waiter.evaluate_bg_waiter(
-                    _bg_payload(f"tail -f {CAPTURE}")
-                )
+                waiter.evaluate_bg_waiter(_bg_payload(f"tail -f {CAPTURE}"))
             )
 
     def test_tail_f_against_existing_capture_denies(self) -> None:
         # tail -f waiter shape.
         with self._existing_captures_patch({CAPTURE}):
-            result = waiter.evaluate_bg_waiter(
-                _bg_payload(f"tail -f {CAPTURE}")
-            )
+            result = waiter.evaluate_bg_waiter(_bg_payload(f"tail -f {CAPTURE}"))
         self.assertIsNotNone(result)
         assert result is not None
         verdict, reason, ctx = result
@@ -195,15 +212,22 @@ class TestEvaluateBgWaiter(unittest.TestCase):
 
     def test_warn_mode_records_without_blocking(self) -> None:
         # Warn-mode emits the verdict but does not block.
-        with mock.patch.object(waiter, "_read_lint_mode", return_value="warn"), \
-             self._existing_captures_patch({CAPTURE}):
-            result = waiter.evaluate_bg_waiter(
-                _bg_payload(f"tail -f {CAPTURE}")
-            )
+        with (
+            mock.patch.object(waiter, "_read_lint_mode", return_value="warn"),
+            self._existing_captures_patch({CAPTURE}),
+        ):
+            result = waiter.evaluate_bg_waiter(_bg_payload(f"tail -f {CAPTURE}"))
         self.assertIsNotNone(result)
         assert result is not None
         verdict, _reason, _ctx = result
         self.assertEqual(verdict, "warn")
+
+    def test_payload_without_client_roots_allows(self) -> None:
+        # Roots come from the client fact; with none, no path is a capture.
+        with self._existing_captures_patch({CAPTURE}):
+            self.assertIsNone(
+                waiter.evaluate_bg_waiter(_bg_payload(f"tail -f {CAPTURE}", roots=()))
+            )
 
     def test_non_bash_tool_skipped(self) -> None:
         payload = _bg_payload(f"tail -f {CAPTURE}")

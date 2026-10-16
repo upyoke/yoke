@@ -76,6 +76,8 @@ TERMINAL_RECIPES: frozenset[str] = frozenset(
         "organizations.domain.set",
         "organizations.settings.merge",
         "ouroboros.field_note.append",
+        "profile.token.create",
+        "profile.token.revoke",
         "projects.capability_secret.set",
         "sessions.begin",
     }

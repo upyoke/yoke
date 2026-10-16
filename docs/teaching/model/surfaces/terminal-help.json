@@ -10,6 +10,8 @@
  "note": "The full-catalog route needs a concrete design; no new flag is assumed here. “yoke help TOPIC” currently returns root help. yoke machines --help exposes pending, approve and deny for waiting machines; yoke machine --help manages registered machines.",
  "current": "Observed 2026-10-12: yoke --help prints 1,859 lines / 102,636 characters. Cascade repair is not shipped here.",
  "desired": "Overview → immediate categories → command recipes. Hard 350 lines; smaller budgets are advisory.",
+ "commands": ["yoke tokens create", "yoke tokens list", "yoke tokens revoke"],
+ "text": "yoke tokens --help lists create, list and revoke. Create requires --name LABEL and shows your token once; list reveals metadata only. Lost it? Revoke its ID and create a new one. These operations need no project or harness session.",
  "plan_notes": ["FIRST-USER 35/P6", "New help layout proposal"],
  "plan_refs": ["FIRST-USER.35"],
  "sources": ["packages/yoke-cli/src/yoke_cli/command_router.py", "packages/yoke-cli/src/yoke_cli/commands/group_help.py", "packages/yoke-cli/src/yoke_cli/commands/registry.py", "packages/yoke-cli/src/yoke_cli/commands/registry_admission.py", "docs/public/reference/commands.md"]

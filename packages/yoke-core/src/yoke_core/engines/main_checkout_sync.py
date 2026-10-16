@@ -1,6 +1,8 @@
-"""Advance a project's default-branch checkout at session start and landings.
+"""Advance a project's default-branch checkout after a landing.
 
-Both moments ask the same question the preparation surfaces ask — is this
+Session start does the same through
+:func:`yoke_harness.hooks.session_lifecycle.sync_session_main_checkout`, on
+the machine that owns the checkout. Both ask the same question the preparation surfaces ask — is this
 checkout's default branch current with its remote, and can it be brought
 current without touching anything local — so both delegate to the one
 implementation in :mod:`yoke_cli.config.repo_upstream_freshness` rather
@@ -32,18 +34,7 @@ def fast_forward_main_checkout(repo_root: str, target: str) -> str:
     return f"{NOT_SYNCED}: {freshness.note}"
 
 
-def sync_main_checkout_at_session_start(repo_root: str) -> str:
-    """Advance the default-branch checkout once; never raise.
-
-    The branch is the one the checkout's own remote publishes as its
-    default, so a project whose default is not ``main`` syncs the branch it
-    actually uses.
-    """
-    return fast_forward_main_checkout(repo_root, "")
-
-
 __all__ = [
     "NOT_SYNCED",
     "fast_forward_main_checkout",
-    "sync_main_checkout_at_session_start",
 ]

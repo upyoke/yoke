@@ -1,21 +1,17 @@
-"""Verdict tests for the duplicate-Monitor PreToolUse rule.
-
-Focused sibling of ``test_lint_long_command_polling_monitor_rules`` so
-both authored test files stay under the 350-line cap. Covers:
+"""Verdict tests for the duplicate-Monitor PreToolUse rule. Covers:
 
 - identical re-arm denied (warn and deny modes)
 - different-filter re-arm denied (capture-file equivalence)
 - foreign-capture allowed (different capture file is its own lane)
+- no client scratch roots allowed (no path is a capture)
 - post-completion second Monitor against same capture also denied
   (session-spanning fire-once contract — operational data showed this
   was the dominant wake-loop shape)
 - ``# lint:no-monitor-duplicate-check`` audit-only suppression
 - ``evaluate_duplicate_monitor`` callable directly
 
-Run-level audit-event outcome propagation lives in
-``test_lint_long_command_polling_run.py``. Most verdict cases mock
-``_captures_targeted_in_session``; the DB-backed tests below exercise
-the Started-row lookup directly against an isolated temp DB.
+Most verdict cases mock ``_captures_targeted_in_session``; the DB-backed
+tests exercise the Started-row lookup against an isolated temp DB.
 """
 
 from __future__ import annotations
@@ -36,7 +32,9 @@ from yoke_core.domain import (
 )
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.lint_long_command_polling_test_helpers import (
+    CAPTURE_ROOTS as ROOTS,
     _non_bash_payload,
+    capture_fact,
 )
 
 
@@ -46,6 +44,7 @@ def _monitor_payload(
     session_id: str = "sess-monitor",
     turn_id: str = "turn-monitor",
     tool_use_id: str = "tu-monitor-new",
+    roots: tuple[str, ...] = ROOTS,
 ) -> dict:
     """PreToolUse payload for a Monitor invocation."""
     return {
@@ -54,6 +53,7 @@ def _monitor_payload(
         "session_id": session_id,
         "tool_use_id": tool_use_id,
         "turn_id": turn_id,
+        **capture_fact(roots=roots),
     }
 
 
@@ -190,6 +190,19 @@ class TestDuplicateMonitorDetection(_DuplicateMonitorBase):
                 lint.evaluate_payload(_monitor_payload("watch some-other-cmd"))
             )
 
+    def test_monitor_without_client_roots_allowed(self) -> None:
+        # Without the client's scratch roots no path is a capture, so the
+        # rule cannot establish equivalence and passes through.
+        with self._patch_armed([("tu-monitor-prior", _CAPTURE_X)]):
+            self.assertIsNone(
+                lint.evaluate_payload(
+                    _monitor_payload(
+                        f"python3 -m yoke_core.tools.watch_tail {_CAPTURE_X}",
+                        roots=(),
+                    )
+                )
+            )
+
     def test_non_monitor_tool_unaffected(self) -> None:
         # The Monitor branch must not intercept other tool calls.
         with self._patch_armed([("tu-monitor-prior", _CAPTURE_X)]):
@@ -284,7 +297,7 @@ class TestCapturesTargetedLookup(unittest.TestCase):
         )
 
         self.assertEqual(
-            monitor_dup._captures_targeted_in_session(db_path, "sess-monitor"),
+            monitor_dup._captures_targeted_in_session(db_path, "sess-monitor", ROOTS),
             [("tu-open", _CAPTURE_X)],
         )
 
@@ -300,7 +313,7 @@ class TestCapturesTargetedLookup(unittest.TestCase):
         )
 
         self.assertEqual(
-            monitor_dup._captures_targeted_in_session(db_path, "sess-monitor"),
+            monitor_dup._captures_targeted_in_session(db_path, "sess-monitor", ROOTS),
             [("tu-done", _CAPTURE_X)],
         )
 

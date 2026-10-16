@@ -101,19 +101,19 @@ live call may defer; repeated failures retain precedence.
 
 Native-held rows name the native and, when measurable, its no-output age from
 the capture's own clock, not periodically refreshed file mtime. Missing old
-clock means unknown, never recent output. Parked declares wait, not native
-exit. Codex active-writer/background_session_in_use is native_turn_running
-deferral, not a steering failure notice. Observed exit reopens a busy receipt
-even at retry limit; silence alone cannot reopen exhausted unparked receipt.
-Verified exit retires orphan open calls. Explicit operator wake retains its
-intentional semantics; automatic wakes never start a second live turn.
+clock means unknown, never recent output. Parked declares wait, not exit; a
+supervisor-recorded exit ends the hold despite surviving group members. Codex
+background_session_in_use is native_turn_running deferral, not a failure.
+Observed exit reopens a busy receipt even at retry limit; silence cannot reopen
+an exhausted unparked one. Verified exit retires orphan open calls. Explicit
+operator wake keeps its semantics; automatic wakes never start a second turn.
 
 wake_escalation qualifies actionable rows: starved_hook_route,
-parked_without_idle_wake, native_process_gone. Park/no-idle-wake and stored
-native exit escalate immediately, not after another grace; later activity
-retires observations. Clean exited parked/landing workers resume stored native
-identity on their next message while their holder wait remains expected.
-Readable machine observation, not heartbeat age, proves exit.
+parked_without_idle_wake, native_process_gone. These escalate at once; later
+activity retires observations. Clean exited parked/landing workers resume
+their stored native identity on their next message; their wait stays expected.
+Machine observation, not heartbeat age, proves exit. Escalated rows name
+`yoke session-control session wake SESSION-ID`; terminate needs transcript gone.
 
 Refused/exhausted wakes send one bounded role-addressed notice per failure to
 covering steering, with original message/target/diagnostic. outcome_unknown
@@ -215,6 +215,7 @@ not-woken reason (expired/failed/cancelled, no holder/seat, gone/stale driver).
 One notice + at most two addressability reads per run; detailed requirement
 reasons stay on `yoke deployment-runs stages RUN`. Wakes precede empty-member
 close-out; missing wake is a defect, not instruction to message owners manually.
+A member holding an open `wake_path: manual` requirement (no run recorded, not waived/superseded/retracted) is never woken at stage entry; its line reads `held for manual wake`. Section "waiting on manual wake" lists run, item, requirement, case, `wake_evidence`, claim-holder session and liveness, and the `yoke say --item` wake carrying the member's `yoke qa plan run`. Rows enter the fingerprint (requirement, owner) but never `actionable`: evidence can take days.
 
 Waiting-only-to-be-driven means created with no live driver. created + live
 driver may be silent phase; executing does not call for duplicate drive even

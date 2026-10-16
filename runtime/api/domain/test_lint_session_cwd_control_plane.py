@@ -1,21 +1,10 @@
-"""Regression coverage for the Yoke-control-plane carve-out and
-PYTHONPATH equivalence in the session-cwd lint family.
+"""Yoke-control-plane carve-out and PYTHONPATH equivalence in the session-cwd lint.
 
-Covers ACs 11-14 of YOK-1737:
-
-* Yoke control-plane reads allowed for any active Yoke
-  session regardless of held project-side claim; sibling-branch
-  worktrees remain claim-gated.
-* ``PYTHONPATH=<yoke-root>`` invocations are cwd-equivalent
-  for Yoke-internal modules.
-* End-to-end scenario: a session holding a project-side
-  ``work_claim`` can run Yoke control-plane reads and Yoke module
-  invocations from any cwd.
-* ``BLOCKED`` message no longer mislabels a project repo as
-  ``Control plane`` for a cross-project Yoke session.
-
-File-path PYTHONPATH heuristics are retired; see
-:mod:`test_db_helpers_pythonpath`.
+The Yoke source root comes from the client fact
+``SOURCE_ROOT_KEY``. Control-plane reads are allowed for any active session;
+sibling-branch worktrees stay claim-gated; ``PYTHONPATH=<yoke-root>``
+invocations are cwd-equivalent for Yoke-internal modules; the BLOCKED message
+names the Yoke control plane separately from project control planes.
 """
 
 from __future__ import annotations
@@ -32,6 +21,7 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
 )
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
+from yoke_contracts.hook_runner.client_facts import SOURCE_ROOT_KEY, client_fact
 from yoke_core.domain import (
     lint_session_cwd,
     lint_session_cwd_control_plane,
@@ -47,19 +37,13 @@ def conn():
 
 @pytest.fixture
 def fake_yoke_root(monkeypatch):
-    """Pin the helper to a fake Yoke main repo path.
+    """A fake Yoke source checkout the client reports as a fact.
 
     The path is intentionally outside ``/tmp`` and ``/var/folders`` so
     the free-path allowlist cannot mask the carve-out logic this module
     is meant to exercise.
     """
     yoke_root = Path("/__yoke_test_root__")
-
-    monkeypatch.setattr(
-        lint_session_cwd_control_plane,
-        "yoke_main_root",
-        lambda: str(yoke_root),
-    )
     # Keep ``/tmp`` free (production semantics — operators live there)
     # but drop ``/var/folders`` so pytest's ``tmp_path`` fixtures stop
     # incidentally short-circuiting the carve-out logic via the
@@ -71,6 +55,11 @@ def fake_yoke_root(monkeypatch):
         ("/tmp", "/private/tmp", "/dev"),
     )
     return yoke_root
+
+
+def _source_root_fact(yoke_root) -> dict:
+    """The client fact naming the session's Yoke source checkout."""
+    return client_fact(SOURCE_ROOT_KEY, str(yoke_root))
 
 
 @pytest.fixture
@@ -119,6 +108,7 @@ class TestYokeControlPlaneCarveOut:
         fake_yoke_root, _ = cross_project_session
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
+                **_source_root_fact(fake_yoke_root),
                 "session_id": "sid-cross",
                 "tool_input": {
                     "file_path": str(fake_yoke_root / "runtime" / "api"),
@@ -134,6 +124,7 @@ class TestYokeControlPlaneCarveOut:
         fake_yoke_root, _ = cross_project_session
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
+                **_source_root_fact(fake_yoke_root),
                 "session_id": "sid-cross",
                 "tool_input": {
                     "command": f"test -d {fake_yoke_root}/.worktrees/YOK-42",
@@ -149,6 +140,7 @@ class TestYokeControlPlaneCarveOut:
 
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
+                **_source_root_fact(fake_yoke_root),
                 "session_id": "sid-cross",
                 "tool_input": {
                     "file_path": str(fake_yoke_root / "data" / "config"),
@@ -165,6 +157,7 @@ class TestYokeControlPlaneCarveOut:
         sibling = fake_yoke_root / ".worktrees" / "YOK-other" / "runtime"
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
+                **_source_root_fact(fake_yoke_root),
                 "session_id": "sid-cross",
                 "tool_input": {"file_path": str(sibling)},
             }
@@ -186,6 +179,7 @@ class TestPythonPathEquivalence:
         foreign_cwd = Path("/__foreign_cwd__")
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
+                **_source_root_fact(fake_yoke_root),
                 "session_id": "sid-cross",
                 "cwd": str(foreign_cwd),
                 "tool_input": {
@@ -202,6 +196,7 @@ class TestPythonPathEquivalence:
         fake_yoke_root, _ = cross_project_session
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
+                **_source_root_fact(fake_yoke_root),
                 "session_id": "sid-cross",
                 "cwd": "/tmp",
                 "tool_input": {
@@ -222,6 +217,7 @@ class TestPythonPathEquivalence:
         foreign_cwd = Path("/__foreign_cwd__")
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
+                **_source_root_fact(fake_yoke_root),
                 "session_id": "sid-cross",
                 "cwd": str(foreign_cwd),
                 "tool_input": {
@@ -239,9 +235,11 @@ class TestPythonPathEquivalence:
         self,
         cross_project_session,
     ):
+        fake_yoke_root, _ = cross_project_session
         foreign_cwd = Path("/__foreign_cwd__")
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
+                **_source_root_fact(fake_yoke_root),
                 "session_id": "sid-cross",
                 "cwd": str(foreign_cwd),
                 "tool_input": {
@@ -260,9 +258,21 @@ class TestPythonPathEquivalence:
             f"yoke_core.cli.db_router items get YOK-42 status"
         )
         override = lint_session_cwd_control_plane.extract_pythonpath_yoke_cwd_override(
-            cmd
+            cmd, str(fake_yoke_root)
         )
         assert override == str(fake_yoke_root)
+
+    def test_override_needs_the_source_root_fact(self, fake_yoke_root):
+        cmd = (
+            f"PYTHONPATH={fake_yoke_root} python3 -m "
+            f"yoke_core.cli.db_router items get YOK-42 status"
+        )
+        payload = {"cwd": "/__foreign_cwd__", "tool_input": {"command": cmd}}
+        resolve = lint_session_cwd_control_plane.resolve_authority_cwd
+        assert resolve(payload) == "/__foreign_cwd__"
+        assert resolve({**payload, **_source_root_fact(fake_yoke_root)}) == str(
+            fake_yoke_root
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -280,6 +290,7 @@ class TestBlockedMessageWording:
 
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
+                **_source_root_fact(fake_yoke_root),
                 "session_id": "sid-cross",
                 "tool_input": {"file_path": str(foreign)},
             }
@@ -316,6 +327,7 @@ class TestBlockedMessageWording:
 
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             {
+                **_source_root_fact(fake_yoke_root),
                 "session_id": "sid-yoke",
                 "tool_input": {"file_path": str(foreign)},
             }

@@ -1,8 +1,6 @@
 """Prove native exit from this machine's custody records.
 
 The control plane waits out a heartbeat TTL; this machine proves native exit.
-Group custody survives the supervisor until its remaining members also exit.
-
 Launch handles, process anchors and supervised resumes all name processes.
 A reused pid reads as gone; absent records prove nothing. Resume records
 must participate even when the session never wrote a handle or anchor.
@@ -12,10 +10,10 @@ A session whose first launch exited and was later woken has a spent launch
 handle beside a live resume-custody record, so the scan below also asks the
 custody reader whether this machine is still running a native for it.
 
-Records are pruned only after their custody is gone and the control plane
-accounts for them. Claim-holding sessions report again after claims release.
-
-Reports carry the launch id and native's last line to settle pre-registration deaths.
+Custody is read from ``state_dir`` (the machine cache, where the wake's own
+custody check reads it); captures from ``diagnostic_state_dir``. Records are
+pruned once custody is gone and the control plane accounts for them.
+Reports carry the launch id and native's last line.
 """
 
 from __future__ import annotations
@@ -178,10 +176,12 @@ def session_process_records(
 def verified_dead_sessions(
     *,
     state_dir: Path | None = None,
+    diagnostic_state_dir: Path | None = None,
     anchors_dir: Path | None = None,
     start_time_of: StartTimeOf = process_start_time,
 ) -> tuple[VerifiedDeadSession, ...]:
     """Return the sessions whose every recorded process is verifiably gone."""
+    diagnostic_state_dir = diagnostic_state_dir or state_dir
     # Imported here rather than at module scope because the custody reader
     # names this module's launch-handle family; the dependency runs both ways
     # and only this direction is needed at call time.
@@ -234,8 +234,10 @@ def verified_dead_sessions(
             evidence["launch_id"] = launch_id
         capture_id = resume_id or launch_id
         if capture_id:
-            evidence.update(native_account(capture_id, state_dir=state_dir))
-            measured = fold_launch_native_result(capture_id, state_dir=state_dir)
+            evidence.update(native_account(capture_id, state_dir=diagnostic_state_dir))
+            measured = fold_launch_native_result(
+                capture_id, state_dir=diagnostic_state_dir
+            )
         dead.append(
             VerifiedDeadSession(
                 session_id,
@@ -287,6 +289,7 @@ def report_verified_dead_sessions(
     inventory: Any,
     *,
     state_dir: Path | None = None,
+    diagnostic_state_dir: Path | None = None,
     anchors_dir: Path | None = None,
     timeout_s: int = RELAY_REPORT_TIMEOUT_SECONDS,
     start_time_of: StartTimeOf = process_start_time,
@@ -301,6 +304,7 @@ def report_verified_dead_sessions(
     """
     dead = verified_dead_sessions(
         state_dir=state_dir,
+        diagnostic_state_dir=diagnostic_state_dir,
         anchors_dir=anchors_dir,
         start_time_of=start_time_of,
     )

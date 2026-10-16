@@ -50,14 +50,5 @@ def snapshot_policy():
             ("path_snapshot_entries", "snapshot_id", "id"),
             ("path_snapshot_symlink_facts", "snapshot_id", "id"),
         ),
-        locks=(
-            "path_targets",
-            "item_worktrees",
-            "items",
-            "path_integrity_runs",
-            "path_integrity_failures",
-            "path_claims",
-            "path_claim_targets",
-        ),
         reason="latest/content snapshots, last sightings, active heads, claims and integrity references stay whole",
     )

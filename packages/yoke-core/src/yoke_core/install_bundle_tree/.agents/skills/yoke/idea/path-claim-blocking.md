@@ -2,10 +2,11 @@
 
 A draft cannot leave intake with an unrepresented coverage/overlap conflict.
 The [claims catalog](../../../../.yoke/docs/reference/db-reference/functions.md)
-owns schemas; this phase owns decision order. Idea, Refine and the planning
-Architect attest coordination. Runtime Engineer/Tester/Boss/Conduct/Polish/Usher
-route collisions back to authoring through the pin/shared handoff, never author
-their own compatibility edge.
+owns schemas; this phase owns decision order. Idea, Refine, the planning
+Architect, and any session holding the item's work claim attest coordination,
+using that skill as `source`. Engineer and Tester report a collision to their
+parent skill and do not author the edge. When no live work-claim holder
+exists, route to `/yoke refine`.
 
 ## 0. Renderer-only shortcut
 

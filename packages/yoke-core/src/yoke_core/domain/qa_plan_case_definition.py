@@ -25,6 +25,8 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping, Optional
 
+from yoke_contracts.qa_case_wake_path import stored_wake_path
+
 from yoke_core.domain.machine_qa_case_machine import materialized_capability_kinds
 from yoke_core.domain.qa_execution_environment_target import (
     canonical_target,
@@ -119,6 +121,8 @@ def materialized_definition(
         "starting_state_reason": case.get("starting_state_reason"),
         "entry_surface": case["entry_surface"],
         "required_completion": case["required_completion"],
+        "wake_path": stored_wake_path(case.get("wake_path")),
+        "wake_evidence": case.get("wake_evidence"),
         "workflow_transition_id": transition_id,
         "instructions": str(case["instructions"]),
         "expected_outcome": str(case["expected_outcome"]),

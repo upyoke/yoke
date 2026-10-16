@@ -5,5 +5,5 @@
  "audience": "Maintainers",
  "page": "contributing-guides",
  "position": 5,
- "summary": "Hosted recovery journeys retain fail-fast preparation and emit final capture readiness only after successful installer exit and post-exit assertions, including the real nonempty backup check."
+ "summary": "State checks follow the Apply journey that creates their subject; token existence and owner-only modes have separate diagnostics. Review captures the full pending-write list before backing out. Browser approval requires a visible control and same-tab confirmation or navigation. Hosted recovery retains fail-fast backup assertions and post-exit capture readiness; source correctness does not establish live campaign acceptance."
 }

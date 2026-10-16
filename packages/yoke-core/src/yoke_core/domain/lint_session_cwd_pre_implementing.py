@@ -50,7 +50,7 @@ def build_pre_implementing_verdict(
     # Lazy import to avoid the orchestrator <-> branch circular ring.
     from yoke_core.domain.lint_session_cwd import Verdict
 
-    mode = read_mode()
+    mode = read_mode(payload)
     command = extract_command(payload)
     suppressed = command_has_suppression_token(command)
     item = outcome.matched_claim

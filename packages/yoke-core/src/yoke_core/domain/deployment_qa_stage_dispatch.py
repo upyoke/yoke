@@ -17,6 +17,9 @@ from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
 from yoke_core.domain import deployment_run_item_qa_membership as item_qa
 
 from yoke_core.domain.deployment_qa_result_notice import report_stage_result
+from yoke_core.domain.deployment_qa_manual_wake import (
+    member_holds_for_manual_wake,
+)
 from yoke_core.domain.deployment_qa_stage_wake import (
     notify_item_scoped_qa_wait,
     notify_run_scoped_qa_wait,
@@ -251,6 +254,16 @@ def materialize_and_gate_deployment_qa_stage(
                         continue
                     if handoff.startswith(("failed:", "unaddressed:")):
                         print(f"Run {run_id} stage {stage['name']!r}: {handoff}")
+                elif member is not None and member_holds_for_manual_wake(
+                    conn,
+                    run_id=run_id,
+                    stage_name=str(stage["name"]),
+                    member_item_id=member,
+                ):
+                    print(
+                        f"Run {run_id} stage {stage['name']!r} {label}: holding "
+                        "for manual wake; steering wakes its owner"
+                    )
                 else:
                     _notify_stage_wait(
                         conn,
