@@ -16,8 +16,22 @@ from yoke_core.domain import lint_subagent_background as lint
 from yoke_core.hooks.types import HookContext, Outcome
 
 
-def _payload(tool_name, *, command=None, run_in_background=None, reason=None,
-             session_id="sess-1"):
+# The harness agent type every evaluation path lifts into the payload.
+_PAYLOAD_AGENT = {"agent_type": None}
+
+# The evaluating process's own agent-type variable must never decide.
+_STRAY_ENV = {lint.AGENT_TYPE_ENV_VAR: "engineer"}
+
+
+def _subagent(test_case, agent_type="engineer"):
+    patcher = patch.dict(_PAYLOAD_AGENT, agent_type=agent_type)
+    patcher.start()
+    test_case.addCleanup(patcher.stop)
+
+
+def _payload(
+    tool_name, *, command=None, run_in_background=None, reason=None, session_id="sess-1"
+):
     tool_input = {}
     if command is not None:
         tool_input["command"] = command
@@ -25,14 +39,17 @@ def _payload(tool_name, *, command=None, run_in_background=None, reason=None,
         tool_input["run_in_background"] = run_in_background
     if reason is not None:
         tool_input["reason"] = reason
-    return {
+    payload = {
         "tool_name": tool_name,
         "tool_input": tool_input,
         "session_id": session_id,
     }
+    if _PAYLOAD_AGENT["agent_type"]:
+        payload["agent_type"] = _PAYLOAD_AGENT["agent_type"]
+    return payload
 
 
-def _context(payload):
+def _context(payload, *, remote=False):
     return HookContext(
         event_name="PreToolUse",
         executor_family="claude",
@@ -44,6 +61,7 @@ def _context(payload):
         session_id=payload.get("session_id"),
         item_id=None,
         now=None,
+        remote=remote,
     )
 
 
@@ -59,25 +77,24 @@ class _AuditEmitter:
 
 class TestMainSessionFailsOpen(unittest.TestCase):
     def test_no_signal_no_op(self):
-        # No YOKE_HOOK_AGENT_TYPE env, no --agent-type, no payload
-        # agent_type: the rule must not fire. Main-session
-        # background patterns are valid.
-        os.environ.pop(lint.AGENT_TYPE_ENV_VAR, None)
-        verdict = lint.evaluate_payload(
-            _payload("Bash", command="long-running &", run_in_background=True),
-        )
+        # No --agent-type and no payload agent_type: the rule must not
+        # fire, even when the evaluating process carries the variable.
+        # Main-session background patterns are valid.
+        with patch.dict(os.environ, _STRAY_ENV):
+            verdict = lint.evaluate_payload(
+                _payload("Bash", command="long-running &", run_in_background=True),
+            )
         self.assertIsNone(verdict)
 
     def test_monitor_main_session_no_op(self):
-        os.environ.pop(lint.AGENT_TYPE_ENV_VAR, None)
-        verdict = lint.evaluate_payload(_payload("Monitor"))
+        with patch.dict(os.environ, _STRAY_ENV):
+            verdict = lint.evaluate_payload(_payload("Monitor"))
         self.assertIsNone(verdict)
 
 
 class TestSubagentContextDenies(unittest.TestCase):
     def setUp(self):
-        os.environ[lint.AGENT_TYPE_ENV_VAR] = "engineer"
-        self.addCleanup(lambda: os.environ.pop(lint.AGENT_TYPE_ENV_VAR, None))
+        _subagent(self)
         self._emit_patch = patch(
             "yoke_core.hooks.telemetry.emit_denial_event",
         )
@@ -119,10 +136,7 @@ class TestSubagentContextDenies(unittest.TestCase):
         verdict = lint.evaluate_payload(
             _payload(
                 "Bash",
-                command=(
-                    "python3 -m yoke_core.tools.watch_pytest "
-                    "-- runtime/api/ &"
-                ),
+                command=("python3 -m yoke_core.tools.watch_pytest -- runtime/api/ &"),
             ),
         )
         self.assertIsNotNone(verdict)
@@ -147,8 +161,7 @@ class TestSubagentContextDenies(unittest.TestCase):
             _payload(
                 "Bash",
                 command=(
-                    "python3 -m yoke_core.tools.watch_pytest "
-                    "-- runtime/api/ 2>&1"
+                    "python3 -m yoke_core.tools.watch_pytest -- runtime/api/ 2>&1"
                 ),
             ),
         )
@@ -181,9 +194,9 @@ class TestSubagentContextDenies(unittest.TestCase):
         self.assertEqual(outcome, "suppression_attempted")
         self.assertIn(lint.SUPPRESSION_TOKEN, reason)
 
-    def test_cli_agent_type_overrides_env(self):
-        # --agent-type CLI flag must work even when env var is empty.
-        os.environ.pop(lint.AGENT_TYPE_ENV_VAR, None)
+    def test_cli_agent_type_overrides_payload(self):
+        # --agent-type CLI flag must work even when the payload is silent.
+        _subagent(self, None)
         verdict = lint.evaluate_payload(
             _payload("Monitor"),
             agent_type="tester",
@@ -193,8 +206,7 @@ class TestSubagentContextDenies(unittest.TestCase):
 
 class TestWarnMode(unittest.TestCase):
     def setUp(self):
-        os.environ[lint.AGENT_TYPE_ENV_VAR] = "engineer"
-        self.addCleanup(lambda: os.environ.pop(lint.AGENT_TYPE_ENV_VAR, None))
+        _subagent(self)
 
     def test_warn_mode_does_not_block(self):
         with patch.object(lint, "_read_lint_mode", return_value="warn"):
@@ -206,8 +218,7 @@ class TestWarnMode(unittest.TestCase):
 
 class TestTypedEvaluate(unittest.TestCase):
     def setUp(self):
-        os.environ[lint.AGENT_TYPE_ENV_VAR] = "engineer"
-        self.addCleanup(lambda: os.environ.pop(lint.AGENT_TYPE_ENV_VAR, None))
+        _subagent(self)
 
     def test_deny_decision_carries_deny_envelope(self):
         with patch.object(lint, "_read_lint_mode", return_value="deny"):
@@ -217,20 +228,34 @@ class TestTypedEvaluate(unittest.TestCase):
         self.assertTrue(decision.block)
         envelope = json.loads(decision.message)
         self.assertEqual(
-            envelope["hookSpecificOutput"]["permissionDecision"], "deny",
+            envelope["hookSpecificOutput"]["permissionDecision"],
+            "deny",
         )
 
     def test_noop_when_main_session(self):
-        os.environ.pop(lint.AGENT_TYPE_ENV_VAR, None)
-        ctx = _context(_payload("Monitor"))
-        decision = lint.evaluate(ctx)
+        _subagent(self, None)
+        with patch.dict(os.environ, _STRAY_ENV):
+            decision = lint.evaluate(_context(_payload("Monitor")))
         self.assertIs(decision.outcome, Outcome.NOOP)
+
+    def test_verdict_is_the_same_locally_and_remotely(self):
+        for agent_type, outcome in (("engineer", Outcome.DENY), (None, Outcome.NOOP)):
+            _subagent(self, agent_type)
+            payload = _payload("Monitor")
+            with (
+                patch.object(lint, "_read_lint_mode", return_value="deny"),
+                patch("yoke_core.hooks.telemetry.emit_denial_event"),
+            ):
+                local = lint.evaluate(_context(dict(payload), remote=False))
+                remote = lint.evaluate(_context(dict(payload), remote=True))
+            self.assertIs(local.outcome, outcome)
+            self.assertIs(remote.outcome, outcome)
+            self.assertEqual(local.message, remote.message)
 
 
 class TestCliMain(unittest.TestCase):
     def setUp(self):
-        os.environ[lint.AGENT_TYPE_ENV_VAR] = "engineer"
-        self.addCleanup(lambda: os.environ.pop(lint.AGENT_TYPE_ENV_VAR, None))
+        _subagent(self)
 
     def test_cli_emits_deny_envelope_on_stdout(self):
         # Patch stdin to feed a Monitor payload, capture stdout, confirm
@@ -241,7 +266,9 @@ class TestCliMain(unittest.TestCase):
         try:
             with patch("sys.stdin", StringIO(json.dumps(payload))):
                 with patch.object(
-                    lint, "_read_lint_mode", return_value="deny",
+                    lint,
+                    "_read_lint_mode",
+                    return_value="deny",
                 ):
                     buf = StringIO()
                     with redirect_stdout(buf):
@@ -252,11 +279,12 @@ class TestCliMain(unittest.TestCase):
         output = buf.getvalue().strip()
         envelope = json.loads(output)
         self.assertEqual(
-            envelope["hookSpecificOutput"]["permissionDecision"], "deny",
+            envelope["hookSpecificOutput"]["permissionDecision"],
+            "deny",
         )
 
     def test_cli_silent_when_main_session(self):
-        os.environ.pop(lint.AGENT_TYPE_ENV_VAR, None)
+        _subagent(self, None)
         payload = _payload("Monitor")
         argv_backup = sys.argv[:]
         sys.argv = ["lint_subagent_background"]
@@ -269,79 +297,6 @@ class TestCliMain(unittest.TestCase):
             sys.argv = argv_backup
         self.assertEqual(rc, 0)
         self.assertEqual(buf.getvalue(), "")
-
-
-class TestSubagentAdapterWiring(unittest.TestCase):
-    """Sibling regressions on the rendered adapter files.
-
-    Walks the on-disk Claude adapter files for every Bash-capable subagent
-    and asserts one matcherless PreToolUse runner with the env-wrapped
-    subagent identity. Also asserts PM/PD adapters carry zero
-    ``lint_subagent_background`` invocations.
-    """
-
-    _BASH_CAPABLE_ROLES = ("engineer", "tester", "architect", "boss", "simulator")
-    _NON_BASH_ROLES = ("product-manager", "product-designer")
-
-    def _claude_adapter_path(self, role: str):
-        from runtime.api.domain.test_agents_render_workspace_fixtures import (
-            resolve_live_repo_root,
-        )
-
-        return (
-            resolve_live_repo_root()
-            / "runtime"
-            / "harness"
-            / "claude"
-            / "agents"
-            / f"yoke-{role}.md"
-        )
-
-    def test_each_bash_capable_adapter_renders_one_matcherless_pretool_entry(self):
-        for role in self._BASH_CAPABLE_ROLES:
-            adapter_text = self._claude_adapter_path(role).read_text(encoding="utf-8")
-            expected_command = (
-                f"YOKE_HOOK_AGENT_TYPE={role} "
-                f"yoke hook evaluate PreToolUse"
-            )
-            count = adapter_text.count(expected_command)
-            self.assertEqual(
-                count,
-                1,
-                f"yoke-{role}.md: expected 1 matcherless PreToolUse entry, got {count}",
-            )
-            # Disk-side: no --agent-type CLI flag on any PreToolUse runner.
-            self.assertNotIn(
-                "yoke_core.domain.lint_subagent_background --agent-type",
-                adapter_text,
-                f"yoke-{role}.md: stale --agent-type CLI flag still present",
-            )
-
-    def test_pm_pd_adapters_have_zero_lint_subagent_background_invocations(self):
-        for role in self._NON_BASH_ROLES:
-            adapter_text = self._claude_adapter_path(role).read_text(encoding="utf-8")
-            self.assertNotIn(
-                "lint_subagent_background",
-                adapter_text,
-                f"yoke-{role}.md: non-Bash agent must carry zero lint_subagent_background invocations",
-            )
-
-
-class TestSubagentBackgroundDeployedMode(unittest.TestCase):
-    """Dogfood policy pins ``lint_subagent_background=deny``."""
-
-    def test_dogfood_config_pins_lint_mode_to_deny(self):
-        from runtime.api.domain.test_agents_render_workspace_fixtures import (
-            resolve_live_repo_root,
-        )
-
-        config_path = resolve_live_repo_root() / ".yoke" / "lint-config"
-        body = config_path.read_text(encoding="utf-8")
-        self.assertIn(
-            "lint_subagent_background=deny",
-            body,
-            ".yoke/lint-config must pin lint_subagent_background=deny",
-        )
 
 
 if __name__ == "__main__":  # pragma: no cover

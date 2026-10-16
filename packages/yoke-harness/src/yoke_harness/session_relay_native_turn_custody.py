@@ -33,7 +33,10 @@ and a session a person needs to look at.
 Both are custody records: this machine started a headless native that exits
 when its turn ends, so its pid still being that process means the turn is
 still running. A record proves nothing about a pid it no longer names, so
-the recorded start time is compared and a reused pid reads as gone.
+the recorded start time is compared and a reused pid reads as gone. The
+supervisor's own recorded exit settles it first: a background command the
+turn left in its process group is not a turn, and reading it as one held a
+gone Cursor worker's next message until steering terminated the session.
 
 The process-anchor registry is deliberately not read here. An anchor names a
 process for any session, including an operator's own interactive one, where
@@ -56,6 +59,7 @@ from yoke_contracts.process_ancestry import process_start_time
 from yoke_harness.session_process_custody import custody_state
 from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
 from yoke_harness.session_relay_native_capture_format import (
+    NativeCapture,
     parse_capture,
 )
 from yoke_harness import session_launch_handles
@@ -120,10 +124,28 @@ class FinishedResume:
         return payload
 
 
+def _capture(record: Mapping[str, Any]) -> NativeCapture | None:
+    raw = record.get("capture_path")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        return parse_capture(Path(raw).read_bytes())
+    except OSError:
+        return None
+
+
+def _turn_running(record: Mapping[str, Any], start_time_of: StartTimeOf) -> bool:
+    """A recorded exit ends the turn; otherwise the process identity decides."""
+    capture = _capture(record)
+    if capture is not None and capture.exited:
+        return False
+    if record.get("process_group_id"):
+        return custody_state(record) != "gone"
+    return start_time_of(int(record["pid"])) == record.get("process_start_time")
+
+
 def _silent_for_seconds(
-    record: Mapping[str, Any],
-    *,
-    now: Callable[[], float],
+    capture: NativeCapture | None, *, now: Callable[[], float]
 ) -> int | None:
     """How long this native has produced nothing, from its own capture.
 
@@ -134,17 +156,7 @@ def _silent_for_seconds(
     absence -- no capture, an unreadable one, or one written before the field
     existed -- is reported as unknown rather than guessed at.
     """
-    raw = record.get("capture_path")
-    if not isinstance(raw, str) or not raw.strip():
-        return None
-    try:
-        payload = Path(raw).read_bytes()
-    except OSError:
-        return None
-    capture = parse_capture(payload)
-    if capture is None:
-        return None
-    spoke = capture.last_output_at
+    spoke = capture.last_output_at if capture is not None else None
     if spoke is None:
         return None
     current = datetime.fromtimestamp(now(), timezone.utc)
@@ -164,18 +176,14 @@ def _running(
     recorded_start = record.get("process_start_time")
     if not isinstance(pid, int) or pid <= 0 or not recorded_start:
         return None
-    if (
-        custody_state(record) == "gone"
-        if record.get("process_group_id")
-        else start_time_of(pid) != recorded_start
-    ):
+    if not _turn_running(record, start_time_of):
         return None
     return RunningNative(
         session_id,
         pid,
         str(recorded_start),
         source,
-        silent_for_seconds=_silent_for_seconds(record, now=now),
+        silent_for_seconds=_silent_for_seconds(_capture(record), now=now),
     )
 
 
@@ -268,11 +276,7 @@ def finished_resume_for_session(
         recorded_start = record.get("process_start_time")
         if not isinstance(pid, int) or pid <= 0 or not recorded_start:
             continue
-        if (
-            custody_state(record) != "gone"
-            if record.get("process_group_id")
-            else start_time_of(pid) == recorded_start
-        ):
+        if _turn_running(record, start_time_of):
             continue
         reason = record.get("containment_reason")
         return FinishedResume(

@@ -66,7 +66,14 @@ def is_yoke_watcher_capture_path(
     scratch_root: str | None = None,
     session_id: str = "",
 ) -> bool:
-    """True for a watcher capture under the selected machine/session root."""
+    """True for a watcher capture under the selected machine/session root.
+
+    ``scratch_root=None`` selects this process's own scratch root, for an
+    in-process caller on the writing machine; a hook passes the client's
+    scratch-root fact, and ``""`` (no fact) matches nothing.
+    """
+    if scratch_root == "":
+        return False
     try:
         from yoke_core.domain.project_scratch_dir import global_scratch_root
 

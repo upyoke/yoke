@@ -149,51 +149,26 @@ def write_pre_event(envelope: Dict[str, Any]) -> bool:
     return True
 
 
-def _try_refresh_session_model(data: Dict[str, Any]) -> None:
-    """Best-effort attestation of the served model facts.
+def _session_main_drift_advisory(data: Dict[str, Any]) -> str:
+    """Return the main-drift advisory for this session, or ``""``.
 
-    PreToolUse is the earliest hook that fires *after* the LLM has begun
-    generating a response, so the transcript's latest assistant-message
-    ``model`` and ``effort`` are already present. It is the turn-1
-    attestation point: without it a session's served columns stay NULL
-    until the next prompt, and no surface has told the operator what
-    actually ran.
+    Returned as model context rather than printed: the chain may run on the
+    authority, whose own stderr never reaches the session.
     """
     session_id = data.get("session_id")
-    transcript_path = data.get("transcript_path")
-    if not isinstance(session_id, str) or not isinstance(transcript_path, str):
-        return
-    try:
-        from yoke_core.hooks.telemetry import attest_served_model_facts
-
-        attest_served_model_facts(
-            session_id,
-            transcript_path,
-            hook_source="PreToolUse",
-        )
-    except Exception:
-        logger.warning("observe-pre model attestation failed", exc_info=True)
-
-
-def _try_check_session_main_drift(data: Dict[str, Any]) -> None:
-    session_id = data.get("session_id")
     if not isinstance(session_id, str) or not session_id:
-        return
-    repo_path = data.get("cwd") or data.get("project_dir")
+        return ""
     try:
         from yoke_core.domain.session_main_drift import (
             check_drift,
             format_advisory,
         )
 
-        advisory = check_drift(
-            session_id,
-            repo_path=repo_path if isinstance(repo_path, str) else None,
-        )
-        if advisory is not None:
-            print(format_advisory(advisory), file=sys.stderr)
+        advisory = check_drift(session_id, data)
     except Exception:
         logger.warning("observe-pre main-drift check failed", exc_info=True)
+        return ""
+    return format_advisory(advisory) if advisory is not None else ""
 
 
 def process_stdin(raw: str) -> bool:
@@ -213,8 +188,6 @@ def process_stdin(raw: str) -> bool:
     if envelope is None:
         return False
 
-    _try_refresh_session_model(data)
-    _try_check_session_main_drift(data)
     return write_pre_event(envelope)
 
 
@@ -235,25 +208,27 @@ def _process_payload(
     envelope = parse_pre_event(payload, fallback_cwd=fallback_cwd)
     if envelope is None:
         return False
-    _try_refresh_session_model(payload)
-    _try_check_session_main_drift(payload)
     return write_pre_event(envelope)
 
 
 def evaluate(record: HookContext) -> HookDecision:
     """Run the observe-pre telemetry tail against a typed :class:`HookContext`.
 
-    Always returns ``HookDecision(outcome=NOOP, next=CONTINUE)`` —
-    PreToolUse telemetry must never block tool execution. All failures
-    are swallowed.
+    Always returns ``NOOP`` / ``CONTINUE`` — PreToolUse telemetry must
+    never block tool execution — carrying the main-drift advisory as
+    ``additionalContext`` when another session moved ``main``. All
+    failures are swallowed.
     """
+    advisory = ""
     try:
         payload = record.payload if isinstance(record.payload, dict) else {}
         if payload:
             _process_payload(payload, fallback_cwd=record.cwd)
+            advisory = _session_main_drift_advisory(payload)
     except Exception:
         logger.warning("observe-pre evaluation failed", exc_info=True)
-    return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
+    fields = {"additionalContext": advisory} if advisory else {}
+    return HookDecision(outcome=Outcome.NOOP, audit_fields=fields, next=Next.CONTINUE)
 
 
 def main() -> int:

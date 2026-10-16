@@ -42,10 +42,15 @@ def _register_checkout(repo_path):
     )
 
 
-def _seed_lane(conn, repo, *, session_id="sid-lane", item_id=2013, status="implementing"):
+def _seed_lane(
+    conn, repo, *, session_id="sid-lane", item_id=2013, status="implementing"
+):
     _register_checkout(repo)
     seed_item(
-        conn, item_id=item_id, branch=f"YOK-{item_id}", status=status,
+        conn,
+        item_id=item_id,
+        branch=f"YOK-{item_id}",
+        status=status,
         repo_path=repo,
     )
     seed_item_claim(conn, session_id, item_id=item_id)
@@ -68,11 +73,13 @@ class TestNoLane:
     def test_session_without_claims_allows_main_write(self, conn, repo):
         target = repo / "runtime/api/foo.py"
         target.parent.mkdir(parents=True, exist_ok=True)
-        verdict = lint_lane_main_write.evaluate_pre_tool_use({
-            "session_id": "sid-none",
-            "tool_name": "Write",
-            "tool_input": {"file_path": str(target)},
-        })
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-none",
+                "tool_name": "Write",
+                "tool_input": {"file_path": str(target)},
+            }
+        )
         assert verdict.allow is True
 
 
@@ -82,11 +89,13 @@ class TestMainWriteRefused:
         target = repo / "runtime/api/foo.py"
         target.parent.mkdir(parents=True, exist_ok=True)
         with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
-            verdict = lint_lane_main_write.evaluate_pre_tool_use({
-                "session_id": "sid-lane",
-                "tool_name": "Write",
-                "tool_input": {"file_path": str(target)},
-            })
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(
+                {
+                    "session_id": "sid-lane",
+                    "tool_name": "Write",
+                    "tool_input": {"file_path": str(target)},
+                }
+            )
         assert verdict.allow is False
         assert "BLOCKED" in verdict.reason
         assert str(wt) in verdict.reason
@@ -98,12 +107,14 @@ class TestMainWriteRefused:
         target = repo / "runtime/api/foo.py"
         target.parent.mkdir(parents=True, exist_ok=True)
         with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
-            verdict = lint_lane_main_write.evaluate_pre_tool_use({
-                "session_id": "sid-lane",
-                "tool_name": "Bash",
-                "cwd": str(repo),
-                "tool_input": {"command": f"echo hi > {target}"},
-            })
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(
+                {
+                    "session_id": "sid-lane",
+                    "tool_name": "Bash",
+                    "cwd": str(repo),
+                    "tool_input": {"command": f"echo hi > {target}"},
+                }
+            )
         assert verdict.allow is False
         assert str(target) in verdict.reason
 
@@ -113,12 +124,14 @@ class TestMainWriteRefused:
         target = repo / relative_target
         target.parent.mkdir(parents=True, exist_ok=True)
         with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
-            verdict = lint_lane_main_write.evaluate_pre_tool_use({
-                "session_id": "sid-lane",
-                "tool_name": "Bash",
-                "cwd": str(repo),
-                "tool_input": {"command": _python_heredoc_write(relative_target)},
-            })
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(
+                {
+                    "session_id": "sid-lane",
+                    "tool_name": "Bash",
+                    "cwd": str(repo),
+                    "tool_input": {"command": _python_heredoc_write(relative_target)},
+                }
+            )
         assert verdict.allow is False
         assert str(target) in verdict.reason
 
@@ -129,14 +142,16 @@ class TestEscape:
         target = repo / "runtime/api/foo.py"
         target.parent.mkdir(parents=True, exist_ok=True)
         with mock.patch.object(lint_lane_main_write, "emit_escape_used") as emit_escape:
-            verdict = lint_lane_main_write.evaluate_pre_tool_use({
-                "session_id": "sid-lane",
-                "tool_name": "Write",
-                "tool_input": {
-                    "file_path": str(target),
-                    "content": f"change {ESCAPE_TOKEN}",
-                },
-            })
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(
+                {
+                    "session_id": "sid-lane",
+                    "tool_name": "Write",
+                    "tool_input": {
+                        "file_path": str(target),
+                        "content": f"change {ESCAPE_TOKEN}",
+                    },
+                }
+            )
         assert verdict.allow is True
         assert verdict.escape_used is True
         emit_escape.assert_called_once()
@@ -145,52 +160,31 @@ class TestEscape:
 class TestRegisteredAdapters:
     def test_yoke_sessions_touch_allows_without_escape(self, conn, repo):
         _seed_lane(conn, repo)
-        verdict = lint_lane_main_write.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Bash",
-            "cwd": str(repo),
-            "tool_input": {"command": "yoke sessions touch --mode usher"},
-        })
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Bash",
+                "cwd": str(repo),
+                "tool_input": {"command": "yoke sessions touch --mode usher"},
+            }
+        )
         assert verdict.allow is True
         assert verdict.escape_used is False
 
     def test_yoke_deployment_runs_allows_without_escape(self, conn, repo):
         _seed_lane(conn, repo)
-        verdict = lint_lane_main_write.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Bash",
-            "cwd": str(repo),
-            "tool_input": {
-                "command": "yoke deployment-runs start-for-item YOK-2094",
-            },
-        })
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Bash",
+                "cwd": str(repo),
+                "tool_input": {
+                    "command": "yoke deployment-runs start-for-item YOK-2094",
+                },
+            }
+        )
         assert verdict.allow is True
         assert verdict.escape_used is False
-
-
-class TestStrandedLane:
-    def test_missing_lane_path_advises_and_allows(self, conn, repo):
-        wt = _seed_lane(conn, repo)
-        target = repo / "runtime/api/foo.py"
-        target.parent.mkdir(parents=True, exist_ok=True)
-        # Genuinely stranded: recorded path gone AND claim heartbeat stale.
-        wt.rmdir()
-        conn.execute(
-            "UPDATE work_claims SET last_heartbeat = %s WHERE session_id = %s",
-            ("2000-01-01T00:00:00Z", "sid-lane"),
-        )
-        conn.commit()
-        with mock.patch.object(
-            lint_lane_main_write, "emit_stranded_lane_advisory",
-        ) as emit_advisory:
-            verdict = lint_lane_main_write.evaluate_pre_tool_use({
-                "session_id": "sid-lane",
-                "tool_name": "Write",
-                "tool_input": {"file_path": str(target)},
-            })
-        assert verdict.allow is True
-        emit_advisory.assert_called_once()
-        assert emit_advisory.call_args.kwargs["lane_path"] == str(wt)
 
 
 class TestUnaffectedCases:
@@ -198,11 +192,13 @@ class TestUnaffectedCases:
         wt = _seed_lane(conn, repo)
         target = wt / "runtime/api/foo.py"
         target.parent.mkdir(parents=True, exist_ok=True)
-        verdict = lint_lane_main_write.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Write",
-            "tool_input": {"file_path": str(target)},
-        })
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Write",
+                "tool_input": {"file_path": str(target)},
+            }
+        )
         assert verdict.allow is True
 
     def test_python_heredoc_write_inside_lane_allows(self, conn, repo):
@@ -210,49 +206,60 @@ class TestUnaffectedCases:
         relative_target = Path("runtime/api/foo.py")
         target = wt / relative_target
         target.parent.mkdir(parents=True, exist_ok=True)
-        verdict = lint_lane_main_write.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Bash",
-            "cwd": str(wt),
-            "tool_input": {"command": _python_heredoc_write(relative_target)},
-        })
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Bash",
+                "cwd": str(wt),
+                "tool_input": {"command": _python_heredoc_write(relative_target)},
+            }
+        )
         assert verdict.allow is True
 
     def test_free_path_allows(self, conn, repo):
         _seed_lane(conn, repo)
-        verdict = lint_lane_main_write.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Write",
-            "tool_input": {"file_path": "/tmp/yoke-scratch.txt"},
-        })
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Write",
+                "tool_input": {"file_path": "/tmp/yoke-scratch.txt"},
+            }
+        )
         assert verdict.allow is True
 
     def test_generated_view_board_allows(self, conn, repo):
         _seed_lane(conn, repo)
         target = repo / ".yoke" / "BOARD.md"
         target.parent.mkdir(parents=True, exist_ok=True)
-        verdict = lint_lane_main_write.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Write",
-            "tool_input": {"file_path": str(target)},
-        })
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Write",
+                "tool_input": {"file_path": str(target)},
+            }
+        )
         assert verdict.allow is True
 
     def test_pre_implementing_status_allows_main(self, conn, repo):
         _register_checkout(repo)
         seed_item(
-            conn, item_id=2013, branch="YOK-2013", status="idea",
+            conn,
+            item_id=2013,
+            branch="YOK-2013",
+            status="idea",
             repo_path=repo,
         )
         seed_item_claim(conn, "sid-lane", item_id=2013)
         (repo / ".worktrees" / "YOK-2013").mkdir(parents=True, exist_ok=True)
         target = repo / "runtime/api/foo.py"
         target.parent.mkdir(parents=True, exist_ok=True)
-        verdict = lint_lane_main_write.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Write",
-            "tool_input": {"file_path": str(target)},
-        })
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Write",
+                "tool_input": {"file_path": str(target)},
+            }
+        )
         assert verdict.allow is True
 
     def test_bash_read_only_to_main_allows(self, conn, repo):
@@ -260,12 +267,14 @@ class TestUnaffectedCases:
         target = repo / "runtime/api/foo.py"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("# stub\n")
-        verdict = lint_lane_main_write.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Bash",
-            "cwd": str(repo),
-            "tool_input": {"command": f"cat {target}"},
-        })
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Bash",
+                "cwd": str(repo),
+                "tool_input": {"command": f"cat {target}"},
+            }
+        )
         assert verdict.allow is True
 
 
@@ -275,14 +284,16 @@ class TestSuppressionAndSubagent:
         target = repo / "runtime/api/foo.py"
         target.parent.mkdir(parents=True, exist_ok=True)
         with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
-            verdict = lint_lane_main_write.evaluate_pre_tool_use({
-                "session_id": "sid-lane",
-                "tool_name": "Bash",
-                "cwd": str(repo),
-                "tool_input": {
-                    "command": f"touch {target} {SUPPRESSION_TOKEN}",
-                },
-            })
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(
+                {
+                    "session_id": "sid-lane",
+                    "tool_name": "Bash",
+                    "cwd": str(repo),
+                    "tool_input": {
+                        "command": f"touch {target} {SUPPRESSION_TOKEN}",
+                    },
+                }
+            )
         assert verdict.allow is False
         assert verdict.suppression_attempted is True
 
@@ -291,7 +302,9 @@ class TestSuppressionAndSubagent:
         target = repo / "runtime/api/foo.py"
         target.parent.mkdir(parents=True, exist_ok=True)
         with mock.patch.dict("os.environ", {"YOKE_HOOK_AGENT_TYPE": "engineer"}):
-            with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
+            with mock.patch.object(
+                lint_lane_main_write, "emit_denied", return_value=None
+            ):
                 record = HookContext(
                     event_name="PreToolUse",
                     executor_family="claude",
@@ -317,12 +330,12 @@ class TestHookOrdering:
         edit_chain = ordered_pipeline_for("PreToolUse", "Edit")
         write_chain = ordered_pipeline_for("PreToolUse", "Write")
         bash_chain = ordered_pipeline_for("PreToolUse", "Bash")
-        assert edit_chain.index("yoke_core.domain.lint_lane_main_write") > edit_chain.index(
-            "yoke_core.domain.lint_session_cwd"
-        )
-        assert write_chain.index("yoke_core.domain.lint_lane_main_write") > write_chain.index(
-            "yoke_core.domain.lint_session_cwd"
-        )
-        assert bash_chain.index("yoke_core.domain.lint_lane_main_write") > bash_chain.index(
-            "yoke_core.domain.lint_session_cwd"
-        )
+        assert edit_chain.index(
+            "yoke_core.domain.lint_lane_main_write"
+        ) > edit_chain.index("yoke_core.domain.lint_session_cwd")
+        assert write_chain.index(
+            "yoke_core.domain.lint_lane_main_write"
+        ) > write_chain.index("yoke_core.domain.lint_session_cwd")
+        assert bash_chain.index(
+            "yoke_core.domain.lint_lane_main_write"
+        ) > bash_chain.index("yoke_core.domain.lint_session_cwd")

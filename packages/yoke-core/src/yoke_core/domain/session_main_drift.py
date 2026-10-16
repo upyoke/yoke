@@ -1,13 +1,19 @@
-"""Advisory detection for local main commits made during a session."""
+"""Advisory detection for local main commits made during a session.
+
+The checkout lives on the session's client machine, which reports the
+newest commits of its ``main`` branch as the
+:data:`~yoke_contracts.hook_runner.client_facts.MAIN_HEAD_KEY` fact. The
+session row remembers the last head this session saw.
+"""
 
 from __future__ import annotations
 
-import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from yoke_contracts.timestamps import utc_now, parse_instant
-from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
+
+from yoke_contracts.hook_runner.client_facts import main_head
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, instant_parameter
@@ -26,42 +32,33 @@ def _parse_iso(raw: datetime | str | None) -> datetime | None:
     return parse_instant(raw) if raw is not None else None
 
 
-def _git(repo_path: str, *args: str) -> str:
-    return subprocess.check_output(
-        ["git", "-C", repo_path, *args],
-        text=True,
-        stderr=subprocess.DEVNULL,
-    ).strip()
+def _commits_since(
+    commits: list[tuple[str, str]], previous_sha: str
+) -> tuple[int, str]:
+    """Count and summarise the reported commits newer than *previous_sha*.
 
-
-def _repo_path(row: Any, explicit: Optional[str]) -> Optional[str]:
-    candidate = explicit or row["workspace"]
-    if not candidate:
-        return None
-    path = Path(candidate)
-    return str(path if path.is_dir() else path.parent)
-
-
-def _commit_summary(repo_path: str, old_sha: str) -> tuple[int, str]:
-    try:
-        count = int(_git(repo_path, "rev-list", "--count", f"{old_sha}..main") or "0")
-        summary = _git(repo_path, "log", "--oneline", "-5", f"{old_sha}..main")
-    except Exception:
-        return 0, ""
-    return count, "; ".join(
-        line.strip() for line in summary.splitlines() if line.strip()
-    )
+    The client reports a bounded window of ``main`` history; a previous
+    head older than that window counts the whole window.
+    """
+    newer = []
+    for sha, subject in commits:
+        if sha == previous_sha:
+            break
+        newer.append((sha, subject))
+    summary = "; ".join(f"{sha[:10]} {subject}".strip() for sha, subject in newer[:5])
+    return len(newer), summary
 
 
 def check_drift(
     session_id: str,
+    payload: Mapping[str, Any],
     *,
-    repo_path: Optional[str] = None,
     now: datetime | str | None = None,
     throttle_seconds: int = THROTTLE_SECONDS,
 ) -> Optional[DriftAdvisory]:
     """Return a drift advisory when ``main`` moved since this session last checked."""
-    if not session_id:
+    commits = main_head(payload)
+    if not session_id or commits is None:
         return None
     checked_dt = utc_now() if now is None else parse_instant(now)
     conn = connect()
@@ -82,13 +79,7 @@ def check_drift(
             seconds=throttle_seconds
         ):
             return None
-        resolved_repo = _repo_path(row, repo_path)
-        if not resolved_repo:
-            return None
-        try:
-            current_sha = _git(resolved_repo, "rev-parse", "main")
-        except Exception:
-            return None
+        current_sha = commits[0][0]
         previous_sha = row["last_seen_main_sha"]
         conn.execute(
             f"UPDATE harness_sessions SET last_seen_main_sha={p}, "
@@ -98,7 +89,7 @@ def check_drift(
         conn.commit()
         if not previous_sha or previous_sha == current_sha:
             return None
-        commits_ahead, summary = _commit_summary(resolved_repo, previous_sha)
+        commits_ahead, summary = _commits_since(commits, previous_sha)
         return DriftAdvisory(session_id, commits_ahead, summary)
     finally:
         conn.close()

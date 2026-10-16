@@ -28,7 +28,7 @@ def local_subset(monkeypatch):
         agent_type,
         deadline,
         *,
-        defer_main_commit=False,
+        collect_facts=False,
         lint_config_snapshot=None,
         project_scope=None,
     ):
@@ -37,7 +37,7 @@ def local_subset(monkeypatch):
                 event_name,
                 executor,
                 agent_type,
-                defer_main_commit,
+                collect_facts,
                 lint_config_snapshot,
             )
         )
@@ -48,7 +48,7 @@ def local_subset(monkeypatch):
         fake,
     )
     monkeypatch.setattr(
-        "yoke_harness.hooks.relay._client_lint_config_snapshot",
+        "yoke_harness.hooks.relay.lint_config_snapshot",
         lambda _payload: {},
     )
     monkeypatch.setattr(

@@ -116,19 +116,12 @@ def client_claude_job_tmp_fact(job_dir: str) -> dict[str, object]:
     }
 
 
-def client_claude_job_tmp(
-    payload: Mapping[str, Any], *, job_dir: str = "",
-) -> str:
-    """Return validated relayed evidence, or a local job-dir fallback."""
+def client_claude_job_tmp(payload: Mapping[str, Any]) -> str:
+    """Return the client's validated background-job temp root, or ``""``."""
     raw = payload.get(CLIENT_CLAUDE_JOB_TMP_KEY)
-    if (
-        isinstance(raw, Mapping)
-        and raw.get("schema") == CLIENT_CLAUDE_JOB_TMP_SCHEMA
-    ):
-        root = _valid_claude_job_tmp(raw.get("root"))
-        if root:
-            return root
-    return claude_job_tmp_root(job_dir)
+    if isinstance(raw, Mapping) and raw.get("schema") == CLIENT_CLAUDE_JOB_TMP_SCHEMA:
+        return _valid_claude_job_tmp(raw.get("root"))
+    return ""
 
 
 __all__ = [

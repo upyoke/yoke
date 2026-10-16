@@ -145,9 +145,14 @@ def test_hook_evaluate_missing_harness_dry_run_reports_unavailable(
     assert run.boundary["forbidden_loaded"] == []
 
 
-def test_local_subset_denies_git_commit_on_main_without_authority_imports(
+def test_local_subset_leaves_main_commit_to_the_authority(
     tmp_path: Path,
 ) -> None:
+    """The main-commit guard is server-run from the client's git facts.
+
+    The client subset never decides it, so without an authority the
+    commit is not refused here and no authority module is imported.
+    """
     repo = _repo(tmp_path)
     repo.joinpath("impl.py").write_text("print('x')\n", encoding="utf-8")
     _git(repo, "add", "impl.py")
@@ -160,9 +165,8 @@ def test_local_subset_denies_git_commit_on_main_without_authority_imports(
         client_cwd=repo,
     )
 
-    assert run.returncode == 2
-    assert "Implementation commit on main branch" in run.stderr
-    assert "impl.py" in run.stderr
+    assert run.returncode == 0
+    assert "Implementation commit on main branch" not in run.stderr
     assert run.stdout == ""
     _assert_clean_client_boundary(run)
 

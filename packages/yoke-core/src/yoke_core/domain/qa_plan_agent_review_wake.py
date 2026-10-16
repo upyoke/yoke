@@ -9,6 +9,10 @@ from typing import Any, Mapping
 from yoke_core.domain.merge_queue_landing_notice import HOLDER, push_notice
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_execution_store import marker
+from yoke_core.domain.qa_plan_settled_review import (
+    REVIEW_WAKE_PREFIX,
+    execution_has_persisted_verdict_batch,
+)
 
 
 def notify_scoped_agent_review(conn: Any, execution: Mapping[str, Any]) -> str:
@@ -64,6 +68,8 @@ def notify_scoped_agent_review(conn: Any, execution: Mapping[str, Any]) -> str:
         ]
     )
     execution_id = str(execution["id"])
+    if execution_has_persisted_verdict_batch(conn, execution_id):
+        return ""
     owner = str(execution.get("session_id") or "")
 
     def body_for_route(route: str) -> str:
@@ -89,6 +95,6 @@ def notify_scoped_agent_review(conn: Any, execution: Mapping[str, Any]) -> str:
         project_id=int(row[0]),
         owner_session_id=owner,
         body_for_route=body_for_route,
-        idempotency_key=f"qa-plan-agent-review:{execution_id}",
+        idempotency_key=f"{REVIEW_WAKE_PREFIX}{execution_id}",
         now=utc_now(),
     )

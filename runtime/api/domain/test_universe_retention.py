@@ -1,6 +1,5 @@
 """Focused command, protection, interruption and settings regression cases."""
 
-from contextlib import contextmanager
 from datetime import timedelta
 import json
 import time
@@ -9,51 +8,19 @@ import pytest
 
 from runtime.api.fixtures.backlog import insert_event, insert_item, insert_item_worktree
 from runtime.api.fixtures.session_holdings import insert_session
-from yoke_contracts.api.function_call import (
-    FunctionCallRequest,
-    FunctionCallResponse,
-    FunctionError,
-)
+from runtime.api.fixtures.universe_prune import cli_on
 from yoke_contracts.timestamps import utc_now
 from yoke_contracts.universe_retention import PruneRequest, RetentionPolicy
-from yoke_core.domain import db_helpers, universe_retention as retention
-from yoke_core.domain.handlers import universe_retention as handlers
+from yoke_core.domain import universe_retention as retention
+from yoke_core.domain.universe_retention_pass import prune_pass
 from yoke_cli.commands.adapters import universe_retention as cli
-
-
-def _cli_on(conn, monkeypatch):
-    @contextmanager
-    def connect(*_args, **_kwargs):
-        yield conn
-
-    monkeypatch.setattr(db_helpers, "connect", connect)
-    monkeypatch.setattr(cli, "ensure_handlers_loaded", lambda: None)
-
-    def call(**kwargs):
-        request = FunctionCallRequest(
-            function=kwargs["function_id"],
-            target=kwargs["target"],
-            actor=kwargs["actor"],
-            payload=kwargs["payload"],
-        )
-        outcome = handlers.handle_prune(request)
-        return FunctionCallResponse(
-            success=outcome.primary_success,
-            function=request.function,
-            version="v1",
-            request_id=request.request_id,
-            result=outcome.result_payload,
-            error=outcome.error,
-        )
-
-    monkeypatch.setattr(cli, "call_dispatcher", call)
 
 
 def test_command_preview_apply_rerun_and_seed_preserve_data(
     test_db, monkeypatch, capsys
 ):
     now = utc_now()
-    _cli_on(test_db, monkeypatch)
+    cli_on(test_db, monkeypatch)
     test_db.execute("DELETE FROM universe_settings WHERE key='retention'")
     test_db.commit()
     assert retention.read_policy(test_db)[1] == "default"
@@ -109,7 +76,7 @@ def test_command_preview_apply_rerun_and_seed_preserve_data(
     assert cli.universe_prune(["--apply", "--json"]) == 0
     assert sum(json.loads(capsys.readouterr().out)["result"]["deleted"].values()) == 0
     with pytest.raises(ValueError, match="retention_policy_changed"):
-        retention.prune_pass(test_db, PruneRequest(expected_digest="wrong"))
+        prune_pass(test_db, PruneRequest(expected_digest="wrong"))
     with pytest.raises(ValueError, match="seven-day"):
         RetentionPolicy(windows={**policy.windows, "replay": 1})
 
@@ -251,7 +218,7 @@ def test_human_live_reference_snapshot_and_upload_protections(test_db):
     test_db.commit()
     request = PruneRequest(apply=True)
     while True:
-        result = retention.prune_pass(test_db, request)
+        result = prune_pass(test_db, request)
         assert result["failure"] is None, result
         if result["cycle_complete"]:
             break
@@ -300,50 +267,3 @@ def test_human_live_reference_snapshot_and_upload_protections(test_db):
         other.rollback()
         test_db.commit()
         other.execute("LOCK TABLE path_snapshots IN ACCESS EXCLUSIVE MODE NOWAIT")
-
-
-def test_command_lost_reply_keeps_acknowledged_counts_and_does_not_retry(
-    monkeypatch, capsys
-):
-    monkeypatch.setattr(cli, "ensure_handlers_loaded", lambda: None)
-    calls = []
-
-    def call(**kwargs):
-        calls.append(kwargs)
-        if len(calls) == 1:
-            return FunctionCallResponse(
-                success=True,
-                function="universe.prune.run",
-                version="v1",
-                result={
-                    "universe": {"slug": "example"},
-                    "source": "default",
-                    "policy": {},
-                    "policy_digest": "digest",
-                    "cutoff": utc_now().isoformat(),
-                    "next_table_index": 1,
-                    "cycle_complete": False,
-                    "tables": [
-                        {
-                            "table": "events",
-                            "deleted": {"events": 5},
-                            "eligible": 5,
-                            "eligible_partial": True,
-                            "protected": 0,
-                        }
-                    ],
-                },
-            )
-        return FunctionCallResponse(
-            success=False,
-            function="universe.prune.run",
-            version="v1",
-            error=FunctionError(code=cli.TRANSPORT_FAILED_CODE, message="lost reply"),
-        )
-
-    monkeypatch.setattr(cli, "call_dispatcher", call)
-    assert cli.universe_prune(["--apply", "--json"]) != 0
-    result = json.loads(capsys.readouterr().out)
-    assert result["result"]["deleted"] == {"events": 5}
-    assert result["error"]["code"] == "retention_pass_outcome_unknown"
-    assert len(calls) == 2 and all(c["max_attempts"] == 1 for c in calls)

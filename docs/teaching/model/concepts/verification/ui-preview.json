@@ -1,0 +1,9 @@
+{
+ "id": "ui-preview",
+ "title": "Optional local UI preview",
+ "status": "observed",
+ "text": "An agent changing UI can optionally preview the lane before merge with `yoke dev run -- env YOKE_ENV=render-proof python3 -m runtime.api.tools.serve_workbench_for_review`. That server uses a disposable local universe and refuses prod and remote connections. It is a self-check, never a merge or QA requirement. Formal Browser QA runs post-deploy on production.",
+ "sources": ["docs/source-dev-doctrine.md", "docs/public/reference/agent-rules/verification.md", ".agents/skills/yoke/implement/implementing/implementation.md", ".agents/skills/yoke/dash/verify.md", ".agents/skills/yoke/conduct/dispatch-context-prompts.md", "runtime/api/tools/serve_workbench_for_review.py"],
+ "page": "verification",
+ "position": 50
+}

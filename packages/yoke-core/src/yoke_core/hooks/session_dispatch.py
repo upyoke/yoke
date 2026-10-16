@@ -11,7 +11,6 @@ from yoke_contracts.session_model_facts import SessionModelFacts
 
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.hooks import session_dispatch_codex_lifecycle as _codex_lifecycle
-from yoke_core.hooks.resume_block_dispatch import render as _render_resume_block
 from yoke_core.hooks.session_dispatch_orientation import (
     _render_claude_orientation,
     _render_codex_orientation,
@@ -148,13 +147,11 @@ def _run_codex_session_start(record: HookContext, root: str) -> str:
     ):
         return ""
     if not _codex.check_and_arm_marker(_codex.session_marker_path(session_id)):
-        return _render_resume_block(root, session_id, "SessionStart")
+        return ""
     facts = _codex_model_facts(record.payload, session_id)
     entrypoint = resolve_entrypoint()
     err = _register_codex(root, session_id, facts, entrypoint)
-    return _render_codex_orientation(
-        session_id, root, err, facts, entrypoint
-    ) + _render_resume_block(root, session_id, "SessionStart")
+    return _render_codex_orientation(session_id, root, err, facts, entrypoint)
 
 
 def _run_codex_prompt_submit(record: HookContext, root: str) -> str:
@@ -186,16 +183,17 @@ def _run_codex_prompt_submit(record: HookContext, root: str) -> str:
 
 
 def _run_claude_session_start(record: HookContext) -> None:
-    from yoke_core.hooks import telemetry
     from yoke_core.hooks.registration import _register_from_hook
+    from yoke_harness.hooks.session_lifecycle import (
+        env_file_session_id,
+        persist_session_env,
+    )
 
-    raw = _payload_json(record.payload)
-    session_id = telemetry.resolve_env_init_session_id(raw)
+    session_id = env_file_session_id(record.payload)
     if not session_id:
         return
-    env_file = os.environ.get("CLAUDE_ENV_FILE", "")
-    telemetry.persist_session_id_to_env_file(session_id, env_file)
-    _register_from_hook(raw, session_id)
+    persist_session_env(record.payload)
+    _register_from_hook(_payload_json(record.payload), session_id)
 
 
 def _run_claude_prompt_submit(record: HookContext, root: str) -> str:
@@ -214,15 +212,13 @@ def _run_claude_prompt_submit(record: HookContext, root: str) -> str:
             transcript_path=transcript_path,
         )
     if not _first_prompt(session_id, codex=False):
-        return _render_resume_block(root, session_id, "UserPromptSubmit")
+        return ""
     telemetry.emit_harness_session_sent_first_user_prompt_submit("", session_id)
     from yoke_core.domain.session_orientation import CLIENT_ORIENTATION_PRESENT_KEY
 
     if record.payload.get(CLIENT_ORIENTATION_PRESENT_KEY):
-        return _render_resume_block(root, session_id, "UserPromptSubmit")
-    return _render_claude_orientation(
-        session_id, root, err, executor, facts
-    ) + _render_resume_block(root, session_id, "UserPromptSubmit")
+        return ""
+    return _render_claude_orientation(session_id, root, err, executor, facts)
 
 
 def _run_stop(record: HookContext, root: str, db_path: str) -> str:
@@ -255,11 +251,11 @@ def evaluate(context: HookContext) -> HookDecision:
                 else ""
             )
         if context.event_name == "SessionStart":
-            from yoke_core.engines.main_checkout_sync import (
-                sync_main_checkout_at_session_start,
+            from yoke_harness.hooks.session_lifecycle import (
+                sync_session_main_checkout,
             )
 
-            sync_main_checkout_at_session_start(root)
+            sync_session_main_checkout(root)
             if context.executor_family == "codex":
                 stdout = _run_codex_session_start(context, root)
             elif context.executor_family == "cursor":

@@ -44,7 +44,6 @@ def quiet_side_effects(monkeypatch: pytest.MonkeyPatch) -> dict:
 
     monkeypatch.setattr(dispatch_cursor._lifecycle, "register", fake_register)
     monkeypatch.setattr(dispatch_cursor._lifecycle, "touch", fake_touch)
-    monkeypatch.setattr(dispatch_cursor, "_render_resume_block", lambda *a, **k: "")
     monkeypatch.setattr(
         dispatch_cursor,
         "_render_orientation",

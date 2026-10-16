@@ -118,6 +118,10 @@ def execute_plan(
             raise
         print(f"yoke qa plan run: {discharged['message']}", file=sys.stderr)
         return discharged
+    if execution.get("settled_review"):
+        from yoke_core.domain.qa_plan_settled_review import settled_review_run_result
+
+        return settled_review_run_result(execution)
     if (
         execution.get("state") == "completed"
         and execution.get("remaining_requirement_count") == 0

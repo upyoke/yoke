@@ -13,6 +13,8 @@ from yoke_harness.hooks import local_subset
 from yoke_harness.hooks.deadline import HookDeadline
 from yoke_harness.hooks.local_policy_common import DENY, PolicyResult
 from yoke_contracts.hook_driver_process import DRIVER_PAYLOAD_KEY
+from yoke_contracts.hook_runner.project_scope import HookProjectScope
+from yoke_contracts.machine_config.runtime import SCRATCH_ROOT_ENV
 from yoke_contracts.hook_runner.session_cwd import (
     CLIENT_CLAUDE_JOB_TMP_KEY,
     CLIENT_CLAUDE_JOB_TMP_SCHEMA,
@@ -129,10 +131,7 @@ def test_relay_subset_reports_client_free_path_roots(
     client_root = str(Path.home() / ".yoke" / "tmp")
     job_dir = str(Path.home() / ".claude" / "jobs" / "job-123")
     monkeypatch.setattr(local_subset, "_local_modules", lambda *_a, **_k: [])
-    monkeypatch.setenv(
-        local_subset.machine_config.SCRATCH_ROOT_ENV,
-        client_root,
-    )
+    monkeypatch.setenv(SCRATCH_ROOT_ENV, client_root)
     monkeypatch.setenv("CLAUDE_JOB_DIR", job_dir)
 
     result = local_subset.evaluate_local_subset(
@@ -141,16 +140,26 @@ def test_relay_subset_reports_client_free_path_roots(
         "codex",
         None,
         _deadline(),
-        defer_main_commit=True,
+        collect_facts=True,
+        # The session-cwd guards reading these roots are project-scoped.
+        project_scope=HookProjectScope(project_id=1),
     )
 
     reported = dict(result.payload_extra)
     # The driving process self-reports here so the evaluating server does not
-    # have to guess it; its pids are this process's, so check the shape and
-    # hold the rest of the payload to exact equality.
+    # have to guess it; its pids are this process's, so check the shape. The
+    # chain's other facts ride beside these; hold the path roots exactly.
     driver = reported.pop(DRIVER_PAYLOAD_KEY)
     assert driver == {"pid": os.getpid(), "ppid": os.getppid(), "origin": "client"}
-    assert reported == {
+    path_roots = {
+        key: reported.get(key)
+        for key in (
+            CLIENT_CLAUDE_JOB_TMP_KEY,
+            CLIENT_SCRATCH_ROOT_KEY,
+            CLIENT_MACHINE_HOME_KEY,
+        )
+    }
+    assert path_roots == {
         CLIENT_CLAUDE_JOB_TMP_KEY: {
             "schema": CLIENT_CLAUDE_JOB_TMP_SCHEMA,
             "root": str(Path(job_dir) / "tmp"),

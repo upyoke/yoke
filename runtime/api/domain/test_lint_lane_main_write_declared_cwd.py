@@ -4,22 +4,31 @@ from __future__ import annotations
 
 from unittest import mock
 
+import pytest
+
 from runtime.api.domain.lint_session_cwd_test_helpers import (
     seed_item,
     seed_item_claim,
 )
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
+from yoke_contracts.hook_runner.session_cwd import client_machine_home_fact
 from yoke_core.domain import lint_lane_main_write
+from yoke_harness.hooks.client_write_targets import write_targets_fact
 
 
 def _seed_lane(conn, repo, *, session_id="sid-lane", item_id=2013):
     register_machine_checkout(
-        repo.parent / "machine-config", repo, project_id=1,
+        repo.parent / "machine-config",
+        repo,
+        project_id=1,
     )
     seed_item(
-        conn, item_id=item_id, branch=f"YOK-{item_id}",
-        status="implementing", repo_path=repo,
+        conn,
+        item_id=item_id,
+        branch=f"YOK-{item_id}",
+        status="implementing",
+        repo_path=repo,
     )
     seed_item_claim(conn, session_id, item_id=item_id)
     worktree = repo / ".worktrees" / f"YOK-{item_id}"
@@ -44,12 +53,14 @@ def test_relative_touch_from_lane_workdir_allows(tmp_path):
     (repo / ".worktrees").mkdir(parents=True)
     with test_database() as conn:
         worktree = _seed_lane(conn, repo)
-        verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
-            "sid-lane",
-            "touch probe-guard-check.txt",
-            cwd=str(repo),
-            workdir=str(worktree),
-        ))
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            _bash(
+                "sid-lane",
+                "touch probe-guard-check.txt",
+                cwd=str(repo),
+                workdir=str(worktree),
+            )
+        )
     assert verdict.allow is True
 
 
@@ -58,9 +69,13 @@ def test_leading_absolute_cd_resolves_relative_write_in_lane(tmp_path):
     (repo / ".worktrees").mkdir(parents=True)
     with test_database() as conn:
         worktree = _seed_lane(conn, repo)
-        verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
-            "sid-lane", f"cd {worktree} && touch probe.txt", cwd=str(repo),
-        ))
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            _bash(
+                "sid-lane",
+                f"cd {worktree} && touch probe.txt",
+                cwd=str(repo),
+            )
+        )
     assert verdict.allow is True
 
 
@@ -70,24 +85,64 @@ def test_leading_absolute_cd_to_main_still_denies(tmp_path):
     with test_database() as conn:
         _seed_lane(conn, repo)
         with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
-            verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
-                "sid-lane", f"cd {repo} && touch probe.txt", cwd=str(tmp_path),
-            ))
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(
+                _bash(
+                    "sid-lane",
+                    f"cd {repo} && touch probe.txt",
+                    cwd=str(tmp_path),
+                )
+            )
     assert verdict.allow is False
     assert str(repo / "probe.txt") in verdict.reason
 
 
+def _client_bash(command, *, cwd, client_home, monkeypatch):
+    """Build the payload as the client would, with its home and write facts."""
+    monkeypatch.setenv("HOME", str(client_home))
+    payload = _bash("sid-lane", command, cwd=cwd)
+    payload.update(write_targets_fact(payload))
+    payload.update(client_machine_home_fact(str(client_home)))
+    # The authority evaluating the payload has a different home of its own.
+    monkeypatch.setenv("HOME", str(client_home.parent / "authority-home"))
+    return payload
+
+
 def test_tilde_expands_before_classifying_absolute_main_target(tmp_path, monkeypatch):
-    repo = tmp_path / "repo"
+    client_home = tmp_path.resolve()
+    repo = client_home / "repo"
     (repo / ".worktrees").mkdir(parents=True)
-    monkeypatch.setenv("HOME", str(tmp_path))
     with test_database() as conn:
         _seed_lane(conn, repo)
+        payload = _client_bash(
+            "touch ~/repo/probe.txt",
+            cwd=str(client_home),
+            client_home=client_home,
+            monkeypatch=monkeypatch,
+        )
         with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
-            verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
-                "sid-lane", "touch ~/repo/probe.txt", cwd=str(tmp_path),
-            ))
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(payload)
     assert verdict.allow is False
+    assert str(repo / "probe.txt") in verdict.reason
+
+
+@pytest.mark.parametrize("hop", ["~/repo", "{repo}"])
+def test_cd_then_relative_write_with_client_facts_denies(tmp_path, monkeypatch, hop):
+    client_home = tmp_path.resolve()
+    repo = client_home / "repo"
+    (repo / ".worktrees").mkdir(parents=True)
+    (client_home / "elsewhere").mkdir()
+    with test_database() as conn:
+        _seed_lane(conn, repo)
+        payload = _client_bash(
+            f"cd {hop.format(repo=repo)} && touch probe.txt",
+            cwd=str(client_home / "elsewhere"),
+            client_home=client_home,
+            monkeypatch=monkeypatch,
+        )
+        with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(payload)
+    assert verdict.allow is False
+    assert str(repo / "probe.txt") in verdict.reason
 
 
 def test_literal_tmp_write_remains_allowed(tmp_path):
@@ -95,9 +150,13 @@ def test_literal_tmp_write_remains_allowed(tmp_path):
     (repo / ".worktrees").mkdir(parents=True)
     with test_database() as conn:
         _seed_lane(conn, repo)
-        verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
-            "sid-lane", "touch /tmp/probe-guard-check.txt", cwd=str(repo),
-        ))
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            _bash(
+                "sid-lane",
+                "touch /tmp/probe-guard-check.txt",
+                cwd=str(repo),
+            )
+        )
     assert verdict.allow is True
 
 
@@ -107,11 +166,13 @@ def test_relative_touch_from_session_cwd_denies(tmp_path):
     with test_database() as conn:
         worktree = _seed_lane(conn, repo)
         with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
-            verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
-                "sid-lane",
-                "touch probe-guard-check.txt",
-                cwd=str(repo),
-            ))
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(
+                _bash(
+                    "sid-lane",
+                    "touch probe-guard-check.txt",
+                    cwd=str(repo),
+                )
+            )
     assert verdict.allow is False
     assert str(repo / "probe-guard-check.txt") in verdict.reason
     assert str(worktree / "probe-guard-check.txt") in verdict.reason
@@ -123,12 +184,14 @@ def test_parent_traversal_to_worktrees_root_denies(tmp_path):
     with test_database() as conn:
         worktree = _seed_lane(conn, repo)
         with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
-            verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
-                "sid-lane",
-                "touch ../probe.txt",
-                cwd=str(repo),
-                workdir=str(worktree),
-            ))
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(
+                _bash(
+                    "sid-lane",
+                    "touch ../probe.txt",
+                    cwd=str(repo),
+                    workdir=str(worktree),
+                )
+            )
     assert verdict.allow is False
     assert str((repo / ".worktrees" / "probe.txt").resolve()) in verdict.reason
 
@@ -139,12 +202,14 @@ def test_parent_traversal_to_main_denies(tmp_path):
     with test_database() as conn:
         worktree = _seed_lane(conn, repo)
         with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
-            verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
-                "sid-lane",
-                "touch ../../probe.txt",
-                cwd=str(repo),
-                workdir=str(worktree),
-            ))
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(
+                _bash(
+                    "sid-lane",
+                    "touch ../../probe.txt",
+                    cwd=str(repo),
+                    workdir=str(worktree),
+                )
+            )
     assert verdict.allow is False
     assert str((repo / "probe.txt").resolve()) in verdict.reason
 
@@ -156,12 +221,14 @@ def test_absolute_main_target_still_denies(tmp_path):
         worktree = _seed_lane(conn, repo)
         target = repo / "absolute-main.txt"
         with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
-            verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
-                "sid-lane",
-                f"touch {target}",
-                cwd=str(repo),
-                workdir=str(worktree),
-            ))
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(
+                _bash(
+                    "sid-lane",
+                    f"touch {target}",
+                    cwd=str(repo),
+                    workdir=str(worktree),
+                )
+            )
     assert verdict.allow is False
     assert str(target.resolve()) in verdict.reason
 
@@ -171,12 +238,14 @@ def test_git_commit_from_lane_workdir_allows(tmp_path):
     (repo / ".worktrees").mkdir(parents=True)
     with test_database() as conn:
         worktree = _seed_lane(conn, repo)
-        verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
-            "sid-lane",
-            "git commit -m slice",
-            cwd=str(repo),
-            workdir=str(worktree),
-        ))
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            _bash(
+                "sid-lane",
+                "git commit -m slice",
+                cwd=str(repo),
+                workdir=str(worktree),
+            )
+        )
     assert verdict.allow is True
 
 
@@ -185,12 +254,14 @@ def test_relative_git_commit_path_from_lane_workdir_allows(tmp_path):
     (repo / ".worktrees").mkdir(parents=True)
     with test_database() as conn:
         worktree = _seed_lane(conn, repo)
-        verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
-            "sid-lane",
-            "git commit -m slice -- packages/foo.py",
-            cwd=str(repo),
-            workdir=str(worktree),
-        ))
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            _bash(
+                "sid-lane",
+                "git commit -m slice -- packages/foo.py",
+                cwd=str(repo),
+                workdir=str(worktree),
+            )
+        )
     assert verdict.allow is True
 
 
@@ -200,9 +271,11 @@ def test_git_commit_on_main_without_workdir_denies(tmp_path):
     with test_database() as conn:
         _seed_lane(conn, repo)
         with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
-            verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
-                "sid-lane",
-                "git commit -m slice",
-                cwd=str(repo),
-            ))
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(
+                _bash(
+                    "sid-lane",
+                    "git commit -m slice",
+                    cwd=str(repo),
+                )
+            )
     assert verdict.allow is False

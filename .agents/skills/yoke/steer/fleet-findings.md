@@ -26,7 +26,9 @@ or plan note. Nothing acknowledged is automatically completed.
 - **Undelivered messages**: no attempt or failed last attempt means you owe
   recovery. Pull row's read-only machine evidence before diagnosing repeated
   relay code. Attempt moving, queued next hook or recipient turn in flight
-  means waiting: no second wake. Ended/terminated recipient has no route:
+  means waiting: no second wake. Escalated wake (native_process_gone) is the
+  relay resuming that same session; if nothing lands, re-run its named wake
+  command, never terminate a resumable session. Ended/terminated recipient has no route:
   read the named message, handle or re-address its work, then cancel obsolete
   pending/injected mail as sender actor or target-project admin; a successor
   cannot acknowledge old session mail. The report detects ended-session debt

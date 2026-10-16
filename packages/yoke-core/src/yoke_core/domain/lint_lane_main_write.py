@@ -33,6 +33,7 @@ import sys
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
+from yoke_contracts.hook_runner.session_cwd import client_machine_home
 from yoke_core.domain.command_workdir import command_execution_cwd
 from yoke_core.domain.lint_lane_main_write_classify import (
     collect_main_write_targets,
@@ -100,10 +101,10 @@ def _read_mode(payload: object | None = None) -> str:
     return lint_config.resolve_mode_for_payload(GUARD_KEY, payload)
 
 
-def _config_note(mode: str) -> str:
+def _config_note(mode: str, payload: Mapping[str, Any]) -> str:
     from yoke_core.domain import lint_config
 
-    return lint_config.describe_config_source(GUARD_KEY, mode)
+    return lint_config.describe_config_source(GUARD_KEY, mode, payload=dict(payload))
 
 
 def _extract_tool_name(payload: Mapping[str, Any]) -> str:
@@ -143,7 +144,10 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
             if not active_claims:
                 return Verdict(allow=True)
             repo_roots = tuple(derive_repo_roots(conn, active_claims))
-            fallback_cwd = command_execution_cwd(payload)
+            # The client's home, never this process's: "" leaves ``~`` as written.
+            fallback_cwd = command_execution_cwd(
+                payload, machine_home=client_machine_home(payload)
+            )
             hits = collect_main_write_targets(
                 tool_name=tool_name,
                 payload=payload_dict,
@@ -154,9 +158,9 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
             if not hits:
                 return Verdict(allow=True)
             _attempted, claim, _derivation = first_hit_fields(hits)
-            if not lane_path_exists_on_disk(claim) and claim_heartbeat_is_stale(
-                conn, session_id, claim
-            ):
+            if not lane_path_exists_on_disk(
+                payload, claim
+            ) and claim_heartbeat_is_stale(conn, session_id, claim):
                 emit_stranded_lane_advisory(
                     session_id=session_id,
                     lane_path=claim.worktree_path,
@@ -201,7 +205,7 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
         lane_equivalent=equivalent,
         mode=mode,
         suppression_seen=suppression_seen,
-        config_note=_config_note(mode),
+        config_note=_config_note(mode, payload),
         derivation=derivation,
         tool_name=tool_name,
     )

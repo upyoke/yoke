@@ -48,6 +48,79 @@ def _read(function, payload, actor):
     )
 
 
+def _sign_in_accounts(identity) -> str:
+    accounts = []
+    for site in identity.sites:
+        if site.account and site.account not in accounts:
+            accounts.append(site.account)
+    return ", ".join(accounts) if accounts else identity.name
+
+
+def _desktop_command(project, machine, settings) -> str:
+    from yoke_contracts.machine_config.desktop_access import validate_desktop_settings
+
+    viewable = False
+    try:
+        route = validate_desktop_settings(settings)
+    except TestMachineCapabilityError:
+        route = {}
+    if (
+        route
+        and settings.get("os") in {"linux", "windows"}
+        and route.get("desktop_protocol") == "rdp"
+    ):
+        viewable = True
+    flag = " --view" if viewable else ""
+    return (
+        f"yoke test-machine desktop-access --project {project} "
+        f"--machine {machine}{flag}"
+    )
+
+
+def _tell(message, json_mode) -> None:
+    print(message, file=sys.stderr if json_mode else sys.stdout, flush=True)
+
+
+def _open_sign_in_viewer(project, detail, identity, json_mode):
+    from yoke_harness.desktop_access import DesktopAccessError, begin_desktop_view
+
+    settings = detail["settings"]
+    machine = detail["machine"]
+    try:
+        viewer = begin_desktop_view(project=project, machine=machine, settings=settings)
+    except (DesktopAccessError, TestMachineCapabilityError) as exc:
+        command = _desktop_command(project, machine, settings)
+        _tell(
+            f"{exc}\nRun `{command}`.\n"
+            "Sign in on its desktop, then close the browser window; "
+            "the command verifies there before returning.",
+            json_mode,
+        )
+        return None
+    _tell(
+        f"Opening the desktop of machine {machine}. A window titled "
+        f'"Yoke desktop: {machine}" will appear.\n'
+        f"Sign in with {_sign_in_accounts(identity)}.\n"
+        "Close the browser window when done; the viewer closes when "
+        "verification finishes.",
+        json_mode,
+    )
+    return viewer
+
+
+def _close_sign_in_viewer(viewer, machine) -> None:
+    from yoke_harness.desktop_access import DesktopAccessError
+
+    try:
+        viewer.close()
+    except DesktopAccessError as exc:
+        print(
+            f"Close the desktop viewer for machine {machine} yourself: {exc}",
+            file=sys.stderr,
+            flush=True,
+        )
+
+
 def authorize_remote(parsed) -> int:
     from yoke_harness.test_machine_gui_command import run_gui_command
     from yoke_harness.test_machine_remote_exec import RemoteExecRefusal
@@ -116,28 +189,26 @@ def authorize_remote(parsed) -> int:
             argv.append("--reset")
         if parsed.json_mode:
             argv.append("--json")
-        if not parsed.json_mode:
-            print(
-                f"Authorizing project {project} identity {identity.name} on "
-                f"machine {detail['machine']}. Sign in on its desktop, then close "
-                "the browser window; the command verifies there before returning.",
-                flush=True,
+        viewer = _open_sign_in_viewer(project, detail, identity, parsed.json_mode)
+        try:
+            desktop_password = (
+                read_machine_capability_secret(
+                    project,
+                    test_machine_capability_type(detail["machine"]),
+                    "desktop_password",
+                )
+                if detail["settings"].get("os") in {"linux", "windows"}
+                else None
             )
-        desktop_password = (
-            read_machine_capability_secret(
-                project,
-                test_machine_capability_type(detail["machine"]),
-                "desktop_password",
+            result = run_gui_command(
+                settings=detail["settings"],
+                argv=argv,
+                yoke_home=machine_config.yoke_home(),
+                desktop_password=desktop_password,
             )
-            if detail["settings"].get("os") in {"linux", "windows"}
-            else None
-        )
-        result = run_gui_command(
-            settings=detail["settings"],
-            argv=argv,
-            yoke_home=machine_config.yoke_home(),
-            desktop_password=desktop_password,
-        )
+        finally:
+            if viewer is not None:
+                _close_sign_in_viewer(viewer, detail["machine"])
         if parsed.json_mode:
             try:
                 payload = json.loads(result.stdout)

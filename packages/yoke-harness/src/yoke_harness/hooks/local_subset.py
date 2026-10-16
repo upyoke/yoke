@@ -1,39 +1,36 @@
-"""Product-safe local hook subset evaluation."""
+"""Product-safe local hook subset evaluation.
+
+The client half of the relay split: it evaluates the chain's ``CLIENT``
+policies (:data:`yoke_contracts.hook_runner.policy_home.CLIENT_POLICIES`)
+here, and collects the client facts the chain's server-run policies read.
+"""
 
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Optional
 
 from yoke_contracts.hook_driver_process import (
     DRIVER_PAYLOAD_KEY,
     collect_driver_process,
 )
-from yoke_contracts.fleet_watcher_observation import observe_fleet_watcher
-from yoke_contracts.hook_runner.hook_ordering import (
-    matchers_for,
-    ordered_pipeline_for,
-)
+from yoke_contracts.hook_runner.hook_ordering import matchers_for
 from yoke_contracts.hook_runner import lint_policy
 from yoke_contracts.hook_runner.cursor_response import cursor_allow_stdout
+from yoke_contracts.hook_runner.policy_home import CLIENT_POLICIES
 from yoke_contracts.hook_runner.project_scope import (
     HookProjectScope,
     resolve_hook_project_scope,
 )
 from yoke_contracts.hook_runner.shell_guard_repairs import RIPGREP_REPLACE_CHECK_ID
-from yoke_contracts.hook_runner.session_cwd import (
-    client_claude_job_tmp_fact,
-    client_machine_home_fact,
-    client_scratch_root_fact,
-)
-from yoke_contracts.machine_config import runtime as machine_config
-from yoke_contracts.session_control import turn_end_events
 
+from yoke_harness.hooks.client_facts import (
+    collect_client_facts,
+    event_chain,
+    tool_matcher,
+)
 from yoke_harness.hooks.deadline import HookDeadline
-from yoke_harness.hooks.main_commit_client import collect_git_commit_facts
 from yoke_harness.hooks.local_policies import (
     advisory_stdout,
     db_error_advisory,
@@ -41,42 +38,16 @@ from yoke_harness.hooks.local_policies import (
     hint_file_line,
     lint_destructive_git,
     lint_local_privacy,
-    lint_main_commit,
     lint_shell_backtick_search,
     lint_tmp_runtime_import,
 )
+from yoke_harness.hooks.session_lifecycle import session_lifecycle
 from yoke_harness.hooks.unmatched_path_glob import lint_unmatched_path_glob
 from yoke_harness.hooks.local_policy_common import (
     ADVISORY,
     DENY,
     NOOP,
     command_from_payload,
-)
-
-
-LOCAL_STATE_POLICIES: frozenset[str] = frozenset(
-    {
-        "yoke_core.domain.lint_main_commit",
-        "yoke_core.domain.lint_shell_backtick_search",
-        "yoke_core.domain.lint_local_privacy",
-        "yoke_core.domain.lint_destructive_git",
-        "yoke_core.domain.lint_python_runtime_import_in_tmp",
-        "yoke_core.domain.hint_file_line_limit_approach",
-        "yoke_core.domain.db_error_hook",
-        "yoke_core.domain.lint_unmatched_path_glob",
-    }
-)
-
-_LIFECYCLE_EVENTS = frozenset(
-    {
-        "SessionStart",
-        "UserPromptSubmit",
-        "SessionEnd",
-        "Stop",
-        "SubagentStop",
-        "PreCompact",
-        "Notification",
-    }
 )
 
 
@@ -126,71 +97,11 @@ def _parse_payload(stdin_data: str) -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
-def _client_scratch_root_fact() -> dict[str, object]:
-    """Collect the local root the authority cannot resolve over HTTPS."""
-
-    try:
-        return client_scratch_root_fact(machine_config.effective_temp_root())
-    except Exception:
-        return {}
-
-
-def _client_machine_home_fact() -> dict[str, object]:
-    """Collect the canonical home of the machine running the hook."""
-    try:
-        return client_machine_home_fact(str(Path.home().resolve()))
-    except Exception:
-        return {}
-
-
-def _client_claude_job_tmp_fact() -> dict[str, object]:
-    """Collect the background-job temp root only this client can resolve."""
-    try:
-        return client_claude_job_tmp_fact(
-            os.environ.get("CLAUDE_JOB_DIR", ""),
-        )
-    except Exception:
-        return {}
-
-
-def _matcher(event_name: str, payload: dict) -> Optional[str]:
-    if event_name in {"PreToolUse", "PostToolUse"}:
-        tool_name = payload.get("tool_name")
-        return tool_name if isinstance(tool_name, str) and tool_name else None
-    if event_name == "apply_patch":
-        return "apply_patch"
-    return None
-
-
-def _chain_for(event_name: str, matcher: Optional[str]) -> list[str]:
-    if event_name in _LIFECYCLE_EVENTS:
-        chain = ordered_pipeline_for(event_name, "_default")
-        return chain or ["yoke_core.hooks.session_dispatch"]
-    return ordered_pipeline_for(event_name, matcher or "_default")
-
-
-def _local_modules(
-    event_name: str,
-    matcher: Optional[str],
-    *,
-    defer_main_commit: bool = False,
-    project_scope: HookProjectScope | None = None,
-) -> list[str]:
-    from yoke_contracts.hook_runner.guard_scope import applicable_chain
-
-    chain = _chain_for(event_name, matcher)
-    if project_scope is not None:
-        chain = applicable_chain(chain, project_scope.require_project_id())
-    return [
-        module_id
-        for module_id in chain
-        if module_id in LOCAL_STATE_POLICIES
-        and not (defer_main_commit and module_id == "yoke_core.domain.lint_main_commit")
-    ]
+def _local_modules(chain: list[str]) -> list[str]:
+    return [module_id for module_id in chain if module_id in CLIENT_POLICIES]
 
 
 _POLICY_EVALUATORS = {
-    "yoke_core.domain.lint_main_commit": lint_main_commit,
     "yoke_core.domain.lint_shell_backtick_search": lint_shell_backtick_search,
     "yoke_core.domain.lint_local_privacy": lint_local_privacy,
     "yoke_core.domain.lint_destructive_git": lint_destructive_git,
@@ -199,25 +110,26 @@ _POLICY_EVALUATORS = {
     "yoke_core.domain.db_error_hook": db_error_advisory,
     "yoke_core.domain.lint_unmatched_path_glob": lint_unmatched_path_glob,
 }
+_SESSION_DISPATCH = "yoke_core.hooks.session_dispatch"
 
 
 def render_dry_run(event_name: str, stdin_data: str = "") -> str:
     """Render the product-owned local subset without importing policy modules."""
     payload = _parse_payload(stdin_data)
-    matcher = _matcher(event_name, payload)
+    matcher = tool_matcher(event_name, payload)
     if matcher is None and event_name in {"PreToolUse", "PostToolUse"}:
         sections: list[str] = []
         for tool in matchers_for(event_name) or []:
+            chain = event_chain(event_name, {"tool_name": tool})
             body = "\n".join(
-                f"[product-local] {module_id}"
-                for module_id in _local_modules(event_name, tool)
+                f"[product-local] {module_id}" for module_id in _local_modules(chain)
             )
             if body:
                 sections.append(f"# {event_name}:{tool}\n{body}")
         return "\n\n".join(sections) + ("\n" if sections else "")
     lines = [
         f"[product-local] {module_id}"
-        for module_id in _local_modules(event_name, matcher)
+        for module_id in _local_modules(event_chain(event_name, payload))
     ]
     return "\n".join(lines) + ("\n" if lines else "")
 
@@ -229,14 +141,16 @@ def evaluate_local_subset(
     agent_type: Optional[str],
     deadline: HookDeadline,
     *,
-    defer_main_commit: bool = False,
+    collect_facts: bool = False,
     lint_config_snapshot: dict[str, dict[str, object]] | None = None,
     project_scope: HookProjectScope | None = None,
 ) -> LocalSubsetEvaluation:
-    """Evaluate the product-owned local policy subset in chain order.
+    """Evaluate the chain's client policies in order; optionally collect facts.
 
-    A relay passes the ``project_scope`` it already resolved for the request;
-    a standalone evaluation resolves it here from its own payload.
+    ``collect_facts`` is set by the relay, which ships the chain's client
+    facts to the authority in ``payload_extra``. A relay passes the
+    ``project_scope`` it already resolved for the request; a standalone
+    evaluation resolves it here from its own payload.
     """
     _ = agent_type
     payload = _parse_payload(stdin_data)
@@ -244,55 +158,29 @@ def evaluate_local_subset(
         project_scope = resolve_hook_project_scope(payload)
     if lint_config_snapshot:
         payload[lint_policy.SNAPSHOT_PAYLOAD_KEY] = lint_config_snapshot
-    matcher = _matcher(event_name, payload)
-    payload_extra: dict[str, object] = {}
-    if event_name in turn_end_events(executor):
-        from yoke_contracts.turn_end_evidence import (
-            PAYLOAD_KEY,
-            extract_turn_end_evidence,
-            read_transcript_tail,
-        )
-
-        path = payload.get("transcript_path")
-        text = read_transcript_tail(path) if isinstance(path, str) and path else None
-        payload_extra[PAYLOAD_KEY] = extract_turn_end_evidence(
-            payload=payload,
-            transcript_text=text,
-        ).as_dict()
     # The driving process names itself on the machine where it actually runs:
     # over the relay the evaluating server's own pid names an API worker, not
     # the harness hook child that ran. Rides to the server in payload_extra.
-    payload_extra[DRIVER_PAYLOAD_KEY] = collect_driver_process()
-    if defer_main_commit:
-        payload_extra.update(
-            observe_fleet_watcher(payload, executor=executor, event_name=event_name)
-        )
-        payload_extra.update(_client_machine_home_fact())
-        payload_extra.update(_client_scratch_root_fact())
-        payload_extra.update(_client_claude_job_tmp_fact())
-        payload_extra.update(collect_git_commit_facts(payload))
+    payload_extra: dict[str, object] = {DRIVER_PAYLOAD_KEY: collect_driver_process()}
     contexts: list[str] = []
     try:
-        modules = _local_modules(
-            event_name,
-            matcher,
-            defer_main_commit=defer_main_commit,
-            project_scope=project_scope,
-        )
+        chain = event_chain(event_name, payload, project_scope)
     except (ValueError, OSError, RuntimeError) as exc:
         reason = f"hook_scope_unavailable: {exc}; repair the machine project mapping and retry"
         stdout, exit_code = deny_stdout(reason, event_name, executor)
         return LocalSubsetEvaluation(
             stdout, exit_code, True, payload_extra=payload_extra
         )
-    for module_id in modules:
+    if collect_facts:
+        payload_extra.update(collect_client_facts(event_name, payload, executor, chain))
+    for module_id in _local_modules(chain):
         if deadline.expired():
             break
-        evaluator = _POLICY_EVALUATORS.get(module_id)
-        if evaluator is None:
-            continue
         try:
-            result = evaluator(payload)
+            if module_id == _SESSION_DISPATCH:
+                result = session_lifecycle(event_name, payload, executor)
+            else:
+                result = _POLICY_EVALUATORS[module_id](payload)
         except Exception as exc:  # fail open, but make the degradation visible
             contexts.append(
                 f"product-local hook policy {module_id} degraded open: {exc}"
@@ -341,7 +229,6 @@ def evaluate_local_subset(
 
 
 __all__ = [
-    "LOCAL_STATE_POLICIES",
     "LocalSubsetEvaluation",
     "evaluate_local_subset",
     "render_dry_run",

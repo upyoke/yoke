@@ -20,6 +20,7 @@ from urllib.parse import quote
 from urllib.request import urlopen
 
 from yoke_harness.linux_devtools_page import DevToolsPage  # host: prepended source
+from yoke_harness.machine_browser_approval import CONNECTED_CONFIRMATION
 
 CHROMIUM_EXECUTABLES = ("chromium", "chromium-browser", "/snap/bin/chromium")
 CHROMIUM_DESKTOP_ENTRIES = (
@@ -284,6 +285,25 @@ def approve(allowed_urls, label):
         )
         if url is not None and url != start:
             return {"state": "approved", "starting_url": start, "result_url": url}
+        try:
+            confirmed = page.call(
+                "Runtime.evaluate",
+                returnByValue=True,
+                expression="location.href === "
+                + json.dumps(start)
+                + " && [...document.querySelectorAll('h1')].some(e => "
+                + "e.getClientRects().length && e.innerText.trim() === "
+                + json.dumps(CONNECTED_CONFIRMATION)
+                + ")",
+            )
+        except (OSError, ValueError, IndexError):
+            confirmed = {}
+        if url == start and confirmed.get("result", {}).get("value") is True:
+            return {
+                "state": "approved_in_place",
+                "starting_url": start,
+                "result_url": url,
+            }
     return {"state": "approval_navigation_missing"}
 
 

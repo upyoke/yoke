@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import ExitStack
 import os
 import re
 import shlex
@@ -83,35 +84,95 @@ def _client_failure(code, evidence, log_path):
     return f"desktop_view_failed: {reason}; FreeRDP exited {code}; retained log: {log_path}; {recovery}"
 
 
-def view_desktop(project, machine, settings, password, receipt, run):
-    executable = shutil.which("sdl-freerdp") or shutil.which("sdl-freerdp3")
-    if not executable:
-        raise DesktopAccessError("desktop_rdp_client_missing: " + CLIENT_RECOVERY)
-    environment = receipt["environment"]
-    probe = run(
-        shlex.join(
-            ["env", *[f"{k}={v}" for k, v in environment.items()], "xwininfo", "-root"]
-        ),
-        timeout=20,
-    )
-    values = [
-        re.search(rf"^\s*{key}:\s*(\d+)\s*$", probe.stdout, re.MULTILINE)
-        for key in ("Width", "Height", "Depth")
-    ]
-    if probe.returncode or not all(values):
-        raise DesktopAccessError(
-            "desktop_view_geometry_unavailable: repair xwininfo on the registered XFCE display and retry"
+class DesktopView:
+    """One FreeRDP viewer. Close stops the client and its SSH forward."""
+
+    def __init__(self, stack, process, reader, log, log_path, evidence, user, receipt):
+        self._stack = stack
+        self.process = process
+        self._reader = reader
+        self._log = log
+        self.log_path = log_path
+        self.evidence = evidence
+        self.user = user
+        self.receipt = receipt
+        self._client_stopped = False
+        self._forward_closed = False
+
+    @classmethod
+    def open(cls, project, machine, settings, password, receipt, run):
+        executable = shutil.which("sdl-freerdp") or shutil.which("sdl-freerdp3")
+        if not executable:
+            raise DesktopAccessError("desktop_rdp_client_missing: " + CLIENT_RECOVERY)
+        environment = receipt["environment"]
+        probe = run(
+            shlex.join(
+                [
+                    "env",
+                    *[f"{k}={v}" for k, v in environment.items()],
+                    "xwininfo",
+                    "-root",
+                ]
+            ),
+            timeout=20,
         )
-    width, height, depth = (int(value[1]) for value in values)
-    if (
-        not 64 <= width <= 16384
-        or not 64 <= height <= 16384
-        or depth not in {16, 24, 32}
+        values = [
+            re.search(rf"^\s*{key}:\s*(\d+)\s*$", probe.stdout, re.MULTILINE)
+            for key in ("Width", "Height", "Depth")
+        ]
+        if probe.returncode or not all(values):
+            raise DesktopAccessError(
+                "desktop_view_geometry_unavailable: repair xwininfo on the registered XFCE display and retry"
+            )
+        width, height, depth = (int(value[1]) for value in values)
+        if (
+            not 64 <= width <= 16384
+            or not 64 <= height <= 16384
+            or depth not in {16, 24, 32}
+        ):
+            raise DesktopAccessError(
+                "desktop_view_geometry_invalid: inspect the registered XFCE display before retrying"
+            )
+        stack = ExitStack()
+        host, port, user = stack.enter_context(desktop_forward(project, settings))
+        launched = False
+        try:
+            opened = cls._launch(
+                stack,
+                executable,
+                host,
+                port,
+                user,
+                machine,
+                settings,
+                password,
+                receipt,
+                width,
+                height,
+                depth,
+            )
+            launched = True
+            return opened
+        finally:
+            if not launched:
+                stack.close()
+
+    @classmethod
+    def _launch(
+        cls,
+        stack,
+        executable,
+        host,
+        port,
+        user,
+        machine,
+        settings,
+        password,
+        receipt,
+        width,
+        height,
+        depth,
     ):
-        raise DesktopAccessError(
-            "desktop_view_geometry_invalid: inspect the registered XFCE display before retrying"
-        )
-    with desktop_forward(project, settings) as (host, port, user):
         authority = f"[{host}]" if ":" in host else host
         window_width, window_height = _window_geometry(width, height)
         argv = [
@@ -139,10 +200,6 @@ def view_desktop(project, machine, settings, password, receipt, run):
             # Continuous RDP updates can keep the SDL loop inside Metal's
             # nextDrawable wait instead of pumping Cocoa input events.
             local_environment["SDL_RENDER_DRIVER"] = "opengl"
-        process = None
-        reader = None
-        evidence = {}
-        code = None
         try:
             descriptor, log_path = tempfile.mkstemp(
                 prefix="yoke-desktop-view-", suffix=".log"
@@ -153,6 +210,9 @@ def view_desktop(project, machine, settings, password, receipt, run):
             ) from None
         log = os.fdopen(descriptor, "w", encoding="utf-8")
         print(f"desktop_view_log: {log_path}", file=sys.stderr, flush=True)
+        process = None
+        reader = None
+        evidence = {}
         try:
             process = subprocess.Popen(
                 argv,
@@ -171,46 +231,97 @@ def view_desktop(project, machine, settings, password, receipt, run):
             reader.start()
             process.stdin.write(password + "\n")
             process.stdin.close()
-            code = process.wait()
-        except KeyboardInterrupt:
-            # The caller may close a deliberately retained viewer with Ctrl-C.
-            pass
         except FileNotFoundError:
+            cls._abandon(process, reader, log, log_path, evidence)
             raise DesktopAccessError(
                 f"desktop_rdp_client_missing: retained log: {log_path}; "
                 + CLIENT_RECOVERY
             ) from None
         except (OSError, subprocess.TimeoutExpired) as exc:
+            cls._abandon(process, reader, log, log_path, evidence)
             raise DesktopAccessError(
                 f"desktop_view_unavailable: {type(exc).__name__}; retained log: {log_path}; check workstation client permissions and resources, then rerun desktop-access --view"
             ) from None
+        return cls(stack, process, reader, log, log_path, evidence, user, receipt)
+
+    @staticmethod
+    def _abandon(process, reader, log, log_path, evidence):
+        try:
+            if process is not None:
+                _stop(process, log_path)
         finally:
-            try:
-                if process is not None:
-                    _stop(process, log_path)
-            finally:
-                if reader is not None:
-                    reader.join(timeout=CLEANUP_TIMEOUT)
-                    if reader.is_alive():
-                        evidence["capture_failed"] = True
-                log.close()
-        if evidence.get("capture_failed"):
+            if reader is not None:
+                reader.join(timeout=CLEANUP_TIMEOUT)
+                if reader.is_alive():
+                    evidence["capture_failed"] = True
+            log.close()
+
+    def stop_client(self):
+        if self._client_stopped:
+            return
+        self._client_stopped = True
+        try:
+            if self.process is not None:
+                _stop(self.process, self.log_path)
+        finally:
+            if self._reader is not None:
+                self._reader.join(timeout=CLEANUP_TIMEOUT)
+                if self._reader.is_alive():
+                    self.evidence["capture_failed"] = True
+            self._log.close()
+
+    def close_forward(self):
+        if self._forward_closed:
+            return
+        self._forward_closed = True
+        self._stack.close()
+
+    def close(self):
+        try:
+            self.stop_client()
+        finally:
+            self.close_forward()
+
+    def outcome(self, code):
+        if self.evidence.get("capture_failed"):
             raise DesktopAccessError(
-                f"desktop_view_log_failed: retained partial log: {log_path}; repair temporary storage and retry"
+                f"desktop_view_log_failed: retained partial log: {self.log_path}; repair temporary storage and retry"
             )
         local_quit = (
             code in LOCAL_QUIT_CODES
-            and evidence.get("connected")
-            and evidence.get("cancelled")
-            and not evidence.get("client_failed")
+            and self.evidence.get("connected")
+            and self.evidence.get("cancelled")
+            and not self.evidence.get("client_failed")
         )
         if code and not local_quit:
-            raise DesktopAccessError(_client_failure(code, evidence, log_path))
-    return {
-        "user": user,
-        "desktop_session": receipt["desktop_session"],
-        "display": environment["DISPLAY"],
-        "viewer": "closed",
-        "log_path": log_path,
-        "client_exit_code": process.returncode,
-    }
+            raise DesktopAccessError(
+                _client_failure(code, self.evidence, self.log_path)
+            )
+        return {
+            "user": self.user,
+            "desktop_session": self.receipt["desktop_session"],
+            "display": self.receipt["environment"]["DISPLAY"],
+            "viewer": "closed",
+            "log_path": self.log_path,
+            "client_exit_code": self.process.returncode,
+        }
+
+
+def view_desktop(project, machine, settings, password, receipt, run):
+    opened = DesktopView.open(project, machine, settings, password, receipt, run)
+    code = None
+    try:
+        try:
+            code = opened.process.wait()
+        except KeyboardInterrupt:
+            # The caller may close a deliberately retained viewer with Ctrl-C.
+            pass
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise DesktopAccessError(
+                f"desktop_view_unavailable: {type(exc).__name__}; retained log: {opened.log_path}; check workstation client permissions and resources, then rerun desktop-access --view"
+            ) from None
+        finally:
+            opened.stop_client()
+        return opened.outcome(code)
+    finally:
+        opened.close_forward()

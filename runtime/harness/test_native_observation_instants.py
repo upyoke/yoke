@@ -26,7 +26,7 @@ from yoke_harness.session_relay_native_capture_format import (
 )
 from yoke_harness.session_relay_native_spawn import SupervisedNative
 from yoke_harness.session_relay_native_streams import BoundedStreams
-from yoke_harness.session_relay_native_turn_custody import _silent_for_seconds
+from yoke_harness.session_relay_native_turn_custody import _capture, _silent_for_seconds
 
 QUALIFIED = "1969-12-31T18:59:59.123456-05:00"
 CANONICAL = "1969-12-31T23:59:59.123456Z"
@@ -106,11 +106,11 @@ def test_silence_uses_the_capture_clock_with_exact_elapsed_boundaries(tmp_path):
     path = tmp_path / "native.capture"
     path.write_bytes(compose_capture(stdout=b"", stderr=b"", last_output_at=QUALIFIED))
     record = {"capture_path": str(path)}
-    assert _silent_for_seconds(record, now=lambda: 0.123455) == 0
-    assert _silent_for_seconds(record, now=lambda: 0.123456) == 1
-    assert _silent_for_seconds(record, now=lambda: -1.0) == 0
+    assert _silent_for_seconds(_capture(record), now=lambda: 0.123455) == 0
+    assert _silent_for_seconds(_capture(record), now=lambda: 0.123456) == 1
+    assert _silent_for_seconds(_capture(record), now=lambda: -1.0) == 0
     path.write_bytes(compose_capture(stdout=b"", stderr=b""))
-    assert _silent_for_seconds(record, now=lambda: 999.0) is None
+    assert _silent_for_seconds(_capture(record), now=lambda: 999.0) is None
 
 
 @pytest.mark.parametrize("microsecond", [0, 123456])
