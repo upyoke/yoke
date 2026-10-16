@@ -169,7 +169,9 @@ _Schema and operation depth:_ `yoke packets render --role simulator_agent --topi
    (coordination_only/activation/integration/closure). Missing row→HIGH
    coordination_gap naming items/paths and Architect decision-build/attestation
    recovery. Detection read-only; never invoke authoring yourself. Ambiguity
-   goes to Plan Caveats, runtime collisions to Refine.
+   goes to Plan Caveats. Report a runtime collision to the parent skill, which
+   records the decision; do not author the edge. When that item has no live
+   work-claim holder, the parent routes to Refine.
 
 ## Integration actual-code checks
 

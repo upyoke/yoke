@@ -279,8 +279,8 @@ Monitor primitive for another harness. It does not change operator behavior.
 
 ## Cross-references
 
-Runtime overlap in Conduct/Implement routes to Refine; only authoring-phase
-agents and the Dash work holder at survey/isolation attest coordination edges. [Lanes and claims](lanes-and-claims.md) owns
+The session holding the work claim attests a runtime overlap from its own
+skill; when no live holder exists, route to Refine. [Lanes and claims](lanes-and-claims.md) owns
 direction/owner/path policy; main-agent claims topic owns live schema.
 Registered `yoke <subcommand>` is canonical; nonprod local Postgres dispatches
 engine in-process. Runtime API imports/curl function server/direct clients are

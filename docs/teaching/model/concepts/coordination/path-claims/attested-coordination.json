@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "coordination",
  "position": 3,
- "sources": [".agents/skills/yoke/dash/survey-and-isolate.md", "packages/yoke-core/src/yoke_core/domain/path_claim_register.py"],
- "description": "Dash work holders classify overlaps during survey/isolation: independent edits use evidence-backed coordination_only; ordered edits wait for proven landing; scope or authority decisions route to steering."
+ "sources": [".agents/skills/yoke/dash/survey-and-isolate.md", "packages/yoke-core/src/yoke_core/domain/path_claim_coordination_decision.py", "docs/public/reference/agent-rules/lanes-and-claims.md"],
+ "description": "The session holding the work claim attests an independent path overlap with coordination_only, using its own skill as the dependency source. Engineer and Tester report the overlap to that session and do not author the edge."
 }

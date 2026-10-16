@@ -25,8 +25,8 @@ def test_all_harnesses_declare_the_same_canonical_instruction_source():
         assert not (REPO / name).exists()
 
 
-def test_shared_rules_allow_dash_to_attest_its_own_survey_overlap():
+def test_shared_rules_let_the_work_claim_holder_attest_its_overlap():
     text = (REPO / "AGENTS.md").read_text()
-    assert "Dash holders at survey/isolation attest independent overlaps" in text
-    assert "Dash holders classify their survey overlaps" in text
-    assert "other runtime coordination decisions route to Refine" in text
+    assert "The session holding the work claim attests independent overlaps" in text
+    assert "from its own skill" in text
+    assert "When no live work-claim holder exists, route to `/yoke refine`" in text

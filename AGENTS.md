@@ -27,9 +27,9 @@ Work claims authorize lanes. Never implement on main or use `--no-worktree` with
 
 ## Path Claims — Hard Rule
 
-File Budget and path claims are independent axes from `workflows.item.get`'s `effective_policies`. The 350-line authored-file limit (`yoke_core.domain.file_line_check`) always holds. Claimed paths do not narrow scope: Every required file stays in the item; never omit, descope, or rewrite away a required file. Claims are coordination/dependency/blocking facts. Read `lanes-and-claims.md` before resolving any overlap; Dash holders classify their survey overlaps; other runtime coordination decisions route to Refine.
+File Budget and path claims are independent axes from `workflows.item.get`'s `effective_policies`. The 350-line authored-file limit (`yoke_core.domain.file_line_check`) always holds. Claimed paths do not narrow scope: Every required file stays in the item; never omit, descope, or rewrite away a required file. Claims are coordination/dependency/blocking facts. Read `lanes-and-claims.md` before resolving any overlap.
 
-Authoring agents and Dash holders at survey/isolation attest independent overlaps with `coordination_only`; ordered edits require directional `activation` evidence. Only the dependent waits. Unattested overlap stays incompatible; claims coordinate physical files, including symlink targets.
+The session holding the work claim attests independent overlaps with `coordination_only` from its own skill; ordered edits require directional `activation` evidence. Only the dependent waits. When no live work-claim holder exists, route to `/yoke refine`. Unattested overlap stays incompatible; claims coordinate physical files, including symlink targets.
 
 ### yoke CLI
 

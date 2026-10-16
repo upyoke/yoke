@@ -57,6 +57,11 @@ A refusal stops before lane creation/status mutation. Follow the actual
 dependency direction and attested overlap remediation in the
 [claim rules](../../../../.yoke/docs/reference/agent-rules/lanes-and-claims.md);
 a coordination-only edge differs from a directional activation dependency.
+When the refusal is an independent path overlap, this session holds the work
+claim: read both specs, run `yoke claims path coordination-decision-build`,
+and record the decision with `yoke items dependency add` using source
+`implement`. Ordered edits wait for the holder's landing proof. Engineer and
+Tester report the overlap here and do not author the edge.
 A diverged integration target needs owner reconciliation preserving local
 commits, not an automatic push, pull, rebase or reset. `--force` cannot
 override activation. After success, continue the same entry bundle.

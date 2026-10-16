@@ -26,6 +26,7 @@ from yoke_core.domain.machine_qa_submission_recording import (
     validate_case_submission,
 )
 from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
+from yoke_core.domain.machine_qa_host_selection import TestMachineHostUnhealthy
 from yoke_core.domain.coordination_claim_contention import waiting_claim_evidence
 
 
@@ -177,6 +178,13 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 waiting["host_wait"]
             )
             waiting["lease_context"] = waiting_claim_evidence(held.lease, contention)
+            return HandlerOutcome(primary_success=True, result_payload=waiting)
+        except TestMachineHostUnhealthy as unhealthy:
+            from yoke_core.domain.qa_host_turns import record_host_wait
+
+            waiting = record_host_wait(
+                conn, execution, machine=unhealthy.machine, rationale=str(unhealthy)
+            )
             return HandlerOutcome(primary_success=True, result_payload=waiting)
     except (MachineQaProtocolError, TestMachineCapabilityError, ValueError) as exc:
         conn.rollback()
