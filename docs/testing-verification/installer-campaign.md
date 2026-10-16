@@ -38,9 +38,14 @@ definitions into the shared saved plan through the raw replacement adapter.
 The export document carries `source_revision` alongside `cases`; replacement
 automatically records it, and frozen releases retain it. A release uses its frozen source cases,
 and refuses `qa_plan_source_candidate_mismatch` before materialization or refresh
-if the selected source revision is not an ancestor of its candidate. Resync from
-the candidate or an ancestor, or release the newer source; never test newer
-installer expectations against an older candidate. A source-bound plan cannot
+if the selected source revision is not an ancestor of its candidate. Release a
+candidate carrying the newer source, or use run-bound correction cases; never
+test newer installer expectations against an older candidate. A sync moves only
+forward: the source revision must equal or descend from the plan's recorded
+revision. An older revision refuses `qa_plan_source_revision_regression`, and a
+recorded revision the repository cannot prove refuses
+`qa_plan_source_ancestry_unverified`; both name the two revisions and write
+nothing. Export again from current main and sync. A source-bound plan cannot
 be edited or replaced without source provenance. Older serving builds refuse
 source-proven sync as `qa_plan_source_binding_unavailable` before any write.
 Existing execution snapshots keep their original definitions and evidence; any

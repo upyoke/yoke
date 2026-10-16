@@ -108,7 +108,7 @@ def test_live_newer_source_refuses_before_deployment_refresh_writes(
 ):
     pid, rid, old, new, original = bound_plan
     with pytest.raises(
-        QaPlanError, match="qa_plan_source_candidate_mismatch.*Sync definitions"
+        QaPlanError, match="qa_plan_source_candidate_mismatch.*Release a candidate"
     ):
         rematerialize_for_deployment_stage(
             test_db,
@@ -136,14 +136,62 @@ def test_source_binding_cannot_be_removed_by_raw_replacement(test_db, bound_plan
     )
 
 
-def test_resyncing_candidate_source_reopens_live_materialization(test_db, bound_plan):
+def _recorded_source(test_db, pid):
+    return test_db.execute(
+        "SELECT source_revision FROM qa_plans WHERE id=%s", (pid,)
+    ).fetchone()[0]
+
+
+def test_sync_from_an_ancestor_of_the_recorded_source_refuses(test_db, bound_plan):
     pid, rid, old, new, original = bound_plan
-    replace_plan_cases(test_db, plan_id=pid, cases=original, source_revision=old)
-    source_binding.require_candidate_plan(
-        test_db,
-        {"id": pid, "project_id": 1, "source_revision": old},
-        "run-source-proof",
+    with pytest.raises(
+        QaPlanError,
+        match=f"qa_plan_source_revision_regression: source {old} does not "
+        f"descend from the plan's recorded source {new}.*current main",
+    ):
+        replace_plan_cases(test_db, plan_id=pid, cases=original, source_revision=old)
+    test_db.rollback()
+    assert _recorded_source(test_db, pid) == new
+
+
+def test_sync_from_the_recorded_source_or_a_descendant_proceeds(
+    test_db, bound_plan, source_checkout
+):
+    pid, rid, old, new, original = bound_plan
+    root, git = source_checkout
+    replace_plan_cases(test_db, plan_id=pid, cases=original, source_revision=new)
+    assert _recorded_source(test_db, pid) == new
+    (root / "cases.json").write_text('["newest behavior"]\n')
+    assert git(root, "commit", "-am", "Change source again").returncode == 0
+    newest = git(root, "rev-parse", "HEAD").stdout.strip()
+    assert git(root, "push", "origin", "stable").returncode == 0
+    replace_plan_cases(test_db, plan_id=pid, cases=original, source_revision=newest)
+    assert _recorded_source(test_db, pid) == newest
+
+
+def test_unknown_commit_refuses_by_name(test_db, bound_plan):
+    pid, rid, old, new, original = bound_plan
+    missing = "0" * 40
+    with pytest.raises(
+        QaPlanError, match=f"qa_plan_source_unmerged_or_unverified: .*{missing}"
+    ):
+        replace_plan_cases(
+            test_db, plan_id=pid, cases=original, source_revision=missing
+        )
+    test_db.rollback()
+    assert _recorded_source(test_db, pid) == new
+    test_db.execute(
+        "UPDATE qa_plans SET source_revision=%s WHERE id=%s", (missing, pid)
     )
+    test_db.commit()
+    with pytest.raises(
+        QaPlanError,
+        match=f"qa_plan_source_ancestry_unverified: the plan's recorded source "
+        f"{missing} is not in the project repository",
+    ):
+        replace_plan_cases(test_db, plan_id=pid, cases=original, source_revision=new)
+    test_db.rollback()
+    assert _recorded_source(test_db, pid) == missing
 
 
 def test_old_serving_response_refuses_source_sync_before_write(tmp_path, monkeypatch):

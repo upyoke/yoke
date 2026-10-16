@@ -53,10 +53,15 @@ Generated input is an object with source_revision and cases; qa plan-cases sync
 records its provenance atomically. qa plan-cases replace accepts manual arrays.
 --source-revision FULL_SHA records the merged exporter commit with the cases.
 It must be an ancestor of the project's verified default branch. Once recorded,
-every replacement needs source provenance; interactive editing refuses. Release
-materialization and refresh refuse qa_plan_source_candidate_mismatch when that
-source is not carried by the candidate: sync candidate definitions or deliver
-the newer source. A serving build missing source binding refuses before writing.
+every replacement needs source provenance; interactive editing refuses. A sync
+moves only forward: the recorded revision itself or a descendant of it.
+An older source refuses qa_plan_source_revision_regression, and a recorded
+revision the repository cannot prove refuses qa_plan_source_ancestry_unverified;
+both name the two revisions and write nothing. Export from current main and
+sync again. Release materialization and refresh refuse
+qa_plan_source_candidate_mismatch when that source is not carried by the
+candidate: release a candidate carrying it, or keep corrections run-scoped.
+A serving build missing source binding refuses before writing.
 
 Case environment obligations
 ----------------------------
