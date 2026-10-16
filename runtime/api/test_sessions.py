@@ -91,14 +91,12 @@ def _p(conn) -> str:
 
 
 from runtime.api.sessions_schema_test_ddl import _SESSIONS_AND_CLAIMS_DDL
+from yoke_core.domain.item_refs_schema import ensure_item_refs_view
 from yoke_contracts.session_model_facts import SessionModelFacts
 
 
 def _create_schema(conn) -> None:
-    """Create the harness_sessions, work_claims, actor, and items tables for testing.
-
-    Include current fleet-control tables for launch-aware session lifecycle reads.
-    """
+    """Create session, claim, identity and item tables with fleet-control reads."""
     apply_ddl_statements(
         conn,
         PROJECTS_SCHEMA,
@@ -123,6 +121,7 @@ def _create_schema(conn) -> None:
         """,
         _SESSIONS_AND_CLAIMS_DDL,
     )
+    ensure_item_refs_view(conn)
     create_work_claim_active_uniques(conn)
     seed_canonical_human(conn)
     from yoke_core.domain.workflow_registry import converge_builtin_workflows
