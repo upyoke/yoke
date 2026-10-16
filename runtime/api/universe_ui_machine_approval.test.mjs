@@ -294,3 +294,19 @@ test("a detached card ignores a late write and does not notify its host", async 
   assert.equal(decisions, 0);
   assert.doesNotMatch(main.textContent, /is connected to/);
 });
+
+test("embedded read errors still focus the labelled heading", async () => {
+  const { main } = page({ embedded: true, readError: { code: "authorization_unavailable" } });
+  await settle();
+  assert.equal(main.ownerDocument.activeElement, tag(main, "H2")[0]);
+});
+
+for (const [state, decision, expected] of [
+  ["expired", "deny", /This code expired at/], ["consumed", null, /This request was already answered/],
+]) test(`${state} server state outranks historical decision for closed cards`, async () => {
+  const { main, titles } = page({ state, decision });
+  await settle();
+  assert.match(main.textContent, expected);
+  assert.equal(titles.at(-1), "Connect your machine");
+  assert.equal(button(main, "Approve machine"), undefined);
+});

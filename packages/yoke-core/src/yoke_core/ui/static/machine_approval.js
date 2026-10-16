@@ -107,14 +107,14 @@ export async function renderApprovalCard(context, main, code, { embedded = false
   const mounted = () => context.isMounted() && main.isConnected !== false && main.contains(card);
   let authorization, org, firstRun = false, timer, focused = false;
   const clock = doc.defaultView || globalThis;
-  const title = (text) => {
+  const title = (text, ready = false) => {
     if (page.setPageHead) page.setPageHead({ title: text });
     else {
       const heading = el(doc, embedded ? "h2" : "h1", "title", text);
       heading.id = `machine-approval-${code}`;
       heading.tabIndex = -1;
       head.appendChild(heading);
-      if (embedded && !focused && authorization) { heading.focus(); focused = true; }
+      if (embedded && !focused && ready) { heading.focus(); focused = true; }
     }
   };
   function refusal(error, writing = false, body = card) {
@@ -140,13 +140,14 @@ export async function renderApprovalCard(context, main, code, { embedded = false
     card.replaceChildren();
     const decision = authorization?.decision;
     const approved = decision === "approve" && !["consumed", "expired"].includes(authorization?.state);
-    const expired = authorization && !decision && Date.parse(authorization.expires_at) <= Date.now();
-    title(approved ? "Machine connected" : authorization && !decision && !expired ? "Approve this machine" : "Connect your machine");
+    const expired = authorization && (authorization.state === "expired" || !decision && Date.parse(authorization.expires_at) <= Date.now());
+    const pending = authorization && !decision && !expired && authorization.state !== "consumed";
+    title(approved ? "Machine connected" : pending ? "Approve this machine" : "Connect your machine", true);
     if (firstRun && !embedded) head.appendChild(progress(doc, approved));
     if (!authorization) return;
     if (authorization.state === "consumed") { refusal({ code: "authorization_consumed" }); return; }
+    if (expired) { refusal({ code: "authorization_expired" }); return; }
     if (decision === "deny") { outcome(doc, card, "Request denied", "Nothing was authorized."); return; }
-    if (authorization.state === "expired" || expired) { refusal({ code: "authorization_expired" }); return; }
     if (approved) {
       outcome(doc, card, `✓ ${authorization.machine || "Your machine"} is connected to ${org.name}`, null, true);
       card.appendChild(terminalCallout(doc));
@@ -225,7 +226,7 @@ export async function renderApprovalCard(context, main, code, { embedded = false
     } catch (error) {
       if (!mounted()) return;
       head.replaceChildren();
-      title("Connect your machine");
+      title("Connect your machine", true);
       card.replaceChildren();
       refusal(error);
     }
