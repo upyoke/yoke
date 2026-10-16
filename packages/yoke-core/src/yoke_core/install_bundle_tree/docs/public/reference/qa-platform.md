@@ -105,7 +105,9 @@ GATE_QA_BYPASS_FORBIDDEN. Unset it and satisfy or explicitly waive obligations.
 ## Requirement Materialization
 
 Item requirements are attached by definition/seeded policy before review.
-materialize converges newly added cases and confirms existing rows unchanged.
+materialize converges newly added cases and confirms existing rows unchanged;
+a live item row whose case left the plan refuses `qa_plan_rows_orphaned`
+before writing and names the rematerialize that retires it.
 rematerialize refreshes amended rows, retires removed cases, and reports all
 plan_ids reached, including already-answered plans (refresh without new rows).
 On an item, a removed post_deploy case replaced by exactly one created row
@@ -281,7 +283,7 @@ member supersession after stage acceptance. Unsettled failures keep done blocked
 Run-local supersession never retires its item source: an outstanding source
 would be admitted again. Receipts name admitted_from_requirement_id and
 next_admission_notice only while that source is outstanding; absent/discharged
-sources get neither. Retiring a post_deploy item source is explicit:
+sources get neither. Retiring a directly admitted post_deploy item source is explicit:
 
 ```text
 yoke qa requirement add --item PREFIX-N --target-env {ENVIRONMENT} --method-id {METHOD_ID} --qa-phase post_deploy --blocking-mode blocking --workflow-transition {TRANSITION} --instructions-file {INSTRUCTIONS_FILE} --expected-outcome-file {EXPECTED_OUTCOME_FILE} --method-config '{METHOD_CONFIG_JSON}'
@@ -301,6 +303,10 @@ proof_owed_notice says the corrected source owes its own next-release proof. Lat
 admissions skip superseded source and admit corrected one; source is never
 rewritten. Control plane may record an authorized target it cannot execute
 (prod recording stage); execution alone checks runtime observation authority.
+
+For a plan copy the source is the member's own plan row: the notice says to
+correct the plan case, then run the named `yoke qa plan rematerialize`, which
+supersedes that row by the corrected case's row.
 
 All blocking cases discharged → subject reports discharged, accepted for gating
 but distinct from accepted passing proof. A carried cross-project member owes
