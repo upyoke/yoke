@@ -21,8 +21,8 @@ SURVEY_ADVISORY_SOURCE_PATHS = frozenset(
 OVERRIDE_POLICY_SOURCE_PATHS = frozenset(
     {
         "AGENTS.md",
-        "docs/public/reference/agent-rules/verification.md",
-        "docs/public/reference/agent-rules/lanes-and-claims.md",
+        "docs/public/agents/rules/verification.md",
+        "docs/public/agents/rules/lanes-and-claims.md",
     }
 )
 OVERRIDE_POLICY_TESTS = (

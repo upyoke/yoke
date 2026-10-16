@@ -13,6 +13,6 @@
  "distinct_from": "This is authored explanation with one compact work-cycle picture if helpful, not a navigation catalog or setup wizard.",
  "proposal_status": "Proposed consolidation and correction of existing introductory docs",
  "plan_notes": ["FIRST-USER 8/24", "FIRST-USER P1/P4", "JOURNEYS rows 4–15"],
- "sources": ["docs/public/index.md", "docs/public/start/concepts.md", "docs/public/operating-with-agents.md", ".agents/skills/yoke/steer/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md"],
+ "sources": ["docs/public/index.md", "docs/public/start/concepts.md", "docs/public/agents/index.md", ".agents/skills/yoke/steer/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md"],
  "position": 3
 }

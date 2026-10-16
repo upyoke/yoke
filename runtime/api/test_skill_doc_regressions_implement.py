@@ -111,7 +111,7 @@ class TestSkillDiscovery:
         assert "/yoke polish PREFIX-N" in router_text
 
     def test_codex_bootstrap_lists_refine_polish_and_usher(self):
-        codex = REPO / "docs/public/guides/codex-harness.md"
+        codex = REPO / "docs/public/agents/codex.md"
         text = _read(codex)
         assert "refine" in text
         assert "polish" in text

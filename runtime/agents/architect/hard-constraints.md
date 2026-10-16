@@ -64,7 +64,7 @@ Read/apply before technical plan, task specs or worktree plan.
 For changed capabilities review all relevant owners, including public entrypoints:
 - README.md: features, commands, layout, FAQ.
 - AGENTS.md (CLAUDE.md symlink): rules/layout/counts.
-- .yoke/docs/reference/commands.md: command catalog.
+- .yoke/docs/agents/commands.md: command catalog.
 - .agents/skills/yoke/SKILL.md: command router.
 - Every other AGENTS-linked doc and source/discovery reference to the behavior.
 

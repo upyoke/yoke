@@ -10,6 +10,6 @@
  "gap": "These command families must be accounted for without presenting them as normal first-user prerequisites. Review question: which public stubs should route to the final contributor homes after reorganization?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["outside both"],
- "sources": ["docs/source-dev-doctrine.md", "docs/public/reference/harness-discovery.md", "docs/public/reference/db-reference/functions.md", "docs/public/reference/qa-platform/product-smoke.md", "docs/public/reference/qa-platform/real-harness.md"],
+ "sources": ["docs/source-dev-doctrine.md", "docs/public/agents/harness-discovery.md", "docs/public/reference/db-reference/functions.md", "docs/public/reference/qa-platform/product-smoke.md", "docs/public/reference/qa-platform/real-harness.md"],
  "position": 0
 }

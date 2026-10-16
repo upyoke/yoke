@@ -3,7 +3,7 @@
  "title": "Stacked rehearsal",
  "status": "observed",
  "text": "When several open items each carry a migration entry, assign ordinals up front and rebase each later lane onto the previous item's branch so the top branch holds every entry in order. List every stacked module on the top item's DB claim. One yoke migration rehearse on the top item records a receipt per module and holds LIVE_DB_MIGRATION until that top item lands. A lower item's evidence gate accepts the receipt for its own module, because receipts are keyed by module, project and model. Land in order, each later item rebasing onto main after the one before lands, and ship the stack in one release with one fleet preflight per environment.",
- "sources": [".agents/skills/yoke/steer/release-batches.md", "docs/public/reference/agent-rules/databases.md", "packages/yoke-core/src/yoke_core/domain/db_mutation_gate_implementing.py", "packages/yoke-core/src/yoke_core/domain/migration_rehearsal_evidence.py"],
+ "sources": [".agents/skills/yoke/steer/release-batches.md", "docs/public/agents/rules/databases.md", "packages/yoke-core/src/yoke_core/domain/db_mutation_gate_implementing.py", "packages/yoke-core/src/yoke_core/domain/migration_rehearsal_evidence.py"],
  "commands": ["yoke migration rehearse"],
  "skills": ["steer"],
  "page": "databases",

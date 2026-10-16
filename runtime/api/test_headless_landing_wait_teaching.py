@@ -47,11 +47,11 @@ WATCHERS_PACKET_SOURCE = (
     / "packages/yoke-core/src/yoke_core/domain"
     / "schema_api_context_commands_watchers.py"
 )
-COMMAND_REFERENCE = REPO / "docs/public/reference/commands.md"
+COMMAND_REFERENCE = REPO / "docs/public/agents/commands.md"
 BUNDLE_COMMAND_REFERENCE = (
     REPO
     / "packages/yoke-core/src/yoke_core/install_bundle_tree"
-    / "docs/public/reference/commands.md"
+    / "docs/public/agents/commands.md"
 )
 
 # Prohibitions keyed on executor name rather than on what the calling

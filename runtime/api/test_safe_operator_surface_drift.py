@@ -1,17 +1,17 @@
 """Drift lock: the typed safe-operator-surface registry vs. the docs.
 
 The Tier 1 operator surface is enumerated in three markdown
-locations (docs/harness-bootstrap.md, .yoke/docs/reference/commands.md, the help SKILL.md),
-plus the per-harness compat statement in docs/public/guides/codex-harness.md. The typed source of truth
+locations (docs/harness-bootstrap.md, .yoke/docs/agents/commands.md, the help SKILL.md),
+plus the per-harness compat statement in docs/public/agents/codex.md. The typed source of truth
 is :data:`yoke_core.domain.harness_capability_registry.OPERATOR_COMMANDS`.
 
 These tests catch the drift class that produced the "Codex first slice"
 tension: the docs and the typed registry growing apart over time. Each
 markdown surface MUST mention every entrypoint declared in the registry, and
-docs/public/guides/codex-harness.md MUST name every registry entry that is missing the ``"codex"`` value
+docs/public/agents/codex.md MUST name every registry entry that is missing the ``"codex"`` value
 in its ``harness_support`` tuple. The Codex-incompatible set may legitimately
 be empty (every safe-surface command supports both harnesses); the drift lock
-only fires when an incompatible entry exists and docs/public/guides/codex-harness.md fails to name it.
+only fires when an incompatible entry exists and docs/public/agents/codex.md fails to name it.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ def _repo_root() -> Path:
 REPO = _repo_root()
 DOCS = REPO / "docs"
 # Reference docs shipped to managed projects live under .yoke/docs/reference.
-YOKE_DOCS = REPO / ".yoke" / "docs" / "reference"
+YOKE_DOCS = REPO / ".yoke" / "docs" / "agents"
 
 
 def _read(path: Path) -> str:
@@ -56,7 +56,7 @@ def test_commands_md_lists_full_safe_surface():
     text = _read(YOKE_DOCS / "commands.md")
     for command in safe_operator_surface():
         assert command.entrypoint in text, (
-            f".yoke/docs/reference/commands.md missing safe-surface entrypoint "
+            f".yoke/docs/agents/commands.md missing safe-surface entrypoint "
             f"{command.entrypoint!r}"
         )
 
@@ -83,7 +83,7 @@ def test_board_art_terminal_helper_is_listed_in_human_help_surfaces():
 
 
 def test_codex_md_names_codex_incompatible_commands():
-    text = _read(REPO / "docs/public/guides/codex-harness.md")
+    text = _read(REPO / "docs/public/agents/codex.md")
     codex_compatible = {
         c.entrypoint for c in safe_operator_surface_for_harness("codex")
     }
@@ -91,9 +91,9 @@ def test_codex_md_names_codex_incompatible_commands():
     codex_incompatible = all_safe - codex_compatible
     # Empty set is the steady state when every safe-surface command supports
     # both harnesses; the drift lock only fires when a row is missing "codex"
-    # AND docs/public/guides/codex-harness.md fails to name it.
+    # AND docs/public/agents/codex.md fails to name it.
     for entrypoint in codex_incompatible:
         assert entrypoint in text, (
-            f"docs/public/guides/codex-harness.md must name Codex-incompatible {entrypoint!r} "
+            f"docs/public/agents/codex.md must name Codex-incompatible {entrypoint!r} "
             f"so operators know it is not supported"
         )

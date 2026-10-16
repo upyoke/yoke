@@ -145,7 +145,7 @@ Shared project behavior lives in the Yoke DB, not checkout files:
   Writes are validated as a whole document — a wildcard model, an effort or
   context window the surface cannot pass, a duplicate selection, or a glyph
   the board cannot align is refused by name before storage. See
-  `docs/public/reference/session-level-routing.md`.
+  `docs/public/agents/levels.md`.
 
 Reusable project capabilities are separately versioned Packs. Inspect the
 catalog, preview one install or update, and apply only after reviewing its
@@ -246,7 +246,7 @@ hooks.
   slash commands.
 - **Codex adapter:** open the installed project checkout; native instructions,
   canonical skills and hooks follow the installed manifest and
-  [discovery owner](public/reference/harness-discovery.md).
+  [discovery owner](public/agents/harness-discovery.md).
 
 First project adoption after install should start with:
 

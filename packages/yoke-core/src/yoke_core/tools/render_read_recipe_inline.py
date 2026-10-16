@@ -54,14 +54,14 @@ REPAIR_COMMAND: str = "python3 -m yoke_core.tools.render_read_recipe_inline"
 
 # The CLI deep home carries the worked catalog; every other inventory file
 # carries the short stanza, which is what fits beside a rule.
-_CATALOG_PATH: str = "docs/public/reference/agent-rules/code-and-cli.md"
+_CATALOG_PATH: str = "docs/public/agents/rules/shell-and-cli.md"
 
 
 # Inventory of every file that participates in the generated-block render.
 # One entry per surface where a reader is choosing how to invoke a command.
 INVENTORY: tuple[str, ...] = (
     "AGENTS.md",
-    "docs/public/reference/agent-rules/code-and-cli.md",
+    "docs/public/agents/rules/shell-and-cli.md",
     "runtime/agents/engineer/large-output.md",
 )
 

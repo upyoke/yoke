@@ -2,7 +2,7 @@
  "id": "databases",
  "title": "Databases and governed migrations",
  "status": "draft-copy",
- "sources": ["docs/public/databases-and-migrations.md", "docs/public/reference/agent-rules/databases.md", "docs/public/reference/db-reference/migration-model-capabilities.md", "docs/public/reference/db-reference/migration-model-fleet.md"],
+ "sources": ["docs/public/databases-and-migrations.md", "docs/public/agents/rules/databases.md", "docs/public/reference/db-reference/migration-model-capabilities.md", "docs/public/reference/db-reference/migration-model-fleet.md"],
  "page": "databases",
  "position": 10
 }

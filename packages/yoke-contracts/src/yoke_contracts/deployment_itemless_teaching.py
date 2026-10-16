@@ -132,7 +132,7 @@ CREATE_DESCRIPTION = (
     "(item_qa_flow_without_delivery_custody), because its members could "
     "never be proven at item QA. "
     "Takes over a contained same-target run waiting only on item QA "
-    "(agent-rules/delivery.md). "
+    "(agents/rules/delivery.md). "
     "Whether a memberless item-QA run owes a "
     "delivery is asked by validate-composition and before execution, not "
     "here, so add-item can attach to an itemless run. "

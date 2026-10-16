@@ -173,8 +173,8 @@ def _make_final_surface_root(
     else:
         codex_doc = "Codex covers polish and usher."
         agents_doc = "Agents use canonical bodies."
-    (root / "docs/public/guides").mkdir(parents=True, exist_ok=True)
-    (root / "docs/public/guides/codex-harness.md").write_text(
+    (root / "docs/public/agents").mkdir(parents=True, exist_ok=True)
+    (root / "docs/public/agents/codex.md").write_text(
         codex_doc, encoding="utf-8"
     )
     (root / "docs/agents.md").write_text(agents_doc, encoding="utf-8")

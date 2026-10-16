@@ -2,7 +2,7 @@
  "id": "bounded-command-reads",
  "title": "Bounded CLI reads and deliberate full detail",
  "status": "observed",
- "sources": ["packages/yoke-cli/src/yoke_cli/transport/output_limit.py", "docs/public/reference/agent-rules/code-and-cli.md"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/transport/output_limit.py", "docs/public/agents/rules/shell-and-cli.md"],
  "commands": ["yoke qa plan list", "yoke sessions list", "yoke steering report get"],
  "functions": ["qa.plan.list", "sessions.list", "steering.report.get"],
  "position": 0

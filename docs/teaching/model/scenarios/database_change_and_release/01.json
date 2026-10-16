@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke migration rehearse --help"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/reference/agent-rules/databases.md", ".agents/skills/yoke/idea/db-claim-classification.md", ".agents/skills/yoke/implement/implementing/implementation.md"],
+ "sources": ["docs/public/agents/rules/databases.md", ".agents/skills/yoke/idea/db-claim-classification.md", ".agents/skills/yoke/implement/implementing/implementation.md"],
  "position": 0
 }

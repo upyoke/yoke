@@ -39,11 +39,11 @@ class TestLifecycleRoutingSection:
     @pytest.fixture
     def section_body(self, text: str) -> str:
         assert (
-            "Read the applicable `.yoke/docs/reference/agent-rules/` home first" in text
+            "Read the applicable `.yoke/docs/agents/rules/` home first" in text
         )
         assert "`lanes-and-claims.md`" in text
         assert "live pinned workflow's half-open binding" in text
-        home = _read(REPO / ".yoke/docs/reference/agent-rules/lanes-and-claims.md")
+        home = _read(REPO / ".yoke/docs/agents/rules/lanes-and-claims.md")
         match = re.search(
             r"## Lifecycle and routing\b(.*?)(?=\n## |\Z)", home, re.DOTALL
         )

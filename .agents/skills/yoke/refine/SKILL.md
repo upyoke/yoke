@@ -57,4 +57,4 @@ Blitz activation owns atomic document-claim acquisition.
 
 Start with workflow-context. A `handoff` with `reason=level_change` takes
 precedence over release wait; follow
-`.yoke/docs/reference/session-level-routing.md`. Workers may launch a successor.
+`.yoke/docs/agents/levels.md`. Workers may launch a successor.

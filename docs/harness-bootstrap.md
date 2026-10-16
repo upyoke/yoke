@@ -13,7 +13,7 @@ main-checkout identity, including linked worktrees and excluding independent
 nested repositories. Connection presence and DB files are not project proof.
 Remote RunControls carries authorized_project_id independently of stdin and
 payload_extra. Unmapped relay clients complete machine checks locally.
-See [guard scope](public/reference/harness-discovery.md#guard-scope) for the
+See [guard scope](public/agents/harness-discovery.md#guard-scope) for the
 registration, inventory and recovery route.
 
 ## Startup Reads

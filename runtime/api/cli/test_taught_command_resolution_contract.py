@@ -77,8 +77,8 @@ def test_audit_reads_the_surfaces_that_teach_commands() -> None:
     sources = {row.source for row in audit.surfaces}
     for expected in (
         "AGENTS.md",
-        "docs/public/guides/codex-harness.md",
-        "docs/public/guides/cursor-harness.md",
+        "docs/public/agents/codex.md",
+        "docs/public/agents/cursor.md",
         "runtime/harness/claude/rules/session.md",
     ):
         assert expected in sources, f"{expected} teaches commands but is unread"

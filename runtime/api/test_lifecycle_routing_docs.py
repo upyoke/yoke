@@ -67,9 +67,9 @@ class TestBootstrapSpec:
         """lifecycle.md should follow commands.md so readers get command
         vocabulary before the lifecycle tables that use it."""
         required = spec.get("required_files", [])
-        assert ".yoke/docs/reference/commands.md" in required
+        assert ".yoke/docs/agents/commands.md" in required
         assert required.index(".yoke/docs/reference/lifecycle.md") > required.index(
-            ".yoke/docs/reference/commands.md"
+            ".yoke/docs/agents/commands.md"
         )
 
 
@@ -142,7 +142,7 @@ class TestCommandsDoc:
 
     @pytest.fixture
     def text(self) -> str:
-        return _read(YOKE_DOCS / "commands.md")
+        return _read(YOKE_DOCS.parent / "agents" / "commands.md")
 
     def test_refine_advances_status(self, text):
         """Refine must no longer be described as 'does not advance status'."""

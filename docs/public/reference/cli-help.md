@@ -61,7 +61,7 @@ their explicit machine contracts.
 
 Ask `/yoke help` for a general overview or a specific topic. Topic answers give
 the applicable complete recipe and its installed deeper home. The generated
-[skill reference](commands.md) stays available as the complete inventory.
+[skill reference](../agents/commands.md) stays available as the complete inventory.
 [Installed documentation](../index.md) is the navigation root.
 Outside an installed project, read [public documentation](https://upyoke.com/docs)
 and [this help reference](https://upyoke.com/docs/reference/cli-help).

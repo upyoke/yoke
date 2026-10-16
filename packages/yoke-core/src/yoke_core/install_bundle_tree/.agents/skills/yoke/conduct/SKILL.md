@@ -66,6 +66,6 @@ waivers follow QA help; no invented force/bypass. Progress across tasks belongs
 in the parent's Progress Log; per-task notes remain epic_progress_notes.
 
 A level_change handoff precedes release wait. Follow the
-[Stage-level routing rule](../../../../.yoke/docs/reference/session-level-routing.md);
+[Stage-level routing rule](../../../../.yoke/docs/agents/levels.md);
 workers may launch their own successor. Refresh the bound skill and claim at
 the through-stage boundary; Conduct never owns landing or terminal delivery.

@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER P1", "FIRST-USER P2", "FIRST-USER P3", "FIRST-USER P4", "FIRST-USER 29", "FIRST-USER 34", "JOURNEYS principles 2–6"],
  "surface_notes": ["Global orientation + yoke-global: FIRST-USER P1–P4: outside-project sessions receive light orientation and a route to select/add/open projects. Not a shipped global context claim.", "Project orientation payload: Project hook/session identity → short orientation delivered to the agent; names identity, checkout, advisories and deeper pointers. Its producer code is separate audit evidence."],
- "sources": ["AGENTS.md", "docs/public/reference/harness-discovery.md", "packages/yoke-core/src/yoke_core/domain/session_orientation.py", "runtime/harness/claude/rules/session.md", "runtime/harness/claude/settings.json", "runtime/harness/codex/hooks.json"],
+ "sources": ["AGENTS.md", "docs/public/agents/harness-discovery.md", "packages/yoke-core/src/yoke_core/domain/session_orientation.py", "runtime/harness/claude/rules/session.md", "runtime/harness/claude/settings.json", "runtime/harness/codex/hooks.json"],
  "position": 0
 }

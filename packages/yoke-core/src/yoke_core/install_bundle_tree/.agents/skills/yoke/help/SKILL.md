@@ -33,7 +33,7 @@ For a specific topic, read that command's `--help` or the applicable skill
 from the registry below. Answer with its shortest complete recipe, required
 prerequisites and exact installed deeper home. Read before teaching or acting.
 The following inventories are references to consult, not the default reply.
-Full skill inventory: `.yoke/docs/reference/commands.md`.
+Full skill inventory: `.yoke/docs/agents/commands.md`.
 Terminal help and output: `.yoke/docs/reference/cli-help.md`.
 
 <!-- BEGIN GENERATED: skill-registry -->

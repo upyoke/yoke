@@ -183,7 +183,7 @@ _CLI_CASES = [
     ),
     (
         "drifted_claim_list_subcommand",
-        ".yoke/docs/reference/commands.md", 2,
+        ".yoke/docs/agents/commands.md", 2,
         "    python3 -m yoke_core.api.service_client claim-list --item YOK-1674\n",
         {
             ("yoke_core.api.service_client", "claim-list"): (1, "no such subcommand"),
@@ -214,7 +214,7 @@ _CLI_CASES = [
     ),
     (
         "confabulated_subcommand",
-        ".yoke/docs/reference/commands.md", 2,
+        ".yoke/docs/agents/commands.md", 2,
         "    python3 -m yoke_core.engines.nonexistent-cmd --help\n",
         # Module regex stops at `-`; both subcommand-split and parent-help
         # fallback lookups must err to surface the confabulation.

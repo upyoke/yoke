@@ -39,8 +39,8 @@ _SCAN_ROOTS = (
     _REPO / "docs",
     _REPO / "runtime",
     _REPO / ".agents",
-    _REPO / "docs/public/guides/cursor-harness.md",
-    _REPO / "docs/public/guides/codex-harness.md",
+    _REPO / "docs/public/agents/cursor.md",
+    _REPO / "docs/public/agents/codex.md",
     _REPO / "AGENTS.md",
 )
 

@@ -1,7 +1,7 @@
 # Claude — Session Rules
 
-Read `AGENTS.md` for shared rules. Before Claude hook, recovery or watcher work,
-read `.yoke/docs/reference/agent-rules/claude-sessions.md`; it owns the inventory,
+Read `AGENTS.md` for shared rules. Before Claude hook or recovery work,
+read `.yoke/docs/agents/rules/claude-sessions.md`; it owns the inventory,
 failure paths, session revival and identity across episodes.
 
 Hook schema is all-or-nothing: every `settings.json` entry uses nested
@@ -16,6 +16,8 @@ your next tool call clears it. SessionEnd on transient signals never releases
 claims; follow named recovery if a command refuses `SESSION_ENDED`.
 
 ## Watcher waits
+
+Read `.yoke/docs/agents/rules/claude-long-commands.md` before long commands.
 
 Main sessions first use `--print-streaming-pair`, which runs nothing. Run the
 printed command: `background-wake` arms its command and one `yoke watch tail`

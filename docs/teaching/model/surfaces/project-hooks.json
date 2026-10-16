@@ -12,5 +12,5 @@
  "desired": "Retain scoped guards, messages and recovery; deduplicate ownership and budget the combined payload.",
  "plan_notes": ["FIRST-USER P2/P3", "JOURNEYS contextual disclosure"],
  "plan_refs": ["FIRST-USER.P2", "FIRST-USER.P3", "FIRST-USER.29"],
- "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_runner/hook_ordering.py:264", "packages/yoke-core/src/yoke_core/hooks/registration.py:1", "packages/yoke-contracts/src/yoke_contracts/hook_context_compose.py:114", "packages/yoke-core/src/yoke_core/hooks/hook_context_compose.py:14", "packages/yoke-cli/src/yoke_cli/commands/adapters/hook_config_dedup.py:139", "docs/public/reference/harness-discovery.md", "packages/yoke-contracts/src/yoke_contracts/hook_diagnostics.py:1", "runtime/harness/test_hook_diagnostics.py:1"]
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_runner/hook_ordering.py:264", "packages/yoke-core/src/yoke_core/hooks/registration.py:1", "packages/yoke-contracts/src/yoke_contracts/hook_context_compose.py:114", "packages/yoke-core/src/yoke_core/hooks/hook_context_compose.py:14", "packages/yoke-cli/src/yoke_cli/commands/adapters/hook_config_dedup.py:139", "docs/public/agents/harness-discovery.md", "packages/yoke-contracts/src/yoke_contracts/hook_diagnostics.py:1", "runtime/harness/test_hook_diagnostics.py:1"]
 }

@@ -45,4 +45,4 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 Start: `yoke sessions touch --mode blitz`, then follow the first phase.
 A `handoff` with `reason=level_change` takes precedence over release wait:
-follow `.yoke/docs/reference/session-level-routing.md`; workers may launch successors.
+follow `.yoke/docs/agents/levels.md`; workers may launch successors.

@@ -26,7 +26,7 @@ from yoke_core.tools.generated_block_render import (
 SLUG = "skill-registry"
 INVENTORY = (
     ".agents/skills/yoke/SKILL.md",
-    "docs/public/reference/commands.md",
+    "docs/public/agents/commands.md",
     "docs/harness-bootstrap.md",
     ".agents/skills/yoke/help/SKILL.md",
 )

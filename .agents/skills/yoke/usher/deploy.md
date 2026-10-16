@@ -55,7 +55,7 @@ never prescribe an unrequested no-worktree flag.
 
 Current mandate may reserve creation/execution to a batching orchestrator.
 Honor that custody: report exact landed identity and wait, do not create a run.
-Otherwise read [delivery rules](../../../../.yoke/docs/reference/agent-rules/delivery.md)
+Otherwise read [delivery rules](../../../../.yoke/docs/agents/rules/delivery.md)
 first. Runs take no claim: a run occupies its target servers from start until
 its QA settles or it is terminal. A start refused `target_occupied` names the
 holding run and its open QA: wait/coordinate, no workaround. A run with

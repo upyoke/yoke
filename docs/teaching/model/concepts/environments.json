@@ -2,7 +2,7 @@
  "id": "environments",
  "title": "Environments and previews",
  "status": "draft-copy",
- "sources": ["docs/public/reference/db-reference/projects-and-flows.md", "docs/public/reference/db-reference/events-and-deployments.md", "docs/public/reference/agent-rules/delivery.md"],
+ "sources": ["docs/public/reference/db-reference/projects-and-flows.md", "docs/public/reference/db-reference/events-and-deployments.md", "docs/public/agents/rules/delivery.md"],
  "page": "environments",
  "position": 13
 }

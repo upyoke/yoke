@@ -1,7 +1,7 @@
 # Worker launch and settlement
 
 A level_change handoff precedes release wait: use Stage-level handoff in
-.yoke/docs/reference/session-level-routing.md; workers may launch successor.
+.yoke/docs/agents/levels.md; workers may launch successor.
 Read effective level/pin and charge.schedule's rendered `entrypoint`; launch
 mandate uses the same entrypoint mapping. One assigned item/live bound skills,
 never copied workflow chain. Read yoke workflows version get <workflow> <version> --json.

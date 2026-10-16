@@ -147,7 +147,7 @@ class TestSameSessionWorktreeScopeDocs:
     def docs(self) -> dict[str, Path]:
         return {
             "agents": REPO / "AGENTS.md",
-            "commands": REPO / ".yoke" / "docs" / "reference" / "commands.md",
+            "commands": REPO / ".yoke" / "docs" / "agents" / "commands.md",
             "harness": REPO / "docs" / "harness-substrate.md",
             "lifecycle": REPO / ".yoke" / "docs" / "reference" / "lifecycle.md",
             "implement": SKILLS / "implement" / "SKILL.md",

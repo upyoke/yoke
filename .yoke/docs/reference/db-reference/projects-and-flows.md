@@ -15,7 +15,7 @@ slug TEXT NOT NULL -- public project slug
 public_item_prefix TEXT NOT NULL -- project public-ref prefix
 retired_at TEXT -- null while active
 name TEXT NOT NULL -- display name
-emoji TEXT DEFAULT '' -- project emoji (e.g., '🐂', '🧩'); shown in BOARD.md title; obeys the glyph contract (session-level-routing.md)
+emoji TEXT DEFAULT '' -- project emoji (e.g., '🐂', '🧩'); shown in BOARD.md title; obeys the glyph contract (../../agents/level-launches.md#glyph-contract)
 github_repo TEXT -- GitHub repo in owner/repo format (e.g., 'example-org/external-webapp')
 default_branch TEXT DEFAULT 'main'
 github_sync_mode TEXT NOT NULL DEFAULT 'disabled' -- 'enabled' | 'disabled'; legacy NULL/empty values normalize to disabled

@@ -41,7 +41,7 @@ def test_lifecycle_verification_surfaces_reference_global_policy():
         _read(".agents/skills/yoke/usher/merge.md"),
     ]
 
-    home = _read(".yoke/docs/reference/agent-rules/verification.md")
+    home = _read(".yoke/docs/agents/rules/verification.md")
     for text in surfaces:
         assert "claim" in text and "override" in text
         assert "reconcil" in text.lower()
@@ -59,9 +59,9 @@ def test_unchanged_consumer_test_failure_routes_to_the_producer():
     rule_homes = [
         "AGENTS.md",
         f"{bundle}AGENTS.md",
-        "docs/public/reference/agent-rules/verification.md",
-        f"{bundle}docs/public/reference/agent-rules/verification.md",
-        ".yoke/docs/reference/agent-rules/verification.md",
+        "docs/public/agents/rules/verification.md",
+        f"{bundle}docs/public/agents/rules/verification.md",
+        ".yoke/docs/agents/rules/verification.md",
     ]
     for rel_path in rule_homes:
         text = _read(rel_path)

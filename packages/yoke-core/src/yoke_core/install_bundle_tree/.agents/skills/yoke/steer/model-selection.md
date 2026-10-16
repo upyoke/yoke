@@ -38,7 +38,7 @@ it. Never restate central level options here. Preview launches nothing; weighs
 all authorized machine/options against only their billed pools, spreads to idle
 surfaces above 100% headroom then greatest headroom. Read level_placement with
 option/machine/pool and reason, not manual imitation. Depth:
-[level routing](../../../../.yoke/docs/reference/session-level-routing.md#launching-by-level).
+[level routing](../../../../.yoke/docs/agents/level-launches.md#launching-by-level).
 Cursor fallback on Other Models only when Cursor Models is confirmed zero:
 unreadable, low headroom or ample other pool is not exhaustion.
 level_no_capacity names options/blocking pool; deliberate permissible other

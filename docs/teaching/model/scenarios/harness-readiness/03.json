@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke project install --help"],
  "plan_notes": ["FIRST-USER D/E", "FIRST-USER accepted installed context access repair"],
- "sources": ["docs/public/reference/harness-discovery.md", "packages/yoke-cli/src/yoke_cli/project_install/instruction_discovery.py", "packages/yoke-cli/src/yoke_cli/project_install/skill_discovery.py"],
+ "sources": ["docs/public/agents/harness-discovery.md", "packages/yoke-cli/src/yoke_cli/project_install/instruction_discovery.py", "packages/yoke-cli/src/yoke_cli/project_install/skill_discovery.py"],
  "position": 2
 }

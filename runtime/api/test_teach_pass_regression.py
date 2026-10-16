@@ -258,7 +258,7 @@ def test_no_bare_doctor_invocation_in_packet(body: str) -> None:
 
 def test_authored_qa_docs_teach_canonical_yoke_surfaces() -> None:
     paths = (
-        _REPO / ".yoke" / "docs" / "reference" / "commands.md",
+        _REPO / ".yoke" / "docs" / "agents" / "commands.md",
         _REPO / ".yoke" / "docs" / "reference" / "browser-scenarios.md",
         _REPO / "docs" / "browser-substrate" / "scenario-orchestration.md",
         _REPO / ".yoke" / "docs" / "reference" / "db-reference" / "qa-and-sessions.md",

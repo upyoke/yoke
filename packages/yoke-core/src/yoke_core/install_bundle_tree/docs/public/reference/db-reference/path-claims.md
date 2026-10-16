@@ -108,7 +108,7 @@ Ordered edits wait for proven landing; uncertain independence goes through
 claim selection can be restored to its pinned default with `yoke workflows
 item-posture amend ITEM --key path_claims --clear --reason "<why>"`; live
 coverage must first be released by its holder. Read amendment help for authority
-and release recovery. [Lanes and claims](../agent-rules/lanes-and-claims.md)
+and release recovery. [Lanes and claims](../../agents/rules/lanes-and-claims.md)
 owns the full recipe.
 
 ## Ending coverage and reopening work

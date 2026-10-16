@@ -12,6 +12,6 @@
  "recipes": ["yoke packets render --role main_agent --topic <topic>", "yoke <operation> --help"],
  "plan_notes": ["FIRST-USER 8", "FIRST-USER 35", "JOURNEYS principles 2–4"],
  "surface_notes": ["Role/topic packet: main_agent + relevant topic: Fetched through packets render; role and topic choose schema/recipe depth. This is not a saved project README or proof of current domain state."],
- "sources": [".agents/skills/yoke/SKILL.md", "docs/public/reference/agent-rules/code-and-cli.md", "packages/yoke-core/src/yoke_core/domain/main_agent_packet.py"],
+ "sources": [".agents/skills/yoke/SKILL.md", "docs/public/agents/rules/code-and-cli.md", "packages/yoke-core/src/yoke_core/domain/main_agent_packet.py"],
  "position": 1
 }

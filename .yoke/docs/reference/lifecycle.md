@@ -282,7 +282,7 @@ segments. For a live item:
    [structural gates](lifecycle-gates.md) govern each move; a crossed segment
    comes back as `skill_handoff`, naming the next skill's command and claim.
 
-A changed effective stage level returns `handoff` with `reason=level_change` and an exact successor launch command; follow the [harness-neutral worker rule](session-level-routing.md#stage-level-handoff) before continuing or retaining a delivery wait.
+A changed effective stage level returns `handoff` with `reason=level_change` and an exact successor launch command; follow the [harness-neutral worker rule](../agents/levels.md#stage-level-handoff) before continuing or retaining a delivery wait.
 
 The registered skills have these behavioral contracts; their source and
 target stages always come from the binding:
@@ -329,7 +329,7 @@ retained claim should query the events ledger first:
 
 The pinned workflow binding selects the skill for an item's live stage. Steering owns staffing; the shared scheduler computes the runnable frontier. The canonical sources are:
 
-- [charge-frontier.md](./charge-frontier.md) — frontier computation, status-to-adapter mapping, ranking
+- [charge-frontier.md](charge-frontier.md) — frontier computation, status-to-adapter mapping, ranking
 - `yoke_core.domain.scheduler_routing` — the `next_step` function that turns a status into a command
 - `yoke_core.domain.session_launch_mandate` — resolves assigned item routes from pinned workflow bindings
 
@@ -340,7 +340,7 @@ item's stage graph.
 
 ## See Also
 
-- [commands.md](./commands.md)
-- [charge-frontier.md](./charge-frontier.md)
-- [qa-platform.md](./qa-platform.md)
-- [db-reference.md](./db-reference.md)
+- [commands.md](../agents/commands.md)
+- [charge-frontier.md](charge-frontier.md)
+- [qa-platform.md](qa-platform.md)
+- [db-reference.md](db-reference.md)

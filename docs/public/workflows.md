@@ -5,7 +5,7 @@ testing and delivery defaults.
 Each non-terminal stage card shows its level glyph and name beneath its
 checks. Shipped workflows default every non-terminal stage to SENIOR;
 terminal stages have no level. Item overrides and worker handoffs follow
-[execution levels](reference/session-level-routing.md#stage-level-handoff).
+[execution levels](agents/levels.md#stage-level-handoff).
 
 The definitions and selected tab appear as soon as their read finishes.
 Execution instructions load independently from the start and gain workflow

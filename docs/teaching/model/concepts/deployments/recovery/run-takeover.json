@@ -7,5 +7,5 @@
  "summary": "Creating a run on the flow and target of a run waiting only on item QA takes it over when the new candidate contains the old one: waiting members move (every unclosed member under run-level QA or approval, which cancels the old run as superseded), passed members close in the old run, and both runs record the supersession. A non-containing candidate refuses naming the members to release by hand.",
  "commands": ["yoke deployment-runs create"],
  "functions": ["deployment_runs.create"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_run_target_takeover.py", "docs/public/reference/agent-rules/delivery.md", "docs/public/reference/db-reference/deployment-run-records.md"]
+ "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_run_target_takeover.py", "docs/public/agents/rules/delivery.md", "docs/public/reference/db-reference/deployment-run-records.md"]
 }

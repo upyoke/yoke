@@ -100,7 +100,7 @@ release manifests under `runtime/harness/{claude,codex,cursor}/manifest.json`
 define supported surfaces, identity, events, launch/wake primitives and explicit
 limitations. Supported paths derive from the shared registry plus the manifest;
 they are not caller self-reports. Native instructions and skills load through
-[discovery](public/reference/harness-discovery.md); the [bootstrap contract](harness-bootstrap.md)
+[discovery](public/agents/harness-discovery.md); the [bootstrap contract](harness-bootstrap.md)
 defines startup trust, identity and progressive command/packet discovery.
 
 Canonical bodies in `runtime/agents/` render through harness adapters; edit the
@@ -108,7 +108,7 @@ canonical source, render, then sync the install bundle. Models, effort, tools,
 turn bounds and dispatch contracts come from the current role source, manifest
 and execution-level selection, not an overview's fixed table. See
 [harness substrate](harness-substrate.md), [adapter contract](harness-adapter-template.md)
-and [execution levels](public/reference/session-level-routing.md).
+and [execution levels](public/agents/levels.md).
 
 | Role | Responsibility |
 |---|---|
@@ -128,7 +128,7 @@ lane for reads, edits and tests. Scope, budget and physical path claims are
 independent. Resolve overlaps through coordination/dependencies; claims do not
 remove required scope. Exact interface contracts prevent integration gaps;
 session-sized tasks must fit their declared execution budget. See
-[lanes and claims](public/reference/agent-rules/lanes-and-claims.md).
+[lanes and claims](public/agents/rules/lanes-and-claims.md).
 
 ## Persistent evidence and delivery
 
@@ -146,7 +146,7 @@ Browser, inspection or mission. Record real pass/fail/pending/waived evidence,
 not inferred success. Local checks are bounded iterations; attached immutable
 QA is the complete execution. Exact-candidate evidence must survive later
 changes or be rerun. [QA](public/qa.md) and
-[verification rules](public/reference/agent-rules/verification.md) own admission,
+[verification rules](public/agents/rules/verification.md) own admission,
 CI continuation and failure responsibility.
 
 Merge and delivery remain separate. Queue-declared projects use their protected
@@ -157,8 +157,8 @@ run ids are executions, and the hosted flow owns exact commits/artifacts,
 environment proof and promotion. Retain history when disabling definitions.
 Project migration models govern data transforms: permanent ordered entries,
 restore points, item rehearsal and all-live-fleet release evidence; boot converges
-and applies fail-hard. [Delivery rules](public/reference/agent-rules/delivery.md),
-[database rules](public/reference/agent-rules/databases.md) and
+and applies fail-hard. [Delivery rules](public/agents/rules/delivery.md),
+[database rules](public/agents/rules/databases.md) and
 [fleet rehearsal](public/reference/db-reference/migration-model-fleet.md) own
 operation depth.
 

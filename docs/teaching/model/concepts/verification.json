@@ -2,7 +2,7 @@
  "id": "verification",
  "title": "Tests, CI and verification",
  "status": "draft-copy",
- "sources": ["docs/public/qa.md", "docs/public/reference/agent-rules/verification.md", "docs/source-dev-doctrine.md"],
+ "sources": ["docs/public/qa.md", "docs/public/agents/rules/verification.md", "docs/source-dev-doctrine.md"],
  "skills": ["polish"],
  "page": "verification",
  "position": 43

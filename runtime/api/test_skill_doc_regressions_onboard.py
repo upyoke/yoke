@@ -19,7 +19,7 @@ _ACTIVE_SETUP_DOCS = (
     REPO / "README.md",
     REPO / "docs" / "local-setup.md",
     REPO / "docs" / "onboard-external-project.md",
-    REPO / ".yoke" / "docs" / "reference" / "commands.md",
+    REPO / ".yoke" / "docs" / "agents" / "commands.md",
 )
 _SETUP_SKILL_REFS = (
     SKILLS / "SKILL.md",

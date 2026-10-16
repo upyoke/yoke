@@ -12,5 +12,5 @@
  "desired": "Overview → immediate categories → command recipes. Hard 350 lines; smaller budgets are advisory.",
  "plan_notes": ["FIRST-USER 35/P6", "New help layout proposal"],
  "plan_refs": ["FIRST-USER.35"],
- "sources": ["packages/yoke-cli/src/yoke_cli/command_router.py", "packages/yoke-cli/src/yoke_cli/commands/group_help.py", "packages/yoke-cli/src/yoke_cli/commands/registry.py", "docs/public/reference/commands.md"]
+ "sources": ["packages/yoke-cli/src/yoke_cli/command_router.py", "packages/yoke-cli/src/yoke_cli/commands/group_help.py", "packages/yoke-cli/src/yoke_cli/commands/registry.py", "docs/public/agents/commands.md"]
 }

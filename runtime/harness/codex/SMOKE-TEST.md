@@ -219,7 +219,7 @@ The following test scripts validate the matrix programmatically:
 | Test file | Coverage |
 |-----------|----------|
 | `runtime/harness/test_bootstrap.py` | Neutral bootstrap spec/helper: ordering, doctrine rendering, drift guard |
-| `runtime/api/test_capability_consistency.py` | Shared registry, Codex manifest limitations, and docs/public/guides/codex-harness.md capability drift guards |
+| `runtime/api/test_capability_consistency.py` | Shared registry, Codex manifest limitations, and docs/public/agents/codex.md capability drift guards |
 | `runtime/harness/test_hook_runner.py` | Shared hook runner: dispatch, identity, lifecycle, graceful degradation |
 | `runtime/harness/test_hook_runner_runner.py` | Hook runner chain execution: per-event sub-handler ordering and fanout |
 | `runtime/harness/test_hook_runner_telemetry.py` | Hook runner telemetry: tool-call denial events, latency, payload shaping |

@@ -4,7 +4,7 @@ Reason and recovery are two obligations. A message that names only the
 condition it tripped on is unfinished: the reader assumes anything
 unreported is fine, and a listed remedy this caller's state forbids is a
 defect. Authors format refusals through :func:`compose_refusal`; reviewers
-check the same helper and the teaching in ``code-and-cli.md``.
+check the same helper and the teaching in ``agents/rules/shell-and-cli.md``.
 """
 
 from __future__ import annotations

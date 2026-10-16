@@ -26,7 +26,7 @@
       "skill_source": ".agents/skills/yoke",
       "native_skill_entry": ".agents/skills/yoke",
       "minimum_engine_version": "0.161.0",
-      "recovery_doc": ".yoke/docs/reference/harness-discovery.md"
+      "recovery_doc": ".yoke/docs/agents/harness-discovery.md"
     }
   },
   "runtime_minimums": {

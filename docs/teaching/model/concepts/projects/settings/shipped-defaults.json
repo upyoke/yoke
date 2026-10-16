@@ -5,7 +5,7 @@
  "current": "A new project stores the shipped project-policy document, including settings.board. A stored document freezes every key it holds. Later shipped defaults fill only missing keys. Replace a present key with yoke projects capability-settings set, a compare-and-swap of the whole document, to follow a new shipped value.",
  "commands": ["yoke projects capability-settings get", "yoke projects capability-settings set"],
  "functions": ["projects.capability_settings.get", "projects.capability_settings.set"],
- "sources": ["docs/public/reference/agent-rules/item-writes.md", "packages/yoke-core/src/yoke_core/domain/project_policy_capabilities.py", "packages/yoke-contracts/src/yoke_contracts/board/policy_settings.py"],
+ "sources": ["docs/public/agents/rules/item-writes.md", "packages/yoke-core/src/yoke_core/domain/project_policy_capabilities.py", "packages/yoke-contracts/src/yoke_contracts/board/policy_settings.py"],
  "page": "projects-shipped-defaults",
  "position": 6
 }

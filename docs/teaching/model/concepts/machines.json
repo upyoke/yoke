@@ -2,7 +2,7 @@
  "id": "machines",
  "title": "Machines, approval and capacity",
  "status": "draft-copy",
- "sources": ["docs/public/reference/machine-authorization.md", "docs/public/reference/session-level-routing.md", "docs/public/reference/linux-relay.md"],
+ "sources": ["docs/public/reference/machine-authorization.md", "docs/public/agents/levels.md", "docs/public/reference/linux-relay.md"],
  "commands": ["yoke machine detail", "yoke machine list", "yoke machine show"],
  "functions": ["machine.detail", "machine.list", "machine.show"],
  "page": "machines",

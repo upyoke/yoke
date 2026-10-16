@@ -2,7 +2,7 @@
  "id": "agents",
  "title": "Agents, harnesses and skills",
  "status": "draft-copy",
- "sources": [".agents/skills/yoke/SKILL.md", "runtime/harness/manifest-schema.md", "docs/public/operating-with-agents.md", "docs/public/guides/codex-harness.md", "docs/public/guides/cursor-harness.md"],
+ "sources": [".agents/skills/yoke/SKILL.md", "runtime/harness/manifest-schema.md", "docs/public/agents/index.md", "docs/public/agents/codex.md", "docs/public/agents/cursor.md"],
  "surface_refs": ["manual-overview"],
  "page": "agents",
  "position": 0

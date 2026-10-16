@@ -16,6 +16,6 @@
  "authority_and_reuse": "The skill is a router to canonical skill bodies, docs and generated command reference, not another command catalog or a second set of operating rules.",
  "proposal_status": "Modify existing project help; planned global skill carries the global variant",
  "plan_notes": ["FIRST-USER 8", "FIRST-USER P1/P4", "JOURNEYS principles 3–6"],
- "sources": [".agents/skills/yoke/SKILL.md", ".agents/skills/yoke/help/SKILL.md", "docs/public/operating-with-agents.md"],
+ "sources": [".agents/skills/yoke/SKILL.md", ".agents/skills/yoke/help/SKILL.md", "docs/public/agents/index.md"],
  "position": 0
 }

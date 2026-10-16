@@ -8,6 +8,6 @@
  "planned": "JOURNEYS keeps static project guidance in AGENTS/rules.",
  "proposed_content": ["Stable obligations that must bind before acting: scoped authority, claims/lanes, durable owners, output/data trust, required operation-home lookup and recovery after context loss.", "A short product-help versus project-knowledge distinction and the registered context_routing lookup.", "Keep current state, full command catalogs, full phase procedures and adoption situation catalogs out of this always-loaded channel.", "Keep Yoke-repo private prod/stage and source-dev rules outside the shipped managed region."],
  "plan_notes": ["JOURNEYS locked principles 2/4/5", "installed help/context access repair"],
- "sources": ["AGENTS.md:10", "AGENTS.md:35", "AGENTS.md:75", "packages/yoke-core/src/yoke_core/domain/install_bundle_managed.py:25", "runtime/harness/claude/rules/session.md:1", "docs/public/reference/harness-discovery.md:9"],
+ "sources": ["AGENTS.md:10", "AGENTS.md:35", "AGENTS.md:75", "packages/yoke-core/src/yoke_core/domain/install_bundle_managed.py:25", "runtime/harness/claude/rules/session.md:1", "docs/public/agents/harness-discovery.md:9"],
  "position": 3
 }

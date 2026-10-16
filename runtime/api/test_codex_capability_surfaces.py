@@ -89,7 +89,7 @@ def test_command_references_teach_implement_and_retire_advance():
     skill = SKILLS_BY_ID["implement"]
     assert "PREFIX-N" in skill.arguments
     for rel_path in (
-        ".yoke/docs/reference/commands.md",
+        ".yoke/docs/agents/commands.md",
         ".agents/skills/yoke/SKILL.md",
         ".agents/skills/yoke/help/SKILL.md",
     ):

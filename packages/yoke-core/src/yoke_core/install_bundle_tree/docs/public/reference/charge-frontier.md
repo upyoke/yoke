@@ -295,6 +295,6 @@ Restricts conduct-eligible items to 3 concurrent WIP slots.
 
 ## Related Documentation
 
-- [commands.md](commands.md) -- full command reference
+- [commands.md](../agents/commands.md) -- full command reference
 - `docs/OVERVIEW.md` (yoke source repo) -- architecture overview with frontier-based flow
 - [db-reference.md](db-reference.md) -- database schema (items, item_dependencies tables)

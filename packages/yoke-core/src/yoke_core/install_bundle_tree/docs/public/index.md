@@ -38,5 +38,6 @@ item from the frontier for the current session.
 
 <!-- yoke:contents -->
 - [Get started](start/index.md) — Install, connect, add a project and file your first item.
+- [Agents](agents/index.md) — Use harness guidance, command maps and operation homes before acting.
 - [Documentation](documentation/index.md) — Write, navigate and verify complete, concise teaching.
 <!-- /yoke:contents -->

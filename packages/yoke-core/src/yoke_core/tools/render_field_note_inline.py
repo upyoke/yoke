@@ -63,7 +63,7 @@ INVENTORY: tuple[str, ...] = tuple(skill.body_path for skill in SKILLS) + (
     "README.md",
     "AGENTS.md",
     "docs/OVERVIEW.md",
-    ".yoke/docs/reference/commands.md",
+    ".yoke/docs/agents/commands.md",
     "docs/prompt-philosophy.md",
     ".yoke/docs/reference/lifecycle.md",
     "docs/local-setup.md",

@@ -2,7 +2,7 @@
 
 CI owns full-suite evidence; local execution stays targeted. Read the
 [source-dev doctrine](../source-dev-doctrine.md) for candidate-source wrappers
-and [verification rules](../public/reference/agent-rules/verification.md)
+and [verification rules](../public/agents/rules/verification.md)
 before selecting or re-entering a run. This source reference owns the CI
 adoption, queue and reachability mechanics.
 

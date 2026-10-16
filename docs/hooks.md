@@ -123,7 +123,7 @@ use their per-prompt channel; Cursor's block/allow prompt channel uses its
 tool-result event selected by `session_orientation_redelivery_event` and the
 manifest's `inject_events`. Repair labels context and emits
 `YOKE_ORIENTATION_REDELIVERED` on stderr. Preserved allow stdout during server
-degradation counts as delivery. See [native discovery](public/reference/harness-discovery.md).
+degradation counts as delivery. See [native discovery](public/agents/harness-discovery.md).
 
 ### Read-only observation batches
 

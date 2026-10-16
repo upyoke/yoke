@@ -12,5 +12,5 @@
  "desired": "Keep existing project rules; concise complete obligations with exact operation homes. Add no second project startup block.",
  "plan_notes": ["JOURNEYS static-guidance principle", "Project-context routing proposal"],
  "plan_refs": ["FIRST-USER.8", "FIRST-USER.40", "FIRST-USER.41"],
- "sources": ["AGENTS.md:75", "packages/yoke-core/src/yoke_core/domain/install_bundle_managed.py:25", "runtime/harness/claude/rules/session.md:1", "docs/public/reference/harness-discovery.md:9"]
+ "sources": ["AGENTS.md:75", "packages/yoke-core/src/yoke_core/domain/install_bundle_managed.py:25", "runtime/harness/claude/rules/session.md:1", "docs/public/agents/harness-discovery.md:9"]
 }

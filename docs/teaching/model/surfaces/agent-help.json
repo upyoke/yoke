@@ -12,5 +12,5 @@
  "desired": "General answer: overview. Specific question: complete short recipe. Installed help routes to .yoke/docs/index.md.",
  "plan_notes": ["FIRST-USER 8/P4", "JOURNEYS progressive guidance"],
  "plan_refs": ["FIRST-USER.35", "FIRST-USER.41", "FIRST-USER.P4"],
- "sources": [".agents/skills/yoke/SKILL.md", ".agents/skills/yoke/help/SKILL.md", "docs/public/operating-with-agents.md"]
+ "sources": [".agents/skills/yoke/SKILL.md", ".agents/skills/yoke/help/SKILL.md", "docs/public/agents/index.md"]
 }

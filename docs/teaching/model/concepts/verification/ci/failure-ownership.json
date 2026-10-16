@@ -5,5 +5,5 @@
  "page": "verification",
  "position": 4,
  "summary": "Current-item verification failures belong to the current item; a future item or planned path claim is not a waiver. A consumer test the item did not change that fails against a new producer source is evidence against the producer: never edit or weaken it; name the producer commit range or item and route it to steering or the producer's companion item.",
- "sources": ["AGENTS.md", "docs/public/reference/agent-rules/verification.md"]
+ "sources": ["AGENTS.md", "docs/public/agents/rules/verification.md"]
 }

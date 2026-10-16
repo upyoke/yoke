@@ -10,6 +10,6 @@
  "gap": "Approved installer campaign scope requires representative first-work proof through actual done, including required checks, approvals and delivery. The expanded mission names that outcome; live proof remains unperformed.",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER C", "FIRST-USER D"],
- "sources": [".agents/skills/yoke/onboard/SKILL.md", "docs/public/operating-with-agents.md", "docs/testing-verification/installer-campaign.md"],
+ "sources": [".agents/skills/yoke/onboard/SKILL.md", "docs/public/agents/index.md", "docs/testing-verification/installer-campaign.md"],
  "position": 2
 }

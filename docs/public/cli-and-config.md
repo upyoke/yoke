@@ -83,7 +83,7 @@ the surface API; which model a launch uses comes from the level options.
 
 ## Execution levels
 
-`yoke universe levels get|set` reads and replaces the universe levels, and `yoke universe level-capacity get` reads what each can launch now and why ([execution levels](reference/session-level-routing.md)).
+`yoke universe levels get|set` reads and replaces the universe levels, and `yoke universe level-capacity get` reads what each can launch now and why ([execution levels](agents/levels.md)).
 
 ## Machine config
 
@@ -142,7 +142,7 @@ from `origin/simple/`; they do not infer an index from the API host. See
 
 Launch model choice does not live in machine config. A launch names a level
 (`--level LEVEL`) and Yoke places it on one of that level's options — see
-[launching by level](reference/session-level-routing.md#launching-by-level) —
+[launching by level](agents/level-launches.md#launching-by-level) —
 or names an exact selection with `--surface` and the knobs below, recorded as
 an override. A knob an explicit launch leaves unnamed takes the surface's
 vendor default. Preview combines equal requested/effective settings and shows

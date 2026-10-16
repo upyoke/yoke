@@ -5,7 +5,7 @@
  "current": "universe_settings key levels freezes the document at write time. With no row, the universe reads the shipped scheme, so a later shipped change reaches it. Delete the row with a reviewed yoke operator data-repair to follow shipped defaults again. Writing today's shipped document stores a new freeze. cursor_quota_order follows the same rule.",
  "commands": ["yoke universe levels get", "yoke universe levels set"],
  "functions": ["universe.levels.get", "universe.levels.set"],
- "sources": ["docs/public/reference/session-level-routing.md", "packages/yoke-core/src/yoke_core/domain/universe_levels.py"],
+ "sources": ["docs/public/agents/levels.md", "packages/yoke-core/src/yoke_core/domain/universe_levels.py"],
  "page": "levels",
  "position": 3
 }

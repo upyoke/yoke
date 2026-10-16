@@ -11,6 +11,6 @@
  "review": "runtime/api/cli/test_cli_help_tree.py proves registry spellings and immediate-child discovery in candidate fixtures. docs/public/reference/cli-help.md and the Help skill teach the installed path.",
  "recipes": ["yoke --help", "yoke <operation> --help"],
  "plan_notes": ["FIRST-USER accepted guidance-access amendment", "JOURNEYS principles 2–4"],
- "sources": ["docs/public/index.md", "docs/public/reference/commands.md", ".agents/skills/yoke/help/SKILL.md"],
+ "sources": ["docs/public/index.md", "docs/public/agents/commands.md", ".agents/skills/yoke/help/SKILL.md"],
  "position": 0
 }

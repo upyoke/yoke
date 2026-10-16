@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke sessions identity"],
  "plan_notes": ["FIRST-USER C", "FIRST-USER D", "FIRST-USER E", "FIRST-USER 6", "FIRST-USER 23", "JOURNEYS 3"],
- "sources": ["docs/public/reference/harness-discovery.md", "packages/yoke-core/src/yoke_core/domain/session_orientation_delivery.py"],
+ "sources": ["docs/public/agents/harness-discovery.md", "packages/yoke-core/src/yoke_core/domain/session_orientation_delivery.py"],
  "position": 0
 }

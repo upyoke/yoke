@@ -41,7 +41,7 @@ the remaining count. Use `--limit N` (1–1000) to read more. JSON retains each
 returned row's complete facts and `total_count` for the authorized scope.
 
 Writes go through structured fields and registered functions — not raw body
-files. See [reference/commands.md](reference/commands.md).
+files. See [agents/commands.md](agents/commands.md).
 
 ## Sessions
 

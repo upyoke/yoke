@@ -29,6 +29,74 @@ root:
         - title: Uninstall
           summary: Preserve chosen data and remove machine or project guidance.
           path: start/uninstall.md
+    - title: Agents
+      summary: Use harness guidance, command maps and operation homes before acting.
+      path: agents/index.md
+      children:
+        - title: Commands
+          summary: Find operator commands and the delivery skill for the current binding.
+          path: agents/commands.md
+        - title: Maintenance commands
+          summary: Inspect maintenance operations, internal helpers and project context.
+          path: agents/maintenance-commands.md
+        - title: Native discovery
+          summary: Load shared instructions, discover skills and inspect installed capabilities.
+          path: agents/harness-discovery.md
+        - title: Codex
+          summary: Install and verify Yoke’s Codex hooks and agent surfaces.
+          path: agents/codex.md
+        - title: Cursor
+          summary: Install and verify Yoke’s Cursor hooks and agent surfaces.
+          path: agents/cursor.md
+        - title: Execution levels
+          summary: Read model thresholds, routing settings and stage-level handoffs.
+          path: agents/levels.md
+        - title: Level launches
+          summary: Launch and label sessions using model thresholds and native selectors.
+          path: agents/level-launches.md
+        - title: Capacity recovery
+          summary: Recover a launched session when its model capacity is exhausted.
+          path: agents/capacity-recovery.md
+        - title: Operation homes
+          summary: Choose the rule home for the operation before acting.
+          path: agents/rules/index.md
+          children:
+            - title: Code and teaching
+              summary: Read before code changes, naming decisions or operation teaching.
+              path: agents/rules/code-and-cli.md
+            - title: Shell and CLI
+              summary: Read before shell calls, CLI operations or serving-floor changes.
+              path: agents/rules/shell-and-cli.md
+            - title: Lanes and claims
+              summary: Read before lane preparation, path coordination or destructive operations.
+              path: agents/rules/lanes-and-claims.md
+            - title: Item writes
+              summary: Read before item creation, typed content writes or progress updates.
+              path: agents/rules/item-writes.md
+            - title: Databases
+              summary: Read before schema or bulk-data changes and governed rehearsals.
+              path: agents/rules/databases.md
+            - title: Verification
+              summary: Read before tests, QA, CI, captures or health checks.
+              path: agents/rules/verification.md
+            - title: Delivery
+              summary: Read before deployment runs, binding-based delivery or release-target QA.
+              path: agents/rules/delivery.md
+            - title: Release roles
+              summary: Read before release identity configuration or permission grants.
+              path: agents/rules/release-roles.md
+            - title: Packs
+              summary: Read before capability packaging, credential references or Pack updates.
+              path: agents/rules/packs.md
+            - title: Architecture model
+              summary: Read before architecture-model or cross-cutting dependency changes.
+              path: agents/rules/architecture-model.md
+            - title: Claude sessions
+              summary: Read before Claude hook configuration or session identity and recovery work.
+              path: agents/rules/claude-sessions.md
+            - title: Claude long commands
+              summary: Read before long commands, watcher waits or Claude subagent checks.
+              path: agents/rules/claude-long-commands.md
     - title: Documentation
       summary: Write, navigate and verify complete, concise teaching.
       path: documentation/index.md

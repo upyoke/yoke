@@ -2,7 +2,7 @@
  "id": "launch-placement",
  "title": "Launch placement, model pairs and quota",
  "status": "observed",
- "sources": ["docs/public/reference/session-level-routing.md", "runtime/harness/manifest-schema.md", "runtime/api/domain/test_session_launch_valid_pairs.py"],
+ "sources": ["docs/public/agents/levels.md", "runtime/harness/manifest-schema.md", "runtime/api/domain/test_session_launch_valid_pairs.py"],
  "commands": ["yoke session-control launch preview", "yoke universe level-capacity get"],
  "functions": ["session_control.launch.preview", "universe.level_capacity.get"],
  "page": "sessions"

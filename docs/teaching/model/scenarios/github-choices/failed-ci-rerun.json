@@ -8,6 +8,6 @@
  "disclosure": "current cue",
  "surface": "Verification rules, registered rerun help and dispatch permission boundary",
  "review": "Dispatch regression and registry-wide item-target permission tests fail before the fix and pass on candidate source; deployed proof remains pending.",
- "sources": ["docs/public/reference/agent-rules/verification.md", "packages/yoke-core/src/yoke_core/domain/function_target_resolution.py", "runtime/api/domain/test_item_target_dispatch_project.py"],
+ "sources": ["docs/public/agents/rules/verification.md", "packages/yoke-core/src/yoke_core/domain/function_target_resolution.py", "runtime/api/domain/test_item_target_dispatch_project.py"],
  "position": 1
 }

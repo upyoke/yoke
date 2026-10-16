@@ -2,7 +2,7 @@
  "id": "sessions",
  "title": "Sessions and continuity",
  "status": "draft-copy",
- "sources": ["docs/public/items-and-sessions.md", "docs/public/reference/agent-rules/claude-sessions.md", "docs/public/reference/db-reference/qa-and-sessions.md"],
+ "sources": ["docs/public/items-and-sessions.md", "docs/public/agents/rules/claude-sessions.md", "docs/public/reference/db-reference/qa-and-sessions.md"],
  "commands": ["yoke sessions get", "yoke sessions list"],
  "functions": ["sessions.list"],
  "page": "sessions",

@@ -44,6 +44,6 @@ yoke sessions touch --mode implement
 ```
 
 A level-change handoff takes priority over release wait. Follow the
-[Stage-level routing rule](../../../../.yoke/docs/reference/session-level-routing.md);
+[Stage-level routing rule](../../../../.yoke/docs/agents/levels.md);
 workers may launch their own successor. At a fresh binding boundary, obey the
 current mandate: continued delivery needs the newly bound skill and its claim.

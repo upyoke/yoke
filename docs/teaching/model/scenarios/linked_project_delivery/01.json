@@ -10,6 +10,6 @@
  "gap": "Runtime supports bound sources, but a short guided linking/adoption home is still needed. Do not auto-create shared deployment bindings for every related project.",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["JOURNEYS row 14"],
- "sources": ["docs/public/reference/agent-rules/delivery.md", "docs/public/delivery.md", "AGENTS.md"],
+ "sources": ["docs/public/agents/rules/delivery.md", "docs/public/delivery.md", "AGENTS.md"],
  "position": 0
 }

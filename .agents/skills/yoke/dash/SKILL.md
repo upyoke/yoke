@@ -47,7 +47,7 @@ remains. No children or workflow conversion because the change is large;
 only an actual structural need or operator request routes to escalation.
 Done requires landed identity, result, passing proof, touched files and every
 selected gate. Honor level-change through the
-[worker handoff rule](../../../../.yoke/docs/reference/session-level-routing.md#stage-level-handoff).
+[worker handoff rule](../../../../.yoke/docs/agents/levels.md#stage-level-handoff).
 
 Stamp mode, then resolve/file:
 

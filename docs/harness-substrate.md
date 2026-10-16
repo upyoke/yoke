@@ -5,7 +5,7 @@ across Claude, Codex and Cursor. Harness-specific renderers/manifests define
 native syntax and supported primitives; this optional contributor reference
 explains their boundaries. Read the installed release manifest before asserting
 live capability. [Bootstrap](harness-bootstrap.md) and
-[native discovery](public/reference/harness-discovery.md) own loading.
+[native discovery](public/agents/harness-discovery.md) own loading.
 
 ## Canonical bodies and adapters
 
@@ -56,7 +56,7 @@ Cwd is execution convenience. Every workspace-sensitive call uses the session's
 active `work_claims`, with explicit absolute paths and source import anchors.
 Sticky main-shell cwd and subagent tool cwd can differ; neither grants authority.
 Use the registered lane returned by preparation, never compose it from a branch
-slug or a machine checkout mapping. Read [lanes and claims](public/reference/agent-rules/lanes-and-claims.md)
+slug or a machine checkout mapping. Read [lanes and claims](public/agents/rules/lanes-and-claims.md)
 before overlap/recovery and [source-dev doctrine](source-dev-doctrine.md) before
 source execution/render/verification.
 

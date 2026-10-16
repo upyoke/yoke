@@ -7,7 +7,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 <!-- BEGIN YOKE MANAGED BLOCK -->
 <!-- Managed by `yoke project install`. Everything between the BEGIN and END markers is overwritten on refresh — do not edit it here. Your own content outside the markers is always preserved. -->
-Native loading: `.yoke/docs/reference/harness-discovery.md`. Standing rules bind now; operation homes bind before acting.
+Native loading: `.yoke/docs/agents/harness-discovery.md`. Standing rules bind now; operation homes bind before acting.
 
 ## Standing authority
 
@@ -39,16 +39,20 @@ Reusable capabilities ship as immutable Packs; config stays in DB/project policy
 
 ## Before acting: operation homes
 
-Read the applicable `.yoke/docs/reference/agent-rules/` home first, then the operation's `--help`. Live schemas/recipes: `yoke packets render --role main_agent`.
+Read the applicable `.yoke/docs/agents/rules/` home first, then the operation's `--help`. [Operation homes](.yoke/docs/agents/rules/index.md) lists when each applies. Live schemas/recipes: `yoke packets render --role main_agent`.
 
-- `code-and-cli.md`: code, naming, shell/CLI, serving floors, simplify and teaching.
-- `lanes-and-claims.md`: preparation, scope, overlaps, routing, destruction and authority.
-- `item-writes.md`: item creation, typed structured writes, Progress Log and board.
-- `databases.md`: schema/bulk-data changes, governed rehearsal and DB authority.
-- `verification.md`: tests, QA, CI, captures and health checks.
-- `delivery.md`: Packs, credentials, deployment claims, runs and receipts.
-- `architecture-model.md`: model changes and cross-cutting dependencies.
-- `claude-sessions.md`: Claude hooks, watcher waiting and session recovery.
+- `code-and-cli.md`: read before code, naming, simplify or teaching changes.
+- `shell-and-cli.md`: read before shell calls, CLI operations or serving-floor changes.
+- `lanes-and-claims.md`: read before preparation, scope, overlaps or destructive operations.
+- `item-writes.md`: read before item creation, typed writes, Progress Log or board work.
+- `databases.md`: read before schema/bulk-data changes or governed rehearsal.
+- `verification.md`: read before tests, QA, CI, captures or health checks.
+- `delivery.md`: read before deployment runs, binding-based delivery or release-target QA.
+- `release-roles.md`: read before release identity or permission configuration.
+- `packs.md`: read before capability packaging, credentials or Pack updates.
+- `architecture-model.md`: read before model changes or cross-cutting dependencies.
+- `claude-sessions.md`: read before Claude hooks, session identity or recovery.
+- `claude-long-commands.md`: read before Claude long commands or watcher waits.
 
 ## Code Conventions
 

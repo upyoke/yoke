@@ -61,7 +61,7 @@ _BARE_PATH_RE = re.compile(
 )
 _COMMAND_SECTION_RE = re.compile(r"^### ([a-z][a-z0-9_-]*)\s*$")
 _SKILL_ROOT = ".agents/skills/yoke"
-_GENERATED_COMMAND_DOC = ".yoke/docs/reference/commands.md"
+_GENERATED_COMMAND_DOC = ".yoke/docs/agents/commands.md"
 _GENERATED_SKILL_REFERENCE_DOCS = frozenset(
     {_GENERATED_COMMAND_DOC, ".yoke/docs/reference/lifecycle.md"}
 )

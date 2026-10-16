@@ -10,6 +10,6 @@
  "gap": "These commands/rules exist; initial adoption and maintenance discovery have not been traced. Review question: should JOURNEYS include architecture-impact and project-topology-change scenarios without requiring every new project to model everything?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["JOURNEYS row 9", "JOURNEYS row 14", "outside both"],
- "sources": ["docs/public/reference/agent-rules/architecture-model.md", "docs/public/reference/db-reference/functions-project-configuration.md", "docs/public/reference/db-reference/projects-and-flows.md"],
+ "sources": ["docs/public/agents/rules/architecture-model.md", "docs/public/reference/db-reference/functions-project-configuration.md", "docs/public/reference/db-reference/projects-and-flows.md"],
  "position": 0
 }

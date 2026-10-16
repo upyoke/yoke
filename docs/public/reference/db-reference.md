@@ -17,7 +17,7 @@ Quickstart for session operators: `AGENTS.md` § Code Conventions, § Structured
 
 The [function catalog](db-reference/functions.md) owns registered ids, CLI adapters, claim verification and permanent boundaries. For a source-checkout Atlas, use `yoke dev run -- python3 -m yoke_core.tools.atlas_render_docs render`; this source-dev renderer is not a product command. Mutations use registered function ids; CLI adapters construct the same dispatched request.
 
-This file is the **entry point**: it covers entry points, the bootstrap contract, the domain catalog, timestamp discipline, query-time SQL clock helpers, JSON-payload columns, and common pitfalls. Per-table schema bodies, the qa CLI reference, the body write path, and the status lifecycle live in topic files under [.yoke/docs/reference/db-reference/](db-reference/).
+This file is the **entry point**: it covers entry points, the bootstrap contract, the domain catalog, timestamp discipline, query-time SQL clock helpers, JSON-payload columns, and common pitfalls. Per-table schema bodies, the qa CLI reference, the body write path, and the status lifecycle live in topic files under `.yoke/docs/reference/db-reference/`; the [Topic Index](#topic-index) links each home.
 
 ## Common column mistakes to avoid in raw SQL
 
@@ -67,7 +67,7 @@ The only packet insertion point is
 Do not hand-copy a second cheat sheet. QA plan materialization and review
 ownership follow the active executor contract; a packet does not delegate
 them merely by showing a command. `harness_contract` separately owns
-manifest/bootstrap substrate facts. See the [agent guide](../operating-with-agents.md).
+manifest/bootstrap substrate facts. See the [agent guide](../agents/index.md).
 
 ## Topic Index
 - [items-and-epics.md](db-reference/items-and-epics.md) — `items`, `item_sections`, `shepherd_verdicts`, `caveat_dispositions`, `item_dependencies`, `ouroboros_entries`, `epic_tasks`, `epic_task_files`, `epic_dispatch_chains`, `item_progress_view`, `epic_progress_notes`. Includes the **Backlog ontology** note (items are flat rows; epic decomposition lives in `epic_tasks` keyed on `(epic_id, task_num)` where `epic_id` is the epic item's own `items.id`), the **DB Claim — unified amendment workflow**, and the `deploy_stage` cache contract.

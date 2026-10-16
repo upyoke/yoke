@@ -57,7 +57,7 @@ load `AGENTS.md` and `.agents/skills/yoke` natively. Claude requires an embedded
 Code engine >=2.1.281 with its built-in AGENTS plugin enabled and instruction
 configuration allowing AGENTS. Its `.claude/skills/yoke` discovery entry links
 to the canonical tree. Install preflight refuses suppressed instructions and
-ambiguous legacy ownership; see `.yoke/docs/reference/harness-discovery.md`.
+ambiguous legacy ownership; see `.yoke/docs/agents/harness-discovery.md`.
 
 Installer PATH repair reads this manifest registry, resolves each installed
 command from the ambient installer PATH or a declared bundle candidate, and

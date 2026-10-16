@@ -146,7 +146,7 @@ def test_launch_sentence_names_the_message_read() -> None:
     "path",
     [
         "AGENTS.md",
-        "docs/public/reference/agent-rules/code-and-cli.md",
+        "docs/public/agents/rules/shell-and-cli.md",
         "runtime/agents/engineer/large-output.md",
     ],
 )

@@ -3,7 +3,7 @@
  "title": "No cross-level fallback",
  "status": "observed",
  "text": "There is no exhausted-pool cross-level fallback. Cursor Opus medium is SENIOR and cannot escape JUNIOR exhaustion. No usable selection refuses level_no_capacity with each candidate reason and recovery; capacity-stopped workers use same-level recovery excluding the refused model.",
- "sources": ["docs/public/reference/session-level-routing.md", "docs/public/reference/session-capacity-recovery.md"],
+ "sources": ["docs/public/agents/levels.md", "docs/public/agents/capacity-recovery.md"],
  "page": "levels",
  "position": 4
 }

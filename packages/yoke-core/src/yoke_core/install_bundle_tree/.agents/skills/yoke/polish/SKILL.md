@@ -52,5 +52,5 @@ Checkpoint current execution state with `items.progress_log.append` in the
 fields are not execution logs. Start with parse-and-claim.
 
 A `handoff` with `reason=level_change` takes precedence over a release wait.
-Follow `.yoke/docs/reference/session-level-routing.md`; workers may launch
+Follow `.yoke/docs/agents/levels.md`; workers may launch
 their own successor.
