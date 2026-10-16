@@ -56,7 +56,7 @@ def _connection() -> sqlite3.Connection:
             connected_until TEXT,
             state TEXT,
             surface_versions TEXT,
-            project_checkouts TEXT
+            project_checkouts TEXT, actor_id INTEGER
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY,
@@ -128,7 +128,7 @@ def _add_relay(
     project_ids: tuple[int, ...] = (10,),
 ) -> None:
     conn.execute(
-        "INSERT INTO session_relays VALUES (?,?,?,?,?,?,?,?)",
+        "INSERT INTO session_relays VALUES (?,?,?,?,?,?,?,?,1)",
         (
             "relay-1",
             "machine-1",

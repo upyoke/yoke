@@ -48,7 +48,10 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "session_message_recipients uses composite key (message_id, session_id), "
             "wake_after, and required resolution_evidence/routing_snapshot. Wrong guesses: "
             "recipient_id and available_at; neither column exists. The recipient DDL owner "
-            "is session_message_recipient_schema.create_session_message_recipient_table."
+            "is session_message_recipient_schema.create_session_message_recipient_table. "
+            "connected_relay_routes selects session_relays.actor_id; wrong guess: a "
+            "project-only roster fixture can omit the relay actor column. Preserve the "
+            "relay actor seed when modeling installed versions."
         ),
     },
     "runtime.api.domain.test_session_native_turn_end": {
