@@ -56,7 +56,7 @@ env-keyed `connections` map per
 
 The machine credential for https is `credential_source.kind:
 "token_file"` — a permission-locked file holding the actor token minted
-by `runtime.api.domain.api_tokens_cli`. The cloud boundary overwrites
+by the [server token bootstrap](../../self-host.md#restore-admin-access). The cloud boundary overwrites
 the envelope actor from the verified token, so locally-resolved session
 identity is advisory context, never authority. A half-configured https
 connection (missing api_url, missing/unreadable token) fails loudly with
