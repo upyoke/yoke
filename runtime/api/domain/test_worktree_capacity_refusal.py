@@ -1,9 +1,9 @@
-"""The lane-cap refusal names what holds the slots and how to free each kind.
+"""The lane cap counts lanes doing work and names how to free each kind.
 
 Merging is only the recovery for unmerged item lanes. A lane that already
-landed, and a finished deploy run's pinned driver tree, cannot be merged out
-of a full checkout; an open run's driver tree is in use and must never be
-offered for retirement.
+landed holds no slot. A finished deploy run's pinned driver tree cannot be
+merged out of a full checkout; an open run's driver tree is in use and must
+never be offered for retirement.
 """
 
 from __future__ import annotations
@@ -70,41 +70,87 @@ def _git(repo: Path, *args: str) -> None:
     subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
 
 
-def test_landed_item_lanes_are_told_to_retire_not_merge(tmp_path: Path) -> None:
+def _commit(repo: Path, message: str) -> None:
+    # A real change: git's patch-equivalence proof treats an empty commit as
+    # already carried by any base.
+    (repo / f"{message.replace(' ', '-')}.txt").write_text(message)
+    _git(repo, "add", "-A")
+    _git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", message)
+
+
+def _repo_with_landed_and_unmerged_lane(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     repo.mkdir()
     _git(repo, "init", "-b", "main")
-    _git(
-        repo,
-        "-c",
-        "user.name=t",
-        "-c",
-        "user.email=t@t",
-        "commit",
-        "--allow-empty",
-        "-m",
-        "base",
-    )
+    _commit(repo, "base")
     _git(repo, "worktree", "add", "-b", "ITEM-7", str(repo / ".worktrees" / "ITEM-7"))
     _git(repo, "worktree", "add", "-b", "ITEM-8", str(repo / ".worktrees" / "ITEM-8"))
-    _git(
-        repo / ".worktrees" / "ITEM-8",
-        "-c",
-        "user.name=t",
-        "-c",
-        "user.email=t@t",
-        "commit",
-        "--allow-empty",
-        "-m",
-        "unlanded work",
+    _commit(repo / ".worktrees" / "ITEM-7", "landed work")
+    _git(repo, "merge", "--ff-only", "ITEM-7")
+    _commit(repo / ".worktrees" / "ITEM-8", "unlanded work")
+    return repo
+
+
+def test_a_lane_that_has_not_committed_yet_still_counts(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-b", "main")
+    _commit(repo, "base")
+    _git(repo, "worktree", "add", "-b", "ITEM-7", str(repo / ".worktrees" / "ITEM-7"))
+
+    landed = worktree_capacity.landed_item_lanes(str(repo), ["ITEM-7"], "main")
+
+    assert landed == set()
+
+
+def _plan(repo: Path, cap: int):
+    return preflight_worktree_plan(
+        [("ITEM-1", str(repo / ".worktrees" / "ITEM-1"))],
+        str(repo),
+        str(repo / ".worktrees"),
+        max_active_worktrees=cap,
+        active_count=2,
+        active_names=["ITEM-7", "ITEM-8"],
+        landed_base="main",
     )
 
-    error = _refusal(repo, ["ITEM-7", "ITEM-8"])
 
+def test_landed_item_lanes_do_not_block_creation_at_the_cap(tmp_path: Path) -> None:
+    repo = _repo_with_landed_and_unmerged_lane(tmp_path)
+
+    plan = _plan(repo, cap=2)
+
+    assert plan.error is None
+    assert not plan.capacity_refused
+
+
+def test_a_refusal_counts_only_unmerged_lanes(tmp_path: Path) -> None:
+    repo = _repo_with_landed_and_unmerged_lane(tmp_path)
+
+    error = _plan(repo, cap=1).error
+
+    assert error
+    assert "(1 active + 1 pending > 1; 1 landed lane(s) not counted)" in error
     assert "Item lanes: ITEM-8." in error
-    assert "1 item lane(s) already landed on main, so no merge frees them" in error
-    assert "Landed lanes: ITEM-7." in error
-    assert DOCTOR_RETIRE_RECIPE in error
+    assert "ITEM-7" not in error
+
+
+def test_doctor_lists_landed_lanes_apart(tmp_path: Path) -> None:
+    repo = _repo_with_landed_and_unmerged_lane(tmp_path)
+
+    def run_git(args, *, cwd=None, capture=True):
+        return subprocess.run(
+            ["git", "-C", str(repo), *args], capture_output=True, text=True
+        )
+
+    note = worktree_capacity.landed_lanes_note(
+        run_git, str(repo), [("ITEM-7", "ITEM-7", "main"), ("ITEM-8", "ITEM-8", "main")]
+    )
+
+    assert note == (
+        "- 1 landed lane(s) await release close-out and are not counted "
+        "against max_active_worktrees: ITEM-7"
+    )
 
 
 def test_an_open_runs_driver_tree_is_in_use_not_retirable(
