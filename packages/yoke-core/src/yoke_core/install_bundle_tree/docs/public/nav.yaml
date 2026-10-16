@@ -1,36 +1,13 @@
-# Public docs sidebar. Platform renders this order; install ships the same tree.
-sections:
-  - title: Start
-    pages:
-      - index.md
-      - modes.md
-      - install.md
-      - concepts.md
-  - title: Operate
-    pages:
-      - cli-and-config.md
-      - projects.md
-      - github.md
-      - strategy.md
-      - frontier.md
-      - items-and-sessions.md
-      - workflows.md
-      - delivery.md
-      - databases-and-migrations.md
-      - qa.md
-      - capabilities.md
-      - events-doctor-ouroboros.md
-      - actors-members-billing.md
-      - operating-with-agents.md
-  - title: Reference
-    pages:
-      - reference/commands.md
-      - reference/lifecycle.md
-      - reference/lifecycle-gates.md
-      - reference/charge-frontier.md
-      - reference/qa-platform.md
-      - reference/github-sync.md
-      - reference/browser-scenarios.md
-      - reference/browser-evidence.md
-      - reference/shared-files.md
-      - reference/db-reference.md
+# One maintained tree; installed and web views derive from these nodes.
+root:
+  title: Yoke
+  summary: Software delivery from direction through verified delivery.
+  path: index.md
+  children:
+    - title: Documentation
+      summary: Write, navigate and verify complete, concise teaching.
+      path: documentation/index.md
+      children:
+        - title: Navigation contract
+          summary: Share page routes, heading fragments and exact corpus identity.
+          path: documentation/navigation.md

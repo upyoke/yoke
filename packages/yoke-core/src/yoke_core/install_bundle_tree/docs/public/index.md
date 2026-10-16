@@ -35,3 +35,7 @@ item from the frontier for the current session.
 - [Install](install.md) — one installer, then onboard
 - [Maintaining a private fork](private-forks.md) — operator-supplied releases and indexes
 - [Concepts](concepts.md) — universe, projects, items, workflows
+
+<!-- yoke:contents -->
+- [Documentation](documentation/index.md) — Write, navigate and verify complete, concise teaching.
+<!-- /yoke:contents -->
