@@ -4,11 +4,7 @@
  "status": "draft-copy",
  "audience": "Maintainers",
  "summary": "Materialization reuses schema metadata and one operation-local run/stage membership and plan-selection projection. Canonical shared groups are resolved once when private copies need retirement; later operations read fresh withdrawals and attachments. Admission and source/target authority remain checked by their existing owners. Production proof resolves the member project explicitly and checks public-ref wire identity; missions record actual population and retain the relay deadline. Execution-count observations match the exact run, stage and member, excluding concurrent campaigns for unrelated subjects.",
- "sources": [
-  "docs/qa-platform/deployment-stage-execution.md",
-  "packages/yoke-core/src/yoke_core/domain/deployment_qa_materialization_projection.py",
-  "runtime/api/domain/test_deployment_qa_materialization_work.py"
- ],
+ "sources": ["docs/qa-platform/deployment-stage-execution.md", "packages/yoke-core/src/yoke_core/domain/deployment_qa_materialization_projection.py", "runtime/api/domain/test_deployment_qa_materialization_work.py"],
  "page": "runtime-execution",
  "position": 6
 }
