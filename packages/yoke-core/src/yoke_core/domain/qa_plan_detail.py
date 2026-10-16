@@ -163,6 +163,8 @@ def get_plan(
         "retired_at": format_instant(row["retired_at"])
         if row["retired_at"] is not None
         else None,
+        "retirement_reason": row.get("retirement_reason"),
+        "retired_by_actor_id": row.get("retired_by_actor_id"),
         "deployment_run_id": deployment_run_id,
         "target_environment": row["target_environment"],
         "execution_target": execution_target,

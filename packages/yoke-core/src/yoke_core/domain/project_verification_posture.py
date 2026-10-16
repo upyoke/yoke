@@ -24,12 +24,7 @@ from yoke_contracts.verification_posture import (
     VERIFICATION_POSTURE_FAMILY,
 )
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import (
-    instant_parameter,
-    utc_now,
-    query_one,
-    query_rows,
-)
+from yoke_core.domain.db_helpers import query_one, query_rows
 
 #: Slug prefix of the QA plans that carry a project's registered verification
 #: command, one per scope. It lives here rather than beside the registration
@@ -126,7 +121,7 @@ def _registered_command_plans(conn: Any, project_id: int) -> list[dict]:
     ]
 
 
-def _retire_registered_commands(conn: Any, project_id: int) -> list[str]:
+def _retire_registered_commands(conn: Any, project_id: int, reason: str) -> list[str]:
     """Retire every registered command plan and drop its gate attachments."""
     marker = _p(conn)
     retired: list[str] = []
@@ -135,9 +130,13 @@ def _retire_registered_commands(conn: Any, project_id: int) -> list[str]:
             f"DELETE FROM qa_plan_project_defaults WHERE plan_id={marker}",
             (int(plan["id"]),),
         )
-        conn.execute(
-            f"UPDATE qa_plans SET retired_at={marker} WHERE id={marker}",
-            (instant_parameter(conn, utc_now()), int(plan["id"])),
+        from yoke_core.domain.qa_plan_retire import mark_plan_retired
+
+        mark_plan_retired(
+            conn,
+            plan_id=int(plan["id"]),
+            reason=f"project attested no test suite: {reason}",
+            actor_id=None,
         )
         retired.append(str(plan["slug"]))
     return retired
@@ -166,7 +165,7 @@ def attest_no_tests(
             "has no suite to bind; an attestation without a reason is an "
             "omission"
         )
-    retired = _retire_registered_commands(conn, int(project_id))
+    retired = _retire_registered_commands(conn, int(project_id), text)
     apply_patch_on_connection(
         conn,
         project,
