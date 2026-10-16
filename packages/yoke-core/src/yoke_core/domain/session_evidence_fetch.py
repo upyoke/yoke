@@ -27,7 +27,10 @@ from yoke_contracts.session_control.evidence_fetch import (
 from yoke_core.domain import json_helper
 from yoke_core.domain.actor_permissions import (
     PERM_ITEMS_WRITE,
-    permission_decision,
+)
+from yoke_core.domain.session_scope_identity import (
+    actor_may_operate_session,
+    session_scope_of,
 )
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
@@ -104,6 +107,18 @@ def request_evidence_fetch(
     from yoke_core.domain.session_steering_authority import session_control_target
 
     target = session_control_target(conn, session_id)
+    scope = session_scope_of(target)
+    if not actor_may_operate_session(
+        conn,
+        actor_id=actor_id,
+        scope=scope,
+        session_actor_id=target.get("actor_id"),
+        permission_key=PERM_ITEMS_WRITE,
+    ):
+        raise SessionRelayError(
+            "permission_denied",
+            "Session evidence is not available to this actor.",
+        )
     machine_id = str(target.get("machine_id") or "")
     if not machine_id:
         raise SessionRelayError(
@@ -111,17 +126,7 @@ def request_evidence_fetch(
             f"Session '{session_id}' records no machine, so no relay owns its "
             "files. Read them on the machine that ran it.",
         )
-    project_id = int(target.get("project_id") or 0)
-    if not permission_decision(
-        conn,
-        actor_id=actor_id,
-        project_id=project_id,
-        permission_key=PERM_ITEMS_WRITE,
-    ).allowed:
-        raise SessionRelayError(
-            "permission_denied",
-            f"actor {actor_id} cannot read evidence for project {project_id}",
-        )
+    project_id = scope.project_id
     diagnostic_ref = None
     if evidence_id is not None:
         diagnostic_ref = valid_native_diagnostic_reference(evidence_id)
@@ -146,14 +151,15 @@ def request_evidence_fetch(
     p = marker(conn)
     conn.execute(
         "INSERT INTO session_evidence_fetches (fetch_id,target_session_id,"
-        "project_id,machine_id,kind,file_name,diagnostic_ref,tail_lines,state,"
+        "project_id,org_id,machine_id,kind,file_name,diagnostic_ref,tail_lines,state,"
         "requested_at,requested_by_actor_id,requested_by_session_id) VALUES ("
-        + ",".join(p for _ in range(12))
+        + ",".join(p for _ in range(13))
         + ")",
         (
             fetch_id,
             session_id,
             project_id,
+            scope.org_id,
             machine_id,
             kind,
             file_name,
@@ -170,6 +176,7 @@ def request_evidence_fetch(
         "fetch_id": fetch_id,
         "target_session_id": session_id,
         "project_id": project_id,
+        "org_id": scope.org_id,
         "machine_id": machine_id,
         "kind": kind,
         "file_name": file_name,

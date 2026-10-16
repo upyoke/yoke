@@ -15,6 +15,7 @@ from yoke_core.domain.session_message_types import (
     row_dict,
 )
 from yoke_core.domain.session_relay_evidence import redacted_evidence
+from yoke_core.domain.session_scope_identity import relay_serves_scope
 from yoke_core.domain.session_relay_job_leases import require_job_lease
 from yoke_core.domain.session_relay_storage import (
     marker,
@@ -58,21 +59,55 @@ def claim_termination_reap(
     now: datetime | str,
 ) -> RelayJob | None:
     projects = tuple(sorted({int(value) for value in heartbeat.project_ids}))
-    if not projects:
+    if not projects and heartbeat.actor_id is None:
         return None
     p = marker(conn)
-    lock = " FOR UPDATE SKIP LOCKED" if p == "%s" else ""
+    lock = " FOR UPDATE OF r SKIP LOCKED" if p == "%s" else ""
+    scopes = [f"r.project_id IN ({','.join(p for _ in projects)})"] if projects else []
+    params: list[Any] = [heartbeat.machine_id, *projects]
+    if heartbeat.actor_id is not None:
+        scopes.append(f"(r.org_id IS NOT NULL AND hs.actor_id={p})")
+        params.append(heartbeat.actor_id)
     row = conn.execute(
-        "SELECT * FROM session_termination_reaps WHERE state='pending' "
-        f"AND machine_id={p} AND project_id IN ("
-        + ",".join(p for _ in projects)
-        + ") ORDER BY requested_at,target_session_id LIMIT 1"
-        + lock,
-        (heartbeat.machine_id, *projects),
+        "SELECT r.*,hs.actor_id,hs.workspace AS session_workspace "
+        "FROM session_termination_reaps r JOIN harness_sessions hs "
+        "ON hs.session_id=r.target_session_id WHERE r.state='pending' "
+        f"AND r.machine_id={p} AND ({' OR '.join(scopes)}) "
+        "ORDER BY r.requested_at,r.target_session_id LIMIT 1" + lock,
+        tuple(params),
     ).fetchone()
     if row is None:
         return None
     selected = row_dict(row)
+    if not relay_serves_scope(
+        relay_machine_id=heartbeat.machine_id,
+        relay_actor_id=heartbeat.actor_id,
+        advertised_project_ids=projects,
+        row_machine_id=selected.get("machine_id"),
+        row_project_id=selected.get("project_id"),
+        row_org_id=selected.get("org_id"),
+        row_actor_id=selected.get("actor_id"),
+    ):
+        return None
+    workspace = str(selected.get("session_workspace") or "").strip()
+    if selected.get("org_id") is not None and not workspace:
+        conn.execute(
+            "UPDATE session_termination_reaps SET state='unavailable',result_code="
+            f"'session_workspace_unrecorded',completed_at={p},evidence={p} "
+            f"WHERE target_session_id={p}",
+            (
+                instant_parameter(conn, parse_instant(now)),
+                json.dumps(
+                    {
+                        **json.loads(selected.get("evidence") or "{}"),
+                        "result_code": "session_workspace_unrecorded",
+                    }
+                ),
+                selected["target_session_id"],
+            ),
+        )
+        conn.commit()
+        return None
     lease_id = str(uuid4())
     current = parse_timestamp(now)
     if current is None:
@@ -104,7 +139,8 @@ def claim_termination_reap(
         machine_id=heartbeat.machine_id,
         surface=surface,
         surface_version=str(heartbeat.surface_versions.get(surface) or ""),
-        project_id=int(selected["project_id"]),
+        project_id=selected.get("project_id"),
+        target_workspace=workspace if selected.get("org_id") is not None else None,
         native_instruction="",
         target_session_id=str(selected["target_session_id"]),
         target_native_thread_id=(

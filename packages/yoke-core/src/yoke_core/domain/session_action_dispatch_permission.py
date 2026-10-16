@@ -37,10 +37,10 @@ def _p(conn: Any) -> str:
 
 
 def target_session_row(conn: Any, session_id: str) -> Optional[dict[str, Any]]:
-    """Return the target's ``session_id``/``project_id``/``actor_id``, or None."""
+    """Return the target's exclusive scope and authenticated actor, or None."""
     try:
         row = conn.execute(
-            "SELECT session_id, project_id, actor_id FROM harness_sessions "
+            "SELECT session_id, project_id, org_id, actor_id FROM harness_sessions "
             f"WHERE session_id = {_p(conn)}",
             (session_id,),
         ).fetchone()
@@ -52,7 +52,7 @@ def target_session_row(conn: Any, session_id: str) -> Optional[dict[str, Any]]:
         return None
     if row is None:
         return None
-    keys = ("session_id", "project_id", "actor_id")
+    keys = ("session_id", "project_id", "org_id", "actor_id")
     if hasattr(row, "get"):
         return {key: row.get(key) for key in keys}
     return dict(zip(keys, row))
@@ -74,9 +74,9 @@ def session_action_dispatch_permission(
     target = target_session_row(conn, target_session_id)
     # An unknown session is the handler's not-found to report, with the
     # target name in it; refusing here would answer a different question.
-    if target is None or target.get("project_id") is None:
+    if target is None:
         return DispatchPermission(permission_key, None, None)
-    project_id = int(target["project_id"])
+    project_id = target.get("project_id")
     decision = authorize_session_action(
         conn,
         actor_id=actor_id,

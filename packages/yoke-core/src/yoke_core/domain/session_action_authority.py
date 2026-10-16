@@ -19,6 +19,8 @@ The rule, in one place:
   or org ``admin``. An operator-opened session is a person sitting at a
   terminal, and ending one out from under them is administration.
 * **terminate your own session** — always yours, whatever your role.
+* **org-owned sessions** — the authenticated session actor or the org role
+  carrying the same operation permission; no project is inferred.
 
 A refusal names the actor, the roles it actually holds, and the action it
 attempted, because "permission denied" without those three sends the
@@ -35,7 +37,11 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.actor_permissions import (
     PERM_ITEMS_WRITE,
     PERM_PROJECT_ADMIN,
-    permission_decision,
+)
+from yoke_core.domain.session_scope_identity import (
+    SessionScope,
+    actor_may_operate_session,
+    session_scope_of,
 )
 from yoke_core.domain.session_action_attribution import (
     SESSION_ACTION_LABELS,
@@ -61,11 +67,11 @@ TERMINATE_FUNCTION = "session_control.session.terminate"
 
 @dataclass(frozen=True)
 class SessionActionDecision:
-    """Whether one actor may take one action on one project's session."""
+    """Whether one actor may take one action on a scoped session."""
 
     allowed: bool
     action: str
-    project_id: int
+    project_id: int | None
     permission_key: str
     message: str = ""
 
@@ -177,10 +183,10 @@ def authorize_session_action(
     *,
     actor_id: int,
     function_id: str,
-    project_id: int,
+    project_id: int | None,
     target: Optional[Mapping[str, Any]] = None,
 ) -> SessionActionDecision:
-    """Decide one session-affecting action against the actor's project role.
+    """Decide one session-affecting action against the target's scope authority.
 
     ``target`` is the target session row when one is known; a caller that
     resolved only a project (a message fanned out by anchor) passes none
@@ -196,12 +202,18 @@ def authorize_session_action(
         target=row,
         target_is_launched=launched,
     )
-    allowed = permission_decision(
+    scope = (
+        SessionScope(project_id, None)
+        if project_id is not None
+        else session_scope_of(row)
+    )
+    allowed = actor_may_operate_session(
         conn,
         actor_id=actor_id,
-        project_id=project_id,
+        scope=scope,
+        session_actor_id=row.get("actor_id"),
         permission_key=permission_key,
-    ).allowed
+    )
     if allowed:
         return SessionActionDecision(
             allowed=True,
@@ -214,7 +226,12 @@ def authorize_session_action(
         action=action,
         project_id=project_id,
         permission_key=permission_key,
-        message=_refusal(
+        message=(
+            f"actor {actor_id} may not {action} this session: the action needs "
+            f"{permission_key!r}. Recovery: ask the session owner or an org administrator to act."
+        )
+        if scope.org_id is not None
+        else _refusal(
             actor_id=actor_id,
             action=action,
             project_id=project_id,
