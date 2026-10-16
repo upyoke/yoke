@@ -80,7 +80,8 @@ an empty heading becomes `section`. Explicit HTML heading ids refuse with
 `HTML_HEADING_ID`; use Markdown headings and the derived ids.
 
 Shared producer/consumer cases live at
-`runtime/api/domain/fixtures/documentation_conformance.json`: `headings` holds
+`runtime/api/domain/fixtures/documentation_conformance.json` (Yoke source repo only):
+`headings` holds
 `{markdown, expected_ids}`, `routes` holds `{path, route}`, and `links` holds
 `{page, target, resolved}`. Each `resolved` object has `path`, `query`,
 `fragment` and `external`. A consumer runs these cases against the same full
