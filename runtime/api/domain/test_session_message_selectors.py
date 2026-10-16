@@ -5,14 +5,19 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain.session_message_selectors import resolve_recipients
-from yoke_core.domain.session_message_service import preview_message
+from yoke_core.domain.session_message_service import preview_message, send_message
+from yoke_core.domain.session_message_store import message_details
 from yoke_core.domain.session_message_types import SessionMessageError
+from yoke_core.domain.work_claim_targets import make_steering_target
 from runtime.api.domain.test_session_message_support import (
     NOW,
     message_connection,
     selector,
 )
-from runtime.api.domain.test_session_org_messages import org_world as org_world
+from runtime.api.domain.test_session_org_messages import (
+    NOW as ORG_NOW,
+    org_world as org_world,
+)
 
 
 def test_typed_anchors_union_then_deduplicate_authoritative_claims() -> None:
@@ -201,3 +206,63 @@ def test_direct_org_session_requires_operate_permission(org_world):
         row = resolve_recipients(w.conn, target, actor_id=actor, now=NOW)[0]
         assert row.project_id is None and row.org_id == w.org
         assert row.authorized_project_ids == set()
+
+
+@pytest.fixture
+def org_steering_holder(org_world):
+    w = org_world
+    target = make_steering_target(1)
+    w.conn.execute(
+        "INSERT INTO work_claims(session_id,target_kind,scope,claimed_at,last_heartbeat) "
+        "VALUES ('org-target',%s,%s,%s,%s)",
+        (target.kind, target.scope_json(), ORG_NOW, ORG_NOW),
+    )
+    w.conn.commit()
+    return w
+
+
+@pytest.mark.parametrize("direct", [False, True])
+def test_project_population_keeps_org_steering_holder_out_of_project_ownership(
+    org_steering_holder, direct
+):
+    w = org_steering_holder
+    slug = w.conn.execute("SELECT slug FROM projects WHERE id=1").fetchone()[0]
+    selected = selector(
+        projects=[slug], session_ids=["org-target"] if direct else [], liveness=["all"]
+    )
+    sent = send_message(
+        w.conn,
+        actor_id=w.owner,
+        sender_session_id="project-sender",
+        selector=selected,
+        body="Inspect the current project state.",
+        now=ORG_NOW,
+    )
+    rows = message_details(w.conn, sent["message_id"])["recipients"]
+    recipients = {row["session_id"]: row for row in rows}
+    assert {"project-sender", "project-target"} <= recipients.keys()
+    if direct:
+        row = recipients["org-target"]
+        assert row["project_id"] is None and row["org_id"] == w.org
+        assert row["routing_snapshot"]["authorized_project_ids"] == []
+    else:
+        assert "org-target" not in recipients
+
+
+def test_explicit_steering_keeps_org_holder_receipt_in_addressed_project(
+    org_steering_holder,
+):
+    w = org_steering_holder
+    sent = send_message(
+        w.conn,
+        actor_id=w.owner,
+        sender_session_id="project-sender",
+        selector=selector(steering=True, steering_scope={"project_id": 1}),
+        body="Inspect the addressed steering state.",
+        now=ORG_NOW,
+    )
+    details = message_details(w.conn, sent["message_id"])
+    assert [row["session_id"] for row in details["recipients"]] == ["org-target"]
+    assert details["recipients"][0]["project_id"] == 1
+    assert details["recipients"][0]["org_id"] is None
+    assert details["steering_recipient"]["project_id"] == 1

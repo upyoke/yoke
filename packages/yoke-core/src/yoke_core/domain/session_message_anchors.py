@@ -143,6 +143,7 @@ def anchor_hits(
             if (
                 claim["target_kind"] == TARGET_KIND_STEERING
                 and claim["anchor_project_id"] == identity.id
+                and claim["session_project_id"] is not None
             ):
                 _add_hit(
                     hits,

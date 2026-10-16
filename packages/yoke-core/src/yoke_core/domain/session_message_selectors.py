@@ -82,7 +82,8 @@ def _claim_rows(conn: Any) -> list[dict[str, Any]]:
     project_id = scope_int_sql(conn, "wc.scope", "project_id")
     process_key = scope_text_sql(conn, "wc.scope", "process_key")
     rows = conn.execute(
-        f"SELECT wc.session_id, wc.target_kind, {item_id} AS item_id, "
+        "SELECT wc.session_id, wc.target_kind, hs.project_id AS session_project_id, "
+        f"{item_id} AS item_id, "
         f"{epic_id} AS epic_id, {task_num} AS task_num, "
         f"{process_key} AS process_key, "
         f"COALESCE(item.project_id, epic.project_id, {project_id}, "
