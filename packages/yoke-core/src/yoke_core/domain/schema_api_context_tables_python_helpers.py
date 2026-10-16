@@ -44,7 +44,11 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "enough leaves session_launches absent during delivery checks. Current "
             "launch reads also require workspace, offered_at and episode_started_at; "
             "isolated SQLite roster fixtures must model those columns and launch tables. "
-            "Wake attempt fixtures also seed their message and recipient foreign-key parents."
+            "Wake attempt fixtures also seed their message and recipient foreign-key parents. "
+            "session_message_recipients uses composite key (message_id, session_id), "
+            "wake_after, and required resolution_evidence/routing_snapshot. Wrong guesses: "
+            "recipient_id and available_at; neither column exists. The recipient DDL owner "
+            "is session_message_recipient_schema.create_session_message_recipient_table."
         ),
     },
     "runtime.api.domain.test_session_native_turn_end": {
