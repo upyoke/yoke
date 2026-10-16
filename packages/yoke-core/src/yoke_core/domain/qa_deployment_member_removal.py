@@ -7,6 +7,7 @@ from typing import Any
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_qa_presentation_reads import presentation_operation
 from yoke_core.domain.qa_host_turns import cancel_host_waits
+from yoke_core.domain.qa_plan_execution_abort_reason import MEMBER_REMOVED_REASON
 from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 from yoke_core.domain.qa_plan_execution_schema import (
     LIVE_PLAN_EXECUTION_SQL,
@@ -84,7 +85,7 @@ def abort_removed_member_executions(conn: Any, *, run_id: str, item_id: int) -> 
             conn,
             execution,
             state="aborted",
-            reason="deployment-member-removed",
+            reason=MEMBER_REMOVED_REASON,
             commit=False,
         )
     return len(executions)

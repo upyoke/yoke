@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 
-from yoke_core.domain.qa_plan_execution_abort_reason import case_failed_reason
+from yoke_core.domain.qa_plan_execution_abort_reason import (
+    case_failed_reason,
+    member_removed,
+)
 from yoke_core.domain.qa_plan_execution_result_state import (
     QaPlanExecutionError,
     aggregate_state as _aggregate_state,
@@ -160,15 +163,8 @@ def execute_begun_plan(
                     "results": results,
                     "recovery": str(exc),
                 }
-            failed = {
-                "requirement_id": requirement_id,
-                **order,
-                "case_outcome": "error",
-                "error": str(exc),
-            }
-            results.append(failed)
             try:
-                _call_plan_function(
+                closed = _call_plan_function(
                     function_id="qa.plan_execution.abort",
                     target=target,
                     payload={
@@ -184,8 +180,28 @@ def execute_begun_plan(
                 ) from abort_exc
             if not isinstance(exc, Exception):
                 raise
-            state = "error"
             raised = True
+            if member_removed(closed):
+                # The run removed this member mid-case; the case's error is
+                # that interruption, not a failure of its host.
+                results.append(
+                    {
+                        "requirement_id": requirement_id,
+                        **order,
+                        "case_outcome": "removed",
+                    }
+                )
+                state = "removed"
+                break
+            results.append(
+                {
+                    "requirement_id": requirement_id,
+                    **order,
+                    "case_outcome": "error",
+                    "error": str(exc),
+                }
+            )
+            state = "error"
             break
         results.append(normalized)
         state = _aggregate_state(state, normalized)
@@ -235,6 +251,7 @@ def execute_begun_plan(
         "failed",
         "error",
         "waiting",
+        "removed",
     }:
         try:
             review = _call_plan_function(
@@ -296,6 +313,12 @@ def _recovery(
 ) -> str | None:
     if state == "waiting" and results:
         return results[-1].get("recovery")
+    if state == "removed":
+        return (
+            "The deployment run removed this item while its QA was running, so "
+            "the execution was cancelled with nothing recorded as passed; no "
+            "host needs repair. The item owes its QA in its next release."
+        )
     if state not in {"failed", "error"}:
         return None
     rerun = (
