@@ -148,3 +148,11 @@ def test_only_pull_requests_get_the_superseding_advisory() -> None:
     budget = int(run.split("--timeout ")[1].split()[0])
     # The step reports its own timeout before the job timeout cancels it.
     assert budget + gate._COMMAND_TIMEOUT_SECONDS <= job["timeout-minutes"] * 60
+
+
+def test_a_manual_exact_pair_run_is_dispatchable_with_recovery() -> None:
+    workflow = load_document(WORKFLOW)
+    inputs = workflow[True]["workflow_dispatch"]["inputs"]
+    assert set(inputs) == {"yoke_dispatch_id"}
+    assert not inputs["yoke_dispatch_id"]["required"]
+    assert "[yoke-dispatch:{0}]" in workflow["run-name"]

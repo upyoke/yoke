@@ -1,4 +1,5 @@
 name: consumer-compatibility-advisory
+run-name: "consumer-compatibility-advisory ${{ github.event.pull_request.head.sha || github.sha }}${{ inputs.yoke_dispatch_id && format(' [yoke-dispatch:{0}]', inputs.yoke_dispatch_id) || '' }}"
 
 # Advisory evidence has its own workflow-run conclusion. A job timeout can
 # cancel a run even with continue-on-error, so it must never share the required
@@ -16,7 +17,16 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # `yoke github-actions trigger upyoke/yoke consumer-compatibility-advisory.yml
+  # --ref BRANCH --request-id ID --correlation-input yoke_dispatch_id
+  # --project yoke` proves BRANCH's head commit as an exact pair.
   workflow_dispatch:
+    inputs:
+      yoke_dispatch_id:
+        description: Correlation id echoed into run-name; empty for hand triggers.
+        required: false
+        default: ""
+        type: string
 
 # A newer push supersedes a PR advisory, but never a main commit's exact-pair
 # proof: an older frozen release of that commit may be waiting to join it.
