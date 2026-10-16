@@ -1,7 +1,12 @@
 {
  "id": "api-tokens",
  "title": "API tokens",
- "status": "draft-copy",
+ "status": "observed",
+ "commands": ["yoke tokens create", "yoke tokens list", "yoke tokens revoke"],
+ "functions": ["profile.get", "profile.token.create", "profile.token.revoke"],
+ "surface_refs": ["terminal-help", "workbench-cues"],
+ "text": "Run yoke tokens create --name ci or Profile → API tokens → New token for your own identity. Copy the value once; list shows only non-secret metadata. Names must be 1–80 characters. A local token works on this computer only; sharing needs a team server.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/tokens.py", "packages/yoke-core/src/yoke_core/ui/static/universe_views_profile_tokens.js", "docs/self-host-people.md"],
  "page": "identity",
  "position": 3
 }

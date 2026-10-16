@@ -256,6 +256,16 @@ the caller's own identity/preferences/tokens; raw new token appears once.
 Machine-bound credentials are retired through their machine, never arbitrary
 profile token removal.
 
+| Token command | Function id |
+|---|---|
+| `yoke tokens create --name LABEL` | `profile.token.create` |
+| `yoke tokens list` | `profile.get` |
+| `yoke tokens revoke TOKEN-ID` | `profile.token.revoke` |
+
+These commands work without a project or harness session. List returns non-secret
+metadata. Copy a new token once; if lost or refused as `result_unavailable`, list
+its ID, revoke it and create a new one. Labels must be 1–80 characters.
+
 ## Actors and org roles
 
 Actors functions use global targets and the bound actor. Roster returns kinds,

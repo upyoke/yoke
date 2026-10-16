@@ -1,0 +1,292 @@
+// Profile token creation, one-time recovery and revocation.
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
+import {
+  FakeDocument,
+  allNodes,
+  byClass,
+  settle,
+} from "./universe_ui_dom_test_support.mjs";
+
+const MACHINE_ID = "11111111-1111-4111-8111-111111111111";
+
+function profileAnswer(overrides = {}) {
+  return {
+    actor: { id: 2, kind: "human", name: "Ben" },
+    identity: { email: "ben@example.test", signed_in_with: "Google" },
+    roles: {
+      org: [{ org: "Acme", role: "admin" }],
+      projects: [{ project: "yoke", name: "Yoke", role: "admin" }],
+    },
+    tokens: [
+      {
+        token_id: 7, name: "operator-cli", status: "active",
+        created_at: "2026-06-30T00:00:00Z", last_used_at: "2026-09-10T10:00:00Z",
+        expires_at: null, machine_id: null, machine_name: null,
+      },
+      {
+        token_id: 8, name: "laptop", status: "active",
+        created_at: "2026-08-01T00:00:00Z", last_used_at: null,
+        expires_at: null, machine_id: MACHINE_ID, machine_name: "laptop",
+      },
+    ],
+    preferences: { time_zone: "Europe/Berlin" },
+    onboarding: { hidden_count: 2 },
+    ...overrides,
+  };
+}
+
+function ok(result) {
+  return { status: 200, envelope: { success: true, result } };
+}
+
+function profileClient(profile = profileAnswer()) {
+  const requests = [];
+  let current = profile;
+  return {
+    requests,
+    async call(request) {
+      requests.push(request);
+      switch (request.function) {
+        case "organizations.get":
+          return ok({ name: "Local", slug: "local" });
+        case "projects.list":
+          return ok({ rows: [] });
+        case "profile.get":
+          return ok(current);
+        case "profile.token.revoke":
+          current = {
+            ...current,
+            tokens: current.tokens.filter(
+              (token) => token.token_id !== request.payload.token_id,
+            ),
+          };
+          return ok({ token_id: request.payload.token_id, status: "revoked" });
+        case "profile.token.create":
+          return ok({ token_id: 9, name: request.payload.name, raw_token: "yk_raw_once" });
+        default:
+          throw new Error(`unexpected function ${request.function}`);
+      }
+    },
+  };
+}
+
+async function mountProfile(client, mode = "local") {
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.href = "/profile";
+  const root = documentNode.createElement("div");
+  const mounted = mountUniverseApp(root, {
+    client, capabilities: { data: { portability: { mode } } },
+  });
+  await settle();
+  await settle();
+  return { root, mounted, documentNode };
+}
+
+function texts(root, className) {
+  return byClass(root, className).map((node) => node.textContent);
+}
+
+function button(root, text) {
+  return allNodes(root).find((node) => node.tagName === "BUTTON" && node.textContent === text);
+}
+
+function tokenCells(root) {
+  const body = byClass(root, "profile-tokens")[0].children
+    .find((node) => node.tagName === "TBODY");
+  return body.children
+    .map((row) => row.children.slice(0, 4).map((cell) => cell.textContent));
+}
+
+test("token ages render now and missing use without malformed suffixes", async () => {
+  const instant = new Date().toISOString();
+  const tokens = [{
+    token_id: 7, name: "operator-cli", status: "active",
+    created_at: instant, last_used_at: instant, machine_id: null,
+  }, {
+    token_id: 8, name: "unused", status: "active",
+    created_at: null, last_used_at: null, machine_id: null,
+  }];
+  const { root, mounted } = await mountProfile(
+    profileClient(profileAnswer({ tokens })),
+  );
+  assert.deepEqual(tokenCells(root), [
+    ["operator-cli", "Personal", "now", "now"],
+    ["unused", "Personal", "—", "never"],
+  ]);
+  mounted.unmount();
+});
+
+test("revoke asks once inline, then reloads the tokens", async () => {
+  const client = profileClient();
+  const { root, mounted } = await mountProfile(client);
+  const arm = allNodes(root).find(
+    (n) => n.tagName === "BUTTON" && n.textContent === "Revoke…",
+  );
+  arm.dispatchEvent(new Event("click"));
+  assert.equal(
+    client.requests.filter((r) => r.function === "profile.token.revoke").length,
+    0,
+  );
+  const confirm = allNodes(root).find(
+    (n) => n.tagName === "BUTTON" && n.textContent === "Revoke",
+  );
+  confirm.dispatchEvent(new Event("click"));
+  await settle();
+  await settle();
+  const revoke = client.requests.find((r) => r.function === "profile.token.revoke");
+  assert.deepEqual(revoke.payload, { token_id: 7 });
+  assert.deepEqual(texts(root, "profile-token-name"), ["laptop"]);
+  mounted.unmount();
+});
+
+test("machine tokens follow personal tokens and name their machine", async () => {
+  const machine = profileAnswer().tokens[1];
+  const tokens = [
+    { ...machine, token_id: 10, name: `machine:${MACHINE_ID}`, machine_name: "build-box" },
+    { ...profileAnswer().tokens[0], token_id: 11, name: "deploy-bot" },
+  ];
+  const { root, mounted } = await mountProfile(profileClient(profileAnswer({ tokens })));
+  assert.deepEqual(tokenCells(root).map((row) => row.slice(0, 2)), [
+    ["deploy-bot", "Personal"], ["build-box", "Machine"],
+  ]);
+  const machineRows = byClass(root, "profile-token-machine");
+  assert.equal(machineRows.length, 1);
+  assert.equal(byClass(root, "panel-count")[0].textContent, "· 2");
+  mounted.unmount();
+});
+
+for (const mode of ["local", "self-host", "hosted"])
+test(`New token reveals once with recovery in ${mode}`, async () => {
+  const client = profileClient();
+  const { root, mounted } = await mountProfile(client, mode);
+  const action = button(root, "New token");
+  assert.equal(action.parentNode.className, "panel-header");
+  assert.equal(byClass(root, "profile-new-token").length, 0);
+  action.dispatchEvent(new Event("click"));
+  assert.equal(action.disabled, true);
+  const slot = byClass(root, "profile-token-slot")[0];
+  assert.equal(slot.parentNode.children[0], slot);
+  const input = allNodes(slot).find((n) => n.tagName === "INPUT");
+  input.value = "ci";
+  byClass(root, "profile-new-token")[0].dispatchEvent(new Event("submit"));
+  await settle();
+  const create = client.requests.find((r) => r.function === "profile.token.create");
+  assert.deepEqual(create.payload, { name: "ci" });
+  assert.equal(byClass(root, "profile-token-value")[0].textContent, "yk_raw_once");
+  assert.deepEqual(texts(root, "profile-token-hint"), [
+    "Lost it? Revoke this token below and create a new one.",
+  ]);
+  const notices = byClass(root, "local-reachability-notice");
+  assert.equal(notices.length, mode === "local" ? 1 : 0);
+  if (mode === "local") {
+    assert.match(notices[0].textContent, /This token works on this computer only/);
+    assert.match(notices[0].textContent, /yoke self-host init/);
+  }
+  button(root, "Done").dispatchEvent(new Event("click"));
+  await settle();
+  assert.equal(byClass(root, "profile-token-value").length, 0);
+  assert.doesNotMatch(root.textContent, /yk_raw_once/);
+  mounted.unmount();
+});
+
+test("the token table keeps its header in thead and its rows in tbody", async () => {
+  const { root, mounted } = await mountProfile(profileClient());
+  const table = byClass(root, "profile-tokens")[0];
+  assert.deepEqual(table.children.map((node) => node.tagName), ["THEAD", "TBODY"]);
+  const headings = allNodes(table.children[0]).filter((n) => n.tagName === "TH")
+    .map((n) => n.textContent);
+  assert.deepEqual(headings, ["Name", "Kind", "Created", "Last used", ""]);
+  mounted.unmount();
+});
+
+test("a failed reload withdraws New token instead of opening a form into the error", async () => {
+  const client = profileClient();
+  const original = client.call.bind(client);
+  let failReads = false;
+  client.call = async (request) => {
+    if (request.function === "profile.get" && failReads) {
+      return { status: 503, envelope: { success: false, error: { message: "Profile unavailable" } } };
+    }
+    return original(request);
+  };
+  const { root, mounted } = await mountProfile(client);
+  assert.equal(button(root, "New token").hidden, false);
+  failReads = true;
+  button(root, "Revoke…").dispatchEvent(new Event("click"));
+  button(root, "Revoke").dispatchEvent(new Event("click"));
+  await settle();
+  await settle();
+  assert.match(root.textContent, /Profile unavailable/);
+  const action = button(root, "New token");
+  assert.equal(action.hidden, true);
+  action.dispatchEvent(new Event("click"));
+  assert.equal(byClass(root, "profile-new-token").length, 0);
+  mounted.unmount();
+});
+
+test("Cancel closes the new-token form and re-enables the action", async () => {
+  const { root, mounted } = await mountProfile(profileClient());
+  button(root, "New token").dispatchEvent(new Event("click"));
+  button(root, "Cancel").dispatchEvent(new Event("click"));
+  assert.equal(byClass(root, "profile-new-token").length, 0);
+  assert.equal(button(root, "New token").disabled, false);
+  mounted.unmount();
+});
+
+for (const [operation, label, armLabel] of [
+  ["profile.token.revoke", "Revoke", "Revoke…"],
+]) test(`${operation} keeps its action retryable after a refusal`, async () => {
+  const client = profileClient();
+  const original = client.call.bind(client);
+  let attempts = 0;
+  client.call = async (request) => {
+    if (request.function === operation && ++attempts === 1) {
+      return { status: 503, envelope: { success: false, error: { message: "Try later" } } };
+    }
+    return original(request);
+  };
+  const { root, mounted } = await mountProfile(client);
+  const button = (text) => allNodes(root).find((node) => node.tagName === "BUTTON" && node.textContent === text);
+  if (armLabel) button(armLabel).dispatchEvent(new Event("click"));
+  button(label).dispatchEvent(new Event("click"));
+  await settle();
+  assert.match(root.textContent, /Try later/);
+  assert.equal(button(label).disabled, false);
+  button(label).dispatchEvent(new Event("click"));
+  await settle();
+  assert.equal(attempts, 2);
+  mounted.unmount();
+});
+
+test("token names are accessible and empty labels do not dispatch", async () => {
+  const client = profileClient();
+  const { root, mounted } = await mountProfile(client);
+  button(root, "New token").dispatchEvent(new Event("click"));
+  assert.ok(allNodes(root).some((node) => node.getAttribute("aria-label") === "Token name"));
+  byClass(root, "profile-new-token")[0].dispatchEvent(new Event("submit"));
+  assert.equal(client.requests.some((request) => request.function === "profile.token.create"), false);
+  mounted.unmount();
+});
+
+for (const [code, message] of [
+  ["result_unavailable", "This token cannot be shown again. Revoke it below and create a new one."],
+  ["payload_invalid", "name must be 1-80 characters"],
+]) test(`token creation shows the server ${code} refusal`, async () => {
+  const client = profileClient();
+  const original = client.call.bind(client);
+  client.call = async (request) => request.function === "profile.token.create"
+    ? { status: 409, envelope: { success: false, error: { code, message } } }
+    : original(request);
+  const { root, mounted } = await mountProfile(client);
+  button(root, "New token").dispatchEvent(new Event("click"));
+  allNodes(root).find((node) => node.getAttribute("aria-label") === "Token name").value = "ci";
+  byClass(root, "profile-new-token")[0].dispatchEvent(new Event("submit"));
+  await settle();
+  assert.ok(root.textContent.includes(message));
+  assert.equal(button(root, "Create").disabled, false);
+  assert.equal(byClass(root, "profile-token-value").length, 0);
+  mounted.unmount();
+});

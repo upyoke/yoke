@@ -1,9 +1,4 @@
-// The Profile page and the actor menu that leads to it: one profile.get
-// read feeds the account, API tokens, and settings sections; tokens are one
-// table with personal tokens before machine tokens; "New token" opens its
-// form from the section header; revoke asks once inline; the onboarding
-// reset clears the hidden count; the sidebar never lists Profile.
-
+// Profile account, settings, shared token integration and actor menu.
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -62,16 +57,6 @@ function profileClient(profile = profileAnswer()) {
           return ok({ rows: [] });
         case "profile.get":
           return ok(current);
-        case "profile.token.revoke":
-          current = {
-            ...current,
-            tokens: current.tokens.filter(
-              (token) => token.token_id !== request.payload.token_id,
-            ),
-          };
-          return ok({ token_id: request.payload.token_id, status: "revoked" });
-        case "profile.token.create":
-          return ok({ token_id: 9, name: request.payload.name, raw_token: "yk_raw_once" });
         case "profile.preference.set":
           return ok(request.payload);
         case "profile.onboarding.reset":
@@ -107,13 +92,6 @@ function button(root, text) {
   return allNodes(root).find((node) => node.tagName === "BUTTON" && node.textContent === text);
 }
 
-function tokenCells(root) {
-  const body = byClass(root, "profile-tokens")[0].children
-    .find((node) => node.tagName === "TBODY");
-  return body.children
-    .map((row) => row.children.slice(0, 4).map((cell) => cell.textContent));
-}
-
 test("profile draws its account, token, and settings sections from one read", async () => {
   const client = profileClient();
   const { root, mounted } = await mountProfile(client);
@@ -145,128 +123,6 @@ test("profile hides email when the actor has no linked identity", async () => {
   const labels = allNodes(facts).filter((n) => n.tagName === "DT")
     .map((n) => n.textContent);
   assert.deepEqual(labels, ["Name", "Actor id", "Roles"]);
-  mounted.unmount();
-});
-
-test("token ages render now and missing use without malformed suffixes", async () => {
-  const instant = new Date().toISOString();
-  const tokens = [{
-    token_id: 7, name: "operator-cli", status: "active",
-    created_at: instant, last_used_at: instant, machine_id: null,
-  }, {
-    token_id: 8, name: "unused", status: "active",
-    created_at: null, last_used_at: null, machine_id: null,
-  }];
-  const { root, mounted } = await mountProfile(
-    profileClient(profileAnswer({ tokens })),
-  );
-  assert.deepEqual(tokenCells(root), [
-    ["operator-cli", "Personal", "now", "now"],
-    ["unused", "Personal", "—", "never"],
-  ]);
-  mounted.unmount();
-});
-
-test("revoke asks once inline, then reloads the tokens", async () => {
-  const client = profileClient();
-  const { root, mounted } = await mountProfile(client);
-  const arm = allNodes(root).find(
-    (n) => n.tagName === "BUTTON" && n.textContent === "Revoke…",
-  );
-  arm.dispatchEvent(new Event("click"));
-  assert.equal(
-    client.requests.filter((r) => r.function === "profile.token.revoke").length,
-    0,
-  );
-  const confirm = allNodes(root).find(
-    (n) => n.tagName === "BUTTON" && n.textContent === "Revoke",
-  );
-  confirm.dispatchEvent(new Event("click"));
-  await settle();
-  await settle();
-  const revoke = client.requests.find((r) => r.function === "profile.token.revoke");
-  assert.deepEqual(revoke.payload, { token_id: 7 });
-  assert.deepEqual(texts(root, "profile-token-name"), ["laptop"]);
-  mounted.unmount();
-});
-
-test("machine tokens follow personal tokens and name their machine", async () => {
-  const machine = profileAnswer().tokens[1];
-  const tokens = [
-    { ...machine, token_id: 10, name: `machine:${MACHINE_ID}`, machine_name: "build-box" },
-    { ...profileAnswer().tokens[0], token_id: 11, name: "deploy-bot" },
-  ];
-  const { root, mounted } = await mountProfile(profileClient(profileAnswer({ tokens })));
-  assert.deepEqual(tokenCells(root).map((row) => row.slice(0, 2)), [
-    ["deploy-bot", "Personal"], ["build-box", "Machine"],
-  ]);
-  const machineRows = byClass(root, "profile-token-machine");
-  assert.equal(machineRows.length, 1);
-  assert.equal(byClass(root, "panel-count")[0].textContent, "· 2");
-  mounted.unmount();
-});
-
-test("New token opens its form above the table and shows the raw token once", async () => {
-  const client = profileClient();
-  const { root, mounted } = await mountProfile(client);
-  const action = button(root, "New token");
-  assert.equal(action.parentNode.className, "panel-header");
-  assert.equal(byClass(root, "profile-new-token").length, 0);
-  action.dispatchEvent(new Event("click"));
-  assert.equal(action.disabled, true);
-  const slot = byClass(root, "profile-token-slot")[0];
-  assert.equal(slot.parentNode.children[0], slot);
-  const input = allNodes(slot).find((n) => n.tagName === "INPUT");
-  input.value = "ci";
-  byClass(root, "profile-new-token")[0].dispatchEvent(new Event("submit"));
-  await settle();
-  const create = client.requests.find((r) => r.function === "profile.token.create");
-  assert.deepEqual(create.payload, { name: "ci" });
-  assert.equal(byClass(root, "profile-token-value")[0].textContent, "yk_raw_once");
-  mounted.unmount();
-});
-
-test("the token table keeps its header in thead and its rows in tbody", async () => {
-  const { root, mounted } = await mountProfile(profileClient());
-  const table = byClass(root, "profile-tokens")[0];
-  assert.deepEqual(table.children.map((node) => node.tagName), ["THEAD", "TBODY"]);
-  const headings = allNodes(table.children[0]).filter((n) => n.tagName === "TH")
-    .map((n) => n.textContent);
-  assert.deepEqual(headings, ["Name", "Kind", "Created", "Last used", ""]);
-  mounted.unmount();
-});
-
-test("a failed reload withdraws New token instead of opening a form into the error", async () => {
-  const client = profileClient();
-  const original = client.call.bind(client);
-  let failReads = false;
-  client.call = async (request) => {
-    if (request.function === "profile.get" && failReads) {
-      return { status: 503, envelope: { success: false, error: { message: "Profile unavailable" } } };
-    }
-    return original(request);
-  };
-  const { root, mounted } = await mountProfile(client);
-  assert.equal(button(root, "New token").hidden, false);
-  failReads = true;
-  button(root, "Revoke…").dispatchEvent(new Event("click"));
-  button(root, "Revoke").dispatchEvent(new Event("click"));
-  await settle();
-  await settle();
-  assert.match(root.textContent, /Profile unavailable/);
-  const action = button(root, "New token");
-  assert.equal(action.hidden, true);
-  action.dispatchEvent(new Event("click"));
-  assert.equal(byClass(root, "profile-new-token").length, 0);
-  mounted.unmount();
-});
-
-test("Cancel closes the new-token form and re-enables the action", async () => {
-  const { root, mounted } = await mountProfile(profileClient());
-  button(root, "New token").dispatchEvent(new Event("click"));
-  button(root, "Cancel").dispatchEvent(new Event("click"));
-  assert.equal(byClass(root, "profile-new-token").length, 0);
-  assert.equal(button(root, "New token").disabled, false);
   mounted.unmount();
 });
 
@@ -313,7 +169,6 @@ test("the actor menu names the person and links to Profile; the sidebar does not
 });
 
 for (const [operation, label, armLabel] of [
-  ["profile.token.revoke", "Revoke", "Revoke…"],
   ["profile.onboarding.reset", "Reset", null],
 ]) test(`${operation} keeps its action retryable after a refusal`, async () => {
   const client = profileClient();
@@ -340,9 +195,7 @@ for (const [operation, label, armLabel] of [
 
 test("profile inputs have persistent accessible names", async () => {
   const { root, mounted } = await mountProfile(profileClient());
-  button(root, "New token").dispatchEvent(new Event("click"));
   const names = allNodes(root).map((node) => node.getAttribute("aria-label"));
-  assert.ok(names.includes("Token name"));
   assert.ok(names.includes("Time zone"));
   mounted.unmount();
 });

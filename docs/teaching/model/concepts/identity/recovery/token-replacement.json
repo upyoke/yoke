@@ -1,7 +1,11 @@
 {
  "id": "token-replacement",
  "title": "Token replacement",
- "status": "draft-copy",
+ "status": "observed",
+ "commands": ["yoke tokens list", "yoke tokens revoke", "yoke tokens create"],
+ "functions": ["profile.get", "profile.token.create", "profile.token.revoke"],
+ "text": "Lost a token or received result_unavailable after a replay? Run yoke tokens list, revoke its ID with yoke tokens revoke TOKEN-ID and create a new one. Profile shows the same revoke-and-create recovery below its one-time reveal. The secret cannot be shown again.",
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/tokens.py", "packages/yoke-core/src/yoke_core/domain/handlers/profile_tokens.py", "packages/yoke-core/src/yoke_core/ui/static/universe_views_profile_tokens.js"],
  "page": "identity",
  "position": 3
 }

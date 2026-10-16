@@ -119,6 +119,17 @@ rerun `yoke setup` on the host and choose **Set this machine up as a
 self-hosting server**: it finds the existing bundle, restarts it, and
 reconnects with `secrets/first-boot-admin-token` without asking anything new.
 
+If that credential is lost or revoked, the first-boot and recovery bootstrap
+is available on the server host:
+
+```bash
+docker compose exec --user yoke core python3 -m yoke_core.domain.api_tokens_cli bootstrap-admin --actor-name "Your name" --name recovery
+```
+
+Save the one-time token and reconnect with `yoke connect <server> --token-stdin`.
+Once connected, use [personal token controls](self-host-people.md) to revoke the
+lost token and manage your own tokens.
+
 ## Workbench and browser sign-in
 
 The server serves the workbench at its own URL. Run `yoke ui up` on a connected
