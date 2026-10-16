@@ -42,20 +42,6 @@ def parse_config(text: str) -> Dict[str, Any]:
         raise CodexConfigUnreadable(str(exc)) from exc
 
 
-def read_config_text(path: Path) -> Optional[str]:
-    """Config text, or ``None`` when Codex is not set up on this machine.
-
-    An absent Codex home is the signal that this machine runs no Codex, so
-    callers skip rather than creating one.
-    """
-    if not path.parent.is_dir():
-        return None
-    try:
-        return path.read_text(encoding="utf-8") if path.is_file() else ""
-    except OSError:
-        return None
-
-
 def _toml_string(value: str) -> str:
     """Quote a value as a TOML basic string, refusing control characters."""
     if any(ord(char) < 0x20 or ord(char) == 0x7F for char in value):
@@ -226,7 +212,6 @@ __all__ = [
     "changed",
     "parse_config",
     "plan",
-    "read_config_text",
     "record_written",
     "remove_top_level_key",
     "remove_trust_table",
