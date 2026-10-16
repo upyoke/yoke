@@ -219,19 +219,22 @@ def task_metadata_update(
     task_num: int,
     fields: Dict[str, str],
 ) -> MetadataUpdateResult:
-    """Patch one or more whitelisted scalar fields on a task row.
-
-    Accepted fields: ``title``, ``context_estimate``, ``dependencies``,
-    ``github_issue``, ``max_attempts``. Status / body / lane assignment route
-    through dedicated helpers.
-    """
+    """Patch title, context_estimate, dependencies, github_issue, or max_attempts."""
     if not fields:
         raise ValueError("fields dict cannot be empty for task_metadata_update")
     unknown = sorted(set(fields) - _METADATA_WHITELIST)
     if unknown:
+        lane = set(unknown) & {"branch", "worktree", "worktree_path"}
+        recovery = (
+            " Record the task lane with `yoke workflow-item epic-task "
+            "reassign --new-worktree BRANCH` and `yoke item-worktrees "
+            "path-record PREFIX-N --worktree-id ID --branch BRANCH --path PATH`."
+            if lane
+            else ""
+        )
         raise ValueError(
             f"unknown metadata fields {unknown}; accepted: "
-            f"{sorted(_METADATA_WHITELIST)}"
+            f"{sorted(_METADATA_WHITELIST)}.{recovery}"
         )
     epic_key = str(epic_id)
     _require_task_exists(conn, epic_key, task_num)

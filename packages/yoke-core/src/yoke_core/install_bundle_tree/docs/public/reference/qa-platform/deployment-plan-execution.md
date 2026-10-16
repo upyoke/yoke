@@ -95,10 +95,23 @@ waiter and sends that session the exact resume command; stopped owners use the
 same harness-neutral wake route as other control-plane notices. An unhealthy
 host is never reserved: it stays free for the operator's
 `yoke test-machine verify` or `yoke test-machine golden-capture`, and that
-operation's successful release wakes the first waiter. Reset and diagnosis
+operation's successful release wakes the first waiter. A plan case whose host
+SSH cannot reach (`ssh_unavailable`: connect timeout, refusal, no route or a
+rejected key) records that failed verification itself and queues the same way
+instead of recording an error verdict. Yoke never starts a stopped host: start
+it (or repair its SSH), then run `yoke test-machine verify`. Reset and diagnosis
 receipts do not change health. Ending the session, settling the execution, or
 releasing an unused reservation cancels the wait and passes a reserved turn to
 the next waiter.
+
+Before it parks, a queued plan runs every remaining host-free automatic case in
+its roster — Command and Command (CI) — through the ordinary case runner and
+records each result against its requirement. A failing case is recorded and
+the plan stays queued; a case whose runner raises stays unrecorded and runs in
+order on resume. The park message names the cases it ran. On the host, the
+cursor steps over cases already recorded, so resume never reruns them. Machine
+cases, `inherit` chains, baselines, and agent- or human-judged cases keep their
+roster order.
 
 If a walker discovers a second required host is occupied, return
 `WALK_STATUS: HOST_WAIT` and its registered name plus holder evidence. Submit

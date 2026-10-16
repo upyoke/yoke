@@ -1,6 +1,6 @@
 # Yoke DB Reference
 
-Raw item reads join `item_refs r ON r.item_id = items.id` and select `r.public_ref`. The read-only view follows prefix updates; `project_sequence` alone is ambiguous across projects. `yoke db read` warns when the result omits both `public_ref` and `public_item_prefix`.
+Raw item reads join `item_refs r ON r.item_id = items.id` and select `r.public_ref`. The read-only view follows prefix updates; `project_sequence` alone is ambiguous across projects. `yoke db read` warns when a query reads item ids (`items.id` or any `*item_id` column) without joining `item_refs`, and when a returned `project_sequence` lacks both `public_ref` and `public_item_prefix`.
 
 Source of truth: the configured Postgres authority. Agent-facing reads and
 writes route through registered `yoke ...` commands or the Yoke
@@ -78,6 +78,7 @@ manifest/bootstrap substrate facts. See the [agent guide](../operating-with-agen
 - [events-and-deployments.md](db-reference/events-and-deployments.md) — `events`, `severity_config`, `event_registry`, `deployment_preview_environments`, `ephemeral_environments`; environment branch naming.
 - [deployment-run-records.md](db-reference/deployment-run-records.md) — `deployment_runs`, `deployment_stage_receipts`, `deployment_run_items`, `deployment_run_qa`; composition, custody, target occupancy, settlement, and completion gates.
 - [item-landings.md](db-reference/item-landings.md) — `item_landings`: every landing an item made, appended and never replaced, keyed on the merge commit. The item's own `merged_at` and `merge_queue_*` markers hold only the newest.
+- [merge-queue-landing-attempts.md](db-reference/merge-queue-landing-attempts.md) — `merge_queue_landing_attempts`: a pull request opened for an item that already landed, tracked apart from the item's current landing until it merges or closes with its reason.
 - [release-delivery.md](db-reference/release-delivery.md) — how a merged item's release is verified and announced: the two QA authorities release-to-done reads, the human-verdict notice, and the owner delivery notice.
 - [qa-cli-and-body-write.md](db-reference/qa-cli-and-body-write.md) — qa domain CLI subcommand reference, the structured-field body write path, error propagation, project-aware GitHub sync, canonical write pattern.
 - [status-lifecycle.md](db-reference/status-lifecycle.md) — immutable workflow-version stage, gate, policy, and executor authority; plus the independent epic-task lifecycle, parent-status auto-derivation, board progress, merge pre-flight, auto-unblock, and dispatch.

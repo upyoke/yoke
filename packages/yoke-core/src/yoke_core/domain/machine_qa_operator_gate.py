@@ -13,11 +13,13 @@ from urllib.parse import urlsplit
 
 from yoke_contracts.machine_approval_coordinates import machine_approval_coordinates
 
+from yoke_core.domain.machine_qa_setup_exit import step_failure
 from yoke_core.domain.ssh_mac_terminal_capture import RunRemote
 from yoke_harness.machine_browser_approval import BrowserApprovalResult
 from yoke_harness.ssh_mac_browser_approval import approve_machine_in_safari
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     capture_recipe_transcript,
+    read_recipe_exit_code,
     send_recipe_keys,
 )
 
@@ -40,6 +42,7 @@ class OperatorGateResult:
     error_code: str | None = None
     browser_evidence: dict[str, Any] | None = None
     browser_automation_error_code: str | None = None
+    step_evidence: dict[str, Any] | None = None
 
 
 def _labeled_value(transcript: str, label: str) -> str | None:
@@ -83,11 +86,38 @@ def _emit_browser_approval(url: str, code: str, browser: str) -> None:
     )
 
 
+def _exited(
+    action: Mapping[str, Any],
+    transcript: str,
+    read_exit_code: Callable[[str], int | None],
+    browser_evidence: dict[str, Any] | None = None,
+    browser_automation_error_code: str | None = None,
+) -> OperatorGateResult | None:
+    exit_code = read_exit_code(transcript)
+    if exit_code is None:
+        return None
+    error_code, evidence = step_failure(
+        str(action["step"]),
+        waiting_for=list(action["completion_text"]),
+        transcript=transcript,
+        exit_code=exit_code,
+    )
+    return OperatorGateResult(
+        False,
+        transcript,
+        error_code,
+        browser_evidence,
+        browser_automation_error_code,
+        step_evidence=evidence,
+    )
+
+
 def run_machine_browser_approval(
     run: RunRemote,
     *,
     backend: str,
     session: str,
+    status_path: str,
     action: Mapping[str, Any],
     progress_callback: Callable[[], None] | None,
     allowed_base_urls: tuple[str, ...],
@@ -105,6 +135,9 @@ def run_machine_browser_approval(
             session=session,
             keys=keys,
         ),
+        read_exit_code=lambda _transcript: read_recipe_exit_code(
+            run, status_path=status_path
+        ),
         action=action,
         progress_callback=progress_callback,
         allowed_base_urls=allowed_base_urls,
@@ -121,17 +154,25 @@ def run_machine_browser_approval_with_io(
     *,
     read_transcript: Callable[[], str],
     send_keys: Callable[[Sequence[str]], bool],
+    read_exit_code: Callable[[str], int | None],
     action: Mapping[str, Any],
     progress_callback: Callable[[], None] | None,
     allowed_base_urls: tuple[str, ...],
     browser: str,
     approve_browser: Callable[[str, str], BrowserApprovalResult],
 ) -> OperatorGateResult:
-    """Run one browser handoff through an already-authorized terminal surface."""
+    """Run one browser handoff through an already-authorized terminal surface.
+
+    ``read_exit_code`` reports how the command under the terminal exited, so a
+    setup that stopped before or during approval is named by its own exit.
+    """
     transcript = read_transcript()
     url = _labeled_value(transcript, "Open:")
     code = _labeled_value(transcript, "One-time code:")
     if url is None or code is None:
+        exited = _exited(action, transcript, read_exit_code)
+        if exited is not None:
+            return exited
         return OperatorGateResult(
             False,
             transcript,
@@ -192,6 +233,15 @@ def run_machine_browser_approval_with_io(
                 approval.evidence,
                 browser_automation_error_code,
             )
+        exited = _exited(
+            action,
+            gate_transcript,
+            read_exit_code,
+            approval.evidence,
+            browser_automation_error_code,
+        )
+        if exited is not None:
+            return exited
         now = time.monotonic()
         if now >= deadline:
             return OperatorGateResult(

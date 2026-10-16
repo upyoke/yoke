@@ -218,7 +218,6 @@ UNINSTALL = _command_case(
 _LATE_HARNESS_SCRIPT = """
 import os, pathlib, shutil, subprocess, sys
 from yoke_contracts.codex_config_posture import changed, plan
-from yoke_contracts.codex_hook_trust_store import inspect_hook_file_trust
 binary = shutil.which('codex')
 if not binary:
     sys.exit('late_harness_fixture_missing: install and sign in to Codex on the dedicated Test Machine before rerunning')
@@ -261,9 +260,6 @@ except (OSError, ValueError):
     sys.exit('late_harness_config_unreadable: repair Codex config before rerunning')
 if changed(record) or record['conflicts']:
     sys.exit('late_harness_permissions_unready: resolve the reported Codex posture before rerunning')
-trust = inspect_hook_file_trust(home / 'hooks.json', config_path=config)
-if not trust.approved:
-    sys.exit('late_harness_hooks_unready: reconcile and trust the installed Codex hooks before rerunning')
 """
 LATE_HARNESS = _command_case(
     16,
@@ -275,13 +271,13 @@ LATE_HARNESS = _command_case(
     + f" {FIXTURE_ROOT}/late-codex",
     instructions=(
         "Use a disposable CODEX_HOME and temporarily preserve its executable outside discovery while configuring Yoke, "
-        "then restore the executable and rerun public setup for the newly available harness. Verify native version, trust, hooks "
-        "and permission pickup in a real session. Keep sign-in data untouched and restore the "
+        "then restore the executable and rerun public setup for the newly available harness. Verify native version "
+        "and unattended permissions. Project hook trust and real-session pickup belong to the exploration mission. Keep sign-in data untouched and restore the "
         "executable even if setup fails. Never move the personal Codex home. CLI presence alone is not a passing discovery result."
     ),
     outcome=(
-        "A harness made available after setup has approved hooks and unattended permissions. "
-        "The exploration mission separately proves actual session delivery."
+        "A harness made available after setup has unattended permissions. "
+        "The exploration mission separately proves project hook trust and actual session delivery."
     ),
 )
 

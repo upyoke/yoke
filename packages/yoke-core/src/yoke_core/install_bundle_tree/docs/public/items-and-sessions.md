@@ -85,8 +85,9 @@ the card explains that hook delivery can proceed and automatic wake waits
 for the relay to reconnect. Active sessions keep their normal hook delivery.
 
 Native wake routes that refuse delivery spend a bounded retry budget. Exhaustion
-sends the named failure and recovery to the original sender and the covering
-steering seat; read `yoke messages get MESSAGE-ID` for the receipt and attempts.
+sends the named failure and recovery to the covering steering seat. The
+original sender is not notified; the message state is their record. Read
+`yoke messages get MESSAGE-ID` for the receipt and attempts.
 Operator-driven hook delivery keeps its own wait without spending that budget.
 Detached turns keep their capture current while waiting on a command. If the
 relay contains a native, verified custody death reopens pending wakes held by

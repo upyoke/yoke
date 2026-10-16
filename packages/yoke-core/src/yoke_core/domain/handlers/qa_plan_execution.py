@@ -311,6 +311,7 @@ def _finish_execution(
             reason=reason,
         )
         result = plan_execution_view(conn, execution)
+        result["release_reason"] = execution.get("release_reason")
     except ValueError as exc:
         conn.rollback()
         return _error("plan_execution_finish_failed", str(exc), "$.payload")

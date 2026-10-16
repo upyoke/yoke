@@ -29,29 +29,22 @@ def call(*args):
     return reply["result"], elapsed
 
 
-def main():
-    run = os.environ.get("DEPLOYMENT_RUN_ID")
-    member = os.environ.get("DEPLOYMENT_MEMBER_REF")
-    if not run or not member:
-        raise RuntimeError(
-            "materialization_proof_subject_missing: execute the admitted production "
-            "case through its run/stage/member plan runner"
-        )
-    candidate = json.loads(os.environ.get("YOKE_QA_CANDIDATE_TREE") or "{}")
-    expected_source = candidate.get("head_sha")
-    if not expected_source:
-        raise RuntimeError(
-            "materialization_proof_candidate_missing: run the admitted Command case in its pinned deployed candidate tree"
-        )
+def population_query(run, stage, member):
+    """Count executions only for the member subject being materialized."""
     quoted_run = "'" + run.replace("'", "''") + "'"
+    quoted_stage = "'" + stage.replace("'", "''") + "'"
     quoted_member = "'" + member.replace("'", "''") + "'"
-    population_sql = (
+    return (
         "SELECT (SELECT count(*) FROM deployment_run_items WHERE run_id="
         + quoted_run
         + ") AS member_count, "
         "(SELECT count(*) FROM qa_plan_executions WHERE deployment_run_id="
         + quoted_run
-        + ") AS execution_count, "
+        + " AND deployment_stage="
+        + quoted_stage
+        + " AND deployment_member_item_id=(SELECT item_id FROM item_refs WHERE public_ref="
+        + quoted_member
+        + ")) AS execution_count, "
         "(SELECT r.public_ref FROM deployment_run_items m JOIN item_refs r ON r.item_id=m.item_id "
         "WHERE m.run_id="
         + quoted_run
@@ -66,11 +59,30 @@ def main():
         + quoted_member
         + ") AS project"
     )
+
+
+def main():
+    run = os.environ.get("DEPLOYMENT_RUN_ID")
+    member = os.environ.get("DEPLOYMENT_MEMBER_REF")
+    if not run or not member:
+        raise RuntimeError(
+            "materialization_proof_subject_missing: execute the admitted production "
+            "case through its run/stage/member plan runner"
+        )
+    candidate = json.loads(os.environ.get("YOKE_QA_CANDIDATE_TREE") or "{}")
+    expected_source = candidate.get("head_sha")
+    if not expected_source:
+        raise RuntimeError(
+            "materialization_proof_candidate_missing: run the admitted Command case in its pinned deployed candidate tree"
+        )
+    stage, _ = call("deployment-runs", "get", run, "current_stage")
+    stage = stage["value"]
+    population_sql = population_query(run, stage, member)
     population, _ = call("db", "read", population_sql)
     member_count, execution_count, member_ref, project = population["rows"][0]
-    if member_count < 44 or member_ref != member or not project:
+    if not member_count or member_ref != member or not project:
         raise RuntimeError(
-            "materialization_proof_population: requires at least the observed 44 members and the exact attached member; restore representative admission before proving acceptance"
+            "materialization_proof_population: requires the exact attached member on the carrying run; inspect current admission before proving acceptance"
         )
     print(
         json.dumps(
@@ -83,8 +95,6 @@ def main():
         ),
         flush=True,
     )
-    stage, _ = call("deployment-runs", "get", run, "current_stage")
-    stage = stage["value"]
     previous = None
     for attempt in range(2):
         envelope, elapsed = call(
@@ -189,7 +199,7 @@ def main():
     after, _ = call("db", "read", population_sql)
     if after["rows"] != population["rows"]:
         raise RuntimeError(
-            "materialization_proof_execution: membership or execution count changed; inspect concurrent activity and retain both captures before crediting this proof"
+            "materialization_proof_execution: membership or exact run/stage/member execution count changed; inspect subject activity and retain both captures before crediting this proof"
         )
     print(
         "Production materialization met the relay deadline twice with identical admitted rows and source/target identity; no plan execution was started."

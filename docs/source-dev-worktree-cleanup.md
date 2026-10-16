@@ -165,9 +165,17 @@ naming the lane, and the Progress Log record lists it under `not deleted`.
 
 `yoke watch doctor -- --only HC-worktree-health --fix` retires terminal item
 lanes a landing sweep missed, under the same proof. It reads every lane's
-cleanup-authority verdict in one `merge.prune.authority_verdicts` call and
-fetches each target branch once per run, then retires each lane as soon as it
-is proved. A lane that fails validation is skipped and reported with the
+cleanup-authority verdict in one `merge.prune.authority_verdicts` call,
+fetches each target branch once per run, and proves branch ancestry with one
+`git for-each-ref --merged` of that target. A detached commit still gets its
+own ancestry read, and a branch the target does not contain still gets the
+patch-equivalence proof. Residue status names an ignored or untracked
+directory once, not every file inside it, so the verdicts for a full set of
+lanes finish inside the shared check budget. The check then retires each
+proved lane. Cache deletion and worktree removal run off that clock, so a
+removal that outlasts the seconds remaining does not discard the verdicts
+already recorded. A removal still starts only while enough budget remains to
+record a deferral if it cannot start. A lane that fails validation is skipped and reported with the
 reason and the recovery; every other lane in that batch is still judged and,
 when proved, retired. A detached checkout is `detached@<commit>`, never an
 empty branch. A clean detached lane whose commit is already on the target

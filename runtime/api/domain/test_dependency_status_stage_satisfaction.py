@@ -53,8 +53,8 @@ def test_authoring_accepts_a_stage_from_the_blocker_pin(
             "YOK-2",
             "operator",
             satisfaction="status:reviewing-implementation",
-        )
-        == "OK"
+        ).action
+        == "created"
     )
     stored = dependency_conn.execute(
         "SELECT satisfaction FROM item_dependencies"
@@ -96,8 +96,8 @@ def test_legacy_status_values_stay_authorable_without_that_stage(
             "YOK-2",
             "operator",
             satisfaction="status:implemented",
-        )
-        == "OK"
+        ).action
+        == "created"
     )
     assert (
         cmd_dependency_add(
@@ -107,8 +107,8 @@ def test_legacy_status_values_stay_authorable_without_that_stage(
             "operator",
             gate_point="closure",
             satisfaction="status:done",
-        )
-        == "OK"
+        ).action
+        == "created"
     )
 
 

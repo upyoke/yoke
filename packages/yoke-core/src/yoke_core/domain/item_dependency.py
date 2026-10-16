@@ -8,9 +8,14 @@ from typing import List, Optional
 
 from yoke_contracts.dependency_values import VALID_GATE_POINTS, VALID_SOURCES
 
-from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter, query_scalar
 from yoke_core.domain.dependency_satisfaction import require_authorable_satisfaction
+from yoke_core.domain.item_dependency_upsert import (
+    DependencyWrite,
+    placeholder,
+    read_dependency_edge,
+    write_dependency_edge,
+)
 from yoke_core.domain.item_ref_resolution import resolve_item_ref
 from yoke_core.domain.path_claims_blocked_reason_refresh import (
     refresh_blocked_reason_for_edge_change,
@@ -42,10 +47,6 @@ _DEFAULT_SATISFACTION = {
 }
 
 
-def _placeholder(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
 def cmd_dependency_add(
     conn,
     dependent: str,
@@ -54,41 +55,43 @@ def cmd_dependency_add(
     gate_point: str = "activation",
     satisfaction: Optional[str] = None,
     rationale: Optional[str] = None,
-    evidence_json: str = "{}",
+    evidence_json: Optional[str] = None,
     session_id: Optional[int] = None,
-) -> str:
+) -> DependencyWrite:
+    """Create the edge, or update the fields that differ on an existing one.
+
+    On an existing edge a field left ``None`` keeps its stored value.
+    """
     _validate_dependency_fields(source, gate_point)
     dep_id, blk_id = _edge_ids(conn, dependent, blocking)
+    created_at = instant_parameter(conn, now_iso())
 
-    satisfaction = satisfaction or _DEFAULT_SATISFACTION.get(gate_point, "status:done")
-    require_authorable_satisfaction(
+    existing = read_dependency_edge(conn, dep_id, blk_id, gate_point)
+    if satisfaction or existing is None:
+        satisfaction = satisfaction or _DEFAULT_SATISFACTION.get(
+            gate_point, "status:done"
+        )
+        require_authorable_satisfaction(
+            conn,
+            blocking_item_id=blk_id,
+            satisfaction=satisfaction,
+        )
+    write = write_dependency_edge(
         conn,
-        blocking_item_id=blk_id,
+        existing,
+        dep_id,
+        blk_id,
+        gate_point,
+        source=source,
         satisfaction=satisfaction,
-    )
-    rationale = rationale or f"Operator-declared {gate_point} dependency"
-    p = _placeholder(conn)
-    conn.execute(
-        "INSERT INTO item_dependencies "
-        "(dependent_item_id, blocking_item_id, gate_point, satisfaction, source, "
-        "session_id, rationale, evidence_json, created_at) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
-        "ON CONFLICT(dependent_item_id, blocking_item_id, gate_point) DO NOTHING",
-        (
-            dep_id,
-            blk_id,
-            gate_point,
-            satisfaction,
-            source,
-            session_id,
-            rationale,
-            evidence_json,
-            instant_parameter(conn, now_iso()),
-        ),
+        rationale=rationale,
+        evidence_json=evidence_json,
+        session_id=session_id,
+        created_at=created_at,
     )
     conn.commit()
     _refresh_blocked_reasons(conn, dep_id, blk_id)
-    return "OK"
+    return write
 
 
 def _validate_dependency_fields(
@@ -109,10 +112,12 @@ def cmd_dependency_update(
     gate_point: Optional[str] = None,
     satisfaction: Optional[str] = None,
     rationale: Optional[str] = None,
+    source: Optional[str] = None,
+    evidence_json: Optional[str] = None,
 ) -> str:
     dep_id, blk_id = _edge_ids(conn, dependent, blocking)
     _validate_dependency_update_inputs(
-        match_gate_point, gate_point, satisfaction, rationale
+        match_gate_point, gate_point, satisfaction, rationale, source, evidence_json
     )
     if satisfaction:
         require_authorable_satisfaction(
@@ -121,7 +126,7 @@ def cmd_dependency_update(
             satisfaction=satisfaction,
         )
 
-    p = _placeholder(conn)
+    p = placeholder(conn)
     where_parts = [f"dependent_item_id={p}", f"blocking_item_id={p}"]
     params: list = [dep_id, blk_id]
     if match_gate_point:
@@ -137,15 +142,16 @@ def cmd_dependency_update(
 
     set_parts = []
     set_params: list = []
-    if gate_point:
-        set_parts.append(f"gate_point={p}")
-        set_params.append(gate_point)
-    if satisfaction:
-        set_parts.append(f"satisfaction={p}")
-        set_params.append(satisfaction)
-    if rationale:
-        set_parts.append(f"rationale={p}")
-        set_params.append(rationale)
+    for column, value in (
+        ("gate_point", gate_point),
+        ("satisfaction", satisfaction),
+        ("rationale", rationale),
+        ("source", source),
+        ("evidence_json", evidence_json),
+    ):
+        if value:
+            set_parts.append(f"{column}={p}")
+            set_params.append(value)
 
     conn.execute(
         f"UPDATE item_dependencies SET {', '.join(set_parts)} WHERE {where}",
@@ -161,11 +167,16 @@ def _validate_dependency_update_inputs(
     gate_point: Optional[str],
     satisfaction: Optional[str],
     rationale: Optional[str],
+    source: Optional[str],
+    evidence_json: Optional[str],
 ) -> None:
-    if not any([gate_point, satisfaction, rationale]):
+    if not any([gate_point, satisfaction, rationale, source, evidence_json]):
         raise ValueError(
-            "at least one of --gate-point, --satisfaction, --rationale required"
+            "at least one of --gate-point, --satisfaction, --rationale, --source, "
+            "--evidence required"
         )
+    if source and source not in VALID_SOURCES:
+        raise ValueError(f"source must be {', '.join(sorted(VALID_SOURCES))}")
     if match_gate_point and match_gate_point not in VALID_GATE_POINTS:
         raise ValueError(f"invalid match gate_point: {match_gate_point}")
     if gate_point and gate_point not in VALID_GATE_POINTS:
@@ -217,9 +228,9 @@ def _ensure_gate_point_update_is_available(
     conflict = query_scalar(
         conn,
         "SELECT COUNT(*) FROM item_dependencies "
-        f"WHERE dependent_item_id={_placeholder(conn)} "
-        f"AND blocking_item_id={_placeholder(conn)} "
-        f"AND gate_point={_placeholder(conn)}",
+        f"WHERE dependent_item_id={placeholder(conn)} "
+        f"AND blocking_item_id={placeholder(conn)} "
+        f"AND gate_point={placeholder(conn)}",
         (params[0], params[1], gate_point),
     )
     if conflict:
@@ -242,7 +253,7 @@ def cmd_dependency_reconcile(
         raise ValueError(f"invalid gate_point: {gate_point_filter}")
 
     delete_params: list = [source, scope_id]
-    p = _placeholder(conn)
+    p = placeholder(conn)
     delete_where = f"source={p} AND dependent_item_id={p}"
     if gate_point_filter:
         delete_where += f" AND gate_point={p}"
@@ -312,14 +323,14 @@ def cmd_dependency_remove(
 ) -> str:
     dep_id, blk_id = _edge_ids(conn, dependent, blocking)
     if session_id is not None:
-        p = _placeholder(conn)
+        p = placeholder(conn)
         conn.execute(
             "DELETE FROM item_dependencies "
             f"WHERE dependent_item_id={p} AND blocking_item_id={p} AND session_id={p}",
             (dep_id, blk_id, session_id),
         )
     else:
-        p = _placeholder(conn)
+        p = placeholder(conn)
         conn.execute(
             f"DELETE FROM item_dependencies WHERE dependent_item_id={p} AND blocking_item_id={p}",
             (dep_id, blk_id),

@@ -96,8 +96,10 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # turn and settlement column is born with that table.
 # An ordered history entry retires event_registry's born-with status,
 # added_in and context_schema columns; the code event catalog owns the rest.
+# The re-land attempt table (merge_queue_landing_attempts) is net-new; its
+# item, pull request, arming episode and open/close record are born with it.
 _BORN_WITH_COLUMN_DIGEST = (
-    "31f261c0a9f1a8c6de4d15ec6048b44030e16fa7dd69fc6b8cf535dcf9c05ebc"
+    "2475eb9a2e11f32325afd54b4d140ed6e4c09e3d4e23f6d88b104dd364c84a7c"
 )
 
 

@@ -23,6 +23,8 @@ def _method_config(method_id: str) -> dict:
                 {"action": "screenshot", "capture": True},
             ],
         }
+    if method_id == "machine-state-check":
+        return {"assertions": [{"argv": ["/usr/bin/true"]}]}
     return {}
 
 

@@ -191,13 +191,34 @@ def test_member_presentation_shares_reads_without_reusing_next_request(test_db):
     )
 
     full = CountedConnection(test_db)
-    with patch("yoke_core.domain.deployment_run_list_read.connect", return_value=full):
+    from yoke_core.domain.deployment_member_qa_sources import identity
+    from yoke_core.domain.deployment_run_bound_sources import parse_bound_sources
+
+    with (
+        patch("yoke_core.domain.deployment_run_list_read.connect", return_value=full),
+        patch(
+            "yoke_core.domain.deployment_member_qa_projection.identity", wraps=identity
+        ) as copy_identity,
+        patch(
+            "yoke_core.domain.deployment_run_project_sources.parse_bound_sources",
+            wraps=parse_bound_sources,
+        ) as source_bindings,
+    ):
         outcome = handle_deployment_run_list(
             deployment_request(
                 function="deployment_runs.list",
                 payload={"relevance": "overview"},
             )
         )
+    assert copy_identity.call_count == len(run_ids)
+    assert source_bindings.call_args_list
+    assert all(
+        isinstance(call.args[0], dict) for call in source_bindings.call_args_list
+    )
+    assert all(
+        "preparation_receipt" not in call.args[0]
+        for call in source_bindings.call_args_list
+    )
     assert outcome.primary_success
     complete = outcome.result_payload["rows"]
     assert {row["id"] for row in complete} == set(run_ids)

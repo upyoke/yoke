@@ -25,6 +25,8 @@ CONTINUATION_PRE_HOST_ERROR_REASON = "continuation-pre-host-error"
 UNUSABLE_BEGIN_REASON = "plan-execution-begin-unusable"
 #: Every independent chain ran and at least one case failed or errored.
 CASE_FAILED_REASON = "qa-plan-case-failed"
+#: The deployment run removed the execution's member while it was walking.
+MEMBER_REMOVED_REASON = "deployment-member-removed"
 #: Separates the code a reason opens with from the diagnosis behind it.
 REASON_DETAIL_SEPARATOR = ": "
 
@@ -32,6 +34,22 @@ REASON_DETAIL_SEPARATOR = ": "
 def abort_reason_code(reason: Any) -> str:
     """Return the stable code a recorded abort reason opens with."""
     return str(reason or "").split(REASON_DETAIL_SEPARATOR, 1)[0]
+
+
+def member_removed(execution: Any) -> bool:
+    """Whether an execution view was ended by its member's removal from the run.
+
+    The abort a client sends after its case raised returns the execution as
+    it stands. When the run had already removed the member, the execution is
+    terminal with this reason and the abort changed nothing, so the case's
+    error is the removal's consequence rather than a failure of its host.
+    A view from a server that does not carry ``release_reason`` reads False.
+    """
+    return (
+        isinstance(execution, dict)
+        and execution.get("state") == "aborted"
+        and abort_reason_code(execution.get("release_reason")) == MEMBER_REMOVED_REASON
+    )
 
 
 def case_failed_reason(requirement_ids: list[int]) -> str:
@@ -53,8 +71,10 @@ __all__ = [
     "CASE_EXECUTION_ERROR_REASON",
     "CASE_FAILED_REASON",
     "CONTINUATION_PRE_HOST_ERROR_REASON",
+    "MEMBER_REMOVED_REASON",
     "REASON_DETAIL_SEPARATOR",
     "UNUSABLE_BEGIN_REASON",
     "abort_reason_code",
     "case_failed_reason",
+    "member_removed",
 ]

@@ -4,8 +4,8 @@
  "status": "observed",
  "page": "deployment-recovery",
  "position": 5,
- "summary": "Successor creation evaluates the older run through complete frozen QA selections. An incomplete historical selection refuses with reviewed operator repair recovery before resumption. Original source and target identities remain authoritative. A containing successor on the same flow and target takes over waiting members under existing QA and approval rules; accepted members close in the old run.",
+ "summary": "Successor creation evaluates the older run through complete frozen QA selections. An incomplete historical selection refuses with reviewed operator repair recovery before resumption. Original source and target identities remain authoritative. A containing successor on the same flow and target takes over waiting members under existing QA and approval rules; accepted members close in the old run. A takeover that aborts no running QA execution sends the owner no notice. When it aborts one, the waking notice names the new run and says to keep the claim and stay parked.",
  "commands": ["yoke deployment-runs create"],
  "functions": ["deployment_runs.create"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_run_target_takeover.py", "docs/public/reference/agent-rules/delivery.md", "docs/public/reference/db-reference/deployment-run-records.md"]
+ "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_run_target_takeover.py", "packages/yoke-core/src/yoke_core/domain/deployment_member_removal_notice.py", "docs/public/reference/agent-rules/delivery.md", "docs/public/reference/db-reference/deployment-run-records.md"]
 }

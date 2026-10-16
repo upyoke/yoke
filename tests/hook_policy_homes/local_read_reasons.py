@@ -98,6 +98,7 @@ AUTHORITY_RELEASE_MACHINERY = (
         "yoke_cli.config.project_git_environment:non_interactive_git_env",
         "yoke_cli.config.project_git_process:run_network_git",
         _C + "check_hard_blocks:_branch_is_merged",
+        _C + "checkout_ancestry:resolve_commits",
         _C + "check_hard_blocks:_git_root",
         _C + "gh_rest_transport_test_guard:block_live_test_call",
         _C + "github_app_control_plane:_resolved_open_file_path",

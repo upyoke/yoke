@@ -191,6 +191,9 @@ def execute_plan_machine_case(
     finally:
         if submission is not None and not uncertain:
             submission.cleanup_artifacts()
+    if submitted.get("state") == "waiting":
+        # SSH could not reach the host: it is now unhealthy and we are queued.
+        return _waiting_case(submitted, requirement_id, runner_id="host_control")
     result = submitted.get("result")
     if not isinstance(result, dict):
         raise MachinePlanCaseDispatchError(

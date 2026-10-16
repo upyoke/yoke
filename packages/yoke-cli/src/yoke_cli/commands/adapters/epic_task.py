@@ -309,7 +309,13 @@ def epic_task_metadata_update(args: List[str]) -> int:
         "--fields-json",
         dest="fields_json",
         required=True,
-        help="JSON object of field -> value updates.",
+        help=(
+            "JSON object of title, context_estimate, dependencies, "
+            "github_issue, or max_attempts. Record a task lane with "
+            "`yoke workflow-item epic-task reassign --new-worktree BRANCH` "
+            "and `yoke item-worktrees path-record PREFIX-N --worktree-id ID "
+            "--branch BRANCH --path PATH`."
+        ),
     )
     add_session_arg(parser)
     add_json_arg(parser)

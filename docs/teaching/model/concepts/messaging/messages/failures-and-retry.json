@@ -4,6 +4,6 @@
  "status": "observed",
  "page": "messaging",
  "position": 5,
- "summary": "Cancelled envelopes keep their history and release their idempotency key. Native route refusals spend a bounded budget; exhaustion sends the named cause and recovery to the original sender and steering. Operator-driven hook waits spend no native budget. Verified death reopens pending holds for the exact process while retaining attempt history.",
+ "summary": "Cancelled envelopes keep their history and release their idempotency key. Native route refusals spend a bounded budget; exhaustion sends the named cause and recovery to the covering steering seat, and the message state stays the sender-visible record. Operator-driven hook waits spend no native budget. Verified death reopens pending holds for the exact process while retaining attempt history.",
  "sources": ["packages/yoke-core/src/yoke_core/domain/session_message_store.py", "packages/yoke-core/src/yoke_core/domain/session_message_wake_skip.py", "packages/yoke-core/src/yoke_core/domain/session_wake_failure_notice.py", "packages/yoke-core/src/yoke_core/domain/session_wake_hold_recovery.py"]
 }

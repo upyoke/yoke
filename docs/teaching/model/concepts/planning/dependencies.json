@@ -7,5 +7,5 @@
  "functions": ["items.dependency.add", "items.dependency.list", "items.dependency.remove", "items.dependency.update", "advance.preflight.hard_blocks"],
  "page": "planning",
  "position": 2,
- "note": "The registered gate evaluates every persisted satisfaction condition on the selected control plane. A dependency list does not replace it. Activation, integration and closure filters retain their shared evaluator; clear exits zero and blocked exits one."
+ "note": "The registered gate evaluates every persisted satisfaction condition on the selected control plane. A dependency list does not replace it. Activation, integration and closure filters retain their shared evaluator; clear exits zero and blocked exits one. Adding an edge that already exists updates it in place (source, rationale, satisfaction, evidence) and the reply names the dependency number and each changed field, or says unchanged; update also changes source and evidence."
 }

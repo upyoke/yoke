@@ -311,7 +311,7 @@ def run(args: List[str]) -> int:
             file=sys.stderr,
         )
         return AGENT_REVIEW_REQUIRED_EXIT
-    if state in {"failed", "needs_review", "blocked_on_precondition"}:
+    if state in {"failed", "needs_review", "blocked_on_precondition", "removed"}:
         return 1
     if state == "error":
         return 2

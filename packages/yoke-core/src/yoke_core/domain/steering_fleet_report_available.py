@@ -11,6 +11,10 @@ runs from that launch, not from when the item became pickable.
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.project_keys import (
+    DEFAULT_STEERING_REPORT_STAFFING_MINUTES,
+)
+from yoke_core.domain.project_policy_capabilities import project_policy_value
 from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 
 from datetime import datetime
@@ -45,6 +49,71 @@ class FrontierEntry:
 
     def waiting_seconds(self, now: str) -> int:
         return age_seconds(self.launched_at or self.pickable_since, now) or 0
+
+
+@dataclass(frozen=True)
+class StaffingClock:
+    """Pickable instant, in-flight launch, and the report's staffing threshold."""
+
+    pickable_since: datetime | None
+    launch_state: str
+    staffing_after_seconds: int
+
+
+def is_unstaffed_ready(
+    launch_state: str, waiting_seconds: int, staffing_after_seconds: int
+) -> bool:
+    """Whether ``FleetReport.waited_too_long`` would include this available row.
+
+    A launch already in flight keeps its own clock on the list and is not
+    this alarm. The comparison is the report's seconds threshold.
+    """
+    return not launch_state and waiting_seconds >= int(staffing_after_seconds)
+
+
+def _staffing_after_seconds(conn: Any, project_id: int) -> int:
+    """The report's overdue bound, in seconds, for one project."""
+    try:
+        minutes = int(
+            project_policy_value(
+                conn,
+                project_id,
+                "steering_report_staffing_minutes",
+                DEFAULT_STEERING_REPORT_STAFFING_MINUTES,
+            )
+        )
+    except (TypeError, ValueError):
+        minutes = DEFAULT_STEERING_REPORT_STAFFING_MINUTES
+    return 60 * max(1, minutes)
+
+
+def staffing_clocks(
+    conn: Any, *, project_id: int, item_ids: Sequence[int]
+) -> dict[int, StaffingClock]:
+    """Clocks for one project's runnable steps, keyed by internal item id.
+
+    Same pickable instant and in-flight launch read as ``scope_candidates``,
+    plus the staffing threshold the report's overdue mark uses.
+    """
+    if not item_ids:
+        return {}
+    refs = render_item_refs(conn, list(item_ids))
+    pickable = _pickable_since(conn, item_ids)
+    launches = _staffing_launches(conn, project_id)
+    threshold = _staffing_after_seconds(conn, project_id)
+    clocks: dict[int, StaffingClock] = {}
+    for item_id in item_ids:
+        public_ref = refs.get(int(item_id), str(item_id))
+        since, _was_owned = pickable.get(int(item_id), (None, False))
+        _launch_id, launch_state, _launched_at = launches.get(
+            public_ref, ("", "", None)
+        )
+        clocks[int(item_id)] = StaffingClock(
+            pickable_since=since,
+            launch_state=launch_state,
+            staffing_after_seconds=threshold,
+        )
+    return clocks
 
 
 def _assignment_ref(session_name: str) -> str:
@@ -170,4 +239,11 @@ def scope_candidates(
     return tuple(entries)
 
 
-__all__ = ["FrontierEntry", "STAFFING_LAUNCH_STATES", "scope_candidates"]
+__all__ = [
+    "FrontierEntry",
+    "STAFFING_LAUNCH_STATES",
+    "StaffingClock",
+    "is_unstaffed_ready",
+    "scope_candidates",
+    "staffing_clocks",
+]

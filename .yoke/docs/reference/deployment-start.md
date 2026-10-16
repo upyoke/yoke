@@ -14,6 +14,16 @@ with the pinned path, repair recipe, and same-run re-drive instructions. Watcher
 failures remain in its raw and progress captures. Every other project's
 delivery keeps the installed engine environment.
 
+A driver connected straight to the control-plane database runs the
+release's own code against it before that release has booted. Before its
+first in-process call it applies boot's creation phase — tables, indexes and
+additive columns, never the ordered migration history — so a release that
+adds a column can start. Each statement waits at most the run-lock timeout;
+a busy table refuses as `release_start_schema_lock_unavailable` and any other
+failure as `release_start_schema_convergence_failed`, each naming the re-drive
+step, before anything about the run changes. A driver relaying through HTTPS
+skips this step, because the serving build answers every call.
+
 A normal driver start builds its execution context once. Composition completes
 and validates membership before the driver reads it, and returns that pass’s
 enrolled references. Branch verification and QA seeding use those members.

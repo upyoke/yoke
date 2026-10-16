@@ -306,8 +306,22 @@ test("Shipping shows source-only pending requirements before any evidence read c
     qa_obligations: { current: [pending], history: [] },
   });
   const client = shippingClient([], { members: [carried] });
-  await loadDelivery({ document, client, projects: () => [{ id: 1, slug: "yoke" }],
+  let releaseOverview;
+  const overview = new Promise((resolve) => { releaseOverview = resolve; });
+  const requests = [];
+  const delayedClient = { call(request) {
+    requests.push(request.function);
+    return request.function === "deployment_runs.list" ? overview : new Promise(() => {});
+  } };
+  const delivery = loadDelivery({ document, client: delayedClient,
+    projects: () => [{ id: 1, slug: "yoke" }],
     isMounted: () => true }, host, () => "all");
+  assert.match(host.textContent, /Loading deployment runs and current QA obligations/);
+  assert.deepEqual(requests, ["deployment_runs.list"]);
+  assert.equal(byClass(host, "is-pending-obligation").length, 0);
+  releaseOverview(await client.call({ function: "deployment_runs.list" }));
+  await delivery;
+  assert.equal(byClass(host, "shipping-loading").length, 0);
   assert.equal(byClass(host, "is-pending-obligation").length, 1);
   assert.match(host.textContent, /Item QA.*Not started.*Browser inspection/);
   await settle();

@@ -158,13 +158,22 @@ def assess_landed_lane(
     run_git: Optional[Callable[..., Any]] = None,
     refresh_target: bool = True,
     authority_block: str = "",
+    reads: Any = None,
 ) -> LaneCleanupAssessment:
-    """Prove claim authority, cleanliness, and target ancestry without deletion."""
+    """Prove claim authority, cleanliness, and target ancestry without deletion.
+
+    ``reads`` is one sweep's shared inventory. Remote, checkout, ancestry and
+    residue then come from that inventory instead of one git call per lane.
+    """
     git = run_git or _runtime_git()
-    remotes = git(["remote"], cwd=repo_root, capture=True)
-    has_remote = remotes.returncode == 0 and bool(remotes.stdout.strip())
+    if reads is None:
+        remotes = git(["remote"], cwd=repo_root, capture=True)
+        has_remote = remotes.returncode == 0 and bool((remotes.stdout or "").strip())
+        worktree_path = _lane_worktree(git, repo_root, branch)
+    else:
+        has_remote = reads.has_remote()
+        worktree_path = reads.worktree_for(branch)
     base = f"origin/{target}" if has_remote else target
-    worktree_path = _lane_worktree(git, repo_root, branch)
     lane_name = f"lane {branch}"
     if worktree_path is not None:
         lane_name += f" at {worktree_path}"
@@ -186,11 +195,13 @@ def assess_landed_lane(
                 base,
                 has_remote,
             )
-    landed = assess_branch_landed(
-        lambda command: git(command, cwd=repo_root, capture=True),
-        branch=branch,
-        base=base,
-    )
+    landed = reads.ancestor(branch, base) if reads is not None else None
+    if landed is None:
+        landed = assess_branch_landed(
+            lambda command: git(command, cwd=repo_root, capture=True),
+            branch=branch,
+            base=base,
+        )
     if not landed.landed:
         return LaneCleanupAssessment(
             False,
@@ -200,9 +211,11 @@ def assess_landed_lane(
             has_remote,
         )
     if worktree_path is not None:
-        residue = assess_lane_residue(
-            git, worktree_path, declared_disposable_roots(repo_root)
-        )
+        residue = reads.residue(worktree_path) if reads is not None else None
+        if residue is None:
+            residue = assess_lane_residue(
+                git, worktree_path, declared_disposable_roots(repo_root)
+            )
         if not residue.removable_once_landed:
             return LaneCleanupAssessment(
                 False,

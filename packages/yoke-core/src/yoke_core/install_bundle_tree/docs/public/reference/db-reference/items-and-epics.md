@@ -213,7 +213,10 @@ Indexes:
 - `idx_id_dependent ON item_dependencies(dependent_item_id)`
 - `idx_id_blocking ON item_dependencies(blocking_item_id)`
 
-The writer uses idempotent `ON CONFLICT DO NOTHING` for the unique edge.
+`yoke items dependency add` on an existing edge updates it in place (source, rationale,
+satisfaction, evidence) and replies with the stored row: `created dependency #N`,
+`updated existing dependency #N: <field> old -> new`, or `unchanged: existing dependency #N`.
+`update` also accepts `--source` and `--evidence`.
 
 ### Canonical blocker model
 

@@ -57,6 +57,8 @@ class PlanExecutionStateResponse(BaseModel):
     remaining_requirement_count: int | None = None
     requirements: list[dict[str, Any]]
     results: list[dict[str, Any]]
+    #: Absent from servers that only accept results at the cursor.
+    host_free_cases_ahead: bool = False
 
 
 class PlanExecutionCheckinResponse(BaseModel):

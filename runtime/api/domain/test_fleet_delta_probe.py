@@ -146,6 +146,7 @@ def test_heartbeat_only_passes_keep_the_report_cooldown() -> None:
         "fleet ALARM idle-holder session=worker-1",
         "fleet ALARM unowned-item YOK-1 status=implementing",
         "fleet ALARM starved-envelope message=message-1",
+        "fleet ALARM unstaffed-ready item=YOK-1 project=yoke waiting=6m",
         "fleet session worker-1 terminated surface=codex-cli",
         "fleet item YOK-1 status implementing -> blocked",
     ),
@@ -164,6 +165,7 @@ def test_actionable_delta_kinds_wake_now(line: str) -> None:
         "fleet session worker-1 registered surface=codex-cli mode=dash",
         "fleet session worker-1 ended surface=codex-cli",
         "fleet CLEAR idle-holder session=worker-1",
+        "fleet CLEAR unstaffed-ready item=YOK-1",
     ),
 )
 def test_routine_delta_kinds_defer_to_the_report(line: str) -> None:
