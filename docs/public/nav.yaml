@@ -150,7 +150,7 @@ root:
       path: items/index.md
       children:
         - title: Item model
-          summary: Read item fields, dependencies and database claims.
+          summary: Read item fields, database claims and supporting records.
           path: items/model/items.md
         - title: Item dependency model
           summary: Read dependency edges, gate satisfaction and the canonical blocker model.
@@ -175,13 +175,13 @@ root:
           summary: Read deployment waits, shared capacity and report deltas.
           path: sessions/steering-report-delivery.md
         - title: Fleet policy
-          summary: Configure session launch and supervision policy.
+          summary: Read session launch limits and supervision policy.
           path: sessions/fleet-policy.md
         - title: Path claim model
           summary: Read claim ownership, path coverage and overlap decisions.
           path: sessions/model/path-claims.md
         - title: Linux relay
-          summary: Keep relay delivery available across Linux logouts.
+          summary: Install and inspect login-scoped Linux relay supervision.
           path: sessions/linux-relay.md
     - title: Workflows
       summary: Choose definitions and follow pinned lifecycle gates and transitions.

@@ -140,7 +140,7 @@ evaluator/client-wall coverage, are labelled incomparable.
 - [Inbox and messaging](inbox.md) — Read decisions and send messages to their intended recipients.
 - [Steering report](steering-report.md) — Inspect available work, holders and session delivery failures.
 - [Steering report delivery](steering-report-delivery.md) — Read deployment waits, shared capacity and report deltas.
-- [Fleet policy](fleet-policy.md) — Configure session launch and supervision policy.
+- [Fleet policy](fleet-policy.md) — Read session launch limits and supervision policy.
 - [Path claim model](model/path-claims.md) — Read claim ownership, path coverage and overlap decisions.
-- [Linux relay](linux-relay.md) — Keep relay delivery available across Linux logouts.
+- [Linux relay](linux-relay.md) — Install and inspect login-scoped Linux relay supervision.
 <!-- /yoke:contents -->

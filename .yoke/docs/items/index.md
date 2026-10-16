@@ -70,7 +70,7 @@ Read `--help` for project and disabled-flow filters.
 - [Inbox and messaging](../sessions/inbox.md)
 
 <!-- yoke:contents -->
-- [Item model](model/items.md) — Read item fields, dependencies and database claims.
+- [Item model](model/items.md) — Read item fields, database claims and supporting records.
 - [Item dependency model](model/dependencies.md) — Read dependency edges, gate satisfaction and the canonical blocker model.
 - [Generated task model](model/tasks.md) — Read task graphs, dispatch chains and progress records.
 - [Landing model](model/landings.md) — Inspect merge provenance and landing attribution.
