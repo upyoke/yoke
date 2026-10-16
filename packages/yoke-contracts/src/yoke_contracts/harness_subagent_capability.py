@@ -5,8 +5,9 @@ concurrent when the harness can run several sub-agents in parallel and hand
 each result back as it finishes; without that, the same dispatch runs one
 sub-agent at a time. This module is the single source for that fact. The
 renderer copies each entry into ``runtime/harness/<harness_id>/manifest.json``
-under ``parallel_subagents`` (see ``runtime/harness/manifest-parallel-subagents.md``), and
-Conduct reads the manifest field before it dispatches.
+under ``parallel_subagents`` (documented in
+``runtime/harness/manifest-parallel-subagents.md``), and Conduct reads the
+manifest field before it dispatches.
 
 ``unverified`` is a first-class value: a harness nobody has observed running
 sub-agents concurrently says so, and Conduct dispatches serially there with a
