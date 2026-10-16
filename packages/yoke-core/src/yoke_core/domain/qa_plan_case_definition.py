@@ -175,10 +175,6 @@ def plan_cases(conn: Any, plan_id: int) -> list[dict[str, Any]]:
     case that declares no starting state is refused here, before any writer
     can mint a requirement that would run on whatever the machine holds.
     """
-    from yoke_contracts.qa_case_starting_state import (
-        StartingStateError,
-        chain_baselines,
-    )
     from yoke_core.domain.db_helpers import query_rows
     from yoke_core.domain.qa_plan_management import _placeholder
 
@@ -195,6 +191,17 @@ def plan_cases(conn: Any, plan_id: int) -> list[dict[str, Any]]:
             (int(plan_id),),
         )
     ]
+    return materialized_plan_cases(rows, plan_id)
+
+
+def materialized_plan_cases(rows: list[dict], plan_id: int) -> list[dict]:
+    """Apply the same ordered starting-state validation to scalar or batched rows."""
+    from yoke_contracts.qa_case_starting_state import (
+        StartingStateError,
+        chain_baselines,
+    )
+
+    rows = [dict(row) for row in rows]
     try:
         fan_out = chain_baselines(
             [
@@ -253,6 +260,7 @@ __all__ = [
     "case_baselines",
     "case_target_subject",
     "materialized_definition",
+    "materialized_plan_cases",
     "plan_cases",
     "require_runnable_case",
     "snapshot_fan_out",

@@ -207,3 +207,9 @@ def test_case_environment_overrides_share_reads_and_refresh_next_request(test_db
         (json.dumps(["other"]), plan),
     )
     assert read(conn, subjects) == [[]] * len(members)
+    import pytest
+    from yoke_core.domain.qa_plan_management import QaPlanError
+
+    test_db.execute("UPDATE qa_methods SET runner_id='host_control' WHERE id='command'")
+    with pytest.raises(QaPlanError, match="starting state|starting_state"):
+        read(conn, subjects)

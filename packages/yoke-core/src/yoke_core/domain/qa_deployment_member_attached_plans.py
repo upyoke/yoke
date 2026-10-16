@@ -137,9 +137,20 @@ def _read_attached_member_plan_ids(
                 from yoke_core.domain.deployment_qa_shared_plan_reads import (
                     presented_plan_rows,
                 )
+                from yoke_core.domain.qa_plan_case_definition import (
+                    materialized_plan_cases,
+                )
 
                 batch = presented_plan_rows(conn, plan_id)
-                return batch[1] if batch is not None else plan_cases(conn, plan_id)
+                if batch is None:
+                    return plan_cases(conn, plan_id)
+                return materialized_plan_cases(
+                    [
+                        {"plan_slug": batch[0]["slug"], **dict(case)}
+                        for case in batch[1]
+                    ],
+                    plan_id,
+                )
 
             cases = presentation_read(
                 conn,
