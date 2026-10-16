@@ -13,13 +13,14 @@ from __future__ import annotations
 
 from yoke_contracts.hook_context_compose import (
     FLEET_REPORT_CONTEXT_FIELD,
+    FLEET_WATCHER_ALERT_CONTEXT_FIELD,
     compose_context_list,
 )
 from yoke_contracts.hook_runner.model_context_channel import (
     STDOUT_CHANNEL,
     model_context_channel,
 )
-from yoke_core.hooks.fleet_watcher_presence import maybe_append_fleet_watcher_nudge
+from yoke_core.hooks.fleet_watcher_presence import fleet_watcher_alert
 from yoke_core.hooks.session_message_delivery_port import SessionMessageLease
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
@@ -38,12 +39,8 @@ def report_only_decision(
     everything it needs (``report_fingerprint``/``report_claimed_at``/
     ``report_not_after``/``report_session_id``) under that one field.
     """
-    report = maybe_append_fleet_watcher_nudge(
-        lease.report,
-        session_id=str(context.session_id or ""),
-        executor_family=context.executor_family,
-        remote=context.remote,
-    )
+    report = lease.report
+    alert = fleet_watcher_alert(report, context)
     output_field = model_context_channel(
         executor_family=context.executor_family,
         event_name=context.event_name,
@@ -54,7 +51,7 @@ def report_only_decision(
     # budget on stdout-channel text the way ``composed_additional_context``
     # already does for the additionalContext channel.
     rendered_text = (
-        compose_context_list([report], harness_id=context.executor_family)
+        compose_context_list([alert, report], harness_id=context.executor_family)
         if output_field == STDOUT_CHANNEL
         else ""
     )
@@ -71,7 +68,11 @@ def report_only_decision(
     fields: dict[str, object] = {delivery_audit_field: audit}
     if output_field != STDOUT_CHANNEL:
         fields[FLEET_REPORT_CONTEXT_FIELD] = report
-    return HookDecision(outcome=Outcome.AUDIT_ONLY, audit_fields=fields, next=Next.CONTINUE)
+        if alert:
+            fields[FLEET_WATCHER_ALERT_CONTEXT_FIELD] = alert
+    return HookDecision(
+        outcome=Outcome.AUDIT_ONLY, audit_fields=fields, next=Next.CONTINUE
+    )
 
 
 __all__ = ["report_only_decision"]

@@ -59,9 +59,10 @@ checks and the target environment still belong to the run's owning project.
 
 Frontier item cards show the newest run that named the item in each
 environment, including recorded removals. A removed member reads
-"removed · QA cancelled · rides a later release", or links the newer run
-holding it. The removal reason is available on the outcome's tooltip;
-removal changes QA custody, and does not remove the code from the build.
+"removed · <recorded reason> · rides a later release", or links the newer run
+holding it. With no recorded reason it reads "removed · rides" and still
+names the later run. Removal changes QA custody, and does not remove the
+code from the build.
 A failed or cancelled deployment keeps that outcome even when its member
 QA cannot be read, with the QA reason available on the same tooltip.
 

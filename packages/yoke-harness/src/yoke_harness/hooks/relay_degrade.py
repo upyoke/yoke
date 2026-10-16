@@ -57,6 +57,7 @@ def _cursor_degradation_stdout(
         [context] if kind == "hint" else [],
         [context] if kind == "report" else [],
         harness_id="cursor",
+        alerts=[context] if kind == "alert" else [],
     )
     return json.dumps({"additional_context": body})
 

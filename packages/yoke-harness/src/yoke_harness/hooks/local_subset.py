@@ -12,6 +12,7 @@ from yoke_contracts.hook_driver_process import (
     DRIVER_PAYLOAD_KEY,
     collect_driver_process,
 )
+from yoke_contracts.fleet_watcher_observation import observe_fleet_watcher
 from yoke_contracts.hook_runner.hook_ordering import (
     matchers_for,
     ordered_pipeline_for,
@@ -263,6 +264,9 @@ def evaluate_local_subset(
     # the harness hook child that ran. Rides to the server in payload_extra.
     payload_extra[DRIVER_PAYLOAD_KEY] = collect_driver_process()
     if defer_main_commit:
+        payload_extra.update(
+            observe_fleet_watcher(payload, executor=executor, event_name=event_name)
+        )
         payload_extra.update(_client_machine_home_fact())
         payload_extra.update(_client_scratch_root_fact())
         payload_extra.update(_client_claude_job_tmp_fact())

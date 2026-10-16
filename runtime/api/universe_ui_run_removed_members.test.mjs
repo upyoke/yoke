@@ -25,7 +25,7 @@ test("removed members never contribute to carried counts or their QA", () => {
   const removed = byClass(node, "release-removed")[0];
   assert.equal(byClass(removed, "release-batch-title")[0].textContent, "Removed · 2 items");
   assert.deepEqual(byClass(removed, "release-removed-note").map((n) => n.textContent),
-    ["QA cancelled — rides run-later", "QA cancelled — rides a later release"]);
+    ["rides run-later", "rides a later release"]);
   assert.equal(byClass(removed, "overview-card-link")[0].href,
     "/deployments/runs/run-later?project=1");
   assert.equal(byClass(removed, "carried-item-evidence").length, 0);
@@ -49,4 +49,21 @@ test("an older serving response without removal facts keeps its presentation", (
   assert.deepEqual(carriedItems({ member_items: members }), members);
   assert.deepEqual(carriedItems({ carried_work: { items: members } }), members);
   assert.equal(byClass(card({}), "shipping-run-card-meta")[0].textContent, "environment run");
+});
+
+test("a removed member shows its recorded reason", () => {
+  const node = card({
+    member_items: [members[0]],
+    removed_member_items: [{ ...members[1], reason: "QA failed on stage", later_run_id: "run-later" }],
+  });
+  assert.equal(byClass(node, "release-removed-note")[0].textContent,
+    "QA failed on stage — rides run-later");
+});
+
+test("derived carried work is not item QA and says so once", () => {
+  const node = card({ member_items: [], carried_work: { items: members }, target_environment: "stage" });
+  assert.equal(byClass(node, "release-member").length, members.length);
+  assert.equal(byClass(node, "shipping-run-derived").length, 1);
+  assert.match(node.textContent, /No item QA owed on this target/);
+  assert.doesNotMatch(node.textContent, /item_qa_requirements_unavailable|QA cancelled/);
 });

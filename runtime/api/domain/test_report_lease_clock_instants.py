@@ -165,9 +165,6 @@ def test_actual_hook_settlement_preserves_native_clock_without_string_round_trip
 
     monkeypatch.setattr(port, "lease_for_hook", native_lease)
     monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
-    monkeypatch.setattr(
-        "yoke_core.hooks.fleet_watcher_presence.list_process_cmdlines", lambda: ()
-    )
     surface = {"claude": "claude-code", "codex": "codex-cli", "cursor": "cursor-cli"}[
         family
     ]
