@@ -18,7 +18,10 @@ from yoke_core.domain.deployment_run_stage_entry import (
     is_scoped_qa_stage,
     parse_stage_plan,
 )
-from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+from yoke_core.domain.qa_obligation_settlement import (
+    settled_obligation_sql,
+    unretracted_requirement_sql,
+)
 from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_message_types import row_dict
@@ -165,6 +168,7 @@ def _red_requirements(
                AND r.blocking_mode = 'blocking'
                AND r.waived_at IS NULL
                AND r.superseded_by_requirement_id IS NULL
+               AND {unretracted_requirement_sql(conn, "r")}
              ORDER BY r.deployment_run_id, r.id""",
         params,
     ).fetchall()
