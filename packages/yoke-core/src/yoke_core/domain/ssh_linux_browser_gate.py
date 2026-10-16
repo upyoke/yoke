@@ -5,6 +5,7 @@ from __future__ import annotations
 from yoke_core.domain.machine_qa_operator_gate import (
     run_machine_browser_approval_with_io,
 )
+from yoke_core.domain.machine_qa_setup_exit import marker_exit_code
 from yoke_core.domain.ssh_mac_terminal_recipe_support import send_recipe_keys
 from yoke_harness.ssh_linux_browser_approval import (
     approve_machine_in_desktop_chromium,
@@ -32,6 +33,7 @@ def run_browser_gate(control, terminal, action, rows, allowed_operator_urls, pro
         send_keys=lambda keys: send_recipe_keys(
             control._run, backend="tmux", session=terminal.session, keys=keys
         ),
+        read_exit_code=marker_exit_code,
         action=action,
         progress_callback=progress,
         allowed_base_urls=allowed_operator_urls,
@@ -52,6 +54,17 @@ def run_browser_gate(control, terminal, action, rows, allowed_operator_urls, pro
     )
     if gate.ok:
         return None
+    if gate.step_evidence is not None:
+        return HostActionResult(
+            False,
+            {
+                **gate.step_evidence,
+                "steps": rows,
+                "operator_gate": action["operator_gate"],
+                "browser_approval": gate.browser_evidence,
+            },
+            gate.error_code,
+        )
     return HostActionResult(
         False,
         {
