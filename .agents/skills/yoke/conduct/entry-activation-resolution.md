@@ -59,7 +59,13 @@ accurately; all tasks complete means fresh parent handoff, never parent done.
 ## Activate before dispatch
 
 Activate planned path claims only when the effective claims axis requires them.
-These are path-claim states, not item lifecycle statuses. Registered preparation
+These are path-claim states, not item lifecycle statuses. A refused overlap
+with independent edits is recorded by this session, which holds the work
+claim: read both specs, run `yoke claims path coordination-decision-build`,
+and record the decision with `yoke items dependency add` using source
+`conduct`. Ordered edits wait for the holder's landing proof and a fresh
+survey. Engineer and Tester report the overlap here and do not author the
+edge. Registered preparation
 activates required claims and provisions every project-routed lane on Yoke's installed interpreter, before a lane exists:
 
 ```text

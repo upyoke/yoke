@@ -54,8 +54,8 @@ seat/document conflict rolls back both, and release clears the pair together.
 
 Path scope stays complete through conflicts. Registration resolves physical
 files and their typed owners; widen before editing an uncovered sibling.
-Authoring roles and Dash work holders at survey/isolation attest independent
-overlaps; other runtime collisions route to Refine. Overrides need operator authority. See [path claims](path-claims.md).
+The session holding the work claim attests independent overlaps from its own
+skill; when no live holder exists, route to Refine. Overrides need operator authority. See [path claims](path-claims.md).
 
 Acquire the project deployment coordination claim before creating/executing runs,
 heartbeat while driving, release afterward. Stranded holds are human recovery.

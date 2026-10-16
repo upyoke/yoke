@@ -31,6 +31,35 @@ class MachinePlanCaseDispatchError(RuntimeError):
         self.recovery_hint = recovery_hint
 
 
+def _waiting_case(
+    begun: Mapping[str, Any], requirement_id: int, *, runner_id: str
+) -> dict[str, Any]:
+    """A queued case: its place in the host's line and the park instruction."""
+    wait = begun.get("host_wait") or {}
+    machine = wait.get("machine") or "its Test Machine"
+    place = (
+        f", position {wait['position']} of {wait['line_length']}"
+        if wait.get("position")
+        else ""
+    )
+    because = f" ({wait['rationale']})" if wait.get("rationale") else ""
+    return {
+        "requirement_id": requirement_id,
+        "runner_id": runner_id,
+        "verdict": "waiting",
+        "case_outcome": "waiting",
+        "lease_context": begun.get("lease_context"),
+        "host_wait": begun.get("host_wait"),
+        "recovery": (
+            f"Queued for QA host {machine}{place}{because}. Park now: "
+            f'`yoke sessions touch --mode parked --reason "queued for QA host '
+            f'{machine}"`. When it is your turn, a host-turn message wakes this '
+            "session with the command that takes it. Write no hold of your own; "
+            "re-running this plan keeps your place."
+        ),
+    }
+
+
 def _report_selection(begun: Mapping[str, Any], execution: Mapping[str, Any]) -> None:
     reason = execution.get("selection_reason")
     if begun.get("selection_new") and reason:
@@ -112,13 +141,7 @@ def execute_plan_machine_case(
     if begun.get("state") == "blocked" and isinstance(begun.get("result"), dict):
         return dict(begun["result"])
     if begun.get("state") == "waiting":
-        return {
-            "requirement_id": requirement_id,
-            "runner_id": "host_control",
-            "verdict": "waiting",
-            "case_outcome": "waiting",
-            "lease_context": begun.get("lease_context"),
-        }
+        return _waiting_case(begun, requirement_id, runner_id="host_control")
     execution = begun.get("execution")
     if begun.get("state") != "ready" or not isinstance(execution, dict):
         raise MachinePlanCaseDispatchError(
@@ -246,13 +269,7 @@ def execute_plan_agent_mission_case(
         host_contact_possible=False,
     )
     if begun.get("state") == "waiting":
-        return {
-            "requirement_id": requirement_id,
-            "runner_id": "agent_mission",
-            "verdict": "waiting",
-            "case_outcome": "waiting",
-            "lease_context": begun.get("lease_context"),
-        }
+        return _waiting_case(begun, requirement_id, runner_id="agent_mission")
     execution = begun.get("execution")
     if begun.get("state") != "ready" or not isinstance(execution, dict):
         raise MachinePlanCaseDispatchError(

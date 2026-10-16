@@ -58,6 +58,10 @@ Run the stage and member together:
 yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
 ```
 
+If your host is busy or unhealthy, let the plan runner queue you, then park;
+you are woken when it is your turn. Its `Queued for QA host` line names your
+place and the park command. Write no host hold of your own.
+
 The attached plan is already resolved. Do not substitute --plan except when
 the wake explicitly names no cases, or for the sanctioned correction-only
 replacement of failed cases with --replaces CASE_KEY=FAILED_REQUIREMENT_ID,

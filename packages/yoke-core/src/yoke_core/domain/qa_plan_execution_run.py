@@ -255,6 +255,8 @@ def execute_begun_plan(
             "QA execution closed after a failed capture or runner result. "
             "Correct the case or plan and rerun yoke qa plan run; no manual abort is needed."
             if state in {"failed", "error"}
+            else results[-1].get("recovery")
+            if state == "waiting" and results
             else None
         ),
     }

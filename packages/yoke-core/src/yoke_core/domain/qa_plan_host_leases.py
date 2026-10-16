@@ -92,7 +92,8 @@ def begin_case_host_contract(
     actor_id: str | None,
     session_id: str,
 ) -> Any:
-    """Acquire a full sorted set or release the partial set and queue the busy host."""
+    """Acquire a full sorted set or release the partial set and queue the
+    busy or unhealthy host."""
     from yoke_core.domain.claim_chain_state import record_claim_reason
     from yoke_core.domain.machine_qa_case_machine import resolve_case_machine
     from yoke_core.domain.machine_qa_execution_protocol import (
@@ -103,6 +104,7 @@ def begin_case_host_contract(
     )
     from yoke_core.domain.machine_qa_host_selection import (
         TestMachineFleetBusy,
+        TestMachineHostUnhealthy,
         acquire_test_machine_admission,
     )
     from yoke_core.domain.machine_qa_plan_protocol import (
@@ -123,6 +125,7 @@ def begin_case_host_contract(
                 project=str(case["project"]),
                 session_id=session_id,
                 machine=driver,
+                healthy_only=True,
                 **arguments,
             )
             set_plan_machine_lease(conn, execution, lease_id=contract.lease_id)
@@ -165,6 +168,7 @@ def begin_case_host_contract(
                 session_id=session_id,
                 machine=name,
                 select_any=False,
+                healthy_only=True,
             )
             record_claim_reason(
                 conn,
@@ -178,6 +182,9 @@ def begin_case_host_contract(
         raise MachineQaProtocolLeaseHeld(
             lease=held.lease, machine=held.machine, contention=held.contention
         ) from None
+    except TestMachineHostUnhealthy:
+        release_execution_hosts(conn, execution, reason="qa-host-set-incomplete")
+        raise
     selected = admissions[driver]
     contract = _issue(
         conn,
