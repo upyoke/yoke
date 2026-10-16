@@ -197,13 +197,16 @@ def test_native_probe_timeout_names_recovery_after_restoration(monkeypatch, tmp_
     assert executable.exists()
 
 
-def test_configured_permissions_without_trusted_hooks_do_not_pass(
+def test_machine_only_late_discovery_accepts_permissions_without_project_hooks(
     monkeypatch, tmp_path
 ):
     executable = _late_fixture(monkeypatch, tmp_path, 0)
-    with pytest.raises(SystemExit, match="late_harness_hooks_unready"):
-        exec(compile(_LATE_HARNESS_SCRIPT, "late_fixture", "exec"), {})
+    exec(compile(_LATE_HARNESS_SCRIPT, "late_fixture", "exec"), {})
     assert executable.exists()
+    fixture_home = tmp_path / "late-codex"
+    assert (fixture_home / "config.toml").is_file()
+    assert not (fixture_home / "hooks.json").exists()
+    assert not executable.with_name("codex.installer-qa-saved").exists()
 
 
 @pytest.mark.parametrize(

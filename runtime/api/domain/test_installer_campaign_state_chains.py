@@ -7,6 +7,7 @@ import sys
 
 import pytest
 
+from yoke_cli.config.onboard_plan_labels import friendly_line
 from runtime.api.domain.test_qa_release_channel_target import _target
 from yoke_core.domain.installer_campaign_execution_target import (
     installer_campaign_cases_for_target,
@@ -75,7 +76,10 @@ def test_review_captures_the_write_names_and_backs_out_without_apply():
     assert actions[-3]["keys"] == ["Down", "Enter"]
     assert actions[-3]["ready_text"] == ["Show all changes"]
     assert actions[-2]["step"] == "pending-write-list"
-    assert "Save your API token (owner-only)" in actions[-2]["ready_text"]
+    reuse_line = friendly_line("reuse-session-relay-token", "")
+    assert reuse_line in actions[-2]["ready_text"]
+    assert reuse_line in case["method_config"]["expected_text"]
+    assert friendly_line("store-token-reference", "") not in actions[-2]["ready_text"]
     assert actions[-1]["keys"] == ["Escape"]
     assert "pending-write-list" in case["method_config"]["capture_checkpoints"]
     assert case["required_completion"] == "back-before-apply"
