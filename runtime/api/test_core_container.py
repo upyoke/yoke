@@ -329,9 +329,8 @@ def test_ci_shards_backend_suite_without_aggregate_tail() -> None:
     assert "\n  test:\n" not in workflow
     assert "  container:" in workflow
     container = workflow.split("  container:", 1)[1]
-    # Main-push reuse may gate container on reuse_coverage; that is not an
-    # aggregate that waits on the shard matrix.
-    assert "needs: [reuse_coverage]" in container
+    # The image build stamps the commit's version; coverage reuse never skips it.
+    assert "needs:" not in container
     assert "needs: test_shard" not in container
 
 

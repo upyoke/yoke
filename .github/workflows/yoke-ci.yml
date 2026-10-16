@@ -113,6 +113,21 @@ jobs:
         run: >-
           PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m
           yoke_core.tools.yoke_ci_tree_reuse --write-github-output
+      - name: Record the tree and coverage this run executes
+        id: evidence
+        if: steps.probe.outputs.skip_suite != 'true'
+        run: >-
+          PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m
+          yoke_core.tools.yoke_ci_coverage_evidence --write-github-output
+      - name: Publish coverage evidence
+        if: steps.probe.outputs.skip_suite != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.evidence.outputs.artifact_name }}
+          path: yoke-ci-coverage.json
+          retention-days: 1
+          overwrite: true
+          if-no-files-found: error
   test_shard:
     timeout-minutes: 35
     name: test-shard
@@ -120,7 +135,6 @@ jobs:
     if: ${{ !cancelled() && needs.repo_contracts.result == 'success' }}
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     env:
-      RUN_PYTHON_LEG: ${{ matrix.python-version == needs.repo_contracts.outputs.python_latest || github.event_name == 'merge_group' }}
       YOKE_CI_PYTHON_SCOPE: ${{ matrix.python-version == needs.repo_contracts.outputs.python_latest && 'all' || 'interpreter' }}
       SUITE_ALREADY_PROVEN: ${{ needs.reuse_coverage.outputs.skip_suite }}
       PG_CONTAINER: yoke-ci-pg-${{ github.run_id }}-${{ matrix.python-version }}-${{ matrix.shard }}
@@ -132,18 +146,18 @@ jobs:
 
     steps:
       - name: Checkout
-        if: env.RUN_PYTHON_LEG == 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
       - name: Use the shared timing profile
-        if: env.RUN_PYTHON_LEG == 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: {name: ci-test-durations}
 
       - name: Reclaim runner disk
-        if: env.RUN_PYTHON_LEG == 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true'
         run: >-
           PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m
           yoke_core.tools.github_runner_disk_reclaim
@@ -151,7 +165,7 @@ jobs:
           --runner-os "${{ runner.os }}"
 
       - name: Set up Python ${{ matrix.python-version }}
-        if: env.RUN_PYTHON_LEG == 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true'
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: ${{ matrix.python-version }}
@@ -159,25 +173,25 @@ jobs:
           cache-dependency-path: uv.lock
 
       - name: Install uv
-        if: env.RUN_PYTHON_LEG == 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true'
         run: |
           python -m pip install --upgrade pip
           python -m pip install uv
 
       - name: Install dependencies
-        if: env.RUN_PYTHON_LEG == 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true'
         run: uv sync --all-packages --all-groups --locked
 
       - name: Set up Node.js
-        if: env.RUN_PYTHON_LEG == 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with: {node-version: "22", cache: npm, cache-dependency-path: packages/yoke-core/src/yoke_core/ui/package-lock.json}
       - name: Install TypeScript compiler
-        if: env.RUN_PYTHON_LEG == 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true'
         run: npm ci --prefix packages/yoke-core/src/yoke_core/ui
 
       - name: Register libpython with the system loader cache
-        if: env.RUN_PYTHON_LEG == 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true'
         run: |
           lib_dir="${pythonLocation}/lib"
           if ! compgen -G "${lib_dir}/libpython*.so*" >/dev/null; then
@@ -194,14 +208,14 @@ jobs:
           env -i .venv/bin/python3 -c "import sys; print('clean-env venv python OK', sys.version.split()[0])"
 
       - name: Configure git identity (CI runners have no ~/.gitconfig)
-        if: env.RUN_PYTHON_LEG == 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true'
         run: |
           git config --global user.email "ci@yoke.local"
           git config --global user.name "Yoke CI"
           git config --global init.defaultBranch main
 
       - name: Start Postgres (durability off, dynamic host port)
-        if: env.RUN_PYTHON_LEG == 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true'
         run: |
           socket_dir="$(mktemp -d /tmp/yoke-ci-pg.XXXXXX)"
           echo "YOKE_PG_SOCKET_DIR=${socket_dir}" >> "$GITHUB_ENV"
@@ -226,7 +240,7 @@ jobs:
             -c max_wal_senders=0
 
       - name: Resolve Postgres DSN (dynamic host port)
-        if: env.RUN_PYTHON_LEG == 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true'
         run: |
           set -o pipefail
           host_port="$(docker port "$PG_CONTAINER" 5432 | head -n1 | sed 's/.*://')"
@@ -238,11 +252,11 @@ jobs:
           echo "YOKE_PG_DSN=host=localhost port=${host_port} user=yoke password=yoke dbname=postgres" >> "$GITHUB_ENV"
 
       - name: Wait for Postgres
-        if: env.RUN_PYTHON_LEG == 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true'
         run: uv run python -m yoke_core.tools.wait_for_pg
 
       - name: Verify Postgres CREATEDB
-        if: env.RUN_PYTHON_LEG == 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true'
         run: |
           uv run python - <<'PY'
           from runtime.api.fixtures.pg_testdb import (
@@ -260,13 +274,13 @@ jobs:
 
       - name: Run pytest
         id: pytest
-        if: env.RUN_PYTHON_LEG == 'true' && env.SUITE_ALREADY_PROVEN != 'true'
+        if: env.SUITE_ALREADY_PROVEN != 'true'
         run: >-
           PYTHONPATH=packages/yoke-core/src:packages/yoke-contracts/src python3 -m
           yoke_core.tools.ci_shards run --group "${{ matrix.shard }}"
 
       - name: Upload pytest output
-        if: always() && env.RUN_PYTHON_LEG == 'true' && env.SUITE_ALREADY_PROVEN != 'true'
+        if: always() && env.SUITE_ALREADY_PROVEN != 'true'
         continue-on-error: true # reporting only: an artifact 403 must not conclude a green shard red
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -278,7 +292,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Stop Postgres
-        if: env.RUN_PYTHON_LEG == 'true' && always()
+        if: always() && env.SUITE_ALREADY_PROVEN != 'true'
         run: |
           docker rm -f "$PG_CONTAINER" || true
           if [ -n "${YOKE_PG_SOCKET_DIR:-}" ]; then sudo rm -rf -- "$YOKE_PG_SOCKET_DIR"; fi
@@ -289,8 +303,6 @@ jobs:
   container:
     timeout-minutes: 10
     name: container
-    needs: [reuse_coverage]
-    if: ${{ !cancelled() && needs.reuse_coverage.outputs.skip_suite != 'true' }}
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     permissions:
       contents: read
