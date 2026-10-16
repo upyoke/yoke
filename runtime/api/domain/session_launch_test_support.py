@@ -26,6 +26,7 @@ def launch_connection() -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(
         """
+        CREATE TABLE organizations (id INTEGER PRIMARY KEY, settings TEXT);
         CREATE TABLE actors (
             status TEXT NOT NULL DEFAULT 'active', id INTEGER PRIMARY KEY,
             kind TEXT NOT NULL DEFAULT 'human', system_component TEXT,
@@ -113,7 +114,6 @@ def relay_connection(
     # The role-delivery ledger references items even for itemless notices.
     conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY)")
     conn.execute("ALTER TABLE projects ADD COLUMN org_id INTEGER DEFAULT 1")
-    conn.execute("CREATE TABLE organizations (id INTEGER PRIMARY KEY, settings TEXT)")
     conn.execute(
         "INSERT INTO organizations VALUES (1, ?)",
         (json.dumps(org_settings or {}),),
