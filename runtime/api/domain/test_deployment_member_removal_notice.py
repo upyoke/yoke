@@ -3,7 +3,10 @@
 import pytest
 
 from runtime.api.fixtures.deployment_run_driver_fixture import release_seeded_driver
-from runtime.api.fixtures.deployment_scoped_qa_run_fixture import ITEM_QA_STAGE
+from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
+    ITEM_QA_STAGE,
+    seed_member_qa_case,
+)
 from runtime.api.domain.test_deployment_run_member_removal import (
     ITEM,
     RUN,
@@ -14,7 +17,13 @@ from runtime.api.domain.test_deployment_run_member_removal import (
 from runtime.api.domain.test_deployment_delivery_close_out_notice import _parked_owner
 from runtime.api.domain.test_deployment_qa_stage_wake_delivery import HOLDER_A, _project
 from yoke_core.domain import deployment_member_removal_notice as notice
-from yoke_core.domain.deployment_run_member_removal import remove_member_on
+from yoke_core.domain.deployment_member_candidate_release import (
+    CORRECTION_RELEASE_REMOVED_BY,
+)
+from yoke_core.domain.deployment_run_member_removal import (
+    SETTLEMENT_REMOVED_BY,
+    remove_member_on,
+)
 from yoke_core.domain.deployment_run_target_takeover import TAKEOVER_REMOVED_BY
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_remove_item
 from yoke_core.domain.project_identity import render_item_ref
@@ -23,17 +32,13 @@ from yoke_core.domain.qa_plan_execution_store import roster_digest
 from yoke_core.domain.session_explicit_wake import explicit_stopped_wake_requested
 
 
-def test_removal_tells_the_holder_even_when_remaining_run_succeeds(
-    test_db, monkeypatch
-):
-    _project(test_db)
-    _red_member(test_db)
-    _parked_owner(test_db, HOLDER_A, ITEM)
-    release_seeded_driver(test_db, RUN)
+def _steering_notice(conn):
+    _parked_owner(conn, HOLDER_A, ITEM)
+    release_seeded_driver(conn, RUN)
 
     cmd_remove_item(RUN, ITEM, reason=REASON, session_id="remover", actor_id=2)
 
-    rows = test_db.execute(
+    rows = conn.execute(
         "SELECT m.body,r.session_id FROM session_messages m "
         "JOIN session_message_recipients r ON r.message_id=m.message_id "
         "WHERE m.idempotency_key LIKE %s",
@@ -42,18 +47,65 @@ def test_removal_tells_the_holder_even_when_remaining_run_succeeds(
     assert len(rows) == 1
     assert rows[0]["session_id"] == HOLDER_A
     body = rows[0]["body"]
-    ref = render_item_ref(test_db, ITEM)
+    ref = render_item_ref(conn, ITEM)
     assert f"{ref} was removed from run {RUN} by steering" in body
     assert "cancelled (not passed)" in body
-    assert "rides a later release; do not attempt close-out" in body
     assert "re-park" in body
-    assert not _still_member(test_db)
+    assert not _still_member(conn)
     assert (
-        test_db.execute(
+        conn.execute(
             "SELECT status FROM deployment_runs WHERE id=%s", (RUN,)
         ).fetchone()["status"]
         == "succeeded"
     )
+    return body
+
+
+def test_red_member_removal_keeps_the_rework_instruction(test_db):
+    _project(test_db)
+    requirement = _red_member(test_db)
+
+    body = _steering_notice(test_db)
+
+    assert (
+        f"failed item QA requirement(s) #{requirement} still need classification"
+        in body
+    )
+    assert "start rework, or record its blocker" in body
+    assert "rides a later release" not in body
+
+
+def test_member_without_a_red_verdict_rides_a_later_release(test_db):
+    _project(test_db)
+    seed_member_qa_case(test_db, run_id=RUN, member_item_id=ITEM)
+    test_db.execute("UPDATE items SET status='release' WHERE id=%s", (ITEM,))
+    test_db.commit()
+
+    body = _steering_notice(test_db)
+
+    assert "rides a later release; do not attempt close-out" in body
+    assert "classification" not in body
+
+
+def test_unreadable_verdicts_name_the_inspection_instead_of_guessing(
+    test_db, monkeypatch, capsys
+):
+    requirement = _red_member(test_db)
+    release_seeded_driver(test_db, RUN)
+
+    def fail(conn, _ids):
+        conn.execute("SELECT nonexistent_removal_verdict_column FROM qa_runs")
+
+    monkeypatch.setattr(notice, "latest_executions", fail)
+    cmd_remove_item(RUN, ITEM, reason=REASON)
+
+    assert test_db.execute(
+        "SELECT retracted_at FROM qa_requirements WHERE id=%s", (requirement,)
+    ).fetchone()["retracted_at"]
+    output = capsys.readouterr().out
+    assert "member_removal_notice_failed" in output
+    assert f"yoke qa requirement list --deployment-run-id {RUN}" in output
+    assert "rides a later release" not in output
 
 
 def test_send_failure_keeps_removal_and_retraction(test_db, monkeypatch, capsys):
@@ -171,8 +223,10 @@ def test_takeover_that_aborts_a_running_execution_wakes_naming_the_new_run(test_
     )
 
 
-@pytest.mark.parametrize("removed_by", ["item QA failure", "settlement"])
-def test_qa_failure_and_settlement_notices_still_wake(test_db, removed_by):
+@pytest.mark.parametrize(
+    "removed_by", [CORRECTION_RELEASE_REMOVED_BY, SETTLEMENT_REMOVED_BY]
+)
+def test_moved_candidate_removals_wake_to_wait_despite_red_qa(test_db, removed_by):
     _project(test_db)
     _red_member(test_db)
     _parked_owner(test_db, HOLDER_A, ITEM)
@@ -191,4 +245,5 @@ def test_qa_failure_and_settlement_notices_still_wake(test_db, removed_by):
     assert len(rows) == 1
     assert "rides a later release; do not attempt close-out" in rows[0]["body"]
     assert "re-park" in rows[0]["body"]
+    assert "classification" not in rows[0]["body"]
     assert explicit_stopped_wake_requested(rows[0]["routing_snapshot"])
