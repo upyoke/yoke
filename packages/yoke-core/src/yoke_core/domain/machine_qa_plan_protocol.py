@@ -21,6 +21,16 @@ def plan_case_contract_arguments(
 ) -> dict[str, Any]:
     """Build the execution-bound arguments for one immutable plan case."""
     contract_case = {key: value for key, value in case.items() if key != "ordinal"}
+    if case.get("runner_id") == "worktree_run":
+        # Source checkout selection belongs to the local Command runner. The
+        # host contract admits custody; it never executes that local command.
+        for key in (
+            "lane_id",
+            "lane_path",
+            "lane_commit_sha",
+            "deployment_source_revision",
+        ):
+            contract_case.pop(key, None)
     contract_case["ends_chain"] = ends_chain(execution["roster"], ordinal)
     baselines = contract_baselines(execution, case)
     return {

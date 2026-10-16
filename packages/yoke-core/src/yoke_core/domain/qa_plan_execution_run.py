@@ -60,6 +60,14 @@ def execute_begun_plan(
     from yoke_core.domain.qa_case_execution import execute_case_context
 
     def _execute_local(requirement):
+        from yoke_core.domain.qa_plan_command_case import CommandPlanLiveness
+
+        custody = (
+            {"liveness": CommandPlanLiveness(_check_in)}
+            if requirement.get("runner_id") == "worktree_run"
+            and (requirement.get("method_config") or {}).get("machine")
+            else {}
+        )
         return execute_case_context(
             requirement,
             base_url=resolved_base_url,
@@ -69,6 +77,7 @@ def execute_begun_plan(
             checkout_path=checkout_path,
             allow_tree_mismatch=allow_tree_mismatch,
             actor=resolved_actor,
+            **custody,
         )
 
     def _check_in():
@@ -133,6 +142,22 @@ def execute_begun_plan(
                 )
                 advance_result = False
             else:
+                if requirement.get("runner_id") == "worktree_run" and (
+                    requirement.get("method_config") or {}
+                ).get("machine"):
+                    from yoke_core.domain.qa_plan_command_case import begin_command_host
+
+                    waiting = begin_command_host(
+                        requirement,
+                        execution_id=execution_id,
+                        ordinal=ordinal,
+                        target=target,
+                        actor=resolved_actor,
+                    )
+                    if waiting is not None:
+                        results.append({**order, **waiting})
+                        state = "waiting"
+                        break
                 result = _execute_local(requirement)
                 advance_result = True
             if int(result.get("requirement_id") or 0) != requirement_id:

@@ -70,6 +70,7 @@ def stream_command(
     timeout_seconds: Optional[float],
     stream: Optional[TextIO] = None,
     candidate_root: Path | None = None,
+    liveness=None,
 ) -> StreamedCommand:
     """Run *command* through a shell, relaying its output as it arrives.
 
@@ -123,6 +124,7 @@ def stream_command(
                 env=binding.env if binding else product_env,
                 stdout_stream=destination,
                 timeout_seconds=timeout_seconds,
+                **({"liveness": liveness} if liveness is not None else {}),
             )
             if binding:
                 binding.inspect("after")

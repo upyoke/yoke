@@ -20,6 +20,7 @@ from yoke_core.domain.qa_method_capabilities import capability_kinds
 
 MACHINE_CONFIG_CONTRACTS = frozenset(
     {
+        "command",
         "agent-mission",
         "machine-state-check",
         "terminal-check",
@@ -42,7 +43,8 @@ def normalize_config_machine(config_contract_id: str, config: dict) -> str | Non
         return None
     if config_contract_id not in MACHINE_CONFIG_CONTRACTS:
         raise MachineConstraintError(
-            "method_config.machine is only valid for Machine QA cases"
+            "method_config.machine requires a Command or Machine QA case; "
+            "choose a supported local runner before declaring a Test Machine"
         )
     try:
         machine = validate_test_machine_resource_name(config["machine"])
