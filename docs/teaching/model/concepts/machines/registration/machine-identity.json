@@ -5,5 +5,5 @@
  "page": "machines",
  "position": 0,
  "text": "Start sends the configured UUID, the OS display hostname and platform before polling. The page omits an absent name instead of showing a placeholder.",
- "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "docs/public/reference/machine-authorization.md"]
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "docs/public/cli/machine-authorization.md"]
 }

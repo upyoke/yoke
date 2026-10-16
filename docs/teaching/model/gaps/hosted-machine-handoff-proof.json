@@ -4,5 +4,5 @@
  "status": "observed",
  "text": "The engine accepts a preissued match code through machine_authorization.handoff with explicit engine org scope; handoff_poll reuses domain polling and personal approval and single-use credential delivery. The hosted consumer must adopt both explicit-org payloads after organization selection and prove its real routes against the exact merged engine candidate. Engine source tests do not prove hosted route adoption; the linked Platform machine-admission work owns that integration and its deployed proof.",
  "plan_refs": ["FIRST-USER.33"],
- "sources": ["docs/public/reference/machine-authorization.md", "runtime/api/domain/test_machine_authorization_handoff.py"]
+ "sources": ["docs/public/cli/machine-authorization.md", "runtime/api/domain/test_machine_authorization_handoff.py"]
 }

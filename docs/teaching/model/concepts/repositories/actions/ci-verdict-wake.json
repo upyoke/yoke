@@ -3,7 +3,7 @@
  "title": "CI verdict wake-ups on the session machine",
  "status": "observed",
  "text": "Every mode needs a healthy relay on the waiting session machine. The observer queues the verdict after the turn ends; wake candidates match that machine and the harness surface.",
- "sources": ["docs/public/github.md", "packages/yoke-core/src/yoke_core/domain/session_relay.py", "packages/yoke-core/src/yoke_core/domain/session_relay_wake_claim.py"],
+ "sources": ["docs/public/github/index.md", "packages/yoke-core/src/yoke_core/domain/session_relay.py", "packages/yoke-core/src/yoke_core/domain/session_relay_wake_claim.py"],
  "surface_refs": ["detail-home"],
  "plan_refs": ["FIRST-USER.32"],
  "page": "repositories",

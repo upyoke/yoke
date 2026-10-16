@@ -6,6 +6,6 @@
  "functions": ["workflow_item.epic_dispatch_chain.advance", "workflow_item.epic_dispatch_chain.get", "workflow_item.epic_dispatch_chain.list", "workflow_item.epic_dispatch_chain.refresh_activation", "workflow_item.epic_dispatch_chain.update", "items.github_sync"],
  "page": "planning",
  "position": 2,
- "sources": [".agents/skills/yoke/conduct/entry-activation-resolution.md", "docs/public/reference/github-sync.md", "packages/yoke-core/src/yoke_core/domain/epic_task_sync_local.py"],
+ "sources": [".agents/skills/yoke/conduct/entry-activation-resolution.md", "docs/public/github/sync.md", "packages/yoke-core/src/yoke_core/domain/epic_task_sync_local.py"],
  "note": "Local queues materialize independently of optional GitHub issue publication. The current work holder retries items.github_sync without replacing existing chains or lane assignments; dependency and activation gates remain required. Source regression proof does not establish deployed admission."
 }

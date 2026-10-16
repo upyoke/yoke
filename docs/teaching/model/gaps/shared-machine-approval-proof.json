@@ -4,6 +4,6 @@
  "status": "observed",
  "text": "Standalone hosted beta and organization creation do not implement or prove the shared machine approval page. Its identity, local expiry, first-run progress, outcomes and return-to-terminal cue remain separate implementation and real approval proof owned by shared machine approval work. Preserve local/self-hosted reachability and human authorization boundaries.",
  "plan_refs": ["FIRST-USER.27"],
- "sources": ["docs/public/reference/machine-authorization.md"],
+ "sources": ["docs/public/cli/machine-authorization.md"],
  "position": 1
 }

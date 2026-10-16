@@ -10,6 +10,6 @@
  "gap": "A recovery guide exists. Review question: do each harness notice and FIRST-USER 35 output link the correct recovery without implying universal automatic desktop wake?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER 35", "JOURNEYS row 12"],
- "sources": ["docs/public/reference/merge-queue-landings.md", "docs/public/reference/github-sync.md", "packages/yoke-core/src/yoke_core/domain/standalone_post_push_ci.py", ".agents/skills/yoke/usher/merge.md", ".agents/skills/yoke/usher/finalize.md", "packages/yoke-core/src/yoke_core/domain/merge_landing_proof.py"],
+ "sources": ["docs/public/github/merge-queue-landings.md", "docs/public/github/sync.md", "packages/yoke-core/src/yoke_core/domain/standalone_post_push_ci.py", ".agents/skills/yoke/usher/merge.md", ".agents/skills/yoke/usher/finalize.md", "packages/yoke-core/src/yoke_core/domain/merge_landing_proof.py"],
  "position": 1
 }

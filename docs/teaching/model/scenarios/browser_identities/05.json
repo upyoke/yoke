@@ -9,6 +9,6 @@
  "surface": "Shared-file reference and sign-in recovery pages.",
  "review": "Candidate source behavior with HTTP regression coverage; live deployment proof remains separate.",
  "recipes": ["yoke ui up --help"],
- "sources": ["docs/public/reference/shared-files.md", "packages/yoke-core/src/yoke_core/api/browser_return.py", "runtime/api/test_file_sign_in.py"],
+ "sources": ["docs/public/projects/shared-files.md", "packages/yoke-core/src/yoke_core/api/browser_return.py", "runtime/api/test_file_sign_in.py"],
  "position": 4
 }

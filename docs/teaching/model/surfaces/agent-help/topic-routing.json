@@ -3,7 +3,7 @@
  "title": "General help gives the overview. Topic help reads its command or skill and gives the complete recipe and installed deeper home.",
  "status": "observed",
  "form": "Do",
- "verification": "Authored routing is in .agents/skills/yoke/help/SKILL.md. The generated skill registry remains a reference. Public delivery is documented in docs/public/reference/cli-help.md. Live agent-answer proof is distinct from this source inspection.",
+ "verification": "Authored routing is in .agents/skills/yoke/help/SKILL.md. The generated skill registry remains a reference. Public delivery is documented in docs/public/cli/help.md. Live agent-answer proof is distinct from this source inspection.",
  "topics": ["context/disclosure", "reference/commands", "documentation/disclosure/reactive-help"],
  "plan_refs": ["FIRST-USER.35"]
 }

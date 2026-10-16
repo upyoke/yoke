@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke projects capabilities list --project P --json", "yoke projects capability-settings get --help"],
  "plan_notes": ["JOURNEYS rows 12-13"],
- "sources": ["docs/public/nav.yaml", "docs/public/capabilities.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/projects_capabilities_read.py"],
+ "sources": ["docs/public/nav.yaml", "docs/public/projects/capabilities.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/projects_capabilities_read.py"],
  "position": 0
 }

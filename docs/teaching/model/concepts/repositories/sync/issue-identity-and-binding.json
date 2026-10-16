@@ -5,5 +5,5 @@
  "page": "repositories",
  "position": 2,
  "description": "Candidate adoption requires full title and outgoing body after whitespace normalization. Each sync searches once per item-ref title prefix, so an epic parent and its task issues share one search and match locally. Link repair verifies the chosen issue in the project repository and leaves remote content unchanged.",
- "sources": ["docs/public/reference/github-sync.md", "packages/yoke-core/src/yoke_core/domain/github_dedup.py", "packages/yoke-core/src/yoke_core/domain/handlers/items_github_link.py"]
+ "sources": ["docs/public/github/sync.md", "packages/yoke-core/src/yoke_core/domain/github_dedup.py", "packages/yoke-core/src/yoke_core/domain/handlers/items_github_link.py"]
 }

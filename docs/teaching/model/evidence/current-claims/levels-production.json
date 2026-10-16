@@ -7,6 +7,6 @@
  "claim": "Levels rows are model/min_effort. Settings shows #, MODEL, MIN EFFORT, NOW and Launchable on chips. Cursor Models then Other Models is the verified universe-wide order. Native expansion, admission, predecessor demotion, exact-context overrides and absence of cross-level fallback are observed in the cited source, not proven by this screenshot.",
  "concepts": ["levels/scheme", "levels/options", "levels/capacity/quota-pools", "workbench/destinations/levels"],
  "scenarios": ["models-levels"],
- "sources": ["docs/public/agents/levels.md", "docs/public/cli-and-config.md"],
+ "sources": ["docs/public/agents/levels.md", "docs/public/cli/index.md"],
  "position": 16
 }

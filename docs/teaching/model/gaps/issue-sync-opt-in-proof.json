@@ -4,5 +4,5 @@
  "status": "observed",
  "text": "Source regressions cover shared setup leaving sync off, explicit enable permissions and issue-creation links. The existing installer campaign must prove terminal setup stays silent, relevant agent guidance offers a separate opt-in, permission refusal teaches recovery, and the first created issue notice links to the issue. Keep the existing campaign owner, approval and readiness holds; this candidate needs its own admitted execution and cannot borrow frozen-run credit.",
  "plan_refs": ["FIRST-USER.10", "FIRST-USER.24"],
- "sources": ["docs/public/reference/github-sync.md", "docs/public/guides/agent-setup.md"]
+ "sources": ["docs/public/github/sync.md", "docs/public/guides/agent-setup.md"]
 }

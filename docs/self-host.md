@@ -136,7 +136,7 @@ remains the bootstrap; an admin can mint other API tokens on the host with
 
 Use HTTPS for network servers (numeric loopback HTTP is permitted locally).
 The connection is saved only after `/v1/health` and `/v1/auth/identity` pass.
-See [Machine authorization](public/reference/machine-authorization.md) for
+See [Machine authorization](public/cli/machine-authorization.md) for
 expiry, retry, and single-use credential delivery.
 
 ## Restore admin access

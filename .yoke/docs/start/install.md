@@ -50,7 +50,7 @@ world-writable `~/.yoke`, run `chmod 700 ~/.yoke` and retry. For a custom machin
 home, use the exact directory and `chmod` command named in the refusal.
 Select an isolated config with `YOKE_MACHINE_HOME=/tmp/yoke-worker yoke status`;
 that home takes precedence over a config-file environment override. See
-[Machine config](../cli-and-config.md#machine-config) for selection and write ownership.
+[Machine config](../cli/machine-config.md#machine-config) for selection and write ownership.
 
 ## Onboard wizard
 
@@ -210,10 +210,10 @@ appears; otherwise the checkout keeps teaching the previous release.
 
 ## Related
 
-- [Maintaining a private fork](../private-forks.md)
+- [Maintaining a private fork](../projects/private-forks.md)
 - [Modes](modes.md)
-- [CLI and config](../cli-and-config.md)
-- [Projects](../projects.md)
+- [CLI and config](../cli/index.md)
+- [Projects](../projects/index.md)
 - [Project installation](project-install.md)
 - [Remove Yoke](uninstall.md)
 - [Get started](index.md)

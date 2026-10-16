@@ -10,6 +10,6 @@
  "gap": "Existing sources and commands are present; scenario-to-first-explanation timing has not been traced. Review question: should JOURNEYS add first-landing and first-queue-use situations?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["JOURNEYS row 12", "outside both"],
- "sources": ["docs/public/github.md", "docs/public/reference/merge-queue-landings.md", "docs/public/reference/db-reference/item-landings.md", ".agents/skills/yoke/usher/merge-preflight.md"],
+ "sources": ["docs/public/github/index.md", "docs/public/github/merge-queue-landings.md", "docs/public/reference/db-reference/item-landings.md", ".agents/skills/yoke/usher/merge-preflight.md"],
  "position": 0
 }

@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke packs list --project P --json", "yoke packs get --help"],
  "plan_notes": ["JOURNEYS row 12", "outside both"],
- "sources": ["docs/public/nav.yaml", "docs/public/projects.md", ".agents/skills/yoke/onboard/profile-and-scaffold.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/packs.py"],
+ "sources": ["docs/public/nav.yaml", "docs/public/projects/index.md", ".agents/skills/yoke/onboard/profile-and-scaffold.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/packs.py"],
  "position": 0
 }

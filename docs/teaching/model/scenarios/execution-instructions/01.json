@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke workflow execution-instruction resolve --help"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/reference/execution-instructions.md"],
+ "sources": ["docs/public/projects/execution-instructions.md"],
  "position": 0
 }

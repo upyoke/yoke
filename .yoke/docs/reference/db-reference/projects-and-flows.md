@@ -26,7 +26,7 @@ created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline
 Explicit issue creation refuses and resync excludes disabled projects. Enable
 only with a verified private App binding or explicit public-sync permission.
 The binding owns outbound repository authority; `github_repo` is display only.
-Read [GitHub sync](../github-sync.md) before changing mode or rebinding; it owns
+Read [GitHub sync](../../github/sync.md) before changing mode or rebinding; it owns
 repair, disabled semantics and the sync-off-first ordering.
 
 **Project-level deployment-flow default** — read the project default via `yoke project-structure deploy-defaults get --project <project>` or, from Python, `yoke_core.domain.deploy_defaults.get_default_flow(project_id)`. Entries live in `project_structure` with `family='deploy_defaults'`, `attachment_value='project'`, payload `{"deployment_flow": "<flow-id>"}`. Absence is a valid state; callers treat it as "no project default" and fall back to inference.

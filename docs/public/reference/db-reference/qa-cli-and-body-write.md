@@ -185,7 +185,7 @@ There is no separate fallback chain: per-project token env-var lookup, project t
 
 **Cross-project coverage.** Item sync, status comments, issue close/reopen, body/title sync, resync repair, and doctor GitHub checks all route through the canonical resolver. Resync iterates per project; each iteration calls `resolve_project_github_auth(project)` and uses bearer-token REST calls for that project. Doctor's GitHub orphan and wrong-repo checks validate label coverage and confirm that each item's GitHub issue exists in the correct repo for its project.
 
-**Per-project sync switch precedes auth.** A project with `projects.github_sync_mode='disabled'` never reaches the resolver: every sync helper skips it with one mode-language log line (return code 0, flows continue), and resync excludes it from fetch/classification/repair. The skip is policy, not an auth failure — a disabled project needs no GitHub authorization. See [github-sync.md](../github-sync.md).
+**Per-project sync switch precedes auth.** A project with `projects.github_sync_mode='disabled'` never reaches the resolver: every sync helper skips it with one mode-language log line (return code 0, flows continue), and resync excludes it from fetch/classification/repair. The skip is policy, not an auth failure — a disabled project needs no GitHub authorization. See [github-sync.md](../../github/sync.md).
 
 ### GitHub issue body size limit
 

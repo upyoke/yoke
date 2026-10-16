@@ -5,5 +5,5 @@
  "page": "merging",
  "position": 1,
  "summary": "The receipt names the candidate and its own landing. GitHub reports the merged PR identity; local merges resolve the first carrying merge or fast-forward candidate.",
- "sources": ["docs/public/reference/merge-queue-landings.md"]
+ "sources": ["docs/public/github/merge-queue-landings.md"]
 }

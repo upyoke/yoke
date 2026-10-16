@@ -2,7 +2,7 @@
  "id": "packs",
  "title": "Packs",
  "status": "draft-copy",
- "sources": ["docs/public/projects.md", "docs/public/agents/rules/packs.md", "packs/machine-qa/pack.json"],
+ "sources": ["docs/public/projects/index.md", "docs/public/agents/rules/packs.md", "packs/machine-qa/pack.json"],
  "page": "packs",
  "position": 27
 }

@@ -162,7 +162,7 @@ These invites are the server's own. On Yoke Cloud Platform owns invites; the
 same `yoke identity invite` commands reach Platform's invites over a hosted
 connection, and the hosted universe's engine refuses them as
 `hosted_invites_platform_owned`. See
-[Hosted org administration](public/reference/hosted-org-admin.md).
+[Hosted org administration](public/projects/hosted-org-admin.md).
 
 Email trust is strict by default: invites and domain membership match only when
 the provider marks the email verified. For providers that omit the
@@ -185,4 +185,4 @@ fresh connection. A temporary credential-store failure remains retryable while
 the code is live. Without OIDC, a first machine uses an explicit API token (the
 first-boot admin token remains the bootstrap); your own next machine runs
 `yoke connect https://<server>` and you approve its code from a machine you
-already connected with `yoke machine-authorization resolve CODE --action approve`. See [Machine authorization](public/reference/machine-authorization.md).
+already connected with `yoke machine-authorization resolve CODE --action approve`. See [Machine authorization](public/cli/machine-authorization.md).

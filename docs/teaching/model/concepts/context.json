@@ -2,7 +2,7 @@
  "id": "context",
  "title": "Agent context and instructions",
  "status": "draft-copy",
- "sources": ["docs/public/agents/harness-discovery.md", "docs/public/reference/execution-instructions.md", "docs/public/agents/commands.md", "docs/public/agents/rules/code-and-cli.md"],
+ "sources": ["docs/public/agents/harness-discovery.md", "docs/public/projects/execution-instructions.md", "docs/public/agents/commands.md", "docs/public/agents/rules/code-and-cli.md"],
  "page": "context",
  "position": 7
 }

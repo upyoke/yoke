@@ -3,7 +3,7 @@
  "title": "People, machines and authentication",
  "status": "draft-copy",
  "audience": "Administrators",
- "sources": ["docs/self-host-browser-sign-in.md", "docs/machine-registry.md", "docs/public/reference/machine-authorization.md"],
+ "sources": ["docs/self-host-browser-sign-in.md", "docs/machine-registry.md", "docs/public/cli/machine-authorization.md"],
  "page": "server-admin",
  "position": 1
 }

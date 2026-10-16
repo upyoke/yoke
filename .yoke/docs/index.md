@@ -33,11 +33,14 @@ item from the frontier for the current session.
 
 - [Modes](start/modes.md) — Local, Cloud, Self-hosted
 - [Install](start/install.md) — one installer, then onboard
-- [Maintaining a private fork](private-forks.md) — operator-supplied releases and indexes
+- [Maintaining a private fork](projects/private-forks.md) — operator-supplied releases and indexes
 - [Concepts](start/concepts.md) — universe, projects, items, workflows
 
 <!-- yoke:contents -->
 - [Get started](start/index.md) — Install, connect, add a project and file your first item.
 - [Agents](agents/index.md) — Use harness guidance, command maps and operation homes before acting.
+- [Projects](projects/index.md) — Add projects and configure their capabilities, guidance and shared files.
+- [GitHub](github/index.md) — Connect repository access, mirror issues and inspect merge evidence.
+- [CLI and config](cli/index.md) — Read command help, choose connections and configure your machine.
 - [Documentation](documentation/index.md) — Write, navigate and verify complete, concise teaching.
 <!-- /yoke:contents -->

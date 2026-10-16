@@ -111,7 +111,7 @@ When GitHub issue mirroring would help this project, explain that it copies
 backlog items and tasks into the repository’s Issues and offer a separate
 opt-in after setup. Connecting GitHub or approving setup leaves sync off.
 Enable only after the person agrees; otherwise continue with sync off.
-Use the [project setting recipe](../reference/github-sync.md#the-per-project-switch-projectsgithub_sync_mode)
+Use the [project setting recipe](../github/sync.md#the-per-project-switch-projectsgithub_sync_mode)
 to check permissions and enable or change it later. Do not add a wizard
 question or ask this during machine-only or no-GitHub setup.
 

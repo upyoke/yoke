@@ -2,7 +2,7 @@
 
 On the session's machine, onboarding installs and enables a systemd user service
 for the selected connection. CI wake-ups in every mode require that machine's
-relay to be running; see [GitHub CI wake-ups](../github.md#ci-verdicts-and-session-wake-ups).
+relay to be running; see [GitHub CI wake-ups](../github/index.md#ci-verdicts-and-session-wake-ups).
 A hosted connection runs its pinned served release; a local
 universe runs this machine's installed Yoke. Both reuse the same relay state,
 configuration, logs, and native harness inventory as macOS.

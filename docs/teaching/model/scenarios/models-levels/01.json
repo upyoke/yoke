@@ -10,6 +10,6 @@
  "review": "Admission and predecessor behavior observed in the shipped routing guide and source; live 18-row definition reread 2026-10-13.",
  "recipes": ["yoke models lookup MODEL_ID", "yoke models get", "yoke models revisions", "yoke models level-proposal"],
  "plan_notes": ["outside both"],
- "sources": [".agents/skills/yoke/models/SKILL.md", "docs/public/cli-and-config.md", "docs/public/agents/levels.md"],
+ "sources": [".agents/skills/yoke/models/SKILL.md", "docs/public/cli/index.md", "docs/public/agents/levels.md"],
  "position": 0
 }

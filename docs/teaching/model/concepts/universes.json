@@ -2,7 +2,7 @@
  "id": "universes",
  "title": "Universes and connections",
  "status": "draft-copy",
- "sources": ["docs/public/cli-and-config.md", "docs/public/start/modes.md", "docs/public/reference/https-connection-diagnostics.md"],
+ "sources": ["docs/public/cli/index.md", "docs/public/start/modes.md", "docs/public/cli/https-connection-diagnostics.md"],
  "page": "universes",
  "position": 42
 }

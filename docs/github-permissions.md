@@ -7,7 +7,7 @@ declares, and what Yoke actually does with each one.
 For the operator runbook (registration, private-key custody, rotation) see
 [GitHub App Operations](github-app-operations.md). For the connection model
 see [GitHub Connection Layers](github-connections.md). For the backlog↔issue
-mirror see [GitHub Sync](../.yoke/docs/reference/github-sync.md). The machine-checked source of truth
+mirror see [GitHub Sync](../.yoke/docs/github/sync.md). The machine-checked source of truth
 for the permission set is
 `packages/yoke-contracts/src/yoke_contracts/github_app_installation_permissions.py`.
 
@@ -271,4 +271,4 @@ registration, selected repository scope and privileged binding review.
 - Connection model (identity / installation / binding):
   [GitHub Connection Layers](github-connections.md)
 - Backlog↔issue mirror and the per-project sync switch:
-  [GitHub Sync](../.yoke/docs/reference/github-sync.md)
+  [GitHub Sync](../.yoke/docs/github/sync.md)

@@ -10,6 +10,6 @@
  "gap": "The standalone hosted beta and organization-creation redesign is implemented in a candidate: plain titles, named invitation failures, settled URL/Subscription rows and one creation indicator. Its quiet wait line changes after 45 seconds to teach resuming after a closed tab. Candidate screenshots do not replace production captures, exact deployed proof or timed real stage founding acceptance. Shared machine approval remains separate unfinished work. Local/self-hosted modes do not use the standalone hosted screens.",
  "review": "Candidate fixture screenshots and focused checks are recorded separately from pending CI retention, deployed screen proof and real stage acceptance. FIRST-USER 27 covers both standalone hosted setup and shared machine approval; 33 spans membership and machine access across modes.",
  "plan_notes": ["FIRST-USER 12", "FIRST-USER 27", "FIRST-USER 33"],
- "sources": ["docs/public/reference/machine-authorization.md", "docs/public/actors-members-billing.md"],
+ "sources": ["docs/public/cli/machine-authorization.md", "docs/public/projects/actors-members-billing.md"],
  "position": 1
 }

@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke actors role set --help"],
  "plan_notes": ["FIRST-USER item 33"],
- "sources": ["docs/public/nav.yaml", "docs/public/actors-members-billing.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/actors.py"],
+ "sources": ["docs/public/nav.yaml", "docs/public/projects/actors-members-billing.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/actors.py"],
  "position": 0
 }

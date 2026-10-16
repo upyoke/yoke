@@ -2,7 +2,7 @@
  "id": "infrastructure",
  "title": "Hosting, providers and infrastructure",
  "status": "draft-copy",
- "sources": ["docs/public/projects.md", "docs/public/capabilities.md", "packs/webapp-environment-infrastructure/pack.json", "packs/self-hosted-runners/pack.json"],
+ "sources": ["docs/public/projects/index.md", "docs/public/projects/capabilities.md", "packs/webapp-environment-infrastructure/pack.json", "packs/self-hosted-runners/pack.json"],
  "commands": ["yoke projects infrastructure list"],
  "functions": ["projects.infrastructure.list"],
  "page": "infrastructure",

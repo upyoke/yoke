@@ -91,7 +91,7 @@ mirroring independently of connected merge/CI gates. Capability-owned secrets
 stay behind their resolvers; machine-local AWS/SSH material is not ambient shell
 authority. Broken authorization refuses with recovery; transient provider
 unavailability remains retryable. [GitHub connections](github-connections.md)
-and [GitHub sync](public/reference/github-sync.md) define these boundaries.
+and [GitHub sync](public/github/sync.md) define these boundaries.
 
 ## Harnesses and agent roles
 

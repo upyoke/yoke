@@ -8,7 +8,7 @@
  "plan_refs": ["FIRST-USER.27"],
  "surface_refs": ["workbench-cues"],
  "related_scenarios": ["universe-choice"],
- "sources": ["docs/public/actors-members-billing.md", "docs/public/start/modes.md"],
+ "sources": ["docs/public/projects/actors-members-billing.md", "docs/public/start/modes.md"],
  "page": "identity",
  "position": 1
 }

@@ -26,7 +26,7 @@ yoke --help                         # terminal categories and actions
 Explain that Yoke plans, builds, verifies and delivers software with people
 and agents. Point to `yoke <category> --help` and the installed project's
 `.yoke/docs/index.md`. Outside an installed project, use
-`https://upyoke.com/docs` and `https://upyoke.com/docs/reference/cli-help`;
+`https://upyoke.com/docs` and `https://upyoke.com/docs/cli/help`;
 command help remains available from any directory. Public docs describe the
 current service; command help describes the installed CLI's options.
 For a specific topic, read that command's `--help` or the applicable skill
@@ -34,7 +34,7 @@ from the registry below. Answer with its shortest complete recipe, required
 prerequisites and exact installed deeper home. Read before teaching or acting.
 The following inventories are references to consult, not the default reply.
 Full skill inventory: `.yoke/docs/agents/commands.md`.
-Terminal help and output: `.yoke/docs/reference/cli-help.md`.
+Terminal help and output: `.yoke/docs/cli/help.md`.
 
 <!-- BEGIN GENERATED: skill-registry -->
 Skill metadata is generated from `yoke_contracts.skill_registry`.

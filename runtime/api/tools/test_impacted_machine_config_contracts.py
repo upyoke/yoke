@@ -32,7 +32,7 @@ def test_config_consumers_survive_bounded_deferral(tmp_path: Path, source: str):
         path.write_text("VALUE = 1\n", encoding="utf-8")
 
     index = build_import_index(tmp_path)
-    selected = select([source, "docs/public/cli-and-config.md"], index, bounded=True)
+    selected = select([source, "docs/public/cli/machine-config.md"], index, bounded=True)
 
     assert selected.bounded_deferral
     assert set(MISSED_CONSUMERS) <= set(selected.files)

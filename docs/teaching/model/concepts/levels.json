@@ -2,7 +2,7 @@
  "id": "levels",
  "title": "Execution levels and models",
  "status": "draft-copy",
- "sources": ["docs/public/agents/levels.md", "docs/public/cli-and-config.md", "docs/public/reference/db-reference/model-reference.md"],
+ "sources": ["docs/public/agents/levels.md", "docs/public/cli/index.md", "docs/public/cli/machine-config.md", "docs/public/reference/db-reference/model-reference.md"],
  "page": "levels",
  "position": 20
 }

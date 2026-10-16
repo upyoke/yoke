@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke update --help", "yoke config distribution set --help", "yoke status"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/start/install.md", "docs/public/cli-and-config.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/self_update.py", "packages/yoke-cli/src/yoke_cli/config/distribution.py"],
+ "sources": ["docs/public/start/install.md", "docs/public/cli/machine-config.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/self_update.py", "packages/yoke-cli/src/yoke_cli/config/distribution.py"],
  "position": 0
 }

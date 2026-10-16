@@ -10,6 +10,6 @@
  "gap": "A public and installed copy are distribution, not two authorities. Private Yoke/Platform operations should link to public customer guidance; exact build versions can differ.",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER 32", "FIRST-USER accepted public/private boundary amendment", "JOURNEYS centralize wording later"],
- "sources": ["docs/public/index.md", "docs/public/reference/execution-instructions.md", "docs/public/capabilities.md"],
+ "sources": ["docs/public/index.md", "docs/public/projects/execution-instructions.md", "docs/public/projects/capabilities.md"],
  "position": 1
 }

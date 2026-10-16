@@ -35,7 +35,7 @@ with items.read on the project opens it with a signed-in workbench browser
 or an API token (Authorization: Bearer). Add ?download=1 to download.
 Uploading to the same path replaces the file. Local mode links open while
 `yoke ui` serves on its default port. Hosted files expire 365 days after
-upload, like QA evidence. Guide: .yoke/docs/reference/shared-files.md
+upload, like QA evidence. Guide: .yoke/docs/projects/shared-files.md
 """
 
 

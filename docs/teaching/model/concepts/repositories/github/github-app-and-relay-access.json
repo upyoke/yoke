@@ -3,7 +3,7 @@
  "title": "GitHub App and relay access",
  "status": "observed",
  "text": "App access changes arrive through webhooks only in hosted mode. Local and self-hosted access changes are noticed at the next GitHub check.",
- "sources": ["docs/public/github.md", "packages/yoke-core/src/yoke_core/domain/project_github_binding.py"],
+ "sources": ["docs/public/github/index.md", "packages/yoke-core/src/yoke_core/domain/project_github_binding.py"],
  "surface_refs": ["detail-home"],
  "plan_refs": ["FIRST-USER.32"],
  "page": "repositories",

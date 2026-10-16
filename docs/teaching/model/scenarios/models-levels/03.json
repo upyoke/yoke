@@ -10,6 +10,6 @@
  "review": "Native expansion and exact-override behavior observed in current routing docs/source. This worker launch receipt confirms the named unsupported-listing and unavailable-model/effort refusals; no all-harness launch success claimed.",
  "recipes": ["yoke session-control launch preview --list-models", "yoke relay probe-models --help"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/cli-and-config.md", ".agents/skills/yoke/steer/model-selection.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/session_control_relay_models.py"],
+ "sources": ["docs/public/cli/machine-config.md", ".agents/skills/yoke/steer/model-selection.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/session_control_relay_models.py"],
  "position": 2
 }

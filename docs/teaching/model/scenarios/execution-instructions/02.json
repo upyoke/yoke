@@ -12,6 +12,6 @@
  "recipes": ["yoke workflow execution-instruction resolve --help"],
  "plan_notes": ["FIRST-USER 13", "outside both"],
  "surface_notes": ["Execution instructions → scoped command results: Before-creation resolver, item reads, claims, launches and stage transitions deliver applicable instructions or their exact full-read command. Do not duplicate that authority in item bodies."],
- "sources": ["docs/public/reference/execution-instructions.md", ".agents/skills/yoke/idea/infer-and-create.md"],
+ "sources": ["docs/public/projects/execution-instructions.md", ".agents/skills/yoke/idea/infer-and-create.md"],
  "position": 1
 }

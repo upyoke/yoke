@@ -5,5 +5,5 @@
  "page": "machines",
  "position": 2,
  "text": "Approve only a code matching your terminal. Success has a separate Return to your terminal callout. Denial and expiry authorize nothing; unavailable codes offer entry again. Expiry does not renew a code.",
- "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "docs/public/reference/machine-authorization.md"]
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "docs/public/cli/machine-authorization.md"]
 }

@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke update --help"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/start/install.md", "docs/public/private-forks.md", "packages/yoke-cli/src/yoke_cli/config/self_update.py"],
+ "sources": ["docs/public/start/install.md", "docs/public/projects/private-forks.md", "packages/yoke-cli/src/yoke_cli/config/self_update.py"],
  "position": 2
 }

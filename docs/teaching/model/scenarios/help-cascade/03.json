@@ -10,6 +10,6 @@
  "gap": "Audit the whole refusal → reachable installed guide → successful recovery chain. Do not mistake a reference page’s existence for a usable journey.",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER 29", "FIRST-USER 35", "JOURNEYS open question 4"],
- "sources": ["docs/public/agents/rules/shell-and-cli.md", "docs/public/reference/https-connection-diagnostics.md"],
+ "sources": ["docs/public/agents/rules/shell-and-cli.md", "docs/public/cli/https-connection-diagnostics.md"],
  "position": 2
 }

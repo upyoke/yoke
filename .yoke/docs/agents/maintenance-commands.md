@@ -124,7 +124,7 @@ of the selected connection. One item targets one project; installed behavior sta
   bodies, boards and local strategy files are views.
 - Required facts live in durable owners. Events are diagnostic and absence
   proves nothing; a quoted event name is not execution proof.
-- [Project install](../projects.md) owns clean/current upstream, generated
+- [Project install](../projects/index.md) owns clean/current upstream, generated
   paths, commit/publication, protected-branch PR and named partial-state repair.
   Source-maintainer link/admin setup uses `yoke dev setup`, a distinct
   contributor operation rather than an external-project installation recipe.

@@ -97,6 +97,54 @@ root:
             - title: Claude long commands
               summary: Read before long commands, watcher waits or Claude subagent checks.
               path: agents/rules/claude-long-commands.md
+    - title: Projects
+      summary: Add projects and configure their capabilities, guidance and shared files.
+      path: projects/index.md
+      children:
+        - title: Capabilities
+          summary: Inspect project providers, models and test resources.
+          path: projects/capabilities.md
+        - title: Execution instructions
+          summary: Store reusable guidance for project work and sessions.
+          path: projects/execution-instructions.md
+        - title: Shared files
+          summary: Upload files and reuse them as project context.
+          path: projects/shared-files.md
+        - title: Private forks
+          summary: Bind installation artifacts and maintain a private Yoke distribution.
+          path: projects/private-forks.md
+        - title: Actors, members and billing
+          summary: Understand identity, organization access and billing ownership.
+          path: projects/actors-members-billing.md
+        - title: Hosted organization administration
+          summary: Create an organization, manage invitations and approve machines.
+          path: projects/hosted-org-admin.md
+    - title: GitHub
+      summary: Connect repository access, mirror issues and inspect merge evidence.
+      path: github/index.md
+      children:
+        - title: Issue sync
+          summary: Choose mirroring semantics and repair repository issue bindings.
+          path: github/sync.md
+        - title: Merge queue landings
+          summary: Read queued landing evidence and recover from a rejected landing.
+          path: github/merge-queue-landings.md
+    - title: CLI and config
+      summary: Read command help, choose connections and configure your machine.
+      path: cli/index.md
+      children:
+        - title: Machine config and native models
+          summary: Select configuration and inspect native model availability and unattended launches.
+          path: cli/machine-config.md
+        - title: Help and replies
+          summary: Read focused command help and choose human or machine output.
+          path: cli/help.md
+        - title: HTTPS connection diagnostics
+          summary: Diagnose API transport and connection failures.
+          path: cli/https-connection-diagnostics.md
+        - title: Machine authorization
+          summary: Connect a machine and inspect actor approval and hosted handoff.
+          path: cli/machine-authorization.md
     - title: Documentation
       summary: Write, navigate and verify complete, concise teaching.
       path: documentation/index.md

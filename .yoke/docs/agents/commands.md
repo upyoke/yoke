@@ -33,7 +33,7 @@ yoke items get --help
 ```
 
 Each level lists immediate children. Command help owns its recipe and options.
-For agent help, ask `/yoke help` a topic. [Help and replies](../reference/cli-help.md) explains
+For agent help, ask `/yoke help` a topic. [Help and replies](../cli/help.md) explains
 labeled results, complete saved evidence and deliberate machine formats.
 
 ## Operator Commands
@@ -176,7 +176,7 @@ GitHub polling or unchanged failed-train retries. The shared selector reads the
 caller's manifest wake capability: a native idle-wake primitive gets the
 background subscription; no or unverified idle wake gets one foreground command.
 Rely on a later completion message only when the selector chose background-wake. See
-[queue recovery](../reference/merge-queue-landings.md) and `usher/merge.md` before merging.
+[queue recovery](../github/merge-queue-landings.md) and `usher/merge.md` before merging.
 
 Deploy-free routes complete without a run. Managed routes hold the deployment
 coordination claim, preserve composition/candidate/QA identity and drive their

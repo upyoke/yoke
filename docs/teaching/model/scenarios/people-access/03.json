@@ -10,6 +10,6 @@
  "gap": "Full invitation, project-grant creation and no-OIDC teammate flows were not traced. These are audit-needed, not claimed unsupported.",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER item 33", "FIRST-USER item 27"],
- "sources": ["docs/public/actors-members-billing.md", "docs/public/reference/machine-authorization.md"],
+ "sources": ["docs/public/projects/actors-members-billing.md", "docs/public/cli/machine-authorization.md"],
  "position": 2
 }

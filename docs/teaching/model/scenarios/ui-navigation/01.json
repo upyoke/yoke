@@ -10,6 +10,6 @@
  "gap": "Existing launcher is documented; current discovery and token handling are separate implementation questions. Review question: should FIRST-USER 16 + F proof include handoff from both installation paths?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER 16 + F", "FIRST-USER C"],
- "sources": ["docs/public/cli-and-config.md", "docs/public/start/install.md", "docs/public/start/modes.md"],
+ "sources": ["docs/public/cli/index.md", "docs/public/start/install.md", "docs/public/start/modes.md"],
  "position": 0
 }

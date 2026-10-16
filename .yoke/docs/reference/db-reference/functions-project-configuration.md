@@ -153,4 +153,4 @@ mutation receipts cover the edited slug only; JSON retains the full envelope.
 `files.upload` stores one file at a project path and returns its read route;
 `yoke files upload` prints the absolute URL. Reads use
 `GET /v1/files/{project}/{path}` with `items.read`. No item, QA or file record
-is written. Recipe and storage modes: [Shared files](../shared-files.md).
+is written. Recipe and storage modes: [Shared files](../../projects/shared-files.md).

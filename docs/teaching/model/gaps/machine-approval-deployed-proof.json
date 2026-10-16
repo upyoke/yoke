@@ -4,5 +4,5 @@
  "status": "observed",
  "text": "Shared page source and start identity are implemented. Exact producer verification has accepted hosted service, real web consumer and web image build proof. Full real stage and production approval proof from fresh installers, and every outcome at desktop and 375px in both themes, remain pending.",
  "plan_refs": ["FIRST-USER.27"],
- "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "docs/public/reference/machine-authorization.md"]
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js", "docs/public/cli/machine-authorization.md"]
 }

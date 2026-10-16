@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke projects capability secret set --help"],
  "plan_notes": ["FIRST-USER item 16 + F", "FIRST-USER item 26", "FIRST-USER item 35"],
- "sources": ["AGENTS.md", "docs/public/capabilities.md", "docs/public/agents/rules/packs.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/projects_capability_settings.py"],
+ "sources": ["AGENTS.md", "docs/public/projects/capabilities.md", "docs/public/agents/rules/packs.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/projects_capability_settings.py"],
  "position": 2
 }

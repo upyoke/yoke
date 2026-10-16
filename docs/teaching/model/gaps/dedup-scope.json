@@ -2,7 +2,7 @@
  "id": "dedup-scope",
  "title": "Clarify the duplicate-detection boundary",
  "status": "observed",
- "text": "Full title/body adoption and explicit link repair have candidate source and regression coverage. Deployed proof remains pending; broader duplicate detection stays deferred. Evidence: github_dedup.py, handlers/items_github_link.py and docs/public/reference/github-sync.md.",
+ "text": "Full title/body adoption and explicit link repair have candidate source and regression coverage. Deployed proof remains pending; broader duplicate detection stays deferred. Evidence: github_dedup.py, handlers/items_github_link.py and docs/public/github/sync.md.",
  "plan_refs": ["FIRST-USER.2", "FIRST-USER.10"],
  "position": 2
 }

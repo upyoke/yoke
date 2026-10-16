@@ -98,7 +98,7 @@ Want part of an answer? Ask the narrow question — every read has a shape that 
 
 Human replies label values and preserve complete oversized results in a named
 private evidence file. Entry instructions, handoffs and warnings stay immediate.
-See [help and replies](../../reference/cli-help.md). Structured registered reads retain the
+See [help and replies](../../cli/help.md). Structured registered reads retain the
 28,000-byte output limit. Oversized structured reads print no partial answer:
 `read_output_limit_exceeded` names the narrower recipe and the explicit `--full`
 opt-in. `--json` selects format; it does not bypass the limit. Lists serve
@@ -112,7 +112,7 @@ silently dropped or condensed by size. Messages lists name body get; QA plan get
 names `--full` for probe instructions/config/expected outcome and proof tail/
 evidence/review. Execution-instruction resolve defaults to Before-creation ids/
 headings; use `--full` to read rules before attesting at filing. Delivery-point/
-stage-bucket choose read/entry delivery; see [instruction contract](../../reference/execution-instructions.md).
+stage-bucket choose read/entry delivery; see [instruction contract](../../projects/execution-instructions.md).
 
 Full item reads carry On-every-read and live-entry instructions once. Narrow
 field/section/Progress Log reads name the full read. Work-claim receipts and
