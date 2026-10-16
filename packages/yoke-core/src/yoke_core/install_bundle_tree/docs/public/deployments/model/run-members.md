@@ -13,7 +13,7 @@ Membership table linking items to deployment runs. Zero rows for a run are valid
 ```sql
 run_id TEXT NOT NULL REFERENCES deployment_runs(id)
 item_id INTEGER NOT NULL -- backlog item numeric ID
-added_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
+added_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" in Related
 delivery_intent TEXT -- progress | final
 requirement_selection TEXT -- member requirement/plan IDs; null until the freeze resolves a derived one
 requirement_snapshot TEXT -- full selected requirement, plan, case, and attachment content
@@ -108,3 +108,4 @@ stage, the member), or record it non-blocking. Owners:
 
 - [Runs](runs.md)
 - [Stage receipts](stage-receipts.md)
+- [Timestamp discipline](../../databases/migrations.md#timestamp-discipline)

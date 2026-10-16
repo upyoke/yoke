@@ -4,12 +4,11 @@
 [Yoke](../../index.md) > [Deployments](../index.md) > Release authorities
 <!-- /yoke:breadcrumbs -->
 
-How a merged item's release is verified and announced, across the tables
-[runs.md](runs.md) defines:
-`deployment_runs`, `deployment_run_items`, `deployment_run_qa`,
-`deployment_stage_receipts`, and the `qa_requirements` / `qa_runs` rows a
-scoped stage settles through. Those table schemas stay there; what lives
-here is the behavior that reads and writes across them.
+Read release verification across [runs](runs.md), [stage receipts](stage-receipts.md),
+[members and QA](run-members.md) and [QA requirements](../../reference/db-reference/qa-and-sessions.md).
+Those pages own the table schemas; this page explains how release checks consume
+them. [Release notices](release-notices.md) covers caseless QA, settled results and
+owner delivery announcements.
 
 ## What this runtime actually serves
 

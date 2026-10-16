@@ -44,7 +44,11 @@ REPO_LAYOUT_PATTERNS = (
     ("top-level tests/", re.compile(r"(?<![A-Za-z0-9_./-])tests/")),
     (
         "runtime.* package",
-        re.compile(r"(?<![A-Za-z0-9_/-])runtime\.[A-Za-z_][A-Za-z0-9_.]*"),
+        re.compile(
+            r"(?<![A-Za-z0-9_/-])"
+            r"(?![A-Za-z_][A-Za-z0-9_.]*\.md(?:\.(?![A-Za-z_])|[^A-Za-z0-9_.]|$))"
+            r"runtime\.[A-Za-z_][A-Za-z0-9_.]*"
+        ),
     ),
 )
 SOURCE_REPO_ONLY_LABEL = "yoke source repo only"
@@ -56,7 +60,18 @@ def test_module_detection_distinguishes_document_links():
     pattern = dict(REPO_LAYOUT_PATTERNS)["runtime.* package"]
     assert pattern.search("Import runtime.api.engine")
     assert pattern.search("`runtime.harness.hooks`")
+    assert pattern.search('"runtime.api.engine"')
+    assert pattern.search("'runtime.harness.hooks'")
+    assert pattern.search("runtime.md_helpers")
+    assert pattern.search("runtime.md.api")
+    assert pattern.search("(runtime.api.engine),")
+    assert pattern.search("[Runtime](functions-runtime.md)") is None
     assert pattern.search("[Runtime](runtime.md)") is None
+    assert pattern.search("[Runtime](runtime.md#actors)") is None
+    assert pattern.search("[Runtime](runtime.md?view=functions#actors)") is None
+    assert pattern.search("`runtime.md`") is None
+    assert pattern.search("runtime.api.md") is None
+    assert pattern.search("See runtime.md.") is None
 
 
 def _shipped_files():

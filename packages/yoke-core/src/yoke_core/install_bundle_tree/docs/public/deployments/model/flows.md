@@ -15,7 +15,7 @@ id INTEGER PRIMARY KEY -- internal surrogate key; never an operator input
 project_id INTEGER NOT NULL REFERENCES projects(id)
 name TEXT NOT NULL -- sole human identifier, unique within the project
 description TEXT -- human-readable description
-created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
+created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" in Related
 settings TEXT DEFAULT '{}' -- structured site configuration
 UNIQUE(project_id, name)
 ```
@@ -37,7 +37,7 @@ deploy_command TEXT -- shell command to run for deployment
 health_check_url TEXT -- URL to check after deployment
 config_notes TEXT -- human-readable notes about the environment
 last_deployed_at TEXT -- stamped on successful run completion and on release_pin.record
-created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
+created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" in Related
 settings TEXT DEFAULT '{}' -- structured environment configuration
 UNIQUE(project_id, name)
 FOREIGN KEY(site, project_id) REFERENCES sites(id, project_id)
@@ -56,7 +56,7 @@ name TEXT NOT NULL -- display name (e.g., 'Prod Release')
 description TEXT
 stages TEXT NOT NULL -- → JSONB on Postgres; JSON array of stage objects [{name, step_runner, ...}]
 on_failure TEXT DEFAULT 'halt' -- failure policy: 'halt' stops the pipeline
-created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
+created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" in Related
 target_tier TEXT -- persistent | ephemeral | NULL (merge-only)
 target_environment_id INTEGER -- internal REFERENCES environments(id); required exactly when target_tier='persistent'
 done_description TEXT DEFAULT NULL -- per-flow "done means..." contract; human-readable definition of what "done" means for this flow
@@ -163,3 +163,4 @@ Flow ids are definitions, not executions. Item-bound delivery creates concrete `
 ## Related
 
 - [Projects](../../databases/model/projects.md)
+- [Timestamp discipline](../../databases/migrations.md#timestamp-discipline)

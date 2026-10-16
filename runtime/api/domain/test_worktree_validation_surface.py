@@ -229,7 +229,7 @@ def test_webapp_pack_docs_mark_sqlite_as_app_local() -> None:
         "packs/webapp-scaffold/versions/1.0.0/files/docs/packs/webapp-scaffold/README.md",
         "packs/webapp-scaffold/versions/1.0.0/files/AGENTS.md",
         "packs/webapp-scaffold/versions/1.0.0/files/ROADMAP.md",
-        ".yoke/docs/databases/migration-model.md",
+        ".yoke/docs/databases/migration-model-pairing.md",
     )
     texts = [(root / rel).read_text() for rel in rels]
     assert "app-local SQLite" in reference["description"]

@@ -5,7 +5,9 @@
 <!-- /yoke:breadcrumbs -->
 
 Read schemas for the project registry, Project Structure aggregate, capabilities,
-secrets and templates. Cross-link back from [reference.md](../reference.md) for entry points, the domain catalog, timestamp discipline, JSON-payload conventions, qa CLI, body write path, and the status lifecycle reference.
+secrets and templates. [Database reference](../reference.md) owns diagnostic
+columns, registered entry points and JSON conventions; [migration conventions](../migrations.md)
+own timestamps.
 
 ## Table: projects
 Registered projects that Yoke can manage. The `projects` table holds only
@@ -25,7 +27,7 @@ emoji TEXT DEFAULT '' -- project emoji (e.g., '🐂', '🧩'); shown in BOARD.md
 github_repo TEXT -- GitHub repo in owner/repo format (e.g., 'example-org/external-webapp')
 default_branch TEXT DEFAULT 'main'
 github_sync_mode TEXT NOT NULL DEFAULT 'disabled' -- 'enabled' | 'disabled'; legacy NULL/empty values normalize to disabled
-created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
+created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" in Related
 ```
 
 **GitHub sync:** new projects are DB-only (`disabled`); skips precede authentication.
@@ -145,7 +147,7 @@ project_id INTEGER NOT NULL REFERENCES projects(id)
 type TEXT NOT NULL -- capability type (e.g., 'ssh', 'docker', 'ephemeral-env')
 settings TEXT DEFAULT '{}' -- JSON: non-sensitive capability settings only
 verified_at TEXT -- last verification timestamp (NULL = unverified)
-created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
+created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" in Related
 UNIQUE(project_id, type) -- one capability instance per type per project
 ```
 
@@ -166,7 +168,7 @@ type TEXT NOT NULL -- capability type (e.g., 'github')
 key TEXT NOT NULL -- secret key name (e.g., 'token')
 value TEXT NOT NULL DEFAULT '' -- the imported secret value
 source TEXT NOT NULL DEFAULT 'literal' CHECK(source = 'literal')
-created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
+created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" in Related
 UNIQUE(project_id, type, key) -- one secret per key per capability per project
 ```
 
@@ -185,7 +187,7 @@ name TEXT NOT NULL -- display name
 description TEXT -- human-readable description
 required_config TEXT NOT NULL -- JSON array: [{key, description, secret}]
 requires TEXT DEFAULT '[]' -- JSON array of prerequisite capability IDs
-created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
+created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" in Related
 ```
 
 Seed data: generic capability templates are converged during schema initialization:
@@ -204,3 +206,4 @@ secrets stay in the control-plane secret store.
 ## Related
 
 - [Flows](../../deployments/model/flows.md)
+- [Timestamp discipline](../migrations.md#timestamp-discipline)
