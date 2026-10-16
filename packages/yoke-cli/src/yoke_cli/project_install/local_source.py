@@ -27,6 +27,7 @@ from yoke_cli.project_install.local_source_preview import (
 )
 from yoke_cli.project_install.validate import _validate_bundle
 from yoke_cli.project_install.files import ProjectInstallError
+from yoke_contracts import terminal_detached_process
 
 
 def refresh_from_source(
@@ -257,7 +258,7 @@ def _build_bundle(
         [*(str(path) for path in source_roots), str(source_checkout)]
     )
     try:
-        completed = subprocess.run(
+        completed = terminal_detached_process.run(
             command,
             cwd=source_checkout,
             env=env,

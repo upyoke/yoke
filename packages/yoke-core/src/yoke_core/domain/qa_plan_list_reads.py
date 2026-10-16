@@ -9,6 +9,7 @@ from typing import Any
 from yoke_contracts.qa_case_starting_state import stored_fan_out
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
+from yoke_contracts.timestamps import format_instant
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.qa_execution_proof import qa_run_outcome
 from yoke_core.domain.qa_latest_execution import latest_execution_sql
@@ -33,11 +34,16 @@ def list_plans(
     limit: int | None = None,
     offset: int = 0,
     full: bool = False,
+    include_retired: bool = False,
 ) -> list[dict]:
-    """Read one stable page; full=True adds detail but never lifts the page."""
+    """Read one stable page; full=True adds detail but never lifts the page.
+
+    Retired plans are skipped unless ``include_retired``; every row names its
+    retirement either way, so a retired row is never mistaken for an active one.
+    """
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     params: tuple = ()
-    where = "p.retired_at IS NULL"
+    where = "TRUE" if include_retired else "p.retired_at IS NULL"
     if project is not None:
         identity = resolve_project(conn, project, required=False)
         if identity is None:
@@ -113,6 +119,10 @@ def list_plans(
             "slug": str(row["slug"]),
             "name": str(row["name"]),
             "target_environment": row["target_environment"],
+            "retired_at": format_instant(row["retired_at"])
+            if row["retired_at"] is not None
+            else None,
+            "retirement_reason": row.get("retirement_reason"),
             "case_count": len(cases),
             "materialized_requirement_count": sum(
                 len(hosts) * max(1, len(_json(case["target_envs"])))

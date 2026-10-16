@@ -18,6 +18,7 @@ from yoke_contracts.machine_config.checkout import main_checkout
 from yoke_contracts.harness_cli_manifest import (
     HARNESS_CLI_MANIFESTS,
 )
+from yoke_contracts import terminal_detached_process
 
 
 def _settings(path: Path) -> dict[str, Any]:
@@ -143,7 +144,7 @@ def preflight(root: Path) -> None:
         if executable is None:
             continue
         try:
-            probe = subprocess.run(
+            probe = terminal_detached_process.run(
                 [executable, *manifest.version_args],
                 capture_output=True,
                 text=True,

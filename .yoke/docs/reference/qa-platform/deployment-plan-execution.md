@@ -62,8 +62,10 @@ run, stage and frozen private-member or shared-plan target.
 A waiting host or independent review stops the command. Re-enter the same
 scoped command while review is pending to reprint that bundle without
 recapturing. Once a verdict batch is recorded, the same command reprints
-those verdicts and does not capture the settled requirements; a new capture
-uses --replaces. After review settles, rerun to continue any remaining hosts.
+passing verdicts and does not capture those settled requirements; a new
+capture of a passed requirement uses --replaces. A failed or undetermined
+verdict stays open: rerunning begins a fresh execution that captures it
+again. After review settles, rerun to continue any remaining hosts.
 Completed scoped cases with passing evidence are retained. The member is
 accepted only when every required case passes. Omit --machine for this
 multi-machine form: a single host pin cannot satisfy conflicting constraints.

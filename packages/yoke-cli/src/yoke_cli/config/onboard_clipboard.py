@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 from typing import Callable, Mapping, Sequence
+from yoke_contracts import terminal_detached_process
 
 MACOS_PLATFORM = "darwin"
 
@@ -104,7 +105,7 @@ def _run_clipboard_command(
     command: Sequence[str],
     text: str,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return terminal_detached_process.run(
         list(command),
         input=text,
         capture_output=True,

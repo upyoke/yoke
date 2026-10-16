@@ -97,8 +97,12 @@ def test_diagnose_ignores_installer_prepended_path(tmp_path, monkeypatch):
 
     seeded_homes: list[tuple[str, str]] = []
 
-    def fake_run(command, *, capture_output, text, timeout, env):
+    def fake_run(
+        command, *, capture_output, text, timeout, env, stdin, start_new_session
+    ):
         del capture_output, text, timeout
+        # An interactive login shell must not inherit setup's terminal.
+        assert stdin is subprocess.DEVNULL and start_new_session is True
         observed_probe_env.update(env)
         seeded_homes.append((env["HOME"], env.get("ZDOTDIR", env["HOME"])))
         return subprocess.CompletedProcess(command, 0, "", "")

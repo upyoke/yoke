@@ -179,6 +179,8 @@ _Schema and operation depth:_ `yoke packets render --role tester_agent --topic c
   - `yoke workflow-item epic-task body-get --epic PREFIX-1704 --task-num 5`
   - `yoke workflow-item epic-dispatch-chain list --epic PREFIX-1704`
   - `yoke workflow-item epic-dispatch-chain get --epic PREFIX-1704 --worktree branch-name`
+- _Retire a project QA plan nothing depends on any more_
+  - `yoke qa plan retire PLAN --project P --reason "why"`
 
 
 _Schema and operation depth:_ `yoke packets render --role tester_agent --topic qa --detail full`.

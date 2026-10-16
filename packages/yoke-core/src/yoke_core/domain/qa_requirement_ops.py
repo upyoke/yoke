@@ -135,6 +135,11 @@ def waive_requirement(
     )
     if row is None:
         raise LookupError(f"requirement {req_id} not found")
+    from yoke_core.domain.qa_requirement_waive_liveness import (
+        require_live_for_waiver,
+    )
+
+    require_live_for_waiver(conn, int(req_id))
 
     blocking_mode = row["blocking_mode"]
     qa_kind = row["qa_kind"]
@@ -196,6 +201,9 @@ def cmd_requirement_waive(
             )
         except LookupError:
             print(f"Error: requirement {req_id} not found", file=sys.stderr)
+            sys.exit(1)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
         except PermissionError:
             row = query_one(

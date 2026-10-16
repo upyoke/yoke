@@ -196,7 +196,10 @@ USAGE_BY_FUNCTION_ID = {
         "--verdict-path automatic --verdict-contract TEXT "
         "--evidence-contract TEXT [--required-capability KIND ...]"
     ),
-    "qa.plan.list": "yoke qa plan list --project P [--limit N] [--offset N] [--full]",
+    "qa.plan.list": (
+        "yoke qa plan list --project P [--limit N] [--offset N] "
+        "[--include-retired] [--full]"
+    ),
     "qa.plan.get": (
         "yoke qa plan get (PLAN_ID_OR_SLUG | --plan-id PLAN_ID_OR_SLUG) --project P [--deployment-run-id RUN] "
         "[--full] [--json]"
