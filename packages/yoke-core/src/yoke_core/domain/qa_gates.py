@@ -29,7 +29,7 @@ from yoke_core.domain.qa_gate_preconditions import (
     target_gate_precondition_result,
 )
 from yoke_core.domain.qa_plan_gate import check_plan_simulation_satisfied  # noqa: F401
-from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
+from yoke_core.domain.qa_review_waits import requirement_awaits_human_review
 from yoke_core.domain.qa_simulation_gate import (  # noqa: F401  (re-export)
     check_epic_simulation_gate,
 )

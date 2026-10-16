@@ -22,6 +22,7 @@ from yoke_core.domain.qa_obligation_settlement import (
     settled_obligation_sql,
     unretracted_requirement_sql,
 )
+from yoke_core.domain.qa_review_waits import requirements_awaiting_human_review
 from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_message_types import row_dict
@@ -93,7 +94,11 @@ def load_live_run_facts(
         return LiveRunFactMaps(frozenset(), {}, {}, {}, {}, {})
     plans = _flow_stage_plans(conn, runs=runs, tables=tables)
     qa_stage_run_ids = _qa_stage_run_ids(runs=runs, plans=plans)
-    unresolved, totals = _completion_boundary(conn, run_ids=run_ids, tables=tables)
+    unresolved, totals = _completion_boundary(
+        conn,
+        run_ids=[run_id for run_id in run_ids if run_id not in qa_stage_run_ids],
+        tables=tables,
+    )
     return LiveRunFactMaps(
         qa_stage_run_ids=qa_stage_run_ids,
         entered_at={
@@ -243,52 +248,48 @@ def _resolved_decisions(
 def _completion_boundary(
     conn: Any, *, run_ids: list[str], tables: _Tables
 ) -> tuple[dict[str, tuple[str, ...]], dict[str, int]]:
-    unresolved: dict[str, list[str]] = {run_id: [] for run_id in run_ids}
-    totals: dict[str, int] = {run_id: 0 for run_id in run_ids}
-    holes, params = _holes(conn, run_ids)
-    if tables.has("qa_requirements") and tables.has("qa_runs"):
-        settled = settled_obligation_sql(conn, "r")
-        plan_rows = conn.execute(
-            f"""SELECT r.deployment_run_id, r.id, r.qa_kind FROM qa_requirements r
-                 WHERE r.deployment_run_id IN ({holes})
-                   AND r.blocking_mode = 'blocking'
-                   AND NOT {settled}
-                   AND NOT EXISTS (
-                     SELECT 1 FROM qa_runs qr
-                      WHERE qr.qa_requirement_id = r.id
-                        AND qr.verdict = 'pass'
-                   )
-                 ORDER BY r.deployment_run_id, r.id""",
-            params,
-        ).fetchall()
-        if plan_rows:
-            from yoke_core.domain.qa_review_requests import (
-                requirement_awaits_human_review,
-            )
+    """Unpassed and total blocking obligations of runs off a scoped-QA stage.
 
-            for raw in plan_rows:
-                row = row_dict(raw)
-                waiting = requirement_awaits_human_review(conn, int(row["id"]))
-                unresolved[str(row["deployment_run_id"])].append(
-                    waiting.detail
-                    if waiting
-                    else f"requirement #{row['id']} ({row['qa_kind']}): no passing run"
-                )
+    A run on a scoped-QA stage takes both counts from the stage gate instead.
+    """
+    if not run_ids or not (tables.has("qa_requirements") and tables.has("qa_runs")):
+        return {}, {}
+    holes, params = _holes(conn, run_ids)
+    settled = settled_obligation_sql(conn, "r")
+    rows = [
+        row_dict(raw)
         for raw in conn.execute(
-            f"""SELECT r.deployment_run_id AS run_id, COUNT(*) AS total
+            f"""SELECT r.deployment_run_id, r.id, r.qa_kind,
+                       EXISTS (SELECT 1 FROM qa_runs qr
+                                WHERE qr.qa_requirement_id = r.id
+                                  AND qr.verdict = 'pass') AS passed
                   FROM qa_requirements r
                  WHERE r.deployment_run_id IN ({holes})
                    AND r.blocking_mode = 'blocking'
                    AND NOT {settled}
-                 GROUP BY r.deployment_run_id""",
+                 ORDER BY r.deployment_run_id, r.id""",
             params,
-        ).fetchall():
-            row = row_dict(raw)
-            totals[str(row["run_id"])] += int(row["total"] or 0)
-    return (
-        {k: tuple(v) for k, v in unresolved.items() if v},
-        {k: n for k, n in totals.items() if n},
+        ).fetchall()
+    ]
+    totals: dict[str, int] = {}
+    unpassed: list[dict[str, Any]] = []
+    for row in rows:
+        run_id = str(row["deployment_run_id"])
+        totals[run_id] = totals.get(run_id, 0) + 1
+        if not row["passed"]:
+            unpassed.append(row)
+    waits = requirements_awaiting_human_review(
+        conn, (int(row["id"]) for row in unpassed)
     )
+    unresolved: dict[str, list[str]] = {}
+    for row in unpassed:
+        waiting = waits.get(int(row["id"]))
+        unresolved.setdefault(str(row["deployment_run_id"]), []).append(
+            waiting.detail
+            if waiting
+            else f"requirement #{row['id']} ({row['qa_kind']}): no passing run"
+        )
+    return {k: tuple(v) for k, v in unresolved.items()}, totals
 
 
 __all__ = [

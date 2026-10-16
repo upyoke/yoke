@@ -14,7 +14,7 @@ from yoke_core.domain.qa_obligation_settlement import (
 )
 from yoke_core.domain.deployment_qa_source_obligation import source_obligation_consumed
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
-from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
+from yoke_core.domain.qa_review_waits import requirement_awaits_human_review
 from yoke_core.domain.qa_plan_execution_store import marker
 from yoke_core.domain.qa_plan_host_leases import execution_host_leases
 from yoke_core.domain.schema_common import _column_exists, _table_exists

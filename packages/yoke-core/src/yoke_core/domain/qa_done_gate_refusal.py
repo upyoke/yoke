@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any, Sequence
 
 from yoke_core.domain.deployment_qa_source_obligation import POST_DEPLOY_RECOVERY
-from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
+from yoke_core.domain.qa_review_waits import requirement_awaits_human_review
 
 POST_DEPLOY_PHASE = "post_deploy"
 
