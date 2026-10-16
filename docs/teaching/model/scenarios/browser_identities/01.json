@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke qa browser setup --help"],
  "plan_notes": ["JOURNEYS row 13"],
- "sources": ["docs/public/qa.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/README.md"],
+ "sources": ["docs/public/verification/index.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/README.md"],
  "position": 0
 }

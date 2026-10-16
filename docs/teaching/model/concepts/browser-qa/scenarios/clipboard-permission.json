@@ -3,7 +3,7 @@
  "title": "Clipboard permission",
  "status": "observed",
  "summary": "The Chromium runtime grants clipboard-read and clipboard-write when it opens a context, so a case that clicks Copy works without a new step. A browser that cannot grant them fails launch as clipboard_permission_unsupported. grant_clipboard grants the same permissions for the open page's http or https origin. Another origin fails as clipboard_permission_origin_required.",
- "sources": ["docs/public/reference/browser-scenarios.md", "packages/yoke-contracts/src/yoke_contracts/browser_step_schema.json", "packages/yoke-harness/src/yoke_harness/browser_runtime/src/browser-manager.js", "packages/yoke-harness/src/yoke_harness/browser_runtime/src/step-actions/permissions.js", "packages/yoke-harness/src/yoke_harness/browser_runtime/tests/step-runner-clipboard.test.js"],
+ "sources": ["docs/public/verification/browser-scenarios.md", "packages/yoke-contracts/src/yoke_contracts/browser_step_schema.json", "packages/yoke-harness/src/yoke_harness/browser_runtime/src/browser-manager.js", "packages/yoke-harness/src/yoke_harness/browser_runtime/src/step-actions/permissions.js", "packages/yoke-harness/src/yoke_harness/browser_runtime/tests/step-runner-clipboard.test.js"],
  "page": "browser-qa",
  "position": 6
 }

@@ -106,7 +106,7 @@ Name functional surfaces that remain clear without task/spec provenance.
 plans; otherwise explicit method-backed instructions, expected result and
 method config. Browser routes/waits/assertions/captures belong to browser-check
 or browser-inspection configuration, not a new posture field. Follow
-[Where a Browser case runs](../../../../.yoke/docs/reference/browser-scenarios.md#where-a-browser-case-runs);
+[Where a Browser case runs](../../../../.yoke/docs/verification/browser-targets.md#where-a-browser-case-runs);
 a change no server serves selects approval_on_done.
 
 **Caveats:** close all material item-level questions or defaults; task-order

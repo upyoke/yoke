@@ -4,7 +4,7 @@
  "status": "observed",
  "current": "Each Test Machine keeps one FIFO waiting line (qa_host_waits). A scoped QA plan execution that cannot lease the host and a refused manual QA_HOST:<machine> acquire both join it. Every release of the host, including yoke claims work release by claim id, reserves it for the oldest live waiter and wakes that session; the waiter's next acquire consumes the turn. Session end, execution settlement and releasing an unused reservation cancel the wait. The claim_held refusal names the session's place in line, the holder's own release command and the steering-seat recovery.",
  "desired": "Live proof on a registered test host: a manual acquire refused behind a plan execution is reserved and woken on release, then takes the turn.",
- "sources": ["docs/public/reference/qa-platform/deployment-plan-execution.md", "docs/public/reference/db-reference/qa-and-sessions.md", "docs/qa-platform/cli-reference.md", "docs/testing-verification/product-smoke.md", "runtime/agents/qa-walker.md"],
+ "sources": ["docs/public/verification/deployment-plan-execution.md", "docs/public/sessions/model/coordination.md", "docs/qa-platform/cli-reference.md", "docs/testing-verification/product-smoke.md", "runtime/agents/qa-walker.md"],
  "commands": ["yoke claims coordination-claim acquire", "yoke claims coordination-claim release", "yoke claims work release"],
  "functions": ["claims.coordination_claim.acquire", "claims.coordination_claim.release", "claims.work.release", "test_machine.plan_case.begin"],
  "gaps": ["host-line-parked-waiters"],

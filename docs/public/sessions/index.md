@@ -143,4 +143,6 @@ evaluator/client-wall coverage, are labelled incomparable.
 - [Fleet policy](fleet-policy.md) — Read session launch limits and supervision policy.
 - [Path claim model](model/path-claims.md) — Read claim ownership, path coverage and overlap decisions.
 - [Linux relay](linux-relay.md) — Install and inspect login-scoped Linux relay supervision.
+- [Session model](model/sessions.md) — Read harness identity, liveness and work-claim ownership.
+- [Shared coordination model](model/coordination.md) — Read shared-operation leases, host queues and session accounting.
 <!-- /yoke:contents -->

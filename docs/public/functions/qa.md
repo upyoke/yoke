@@ -96,7 +96,7 @@ Browser context echoes its resolved subject. Item cases use branch preview
 deployment evidence; deployment cases use that run's registered target origin
 and served-revision probe. The requested lineage or an older readiness receipt
 never proves the revision currently served. Standalone cases keep their own
-project/plan authority. [QA and sessions](../reference/db-reference/qa-and-sessions.md).
+project/plan authority. [QA records](../verification/model/qa.md).
 
 Run add/complete form the capture lifecycle. Reviewer-derived outcomes remain
 `needs_review`, even with provisional verdict, until linked review settles them.

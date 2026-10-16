@@ -14,7 +14,7 @@ modules below for source-development diagnostics.
 
 ## Related Documentation
 
-- [Browser Scenario Schema](../.yoke/docs/reference/browser-scenarios.md) —
+- [Browser method configuration](../.yoke/docs/verification/browser-targets.md#method-configuration) —
   immutable `method_config` for `browser-check` and `browser-inspection`
 - [Persistent Browser Profile](browser-substrate/persistent-profile.md) — one
   profile per project identity, checked site by site and signed in by the
@@ -280,7 +280,7 @@ and whether it came from the host (`host_path`) or from Yoke (`managed`).
 
 ## Related
 
-- [Browser Scenario Schema](../.yoke/docs/reference/browser-scenarios.md) —
+- [Browser method configuration](../.yoke/docs/verification/browser-targets.md#method-configuration) —
   `method_config` shape for Browser method cases
 - `packages/yoke-harness/src/yoke_harness/browser_runtime/README.md` — Quick-start guide and usage examples
 - `.agents/skills/yoke/dash/verify.md` — committed-candidate case execution and verification guidance

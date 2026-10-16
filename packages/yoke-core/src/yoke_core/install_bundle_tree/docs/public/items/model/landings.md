@@ -61,3 +61,14 @@ release that delivered each landing, or that none has, and whether the
 timestamp is recorded or reconstructed.
 
 Back to [Item model](items.md).
+
+## Table: merge_locks
+
+```sql
+id INTEGER PRIMARY KEY
+session_id TEXT NOT NULL
+branch TEXT NOT NULL
+epic_id TEXT
+acquired_at TEXT NOT NULL
+expires_at TEXT NOT NULL
+```

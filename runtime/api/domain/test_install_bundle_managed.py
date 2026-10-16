@@ -196,7 +196,7 @@ def test_bundle_ships_universal_docs(conn) -> None:
         "workflows/lifecycle.md",
         "databases/reference.md",
         "functions/index.md",
-        "reference/qa-platform/success-policy-schema.md",
+        "verification/success-policy.md",
     ):
         path = f"{DOCS_DEST}/{rel}"
         assert path in by_path, f"bundle missing shipped doc {path}"

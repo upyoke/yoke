@@ -5,5 +5,5 @@
  "page": "qa-methods",
  "position": 1,
  "summary": "Exploratory missions use an informed subagent on the controller to drive a declared Test Machine without adding a source checkout. Main owns the report and verdict; unsupported executors refuse with a named recovery.",
- "sources": ["docs/public/reference/exploratory-qa.md", "runtime/agents/qa-walker.md", "packages/yoke-core/src/yoke_core/domain/qa_method_config_validation.py"]
+ "sources": ["docs/public/verification/exploration.md", "docs/public/verification/exploration-evidence.md", "runtime/agents/qa-walker.md", "packages/yoke-core/src/yoke_core/domain/qa_method_config_validation.py"]
 }

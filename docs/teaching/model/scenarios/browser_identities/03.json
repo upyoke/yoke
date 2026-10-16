@@ -11,6 +11,6 @@
  "review": "Remote command, lease ownership, settings validation, quoting, OS GUI helpers and post-window outcome forwarding have source regression tests; live operator sign-in proof remains pending.",
  "recipes": ["yoke browser authorize --help", "yoke projects capability-settings get --project P --cap-type browser-control --json"],
  "plan_notes": ["FIRST-USER E", "JOURNEYS row 13"],
- "sources": ["docs/public/reference/qa-platform/browser-identities.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/browser-identities.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/macos-host-provisioning.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/linux-host-provisioning.md", "packages/yoke-cli/src/yoke_cli/commands/browser_authorize_remote.py", "runtime/api/cli/test_browser_authorize_remote.py"],
+ "sources": ["docs/public/verification/browser-identities.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/browser-identities.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/macos-host-provisioning.md", "packs/machine-qa/versions/1.3.20/files/docs/packs/machine-qa/linux-host-provisioning.md", "packages/yoke-cli/src/yoke_cli/commands/browser_authorize_remote.py", "runtime/api/cli/test_browser_authorize_remote.py"],
  "position": 2
 }

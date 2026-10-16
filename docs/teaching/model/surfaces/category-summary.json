@@ -12,6 +12,6 @@
  "desired": "Explain every immediate child concisely and route to the narrower home. One topic need not mean one file.",
  "plan_notes": ["New documentation organization proposal"],
  "plan_refs": ["FIRST-USER.40"],
- "sources": ["docs/public/nav.yaml", "docs/public/qa.md", "docs/public/reference/qa-platform.md"],
+ "sources": ["docs/public/nav.yaml", "docs/public/verification/index.md", "docs/public/verification/platform.md"],
  "private_sources": ["platform"]
 }

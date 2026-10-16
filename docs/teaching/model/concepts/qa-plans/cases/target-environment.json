@@ -5,5 +5,5 @@
  "page": "qa-plans",
  "position": 3,
  "summary": "A case's target_envs names registered environments; [] keeps the plan default. Verify on production by default: a case naming an environment without role.production true (stage) must declare stage_reason creates_or_destroys_data or changes_infrastructure, or authoring refuses stage_reason_required and teaches retargeting production. Each stage-targeted case enrolls its item on the stage run, so read-only checks stay on production.",
- "sources": ["packages/yoke-core/src/yoke_core/domain/qa_plan_case_targets.py", "runtime/api/test_qa_plan_case_stage_reason.py", "docs/public/reference/qa-platform/standalone-plans.md"]
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_plan_case_targets.py", "runtime/api/test_qa_plan_case_stage_reason.py", "docs/public/verification/standalone-plans.md"]
 }

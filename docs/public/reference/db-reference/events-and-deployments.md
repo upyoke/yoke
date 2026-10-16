@@ -1,6 +1,6 @@
 # DB Reference — Events and Environment Tracking
 
-Schemas for the unified events log, write-side severity config and registry, and ephemeral / preview environment tracking. Read [database reference](../../databases/reference.md) for entry points, the domain catalog and JSON-payload conventions; [timestamp discipline](../../databases/migrations.md#timestamp-discipline) for timestamp conventions; [QA CLI and body writes](qa-cli-and-body-write.md) and [status lifecycle](../../workflows/model/statuses.md) for those contracts.
+Schemas for the unified events log, write-side severity config and registry, and ephemeral / preview environment tracking. Read [database reference](../../databases/reference.md) for entry points, the domain catalog and JSON-payload conventions; [timestamp discipline](../../databases/migrations.md#timestamp-discipline) for timestamp conventions; [QA CLI](../../verification/qa-cli.md) and [body writes](../../items/model/body-writes.md) and [status lifecycle](../../workflows/model/statuses.md) for those contracts.
 
 ## Table: events
 

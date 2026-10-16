@@ -18,7 +18,7 @@ hunt only in `.github/` or only in the App settings.
 | **Git over the network** | Every push, fetch, and remote read Yoke itself runs | Connected App authorization; optional own git credentials when no authorization is stored |
 | **Repo binding** | Which repo a project maps to | Project create/import; workbench **GitHub** tab |
 | **Issue sync** | Backlog ↔ GitHub issues (labels, body, close) | Project `github_sync_mode` (e.g. disabled / sync modes); see [github/sync.md](sync.md) |
-| **CI** | PR and push checks; full-suite authority on protected merge | Repo Actions workflows; branch protection; project `ci_workflow_file` capability naming the **test** workflow — it must be dispatchable with a `yoke_dispatch_id` input, or the binding is refused ([qa.md](../qa.md)) |
+| **CI** | PR and push checks; full-suite authority on protected merge | Repo Actions workflows; branch protection; project `ci_workflow_file` capability naming the **test** workflow — it must be dispatchable with a `yoke_dispatch_id` input, or the binding is refused ([Verification](../verification/index.md)) |
 | **Merge queue** | Item branches land as PRs through one `merge_group` gate | Project `merge_queue` capability — offered only with GitHub bound, `ci_workflow_file` declared, and that workflow carrying a `merge_group` trigger |
 | **Delivery dispatch** | Deployment flows that trigger Actions | Delivery flows + environment protection + Action secrets/vars |
 | **Runners** | Self-hosted runners for Actions | Packs / runner fleet capabilities; GitHub runner registration |

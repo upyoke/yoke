@@ -3,7 +3,7 @@
  "title": "Recorded tokens and start-time API-equivalent cost",
  "status": "observed",
  "summary": "A session's recorded tokens and cost include every child agent (subagent) it ran, on every harness: Claude child transcripts, Codex child-thread rollouts and Cursor child-turn payloads all add to the same per-model totals. Context compaction and summarization calls that write no usage row are not counted and are never estimated; every usage note names this known undercount.",
- "sources": ["docs/public/reference/db-reference/qa-and-sessions.md", "packages/yoke-contracts/src/yoke_contracts/board/sections_sessions_cells.py", "packages/yoke-core/src/yoke_core/board/data.py", "runtime/api/board/tests/test_session_catalog_payload.py", "packages/yoke-harness/src/yoke_harness/child_agent_artifacts.py", "packages/yoke-contracts/src/yoke_contracts/session_usage_sources.py", "runtime/harness/test_session_usage_child_agents.py"],
+ "sources": ["docs/public/sessions/model/coordination.md", "packages/yoke-contracts/src/yoke_contracts/board/sections_sessions_cells.py", "packages/yoke-core/src/yoke_core/board/data.py", "runtime/api/board/tests/test_session_catalog_payload.py", "packages/yoke-harness/src/yoke_harness/child_agent_artifacts.py", "packages/yoke-contracts/src/yoke_contracts/session_usage_sources.py", "runtime/harness/test_session_usage_child_agents.py"],
  "commands": ["yoke board data get", "yoke sessions list"],
  "functions": ["board.data.get", "sessions.list"],
  "page": "sessions",

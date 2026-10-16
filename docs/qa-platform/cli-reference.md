@@ -5,7 +5,7 @@ function ids. The implementation still lives in modules such as
 `yoke_core.domain.qa` and `yoke_core.domain.qa_gates`, but those module
 names are code references, not command recipes.
 
-Cross-link back from [qa-platform.md](../../.yoke/docs/reference/qa-platform.md) for the four-layer
+Cross-link back from [qa-platform.md](../../.yoke/docs/verification/platform.md) for the four-layer
 model, table schemas, success-policy types, and gating semantics that this CLI
 reads and writes. See [`.yoke/docs/functions/index.md`](../../.yoke/docs/functions/index.md)
 for the function-call envelope. The generated [Atlas](../atlas.md) indexes registered surfaces; regenerate it

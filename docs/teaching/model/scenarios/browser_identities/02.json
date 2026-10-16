@@ -11,6 +11,6 @@
  "review": "Source regressions cover explicit case lists, project personas covering the target origin, uncovered sites, managed browser selection and public-bundle database forwarding.",
  "recipes": ["yoke projects capability-settings get --project P --cap-type browser-control --json", "yoke browser authorize --help"],
  "plan_notes": ["JOURNEYS row 13", "outside both"],
- "sources": ["docs/public/reference/browser-scenarios.md", "docs/public/reference/qa-platform/browser-identities.md", "packages/yoke-core/src/yoke_core/domain/agent_mission_review.py", "packages/yoke-core/src/yoke_core/domain/agent_mission_browser_identities.py", "runtime/api/domain/test_agent_mission_browser_choice.py"],
+ "sources": ["docs/public/verification/browser-targets.md", "docs/public/verification/browser-identities.md", "packages/yoke-core/src/yoke_core/domain/agent_mission_review.py", "packages/yoke-core/src/yoke_core/domain/agent_mission_browser_identities.py", "runtime/api/domain/test_agent_mission_browser_choice.py"],
  "position": 1
 }

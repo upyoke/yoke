@@ -128,7 +128,7 @@ of the selected connection. One item targets one project; installed behavior sta
   paths, commit/publication, protected-branch PR and named partial-state repair.
   Source-maintainer link/admin setup uses `yoke dev setup`, a distinct
   contributor operation rather than an external-project installation recipe.
-- [QA](../qa.md) owns immutable requirements, actual execution, review and
+- [QA](../verification/index.md) owns immutable requirements, actual execution, review and
   waivers. A command passing elsewhere cannot replace its selected case.
 - Bindings and selected delivery flow determine close-out. Do not use a copied
   progression, scalar terminal write or unsupported skip to claim completion.

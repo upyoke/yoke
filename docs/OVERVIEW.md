@@ -145,7 +145,7 @@ Verification runs through the project's declared binding and method: Command,
 Browser, inspection or mission. Record real pass/fail/pending/waived evidence,
 not inferred success. Local checks are bounded iterations; attached immutable
 QA is the complete execution. Exact-candidate evidence must survive later
-changes or be rerun. [QA](public/qa.md) and
+changes or be rerun. [QA](public/verification/index.md) and
 [verification rules](public/agents/rules/verification.md) own admission,
 CI continuation and failure responsibility.
 

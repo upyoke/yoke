@@ -12,6 +12,6 @@
  "desired": "One owner per rule or recipe, meaningful nesting and breadcrumbs, valid release-matched pointers.",
  "plan_notes": ["New documentation organization proposal"],
  "plan_refs": ["FIRST-USER.32", "FIRST-USER.40", "FIRST-USER.41"],
- "sources": ["docs/public/nav.yaml", "docs/public/qa.md", "docs/public/reference/qa-platform.md", "docs/public/index.md"],
+ "sources": ["docs/public/nav.yaml", "docs/public/verification/index.md", "docs/public/verification/platform.md", "docs/public/index.md"],
  "private_sources": ["platform"]
 }

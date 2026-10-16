@@ -11,7 +11,7 @@
  "authority_and_reuse": "Author the introduction once in the category landing; generate breadcrumbs and child links from the shared tree. Technical definitions and operation recipes stay in their canonical detail homes. Do not force empty single-child categories.",
  "proposal_status": "Proposed documentation shape, not a new runtime subsystem",
  "plan_notes": ["JOURNEYS principle 4", "Documentation organization proposal: outside current locked item details"],
- "sources": ["docs/public/nav.yaml", "docs/public/qa.md", "docs/public/reference/qa-platform.md"],
+ "sources": ["docs/public/nav.yaml", "docs/public/verification/index.md", "docs/public/verification/platform.md"],
  "private_sources": ["platform"],
  "position": 0
 }

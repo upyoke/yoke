@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke qa requirement list --help"],
  "plan_notes": ["JOURNEYS row 12", "JOURNEYS row 13"],
- "sources": ["docs/public/reference/qa-platform/case-attachment.md", "docs/public/reference/qa-platform/deployment-plan-execution.md", "docs/public/reference/qa-platform.md", "docs/public/sessions/inbox.md", "runtime/api/domain/test_deployment_qa_shared_plans.py", "runtime/api/domain/test_deployment_qa_shared_admitted_plans.py"],
+ "sources": ["docs/public/verification/case-attachment.md", "docs/public/verification/deployment-plan-execution.md", "docs/public/verification/platform.md", "docs/public/sessions/inbox.md", "runtime/api/domain/test_deployment_qa_shared_plans.py", "runtime/api/domain/test_deployment_qa_shared_admitted_plans.py"],
  "position": 0
 }

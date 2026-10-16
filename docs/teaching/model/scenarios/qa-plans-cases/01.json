@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke qa plan get --help"],
  "plan_notes": ["JOURNEYS row 13", "outside both"],
- "sources": ["docs/testing-verification.md", "docs/public/qa.md", "docs/public/functions/qa.md"],
+ "sources": ["docs/testing-verification.md", "docs/public/verification/index.md", "docs/public/functions/qa.md"],
  "position": 0
 }

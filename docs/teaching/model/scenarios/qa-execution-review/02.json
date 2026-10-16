@@ -11,6 +11,6 @@
  "review": "Candidate source is covered by partial-abort review tests; exact deployed recipe proof remains pending.",
  "recipes": ["yoke qa plan get --help"],
  "plan_notes": ["FIRST-USER 35", "JOURNEYS row 13"],
- "sources": ["docs/testing-verification.md", "docs/public/reference/exploratory-qa.md", "packages/yoke-core/src/yoke_core/domain/qa_review_verdict_modes.py"],
+ "sources": ["docs/testing-verification.md", "docs/public/verification/exploration-evidence.md", "packages/yoke-core/src/yoke_core/domain/qa_review_verdict_modes.py"],
  "position": 1
 }

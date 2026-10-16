@@ -6,7 +6,7 @@
 
 Raw item reads join `item_refs r ON r.item_id = items.id` and select `r.public_ref`. The read-only view follows prefix updates; `project_sequence` alone is ambiguous across projects. `yoke db read` warns when the result omits both `public_ref` and `public_item_prefix`.
 
-Schemas for backlog items, epic tasks, and the supporting shepherd / caveat / dependency tables. Read [database reference](../../databases/reference.md) for entry points, the domain catalog, JSON-payload conventions and common pitfalls; [timestamp discipline](../../databases/migrations.md#timestamp-discipline) for timestamp conventions; [QA CLI and body writes](../../reference/db-reference/qa-cli-and-body-write.md) and [status lifecycle](../../workflows/model/statuses.md) for those contracts.
+Schemas for backlog items, epic tasks, and the supporting shepherd / caveat / dependency tables. Read [database reference](../../databases/reference.md) for entry points, the domain catalog, JSON-payload conventions and common pitfalls; [timestamp discipline](../../databases/migrations.md#timestamp-discipline) for timestamp conventions; [QA CLI](../../verification/qa-cli.md) and [body writes](body-writes.md) and [status lifecycle](../../workflows/model/statuses.md) for those contracts.
 
 ## Backlog ontology
 

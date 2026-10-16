@@ -6,7 +6,7 @@ metadata.
 
 ## Choose where the case runs
 
-[Where a Browser case runs](../../../../../.yoke/docs/reference/browser-scenarios.md#where-a-browser-case-runs)
+[Where a Browser case runs](../../../../../.yoke/docs/verification/browser-targets.md#where-a-browser-case-runs)
 owns the phase, target, and transition for every Browser case, and names the
 approval that replaces one when no server serves the change. Author the case
 it selects.

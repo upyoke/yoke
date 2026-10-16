@@ -7,7 +7,7 @@ case catalog, flow engine or hidden stages.
 
 ## Placement and suitable item flow
 
-Follow [Where a Browser case runs](../../../../.yoke/docs/reference/browser-scenarios.md#where-a-browser-case-runs):
+Follow [Where a Browser case runs](../../../../.yoke/docs/verification/browser-targets.md#where-a-browser-case-runs):
 visibility determines verification/post_deploy phase, target and declared
 transition; no served surface selects approval_on_done. A screenshot specializes
 a case, not a new flow if existing sequence/verdict already fits.

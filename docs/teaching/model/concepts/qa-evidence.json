@@ -2,7 +2,7 @@
  "id": "qa-evidence",
  "title": "QA executions, evidence and verdicts",
  "status": "draft-copy",
- "sources": ["docs/public/reference/qa-platform/requirement-state-model.md", "docs/public/reference/qa-platform/success-policy-schema.md", "docs/public/reference/db-reference/qa-and-sessions.md", "docs/public/reference/browser-evidence.md"],
+ "sources": ["docs/public/verification/requirement-state.md", "docs/public/verification/success-policy.md", "docs/public/verification/model/qa.md", "docs/public/verification/browser-evidence.md"],
  "page": "qa-evidence",
  "position": 31
 }

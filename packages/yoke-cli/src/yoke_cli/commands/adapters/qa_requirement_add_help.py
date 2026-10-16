@@ -73,7 +73,7 @@ Browser method_config.browser_identity names the declared project identity
 the case runs as (default `default`); an agent mission's
 method_config.browser_identities lists the identities its walker verifies
 signed in before browsing (`yoke browser verify --identity NAME`).
-Full configuration: reference/browser-scenarios.md, Method configuration.
+Full configuration: verification/browser-targets.md#method-configuration.
 
   flag                        required  default    value shape
   --item                      one-of    —          PREFIX-N

@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke qa plan get --help"],
  "plan_notes": ["JOURNEYS row 13", "outside both"],
- "sources": ["docs/public/reference/qa-platform/standalone-plans.md"],
+ "sources": ["docs/public/verification/standalone-plans.md"],
  "position": 1
 }

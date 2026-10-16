@@ -5,5 +5,5 @@
  "page": "deployments",
  "position": 6,
  "summary": "Failure and cancellation atomically abort live QA executions and retract unsettled run obligations; passing evidence and standing plans survive. Removing a member retracts every unsettled run copy of its QA, even one that passed before a later failure, because completion grades each copy's latest attempt. Completed captures retain independent typed review authority. A failed-run retry restores automatic QA retirements and requires a new walk; manual retirements remain.",
- "sources": ["packages/yoke-core/src/yoke_core/domain/qa_deployment_run_settlement.py", "runtime/api/domain/test_deployment_qa_run_settlement.py", "docs/public/reference/qa-platform/requirement-state-model.md", "packages/yoke-core/src/yoke_core/domain/deployment_run_member_removal.py", "runtime/api/domain/test_deployment_run_member_removal.py"]
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_deployment_run_settlement.py", "runtime/api/domain/test_deployment_qa_run_settlement.py", "docs/public/verification/requirement-state.md", "packages/yoke-core/src/yoke_core/domain/deployment_run_member_removal.py", "runtime/api/domain/test_deployment_run_member_removal.py"]
 }

@@ -48,7 +48,7 @@ def test_binding_keeps_non_actions_and_legacy_suites_honest() -> None:
 
 
 def test_public_map_covers_non_pytest_and_multi_suite_realities() -> None:
-    qa = _read(REPO / "docs" / "public" / "qa.md")
+    qa = _read(REPO / "docs" / "public" / "verification" / "index.md")
     archetypes = _read(REPO / "docs" / "install-onboard-archetypes" / "test-setup.md")
 
     for reality in (
@@ -75,6 +75,10 @@ def test_install_bundle_mirrors_the_canonical_guidance() -> None:
         packaged = BUNDLE / ".agents" / "skills" / "yoke" / "onboard" / name
         assert packaged.read_bytes() == source.read_bytes()
 
-    public_qa = REPO / "docs" / "public" / "qa.md"
-    assert (BUNDLE / "docs" / "public" / "qa.md").read_bytes() == public_qa.read_bytes()
-    assert (REPO / ".yoke" / "docs" / "qa.md").read_bytes() == public_qa.read_bytes()
+    public_qa = REPO / "docs" / "public" / "verification" / "index.md"
+    assert (
+        BUNDLE / "docs" / "public" / "verification" / "index.md"
+    ).read_bytes() == public_qa.read_bytes()
+    assert (
+        REPO / ".yoke" / "docs" / "verification" / "index.md"
+    ).read_bytes() == public_qa.read_bytes()

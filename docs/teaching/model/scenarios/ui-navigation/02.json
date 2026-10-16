@@ -10,7 +10,7 @@
  "gap": "Progress surfaces are already mapped; first navigation, empty states and deep-link behavior are not independently traced. Review question: should dashboard explanation and JOURNEYS cues share the same task names?",
  "review": "Pending exact recipe proof. Companion Platform item PLAT-227 records landed implementation and passing internal QA; authorized maintainers can read it through internal access. Deployed desktop and 390px comparison remains pending; this is observed implementation, not verified-live.",
  "plan_notes": ["FIRST-USER P5", "FIRST-USER B", "JOURNEYS row 9", "outside both"],
- "sources": ["docs/public/start/concepts.md", "docs/public/sessions/inbox.md", "docs/public/qa.md", "docs/public/strategy/frontier.md"],
+ "sources": ["docs/public/start/concepts.md", "docs/public/sessions/inbox.md", "docs/public/verification/index.md", "docs/public/strategy/frontier.md"],
  "position": 1,
  "work_items": ["PLAT-227"]
 }

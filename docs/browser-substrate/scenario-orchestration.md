@@ -10,7 +10,7 @@ the Yoke checkout and from a connected project checkout.
 
 See [Browser Automation Substrate](../browser-substrate.md) for daemon, ref,
 and step-runner primitives, and
-[Browser Scenario Schema](../../.yoke/docs/reference/browser-scenarios.md) for the
+[Browser method configuration](../../.yoke/docs/verification/browser-targets.md#method-configuration) for the
 case configuration contract.
 
 ## Usage
@@ -70,7 +70,7 @@ Browser cases use one of two method IDs:
   A check whose assertions never matched an element — every one of them an
   absence-shaped check against a zero-match locator — observed no page at all
   and fails as `assertion_vacuous_absence` rather than passing. See
-  [browser scenarios](../public/reference/browser-scenarios.md).
+  [browser scenarios](../public/verification/browser-scenarios.md).
 - `browser-inspection` captures linked evidence and can produce an undetermined
   verdict with a reason naming what could not be established and why. That
   halts the item until a project owner/operator resolves its review request.
@@ -143,7 +143,7 @@ capture/review continuation and outcome writes; callers do not extract its
 command and substitute a smaller execution. `yoke qa case run` is the
 registered focused rerun for a failed materialized case. Conduct's Tester
 review and each case's own Browser evidence remain independent gate inputs.
-See [QA plan ownership](../public/reference/qa-platform.md).
+See [QA plan ownership](../public/verification/platform.md).
 
 ## Artifact storage
 

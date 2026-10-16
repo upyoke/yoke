@@ -195,7 +195,7 @@ the stage name alone does not imply a fixed QA recipe.
 
 - [commands.md](../agents/commands.md)
 - [charge-frontier.md](../strategy/charge-frontier.md)
-- [qa-platform.md](../reference/qa-platform.md)
+- [QA platform](../verification/platform.md)
 - [reference.md](../databases/reference.md)
 
 

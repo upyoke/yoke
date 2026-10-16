@@ -19,7 +19,7 @@ Read `yoke qa plan run --help` before selecting source and continuation options.
 
 For a lost plan response, keep its execution and custody. Re-enter with the
 original scoped command plus `--resume-execution-id ID`; follow
-[check-in recovery](../../reference/qa-platform/standalone-plans.md#recover-a-lost-check-in-response)
+[check-in recovery](../../verification/standalone-plans.md#recover-a-lost-check-in-response)
 before any host reset or one-shot action replay. An unknown reply is not failure.
 
 After failed QA, classify and act: product defect -> return to implementation; setup failure -> record the blocker; unclear cause -> investigate now.

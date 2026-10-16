@@ -161,6 +161,7 @@ root:
         - title: Landing model
           summary: Inspect merge provenance and landing attribution.
           path: items/model/landings.md
+        - {title: "Body writes", summary: "Write structured fields and render the generated item body.", path: "items/model/body-writes.md"}
     - title: Sessions
       summary: Inspect live sessions, ownership, messages and steering reports.
       path: sessions/index.md
@@ -183,6 +184,8 @@ root:
         - title: Linux relay
           summary: Install and inspect login-scoped Linux relay supervision.
           path: sessions/linux-relay.md
+        - {title: "Session model", summary: "Read harness identity, liveness and work-claim ownership.", path: "sessions/model/sessions.md"}
+        - {title: "Shared coordination model", summary: "Read shared-operation leases, host queues and session accounting.", path: "sessions/model/coordination.md"}
     - title: Workflows
       summary: Choose definitions and follow pinned lifecycle gates and transitions.
       path: workflows/index.md
@@ -296,6 +299,31 @@ root:
         - title: Models
           summary: Read effective-dated model catalog and publication functions.
           path: functions/models.md
+    - title: Verification
+      summary: Define cases, execute project plans and inspect evidence for workflow gates.
+      path: verification/index.md
+      children:
+        - {title: "QA platform", summary: "Read obligation dimensions, materialization and evidence gates.", path: "verification/platform.md"}
+        - {title: "Requirement discharges", summary: "Derive requirements and settle waived, superseded or retracted obligations.", path: "verification/requirement-discharges.md"}
+        - {title: "Requirement state", summary: "Evaluate current attempts, review authority and exact subject proof.", path: "verification/requirement-state.md"}
+        - {title: "Standalone plans", summary: "Run project plans and recover an interrupted or ambiguous execution.", path: "verification/standalone-plans.md"}
+        - {title: "Success policy", summary: "Apply all-pass aggregation and attempt-local measurements.", path: "verification/success-policy.md"}
+        - {title: "Case attachment", summary: "Bind cases to authorized items, tasks and deployment targets.", path: "verification/case-attachment.md"}
+        - {title: "Starting state and activity", summary: "Declare Machine starting state and read case activity.", path: "verification/case-attachment-rules.md"}
+        - {title: "Deployment plan execution", summary: "Run frozen cases across members, machines and shared host turns.", path: "verification/deployment-plan-execution.md"}
+        - {title: "Browser targets", summary: "Select Browser targets, methods, identities and viewport configuration.", path: "verification/browser-targets.md"}
+        - {title: "Browser scenarios", summary: "Author actions and assertions, then execute the Browser case.", path: "verification/browser-scenarios.md"}
+        - {title: "Browser evidence", summary: "Read captures and distinguish execution from inspected verdicts.", path: "verification/browser-evidence.md"}
+        - {title: "Browser identities", summary: "Declare personas, sign in and use isolated browser profiles.", path: "verification/browser-identities.md"}
+        - {title: "Exploratory missions", summary: "Define discovery territory and follow execution, review and human gates.", path: "verification/exploration.md"}
+        - {title: "Exploratory evidence", summary: "Use substrates, retain evidence and submit mission decisions.", path: "verification/exploration-evidence.md"}
+        - {title: "QA model", summary: "Read requirement, execution and artifact storage contracts.", path: "verification/model/qa.md"}
+        - {title: "QA CLI", summary: "Use registered requirement, execution and evidence commands.", path: "verification/qa-cli.md"}
+        - {title: "Test Machine desktop", summary: "View remote desktops and recover cleanup or disk-space refusals.", path: "verification/test-machine-desktop.md"}
+        - {title: "Linux golden home", summary: "Read Linux baseline capture, restore and timeout recovery.", path: "verification/linux-golden-home.md"}
+        - {title: "Linux desktop applications", summary: "Detect installed desktop versions without starting the apps.", path: "verification/linux-desktop-apps.md"}
+        - {title: "Product smoke", summary: "Find the source-maintainer smoke procedure and project plan entry.", path: "verification/product-smoke.md"}
+        - {title: "Real harness QA", summary: "Find real-harness Machine checks and their subject identity contract.", path: "verification/real-harness.md"}
     - title: Documentation
       summary: Write, navigate and verify complete, concise teaching.
       path: documentation/index.md

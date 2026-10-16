@@ -6,5 +6,5 @@
  "page": "server-admin",
  "position": 0,
  "summary": "Authorize a declared identity locally or on a registered Test Machine from a connected workstation with --machine; the operator signs in on its GUI desktop and the command verifies afterward. Unrouted hosts can receive nonsecret declarations locally.",
- "sources": ["docs/public/reference/qa-platform/browser-identities.md", "packages/yoke-cli/src/yoke_cli/commands/browser_authorize.py", "runtime/api/cli/test_browser_authorize_remote.py"]
+ "sources": ["docs/public/verification/browser-identities.md", "packages/yoke-cli/src/yoke_cli/commands/browser_authorize.py", "runtime/api/cli/test_browser_authorize_remote.py"]
 }

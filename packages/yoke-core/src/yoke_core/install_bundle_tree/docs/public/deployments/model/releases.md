@@ -5,10 +5,10 @@
 <!-- /yoke:breadcrumbs -->
 
 Read release verification across [runs](runs.md), [stage receipts](stage-receipts.md),
-[members and QA](run-members.md) and [QA requirements](../../reference/db-reference/qa-and-sessions.md).
-Those pages own the table schemas; this page explains how release checks consume
-them. [Release notices](release-notices.md) covers caseless QA, settled results and
-owner delivery announcements.
+[members and QA](run-members.md) and [QA requirements](../../verification/model/qa.md).
+Those pages own the execution schemas; this page documents release entries and explains how release checks consume
+the execution records. [Release notices](release-notices.md) covers caseless QA, settled results and
+owner delivery announcements. Read [timestamp discipline](../../databases/migrations.md#timestamp-discipline) for timestamp conventions.
 
 ## What this runtime actually serves
 
@@ -230,3 +230,17 @@ run-scoped stage.
 ## Related
 
 - [Release notices](release-notices.md)
+
+## Table: release_entries
+
+```sql
+id INTEGER PRIMARY KEY
+item_id INTEGER NOT NULL -- backlog item ID
+category TEXT NOT NULL DEFAULT 'improvements' -- features|improvements|bug_fixes|internal
+title TEXT NOT NULL
+version TEXT NOT NULL
+project_id INTEGER NOT NULL REFERENCES projects(id) -- explicit attribution
+created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see timestamp discipline in the introduction
+UNIQUE(item_id, version, project_id)
+CHECK(category IN ('features','improvements','bug_fixes','internal'))
+```

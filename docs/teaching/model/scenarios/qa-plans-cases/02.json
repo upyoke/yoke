@@ -12,6 +12,6 @@
  "recipes": ["yoke qa plan get --help", "yoke qa requirement list --help"],
  "plan_notes": ["FIRST-USER 35", "JOURNEYS row 13"],
  "surface_notes": ["Saved QA plan → materialized requirements: Reusable definitions and their subject-bound requirements are distinct records. Later edits follow explicit snapshot/currency rules rather than rewriting old proof."],
- "sources": ["docs/testing-verification.md", "docs/qa-platform/plan-case-currency.md", "docs/public/reference/qa-platform.md"],
+ "sources": ["docs/testing-verification.md", "docs/qa-platform/plan-case-currency.md", "docs/public/verification/platform.md"],
  "position": 1
 }

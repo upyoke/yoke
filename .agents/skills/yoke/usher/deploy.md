@@ -130,7 +130,7 @@ yoke claims work release --item PREFIX-N --reason usher-halt-deploy-stage-failur
 ```
 
 A QA plan `outcome_unknown` preserves its execution and custody; follow
-[check-in recovery](../../../../.yoke/docs/reference/qa-platform/standalone-plans.md#recover-a-lost-check-in-response)
+[check-in recovery](../../../../.yoke/docs/verification/standalone-plans.md#recover-a-lost-check-in-response)
 with the same scoped command plus `--resume-execution-id ID` before proceeding.
 
 Own-flow close-out never uses done-transition skip-deploy. Unsatisfied member QA

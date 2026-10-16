@@ -49,5 +49,6 @@ item from the frontier for the current session.
 - [Deployments](deployments/index.md) — Follow delivery destinations, inspect runs and read release authority.
 - [Databases](databases/index.md) — Inspect declared models, migration conventions and governed repair.
 - [Functions](functions/index.md) — Discover typed function envelopes and registered operation families.
+- [Verification](verification/index.md) — Define cases, execute project plans and inspect evidence for workflow gates.
 - [Documentation](documentation/index.md) — Write, navigate and verify complete, concise teaching.
 <!-- /yoke:contents -->

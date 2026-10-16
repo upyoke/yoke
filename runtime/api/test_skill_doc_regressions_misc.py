@@ -127,7 +127,7 @@ def test_implement_skill_does_not_depend_on_private_strategy_files() -> None:
 @pytest.mark.parametrize(
     ("document", "target"),
     (
-        ("docs/qa-platform/cli-reference.md", ".yoke/docs/reference/qa-platform.md"),
+        ("docs/qa-platform/cli-reference.md", ".yoke/docs/verification/platform.md"),
         (
             "docs/qa-platform/cli-reference.md",
             ".yoke/docs/functions/index.md",

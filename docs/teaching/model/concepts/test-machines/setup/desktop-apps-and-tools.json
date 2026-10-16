@@ -4,7 +4,7 @@
  "status": "observed",
  "page": "test-machines",
  "position": 3,
- "sources": ["docs/public/reference/test-machine-desktop.md", "packages/yoke-harness/src/yoke_harness/rdp_desktop_client.py", "packages/yoke-harness/src/yoke_harness/linux_desktop_state.py"],
+ "sources": ["docs/public/verification/test-machine-desktop.md", "packages/yoke-harness/src/yoke_harness/rdp_desktop_client.py", "packages/yoke-harness/src/yoke_harness/linux_desktop_state.py"],
  "commands": ["yoke test-machine desktop-access"],
  "functions": ["test_machine.desktop_access"],
  "summary": "RDP desktop access reuses the fixture display or restarts a session orphaned by sesman. The forwarded viewer trusts SSH host-key verification, bypasses the per-port RDP certificate cache, and retains reason-specific client diagnostics. Direct routes verify their certificates."

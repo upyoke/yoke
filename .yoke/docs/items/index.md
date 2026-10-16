@@ -74,4 +74,5 @@ Read `--help` for project and disabled-flow filters.
 - [Item dependency model](model/dependencies.md) — Read dependency edges, gate satisfaction and the canonical blocker model.
 - [Generated task model](model/tasks.md) — Read task graphs, dispatch chains and progress records.
 - [Landing model](model/landings.md) — Inspect merge provenance and landing attribution.
+- [Body writes](model/body-writes.md) — Write structured fields and render the generated item body.
 <!-- /yoke:contents -->

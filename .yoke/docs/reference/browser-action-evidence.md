@@ -36,4 +36,4 @@ assertions and failed capture evidence. A new real acceptance transaction
 needs explicit operator authorization; an eventual next screen is not proof
 of the missing intermediate state or elapsed time.
 
-See [Browser scenarios](browser-scenarios.md) for actions and capture framing.
+See [Browser scenarios](../verification/browser-scenarios.md) for actions and capture framing.

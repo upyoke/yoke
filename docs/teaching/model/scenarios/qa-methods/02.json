@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke qa method get --help"],
  "plan_notes": ["JOURNEYS row 13"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/qa_method_definitions.py", "docs/public/reference/browser-scenarios.md", "docs/public/reference/exploratory-qa.md"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/qa_method_definitions.py", "docs/public/verification/browser-scenarios.md", "docs/public/verification/exploration.md"],
  "position": 1
 }

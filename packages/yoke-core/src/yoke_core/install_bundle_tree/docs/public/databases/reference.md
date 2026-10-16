@@ -24,7 +24,7 @@ The [function catalog](../functions/index.md) owns registered ids, CLI adapters,
 This reference covers diagnostic columns, agent packets, registered operations,
 JSON payloads and common pitfalls. The [database branch](index.md) links migration
 conventions and governed repair; the [Topic Index](#topic-index) links current
-data-model homes and the remaining QA and event references.
+data-model homes, QA commands and the remaining event reference.
 
 ## Common column mistakes to avoid in raw SQL
 
@@ -42,7 +42,7 @@ Quick reference for the columns most often mis-named in agent SQL. The DB-comman
 - `project_capabilities`: use `type` (NOT `capability`/`name`/`capability_type`), `config` for full JSON (may contain secrets), `settings` for non-sensitive JSON.
 - `projects`: use `id` (NOT `project_id`/`name`) and `github_repo` (NOT `repo_url`/`github_url`). Checkout paths are machine-local config, not `projects` columns. Work-item-level deployment-flow defaulting lives in the `deploy_defaults` Project Structure family, not as a column on `projects`.
 - **Domain names**: `epic` (NOT `epics`), `events registry` (NOT `registry`), `runs` (NOT `deploy-events`); board rebuild is `yoke board rebuild`.
-- **Live-claim holder lookup**: use `yoke claims work holder-get PREFIX-N`; inspect project steering holders with `yoke claims steering list --project P --active-only`. The typed `work_claims` model uses `target_kind` plus one canonical JSON `scope`; session ownership is `session_id`. See [qa-and-sessions.md § Live claim-holder lookup](../reference/db-reference/qa-and-sessions.md).
+- **Live-claim holder lookup**: use `yoke claims work holder-get PREFIX-N`; inspect project steering holders with `yoke claims steering list --project P --active-only`. The typed `work_claims` model uses `target_kind` plus one canonical JSON `scope`; session ownership is `session_id`. See [Live claim-holder lookup](../sessions/model/sessions.md#live-claim-holder-lookup).
 
 ## Agent-context packet
 
@@ -84,10 +84,10 @@ manifest/bootstrap substrate facts. See the [agent guide](../agents/index.md).
 - [Deployment runs](../deployments/model/runs.md), [stage receipts](../deployments/model/stage-receipts.md) and [members and QA](../deployments/model/run-members.md) describe execution and release custody.
 - [Release authorities](../deployments/model/releases.md) and [notices](../deployments/model/release-notices.md) describe verification, verdicts and delivery announcements.
 - [Projects and capabilities](model/projects.md) describe the project registry and Project Structure aggregate; [sites, environments and flows](../deployments/model/flows.md) describe deployment targets and pipelines.
-- [QA and sessions](../reference/db-reference/qa-and-sessions.md) describe the current QA, release, merge-lock and session table reference.
+- [QA records](../verification/model/qa.md) describe requirements, runs and artifacts; [session records](../sessions/model/sessions.md) describe harness identity and work claims, and [shared coordination](../sessions/model/coordination.md) describes leases and session accounting.
 - [Events and environments](../reference/db-reference/events-and-deployments.md) describe event and preview-environment records.
 - [Machine-local evidence](machine-local-evidence.md) describes bounded relay, watcher and diagnostic retrieval.
-- [QA CLI and body writes](../reference/db-reference/qa-cli-and-body-write.md) describe the current command and structured-content write references.
+- [QA CLI](../verification/qa-cli.md) describes QA commands; [body writes](../items/model/body-writes.md) describes structured-content writes and rendering.
 - [Function catalogs](../functions/index.md) describe registered operations, claim policies and typed envelopes.
 
 ## Entry points
@@ -139,8 +139,8 @@ yoke db read "SELECT r.public_ref, i.title FROM items i JOIN item_refs r ON r.it
 ```
 
 Read each command's `--help` before changing its payload or selecting a
-write. The [QA/body home](../reference/db-reference/qa-cli-and-body-write.md) owns QA
-requirements, artifacts and structured transforms; the
+write. The [QA CLI](../verification/qa-cli.md) owns QA
+requirements and artifacts; [body writes](../items/model/body-writes.md) owns structured transforms; the
 [deployment run home](../deployments/model/runs.md) owns registered run recipes;
 [members and QA](../deployments/model/run-members.md) owns custody. Deployment flow/run adapters are
 available; discover their current shape rather than treating them as pending.

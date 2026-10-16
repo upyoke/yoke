@@ -99,9 +99,9 @@ def test_every_skill_doc_assertion_is_rostered() -> None:
 @pytest.mark.parametrize(
     "changed",
     (
-        "docs/public/reference/qa-platform/deployment-plan-execution.md",
+        "docs/public/verification/deployment-plan-execution.md",
         "docs/testing-verification.md",
-        ".yoke/docs/reference/qa-platform/case-attachment.md",
+        ".yoke/docs/verification/case-attachment.md",
         ".agents/skills/yoke/dash/close-out.md",
     ),
 )

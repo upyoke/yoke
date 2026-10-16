@@ -259,9 +259,11 @@ def test_no_bare_doctor_invocation_in_packet(body: str) -> None:
 def test_authored_qa_docs_teach_canonical_yoke_surfaces() -> None:
     paths = (
         _REPO / ".yoke" / "docs" / "agents" / "commands.md",
-        _REPO / ".yoke" / "docs" / "reference" / "browser-scenarios.md",
+        _REPO / ".yoke" / "docs" / "verification" / "browser-scenarios.md",
+        _REPO / ".yoke" / "docs" / "verification" / "browser-targets.md",
         _REPO / "docs" / "browser-substrate" / "scenario-orchestration.md",
-        _REPO / ".yoke" / "docs" / "reference" / "db-reference" / "qa-and-sessions.md",
+        _REPO / ".yoke" / "docs" / "verification" / "model" / "qa.md",
+        _REPO / ".yoke" / "docs" / "verification" / "qa-cli.md",
         _REPO / ".agents" / "skills" / "yoke" / "dash" / "verify.md",
     )
     text = "\n".join(path.read_text(encoding="utf-8") for path in paths)
@@ -270,6 +272,8 @@ def test_authored_qa_docs_teach_canonical_yoke_surfaces() -> None:
     assert "--requirement-id" in text
     assert "yoke qa case run" in text
     assert "qa run-complete" not in text
+    qa_cli = (_REPO / ".yoke/docs/verification/qa-cli.md").read_text()
+    assert "yoke qa run complete" in qa_cli
 
 
 def test_authored_claim_docs_teach_canonical_widen_surface() -> None:
@@ -309,3 +313,26 @@ def test_db_claim_docs_teach_required_apply_strategy_and_role_enum() -> None:
     assert "migration_strategy" in text
     assert 'mutation_intent="apply"' in text
     assert "role` is only `reader` or `writer`" in text
+
+
+@pytest.mark.parametrize(
+    ("page", "heading"),
+    [
+        ("verification/model/qa.md", "Table: qa_requirements"),
+        ("verification/model/qa.md", "success_policy JSON Schema"),
+        ("verification/model/qa.md", "Table: qa_runs"),
+        ("verification/model/qa.md", "Table: qa_artifacts"),
+        ("sessions/model/sessions.md", "Table: harness_sessions"),
+        ("sessions/model/sessions.md", "Table: work_claims"),
+        ("sessions/model/sessions.md", "Live claim-holder lookup"),
+        ("sessions/model/coordination.md", "Shared-operation coordination claims"),
+        ("sessions/model/coordination.md", "BOARD.md Claims column rendering"),
+        ("sessions/model/coordination.md", "Scheduling and registered identity"),
+        ("deployments/model/releases.md", "Table: release_entries"),
+        ("items/model/landings.md", "Table: merge_locks"),
+        ("items/model/body-writes.md", "Body Write Path"),
+    ],
+)
+def test_model_topics_retain_their_complete_sections(page: str, heading: str) -> None:
+    text = (_REPO / "docs/public" / page).read_text()
+    assert re.search(r"^#{2,3} " + re.escape(heading) + r"$", text, re.MULTILINE)
