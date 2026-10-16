@@ -58,7 +58,8 @@ the attempt merges, the observer moves the item's columns onto it, stamps
 GitHub's merge time and sends the normal completion notice. When it closes
 unmerged, the attempt closes with the reason `pull request N closed without
 merging; the item keeps its previous landing`, the item's landing is
-unchanged, and an armed attempt's holder gets the stopped-landing notice.
+unchanged. An armed attempt first sends its holder the stopped-landing notice
+and closes once that notice is delivered, so a failed notice is retried.
 The board label, the fleet landing readback, `github.merge_queue.readiness`
 and the waiting worker describe the open attempt. `yoke items detail get`
 shows the current landing under `merge_queue` and the open or last closed
