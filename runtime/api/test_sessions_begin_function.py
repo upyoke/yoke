@@ -112,7 +112,7 @@ class TestHandleBeginUnit:
         from yoke_core.domain.handlers.sessions_begin import handle_begin
 
         bad = _valid_payload()
-        del bad["project_id"]
+        del bad["executor"]
         out = handle_begin(_request("sid", bad))
         assert out.primary_success is False
         assert out.error is not None
