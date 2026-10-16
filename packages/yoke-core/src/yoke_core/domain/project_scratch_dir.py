@@ -1,12 +1,13 @@
-"""Project-scoped scratch path helpers.
+"""Project- and machine-scoped scratch path helpers.
 
 Yoke-owned transient paths use ``YOKE_SCRATCH_ROOT``,
 ``~/.yoke/config.json:temp_root``, or OS temp with project/session/run
-segments; connected project references resolve to numeric ids. Offline
+segments; projectless callers use an authority namespace. Connected project
+references resolve to numeric ids. Offline
 callers retain their explicit slug without a control-plane lookup.
 Repo-local data dirs are never the default. Cross-process
 coordination surfaces (hook markers, harness runtime cache) stay
-project-stable — no session/run segments — so sibling hook processes of
+scope-stable — no session/run segments — so sibling hook processes of
 one harness session resolve the same files.
 """
 
@@ -21,6 +22,10 @@ from pathlib import Path
 from typing import Iterator
 
 from yoke_core.domain import project_scratch_roots
+from yoke_core.domain.project_scratch_identity import (
+    resolve_scratch_namespace,
+    scratch_machine_owner,
+)
 from yoke_core.domain.project_scratch_roots import (
     ENV_KEY,
     ScratchRootResolutionError,
@@ -45,6 +50,7 @@ __all__ = [
     "mint_watcher_capture_pair",
     "resolve_active_project",
     "scratch_root",
+    "scratch_machine_owner",
     "scratch_project",
     "scratch_subdir",
     "storage_dir",
@@ -89,17 +95,16 @@ def scratch_root(
     *,
     session_segment: str | None = None,
 ) -> Path:
-    """Return the writable project/session/run scratch root.
+    """Return the writable scope/session/run scratch root.
 
     ``session_segment`` lets a caller that has already resolved (and
     vetted) the session namespace supply it, instead of resolving ambient
     identity a second time.
     """
 
-    active_project = resolve_active_project(project)
+    namespace = resolve_scratch_namespace(project, bound_project=_scratch_project.get())
     root = (
-        global_scratch_root()
-        / _safe_segment(active_project)
+        global_scratch_root().joinpath(*namespace)
         / "sessions"
         / (session_segment or _session_segment())
         / "runs"
@@ -318,10 +323,10 @@ def _stable_rooted_path(
     *parts: str,
     create_parent: bool,
 ) -> Path:
-    """Resolve *parts* under the project root without session/run segments."""
+    """Resolve *parts* under the scope root without session/run segments."""
 
-    active_project = resolve_active_project(project)
-    path = global_scratch_root().joinpath(_safe_segment(active_project), *parts)
+    namespace = resolve_scratch_namespace(project, bound_project=_scratch_project.get())
+    path = global_scratch_root().joinpath(*namespace, *parts)
     if create_parent:
         path.parent.mkdir(parents=True, exist_ok=True)
     return path
