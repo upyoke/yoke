@@ -42,12 +42,14 @@ from yoke_core.domain.migration_apply_resolve import (
 from yoke_core.domain.migration_apply_runners import dispatch_handle
 from yoke_core.domain.migration_apply_verify import (
     _append_rehearsal_outcomes,
+    _placeholder,
     _row_count_map,
     _run_baseline_verify,
     _run_module_invariants,
     _run_rehearsal_commands,
 )
 from yoke_core.domain.migration_rehearsal_evidence import receipt_writers
+from yoke_core.domain.migration_restore_point import establish, named_restore_point
 
 
 def rehearse(
@@ -133,176 +135,195 @@ def _rehearse_inner(
     val_conn = connect_db_target(validation_target)
     try:
         pre_counts_validation = _row_count_map(val_conn, affected_tables)
+        backup_path = establish(
+            val_conn, backup_root=worktree_path / ".yoke" / "backups",
+            backup_target_dsn=validation_target.target, external_restore_point=None,
+        )
+        if not Path(backup_path).is_file() or Path(backup_path).stat().st_size == 0:
+            raise MigrationApplyError("validation restore-point archive is missing or empty")
+    except Exception:
+        migration_territory_claim.leave(control_conn, lease.id, "rehearsal-backup-failed")
+        raise
     finally:
         val_conn.close()
 
-    for identifier in profile["migration_modules"]:
-        attempt = ModuleAttemptResult(
-            identifier=identifier,
-            audit_id=None,
-            state=STATE_PLANNED,
-        )
-        result.modules.append(attempt)
-        try:
-            attempt.audit_id = insert_audit_row(
-                name=identifier,
-                model_name=profile["model_name"],
-                project_id=project_id,
-                session_id=session_id,
-                test_copy_path=validation_target.display,
-                tables=affected_tables,
-                description=None,
+    with named_restore_point(Path(backup_path)):
+        for identifier in profile["migration_modules"]:
+            attempt = ModuleAttemptResult(
+                identifier=identifier,
+                audit_id=None,
+                state=STATE_PLANNED,
             )
-            # test_copy_created
-            update_audit_state(
-                attempt.audit_id,
-                STATE_TEST_COPY_CREATED,
-            )
-            attempt.state = STATE_TEST_COPY_CREATED
-
-            # Apply only to the already verified distinct validation DB.
+            result.modules.append(attempt)
             try:
-                handle = dispatch_handle(
-                    model=model,
-                    repo_path=worktree_path,
-                    identifier=identifier,
-                    project=project,
+                attempt.audit_id = insert_audit_row(
+                    name=identifier,
                     model_name=profile["model_name"],
+                    project_id=project_id,
+                    session_id=session_id,
+                    test_copy_path=validation_target.display,
+                    tables=affected_tables,
+                    description=None,
                 )
-            except (
-                MigrationApplyError,
-                ModuleResolutionError,
-                ModuleContractError,
-            ) as exc:
+                # test_copy_created
                 update_audit_state(
                     attempt.audit_id,
-                    FAIL_TEST_APPLY,
-                    extra={"failure_reason": str(exc)},
+                    STATE_TEST_COPY_CREATED,
+                    extra={"backup_path": backup_path},
                 )
-                attempt.state = FAIL_TEST_APPLY
-                attempt.error = str(exc)
-                continue
+                recorded = control_conn.execute(
+                    "SELECT backup_path FROM migration_audit "
+                    f"WHERE id = {_placeholder(control_conn)}", (attempt.audit_id,),
+                ).fetchone()
+                if not recorded or recorded[0] != backup_path:
+                    raise MigrationApplyError("validation restore-point receipt was not persisted")
+                if not Path(backup_path).is_file() or Path(backup_path).stat().st_size == 0:
+                    raise MigrationApplyError("validation restore-point archive is missing or empty")
+                attempt.state = STATE_TEST_COPY_CREATED
 
-            val_conn = connect_db_target(validation_target)
-            try:
+                # Apply only to the already verified distinct validation DB.
                 try:
-                    with serving_build_authority():
-                        handle.apply(val_conn)
-                    val_conn.commit()
-                except Exception as exc:  # noqa: BLE001
+                    handle = dispatch_handle(
+                        model=model,
+                        repo_path=worktree_path,
+                        identifier=identifier,
+                        project=project,
+                        model_name=profile["model_name"],
+                    )
+                except (
+                    MigrationApplyError,
+                    ModuleResolutionError,
+                    ModuleContractError,
+                ) as exc:
                     update_audit_state(
                         attempt.audit_id,
                         FAIL_TEST_APPLY,
                         extra={"failure_reason": str(exc)},
                     )
                     attempt.state = FAIL_TEST_APPLY
-                    attempt.error = f"module apply() raised on validation DB: {exc}"
+                    attempt.error = str(exc)
                     continue
+
+                val_conn = connect_db_target(validation_target)
+                try:
+                    try:
+                        with serving_build_authority():
+                            handle.apply(val_conn)
+                        val_conn.commit()
+                    except Exception as exc:  # noqa: BLE001
+                        update_audit_state(
+                            attempt.audit_id,
+                            FAIL_TEST_APPLY,
+                            extra={"failure_reason": str(exc)},
+                        )
+                        attempt.state = FAIL_TEST_APPLY
+                        attempt.error = f"module apply() raised on validation DB: {exc}"
+                        continue
+                    update_audit_state(
+                        attempt.audit_id,
+                        STATE_TEST_APPLIED,
+                    )
+                    attempt.state = STATE_TEST_APPLIED
+
+                    # test_verified: baseline + invariants + rehearsal commands.
+                    baseline_result, baseline_err = _run_baseline_verify(
+                        val_conn,
+                        affected_tables,
+                        count_preserving,
+                        pre_counts_validation,
+                    )
+                    invariant_err = _run_module_invariants(handle, val_conn)
+                finally:
+                    val_conn.close()
+
+                verify_failures: List[str] = []
+                if baseline_err:
+                    verify_failures.append(baseline_err)
+                if invariant_err:
+                    verify_failures.append(invariant_err)
+
+                outcomes, cmd_err = _run_rehearsal_commands(
+                    rehearsal_commands,
+                    env_var=env_var,
+                    validation_db_path=validation_target.target,
+                    cwd=worktree_path,
+                )
+                author_verify_result = {
+                    "module_invariants": {"error": invariant_err},
+                    "rehearsal_commands": outcomes,
+                }
+                if outcomes:
+                    _append_rehearsal_outcomes(
+                        control_conn,
+                        item_id,
+                        outcomes,
+                    )
+                if cmd_err:
+                    verify_failures.append(cmd_err)
+
+                if verify_failures:
+                    update_audit_state(
+                        attempt.audit_id,
+                        FAIL_TEST_VERIFY,
+                        extra={
+                            "baseline_verify_result": json.dumps(baseline_result),
+                            "author_verify_result": json.dumps(author_verify_result),
+                            "failure_reason": "; ".join(verify_failures),
+                        },
+                    )
+                    attempt.state = FAIL_TEST_VERIFY
+                    attempt.error = "; ".join(verify_failures)
+                    attempt.detail["baseline_verify_result"] = baseline_result
+                    attempt.detail["author_verify_result"] = author_verify_result
+                    continue
+
                 update_audit_state(
                     attempt.audit_id,
-                    STATE_TEST_APPLIED,
-                )
-                attempt.state = STATE_TEST_APPLIED
-
-                # test_verified: baseline + invariants + rehearsal commands.
-                baseline_result, baseline_err = _run_baseline_verify(
-                    val_conn,
-                    affected_tables,
-                    count_preserving,
-                    pre_counts_validation,
-                )
-                invariant_err = _run_module_invariants(handle, val_conn)
-            finally:
-                val_conn.close()
-
-            verify_failures: List[str] = []
-            if baseline_err:
-                verify_failures.append(baseline_err)
-            if invariant_err:
-                verify_failures.append(invariant_err)
-
-            outcomes, cmd_err = _run_rehearsal_commands(
-                rehearsal_commands,
-                env_var=env_var,
-                validation_db_path=validation_target.target,
-                cwd=worktree_path,
-            )
-            author_verify_result = {
-                "module_invariants": {"error": invariant_err},
-                "rehearsal_commands": outcomes,
-            }
-            if outcomes:
-                _append_rehearsal_outcomes(
-                    control_conn,
-                    item_id,
-                    outcomes,
-                )
-            if cmd_err:
-                verify_failures.append(cmd_err)
-
-            if verify_failures:
-                update_audit_state(
-                    attempt.audit_id,
-                    FAIL_TEST_VERIFY,
+                    STATE_TEST_VERIFIED,
                     extra={
                         "baseline_verify_result": json.dumps(baseline_result),
                         "author_verify_result": json.dumps(author_verify_result),
-                        "failure_reason": "; ".join(verify_failures),
                     },
                 )
-                attempt.state = FAIL_TEST_VERIFY
-                attempt.error = "; ".join(verify_failures)
+                attempt.state = STATE_TEST_VERIFIED
                 attempt.detail["baseline_verify_result"] = baseline_result
                 attempt.detail["author_verify_result"] = author_verify_result
-                continue
 
-            update_audit_state(
-                attempt.audit_id,
-                STATE_TEST_VERIFIED,
-                extra={
-                    "baseline_verify_result": json.dumps(baseline_result),
-                    "author_verify_result": json.dumps(author_verify_result),
-                },
-            )
-            attempt.state = STATE_TEST_VERIFIED
-            attempt.detail["baseline_verify_result"] = baseline_result
-            attempt.detail["author_verify_result"] = author_verify_result
-
-            # rehearsed: fingerprint authoritative DB, stamp rehearsed_at.
-            try:
-                fingerprint = fingerprint_db_target(authoritative_db)
-            except UnsupportedFingerprintKindError as exc:
+                # rehearsed: fingerprint authoritative DB, stamp rehearsed_at.
+                try:
+                    fingerprint = fingerprint_db_target(authoritative_db)
+                except UnsupportedFingerprintKindError as exc:
+                    update_audit_state(
+                        attempt.audit_id,
+                        FAIL_TEST_VERIFY,
+                        extra={"failure_reason": str(exc)},
+                    )
+                    attempt.state = FAIL_TEST_VERIFY
+                    attempt.error = str(exc)
+                    continue
+                rehearsed_at = _now()
                 update_audit_state(
                     attempt.audit_id,
-                    FAIL_TEST_VERIFY,
-                    extra={"failure_reason": str(exc)},
+                    STATE_REHEARSED,
+                    extra={
+                        "source_fingerprint": fingerprint,
+                        "rehearsed_at": rehearsed_at,
+                    },
                 )
+                attempt.state = STATE_REHEARSED
+                attempt.detail["source_fingerprint"] = fingerprint
+                attempt.detail["rehearsed_at"] = rehearsed_at
+                result.source_fingerprint = fingerprint
+                result.rehearsed_at = rehearsed_at
+            except Exception as exc:  # noqa: BLE001 — preserve partial state
+                if attempt.audit_id is not None:
+                    update_audit_state(
+                        attempt.audit_id,
+                        FAIL_TEST_VERIFY,
+                        extra={"failure_reason": str(exc)},
+                    )
                 attempt.state = FAIL_TEST_VERIFY
                 attempt.error = str(exc)
-                continue
-            rehearsed_at = _now()
-            update_audit_state(
-                attempt.audit_id,
-                STATE_REHEARSED,
-                extra={
-                    "source_fingerprint": fingerprint,
-                    "rehearsed_at": rehearsed_at,
-                },
-            )
-            attempt.state = STATE_REHEARSED
-            attempt.detail["source_fingerprint"] = fingerprint
-            attempt.detail["rehearsed_at"] = rehearsed_at
-            result.source_fingerprint = fingerprint
-            result.rehearsed_at = rehearsed_at
-        except Exception as exc:  # noqa: BLE001 — preserve partial state
-            if attempt.audit_id is not None:
-                update_audit_state(
-                    attempt.audit_id,
-                    FAIL_TEST_VERIFY,
-                    extra={"failure_reason": str(exc)},
-                )
-            attempt.state = FAIL_TEST_VERIFY
-            attempt.error = str(exc)
 
     # A rehearsal that failed never entered migration territory, so it must
     # not leave the door locked behind it. A rehearsal that PASSED keeps the
