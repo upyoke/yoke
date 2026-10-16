@@ -101,7 +101,11 @@ def test_root_passwordless_and_interactive_paths(
         assert calls[0][0][: len(prefix)] == prefix
         assert calls[0][0][-2:] == ["yoke_harness.wsl_systemd", "--enable"]
         assert calls[0][1]["capture_output"] is not interactive
-        assert "stdin" not in calls[0][1]
+        if interactive:  # only the sudo password prompt keeps the terminal
+            assert "stdin" not in calls[0][1]
+        else:
+            assert calls[0][1]["stdin"] is subprocess.DEVNULL
+            assert calls[0][1]["start_new_session"] is True
         assert len(calls) == 1
     else:
         assert not calls

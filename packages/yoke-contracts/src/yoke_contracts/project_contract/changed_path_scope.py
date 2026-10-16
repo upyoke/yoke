@@ -28,6 +28,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
+from yoke_contracts import terminal_detached_process
 
 #: Git status letters every mirror selects on: added, copied, modified,
 #: renamed, type-changed. Deletions are absent because a removed file has no
@@ -75,7 +76,7 @@ class WorkingTreeChangedPaths:
 
 
 def _git_output(repo_root: Path, arguments: Sequence[str]) -> bytes:
-    completed = subprocess.run(
+    completed = terminal_detached_process.run(
         ["git", "-C", str(repo_root), *arguments],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -89,9 +90,7 @@ def _git_output(repo_root: Path, arguments: Sequence[str]) -> bytes:
 
 def _nul_separated(raw: bytes) -> tuple[str, ...]:
     """Decode a ``-z`` Git listing, preserving unusual filenames verbatim."""
-    return tuple(
-        os.fsdecode(entry) for entry in raw.split(b"\0") if entry
-    )
+    return tuple(os.fsdecode(entry) for entry in raw.split(b"\0") if entry)
 
 
 def tracked_changed_paths(repo_root: Path, base_rev: str) -> tuple[str, ...]:
@@ -105,8 +104,14 @@ def tracked_changed_paths(repo_root: Path, base_rev: str) -> tuple[str, ...]:
     return _nul_separated(
         _git_output(
             repo_root,
-            ("diff", "--name-only", "-z", f"--diff-filter={CHANGE_FILTER}",
-             base_rev, "--"),
+            (
+                "diff",
+                "--name-only",
+                "-z",
+                f"--diff-filter={CHANGE_FILTER}",
+                base_rev,
+                "--",
+            ),
         )
     )
 
@@ -115,7 +120,8 @@ def untracked_paths(repo_root: Path) -> tuple[str, ...]:
     """Untracked, non-ignored paths -- the ones a commit would newly add."""
     return _nul_separated(
         _git_output(
-            repo_root, ("ls-files", "--others", "--exclude-standard", "-z"),
+            repo_root,
+            ("ls-files", "--others", "--exclude-standard", "-z"),
         )
     )
 
@@ -129,14 +135,14 @@ def staged_changed_paths(repo_root: Path) -> tuple[str, ...]:
     return _nul_separated(
         _git_output(
             repo_root,
-            ("diff", "--cached", "--name-only", "-z",
-             f"--diff-filter={CHANGE_FILTER}"),
+            ("diff", "--cached", "--name-only", "-z", f"--diff-filter={CHANGE_FILTER}"),
         )
     )
 
 
 def working_tree_changed_paths(
-    repo_root: Path, base_rev: str,
+    repo_root: Path,
+    base_rev: str,
 ) -> WorkingTreeChangedPaths:
     """Everything a commit of this tree would carry to CI, measured from a base."""
     return WorkingTreeChangedPaths(
@@ -146,7 +152,10 @@ def working_tree_changed_paths(
 
 
 def changed_scope_for_check(
-    repo_root: Path, base: str | None, *, staged: bool,
+    repo_root: Path,
+    base: str | None,
+    *,
+    staged: bool,
 ) -> WorkingTreeChangedPaths:
     """The set a local mirror of a CI contract should evaluate.
 
