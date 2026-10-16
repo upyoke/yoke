@@ -26,6 +26,7 @@ from yoke_core.domain.machine_qa_submission_recording import (
     validate_case_submission,
 )
 from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
+from yoke_core.domain.machine_qa_host_unreachable import wait_if_host_unreachable
 from yoke_core.domain.machine_qa_host_selection import TestMachineHostUnhealthy
 from yoke_core.domain.coordination_claim_contention import waiting_claim_evidence
 
@@ -277,6 +278,10 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
             submitted,
             resource_name=contract.settings["resource_name"],
         )
+        waiting = wait_if_host_unreachable(conn, execution, contract, submitted)
+        if waiting is not None:
+            conn.commit()
+            return HandlerOutcome(primary_success=True, result_payload=waiting)
         result = recorded_case_submission(
             conn,
             requirement_id=int(case["requirement_id"]),

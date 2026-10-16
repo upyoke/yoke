@@ -8,6 +8,9 @@ from typing import Any
 
 
 MACHINE_QA_DIAGNOSTIC_LIMIT = 512
+#: SSH could not reach the Test Machine (connect timeout, refusal, no route).
+#: QA records it as the host's failed verification and waits on its line.
+SSH_UNAVAILABLE = "ssh_unavailable"
 _PRIVATE_KEY_BLOCK = re.compile(
     r"-----BEGIN [^-\n]*PRIVATE KEY-----.*?"
     r"-----END [^-\n]*PRIVATE KEY-----",
@@ -80,6 +83,7 @@ def host_control_failure(
 
 __all__ = [
     "MACHINE_QA_DIAGNOSTIC_LIMIT",
+    "SSH_UNAVAILABLE",
     "HostControlLocalError",
     "bounded_machine_qa_diagnostic",
     "host_control_failure",
