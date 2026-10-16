@@ -36,7 +36,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.api.observability import debug_detail_allowed, service_name
 from yoke_core.domain.admission_result_redaction import (
-    ONE_TIME_SECRET_GUARDRAIL, debug_capture_result,
+    ONE_TIME_SECRET_GUARDRAIL,
+    debug_capture_result,
 )
 from yoke_core.domain.auth_context import auth_context_from_actor
 from yoke_core.domain.events import emit_event

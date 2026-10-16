@@ -12,7 +12,8 @@ ONE_TIME_SECRET_GUARDRAIL = "one_time_secret_result"
 
 
 def debug_capture_result(
-    entry: RegistryEntry, response: FunctionCallResponse,
+    entry: RegistryEntry,
+    response: FunctionCallResponse,
 ) -> dict[str, Any]:
     """Describe guarded results without retaining their one-time values."""
     if ONE_TIME_SECRET_GUARDRAIL in entry.guardrails:

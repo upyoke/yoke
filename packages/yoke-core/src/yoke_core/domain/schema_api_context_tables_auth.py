@@ -11,6 +11,31 @@ from __future__ import annotations
 
 
 AUTH_TABLES: dict[str, dict] = {
+    "teammate_invite_codes": {
+        "columns": [
+            ("id", "INTEGER"),
+            ("actor_id", "INTEGER"),
+            ("org_id", "INTEGER"),
+            ("role", "TEXT"),
+            ("code_hash", "TEXT"),
+            ("request_id", "TEXT"),
+            ("invited_by_actor_id", "INTEGER"),
+            ("created_at", "TIMESTAMPTZ"),
+            ("expires_at", "TIMESTAMPTZ"),
+            ("consumed_at", "TIMESTAMPTZ"),
+            ("consumed_machine_id", "TEXT"),
+            ("revoked_at", "TIMESTAMPTZ"),
+            ("replaced_at", "TIMESTAMPTZ"),
+        ],
+        "notes": (
+            "Single-use teammate machine admission. Only the SHA-256 code hash "
+            "is stored; request_id is unique for one-time result replay refusal. "
+            "Actor, person's org role and invite are created atomically. Codes "
+            "expire after 24 hours; reissue keeps the actor and replaces earlier "
+            "unconsumed codes. Consumption and machine credential issuance "
+            "commit together. No outcome depends on telemetry."
+        ),
+    },
     "frontend_event_rate_limits": {
         "columns": [
             ("client_key", "TEXT"),

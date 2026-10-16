@@ -47,7 +47,10 @@ def handle_profile_token_create(request: FunctionCallRequest) -> HandlerOutcome:
     conn = db_helpers.connect()
     try:
         created = mint_token(
-            conn, actor_id=actor_id, name=name, creation_request_id=request.request_id,
+            conn,
+            actor_id=actor_id,
+            name=name,
+            creation_request_id=request.request_id,
         )
     except TokenCreationReplayed:
         return _error(

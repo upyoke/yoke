@@ -160,6 +160,7 @@ _EXPECTED_SCHEMA_STR = (
     "|strategy_doc_claims:id/INTEGER,project_id/INTEGER,strategy_doc_slug/TEXT,owner_kind/TEXT,owner_item_id/INTEGER,owner_session_id/TEXT,steering_claim_id/INTEGER,registered_by_actor_id/INTEGER,registered_by_session_id/TEXT,registered_at/TIMESTAMPTZ,released_by_actor_id/INTEGER,released_by_session_id/TEXT,released_at/TIMESTAMPTZ,release_mode/TEXT,release_reason/TEXT"
     "|strategy_doc_revisions:id/BIGINT,project_id/BIGINT,slug/TEXT,revision/BIGINT,content/TEXT,content_sha256/TEXT,byte_length/BIGINT,source_operation/TEXT,actor_id/BIGINT,session_id/TEXT,created_at/TIMESTAMPTZ"
     "|strategy_docs:id/BIGINT,project_id/BIGINT,slug/TEXT,content/TEXT,updated_at/TIMESTAMPTZ,updated_by_actor_id/BIGINT,archived_at/TIMESTAMPTZ,parent_slug/TEXT"
+    "|teammate_invite_codes:id/INTEGER,actor_id/INTEGER,org_id/INTEGER,role/TEXT,code_hash/TEXT,request_id/TEXT,invited_by_actor_id/INTEGER,created_at/TIMESTAMPTZ,expires_at/TIMESTAMPTZ,consumed_at/TIMESTAMPTZ,consumed_machine_id/TEXT,revoked_at/TIMESTAMPTZ,replaced_at/TIMESTAMPTZ"
     "|test_machine_operation_receipts:project_id/INTEGER,capability_type/TEXT,operation/TEXT,status/TEXT,performed_at/TIMESTAMPTZ,receipt_json/TEXT,error_code/TEXT,lease_id/INTEGER,contract_digest/TEXT,updated_at/TIMESTAMPTZ"
     "|test_machine_verifications:project_id/INTEGER,capability_type/TEXT,status/TEXT,checked_at/TIMESTAMPTZ,receipt_json/TEXT,error_code/TEXT,updated_at/TIMESTAMPTZ"
     "|universe_settings:key/TEXT,value/TEXT,updated_at/TIMESTAMPTZ,updated_by_actor_id/INTEGER"

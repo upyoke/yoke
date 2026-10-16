@@ -30,6 +30,7 @@ from yoke_contracts.timestamps import temporal_wire
 from yoke_core.domain.universe_startup_lock import (
     hosted_tenant_container_process,
 )
+from yoke_core.domain.teammate_invite_codes import TeammateInviteError, invite_form_fact
 from yoke_core.domain.handlers.identity_common import (
     caller_actor_id,
     payload_error,
@@ -112,6 +113,17 @@ def handle_identity_invite_create(request: FunctionCallRequest) -> HandlerOutcom
     hosted = _hosted_refusal()
     if hosted is not None:
         return hosted
+    try:
+        if invite_form_fact()["invite_form"] == "name":
+            raise TeammateInviteError(
+                "invite_name_required",
+                "this server uses invite codes for sign-in; enter their name instead",
+            )
+    except TeammateInviteError as exc:
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(code=exc.code, message=exc.detail),
+        )
     parsed, failure = _parse(InviteCreateRequest, request)
     if failure is not None:
         return failure
