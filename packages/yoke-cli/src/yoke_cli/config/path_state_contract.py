@@ -40,7 +40,9 @@ class PathStateContract:
 
     def __post_init__(self) -> None:
         path_type = PurePosixPath if self.posix_paths else Path
-        expected = tuple(str(path_type(self.tool_bin_dir) / tool) for tool in self.tools)
+        expected = tuple(
+            str(path_type(self.tool_bin_dir) / tool) for tool in self.tools
+        )
         if self.tool_paths != expected or self.yoke_bin != str(
             path_type(self.tool_bin_dir) / "yoke"
         ):
@@ -74,7 +76,7 @@ def default_startup_file(shell: str, home: Path) -> Path:
             (
                 home / name
                 for name in (".bash_profile", ".bash_login", ".profile")
-                if isinstance(home / name, Path) and (home / name).exists()
+                if (home / name).exists()
             ),
             home / ".profile",
         )
