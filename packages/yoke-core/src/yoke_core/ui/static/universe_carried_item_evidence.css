@@ -2,6 +2,10 @@
    inside that item's own entry in a deployment card's Carries box. Both hosts lay
    their entries out as a two-column grid of reference and title, so this
    block takes a row of its own beneath them rather than crowding either. */
+.universe-app-root .carried-item-qa-diagnostic {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+}
 .universe-app-root .carried-item-evidence {
   grid-column: 1 / -1;
   display: flex;

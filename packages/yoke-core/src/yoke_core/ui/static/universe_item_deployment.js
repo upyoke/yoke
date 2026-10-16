@@ -89,9 +89,12 @@ function runStage(run) {
 function itemOutcome(run) {
   if (run.delivery_relation === "removed") {
     const item = run.delivery_item;
+    const reason = String(item.reason || "").trim();
     return {
-      symbol: "○", text: "removed · QA cancelled · rides ",
-      reason: item.reason, laterRunId: item.later_run_id,
+      symbol: "○",
+      text: reason ? `removed · ${reason} · rides ` : "removed · rides ",
+      reason: reason || null,
+      laterRunId: item.later_run_id,
       removed: true,
     };
   }

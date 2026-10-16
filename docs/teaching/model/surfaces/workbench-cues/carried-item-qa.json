@@ -3,7 +3,7 @@
  "title": "Carried Item QA before execution",
  "status": "observed",
  "form": "State",
- "verification": "Database projection and rendered component tests cover pending requirements, current-copy identity, shared membership, takeover and frozen release history. Served browser proof remains a deployment obligation.",
+ "verification": "Rendered component tests cover member versus derived QA, case and host labels, queued badge counts, removal reasons, and the diagnostic spanning the carried row. Served browser proof remains a deployment obligation.",
  "topics": ["deployments/shipping/member-progress", "qa-evidence/gates/member-obligations"],
  "sources": ["packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.js", "packages/yoke-core/src/yoke_core/domain/deployment_member_qa_projection.py"],
  "position": 8
