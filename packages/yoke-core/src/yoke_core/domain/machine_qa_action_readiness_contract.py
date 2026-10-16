@@ -25,18 +25,41 @@ def bound_ready_timeout_seconds(timeout: object) -> float:
     return float(timeout)
 
 
+def require_keyed_ready_text(action: Mapping[str, Any]) -> None:
+    """Refuse a step that sends keys without naming the screen it answers.
+
+    A prompt that never appears then fails that step by name instead of being
+    typed into blindly. The browser-approval gate reads its own approval
+    context, so it is exempt.
+    """
+    if (
+        action.get("keys")
+        and not action.get("operator_gate")
+        and not action.get("ready_text")
+    ):
+        raise ValueError(
+            f"action {action.get('step')!r} sends keys without ready_text; "
+            "name the prompt text that step answers, or remove the step when "
+            "the installer no longer shows that prompt"
+        )
+
+
 def normalize_action_readiness(
     action: Mapping[str, Any],
     *,
     strings: StringListValidator,
 ) -> dict[str, Any]:
-    """Normalize optional readiness text and its bounded timeout."""
+    """Normalize readiness text and its bounded timeout.
+
+    Every keyed step must name its ready text; see ``require_keyed_ready_text``.
+    """
     normalized: dict[str, Any] = {}
     if "ready_text" in action:
         normalized["ready_text"] = strings(
             action["ready_text"],
             field="action ready_text",
         )
+    require_keyed_ready_text(action)
     if "ready_timeout_seconds" not in action:
         return normalized
     timeout = bound_ready_timeout_seconds(action["ready_timeout_seconds"])
@@ -62,5 +85,6 @@ __all__ = [
     "READY_TIMEOUT_MAX_SECONDS",
     "bound_ready_timeout_seconds",
     "normalize_action_readiness",
+    "require_keyed_ready_text",
     "registered_terminal_post_check",
 ]

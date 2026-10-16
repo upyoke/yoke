@@ -76,6 +76,24 @@ The backup journey also repeats its nonempty-backup assertion after exit;
 preparation, installer or backup failures never emit readiness. This keeps
 the assertion visible after the installer's full-screen display clears.
 
+## Step readiness
+
+Every recipe step that sends keys declares the `ready_text` of the prompt it
+answers; the recipe contract refuses a keyed step without it when the case is
+saved and again before execution. A step never types into a screen on a timer.
+When the installer stops showing a prompt, remove that step from the source
+cases and sync the saved plan; do not keep a step that waits for nothing. The
+browser-approval gate is the one exception: it waits for its own `Open:` and
+`One-time code:` context.
+
+A prompt that never appears fails its step as `terminal_action_not_ready`,
+with the evidence naming `step` and `waiting_for`. When the command under the
+terminal has already exited, the step (including the approval gate) fails as
+`terminal_setup_exited` instead. Its `setup_exit` names the exit code and the
+last `code_name: reason` refusal setup printed. Linux reads the exit from the
+`__YOKE_EXIT_<code>` marker the terminal entry prints and stops waiting as soon
+as it appears. macOS reads the recipe's exit-status file.
+
 ## Complete machine approval links
 
 ```text

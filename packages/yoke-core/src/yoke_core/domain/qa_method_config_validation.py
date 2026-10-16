@@ -245,20 +245,33 @@ def validate_method_config(
     elif config_contract_id in {"terminal-check", "terminal-inspection"}:
         from yoke_core.domain.machine_qa_action_readiness_contract import (
             bound_ready_timeout_seconds,
+            require_keyed_ready_text,
         )
 
-        for action in config.get("actions") or []:
+        for action in _terminal_actions(config):
             if not isinstance(action, dict):
                 continue
-            if "ready_timeout_seconds" not in action:
-                continue
             try:
-                action["ready_timeout_seconds"] = bound_ready_timeout_seconds(
-                    action["ready_timeout_seconds"]
-                )
+                require_keyed_ready_text(action)
+                if "ready_timeout_seconds" in action:
+                    action["ready_timeout_seconds"] = bound_ready_timeout_seconds(
+                        action["ready_timeout_seconds"]
+                    )
             except ValueError as exc:
                 raise QaMethodConfigError(str(exc)) from exc
     return config
+
+
+def _terminal_actions(config: dict[str, Any]) -> list[Any]:
+    """Every action, including each host baseline's own recipe."""
+    configs = config.get("baseline_configs")
+    recipes = list(configs.values()) if isinstance(configs, dict) else [config]
+    return [
+        action
+        for recipe in recipes
+        if isinstance(recipe, dict)
+        for action in recipe.get("actions") or []
+    ]
 
 
 __all__ = [

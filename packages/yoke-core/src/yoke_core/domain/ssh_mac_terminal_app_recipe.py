@@ -13,6 +13,7 @@ from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_qa_operator_gate import (
     run_machine_browser_approval_with_io,
 )
+from yoke_core.domain.machine_qa_setup_exit import step_failure
 from yoke_harness.ssh_mac_browser_approval import approve_machine_in_safari
 from yoke_core.domain.qa_artifact_handle import local_handle
 from yoke_contracts.machine_qa_terminal_bridge import (
@@ -151,6 +152,9 @@ def run_terminal_app_recipe(
                 gate_result = run_machine_browser_approval_with_io(
                     read_transcript=read_transcript,
                     send_keys=send_keys,
+                    read_exit_code=lambda _transcript: read_recipe_exit_code(
+                        run, status_path=status_path
+                    ),
                     action=action,
                     progress_callback=progress_callback,
                     allowed_base_urls=allowed_operator_urls,
@@ -178,6 +182,7 @@ def run_terminal_app_recipe(
                         captures=captures,
                         operator_gate=operator_gate,
                         browser_approval=browser_evidence,
+                        **(gate_result.step_evidence or {}),
                     )
             if ready_text:
                 remaining_wall_seconds = max(
@@ -207,11 +212,13 @@ def run_terminal_app_recipe(
                             "waiting_for": list(ready_text),
                         }
                     )
-                    return _failure(
-                        "terminal_action_not_ready",
-                        captures=captures,
+                    error_code, evidence = step_failure(
+                        str(action["step"]),
                         waiting_for=list(ready_text),
+                        transcript=ready_transcript,
+                        exit_code=read_recipe_exit_code(run, status_path=status_path),
                     )
+                    return _failure(error_code, captures=captures, **evidence)
             if operator_gate is None and action["keys"]:
                 if not send_keys(action["keys"]):
                     return _failure(
