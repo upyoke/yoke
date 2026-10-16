@@ -168,6 +168,9 @@ same item, re-verifies/re-lands/re-enters release. Read
 [release-batches.md](release-batches.md) before composition/execution.
 
 After a QA failure, verify the owner started rework or recorded a concrete blocker.
+Each pass over a live run, work its "waiting on manual wake" rows by
+[manual-wake member QA](release-batches.md#manual-wake-member-qa): wake the
+owner once the evidence exists, else ask the operator to waive or remove.
 
 ## 5. Preserve current snapshot and verified reminders
 

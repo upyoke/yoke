@@ -54,16 +54,10 @@ def _emit_digest(
 def _block_still_arriving(classifier: object) -> bool:
     """Whether the classifier holds a block that is still receiving lines.
 
-    A periodic progress-stall check must not treat such a block as
-    abandoned. The fleet report is written as one multi-line payload, and
-    on a quiet fleet the report interval and the stall bound coincide, so
-    the stall fell due on the very line that opened the block. Flushing it
-    there emitted a lone opening marker claiming the probe had ended
-    before the closing marker — while the probe was mid-write — and reset
-    the classifier, so the real report never reached the progress stream.
-
-    Classifiers that buffer nothing omit the predicate and are never
-    holding.
+    A stall check must not flush an open fleet report. On a quiet fleet
+    the report interval and the stall bound coincide, so flushing the
+    opening marker claims the probe ended mid-write and drops the report.
+    Classifiers that buffer nothing omit the predicate.
     """
     holding = getattr(classifier, "has_open_block", None)
     return bool(holding()) if callable(holding) else False
@@ -80,21 +74,21 @@ def _emit_classifier_held(
 ) -> None:
     """Flush a classifier-held block as one progress write, if it has one.
 
-    Fleet reports buffer until they close; other classifiers omit
-    ``flush_held`` and this is a no-op.
+    A partial flush also releases the progress digest, so a run that ends
+    inside the window still delivers its bounded summary. Fleet reports
+    buffer until they close; other classifiers omit ``flush_held``.
     """
     flush = getattr(classifier, "flush_held", None)
-    if not callable(flush):
-        return
-    held = flush(partial=partial)
+    held = flush(partial=partial) if callable(flush) else None
+    if partial or held:
+        _emit_digest(
+            digest.flush(),
+            now=now,
+            progress_watch=progress_watch,
+            emit_immediate=emit_immediate,
+        )
     if not held:
         return
-    _emit_digest(
-        digest.flush(),
-        now=now,
-        progress_watch=progress_watch,
-        emit_immediate=emit_immediate,
-    )
     progress_watch.note_progress_emit(now)
     emit_immediate(held)
 
@@ -131,13 +125,18 @@ def _route_line(
     # so it reaches the reader in every mode rather than only the raw capture.
     designed_wait = cls is not LineClass.URGENT and DESIGNED_WAIT_PREFIX in line
     if outcome_only:
-        if (
-            cls is LineClass.URGENT
-            or designed_wait
-            or line.startswith("Deployment start timing: ")
-        ):
+        # Failed timing stays urgent through the classifier. Other timing
+        # lines ride the digest: one wake per window, full text in raw.
+        if cls is LineClass.URGENT or designed_wait:
             progress_watch.note_progress_emit(now)
             emit_immediate(line)
+        elif line.startswith("Deployment start timing: "):
+            _emit_digest(
+                digest.add(line),
+                now=now,
+                progress_watch=progress_watch,
+                emit_immediate=emit_immediate,
+            )
         return line if cls is LineClass.SUMMARY else None
     if designed_wait:
         cls = LineClass.METADATA

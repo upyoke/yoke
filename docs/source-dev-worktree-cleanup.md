@@ -167,9 +167,15 @@ naming the lane, and the Progress Log record lists it under `not deleted`.
 lanes a landing sweep missed, under the same proof. It reads every lane's
 cleanup-authority verdict in one `merge.prune.authority_verdicts` call and
 fetches each target branch once per run, then retires each lane as soon as it
-is proved. A run that exhausts the check budget keeps the lanes it already
-retired, so rerunning the same command continues from there. If the authority
-read fails, the check names the failure and preserves every lane.
+is proved. A lane that fails validation is skipped and reported with the
+reason and the recovery; every other lane in that batch is still judged and,
+when proved, retired. A detached checkout is `detached@<commit>`, never an
+empty branch. A clean detached lane whose commit is already on the target
+retires; a dirty lane, or one whose commit the target does not retain, stays
+with that reason named. A run that exhausts the check budget keeps the lanes
+it already retired, so rerunning the same command continues from there. If
+the authority read itself fails, the check names the failure and preserves
+every lane.
 
 ### Lane residue and project-declared renders
 

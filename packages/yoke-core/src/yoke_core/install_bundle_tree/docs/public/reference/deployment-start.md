@@ -158,9 +158,12 @@ decoder. Bounded batches reuse the canonical session projection and item text
 expressions, and fetch launch and attempt rows in sets; no check is sampled or
 skipped. Batch data is discarded on exit and cannot cross copy authorities.
 Connections opened under a bound copy still physically close.
-These timing lines reach the deployment progress capture even in outcome-only
-mode, so the attached driver's capture identifies preparation before any
-provider dispatch. They carry run/source identity when supplied and no DSNs.
+Every timing line stays in the driver raw capture, which is where preparation
+is identified before any provider dispatch. Outcome-only watchers do not
+forward each line on its own: ordinary lines join the progress digest, at
+most one digest line per flush window, and a line whose outcome is failed is
+urgent and is forwarded immediately. Other watchers still emit timing lines
+as they arrive. They carry run/source identity when supplied and no DSNs.
 A missing end marker is unfinished evidence, never a successful receipt.
 
 Creation uses the same timing format for `create_source`,

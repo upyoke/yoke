@@ -11,6 +11,7 @@ from yoke_contracts.qa_case_starting_state import (
     chain_baselines,
     normalize_starting_state,
 )
+from yoke_contracts.qa_case_wake_path import WakePathError, normalize_wake_path
 from yoke_core.domain.qa_plan_management import QaPlanError, _json, _placeholder
 
 
@@ -39,6 +40,19 @@ def apply_starting_states(
                 )
             )
     except StartingStateError as exc:
+        raise QaPlanError(str(exc)) from exc
+
+
+def apply_wake_paths(cases: list[dict[str, Any]]) -> None:
+    """Refuse a manual case without evidence (or evidence without one)."""
+    try:
+        for case in cases:
+            case["wake_path"], case["wake_evidence"] = normalize_wake_path(
+                case_key=case["case_key"],
+                wake_path=case.get("wake_path"),
+                wake_evidence=case.get("wake_evidence"),
+            )
+    except WakePathError as exc:
         raise QaPlanError(str(exc)) from exc
 
 
@@ -73,6 +87,8 @@ def insert_plan_cases(
             "starting_state_reason": case.get("starting_state_reason"),
             "entry_surface": case.get("entry_surface"),
             "required_completion": case.get("required_completion"),
+            "wake_path": case["wake_path"],
+            "wake_evidence": case.get("wake_evidence"),
             "created_at": clock,
             "updated_at": clock,
         }
@@ -83,4 +99,4 @@ def insert_plan_cases(
         )
 
 
-__all__ = ["apply_starting_states", "insert_plan_cases"]
+__all__ = ["apply_starting_states", "apply_wake_paths", "insert_plan_cases"]

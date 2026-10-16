@@ -1,0 +1,9 @@
+{
+ "id": "wake-path",
+ "title": "Wake path",
+ "status": "observed",
+ "page": "qa-plans",
+ "position": 7,
+ "summary": "A case's wake_path is automatic (default: starts when its stage begins, and the stage driver wakes the member's owner) or manual (starts only when steering wakes the owner). Manual needs a one-line wake_evidence naming real-traffic evidence a registered read can confirm; authoring refuses wake_evidence_required, wake_evidence_without_manual_wake, wake_path_invalid or wake_evidence_not_one_line. The stage driver leaves a member with an open manual case unwoken, so its whole roster waits; the steering fleet report lists each under 'waiting on manual wake' with evidence, owner and the yoke say --item wake. A live requirement is marked with yoke qa requirement update, wake_evidence first, then wake_path.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/qa_case_wake_path.py", "packages/yoke-core/src/yoke_core/domain/deployment_qa_manual_wake.py", "runtime/api/test_qa_plan_case_wake_path.py", "runtime/api/domain/test_deployment_qa_manual_wake.py", "docs/public/reference/qa-platform/standalone-plans.md", ".agents/skills/yoke/steer/release-batches.md"]
+}

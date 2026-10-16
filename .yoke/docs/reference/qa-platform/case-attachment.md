@@ -131,7 +131,14 @@ receipt as `starting_state_restore` in that case's evidence. A failed reset
 leaves the case unstarted (`starting_state_reset_failed`); a failed restore
 stops the plan and names the `yoke test-machine reset` command. An inheriting
 case whose predecessor did not pass in the same run is recorded
-`blocked_on_precondition` naming that predecessor, and does not run.
+`blocked_on_precondition` (`inherited_predecessor_not_passed`) naming that
+predecessor, and does not run. A failed or errored case blocks only its own
+chain: the run continues with each later chain that starts from a named
+baseline or `as_is`, then closes the execution once every case has a result,
+naming the failed requirements in its reason (`qa-plan-case-failed`). The
+review bundle for its completed captures lists the blocked cases and their
+reasons under `chain_blocked`. A case that raises while running, a lost lease
+or an operator abort still stops the whole execution.
 Deployment-stage case selections keep each inheriting case directly behind its
 predecessor. Requirements materialized before a plan declared its states read
 as behind their plan: edit the plan, then refresh them.

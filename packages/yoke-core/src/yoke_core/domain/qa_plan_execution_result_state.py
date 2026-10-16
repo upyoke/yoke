@@ -50,8 +50,21 @@ def aggregate_state(current: str, result: dict[str, Any]) -> str:
     return current
 
 
+def case_failed(result: dict[str, Any]) -> bool:
+    """Whether this one case failed, errored or lost its capture.
+
+    Such a case closes the execution once every independent chain has run;
+    the cases chained behind it are recorded blocked, never run.
+    """
+    return (
+        aggregate_state("passed", result) in {"failed", "error"}
+        or result.get("execution_status") == "capture_failed"
+    )
+
+
 __all__ = [
     "QaPlanExecutionError",
     "aggregate_state",
+    "case_failed",
     "plan_order",
 ]

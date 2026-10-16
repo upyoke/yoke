@@ -29,6 +29,10 @@ from yoke_core.engines.deploy_run_worktree_retirement import (
     retire_terminal_deploy_run_worktrees,
 )
 from yoke_core.engines.doctor_worktree_lane_authority import LaneRow, lane_inventory
+from yoke_core.engines.git_worktree_registry import (
+    detached_head,
+    parse_worktree_porcelain,
+)
 from yoke_core.engines.doctor_worktree_terminal_lanes import (
     DEPLOY_RUN_CATEGORY,
     TerminalLaneRetirer,
@@ -63,21 +67,17 @@ def _git_for_repo(repo_root: str):
 
 
 def _worktree_entries(porcelain: str) -> List[dict]:
-    """Registered worktrees with their branch and git's lock note, if any."""
+    """Registered worktrees with their branch and git's lock note, if any.
+
+    A detached checkout is ``detached@<commit>`` from the shared porcelain
+    reader. An empty branch means the record named neither, not a detached HEAD.
+    """
     entries: List[dict] = []
-    current: dict = {}
-    for line in [*porcelain.splitlines(), ""]:
-        if line.startswith("worktree "):
-            current = {"path": line[len("worktree ") :]}
-        elif line.startswith("branch "):
-            current["branch"] = line[len("branch ") :].removeprefix("refs/heads/")
-        elif line == "locked" or line.startswith("locked "):
-            current["locked"] = (
-                line.removeprefix("locked").strip() or "no reason recorded"
-            )
-        elif line == "" and current:
-            entries.append(current)
-            current = {}
+    for parsed in parse_worktree_porcelain(porcelain):
+        entry = {"path": parsed.path, "branch": parsed.branch}
+        if parsed.lock_reason is not None:
+            entry["locked"] = parsed.lock_reason or "no reason recorded"
+        entries.append(entry)
     return entries
 
 
@@ -224,6 +224,7 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
                     target=owner.target_branch,
                     item_id=public_ref,
                     assessment=assessment,
+                    release_branch=owner.branch if detached_head(branch) else "",
                 )
                 if not preserved:
                     fixed.append(

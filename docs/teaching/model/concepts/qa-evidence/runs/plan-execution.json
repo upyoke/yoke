@@ -6,5 +6,5 @@
  "functions": ["qa.plan_execution.abort", "qa.plan_execution.advance", "qa.plan_execution.begin", "qa.plan_execution.complete", "qa.plan_execution.heartbeat", "qa.plan_execution.pause", "qa.plan_execution.resume"],
  "page": "qa-evidence",
  "position": 0,
- "sources": ["docs/public/reference/qa-platform/standalone-plans.md", "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_checkin.py"]
+ "sources": ["docs/public/reference/qa-platform/case-attachment.md", "docs/public/reference/qa-platform/standalone-plans.md", "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_checkin.py", "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_run.py"]
 }

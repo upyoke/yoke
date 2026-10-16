@@ -43,7 +43,11 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.project_identity import render_item_ref, resolve_project_slug
+from yoke_core.domain.deployment_qa_manual_wake import (
+    ManualWakeRequirement,
+    manual_wake_requirements,
+)
 from yoke_core.domain.deployment_qa_stage_outstanding import (
     QaStageOutstanding,
     qa_stage_outstanding,
@@ -140,6 +144,9 @@ class DeploymentRunProgress:
     #: ``yoke deployment-runs stages RUN``.
     member_lines: tuple[str, ...] = ()
     completion: CompletionPreview = CompletionPreview()
+    #: Open manual-wake requirements of waiting members: steering, not the
+    #: stage, wakes their owners once the named evidence exists.
+    manual_wakes: tuple[ManualWakeRequirement, ...] = ()
 
     @property
     def needs_action(self) -> bool:
@@ -280,6 +287,19 @@ def run_progress(
             if waiting
             else {}
         )
+        manual = (
+            manual_wake_requirements(
+                conn,
+                run_id=run_id,
+                stage_name=stage,
+                item_ids=waiting,
+                project_slug=resolve_project_slug(conn, project_id),
+            )
+            if waiting
+            else ()
+        )
+        for entry in manual:
+            wakes[entry.item_id] = "held for manual wake (see waiting on manual wake)"
         member_lines: tuple[str, ...] = ()
         if qa is not None:
             unresolved, member_lines = _stage_lines(conn, qa, wakes)
@@ -304,6 +324,7 @@ def run_progress(
                 driver_phase=driver_phase,
                 member_lines=member_lines,
                 completion=completion_preview(conn, run_id, run=run),
+                manual_wakes=manual,
             )
         )
     return tuple(rows)

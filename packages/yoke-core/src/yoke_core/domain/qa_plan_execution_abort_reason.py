@@ -23,6 +23,8 @@ CASE_EXECUTION_ERROR_REASON = "case-execution-or-recording-error"
 CONTINUATION_PRE_HOST_ERROR_REASON = "continuation-pre-host-error"
 #: A begun execution whose own begin response this client cannot run.
 UNUSABLE_BEGIN_REASON = "plan-execution-begin-unusable"
+#: Every independent chain ran and at least one case failed or errored.
+CASE_FAILED_REASON = "qa-plan-case-failed"
 #: Separates the code a reason opens with from the diagnosis behind it.
 REASON_DETAIL_SEPARATOR = ": "
 
@@ -32,11 +34,27 @@ def abort_reason_code(reason: Any) -> str:
     return str(reason or "").split(REASON_DETAIL_SEPARATOR, 1)[0]
 
 
+def case_failed_reason(requirement_ids: list[int]) -> str:
+    """Name the failed cases, listing as many as the reason column holds."""
+    prefix = f"{CASE_FAILED_REASON}{REASON_DETAIL_SEPARATOR}requirements "
+    listed: list[str] = []
+    for index, requirement_id in enumerate(requirement_ids):
+        remaining = len(requirement_ids) - index - 1
+        tail = f" and {remaining} more" if remaining else ""
+        candidate = ", ".join([*listed, str(requirement_id)])
+        if len(prefix + candidate + tail) > ABORT_REASON_MAX_LENGTH:
+            return f"{prefix}{', '.join(listed)} and {remaining + 1} more"
+        listed.append(str(requirement_id))
+    return prefix + ", ".join(listed)
+
+
 __all__ = [
     "ABORT_REASON_MAX_LENGTH",
     "CASE_EXECUTION_ERROR_REASON",
+    "CASE_FAILED_REASON",
     "CONTINUATION_PRE_HOST_ERROR_REASON",
     "REASON_DETAIL_SEPARATOR",
     "UNUSABLE_BEGIN_REASON",
     "abort_reason_code",
+    "case_failed_reason",
 ]

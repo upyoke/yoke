@@ -231,6 +231,7 @@ def prune_landed_lane(
     authority_block: str = "",
     refresh_target: bool = True,
     assessment: Optional[LaneCleanupAssessment] = None,
+    release_branch: str = "",
 ) -> tuple[str, ...]:
     """Retire one landed lane; return the reasons anything was preserved.
 
@@ -296,7 +297,7 @@ def prune_landed_lane(
         if warning := worktree_cleanup_warning(worktree_path):
             say(f"WARNING: {warning}", err=True)
 
-    row_warning = release_lane_row(item_id, branch, emit=say)
+    row_warning = release_lane_row(item_id, release_branch or branch, emit=say)
     if row_warning:
         notes += (row_warning,)
 
