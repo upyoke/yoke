@@ -56,6 +56,10 @@ def _print_acquired(response: Any, stdout, _stderr) -> None:
     _print_message_handoff(claim, stdout)
 
 
+#: Inherited messages listed by id; the rest stay one list command away.
+_HANDOFF_LINES = 20
+
+
 def _print_message_handoff(claim: Dict[str, Any], stdout) -> None:
     """Summarize inherited states; the complete digest stays in JSON."""
     handoff = claim.get("message_handoff") or {}
@@ -66,6 +70,15 @@ def _print_message_handoff(claim: Dict[str, Any], stdout) -> None:
         f"{int(handoff.get('stranded_count') or 0)} unacknowledged from an ended seat",
         file=stdout,
     )
+    messages = handoff.get("messages") or []
+    for message in messages[:_HANDOFF_LINES]:
+        message_id = str(message.get("message_id") or "")
+        line = f"  {message_id}  ack: yoke messages acknowledge {message_id}"
+        if not message.get("receipt"):
+            line += "  (not injectable: this seat did not resolve as its recipient)"
+        print(line, file=stdout)
+    if len(messages) > _HANDOFF_LINES:
+        print(f"  ... {len(messages) - _HANDOFF_LINES} more", file=stdout)
     print("read: yoke messages list --state unacknowledged", file=stdout)
 
 

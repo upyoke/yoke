@@ -16,9 +16,6 @@ or plan note. Nothing acknowledged is automatically completed.
   named by row before staffing; project seat does not cover another doc link.
 - **Steering messages awaiting a seat**: acquire scope for unacknowledged parked
   or ended-seat mail; acknowledged receipts never inherit. Plan unfinished actions.
-- **Unacked injected (this session)**: receipt already shown, including oversized
-  stub. Read yoke messages get MESSAGE-ID fully and acknowledge; separate from
-  seat-awaiting mail.
 - **Idle holders**: process running→message; exited→message resumes transcript;
   resuming now→let start. `--mode parked` declared its wait; in-flight,
   vendor-stopped and stranded are separate rows. Read live mode/quiet_reason with

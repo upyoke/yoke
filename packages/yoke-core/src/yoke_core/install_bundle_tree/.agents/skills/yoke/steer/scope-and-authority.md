@@ -62,8 +62,9 @@ Workers address the ROLE with yoke say --steering, resolved from held/last-held
 item rather than a copied session UUID. Unattended mail parks; ending a turn
 sends no Fleet message. Acquire hands over unacknowledged scope mail newest
 first grouped by item, including eligible closed/unlinked project reports.
-Acknowledged reports are never inherited or awaiting a seat. Read the full
-handoff digest before the first pass, then substantively answer unfinished
-requests through yoke say --item PREFIX-N --stdin.
+Acknowledged reports are never inherited or awaiting a seat. Each inherited
+message also injects through the delivery hook; acquire lists its ack command.
+Read the full handoff digest before the first pass, then substantively answer
+unfinished requests through yoke say --item PREFIX-N --stdin and acknowledge each.
 
 Continue to [loop.md](loop.md).

@@ -25,6 +25,8 @@ class LeasedSessionMessage:
     sender_session_id: str | None = None
     sender_surface: str | None = None
     sender_surface_label: str | None = None
+    #: Times already injected; nonzero marks an unacknowledged reminder.
+    shown_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -128,6 +130,7 @@ def _coerce_messages(raw_messages: Any) -> tuple[LeasedSessionMessage, ...]:
                 sender_session_id=row.get("sender_session_id"),
                 sender_surface=row.get("sender_surface"),
                 sender_surface_label=row.get("sender_surface_label"),
+                shown_count=max(0, int(row.get("shown_count") or 0)),
             )
         )
     return tuple(messages)

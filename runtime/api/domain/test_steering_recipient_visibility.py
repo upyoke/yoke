@@ -135,12 +135,7 @@ def test_an_unfiltered_list_reaches_an_authorized_reader_for_a_parked_row() -> N
 
 
 def test_an_unfiltered_list_reaches_an_authorized_reader_for_a_drained_row() -> None:
-    """A row handed to a seat on acquire carries no session-recipient row.
-
-    ``hand_to_seat`` only ever updates the durable role row, so this is the
-    ``delivered`` case that has nothing in ``session_message_recipients`` at
-    all -- it must be found through the steering branch or not at all.
-    """
+    """A row handed to a seat on acquire is listed for an authorized reader."""
     conn = message_connection()
     sent = _say_steering(conn)
     _seat(conn, claim_id=11, session_id="s4")
