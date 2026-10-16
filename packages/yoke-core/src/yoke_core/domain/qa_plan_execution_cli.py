@@ -295,8 +295,8 @@ def run(args: List[str]) -> int:
     print(dumps_compact(result))
     if result.get("review_status") == "settled":
         print(
-            "QA review is already settled; reprinted the recorded verdict "
-            "batch without a new capture. A new capture requires "
+            "QA review already passed; reprinted the recorded passing "
+            "verdicts without a new capture. A new capture requires "
             "`yoke qa plan run` with `--replaces`.",
             file=sys.stderr,
         )

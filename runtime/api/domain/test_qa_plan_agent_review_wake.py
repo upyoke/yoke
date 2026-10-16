@@ -231,12 +231,12 @@ def test_pending_reentry_reprints_the_same_bundle(test_db):
     assert _count(test_db, "qa_plan_executions") == executions
 
 
-def test_settled_reentry_reprints_verdict_without_a_new_capture(test_db):
+def test_passed_reentry_reprints_verdict_without_a_new_capture(test_db):
     _owner(test_db)
     execution, bundle, requirement_id = _seed_pending(
         test_db, "run-review-settled-reentry", "item"
     )
-    _submit(test_db, execution, bundle, requirement_id, "fail")
+    _submit(test_db, execution, bundle, requirement_id, "pass")
     runs = _count(test_db, "qa_runs")
     executions = _count(test_db, "qa_plan_executions")
 
@@ -248,7 +248,7 @@ def test_settled_reentry_reprints_verdict_without_a_new_capture(test_db):
         for verdict in replay["settled_review"]
         if verdict["requirement_id"] == requirement_id
     ]
-    assert replay["settled_review"][0]["verdict"] == "fail"
+    assert replay["settled_review"][0]["verdict"] == "pass"
     assert _count(test_db, "qa_runs") == runs
     assert _count(test_db, "qa_plan_executions") == executions
 
@@ -302,12 +302,13 @@ def test_delivery_cancels_a_review_wake_whose_verdict_landed(test_db, monkeypatc
     assert str(reason).startswith(SETTLED_REVIEW_WAKE_REASON)
 
 
-def test_unsettled_requirement_remains_eligible_to_capture(test_db):
+@pytest.mark.parametrize(("verdict", "open_offsets"), [("pass", [1]), ("fail", [0, 1])])
+def test_only_a_passing_verdict_leaves_the_roster(test_db, verdict, open_offsets):
     _owner(test_db)
     execution, bundle, requirement_id = _seed_pending(
-        test_db, "run-review-partial", "item"
+        test_db, f"run-review-partial-{verdict}", "item"
     )
-    _submit(test_db, execution, bundle, requirement_id, "fail")
+    _submit(test_db, execution, bundle, requirement_id, verdict)
     roster = [dict(row) for row in execution["roster"]]
     extra = dict(roster[0])
     extra["requirement_id"] = requirement_id + 1
@@ -325,4 +326,6 @@ def test_unsettled_requirement_remains_eligible_to_capture(test_db):
     )
 
     assert reprint is None
-    assert [int(row["requirement_id"]) for row in kept] == [requirement_id + 1]
+    assert [int(row["requirement_id"]) for row in kept] == [
+        requirement_id + offset for offset in open_offsets
+    ]
