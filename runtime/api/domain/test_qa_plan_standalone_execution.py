@@ -159,21 +159,27 @@ def test_bad_source_refuses_before_materialization_commits():
         )
 
 
-def _machine_chain(conn, plan_id):
-    """A fresh-host case and the case that continues on the machine it leaves."""
+def _machine_chain(conn, plan_id, method="terminal-check"):
     replace_plan_cases(
         conn,
         plan_id=plan_id,
         cases=[
             {
                 "case_key": key,
-                "method_id": "terminal-check",
+                "method_id": method,
                 "instructions": "Check the terminal",
                 "expected_outcome": "Done",
                 "entry_surface": "/usr/bin/true",
                 "required_completion": "done",
                 **start,
-                "method_config": {"steps": [{"key": "done", "expect": "done"}]},
+                "method_config": {
+                    "steps": [{"key": "done", "expect": "done"}],
+                    **(
+                        {"capture_checkpoints": ["done"]}
+                        if method == "terminal-inspection"
+                        else {}
+                    ),
+                },
             }
             for key, start in (
                 ("first", {"host_baselines": ["fresh-host"]}),
@@ -244,8 +250,6 @@ def test_inheriting_case_is_blocked_when_its_own_predecessor_failed(
         },
         commit=True,
     )
-    # The follower is recorded blocked without touching the machine, naming
-    # the predecessor from this execution and not the aborted one.
     blocked = handle_plan_case_begin(
         _plan_case_request(current, 1, actor=("7", "manual-owner"))
     )
@@ -261,8 +265,12 @@ def test_inheriting_case_is_blocked_when_its_own_predecessor_failed(
     }
 
 
+@pytest.mark.parametrize("method", ["terminal-check", "terminal-inspection"])
 def test_standalone_machine_chain_resets_once_and_restores_after_its_last_case(
-    test_db, tmp_path, monkeypatch
+    test_db,
+    tmp_path,
+    monkeypatch,
+    method,
 ):
     from runtime.api.domain.machine_qa_host_test_support import (
         configure_test_machine,
@@ -282,7 +290,7 @@ def test_standalone_machine_chain_resets_once_and_restores_after_its_last_case(
 
     configure_test_machine(test_db, tmp_path, monkeypatch)
     plan = _plan(test_db)
-    _machine_chain(test_db, plan["id"])
+    _machine_chain(test_db, plan["id"], method=method)
     execution = begin_standalone_execution(
         test_db,
         plan="manual-proof",
@@ -312,12 +320,26 @@ def test_standalone_machine_chain_resets_once_and_restores_after_its_last_case(
                 )
             )
             assert submitted.primary_success, submitted.error
-        # One reset opens the chain; one restore closes it after the last case.
         assert resets_before_case == [["fresh-host"], []]
         assert control.full_reset_calls == 2
         assert "starting_state_restore" not in evidence[0]
         assert evidence[1]["starting_state_restore"]["restored"] is True
         assert evidence[1]["starting_state_restore"]["baseline"] == "fresh-host"
+        if method == "terminal-inspection":
+            from yoke_core.domain.qa_plan_review import begin_plan_review
+
+            current = lock_plan_execution(test_db, execution["id"])
+            assert begin_plan_review(test_db, current) is not None
+            rows = test_db.execute(
+                "SELECT case_outcome,verdict FROM qa_runs WHERE "
+                "qa_requirement_id=ANY(%s)",
+                ([case["requirement_id"] for case in execution["roster"]],),
+            ).fetchall()
+            assert len(rows) == 2
+            assert all(
+                row["case_outcome"] == "needs_review" and row["verdict"] is None
+                for row in rows
+            )
         finish_plan_execution(
             test_db,
             lock_plan_execution(test_db, execution["id"]),

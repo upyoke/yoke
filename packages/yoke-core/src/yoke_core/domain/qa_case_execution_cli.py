@@ -99,13 +99,19 @@ def run(args: List[str]) -> int:
             "direct run-attached row that omits method_config.requires_base_url"
         ),
     )
-    parser.add_argument("--expected-branch")
-    parser.add_argument("--expected-sha")
+    parser.add_argument(
+        "--expected-branch",
+        help="Selected registered lane branch; CI checks it before publication.",
+    )
+    parser.add_argument(
+        "--expected-sha",
+        help="Full source commit; CI refuses a different checkout HEAD before publication.",
+    )
     parser.add_argument("--timeout-seconds", type=int)
     parser.add_argument(
         "--checkout-path",
         help=(
-            "Execute the case in this checkout instead of the default tree. "
+            "Select this registered claimed lane; branch, path and commit resolve together. "
             "A deployment case needs none: the runner checks out its run's "
             "candidate into a disposable tree and removes it afterwards."
         ),
