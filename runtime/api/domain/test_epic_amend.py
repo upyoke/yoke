@@ -225,12 +225,12 @@ class TestTaskMetadataUpdate(unittest.TestCase):
     def test_rejects_unknown_field(self):
         conn = _seed_conn()
         _add_row(conn, 100, 1, "first")
-        with pytest.raises(ValueError, match="unknown metadata"):
+        with pytest.raises(ValueError, match="item-worktrees path-record"):
             epic_amend.task_metadata_update(
                 conn,
                 100,
                 1,
-                {"status": "planned"},
+                {"status": "planned", "worktree": "lane"},
             )
 
     def test_rejects_empty_fields(self):

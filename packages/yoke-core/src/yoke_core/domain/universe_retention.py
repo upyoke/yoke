@@ -8,7 +8,7 @@ import json
 import time
 
 from yoke_contracts.retention_defaults import RETENTION_KEY
-from yoke_contracts.timestamps import as_utc, format_instant, utc_now
+from yoke_contracts.timestamps import format_instant, utc_now
 from yoke_contracts.universe_retention import RetentionPolicy
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import instant_parameter
@@ -89,23 +89,33 @@ def _execute(conn, policy, deadline, sql, params=()):
     return conn.execute(sql, values)
 
 
-def _lock_tables(conn, policy, deadline, rule):
-    if not db_backend.connection_is_postgres(conn):
-        return
-    tables = sorted(
-        {"universe_settings", rule.table, *rule.locks, *(c[0] for c in rule.children)}
-    )
-    # The same bounded custody covers reference/owner writers and eligibility
-    # rechecks. It lasts only for this one committed graph/cohort.
-    _execute(
+def _hold_policy(conn, policy, deadline):
+    """Share-lock the settings row so the policy cannot change mid-cohort."""
+    lock = " FOR SHARE" if db_backend.connection_is_postgres(conn) else ""
+    row = _execute(
         conn,
         policy,
         deadline,
-        "LOCK TABLE " + ",".join(tables) + " IN SHARE ROW EXCLUSIVE MODE",
-    )
-    if rule.table == "path_snapshots":
-        # Native reader locks participate even when an older serving build is
-        # still present during rollout. No new reader protocol is required.
+        "SELECT value FROM universe_settings WHERE key=%s" + lock,
+        (RETENTION_KEY,),
+    ).fetchone()
+    current = RetentionPolicy.model_validate(json.loads(row[0])) if row else None
+    if (current or RetentionPolicy()).digest != policy.digest:
+        raise ValueError(
+            "retention_policy_changed: recovery: review settings and rerun universe prune."
+        )
+
+
+def _hold_cohort(conn, policy, deadline, rule):
+    """Lock only what this cohort needs; never whole message tables.
+
+    Row locks taken by the eligibility select and the settings-row share lock
+    replace table-wide custody, so prune never queues behind (or ahead of) the
+    message writers' row order. Snapshot inventories keep one table lock:
+    native readers take it, and no message writer touches these tables.
+    """
+    _hold_policy(conn, policy, deadline)
+    if rule.table == "path_snapshots" and db_backend.connection_is_postgres(conn):
         _execute(
             conn,
             policy,
@@ -207,47 +217,50 @@ def _delete_cohort(conn, policy, deadline, rule, rows, custody):
                 values,
             )
             deleted[table] = result.rowcount
+        # Eligibility is rechecked inside the DELETE itself. A graph whose
+        # parent stopped qualifying after its children went rolls back whole.
         clause, values = _key_where(rule.keys, accepted)
         result = _execute(
-            conn, policy, deadline, f"DELETE FROM {rule.table} WHERE {clause}", values
+            conn,
+            policy,
+            deadline,
+            f"DELETE FROM {rule.table} t WHERE {clause} AND ({rule.where})",
+            (*values, *rule.params),
         )
+        if rule.children and result.rowcount != len(accepted):
+            conn.rollback()
+            return {}, protected + len(accepted)
+        protected += len(accepted) - result.rowcount
         deleted[rule.table] = result.rowcount
     conn.commit()
     return deleted, protected
 
 
 def _table_pass(conn, policy, deadline, rule, apply):
+    """One cohort: select (row-locking on apply), then delete or preview."""
     if apply:
-        _lock_tables(conn, policy, deadline, rule)
-        current, _ = read_policy(conn)
-        if current.digest != policy.digest:
-            raise ValueError(
-                "retention_policy_changed: recovery: review settings and rerun universe prune."
-            )
+        _hold_cohort(conn, policy, deadline, rule)
     columns = ",".join(f"t.{key}" for key in rule.keys)
     cohort_limit = (
         1
         if rule.table in ("path_snapshots", "path_snapshot_sync_uploads")
         else policy.batch_rows
     )
+    lock = (
+        " FOR UPDATE OF t SKIP LOCKED"
+        if apply and db_backend.connection_is_postgres(conn)
+        else ""
+    )
     rows = _execute(
         conn,
         policy,
         deadline,
-        f"SELECT {columns} FROM {rule.table} t WHERE {rule.where} ORDER BY {columns} LIMIT %s",
+        f"SELECT {columns} FROM {rule.table} t WHERE {rule.where} ORDER BY {columns} LIMIT %s{lock}",
         (*rule.params, cohort_limit + 1),
     ).fetchall()
     partial = len(rows) > cohort_limit
     rows = rows[:cohort_limit]
-    # This is explicitly a bounded sample, never a prerequisite full-table
-    # count. The eligibility search itself is guarded by statement_timeout.
-    protected = _execute(
-        conn,
-        policy,
-        deadline,
-        f"SELECT COUNT(*) FROM (SELECT * FROM {rule.table} LIMIT %s) t WHERE NOT COALESCE(({rule.where}),FALSE)",
-        (policy.batch_rows, *rule.params),
-    ).fetchone()[0]
+    protected = None
     deleted, graph_protected = ({}, 0)
     if apply:
         with ExitStack() as custody:
@@ -255,88 +268,27 @@ def _table_pass(conn, policy, deadline, rule, apply):
                 conn, policy, deadline, rule, rows, custody
             )
     else:
+        # Preview only: a bounded sample, never a full-table count. Apply
+        # passes skip it; it would rescan the same rows on every cohort.
+        protected = _execute(
+            conn,
+            policy,
+            deadline,
+            f"SELECT COUNT(*) FROM (SELECT * FROM {rule.table} LIMIT %s) t WHERE NOT COALESCE(({rule.where}),FALSE)",
+            (policy.batch_rows, *rule.params),
+        ).fetchone()[0]
+        protected = min(protected, policy.batch_rows)
         conn.rollback()
     return {
         "table": rule.table,
         "eligible": len(rows),
         "eligible_partial": partial,
         "deleted": deleted,
-        "protected": min(protected, policy.batch_rows),
-        "protected_partial": True,
+        "protected": protected,
+        "protected_partial": protected is not None,
         "protected_graphs": graph_protected,
         "protection": rule.reason,
         "graph_budget_reason": "graph/custody exceeds bounded transaction; retained"
         if graph_protected
         else None,
     }
-
-
-def prune_pass(conn, request):
-    from yoke_core.domain.retention_table_policies import policies
-    from yoke_core.domain.retention_message_graphs import policies as graph_policies
-    from yoke_core.domain.retention_operational_policy import upload_policy
-    from yoke_core.domain.universe_retention_snapshots import snapshot_policy
-
-    current = utc_now()
-    cutoff = as_utc(request.cutoff) if request.cutoff else current
-    if cutoff > current:
-        raise ValueError(
-            "retention_cutoff_in_future: recovery: rerun the command with the server's current UTC cutoff."
-        )
-    policy, result = read_retention(conn, cutoff)
-    if request.expected_digest and request.expected_digest != policy.digest:
-        raise ValueError(
-            "retention_policy_changed: recovery: review universe retention get, then rerun prune with its new policy."
-        )
-    rules = (
-        policies(policy, cutoff)
-        + graph_policies(policy, cutoff)
-        + [snapshot_policy(), upload_policy(policy, cutoff)]
-    )
-    if request.table_index >= len(rules):
-        raise ValueError(
-            "retention_table_index_invalid: recovery: rerun universe prune from the beginning."
-        )
-    # End read transactions before the cohort's bounded custody starts.
-    conn.rollback()
-    deadline = time.monotonic() + policy.pass_seconds
-    result.update(
-        tables=[],
-        next_table_index=request.table_index,
-        cycle_complete=False,
-        failure=None,
-    )
-    for index in range(request.table_index, len(rules)):
-        rule = rules[index]
-        if time.monotonic() >= deadline:
-            break
-        try:
-            row = _table_pass(conn, policy, deadline, rule, request.apply)
-            result["tables"].append(row)
-        except Exception as exc:
-            conn.rollback()
-            code = getattr(exc, "sqlstate", "")
-            budget = isinstance(exc, TimeoutError) or code in ("57014", "55P03")
-            policy_error = isinstance(exc, ValueError) and str(exc).startswith(
-                ("retention_policy_changed:", "retention_policy_invalid:")
-            )
-            result["failure"] = {
-                "code": str(exc).partition(":")[0]
-                if policy_error
-                else ("retention_budget_stop" if budget else "retention_table_failed"),
-                "table": rule.table,
-                "reason": "statement/lock/pass budget reached"
-                if budget
-                else (
-                    str(exc)
-                    if policy_error
-                    else f"database operation refused ({code or type(exc).__name__}); no uncommitted cohort was applied"
-                ),
-                "recovery": "Earlier committed batches remain committed. Rerun universe prune; if repeated, ask the universe administrator to inspect this table.",
-            }
-            return result
-        result["next_table_index"] = (index + 1) % len(rules)
-        if index + 1 == len(rules):
-            result["cycle_complete"] = True
-            break
-    return result

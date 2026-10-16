@@ -314,7 +314,7 @@ def test_machine_role_invite_is_refused_before_any_admission(conn):
     assert result.outcome == OUTCOME_REFUSED
     assert result.refusal_reason == REFUSAL_INVITE_ROLE_REFUSED
     assert "machine-only role" in result.detail
-    assert f"yoke identity invite revoke {invite.invite_id}" in result.detail
+    assert f"yoke invites revoke email-{invite.invite_id}" in result.detail
     assert _actor_count(conn) == before
     assert get_invite(conn, invite.invite_id).status == INVITE_STATUS_PENDING
     assert resolve_external_identity(conn, issuer=_ISSUER, subject="sub-1") is None

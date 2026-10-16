@@ -18,6 +18,7 @@ from datetime import datetime
 from typing import Any, Callable
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_contracts.merge_queue_status import in_flight_landing
 from yoke_contracts.timestamps import as_utc, format_instant, parse_instant, utc_now
 
 
@@ -70,11 +71,13 @@ def mark_landing_pending(
                 + _response_error(response, "existing arming episode read failed")
                 + "; restore the item read and re-enter yoke merge item."
             )
-        queue = ((getattr(response, "result", None) or {}).get("item") or {}).get(
-            "merge_queue"
-        ) or {}
-        if str(queue.get("pr_number") or "") == str(pr_number):
-            existing_at = queue.get("enqueued_at")
+        queue = in_flight_landing(
+            ((getattr(response, "result", None) or {}).get("item") or {}).get(
+                "merge_queue"
+            )
+        )
+        if queue["pr_number"] == str(pr_number):
+            existing_at = queue["enqueued_at"]
             if existing_at not in (None, ""):
                 enqueued_at = parse_instant(existing_at)
     response = dispatch(

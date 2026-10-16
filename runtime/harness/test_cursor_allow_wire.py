@@ -38,7 +38,7 @@ def test_local_help_allow_is_a_native_permission_reply(
         None,
         start_hook_deadline(),
         project_scope=HookProjectScope(project_id=project_id),
-        defer_main_commit=deferred,
+        collect_facts=deferred,
         lint_config_snapshot={},
     )
     assert result.exit_code == 0

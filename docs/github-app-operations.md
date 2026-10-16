@@ -40,19 +40,19 @@ non-idempotent POST. Its idempotency key reuses the stage key for resumes,
 scopes retriggers to the failed/empty predecessor, and gives `--fresh` a new
 scope, so transport replay cannot suppress a deliberately new run.
 
-Bootstrap each project service identity through the source-dev/admin token
-surface; run it once per role with distinct component, token, and secret names:
+Bootstrap each project service identity through the [canonical token entrypoint](self-host.md#restore-admin-access).
+Use source-dev/admin authority with `YOKE_ENV=prod-db-admin`; omit its `docker compose exec --user yoke core` prefix.
+Replace `bootstrap-admin` and all following arguments with these, using distinct component, token, and secret names per role:
 
-```bash
-YOKE_ENV=prod-db-admin python3 -m yoke_core.domain.api_tokens_cli \
-  bootstrap-project-service --system-component <service-component> \
+```text
+bootstrap-project-service --system-component <service-component> \
   --project <project> --role <deployment_ci-or-infrastructure_ci> \
   --name <token-name> --raw-token-file <owner-only-secret-path>
 ```
 
 The actor and grant converge idempotently, but every invocation mints another
 active token. File mode atomically replaces a `0600` file and prints only token
-and actor ids; install the new secret, verify it, then revoke the prior token id.
+and actor ids; install the new secret, verify it, then use the same entrypoint with `revoke --token-id <id>` to revoke the prior token.
 Without file mode, the raw token appears once in the JSON response for attended use.
 
 `YOKE_GITHUB_ACTIONS_RELAY_ENV` selects HTTPS GitHub authority explicitly, independently of `YOKE_ENV`. Without it, deploy reuses the command's own selected connection — active HTTPS directly, or an owner-only `*-db-admin` connection's https sibling — the same resolver every https-relayed surface trusts. Malformed, non-HTTPS, or unresolvable selection fails closed. App keys and installation tokens do not belong in repo secrets, CI, or logs.

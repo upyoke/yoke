@@ -20,7 +20,10 @@ from yoke_core.domain.deployment_runs_lock import (
     bounded_run_write,
     lock_run_with_stable_membership,
 )
-from yoke_core.domain.deployment_source_reads import prepared_sources_only
+from yoke_core.domain.deployment_source_reads import (
+    prepared_sources_only,
+    SourcePreparationChanged,
+)
 from yoke_core.domain.deployment_start_timing import timed_call
 from yoke_core.domain.deploy_target_occupancy import require_target_unoccupied
 from yoke_core.domain.schema_read_scope import composition_operation
@@ -52,43 +55,62 @@ def _prepare(conn, run_id):
     candidate_custody(conn, run_id)
 
 
+_SOURCE_PREPARATIONS = 8
+
+
 @composition_operation
 def start_run(conn, run_id, candidate_containment):
     try:
         timed_call("start_source_preparation", _prepare, conn, run_id)
-        with bounded_run_write(conn, run_id), prepared_sources_only():
-            status, item_ids = timed_call(
-                "start_item_run_locks",
-                lock_run_with_stable_membership,
-                conn,
-                run_id,
-            )
-            if status is None:
-                return f"Error: deployment run '{run_id}' not found"
-            if refusal := terminal_run_refusal(
-                run_id,
-                status,
-                advancing_to="executing",
-                action="change status",
-            ):
-                return refusal
-            invalidate_run_source_facts(conn, run_id)
-            validate_deployment_run_items(conn, run_id=run_id, item_ids=item_ids)
-            timed_call("target_occupancy", require_target_unoccupied, conn, run_id)
-            timed_call("composition_freeze", freeze_run_composition, conn, run_id)
-            record_attested_candidate_containment(conn, run_id, candidate_containment)
-            if status == "failed":
-                from yoke_core.domain.qa_deployment_run_settlement import (
-                    restore_retry_obligations,
-                )
-
-                restore_retry_obligations(conn, run_id)
-            conn.execute(
-                "UPDATE deployment_runs SET status=%s, started_at=%s WHERE id=%s",
-                ("executing", instant_parameter(conn, utc_now()), run_id),
-            )
-            timed_call("executing_stamp", conn.commit)
+        for attempt in range(1, _SOURCE_PREPARATIONS + 1):
+            try:
+                return _admit(conn, run_id, candidate_containment)
+            except SourcePreparationChanged as exc:
+                conn.rollback()
+                if attempt == _SOURCE_PREPARATIONS:
+                    return (
+                        f"Error: {exc} The question was still new after "
+                        f"{_SOURCE_PREPARATIONS} unlocked preparations."
+                    )
+                # Answer only the new exact question with every lock released,
+                # then reread the mutable facts under fresh locks.
+                timed_call("start_source_refresh", exc.prepare)
     except (LookupError, ValueError) as exc:
         conn.rollback()
         return f"Error: {exc}"
+
+
+def _admit(conn, run_id, candidate_containment):
+    with bounded_run_write(conn, run_id), prepared_sources_only():
+        status, item_ids = timed_call(
+            "start_item_run_locks",
+            lock_run_with_stable_membership,
+            conn,
+            run_id,
+        )
+        if status is None:
+            return f"Error: deployment run '{run_id}' not found"
+        if refusal := terminal_run_refusal(
+            run_id,
+            status,
+            advancing_to="executing",
+            action="change status",
+        ):
+            return refusal
+        invalidate_run_source_facts(conn, run_id)
+        validate_deployment_run_items(conn, run_id=run_id, item_ids=item_ids)
+        timed_call("target_occupancy", require_target_unoccupied, conn, run_id)
+        timed_call("composition_freeze", freeze_run_composition, conn, run_id)
+        record_attested_candidate_containment(conn, run_id, candidate_containment)
+        if status == "failed":
+            from yoke_core.domain.qa_deployment_run_settlement import (
+                restore_retry_obligations,
+            )
+
+            restore_retry_obligations(conn, run_id)
+        conn.execute(
+            "UPDATE deployment_runs SET status=%s, started_at=%s WHERE id=%s",
+            ("executing", instant_parameter(conn, utc_now()), run_id),
+        )
+        timed_call("executing_stamp", conn.commit)
     return None

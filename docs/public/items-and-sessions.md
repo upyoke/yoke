@@ -85,8 +85,9 @@ the card explains that hook delivery can proceed and automatic wake waits
 for the relay to reconnect. Active sessions keep their normal hook delivery.
 
 Native wake routes that refuse delivery spend a bounded retry budget. Exhaustion
-sends the named failure and recovery to the original sender and the covering
-steering seat; read `yoke messages get MESSAGE-ID` for the receipt and attempts.
+sends the named failure and recovery to the covering steering seat. The
+original sender is not notified; the message state is their record. Read
+`yoke messages get MESSAGE-ID` for the receipt and attempts.
 Operator-driven hook delivery keeps its own wait without spending that budget.
 Detached turns keep their capture current while waiting on a command. If the
 relay contains a native, verified custody death reopens pending wakes held by
@@ -137,7 +138,9 @@ a recipient whether or not a seat is live, so sending, previewing, reading, and 
 that recipient's own state: `awaiting_seat` with the scope it is queued for,
 `delivered` naming the seat holding it, or `acknowledged`. A queued report is
 therefore never a message that went nowhere. The next seat covering the
-sender's item takes queued reports when it is acquired, and the fleet report's
+sender's item takes queued reports when it is acquired: each gets that seat's
+ordinary session receipt and injects through the same hook as a live send, and
+acquire prints each message id with its acknowledge command. The fleet report's
 awaiting-seat count reads the same coverage. A document seat covers every item
 linked to its document, so it takes and counts those items' reports even when
 another project owns the item. These views derive from existing
@@ -310,7 +313,9 @@ yoke messages cancel MESSAGE-ID
 
 Address workers by their held item and people by their actor id or registered label. Use a whole listed session id when no claim addresses the recipient. Anchor selectors add recipients; filters narrow them. Preview and inspect the recipient count before sending. A peer request also addresses steering; reply to the exact requesting session and steering. A sender without applicable held work uses `--steering-scope '{"project_id": N}'` with the peer anchor.
 
-Address steering as a role with `--steering`, resolved at delivery from work you hold or last held. Without a live covering seat, the message parks for its successor. Acknowledgement settles it. Send a `DONE PREFIX-N` report before releasing a claim you still hold, only after that item's terminal stage. A resumed completion is its own leg. If send says `Collapsed into an earlier message`, read the earlier message: the new body was discarded. Keep an unfinished lane held.
+Address steering as a role with `--steering`, resolved at delivery from work you hold or last held. Without a live covering seat, the message parks for its successor. Acknowledgement settles it.
+
+Injection shows a message; only `yoke messages acknowledge MESSAGE-ID` settles it. A message still unacknowledged after the acknowledgement grace (five minutes) comes back at the next injecting hook as a reminder: a short body excerpt, the full-body read command and the acknowledge command. Each later reminder waits twice as long, up to one hour, until you acknowledge it. Every harness gets reminders on the hook events its manifest lists under `inject_events`. Send a `DONE PREFIX-N` report before releasing a claim you still hold, only after that item's terminal stage. A resumed completion is its own leg. If send says `Collapsed into an earlier message`, read the earlier message: the new body was discarded. Keep an unfinished lane held.
 
 A reworded retry of the same completion owes no additional report. If a resumed
 completion collapsed because it did not cross a session end, report that fact

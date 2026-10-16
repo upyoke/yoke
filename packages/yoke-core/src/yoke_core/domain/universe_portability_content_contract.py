@@ -71,10 +71,18 @@ ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
             "replacement_requirement_id",
             "starting_state",
             "starting_state_reason",
+            "wake_path",
+            "wake_evidence",
         }
     ),
     "qa_plan_cases": frozenset(
-        {"starting_state", "starting_state_reason", "stage_reason"}
+        {
+            "starting_state",
+            "starting_state_reason",
+            "stage_reason",
+            "wake_path",
+            "wake_evidence",
+        }
     ),
     "qa_plan_item_attachments": frozenset(
         {
@@ -84,6 +92,7 @@ ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
             "retracted_by_actor_id",
         }
     ),
+    "qa_plans": frozenset({"retirement_reason", "retired_by_actor_id"}),
     "qa_runs": frozenset({"capture_degraded_reason", "case_outcome"}),
     "strategy_doc_revisions": frozenset({"session_id"}),
     "strategy_docs": frozenset({"parent_slug"}),

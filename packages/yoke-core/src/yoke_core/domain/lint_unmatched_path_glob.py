@@ -18,8 +18,9 @@ from yoke_contracts.hook_runner.shell_guard_repairs import (
     RIPGREP_REPLACE_CHECK_ID,
     executing_shell,
     expanded_glob_path,
-    path_glob_is_unmatched,
     glob_repair,
+    glob_segment_bases,
+    path_glob_is_unmatched,
     ripgrep_replace_repair,
 )
 from yoke_core.domain.lint_session_cwd_target_extract import resolve_payload_cwd
@@ -27,7 +28,10 @@ from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     strip_heredoc_body_lines,
 )
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
-from yoke_core.domain.lint_command_extract import extract_command as _extract_command
+from yoke_core.domain.lint_command_extract import (
+    extract_command as _extract_command,
+    raw_command as _raw_command,
+)
 
 CHECK_ID = "lint-unmatched-path-glob"
 HOOK_NAME = "lint-unmatched-path-glob"
@@ -102,21 +106,17 @@ def _strip_redir(token: str) -> str:
     return token
 
 
-def _unquoted_path_globs(command: str) -> List[str]:
-    found: List[str] = []
-    for token in _unquoted_tokens(strip_heredoc_body_lines(command)):
-        path = _strip_redir(token)
-        if "/" in path and any(char in path for char in _GLOB_CHARS):
-            found.append(path)
-    return found
-
-
-def _find_unmatched(command: str, cwd: str) -> Optional[str]:
+def _find_unmatched(command: str, cwd: str) -> Optional[Tuple[str, str]]:
     if not cwd:
         return None
-    for token in _unquoted_path_globs(command):
-        if path_glob_is_unmatched(token, cwd):
-            return token
+    stripped = strip_heredoc_body_lines(command)
+    for piece, base in glob_segment_bases(stripped, cwd):
+        for token in _unquoted_tokens(piece):
+            path = _strip_redir(token)
+            if "/" not in path or not any(char in path for char in _GLOB_CHARS):
+                continue
+            if path_glob_is_unmatched(path, base or ""):
+                return path, base or ""
     return None
 
 
@@ -191,18 +191,23 @@ def evaluate_payload(
     if executing_shell(payload) != "zsh":
         return None
     execution_cwd = _extract_cwd(payload, fallback=fallback_cwd)
-    token = _find_unmatched(command, execution_cwd)
-    if token is None:
+    # Assignment substitution removes ``$`` before the glob walk. Keep the
+    # raw text so an unexpanded variable is allowed instead of denied as a
+    # literal path.
+    source = _raw_command(payload) or command
+    found = _find_unmatched(source, execution_cwd)
+    if found is None:
         return None
-    suppression_seen = SUPPRESSION_TOKEN in command
+    token, checked_cwd = found
+    suppression_seen = SUPPRESSION_TOKEN in source
     mode = _read_mode(payload)
     reason = _format_reason(
         token,
         suppression_seen,
         mode,
-        execution_cwd=execution_cwd,
+        execution_cwd=checked_cwd,
         payload_cwd=_payload_cwd(payload),
-        command=command,
+        command=source,
     )
     outcome = "suppression_attempted" if suppression_seen else "denied"
     return mode, reason, outcome

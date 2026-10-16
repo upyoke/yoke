@@ -212,6 +212,15 @@ copies. Retraction records the run and reason; it grants no passing verdict.
 Retrying a failed run restores only its automatic retractions and requires a
 new walk; manual retractions and terminal execution histories remain intact.
 
+Removing a member (`yoke deployment-runs remove-item`) aborts that member's
+live executions with reason `deployment-member-removed`. A case already running
+then fails locally, because its heartbeat or submit meets a terminal execution.
+The runner's abort response returns the execution's `release_reason`. When it
+names the removal, `yoke qa plan run` reports the case as `case_outcome:
+removed` with plan state `removed` and exit status 1, not as a host-control
+error. QA was cancelled, not passed, and no host needs repair. The item owes
+its QA in its next release.
+
 An aborted or errored execution retains a typed review bundle for its completed
 captures. Its owner retrieves that bundle through `qa.plan_review.begin`:
 

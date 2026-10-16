@@ -1,12 +1,11 @@
 # Hosted org administration from the CLI
 
-On Yoke Cloud, Platform owns organizations, invites, and machine approvals.
-The CLI reaches the same operations the site uses, with the same permission
-checks, over a machine's existing hosted connection
-(`https://app.upyoke.com/api/orgs/<slug>`). Platform answers these function ids
-itself and never forwards them to the org's universe, so an invite created on
-the CLI and one created on the Members page are the same invite, counted
-against the same seat limit.
+On Yoke Cloud, Platform owns organizations and email invitations. The CLI
+reaches the same email invitations as **Team**, with the same permission and
+seat checks, over a machine's hosted connection
+(`https://app.upyoke.com/api/orgs/<slug>`). The invite-form read and machine
+authorization use the org's engine; email invite operations keep their
+`identity.invite.*` function ids and are answered by Platform.
 
 Connect a machine first with `yoke setup --connect https://app.upyoke.com`. Each command
 acts for the person who approved that machine, within the org it connected to.
@@ -27,15 +26,18 @@ connect a machine to the new org with `yoke setup --connect https://app.upyoke.c
 ## Invite and revoke
 
 ```bash
-yoke identity invite create pat@acme.example --role member   # or admin
-yoke identity invite list --status pending
-yoke identity invite revoke <invite-id>
+yoke invite pat@acme.example --role member   # or admin
+yoke invites list
+yoke invites revoke email-7
 ```
 
-Creating and revoking require the org admin role; any member can list. A hosted
+The invite CLI requires the org admin role, including its form read. A hosted
 role is `admin` or `member`. Refusals: `hosted_seat_limit_reached` (every seat,
 pending invites included, is used; more seats are contact-only),
 `duplicate_pending_invite`, `invite_not_pending`, and `not_admin`.
+Use the `email-N` reference from the list. Email invites join through sign-in;
+to replace one, revoke it and invite the email again. See
+[Teammate invitations](teammate-invitations.md) for both forms and recovery.
 
 ## Approve or deny a machine
 
@@ -61,8 +63,8 @@ local or self-hosted universe, `organizations.create` refuses as
 universe's own engine refuses `identity.invite.*` and the email-only
 `identity.link.set` pre-link as
 `hosted_invites_platform_owned`, because Platform holds hosted invites. Use the
-hosted invite commands above or the org's Members page. Direct issuer/subject
+hosted invite commands above or the org's Team page. Direct issuer/subject
 identity links still work on hosted universes. On a
-self-hosted universe the same `yoke identity invite` commands manage the
+self-hosted universe the same `yoke invite` and `yoke invites` commands manage the
 server's own sign-in admission, attributed to the calling actor; a call with
 no numeric actor refuses as `actor_required`.

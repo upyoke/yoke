@@ -19,6 +19,7 @@ from yoke_contracts.path_snapshot import (
     all_paths_with_kinds,
 )
 from yoke_contracts.path_source_scan import file_entry_from_source
+from yoke_contracts import terminal_detached_process
 
 
 class ProjectSnapshotScanError(RuntimeError):
@@ -103,7 +104,7 @@ def run_git(
     repo_root: Path, *args: str, binary: bool = False
 ) -> subprocess.CompletedProcess:
     try:
-        proc = subprocess.run(
+        proc = terminal_detached_process.run(
             ["git", "-C", str(repo_root), *args],
             capture_output=True,
             text=not binary,

@@ -14,6 +14,9 @@ import json
 import pytest
 
 from yoke_cli.transport import relay_telemetry
+from yoke_cli.transport.relay_application_outcome import (
+    RESPONSE_TIMEOUT_FAILURE_CLASS,
+)
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -136,6 +139,29 @@ def test_the_emitted_payload_is_one_the_real_handler_accepts(
         if application_succeeded is False
         else "not_reached"
     )
+
+
+def test_a_response_timeout_is_emitted_as_an_unknown_application_outcome(
+    monkeypatch,
+) -> None:
+    """The server accepted the call and may have committed after the client
+    stopped waiting, so the result is unknown rather than unreached."""
+    _project_context_is(monkeypatch, "yoke")
+    relay_telemetry.record(
+        function_id="deployment_runs.create",
+        session_id="session-a",
+        env="prod",
+        attempts=1,
+        transport_delivered=False,
+        application_succeeded=None,
+        failure_class=RESPONSE_TIMEOUT_FAILURE_CLASS,
+    )
+    sent = _capture_emits(monkeypatch)
+    assert relay_telemetry.flush() == 1
+
+    context = sent[0]["payload"]["context"]
+    assert context["application_outcome"] == "unknown"
+    assert context["failure_class"] == RESPONSE_TIMEOUT_FAILURE_CLASS
 
 
 def test_the_project_named_is_the_one_the_call_actually_failed_under(

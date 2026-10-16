@@ -33,12 +33,12 @@ fallback.
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 import time
 from pathlib import Path
 from typing import Callable, Sequence, TextIO
 
+from yoke_contracts.watch_capture import EXIT_SENTINEL
 from yoke_core.tools._watch_capture_binding import (
     DEFAULT_WRITER_GRACE_SECONDS,
     UNWRITTEN_CAPTURE_EXIT,
@@ -51,12 +51,7 @@ from yoke_core.tools._watch_capture_binding import (
 from yoke_core.tools._watch_terminal_outcome import OUTCOME_ONLY_WATCH_KINDS
 from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
 
-# Matches the wrapper-side footer format owned by
-# ``_watch_runner.run_watcher`` -- single source of the literal in
-# that producer; the consumer pattern lives here in lockstep. The rc
-# may be negative (signal-killed child, e.g. ``exit=-15``).
 WRAPPER_MODULE = "yoke_core.tools.watch_tail"
-EXIT_SENTINEL = re.compile(r"^# watch_\w+ exit=-?\d+")
 DEFAULT_POLL_INTERVAL = 0.1
 #: Suffix of the sibling file recording how much of a capture its
 #: subscriber has already been handed. Beside the capture, so it shares

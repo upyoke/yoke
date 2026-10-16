@@ -1,7 +1,11 @@
 {
  "id": "task-lanes",
  "title": "Task lanes",
- "status": "draft-copy",
+ "status": "observed",
+ "current": "A task lane is an item_worktrees row. Register a missing worker lane with yoke item-worktrees create, bind the task with yoke workflow-item epic-task reassign --new-worktree, then store the checkout path with yoke item-worktrees path-record.",
+ "sources": [".agents/skills/yoke/conduct/entry-activation-resolution.md", "packages/yoke-cli/src/yoke_cli/commands/adapters/epic_task.py", "packages/yoke-core/src/yoke_core/domain/epic_amend.py"],
+ "commands": ["yoke item-worktrees create", "yoke item-worktrees path-record", "yoke workflow-item epic-task reassign"],
+ "functions": ["item_worktrees.create", "item_worktrees.path_record", "workflow_item.epic_task.reassign"],
  "page": "coordination",
  "position": 2
 }

@@ -82,18 +82,22 @@ def test_cursor_merge_does_not_absorb_a_non_context_reply() -> None:
 
 
 def test_claude_envelopes_compose_when_cursor_flag_is_set() -> None:
-    first = json.dumps({
-        HOOK_SPECIFIC_OUTPUT_KEY: {
-            "hookEventName": "PreToolUse",
-            "additionalContext": "client hint",
+    first = json.dumps(
+        {
+            HOOK_SPECIFIC_OUTPUT_KEY: {
+                "hookEventName": "PreToolUse",
+                "additionalContext": "client hint",
+            }
         }
-    })
-    second = json.dumps({
-        HOOK_SPECIFIC_OUTPUT_KEY: {
-            "hookEventName": "PreToolUse",
-            "additionalContext": "server hint",
+    )
+    second = json.dumps(
+        {
+            HOOK_SPECIFIC_OUTPUT_KEY: {
+                "hookEventName": "PreToolUse",
+                "additionalContext": "server hint",
+            }
         }
-    })
+    )
     merged = merge_allow_stdout(first, second, "PreToolUse", cursor=True)
     assert json.loads(merged)[HOOK_SPECIFIC_OUTPUT_KEY]["additionalContext"] == (
         "client hint\n\nserver hint"
@@ -149,4 +153,47 @@ def test_local_cursor_entry_marks_and_merges_client_orientation(
     assert rc == 0
     assert json.loads(capsys.readouterr().out) == {
         "additional_context": "orientation\n\nresume block",
+    }
+
+
+def test_local_entry_merges_the_chains_client_facts(monkeypatch, capsys) -> None:
+    """In-process evaluation ships the same client facts an HTTPS relay does."""
+    monkeypatch.setattr(local_entry, "parse_hook_payload", lambda _text: {"cwd": "/w"})
+    monkeypatch.setattr(local_entry, "record_client_anchor", lambda *_a, **_k: None)
+    monkeypatch.setattr(local_entry, "detect_executor", lambda: "claude-code")
+    monkeypatch.setattr(
+        local_entry,
+        "stamp_hook_input",
+        lambda _payload, text, _executor, _event: (text, None),
+    )
+    monkeypatch.setattr(
+        local_entry, "ensure_user_lifecycle_hooks_for_executor", lambda _e: None
+    )
+    monkeypatch.setattr(local_entry, "capture_codex_session", lambda *_a, **_k: None)
+    monkeypatch.setattr(local_entry, "relay_identity_payload", lambda *_a, **_k: {})
+    monkeypatch.setattr(local_entry, "resolve_capability", lambda _e: object())
+    monkeypatch.setattr(
+        local_entry, "event_chain", lambda *_a, **_k: ["yoke_core.domain.observe_pre"]
+    )
+    collected: dict = {}
+
+    def collect(event, payload, executor, chain):
+        collected.update(event=event, payload=payload, executor=executor, chain=chain)
+        return {"_yoke_client_fact_probe": {"value": 1}}
+
+    monkeypatch.setattr(local_entry, "collect_client_facts", collect)
+
+    def run_event(_event, *, controls, **_kwargs):
+        assert controls.payload_extra["_yoke_client_fact_probe"] == {"value": 1}
+        controls.final_outcome = "allow"
+        return "", 0
+
+    monkeypatch.setattr(local_entry, "run_event", run_event)
+
+    assert local_entry.evaluate_local_hook("PreToolUse", "{}") == 0
+    assert collected == {
+        "event": "PreToolUse",
+        "payload": {"cwd": "/w"},
+        "executor": "claude-code",
+        "chain": ["yoke_core.domain.observe_pre"],
     }

@@ -202,3 +202,53 @@ def test_partial_terminal_walk_can_review_completed_capture_without_reopening(
         ).fetchone()
         is None
     )
+
+
+def test_failed_walk_review_lists_chain_blocked_cases_with_reasons(test_db):
+    from yoke_core.domain.qa_plan_case_chain import INHERITED_PREDECESSOR_NOT_PASSED
+    from yoke_core.domain.qa_plan_execution_state import advance_plan_execution
+
+    item_id = 9782
+    execution, requirement_id, capture_id = captured_plan_review(
+        test_db, item_id, unfinished_case=True
+    )
+    blocked_case = execution["roster"][1]
+    reason = "case 'follow' inherits the machine case 'anchor' left; it was not run"
+    advance_plan_execution(
+        test_db,
+        execution,
+        ordinal=1,
+        requirement_id=int(blocked_case["requirement_id"]),
+        result={
+            "requirement_id": int(blocked_case["requirement_id"]),
+            "case_outcome": "blocked_on_precondition",
+            "verdict": "blocked",
+            "error_code": INHERITED_PREDECESSOR_NOT_PASSED,
+            "error": reason,
+        },
+    )
+    finish_plan_execution(
+        test_db,
+        execution,
+        state="aborted",
+        reason="qa-plan-case-failed: requirements 1",
+    )
+    begun = handle_plan_review_begin(
+        FunctionCallRequest(
+            function="qa.plan_review.begin",
+            actor=ActorContext(actor_id="7", session_id="review-session"),
+            target=TargetRef(kind="item", item_id=item_id),
+            payload={"execution_id": execution["id"]},
+        )
+    )
+    assert begun.primary_success, begun.error
+    bundle = begun.result_payload["review_bundle"]
+    assert [case["capture_run_id"] for case in bundle["cases"]] == [capture_id]
+    assert bundle["chain_blocked"] == [
+        {
+            "requirement_id": int(blocked_case["requirement_id"]),
+            "case_key": str(blocked_case["case_key"]),
+            "error_code": INHERITED_PREDECESSOR_NOT_PASSED,
+            "reason": reason,
+        }
+    ]

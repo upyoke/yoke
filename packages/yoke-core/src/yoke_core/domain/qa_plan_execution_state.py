@@ -47,6 +47,7 @@ def advance_plan_execution(
         ordinal=ordinal,
         requirement_id=requirement_id,
         allow_replay=True,
+        allow_host_free_ahead=True,
     )
     placeholder = marker(conn)
     existing_cursor = conn.execute(
@@ -94,12 +95,27 @@ def advance_plan_execution(
             instant_parameter(conn, now),
         ),
     )
+    cursor = int(execution["cursor_ordinal"])
+    if ordinal == cursor:
+        # Host-free cases recorded ahead while the plan queued for a host
+        # are already done; the cursor steps over them.
+        recorded = {
+            int(row["ordinal"] if hasattr(row, "keys") else row[0])
+            for row in conn.execute(
+                "SELECT ordinal FROM qa_plan_execution_results "
+                f"WHERE execution_id={placeholder} AND ordinal>{placeholder}",
+                (str(execution["id"]), ordinal),
+            ).fetchall()
+        }
+        cursor = ordinal + 1
+        while cursor in recorded:
+            cursor += 1
     conn.execute(
         "UPDATE qa_plan_executions SET cursor_ordinal="
         f"{placeholder},heartbeat_at={placeholder} WHERE id={placeholder}",
-        (ordinal + 1, instant_parameter(conn, now), str(execution["id"])),
+        (cursor, instant_parameter(conn, now), str(execution["id"])),
     )
-    execution["cursor_ordinal"] = ordinal + 1
+    execution["cursor_ordinal"] = cursor
     execution["heartbeat_at"] = now
     captured_run = result.get("qa_run_id") or result.get("run_id")
     if captured_run is not None:

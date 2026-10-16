@@ -33,7 +33,7 @@ DELTA_WAKE_RULES = (
         WAKE_NOW,
         re.compile(
             r"^fleet (?:(?:ERROR|FATAL)\b|inbox\b|ALARM "
-            r"(?:idle-holder|unowned-item|starved-envelope)\b|"
+            r"(?:idle-holder|unowned-item|starved-envelope|unstaffed-ready)\b|"
             r"session \S+ terminated\b|item \S+ available\b|"
             r"item \S+ status .* -> (?:blocked|stopped)\b)"
         ),
@@ -43,7 +43,7 @@ DELTA_WAKE_RULES = (
         re.compile(
             r"^fleet (?:item \S+ (?:entered|status|claim|left-frontier)\b|"
             r"session \S+ (?:registered|ended)\b|"
-            r"CLEAR (?:idle-holder|unowned-item|starved-envelope)\b)"
+            r"CLEAR (?:idle-holder|unowned-item|starved-envelope|unstaffed-ready)\b)"
         ),
     ),
 )
@@ -60,7 +60,7 @@ Raw line shapes:
   fleet item YOK-N available status=<status> claim=<claim-state>
   fleet session <session-id> registered|ended|terminated surface=<surface>
   fleet inbox <message-id> state=pending|injected from=<session-id>
-  fleet ALARM idle-holder|unowned-item|starved-envelope ...
+  fleet ALARM idle-holder|unowned-item|starved-envelope|unstaffed-ready ...
   fleet CLEAR <alarm-kind> <subject>
 """
 

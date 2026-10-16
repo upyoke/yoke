@@ -1,0 +1,11 @@
+{
+ "id": "recipe-step-readiness",
+ "title": "Recipe step readiness",
+ "status": "observed",
+ "current": "Every terminal recipe step that sends keys declares the ready_text of the prompt it answers; saving the case and starting its execution both refuse a keyed step without it, naming the step. A prompt that never appears fails that step as terminal_action_not_ready with step and waiting_for. When the command under the terminal has already exited, the step, including the browser approval gate, fails as terminal_setup_exited, and setup_exit names the exit code and the last named refusal setup printed. Linux reads the __YOKE_EXIT_ marker and stops waiting once it appears; macOS reads the recipe's exit-status file. A step for a prompt the installer no longer shows is removed from the source cases and the saved plan is synced.",
+ "desired": "A live installer campaign run on a synced saved plan in which every keyed step records its ready text, and a setup that exits early is reported by its own exit code and refusal.",
+ "sources": ["docs/testing-verification/installer-campaign.md", "packages/yoke-core/src/yoke_core/domain/machine_qa_action_readiness_contract.py", "packages/yoke-core/src/yoke_core/domain/machine_qa_setup_exit.py"],
+ "gaps": ["installer-campaign-live-proof"],
+ "page": "test-machines",
+ "position": 6
+}

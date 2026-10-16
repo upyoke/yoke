@@ -39,12 +39,6 @@ def policies(policy, cutoff):
             ("session_message_attempts", "message_id", "message_id"),
             ("session_message_recipients", "message_id", "message_id"),
         ),
-        locks=(
-            "actor_message_recipients",
-            "session_launches",
-            "harness_sessions",
-            "work_claims",
-        ),
         reason="human/uncertain origins, actor recipients, references, live holds and unsettled graphs are protected",
     )
     launches = Cleanup(
@@ -62,15 +56,6 @@ def policies(policy, cutoff):
         "AND NOT EXISTS (SELECT 1 FROM work_claims w WHERE w.session_id IN (t.requester_session_id,t.registered_session_id) AND w.released_at IS NULL)",
         (launch_cutoff,) * 6,
         children=(("session_launch_attempts", "launch_id", "launch_id"),),
-        locks=(
-            "session_messages",
-            "session_message_recipients",
-            "session_message_attempts",
-            "actor_message_recipients",
-            "session_termination_reaps",
-            "harness_sessions",
-            "work_claims",
-        ),
         reason="human graphs, live references and failed/expired/unknown launches stay actionable and protected",
     )
     # Launches first; a settled message becomes unreferenced on the next pass.

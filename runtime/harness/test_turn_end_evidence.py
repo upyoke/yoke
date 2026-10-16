@@ -12,6 +12,7 @@ from yoke_contracts.turn_end_evidence import (
     from_payload_facts,
     read_transcript_tail,
 )
+from yoke_contracts.hook_runner.project_scope import HookProjectScope
 from yoke_harness.hooks.deadline import start_hook_deadline
 from yoke_harness.hooks.local_subset import evaluate_local_subset
 
@@ -146,6 +147,9 @@ def test_claude_and_codex_project_the_same_turn_evidence(tmp_path) -> None:
             executor,
             None,
             start_hook_deadline(),
+            collect_facts=True,
+            # The turn-end gate reads this fact only for project sessions.
+            project_scope=HookProjectScope(project_id=1),
         )
         assert local.payload_extra is not None
         assert local.payload_extra[PAYLOAD_KEY] == {

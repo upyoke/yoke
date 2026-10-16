@@ -59,7 +59,9 @@ def qa_requirement_update(args: List[str]) -> int:
         help=(
             "Updatable field: success_policy, blocking_mode, target_env, "
             "capability_requirements, suite_id, qa_phase, "
-            "workflow_transition_id, method_config. A field outside the set "
+            "workflow_transition_id, method_config, wake_path, wake_evidence. "
+            "Mark a live case manual with wake_evidence first, then "
+            "wake_path manual. A field outside the set "
             "is refused by name with the allowlist the engine holds."
         ),
     )
@@ -137,7 +139,10 @@ def qa_requirement_waive(args: List[str]) -> int:
             "Record the operator's decision with --source operator and its rationale. "
             "The recorder must hold the item work claim, a live steering seat covering "
             "the item, or be the live driver of its requirement's run. Agent-sourced "
-            "waivers retain the normal QA subject claim rule."
+            "waivers retain the normal QA subject claim rule. A retracted, superseded "
+            "or replaced requirement no longer counts: waiving it refuses with "
+            "requirement_not_live and names the live copy of the same case to waive "
+            "instead, or says none is left."
         ),
     )
     parser.add_argument(

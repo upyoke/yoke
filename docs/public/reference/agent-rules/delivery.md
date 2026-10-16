@@ -102,6 +102,11 @@ authoring refuses `stage_reason_required` otherwise. Each such case enrolls its
 item on the stage run, so a read-only check that production can prove belongs
 on production alone.
 
+A case that can only be judged after real production traffic sets
+`wake_path: manual` with a one-line `wake_evidence` a registered read can
+confirm. Its stage does not wake the owner; steering does, once the evidence
+exists ([cases that wait for real traffic](../qa-platform/standalone-plans.md#cases-that-wait-for-real-traffic)).
+
 A release pair can admit the same item to both target runs. A supplemental
 persistent-environment run enrolls only members with explicit post-deploy
 obligations for that environment; untargeted cases remain with final delivery.
@@ -131,7 +136,9 @@ requires accepted admitted copies for every stage and production obligation,
 so passing production cannot hide a failed or pending stage case. A run
 settles on its own target: the production run succeeds once its own
 obligations pass, leaving a member that still owes post-deploy QA or manual
-acceptance on another named target at its release wait with `deployed_to` stamped. That member closes against the production
+acceptance on another named target at its release wait with `deployed_to` stamped. Once settlement
+commits, its claim holder (or the project's steering seat) gets one notice
+naming each owed requirement, its environment and how to run it. That member closes against the production
 delivery when the stage run accepts its obligation; a member red on the
 run's own target or an untargeted manual acceptance still holds the run.
 No deferral passes, waives or retracts acceptance. Refusals identify the item,

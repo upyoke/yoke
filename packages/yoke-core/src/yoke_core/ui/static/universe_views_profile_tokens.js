@@ -3,9 +3,10 @@
 // with token creation behind the section's own "New token" action.
 
 import { buildUniverseRoute } from "./universe_navigation.js";
+import { localReachabilityNotice } from "./local_reachability_notice.js";
 import { relativeAgePhrase } from "./universe_time.js";
 import {
-  callFunction, el, labelCellsByColumn, renderError,
+  callFunction, el, labelCellsByColumn, portabilityMode, renderError,
 } from "./universe_view_support.js";
 
 const READ_FAILED = { status: 0, envelope: { success: false, error: {} } };
@@ -140,6 +141,13 @@ function newTokenForm(context, slot, close, redraw) {
     notice.appendChild(el(
       documentNode, "code", "profile-token-value", result.envelope.result.raw_token,
     ));
+    notice.appendChild(el(
+      documentNode, "p", "profile-token-hint",
+      "Lost it? Revoke this token below and create a new one.",
+    ));
+    if (portabilityMode(context.capabilities) === "local") {
+      notice.appendChild(localReachabilityNotice(documentNode, { variant: "token" }));
+    }
     const done = el(documentNode, "button", "item-button", "Done");
     done.type = "button";
     done.addEventListener("click", redraw);

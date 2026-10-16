@@ -123,6 +123,10 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "[--source operator|agent] [--session-id S] [--json]",
     ),
     AdapterEntry(
+        "qa.plan.retire",
+        "yoke qa plan retire PLAN --project P --reason TEXT [--session-id S] [--json]",
+    ),
+    AdapterEntry(
         "qa.plan.materialize",
         "yoke qa plan materialize --deployment-run-id RUN --plan PLAN --project P",
     ),

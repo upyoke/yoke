@@ -1,10 +1,7 @@
 """One foreground command over short, stateless universe prune passes."""
 
 import argparse
-from collections import Counter
-import json
 import sys
-import time
 
 from yoke_cli.commands._helpers import (
     add_full_arg,
@@ -14,6 +11,7 @@ from yoke_cli.commands._helpers import (
     ensure_handlers_loaded,
     parse_or_usage_error,
 )
+from yoke_cli.commands.adapters.universe_retention_output import PruneRun, write_summary
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
 from yoke_cli.transport.relay_telemetry import TRANSPORT_FAILED_CODE
 from yoke_contracts.api.function_call import (
@@ -31,9 +29,11 @@ def _parser(prune):
         prog="yoke universe prune" if prune else "yoke universe retention get",
         description=(
             "Preview disposable rows in the connected universe; --apply deletes eligible rows. "
-            "Universe/org admin required. Runs in the foreground until finished, with bounded "
-            "transactions and progress output. Committed batches survive interruption; rerun "
-            "to select remaining eligible records. Results are command output only; no saved "
+            "Universe/org admin required. One run continues until a full cycle deletes nothing, "
+            "using one fixed UTC cutoff and bounded transactions. It prints a progress line about "
+            "every 10 seconds and a short summary: total deleted, tables that changed, duration, "
+            "and any table not finished with its reason and recovery. Ctrl-C keeps committed "
+            "batches and prints the same summary. Results are command output only; no saved "
             "prune audit or run record. No vacuum/analyze or physical file-shrink promise."
             if prune
             else "Read the selected universe's effective retention policy, source, digest and UTC cutoff. "
@@ -52,7 +52,12 @@ def _parser(prune):
         )
     add_session_arg(parser)
     add_json_arg(parser)
-    add_full_arg(parser, "the complete policy and per-table result")
+    add_full_arg(
+        parser,
+        "per-table eligible, deleted and protected detail plus the policy digest"
+        if prune
+        else "the complete policy",
+    )
     return parser
 
 
@@ -79,35 +84,31 @@ def _failure(code, message):
     )
 
 
-def _finish(response, parsed, deleted, tables, identity):
-    result = dict(identity)
-    result.update(
-        mode="apply" if parsed.apply else "preview",
-        deleted=dict(deleted),
-        tables=list(tables.values()),
+REQUIRED_FIELDS = (
+    "universe",
+    "source",
+    "policy",
+    "policy_digest",
+    "cutoff",
+    "next_table_index",
+    "cycle_complete",
+    "skipped",
+)
+
+
+def _finish(response, parsed, run):
+    response = response.model_copy(
+        update={"result": run.result("apply" if parsed.apply else "preview")}
     )
-    response = response.model_copy(update={"result": result})
     if parsed.json_mode:
         return emit_response(response, json_mode=True)
-    for table, row in tables.items():
-        eligible = (
-            f">={row['eligible']} (bounded)"
-            if row["eligible_partial"]
-            else str(row["eligible"])
-        )
-        print(
-            f"{table}: eligible={eligible}; deleted={deleted[table]}; protected>={row['protected']} (sample)"
-        )
-        if row.get("protected_graphs"):
-            print(
-                f"  retained graphs={row['protected_graphs']}: {row['graph_budget_reason']}"
-            )
-    print("Committed deletion totals: " + json.dumps(dict(deleted), sort_keys=True))
-    if not parsed.apply:
-        print(
-            "Preview only; protected counts are bounded samples, not full-table totals."
-        )
-    return emit_response(response, json_mode=False, human_writer=lambda *_: None)
+
+    def summary(display, out, _err):
+        write_summary(display.result, out, parsed.full)
+
+    return emit_response(
+        response, json_mode=False, human_writer=summary, failure_writer=summary
+    )
 
 
 def universe_prune(args):
@@ -117,9 +118,7 @@ def universe_prune(args):
     ensure_handlers_loaded()
     actor = build_actor(session_id=parsed.session_id)
     payload = {"apply": parsed.apply}
-    deleted, tables, identity = Counter(), {}, {}
-    cycle_deleted = 0
-    last_progress = time.monotonic()
+    run = PruneRun(parsed.apply)
     try:
         while True:
             # Never automatically retry an ambiguous mutating pass: no stored
@@ -132,28 +131,18 @@ def universe_prune(args):
                 max_attempts=1,
             )
             result = response.result or {}
-            required = (
-                "universe",
-                "source",
-                "policy",
-                "policy_digest",
-                "cutoff",
-                "next_table_index",
-                "cycle_complete",
-            )
-            if response.success and not all(key in result for key in required):
+            run.record(result)
+            if response.success and not all(k in result for k in REQUIRED_FIELDS):
                 return _finish(
                     _failure(
                         "retention_response_version_skew",
-                        "Required prune response fields are absent (floor: next-release); this pass's outcome/count is unknown. Recovery: ask the control-plane operator to serve the release carrying universe retention, then rerun prune.",
+                        "Required prune response fields are absent (floor: next-release); counts above are what this pass reported. Recovery: ask the control-plane operator to serve the release carrying single-run universe prune, then rerun prune.",
                     ),
                     parsed,
-                    deleted,
-                    tables,
-                    identity,
+                    run,
                 )
-            if not identity and result.get("universe"):
-                identity = {
+            if not run.identity and result.get("universe"):
+                run.identity = {
                     key: result[key]
                     for key in (
                         "universe",
@@ -163,15 +152,12 @@ def universe_prune(args):
                         "cutoff",
                     )
                 }
-                print(
-                    f"Universe {identity['universe']['slug']}; policy={identity['policy_digest']}; cutoff={identity['cutoff']}",
-                    file=sys.stderr,
-                    flush=True,
-                )
-            for row in result.get("tables", []):
-                tables[row["table"]] = row
-                deleted.update(row["deleted"])
-                cycle_deleted += sum(row["deleted"].values())
+                if not parsed.json_mode:
+                    print(
+                        f"{'Pruning' if parsed.apply else 'Previewing'} universe {result['universe']['slug']} (cutoff {result['cutoff']})",
+                        file=sys.stderr,
+                        flush=True,
+                    )
             if not response.success:
                 if (
                     parsed.apply
@@ -180,33 +166,31 @@ def universe_prune(args):
                 ):
                     response = _failure(
                         "retention_pass_outcome_unknown",
-                        f"{response.error.code}: {response.error.message}. The last pass was not acknowledged; its deletion count is unknown. Earlier acknowledged totals follow. "
+                        f"{response.error.code}: {response.error.message}. The last pass was not acknowledged; its deletion count is unknown. Earlier acknowledged totals are shown. "
                         "Committed batches remain committed. Recovery: restore the connection/authority and rerun universe prune.",
                     )
-                return _finish(response, parsed, deleted, tables, identity)
-            if time.monotonic() - last_progress >= 5:
-                print(
-                    f"Prune progress: committed rows={sum(deleted.values())}; tables visited={len(tables)}",
-                    file=sys.stderr,
-                    flush=True,
-                )
-                last_progress = time.monotonic()
-            if result["cycle_complete"]:
-                if not parsed.apply or cycle_deleted == 0:
-                    return _finish(response, parsed, deleted, tables, identity)
-                cycle_deleted = 0
+                return _finish(response, parsed, run)
+            if not parsed.json_mode:
+                run.progress()
+            if result["cycle_complete"] and not run.next_cycle():
+                return _finish(response, parsed, run)
             payload = {
                 "apply": parsed.apply,
                 "cutoff": result["cutoff"],
                 "expected_digest": result["policy_digest"],
                 "table_index": result["next_table_index"],
             }
+            if run.skip_tables:
+                payload["skip_tables"] = run.skip_tables
     except KeyboardInterrupt:
-        result = _failure(
-            "retention_interrupted",
-            "Interrupted; the active pass's outcome is unknown. Earlier acknowledged totals follow; committed batches remain committed. Recovery: rerun universe prune.",
+        _finish(
+            _failure(
+                "retention_interrupted",
+                "Interrupted; the active pass's outcome is unknown. Earlier acknowledged totals are shown; committed batches remain committed. Recovery: rerun universe prune.",
+            ),
+            parsed,
+            run,
         )
-        _finish(result, parsed, deleted, tables, identity)
         return 130
 
 

@@ -101,19 +101,19 @@ live call may defer; repeated failures retain precedence.
 
 Native-held rows name the native and, when measurable, its no-output age from
 the capture's own clock, not periodically refreshed file mtime. Missing old
-clock means unknown, never recent output. Parked declares wait, not native
-exit. Codex active-writer/background_session_in_use is native_turn_running
-deferral, not a steering failure notice. Observed exit reopens a busy receipt
-even at retry limit; silence alone cannot reopen exhausted unparked receipt.
-Verified exit retires orphan open calls. Explicit operator wake retains its
-intentional semantics; automatic wakes never start a second live turn.
+clock means unknown, never recent output. Parked declares wait, not exit; a
+supervisor-recorded exit ends the hold despite surviving group members. Codex
+background_session_in_use is native_turn_running deferral, not a failure.
+Observed exit reopens a busy receipt even at retry limit; silence cannot reopen
+an exhausted unparked one. Verified exit retires orphan open calls. Explicit
+operator wake keeps its semantics; automatic wakes never start a second turn.
 
 wake_escalation qualifies actionable rows: starved_hook_route,
-parked_without_idle_wake, native_process_gone. Park/no-idle-wake and stored
-native exit escalate immediately, not after another grace; later activity
-retires observations. Clean exited parked/landing workers resume stored native
-identity on their next message while their holder wait remains expected.
-Readable machine observation, not heartbeat age, proves exit.
+parked_without_idle_wake, native_process_gone. These escalate at once; later
+activity retires observations. Clean exited parked/landing workers resume
+their stored native identity on their next message; their wait stays expected.
+Machine observation, not heartbeat age, proves exit. Escalated rows name
+`yoke session-control session wake SESSION-ID`; terminate needs transcript gone.
 
 Refused/exhausted wakes send one bounded role-addressed notice per failure to
 covering steering, with original message/target/diagnostic. outcome_unknown
@@ -166,10 +166,10 @@ Rows expire after six hours.
 Landed-without-close-out uses item merged_at or merge_queue_landed_at plus
 nonterminal state; control-plane observer records landing even if waiter died.
 A parked live release holder with active completion flow reports compact
-awaiting-deployment-run or delivering-in-RUN; silence is expected. Missing/gone
-holders, aged working holder + landing, unavailable flow, remerged/unreadable
-custody or actionable run keeps full detail. Section owns these rows; never
-duplicates idle/live holders or members already shown in deployment runs.
+awaiting-deployment-run or custody; silence is expected. Missing/gone holders,
+aged working holder + landing, unavailable flow, remerged/unreadable custody or
+actionable run keeps full detail. Section owns these rows; never duplicates
+idle/live holders or members already shown in deployment runs.
 
 Custody batches landing receipt reads and reuses one comparison source per
 project and release commit. Definite containment answers for full commit hashes
@@ -178,12 +178,13 @@ commit pair; unknown answers retry. Membership, holder and flow state stay live.
 
 Close-out requires holder claim: never propose seat recovery against a live
 holder. Orphan rows alone name pinned workflow recovery including --result/
---verification when close_out_evidence_gate requires them. delivery_landing_custody
-agrees with enrollment: delivering-in-run, no-release-holds-it (expected
-enrollment for valid parked wait), or merged-again-since-run. Losing custody
-changes identity/wakes; moving between releases does not. Merge time starts
-landing age; a queue waiter becomes quiet only after full landing idle threshold,
-while rows retain actual landing age/tool silence.
+--verification when close_out_evidence_gate requires them. Custody agrees with
+enrollment: delivering-in-run, `delivered to ENV; owes #N on ENV` once it
+succeeded, no-release-holds-it (valid parked wait expects enrollment) or
+merged-again-since-run. A non-release status entered after landing reads
+`re-landing owed` (no delivery wait): wake holder to review and merge, else
+re-enter bound skill. Losing custody changes identity/wakes; moving releases
+does not. Landing age starts at merge; queue waiters go quiet after its idle limit.
 
 Dead waits scan recent outbound conversation for real interrogative/explicit
 reply requests, not confirmations or latest message alone. Reply already received
@@ -215,6 +216,7 @@ not-woken reason (expired/failed/cancelled, no holder/seat, gone/stale driver).
 One notice + at most two addressability reads per run; detailed requirement
 reasons stay on `yoke deployment-runs stages RUN`. Wakes precede empty-member
 close-out; missing wake is a defect, not instruction to message owners manually.
+A member holding an open `wake_path: manual` requirement (no run recorded, not waived/superseded/retracted) is never woken at stage entry; its line reads `held for manual wake`. Section "waiting on manual wake" lists run, item, requirement, case, `wake_evidence`, claim-holder session and liveness, and the `yoke say --item` wake carrying the member's `yoke qa plan run`. Rows enter the fingerprint (requirement, owner) but never `actionable`: evidence can take days.
 
 Waiting-only-to-be-driven means created with no live driver. created + live
 driver may be silent phase; executing does not call for duplicate drive even
@@ -242,11 +244,10 @@ unknown, never run-start or source-QA age. Boot adds column without backfill.
 
 ## Inbox, shared placement and capacity
 
-Steering-awaiting-seat counts parked role reports/unacknowledged ended-seat
-reports; acknowledged never inherits. Acquire shows inherited/parked/stranded
-counts and messages-list unacknowledged; JSON keeps newest-by-item digest.
-Zero count is omitted. Unacked-injected-this-session rows past grace name
-`yoke messages acknowledge MESSAGE-ID`; separate from awaiting-seat inbox.
+Awaiting-seat counts unacknowledged parked/ended-seat reports. Acquire gives
+each a seat session receipt (hook-injected), prints each `yoke messages
+acknowledge MESSAGE-ID` (first 20; unresolved seat = not injectable); the JSON
+digest repeats them. No unacked inbox: the delivery hook re-presents those.
 Every holder appears once in its most specific alarm/landed/live section;
 ordinary live-claim inventory is not an idle alarm. Empty sections print nothing.
 
@@ -294,7 +295,8 @@ marked control-plane facts. Message leases do not wait for report composition:
 one structured event reply carries envelope; report follows empty hook rather
 than holding 30-second lease/ranking or appending unparsable second bytes.
 Hook and watcher use same compact digest/closing marker/actionable sections,
-own unacked inbox and full-read/help pointer; deliver=true/shared delivered
+and full-read/help pointer (unacknowledged messages are re-presented by
+message delivery, not the report); deliver=true/shared delivered
 record prevents reprinting other's report. Worker mail wakes normally; no mail
 is still followed by next due hook report.
 

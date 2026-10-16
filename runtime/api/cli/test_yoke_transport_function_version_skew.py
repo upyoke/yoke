@@ -302,6 +302,27 @@ class TestLocalDispatchIsImmune:
 
 
 class TestLocalFunctionIds:
+    def test_internal_invite_ids_remain_known_without_retired_keys(self, monkeypatch):
+        from yoke_cli.commands.registry import (
+            SUBCOMMAND_ALIAS_REGISTRY,
+            SUBCOMMAND_REGISTRY,
+        )
+
+        for action in ("create", "list", "revoke"):
+            tokens = ("identity", "invite", action)
+            assert tokens not in SUBCOMMAND_REGISTRY
+            assert tokens not in SUBCOMMAND_ALIAS_REGISTRY
+            function_id = f"identity.invite.{action}"
+            assert function_id in function_version_skew.local_function_ids()
+            response = _dispatch_over_https(
+                monkeypatch,
+                server_version="1.0.0",
+                client_version="2.0.0",
+                function_id=function_id,
+            )
+            assert response.error.code == SKEW_ERROR_CODE
+            assert function_id in response.error.message
+
     def test_registry_ids_are_resolvable(self):
         assert SERVED_LOCALLY in function_version_skew.local_function_ids()
         assert "missing.family.op" not in function_version_skew.local_function_ids()

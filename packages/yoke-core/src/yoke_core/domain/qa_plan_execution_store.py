@@ -329,6 +329,7 @@ def plan_execution_view(
         "remaining_requirement_count": execution.get("remaining_requirement_count"),
         "requirements": list(execution["roster"]),
         "results": result_rows(conn, str(execution["id"])),
+        "host_free_cases_ahead": True,  # recorded ahead while a host queues
     }
 
 

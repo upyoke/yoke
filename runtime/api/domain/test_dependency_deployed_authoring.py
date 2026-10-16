@@ -40,8 +40,8 @@ def test_authoring_accepts_registered_and_refuses_unknown_environment(
             "YOK-2",
             "operator",
             satisfaction="fact:deployed:prod",
-        )
-        == "OK"
+        ).action
+        == "created"
     )
     with pytest.raises(UnregisteredEnvironment, match="environment_unregistered"):
         cmd_dependency_update(

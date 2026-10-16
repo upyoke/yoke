@@ -98,6 +98,9 @@ def test_durable_cursor_resumes_without_replaying_completed_cases() -> None:
             requirement_ids
         )
 
+        # Only host-free cases record ahead of the cursor; any other case
+        # waits for its turn.
+        execution["roster"][1]["runner_id"] = "host_control"
         with pytest.raises(QaPlanExecutionStateError, match="expects ordinal 0"):
             advance_plan_execution(
                 conn,

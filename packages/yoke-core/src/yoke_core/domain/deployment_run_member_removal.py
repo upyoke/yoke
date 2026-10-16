@@ -23,6 +23,10 @@ from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.schema_read_scope import composition_operation
 from yoke_core.domain.workflow_item_binding_lock import lock_item_workflow_bindings
 
+#: Removal source for a member whose current candidate moved outside the
+#: frozen lineage at settlement; its newer work rides a later release.
+SETTLEMENT_REMOVED_BY = "settlement"
+
 
 def _require_removable(conn: Any, run_id: str, item_id: int) -> str:
     """Keep ordinary composition mutable; narrow frozen edits to owed item QA."""
@@ -169,8 +173,8 @@ def remove_member_on(
         retract_orphaned_shared_copies,
     )
 
-    abort_removed_member_executions(conn, run_id=run_id, item_id=item_id)
-    retract_member_copies(conn, run_id, item_id=item_id, reason=reason)
+    aborted = abort_removed_member_executions(conn, run_id=run_id, item_id=item_id)
+    cancelled = retract_member_copies(conn, run_id, item_id=item_id, reason=reason)
     retract_orphaned_shared_copies(conn, run_id=run_id, reason=reason)
     from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
         withdraw_deployment_qa_wait_wakes,
@@ -188,6 +192,8 @@ def remove_member_on(
         public_ref=ref,
         reason=reason,
         removed_by=removed_by,
+        execution_aborted=aborted > 0,
+        cancelled_requirement_ids=cancelled,
     )
     return ref
 
@@ -303,7 +309,7 @@ def release_replaced_members(
             continue
         reason = "current candidate is not contained in this run's frozen lineage; awaiting a later release"
         ref = remove_member_on(
-            conn, run_id, item_id, reason=reason, removed_by="settlement"
+            conn, run_id, item_id, reason=reason, removed_by=SETTLEMENT_REMOVED_BY
         )
         print(f"Released {ref} from settling run {run_id}: {reason}.")
     conn.commit()

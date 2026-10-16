@@ -53,6 +53,8 @@ def _case_document(row: Any) -> dict[str, Any]:
         "stage_reason": row["stage_reason"],
         "entry_surface": row["entry_surface"],
         "required_completion": row["required_completion"],
+        "wake_path": row["wake_path"],
+        "wake_evidence": row["wake_evidence"],
     }
 
 
@@ -67,7 +69,8 @@ def _current_cases(conn: Any, plan_id: int) -> list[dict[str, Any]]:
             "success_policy_params, host_baselines, "
             f"{'starting_state,starting_state_reason,target_envs,stage_reason'}, "
             "entry_surface, "
-            f"required_completion FROM qa_plan_cases WHERE plan_id={marker} "
+            "required_completion, wake_path, wake_evidence "
+            f"FROM qa_plan_cases WHERE plan_id={marker} "
             "ORDER BY position",
             (plan_id,),
         )

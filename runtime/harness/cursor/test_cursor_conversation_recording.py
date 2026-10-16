@@ -64,7 +64,8 @@ def _payload(session_id: str = SUBAGENT) -> dict:
 
 class TestRecorder:
     def test_subagent_conversation_records_against_the_container(
-        self, machine_home,
+        self,
+        machine_home,
     ):
         cursor_session_map.record_conversation_session(CONTAINER, CONTAINER)
         cursor_session_map.record_from_hook_payload(_payload(), "cursor")
@@ -96,24 +97,32 @@ class TestRecorder:
 
     def test_top_level_session_start_records_against_itself(self, machine_home):
         cursor_session_map.record_from_hook_payload(
-            _payload(CONTAINER), "cursor", "SessionStart",
+            _payload(CONTAINER),
+            "cursor",
+            "SessionStart",
         )
         assert _mapped(machine_home, CONTAINER) == CONTAINER
 
     def test_mapped_transcript_container_keeps_registered_session(
-        self, machine_home,
+        self,
+        machine_home,
     ):
         cursor_session_map.record_conversation_session(CONTAINER, HOLDER)
         cursor_session_map.record_from_hook_payload(
-            _payload(CONTAINER), "cursor", "PreToolUse",
+            _payload(CONTAINER),
+            "cursor",
+            "PreToolUse",
         )
         assert _mapped(machine_home, CONTAINER) == HOLDER
 
     def test_pretooluse_top_level_transcript_self_maps(
-        self, machine_home,
+        self,
+        machine_home,
     ):
         cursor_session_map.record_from_hook_payload(
-            _payload(CONTAINER), "cursor", "PreToolUse",
+            _payload(CONTAINER),
+            "cursor",
+            "PreToolUse",
         )
         assert _mapped(machine_home, CONTAINER) == CONTAINER
 
@@ -122,38 +131,51 @@ class TestRecorder:
         assert _mapped(machine_home, SUBAGENT) is None
 
     def test_pretooluse_top_level_without_transcript_self_maps(
-        self, machine_home, monkeypatch,
+        self,
+        machine_home,
+        monkeypatch,
     ):
         monkeypatch.delenv(CURSOR_TRANSCRIPT_ENV_VAR)
         cursor_session_map.record_from_hook_payload(
-            _payload(CONTAINER), "cursor", "PreToolUse",
+            _payload(CONTAINER),
+            "cursor",
+            "PreToolUse",
         )
         assert _mapped(machine_home, CONTAINER) == CONTAINER
 
     def test_session_start_records_itself_without_evidence(
-        self, machine_home, monkeypatch,
+        self,
+        machine_home,
+        monkeypatch,
     ):
         # Cursor leaves the transcript path empty through a fresh session's
         # first events, so without this the session's FIRST command has no
         # identity at all. Session start fires once, for the top level.
         monkeypatch.delenv(CURSOR_TRANSCRIPT_ENV_VAR)
         cursor_session_map.record_from_hook_payload(
-            {"session_id": CONTAINER}, "cursor", "SessionStart",
+            {"session_id": CONTAINER},
+            "cursor",
+            "SessionStart",
         )
         assert _mapped(machine_home, CONTAINER) == CONTAINER
 
     def test_session_start_still_prefers_evidence_over_its_own_id(
-        self, machine_home,
+        self,
+        machine_home,
     ):
         # A sub-conversation naming its parent must not map to itself.
         cursor_session_map.record_conversation_session(CONTAINER, CONTAINER)
         cursor_session_map.record_from_hook_payload(
-            _payload(), "cursor", "SessionStart",
+            _payload(),
+            "cursor",
+            "SessionStart",
         )
         assert _mapped(machine_home, SUBAGENT) == CONTAINER
 
     def test_session_start_without_roots_does_not_clobber_worktree_fold(
-        self, machine_home, monkeypatch,
+        self,
+        machine_home,
+        monkeypatch,
     ):
         # Live smoke: worktree sessionStart folds onto the claim holder, then
         # a later sessionStart without workspace_roots used to rewrite the
@@ -169,9 +191,10 @@ class TestRecorder:
         )
         assert _mapped(machine_home, remapped) == CONTAINER
 
-
     def test_pretooluse_subagent_layout_folds_to_parent(
-        self, machine_home, monkeypatch,
+        self,
+        machine_home,
+        monkeypatch,
     ):
         monkeypatch.delenv(CURSOR_TRANSCRIPT_ENV_VAR, raising=False)
         monkeypatch.setattr(
@@ -180,13 +203,17 @@ class TestRecorder:
             lambda cid, **_k: CONTAINER if cid == SUBAGENT else "",
         )
         cursor_session_map.record_from_hook_payload(
-            _payload(SUBAGENT), "cursor", "PreToolUse",
+            _payload(SUBAGENT),
+            "cursor",
+            "PreToolUse",
         )
         assert _mapped(machine_home, SUBAGENT) == CONTAINER
         assert _mapped(machine_home, CONTAINER) is None
 
     def test_pretooluse_worktree_holder_folds_to_holder(
-        self, machine_home, monkeypatch,
+        self,
+        machine_home,
+        monkeypatch,
     ):
         monkeypatch.delenv(CURSOR_TRANSCRIPT_ENV_VAR, raising=False)
         decision = cursor_session_map.WorktreeFoldDecision(
@@ -214,7 +241,9 @@ class TestRecorder:
         assert _mapped(machine_home, CONTAINER) == HOLDER
 
     def test_pretooluse_worktree_without_holder_does_not_self_map(
-        self, machine_home, monkeypatch,
+        self,
+        machine_home,
+        monkeypatch,
     ):
         monkeypatch.delenv(CURSOR_TRANSCRIPT_ENV_VAR, raising=False)
         monkeypatch.setattr(
@@ -233,25 +262,28 @@ class TestRecorder:
         assert _mapped(machine_home, CONTAINER) is None
 
 
-
 class TestClientEntryPoints:
     """Both hook entry points record, before anything can short-circuit."""
 
     @pytest.fixture(autouse=True)
     def _client_side_only(self, monkeypatch):
         monkeypatch.setattr(relay, "detect_executor", lambda: "cursor")
-        monkeypatch.setattr(relay, "_client_lint_config_snapshot", lambda _p: {})
+        monkeypatch.setattr(relay, "lint_config_snapshot", lambda _p: {})
         monkeypatch.setattr(relay, "_record_client_anchor", lambda *_a, **_k: None)
         monkeypatch.setattr(relay, "_codex_capture", lambda *_a: None)
         monkeypatch.setattr(
-            relay, "evaluate_local_subset",
-            lambda *_a, **_k: LocalSubsetEvaluation(stdout="", exit_code=2, denied=True),
+            relay,
+            "evaluate_local_subset",
+            lambda *_a, **_k: LocalSubsetEvaluation(
+                stdout="", exit_code=2, denied=True
+            ),
         )
 
     def test_local_evaluation_records(self, machine_home):
         cursor_session_map.record_conversation_session(CONTAINER, CONTAINER)
         relay.evaluate_hook_event(
-            "PreToolUse", stdin_data=json.dumps(_payload()),
+            "PreToolUse",
+            stdin_data=json.dumps(_payload()),
         )
         assert _mapped(machine_home, SUBAGENT) == CONTAINER
 
@@ -261,6 +293,8 @@ class TestClientEntryPoints:
         # on a machine this shell will never read a mapping from.
         cursor_session_map.record_conversation_session(CONTAINER, CONTAINER)
         relay.relay_hook_event(
-            "PreToolUse", object(), stdin_data=json.dumps(_payload()),
+            "PreToolUse",
+            object(),
+            stdin_data=json.dumps(_payload()),
         )
         assert _mapped(machine_home, SUBAGENT) == CONTAINER

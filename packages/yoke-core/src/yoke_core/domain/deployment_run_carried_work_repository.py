@@ -55,9 +55,8 @@ from yoke_core.domain.repository_content_equivalence import (
 
 COMPARE_PAGE_SIZE = 100
 COMPARE_PAGE_LIMIT = 10
-#: How many refs may be resolved through their own request. Containment asks
-#: for two, while commit attribution can offer one lane ref per item, so the
-#: budget keeps a large backlog from becoming a request per item.
+#: Refs resolved through their own request: containment asks two, attribution
+#: one lane ref per item, so a large backlog never becomes a request per item.
 COMMIT_LOOKUP_BUDGET = 8
 
 
@@ -82,10 +81,8 @@ class RepositoryProviderSource:
 
         A full sha needs no request. Anything else — an abbreviated sha, a
         branch, a tag — is resolved by the provider rather than padded into a
-        hash that matches nothing, which is the failure a prefix comparison
-        produces silently. Resolutions are cached and budgeted, and exhausting
-        the budget is reported as a degraded source instead of quietly
-        dropping the attribution it would have supplied.
+        hash that matches nothing. Resolutions are cached and budgeted, and an
+        exhausted budget is reported as a degraded source, never dropped.
         """
         token = str(ref or "").strip()
         if not token:
@@ -103,6 +100,9 @@ class RepositoryProviderSource:
         if not resolved:
             self._unresolvable_refs += 1
         return resolved
+
+    def resolve_commits(self, refs: Sequence[str]) -> dict[str, str]:
+        return {ref: self.resolve_commit(ref) for ref in refs}
 
     def _commit_sha(self, ref: str) -> str:
         """Ask the provider for one ref's commit, answering "" when it has none."""

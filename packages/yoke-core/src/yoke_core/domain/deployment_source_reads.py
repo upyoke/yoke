@@ -1,5 +1,6 @@
 """Reuse prepared source answers while locked validation rereads durable facts."""
 
+import reprlib
 from contextlib import contextmanager
 from contextvars import ContextVar
 
@@ -7,6 +8,11 @@ from yoke_core.domain.domain_refusal import DomainRefusal
 from yoke_core.domain.schema_read_scope import shared_read
 
 _VALIDATING = ContextVar("deployment_source_validation", default=False)
+# Name the exact question with whole SHAs; long commit lists are elided.
+_KEY_REPR = reprlib.Repr()
+_KEY_REPR.maxstring = 120
+_KEY_REPR.maxtuple = 8
+_KEY_REPR.maxlevel = 4
 
 
 class SourcePreparationChanged(DomainRefusal, ValueError):
@@ -24,9 +30,9 @@ def source_read(conn, key, reader):
         if _VALIDATING.get():
             raise SourcePreparationChanged(
                 "deployment_source_preparation_changed: locked validation needs "
-                "a source fact that was not prepared; nothing was dispatched. "
-                "Re-drive the same run to prepare its current source facts "
-                "before acquiring item/run locks.",
+                f"source fact {_KEY_REPR.repr(key)}, which was not prepared; nothing was "
+                "dispatched. Re-drive the same run to prepare its current "
+                "source facts before acquiring item/run locks.",
                 lambda: shared_read(conn, key, reader),
             )
         return reader()

@@ -23,13 +23,14 @@ from runtime.api.steering_fleet_test_helpers import (
     PROJECT_ID,
     seed_session,
 )
-from yoke_core.domain.delivery_landing_custody import UNHELD
+from yoke_core.domain.delivery_landing_custody import HELD, UNHELD, LandingCustody
+from yoke_core.domain.deployment_run_other_target_members import OwedRequirement
 from yoke_core.domain.steering_fleet_report_holders import claim_holders
-from yoke_core.domain.steering_fleet_report_landed_open import (
+from yoke_core.domain.steering_fleet_report_landed_open import landed_without_closeout
+from yoke_core.domain.steering_fleet_report_landed_phrases import (
     custody_phrase,
     holder_phrase,
     landed_recovery,
-    landed_without_closeout,
 )
 
 
@@ -294,3 +295,49 @@ def test_a_quiet_holder_gets_a_wake_only_after_the_landing_idle_threshold(fleet)
             landed_recovery(old, idle_after_seconds=IDLE_SECONDS)
         )
         assert old.landed_seconds == age
+
+
+def test_a_succeeded_run_row_names_its_delivery_and_what_it_still_owes(
+    fleet, monkeypatch
+):
+    """A finished run is not delivering; the row names the acceptance owed."""
+    from yoke_core.domain import steering_fleet_report_landed_open as landed_open
+
+    fleet.execute("UPDATE items SET merged_at = %s WHERE id = 1", (LONG_AGO,))
+    fleet.commit()
+    held = LandingCustody(1, "a" * 40, HELD, run_id="run-1", run_status="succeeded")
+    monkeypatch.setattr(landed_open, "landing_custody", lambda *a, **k: {1: held})
+    monkeypatch.setattr(landed_open, "run_environment_name", lambda *a: "prod")
+    owed = (OwedRequirement(43248, "manual_acceptance", "stage"),)
+    monkeypatch.setattr(landed_open, "owed_on_other_targets", lambda *a: owed)
+
+    assert (
+        custody_phrase(_landed(fleet)[0]) == "delivered to prod; owes #43248 on stage"
+    )
+
+
+def test_a_landing_sent_back_from_release_owes_a_re_landing(fleet):
+    """A parked holder outside release is not waiting on delivery."""
+    fleet.execute(
+        "UPDATE items SET merged_at = %s, status = 'implementing' WHERE id = 1",
+        (BEFORE_THAT,),
+    )
+    fleet.execute(
+        "INSERT INTO item_status_transitions (item_id, from_status, to_status, "
+        "created_at) VALUES (1, 'release', 'implementing', %s)",
+        (LONG_AGO,),
+    )
+    _claim_item(fleet, ASKER)
+    _park(fleet, ASKER, "")
+    fleet.commit()
+
+    entry = _landed(fleet)[0]
+    recovery = landed_recovery(entry)
+
+    assert entry.relanding_owed is True
+    assert holder_phrase(entry).endswith("; re-landing owed")
+    assert "waiting on delivery" not in holder_phrase(entry)
+    assert "yoke say --item YOK-1" in recovery and "reviews and merges" in recovery
+    assert "yoke merge item" not in recovery
+    released = replace(entry, holder_session_id="", holder_parked=False)
+    assert "re-enter its bound skill" in landed_recovery(released)

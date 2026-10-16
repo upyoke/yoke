@@ -25,6 +25,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from yoke_core.engines.git_worktree_registry import detached_head
+
 ANCESTOR_PROOF = "ancestor"
 PATCH_EQUIVALENT_PROOF = "patch_equivalent"
 
@@ -43,16 +45,26 @@ def _unique_commit_count(cherry_stdout: str) -> int:
     return sum(1 for line in cherry_stdout.splitlines() if line.startswith("+"))
 
 
+def _revision(branch: str) -> str:
+    """The commit a detached marker names, otherwise the branch itself."""
+    return detached_head(branch) or branch
+
+
 def assess_branch_landed(
     run_git: Callable[[list[str]], Any], *, branch: str, base: str
 ) -> BranchLandedEvidence:
-    """Prove whether ``base`` already retains every change on ``branch``."""
-    ancestry = run_git(["merge-base", "--is-ancestor", branch, base])
+    """Prove whether ``base`` already retains every change on ``branch``.
+
+    A detached lane is ``detached@<commit>``. The proof reads that commit,
+    because there is no branch ref of that name to ask git about.
+    """
+    rev = _revision(branch)
+    ancestry = run_git(["merge-base", "--is-ancestor", rev, base])
     if ancestry.returncode == 0:
         return BranchLandedEvidence(True, proof=ANCESTOR_PROOF)
 
     not_merged = f"is not merged into {base}"
-    merges = run_git(["rev-list", "--merges", f"{base}..{branch}"])
+    merges = run_git(["rev-list", "--merges", f"{base}..{rev}"])
     if merges.returncode != 0:
         return BranchLandedEvidence(
             False, reason=f"{not_merged} and its history could not be read"
@@ -65,7 +77,7 @@ def assess_branch_landed(
             reason=f"{not_merged} and carries a merge commit equivalence cannot prove",
         )
 
-    cherry = run_git(["cherry", base, branch])
+    cherry = run_git(["cherry", base, rev])
     if cherry.returncode != 0:
         return BranchLandedEvidence(
             False, reason=f"{not_merged} and could not be compared against it"
@@ -95,8 +107,12 @@ def delete_landed_branch(
     own ``-d`` safety re-derives exact ancestry and so refuses precisely the
     rebased branch whose changes the target already holds. Nothing calls
     this without the matching evidence — an unlanded branch is returned as
-    preserved instead of deleted.
+    preserved instead of deleted. A detached marker names a commit, not a
+    ref, so there is nothing here to delete; the recorded branch, when it
+    still exists, is a separate ref.
     """
+    if detached_head(branch):
+        return ""
     if not evidence.landed:
         return f"local branch {branch} {evidence.reason or 'is not proven landed'}"
     deleted = run_git(["branch", "-D", branch])

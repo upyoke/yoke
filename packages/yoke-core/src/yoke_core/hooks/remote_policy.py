@@ -1,32 +1,17 @@
-"""Remote-evaluation controls + local-state policy classification.
+"""Remote-evaluation controls for the relay-split hook chain.
 
 ``POST /v1/hooks/evaluate`` serves the same policy chains as the in-process
-runner, but the server cannot see the CLIENT machine's filesystem, git
-state, or process environment. Every chain policy is classified here, and
-the https relay evaluates one chain split across the two sides:
+runner, but the server cannot see the CLIENT machine. Each chain policy's
+home is declared once in :mod:`yoke_contracts.hook_runner.policy_home`, which
+the relay client reads too:
 
-- **server-safe** (not listed): the policy evaluates only the hook payload
-  text and/or the control-plane DB — both available server-side — so it
-  runs remotely as-is. The request's ``agent_type`` reaches payload-keyed
-  detection (``lint_subagent_background``) via ``RunControls.payload_extra``.
-- **client-evidenced authority**: policies remain server-side for DB authority
-  while receiving the minimum client-local facts in
-  ``RunControls.payload_extra``. ``lint_main_commit`` receives Git facts;
-  ``lint_session_cwd`` receives the executing machine's canonical home and
-  scratch roots for its existing path-authority decisions.
-- **local-state** (``LOCAL_STATE_POLICIES``): the policy's verdict requires
-  client-local evidence the server does not have. The relay client always
-  evaluates its product-owned subset (``yoke_harness.hooks.local_subset``)
-  BEFORE posting, and composes the verdicts — any deny wins, regardless of
-  side. Server-side evaluation skips each one fail-OPEN with its module id
-  recorded in the response's ``degraded`` list (the marker means "delegated
-  to the client", not "protection off"). The client's eval roster is
-  deliberately its own list — this SKIP list also covers server-unsafe
-  chain members the client handles outside policy evaluation (e.g.
-  ``session_dispatch``). None of these fail closed: each one's deny is
-  contingent on *confirming* local facts (current branch, threatened
-  uncommitted state, or on-disk file content), and each already fails open
-  by design when its probe is unavailable.
+- ``CLIENT`` policies are evaluated by the relay client before it posts.
+  Server-side evaluation skips each one with its module id recorded in the
+  response's ``degraded`` list (the marker means "delegated to the client",
+  not "protection off").
+- ``SERVER`` policies run here as-is from the payload and the DB.
+- ``SERVER_WITH_CLIENT_FACTS`` policies run here and read only the named
+  client facts the relay client shipped in ``payload_extra``.
 
 ``RunControls`` is the runner-facing knob bundle: an injected total budget
 (the remaining shared deadline), the skip classifier, payload augmentation,
@@ -41,34 +26,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
+from yoke_contracts.hook_runner.policy_home import CLIENT_POLICIES
 from yoke_contracts.hook_runner.project_scope import HookProjectScope
 
 __all__ = [
     "DEADLINE_EXHAUSTED_MARKER",
-    "LOCAL_STATE_POLICIES",
     "RunControls",
     "remote_skip_marker",
 ]
 
-
-# Policies whose verdict needs the CLIENT machine. One line of why each:
-LOCAL_STATE_POLICIES: frozenset[str] = frozenset(
-    {
-        # `git -C <worktree> status` / stash inspection on the client FS.
-        "yoke_core.domain.lint_destructive_git",
-        # Walks the write target's parent dirs (.git / pyproject.toml).
-        "yoke_core.domain.lint_python_runtime_import_in_tmp",
-        # Reads the target file's content to count lines.
-        "yoke_core.domain.hint_file_line_limit_approach",
-        # Stray-DB detection scans the client repo root.
-        "yoke_core.domain.db_error_hook",
-        # Expands path globs against the command cwd on the client FS.
-        "yoke_core.domain.lint_unmatched_path_glob",
-        # Session orientation/lifecycle: hook-script-dir target resolution,
-        # git subprocesses, client env mutation, bootstrap file reads.
-        "yoke_core.hooks.session_dispatch",
-    }
-)
 
 # Appended to ``degraded`` when the propagated deadline expired before the
 # chain finished. A deny computed before expiry is still rendered.
@@ -76,8 +42,8 @@ DEADLINE_EXHAUSTED_MARKER = "deadline_exhausted"
 
 
 def remote_skip_marker(module_id: str) -> Optional[str]:
-    """Server side of the split: skip local-state policies (client owns them)."""
-    if module_id in LOCAL_STATE_POLICIES:
+    """Server side of the split: skip client-home policies (the client ran them)."""
+    if module_id in CLIENT_POLICIES:
         return module_id
     return None
 

@@ -23,26 +23,30 @@ from yoke_core.domain.lint_long_command_polling_waiter import (
 )
 
 CAPTURE = "/tmp/yoke-pytest.progress.log"
+ROOTS = ("/tmp", "/private/tmp")
 
 
 class TestMonitorCaptureExtraction(unittest.TestCase):
     def test_yoke_watch_tail_command(self):
         self.assertEqual(
-            _extract_monitor_capture_file(f"yoke watch tail {CAPTURE}"),
+            _extract_monitor_capture_file(f"yoke watch tail {CAPTURE}", ROOTS),
             CAPTURE,
         )
 
     def test_cwd_anchored_yoke_watch_tail_command(self):
         # The emitted progress leg is `cd <dir> && yoke watch tail <path>`.
         self.assertEqual(
-            _extract_monitor_capture_file(f"cd /repo && yoke watch tail {CAPTURE}"),
+            _extract_monitor_capture_file(
+                f"cd /repo && yoke watch tail {CAPTURE}", ROOTS
+            ),
             CAPTURE,
         )
 
     def test_module_fallback_still_matches(self):
         self.assertEqual(
             _extract_monitor_capture_file(
-                f"python3 -m yoke_core.tools.watch_tail {CAPTURE}"
+                f"python3 -m yoke_core.tools.watch_tail {CAPTURE}",
+                ROOTS,
             ),
             CAPTURE,
         )
@@ -50,13 +54,14 @@ class TestMonitorCaptureExtraction(unittest.TestCase):
 
 class TestWaiterExtraction(unittest.TestCase):
     def test_yoke_watch_tail_command(self):
-        shape, target = _extract_waiter_target(f"yoke watch tail {CAPTURE}")
+        shape, target = _extract_waiter_target(f"yoke watch tail {CAPTURE}", ROOTS)
         self.assertEqual(shape, "watch-tail")
         self.assertEqual(target, CAPTURE)
 
     def test_module_fallback_still_matches(self):
         shape, target = _extract_waiter_target(
-            f"python3 -m yoke_core.tools.watch_tail {CAPTURE}"
+            f"python3 -m yoke_core.tools.watch_tail {CAPTURE}",
+            ROOTS,
         )
         self.assertEqual(shape, "watch-tail")
         self.assertEqual(target, CAPTURE)

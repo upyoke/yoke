@@ -327,17 +327,7 @@ def extract_mutations(command: str) -> List[Mutation]:
     out: List[Mutation] = []
     for segment in _split_pipeline(command):
         out.extend(_classify_segment(segment))
-    filtered = [
-        mut for mut in out if not is_temp_file_var_ref(mut.target_path, tmp_vars)
-    ]
-    # Planning-phase carve-out: drop session-scratch redirects when the
-    # session's item is pre-implementation. Local import avoids a
-    # bash_parser <-> planning_phase circular at module load.
-    from yoke_core.domain.path_claim_bash_parser_planning_phase import (
-        drop_planning_scratch_mutations,
-    )
-
-    return drop_planning_scratch_mutations(filtered)
+    return [mut for mut in out if not is_temp_file_var_ref(mut.target_path, tmp_vars)]
 
 
 __all__ = [

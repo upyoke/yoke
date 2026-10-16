@@ -9,7 +9,6 @@ from __future__ import annotations
 from yoke_core.domain.events_project_identity import working_project_for_event
 
 import json
-import os
 import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
@@ -53,16 +52,9 @@ class Verdict:
     extra: Dict[str, Any] = field(default_factory=dict)
 
 
-def _resolve_cwd(record: ToolEventRecord) -> tuple[str, bool]:
-    """Return ``(cwd, fell_back)``.
-
-    Prefers the record's payload cwd. Falls back to ``os.getcwd()`` only
-    when the payload omits it (the caller emits a WARN event).
-    """
-    cwd = (record.cwd or "").strip()
-    if cwd:
-        return cwd, False
-    return os.getcwd(), True
+def _resolve_cwd(record: ToolEventRecord) -> str:
+    """Return the payload's cwd; the evaluating process's own cwd is not it."""
+    return (record.cwd or "").strip()
 
 
 def evaluate_payload(
@@ -83,7 +75,7 @@ def evaluate_payload(
     if not paths:
         return Verdict(outcome="allow")
 
-    cwd, _ = _resolve_cwd(record)
+    cwd = _resolve_cwd(record)
 
     for target_path in paths:
         current_claim = resolve_claim_scope_for_target(
@@ -225,7 +217,7 @@ def _emit_denial(
             project=working_project_for_event(
                 conn=conn,
                 session_id=record.session_id,
-                directory=_resolve_cwd(record)[0] if conn is None else None,
+                directory=_resolve_cwd(record) if conn is None else None,
             ),
             context={
                 "tool_kind": record.tool_kind,
@@ -285,9 +277,7 @@ def evaluate(record: HookContext) -> HookDecision:
     tool_record = build_tool_event_record(
         tool_name=str(payload.get("tool_name") or ""),
         tool_input=tool_input if isinstance(tool_input, dict) else {},
-        session_id=str(
-            payload.get("session_id") or os.environ.get("YOKE_SESSION_ID") or ""
-        ),
+        session_id=str(payload.get("session_id") or ""),
         tool_use_id=payload.get("tool_use_id"),
         turn_id=payload.get("turn_id") or payload.get("message_id"),
         cwd=str(payload.get("cwd") or payload.get("project_dir") or ""),

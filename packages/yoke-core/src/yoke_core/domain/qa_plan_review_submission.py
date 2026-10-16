@@ -270,6 +270,11 @@ def submit_plan_review(
                 validated,
             )
         )
+        from yoke_core.domain.qa_plan_settled_review import (
+            withdraw_settled_agent_review_wakes,
+        )
+
+        withdraw_settled_agent_review_wakes(conn, execution_id=str(execution["id"]))
         conn.commit()
     except Exception:
         conn.rollback()

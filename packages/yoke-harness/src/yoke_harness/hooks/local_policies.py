@@ -12,25 +12,18 @@ from yoke_contracts.hook_runner.local_privacy_messages import (
     LIVE_ADVISORY,
     LIVE_DENY,
 )
-from yoke_contracts.hook_runner.main_commit import (
-    NO_MAIN_CHECK_SUPPRESSION,
-    git_invocations as main_commit_git_invocations,
-    is_bookkeeping,
-)
 from yoke_harness.hooks.decision_render import HOOK_SPECIFIC_OUTPUT_KEY
 from yoke_harness.hooks.local_policy_common import (
     ADVISORY,
     DENY,
     NOOP,
     PolicyResult,
-    branch,
     command_from_payload,
     git,
     git_invocations,
     porcelain,
     repo_cwd,
     response_text,
-    staged,
     write_fields,
 )
 
@@ -49,30 +42,6 @@ _GREP_LIKE_RE = re.compile(
     r"(?:^|[;&|]\s*)(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*"
     r"(?:\S*/)?(?:rg|grep|egrep|fgrep)\b"
 )
-
-
-def lint_main_commit(payload: dict) -> PolicyResult:
-    command = command_from_payload(payload)
-    for args, repo_path in main_commit_git_invocations(command):
-        if not args or args[0] != "commit":
-            continue
-        if NO_MAIN_CHECK_SUPPRESSION in command:
-            continue
-        cwd = repo_cwd(payload, repo_path)
-        if branch(cwd) not in {"main", "master"}:
-            continue
-        files = [path for path in staged(cwd) if not is_bookkeeping(path)]
-        if not files:
-            continue
-        listed = "\n  ".join(files[:10])
-        return PolicyResult(
-            DENY,
-            "BLOCKED: Implementation commit on main branch.\n\n"
-            f"Staged implementation files:\n  {listed}\n\n"
-            "Worktree discipline: implementation code must be committed "
-            "in a worktree branch, not directly on main.",
-        )
-    return PolicyResult(NOOP)
 
 
 def _destructive_shape(args: list[str]) -> str:
@@ -341,7 +310,6 @@ __all__ = [
     "hint_file_line",
     "lint_destructive_git",
     "lint_local_privacy",
-    "lint_main_commit",
     "lint_shell_backtick_search",
     "lint_tmp_runtime_import",
 ]

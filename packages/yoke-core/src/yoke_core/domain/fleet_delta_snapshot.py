@@ -83,6 +83,11 @@ class ItemRow:
     project: str
     runnable: bool = False
     frozen: bool = False
+    rank: int = 0
+    next_step: str = ""
+    launch_state: str = ""
+    pickable_since: datetime | None = None
+    staffing_after_seconds: int = 0
 
     @property
     def unclaimed(self) -> bool:
@@ -194,6 +199,11 @@ def item_rows(result: Mapping[str, Any]) -> dict[str, ItemRow]:
                 project=str(raw.get("project") or ""),
                 runnable=bucket == "ranked_steps",
                 frozen=bucket == "frozen_steps",
+                rank=int(raw.get("rank") or 0),
+                next_step=str(raw.get("next_step") or ""),
+                launch_state=str(raw.get("launch_state") or ""),
+                pickable_since=parse_timestamp(raw.get("pickable_since")),
+                staffing_after_seconds=int(raw.get("staffing_after_seconds") or 0),
             )
     return rows
 

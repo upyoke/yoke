@@ -253,7 +253,7 @@ def test_initial_ssh_failure_preserves_bounded_redacted_diagnostics(
         )
 
     failure = caught.value
-    assert failure.code == "host_control_connection_failed"
+    assert failure.code == "ssh_unavailable"
     assert failure.phase == "host_facts_ssh"
     assert failure.exit_code == 255
     assert "Permission denied" in failure.stderr
