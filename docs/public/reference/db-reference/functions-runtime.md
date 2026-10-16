@@ -256,15 +256,25 @@ the caller's own identity/preferences/tokens; raw new token appears once.
 Machine-bound credentials are retired through their machine, never arbitrary
 profile token removal.
 
-| Token command | Function id |
+| Admission command | Function id |
 |---|---|
 | `yoke tokens create --name LABEL` | `profile.token.create` |
 | `yoke tokens list` | `profile.get` |
 | `yoke tokens revoke TOKEN-ID` | `profile.token.revoke` |
+| `yoke invite PERSON` | `teammate_invites.create` or `identity.invite.create` |
+| `yoke invites list` | `teammate_invites.list` and, for email, `identity.invite.list` |
+| `yoke invites revoke REF` | `teammate_invites.revoke` or `identity.invite.revoke` |
+| `yoke invites reissue code-N` | `teammate_invites.reissue` |
 
-These commands work without a project or harness session. List returns non-secret
+These commands work without a project or harness session. Token list returns non-secret
 metadata. Copy a new token once; if lost or refused as `result_unavailable`, list
 its ID, revoke it and create a new one. Labels must be 1–80 characters.
+
+Invites select name or email from the server's sign-in method. Code results appear
+once; reissue replaces a lost code for the same actor. Email rows retain their
+role ID and add catalog role/name fields; null role means no grant. Both kinds
+carry stored creation time and nullable authoritative inviter name. See
+[Teammate invitations](../teammate-invitations.md) for refs and refusal recovery.
 
 ## Actors and org roles
 
