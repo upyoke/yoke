@@ -1,7 +1,9 @@
 {
  "id": "machine-approval",
  "title": "Connect your machine",
- "status": "draft-copy",
+ "status": "observed",
+ "text": "A selected request opens the shared approval card. Compare its Match code, machine, organization and supplied identities before approving. With no selected code this destination has no manual entry form. Local mode shows the reachability notice without an approval read.",
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js"],
  "related": "machines/registration",
  "page": "workbench-destinations",
  "position": 31

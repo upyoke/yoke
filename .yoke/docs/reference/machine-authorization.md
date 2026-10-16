@@ -99,11 +99,18 @@ functions only with the workbench's existing same-origin CSRF protection.
 
 ## Approval page
 
-The page shows a single card headed **Approve this machine**, with the real
-machine name (omitted when absent), platform and full machine ID, one-time code,
-organization name, and the viewer's local expiry time and zone. The UTC instant
-stays in the time element. Approve only if the code matches your terminal.
+The selected request shows one shared card headed **Approve this machine**.
+It shows the real machine name (omitted when absent), platform and full machine
+ID, uppercase **Match code**, **Requested by** when bound, organization,
+**Approving as**, and the viewer's local expiry time and zone. Identities use
+the supplied name and actor number; **This machine will act as you** explains
+the approval. An older server without viewer facts shows **your signed-in
+account** and asks its operator to upgrade. The UTC instant stays in the time
+element. Approve only if the code matches your terminal.
 **Approve machine** is the primary action; **Deny** authorizes nothing.
+The card can also be embedded beside a request list, where its heading receives
+focus. A direct approval link focuses **Approve machine**. Neither an absent
+URL code nor an unavailable code offers a manual code-entry form.
 
 A first organization connection shows four setup steps, with Connect machine
 active and the preceding steps complete. The same visit shows every step
@@ -115,8 +122,17 @@ orange **Return to your terminal** callout. The approved facts omit expiry
 and the code-matching hint. A denied request says **Nothing was authorized**.
 Expired requests show their local expiry when their stored facts remain
 available; no client promises a replacement code automatically. Start a new
-connection from the terminal. An unavailable code offers code entry again.
+connection with `yoke connect` from the terminal. A consumed request says it
+was already answered and directs you to Machines or a fresh connection.
+Membership refusals name sign-in recovery, and a failed write keeps the actions
+available for retry without reporting success.
 The installer and connect wait stop on expiry; neither rotates codes silently.
+
+In a local universe the page makes no approval reads. It explains that other
+people and computers cannot reach this universe, gives `yoke self-host init`,
+and links to the [Self-host guide](https://github.com/upyoke/yoke/blob/main/docs/self-host.md).
+The shared notice also has a token variant: a token does not make a local
+universe reachable from another computer.
 
 Inspection may read an expired or consumed record to display its outcome,
 but resolve and poll still refuse expired or consumed codes. A record removed

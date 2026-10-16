@@ -1,7 +1,9 @@
 {
  "id": "single-machine-boundaries",
  "title": "Single-machine boundaries",
- "status": "draft-copy",
+ "status": "observed",
+ "text": "Other people and computers cannot connect to a local universe. A token works on this computer only and does not make the universe reachable elsewhere. The shared notice offers yoke self-host init and the Self-host guide for a team server.",
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/local_reachability_notice.js"],
  "page": "modes",
  "position": 3
 }

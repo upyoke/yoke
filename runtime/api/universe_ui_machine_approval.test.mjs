@@ -10,8 +10,9 @@ import { FakeDocument, allNodes, byClass, settle } from "./universe_ui_dom_test_
 function page({ decision = null, failure = null, readError = null, count = 0,
   machine = "My laptop", code = "k7f2", expired = false, state = "pending", mode = "hosted",
   viewer = { actor_id: 9, name: "Morgan" }, requested_by = { actor_id: 9, name: "Morgan" },
-  embedded = false, onDecided, waitForDecision, afterRefusal } = {}) {
+  embedded = false, onDecided, waitForDecision, afterRefusal, clock } = {}) {
   const document = new FakeDocument();
+  if (clock) Object.assign(document.defaultView, clock);
   const main = document.createElement("div");
   const requests = [], navigation = [], titles = [];
   let refuse = failure;
@@ -215,6 +216,14 @@ test("a consumed approval cannot present an unconsumed success", async () => {
   assert.doesNotMatch(main.textContent, /Return to your terminal/);
 });
 
+test("owner refusal after a bound read names only the supplied requester", async () => {
+  const { main } = page({ failure: { code: "authorization_owner_mismatch" } });
+  await settle(); button(main, "Approve machine").dispatchEvent(new Event("click")); await settle();
+  assert.match(main.textContent, /Another person is answering this requestOnly Morgan can approve it/);
+  assert.equal(button(main, "Approve machine"), undefined);
+  assert.equal(byClass(main, "machine-approval-outcome")[0].getAttribute("role"), "alert");
+});
+
 test("local routes with and without codes make no remote reads", async () => {
   for (const code of [null, "K7F2"]) {
     const { main, requests, titles } = page({ code, mode: "local" });
@@ -233,6 +242,9 @@ test("local reachability sentence matches the CLI and token notice is distinct",
   const full = localReachabilityNotice(doc, { variant: "full" });
   assert.equal(tag(full, "P")[0].textContent.replace("yoke self-host init", "`yoke self-host init`"), expected);
   assert.equal(tag(full, "A")[0].textContent, "Self-host guide →");
+  assert.equal(tag(full, "A")[0].href, "https://github.com/upyoke/yoke/blob/main/docs/self-host.md");
+  assert.equal(tag(full, "A")[0].target, "_blank");
+  assert.equal(tag(full, "A")[0].rel, "noopener noreferrer");
   const token = localReachabilityNotice(doc, { variant: "token" });
   assert.equal(tag(token, "P")[0].textContent, "This token works on this computer only. A token does not make this local universe reachable from another computer. To share it, set up a team server with yoke self-host init.");
 });
@@ -259,4 +271,26 @@ test("a detached route ignores late reads even while the application stays mount
   await settle();
   assert.equal(titles.at(-1), "Connect your machine");
   assert.doesNotMatch(main.textContent, /My laptop|Approve machine/);
+});
+
+test("expiry timer repaints without reading or automatically replacing the code", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+  let repaint;
+  const { main, requests } = page({ clock: { setTimeout: (callback) => { repaint = callback; return 1; }, clearTimeout() {} } });
+  await settle();
+  assert.ok(button(main, "Approve machine"));
+  t.mock.timers.tick(540001); repaint();
+  assert.match(main.textContent, /This code expired at.*Run `yoke connect` again/);
+  assert.equal(button(main, "Approve machine"), undefined);
+  assert.equal(requests.length, 3);
+});
+
+test("a detached card ignores a late write and does not notify its host", async () => {
+  let finish, decisions = 0;
+  const { main } = page({ embedded: true, onDecided: () => { decisions++; },
+    waitForDecision: new Promise((resolve) => { finish = resolve; }) });
+  await settle(); button(main, "Approve machine").dispatchEvent(new Event("click"));
+  main.isConnected = false; finish(); await settle();
+  assert.equal(decisions, 0);
+  assert.doesNotMatch(main.textContent, /is connected to/);
 });

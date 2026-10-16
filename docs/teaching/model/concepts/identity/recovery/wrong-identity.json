@@ -1,7 +1,9 @@
 {
  "id": "wrong-identity",
  "title": "Wrong identity",
- "status": "draft-copy",
+ "status": "observed",
+ "text": "Check Requested by and Approving as before approving a machine. Supplied identities show the name and actor number. If a bound request refuses a different approver, only the recorded requester can approve it; ask them or start a fresh connection on the new machine. An older server without viewer facts says your signed-in account and asks its operator to upgrade.",
+ "sources": ["packages/yoke-core/src/yoke_core/ui/static/machine_approval.js"],
  "page": "identity",
  "position": 2
 }
