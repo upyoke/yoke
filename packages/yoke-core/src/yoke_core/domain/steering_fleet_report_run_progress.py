@@ -70,14 +70,16 @@ def _stage_lines(
     run_lines: list[str] = []
     member_lines: list[str] = []
     offset = 0
-    refs = member_ref_lookup(conn, qa.waiting_members)
+    member_ref = member_ref_lookup(conn, qa.waiting_members)
     for member, count in zip(qa.waiting_members, qa.blocker_counts):
         chunk = qa.lines[offset : offset + count]
         offset += count
         if member is None:
             run_lines.extend(chunk)
             continue
-        line = f"member {refs(member)}: {count} blocker{'' if count == 1 else 's'}"
+        line = (
+            f"member {member_ref(member)}: {count} blocker{'' if count == 1 else 's'}"
+        )
         if wake := wakes.get(member):
             line += f" — {wake}"
         member_lines.append(line)

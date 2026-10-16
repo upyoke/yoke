@@ -188,7 +188,7 @@ def manual_wake_requirements(
     rows = _open_rows(conn, run_id=run_id, stage_name=stage_name, item_ids=members)
     held = sorted({int(tuple(row)[1]) for row in rows})
     owners = _owners(conn, held)
-    refs = render_item_ref_lookup(conn, held)
+    member_ref = render_item_ref_lookup(conn, held)
     entries = []
     for row in rows:
         requirement_id, member, case_key, evidence = tuple(row)
@@ -199,7 +199,7 @@ def manual_wake_requirements(
                 run_id=run_id,
                 stage=stage_name,
                 item_id=member,
-                item_ref=refs(member),
+                item_ref=member_ref(member),
                 project_slug=project_slug,
                 requirement_id=int(requirement_id),
                 case_key=str(case_key),

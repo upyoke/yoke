@@ -258,14 +258,14 @@ def _evaluate(
             waiting=0,
             no_obligation_lines=(item_qa.NO_MEMBER_OWES_TARGET,),
         )
-    refs = member_ref_lookup(conn, members)
+    member_ref = member_ref_lookup(conn, members)
 
     # Every member's facts are read as one set for the walk, not per member.
     @member_presentation
     def walk(connection, subjects):
         found: list[tuple[int | None, list[str], list[str]]] = []
         for member in members:
-            label = f"member {refs(member)}" if member is not None else "run"
+            label = f"member {member_ref(member)}" if member is not None else "run"
             member_lines, notes = _member_lines(
                 connection, run_id=run_id, stage=stage, member=member, label=label
             )
