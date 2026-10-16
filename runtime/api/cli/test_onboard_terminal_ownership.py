@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from types import SimpleNamespace
 
 import pytest
@@ -27,6 +28,11 @@ def test_unsafe_terminal_has_named_recovery_and_restored_modes(scenario, tmp_pat
         assert result["prepared"]
         assert "setup_terminal_ownership_lost" in output
         assert "foreground shell" in output
+        # The diagnostic names what the ownership check observed.
+        assert "terminal foreground process group" in output
+        assert "setup's group" in output
+        if scenario == "loss-read":
+            assert "SIGTTIN" in output
         for mode in (1000, 1003, 1015, 1006):
             assert f"\x1b[?{mode}h" in output
             assert output.rfind(f"\x1b[?{mode}l") > output.rfind(f"\x1b[?{mode}h")
@@ -48,6 +54,20 @@ def test_foreground_handoffs_and_suspend_restore_the_terminal(scenario, tmp_path
     if scenario == "suspend":
         assert result["stops_restored"] == [True]
         assert output.count("\x1b[?1000h") >= 4  # enabled twice per start
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX controlling-terminal job control")
+@pytest.mark.parametrize("shell", ["bash", "zsh"])
+def test_interactive_login_probe_keeps_the_wizard_terminal(shell, tmp_path):
+    """bash 5 and zsh `-lic` take the foreground unless detached from the tty."""
+    from runtime.api.cli.onboard_terminal_pty_support import run_pty
+
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is not installed")
+    output, result = run_pty(f"login-probe-{executable}", tmp_path)
+    assert result["exit_code"] == 0, output
+    assert "setup_terminal_" not in output
 
 
 def test_windows_uses_its_native_console_without_posix_calls(monkeypatch):

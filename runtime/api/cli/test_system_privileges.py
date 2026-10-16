@@ -40,9 +40,11 @@ def test_select_first_available_authority(
 
     def run(command, **kwargs):
         commands.append(command)
+        assert kwargs["stdin"] is subprocess.DEVNULL
+        assert kwargs["start_new_session"] is True
         return subprocess.CompletedProcess(command, 0 if probe_ok else 1, "", "")
 
-    monkeypatch.setattr(authority.subprocess, "run", run)
+    monkeypatch.setattr(subprocess, "run", run)
     assert authority.command_authority("unavailable: recovery") == (prefix, interactive)
     assert commands == ([] if root else [["/bin/sudo", "-n", "true"]])
 
@@ -70,7 +72,7 @@ def test_no_authority_preserves_callers_named_reason(
         authority.sys, "stderr", SimpleNamespace(isatty=lambda: stderr_tty)
     )
     monkeypatch.setattr(
-        authority.subprocess,
+        subprocess,
         "run",
         lambda command, **kw: subprocess.CompletedProcess(
             command, 1, "", "password needed"
@@ -87,6 +89,42 @@ def test_unlaunchable_probe_preserves_recovery(monkeypatch):
     def unavailable(command, **kwargs):
         raise FileNotFoundError("sudo disappeared")
 
-    monkeypatch.setattr(authority.subprocess, "run", unavailable)
+    monkeypatch.setattr(subprocess, "run", unavailable)
     with pytest.raises(RuntimeError, match="setup_unavailable: recovery.*probe failed"):
         authority.command_authority("setup_unavailable: recovery")
+
+
+def test_wizard_refuses_interactive_sudo_with_named_recovery(monkeypatch):
+    from yoke_cli.config.onboard_terminal import wizard_owns_terminal
+
+    monkeypatch.setattr(authority.os, "geteuid", lambda: 1000)
+    monkeypatch.setattr(authority.shutil, "which", lambda name: "/bin/sudo")
+    for stream in ("stdin", "stderr"):
+        monkeypatch.setattr(authority.sys, stream, SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda command, **kw: subprocess.CompletedProcess(command, 1, "", ""),
+    )
+    with wizard_owns_terminal():
+        with pytest.raises(RuntimeError) as refused:
+            authority.command_authority("setup_unavailable: recovery")
+    message = str(refused.value)
+    assert message.startswith("setup_unavailable: recovery")
+    assert "setup_wizard_sudo_refused" in message
+    assert "run `yoke setup` again" in message.lower()
+    assert authority.command_authority("x") == (["/bin/sudo", "--"], True)
+
+
+def test_wizard_keeps_passwordless_sudo(monkeypatch):
+    from yoke_cli.config.onboard_terminal import wizard_owns_terminal
+
+    monkeypatch.setattr(authority.os, "geteuid", lambda: 1000)
+    monkeypatch.setattr(authority.shutil, "which", lambda name: "/bin/sudo")
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda command, **kw: subprocess.CompletedProcess(command, 0, "", ""),
+    )
+    with wizard_owns_terminal():
+        assert authority.command_authority("x") == (["/bin/sudo", "-n", "--"], False)

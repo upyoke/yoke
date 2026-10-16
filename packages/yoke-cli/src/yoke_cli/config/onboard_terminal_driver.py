@@ -8,14 +8,18 @@ ownership is never changed.
 
 from __future__ import annotations
 
+import errno
 import os
 import signal
+import subprocess
 import sys
 from contextlib import contextmanager
 
+from yoke_cli import terminal_detached_process
 from yoke_cli.config.onboard_terminal import (
     SetupTerminalError,
     require_foreground_terminal,
+    wizard_owns_terminal,
 )
 
 OWNERSHIP_CHECK_SECONDS = 0.1
@@ -51,9 +55,42 @@ def live_terminal_geometry():
         os.environ.update(saved)
 
 
+def _loss_cause(evidence: dict) -> str:
+    """Name what the ownership check saw: signal, foreground group, errno."""
+    parts = []
+    if "signal" in evidence:
+        parts.append(signal.Signals(evidence["signal"]).name)
+    if "errno" in evidence:
+        code = evidence["errno"]
+        parts.append(f"terminal check errno {code} ({errno.errorcode.get(code, '?')})")
+    foreground = evidence.get("foreground")
+    if foreground is not None and foreground != os.getpgrp():
+        command = _group_leader_command(foreground)
+        parts.append(
+            f"terminal foreground process group {foreground}"
+            + (f" ({command})" if command else "")
+            + f", setup's group {os.getpgrp()}"
+        )
+    return "; ".join(parts) or "no further evidence"
+
+
+def _group_leader_command(group: int) -> str:
+    # The leader may already have exited and handed the terminal back.
+    try:
+        result = terminal_detached_process.run(
+            ["ps", "-o", "command=", "-p", str(group)],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return " ".join(result.stdout.split())[:200]
+
+
 def run_wizard_app(app) -> None:
     """Run the wizard against the terminal's live geometry."""
-    with live_terminal_geometry():
+    with live_terminal_geometry(), wizard_owns_terminal():
         _run_with_platform_driver(app)
 
 
@@ -68,6 +105,7 @@ def _run_with_platform_driver(app) -> None:
     import termios
 
     lost = False
+    evidence: dict = {}
     startup_error = None
     restore_error = None
     job_signals = {signal.SIGTTIN, signal.SIGTTOU}
@@ -84,6 +122,9 @@ def _run_with_platform_driver(app) -> None:
             nonlocal lost, restore_error
             if lost:
                 return
+            if signum is not None:
+                evidence.setdefault("signal", signum)
+                self.observe_foreground()
             if signum is not None and self.active:
                 # A signal can interrupt a write holding Textual's queue lock.
                 # The existing timer performs cleanup outside that call stack.
@@ -110,17 +151,23 @@ def _run_with_platform_driver(app) -> None:
                 # than letting Python restart a background read indefinitely.
                 raise OSError("setup_terminal_ownership_lost")
 
+        def observe_foreground(self):
+            try:
+                foreground = os.tcgetpgrp(self.fileno)
+            except OSError as exc:
+                evidence.setdefault("errno", exc.errno)
+                return None
+            if foreground != os.getpgrp():
+                evidence.setdefault("foreground", foreground)
+            return foreground
+
         def check_ownership(self):
             if not self.active or lost:
                 return
             if self.ownership_signal:
                 self.ownership_lost()
                 return
-            try:
-                foreground = os.tcgetpgrp(self.fileno)
-            except OSError:
-                self.ownership_lost()
-                return
+            foreground = self.observe_foreground()
             if foreground != os.getpgrp():
                 self.ownership_lost()
                 return
@@ -152,12 +199,10 @@ def _run_with_platform_driver(app) -> None:
             with _blocked({signal.SIGTTIN}):
                 try:
                     super().run_input_thread()
-                except OSError:
-                    try:
-                        foreground = os.tcgetpgrp(self.fileno)
-                    except OSError:
-                        foreground = None
+                except OSError as exc:
+                    foreground = self.observe_foreground()
                     if lost or foreground != os.getpgrp():
+                        evidence.setdefault("errno", exc.errno)
                         self._loop.call_soon_threadsafe(self.ownership_lost)
                     else:
                         raise
@@ -193,5 +238,6 @@ def _run_with_platform_driver(app) -> None:
         if restore_error:
             recovery = f"Terminal restoration failed ({restore_error}); run `stty sane`, then `yoke setup`."
         raise SetupTerminalError(
-            f"setup_terminal_ownership_lost: setup stopped. {recovery}"
+            f"setup_terminal_ownership_lost: setup stopped "
+            f"({_loss_cause(evidence)}). {recovery}"
         )

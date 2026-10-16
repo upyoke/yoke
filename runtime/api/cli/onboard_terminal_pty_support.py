@@ -13,6 +13,7 @@ import selectors
 import signal
 import subprocess
 import sys
+import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -118,6 +119,22 @@ def _wizard(scenario: str, ready: int, config: Path, continue_read: int):
                 self.call_later(self.suspend_and_finish)
             elif scenario in {"foreground", "cancel"}:
                 self.set_timer(0.15, self.exit)
+            elif scenario.startswith("login-probe-"):
+                shell = scenario.removeprefix("login-probe-")
+                threading.Thread(target=self.probe_login_shell, args=(shell,)).start()
+
+        def probe_login_shell(self, shell):
+            # The real fresh-login probe runs an interactive `SHELL -lic`, which
+            # enables job control; its startup file outlasts ownership checks.
+            from yoke_cli.config import path_doctor
+
+            home = config.parent / "home"
+            home.mkdir(exist_ok=True)
+            for startup in (".bash_profile", ".zprofile"):
+                (home / startup).write_text("sleep 0.5\n")
+            env = {"HOME": str(home), "PATH": os.environ["PATH"], "SHELL": shell}
+            path_doctor.verify_fresh_login(Path(shell).name, env=env)
+            self.call_from_thread(self.exit)
 
         def copy_and_finish(self):
             self.action_copy_target()

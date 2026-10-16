@@ -28,13 +28,13 @@ from yoke_contracts.machine_config.directories import create_private_directory
 import os
 import platform
 import shutil
-import subprocess
 import tarfile
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping, Optional
 
+from yoke_cli import terminal_detached_process
 from yoke_cli.config import machine_config
 from yoke_cli.resilient_fetch import FetchError, FetchVerificationError, fetch_file
 
@@ -256,7 +256,7 @@ def _toolchain_at(bin_dir: Path, source: str) -> Optional[NodeToolchain]:
 def _node_version(node: Path) -> Optional[str]:
     """The reported version when *node* runs and satisfies the floor."""
     try:
-        result = subprocess.run(
+        result = terminal_detached_process.run(
             [str(node), "--version"], capture_output=True, text=True, check=False
         )
     except OSError:

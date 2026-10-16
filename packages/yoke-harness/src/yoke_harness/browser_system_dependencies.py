@@ -8,6 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from yoke_cli import terminal_detached_process
 from yoke_harness import browser_linux_deps
 from yoke_harness.browser_apparmor import ensure_chromium_apparmor
 from yoke_harness.system_privileges import command_authority
@@ -37,7 +38,7 @@ const { registry } = require(path.join(root, 'lib/coreBundle.js')).registry;
 
 
 def _probe(browser, toolchain, env):
-    result = subprocess.run(
+    result = terminal_detached_process.run(
         [str(toolchain.node), "-e", DEPENDENCY_PROBE_JS],
         cwd=str(browser),
         env=env,
@@ -119,10 +120,12 @@ def _ensure_linux_libraries(browser, toolchain, *, env, emit, autoinstall):
     emit(
         f"[browser-auto-bootstrap] installing missing Linux system libraries via {authority}..."
     )
+    # Only a sudo password prompt keeps the terminal.
+    run = subprocess.run if interactive else terminal_detached_process.run
     for command in commands:
         if not command:
             continue
-        result = subprocess.run(
+        result = run(
             [*prefix, *command],
             env=env,
             text=True,

@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from yoke_cli import browser_node_toolchain
+from yoke_cli import browser_node_toolchain, terminal_detached_process
 from yoke_cli.config import browser_executable
 from yoke_cli.config import machine_config
 from yoke_cli.config.machine_config_file import ensure_owner_only_directory
@@ -67,7 +67,7 @@ def chromium_status(browser: Path, toolchain) -> str:
                 browser, toolchain, env, saved
             )
         else:
-            result = subprocess.run(
+            result = terminal_detached_process.run(
                 [
                     str(toolchain.node),
                     "-e",
@@ -113,7 +113,7 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
         _log(
             "[browser-auto-bootstrap] node_modules or playwright missing; auto-installing..."
         )
-        result = subprocess.run(
+        result = terminal_detached_process.run(
             [str(toolchain.npm), "install"],
             cwd=str(browser),
             capture_output=True,
@@ -128,7 +128,7 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
             )
         _log("[browser-auto-bootstrap] npm install completed successfully")
 
-    result = subprocess.run(
+    result = terminal_detached_process.run(
         [str(toolchain.node), "-e", browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS],
         cwd=str(browser),
         capture_output=True,
@@ -148,7 +148,7 @@ def _ensure_browser_runtime(browser: Path | None = None, toolchain=None, *, emit
                 "[browser-auto-bootstrap] BLOCKED: Chromium binary missing"
             )
         _log("[browser-auto-bootstrap] Chromium binary not found; auto-installing...")
-        result = subprocess.run(
+        result = terminal_detached_process.run(
             [str(toolchain.npx), "playwright", "install", "chromium"],
             cwd=str(browser),
             capture_output=True,

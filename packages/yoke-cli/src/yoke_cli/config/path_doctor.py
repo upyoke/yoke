@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Sequence
 
+from yoke_cli import terminal_detached_process
 from yoke_cli.config.path_harness_clis import (
     HarnessCliResolution,
     managed_path_directories,
@@ -78,7 +79,7 @@ def update_shell(*, env: dict[str, str] | None = None) -> str:
     ):
         environ = _probe_env_without_managed_paths((tool_bin_dir(environ),), environ)
     try:
-        result = subprocess.run(
+        result = terminal_detached_process.run(
             [uv, "tool", "update-shell"],
             capture_output=True,
             text=True,
@@ -130,8 +131,10 @@ def _verify_shell(
     separator = "; or true; " if sh == "fish" else " || true; "
     script = separator.join(f"command -v {tool}" for tool in PATH_TOOLS)
     script += "; or true" if sh == "fish" else " || true"
+    # An interactive `-i` shell enables job control and would otherwise make
+    # itself the terminal's foreground job, stopping setup's wizard.
     try:
-        proc = subprocess.run(
+        proc = terminal_detached_process.run(
             [shell_path, flag, script],
             capture_output=True,
             text=True,

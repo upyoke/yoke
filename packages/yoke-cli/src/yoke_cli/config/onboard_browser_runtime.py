@@ -11,7 +11,7 @@ import shutil
 import subprocess
 from typing import Mapping
 
-from yoke_cli import browser_node_toolchain
+from yoke_cli import browser_node_toolchain, terminal_detached_process
 from yoke_harness import browser_runtime_home, browser_setup
 
 OPEN_TIMEOUT_SECONDS = 20
@@ -57,7 +57,7 @@ def default_browser_command(env: Mapping[str, str]) -> list[str] | None:
     settings = shutil.which("xdg-settings")
     if not settings:
         return _browser_alternative(env)
-    result = subprocess.run(
+    result = terminal_detached_process.run(
         [settings, "get", "default-web-browser"],
         capture_output=True,
         text=True,

@@ -9,6 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from yoke_cli import terminal_detached_process
 from yoke_harness.system_privileges import command_authority
 
 RESTRICTION = Path("/proc/sys/kernel/apparmor_restrict_unprivileged_userns")
@@ -101,7 +102,7 @@ def _current(destination, content):
 def _sandbox_probe(browser, toolchain, env, executables):
     # The kernel's profile list requires CAP_MAC_ADMIN. Prove actual sandboxed
     # launches without demanding root on every later browser startup.
-    return subprocess.run(
+    return terminal_detached_process.run(
         [str(toolchain.node), "-e", SANDBOX_PROBE_JS, json.dumps(executables)],
         cwd=str(browser),
         env=env,
@@ -117,7 +118,7 @@ def ensure_chromium_apparmor(browser, toolchain, *, env, emit, autoinstall=True)
     try:
         if not RESTRICTION.exists() or RESTRICTION.read_text().strip() == "0":
             return
-        result = subprocess.run(
+        result = terminal_detached_process.run(
             [str(toolchain.node), "-e", EXECUTABLES_JS],
             cwd=str(browser),
             env=env,
@@ -161,7 +162,9 @@ def ensure_chromium_apparmor(browser, toolchain, *, env, emit, autoinstall=True)
         emit(
             "[browser-auto-bootstrap] provisioning Chromium AppArmor userns profiles..."
         )
-        result = subprocess.run(
+        # Only a sudo password prompt keeps the terminal.
+        run = subprocess.run if interactive else terminal_detached_process.run
+        result = run(
             [
                 *prefix,
                 sys.executable,

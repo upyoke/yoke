@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import os
 import shutil
-import subprocess
 import sys
+
+from yoke_cli import terminal_detached_process
+from yoke_cli.config.onboard_terminal import wizard_terminal_owned
 
 
 def command_authority(unavailable_reason: str) -> tuple[list[str], bool]:
@@ -15,7 +17,7 @@ def command_authority(unavailable_reason: str) -> tuple[list[str], bool]:
     sudo = shutil.which("sudo")
     if sudo:
         try:
-            result = subprocess.run(
+            result = terminal_detached_process.run(
                 [sudo, "-n", "true"], capture_output=True, text=True
             )
         except OSError as exc:
@@ -24,6 +26,14 @@ def command_authority(unavailable_reason: str) -> tuple[list[str], bool]:
             ) from exc
         if result.returncode == 0:
             return [sudo, "-n", "--"], False
+        if wizard_terminal_owned():
+            # A sudo password prompt would fight the wizard for the terminal.
+            raise RuntimeError(
+                f"{unavailable_reason} setup_wizard_sudo_refused: this step needs "
+                "an interactive sudo password, which cannot be asked while the "
+                "setup wizard owns the terminal. Run `yoke setup` again: its "
+                "preparation step asks for the password before the wizard opens."
+            )
         if sys.stdin.isatty() and sys.stderr.isatty():
             return [sudo, "--"], True
     raise RuntimeError(unavailable_reason)
