@@ -18,6 +18,11 @@ Each entry carries the evidence that established it, because an unevidenced
 capability claim is what this contract exists to replace. ``unverified`` is a
 first-class value — a harness nobody has probed says so, rather than
 inheriting a neighbour's answer.
+
+An idle-wake subscription may also have a lifetime of its own. Where the
+harness ends a subscription after a deadline, the entry names the longest
+deadline it accepts and the parameter that sets it; the caller re-arms the
+same subscription on the expiry notice, never relaunching what it watches.
 """
 
 from __future__ import annotations
@@ -41,6 +46,11 @@ class HarnessWakeCapability:
     timer_wake_mechanism: str
     verified_on_surface: str
     evidence: str
+    #: Longest an idle-wake subscription lives before the harness ends it;
+    #: ``None`` when a subscription lasts as long as what it watches.
+    idle_wake_subscription_limit_seconds: int | None = None
+    #: The arming parameter that sets that deadline, empty without a limit.
+    idle_wake_deadline_parameter: str = ""
 
     def to_json(self) -> dict[str, object]:
         return asdict(self)
@@ -56,8 +66,13 @@ HARNESS_WAKE_CAPABILITIES: dict[str, HarnessWakeCapability] = {
         evidence=(
             "Monitor and ScheduleWakeup are first-class model-facing tools. "
             "Every stdout line a Monitor filter matches resumes the turn, "
-            "which is what the main-session long-command rule is built on."
+            "which is what the main-session long-command rule is built on. "
+            "A Monitor ends at its timeout_ms deadline (default 5 minutes, "
+            "capped at 30) with one expiry notice and its watcher killed; "
+            "re-arming the same tail then continues the watch."
         ),
+        idle_wake_subscription_limit_seconds=1800,
+        idle_wake_deadline_parameter="timeout_ms",
     ),
     "codex": HarnessWakeCapability(
         idle_wake="none",
@@ -90,6 +105,14 @@ HARNESS_WAKE_CAPABILITIES: dict[str, HarnessWakeCapability] = {
 }
 
 
+def wake_capability_for_mechanism(mechanism: str) -> HarnessWakeCapability | None:
+    """The measured entry whose idle-wake primitive is ``mechanism``, if any."""
+    for capability in HARNESS_WAKE_CAPABILITIES.values():
+        if mechanism and capability.idle_wake_mechanism == mechanism:
+            return capability
+    return None
+
+
 def wake_capability_for_harness(harness_id: str | None) -> HarnessWakeCapability:
     """Return one harness family's wake facts.
 
@@ -120,4 +143,5 @@ __all__ = (
     "HarnessWakeCapability",
     "HARNESS_WAKE_CAPABILITIES",
     "wake_capability_for_harness",
+    "wake_capability_for_mechanism",
 )

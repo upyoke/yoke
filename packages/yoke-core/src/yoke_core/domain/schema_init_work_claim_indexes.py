@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.work_claim_targets import scope_text_sql
+from yoke_core.domain.work_claim_targets import scope_int_sql, scope_text_sql
 
 ACTIVE_ITEM_INDEX_NAME = "idx_work_claims_active_item"
 ACTIVE_EPIC_TASK_INDEX_NAME = "idx_work_claims_active_epic_task"
@@ -16,6 +16,7 @@ ACTIVE_MIGRATION_SERIALIZATION_INDEX_NAME = (
     "idx_work_claims_active_migration_serialization"
 )
 ACTIVE_DEPLOY_SERIALIZATION_INDEX_NAME = "idx_work_claims_active_deploy_serialization"
+ITEM_CLAIM_HISTORY_INDEX_NAME = "idx_work_claims_item_history"
 
 ACTIVE_ITEM_INDEX_DDL = (
     "CREATE UNIQUE INDEX IF NOT EXISTS "
@@ -93,6 +94,19 @@ def active_process_conflict_index_ddl(conn: Any) -> str:
     )
 
 
+def create_item_claim_history_index(conn: Any) -> None:
+    """Index every item claim, released or live, by its item and then id.
+
+    Reads of an item's latest claim or last release otherwise scan the whole
+    claim history, which grows with every item ever claimed.
+    """
+    item = scope_int_sql(conn, "scope", "item_id")
+    conn.execute(
+        f"CREATE INDEX IF NOT EXISTS {ITEM_CLAIM_HISTORY_INDEX_NAME} "
+        f"ON work_claims(({item}), id) WHERE target_kind='item'"
+    )
+
+
 def create_work_claim_active_uniques(conn: Any) -> None:
     """Create every active-target exclusivity index idempotently."""
     conn.execute(ACTIVE_ITEM_INDEX_DDL)
@@ -119,8 +133,10 @@ __all__ = [
     "ACTIVE_PROCESS_CONFLICT_INDEX_NAME",
     "ACTIVE_STEERING_INDEX_DDL",
     "ACTIVE_STEERING_INDEX_NAME",
+    "ITEM_CLAIM_HISTORY_INDEX_NAME",
     "active_deploy_serialization_index_ddl",
     "active_migration_serialization_index_ddl",
     "active_process_conflict_index_ddl",
+    "create_item_claim_history_index",
     "create_work_claim_active_uniques",
 ]

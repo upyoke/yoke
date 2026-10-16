@@ -19,6 +19,9 @@ Use the declared `Monitor` background command/subscription. In-turn stays
 Bash foreground at its documented long timeout. Keep ScheduleWakeup fallback
 at least 1200 seconds only if the manifest declares that timer available.
 The watcher counts as live only while its `yoke watch tail` subscriber runs.
+A Monitor expires at its deadline: arm it at the manifest's
+`idle_wake_deadline_parameter` maximum, and on the expiry notice re-arm the
+same tail against the same capture. Never relaunch the wrapper.
 <!-- YOKE:HARNESS end -->
 
 <!-- YOKE:HARNESS cursor start -->

@@ -54,7 +54,7 @@ def _unresolved_plan_cases(conn: Any, run_id: str) -> List[str]:
     rows = [row for row in rows if not has_current_passing_run(conn, int(row["id"]))]
     if not rows:
         return []
-    from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
+    from yoke_core.domain.qa_review_waits import requirement_awaits_human_review
 
     described = []
     for row in rows:

@@ -25,7 +25,7 @@ from yoke_core.domain.qa_obligation_settlement import (
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.qa_requirement_replacement import replacement_note
 from yoke_core.domain.qa_requirement_source_retirement import is_source_retirement
-from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
+from yoke_core.domain.qa_review_waits import requirement_awaits_human_review
 from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
 )
