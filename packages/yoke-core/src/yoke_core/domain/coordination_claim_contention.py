@@ -85,7 +85,7 @@ class ClaimContention:
             f" This session is number {self.line_position} of {self.line_length} "
             f"in the {self.key} waiting line: the next release reserves the host "
             "for the oldest live waiter and wakes it with the command that takes "
-            "the turn."
+            "the turn. Park until then; write no hold of your own."
         )
 
     def in_line(self, wait: dict[str, Any]) -> "ClaimContention":
