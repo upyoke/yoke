@@ -65,10 +65,12 @@ with and without a backup, a distinct joining machine, explicit uninstall and
 late harness discovery. Preparation failures preserve their named reason and
 recovery. The late-harness fixture uses a disposable `CODEX_HOME`, preserving
 the executable outside discovery and restoring it even when setup fails.
-It reruns public setup after the harness becomes available. Personal Codex
-home and sign-in files stay in place. Configuration checks do not
-replace the exploration's real
-received-context proof.
+It reruns public machine-only setup after the harness becomes available and
+checks native execution and unattended permissions. Codex hooks live in a
+project's `.codex/hooks.json`, not the disposable `CODEX_HOME`; project hook
+trust and real-session pickup belong to the exploration mission. Personal Codex
+home and sign-in files stay in place. Configuration checks do not replace the
+exploration's real received-context proof.
 
 Hosted recovery journeys repeat their prepared marker after the installer
 exits successfully, then emit a ready marker that the final capture waits for.
@@ -122,7 +124,10 @@ contents. A pending browser authorization or pre-Apply Review is not a token
 creation prerequisite.
 
 The Review inspection selects "Show all changes" and captures the actual
-pending-write names, then backs out without Apply. Category counts alone do
+pending-write names, including reuse of the token already saved by browser
+approval, then backs out without Apply. A new token write is not expected on
+this path. The regression test compares that line with the installer's own
+friendly-line formatter. Category counts alone do
 not satisfy that inspection. Saved and frozen cases need the registered
 source sync and exact-owner refresh before execution; prior failed captures
 remain evidence, and another campaign still requires its own admission.

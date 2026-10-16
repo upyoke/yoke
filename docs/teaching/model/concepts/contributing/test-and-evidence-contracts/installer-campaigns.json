@@ -5,5 +5,5 @@
  "audience": "Maintainers",
  "page": "contributing-guides",
  "position": 5,
- "summary": "State checks follow the Apply journey that creates their subject; token existence and owner-only modes have separate diagnostics. Review captures the full pending-write list before backing out. Browser approval requires a visible control and same-tab confirmation or navigation. Hosted recovery retains fail-fast backup assertions and post-exit capture readiness; source correctness does not establish live campaign acceptance."
+ "summary": "State checks follow the Apply journey that creates their subject; token existence and owner-only modes have separate diagnostics. Review captures the full pending-write list and already-saved token reuse before backing out. Browser approval requires a visible control and same-tab confirmation or navigation. Machine-only late-harness discovery checks unattended permissions; project hook trust and received context require exploration proof. Hosted recovery retains fail-fast backup assertions and post-exit capture readiness; source correctness does not establish live campaign acceptance."
 }
