@@ -1,4 +1,4 @@
-"""Refuse a wake that would spend a published meter already at zero."""
+"""Refuse a wake only when its empty included meter cannot bill paid extra usage."""
 
 from __future__ import annotations
 
@@ -13,6 +13,11 @@ from runtime.api.domain.test_session_message_support import (
     NOW_TEXT,
     message_connection,
     selector,
+)
+from yoke_contracts.session_control.extra_usage import (
+    EXTRA_AVAILABLE,
+    EXTRA_DISABLED,
+    extra_usage,
 )
 from yoke_contracts.session_control.plan_limits import (
     ALL_MODELS_SCOPE,
@@ -40,6 +45,14 @@ from yoke_core.domain.session_wake_meter import (
 RESET = "2026-10-07T00:00:00.000000Z"
 OTHER_METER = "planUsage.apiPercentUsed"
 CURSOR_METER = "planUsage.autoPercentUsed"
+# The evaluation instant of the automatic-wake tests, and a fresh reading for it.
+WAKE_AT = NOW + timedelta(minutes=11)
+FRESH_FOR_WAKE = "2026-08-22T16:10:00.000000Z"
+DISABLED = extra_usage(EXTRA_DISABLED, meter="extra", reason="user_disabled")
+CREDITS = extra_usage(
+    EXTRA_AVAILABLE, meter="rateLimits.credits", balance=61206.81, units="Codex credits"
+)
+_ABSENT = object()
 
 
 def _rolling(meter: str, remaining: float) -> list[dict]:
@@ -63,6 +76,8 @@ def _pin(
     machine_id: str,
     project_id: int,
     windows: list[dict],
+    extra: object = DISABLED,
+    observed_at: str = NOW_TEXT,
 ) -> None:
     conn.execute(
         "UPDATE harness_sessions SET executor_surface=?, model=? WHERE session_id=?",
@@ -84,22 +99,25 @@ def _pin(
             NOW_TEXT,
             NOW_TEXT,
             "2026-08-23T00:00:00.000000Z",
-            json.dumps(
-                {
-                    surface: {
-                        "surface": surface,
-                        "plan_tier": "Ultra",
-                        "observed_at": NOW_TEXT,
-                        "windows": windows,
-                    }
-                }
-            ),
+            json.dumps({surface: _reading(surface, windows, extra, observed_at)}),
         ),
     )
     conn.commit()
 
 
-def _queue_stopped_codex(conn, remaining: float) -> str:
+def _reading(surface: str, windows: list[dict], extra: object, observed_at: str):
+    reading = {
+        "surface": surface,
+        "plan_tier": "Ultra",
+        "observed_at": observed_at,
+        "windows": windows,
+    }
+    if extra is not _ABSENT:
+        reading["extra_usage"] = extra
+    return reading
+
+
+def _queue_stopped_codex(conn, remaining: float, extra: object = DISABLED) -> str:
     _pin(
         conn,
         NATIVE_WAKE_SESSION_ID,
@@ -108,6 +126,8 @@ def _queue_stopped_codex(conn, remaining: float) -> str:
         machine_id="m4",
         project_id=1,
         windows=_rolling("primary", remaining),
+        extra=extra,
+        observed_at=FRESH_FOR_WAKE,
     )
     stamp_turn_posture(
         conn,
@@ -155,6 +175,7 @@ def test_operator_wake_refuses_an_empty_meter_and_does_not_queue() -> None:
 
     text = str(refused.value)
     assert refused.value.code == METER_EXHAUSTED_CODE
+    assert "extra usage disabled (user_disabled)" in text
     assert "five_hour" in text
     assert "0%" in text
     assert RESET in text
@@ -226,7 +247,7 @@ def test_automatic_reentry_does_not_offer_an_exhausted_session() -> None:
     conn = message_connection()
     message_id = _queue_stopped_codex(conn, 0.0)
 
-    assert wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11)) == []
+    assert wake_eligible_recipients(conn, now=WAKE_AT) == []
 
     attempt = conn.execute(
         "SELECT result_code, completed_at, lease_id, evidence "
@@ -252,18 +273,15 @@ def test_automatic_reentry_does_not_offer_an_exhausted_session() -> None:
 def test_claim_does_not_open_a_native_when_the_meter_drains() -> None:
     conn = message_connection()
     _queue_stopped_codex(conn, 50.0)
-    candidate = wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11))[0]
+    candidate = wake_eligible_recipients(conn, now=WAKE_AT)[0]
     conn.execute(
         "UPDATE session_relays SET surface_plan_limits=? WHERE relay_id=?",
         (
             json.dumps(
                 {
-                    "codex-cli": {
-                        "surface": "codex-cli",
-                        "plan_tier": "Ultra",
-                        "observed_at": NOW_TEXT,
-                        "windows": _rolling("primary", 0.0),
-                    }
+                    "codex-cli": _reading(
+                        "codex-cli", _rolling("primary", 0.0), DISABLED, FRESH_FOR_WAKE
+                    )
                 }
             ),
             "machine:m4",

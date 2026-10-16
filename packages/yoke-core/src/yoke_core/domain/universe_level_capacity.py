@@ -34,6 +34,11 @@ class Meter:
     status: str
     remaining_percent: Optional[float]
     headroom_percent: Optional[float]
+    #: Whether an empty included window really stops work: fresh paid extra
+    #: usage is disabled, capped or unfunded. Unknown or stale never blocks.
+    extra_blocks: bool = False
+    #: The shared phrase naming the surface's extra-usage facts.
+    extra: str = ""
 
 
 def pool_label(surface: str, window_kind: str, scope: str, *, scoped: bool) -> str:
@@ -102,9 +107,18 @@ class _Fleet:
                 "left": _whole(meter.remaining_percent) if readable else None,
                 "headroom": _whole(meter.headroom_percent) if readable else None,
             }
-            pools.append(pool)
             if readable and meter.remaining_percent <= 0:
-                blockers.append({"kind": "pool", "label": pool["label"], "left": 0})
+                pool["extra"] = meter.extra
+                if meter.extra_blocks:
+                    blockers.append(
+                        {
+                            "kind": "pool",
+                            "label": pool["label"],
+                            "left": 0,
+                            "extra": meter.extra,
+                        }
+                    )
+            pools.append(pool)
         known = [pool for pool in pools if pool["headroom"] is not None]
         binding = min(known, key=lambda pool: pool["headroom"]) if known else None
         return _Reading(machine_id, tuple(pools), tuple(blockers), binding)

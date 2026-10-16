@@ -65,10 +65,13 @@ def session_wake(args: List[str]) -> int:
             "pending: this command never cancels another message's unread "
             "content. Idempotent retries reuse only uncancelled receipts. A "
             "session whose pinned model would spend a published meter "
-            "that is already at zero is refused as `meter_exhausted`, "
-            "naming the meter, remaining quota, reset time, and that "
-            "recovery is a relaunch on a surface with headroom; the "
-            "wake is not dispatched."
+            "that is already at zero, while the provider's paid extra "
+            "usage is disabled, capped or unfunded, is refused as "
+            "`meter_exhausted`, naming the meter, remaining quota, reset "
+            "time, the extra-usage facts, and that recovery is a relaunch "
+            "on a surface with headroom or turning on or funding extra "
+            "usage; the wake is not dispatched. Extra usage that is "
+            "available, unknown or stale does not refuse the wake."
         ),
     )
     parser.add_argument("target_session_id", metavar="SESSION-ID", nargs="?")

@@ -87,7 +87,17 @@ listing names the missing adapter; ask the control-plane operator to provide it
 or choose a surface with observed models. Neither invents availability.
 
 Every candidate reads only the quota windows its model draws on. A readable
-zero blocks; missing or unreadable quota is unknown capacity. Each machine's
+included zero blocks only when the surface's fresh paid extra-usage reading
+says the provider will not bill past it: `disabled`, `cap_reached` or
+`unavailable` (no funds). Extra usage that is `available`, `unsupported`,
+`unknown` or `stale` (older than five minutes) leaves the launch to the
+provider, whose own refusal stays authoritative; Yoke never enables spending,
+raises a cap or buys credits. Missing or unreadable quota is unknown capacity.
+Each relay reads extra usage with the same four-minute refresh as its windows:
+Codex `credits` and `spendControlReached`, Claude `extra_usage`, and Cursor
+`GetHardLimit` usage-based pricing (Cursor publishes no personal balance).
+Pool output appends the shared phrase, for example `extra usage available
+(balance 61,206.81 Codex credits)`. Each machine's
 relay reads the manifest's quota source and reports named failures alongside
 recovery guidance in the launch's pool output. Claude's 5-hour
 window remains a separate cap beside its weekly limits. Cursor's two monthly
@@ -216,7 +226,7 @@ covers, plus the new launch. The spread rule prefers an option whose binding
 pool has no worker and more than 100% headroom, followed by per-worker
 headroom and configuration position. Level launches place one at a time, so
 each launch in a burst counts the earlier ones.
-Unknown quota never means exhaustion.
+Unknown quota, and unknown or stale extra usage, never mean exhaustion.
 
 When no native selection can launch, `level_no_capacity` names each refusal
 and its recovery. Unknown levels refuse `level_unknown`. The retired JUNIOR

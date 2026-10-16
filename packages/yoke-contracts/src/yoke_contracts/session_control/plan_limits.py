@@ -14,12 +14,22 @@ that could not be read is one window that names its own refusal. That also
 makes the shape self-announcing to a reader that predates it: a build looking
 for a surface-level ``status`` finds none, reads ``unknown``, and renders a
 labelled unreadable row instead of a blank one.
+
+Beside its windows each reading carries one ``extra_usage`` fact: whether the
+provider bills past the included allowance (see
+:mod:`yoke_contracts.session_control.extra_usage`). It stays separate from
+the windows so an included percentage is never blended with paid funds.
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from yoke_contracts.session_control.extra_usage import (
+    EXTRA_USAGE_NOT_READ_REASON,
+    sanitize_extra_usage,
+    unknown_extra_usage,
+)
 from yoke_contracts.timestamps import format_instant
 from typing import Any, Mapping, Sequence
 
@@ -66,7 +76,7 @@ _WINDOW_KEYS = (
     "status",
     "reason",
 )
-_READING_KEYS = ("surface", "plan_tier", "observed_at", "windows")
+_READING_KEYS = ("surface", "plan_tier", "observed_at", "windows", "extra_usage")
 _STRING_MAX = 128
 _REASON_MAX = 4096
 
@@ -130,12 +140,16 @@ def surface_reading(
     observed_at: str,
     plan_tier: str | None,
     windows: Sequence[Mapping[str, Any]],
+    extra_usage: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "surface": surface,
         "plan_tier": plan_tier,
         "observed_at": format_instant(observed_at) if observed_at is not None else None,
         "windows": [dict(window) for window in windows],
+        "extra_usage": dict(extra_usage)
+        if extra_usage is not None
+        else unknown_extra_usage(EXTRA_USAGE_NOT_READ_REASON),
     }
 
 
@@ -148,6 +162,7 @@ def unknown_reading(
         observed_at=observed_at,
         plan_tier=plan_tier,
         windows=(unknown_window(reason),),
+        extra_usage=unknown_extra_usage(reason),
     )
 
 
@@ -238,6 +253,7 @@ def sanitize_plan_limits(raw: Mapping[str, Any] | None) -> dict[str, dict[str, A
             if row.get("observed_at") is not None
             else None,
             "windows": _sanitize_windows(row.get("windows")),
+            "extra_usage": sanitize_extra_usage(row.get("extra_usage")),
         }
         cleaned[surface] = {key: entry[key] for key in _READING_KEYS}
         for window in cleaned[surface]["windows"]:

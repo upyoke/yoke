@@ -47,6 +47,9 @@ def meter(surface, scope, left):
         "ok",
         left,
         left * 2,
+        # Paid extra usage switched off: an empty pool really blocks.
+        extra_blocks=True,
+        extra="extra usage disabled (user_disabled)",
     )
 
 

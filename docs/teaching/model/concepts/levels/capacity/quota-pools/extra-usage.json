@@ -1,0 +1,9 @@
+{
+ "id": "extra-usage",
+ "title": "Paid extra usage past the included pools",
+ "status": "observed",
+ "text": "Each surface reading carries one account-wide extra-usage fact beside its included windows: available, disabled, cap_reached, unavailable (no funds), unsupported or unknown, plus balance, spend, cap and units only as the provider publishes them. Codex reports credits and spend control, Claude its extra_usage block, Cursor whether usage-based pricing is on. A reading older than five minutes is stale and proves nothing. Placement, previews, wakes, session status, the steering report and the Machines panel print the same phrase, such as 'extra usage available (balance 61,206.81 Codex credits)'. Yoke never enables spending.",
+ "evidence": "Real sanitized Codex app-server, Codex usage mirror, Claude OAuth usage and Cursor GetHardLimit payloads read 2026-10-16; parsers and the pool rule covered by runtime/harness/test_extra_usage_readings.py and runtime/api/domain/test_session_wake_extra_usage.py. Not yet verified on a deployed release.",
+ "page": "levels",
+ "position": 1
+}
