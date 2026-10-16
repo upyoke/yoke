@@ -150,6 +150,10 @@ def test_invalid_paths(corpus, path, code):
 def test_yaml_refusals(corpus, text, code):
     (corpus / "nav.yaml").write_text(text)
     assert code in _codes(corpus)
+    assert all(
+        len(str(r).splitlines()) == 1
+        for r in nav.validate_navigation(corpus, complete=False)
+    )
 
 
 def test_collision_complete_partial_and_cli(corpus, capsys):

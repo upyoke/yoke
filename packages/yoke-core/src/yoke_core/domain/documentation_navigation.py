@@ -31,7 +31,11 @@ class NavigationRefusal:
 
     def __str__(self) -> str:
         message = f"{self.code} {self.target}: {self.detail}. Repair: {self.repair}"
-        return message.encode("utf-8", errors="backslashreplace").decode("utf-8")
+        return (
+            " ".join(message.splitlines())
+            .encode("utf-8", errors="backslashreplace")
+            .decode("utf-8")
+        )
 
 
 class NavigationError(ValueError):
