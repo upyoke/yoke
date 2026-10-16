@@ -68,6 +68,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "qa.plan_execution.pause": "next-release",
     "qa.plan_execution.resume": "next-release",
     "qa.item_plan.retract": "next-release",
+    "qa.plan.retire": "next-release",
     "qa.browser_context.get": "next-release",
     "qa.case_execution.begin": "next-release",
     "qa.requirement.get": "next-release",

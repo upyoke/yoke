@@ -48,6 +48,10 @@ def handle_qa_requirement_waive(
 
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.qa_requirement_ops import waive_requirement
+    from yoke_core.domain.qa_requirement_waive_liveness import (
+        NOT_LIVE_CODE,
+        RequirementNotLiveError,
+    )
 
     conn = connect()
     try:
@@ -61,6 +65,8 @@ def handle_qa_requirement_waive(
             )
         except LookupError as exc:
             return _error("not_found", str(exc))
+        except RequirementNotLiveError as exc:
+            return _error(NOT_LIVE_CODE, str(exc))
         except PermissionError as exc:
             return _error("force_required", str(exc), jsonpath="$.payload.force")
     finally:

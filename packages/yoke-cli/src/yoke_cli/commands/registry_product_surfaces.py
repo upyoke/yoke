@@ -18,6 +18,7 @@ from yoke_cli.commands.adapters import (
     qa_catalog_defaults,
     qa_item_plan_retract,
     qa_plan_edit,
+    qa_plan_retire,
     test_machine,
     test_machine_desktop,
     universe_levels,
@@ -63,6 +64,7 @@ QA_CATALOG_SUBCOMMAND_REGISTRY = {
     ),
     ("qa", "plan", "create"): ("qa.plan.create", qa_catalog.qa_plan_create),
     ("qa", "plan", "edit"): ("qa.plan.edit", qa_plan_edit.qa_plan_edit),
+    ("qa", "plan", "retire"): ("qa.plan.retire", qa_plan_retire.qa_plan_retire),
     ("qa", "plan-cases", "replace"): (
         "qa.plan_cases.replace",
         qa_catalog.qa_plan_cases_replace,
