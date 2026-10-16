@@ -30,6 +30,11 @@ class BegunPlanExecution:
     requirements: list[dict[str, Any]]
     cursor: int
     recorded_results: list[dict[str, Any]]
+    #: Ordinals with a recorded result, including host-free cases recorded
+    #: ahead of the cursor while the plan queued for a host.
+    recorded_ordinals: frozenset[int]
+    #: Whether the server accepts host-free results ahead of the cursor.
+    host_free_cases_ahead: bool
     selected_machine: Optional[str]
     resolved_base_url: str
 
@@ -112,6 +117,12 @@ def validate_begun_execution(
             for entry in stored_results
             if isinstance(entry, dict) and isinstance(entry.get("result"), dict)
         ],
+        recorded_ordinals=frozenset(
+            int(entry["ordinal"])
+            for entry in stored_results
+            if isinstance(entry, dict) and entry.get("ordinal") is not None
+        ),
+        host_free_cases_ahead=execution.get("host_free_cases_ahead") is True,
         selected_machine=selected_machine,
         resolved_base_url=resolved_base_url,
     )

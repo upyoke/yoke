@@ -107,9 +107,7 @@ def test_the_clock_for_a_launch_in_flight_starts_at_the_launch(steering_scope):
     report = _compose(steering_scope)
     launched = next(entry for entry in report.available if entry.item_id == item_id)
     projected = next(
-        row
-        for row in report_dict(report)["available"]
-        if row["item_id"] == item_id
+        row for row in report_dict(report)["available"] if row["item_id"] == item_id
     )
 
     assert launched.waiting_seconds(NOW) == 2 * 60
@@ -145,7 +143,61 @@ def test_launching_and_awaiting_registration_are_staffing_in_flight(
     _in_flight_launch(steering_scope, item_id=item_id, state=state)
 
     launched = next(
-        entry for entry in _compose(steering_scope).available if entry.item_id == item_id
+        entry
+        for entry in _compose(steering_scope).available
+        if entry.item_id == item_id
     )
 
     assert launched.launch_state == state
+
+
+def test_schedule_clocks_alarm_the_report_overdue_set_and_skip_a_launch(
+    steering_scope,
+):
+    """The probe's clocks are the report's available set and staffing threshold."""
+    from yoke_contracts.timestamps import parse_instant
+    from yoke_core.domain.fleet_delta_alarms import DeltaState
+    from yoke_core.domain.fleet_delta_snapshot import FleetSnapshot, item_rows
+    from yoke_core.domain.fleet_delta_unstaffed import unstaffed_ready_alarms
+    from yoke_core.domain.handlers.sessions_charge_schedule import (
+        scheduler_result_to_dict,
+    )
+    from yoke_core.domain.scheduler import compute_schedule
+
+    def alarms():
+        report = _compose(steering_scope)
+        schedule = compute_schedule(
+            steering_scope,
+            project_scope=[PROJECT_ID],
+            session_id=STEERING_SESSION,
+            emit_events=False,
+        )
+        payload = scheduler_result_to_dict(
+            schedule, steering_scope, staffing_clocks=True
+        )
+        snapshot = FleetSnapshot(
+            taken_at=parse_instant(NOW),
+            self_session_id=STEERING_SESSION,
+            items=item_rows(payload),
+        )
+        fired = unstaffed_ready_alarms(snapshot, DeltaState())
+        alarmed = {
+            line.split("item=", 1)[1].split(" ", 1)[0]
+            for line in fired
+            if line.startswith("fleet ALARM ")
+        }
+        return report, alarmed
+
+    report, alarmed = alarms()
+    overdue = {entry.public_ref for entry in report.waited_too_long()}
+    assert overdue
+    assert alarmed == overdue
+
+    _in_flight_launch(steering_scope, item_id=1)
+    report, alarmed = alarms()
+    launched = next(entry for entry in report.available if entry.item_id == 1)
+    assert launched.launch_state == "assigned"
+    assert launched.public_ref not in alarmed
+    assert launched.public_ref not in {
+        entry.public_ref for entry in report.waited_too_long()
+    }

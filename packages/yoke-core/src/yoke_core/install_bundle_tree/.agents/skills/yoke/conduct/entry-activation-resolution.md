@@ -77,9 +77,11 @@ idempotent on correct existing branches. Upstream-unverified/stale,
 dirty main, capacity or wrong lane stops with exact recovery; no reset/rebase,
 borrowed project or guessed path. Complete this before each task baseline.
 
-For every _task_id, hydrate only its suffixed branch/path. Read its task body
-and registered lane; if chain path is empty, find the matching item_worktrees
-row. Missing row stops for path-record/operator repair, never string assembly.
+For every _task_id, hydrate only its suffixed branch and path. Read its task
+body and registered lane. An empty chain path is the matching item_worktrees
+row from the list below. Register a missing worker lane with
+`yoke item-worktrees create`, bind the task with reassign, then store the
+checkout path with `yoke item-worktrees path-record`.
 
 ```text
 yoke workflow-item epic-task body-get --epic PREFIX-N --task-num {task_num}
@@ -101,12 +103,15 @@ skip that step. Do not mutate a lane before its exact task claim permits it.
 
 ```text
 yoke conduct epic-task update-status --epic PREFIX-N --task-num {task_num} --status implementing --note "Dispatched by conduct (task fan-out)"
-yoke workflow-item epic-task metadata-update --epic PREFIX-N --task-num {task_num} --fields-json '{"worktree":"BRANCH","branch":"BRANCH","worktree_path":"ABS_PATH"}'
+yoke item-worktrees create PREFIX-N --lane-role worker --branch {BRANCH}
+yoke workflow-item epic-task reassign --epic PREFIX-N --task-num {task_num} --new-worktree {BRANCH}
+yoke item-worktrees path-record PREFIX-N --worktree-id {ID} --branch {BRANCH} --path {ABS_PATH}
 yoke workflow-item epic-dispatch-chain refresh-activation --epic PREFIX-N --worktree {BRANCH} --task-num {task_num}
 ```
 
 Pipeline update owns attempts/history/derive; the generic status writer is not
-equivalent. Preserve all three resolved metadata fields and architect lanes.
+equivalent. Create runs only when that branch has no active lane. Reassign
+binds the task, then path-record stores the checkout path. Keep architect lanes.
 Refresh current_task/current_attempt/last_updated. Re-read each task: require
 implementing/reviewing-implementation before Engineer; planned stops for this
 activation repair. Continue this session, no relaunch or parent stop.

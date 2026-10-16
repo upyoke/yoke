@@ -114,8 +114,8 @@ def test_valid_sources_include_idea_and_refine_authoring_paths(
                 "YOK-99",
                 source,
                 gate_point="coordination_only",
-            )
-            == "OK"
+            ).action
+            == "created"
         )
 
 
@@ -131,7 +131,7 @@ def test_dependency_add_accepts_coordination_only(conn: Any) -> None:
         "shepherd",
         gate_point="coordination_only",
     )
-    assert result == "OK"
+    assert result.action == "created"
 
     rows = conn.execute(
         "SELECT dependent_item_id, blocking_item_id, gate_point, satisfaction "

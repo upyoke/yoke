@@ -77,6 +77,14 @@ ITEMS_DEPENDENCY_ADD_USAGE = (
     "[--evidence JSON | --evidence-file PATH] [--session-id S] [--json]"
 )
 
+_EXISTING_EDGE_HELP = """Existing edge:
+  An add for a dependent, blocking item and gate point that already has an
+  edge updates that edge in place: source and rationale always, satisfaction
+  and evidence only when given. The reply names the dependency number and each
+  changed field, or says "unchanged" when nothing differs.
+
+"""
+
 _SATISFACTION_HELP = """Satisfaction values:
   status:<stage-id> | fact:merged | fact:deployed:<environment-name>
 
@@ -106,7 +114,7 @@ def items_dependency_add(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items dependency add",
         description=ITEMS_DEPENDENCY_ADD_USAGE,
-        epilog=_SATISFACTION_HELP,
+        epilog=_EXISTING_EDGE_HELP + _SATISFACTION_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -171,8 +179,9 @@ def items_dependency_add(args: List[str]) -> int:
         "source": parsed.source,
         "gate_point": parsed.gate_point,
         "rationale": rationale_text,
-        "evidence_json": evidence_json or "{}",
     }
+    if evidence_json:
+        payload["evidence_json"] = evidence_json
     if parsed.satisfaction:
         payload["satisfaction"] = parsed.satisfaction
     return dispatch_and_emit(
@@ -189,8 +198,8 @@ ITEMS_DEPENDENCY_UPDATE_USAGE = (
     "[--match-gate-point POINT] [--gate-point POINT] "
     "[--satisfaction status:<stage-id>|fact:merged|"
     "fact:deployed:<environment-name>] "
-    "[--rationale TEXT | --rationale-file PATH] "
-    "[--session-id S] [--json]"
+    "[--rationale TEXT | --rationale-file PATH] [--source SOURCE] "
+    "[--evidence JSON | --evidence-file PATH] [--session-id S] [--json]"
 )
 
 
@@ -222,6 +231,18 @@ def items_dependency_update(args: List[str]) -> int:
         dest="rationale",
         help_text="Updated rationale text.",
     )
+    from yoke_contracts.dependency_values import VALID_SOURCES
+
+    parser.add_argument("--source", choices=sorted(VALID_SOURCES), default=None)
+    evidence = parser.add_mutually_exclusive_group()
+    add_text_file_pair(
+        evidence,
+        "--evidence",
+        "--evidence-file",
+        dest="evidence",
+        help_text="Replacement JSON evidence payload.",
+        file_help="Read replacement JSON evidence payload from a file.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_DEPENDENCY_UPDATE_USAGE)
@@ -233,19 +254,22 @@ def items_dependency_update(args: List[str]) -> int:
             parsed.rationale_file,
             "--rationale-file",
         )
+        evidence_json = resolve_text_file(
+            parsed.evidence,
+            parsed.evidence_file,
+            "--evidence-file",
+        )
     except ValueError as exc:
         return usage_error(str(exc))
     payload: Dict[str, Any] = {"blocking_item": parsed.blocking}
-    for source_key, payload_key in (
-        ("match_gate_point", "match_gate_point"),
-        ("gate_point", "gate_point"),
-        ("satisfaction", "satisfaction"),
-    ):
-        value = getattr(parsed, source_key)
+    for key in ("match_gate_point", "gate_point", "satisfaction", "source"):
+        value = getattr(parsed, key)
         if value:
-            payload[payload_key] = value
+            payload[key] = value
     if rationale_text:
         payload["rationale"] = rationale_text
+    if evidence_json:
+        payload["evidence_json"] = evidence_json
     return dispatch_and_emit(
         function_id="items.dependency.update",
         target=item_target("item", parsed.item, parsed.project),

@@ -5,6 +5,13 @@ or plan note. Nothing acknowledged is automatically completed.
 
 - **Available work**: staff scoped runnable unclaimed work; ! marks staffing
   age threshold, unmarked is still available. Recheck holder before launch.
+  `fleet ALARM unstaffed-ready` is that same overdue set: one line per waiting
+  episode, then again after another staffing interval if it is still
+  unstaffed. The line names item, project, wait, rank, next skill, and reach.
+  Reach is the stage-level command `yoke session-control launch create
+  --project P --item PREFIX-N --idempotency-key "steer:P:PREFIX-N" --json`.
+  Preview with a judged `--level` before create when the leg is not the stage
+  level. A launch in flight does not alarm. Staffing ends the episode.
 - **Unattended linked work**: take/arrange exact owning project+document seat
   named by row before staffing; project seat does not cover another doc link.
 - **Steering messages awaiting a seat**: acquire scope for unacknowledged parked

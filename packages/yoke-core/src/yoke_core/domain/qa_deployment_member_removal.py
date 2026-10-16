@@ -16,15 +16,16 @@ from yoke_core.domain.qa_plan_execution_store import lock_plan_execution
 from yoke_core.domain.schema_common import _table_exists
 
 
-def abort_removed_member_executions(conn: Any, *, run_id: str, item_id: int) -> None:
+def abort_removed_member_executions(conn: Any, *, run_id: str, item_id: int) -> int:
     """Abort only this run/member's live executions in the caller's transaction.
 
     Cancel every waiting-line entry before releasing any reservation: releasing
     one host must never grant it to another cursor of the same removed member.
     Existing terminal evidence and other members' executions survive.
+    Returns how many executions this call aborted.
     """
     if not _table_exists(conn, "qa_plan_executions"):
-        return
+        return 0
     rows = query_rows(
         conn,
         "SELECT id FROM qa_plan_executions WHERE deployment_run_id=%s "
@@ -86,6 +87,7 @@ def abort_removed_member_executions(conn: Any, *, run_id: str, item_id: int) -> 
             reason="deployment-member-removed",
             commit=False,
         )
+    return len(executions)
 
 
 @presentation_operation

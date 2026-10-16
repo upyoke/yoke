@@ -82,7 +82,9 @@ runner obtains authorization before any checkout, subprocess, Browser, or host
 side effect, pins the complete roster and digest server-side, and advances one
 canonical result at a time. Machine cases reuse one serial lease until the plan
 completes or aborts; retrying a waiting invocation resumes from the stored
-cursor.
+cursor. A plan queued for its host first runs and records the remaining
+host-free Command and Command (CI) cases, then parks; the cursor skips them on
+resume.
 When a capture fails or a runner reports an error, the plan closes that
 execution, retains its case result and partial artifacts, and releases its
 lease. Correct the case or plan and rerun the same command; no manual abort is

@@ -148,7 +148,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 result_payload={
                     "state": "blocked",
                     "execution_id": str(execution["id"]),
-                    "cursor_ordinal": parsed.ordinal + 1,
+                    "cursor_ordinal": int(execution["cursor_ordinal"]),
                     "result": blocked,
                 },
             )

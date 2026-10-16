@@ -135,13 +135,16 @@ def inherit_blocker(
 
 def record_blocked_case(
     conn: Any,
-    execution: Mapping[str, Any],
+    execution: dict[str, Any],
     case: dict[str, Any],
     *,
     ordinal: int,
     blocker: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Record an inheriting case as blocked without touching the machine."""
+    """Record an inheriting case as blocked without touching the machine.
+
+    *execution* carries the advanced cursor afterwards.
+    """
     from yoke_core.domain.handlers.machine_qa_case_evidence import (
         record_machine_case_result,
     )
@@ -171,7 +174,7 @@ def record_blocked_case(
     normalized = {**plan_order(case), **result, "error": blocker["reason"]}
     advance_plan_execution(
         conn,
-        dict(execution),
+        execution,
         ordinal=ordinal,
         requirement_id=int(case["requirement_id"]),
         result=normalized,

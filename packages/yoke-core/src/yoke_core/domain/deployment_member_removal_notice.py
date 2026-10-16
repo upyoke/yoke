@@ -8,6 +8,7 @@ from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.db_optional_queries import rollback_savepoint
 from yoke_core.domain.deployment_run_driver_notice import push_member_notice
 from yoke_core.domain.deployment_run_membership_removals import membership_removals
+from yoke_core.domain.deployment_run_target_takeover import TAKEOVER_REMOVED_BY
 
 _SEND_SAVEPOINT = "_yoke_removed_member_notice"
 
@@ -20,19 +21,34 @@ def notify_removed_member(
     public_ref: str,
     reason: str,
     removed_by: str,
+    execution_aborted: bool = False,
 ) -> None:
     """Queue a notice with the removal, without risking its durable write.
 
+    A takeover that aborted no running execution sends nothing: the new run's
+    item-QA wake already names that run. A takeover that stopped a running
+    execution still wakes the owner, and says QA continues on the new run.
     The caller commits. A send failure rolls back only this savepoint and
     names the manual recovery; it never reverses removal or grants a pass.
     """
-    body = (
+    takeover = removed_by == TAKEOVER_REMOVED_BY
+    if takeover and not execution_aborted:
+        return
+    lead = (
         f"{public_ref} was removed from run {run_id} by {removed_by}: {reason}. "
         "The outstanding run-bound QA was cancelled (not passed). "
-        "The item rides a later release; do not attempt close-out or re-run "
-        "merge close-out because this run succeeds. Keep the work claim and "
-        f"re-park with `yoke sessions touch --mode parked --reason 'awaiting {public_ref} delivery'`."
     )
+    if takeover:
+        body = (
+            lead + "The member's QA continues on the new run. "
+            "Keep the work claim and stay parked."
+        )
+    else:
+        body = (
+            lead + "The item rides a later release; do not attempt close-out or re-run "
+            "merge close-out because this run succeeds. Keep the work claim and "
+            f"re-park with `yoke sessions touch --mode parked --reason 'awaiting {public_ref} delivery'`."
+        )
     try:
         conn.execute(f"SAVEPOINT {_SEND_SAVEPOINT}")
         project = query_one(
