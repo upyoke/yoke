@@ -69,6 +69,11 @@ An unchanged document preserves the plan timestamp and its case row identities.
 The lower-level `qa plan-cases replace` adapter remains available for callers
 that already hold a numeric plan id and intentionally replace cases only.
 
+Retire a plan nothing depends on any more with
+`yoke qa plan retire <slug> --reason "<why>"` from a session holding a steering
+seat on the plan's project; see
+[retire a plan](public/reference/qa-platform/standalone-plans.md#retire-a-plan).
+
 Attach a reusable plan as a project default for one workflow transition:
 
 ```text

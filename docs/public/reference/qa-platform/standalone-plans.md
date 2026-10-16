@@ -180,3 +180,38 @@ Pause/resume needs a serving release carrying `qa.plan_execution.pause` and
 `qa.plan_execution.resume`; a serving-floor refusal names the control-plane
 operator who must supply it. Older heartbeat responses may contain a full
 resume contract; the client needs only the accepted check-in receipt.
+
+## Retire a plan
+
+```text
+yoke qa plan retire PLAN --project P --reason "why the plan is retired"
+```
+
+Retire a plan when it should stop answering new work: its cases are wrong or
+unrunnable and no item still needs it. Run the command from a session holding
+a live steering seat covering the plan's project; any other caller refuses with
+`steering_seat_required` and the seat recipe. `PLAN` is the slug or numeric id.
+
+Retirement records `retired_at`, the reason and the acting actor on the plan.
+The plan stays readable: `yoke qa plan get PLAN --project P` shows the
+retirement, and `yoke qa plan list --project P --include-retired` lists retired
+plans beside active ones. Recorded requirements, runs and reviews keep their
+evidence. From then on the plan refuses edits and materialization. There is no
+un-retire; author a corrected plan with `yoke qa plan create`.
+
+While anything still depends on the plan, retirement refuses with
+`qa_plan_retire_dependents` and names each dependent with the command that
+settles it:
+
+| Dependent | Settle it with |
+|---|---|
+| Unsettled item requirement, not yet executed | `yoke qa item-plan retract` |
+| Unsettled requirement with a failed or missing latest attempt | `yoke qa requirement waive` or `supersede` |
+| In-flight execution whose roster reaches the plan | let it finish, or `yoke qa plan abort` |
+| Project default that attaches the plan to new items | `yoke qa project-default unset` |
+
+A requirement whose newest attempt passed does not hold the plan. Repeating
+retirement on a retired plan returns the recorded retirement unchanged with
+`already_retired: true`, so a retry after a lost reply is safe. The command
+needs a serving release carrying `qa.plan.retire`; an older server refuses with
+the serving floor named.
