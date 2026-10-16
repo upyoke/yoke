@@ -65,7 +65,7 @@ snapshot. `local` needs no Yoke environment; `preview` is named non-production
 (staging, qa, shmaging); `ephemeral` is short-lived branch/item validation;
 `prod` is production. Preview and ephemeral are distinct. Concrete preview
 names are environment names, not new enum values. Projects need not have every
-target; follow [browser semantics](browser-scenarios.md).
+target; follow [browser semantics](browser-targets.md#where-a-browser-case-runs).
 
 ## Blocking Modes and Requirement Sources
 
