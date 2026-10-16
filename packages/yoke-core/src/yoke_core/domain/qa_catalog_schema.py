@@ -57,7 +57,6 @@ CREATE TABLE IF NOT EXISTS qa_plans (
     slug TEXT NOT NULL,
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
-    source_revision TEXT,
     success_policy_id TEXT NOT NULL DEFAULT 'all-pass',
     success_policy_params TEXT NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL,
@@ -86,6 +85,8 @@ CREATE TABLE IF NOT EXISTS qa_plan_cases (
     starting_state TEXT,
     starting_state_reason TEXT,
     stage_reason TEXT,
+    wake_path TEXT,
+    wake_evidence TEXT,
     UNIQUE(plan_id, case_key),
     UNIQUE(plan_id, position)
 );
@@ -168,6 +169,22 @@ _REQUIREMENT_COLUMNS = (
     ("rebind_actor_id", "INTEGER"),
     ("rebound_from_target_json", "TEXT"),
     ("rebind_endpoint_delta_json", "TEXT"),
+    ("wake_path", "TEXT"),  # see yoke_contracts.qa_case_wake_path
+    ("wake_evidence", "TEXT"),
+)
+
+_PLAN_COLUMNS = (
+    ("source_revision", "TEXT"),
+    ("retirement_reason", "TEXT"),
+    ("retired_by_actor_id", "INTEGER"),
+)
+
+_PLAN_CASE_TEXT_COLUMNS = (
+    "starting_state",
+    "starting_state_reason",
+    "stage_reason",
+    "wake_path",
+    "wake_evidence",
 )
 
 _ATTACHMENT_RETRACT_COLUMNS = (
@@ -213,29 +230,12 @@ def seed_builtin_qa_methods(conn: Any) -> None:
     marker = _placeholder(conn)
     now = instant_parameter(conn, utc_now())
     columns = (
-        "id",
-        "name",
-        "description",
-        "source_kind",
-        "source_ref",
-        "project_id",
-        "runner_id",
-        "required_capability_kinds",
-        "verdict_path",
-        "verdict_contract",
-        "evidence_contract",
-        "success_policy_id",
-        "success_policy_params",
-        "concurrency_mode",
-        "display_icon",
-        "display_order",
-        "display_group",
-        "config_contract_id",
-        "proof_kind",
-        "runner_gloss",
-        "created_at",
-        "updated_at",
-    )
+        "id name description source_kind source_ref project_id runner_id "
+        "required_capability_kinds verdict_path verdict_contract evidence_contract "
+        "success_policy_id success_policy_params concurrency_mode display_icon "
+        "display_order display_group config_contract_id proof_kind runner_gloss "
+        "created_at updated_at"
+    ).split()
     values = ", ".join([marker] * len(columns))
     assignments = ", ".join(
         f"{column}=EXCLUDED.{column}"
@@ -301,19 +301,19 @@ def create_qa_catalog_tables(
         "required_capability_kinds",
         "TEXT NOT NULL DEFAULT '[]'",
     )
-    _add_column_if_not_exists(conn, "qa_plans", "source_revision", "TEXT")
+    for column, definition in _PLAN_COLUMNS:
+        _add_column_if_not_exists(conn, "qa_plans", column, definition)
     _add_column_if_not_exists(
         conn,
         "qa_plans",
         "target_environment_id",
         environment_reference_column_sql(conn),
     )
-    for column in ("starting_state", "starting_state_reason"):
-        _add_column_if_not_exists(conn, "qa_plan_cases", column, "TEXT")
     _add_column_if_not_exists(
         conn, "qa_plan_cases", "target_envs", "TEXT NOT NULL DEFAULT '[]'"
     )
-    _add_column_if_not_exists(conn, "qa_plan_cases", "stage_reason", "TEXT")
+    for column in _PLAN_CASE_TEXT_COLUMNS:
+        _add_column_if_not_exists(conn, "qa_plan_cases", column, "TEXT")
     for column, definition in _REQUIREMENT_COLUMNS:
         _add_column_if_not_exists(conn, "qa_requirements", column, definition)
     for column, definition in _RUN_COLUMNS:

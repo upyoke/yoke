@@ -72,6 +72,8 @@ def test_dirty_or_ignored_worktree_is_preserved(tmp_path):
 
     commands = [" ".join(call.args[0]) for call in run_git.call_args_list]
     assert any("--ignored=matching" in command for command in commands)
+    assert any("--untracked-files=normal" in command for command in commands)
+    assert not any("--untracked-files=all" in command for command in commands)
     assert not any("worktree remove" in command for command in commands)
     assert not any("branch -d" in command for command in commands)
 

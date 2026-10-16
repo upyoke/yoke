@@ -72,6 +72,18 @@ declare role.production true (stage) must set `stage_reason` to
 creates_or_destroys_data or changes_infrastructure, else stage_reason_required
 refuses it; a read-only check targets production instead.
 
+Manual wake
+-----------
+`wake_path` is "automatic" (default: the case starts when its stage begins) or
+"manual" (it starts only when steering wakes its owner). "manual" needs
+`wake_evidence`: one line naming the real-traffic evidence a registered read
+can confirm before the case can run, for example "a deployment run with at
+least 44 members exists after this release". Missing evidence refuses
+wake_evidence_required; evidence on an automatic case refuses
+wake_evidence_without_manual_wake. Method, runner and verdict path are
+unchanged. Steering lists these cases in the fleet report under "waiting on
+manual wake" with the command that wakes the owner.
+
 What a Command case's shell is handed
 -------------------------------------
 {COMMAND_CASE_BASE_URL_ENV}: the target the case runs against.
@@ -184,7 +196,10 @@ USAGE_BY_FUNCTION_ID = {
         "--verdict-path automatic --verdict-contract TEXT "
         "--evidence-contract TEXT [--required-capability KIND ...]"
     ),
-    "qa.plan.list": "yoke qa plan list --project P [--limit N] [--offset N] [--full]",
+    "qa.plan.list": (
+        "yoke qa plan list --project P [--limit N] [--offset N] "
+        "[--include-retired] [--full]"
+    ),
     "qa.plan.get": (
         "yoke qa plan get (PLAN_ID_OR_SLUG | --plan-id PLAN_ID_OR_SLUG) --project P [--deployment-run-id RUN] "
         "[--full] [--json]"

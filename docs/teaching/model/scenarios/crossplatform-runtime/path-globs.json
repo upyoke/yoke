@@ -4,10 +4,10 @@
  "status": "observed",
  "audience": "agent",
  "when": "An unquoted filesystem glob is checked before a zsh command.",
- "need": "Matching ~/Downloads/Meeting* and absolute globs pass after home expansion; relative globs use the command working directory. Missing globs name the checked pattern and offer rg --files or a quoted tool pattern.",
+ "need": "Matching ~/Downloads/Meeting* and absolute globs pass after home expansion. Relative globs use the command working directory, and a plain cd earlier in the same command moves that directory. A glob containing $ or a backtick, or any glob after cd -, cd $target, or cd `cmd`, is allowed. Missing literal globs name the checked pattern and offer rg --files or a quoted tool pattern. Repaired commands leave shell redirections unquoted.",
  "disclosure": "current cue",
  "surface": "Client-local and core unmatched-glob refusals share path resolution and repair helpers.",
- "review": "Source regression cases cover matching and missing home, absolute and relative globs in both hook paths, including a literal tilde directory and a home containing spaces. Live installed delivery remains unverified.",
+ "review": "Source regression cases cover matching and missing home, absolute and relative globs in both hook paths, including a literal tilde directory and a home containing spaces. They also cover a cd that moves the checked tree, unexpanded $ and backtick globs, an unreadable cd, and redirections left unquoted in the repair. Live installed delivery remains unverified.",
  "plan_notes": ["FIRST-USER 34"],
  "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_runner/shell_guard_repairs.py", "packages/yoke-core/src/yoke_core/domain/lint_unmatched_path_glob.py", "packages/yoke-harness/src/yoke_harness/hooks/unmatched_path_glob.py", "runtime/api/domain/test_lint_unmatched_path_glob.py"],
  "position": 1

@@ -14,6 +14,17 @@ with the pinned path, repair recipe, and same-run re-drive instructions. Watcher
 failures remain in its raw and progress captures. Every other project's
 delivery keeps the installed engine environment.
 
+A driver connected straight to the control-plane database runs the
+release's own code against it before that release has booted. Before its
+first in-process call it applies boot's creation phase — tables, indexes and
+additive columns, never the ordered migration history — so a release that
+adds a column can start. It runs as the role that owns the database's tables,
+so a table it creates stays convergeable by the serving build. Each statement waits at most the run-lock timeout;
+a busy table refuses as `release_start_schema_lock_unavailable` and any other
+failure as `release_start_schema_convergence_failed`, each naming the re-drive
+step, before anything about the run changes. A driver relaying through HTTPS
+skips this step, because the serving build answers every call.
+
 A normal driver start builds its execution context once. Composition completes
 and validates membership before the driver reads it, and returns that pass’s
 enrolled references. Branch verification and QA seeding use those members.
@@ -101,8 +112,14 @@ step’s elapsed time; a slower start still reports its measured difference.
 
 Source/provider and containment preparation precede item/run locks. The short
 commit phase rereads membership, workflow, evidence, flow and source pins;
-only an identical repository question reuses its prepared answer. A changed
-source question releases the transaction before new source work. QA occupancy
+only an identical repository question reuses its prepared answer. Carried-work
+attribution reads lane heads only for landed items, so workers committing in
+open lanes during preparation ask no new question. A changed source question
+(for example an item that landed meanwhile) rolls the transaction back, answers
+only that question with every lock released (timing step `start_source_refresh`)
+and retries the commit phase, up to eight preparations. After that the start
+refuses as `deployment_source_preparation_changed`, naming the exact source
+key; nothing was dispatched, so re-drive the same run. QA occupancy
 uses the first real blocker and shares peer-plan facts within that evaluation;
 full diagnostic reads still report all blockers. Item/run/target lock contention
 refuses as `deployment_start_lock_busy` after two seconds and names same-run
@@ -139,7 +156,7 @@ quotes in frozen member instructions remain part of the complete receipt;
 they cannot split its fields or displace source identities and timestamps.
 
 Timing records distinguish `start_source_preparation`, `start_item_run_locks`,
-`target_occupancy`, `composition_freeze`, `bound_source_provider`,
+`start_source_refresh`, `target_occupancy`, `composition_freeze`, `bound_source_provider`,
 `bound_source_composition`, `bound_source_item_run_locks`, `bound_source_commit`
 and `executing_stamp`. A lock timeout names the phase, not an invented blocker;
 missing response/timing evidence stays unknown. Real-run verification must name
@@ -158,9 +175,12 @@ decoder. Bounded batches reuse the canonical session projection and item text
 expressions, and fetch launch and attempt rows in sets; no check is sampled or
 skipped. Batch data is discarded on exit and cannot cross copy authorities.
 Connections opened under a bound copy still physically close.
-These timing lines reach the deployment progress capture even in outcome-only
-mode, so the attached driver's capture identifies preparation before any
-provider dispatch. They carry run/source identity when supplied and no DSNs.
+Every timing line stays in the driver raw capture, which is where preparation
+is identified before any provider dispatch. Outcome-only watchers do not
+forward each line on its own: ordinary lines join the progress digest, at
+most one digest line per flush window, and a line whose outcome is failed is
+urgent and is forwarded immediately. Other watchers still emit timing lines
+as they arrive. They carry run/source identity when supplied and no DSNs.
 A missing end marker is unfinished evidence, never a successful receipt.
 
 Creation uses the same timing format for `create_source`,

@@ -81,7 +81,9 @@ def handle_rerun_failed(request: FunctionCallRequest) -> HandlerOutcome:
     except LookupError as exc:
         return _refused("not_found", f"{exc}; select an existing claimed item.")
     project = str((item.get("project") or {}).get("slug") or "")
-    pr_number = str((item.get("merge_queue") or {}).get("pr_number") or "")
+    from yoke_contracts.merge_queue_status import in_flight_landing
+
+    pr_number = in_flight_landing(item.get("merge_queue"))["pr_number"]
     if not pr_number.isdigit() or int(pr_number) < 1:
         return _refused(
             "ci_rerun_pr_missing",

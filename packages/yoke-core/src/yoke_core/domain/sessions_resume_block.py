@@ -1,4 +1,4 @@
-"""Slim resume-block renderer + CLI for the hook-runner lifecycle path.
+"""Slim resume-block renderer for the hook-runner lifecycle path.
 
 When a session reactivates with prior session_ended claims, the
 reactivation path writes ``harness_sessions.pending_resume_notice`` and
@@ -9,15 +9,13 @@ exactly once per reactivation cycle: the render clears the notice column
 stays as the telemetry marker; it is no longer read back as state.
 
 The renderer is split from ``sessions_lifecycle_reactivation`` so that
-the auto-reacquire flow stays narrow and the renderer fits the
-hook-runner subprocess shape (the only consumer today).
+the auto-reacquire flow stays narrow; its one consumer is the
+``yoke_core.hooks.session_resume_block`` chain policy.
 """
 
 from __future__ import annotations
 
-import argparse
-import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from .scheduler_events import emit_harness_session_resume_block_shown
 from .sessions_resume_notice import (
@@ -93,46 +91,7 @@ def render_and_mark(
     return block
 
 
-def _main(argv: Optional[List[str]] = None) -> int:
-    argv = list(argv) if argv is not None else sys.argv[1:]
-    parser = argparse.ArgumentParser(prog="sessions-resume-block")
-    parser.add_argument("--session-id", required=True)
-    parser.add_argument(
-        "--harness-event",
-        required=True,
-        choices=("UserPromptSubmit", "SessionStart"),
-    )
-    parsed = parser.parse_args(argv)
-
-    from .db_helpers import connect
-
-    # Postgres authority resolves the DSN; the backend factory configures the
-    # row factory, so no file path is constructed here.
-    try:
-        conn = connect()
-    except Exception:
-        return 0
-    try:
-        block = render_and_mark(
-            conn,
-            parsed.session_id,
-            harness_event=parsed.harness_event,
-        )
-    finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
-    if block:
-        sys.stdout.write(block)
-    return 0
-
-
 __all__ = [
     "render_and_mark",
     "render_resume_block_lines",
 ]
-
-
-if __name__ == "__main__":
-    sys.exit(_main())

@@ -1,4 +1,4 @@
-"""Public start/poll door, using the same device-code wire as Cloud.
+"""Public device authorization and single-use teammate invite redemption.
 
 The device-code door is open whether or not company sign-in is configured:
 a connected machine approves a new one with ``yoke machines approve CODE``
@@ -29,7 +29,9 @@ from yoke_core.domain import (
     db_backend,
     db_helpers,
     machine_authorization_codes as codes,
+    teammate_invite_codes as invites,
 )
+from yoke_contracts.teammate_invite_wire import INVITE_REDEEM_PATH, TeammateInviteRedeem
 from yoke_core.domain.machine_registry import MachineRegistryError
 from yoke_core.domain.actor_state import ActorDisabledError
 from yoke_core.domain.machine_authorization_limits import admit_client
@@ -218,6 +220,59 @@ def _poll(model: MachineAuthorizationPoll, request: Request) -> JSONResponse:
         return _error(
             "machine_credential_unavailable",
             "the credential could not be issued; retry this poll after checking server database health",
+            503,
+        )
+    return _success(payload, operation="poll")
+
+
+@router.post(INVITE_REDEEM_PATH)
+async def redeem_invite(request: Request) -> JSONResponse:
+    from starlette.concurrency import run_in_threadpool
+
+    admitted = await run_in_threadpool(_admit, request, "invite_redeem")
+    if isinstance(admitted, JSONResponse):
+        return admitted
+    try:
+        model = TeammateInviteRedeem.model_validate(await request.json())
+    except (ValidationError, ValueError):
+        return _error(
+            "machine_identity_required",
+            "send the complete invite code and this machine's configured id, name and platform",
+            400,
+        )
+    return await run_in_threadpool(_redeem_invite, model, request)
+
+
+def _redeem_invite(model: TeammateInviteRedeem, request: Request) -> JSONResponse:
+    try:
+        origin = _origin(request)
+        with db_helpers.connect() as conn:
+            payload = invites.redeem_invite(
+                conn,
+                code=model.invite_code,
+                machine_id=model.machine_id,
+                machine_name=model.machine_name,
+                origin=origin,
+            )
+    except invites.TeammateInviteError as exc:
+        return _error(exc.code, str(exc), exc.status)
+    except OidcConfigError as exc:
+        return _error(
+            "oidc_misconfigured",
+            f"{exc}; ask the server operator to correct company sign-in settings",
+            503,
+        )
+    except MachineRegistryError as exc:
+        return _error(
+            exc.code,
+            "ask an admin to inspect this machine's registration, then reconnect",
+            403,
+        )
+    except db_backend.database_error_types() as exc:
+        _log.error("invite_store_unavailable: %s", type(exc).__name__)
+        return _error(
+            "invite_store_unavailable",
+            "ask an admin to check database health and reissue the invite if consumed",
             503,
         )
     return _success(payload, operation="poll")

@@ -84,6 +84,8 @@ QA_TABLES: dict[str, dict] = {
             ("rebind_actor_id", "INTEGER"),
             ("rebound_from_target_json", "TEXT"),
             ("rebind_endpoint_delta_json", "TEXT"),
+            ("wake_path", "TEXT"),
+            ("wake_evidence", "TEXT"),
             ("created_at", "TIMESTAMPTZ"),
         ],
         "notes": (
@@ -104,6 +106,8 @@ QA_TABLES: dict[str, dict] = {
             "changes_infrastructure) is required when target_envs names an "
             "environment without role.production true; otherwise authoring "
             "refuses stage_reason_required. "
+            "wake_path (automatic default, or manual with a one-line "
+            "wake_evidence) rides plan cases into requirements. "
             "Requirements describe what passing looks like; verdicts and "
             "raw results live on qa_runs (joined via qa_requirement_id). "
             "Reviewed-implementation gate verifies a passing run exists "

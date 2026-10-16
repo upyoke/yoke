@@ -1,6 +1,6 @@
 """Best-effort relay of a client-local denial's audit fields to the server.
 
-``evaluate_local_subset``'s ``LOCAL_STATE_POLICIES`` deny without ever
+``evaluate_local_subset``'s client-home policies deny without ever
 calling ``/hooks/evaluate`` (the relay client returns immediately, skipping
 the round-trip its verdict doesn't need), so a client-local denial has no
 other way to leave a durable ``HarnessToolCallDenied`` row. This module

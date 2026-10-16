@@ -69,6 +69,9 @@ TERMINAL_RECIPES: frozenset[str] = frozenset(
         "hook.evaluate.run",
         "identity.invite.create",
         "identity.invite.revoke",
+        "teammate_invites.create",
+        "teammate_invites.revoke",
+        "teammate_invites.reissue",
         "identity.link.set",
         "items.create",
         "machine_authorization.resolve",
@@ -76,6 +79,8 @@ TERMINAL_RECIPES: frozenset[str] = frozenset(
         "organizations.domain.set",
         "organizations.settings.merge",
         "ouroboros.field_note.append",
+        "profile.token.create",
+        "profile.token.revoke",
         "projects.capability_secret.set",
         "sessions.begin",
     }

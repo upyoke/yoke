@@ -109,24 +109,24 @@ def test_a_kill_between_rename_and_prune_is_finished_by_the_next_sweep(lane):
 
 def test_an_expiring_check_deadline_cannot_cut_a_removal_short(lane, monkeypatch):
     repo, path = lane
-    armed = {"deadline_passed": False}
+    monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.2)
+    monkeypatch.setattr(worktree_removal, "REMOVAL_MIN_BUDGET_S", 0.05)
     real_git = worktree_removal._git
 
-    def git_as_the_deadline_passes(repo_root, *args):
+    def slow_prune(repo_root, *args):
         if "prune" in args:
-            armed["deadline_passed"] = True
-            doctor_budget._deadline.set(time.monotonic() - 1)
+            time.sleep(0.5)
         return real_git(repo_root, *args)
 
-    monkeypatch.setattr(worktree_removal, "_git", git_as_the_deadline_passes)
+    monkeypatch.setattr(worktree_removal, "_git", slow_prune)
 
-    # The check reports its exhausted budget only once the removal returns.
-    with pytest.raises(doctor_budget.DoctorBudgetExhausted):
-        with doctor_budget.check_budget():
-            remove_worktree(repo, path)
+    # Removal time stays off the check clock, so the verdicts after it survive.
+    with doctor_budget.check_budget():
+        result = remove_worktree(repo, path)
+        left = doctor_budget.remaining_budget()
 
-    assert armed["deadline_passed"]
-
+    assert result.removed
+    assert left is not None and left > 0.05
     assert not path.exists()
     assert str(path) not in _registered(repo)
     assert tombstones(repo) == []

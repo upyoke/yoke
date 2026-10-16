@@ -164,6 +164,18 @@ def test_ref_lookups_stay_within_their_budget(monkeypatch: pytest.MonkeyPatch):
     assert len(recorder.paths) == provider.COMMIT_LOOKUP_BUDGET
 
 
+def test_batched_ref_lookups_spend_the_budget_in_order(monkeypatch):
+    budget = provider.COMMIT_LOOKUP_BUDGET
+    source, recorder = _source(monkeypatch, [{"sha": MERGE}] * budget)
+    refs = [TIP, *(f"branch-{index}" for index in range(budget + 2)), "branch-0"]
+
+    answers = source.resolve_commits(refs)
+
+    assert len(recorder.paths) == budget
+    assert [answers[ref] for ref in refs[: budget + 1]] == [TIP] + [MERGE] * budget
+    assert answers[f"branch-{budget}"] == answers[f"branch-{budget + 1}"] == ""
+
+
 def test_a_lane_commit_outside_the_range_carries_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ):

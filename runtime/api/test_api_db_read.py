@@ -51,10 +51,12 @@ def test_db_read_route_returns_bounded_rows(client) -> None:
         json={"sql": "SELECT id, title FROM items ORDER BY id", "row_cap": 2},
     )
 
-    assert response.status_code == 200, response.text
+    # Raw item ids carry the item_refs teaching warning, which maps to 207.
+    assert response.status_code == 207, response.text
     body = response.json()
     assert body["success"] is True
     assert body["function"] == DB_READ_FUNCTION_ID
+    assert [w["code"] for w in body["warnings"]] == ["item_refs_not_joined"]
     result = body["result"]
     assert result["columns"] == ["id", "title"]
     assert result["rows"] == [[1, "First item"], [2, "Second item"]]

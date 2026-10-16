@@ -1,9 +1,10 @@
 """Hook-evaluate route — ``POST /v1/hooks/evaluate``.
 
-Serves the server half of the relay split — every policy outside
-``LOCAL_STATE_POLICIES`` — to machines whose project-local hooks run
-``yoke hook evaluate <event>`` over https transport (the relay client
-evaluates the local-state subset itself and composes the verdicts). Auth
+Serves the server half of the relay split — every policy whose home in
+:mod:`yoke_contracts.hook_runner.policy_home` is not ``CLIENT`` — to machines
+whose project-local hooks run ``yoke hook evaluate <event>`` over https
+transport (the relay client evaluates the client-home policies itself,
+ships the client facts the rest read, and composes the verdicts). Auth
 is enforced by the app-level bearer-token middleware like every other
 ``/v1`` route; the verified token's actor binds to the ``harness_sessions``
 row at relayed ensure-register. The wire contract is frozen: see

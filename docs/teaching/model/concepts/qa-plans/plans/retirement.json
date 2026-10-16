@@ -1,0 +1,8 @@
+{
+ "id": "retirement",
+ "title": "Retirement",
+ "status": "draft-copy",
+ "page": "qa-plans",
+ "position": 6,
+ "summary": "A steering seat retires a plan nothing depends on with yoke qa plan retire, recording why and by whom. Open requirements, live executions and project defaults refuse retirement by name with their settling command; unexecuted copies on finished items retract with it; retired plans stay readable and list with --include-retired."
+}

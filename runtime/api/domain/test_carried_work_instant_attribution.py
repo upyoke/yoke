@@ -22,7 +22,10 @@ def _resolve(monkeypatch, landed, commit_times):
     sources._resolve_item_metadata(
         object(),
         project_id=1,
-        source=SimpleNamespace(commit_time=lambda commit: commit_times[commit]),
+        source=SimpleNamespace(
+            commit_time=lambda commit: commit_times[commit],
+            resolve_commits=lambda refs: dict.fromkeys(refs, ""),
+        ),
         base="base",
         head="head",
         commits=list(commit_times),
@@ -113,3 +116,52 @@ def test_source_commit_clock_is_native_without_changing_raw_evidence(
     assert retained() == original
     assert source.commit_message("a") == "opaque clock 1969-12-31"
     assert source.commit_author("a") == "author"
+
+
+class _Lanes:
+    """Resolve lane refs from a fixed table, recording each batch asked."""
+
+    known = {"sha-7": "c7", "branch-8": "c8", "branch-9": "c9", "sha-10": "c10"}
+
+    def __init__(self) -> None:
+        self.batches: list[list[str]] = []
+
+    def resolve_commits(self, refs):
+        self.batches.append(list(refs))
+        return {ref: self.known.get(ref, "") for ref in refs}
+
+    def commit_time(self, commit):
+        return None
+
+    def carrying_commit(self, lane_commit, *, base, head, commits):
+        return lane_commit if lane_commit in commits else ""
+
+
+def test_batched_lane_lookup_attributes_what_per_ref_lookup_did(monkeypatch):
+    landed = "2026-10-16T00:00:00Z"
+    rows = [
+        (7, landed, None, None, "branch-7", "sha-7", False),  # sha answers
+        (8, landed, None, None, "branch-8", "gone-8", False),  # sha misses
+        (9, None, landed, None, "branch-9", None, False),  # no recorded sha
+        (10, None, None, "abc", "branch-10", "sha-10", False),  # never landed
+        (11, landed, None, None, "gone-11", "gone-11", False),  # nothing answers
+    ]
+    monkeypatch.setattr(sources, "_safe_rows", lambda *args, **kwargs: rows)
+    lanes, resolved = _Lanes(), {}
+    sources._resolve_item_metadata(
+        object(),
+        project_id=1,
+        source=lanes,
+        base="base",
+        head="head",
+        commits=["c7", "c8", "c9", "c10"],
+        known_items={item: f"YOK-{item}" for item in range(7, 12)},
+        resolved=resolved,
+        warnings=[],
+    )
+    assert resolved == {"c7": {7}, "c8": {8}, "c9": {9}}
+    # The same questions the per-row walk asked, in two batches.
+    assert lanes.batches == [
+        ["sha-7", "gone-8", "gone-11"],
+        ["branch-8", "branch-9", "gone-11"],
+    ]

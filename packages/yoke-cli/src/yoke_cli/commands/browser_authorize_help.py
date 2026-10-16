@@ -45,10 +45,17 @@ Worked examples:
 
 With --machine, run on the operator workstation connected to the control
 plane. Yoke reads browser-control settings here, checks the named Test Machine
-lease, and runs this same command in its GUI session. Sign in on that desktop
-and close the browser to finish; verification runs there. No declarations need
-to be pasted. A machine leased by another session refuses until released.
-Without a remote route, --declarations-json still supplies settings locally.
+lease, and runs this same command in its GUI session. A Linux or Windows WSL
+machine with a registered RDP desktop opens in the same FreeRDP viewer as
+`yoke test-machine desktop-access --view`: a window titled
+"Yoke desktop: MACHINE" appears, you sign in with the identity's declared
+account, and the viewer closes when verification finishes. Close the browser
+window when done. If no viewer route or FreeRDP client is available, the
+command prints the exact desktop-access command and its recovery, then still
+waits for you to sign in on that desktop. macOS Screen Sharing uses the
+printed command without --view. A machine leased by another session refuses
+until released. Without --machine, this host keeps local behavior. Without a
+remote route, --declarations-json still supplies settings locally.
 
 Each identity's profile is kept with the project's machine-local capability
 secrets at owner-only permissions, keyed by project slug and identity name. On

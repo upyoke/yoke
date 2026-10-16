@@ -17,9 +17,7 @@ phase sessions, ambiguous parser tuples, and non-scratch writes are
 untouched — the worktree-binding / coverage check fires for them as
 before.
 
-Public surface: :data:`PLANNING_SCRATCH_ROOTS`,
-:func:`is_planning_scratch_path`,
-:func:`planning_scratch_roots`,
+Public surface: :func:`is_planning_scratch_path`,
 :func:`session_is_planning_phase`,
 :func:`drop_planning_scratch_mutations`.
 """
@@ -27,19 +25,12 @@ Public surface: :data:`PLANNING_SCRATCH_ROOTS`,
 from __future__ import annotations
 
 import os
-from pathlib import Path
+import re
 from typing import Any, List, Optional
 
-from yoke_contracts.project_defaults import MissingProjectError
-from yoke_core.domain import db_backend, project_scratch_dir
+from yoke_core.domain import db_backend
 from yoke_core.domain.path_claim_bash_parser import Mutation
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
-
-
-# Retained for callers that import the public marker. Runtime roots are
-# helper-resolved by :func:`planning_scratch_roots` so environment and
-# project changes are reflected per call.
-PLANNING_SCRATCH_ROOTS = ("project_scratch_dir.dispatch_inputs_dir",)
 
 
 # Sentinels emitted by the parser that must never be filtered — the
@@ -57,55 +48,28 @@ def _normalise(path: str) -> str:
     return cleaned
 
 
-def _relative_segment_match(path: str, root: str) -> bool:
-    """Return True when ``root`` is a path-segment prefix of ``path``."""
-    if not path or not root:
-        return False
-    if path == root:
-        return True
-    return path.startswith(root.rstrip("/") + "/")
+# ``<scratch root>/<project>/sessions/<session>/runs/<run>/dispatch-inputs``:
+# the tree ``project_scratch_dir.dispatch_inputs_dir`` writes under.
+_DISPATCH_INPUTS_RE = re.compile(
+    r"^[^/]+/sessions/[^/]+/runs/[^/]+/dispatch-inputs(?:/|$)"
+)
 
 
-def _absolute_for_match(path: str) -> str:
-    """Return an absolute forward-slash path without requiring existence."""
-    try:
-        return Path(path).expanduser().resolve(strict=False).as_posix()
-    except (OSError, RuntimeError, ValueError):
-        return _normalise(path)
+def is_planning_scratch_path(target_path: str, scratch_root: str) -> bool:
+    """Return True when ``target_path`` is in a dispatch-inputs scratch tree.
 
-
-def planning_scratch_roots() -> tuple[str, ...]:
-    """Return helper-resolved planning scratch roots.
-
-    The dispatch-inputs helper owns the scratch root contract
-    (``YOKE_SCRATCH_ROOT``, machine config, or OS-temp fallback, with
-    project/session/run segments). If that helper cannot resolve a writable
-    root, fail closed by returning no planning scratch roots.
+    *scratch_root* is the scratch root of the machine the write runs on —
+    for a hook, the client's
+    :data:`~yoke_contracts.hook_runner.session_cwd.CLIENT_SCRATCH_ROOT_KEY`
+    fact. Without one nothing is planning scratch. Retired repo-local
+    scratch paths never match, so they flow through the normal
+    path-claim gate.
     """
-    try:
-        root = project_scratch_dir.dispatch_inputs_dir(create=False)
-    except (project_scratch_dir.ScratchRootResolutionError, MissingProjectError):
-        return ()
-    return (_absolute_for_match(str(root)),)
-
-
-def is_planning_scratch_path(target_path: str) -> bool:
-    """Return True when ``target_path`` lives under a planning scratch root.
-
-    Only helper-resolved scratch locations are considered planning scratch.
-    Retired repo-local scratch paths deliberately return ``False`` so they flow
-    through the normal path-claim gate.
-    """
-    norm = _absolute_for_match(target_path)
-    if not norm:
+    root = _normalise(os.path.normpath(scratch_root)) if scratch_root else ""
+    norm = _normalise(os.path.normpath(target_path)) if target_path else ""
+    if not root or not norm.startswith(root.rstrip("/") + "/"):
         return False
-    for root in planning_scratch_roots():
-        croot = _normalise(root)
-        if not croot:
-            continue
-        if _relative_segment_match(norm, croot):
-            return True
-    return False
+    return bool(_DISPATCH_INPUTS_RE.match(norm[len(root.rstrip("/")) + 1 :]))
 
 
 def _session_item_stage(
@@ -224,7 +188,8 @@ def session_is_planning_phase(
 def drop_planning_scratch_mutations(
     mutations: List[Mutation],
     *,
-    session_id: Optional[str] = None,
+    session_id: str,
+    scratch_root: str,
     conn: Optional[Any] = None,
 ) -> List[Mutation]:
     """Filter parser mutations through the planning-phase carve-out.
@@ -236,9 +201,9 @@ def drop_planning_scratch_mutations(
     and preserves every other entry — including ``ambiguous`` and
     ``suppressed`` sentinels the guard relies on.
 
-    Session id resolution: explicit ``session_id`` argument first, then
-    ``$YOKE_SESSION_ID``. Empty / missing session id disables the
-    carve-out (no widening).
+    ``session_id`` and ``scratch_root`` come from the hook payload and the
+    client's scratch-root fact; either one empty disables the carve-out
+    (no widening).
     """
     if not mutations:
         return mutations
@@ -246,11 +211,11 @@ def drop_planning_scratch_mutations(
         i
         for i, mut in enumerate(mutations)
         if mut.verb not in _PROTECTED_VERBS
-        and is_planning_scratch_path(mut.target_path)
+        and is_planning_scratch_path(mut.target_path, scratch_root)
     ]
     if not scratch_indices:
         return mutations
-    sid = (session_id or os.environ.get("YOKE_SESSION_ID", "")).strip()
+    sid = (session_id or "").strip()
     if not sid:
         return mutations
     if not session_is_planning_phase(session_id=sid, conn=conn):
@@ -260,9 +225,7 @@ def drop_planning_scratch_mutations(
 
 
 __all__ = [
-    "PLANNING_SCRATCH_ROOTS",
     "drop_planning_scratch_mutations",
     "is_planning_scratch_path",
-    "planning_scratch_roots",
     "session_is_planning_phase",
 ]

@@ -79,14 +79,14 @@ _UNDETERMINED_RECOVERY = (
 
 @lru_cache(maxsize=1)
 def local_function_ids() -> frozenset:
-    """Function ids this CLI build can dispatch, from its own registries
-    and the new ids it declares serving floors for.
+    """Function ids this CLI calls, from registries, usage and serving floors.
 
     Lazily imported so the transport layer stays importable on a machine
     whose command registries fail to load; an empty set simply disables
     the gate, which then leaves the server's original error alone.
     """
     try:
+        from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
         from yoke_cli.commands.registry import (
             SUBCOMMAND_ALIAS_REGISTRY,
             SUBCOMMAND_REGISTRY,
@@ -97,6 +97,7 @@ def local_function_ids() -> frozenset:
     ids.update(
         function_id for function_id, _adapter in SUBCOMMAND_ALIAS_REGISTRY.values()
     )
+    ids.update(ADAPTER_USAGE)
     # A function this build declares a serving floor for is one it calls,
     # including those a command reaches internally rather than by name.
     ids.update(FUNCTION_MINIMUM_SERVING_VERSIONS)

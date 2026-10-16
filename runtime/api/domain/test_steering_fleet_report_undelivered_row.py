@@ -57,6 +57,12 @@ def test_a_row_says_who_owes_the_next_move():
     operator = _row(wake_escalation="starved_hook_route", operator_wake=True)
 
     assert "wake escalated (starved_hook_route)" in escalated
+    gone = _row(wake_escalation="native_process_gone")
+    wake = gone.index(f"yoke session-control session wake {SESSION}")
+    assert "the relay resumes this same session" in gone
+    assert wake < gone.index(
+        "terminate only when that wake reports the transcript gone"
+    )
     assert "operator wake needed" in operator
     assert "wake escalated" not in operator
 

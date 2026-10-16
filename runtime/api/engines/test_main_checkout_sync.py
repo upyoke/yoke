@@ -14,8 +14,8 @@ import pytest
 from yoke_core.engines.main_checkout_sync import (
     NOT_SYNCED,
     fast_forward_main_checkout,
-    sync_main_checkout_at_session_start,
 )
+from yoke_harness.hooks.session_lifecycle import sync_session_main_checkout
 
 DEFAULT_BRANCH = "trunk"
 
@@ -40,11 +40,19 @@ def landed(tmp_path: Path):
     origin = tmp_path / "origin.git"
     seed = tmp_path / "seed"
     subprocess.run(
-        ["git", "init", "-q", "--bare", f"--initial-branch={DEFAULT_BRANCH}", str(origin)],
+        [
+            "git",
+            "init",
+            "-q",
+            "--bare",
+            f"--initial-branch={DEFAULT_BRANCH}",
+            str(origin),
+        ],
         check=True,
     )
     subprocess.run(
-        ["git", "init", "-q", f"--initial-branch={DEFAULT_BRANCH}", str(seed)], check=True
+        ["git", "init", "-q", f"--initial-branch={DEFAULT_BRANCH}", str(seed)],
+        check=True,
     )
     _git(seed, "config", "user.email", "test@example.com")
     _git(seed, "config", "user.name", "Test")
@@ -134,7 +142,7 @@ def test_unreadable_remote_is_a_named_advisory_not_a_silent_pass(landed):
 def test_session_start_syncs_the_branch_the_remote_declares(landed):
     checkout, landed_sha = landed
 
-    advisory = sync_main_checkout_at_session_start(str(checkout))
+    advisory = sync_session_main_checkout(str(checkout))
 
     assert advisory == ""
     assert _git(checkout, "rev-parse", DEFAULT_BRANCH) == landed_sha

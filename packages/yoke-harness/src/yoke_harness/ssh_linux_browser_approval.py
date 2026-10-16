@@ -3,7 +3,7 @@
 The same contract as the macOS Safari driver (``machine_browser_approval``):
 find the approval tab the installer opened, require an exact same-origin
 exact-code URL, revalidate it before pressing the visible control, and accept
-only a same-origin navigation away from it. The host side is the stdlib
+only a same-origin navigation or visible connected confirmation in that tab. The host side is the stdlib
 program in ``linux_desktop_chromium``.
 """
 
@@ -19,6 +19,7 @@ from yoke_harness import linux_desktop_chromium, linux_devtools_page
 from yoke_harness.linux_desktop_session import desktop_command, ensure_desktop
 from yoke_harness.machine_browser_approval import (
     APPROVE_CONTROL_LABEL,
+    CONNECTED_CONFIRMATION,
     BrowserApprovalResult,
     approval_outcome,
     approval_tab_urls,
@@ -37,15 +38,20 @@ NO_DESKTOP_RECOVERY = (
 HELPER_UNREADABLE = "linux_desktop_chromium_unreadable"
 _HOST_TIMEOUT_SECONDS = 90
 _DEVTOOLS_IMPORT = "from yoke_harness.linux_devtools_page import DevToolsPage"
+_CONFIRMATION_IMPORT = (
+    "from yoke_harness.machine_browser_approval import CONNECTED_CONFIRMATION"
+)
 
 
 def _host(control: Any, *arguments: str, desktop: bool = True) -> dict[str, Any]:
     program = "\n".join(
         [
             Path(linux_devtools_page.__file__).read_text(),
+            f"CONNECTED_CONFIRMATION = {json.dumps(CONNECTED_CONFIRMATION)}",
             Path(linux_desktop_chromium.__file__)
             .read_text()
-            .replace(_DEVTOOLS_IMPORT, ""),
+            .replace(_DEVTOOLS_IMPORT, "")
+            .replace(_CONFIRMATION_IMPORT, ""),
             "main()\n",
         ]
     )
@@ -110,7 +116,10 @@ def approve_machine_in_desktop_chromium(
         if tabs.get("ok"):
             allowed_urls = approval_tab_urls(expected_url, user_code, tabs["urls"])
             outcome = _host(
-                control, "approve", json.dumps(allowed_urls), APPROVE_CONTROL_LABEL
+                control,
+                "approve",
+                json.dumps(allowed_urls),
+                APPROVE_CONTROL_LABEL,
             )
         else:
             outcome = tabs

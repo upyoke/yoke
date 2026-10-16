@@ -5,13 +5,17 @@ or plan note. Nothing acknowledged is automatically completed.
 
 - **Available work**: staff scoped runnable unclaimed work; ! marks staffing
   age threshold, unmarked is still available. Recheck holder before launch.
+  `fleet ALARM unstaffed-ready` is that same overdue set: one line per waiting
+  episode, then again after another staffing interval if it is still
+  unstaffed. The line names item, project, wait, rank, next skill, and reach.
+  Reach is the stage-level command `yoke session-control launch create
+  --project P --item PREFIX-N --idempotency-key "steer:P:PREFIX-N" --json`.
+  Preview with a judged `--level` before create when the leg is not the stage
+  level. A launch in flight does not alarm. Staffing ends the episode.
 - **Unattended linked work**: take/arrange exact owning project+document seat
   named by row before staffing; project seat does not cover another doc link.
 - **Steering messages awaiting a seat**: acquire scope for unacknowledged parked
   or ended-seat mail; acknowledged receipts never inherit. Plan unfinished actions.
-- **Unacked injected (this session)**: receipt already shown, including oversized
-  stub. Read yoke messages get MESSAGE-ID fully and acknowledge; separate from
-  seat-awaiting mail.
 - **Idle holders**: process running→message; exited→message resumes transcript;
   resuming now→let start. `--mode parked` declared its wait; in-flight,
   vendor-stopped and stranded are separate rows. Read live mode/quiet_reason with
@@ -26,7 +30,9 @@ or plan note. Nothing acknowledged is automatically completed.
 - **Undelivered messages**: no attempt or failed last attempt means you owe
   recovery. Pull row's read-only machine evidence before diagnosing repeated
   relay code. Attempt moving, queued next hook or recipient turn in flight
-  means waiting: no second wake. Ended/terminated recipient has no route:
+  means waiting: no second wake. Escalated wake (native_process_gone) is the
+  relay resuming that same session; if nothing lands, re-run its named wake
+  command, never terminate a resumable session. Ended/terminated recipient has no route:
   read the named message, handle or re-address its work, then cancel obsolete
   pending/injected mail as sender actor or target-project admin; a successor
   cannot acknowledge old session mail. The report detects ended-session debt

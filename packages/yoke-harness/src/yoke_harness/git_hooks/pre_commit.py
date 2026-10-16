@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import pathlib
-import subprocess
 import sys
 from typing import Iterable
 
 from yoke_contracts.hook_diagnostics import format_hook_diagnostic
 
 from yoke_harness.git_hooks import file_line_check
+from yoke_contracts import terminal_detached_process
 
 
 def _write_diagnostic(text: str) -> None:
@@ -18,7 +18,7 @@ def _write_diagnostic(text: str) -> None:
 
 def _git_name_only(args: Iterable[str]) -> list[str]:
     try:
-        result = subprocess.run(
+        result = terminal_detached_process.run(
             ["git", *args],
             capture_output=True,
             text=True,
@@ -64,7 +64,7 @@ def _emit_diverged_warning() -> None:
 
 def _resolve_repo_root() -> str | None:
     try:
-        result = subprocess.run(
+        result = terminal_detached_process.run(
             ["git", "rev-parse", "--show-toplevel"],
             capture_output=True,
             text=True,

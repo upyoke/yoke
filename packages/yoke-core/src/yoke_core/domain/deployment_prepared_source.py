@@ -39,6 +39,11 @@ class PreparedSource:
     def resolve_commit(self, ref):
         return self._read("resolve_commit", ref)
 
+    def resolve_commits(self, refs):
+        # Preparation and locked validation read the same lane rows in no
+        # fixed order, so the question is the ref set, never the row order.
+        return self._read("resolve_commits", tuple(sorted(set(refs))))
+
     def lineage_relation(self, base, head):
         return self._read("lineage_relation", base, head)
 

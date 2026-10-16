@@ -1,9 +1,4 @@
-"""Handler-level coverage for identity links and organization admission.
-
-Handlers ride the ambient connection (``db_helpers.connect``), which the
-test session pins to the per-worker canonical-schema DB; emails carry a
-per-test unique suffix so runs never collide inside a worker.
-"""
+"""Identity admission on the per-worker DB with per-test unique email suffixes."""
 
 from __future__ import annotations
 
@@ -24,9 +19,7 @@ from yoke_core.domain.handlers.identity_invites import (
     handle_identity_invite_list,
     handle_identity_invite_revoke,
 )
-from yoke_core.domain.handlers.identity_links import (
-    handle_identity_link_set,
-)
+from yoke_core.domain.handlers.identity_links import handle_identity_link_set
 from yoke_core.domain.handlers.organizations_settings import (
     handle_organization_domain_set,
     handle_organization_settings_catalog,
@@ -59,7 +52,9 @@ def unique() -> str:
     return uuid.uuid4().hex[:10]
 
 
-def _request(function_id: str, payload: dict, *, caller: bool = True) -> FunctionCallRequest:
+def _request(
+    function_id: str, payload: dict, *, caller: bool = True
+) -> FunctionCallRequest:
     return FunctionCallRequest(
         function=function_id,
         actor=ActorContext(
@@ -74,10 +69,22 @@ def _request(function_id: str, payload: dict, *, caller: bool = True) -> Functio
 @pytest.mark.parametrize(
     ("handler", "function_id", "payload"),
     [
-        (handle_identity_invite_create, "identity.invite.create", {"email": "x@example.com"}),
+        (
+            handle_identity_invite_create,
+            "identity.invite.create",
+            {"email": "x@example.com"},
+        ),
         (handle_identity_invite_revoke, "identity.invite.revoke", {"invite_id": 1}),
-        (handle_identity_link_set, "identity.link.set", {"actor": "1", "email": "x@example.com"}),
-        (handle_organization_domain_set, "organizations.domain.set", {"domain": "example.com"}),
+        (
+            handle_identity_link_set,
+            "identity.link.set",
+            {"actor": "1", "email": "x@example.com"},
+        ),
+        (
+            handle_organization_domain_set,
+            "organizations.domain.set",
+            {"domain": "example.com"},
+        ),
     ],
 )
 def test_identity_writes_without_a_calling_actor_refuse(handler, function_id, payload):
@@ -87,15 +94,16 @@ def test_identity_writes_without_a_calling_actor_refuse(handler, function_id, pa
     assert "yoke setup" in outcome.error.message
 
 
-def test_invite_create_list_revoke_round_trip(unique):
+@pytest.mark.parametrize("role", ["viewer", None])
+def test_invite_create_list_revoke_round_trip(unique, role):
     email = f"member-{unique}@example.com"
     created = handle_identity_invite_create(
-        _request("identity.invite.create", {"email": email, "role": "viewer"}),
+        _request("identity.invite.create", {"email": email, "role": role}),
     )
     assert created.primary_success, created.error
     invite_id = created.result_payload["invite_id"]
     assert created.result_payload["status"] == "pending"
-    assert created.result_payload["role_id"] is not None
+    assert (created.result_payload["role_id"] is not None) == (role is not None)
 
     # Duplicate pending invite is a typed payload failure.
     duplicate = handle_identity_invite_create(
@@ -108,8 +116,11 @@ def test_invite_create_list_revoke_round_trip(unique):
         _request("identity.invite.list", {"status": "pending"}),
     )
     assert listed.primary_success
-    (row,) = [r for r in listed.result_payload["invites"] if r["invite_id"] == invite_id]
+    (row,) = [
+        r for r in listed.result_payload["invites"] if r["invite_id"] == invite_id
+    ]
     assert row["invited_by_actor_id"] == int(_CALLER["actor_id"])
+    assert row["role"] == role
 
     revoked = handle_identity_invite_revoke(
         _request("identity.invite.revoke", {"invite_id": invite_id}),
@@ -198,7 +209,7 @@ def test_link_set_email_shape_writes_pre_link_invite(unique):
 
 def test_link_set_requires_exactly_one_shape(unique):
     missing_both = handle_identity_link_set(
-        _request("identity.link.set", {"actor": "1"}),
+        _request("identity.link.set", {"actor": "1"})
     )
     assert not missing_both.primary_success
     half_identity = handle_identity_link_set(
@@ -244,7 +255,7 @@ def test_organization_settings_default_merge_and_projection():
     )
     assert merged.primary_success, merged.error
     assert merged.result_payload["changed_paths"] == [
-        "membership.auto_join_domain_verified",
+        "membership.auto_join_domain_verified"
     ]
 
     projected = handle_organization_settings_get(
@@ -318,17 +329,12 @@ def test_organization_settings_catalog_projects_closed_membership_contract():
     ],
 )
 def test_hosted_tenant_refuses_invites_platform_owns(
-    monkeypatch,
-    handler,
-    function_id,
-    payload,
+    monkeypatch, handler, function_id, payload
 ):
     from yoke_core.domain.handlers import identity_invites
 
     monkeypatch.setattr(
-        identity_invites,
-        "hosted_tenant_container_process",
-        lambda: True,
+        identity_invites, "hosted_tenant_container_process", lambda: True
     )
     conn = connect()
     try:

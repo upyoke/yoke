@@ -212,24 +212,94 @@ class TestDesignedWaitAnnouncementsReachTheReader:
         assert self._route(tmp_path, outcome_only=True) == [self._LINE]
 
 
-def test_outcome_only_forwards_preflight_timing_and_marks_progress():
-    import io
+class _Clock:
+    """Frozen clock so a test can close the digest window itself."""
+
+    def __init__(self) -> None:
+        self.t = 1000.0
+
+    def __call__(self) -> float:
+        return self.t
+
+    def advance(self, delta: float) -> None:
+        self.t += delta
+
+
+def _route_timing(
+    line: str,
+    *,
+    outcome_only: bool,
+    digest: ProgressDigest,
+    clock: _Clock,
+    emitted: list[str],
+    raw,
+):
     from yoke_core.tools.watch_preflight import classify_preflight_line
 
-    emitted = []
-    raw = io.StringIO()
-    watch = watch_progress_stall.ProgressEmitWatch.start("preflight", now=0)
-    line = 'Deployment start timing: {"step":"fleet_restore","phase":"running"}\n'
     watch_child_drain._route_line(
         line,
-        now=301,
+        now=clock(),
         classifier=classify_preflight_line,
         gate=ProgressGate(ThrottlePolicy()),
-        digest=ProgressDigest(kind="preflight"),
+        digest=digest,
         raw_f=raw,
-        progress_watch=watch,
+        progress_watch=watch_progress_stall.ProgressEmitWatch.start(
+            "deploy", now=clock()
+        ),
         emit_immediate=emitted.append,
-        outcome_only=True,
+        outcome_only=outcome_only,
     )
-    assert emitted == [line] and raw.getvalue() == line
-    assert watch.report_if_stalled(302) is None
+
+
+def test_outcome_only_bounds_ok_timing_lines_and_emits_failures():
+    import io
+
+    clock = _Clock()
+    digest = ProgressDigest(kind="deploy", flush_seconds=100.0, time_source=clock)
+    emitted: list[str] = []
+    raw = io.StringIO()
+    opening = 'Deployment start timing: {"outcome": "ok", "step": "restore"}\n'
+    held = 'Deployment start timing: {"outcome": "pending", "step": "copy"}\n'
+    closing = 'Deployment start timing: {"outcome": "ok", "step": "boot"}\n'
+    failed = 'Deployment start timing: {"outcome": "failed", "step": "copy"}\n'
+    _route_timing(
+        opening, outcome_only=True, digest=digest, clock=clock, emitted=emitted, raw=raw
+    )
+    assert emitted == ["# watch_deploy digest: " + opening.strip() + "\n"]
+    emitted.clear()
+    clock.advance(10.0)
+    _route_timing(
+        held, outcome_only=True, digest=digest, clock=clock, emitted=emitted, raw=raw
+    )
+    assert emitted == []
+    clock.advance(100.0)
+    _route_timing(
+        closing, outcome_only=True, digest=digest, clock=clock, emitted=emitted, raw=raw
+    )
+    assert len(emitted) == 1
+    assert emitted[0].startswith("# watch_deploy digest: ")
+    assert "copy" in emitted[0] and "boot" in emitted[0]
+    assert not any(line.startswith("Deployment start timing:") for line in emitted)
+    emitted.clear()
+    _route_timing(
+        failed, outcome_only=True, digest=digest, clock=clock, emitted=emitted, raw=raw
+    )
+    assert emitted == [failed]
+    text = raw.getvalue()
+    for line in (opening, held, closing, failed):
+        assert line in text
+
+
+def test_standard_watcher_still_emits_timing_lines_as_they_arrive():
+    import io
+
+    clock = _Clock()
+    digest = ProgressDigest(kind="preflight", flush_seconds=100.0, time_source=clock)
+    emitted: list[str] = []
+    raw = io.StringIO()
+    line = 'Deployment start timing: {"outcome": "ok", "step": "restore"}\n'
+    _route_timing(
+        line, outcome_only=False, digest=digest, clock=clock, emitted=emitted, raw=raw
+    )
+    assert emitted == [line]
+    assert raw.getvalue() == line

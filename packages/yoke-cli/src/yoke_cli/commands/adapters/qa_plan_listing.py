@@ -16,7 +16,10 @@ from yoke_cli.commands._helpers import (
 from yoke_contracts.api.function_call import TargetRef
 
 
-USAGE = "yoke qa plan list --project P [--limit N] [--offset N] [--full] [--json]"
+USAGE = (
+    "yoke qa plan list --project P [--limit N] [--offset N] [--include-retired] "
+    "[--full] [--json]"
+)
 
 
 def qa_plan_list(args: list[str]) -> int:
@@ -31,6 +34,14 @@ def qa_plan_list(args: list[str]) -> int:
         default=0,
         help="Start at this row of the stable project/slug order.",
     )
+    parser.add_argument(
+        "--include-retired",
+        action="store_true",
+        help=(
+            "Also list retired plans; every row carries retired_at and "
+            "retirement_reason (default: active plans only)."
+        ),
+    )
     add_full_arg(
         parser,
         "descriptions, attachments and execution targets for the same page; --limit and --offset still page",
@@ -40,15 +51,20 @@ def qa_plan_list(args: list[str]) -> int:
     parsed = parse_or_usage_error(parser, args, USAGE)
     if parsed is None:
         return 2
+    payload = {
+        "project": parsed.project,
+        "limit": parsed.limit,
+        "offset": parsed.offset,
+        "detail": detail_of(parsed),
+    }
+    if parsed.include_retired:
+        # Sent only when asked, so an active-only listing still reads from a
+        # serving build that predates retired listing.
+        payload["include_retired"] = True
     return dispatch_and_emit(
         function_id="qa.plan.list",
         target=TargetRef(kind="global"),
-        payload={
-            "project": parsed.project,
-            "limit": parsed.limit,
-            "offset": parsed.offset,
-            "detail": detail_of(parsed),
-        },
+        payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=write_plan_rows,

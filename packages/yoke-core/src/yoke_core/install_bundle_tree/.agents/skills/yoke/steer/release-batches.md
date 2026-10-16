@@ -97,6 +97,24 @@ Accepted scoped QA opens configured review; settled/red/continuation failure
 notifies driver, individual member while others owe stays in report. Re-drive
 same pinned run after notice without replaying passing stages.
 
+### Manual-wake member QA
+
+A requirement with `wake_path: manual` is never woken at stage entry; the
+member's owner stays unwoken until you wake it. Each release/QA loop pass,
+read the report's "waiting on manual wake" section. For each row:
+
+1. Check whether its `wake_evidence` exists with registered reads
+   (`yoke deployment-runs get`, `yoke qa requirement list`, `yoke db read`).
+   Never wake on time passed or a guess.
+2. Evidence exists: run the row's printed `wake:` command, which sends the
+   owner `yoke qa plan run` for that stage and member through `yoke say
+   --item`. A row naming no live holder needs staffing first.
+3. This run cannot produce the evidence: ask the operator one decision,
+   waive or remove the case, with the run, requirement and evidence named.
+   Never waive it yourself.
+
+The row leaves the section once the owner's run is recorded.
+
 Driver owns run-scoped visual inspection (or explicitly assigned capable QA):
 
 ```text

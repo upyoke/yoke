@@ -88,6 +88,14 @@ def _member_qa_obligations(conn, runs, members):
     by_run = defaultdict(list)
     for row in copies:
         by_run[str(row["deployment_run_id"])].append(dict(row))
+    identities = {}
+
+    def copy_identity(row):
+        copy_id = int(row["id"])
+        if copy_id not in identities:
+            identities[copy_id] = identity(row)
+        return identities[copy_id]
+
     result, evidence_ids = {}, set()
     for run in runs:
         run_id = str(run["id"])
@@ -109,7 +117,7 @@ def _member_qa_obligations(conn, runs, members):
                     candidates = [
                         row
                         for row in by_run[run_id]
-                        if identity(row) == definition_key
+                        if copy_identity(row) == definition_key
                         and _copy_matches(conn, row, key[1], run, historical=historical)
                     ]
                     live = [
@@ -140,7 +148,7 @@ def _member_qa_obligations(conn, runs, members):
                 for row in by_run[run_id]:
                     row_id = int(row["id"])
                     if (
-                        identity(row) in selected
+                        copy_identity(row) in selected
                         or row.get("deployment_member_item_id") != key[1]
                     ):
                         continue

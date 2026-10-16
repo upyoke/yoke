@@ -13,11 +13,9 @@ from yoke_contracts.timestamps import as_utc, parse_instant
 from typing import Any, Optional
 
 from yoke_contracts.turn_end_evidence import (
-    PAYLOAD_KEY,
     TurnEndEvidence,
     UNAVAILABLE,
     extract_turn_end_evidence,
-    read_transcript_tail,
 )
 from yoke_contracts.session_control import (
     stop_denial_continuation_supported,
@@ -77,14 +75,9 @@ def _hold() -> HookDecision:
 
 
 def _evidence_for(context: HookContext) -> TurnEndEvidence:
+    """Read the client's turn-end evidence; the transcript is on its machine."""
     payload = context.payload if isinstance(context.payload, dict) else {}
-    if context.remote:
-        return extract_turn_end_evidence(payload=payload)
-    if PAYLOAD_KEY in payload:
-        return extract_turn_end_evidence(payload=payload)
-    path = payload.get("transcript_path")
-    text = read_transcript_tail(path) if isinstance(path, str) and path else None
-    return extract_turn_end_evidence(payload=payload, transcript_text=text)
+    return extract_turn_end_evidence(payload=payload)
 
 
 def _emit_unavailable(context: HookContext) -> None:

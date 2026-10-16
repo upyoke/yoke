@@ -18,6 +18,7 @@ from yoke_core.domain.session_message_delivery_projection import (
     delivery_message_projection,
 )
 from yoke_core.domain.session_message_lease_complete import complete_hook_lease
+from yoke_core.domain.session_message_reminders import due_reminder_rows
 from yoke_core.domain.session_message_types import (
     row_dict,
     utc_now,
@@ -103,6 +104,11 @@ def expire_due_recipients(conn: Any, *, now: datetime | None = None) -> int:
         )
 
         withdraw_deployment_qa_wait_wakes(conn, now=stamp)
+        from yoke_core.domain.qa_plan_settled_review import (
+            withdraw_settled_agent_review_wakes,
+        )
+
+        withdraw_settled_agent_review_wakes(conn, now=stamp)
         conn.commit()
         return count
     except Exception:
@@ -164,7 +170,12 @@ def lease_for_hook(
     hook_event: str,
     limit: int,
 ) -> dict[str, Any] | None:
-    """Atomically lease each pending receipt for one model delivery."""
+    """Atomically lease pending receipts, then due reminders, for one delivery.
+
+    A reminder is an injected receipt still unacknowledged past its backoff
+    (:mod:`yoke_core.domain.session_message_reminders`); it leases and
+    settles exactly like a first delivery and carries ``shown_count``.
+    """
     if not _eligible_hook_event(conn, session_id, hook_event):
         return None
     current = utc_now()
@@ -180,6 +191,12 @@ def lease_for_hook(
             session_id=session_id,
             now=current,
             limit=limit,
+        )
+        rows += due_reminder_rows(
+            conn,
+            session_id=session_id,
+            now=parse_instant(current),
+            limit=max(1, min(int(limit), 50)) - len(rows),
         )
         leased_at = instant_parameter(conn, current)
         lease_expires = instant_parameter(
@@ -241,7 +258,10 @@ def lease_for_hook(
                     json.dumps({"hook_event": hook_event}, sort_keys=True),
                 ),
             )
-            leased.append(delivery_message_projection(conn, row))
+            message = delivery_message_projection(conn, row)
+            if row["state"] == "injected":
+                message["shown_count"] = int(row["injection_count"] or 0)
+            leased.append(message)
         conn.commit()
     except Exception:
         conn.rollback()
@@ -251,7 +271,9 @@ def lease_for_hook(
     return {
         "lease_id": lease_id,
         "messages": leased,
-        "remaining_count": max(0, pending_count - len(leased)),
+        "remaining_count": max(
+            0, pending_count - sum(1 for m in leased if "shown_count" not in m)
+        ),
     }
 
 

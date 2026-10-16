@@ -37,8 +37,9 @@ from __future__ import annotations
 from datetime import timedelta
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
-from typing import Optional
+from typing import Optional, Sequence
 
+from yoke_contracts.hook_runner.client_facts import capture_roots
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.lint_long_command_polling_config import _read_lint_mode
 from yoke_core.domain.lint_long_command_polling_constants import (
@@ -73,6 +74,7 @@ def _db_available() -> bool:
 def _captures_targeted_in_session(
     db_path: str,
     session_id: str,
+    roots: Sequence[str],
     lookback_seconds: int = RECENT_EVENT_LOOKBACK_SECONDS,
 ) -> list[tuple[str, str]]:
     """Return ``(tool_use_id, capture_file)`` for every Monitor in session.
@@ -121,7 +123,7 @@ def _captures_targeted_in_session(
     for tool_use_id, command in rows:
         if not tool_use_id or not isinstance(command, str) or not command:
             continue
-        capture_file = _extract_monitor_capture_file(command)
+        capture_file = _extract_monitor_capture_file(command, roots)
         if not capture_file:
             continue
         # First-seen wins on tool_use_id collisions; preserves "earliest
@@ -151,13 +153,14 @@ def evaluate_duplicate_monitor(
     command = _extract_command(payload)
     if not command:
         return None
-    candidate_capture = _extract_monitor_capture_file(command)
+    roots = capture_roots(payload)
+    candidate_capture = _extract_monitor_capture_file(command, roots)
     if not candidate_capture:
         return None
     session_id = payload.get("session_id") or ""
     if not session_id or not _db_available():
         return None
-    targeted = _captures_targeted_in_session("", session_id)
+    targeted = _captures_targeted_in_session("", session_id, roots)
     prior_tool_use_id = ""
     for tool_use_id, capture_file in targeted:
         if capture_file == candidate_capture:

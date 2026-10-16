@@ -123,6 +123,17 @@ A case added on its own (`yoke qa requirement add`) belongs to no plan, so it
 takes `--host-baseline NAME` or `--starting-state as_is
 --starting-state-reason TEXT` and cannot inherit.
 
+A Terminal case (`terminal-check`, `terminal-inspection`) also names
+`entry_surface`, the command the Terminal runs first (for example
+`{yoke_bin} setup --connect https://app.upyoke.com --project-mode
+machine-only`), and `required_completion`, the step that proves it finished.
+Authoring, `qa.requirement.add` and materialization run the runner's own
+recipe check and refuse `terminal_case_fields_missing` naming the missing
+fields; only a plan case carries them, so fix it with `yoke qa plan edit
+PLAN_SLUG` and `yoke qa plan rematerialize`. A requirement materialized before
+this check refuses `machine_qa_recipe_invalid` before its starting-state
+reset, so the host is never touched.
+
 A named-baseline or as-is case opens a chain; the inheriting cases behind it
 extend it. `yoke qa plan run` runs every case at one baseline position before
 the next, resets before each chain, and restores the chain's starting baseline
@@ -131,7 +142,14 @@ receipt as `starting_state_restore` in that case's evidence. A failed reset
 leaves the case unstarted (`starting_state_reset_failed`); a failed restore
 stops the plan and names the `yoke test-machine reset` command. An inheriting
 case whose predecessor did not pass in the same run is recorded
-`blocked_on_precondition` naming that predecessor, and does not run.
+`blocked_on_precondition` (`inherited_predecessor_not_passed`) naming that
+predecessor, and does not run. A failed or errored case blocks only its own
+chain: the run continues with each later chain that starts from a named
+baseline or `as_is`, then closes the execution once every case has a result,
+naming the failed requirements in its reason (`qa-plan-case-failed`). The
+review bundle for its completed captures lists the blocked cases and their
+reasons under `chain_blocked`. A case that raises while running, a lost lease
+or an operator abort still stops the whole execution.
 Deployment-stage case selections keep each inheriting case directly behind its
 predecessor. Requirements materialized before a plan declared its states read
 as behind their plan: edit the plan, then refresh them.

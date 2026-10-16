@@ -26,6 +26,7 @@ def build_denial_reason(
     command: str,
     read_only: bool,
     machine_home: str | None,
+    yoke_root: str = "",
 ) -> tuple[str, str]:
     authority_reason = ""
     if outcome.failure_class == UNRESOLVED_HOME_PATH:
@@ -49,6 +50,7 @@ def build_denial_reason(
             claims=outcome.claims,
             repo_roots=outcome.repo_roots,
             command=command,
+            yoke_root=yoke_root,
         )
         body += repo_command_block(payload, outcome.claims) if not has_targets else ""
         tool_name = str(payload.get("tool_name") or payload.get("toolName") or "")

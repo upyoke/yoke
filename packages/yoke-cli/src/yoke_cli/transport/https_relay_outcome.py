@@ -8,6 +8,9 @@ from typing import Optional
 
 from yoke_cli.api_urls import FUNCTIONS_CALL_PATH, HEALTH_PATH, join_api_url
 from yoke_cli.transport import relay_telemetry
+from yoke_cli.transport.relay_application_outcome import (
+    RESPONSE_TIMEOUT_FAILURE_CLASS,
+)
 from yoke_cli.transport.json_error_safety import safe_diagnostic_text
 from yoke_cli.transport.https_engine_handshake import (
     ServerHandshake,
@@ -224,6 +227,16 @@ def transport_error_response(
     )
 
 
+def is_response_timeout(response: FunctionCallResponse) -> bool:
+    """True when the server accepted the call but did not answer in time."""
+    error = response.error
+    return (
+        error is not None
+        and error.code == TRANSPORT_FAILED_CODE
+        and error.message.startswith(RESPONSE_TIMEOUT_DETAIL)
+    )
+
+
 def record_outcome(
     request: FunctionCallRequest,
     response: FunctionCallResponse,
@@ -252,7 +265,11 @@ def record_outcome(
             attempts=attempts,
             transport_delivered=False,
             application_succeeded=None,
-            failure_class=TRANSPORT_FAILED_CODE,
+            failure_class=(
+                RESPONSE_TIMEOUT_FAILURE_CLASS
+                if is_response_timeout(response)
+                else TRANSPORT_FAILED_CODE
+            ),
             project=project,
         )
         return

@@ -12,5 +12,5 @@
  "desired": "Re-read live scope, stage, claims, progress and setup facts. Compaction is not proof that orientation is replayed.",
  "plan_notes": ["FIRST-USER D/E validation proposal", "JOURNEYS delivery clarification"],
  "plan_refs": ["FIRST-USER.42", "FIRST-USER.43", "FIRST-USER.D"],
- "sources": ["AGENTS.md:75", ".agents/skills/yoke/steer/loop.md:14", ".agents/skills/yoke/implement/reentry.md:1", "packages/yoke-core/src/yoke_core/domain/sessions_resume_block.py:1", "packages/yoke-core/src/yoke_core/domain/session_orientation_delivery.py:78", "packages/yoke-core/src/yoke_core/hooks/session_dispatch.py:245", "packages/yoke-contracts/src/yoke_contracts/hook_runner/chain_registry.py:29"]
+ "sources": ["AGENTS.md:75", ".agents/skills/yoke/steer/loop.md:14", ".agents/skills/yoke/implement/reentry.md:1", "packages/yoke-core/src/yoke_core/domain/sessions_resume_block.py:1", "packages/yoke-core/src/yoke_core/domain/session_orientation_delivery.py:78", "packages/yoke-core/src/yoke_core/hooks/session_resume_block.py:1", "packages/yoke-contracts/src/yoke_contracts/hook_runner/chain_registry.py:29"]
 }

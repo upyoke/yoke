@@ -1,6 +1,5 @@
 """Hook-runner session_dispatch coverage for the SessionEnd defense.
 
-Codex SessionStart parity — slim resume block on reactivation.
 Legacy-surface guard — old per-event files removed.
 Runner lifecycle path exercised end-to-end (Stop/SessionEnd route
 through ``_end_session`` with the new chain-end rationale).
@@ -12,7 +11,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from yoke_core.hooks import resume_block_dispatch, session_dispatch
+from yoke_core.hooks import session_dispatch, session_resume_block
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -41,7 +40,11 @@ class TestLegacySurfaceRetired(unittest.TestCase):
 
     def test_post_runner_session_dispatch_present(self) -> None:
         self.assertTrue(Path(session_dispatch.__file__).resolve().exists())
-        self.assertTrue(Path(resume_block_dispatch.__file__).resolve().exists())
+        self.assertTrue(Path(session_resume_block.__file__).resolve().exists())
+
+    def test_resume_block_subprocess_dispatch_absent(self) -> None:
+        hooks_dir = Path(session_dispatch.__file__).resolve().parent
+        self.assertFalse((hooks_dir / "resume_block_dispatch.py").exists())
 
 
 class TestOrientationProjectAuthority(unittest.TestCase):
@@ -83,16 +86,12 @@ class TestOrientationProjectAuthority(unittest.TestCase):
                         "_render_claude_orientation",
                         return_value=orientation,
                     ) as render,
-                    mock.patch.object(
-                        session_dispatch,
-                        "_render_resume_block",
-                        return_value="resume\n",
-                    ),
                 ):
                     rendered = session_dispatch._run_claude_prompt_submit(ctx, "/repo")
                 combined = (orientation if supplied else "") + rendered
                 self.assertEqual(combined.count("## Yoke Orientation"), 1)
-                self.assertIn("resume", combined)
+                # The resume block is its own chain policy now.
+                self.assertNotIn("resume", combined)
                 self.assertEqual(render.call_count, int(not supplied))
                 register.assert_called_once()
                 prompt.assert_called_once_with("", "sess-orient")
@@ -215,7 +214,7 @@ class TestEndSessionCommand(unittest.TestCase):
                 return_value=True,
             ),
             mock.patch(
-                "yoke_core.engines.main_checkout_sync.sync_main_checkout_at_session_start",
+                "yoke_harness.hooks.session_lifecycle.sync_session_main_checkout",
             ) as sync,
             mock.patch(
                 "yoke_core.hooks.session_dispatch._run_claude_session_start",
@@ -223,76 +222,6 @@ class TestEndSessionCommand(unittest.TestCase):
         ):
             session_dispatch.evaluate(ctx)
         sync.assert_called_once_with("/Users/x/yoke")
-
-
-class TestResumeBlockDispatchSubprocess(unittest.TestCase):
-    """Slim resume block subprocess routes through the canonical CLI."""
-
-    def test_render_invokes_sessions_resume_block_module(self) -> None:
-        from yoke_core.hooks import resume_block_dispatch
-
-        captured_cmd: list[list[str]] = []
-
-        def _fake_run(cmd, **_kw):
-            captured_cmd.append(cmd)
-
-            class _R:
-                returncode = 0
-                stdout = "> resume block\n"
-                stderr = ""
-
-            return _R()
-
-        with mock.patch(
-            "yoke_core.hooks.resume_block_dispatch.subprocess.run",
-            side_effect=_fake_run,
-        ):
-            result = resume_block_dispatch.render(
-                "/repo",
-                "sess-r",
-                "UserPromptSubmit",
-            )
-        self.assertEqual(result, "> resume block\n")
-        self.assertTrue(captured_cmd)
-        cmd = captured_cmd[0]
-        self.assertIn("yoke_core.domain.sessions_resume_block", cmd)
-        self.assertIn("--session-id", cmd)
-        self.assertIn("sess-r", cmd)
-        self.assertIn("--harness-event", cmd)
-        self.assertIn("UserPromptSubmit", cmd)
-
-    def test_render_returns_empty_when_session_id_missing(self) -> None:
-        from yoke_core.hooks import resume_block_dispatch
-
-        with mock.patch(
-            "yoke_core.hooks.resume_block_dispatch.subprocess.run",
-        ) as mocked:
-            result = resume_block_dispatch.render(
-                "/repo",
-                "",
-                "SessionStart",
-            )
-        self.assertEqual(result, "")
-        mocked.assert_not_called()
-
-    def test_render_returns_empty_on_nonzero_exit(self) -> None:
-        from yoke_core.hooks import resume_block_dispatch
-
-        class _R:
-            returncode = 7
-            stdout = "ignored"
-            stderr = ""
-
-        with mock.patch(
-            "yoke_core.hooks.resume_block_dispatch.subprocess.run",
-            return_value=_R(),
-        ):
-            result = resume_block_dispatch.render(
-                "/repo",
-                "sess-r",
-                "UserPromptSubmit",
-            )
-        self.assertEqual(result, "")
 
 
 if __name__ == "__main__":

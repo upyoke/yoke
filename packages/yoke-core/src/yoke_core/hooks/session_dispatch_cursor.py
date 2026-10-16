@@ -23,7 +23,6 @@ from pathlib import Path
 from yoke_contracts.session_model_facts import SessionModelFacts
 
 from yoke_core.hooks import session_dispatch_cursor_lifecycle as _lifecycle
-from yoke_core.hooks.resume_block_dispatch import render as _render_resume_block
 from yoke_core.hooks.types import HookContext
 
 
@@ -121,7 +120,6 @@ def run_session_start(record: HookContext, root: str) -> str:
         _entrypoint(),
     )
     orientation = _render_orientation(record, root, err)
-    orientation += _render_resume_block(root, session_id, "SessionStart")
     return json.dumps({"additional_context": orientation}) + "\n"
 
 

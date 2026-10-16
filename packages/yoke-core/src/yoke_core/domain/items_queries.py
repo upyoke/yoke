@@ -39,7 +39,12 @@ def item_field_read_batch(conn, item_ids, fields):
     """Read scalar fields together; each handler still owns its full validation."""
     if not db_backend.pg_dsn_is_bound():
         raise ValueError("item field batch requires an explicitly bound copy authority")
-    from yoke_contracts.merge_queue_status import render_merge_queue_status
+    from yoke_contracts.merge_queue_status import (
+        LABEL_ATTEMPT_JOIN,
+        LABEL_ENQUEUED_AT_SQL,
+        LABEL_LANDED_AT_SQL,
+        render_merge_queue_status,
+    )
 
     columns = tuple(
         dict.fromkeys(
@@ -61,12 +66,13 @@ def item_field_read_batch(conn, item_ids, fields):
                 "i.id",
                 *expressions,
                 "i.status",
-                "i.merge_queue_enqueued_at",
-                "i.merge_queue_landed_at",
+                LABEL_ENQUEUED_AT_SQL,
+                LABEL_LANDED_AT_SQL,
             ]
         )
         + " "
-        "FROM items i JOIN projects p ON p.id=i.project_id WHERE i.id = ANY(%s)",
+        f"FROM items i JOIN projects p ON p.id=i.project_id {LABEL_ATTEMPT_JOIN} "
+        "WHERE i.id = ANY(%s)",
         (list(item_ids),),
     ).fetchall()
     values = {}
@@ -121,12 +127,14 @@ def query_item(
 
             return build_body(conn, item_id) or ""
         if field == "merge_queue_status":
-            from yoke_contracts.merge_queue_status import render_merge_queue_status
+            from yoke_contracts.merge_queue_status import (
+                LABEL_INPUTS_FOR_ITEM_SQL,
+                render_merge_queue_status,
+            )
 
             row = query_one(
                 conn,
-                "SELECT status, merge_queue_enqueued_at, merge_queue_landed_at "
-                "FROM items WHERE id = %s",
+                LABEL_INPUTS_FOR_ITEM_SQL,
                 (item_id,),
             )
             return (

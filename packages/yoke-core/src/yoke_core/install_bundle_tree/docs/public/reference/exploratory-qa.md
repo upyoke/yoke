@@ -68,7 +68,7 @@ materialization refuse one that does not. A mission names `host_baselines`
 (`fresh-host` or `shell-preconfigured`), or sets `"starting_state":"as_is"`
 with a `starting_state_reason` to walk the machine as found — that mission must
 also tell its walker to leave the home untouched. A mission cannot `inherit`: it is walked after the plan's other cases, so no case runs right before it.
-Baseline cleanup preserves live scratch and requires 1 GiB free before mission staging; [temporary-state and disk recovery](test-machine-desktop.md) names receipts and live-lease refusals.
+Baseline cleanup preserves live scratch and requires 1 GiB free before mission staging; [temporary-state and disk recovery](test-machine-desktop.md) names receipts and live-lease refusals. A mission that can only be judged after real production traffic, such as a real failed wake that a relay then claimed, sets `wake_path: manual` with a one-line `wake_evidence`; steering, not its stage, starts it ([cases that wait for real traffic](qa-platform/standalone-plans.md#cases-that-wait-for-real-traffic)).
 
 Do not turn likely landmarks into steps. The worked Machine QA Pack case
 `installer-exploration` deliberately replaces the territory of the ten-case

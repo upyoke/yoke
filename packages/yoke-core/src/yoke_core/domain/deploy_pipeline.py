@@ -48,6 +48,10 @@ from yoke_core.domain.deploy_product_source import (
     validate_itemless_product_source,
 )
 from yoke_core.domain.deploy_pipeline_cli import _build_parser  # noqa: F401
+from yoke_core.domain.release_start_schema import (
+    ReleaseStartSchemaError,
+    converge_release_start_schema,
+)
 
 
 EXIT_SUCCESS = 0
@@ -87,6 +91,11 @@ def run_pipeline(
         )
         return EXIT_USAGE
     run_id = primary_arg
+    try:
+        timed_call("release_start_schema", converge_release_start_schema, run_id)
+    except ReleaseStartSchemaError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
     try:
         context = timed_call(
             "execution_context", control_plane.execution_context, run_id

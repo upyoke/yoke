@@ -263,3 +263,44 @@ def test_operator_driven_wake_skip_never_escalates_on_its_own(acknowledged) -> N
     assert notify_failed_wake(conn, row, now=later, max_attempts=3) is None
     wake_eligible_recipients(conn, now=later)
     assert drainable_rows(conn, scope={"project_id": 1}, project_id=1) == []
+
+
+def test_failure_notice_reaches_the_steering_seat_and_not_the_sender() -> None:
+    conn = message_connection()
+    message_id = _parked_recipient(conn)
+    conn.execute(
+        "INSERT INTO item_strategy_docs VALUES (101,1,'AREA-PLAN',?)",
+        (NOW_TEXT,),
+    )
+    conn.execute(
+        "INSERT INTO work_claims (id,session_id,target_kind,scope,claimed_at) "
+        "VALUES (5,'s1','steering','{\"project_id\":1,\"document\":\"AREA-PLAN\"}',?)",
+        (NOW_TEXT,),
+    )
+    conn.commit()
+    _fail(conn, wake_eligible_recipients(conn, now=SWEEP)[0])
+    wake_eligible_recipients(conn, now=SWEEP + timedelta(seconds=1))
+    notice = conn.execute(
+        "SELECT message_id, body FROM session_messages "
+        "WHERE idempotency_key LIKE 'native-wake-failed:%'",
+    ).fetchone()
+    assert notice is not None
+    assert message_id in notice[1]
+    assert "Native message wake failed:" in notice[1]
+    sessions = conn.execute(
+        "SELECT r.session_id FROM session_message_recipients r WHERE r.message_id=?",
+        (notice[0],),
+    ).fetchall()
+    assert [row[0] for row in sessions] == ["s1"]
+    actors = conn.execute(
+        "SELECT recipient_kind FROM actor_message_recipients "
+        "WHERE message_id=? AND recipient_kind='actor'",
+        (notice[0],),
+    ).fetchall()
+    assert actors == []
+    steering = conn.execute(
+        "SELECT seat_session_id, state FROM actor_message_recipients "
+        "WHERE message_id=? AND recipient_kind='steering'",
+        (notice[0],),
+    ).fetchone()
+    assert tuple(steering) == ("s1", "delivered")

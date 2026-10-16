@@ -293,6 +293,13 @@ def run(args: List[str]) -> int:
             return 2
     _report_case_failures(result)
     print(dumps_compact(result))
+    if result.get("review_status") == "settled":
+        print(
+            "QA review already passed; reprinted the recorded passing "
+            "verdicts without a new capture. A new capture requires "
+            "`yoke qa plan run` with `--replaces`.",
+            file=sys.stderr,
+        )
     state = result.get("state")
     if state in {"waiting", "outcome_unknown"}:
         return WAITING_RETRY_EXIT
@@ -304,7 +311,7 @@ def run(args: List[str]) -> int:
             file=sys.stderr,
         )
         return AGENT_REVIEW_REQUIRED_EXIT
-    if state in {"failed", "needs_review", "blocked_on_precondition"}:
+    if state in {"failed", "needs_review", "blocked_on_precondition", "removed"}:
         return 1
     if state == "error":
         return 2

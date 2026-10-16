@@ -16,10 +16,11 @@ artifact PR triggers have no path filter so required checks cannot stay pending.
 The signer runs on queue candidates without checking out or executing repository
 code; ordinary PR builds retain read-only authority. Apply the declaration with
 `yoke github merge-queue apply --project yoke`; preview it with `--preview` first.
-A main-push run may short-circuit when
-`reuse-coverage` finds a recent successful dispatch/push yoke-ci run whose
-head commit shares HEAD's tree object id (fail-open otherwise; merge commits
-that rewrite the tree still run the matrix). Branch protection on main
+Any run may skip the test shards when
+`reuse-coverage` finds complete coverage evidence for its checked-out tree
+from a recent successful yoke-ci run; a changed tree runs the matrix. The
+[CI shard reference](ci-shards.md#identical-tree-coverage-reuse) owns the
+evidence rules. Branch protection on main
 requires upstream's `signature-check` (CLA) only in `upyoke/yoke`; the doctor reads the project GitHub binding before expecting it. Yoke-owned gates — the QA CI run
 conclusion and the merge engine's all-check-runs poll — authorize the suite.
 Local verification stays change-scoped:

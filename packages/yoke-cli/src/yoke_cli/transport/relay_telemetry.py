@@ -275,10 +275,10 @@ def _emit(entry: Dict[str, Any]) -> tuple[str, str]:
     not in the permanent set, so the record stays queued.
     """
     from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
+    from yoke_cli.transport.relay_application_outcome import application_outcome
     from yoke_contracts.api.function_call import TargetRef
 
     transport_delivered = entry.get("transport_delivered") is True
-    application_succeeded = entry.get("application_succeeded")
     name = EVENT_RETRIED if transport_delivered else EVENT_EXHAUSTED
     session_id = str(entry.get("session_id") or "")
     project = str(entry.get("project") or "")
@@ -299,13 +299,7 @@ def _emit(entry: Dict[str, Any]) -> tuple[str, str]:
             "env": str(entry.get("env") or ""),
             "attempts": entry.get("attempts"),
             "transport_outcome": ("delivered" if transport_delivered else "exhausted"),
-            "application_outcome": (
-                "succeeded"
-                if application_succeeded is True
-                else "failed"
-                if application_succeeded is False
-                else "not_reached"
-            ),
+            "application_outcome": application_outcome(entry),
             "failure_class": str(entry.get("failure_class") or ""),
         },
     }

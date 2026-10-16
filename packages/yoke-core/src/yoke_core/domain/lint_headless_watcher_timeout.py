@@ -6,7 +6,9 @@ still-running in-turn watcher. The already-taught repair is
 omitted or set below that floor, for Claude headless watcher invocations
 only — not a blanket Bash timeout.
 
-Headless is the same relay launch/resume env the watcher wait-mode uses.
+Headless is the same relay launch/resume env the watcher wait-mode uses,
+observed on the client machine and read from its
+:data:`~yoke_contracts.hook_runner.client_facts.HEADLESS_LAUNCH_KEY` fact.
 Commands that outlive even that ceiling still auto-background; continue
 the same call until it exits. Stop after that PostToolUse is not held.
 """
@@ -16,9 +18,9 @@ from __future__ import annotations
 import json
 import os
 import sys
-from typing import List, Mapping, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
-from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
+from yoke_contracts.hook_runner.client_facts import headless_launch
 from yoke_contracts.watch_cli_forms import (
     IN_TURN_WATCHER_TIMEOUT_MS,
     WATCH_CLI_TOKENS,
@@ -32,14 +34,12 @@ from yoke_core.domain.lint_session_cwd_target_extract_shell import (
 )
 from yoke_core.domain.lint_shell_target_tokens import shell_command_segments
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
-from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 CHECK_ID = "lint-headless-watcher-timeout"
 HOOK_NAME = CHECK_ID
 SUPPRESSION_TOKEN = "# lint:no-headless-watcher-timeout-check"
 _CLAUDE_FAMILY = "claude"
-_HEADLESS_ENV = (LAUNCH_CONTEXT_ENV, RESUME_ATTEMPT_ENV)
 _WATCH_KINDS = frozenset(kind[-1] for kind in WATCH_CLI_TOKENS.values())
 
 
@@ -62,10 +62,6 @@ def _tool_timeout_ms(payload: dict) -> Optional[int]:
         except (TypeError, ValueError):
             return None
     return None
-
-
-def _is_headless(environ: Mapping[str, str]) -> bool:
-    return any(str(environ.get(name) or "").strip() for name in _HEADLESS_ENV)
 
 
 def _is_yoke_executable(token: str) -> bool:
@@ -153,13 +149,12 @@ def evaluate_payload(
     payload: dict,
     *,
     executor_family: str = "",
-    environ: Mapping[str, str] | None = None,
 ) -> Optional[Tuple[str, str, str]]:
     if not isinstance(payload, dict):
         return None
     if (executor_family or "").strip() != _CLAUDE_FAMILY:
         return None
-    if not _is_headless(os.environ if environ is None else environ):
+    if not headless_launch(payload):
         return None
     tool = _extract_tool_name(payload)
     if tool and tool != "Bash":

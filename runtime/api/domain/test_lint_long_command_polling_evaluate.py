@@ -3,13 +3,11 @@
 Split out of ``test_lint_long_command_polling.py`` to keep authored files
 under the 350-line limit. ``evaluate_payload`` and every helper it calls
 live in the evaluate sibling — the ``lint`` alias here points there.
+Capture state comes from the client fact the payload builders attach.
 """
 
 from __future__ import annotations
 
-import os
-import tempfile
-import time
 import unittest
 from unittest import mock
 
@@ -18,9 +16,16 @@ from yoke_core.domain.lint_long_command_polling_extract import (
     _extract_background_capture_files,
 )
 from yoke_core.domain.lint_long_command_polling_test_helpers import (
+    CAPTURE_ROOTS as ROOTS,
+    FINISHED,
+    RUNNING,
+    STALE,
     _bash_payload,
     _non_bash_payload,
 )
+
+LIVE = {"/tmp/foo.out": RUNNING}
+_PRIOR_PEEK = [("turn-0", "2026-04-24T12:00:00", "tail -80 /tmp/foo.out")]
 
 
 class TestExtractHelpers(unittest.TestCase):
@@ -31,15 +36,13 @@ class TestExtractHelpers(unittest.TestCase):
             "--progress-capture=/tmp/progress.log -- runtime/api/"
         )
         self.assertEqual(
-            _extract_background_capture_files(command),
+            _extract_background_capture_files(command, ROOTS),
             ["/tmp/raw.log", "/tmp/progress.log"],
         )
 
-    def test_background_capture_files_accept_macos_tempdir(self) -> None:
-        # macOS tempfile.NamedTemporaryFile() writes under /var/folders/...
-        # (or /private/var/folders/... canonical). The watcher-arg regex
-        # has no prefix anchor — the --raw-capture flag is the
-        # discriminator — so any tempdir path the user picked is fine.
+    def test_background_capture_files_accept_any_watcher_arg_path(self) -> None:
+        # The watcher-arg regex has no root anchor — the --raw-capture flag
+        # is the discriminator — so it holds even with no client roots.
         command = (
             "python3 -m yoke_core.tools.watch_pytest "
             "--raw-capture /var/folders/jb/abc/T/yoke-pytest.raw.log "
@@ -47,33 +50,32 @@ class TestExtractHelpers(unittest.TestCase):
             "-- runtime/api/"
         )
         self.assertEqual(
-            _extract_background_capture_files(command),
+            _extract_background_capture_files(command, ()),
             [
                 "/var/folders/jb/abc/T/yoke-pytest.raw.log",
                 "/var/folders/jb/abc/T/yoke-pytest.progress.log",
             ],
         )
 
-    def test_background_capture_files_from_redirect_in_macos_tempdir(self) -> None:
-        # `cmd > /var/folders/.../T/foo.log 2>&1` is a kickoff, not a
-        # peek. The redirect regex must accept the OS's actual tempdir
-        # (resolved from tempfile.gettempdir()) plus /tmp so the active-
-        # background detector picks up real long-command kickoffs on
-        # both linux and macOS.
-        sys_tmp = tempfile.gettempdir().rstrip("/")
-        capture_path = f"{sys_tmp}/yoke-cmd.example.log"
-        command = f"sh test.sh > {capture_path} 2>&1"
+    def test_background_capture_files_from_redirect_under_client_root(self) -> None:
+        # `cmd > <client tempdir>/foo.log 2>&1` is a kickoff, not a peek.
+        # The redirect regex accepts whatever roots the client reported.
+        client_tmp = "/var/folders/jb/abc/T"
+        command = f"sh test.sh > {client_tmp}/yoke-cmd.example.log 2>&1"
         self.assertEqual(
-            _extract_background_capture_files(command),
-            [capture_path],
+            _extract_background_capture_files(command, (client_tmp,)),
+            [f"{client_tmp}/yoke-cmd.example.log"],
         )
+        self.assertEqual(_extract_background_capture_files(command, ROOTS), [])
 
 
 class TestEvaluatePayload(unittest.TestCase):
     def setUp(self) -> None:
         # Default: no DB, warn mode, no recent events. Each test overrides as
         # needed via mock.patch.
-        self._mode_patch = mock.patch.object(lint, "_read_lint_mode", return_value="warn")
+        self._mode_patch = mock.patch.object(
+            lint, "_read_lint_mode", return_value="warn"
+        )
         self._mode_patch.start()
         self.addCleanup(self._mode_patch.stop)
 
@@ -100,57 +102,64 @@ class TestEvaluatePayload(unittest.TestCase):
     def test_sleep_cadence_at_floor_allowed(self) -> None:
         # sleep 60 is exactly the fallback cadence floor — not flagged
         self.assertIsNone(
-            lint.evaluate_payload(
-                _bash_payload("sleep 60 && tail -20 /tmp/foo.out")
-            )
+            lint.evaluate_payload(_bash_payload("sleep 60 && tail -20 /tmp/foo.out"))
         )
 
     def test_sleep_cadence_above_floor_allowed(self) -> None:
         self.assertIsNone(
-            lint.evaluate_payload(
-                _bash_payload("sleep 120 && tail -20 /tmp/foo.out")
-            )
+            lint.evaluate_payload(_bash_payload("sleep 120 && tail -20 /tmp/foo.out"))
         )
 
-    def test_peek_completed_command_allowed(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            capture_file = os.path.join(tmp, "tmp", "foo.out")
-            os.makedirs(os.path.dirname(capture_file))
-            with open(capture_file, "w", encoding="utf-8") as fh:
-                fh.write("done\n")
-            # Set mtime well in the past — owning command "completed"
-            old_time = time.time() - 600
-            os.utime(capture_file, (old_time, old_time))
-            # The peek extractor is regex-bound to /tmp/... paths, so use the
-            # canonical path; we stat the literal string. Point to the real file.
-            with mock.patch.object(
-                lint, "_owning_command_still_running", return_value=False
+    def test_peek_after_completion_allowed(self) -> None:
+        # The client saw the exit sentinel (or a stale capture): a repeated
+        # peek is post-completion inspection, not polling.
+        for state in (FINISHED, STALE):
+            with (
+                self.subTest(state=state),
+                mock.patch.object(lint, "_db_available", return_value=True),
+                mock.patch.object(
+                    lint, "_recent_bash_commands", return_value=_PRIOR_PEEK
+                ),
             ):
                 self.assertIsNone(
-                    lint.evaluate_payload(_bash_payload("tail -80 /tmp/foo.out"))
+                    lint.evaluate_payload(
+                        _bash_payload(
+                            "tail -80 /tmp/foo.out",
+                            captures={"/tmp/foo.out": state},
+                        )
+                    )
                 )
 
+    def test_peek_without_client_fact_allowed(self) -> None:
+        # No capture fact: no roots, so nothing counts as a capture peek.
+        payload = _bash_payload("tail -80 /tmp/foo.out", roots=())
+        with (
+            mock.patch.object(lint, "_db_available", return_value=True),
+            mock.patch.object(lint, "_recent_bash_commands", return_value=_PRIOR_PEEK),
+        ):
+            self.assertIsNone(lint.evaluate_payload(payload))
+
     def test_first_peek_while_running_allowed(self) -> None:
-        with mock.patch.object(
-                lint, "_owning_command_still_running", return_value=True
-             ), \
-             mock.patch.object(lint, "_db_available", return_value=True), \
-             mock.patch.object(lint, "_recent_bash_commands", return_value=[]):
+        with (
+            mock.patch.object(lint, "_db_available", return_value=True),
+            mock.patch.object(lint, "_recent_bash_commands", return_value=[]),
+        ):
             self.assertIsNone(
-                lint.evaluate_payload(_bash_payload("tail -80 /tmp/foo.out"))
+                lint.evaluate_payload(
+                    _bash_payload("tail -80 /tmp/foo.out", captures=LIVE)
+                )
             )
 
     def test_second_peek_while_running_flagged(self) -> None:
         recent = [
             ("turn-0", "2026-04-24T12:00:00", "tail -80 /tmp/foo.out"),
         ]
-        with mock.patch.object(
-                lint, "_owning_command_still_running", return_value=True
-             ), \
-             mock.patch.object(lint, "_db_available", return_value=True), \
-             mock.patch.object(lint, "_recent_bash_commands", return_value=recent):
+        with (
+            mock.patch.object(lint, "_db_available", return_value=True),
+            mock.patch.object(lint, "_recent_bash_commands", return_value=recent),
+        ):
             result = lint.evaluate_payload(
-                _bash_payload("tail -80 /tmp/foo.out", turn_id="turn-1")
+                _bash_payload("tail -80 /tmp/foo.out", turn_id="turn-1", captures=LIVE)
             )
         self.assertIsNotNone(result)
         assert result is not None
@@ -164,14 +173,15 @@ class TestEvaluatePayload(unittest.TestCase):
         recent = [
             ("turn-0", "2026-04-24T12:00:00", "tail -80 /tmp/other.out"),
         ]
-        with mock.patch.object(
-                lint, "_owning_command_still_running", return_value=True
-             ), \
-             mock.patch.object(lint, "_db_available", return_value=True), \
-             mock.patch.object(lint, "_recent_bash_commands", return_value=recent):
+        with (
+            mock.patch.object(lint, "_db_available", return_value=True),
+            mock.patch.object(lint, "_recent_bash_commands", return_value=recent),
+        ):
             self.assertIsNone(
                 lint.evaluate_payload(
-                    _bash_payload("tail -80 /tmp/foo.out", turn_id="turn-1")
+                    _bash_payload(
+                        "tail -80 /tmp/foo.out", turn_id="turn-1", captures=LIVE
+                    )
                 )
             )
 
@@ -187,15 +197,16 @@ class TestEvaluatePayload(unittest.TestCase):
             ("turn-1", "2026-04-24T12:01:00", "git branch"),
             ("turn-0", "2026-04-24T12:00:00", "tail -80 /tmp/foo.out"),
         ]
-        with mock.patch.object(
-                lint, "_owning_command_still_running", return_value=True
-             ), \
-             mock.patch.object(lint, "_db_available", return_value=True), \
-             mock.patch.object(lint, "_recent_bash_commands", return_value=recent):
+        with (
+            mock.patch.object(lint, "_db_available", return_value=True),
+            mock.patch.object(lint, "_recent_bash_commands", return_value=recent),
+        ):
             # The oldest peek at turn-0 is beyond the 5-turn window — should pass.
             self.assertIsNone(
                 lint.evaluate_payload(
-                    _bash_payload("tail -80 /tmp/foo.out", turn_id="turn-7")
+                    _bash_payload(
+                        "tail -80 /tmp/foo.out", turn_id="turn-7", captures=LIVE
+                    )
                 )
             )
 
@@ -203,14 +214,13 @@ class TestEvaluatePayload(unittest.TestCase):
         recent = [
             ("turn-0", "2026-04-24T12:00:00", "tail -80 /tmp/foo.out"),
         ]
-        with mock.patch.object(lint, "_read_lint_mode", return_value="deny"), \
-             mock.patch.object(
-                lint, "_owning_command_still_running", return_value=True
-             ), \
-             mock.patch.object(lint, "_db_available", return_value=True), \
-             mock.patch.object(lint, "_recent_bash_commands", return_value=recent):
+        with (
+            mock.patch.object(lint, "_read_lint_mode", return_value="deny"),
+            mock.patch.object(lint, "_db_available", return_value=True),
+            mock.patch.object(lint, "_recent_bash_commands", return_value=recent),
+        ):
             result = lint.evaluate_payload(
-                _bash_payload("tail -80 /tmp/foo.out", turn_id="turn-1")
+                _bash_payload("tail -80 /tmp/foo.out", turn_id="turn-1", captures=LIVE)
             )
         self.assertIsNotNone(result)
         assert result is not None
@@ -222,13 +232,12 @@ class TestEvaluatePayload(unittest.TestCase):
         recent_with_bg = [
             ("turn-0", "2026-04-24T12:00:00", "sh test.sh > /tmp/foo.out 2>&1"),
         ]
-        with mock.patch.object(
-                lint, "_owning_command_still_running", return_value=True
-             ), \
-             mock.patch.object(lint, "_db_available", return_value=True), \
-             mock.patch.object(
+        with (
+            mock.patch.object(lint, "_db_available", return_value=True),
+            mock.patch.object(
                 lint, "_recent_bash_commands", return_value=recent_with_bg
-             ):
+            ),
+        ):
             self.assertIsNone(
                 lint.evaluate_payload(
                     _bash_payload(
@@ -249,13 +258,12 @@ class TestEvaluatePayload(unittest.TestCase):
                 "--progress-capture /tmp/progress.log -- runtime/api/",
             ),
         ]
-        with mock.patch.object(
-                lint, "_owning_command_still_running", return_value=True
-             ), \
-             mock.patch.object(lint, "_db_available", return_value=True), \
-             mock.patch.object(
+        with (
+            mock.patch.object(lint, "_db_available", return_value=True),
+            mock.patch.object(
                 lint, "_recent_bash_commands", return_value=recent_with_bg
-             ):
+            ),
+        ):
             self.assertIsNone(
                 lint.evaluate_payload(_bash_payload("echo wait", turn_id="turn-1"))
             )
@@ -264,13 +272,12 @@ class TestEvaluatePayload(unittest.TestCase):
         recent_with_bg = [
             ("turn-0", "2026-04-24T12:00:00", "sh test.sh > /tmp/foo.out 2>&1"),
         ]
-        with mock.patch.object(
-                lint, "_owning_command_still_running", return_value=True
-             ), \
-             mock.patch.object(lint, "_db_available", return_value=True), \
-             mock.patch.object(
+        with (
+            mock.patch.object(lint, "_db_available", return_value=True),
+            mock.patch.object(
                 lint, "_recent_bash_commands", return_value=recent_with_bg
-             ):
+            ),
+        ):
             self.assertIsNone(
                 lint.evaluate_payload(
                     _non_bash_payload("ScheduleWakeup", turn_id="turn-1")
@@ -281,13 +288,12 @@ class TestEvaluatePayload(unittest.TestCase):
         recent_with_bg = [
             ("turn-0", "2026-04-24T12:00:00", "sh test.sh > /tmp/foo.out 2>&1"),
         ]
-        with mock.patch.object(
-                lint, "_owning_command_still_running", return_value=True
-             ), \
-             mock.patch.object(lint, "_db_available", return_value=True), \
-             mock.patch.object(
+        with (
+            mock.patch.object(lint, "_db_available", return_value=True),
+            mock.patch.object(
                 lint, "_recent_bash_commands", return_value=recent_with_bg
-             ):
+            ),
+        ):
             self.assertIsNone(
                 lint.evaluate_payload(
                     _non_bash_payload(
@@ -299,9 +305,7 @@ class TestEvaluatePayload(unittest.TestCase):
             )
 
     def test_schedule_wakeup_without_active_bg_allowed(self) -> None:
-        self.assertIsNone(
-            lint.evaluate_payload(_non_bash_payload("ScheduleWakeup"))
-        )
+        self.assertIsNone(lint.evaluate_payload(_non_bash_payload("ScheduleWakeup")))
 
     def test_task_output_without_active_bg_allowed(self) -> None:
         self.assertIsNone(
@@ -315,7 +319,9 @@ class TestEvaluatePayload(unittest.TestCase):
 
     def test_unrelated_tool_not_flagged(self) -> None:
         self.assertIsNone(
-            lint.evaluate_payload(_non_bash_payload("Grep", tool_input={"pattern": "x"}))
+            lint.evaluate_payload(
+                _non_bash_payload("Grep", tool_input={"pattern": "x"})
+            )
         )
 
     def test_db_read_with_check_progress_description_not_flagged(self) -> None:
@@ -324,18 +330,17 @@ class TestEvaluatePayload(unittest.TestCase):
         recent_with_bg = [
             ("turn-0", "2026-04-24T12:00:00", "sh test.sh > /tmp/foo.out 2>&1"),
         ]
-        with mock.patch.object(
-                lint, "_owning_command_still_running", return_value=True
-             ), \
-             mock.patch.object(lint, "_db_available", return_value=True), \
-             mock.patch.object(
+        with (
+            mock.patch.object(lint, "_db_available", return_value=True),
+            mock.patch.object(
                 lint, "_recent_bash_commands", return_value=recent_with_bg
-             ):
+            ),
+        ):
             self.assertIsNone(
                 lint.evaluate_payload(
                     _bash_payload(
                         "python3 -m yoke_core.cli.db_router query "
-                        "\"SELECT id, body FROM epic_progress_notes\"",
+                        '"SELECT id, body FROM epic_progress_notes"',
                         description="Check progress notes for task 006",
                         turn_id="turn-1",
                     )

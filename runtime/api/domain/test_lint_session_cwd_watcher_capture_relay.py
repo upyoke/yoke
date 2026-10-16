@@ -65,7 +65,10 @@ def _capture(stream: str, *, session_id: str = SESSION_ID) -> Path:
 
 
 def _remote_decision(
-    tool_name: str, tool_input: dict, *, include_job_tmp: bool = False,
+    tool_name: str,
+    tool_input: dict,
+    *,
+    include_job_tmp: bool = False,
 ) -> Outcome:
     payload = {
         "session_id": SESSION_ID,
@@ -75,29 +78,46 @@ def _remote_decision(
     }
     if include_job_tmp:
         payload.update(client_claude_job_tmp_fact(str(CLAUDE_JOB_DIR)))
-    decision = lint_session_cwd.evaluate(HookContext(
-        event_name="PreToolUse",
-        executor_family="claude",
-        executor_surface="claude",
-        payload=payload,
-        tool_name=tool_name,
-        session_id=SESSION_ID,
-        remote=True,
-    ))
-    return decision.outcome
+    return _same_decision_both_ways(payload, tool_name)
+
+
+def _same_decision_both_ways(payload: dict, tool_name: str) -> Outcome:
+    """Evaluate locally and remotely; the facts alone decide, so both agree."""
+    local, remote = (
+        lint_session_cwd.evaluate(
+            HookContext(
+                event_name="PreToolUse",
+                executor_family="claude",
+                executor_surface="claude",
+                payload=dict(payload),
+                tool_name=tool_name,
+                session_id=SESSION_ID,
+                remote=is_remote,
+            )
+        )
+        for is_remote in (False, True)
+    )
+    assert local.outcome is remote.outcome
+    return remote.outcome
 
 
 @pytest.mark.parametrize("root", ["relative/root", str(Path(CLIENT_ROOT.anchor))])
 def test_client_root_contract_rejects_non_scoped_roots(root: str) -> None:
-    assert client_scratch_root({
-        CLIENT_SCRATCH_ROOT_KEY: {
-            "schema": CLIENT_SCRATCH_ROOT_SCHEMA,
-            "root": root,
-        }
-    }) == ""
+    assert (
+        client_scratch_root(
+            {
+                CLIENT_SCRATCH_ROOT_KEY: {
+                    "schema": CLIENT_SCRATCH_ROOT_SCHEMA,
+                    "root": root,
+                }
+            }
+        )
+        == ""
+    )
 
 
-def test_client_job_tmp_contract_is_bounded() -> None:
+def test_client_job_tmp_contract_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLAUDE_JOB_DIR", str(CLAUDE_JOB_DIR))
     fact = client_claude_job_tmp_fact(str(CLAUDE_JOB_DIR))
     assert fact == {
         CLIENT_CLAUDE_JOB_TMP_KEY: {
@@ -106,19 +126,25 @@ def test_client_job_tmp_contract_is_bounded() -> None:
         }
     }
     assert client_claude_job_tmp(fact) == str(CLAUDE_JOB_DIR / "tmp")
-    assert client_claude_job_tmp(
-        {}, job_dir=str(CLAUDE_JOB_DIR),
-    ) == str(CLAUDE_JOB_DIR / "tmp")
-    assert client_claude_job_tmp({
-        CLIENT_CLAUDE_JOB_TMP_KEY: {
-            "schema": CLIENT_CLAUDE_JOB_TMP_SCHEMA,
-            "root": str(CLAUDE_JOB_DIR),
-        }
-    }) == ""
+    assert client_claude_job_tmp({}) == ""
+    assert (
+        client_claude_job_tmp(
+            {
+                CLIENT_CLAUDE_JOB_TMP_KEY: {
+                    "schema": CLIENT_CLAUDE_JOB_TMP_SCHEMA,
+                    "root": str(CLAUDE_JOB_DIR),
+                }
+            }
+        )
+        == ""
+    )
 
 
 def test_relay_allows_background_launch_and_failure_capture_reads(
-    conn, claimed_worktree: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    conn,
+    claimed_worktree: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     server_root = tmp_path / "server-scratch"
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(server_root))
@@ -135,19 +161,34 @@ def test_relay_allows_background_launch_and_failure_capture_reads(
     assert str(progress) in launch_targets
     assert extract_command_targets(f"tail -80 {raw}") == [str(raw)]
 
-    assert _remote_decision(
-        "Bash", {"command": launch, "run_in_background": True},
-    ) is Outcome.NOOP
-    assert _remote_decision(
-        "Bash", {"command": f"tail -80 {raw}"},
-    ) is Outcome.NOOP
-    assert _remote_decision(
-        "Read", {"file_path": str(raw)},
-    ) is Outcome.NOOP
+    assert (
+        _remote_decision(
+            "Bash",
+            {"command": launch, "run_in_background": True},
+        )
+        is Outcome.NOOP
+    )
+    assert (
+        _remote_decision(
+            "Bash",
+            {"command": f"tail -80 {raw}"},
+        )
+        is Outcome.NOOP
+    )
+    assert (
+        _remote_decision(
+            "Read",
+            {"file_path": str(raw)},
+        )
+        is Outcome.NOOP
+    )
 
 
 def test_relay_without_client_root_reproduces_scope_denial(
-    conn, claimed_worktree: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    conn,
+    claimed_worktree: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "server-scratch"))
     payload = {
@@ -156,57 +197,83 @@ def test_relay_without_client_root_reproduces_scope_denial(
         "tool_input": {"file_path": str(_capture("raw"))},
     }
 
-    decision = lint_session_cwd.evaluate(HookContext(
-        event_name="PreToolUse",
-        executor_family="claude",
-        executor_surface="claude",
-        payload=payload,
-        tool_name="Read",
-        session_id=SESSION_ID,
-        remote=True,
-    ))
-
-    assert decision.outcome is Outcome.DENY
+    assert _same_decision_both_ways(payload, "Read") is Outcome.DENY
 
 
 def test_relay_rejects_another_sessions_capture(
-    conn, claimed_worktree: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    conn,
+    claimed_worktree: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "server-scratch"))
 
-    assert _remote_decision(
-        "Read", {"file_path": str(_capture("raw", session_id="other"))},
-    ) is Outcome.DENY
+    assert (
+        _remote_decision(
+            "Read",
+            {"file_path": str(_capture("raw", session_id="other"))},
+        )
+        is Outcome.DENY
+    )
 
 
 def test_relay_keeps_other_client_scratch_subtrees_claim_gated(
-    conn, claimed_worktree: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    conn,
+    claimed_worktree: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "server-scratch"))
     dispatch_input = (
-        CLIENT_ROOT / "1" / "sessions" / SESSION_ID / "runs" / "pid-444"
-        / "dispatch-inputs" / "prompt.md"
+        CLIENT_ROOT
+        / "1"
+        / "sessions"
+        / SESSION_ID
+        / "runs"
+        / "pid-444"
+        / "dispatch-inputs"
+        / "prompt.md"
     )
 
-    assert _remote_decision(
-        "Read", {"file_path": str(dispatch_input)},
-    ) is Outcome.DENY
+    assert (
+        _remote_decision(
+            "Read",
+            {"file_path": str(dispatch_input)},
+        )
+        is Outcome.DENY
+    )
 
 
 def test_relay_allows_only_the_evidenced_background_job_tmp(
-    conn, claimed_worktree: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    conn,
+    claimed_worktree: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "server-scratch"))
     target = CLAUDE_JOB_DIR / "tmp" / "verification.log"
 
-    assert _remote_decision(
-        "Bash", {"command": f"touch {target}"}, include_job_tmp=True,
-    ) is Outcome.NOOP
-    assert _remote_decision(
-        "Bash", {"command": f"touch {target}"}, include_job_tmp=False,
-    ) is Outcome.DENY
-    assert _remote_decision(
-        "Bash",
-        {"command": f"touch {CLAUDE_JOB_DIR / 'result.json'}"},
-        include_job_tmp=True,
-    ) is Outcome.DENY
+    assert (
+        _remote_decision(
+            "Bash",
+            {"command": f"touch {target}"},
+            include_job_tmp=True,
+        )
+        is Outcome.NOOP
+    )
+    assert (
+        _remote_decision(
+            "Bash",
+            {"command": f"touch {target}"},
+            include_job_tmp=False,
+        )
+        is Outcome.DENY
+    )
+    assert (
+        _remote_decision(
+            "Bash",
+            {"command": f"touch {CLAUDE_JOB_DIR / 'result.json'}"},
+            include_job_tmp=True,
+        )
+        is Outcome.DENY
+    )

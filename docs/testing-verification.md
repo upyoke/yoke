@@ -57,7 +57,10 @@ clean JSON authoring document in `$VISUAL`, `$EDITOR`, or `vi` and compare-and-s
 metadata plus the complete ordered case set. The document carries every case
 field, including `target_envs` and `stage_reason` (required when a case targets
 an environment without `role.production: true`; see
-[case environment obligations](public/reference/qa-platform/standalone-plans.md#case-environment-obligations)).
+[case environment obligations](public/reference/qa-platform/standalone-plans.md#case-environment-obligations)),
+and `wake_path`/`wake_evidence` (`manual` for a case steering starts once real
+traffic exists; see
+[cases that wait for real traffic](public/reference/qa-platform/standalone-plans.md#cases-that-wait-for-real-traffic)).
 Invalid JSON, an editor failure, a concurrent
 edit, or a save that would reset a stored case field the document left out
 (`qa_plan_edit_unedited_field_changed`) preserves the temporary document and
@@ -65,6 +68,11 @@ refuses the write.
 An unchanged document preserves the plan timestamp and its case row identities.
 The lower-level `qa plan-cases replace` adapter remains available for callers
 that already hold a numeric plan id and intentionally replace cases only.
+
+Retire a plan nothing depends on any more with
+`yoke qa plan retire <slug> --reason "<why>"` from a session holding a steering
+seat on the plan's project; see
+[retire a plan](public/reference/qa-platform/standalone-plans.md#retire-a-plan).
 
 Attach a reusable plan as a project default for one workflow transition:
 

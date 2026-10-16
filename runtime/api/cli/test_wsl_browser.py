@@ -23,8 +23,11 @@ def test_wslview_then_explorer_reach_the_windows_browser(monkeypatch, first_stat
         status = first_status if argv[0].endswith("wslview") else 0
         return subprocess.CompletedProcess(argv, status, "", "failed" if status else "")
 
-    monkeypatch.setattr(browser.subprocess, "run", run)
-    monkeypatch.setattr(browser.webbrowser, "open", lambda _: False)
+    monkeypatch.setattr(subprocess, "run", run)
+    # webbrowser's POSIX helpers would inherit the terminal; WSL never uses it.
+    monkeypatch.setattr(
+        browser.webbrowser, "open", lambda _: pytest.fail("webbrowser.open used")
+    )
     url = "http://localhost:8060/?token=a&other=b"
     result = browser.open_url(
         url,
@@ -34,12 +37,13 @@ def test_wslview_then_explorer_reach_the_windows_browser(monkeypatch, first_stat
     assert result.opened
     assert result.method == ("wslview" if first_status == 0 else "explorer.exe")
     assert all(argv[1:] == [url] for argv in calls)
-    assert "webbrowser.open returned False" in result.reason
 
 
 def test_wsl_missing_openers_report_recovery_evidence(monkeypatch):
     monkeypatch.setattr(browser.shutil, "which", lambda _: None)
-    monkeypatch.setattr(browser.webbrowser, "open", lambda _: False)
+    monkeypatch.setattr(
+        browser.webbrowser, "open", lambda _: pytest.fail("webbrowser.open used")
+    )
     result = browser.open_url(
         "https://example.invalid",
         platform="linux",

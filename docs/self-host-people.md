@@ -29,11 +29,37 @@ With company sign-in (OIDC), sign in on the workbench to approve your first
 machine. The setup wizard's **A team server** option discovers that sign-in
 method after you enter the server URL.
 
-Without company sign-in, a teammate's first machine connects with a pasted API
-token or token file: `yoke connect https://yoke.internal --token-stdin` or
-`--token-file PATH`. The first-boot admin token remains the bootstrap; an admin
-can mint other API tokens on the host with
-`docker compose exec --user yoke core python3 -m yoke_core.domain.api_tokens_cli mint --actor <actor-id> --name <engineer-label>`.
+Without company sign-in, an organization admin invites a teammate by name:
+
+```bash
+yoke invite Ana --role operator
+```
+
+Copy the code now; it appears once, expires in 24 hours and works once. Send it
+privately to Ana, who runs `yoke connect https://yoke.internal`, chooses
+**Enter invite code**, and pastes it. The first-boot admin token remains the
+bootstrap. With company sign-in, use `yoke invite ana@example.com` and ask Ana
+to sign in with that verified email.
+
+Use `yoke invites list` for the `code-N` or `email-N` reference. Revoke with
+`yoke invites revoke REF`; replace a lost or expired code with
+`yoke invites reissue code-N`, which keeps the same person. Email invitations
+need revoke and a new invite. See
+[Teammate invitations](public/reference/teammate-invitations.md).
+
+For an explicit token for your own identity, use your connected terminal:
+
+```bash
+yoke tokens create --name ci
+yoke tokens list
+yoke tokens revoke TOKEN-ID
+```
+
+Copy the new token now; it is shown once. Lost it? List its ID, revoke it, and
+create a new one. These commands need no project or harness session. Use the
+token with `yoke connect https://yoke.internal --token-stdin` or `--token-file PATH`.
+The token acts as you; it does not create a teammate or give them their own identity.
+Profile → API tokens → **New token** offers the same creation and recovery.
 
 A local universe runs only on its computer and cannot connect teammates or a
 second machine. `yoke machines pending` explains this instead of showing an empty

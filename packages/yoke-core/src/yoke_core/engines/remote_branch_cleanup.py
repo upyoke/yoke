@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Literal
 
 from yoke_core.engines.branch_landed_evidence import assess_branch_landed
+from yoke_core.engines.git_worktree_registry import detached_head
 
 
 RemoteBranchDeleteStatus = Literal["absent", "deleted", "preserved"]
@@ -89,6 +90,10 @@ def delete_remote_branch_if_merged(
     because a merge pushed moments earlier is not yet advertised to this
     checkout and losing that race preserves a lane that is already landed.
     """
+    if detached_head(branch):
+        return RemoteBranchDeleteResult(
+            "absent", "a detached worktree has no remote branch of its own"
+        )
     if branch == target_branch:
         return _preserved("cleanup branch is the target branch")
 
@@ -119,29 +124,21 @@ def delete_remote_branch_if_merged(
     advertised_sha = advertised[0][0]
 
     remote_target = f"refs/remotes/origin/{target_branch}"
-    target_fetch = run_git(
-        ["fetch", "origin", f"+{target_ref}:{remote_target}"]
-    )
+    target_fetch = run_git(["fetch", "origin", f"+{target_ref}:{remote_target}"])
     if target_fetch.returncode != 0:
         return _preserved("target branch could not be refreshed")
 
     remote_branch = f"refs/remotes/origin/{branch}"
-    branch_fetch = run_git(
-        ["fetch", "origin", f"+{exact_ref}:{remote_branch}"]
-    )
+    branch_fetch = run_git(["fetch", "origin", f"+{exact_ref}:{remote_branch}"])
     if branch_fetch.returncode != 0:
         return _preserved("remote branch could not be refreshed")
 
-    branch_tip = run_git(
-        ["rev-parse", "--verify", f"{remote_branch}^{{commit}}"]
-    )
+    branch_tip = run_git(["rev-parse", "--verify", f"{remote_branch}^{{commit}}"])
     resolved_sha = (branch_tip.stdout or "").strip()
     if branch_tip.returncode != 0 or resolved_sha != advertised_sha:
         return _preserved("remote branch changed while cleanup was proving it")
 
-    target_tip = run_git(
-        ["rev-parse", "--verify", f"{remote_target}^{{commit}}"]
-    )
+    target_tip = run_git(["rev-parse", "--verify", f"{remote_target}^{{commit}}"])
     target_sha = (target_tip.stdout or "").strip()
     if target_tip.returncode != 0 or not target_sha:
         return _preserved("refreshed target branch could not be resolved")

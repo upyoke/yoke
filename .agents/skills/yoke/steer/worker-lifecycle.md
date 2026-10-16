@@ -12,8 +12,11 @@ then resume only after blocker clears. Parked/in-flight/landing quiet is not
 grounds to terminate or restaff. Active work claim protects its holder.
 
 Headless process exits between turns normally: running→message it;
-exited→message resumes transcript; resuming now→let start. Terminate only when
-evidence says cannot resume, failed resume, or delivered resume got no answer.
+exited→message resumes transcript; resuming now→let start. A gone process
+(native_process_gone) means resume, not terminate: the relay resumes it, and
+`yoke session-control session wake SESSION-ID` retries; item_has_live_worker on
+such a holder means wake it, not replace it. Terminate only when evidence says
+transcript gone, failed resume, or delivered resume got no answer.
 TERMINATION_RESUME_IN_FLIGHT prevents killing an ongoing wake by accident.
 
 ## 1. Encode dependency edges before availability

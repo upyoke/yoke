@@ -87,13 +87,23 @@ a foreground terminal, `yoke setup --agent` ([Agent setup](agent-setup.md)) or
 uses Textual's native console lifecycle; it has no POSIX foreground job group.
 Intentional noninteractive setup does not use these terminal checks.
 
+The wizard runs its own helper processes — login-shell PATH probes, browser
+and Node checks, package installs — with no terminal: they read nothing from
+it and cannot become its foreground job. Interactive sudo cannot ask for a
+password while the wizard is open; that step refuses with
+`setup_wizard_sudo_refused`. Run `yoke setup` again: its preparation step asks
+for the password before the wizard opens.
+
 If another job takes the terminal during the wizard, setup restores terminal
-input and mouse modes and exits with `setup_terminal_ownership_lost`. Return to
-the foreground shell and run `yoke setup` again. Completed setup changes remain;
-the diagnostic does not imply rollback. If restoration fails, the diagnostic
-names the failure and asks you to run `stty sane` before retrying. Suspension
-by `SIGTSTP` and foreground resumption by `SIGCONT` preserve your wizard state,
-as does the copy view below.
+input and mouse modes and exits with `setup_terminal_ownership_lost`. The
+message names what setup observed: the job-control signal (`SIGTTIN` or
+`SIGTTOU`), the terminal's foreground process group with its command when that
+process still runs, and the error number when the terminal check failed.
+Return to the foreground shell and run `yoke setup` again. Completed setup
+changes remain; the diagnostic does not imply rollback. If restoration fails,
+the diagnostic names the failure and asks you to run `stty sane` before
+retrying. Suspension by `SIGTSTP` and foreground resumption by `SIGCONT`
+preserve your wizard state, as does the copy view below.
 
 Before opening the wizard, onboarding prepares its scratch and cache directories.
 On Linux it also runs the existing Python venv and browser runtime setup,

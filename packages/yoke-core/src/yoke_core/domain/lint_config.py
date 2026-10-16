@@ -53,7 +53,11 @@ def _normalize_root(root: Optional[str]) -> Optional[str]:
 
 
 def config_path(root: Optional[str] = None) -> Optional[str]:
-    base = _normalize_root(root) if root is not None else _normalize_root(_workspace_root())
+    base = (
+        _normalize_root(root)
+        if root is not None
+        else _normalize_root(_workspace_root())
+    )
     return os.path.join(base, *CONFIG_RELPATH) if base else None
 
 
@@ -124,6 +128,7 @@ def describe_config_source(
     mode: str,
     *,
     root: Optional[str] = None,
+    payload: object | None = None,
 ) -> str:
     """Return a one-line note naming the config file that decided *mode*.
 
@@ -134,9 +139,15 @@ def describe_config_source(
     is visible instead of presenting as a config edit that did nothing.
 
     *mode* is the already-resolved effective mode rather than a second
-    lookup, so the note stays truthful when the caller resolved it from a
-    payload snapshot instead of from disk.
+    lookup. A hook *payload* carrying the client's lint-config snapshot is
+    described as that snapshot: the file lives on the client machine, and
+    the evaluating process may be the authority on another machine.
     """
+    if isinstance(payload, dict) and SNAPSHOT_PAYLOAD_KEY in payload:
+        return (
+            "Config: the session checkout's .yoke/lint-config "
+            f"({guard_or_module}={mode})."
+        )
     path = config_path(root)
     if path is None:
         return f"Config: no .yoke/lint-config found; {guard_or_module}={mode} (built-in default)."
@@ -148,11 +159,22 @@ def render_lint_config() -> str:
 
 
 __all__ = [
-    "ALLOW_WARN_TOKEN", "CONFIG_RELPATH", "DENY", "GUARD_CATALOG",
-    "GuardSpec", "NESTED_CLAUDE_CLI_GUARD", "REMOTE_CLAUDE_CLI_GUARD",
-    "SNAPSHOT_PAYLOAD_KEY", "WARN",
-    "config_path", "describe_config_source", "is_registered",
-    "render_lint_config", "reset_cache",
-    "resolve_mode", "resolve_mode_for_payload", "resolve_mode_from_snapshot",
+    "ALLOW_WARN_TOKEN",
+    "CONFIG_RELPATH",
+    "DENY",
+    "GUARD_CATALOG",
+    "GuardSpec",
+    "NESTED_CLAUDE_CLI_GUARD",
+    "REMOTE_CLAUDE_CLI_GUARD",
+    "SNAPSHOT_PAYLOAD_KEY",
+    "WARN",
+    "config_path",
+    "describe_config_source",
+    "is_registered",
+    "render_lint_config",
+    "reset_cache",
+    "resolve_mode",
+    "resolve_mode_for_payload",
+    "resolve_mode_from_snapshot",
     "snapshot",
 ]

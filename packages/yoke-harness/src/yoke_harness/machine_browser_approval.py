@@ -2,8 +2,8 @@
 
 A driver lists the browser's open tab URLs, then presses the visible
 "Approve machine" control only in a tab whose URL this contract allows, after
-revalidating that the tab still shows it, and reports the URL the tab
-navigated to. This module owns which tabs qualify and which outcomes count as
+revalidating that the tab still shows it, and observes navigation or the visible
+connected confirmation in that same tab. This module owns which tabs qualify and which outcomes count as
 an approval; drivers own only how they talk to their browser.
 """
 
@@ -18,6 +18,7 @@ from yoke_contracts.machine_approval_coordinates import machine_approval_coordin
 
 
 APPROVE_CONTROL_LABEL = "Approve machine"
+CONNECTED_CONFIRMATION = "Machine connected"
 _REFUSED_STATUSES = frozenset(
     {"denied", "expired", "missing", "not_admin", "not_member", "used"}
 )
@@ -105,14 +106,19 @@ def approval_outcome(
     allowed_urls: list[str],
     expected_origin: str,
 ) -> BrowserApprovalResult:
-    """Judge one driver report: only a same-origin, unrefused navigation counts."""
-    if state != "approved":
+    """Validate navigation or visible confirmation in the exact approved tab."""
+    if state not in {"approved", "approved_in_place"}:
         return BrowserApprovalResult(
             False,
             {"browser": browser, "state": state or "empty"},
             STATE_ERRORS.get(state, "machine_browser_approval_failed"),
         )
-    if starting_url not in allowed_urls or not result_url or result_url == starting_url:
+    in_place = state == "approved_in_place"
+    if (
+        starting_url not in allowed_urls
+        or not result_url
+        or (result_url == starting_url) != in_place
+    ):
         return BrowserApprovalResult(
             False, {"browser": browser}, "machine_browser_approval_navigation_missing"
         )
@@ -130,12 +136,14 @@ def approval_outcome(
             "approval_entry": urlsplit(starting_url).path,
             "result_url": safe_url,
             "visible_control": APPROVE_CONTROL_LABEL,
+            **({"visible_confirmation": CONNECTED_CONFIRMATION} if in_place else {}),
         },
     )
 
 
 __all__ = [
     "APPROVE_CONTROL_LABEL",
+    "CONNECTED_CONFIRMATION",
     "BrowserApprovalResult",
     "STATE_ERRORS",
     "approval_outcome",

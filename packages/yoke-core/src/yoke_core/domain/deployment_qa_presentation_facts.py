@@ -172,6 +172,8 @@ def run_facts(conn, run_id):
         return None
 
     def read():
+        from yoke_core.domain.deployment_runs_schema import bound_sources_column
+
         markers = ",".join("%s" for _ in runs)
         rows = query_rows(
             conn,
@@ -179,14 +181,22 @@ def run_facts(conn, run_id):
             "o.id AS tenant_id,o.slug AS tenant_slug,o.name AS tenant_name,"
             "dr.flow,dr.status,dr.current_stage,dr.release_lineage,"
             "dr.artifact_identity,dr.composition_frozen_at,dr.requirement_snapshot,"
-            "dr.bound_sources,"
+            f"{bound_sources_column('dr', include_preparation_receipt=False)},"
             "df.definition_schema_version,df.stages "
             "FROM deployment_runs dr JOIN deployment_flows df ON df.id=dr.flow "
             "JOIN projects p ON p.id=dr.project_id JOIN organizations o ON o.id=p.org_id "
             f"WHERE dr.id IN ({markers})",
             runs,
         )
-        return {str(row["id"]): dict(row) for row in rows}
+        from yoke_core.domain.deployment_run_bound_sources import parse_bound_sources
+
+        return {
+            str(row["id"]): {
+                **dict(row),
+                "bound_sources": parse_bound_sources(row["bound_sources"]),
+            }
+            for row in rows
+        }
 
     return presentation_read(conn, ("qa_presented_runs", runs), read).get(run_id)
 

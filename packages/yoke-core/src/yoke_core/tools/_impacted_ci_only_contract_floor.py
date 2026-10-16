@@ -16,6 +16,9 @@ The token-scope member is the same shape read from the other end: it walks
 every source module looking for a call that resolves an installation token
 without declaring the permissions it needs, so the file that breaks it is
 always a file the contract does not import — the one that just grew the call.
+The hook-policy local-read member has the same shape: it walks every module a
+server-run hook policy reaches and classifies each process launch or file
+read, so the module that breaks it is one it never imports.
 
 Lanes run impacted selection, so this family must execute on every local
 impacted run. Keep the set fast (roughly 30 seconds) — the budget member is
@@ -31,6 +34,7 @@ CI_ONLY_CONTRACT_FLOOR_TESTS = (
     "runtime/api/domain/test_schema_api_context_packet_budget.py",
     "runtime/api/tools/test_atlas_integrity_contract.py",
     "runtime/api/tools/test_impacted_tests_bounded.py",
+    "tests/hook_policy_homes/test_local_reads.py",
 )
 
 __all__ = ["CI_ONLY_CONTRACT_FLOOR_TESTS"]

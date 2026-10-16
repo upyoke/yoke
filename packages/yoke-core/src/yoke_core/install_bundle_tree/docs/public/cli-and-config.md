@@ -168,8 +168,11 @@ session ended or was terminated, `launch_replay_finished` names that launch
 and says no new worker started. Repeat create with a new key to relaunch.
 A fresh item-bound create refuses `item_has_live_worker` while a live session
 holds its claim or an earlier launch is pending or has a live session. The
-refusal names the session and launch: wake or message that worker, or terminate
-it first when a fresh worker is required; a worker holding the claim itself is
+refusal names the session and launch and leads with
+`yoke session-control session wake SESSION-ID`: a worker whose process exited
+still resumes the same session, claims and lane from its transcript (a desktop
+session refuses the wake; message it instead). Terminate it only when that wake
+reports the transcript gone or the resume gets no answer; a worker holding the claim itself is
 told to release it before launching its own level-change successor. Same-key
 replay still deduplicates.
 `--context-window` accepts a token count or compact form such as `1m`.

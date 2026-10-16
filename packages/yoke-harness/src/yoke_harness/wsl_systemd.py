@@ -14,6 +14,7 @@ from pathlib import Path
 from yoke_harness.system_privileges import command_authority
 from yoke_harness.wsl import is_wsl, systemd_running
 from yoke_harness import wsl_lifetime
+from yoke_contracts import terminal_detached_process
 
 CONFIG_PATH = Path("/etc/wsl.conf")
 RESTART = "Save your work, run wsl --shutdown from Windows, then reopen Ubuntu."
@@ -123,7 +124,9 @@ def _setup_systemd(*, emit=print) -> str:
             _enable()
         else:
             try:
-                result = subprocess.run(
+                # Only a sudo password prompt keeps the terminal.
+                run = subprocess.run if interactive else terminal_detached_process.run
+                result = run(
                     [
                         *prefix,
                         sys.executable,

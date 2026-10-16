@@ -29,10 +29,11 @@ import os
 import re
 import shlex
 import sys
-from pathlib import Path
+from pathlib import PurePath
 from typing import Optional, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_core.domain.session_ambient_identity import session_id_from_hook_payload
 from yoke_core.domain.workspace_authority import resolve_session_worktree_paths
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_core.domain.lint_command_extract import extract_command as _extract_command
@@ -75,7 +76,7 @@ def _extract_cwd(payload: dict) -> str:
         v = payload.get(k)
         if isinstance(v, str) and v:
             return v
-    return os.getcwd()
+    return ""
 
 
 def _read_mode(payload: object | None = None) -> str:
@@ -130,8 +131,9 @@ def _statements(command: str) -> list[list[str]]:
 
 
 def _is_under(target: str, root: str) -> bool:
+    """Compare as written: both paths name the client's filesystem."""
     try:
-        Path(target).resolve().relative_to(Path(root).resolve())
+        PurePath(os.path.normpath(target)).relative_to(os.path.normpath(root))
     except ValueError:
         return False
     return True
@@ -176,7 +178,12 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     tool = _extract_tool_name(payload)
     if tool and tool != "Bash":
         return None
-    workspaces = resolve_session_worktree_paths()
+    # The hook payload names the session; the evaluating process's own
+    # environment belongs to whichever machine runs the chain.
+    session_id = session_id_from_hook_payload(payload)
+    if not session_id:
+        return None
+    workspaces = resolve_session_worktree_paths(session_id)
     if not workspaces:
         return None
     command = _extract_command(payload)

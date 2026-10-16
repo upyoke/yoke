@@ -69,6 +69,17 @@ receipt with `yoke deployment-runs get RUN-ID bound_sources` when diagnosing
 release preparation or recovery. Read its handler timing separately from browser HTTP
 and selection-to-card timings; SQL call counts alone do not prove latency.
 
+For a slow statement, use `db.read.run` with its actual parameters:
+
+```text
+yoke db read "EXPLAIN (ANALYZE, BUFFERS) SELECT id FROM deployment_runs ORDER BY created_at DESC LIMIT 20"
+```
+
+Keep the query read-only and scoped. Execution time excludes transport, row
+decoding, Python work and rendering; also count repeated executions. Shipping
+shares attachment environment/case reads and decoded copy/source identities only
+within one evaluation. The next request reads current QA and withdrawals again.
+
 `events.performance.aggregate` and `events.performance.detail` authorize every
 selected project with `events.read` before reading or serializing observations
 and summaries. All contains only accessible projects; universe-attributed rows
