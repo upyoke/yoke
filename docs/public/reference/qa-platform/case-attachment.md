@@ -123,6 +123,17 @@ A case added on its own (`yoke qa requirement add`) belongs to no plan, so it
 takes `--host-baseline NAME` or `--starting-state as_is
 --starting-state-reason TEXT` and cannot inherit.
 
+A Terminal case (`terminal-check`, `terminal-inspection`) also names
+`entry_surface`, the command the Terminal runs first (for example
+`{yoke_bin} setup --connect https://app.upyoke.com --project-mode
+machine-only`), and `required_completion`, the step that proves it finished.
+Authoring, `qa.requirement.add` and materialization run the runner's own
+recipe check and refuse `terminal_case_fields_missing` naming the missing
+fields; only a plan case carries them, so fix it with `yoke qa plan edit
+PLAN_SLUG` and `yoke qa plan rematerialize`. A requirement materialized before
+this check refuses `machine_qa_recipe_invalid` before its starting-state
+reset, so the host is never touched.
+
 A named-baseline or as-is case opens a chain; the inheriting cases behind it
 extend it. `yoke qa plan run` runs every case at one baseline position before
 the next, resets before each chain, and restores the chain's starting baseline
