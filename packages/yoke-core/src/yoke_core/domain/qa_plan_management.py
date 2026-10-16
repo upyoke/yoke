@@ -285,25 +285,17 @@ def _validated_plan_cases(
             "QA methods are unknown or unavailable to this project: "
             + ", ".join(missing)
         )
-    from yoke_core.domain.qa_method_config_validation import (
-        QaMethodConfigError,
-        validate_method_config,
-    )
-
+    from yoke_core.domain.qa_plan_case_definition import require_runnable_case
     from yoke_core.domain.qa_plan_case_targets import validate_case_targets
 
     for case in cases:
         validate_case_targets(conn, plan=plan, case=case)
         contract = contracts[case["method_id"]]
-        try:
-            case["method_config"] = validate_method_config(
-                str(contract["config_contract_id"]),
-                case["method_config"],
-                conn=conn,
-                project_id=int(plan["project_id"]),
-            )
-        except QaMethodConfigError as exc:
-            raise QaPlanError(f"case {case['case_key']!r}: {exc}") from exc
+        case["method_config"] = require_runnable_case(
+            {**case, "config_contract_id": contract["config_contract_id"]},
+            conn=conn,
+            project_id=int(plan["project_id"]),
+        )
     from yoke_core.domain.qa_plan_case_store import (
         apply_starting_states,
         apply_wake_paths,
