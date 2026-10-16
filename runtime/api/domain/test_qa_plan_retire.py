@@ -45,7 +45,9 @@ def _handler_uses(conn):
         yield
 
 
-def _attached_item_requirement(conn, *, item_id: int, slug: str) -> tuple[int, int]:
+def _attached_item_requirement(
+    conn, *, item_id: int, slug: str, status: str = "release"
+) -> tuple[int, int]:
     from runtime.api.fixtures.backlog_inserts import insert_item
     from yoke_core.domain.qa_plan_attachments import (
         attach_plan_to_item,
@@ -69,6 +71,9 @@ def _attached_item_requirement(conn, *, item_id: int, slug: str) -> tuple[int, i
         qa_phase="post_deploy",
     )
     created = materialize_for_item(conn, item_id=item_id, transition_id="release")
+    if status != "release":
+        conn.execute("UPDATE items SET status=%s WHERE id=%s", (status, item_id))
+        conn.commit()
     return plan_id, int(created["created_requirement_ids"][0])
 
 
@@ -152,6 +157,32 @@ def test_unsettled_requirement_refuses_with_its_settling_command(test_db) -> Non
         source="operator",
     )
     assert _retire(test_db, plan_id)["already_retired"] is False
+
+
+def test_finished_item_copies_retract_with_the_retirement(test_db) -> None:
+    """A done item cannot be claimed, so its holder can never retract them."""
+    plan_id, requirement_id = _attached_item_requirement(
+        test_db, item_id=9863, slug="retire-finished-item", status="done"
+    )
+
+    result = _retire(test_db, plan_id)
+
+    requirement = test_db.execute(
+        "SELECT retracted_at, retraction_rationale, retraction_source "
+        "FROM qa_requirements WHERE id=%s",
+        (requirement_id,),
+    ).fetchone()
+    attachment = test_db.execute(
+        "SELECT retracted_at FROM qa_plan_item_attachments WHERE item_id=%s "
+        "AND plan_id=%s",
+        (9863, plan_id),
+    ).fetchone()
+    assert result["retracted_requirement_ids"] == [requirement_id]
+    assert requirement["retracted_at"] is not None
+    assert requirement["retraction_rationale"] == f"QA plan retired: {REASON}"
+    assert requirement["retraction_source"] == "operator"
+    assert attachment["retracted_at"] is not None
+    assert _retire(test_db, plan_id)["retracted_requirement_ids"] == []
 
 
 def test_passed_requirement_does_not_hold_the_plan(test_db) -> None:

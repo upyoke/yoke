@@ -20,7 +20,8 @@ QA_PLAN_RETIRE_COMMANDS: list[dict] = [
             "refuses edits and materialization. Refuses with "
             "qa_plan_retire_dependents, naming each unsettled requirement, "
             "in-flight execution and project default plus the command that "
-            "settles it. Repeating the call on a retired plan returns the "
+            "settles it. Unexecuted copies on finished items retract with the "
+            "retirement (retracted_requirement_ids). Repeating the call on a retired plan returns the "
             "recorded retirement unchanged."
         ),
     },

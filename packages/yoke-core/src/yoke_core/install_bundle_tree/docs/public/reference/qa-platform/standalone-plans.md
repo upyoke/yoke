@@ -210,7 +210,12 @@ settles it:
 | In-flight execution whose roster reaches the plan | let it finish, or `yoke qa plan abort` |
 | Project default that attaches the plan to new items | `yoke qa project-default unset` |
 
-A requirement whose newest attempt passed does not hold the plan. Repeating
+A requirement whose newest attempt passed does not hold the plan, and neither
+does a copy on a finished item: nothing can run it again, and a finished item
+cannot be claimed to retract it. Retirement retracts those unexecuted copies,
+and the attachment behind them, in the same transaction with the rationale
+`QA plan retired: <reason>`, and returns their ids in
+`retracted_requirement_ids`. Executed copies stay as recorded history. Repeating
 retirement on a retired plan returns the recorded retirement unchanged with
 `already_retired: true`, so a retry after a lost reply is safe. The command
 needs a serving release carrying `qa.plan.retire`; an older server refuses with

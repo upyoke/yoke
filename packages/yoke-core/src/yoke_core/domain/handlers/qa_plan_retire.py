@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -32,6 +32,9 @@ class PlanRetireResponse(BaseModel):
     #: True when the plan was already retired; the recorded retirement is
     #: returned unchanged.
     already_retired: bool
+    #: Unexecuted requirement copies on finished items that retirement
+    #: retracted in the same transaction.
+    retracted_requirement_ids: List[int] = []
 
 
 def _error(code: str, message: str, jsonpath: str = "$.payload") -> HandlerOutcome:

@@ -55,6 +55,12 @@ needs the plan, naming each one with the command that settles it:
   - a project default that would attach the plan to new items
     (`yoke qa project-default unset`)
 
+Copies on a finished item never hold the plan: nothing can run them again,
+and a finished item cannot be claimed to retract them. Retirement retracts
+their unexecuted copies (and the attachment) in the same transaction and
+returns their ids in retracted_requirement_ids; executed copies stay as
+history.
+
 Repeating the command on a retired plan returns the recorded retirement
 unchanged (already_retired true), so a retry after a lost reply is safe.
 There is no un-retire: author a new plan with `yoke qa plan create`.
