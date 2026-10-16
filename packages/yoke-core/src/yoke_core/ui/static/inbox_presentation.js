@@ -144,7 +144,7 @@ export function decisionOrigin(row) {
   }
   if (row.kind === "machine_approval") {
     return "A machine asked to join this organization and cannot act until "
-      + "an admin admits it.";
+      + "a member approves it as themselves.";
   }
   if (row.kind === "merge_candidate_review") {
     return "This item asks for a person to review the exact commit before it "
@@ -229,7 +229,7 @@ const SUBTITLE_BUILDERS = {
   machine_approval(facts, row) {
     return [
       facts.machine ? `machine ${facts.machine}` : "machine not named",
-      facts.code ? `one-time code ${facts.code}` : "no one-time code delivered",
+      facts.code ? `match code ${facts.code}` : "no match code delivered",
       // Whoever installed Yoke on that machine keeps it once it is admitted:
       // approving never transfers ownership to the approver.
       row.originator_actor_label ? `requested by ${row.originator_actor_label}` : "",

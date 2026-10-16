@@ -188,6 +188,9 @@ export function inboxClient(needsRows = null, itemActivityRows = []) {
         needs = needs.filter((row) => row.id !== request.payload.request_id);
         return ok({ request: { id: request.payload.request_id, status: "resolved" } });
       }
+      if (request.function === "machine_authorization.pending") {
+        return ok({ requests: [], viewer: { name: "Morgan", actor_id: 9 } });
+      }
       // The gate surfaces read evidence through the same authorized function
       // QA detail uses, so the fixture answers it the way the server does:
       // inline bytes for evidence this host holds, and a named disposition

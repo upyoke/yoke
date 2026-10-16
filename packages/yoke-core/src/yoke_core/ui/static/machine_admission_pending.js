@@ -3,6 +3,31 @@ import { renderApprovalCard } from "./machine_approval.js";
 import { localReachabilityNotice } from "./local_reachability_notice.js";
 import { routeHref } from "./universe_navigation.js";
 
+export function resolveMirroredMachineApproval(context, row, action, note) {
+  const resolution = { request_id: row.id ?? row.request_id, action };
+  if (note) resolution.note = note;
+  return callFunction(context.client, "decision_requests.resolve", resolution);
+}
+
+const approvingViewers = new WeakMap();
+
+export function appendApprovingAs(context, host) {
+  const line = el(context.document, "p", "review-who",
+    "Approving as your signed-in account. This machine will act as you.");
+  host.appendChild(line);
+  const mount = context.signal || context;
+  if (!approvingViewers.has(mount)) {
+    approvingViewers.set(mount, Promise.resolve()
+      .then(() => callFunction(context.client, "machine_authorization.pending", {}))
+      .then((reply) => reply.envelope?.success ? reply.envelope.result?.viewer : null)
+      .catch(() => null));
+  }
+  return approvingViewers.get(mount).then((viewer) => {
+    if (context.signal?.aborted || !context.isMounted() || !host.contains(line)) return;
+    if (viewer) line.textContent = `Approving as ${viewer.name} · actor #${viewer.actor_id}. This machine will act as you.`;
+  });
+}
+
 export function renderPendingMachines(context, host, { selectedCode, compact = false, onSelect } = {}) {
   const doc = context.document, clock = doc.defaultView || globalThis;
   const signal = context.signal;
