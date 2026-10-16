@@ -77,10 +77,13 @@ _serving_build: contextvars.ContextVar[bool] = contextvars.ContextVar(
 def serving_build_authority() -> Iterator[None]:
     """Declare that this block changes a database this process owns.
 
-    Two callers are entitled to it: a server converging the database it is
-    about to serve, and a tool converging a database it created or restored
-    for its own use. Both are making the same claim — that no other build is
-    serving what this code is about to rewrite.
+    Three callers are entitled to it: a server converging the database it is
+    about to serve, a release driver applying only that release's additive
+    creation phase to the database the release is about to serve (see
+    :mod:`yoke_core.domain.release_start_schema`), and a tool converging a
+    database it created or restored for its own use. The first and last claim
+    that no other build is serving what this code is about to rewrite; the
+    release driver claims only additions the serving build ignores.
     """
     token = _serving_build.set(True)
     try:

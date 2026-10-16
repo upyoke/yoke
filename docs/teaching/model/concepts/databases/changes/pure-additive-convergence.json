@@ -1,7 +1,9 @@
 {
  "id": "pure-additive-convergence",
  "title": "Pure additive convergence",
- "status": "draft-copy",
+ "status": "observed",
+ "current": "Net-new tables, indexes and additive columns need no governed migration. Boot's creation phase applies them on every server boot, before the ordered history. A deploy driver connected straight to its database (a *-db-admin connection or a local universe) applies the same phase before its run's first in-process call, so a release never meets a column only its own boot would add. A busy table refuses as release_start_schema_lock_unavailable after the short run-lock timeout, and nothing about the run starts. An HTTPS driver converges nothing: the serving build answers every call.",
+ "sources": ["docs/public/reference/agent-rules/databases.md", "docs/public/reference/deployment-start.md", "packages/yoke-core/src/yoke_core/domain/schema_creation.py", "packages/yoke-core/src/yoke_core/domain/release_start_schema.py"],
  "page": "databases",
  "position": 0
 }

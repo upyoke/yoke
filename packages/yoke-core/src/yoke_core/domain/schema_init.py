@@ -5,94 +5,34 @@ from yoke_core.domain.actors import seed_canonical_human
 from yoke_core.domain.shipped_execution_instruction import (
     seed_shipped_execution_instruction,
 )
-from yoke_core.domain.auth_schema import create_auth_tables
-from yoke_core.domain.decision_request_schema import create_decision_request_tables
 from yoke_core.domain.event_registry_converge import converge_event_registry
-from yoke_core.domain.events_schema import ensure_event_schema
-from yoke_core.domain.events_function_index import ensure_function_index
-from yoke_core.domain.external_identity_schema import create_external_identity_tables
-from yoke_core.domain.gate_satisfaction_schema import (
-    create_gate_satisfaction_tables,
-)
-from yoke_core.domain.session_control_schema import create_session_control_tables
-from yoke_core.domain.health_runs_schema import ensure_doctor_runs_schema
-from yoke_core.domain.field_note_dash_promotion import (
-    ensure_field_note_dash_promotion_schema,
-)
 from yoke_core.domain.flow_init import (
-    converge_flow_catalog,
     create_or_replace_item_progress_view,
 )
-from yoke_core.domain.github_app_schema import create_github_app_tables
 from yoke_core.domain.machine_qa_pack import sync_machine_qa_pack_methods
 from yoke_core.domain.model_reference_store import (
-    create_model_reference_table,
     seed_initial_catalog,
 )
 from yoke_core.domain.org_schema import seed_default_org
-from yoke_core.domain.universe_levels import create_universe_settings_table
-from yoke_core.domain.ouroboros_entry_corrections import (
-    ensure_ouroboros_entry_corrections_schema,
-)
 from yoke_core.domain.pack_projection import (
     converge_pack_catalog,
-    create_pack_projection_tables,
 )
 from yoke_core.domain.postgres_application_role_settings import (
     converge_application_role_settings,
 )
-from yoke_core.domain.project_onboarding_runs import (
-    create_project_onboarding_tables,
-)
-from yoke_core.domain.project_structure import create_project_structure_tables
-from yoke_core.domain.projects_restart_schema import create_project_registry_tables
 from yoke_core.domain.qa_catalog_schema import (
-    create_qa_catalog_tables,
     seed_builtin_qa_methods,
 )
-from yoke_core.domain.qa_plan_execution_schema import converge_qa_plan_execution_schema
-from yoke_core.domain.qa_host_wait_schema import ensure_qa_host_wait_schema
-from yoke_core.domain.qa_plan_review_schema import ensure_qa_plan_review_schema
 from yoke_contracts.schema_authority import (
     refuse_without_serving_build_authority,
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _connect_raw, _table_exists
-from yoke_core.domain.schema_init_actor_path_claim_tables import (
-    create_actor_identity_tables,
-    create_actor_path_claim_tables,
-)
-from yoke_core.domain.schema_ouroboros_columns import apply_ouroboros_columns
+from yoke_core.domain.schema_creation import converge_additive_schema
 from yoke_core.domain.schema_init_columns import (
-    apply_additive_schema,
-    apply_harness_session_columns,
     finalize_initial_schema,
-    apply_work_claim_scope_column,
-)
-from yoke_core.domain.schema_init_tables import (
-    create_core_tables,
-    create_governed_tables,
-)
-from yoke_core.domain.schema_init_path_integrity_tables import (
-    create_path_integrity_tables,
-)
-from yoke_core.domain.schema_init_path_tables import create_path_registry_tables
-from yoke_core.domain.schema_init_work_claim_indexes import (
-    create_work_claim_active_uniques,
 )
 from yoke_core.domain.schema_migrations import _ensure_qa_runs_verdict_trigger
-from yoke_core.domain.strategy_docs_schema import (
-    STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
-    STRATEGY_DOCS_CREATE_TABLE_SQL,
-)
-from yoke_core.domain.strategy_execution_schema import ensure_strategy_execution_schema
-from yoke_core.domain.harness_machine_schema import ensure_harness_machine_schema
-from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
-from yoke_core.domain.ui_preferences_schema import create_ui_preference_tables
-from yoke_core.domain.workflow_execution_instructions_schema import (
-    ensure_workflow_execution_instructions_schema,
-)
-from yoke_core.domain.workflow_schema import ensure_workflow_schema
 from yoke_core.domain.workflow_registry import converge_builtin_workflows
 
 
@@ -169,11 +109,10 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     convergence kernel never substitutes an ambient Yoke connection for a
     project database supplied by its caller.
 
-    This is the single source of the schema-creation sequence: :func:`cmd_init`
-    runs it, then layers seeds and initial schema invariants on top.
-    Order matters — ``create_external_identity_tables`` FKs into actors,
-    organizations (created by ``create_auth_tables``), and roles, so those
-    creation steps precede it.
+    :func:`cmd_init` runs it, then layers seeds and initial schema invariants
+    on top. The creation phase itself is
+    :func:`yoke_core.domain.schema_creation.converge_additive_schema`, which a
+    release driver also runs before its first in-process control-plane call.
 
     Whether this process may converge at all is a question about the database,
     not about the command that got here: a workstation pointed at a control
@@ -191,58 +130,7 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
 
     was_born = universe_is_born_on(conn)
 
-    create_core_tables(conn)
-    create_model_reference_table(conn)
-    create_universe_settings_table(conn)
-    apply_work_claim_scope_column(conn)
-    create_actor_identity_tables(conn)
-    # actor_ui_preferences FKs into actors, so this follows the identity step.
-    create_ui_preference_tables(conn)
-    ensure_event_schema(conn)
-    create_work_claim_active_uniques(conn)
-    apply_harness_session_columns(conn)
-    create_governed_tables(conn)
-    create_path_registry_tables(conn)
-    create_path_integrity_tables(conn)
-    create_actor_path_claim_tables(conn)
-    create_auth_tables(conn)
-    create_external_identity_tables(conn)
-    create_session_control_tables(conn)
-    create_decision_request_tables(conn)
-    create_github_app_tables(conn)
-    # QA plans bind to a concrete environment, so site/environment authority
-    # must exist before the QA catalog creates that foreign key.
-    create_project_registry_tables(conn)
-    create_project_onboarding_tables(conn)
-    create_pack_projection_tables(conn)
-    create_project_structure_tables(conn)
-    ensure_workflow_schema(conn)
-    # Plans attach to projects, workflows and items; requirements snapshot
-    # those plans, so the catalog follows all four authorities.
-    create_qa_catalog_tables(conn)
-    create_gate_satisfaction_tables(conn)
-    # Instruction scope junctions reference workflows and projects, so the
-    # instruction tables follow both authorities.
-    ensure_workflow_execution_instructions_schema(conn, commit=False)
-    converge_qa_plan_execution_schema(conn)
-    ensure_qa_plan_review_schema(conn)
-    ensure_qa_host_wait_schema(conn)
-    ensure_test_machine_schema(conn)
-    ensure_harness_machine_schema(conn)
-    ensure_field_note_dash_promotion_schema(conn)
-    ensure_doctor_runs_schema(conn)
-    apply_ouroboros_columns(conn)
-    ensure_ouroboros_entry_corrections_schema(conn)
-    conn.commit()
-    ensure_function_index(conn)
-    # Strategy authority landed on prod via a since-retired governed
-    # migration; fresh envs get the table from the same DDL constant
-    # the strategy domain owns.
-    conn.execute(STRATEGY_DOCS_CREATE_TABLE_SQL)
-    conn.execute(STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL)
-    ensure_strategy_execution_schema(conn)
-    apply_additive_schema(conn)
-    converge_flow_catalog(conn)
+    converge_additive_schema(conn)
     # The initial bootstrap creates the view before deployment-run tables land;
     # every subsequent server boot must converge it onto the complete current
     # projection once those tables exist.
