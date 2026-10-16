@@ -30,7 +30,10 @@ INVENTORY = (
     "docs/harness-bootstrap.md",
     ".agents/skills/yoke/help/SKILL.md",
 )
-INTERNAL_INVENTORY = INVENTORY[1:3]
+INTERNAL_INVENTORY = (
+    "docs/public/agents/maintenance-commands.md",
+    "docs/harness-bootstrap.md",
+)
 ARGUMENT_HINT_NOTICE = (
     "# argument-hint is generated from yoke_contracts.skill_registry."
 )
