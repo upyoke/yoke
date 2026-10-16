@@ -106,6 +106,8 @@ def create_session_tables(conn: Any) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_harness_sessions_heartbeat ON harness_sessions(last_heartbeat);
         CREATE INDEX IF NOT EXISTS idx_harness_sessions_project ON harness_sessions(project_id);
+        CREATE INDEX IF NOT EXISTS idx_harness_sessions_live
+          ON harness_sessions(project_id) WHERE ended_at IS NULL;
         CREATE TABLE IF NOT EXISTS session_tool_calls (
           id INTEGER PRIMARY KEY,
           session_id TEXT NOT NULL,

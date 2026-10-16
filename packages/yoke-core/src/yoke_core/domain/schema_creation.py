@@ -67,6 +67,7 @@ from yoke_core.domain.schema_init_tables import (
     create_governed_tables,
 )
 from yoke_core.domain.schema_init_work_claim_indexes import (
+    create_item_claim_history_index,
     create_work_claim_active_uniques,
 )
 from yoke_core.domain.schema_ouroboros_columns import apply_ouroboros_columns
@@ -100,6 +101,7 @@ def converge_additive_schema(conn: Any) -> None:
     create_ui_preference_tables(conn)
     ensure_event_schema(conn)
     create_work_claim_active_uniques(conn)
+    create_item_claim_history_index(conn)
     apply_harness_session_columns(conn)
     create_governed_tables(conn)
     create_path_registry_tables(conn)
