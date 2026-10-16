@@ -26,7 +26,7 @@ guidance versions and instruction discovery. Each failure names its next step.
 Intentional GitHub disablement is N/A; unknown evidence cannot pass.
 Non-interactive setup shows and saves the result; machine-only runs omit project
 checks. Installed hooks need a new harness session to prove actual delivery.
-See [Doctor](../events-doctor-ouroboros.md#doctor) for full checks.
+See [Doctor](../operations/doctor.md#doctor) for full checks.
 
 The run finishes the job rather than leaving you a commit to push. It fetches
 the branch's remote first and fast-forwards when the checkout is simply

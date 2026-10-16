@@ -87,6 +87,7 @@ implementation and verification. See [items and sessions](../items/index.md)
 for the next supported action.
 
 <!-- yoke:contents -->
+- [Agent setup](agent-setup.md) — Relay setup questions and preserve human choices and secret boundaries.
 - [Install](install.md) — Prepare the CLI and complete machine onboarding.
 - [Modes](modes.md) — Choose local, hosted or self-hosted ownership.
 - [Concepts](concepts.md) — Understand universes, projects, items and workflows.

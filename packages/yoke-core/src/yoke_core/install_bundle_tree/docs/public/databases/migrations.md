@@ -16,7 +16,7 @@ Application writers bind `instant_parameter(conn, utc_now())` or a supplied
 `parse_instant(value)`. Owned wire, JSON, file and SQLite values use canonical
 UTC `YYYY-MM-DDTHH:MM:SS.ffffffZ` and permitted nulls. Format with
 `format_instant` or the shared JSON encoder at those boundaries. Calendar dates
-and opaque strings keep their own contracts. Read [domain instants](../reference/timestamps.md)
+and opaque strings keep their own contracts. Read [domain instants](../runtime/time/encoding.md)
 for the shared kernel, strict input, historical conversion and wire recipes.
 
 ## Query-Time SQL Clock Helpers
@@ -26,7 +26,7 @@ fixed day/hour/minute offsets count elapsed seconds. Trusted `offset_modifier`
 SQL has caller-owned calendar meaning; board buckets declare their timezone.
 Python cutoffs bind through `instant_parameter`. `instant_wire_sql(expression)`
 projects canonical fixed-six UTC text after native filtering and ordering,
-preserving SQL NULL. See [domain instants](../reference/timestamps.md) for query examples.
+preserving SQL NULL. See [domain instants](../runtime/time/encoding.md) for query examples.
 
 ## `migration_model` capability — recipe + runner vocabulary
 

@@ -86,7 +86,7 @@ Setup first checks foreground terminal ownership on POSIX systems (macOS and
 Linux). A background launch refuses with `setup_terminal_not_foreground` before
 preparation: use `fg` or run `yoke setup` from the foreground shell without `&`.
 If ownership cannot be checked, `setup_terminal_ownership_unavailable` asks for
-a foreground terminal, `yoke setup --agent` ([Agent setup](../guides/agent-setup.md)) or
+a foreground terminal, `yoke setup --agent` ([Agent setup](agent-setup.md)) or
 `--non-interactive` with the required flags. Windows
 uses Textual's native console lifecycle; it has no POSIX foreground job group.
 Intentional noninteractive setup does not use these terminal checks.

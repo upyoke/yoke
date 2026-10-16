@@ -2,7 +2,7 @@
  "id": "observability",
  "title": "Events, health and performance",
  "status": "draft-copy",
- "sources": ["docs/public/events-doctor-ouroboros.md", "docs/public/reference/performance-diagnostics.md", "docs/public/reference/db-reference/events-and-deployments.md"],
+ "sources": ["docs/public/operations/events.md", "docs/public/operations/doctor.md", "docs/public/operations/ouroboros.md", "docs/public/operations/performance-diagnostics.md", "docs/public/operations/model/events.md"],
  "page": "observability",
  "position": 26
 }

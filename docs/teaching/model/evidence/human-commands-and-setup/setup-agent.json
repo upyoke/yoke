@@ -16,6 +16,6 @@
  "authority_and_reuse": "Same setup engine and resumable facts as TUI, through structured yoke setup --agent responses. Human prose is a short rendering of that state, not a second setup implementation.",
  "proposal_status": "Structured agent-mode setup responses ship in source; the yoke-global project chooser and global-context parts remain planned",
  "plan_notes": ["FIRST-USER A/C/E/P1/P4/24/26", "JOURNEYS principles 3–6 and rows 1–9"],
- "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/onboard.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/onboard_agent.py", "docs/public/guides/agent-setup.md", ".agents/skills/yoke/onboard/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md"],
+ "sources": ["packages/yoke-cli/src/yoke_cli/commands/adapters/onboard.py", "packages/yoke-cli/src/yoke_cli/commands/adapters/onboard_agent.py", "docs/public/start/agent-setup.md", ".agents/skills/yoke/onboard/SKILL.md", ".agents/skills/yoke/onboard/strategy-conversation.md"],
  "position": 2
 }

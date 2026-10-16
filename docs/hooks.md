@@ -212,7 +212,7 @@ Different harnesses/surfaces/revisions/commands/counts, pending delivery or miss
 coverage are incomparable. A phase missing after a limit-filled query is
 incomplete; client-wall completion still in flight is pending, not inferred
 from stderr. Live roster and running-session bucket proxy are separate evidence.
-See [performance diagnostics](public/reference/performance-diagnostics.md).
+See [performance diagnostics](public/operations/performance-diagnostics.md).
 
 ### Captured endpoints and unknowns
 

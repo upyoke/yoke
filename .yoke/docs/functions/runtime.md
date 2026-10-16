@@ -233,7 +233,7 @@ abandoned waits without manufacturing a test result.
 Deployment definitions retain history and immutable referenced versions. Run
 creation/execution requires the project deployment hold, registered authority,
 exact lineage and composition proof; a run id is not a flow id. A driver owns
-its attachment and continuation. Read [deployment contracts](../reference/db-reference/events-and-deployments.md)
+its attachment and continuation. Read [deployment contracts](../deployments/model/flows.md#deployment-run-authority)
 before operating. Ephemeral-environment updates authorize the owning project;
 terminal status retains stopped-at behavior and invalid fields refuse.
 

@@ -4,7 +4,7 @@
 [Yoke](../../index.md) > [Deployments](../index.md) > Runs
 <!-- /yoke:breadcrumbs -->
 
-Run execution, composition and carried-work authority. Read this before interpreting a release record or changing its membership. [Migration conventions](../../databases/migrations.md) own timestamps; [DB reference](../../databases/reference.md) owns JSON conventions; [events and environments](../../reference/db-reference/events-and-deployments.md) owns the event log and environment tracking.
+Run execution, composition and carried-work authority. Read this before interpreting a release record or changing its membership. [Migration conventions](../../databases/migrations.md) own timestamps; [DB reference](../../databases/reference.md) owns JSON conventions; [event records](../../operations/model/events.md) own the event log, and [environment tracking](flows.md#table-deployment_preview_environments) owns preview and ephemeral records.
 
 ## Table: deployment_runs
 

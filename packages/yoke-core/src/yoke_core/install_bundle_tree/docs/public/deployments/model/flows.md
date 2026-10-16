@@ -160,6 +160,55 @@ prefix.
 
 Flow ids are definitions, not executions. Item-bound delivery creates concrete `run-...` ids through `/yoke usher`, and the run retains its definition relationship for durable history.
 
+## Deployment run authority
+
+[Deployment runs](../../deployments/model/runs.md) define lineage, composition and idempotent creation; [stage receipts](../../deployments/model/stage-receipts.md) define executor evidence; [members and QA](../../deployments/model/run-members.md) define custody, settlement, target occupancy, run drivers and blocking QA. Read these before creating or executing a run or interpreting release completion.
+
+Run lifecycle events (`type='deployment_run'`, such as `DeploymentRunStageStarted` or `DeploymentRunWarmedUp`) are written once per run, carry `run_id` in their context, and name no member item. Find a run's members in `deployment_run_items`; the events are telemetry, never the record of what a run carried.
+
+## Table: deployment_preview_environments
+
+Preview environment occupancy tracking for deployment runs.
+
+```sql
+id INTEGER PRIMARY KEY
+project TEXT NOT NULL REFERENCES projects(id)
+env_name TEXT NOT NULL -- e.g., 'stage', 'sandbox'
+run_id TEXT REFERENCES deployment_runs(id)
+status TEXT NOT NULL DEFAULT 'available' -- available | claimed | stale
+url TEXT
+created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see timestamp discipline in the introduction
+env_type TEXT NOT NULL DEFAULT 'adhoc' -- shared | adhoc
+UNIQUE(project, env_name)
+```
+
+## Table: ephemeral_environments
+
+Tracks per-branch ephemeral environments for pre-merge E2E validation. GitHub Actions creates environments; Yoke tracks lifecycle via `python3 -m yoke_core.cli.db_router envs`.
+
+```sql
+id INTEGER PRIMARY KEY
+project TEXT NOT NULL REFERENCES projects(id)
+branch TEXT NOT NULL -- MUST use 'PREFIX-{id}' format (see Branch Naming Contract below)
+item TEXT -- backlog item (e.g., 'PREFIX-N')
+workflow_run_id TEXT -- GitHub Actions run ID that created this environment
+github_ref TEXT -- git ref used for the environment
+port_api INTEGER
+port_web INTEGER
+url TEXT
+status TEXT NOT NULL DEFAULT 'pending' -- pending | starting | running | healthy | stopped | failed
+started_at TEXT
+stopped_at TEXT
+health_check_url TEXT
+deployed_sha TEXT -- commit SHA of last pushed code (enables push/poll short-circuit)
+created_at TEXT
+UNIQUE(project, branch)
+```
+
+### Branch Naming Contract
+
+The `branch` column MUST use the value `PREFIX-{id}` (matching the item's worktree branch name, e.g., `PREFIX-N`). This convention is required for conduct compatibility -- the conduct skill queries ephemeral environments by `branch='PREFIX-{id}'` at steps d2, E1, and E3 in `dispatch-context.md`. CI systems that write ephemeral environment records (e.g., `external-webapp-ephemeral.yml`) must use the same `PREFIX-{id}` branch value. If a future project uses a different branch naming scheme, both the CI workflow and the conduct skill query must be updated in lockstep.
+
 ## Related
 
 - [Projects](../../databases/model/projects.md)

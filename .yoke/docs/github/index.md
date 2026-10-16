@@ -89,7 +89,7 @@ preselection. GitHub documents all repositories as the default when repository
 IDs are omitted ([GitHub installation documentation](https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps/migrating-oauth-apps-to-github-apps#prompt-users-to-install-your-github-app)).
 
 Inside agent-mode setup, the GitHub step arrives as a `browser` line; see
-[Agent setup](../guides/agent-setup.md#browser-steps). For a standalone
+[Agent setup](../start/agent-setup.md#browser-steps). For a standalone
 agent-led connection, use `yoke github connect --json`. No browser opens;
 JSON progress on stderr supplies the link, code and instructions before the
 approval wait, with the final result on stdout. Present the action to the

@@ -2,7 +2,7 @@
  "id": "event-registry",
  "title": "Event registry",
  "status": "observed",
- "sources": ["docs/event-contract.md", "docs/event-catalog.md", "docs/public/reference/db-reference/events-and-deployments.md"],
+ "sources": ["docs/event-contract.md", "docs/event-catalog.md", "docs/public/operations/model/events.md"],
  "page": "observability",
  "position": 0
 }

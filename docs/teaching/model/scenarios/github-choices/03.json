@@ -10,6 +10,6 @@
  "gap": "Installed candidate campaign proof awaits the existing owner’s admission and readiness checks; stronger duplicate detection remains deferred.",
  "review": "Source regression coverage; installed candidate proof remains pending.",
  "plan_notes": ["FIRST-USER 10", "FIRST-USER 2"],
- "sources": ["docs/public/github/sync.md", "docs/public/guides/agent-setup.md", "packages/yoke-cli/src/yoke_cli/config/project_onboard_progress.py", "runtime/api/cli/test_onboard_project_sync_activation.py", "runtime/api/domain/test_projects_github_sync_mode_invariant.py"],
+ "sources": ["docs/public/github/sync.md", "docs/public/start/agent-setup.md", "packages/yoke-cli/src/yoke_cli/config/project_onboard_progress.py", "runtime/api/cli/test_onboard_project_sync_activation.py", "runtime/api/domain/test_projects_github_sync_mode_invariant.py"],
  "position": 3
 }

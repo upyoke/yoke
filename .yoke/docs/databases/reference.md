@@ -85,7 +85,7 @@ manifest/bootstrap substrate facts. See the [agent guide](../agents/index.md).
 - [Release authorities](../deployments/model/releases.md) and [notices](../deployments/model/release-notices.md) describe verification, verdicts and delivery announcements.
 - [Projects and capabilities](model/projects.md) describe the project registry and Project Structure aggregate; [sites, environments and flows](../deployments/model/flows.md) describe deployment targets and pipelines.
 - [QA records](../verification/model/qa.md) describe requirements, runs and artifacts; [session records](../sessions/model/sessions.md) describe harness identity and work claims, and [shared coordination](../sessions/model/coordination.md) describes leases and session accounting.
-- [Events and environments](../reference/db-reference/events-and-deployments.md) describe event and preview-environment records.
+- [Event records](../operations/model/events.md) describe events, severity configuration and the registry; [preview and ephemeral environments](../deployments/model/flows.md#table-deployment_preview_environments) describe environment tracking.
 - [Machine-local evidence](machine-local-evidence.md) describes bounded relay, watcher and diagnostic retrieval.
 - [QA CLI](../verification/qa-cli.md) describes QA commands; [body writes](../items/model/body-writes.md) describes structured-content writes and rendering.
 - [Function catalogs](../functions/index.md) describe registered operations, claim policies and typed envelopes.

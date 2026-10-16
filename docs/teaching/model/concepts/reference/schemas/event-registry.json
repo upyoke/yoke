@@ -2,7 +2,7 @@
  "id": "event-registry",
  "title": "Event registry",
  "status": "observed",
- "sources": ["docs/public/reference/db-reference/events-and-deployments.md"],
+ "sources": ["docs/public/operations/model/events.md"],
  "page": "reference",
  "position": 4
 }

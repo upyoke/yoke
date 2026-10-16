@@ -57,5 +57,5 @@ item's verification contract, add nothing. The absence is explicit rather than
 derived from a separate browser-testability field.
 
 For one-shot mutations, arm timing and captures first; follow
-[action budgets and failure evidence](../../../../../.yoke/docs/reference/browser-action-evidence.md)
+[action budgets and failure evidence](../../../../../.yoke/docs/verification/browser-action-evidence.md)
 before recovering a response timeout or missing capture.

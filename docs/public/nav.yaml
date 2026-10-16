@@ -8,46 +8,23 @@ root:
       summary: Install, connect, add a project and file your first item.
       path: start/index.md
       children:
-        - title: Install
-          summary: Prepare the CLI and complete machine onboarding.
-          path: start/install.md
-        - title: Modes
-          summary: Choose local, hosted or self-hosted ownership.
-          path: start/modes.md
-        - title: Concepts
-          summary: Understand universes, projects, items and workflows.
-          path: start/concepts.md
-        - title: Project installation
-          summary: Install repository guidance and manage source launcher ownership.
-          path: start/project-install.md
-        - title: Terminal onboarding
-          summary: Copy approval links and resume setup in local or remote terminals.
-          path: start/terminal-onboarding.md
-        - title: Windows and WSL
-          summary: Keep Yoke, agents and checkouts inside supported Linux on Windows.
-          path: start/windows-wsl.md
-        - title: Uninstall
-          summary: Preserve chosen data and remove machine or project guidance.
-          path: start/uninstall.md
+        - {title: "Agent setup", summary: "Relay setup questions and preserve human choices and secret boundaries.", path: "start/agent-setup.md"}
+        - {title: "Install", summary: "Prepare the CLI and complete machine onboarding.", path: "start/install.md"}
+        - {title: "Modes", summary: "Choose local, hosted or self-hosted ownership.", path: "start/modes.md"}
+        - {title: "Concepts", summary: "Understand universes, projects, items and workflows.", path: "start/concepts.md"}
+        - {title: "Project installation", summary: "Install repository guidance and manage source launcher ownership.", path: "start/project-install.md"}
+        - {title: "Terminal onboarding", summary: "Copy approval links and resume setup in local or remote terminals.", path: "start/terminal-onboarding.md"}
+        - {title: "Windows and WSL", summary: "Keep Yoke, agents and checkouts inside supported Linux on Windows.", path: "start/windows-wsl.md"}
+        - {title: "Uninstall", summary: "Preserve chosen data and remove machine or project guidance.", path: "start/uninstall.md"}
     - title: Agents
       summary: Use harness guidance, command maps and operation homes before acting.
       path: agents/index.md
       children:
-        - title: Commands
-          summary: Find operator commands and the delivery skill for the current binding.
-          path: agents/commands.md
-        - title: Maintenance commands
-          summary: Inspect maintenance operations, internal helpers and project context.
-          path: agents/maintenance-commands.md
-        - title: Native discovery
-          summary: Load shared instructions, discover skills and inspect installed capabilities.
-          path: agents/harness-discovery.md
-        - title: Codex
-          summary: Install and verify Yoke’s Codex hooks and agent surfaces.
-          path: agents/codex.md
-        - title: Cursor
-          summary: Install and verify Yoke’s Cursor hooks and agent surfaces.
-          path: agents/cursor.md
+        - {title: "Commands", summary: "Find operator commands and the delivery skill for the current binding.", path: "agents/commands.md"}
+        - {title: "Maintenance commands", summary: "Inspect maintenance operations, internal helpers and project context.", path: "agents/maintenance-commands.md"}
+        - {title: "Native discovery", summary: "Load shared instructions, discover skills and inspect installed capabilities.", path: "agents/harness-discovery.md"}
+        - {title: "Codex", summary: "Install and verify Yoke\u2019s Codex hooks and agent surfaces.", path: "agents/codex.md"}
+        - {title: "Cursor", summary: "Install and verify Yoke\u2019s Cursor hooks and agent surfaces.", path: "agents/cursor.md"}
         - title: Execution levels
           summary: Read model thresholds, routing settings and stage-level handoffs.
           path: agents/levels.md
@@ -303,6 +280,7 @@ root:
       summary: Define cases, execute project plans and inspect evidence for workflow gates.
       path: verification/index.md
       children:
+        - {title: "Browser action evidence", summary: "Budget browser actions and retain original failure and timing evidence.", path: "verification/browser-action-evidence.md"}
         - {title: "QA platform", summary: "Read obligation dimensions, materialization and evidence gates.", path: "verification/platform.md"}
         - {title: "Requirement discharges", summary: "Derive requirements and settle waived, superseded or retracted obligations.", path: "verification/requirement-discharges.md"}
         - {title: "Requirement state", summary: "Evaluate current attempts, review authority and exact subject proof.", path: "verification/requirement-state.md"}
@@ -324,6 +302,24 @@ root:
         - {title: "Linux desktop applications", summary: "Detect installed desktop versions without starting the apps.", path: "verification/linux-desktop-apps.md"}
         - {title: "Product smoke", summary: "Find the source-maintainer smoke procedure and project plan entry.", path: "verification/product-smoke.md"}
         - {title: "Real harness QA", summary: "Find real-harness Machine checks and their subject identity contract.", path: "verification/real-harness.md"}
+    - title: Operations
+      summary: Inspect events, run health checks, record learning and diagnose performance.
+      path: operations/index.md
+      children:
+        - {title: "Events", summary: "Read telemetry admission, attribution and visitor links.", path: "operations/events.md"}
+        - {title: "Doctor", summary: "Run applicable health checks and recover incomplete evidence.", path: "operations/doctor.md"}
+        - {title: "Ouroboros", summary: "Record observations and improve delivery through the learning loop.", path: "operations/ouroboros.md"}
+        - {title: "Event model", summary: "Read the event log, severity configuration and registry.", path: "operations/model/events.md"}
+        - {title: "Performance diagnostics", summary: "Inspect exact timing observations and their unknowns.", path: "operations/performance-diagnostics.md"}
+    - title: Runtime
+      summary: Encode native instants, verify clocks and find timestamp ownership boundaries.
+      path: runtime/index.md
+      children:
+        - {title: "Instant encoding", summary: "Use native instants and fixed-six UTC wire values.", path: "runtime/time/encoding.md"}
+        - {title: "Clock verification", summary: "Validate inputs, retain deadlines and recover governed history.", path: "runtime/time/verification.md"}
+        - {title: "Timestamp owners", summary: "Find work, session, claim, workflow and delivery clock writers.", path: "runtime/time/ownership.md"}
+        - {title: "Integration owners", summary: "Find identity, provider and external adapter clock boundaries.", path: "runtime/time/ownership-integrations.md"}
+        - {title: "Verification owners", summary: "Find artifact, projection, QA, Doctor and fixture clock boundaries.", path: "runtime/time/ownership-verification.md"}
     - title: Documentation
       summary: Write, navigate and verify complete, concise teaching.
       path: documentation/index.md

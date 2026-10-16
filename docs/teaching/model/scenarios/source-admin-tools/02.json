@@ -10,6 +10,6 @@
  "gap": "The two timestamp pages were added after the earlier public inventory. Review question: which parts belong in product API reference versus source architecture, and what refusal links reach them?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER 35", "outside both"],
- "sources": ["docs/public/reference/timestamps.md", "docs/public/reference/timestamp-owners.md", "docs/public/databases/reference.md"],
+ "sources": ["docs/public/runtime/time/encoding.md", "docs/public/runtime/time/verification.md", "docs/public/runtime/time/ownership.md", "docs/public/runtime/time/ownership-integrations.md", "docs/public/runtime/time/ownership-verification.md", "docs/public/databases/reference.md"],
  "position": 1
 }

@@ -82,7 +82,7 @@ unsupported pre-fill parameter.
 
 From a coding agent, or anywhere without a terminal, `yoke setup` runs in
 agent mode: it asks these same questions one at a time as JSON lines, and the
-agent relays each one to the person. See [Agent setup](../guides/agent-setup.md)
+agent relays each one to the person. See [Agent setup](agent-setup.md)
 for the loop, browser steps and refusals. `yoke setup --tui` forces the
 wizard; `yoke setup --agent` forces agent mode.
 

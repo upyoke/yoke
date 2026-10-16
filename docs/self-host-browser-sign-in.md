@@ -38,7 +38,7 @@ which revokes the browser's session and clears its analytics attribution
 cookie. Either sign-in path links that browser's analytics visitor id to the
 signed-in actor; clearing the cookie at sign-out starts the next person on a
 shared browser under a fresh visitor id
-([visitor links](public/events-doctor-ouroboros.md#visitor-links)). Sign-out
+([visitor links](public/operations/events.md#visitor-links)). Sign-out
 is same-origin only and refuses with `cross_origin_refused` otherwise.
 
 **What protects the cookie.** The session cookie is `HttpOnly` and

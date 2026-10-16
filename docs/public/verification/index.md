@@ -242,6 +242,7 @@ holds the complete set through the case and review. See
 [case attachment](case-attachment.md).
 
 <!-- yoke:contents -->
+- [Browser action evidence](browser-action-evidence.md) — Budget browser actions and retain original failure and timing evidence.
 - [QA platform](platform.md) — Read obligation dimensions, materialization and evidence gates.
 - [Requirement discharges](requirement-discharges.md) — Derive requirements and settle waived, superseded or retracted obligations.
 - [Requirement state](requirement-state.md) — Evaluate current attempts, review authority and exact subject proof.

@@ -163,7 +163,7 @@ transactional=True; HC-event-family-liveness checks each source, not just one
 emitting path. Other registered events: QARequirementWaived, QARequirementRetracted,
 QARequirementSuperseded, QARunStarted, QARunCompleted, QAArtifactAttached. Attaching
 a delivery-environment plan before delivery refuses and names the post-deploy
-attachment. See [event/database reference](../reference/db-reference/events-and-deployments.md).
+attachment. See [event/database reference](../operations/model/events.md).
 
 ## Related
 

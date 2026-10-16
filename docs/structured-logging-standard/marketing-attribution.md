@@ -74,7 +74,7 @@ by name (visitor_linked_to_other_actor), record the refusal, and let sign-in
 proceed. Sign-out clears the attribution cookie so a shared browser starts a
 fresh visitor_id. Events are never rewritten; join each frontend event's
 envelope visitor_id to the link list at query time. The engine's list is
-actor_visitor_links; [workbench telemetry](../public/events-doctor-ouroboros.md#visitor-links)
+actor_visitor_links; [workbench telemetry](../public/operations/events.md#visitor-links)
 gives the join.
 
 The collector stamps the actor only from a verified credential sent with the

@@ -86,7 +86,7 @@ lets you pick the project source — just this machine, create a checkout,
 clone a remote, import an existing remote, onboard a local checkout, or the
 explicit source-dev/admin opt-in — and the wizard previews every persistent
 write before applying. Pass `--yes` for a silent, non-interactive apply;
-`--local` and `--connect URL` mirror the picker without the TUI. Agents run [`yoke setup --agent`](docs/public/guides/agent-setup.md), one question at a time. [Ctrl-Y copies links/codes locally or shows selectable scrollback over SSH](docs/public/start/terminal-onboarding.md).
+`--local` and `--connect URL` mirror the picker without the TUI. Agents run [`yoke setup --agent`](docs/public/start/agent-setup.md), one question at a time. [Ctrl-Y copies links/codes locally or shows selectable scrollback over SSH](docs/public/start/terminal-onboarding.md).
 
 The same project modes are also available as standalone product commands when
 you want to script a single mode:

@@ -35,7 +35,7 @@ exists only when a plan attachment or explicit requirement declares it.
 
 Shared optional fields include `timeout_ms`, `source_ac`, `refined`, and
 `viewport`. `timeout_ms` is the wait budget every waiting action and
-assertion honours; see [action budgets and failure evidence](../reference/browser-action-evidence.md).
+assertion honours; see [action budgets and failure evidence](browser-action-evidence.md).
 A step that sets a key its action does not define is
 refused; the refusal names the unrecognised key and the keys that action
 defines. Authored plan cases should use verified selectors and set

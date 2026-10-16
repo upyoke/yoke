@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke ouroboros field-note list --unreviewed", "yoke ouroboros field-note get --help"],
  "plan_notes": ["outside both"],
- "sources": [".agents/skills/yoke/curate/SKILL.md", ".agents/skills/yoke/curate/cluster-and-work-item.md", "docs/public/events-doctor-ouroboros.md"],
+ "sources": [".agents/skills/yoke/curate/SKILL.md", ".agents/skills/yoke/curate/cluster-and-work-item.md", "docs/public/operations/ouroboros.md"],
  "position": 1
 }

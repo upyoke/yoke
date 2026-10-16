@@ -3,7 +3,7 @@
  "title": "Timestamp owners",
  "status": "draft-copy",
  "audience": "Maintainers",
- "sources": ["docs/public/reference/timestamp-owners.md", "packages/yoke-contracts/src/yoke_contracts/board/zen_data.py", "runtime/api/board/tests/test_zen_window_native_instants.py"],
+ "sources": ["docs/public/runtime/time/ownership.md", "docs/public/runtime/time/ownership-integrations.md", "docs/public/runtime/time/ownership-verification.md", "packages/yoke-contracts/src/yoke_contracts/board/zen_data.py", "runtime/api/board/tests/test_zen_window_native_instants.py"],
  "page": "runtime",
  "position": 3
 }

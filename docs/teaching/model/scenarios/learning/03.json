@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke items get PREFIX-N"],
  "plan_notes": ["FIRST-USER item 24", "outside both"],
- "sources": [".agents/skills/yoke/wrapup/SKILL.md", ".agents/skills/yoke/wrapup/record-and-close.md", "AGENTS.md", "docs/public/events-doctor-ouroboros.md"],
+ "sources": [".agents/skills/yoke/wrapup/SKILL.md", ".agents/skills/yoke/wrapup/record-and-close.md", "AGENTS.md", "docs/public/operations/ouroboros.md"],
  "position": 2
 }
