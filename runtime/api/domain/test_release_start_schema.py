@@ -124,6 +124,7 @@ def _hand_schema_to(conn, owner: str) -> None:
 
 def test_a_table_created_at_release_start_belongs_to_the_serving_owner(
     monkeypatch,
+    cluster_role_authority,
 ) -> None:
     """An admin driver must not become the owner of a table it creates.
 
