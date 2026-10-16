@@ -1,7 +1,9 @@
 // First-run progress follows organization state in every hosting mode.
-import { callFunction, el, labelledField } from "./universe_view_support.js";
+import { callFunction, el, portabilityMode } from "./universe_view_support.js";
+import { localReachabilityNotice } from "./local_reachability_notice.js";
 
-const STEPS = ["Sign in", "Enter code", "Create org", "Connect machine"];
+const STEPS = ["Sign in", "Approve machine", "Create org", "Connect machine"];
+const identity = (actor) => `${actor.name} · actor #${actor.actor_id}`;
 const localTime = (instant) => new Date(instant).toLocaleTimeString([], {
   hour: "numeric", minute: "2-digit", timeZoneName: "short",
 });
@@ -63,9 +65,13 @@ function facts(doc, authorization, org, approved) {
     row("Machine", [el(doc, "b", null, authorization.machine),
       ...(detail ? [el(doc, "span", "machine-approval-quiet", detail)] : [])]);
   }
-  row("One-time code", [el(doc, "span", "machine-approval-code", authorization.code),
+  row("Match code", [el(doc, "span", "machine-approval-code", authorization.code.toUpperCase()),
     ...(approved ? [] : [el(doc, "span", "machine-approval-quiet", "must match your terminal")])]);
+  if (authorization.requested_by) row("Requested by", [el(doc, "span", null, identity(authorization.requested_by))]);
   row("Organization", [el(doc, "span", null, org.name)]);
+  row("Approving as", [el(doc, "span", null, authorization.viewer ? identity(authorization.viewer) : "your signed-in account"),
+    el(doc, "span", "machine-approval-quiet", "This machine will act as you."),
+    ...(!authorization.viewer ? [el(doc, "span", "machine-approval-quiet", "Ask the server operator to upgrade to show your account details.")] : [])]);
   if (!approved) {
     const time = el(doc, "time", null, localTime(authorization.expires_at));
     time.setAttribute("datetime", authorization.expires_at);
@@ -75,51 +81,70 @@ function facts(doc, authorization, org, approved) {
   return table;
 }
 
-function codeEntry(context, body, lede) {
-  const doc = context.document;
-  if (lede) body.appendChild(el(doc, "p", "machine-approval-lede", "Enter the one-time code shown in your terminal."));
-  const form = el(doc, "form", "machine-approval-form");
-  const input = el(doc, "input");
-  Object.assign(input, { required: true, maxLength: 32, autocomplete: "off", spellcheck: false, placeholder: "XXXX-XXXX" });
-  form.appendChild(labelledField(doc, "One-time code", input, "machine-approval-field"));
-  const actions = el(doc, "div", "machine-approval-actions");
-  const submit = el(doc, "button", null, "Continue");
-  submit.type = "submit";
-  actions.appendChild(submit);
-  form.appendChild(actions);
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const code = input.value.trim();
-    if (code) context.navigate(`/machine-approval/${encodeURIComponent(code)}`);
-  });
-  body.appendChild(form);
+export async function renderMachineApproval(context, main, _scope, code, page = {}) {
+  if (code && portabilityMode(context.capabilities) !== "local") {
+    return renderApprovalCard(context, main, code, { page });
+  }
+  main.replaceChildren();
+  if (page.setPageHead) page.setPageHead({ title: "Connect your machine" });
+  else main.appendChild(el(context.document, "h1", "title", "Connect your machine"));
+  if (portabilityMode(context.capabilities) === "local") {
+    const card = el(context.document, "section", "machine-approval-card");
+    card.appendChild(localReachabilityNotice(context.document, { variant: "full" }));
+    main.appendChild(card);
+  }
 }
 
-export function renderMachineApproval(context, main, _scope, code, page = {}) {
+export async function renderApprovalCard(context, main, code, { embedded = false, onDecided, page = {} } = {}) {
+  if (portabilityMode(context.capabilities) === "local") return renderMachineApproval(context, main, null, null, page);
+  code = code.trim().toUpperCase();
   const doc = context.document;
   const head = el(doc, "div", "machine-approval-head");
   const card = el(doc, "section", "machine-approval-card");
   card.setAttribute("aria-label", "Machine request");
+  if (embedded) card.setAttribute("aria-labelledby", `machine-approval-${code}`);
   main.replaceChildren(head, card);
   const mounted = () => context.isMounted() && main.isConnected !== false && main.contains(card);
-  let authorization, org, firstRun = false, timer;
+  let authorization, org, firstRun = false, timer, focused = false;
   const clock = doc.defaultView || globalThis;
   const title = (text) => {
     if (page.setPageHead) page.setPageHead({ title: text });
-    else head.appendChild(el(doc, "h1", "title", text));
+    else {
+      const heading = el(doc, embedded ? "h2" : "h1", "title", text);
+      heading.id = `machine-approval-${code}`;
+      heading.tabIndex = -1;
+      head.appendChild(heading);
+      if (embedded && !focused && authorization) { heading.focus(); focused = true; }
+    }
   };
+  function refusal(error, writing = false, body = card) {
+    const kind = error.code;
+    if (["actor_disabled", "organization_membership_required", "authorization_human_required"].includes(kind)) {
+      outcome(doc, card, "You can't approve machines here", `${error.message || "Approval is not allowed."} Sign in as an active member of ${org?.name || "this organization"}.`);
+    } else if (["authorization_consumed", "authorization_already_decided"].includes(kind)) {
+      outcome(doc, card, "This request was already answered", "Check Machines for the connected machine. To connect again, run `yoke connect` on it.");
+    } else if (kind === "authorization_expired") {
+      outcome(doc, card, authorization ? `This code expired at ${localTime(authorization.expires_at)}` : "This code expired", "Nothing was authorized. Run `yoke connect` again for a new code.");
+    } else if (["authorization_unavailable", "not_found"].includes(kind)) {
+      outcome(doc, card, "That code isn't available", "It may have expired or been answered. Machines waiting now are listed below.");
+    } else {
+      outcome(doc, body, error.message || (writing ? "The decision could not be recorded" : "The request could not be read"),
+        writing ? "Retry your decision, or return to your terminal to start a fresh connection." : "Reload to retry, or return to your terminal to start a fresh connection.");
+    }
+  }
   function paint() {
     clock.clearTimeout(timer);
     head.replaceChildren();
     card.replaceChildren();
     const decision = authorization?.decision;
-    const approved = decision === "approve";
+    const approved = decision === "approve" && !["consumed", "expired"].includes(authorization?.state);
     const expired = authorization && !decision && Date.parse(authorization.expires_at) <= Date.now();
     title(approved ? "Machine connected" : authorization && !decision && !expired ? "Approve this machine" : "Connect your machine");
-    if (firstRun) head.appendChild(progress(doc, approved));
-    if (!authorization) { codeEntry(context, card, true); return; }
+    if (firstRun && !embedded) head.appendChild(progress(doc, approved));
+    if (!authorization) return;
+    if (authorization.state === "consumed") { refusal({ code: "authorization_consumed" }); return; }
     if (decision === "deny") { outcome(doc, card, "Request denied", "Nothing was authorized."); return; }
-    if (expired) { outcome(doc, card, `This code expired at ${localTime(authorization.expires_at)}`, "Nothing was authorized."); return; }
+    if (authorization.state === "expired" || expired) { refusal({ code: "authorization_expired" }); return; }
     if (approved) {
       outcome(doc, card, `✓ ${authorization.machine || "Your machine"} is connected to ${org.name}`, null, true);
       card.appendChild(terminalCallout(doc));
@@ -129,7 +154,7 @@ export function renderMachineApproval(context, main, _scope, code, page = {}) {
     card.appendChild(el(doc, "p", "machine-approval-lede", "Approve only if this code matches the one in your terminal."));
     card.appendChild(facts(doc, authorization, org, false));
     const actions = el(doc, "div", "machine-approval-actions");
-    const status = el(doc, "p", "machine-approval-status");
+    const status = el(doc, "div", "machine-approval-status");
     status.setAttribute("role", "status");
     status.setAttribute("aria-live", "polite");
     for (const [action, label] of [["approve", "Approve machine"], ["deny", "Deny"]]) {
@@ -143,14 +168,21 @@ export function renderMachineApproval(context, main, _scope, code, page = {}) {
           const reply = await callFunction(context.client, "machine_authorization.resolve", { code, action });
           if (!mounted()) return;
           if (!reply.envelope?.success) {
-            if (["authorization_expired", "authorization_consumed", "authorization_unavailable"].includes(reply.envelope?.error?.code)) { await load(); return; }
-            throw new Error(reply.envelope?.error?.message || "approval_failed: the decision could not be recorded");
+            const error = reply.envelope?.error || {};
+            if (["authorization_expired", "authorization_consumed", "authorization_unavailable", "authorization_already_decided"].includes(error.code)) { await load(); return; }
+            if (["authorization_owner_mismatch", "actor_disabled", "organization_membership_required", "authorization_human_required"].includes(error.code)) {
+              card.replaceChildren(); refusal(error, true); return;
+            }
+            throw Object.assign(new Error(error.message || "The decision could not be recorded"), error);
           }
           authorization.decision = reply.envelope.result.authorization.decision;
+          authorization.state = authorization.decision === "approve" ? "approved" : "denied";
           paint();
+          onDecided?.();
         } catch (error) {
           if (!mounted()) return;
-          status.textContent = `${error.message || error}. Retry your decision, or return to your terminal to start a fresh connection.`;
+          status.replaceChildren();
+          refusal(error, true, status);
           Array.from(actions.children).forEach((node) => { node.disabled = false; });
           schedule();
         }
@@ -159,6 +191,7 @@ export function renderMachineApproval(context, main, _scope, code, page = {}) {
     }
     card.appendChild(actions);
     card.appendChild(status);
+    if (!embedded && !focused) { actions.children[0].focus(); focused = true; }
     schedule();
   }
   function schedule() {
@@ -168,8 +201,7 @@ export function renderMachineApproval(context, main, _scope, code, page = {}) {
   }
   async function load() {
     try {
-      const requests = [["organizations.get", {}], ["machine.list", {}],
-        ...(code ? [["machine_authorization.get", { code }]] : [])];
+      const requests = [["organizations.get", {}], ["machine.list", {}], ["machine_authorization.get", { code }]];
       const replies = await Promise.all(requests.map(([id, payload]) => callFunction(context.client, id, payload)));
       if (!mounted()) return;
       for (const reply of replies.slice(0, 2)) {
@@ -183,14 +215,7 @@ export function renderMachineApproval(context, main, _scope, code, page = {}) {
         authorization = undefined;
         paint();
         card.replaceChildren();
-        if (["authorization_unavailable", "authorization_consumed", "not_found"].includes(error.code) || reply.status === 404) {
-          outcome(doc, card, "That code isn't available", "Check the code in your terminal and try again.");
-          codeEntry(context, card, false);
-        } else if (error.code === "authorization_expired") {
-          outcome(doc, card, "This code expired", "Nothing was authorized.");
-        } else {
-          outcome(doc, card, error.message || "authorization_read_failed: the request could not be read", "Reload to retry, or return to your terminal to start a fresh connection.");
-        }
+        refusal(error);
         return;
       }
       authorization = reply?.envelope.result.authorization;
@@ -200,7 +225,7 @@ export function renderMachineApproval(context, main, _scope, code, page = {}) {
       head.replaceChildren();
       title("Connect your machine");
       card.replaceChildren();
-      outcome(doc, card, error.message || "authorization_read_failed: the request could not be read", "Reload to retry, or return to your terminal to start a fresh connection.");
+      refusal(error);
     }
   }
   title("Connect your machine");
