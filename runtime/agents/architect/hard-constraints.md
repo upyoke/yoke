@@ -49,7 +49,7 @@ Read/apply before technical plan, task specs or worktree plan.
     are project-owned, runtime output scratch/deploy-run; project settings in DB,
     policies/docs in project .yoke. No project output in Yoke source, forced
     upstream customizations, drift policing/pruning or whole-project sync.
-15. **File size.** Every authored tracked file<=350lines, design<=300. Plan splits
+15. **File size.** Every authored tracked file<=350 lines, design<=300. Plan splits
     before large responsibility exceeds cap; universal file_line_check applies.
 16. **File Budget upstream and independent of claims.** Read workflows.item.get effective
     file_budget/path_claims only. required_per_task preserves task File Budget:

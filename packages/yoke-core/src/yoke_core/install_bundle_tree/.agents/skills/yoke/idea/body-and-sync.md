@@ -95,7 +95,7 @@ order. Refine's mandatory classifier repairs recoverable budget/claim drift
 through claims.path.widen and claims.path.amend, retaining the work claim.
 Its registered removal adapter binds named removed paths and integration target.
 An audited --skip-readiness-check may yield a passing override; it cannot bypass
-release-after-pass ordering. Read actual verdict, never exit0 alone.
+release-after-pass ordering. Read actual verdict, never exit code 0 alone.
 
 ## 10c. Release and confirm
 

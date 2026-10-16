@@ -9,7 +9,7 @@ even if a mechanical check passes.
 Budget on: exact per-file allocation/current count/headroom350/limit flag.
 Claims on: complete derived scope. Both: applicable item/task parity.
 Budget-only does not mint claims; claims-only does not invent a proxy budget;
-neither omits both but universal350 remains.
+neither omits both but universal 350 remains.
 
 Required_per_task intake retains full parent execution budget while deferring
 claims until Shepherd persists tasks and epic_task_files. No unbound parent

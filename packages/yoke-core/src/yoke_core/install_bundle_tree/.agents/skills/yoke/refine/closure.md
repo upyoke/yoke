@@ -7,7 +7,7 @@ yoke readiness check PREFIX-N
 
 Require every enabled axis complete:
 - Budget: enumerate **every** physical file to edit, one path per row, current
-  count, headroom against350 and at/over-limit flag. No approximations or
+  count, headroom against 350 and at/over-limit flag. No approximations or
   "all importers" substitute.
 - Claims: complete coverage from the enabled budget or execution/investigation
   when budget is off. Parity only when both axes are enabled.

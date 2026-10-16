@@ -72,7 +72,7 @@ Never turn a required file into exception scope to evade a holder.
 
 ## 6. Item blocked flag, last resort
 
-Only when2–5 cannot represent the conflict:
+Only when 2–5 cannot represent the conflict:
 ```bash
 yoke items block PREFIX-N --reason "<verbatim-refusal-and-needed-upstream-coordination>"
 ```

@@ -55,7 +55,7 @@ yoke workflow-item epic-dispatch-chain advance --epic PREFIX-N --worktree {BRANC
 yoke workflow-item epic-task get --epic PREFIX-N --task-num {NEXT_TASK}
 ```
 
-Advance returns new_index|next_task_num; exit1 means end-of-queue, other failure
+Advance returns new_index|next_task_num; exit code 1 means end-of-queue, other failure
 is named recovery. Check next task dependencies. Unmet sets blocked with actual
 refs/reasons and continues searching this chain; met/no dependencies dispatches.
 Blocked tasks remain required and visible, not dropped from scope.

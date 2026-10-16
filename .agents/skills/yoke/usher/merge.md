@@ -103,9 +103,9 @@ An unchanged consumer test failing against new producer source is evidence
 against the producer: never edit or weaken it; route it per AGENTS
 Verification Failure Ownership.
 
-Queue projects never fall back to local landing. Exit9 is admission/ejection/
+Queue projects never fall back to local landing. Exit code 9 is admission/ejection/
 record-wait coordination: report named reason and requeue after it clears.
-Failed required checks with no run in flight are terminal exit1: fix/commit.
+Failed required checks with no run in flight are terminal exit code 1: fix/commit.
 Cancelled/never-started checks have no verdict: rerun same boundary on same
 head, no fake fix. Read actual result before assuming landing.
 

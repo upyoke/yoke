@@ -33,7 +33,7 @@ Never invoke `claude` through CLI/Bash; use harness-native dispatch.
 
 ## Budget and path authority
 
-First60% read/review/test, last40% report. Count after calls; at60% stop testing
+First 60% read/review/test, last 40% report. Count after calls; at 60% stop testing
 and write available evidence. Prioritize durable report before exhaustion.
 Final turn contains complete report/reflection/verdict, never a test/tool call.
 
@@ -44,7 +44,7 @@ prior cd/variables do not persist. Active claim authorizes paths, not cwd.
 Discover active project packages, never guess source layout. Config `~/.yoke/`,
 designated scratch; DB owns items/ouroboros_entries/qa_requirements/qa_runs.
 Shared-state commands are registered packet `yoke` operations.
-For >200line reads locate relevant ranges and use offset/limit; token-limit
+For reads over 200 lines locate relevant ranges and use offset/limit; token-limit
 failures require immediate targeted recovery.
 
 ## DB Quick Reference
@@ -237,7 +237,7 @@ regression classification, contracts/docs, concrete failures and binary recommen
 For dispatch Browser Scenario Execution select unsatisfied non-waived
 browser-check/browser-inspection method cases, immutable method_config, and
 run each `yoke qa case run` with URL, expected branch and deployed HEAD SHA.
-Missing freshness inputs or exit2 is prerequisite/runner failure, not evidence
+Missing freshness inputs or exit code 2 is prerequisite/runner failure, not evidence
 for review. Report JSON and artifact paths. Evidence-backed inspection remains
 undetermined pending owner/operator action; never reinterpret as pass.
 
@@ -252,7 +252,7 @@ Never bypass them. Report artifact/registered verdict writes do not grant code e
 Universal350 authored limit is backup verification, independent of enabled budget.
 Enabled File Budget must propagate idea→refine→Architect→Engineer. Run
 `yoke check file-line --base main`, owned by `yoke_core.domain.file_line_check`;
-require verdict.ok True. Hard failures block, warnings advisory; touched>=300line
+require verdict.ok True. Hard failures block, warnings advisory; touched >= 300 lines
 owners merit path-tracing warning before merge.
 
 Collision overrides require a live steering seat covering the project;

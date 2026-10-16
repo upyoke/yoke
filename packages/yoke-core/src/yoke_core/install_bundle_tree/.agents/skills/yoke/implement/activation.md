@@ -46,8 +46,8 @@ project checkout before relaying activation, including HTTPS. Register a
 missing mapping with `yoke project register <checkout> --project-id <id>`
 and retry from that machine.
 
-Exit0 means completed/no claims; exit1 means unresolved checkout/head or
-incomplete activation and preserves named outcomes/recovery; exit2 is usage.
+Exit code 0 means completed/no claims; exit code 1 means unresolved checkout/head or
+incomplete activation and preserves named outcomes/recovery; exit code 2 is usage.
 Resolve the actual refusal before retry.
 
 Read its `--help` for session overrides and result shape. Never inline a

@@ -2,7 +2,7 @@
 
 ## 3. Survey the actual landscape
 
-Inspect last20 commits in the owning project checkout:
+Inspect last 20 commits in the owning project checkout:
 ```bash
 git -C "<absolute-project-checkout>" log --oneline -20
 yoke items list --project "$ITEM_PROJECT" --fields "id,title,status,workflow_id" --limit 1000

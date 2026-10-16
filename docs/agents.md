@@ -136,7 +136,7 @@ exclusions, broaden for shared/core/schema risk, and never treat equal failure
 totals as regression proof. Unexpected untracked test artifacts are a leak/FAIL.
 The current selection owner does not grant a blanket documentation-only waiver.
 
-Conduct externalizes the complete relevant diff above300 lines to captured file
+Conduct externalizes the complete relevant diff above 300 lines to captured file
 plus `--stat`; at/below300 it inlines the whole diff. Task-start and retry diffs
 stay distinct; Tester reads actual file for detail. Budget reserves reporting
 before exhaustion; use foreground watcher continuation, not a detached atomic

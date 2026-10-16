@@ -66,13 +66,13 @@ yoke db-claim amend "$ITEM_REF" --reason "<exact-applicable-reason>" --stdin
 yoke items get "$ITEM_REF" db_mutation_profile
 ```
 
-Only buckets1/3 execute amendment/readback; bucket2 intentionally leaves
+Only buckets1/3 execute amendment/readback; bucket 2 intentionally leaves
 unstamped default. The upsert-safe unified workflow owns profile+attestation;
 never edit raw JSON. This classification is mandatory.
 
 ## 5. Apply modules: permanent history AC
 
-For bucket1 apply intent with modules, add the concrete module-naming permanent
+For bucket 1 apply intent with modules, add the concrete module-naming permanent
 history AC from [body-and-sync-functions.md](body-and-sync-functions.md).
 Safe reruns, boot convergence and never deleting ordered modules are required
 for every installation. Use the actual field-targeted/additive adapter; no

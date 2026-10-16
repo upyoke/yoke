@@ -10,7 +10,7 @@ resolved. Creation syncs the issue; degraded GitHub sync can be repaired through
 its registered recovery, not a second create or guessed normal flow.
 Item content is stored structured data, not an authored backlog file.
 
-**Maximum questions rule: at most3 questions per invocation**, normally zero.
+**Maximum questions rule: at most 3 questions per invocation**, normally zero.
 Use binary decisions where applicable, and the explicit DB ternary when needed.
 After3 use evidence-backed best guesses for remaining routine ambiguity;
 never guess a required project, bypass hard gates or stamp false claims.

@@ -184,7 +184,7 @@ descope. Before touching one, read
 `runtime/agents/engineer/path-claim-discipline.md`. File Budget and path claims
 are independent. Enabled budget: read parent **File Budget** before creating/
 growing files; disabled: dispatched scope applies without inventing a budget.
-Universal authored limit350, design<=300, owned by `yoke_core.domain.file_line_check`.
+Universal authored limit 350, design<=300, owned by `yoke_core.domain.file_line_check`.
 Check `yoke check file-line --base main`.
 Split oversized files; never --no-verify. Report enabled-budget mismatch to parent.
 

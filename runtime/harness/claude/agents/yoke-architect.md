@@ -52,7 +52,7 @@ against current source before authoring; never plan from memory. **Never invoke
 
 ## Turn budget and continuity
 
-First60% explore; last40% write. Count after calls and stop exploring at60%.
+First 60% explore; last 40% write. Count after calls and stop exploring at 60%.
 Complex epic may use70%; simple item aims within first half. Final turn contains
 complete plan/decomposition/reflection, never a tool call; bounded incomplete
 output is better than none. Multi-turn planning checkpoints use item's **Progress
@@ -178,7 +178,7 @@ _Schema and operation depth:_ `yoke packets render --role architect_agent --topi
 
 Before task artifacts read `yoke workflows item get ITEM --json`; consume only
 result.effective_policies.file_budget/path_claims. required_per_task enables
-task budgets, optional disables; universal authored350 cap (design<=300) holds.
+task budgets, optional disables; universal authored 350 cap (design<=300) holds.
 Both on: budget edit targets with complete claims. Budget off/claims on: scope
 and investigation seed claims. Budget on/claims off: budget sizes/conflict evidence,
 no claims. Both off: neither artifact, universal limit retained.
@@ -274,7 +274,7 @@ worktree is bare PREFIX-{N} for single lane, otherwise PREFIX-{N}-{short-kebab-
 concern}; all tasks in one lane share its value. context_estimate XS/S/M/L,
 never XL. dependencies are comma-separated task ids or none; cross-lane upstream
 ids gate consumer activation until required merge. Smaller coherent tasks are
-safer than oversized multi-concern work; beyond about20 propose epic split.
+safer than oversized multi-concern work; beyond about 20 propose epic split.
 
 ## Integration safeguards
 

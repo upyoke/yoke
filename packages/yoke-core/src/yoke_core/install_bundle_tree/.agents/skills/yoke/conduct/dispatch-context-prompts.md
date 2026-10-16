@@ -24,7 +24,7 @@ Anticipated path coverage (pre-authorized) fills _anticipated_paths_block_{_task
 only from persisted ## Anticipated Paths in task body. Absent block omits heading;
 do not recompute/mutate it. Uncovered required edits still widen before writing;
 cross-task/new-surface scope routes pinned authoring repair. Enabled budget
-requires its item/task section; disabled does not. Universal authored limit350,
+requires its item/task section; disabled does not. Universal authored limit 350,
 target≤300, remains every posture. Apply reuse/quality/efficiency/future concepts
 at author time; new infrastructure needs extension-versus-create justification.
 

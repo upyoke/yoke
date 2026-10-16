@@ -35,7 +35,7 @@ reason and standard rollback gate; never guess release -> implemented.
 | 99 | Internal self-reexecution should be launcher-owned; surfaced exit is unexpected, halt with exact evidence. |
 | Other nonzero | Unexpected failure: permitted rollback only if unlanded, preserve actual landed stage, report code/recovery and halt. |
 
-For exit8, take the pin's permitted rollback first. Read the actual registered
+For exit code 8, take the pin's permitted rollback first. Read the actual registered
 implementation lane and prove path exists, git status succeeds, and no modified
 tracked OR untracked file remains:
 

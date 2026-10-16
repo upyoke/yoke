@@ -21,7 +21,7 @@ date/body. Explain previous outcomes as systemic evidence: study already tried
 approaches and pending feedback before work; no agent-error blame. Retain the
 block only for this task, then clear on chain advance.
 
-If >3000 characters, include latest3 notes and latest2 reviews, count withheld
+If >3000 characters, include latest 3 notes and latest 2 reviews, count withheld
 rows and name the exact complete history read. Never cut an arbitrary body
 midline or silently discard prior failures. Store _rehydration_block for prompt
 assembly; no history means empty, not an empty heading placeholder.

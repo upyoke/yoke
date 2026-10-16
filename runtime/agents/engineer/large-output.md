@@ -25,7 +25,7 @@ to exit; do not duplicate, background a subagent waiter or manually poll.
 
 ## Size-aware reads and recovery
 
-Before reading any temp file inspect `wc -l < <file>`. Over500lines: targeted
+Before reading any temp file inspect `wc -l < <file>`. Over 500 lines: targeted
 tail/ranges/search, never blind full read. Read token-limit failure requires
 immediate offset/limit recovery: test summaries near end, source ranges found
 with scoped search. Never abandon needed information or rerun to recover it.

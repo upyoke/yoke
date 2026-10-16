@@ -29,7 +29,7 @@ ask once "Also extract the caveats list." Still absent: persist
 [FALLBACK_PARSED] [Caveats not extractable -- review Boss output manually],
 keep full Boss output/feedback; do not invent caveats.
 
-Full Boss retry after layer5: authoritative scope-aware reads only
+Full Boss retry after layer 5: authoritative scope-aware reads only
 (spec/prd → spec, body if empty; plan → technical_plan/worktree_plan with
 spec/design context/body if empty), no broad codebase exploration;
 FIRST output line must be VERDICT. Include full prior reasoning.

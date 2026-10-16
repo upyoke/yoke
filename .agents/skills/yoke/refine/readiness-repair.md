@@ -14,7 +14,7 @@ idea_readiness_repair) classifies issues; unavailable is run-level.
 | pass | No issues: continue |
 | pure_stale_count | All STALE_LINE_COUNT: registered numeric repair, inspect rerun separately; repair refusal blocks |
 | mixed_stale_count | Only MISSING_FILE_BUDGET, FILE_BUDGET_NOT_IN_CLAIM, CLAIM_NOT_IN_FILE_BUDGET, cross_item_overlap and optional STALE_LINE_COUNT: repair coverage, classify overlap; on residual/refusal continue into refine critique, final rerun still mandatory |
-| unrecoverable | Other/mixed nonrecoverable issues: checkpoint, release readiness-check-blocked, exit1 |
+| unrecoverable | Other/mixed nonrecoverable issues: checkpoint, release readiness-check-blocked, exit code 1 |
 | unavailable | Unperformed host checks with retryable:false: no repair/retry here; checkpoint, release readiness-validation-unavailable, report every check/recovery |
 
 A lone missing budget at idea auto-appends the documented UNRESOLVED marker,
@@ -70,7 +70,7 @@ yoke claims work release --item "$ITEM_REF" --reason "readiness-check-blocked"
 ```
 
 For unavailable, perform the same blocked checkpoint, then release with
-readiness-validation-unavailable. Report release errors and exit1, never
+readiness-validation-unavailable. Report release errors and exit code 1, never
 swallow them. Each unavailable_checks entry names check, reason
 project_checkout_unavailable and actual recovery. Envelope success does not
 mean validation passed. Same-host retry cannot change retryable:false;
@@ -97,7 +97,7 @@ Read both specs/claim states and returned proposals **before** authoring.
 Independent disjoint edits use coordination_only with shared-path/subsection
 rationale. Directional activation requires the upstream change this candidate
 inherits. Ambiguous evidence: release coordination-decision-escalated and
-exit1 for operator decision.
+exit code 1 for operator decision.
 ```bash
 yoke items dependency add <candidate-ref> <conflicting-ref> refine --gate-point coordination_only --rationale "<shared-paths-and-disjoint-subsections>"
 yoke items dependency add <candidate-ref> <upstream-ref> refine --gate-point activation --satisfaction fact:merged --rationale "decision=directional. <upstream-change-this-item-inherits>"

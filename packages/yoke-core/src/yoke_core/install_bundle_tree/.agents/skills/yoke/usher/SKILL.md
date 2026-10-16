@@ -56,7 +56,7 @@ cleanup, user files and true failure; cancelled checks are no verdict.
 
 Usher owns implemented-to-done and manual delivery. Route A's done-transition
 skip-deploy is only verified no delivery; Route B closes through yoke merge item
-with selected-flow run evidence. Absorb exit7 into routing, never force done.
+with selected-flow run evidence. Absorb exit code 7 into routing, never force done.
 Only verified terminal success reports completion.
 
 Before a nonterminal stop, checkpoint current stage, committed/dirty work and
