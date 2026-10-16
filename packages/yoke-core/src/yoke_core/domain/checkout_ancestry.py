@@ -11,9 +11,50 @@ git could not resolve the objects.
 
 from __future__ import annotations
 
+import subprocess
 from typing import Iterable, Sequence
 
 from yoke_core.domain import standalone_item_merge_git as git
+
+
+def resolve_commits(repo_root: str, refs: Iterable[str]) -> dict[str, str]:
+    """Return ``ref -> full commit sha`` (``""`` when unresolvable) in one read.
+
+    One ``cat-file --batch-check`` answers what ``rev-parse --verify
+    <ref>^{commit}`` answers per ref: a branch, tag, full or unique short
+    sha peels to its commit, while a missing, ambiguous or non-commit ref
+    answers no commit. A failed read answers every ref ``""``, matching a
+    failed ``rev-parse``.
+    """
+    unique = tuple(dict.fromkeys(refs))
+    answers = dict.fromkeys(unique, "")
+    asked = tuple(ref for ref in unique if ref and "\n" not in ref)
+    if not asked:
+        return answers
+    try:
+        proc = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "cat-file",
+                "--batch-check=%(objectname) %(objecttype)",
+            ],
+            input="".join(f"{ref}^{{commit}}\n" for ref in asked),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return answers
+    lines = proc.stdout.splitlines()
+    if proc.returncode != 0 or len(lines) != len(asked):
+        return answers
+    for ref, line in zip(asked, lines):
+        parts = line.split()
+        if len(parts) == 2 and parts[1] == "commit":
+            answers[ref] = parts[0]
+    return answers
 
 
 def parent_graph(repo_root: str, tip: str) -> dict[str, tuple[str, ...]]:
@@ -116,4 +157,5 @@ __all__ = [
     "commit_facts",
     "commit_is_ancestor",
     "parent_graph",
+    "resolve_commits",
 ]

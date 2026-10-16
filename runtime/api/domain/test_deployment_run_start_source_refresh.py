@@ -25,9 +25,9 @@ class _Repository:
     def __init__(self) -> None:
         self.resolved: list[str] = []
 
-    def resolve_commit(self, ref: str) -> str:
-        self.resolved.append(ref)
-        return ref
+    def resolve_commits(self, refs) -> dict[str, str]:
+        self.resolved.extend(refs)
+        return {ref: ref for ref in refs}
 
     def carrying_commit(self, lane_commit, *, base, head, commits):
         return None
