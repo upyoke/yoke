@@ -329,7 +329,7 @@ retained claim should query the events ledger first:
 
 The pinned workflow binding selects the skill for an item's live stage. Steering owns staffing; the shared scheduler computes the runnable frontier. The canonical sources are:
 
-- [charge-frontier.md](charge-frontier.md) — frontier computation, status-to-adapter mapping, ranking
+- [charge-frontier.md](./charge-frontier.md) — frontier computation, status-to-adapter mapping, ranking
 - `yoke_core.domain.scheduler_routing` — the `next_step` function that turns a status into a command
 - `yoke_core.domain.session_launch_mandate` — resolves assigned item routes from pinned workflow bindings
 
@@ -341,6 +341,6 @@ item's stage graph.
 ## See Also
 
 - [commands.md](../agents/commands.md)
-- [charge-frontier.md](charge-frontier.md)
-- [qa-platform.md](qa-platform.md)
-- [db-reference.md](db-reference.md)
+- [charge-frontier.md](./charge-frontier.md)
+- [qa-platform.md](./qa-platform.md)
+- [db-reference.md](./db-reference.md)
