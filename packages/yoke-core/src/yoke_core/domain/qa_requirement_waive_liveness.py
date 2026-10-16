@@ -11,8 +11,19 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import query_one
+from yoke_core.domain.schema_common import _column_exists
 
 NOT_LIVE_CODE = "requirement_not_live"
+
+#: The settlement columns a database may not have converged yet; a missing
+#: column has settled nothing, so it reads as NULL.
+_SETTLEMENT_COLUMNS = (
+    "retracted_at",
+    "retraction_rationale",
+    "superseded_at",
+    "superseded_by_requirement_id",
+    "replacement_requirement_id",
+)
 
 
 class RequirementNotLiveError(ValueError):
@@ -26,15 +37,22 @@ def _current_copy(conn: Any, row: dict[str, Any]) -> Optional[int]:
             return int(row[column])
     if row.get("plan_id") is None:
         return None
+    live = "".join(
+        f" AND {column} IS NULL"
+        for column in (
+            "retracted_at",
+            "superseded_by_requirement_id",
+            "replacement_requirement_id",
+        )
+        if _column_exists(conn, "qa_requirements", column)
+    )
     copy = query_one(
         conn,
         "SELECT id FROM qa_requirements WHERE id<>%s AND plan_id=%s "
         "AND plan_case_key IS NOT DISTINCT FROM %s "
         "AND COALESCE(deployment_member_item_id, item_id) IS NOT DISTINCT FROM %s "
         "AND qa_phase=%s AND host_baseline IS NOT DISTINCT FROM %s "
-        "AND target_env IS NOT DISTINCT FROM %s AND retracted_at IS NULL "
-        "AND superseded_by_requirement_id IS NULL "
-        "AND replacement_requirement_id IS NULL ORDER BY id DESC LIMIT 1",
+        f"AND target_env IS NOT DISTINCT FROM %s{live} ORDER BY id DESC LIMIT 1",
         (
             int(row["id"]),
             int(row["plan_id"]),
@@ -50,13 +68,17 @@ def _current_copy(conn: Any, row: dict[str, Any]) -> Optional[int]:
 
 def require_live_for_waiver(conn: Any, req_id: int) -> None:
     """Refuse a waiver on a row that no longer counts, naming its current copy."""
+    settlement = ", ".join(
+        column
+        if _column_exists(conn, "qa_requirements", column)
+        else f"NULL AS {column}"
+        for column in _SETTLEMENT_COLUMNS
+    )
     row = query_one(
         conn,
         "SELECT id, plan_id, plan_case_key, qa_phase, host_baseline, target_env, "
         "COALESCE(deployment_member_item_id, item_id) AS subject_item_id, "
-        "retracted_at, retraction_rationale, superseded_at, "
-        "superseded_by_requirement_id, replacement_requirement_id "
-        "FROM qa_requirements WHERE id=%s",
+        f"{settlement} FROM qa_requirements WHERE id=%s",
         (int(req_id),),
     )
     if row is None:
