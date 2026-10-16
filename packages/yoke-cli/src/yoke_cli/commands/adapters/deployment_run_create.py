@@ -20,12 +20,18 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
+from yoke_cli.commands.adapters.deployment_run_create_retry import (
+    build_timeout_repeat,
+)
 from yoke_cli.commands.adapters.deployment_pin_guard import (
     pin_regression_error,
 )
 from yoke_cli.commands.deployment_lineage import (
     DeploymentLineageResolutionError,
     resolve_commit_lineage,
+)
+from yoke_cli.transport.response_limits import (
+    DEPLOYMENT_RUN_CREATE_TIMEOUT_SECONDS,
 )
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
@@ -201,13 +207,16 @@ def deployment_runs_create(args: List[str]) -> int:
             return 1
     if parsed.environment is not None:
         payload["environment"] = parsed.environment
+    target = TargetRef(kind="global")
     return dispatch_and_emit(
         function_id="deployment_runs.create",
-        target=TargetRef(kind="global"),
+        target=target,
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_human_writer,
+        timeout_s=DEPLOYMENT_RUN_CREATE_TIMEOUT_SECONDS,
+        response_recovery=build_timeout_repeat(target, payload),
     )
 
 
