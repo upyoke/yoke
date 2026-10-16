@@ -33,9 +33,16 @@ def _object(raw: Any) -> dict | None:
 def _rows(conn: Any, table: str, query: str) -> Iterator[Any]:
     if not _table_exists(conn, table):
         return
-    cursor = conn.execute(query)
-    while rows := cursor.fetchmany(500):
-        yield from rows
+    cursor = (
+        conn.cursor(name=f"secret_receipts_{table}")
+        if db_backend.connection_is_postgres(conn) else conn.cursor()
+    )
+    try:
+        cursor.execute(query)
+        while rows := cursor.fetchmany(500):
+            yield from rows
+    finally:
+        cursor.close()
 
 
 def _ledger_secrets(conn: Any) -> Iterator[Any]:

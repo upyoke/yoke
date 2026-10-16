@@ -96,8 +96,11 @@ def load_module(name: str) -> Any:
 def verify_migrated_copy(conn: Any, copy_dsn: str) -> str | None:
     """Require product readers and release tooling to consume converged rows."""
     from runtime.api.tools.migration_rehearsal_readers import verify_migrated_readers
+    from runtime.api.tools.migration_rehearsal_secret_receipts import verify_secret_receipt_replay
 
-    failure = verify_migrated_readers(conn, copy_dsn)
+    failure = verify_secret_receipt_replay(conn)
+    if failure is None:
+        failure = verify_migrated_readers(conn, copy_dsn)
     return (
         failure
         if failure is not None
