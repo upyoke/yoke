@@ -39,7 +39,6 @@ def isolated_authority(monkeypatch):
     monkeypatch.setattr(
         authority, "lookup_item_workflow", lambda *_a: builtin_workflow_runtime("dash")
     )
-    monkeypatch.setattr(authority, "is_under_yoke_control_plane", lambda _p: False)
     monkeypatch.setattr(guard, "emit_deny_and_build_audit", lambda _v: {})
     monkeypatch.setattr(guard, "emit_mismatch_allowed_read_only", lambda **_k: None)
 
@@ -57,17 +56,23 @@ def evaluate(command, harness="codex"):
         "tool_input": {"command": command},
         **client_machine_home_fact(HOME),
     }
-    return guard.evaluate(
-        HookContext(
-            event_name="PreToolUse",
-            executor_family=harness,
-            executor_surface=harness,
-            payload=payload,
-            tool_name="Bash",
-            session_id=SESSION,
-            remote=True,
+    local, remote = (
+        guard.evaluate(
+            HookContext(
+                event_name="PreToolUse",
+                executor_family=harness,
+                executor_surface=harness,
+                payload=dict(payload),
+                tool_name="Bash",
+                session_id=SESSION,
+                remote=remote,
+            )
         )
+        for remote in (False, True)
     )
+    # The client facts alone decide: local and remote evaluation agree.
+    assert (local.outcome, local.message) == (remote.outcome, remote.message)
+    return remote
 
 
 @pytest.mark.parametrize("harness", ["claude", "codex", "cursor"])

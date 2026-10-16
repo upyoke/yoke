@@ -118,6 +118,11 @@ def hc_session_cwd_binding(conn, args: DoctorArgs, rec: RecordCollector) -> None
     mismatches: List[str] = []
     unknown: List[str] = []
     matched_count = 0
+    # The doctor runs on the machine it checks, so its own source root is
+    # the root those sessions' clients report.
+    from yoke_harness.hooks.client_fact_probes import yoke_source_root
+
+    yoke_root = yoke_source_root()
 
     for row in rows:
         session_id = row["session_id"] if isinstance(row, dict) else row[0]
@@ -132,6 +137,7 @@ def hc_session_cwd_binding(conn, args: DoctorArgs, rec: RecordCollector) -> None
             session_id=session_id,
             targets=(),
             fallback_cwd=observed_cwd,
+            yoke_root=yoke_root,
         )
         if outcome.allow:
             matched_count += 1

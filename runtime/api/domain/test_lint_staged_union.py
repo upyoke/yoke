@@ -1,17 +1,15 @@
-"""Tests for the one-call effective staged-set."""
+"""Tests for the one-call effective staged-set and its client git probe."""
 
 from __future__ import annotations
 
 from unittest import mock
 
-from yoke_core.domain import lint_staged_union as union
+from yoke_contracts.hook_runner.main_commit import effective_staged_set
+from yoke_harness.hooks import main_commit_client
 
 
 def _effective(command, staged, status=None):
-    with mock.patch.object(
-        union, "_modified_and_untracked", return_value=status,
-    ):
-        return union.effective_staged_set(command, staged)
+    return effective_staged_set(command, staged, modified_and_untracked=status)
 
 
 class TestPassThrough:
@@ -37,7 +35,8 @@ class TestPassThrough:
 class TestDeterminateAdds:
     def test_one_call_add_targets_union_with_staged(self):
         result = _effective(
-            "git add b.md c/d.py && git commit -m 'x'", ["a.py"],
+            "git add b.md c/d.py && git commit -m 'x'",
+            ["a.py"],
         )
         assert result is not None
         assert result.paths == ["a.py", "b.md", "c/d.py"]
@@ -65,7 +64,8 @@ class TestDeterminateAdds:
 
     def test_quoted_path_with_spaces(self):
         result = _effective(
-            "git add 'docs/a file.md' && git commit -m 'x'", [],
+            "git add 'docs/a file.md' && git commit -m 'x'",
+            [],
         )
         assert result is not None
         assert result.paths == ["docs/a file.md"]
@@ -89,7 +89,8 @@ class TestDeterminateAdds:
 class TestIndeterminateAdds:
     def test_add_all_widens_to_modified_and_untracked(self):
         result = _effective(
-            "git add -A && git commit -m 'x'", ["a.py"],
+            "git add -A && git commit -m 'x'",
+            ["a.py"],
             status=["m.py", "n.md"],
         )
         assert result is not None
@@ -98,21 +99,26 @@ class TestIndeterminateAdds:
 
     def test_add_dot_widens(self):
         result = _effective(
-            "git add . && git commit -m 'x'", [], status=["m.py"],
+            "git add . && git commit -m 'x'",
+            [],
+            status=["m.py"],
         )
         assert result is not None
         assert result.paths == ["m.py"]
 
     def test_glob_pathspec_widens(self):
         result = _effective(
-            "git add docs/*.md && git commit -m 'x'", [], status=["docs/k.md"],
+            "git add docs/*.md && git commit -m 'x'",
+            [],
+            status=["docs/k.md"],
         )
         assert result is not None
         assert result.paths == ["docs/k.md"]
 
     def test_rebased_git_dash_c_widens(self):
         result = _effective(
-            "git -C /elsewhere add f.py && git commit -m 'x'", [],
+            "git -C /elsewhere add f.py && git commit -m 'x'",
+            [],
             status=["m.py"],
         )
         assert result is not None
@@ -138,7 +144,9 @@ class TestIndeterminateAdds:
         # Unavailable probe: the staged-rule family fails open — keep what
         # is still visible (staged + determinate adds).
         result = _effective(
-            "git add -A b.md && git commit -m 'x'", ["a.py"], status=None,
+            "git add -A b.md && git commit -m 'x'",
+            ["a.py"],
+            status=None,
         )
         assert result is not None
         assert result.paths == ["a.py"]
@@ -146,37 +154,36 @@ class TestIndeterminateAdds:
     def test_mixed_determinate_and_indeterminate_segments(self):
         result = _effective(
             "git add a.py && git add -u && git commit -m 'x'",
-            [], status=["m.py"],
+            [],
+            status=["m.py"],
         )
         assert result is not None
         assert set(result.paths) == {"a.py", "m.py"}
         assert result.worktree_content_paths == frozenset({"a.py", "m.py"})
 
 
-class TestStatusParsing:
+class TestClientStatusParsing:
+    """The client probe that feeds ``modified_and_untracked``."""
+
     def test_porcelain_z_parse_handles_renames(self):
         raw = "M  a.py\0R  new.md\0old.md\0?? untracked.txt\0"
         completed = mock.Mock(returncode=0, stdout=raw)
         with mock.patch.object(
-            union.subprocess, "run", return_value=completed,
+            main_commit_client.subprocess,
+            "run",
+            return_value=completed,
         ):
-            assert union._modified_and_untracked() == [
-                "a.py", "new.md", "untracked.txt",
+            assert main_commit_client._modified_and_untracked("/repo") == [
+                "a.py",
+                "new.md",
+                "untracked.txt",
             ]
 
     def test_status_nonzero_returns_none(self):
         completed = mock.Mock(returncode=128, stdout="")
         with mock.patch.object(
-            union.subprocess, "run", return_value=completed,
+            main_commit_client.subprocess,
+            "run",
+            return_value=completed,
         ):
-            assert union._modified_and_untracked() is None
-
-
-class TestWorktreeBlob:
-    def test_reads_file_content(self, tmp_path):
-        target = tmp_path / "view.md"
-        target.write_text("fresh body\n", encoding="utf-8")
-        assert union.worktree_blob(str(target)) == "fresh body\n"
-
-    def test_missing_file_returns_none(self, tmp_path):
-        assert union.worktree_blob(str(tmp_path / "absent.md")) is None
+            assert main_commit_client._modified_and_untracked("/repo") is None

@@ -198,7 +198,8 @@ def _poll(
         timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
     )
     # A native that died reads stale rather than ended; this machine has proof.
-    report_verified_dead_sessions(dispatcher, inventory, state_dir=state_dir)
+    # Custody lives in the machine cache; this relay's captures in its own dir.
+    report_verified_dead_sessions(dispatcher, inventory, diagnostic_state_dir=state_dir)
     # One that died before registering has no session to read at all, and its
     # launch would otherwise wait out the whole registration deadline.
     report_unregistered_launch_deaths(dispatcher, inventory, state_dir=state_dir)

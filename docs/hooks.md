@@ -40,12 +40,13 @@ reuses an HTTPS pool and isolates each concurrent caller's context. Dry runs sta
 local. The active machine connection selects in-process or HTTPS evaluation.
 
 On HTTPS, the client reads the payload and detects executor/agent identity once.
-It evaluates `LOCAL_STATE_POLICIES` through
-`yoke_harness.hooks.local_subset.evaluate_local_subset`, then sends the remaining
-chain to `POST /v1/hooks/evaluate` with machine credentials, hook schema, event,
-stdin, executor, agent type, entrypoint, model, execution level and remaining
-deadline. Identity fields are client-owned: the server cannot inspect local
-transcripts, caches or launch inputs.
+It evaluates the chain's client-home policies through
+`yoke_harness.hooks.local_subset.evaluate_local_subset`, collects the client
+facts the rest of the chain reads, then sends the remaining chain to
+`POST /v1/hooks/evaluate` with machine credentials, hook schema, event, stdin,
+executor, agent type, entrypoint, model, execution level, those facts and the
+remaining deadline. Identity fields are client-owned: the server cannot inspect
+local transcripts, caches or launch inputs.
 
 Any deny wins. A client deny returns immediately without posting; a server deny
 relays verbatim and discards client advisories. Two allows join sibling advisory
@@ -53,14 +54,37 @@ envelopes through `decision_render.merge_allow_stdout`. Local-state delegation
 is recorded in the server's `degraded` list; it means delegated, not disabled.
 The same chain machinery preserves each policy's fail-open/fail-closed behavior.
 
-`yoke_core.hooks.remote_policy.LOCAL_STATE_POLICIES` classifies policies requiring
-local Git, workspace, file or script-directory state. Payload/DB policies,
-including command-shape, path-claim/session-cwd, heartbeat and telemetry, remain
-server-side. Narrow `payload_extra` supplies staged Git facts to main-commit and
-the effective scratch root to session-cwd; watcher captures must nest under the
-calling session. Client agent type (`YOKE_HOOK_AGENT_TYPE`) and identity fields
-merge into both payloads. The server binds verified bearer actors to registered
+### Policy homes and client facts
+
+Every chain policy has exactly one home, declared once in
+`yoke_contracts.hook_runner.policy_home` and read by both relay halves:
+
+- `CLIENT` — the verdict needs the client machine and no control-plane state
+  (destructive-git, tmp runtime import, file-line hint, DB-error advisory,
+  unmatched glob, backtick search, local privacy, and `session_dispatch`).
+  The client runs it; the server skips it.
+- `SERVER` — the verdict needs only the payload and control-plane state.
+- `SERVER_WITH_CLIENT_FACTS` — the verdict needs control-plane state plus named
+  client observations, and reads only those facts, never its own machine.
+
+`yoke_harness.hooks.client_facts.collect_client_facts` observes exactly the facts
+a chain names, on every path: the relay ships them in `payload_extra`;
+`yoke_core.hooks.local_entry` and `python3 -m yoke_core.hooks` merge them in.
+Each rides under its own key (`yoke_contracts.hook_runner.client_facts`):
+headless launch, capture-file state and scratch roots, write-target resolution
+with ignore status and live lanes, machine settings, the Yoke source root,
+recent `main` commits, Git commit facts, client home, scratch and Claude job
+roots, the fleet-watcher observation and turn-end evidence; the lint-config
+snapshot rides with every chain. A missing fact reads as absent and the policy
+applies its documented no-fact behaviour; a failing collector writes
+`YOKE_CLIENT_FACT_FAILED: <fact>` to stderr. Watcher captures must nest under
+the calling session. The server binds verified bearer actors to registered
 session rows (`actor_id` matches local machine-actor resolution).
+
+`tests/hook_policy_homes/` checks the table against the chains and scans every
+function a server-run policy reaches for local reads (subprocess, environment,
+filesystem, cwd, home, `__file__`); each needs a new home, a named fact, or a
+written reason in `local_read_reasons.py`.
 
 The client starts the resident on demand. It retires after ten idle minutes;
 a request for a different installed revision closes acceptance and re-execs,
@@ -268,8 +292,17 @@ If hooks appear dead, inspect CLI startup for `Settings Error`.
 
 `SubagentStop` frontmatter invokes local `yoke_core.domain.agent_stop` directly,
 so HTTPS does not carry that auto-commit of client Git state. Harnesses using the
-shared runner fall back through `SubagentStop -> session_dispatch`, which is
-local-state and therefore still client-side on HTTPS.
+shared runner fall back through `SubagentStop -> session_dispatch`.
+
+`session_dispatch` is a client-home policy. On HTTPS the client runs its
+machine-local SessionStart duties through `yoke_harness.hooks.session_lifecycle`:
+it fast-forwards the project's default-branch checkout (warning
+`YOKE_MAIN_CHECKOUT_NOT_SYNCED` with the recovery when it cannot) and persists
+`YOKE_SESSION_ID` into Claude's `CLAUDE_ENV_FILE`. The relay records the Codex
+runtime cache. The control-plane duties run on the server: registration through
+relay ensure-register, end-of-session cleanup and the stale-session reap through
+`yoke_core.hooks.remote_lifecycle`, and the slim resume block through the
+`yoke_core.hooks.session_resume_block` chain policy. The Codex start marker guards only in-process registration.
 
 ## Fleet delivery
 

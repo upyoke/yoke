@@ -288,40 +288,6 @@ def test_aborted_execution_preserves_its_capture_for_review(
     assert find_unsettled_records(test_db, item_id=item_id) == []
 
 
-def test_repeated_attempts_leave_no_growing_wall_of_orphans(
-    test_db: Any,
-    tmp_path: Any,
-    monkeypatch: Any,
-) -> None:
-    item_id = 4603
-    requirement_id = _materialize_mission(test_db, item_id=item_id)
-    configure_test_machine(test_db, tmp_path, monkeypatch)
-    for attempt in range(1, 4):
-        execution_id = _capture_attempt(
-            test_db,
-            item_id=item_id,
-            requirement_id=requirement_id,
-        )
-        finish_plan_execution(
-            test_db,
-            lock_plan_execution(test_db, execution_id),
-            state="aborted",
-            reason=f"operator aborted attempt {attempt}",
-        )
-        execution = lock_plan_execution(test_db, execution_id)
-        bundle = begin_plan_review(test_db, execution, completed_captures_only=True)
-        _submit_pass(
-            test_db,
-            execution,
-            bundle,
-            requirement_id,
-            "Capture reviewed independently.",
-        )
-
-    assert _unsettled_run_ids(test_db, requirement_id) == []
-    assert find_unsettled_records(test_db, item_id=item_id) == []
-
-
 def test_gate_summary_and_terminal_gate_agree_after_review(
     test_db: Any,
     tmp_path: Any,

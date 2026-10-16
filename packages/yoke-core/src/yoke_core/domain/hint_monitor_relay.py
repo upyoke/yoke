@@ -15,7 +15,8 @@ zero. Because every wake regenerates the model with the full conversation
 history, the reminder is present in context on every subsequent wake
 (passively, not freshly emphasized). The injected text comes from
 ``DEFAULT_REMINDER``, optionally overridden by the ``~/.yoke/config.json``
-setting ``monitor_relay_hint_text``. The full relay rules live on
+setting ``monitor_relay_hint_text`` of the machine running the session,
+read from its machine-settings client fact. The full relay rules live on
 ``python3 -m yoke_core.domain.hint_monitor_relay --help``.
 
 Failure posture is fail-open: empty stdin, malformed JSON, or a non-Monitor
@@ -32,15 +33,17 @@ from __future__ import annotations
 
 import json
 import sys
-from pathlib import Path
-from typing import Optional
+from typing import Any, Mapping
 
-from yoke_core.domain import runtime_settings
+from yoke_contracts.hook_runner.client_facts import (
+    MONITOR_RELAY_REMINDER_SETTING,
+    machine_setting,
+)
 from yoke_core.domain.hint_monitor_relay_help import HELP_REMINDER
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
-CONFIG_KEY = "monitor_relay_hint_text"
+CONFIG_KEY = MONITOR_RELAY_REMINDER_SETTING
 TARGET_TOOL = "Monitor"
 
 DEFAULT_REMINDER = """\
@@ -67,11 +70,9 @@ __all__ = [
 ]
 
 
-def resolve_reminder_text(repo_root: Optional[Path] = None) -> str:
-    """Return the reminder text: config override if present, else default."""
-    del repo_root
-    override = runtime_settings.get_str(CONFIG_KEY, "").strip()
-    return override if override else DEFAULT_REMINDER
+def resolve_reminder_text(payload: Mapping[str, Any]) -> str:
+    """Return the client's configured reminder text, else the default."""
+    return machine_setting(payload, CONFIG_KEY) or DEFAULT_REMINDER
 
 
 def evaluate(record: HookContext) -> HookDecision:
@@ -83,7 +84,7 @@ def evaluate(record: HookContext) -> HookDecision:
     payload = record.payload if isinstance(record.payload, dict) else {}
     if record.tool_name != TARGET_TOOL and payload.get("tool_name") != TARGET_TOOL:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    reminder = resolve_reminder_text()
+    reminder = resolve_reminder_text(payload)
     if not reminder.strip():
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     return HookDecision(

@@ -11,7 +11,6 @@ class Cleanup:
     where: str
     params: tuple = ()
     children: tuple[tuple[str, str, str], ...] = ()
-    locks: tuple[str, ...] = ()
     reason: str = "age, outcome and live-reference protections"
 
 
@@ -48,7 +47,6 @@ def policies(policy, cutoff):
             ("id",),
             event_where,
             tuple(event_values),
-            locks=("path_moves", "path_context_values", "path_integrity_repairs"),
             reason="unknown severity and durable event references are protected",
         )
     ]
@@ -70,7 +68,6 @@ def policies(policy, cutoff):
             ("request_id",),
             "t.created_at<%s AND NOT EXISTS (SELECT 1 FROM github_workflow_dispatch_intents d WHERE d.request_id=t.request_id AND d.state='pending')",
             (before("replay"),),
-            locks=("github_workflow_dispatch_intents",),
         ),
         Cleanup(
             "github_workflow_dispatch_intents",
@@ -84,7 +81,6 @@ def policies(policy, cutoff):
             "t.completed_at<%s AND NOT EXISTS (SELECT 1 FROM work_claims w WHERE w.session_id=t.session_id AND w.released_at IS NULL) "
             "AND EXISTS (SELECT 1 FROM harness_sessions s WHERE s.session_id=t.session_id AND s.ended_at IS NOT NULL)",
             (before("tool_calls"),),
-            locks=("work_claims", "harness_sessions"),
             reason="incomplete calls and detail belonging to live sessions/claims are protected",
         ),
         Cleanup(
@@ -111,7 +107,6 @@ def policies(policy, cutoff):
             "t.state IN ('granted','cancelled') AND t.settled_at<%s "
             "AND EXISTS (SELECT 1 FROM qa_plan_executions e WHERE e.id=t.qa_plan_execution_id AND e.state IN ('completed','aborted') AND e.completed_at<%s)",
             (before("settled_waits"), before("settled_waits")),
-            locks=("qa_plan_executions",),
         ),
     ]
     expiry = before("expired_security")

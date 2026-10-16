@@ -28,9 +28,7 @@ from yoke_core.hooks.denial import (  # noqa: F401
 )
 from yoke_core.hooks.identity import (  # noqa: F401
     _classify_session_id_source,
-    persist_session_id_to_env_file,
     resolve_direct_session_id,
-    resolve_env_init_session_id,
     resolve_session_id_from_env_and_payload,
 )
 from yoke_core.hooks.service_client import (  # noqa: F401
@@ -332,11 +330,9 @@ __all__ = [
     "emit_hook_guardrail_evaluated",
     "emit_session_hook_failed",
     "flush_hook_telemetry",
-    "persist_session_id_to_env_file",
     "attest_served_model_facts",
     "register_session",
     "resolve_direct_session_id",
-    "resolve_env_init_session_id",
     "resolve_repo_root",
     "resolve_session_id_from_env_and_payload",
     "session_service_client_path",

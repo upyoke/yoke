@@ -20,7 +20,8 @@ from yoke_contracts.session_control import (
     capability_for_surface,
     turn_end_events,
 )
-from yoke_contracts.turn_end_evidence import PAYLOAD_KEY
+from yoke_contracts.hook_runner.project_scope import HookProjectScope
+from yoke_contracts.turn_end_evidence import PAYLOAD_KEY, extract_from_jsonl
 from yoke_core.domain import turn_end_promised_work_gate as gate
 from yoke_core.hooks.types import HookContext, Outcome
 from yoke_harness.hooks import local_subset
@@ -75,6 +76,12 @@ def transcript(tmp_path: Path) -> Path:
     return path
 
 
+def _with_client_evidence(payload: dict, transcript: Path) -> dict:
+    """Attach the turn-end evidence the client reads from its own transcript."""
+    evidence = extract_from_jsonl(transcript.read_text(encoding="utf-8"))
+    return {**payload, PAYLOAD_KEY: evidence.as_dict()}
+
+
 def _ctx(payload: dict, *, family: str = "cursor") -> HookContext:
     return HookContext(
         event_name="SessionEnd",
@@ -120,7 +127,8 @@ def test_print_mode_session_end_records_the_turn_end_deferral(
     monkeypatch, transcript: Path
 ) -> None:
     emitted = _patch_db(monkeypatch)
-    decision = gate.evaluate(_ctx(_session_end_payload(transcript)))
+    payload = _with_client_evidence(_session_end_payload(transcript), transcript)
+    decision = gate.evaluate(_ctx(payload))
     assert decision.outcome is Outcome.ALLOW
     assert [e["reason"] for e in emitted] == [gate.REASON_CONTINUATION_UNSUPPORTED]
     assert emitted[0]["item_id"] == 7
@@ -130,7 +138,8 @@ def test_session_end_never_denies_even_where_stop_could_continue(
     monkeypatch, transcript: Path
 ) -> None:
     emitted = _patch_db(monkeypatch, continuation=True)
-    decision = gate.evaluate(_ctx(_session_end_payload(transcript)))
+    payload = _with_client_evidence(_session_end_payload(transcript), transcript)
+    decision = gate.evaluate(_ctx(payload))
     assert decision.outcome is Outcome.ALLOW
     assert [e["reason"] for e in emitted] == [gate.REASON_CONTINUATION_UNSUPPORTED]
 
@@ -154,6 +163,9 @@ def test_relay_client_attaches_turn_end_evidence_on_cursor_session_end(
         None,
         start_hook_deadline(),
         lint_config_snapshot={},
+        collect_facts=True,
+        # The turn-end gate, and so its evidence fact, is project-scoped.
+        project_scope=HookProjectScope(project_id=1),
     )
     evidence = (result.payload_extra or {}).get(PAYLOAD_KEY)
     assert evidence == {"available": True, "present": True, "question": False}

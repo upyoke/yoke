@@ -14,11 +14,12 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
 )
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
+from yoke_contracts.hook_runner.client_facts import SOURCE_ROOT_KEY, client_fact
 from yoke_core.domain import (
     lint_session_cwd,
-    lint_session_cwd_control_plane,
     lint_session_cwd_validate,
 )
+from yoke_core.hooks.types import HookContext, Outcome
 
 
 @pytest.fixture
@@ -30,11 +31,6 @@ def conn():
 @pytest.fixture
 def fake_yoke_root(monkeypatch):
     yoke_root = Path("/__yoke_test_root__")
-    monkeypatch.setattr(
-        lint_session_cwd_control_plane,
-        "yoke_main_root",
-        lambda: str(yoke_root),
-    )
     monkeypatch.delenv("TMPDIR", raising=False)
     monkeypatch.setattr(
         lint_session_cwd_validate,
@@ -42,6 +38,11 @@ def fake_yoke_root(monkeypatch):
         ("/tmp", "/private/tmp", "/dev"),
     )
     return yoke_root
+
+
+def _fact(yoke_root) -> dict:
+    """The client fact naming the session's Yoke source checkout."""
+    return client_fact(SOURCE_ROOT_KEY, str(yoke_root))
 
 
 def _seed_two_projects(conn, fake_yoke_root):
@@ -78,6 +79,7 @@ def test_claim_in_a_allows_project_b_control_plane(conn, fake_yoke_root):
     other = _seed_two_projects(conn, fake_yoke_root)
     verdict = lint_session_cwd.evaluate_pre_tool_use(
         {
+            **_fact(fake_yoke_root),
             "session_id": "sid-a",
             "tool_input": {"file_path": str(other / "docs" / "README.md")},
         }
@@ -89,6 +91,7 @@ def test_claim_in_a_allows_project_a_control_plane(conn, fake_yoke_root):
     _seed_two_projects(conn, fake_yoke_root)
     verdict = lint_session_cwd.evaluate_pre_tool_use(
         {
+            **_fact(fake_yoke_root),
             "session_id": "sid-a",
             "tool_input": {"file_path": str(fake_yoke_root / "docs" / "README.md")},
         }
@@ -100,6 +103,7 @@ def test_claim_in_a_refuses_project_b_worktree(conn, fake_yoke_root):
     other = _seed_two_projects(conn, fake_yoke_root)
     verdict = lint_session_cwd.evaluate_pre_tool_use(
         {
+            **_fact(fake_yoke_root),
             "session_id": "sid-a",
             "tool_input": {
                 "file_path": str(other / ".worktrees" / "EXT-99" / "src.py"),
@@ -113,6 +117,7 @@ def test_claim_holder_own_worktree_still_allowed(conn, fake_yoke_root):
     _seed_two_projects(conn, fake_yoke_root)
     verdict = lint_session_cwd.evaluate_pre_tool_use(
         {
+            **_fact(fake_yoke_root),
             "session_id": "sid-a",
             "tool_input": {
                 "file_path": str(fake_yoke_root / ".worktrees" / "lane-a" / "src.py"),
@@ -126,6 +131,7 @@ def test_refusal_lists_both_project_roots(conn, fake_yoke_root):
     other = _seed_two_projects(conn, fake_yoke_root)
     verdict = lint_session_cwd.evaluate_pre_tool_use(
         {
+            **_fact(fake_yoke_root),
             "session_id": "sid-a",
             "tool_input": {"file_path": "/__foreign_target__/file"},
         }
@@ -134,3 +140,32 @@ def test_refusal_lists_both_project_roots(conn, fake_yoke_root):
     assert "Any project control plane:" in verdict.reason
     assert str(fake_yoke_root) in verdict.reason
     assert str(other) in verdict.reason
+
+
+@pytest.mark.parametrize(
+    ("relative", "outcome"),
+    [("docs/README.md", Outcome.NOOP), (".worktrees/other/src.py", Outcome.DENY)],
+)
+def test_verdict_is_the_same_locally_and_remotely(
+    conn, fake_yoke_root, relative, outcome
+):
+    _seed_two_projects(conn, fake_yoke_root)
+    payload = {
+        **_fact(fake_yoke_root),
+        "session_id": "sid-a",
+        "tool_name": "Read",
+        "tool_input": {"file_path": str(fake_yoke_root / relative)},
+    }
+    outcomes = {
+        remote: lint_session_cwd.evaluate(
+            HookContext(
+                event_name="PreToolUse",
+                executor_family="claude-code",
+                executor_surface="claude-cli",
+                payload=dict(payload),
+                remote=remote,
+            )
+        ).outcome
+        for remote in (False, True)
+    }
+    assert outcomes == {False: outcome, True: outcome}

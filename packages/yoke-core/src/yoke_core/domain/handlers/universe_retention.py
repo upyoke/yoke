@@ -17,7 +17,8 @@ def handle_prune(request):
 
 def _handle(request, prune):
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.universe_retention import prune_pass, read_retention
+    from yoke_core.domain.universe_retention import read_retention
+    from yoke_core.domain.universe_retention_pass import prune_pass
 
     try:
         parsed = (PruneRequest if prune else RetentionReadRequest).model_validate(

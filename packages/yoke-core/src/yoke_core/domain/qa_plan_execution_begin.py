@@ -125,6 +125,21 @@ def begin_plan_execution(
         conn,
         session_id=session_id,
     )
+    from yoke_core.domain.qa_plan_settled_review import open_unsettled_roster
+
+    def without_settled(source: list[dict[str, Any]]) -> dict[str, Any] | None:
+        reprint, kept = open_unsettled_roster(
+            conn,
+            source,
+            item_id=item_id,
+            transition_id=transition_id,
+            deployment_run_id=deployment_run_id,
+            deployment_stage=deployment_stage,
+            deployment_member_item_id=deployment_member_item_id,
+        )
+        source[:] = kept
+        return reprint
+
     roster = build_execution_roster(
         conn,
         item_id=item_id,
@@ -135,6 +150,8 @@ def begin_plan_execution(
         execution_target_digest=expected_deployment_target_digest,
         host_capability_kinds=host_capabilities,
     )
+    if reprint := without_settled(roster):
+        return reprint
     from yoke_core.domain.qa_member_machine_partitions import member_machine_partition
 
     roster, remaining, completed = member_machine_partition(
@@ -215,6 +232,8 @@ def begin_plan_execution(
                 execution_target_digest=expected_deployment_target_digest,
                 host_capability_kinds=host_capabilities,
             )
+            if reprint := without_settled(roster):
+                return reprint
             roster, remaining, completed = member_machine_partition(
                 conn,
                 roster,

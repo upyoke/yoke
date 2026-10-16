@@ -6,6 +6,7 @@ import json
 import unittest
 from unittest import mock
 
+from yoke_contracts.hook_runner.client_facts import HEADLESS_LAUNCH_KEY, client_fact
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_contracts.watch_cli_forms import IN_TURN_WATCHER_TIMEOUT_MS
 from yoke_core.domain import lint_headless_watcher_timeout as lint
@@ -13,14 +14,16 @@ from yoke_core.hooks.types import HookContext, Next, Outcome
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 
 WATCH = "yoke watch pytest --impacted main --bounded"
-HEADLESS = {LAUNCH_CONTEXT_ENV: "launch-ctx"}
+HEADLESS_ENV = {LAUNCH_CONTEXT_ENV: "launch-ctx", RESUME_ATTEMPT_ENV: "resume-1"}
 
 
-def _payload(command: str = WATCH, timeout=None) -> dict:
+def _payload(command: str = WATCH, timeout=None, *, headless=True) -> dict:
     tool_input: dict = {"command": command}
     if timeout is not None:
         tool_input["timeout"] = timeout
+    facts = client_fact(HEADLESS_LAUNCH_KEY, headless) if headless is not None else {}
     return {
+        **facts,
         "tool_name": "Bash",
         "tool_input": tool_input,
         "session_id": "sess-test",
@@ -35,13 +38,12 @@ def _eval(
     timeout=None,
     mode: str = "deny",
     family: str = "claude",
-    environ: dict | None = None,
+    headless=True,
 ):
     with mock.patch.object(lint, "_read_mode", return_value=mode):
         return lint.evaluate_payload(
-            _payload(command, timeout=timeout),
+            _payload(command, timeout=timeout, headless=headless),
             executor_family=family,
-            environ=HEADLESS if environ is None else environ,
         )
 
 
@@ -63,10 +65,17 @@ class TestScope(unittest.TestCase):
         self.assertIsNone(_eval(timeout=IN_TURN_WATCHER_TIMEOUT_MS))
 
     def test_interactive_session_is_clean(self):
-        self.assertIsNone(_eval(environ={}))
+        self.assertIsNone(_eval(headless=False))
 
-    def test_resume_marker_is_headless(self):
-        self.assertIsNotNone(_eval(environ={RESUME_ATTEMPT_ENV: "resume-1"}))
+    def test_absent_fact_is_interactive(self):
+        self.assertIsNone(_eval(headless=None))
+
+    def test_malformed_fact_is_interactive(self):
+        self.assertIsNone(_eval(headless="yes"))
+
+    def test_evaluating_process_environment_is_not_read(self):
+        with mock.patch.dict("os.environ", HEADLESS_ENV, clear=False):
+            self.assertIsNone(_eval(headless=None))
 
     def test_cursor_is_clean(self):
         self.assertIsNone(_eval(family="cursor"))
@@ -87,13 +96,7 @@ class TestScope(unittest.TestCase):
         payload = _payload()
         payload["tool_name"] = "Read"
         with mock.patch.object(lint, "_read_mode", return_value="deny"):
-            self.assertIsNone(
-                lint.evaluate_payload(
-                    payload,
-                    executor_family="claude",
-                    environ=HEADLESS,
-                )
-            )
+            self.assertIsNone(lint.evaluate_payload(payload, executor_family="claude"))
 
 
 class TestModesAndEnvelope(unittest.TestCase):
@@ -110,17 +113,28 @@ class TestModesAndEnvelope(unittest.TestCase):
         assert verdict is not None
         self.assertEqual(verdict[2], "suppression_attempted")
 
-    def test_deny_envelope_names_repair(self):
-        with mock.patch.dict("os.environ", HEADLESS, clear=False):
-            decision = lint.evaluate(
-                HookContext(
-                    event_name="PreToolUse",
-                    executor_family="claude",
-                    executor_surface="cli",
-                    payload=_payload(),
-                    tool_name="Bash",
-                )
+    def _decision(self, *, remote: bool = False, headless=True):
+        return lint.evaluate(
+            HookContext(
+                event_name="PreToolUse",
+                executor_family="claude",
+                executor_surface="cli",
+                payload=_payload(headless=headless),
+                tool_name="Bash",
+                remote=remote,
             )
+        )
+
+    def test_verdict_is_the_same_locally_and_remotely(self):
+        for headless, outcome in ((True, Outcome.DENY), (False, Outcome.NOOP)):
+            local = self._decision(remote=False, headless=headless)
+            remote = self._decision(remote=True, headless=headless)
+            self.assertEqual(local.outcome, outcome)
+            self.assertEqual(remote.outcome, outcome)
+            self.assertEqual(local.message, remote.message)
+
+    def test_deny_envelope_names_repair(self):
+        decision = self._decision()
         self.assertEqual(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertEqual(decision.next, Next.STOP)

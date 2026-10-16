@@ -224,6 +224,9 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
         ("machine-github", ()),
         ("machine-github-backlog", backlog_keys),
         ("review-frame", ()),
+        ("show-all-changes", ("Down", "Enter")),
+        ("pending-write-list", ()),
+        ("back-before-apply", ("Escape",)),
     ]
     assert all(
         step not in {"project-mode", "project-mode-machine-only"}
@@ -263,6 +266,7 @@ def test_inspection_and_machine_state_cases_are_semantic() -> None:
     assert cases["review-frame"]["method_config"]["capture_checkpoints"] == [
         "browser-approval",
         "review-frame",
+        "pending-write-list",
     ]
     assert (
         "Review what Yoke will save."
@@ -287,7 +291,10 @@ def test_inspection_and_machine_state_cases_are_semantic() -> None:
         in (path_configs["shell-preconfigured"]["assertions"][0]["argv"][-1])
     )
 
-    token_command = cases["token-perms"]["method_config"]["assertions"][0]["argv"][-1]
+    token_command = "\n".join(
+        check["argv"][-1]
+        for check in cases["token-perms"]["method_config"]["assertions"]
+    )
     assert "*.token(N)" in token_command
     assert "'%Lp'" in token_command
     assert "600" in token_command

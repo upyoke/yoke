@@ -1,7 +1,8 @@
 """Denial-audit sink — ``POST /v1/hooks/denial-audit``.
 
-The relay's client-local subset (``evaluate_local_subset``'s
-``LOCAL_STATE_POLICIES``) denies without ever calling ``/hooks/evaluate`` —
+The relay's client half (``evaluate_local_subset`` running the chain's
+``CLIENT`` policies from :mod:`yoke_contracts.hook_runner.policy_home`)
+denies without ever calling ``/hooks/evaluate`` —
 the relay client returns immediately on a local deny, skipping the
 round-trip its verdict doesn't need — so this is its only way to leave a
 durable ``HarnessToolCallDenied`` row. See :mod:`yoke_harness.hooks.denial_relay`
@@ -37,7 +38,8 @@ class HookDenialAuditRequest(BaseModel):
 
 @router.post("/hooks/denial-audit")
 def post_hooks_denial_audit(
-    http_request: Request, request: HookDenialAuditRequest,
+    http_request: Request,
+    request: HookDenialAuditRequest,
 ) -> JSONResponse:
     """Record the denial. Auth is the same bearer-token middleware as every
     other ``/v1`` route; failures here never surface to the client, which
