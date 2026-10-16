@@ -39,6 +39,10 @@ class TokenError(Exception):
     """Base class for token verification failures."""
 
 
+class TokenCreationReplayed(TokenError):
+    """This creation request already issued its one-time token."""
+
+
 class TokenNotFound(TokenError):
     """No stored token hash matched the supplied raw token."""
 
@@ -105,6 +109,7 @@ def mint_token(
     raw_token: str | None = None,
     expires_at: datetime | str | None = None,
     diagnostic_metadata: dict[str, Any] | None = None,
+    creation_request_id: str | None = None,
 ) -> CreatedToken:
     """Create an active actor-bound token and return its raw value once."""
     raw = raw_token or generate_token()
@@ -112,20 +117,28 @@ def mint_token(
     expiry = parse_instant(expires_at) if expires_at is not None else None
     p = _p(conn)
     require_actor_active(conn, actor_id, lock=True)
-    row = conn.execute(
-        "INSERT INTO api_tokens "
-        "(token_hash, actor_id, name, status, created_at, expires_at, diagnostic_metadata) "
-        f"VALUES ({p}, {p}, {p}, 'active', {p}, {p}, {p}) "
-        "RETURNING id",
-        (
-            token_hash,
-            actor_id,
-            name,
-            instant_parameter(conn, _now()),
-            instant_parameter(conn, expiry),
-            _metadata_json(diagnostic_metadata),
-        ),
-    ).fetchone()
+    replay_sql = f"SELECT 1 FROM api_tokens WHERE creation_request_id = {p}"
+    if creation_request_id is not None and conn.execute(
+        replay_sql, (creation_request_id,),
+    ).fetchone():
+        raise TokenCreationReplayed("Token creation result is no longer available")
+    try:
+        row = conn.execute(
+            "INSERT INTO api_tokens "
+            "(token_hash, actor_id, name, status, created_at, expires_at, "
+            "diagnostic_metadata, creation_request_id) "
+            f"VALUES ({p}, {p}, {p}, 'active', {p}, {p}, {p}, {p}) RETURNING id",
+            (token_hash, actor_id, name, instant_parameter(conn, _now()),
+             instant_parameter(conn, expiry), _metadata_json(diagnostic_metadata),
+             creation_request_id),
+        ).fetchone()
+    except db_backend.integrity_error_types(conn):
+        if creation_request_id is None:
+            raise
+        conn.rollback()
+        if conn.execute(replay_sql, (creation_request_id,)).fetchone():
+            raise TokenCreationReplayed("Token creation result is no longer available") from None
+        raise
     conn.commit()
     token_id = int(row[0])
     record_token_audit(
