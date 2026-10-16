@@ -60,6 +60,7 @@ _GENERATED_PATH_PATTERNS: tuple[str, ...] = tuple(
 _DISPOSABLE_DIR_NAMES = frozenset(
     {
         "__pycache__",
+        ".hypothesis",
         ".mypy_cache",
         ".next",
         ".nox",

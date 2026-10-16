@@ -33,7 +33,8 @@ SESSION_STALE_TTL_WITH_HOLDINGS_KEY = "session_stale_ttl_with_holdings_minutes"
 MACHINE_SETTING_KEYS: Dict[str, Tuple[str, str]] = {
     "max_active_worktrees": (
         "5",
-        "linked worktrees allowed before creation preflight refuses",
+        "linked worktrees doing work (landed lanes excluded) allowed before "
+        "creation preflight refuses",
     ),
     "max_worker_lanes": (
         "",
