@@ -11,7 +11,7 @@ from datetime import timedelta
 from typing import Any
 
 from yoke_contracts.timestamps import parse_instant, temporal_wire, utc_now
-from yoke_core.domain import db_backend
+from yoke_core.domain import db_backend, universe_serving_mode
 from yoke_core.domain.actor_permissions import ROLE_OPERATOR
 from yoke_core.domain.actor_role_grants import grant_actor_org_role
 from yoke_core.domain.actor_state import ActorDisabledError, require_actor_active
@@ -43,6 +43,28 @@ class TeammateInviteError(ValueError):
 class CreatedInvite:
     invite: dict
     code: str = field(repr=False)
+
+
+def invite_form_fact() -> dict[str, str]:
+    mode = universe_serving_mode.universe_mode()
+    if mode == "hosted":
+        return {"invite_form": "email", "sign_in_method": "yoke_account"}
+    if mode == "local":
+        return {"invite_form": "local", "sign_in_method": "local"}
+    from yoke_core.api.oidc_config import OidcConfigError, resolve_oidc_config
+
+    try:
+        company_sign_in = resolve_oidc_config() is not None
+    except OidcConfigError as exc:
+        raise TeammateInviteError(
+            "oidc_misconfigured",
+            f"{exc}; ask the server operator to correct company sign-in settings",
+            503,
+        ) from exc
+    return {
+        "invite_form": "email" if company_sign_in else "name",
+        "sign_in_method": "company_sign_in" if company_sign_in else "invite_code",
+    }
 
 
 def _p(conn: Any) -> str:
