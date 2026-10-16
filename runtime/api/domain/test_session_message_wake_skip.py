@@ -16,7 +16,7 @@ from runtime.api.domain.test_session_message_support import (
 
 
 @pytest.mark.parametrize("explicit", [False, True])
-def test_unsupported_version_is_bounded_and_notifies_sender_without_a_seat(
+def test_unsupported_version_is_bounded_and_parks_a_notice_without_a_seat(
     monkeypatch, explicit
 ):
     monkeypatch.setattr(wake, "machine_surface_versions", lambda *a, **kw: {})
@@ -69,14 +69,20 @@ def test_unsupported_version_is_bounded_and_notifies_sender_without_a_seat(
         conn.execute(
             "SELECT session_id FROM session_message_recipients WHERE message_id=?",
             (notice,),
-        ).fetchone()[0]
-        == "s1"
+        ).fetchall()
+        == []
     )
     assert (
         conn.execute(
             "SELECT actor_id FROM actor_message_recipients "
             "WHERE message_id=? AND recipient_kind='actor'",
             (notice,),
-        ).fetchone()[0]
-        == 10
+        ).fetchone()
+        is None
     )
+    steering = conn.execute(
+        "SELECT seat_session_id, state FROM actor_message_recipients "
+        "WHERE message_id=? AND recipient_kind='steering'",
+        (notice,),
+    ).fetchone()
+    assert tuple(steering) == (None, "awaiting_seat")
