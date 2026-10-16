@@ -89,7 +89,6 @@ class TestItemDependencyWriteDispatch:
             "source": "idea",
             "gate_point": "coordination_only",
             "rationale": "shared paths are independent",
-            "evidence_json": "{}",
         }
 
     def test_dependency_add_dispatches_activation_fact_merged(self) -> None:
