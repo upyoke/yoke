@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { byClass, FakeDocument } from "./universe_ui_dom_test_support.mjs";
 import { appendCarriedItemEvidence } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.js";
@@ -48,4 +49,30 @@ test("an empty projection and a failed read are distinguishable", () => {
   assert.equal(byClass(failed, "carried-item-evidence").length, 0);
   assert.equal(byClass(failed, "run-qa-section").length, 0);
   assert.equal(byClass(failed, "carried-item-qa-diagnostic").length, 1);
+});
+
+test("the QA diagnostic spans the carried-item row", () => {
+  const css = readFileSync(new URL(
+    "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.css",
+    import.meta.url,
+  ), "utf8");
+  assert.match(css, /\.carried-item-qa-diagnostic\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/);
+  assert.match(css, /\.carried-item-qa-diagnostic\s*\{[^}]*overflow-wrap:\s*anywhere/);
+});
+
+test("member QA rows name case and host, and the badge counts queued copies", () => {
+  const queued = { ...pending, pending_obligation: false, requirement_id: 21,
+    case_key: "release-home", host_baseline: "fresh-host", method_name: "Terminal check",
+    instructions: "Open the shipping page.", outcome: "queued" };
+  const waiting = { ...pending, requirement_id: 22, case_key: "release-home",
+    host_baseline: "browser-approved", method_name: "Terminal check",
+    instructions: "Sign in first." };
+  const host = paint({ current: [queued, waiting], history: [] });
+  assert.deepEqual(byClass(host, "run-qa-check-name").map((node) => node.textContent), [
+    "Terminal check · release-home · fresh-host",
+    "Terminal check · release-home · browser-approved",
+  ]);
+  assert.match(host.textContent, /Open the shipping page/);
+  assert.match(host.textContent, /Sign in first/);
+  assert.match(host.textContent, /0 of 2 passed · 1 pending · 1 queued/);
 });

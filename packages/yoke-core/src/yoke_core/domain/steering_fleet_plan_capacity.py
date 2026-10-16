@@ -20,7 +20,9 @@ from yoke_contracts.session_control.plan_limit_unreadable_guidance import (
     unreadable_guidance,
     unreadable_note,
 )
+from yoke_contracts.session_control.extra_usage import sanitize_extra_usage
 from yoke_contracts.session_control.plan_limits import ALL_MODELS_SCOPE
+from yoke_core.domain.plan_limit_extra_usage import extra_label_now, extra_usage_lines
 from yoke_core.domain.steering_fleet_report_balance import (
     plan_meter_selection_cell,
     plan_meter_selection_labels,
@@ -268,6 +270,7 @@ def plan_limit_lines(
             _markdown_row(compute_plan_limit(row, now=now), session_counts)
             for row in sorted(limits, key=_sort_key)
         ),
+        *extra_usage_lines(sorted(limits, key=_sort_key), now=now),
         *([HEADROOM_LEGEND] if with_legend else []),
     ]
 
@@ -314,6 +317,8 @@ def plan_limit_dicts(
                 computed.until_reset.total_seconds() if computed.until_reset else None
             )
             payload["headroom_percent"] = computed.headroom_percent
+            payload["extra_usage_label"] = extra_label_now(row, now=now)
+        payload["extra_usage"] = sanitize_extra_usage(row.extra_usage)
         rows.append(payload)
     return rows
 

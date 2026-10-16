@@ -208,8 +208,9 @@ learns the other's part from its own skill. The split is the whole rule:
   release holds so nobody has to notice one going stale. The driving seat does
   not run a member's item QA and does not close a member out.
   Deployment-run cards exclude recorded removals from carried counts and
-  member QA. A separate Removed section says "QA cancelled — rides" and names
-  the newer run holding the item, or "a later release" when none holds it yet.
+  member QA. A separate Removed section states the recorded removal reason,
+  then "rides" and the newer run holding the item, or "a later release" when
+  none holds it yet.
   For red member QA, `yoke deployment-runs remove-item RUN ITEM --reason R` lets an independent run finish while the member waits for its next release; see `remove-item --help`. Failed independent item QA automatically releases a member whose recorded merge is definitely outside its project's frozen lineage, using the same audited removal as settlement; unknown containment holds and reports recovery. Settlement also releases replaced candidates.
 - **Commits made outside Yoke ship without an item.** Composition never
   blocks on commit ownership. Carried work records each commit's SHA, subject

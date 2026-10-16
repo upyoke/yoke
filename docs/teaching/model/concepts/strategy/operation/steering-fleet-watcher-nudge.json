@@ -1,0 +1,11 @@
+{
+ "id": "steering-fleet-watcher-nudge",
+ "title": "Steering fleet-watcher alert",
+ "status": "observed",
+ "current": "A steering session with an active seat and no live fleet watcher on its own machine receives a separate FLEET WATCHER ALERT hook block naming the exact re-arm command, in every mode (local universe and HTTPS) and on every harness. The client lists its own processes and applies the manifest wake model: a Monitor wait needs the wrapper plus a live yoke watch tail subscriber, notify_on_output needs the wrapper, and a harness without idle wake needs the in-turn wrapper, with the keep steering scheduled re-entry named at turn start. Parked, ended or terminated sessions and unreadable process or posture reads get no alert. The byte ceiling drops the fleet report before the alert. The steer skill orders the start: seat held, handoff mail read, watcher attached, then the loop.",
+ "commands": ["yoke watch fleet", "yoke watch tail"],
+ "sources": [".agents/skills/yoke/steer/SKILL.md", ".agents/skills/yoke/steer/watching.md"],
+ "skills": ["steer"],
+ "page": "strategy",
+ "position": 3
+}

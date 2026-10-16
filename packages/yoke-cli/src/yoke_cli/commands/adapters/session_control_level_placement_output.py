@@ -46,6 +46,8 @@ def _pool(pool: Mapping[str, Any]) -> str:
     resets = pool.get("resets_utc")
     if resets:
         text += f", resets {resets} UTC"
+    if pool.get("remaining_percent") == 0 and pool.get("extra_label"):
+        text += f"; {pool['extra_label']}"
     if pool.get("reason"):
         text += f"; {pool['reason']}"
         if pool.get("guidance"):

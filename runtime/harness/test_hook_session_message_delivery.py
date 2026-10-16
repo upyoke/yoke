@@ -269,14 +269,6 @@ def test_oversized_message_stub_settles_as_injected(monkeypatch) -> None:
     assert port.completed == [("lease-1", True, "injected")]
 
 
-@pytest.fixture(autouse=True)
-def isolated_watcher_discovery(monkeypatch):
-    """Channel routing is independent of this machine's watcher processes."""
-    monkeypatch.setattr(
-        "yoke_core.hooks.fleet_watcher_presence.list_process_cmdlines", lambda: ()
-    )
-
-
 def test_fleet_report_rides_a_sibling_field_not_the_delivery_envelope(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -106,13 +106,13 @@ test("a check links its QA case and omits a routine passing reason", () => {
   const qa = byClass(render("resolved").card, "run-qa-section")[0];
   const [first] = directChecks(qa);
   const name = byClass(first, "run-qa-check-name")[0];
-  assert.equal(name.textContent, "Browser inspection");
+  assert.equal(name.textContent, "Browser inspection · current-release-review-state");
   assert.equal(name.children[0].tagName, "A");
   assert.equal(name.children[0].href, "/qa-activity/8?project=1");
   assert.equal(byClass(first, "run-qa-check-reason").length, 0);
   assert.equal(allNodes(qa).some((node) => node.tagName === "SUMMARY"
     && node.textContent === "Details"), false);
-  assert.doesNotMatch(qa.textContent, /current-release-review-state/);
+  assert.match(qa.textContent, /current-release-review-state/);
 });
 
 test("a failed check keeps its reason for recovery", () => {

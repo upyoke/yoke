@@ -23,7 +23,7 @@ function levelBlock(documentNode, level, index) {
     { label: "MODEL", value: (row) => row.model, mono: true, sub: (row) => row.display_name },
     { label: "MIN EFFORT", value: (row) => row.min_effort },
     { label: "NOW", value: (row) => row.now?.state === "can_launch" ? "Can launch" : "Blocked",
-      sub: (row) => row.now?.state === "can_launch" ? null : (row.now?.blockers || []).map((blocker) => blocker.label).join("; ") },
+      sub: (row) => row.now?.state === "can_launch" ? null : (row.now?.blockers || []).map((blocker) => blocker.extra ? `${blocker.label} (${blocker.extra})` : blocker.label).join("; ") },
   ], "No models", null, { stack: true, className: "level-options" });
   return block;
 }

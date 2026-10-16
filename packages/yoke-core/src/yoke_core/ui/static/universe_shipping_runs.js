@@ -3,8 +3,8 @@
 // its checks captured.
 
 import { createDecisionResolver } from "./inbox_rows.js";
+import { itemQaSubjects } from "./universe_run_removed_members.js";
 import {
-  carriedItems,
   runProjectId,
   shippingRunCard,
 } from "./universe_work_cards.js";
@@ -122,7 +122,7 @@ export async function loadDelivery(context, host, getScope) {
     const runId = row.id || row.run_id;
     // Derived carried work names no project; it is the run's own.
     const projectId = runProjectId(context, row, "all");
-    for (const item of carriedItems(row)) {
+    for (const item of itemQaSubjects(row)) {
       carried.push({ ...item, project_id: item.project_id ?? projectId, run_id: runId });
     }
   }

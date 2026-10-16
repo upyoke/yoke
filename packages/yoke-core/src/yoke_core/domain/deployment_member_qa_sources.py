@@ -3,6 +3,8 @@
 import json
 from collections import defaultdict
 
+from yoke_contracts.qa_case_starting_state import stored_fan_out
+
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_requirement_snapshots import _plan_snapshot
 from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
@@ -147,13 +149,16 @@ def definitions(sources, plans, *, environments, environment_names, dynamic):
             continue
         plan = snapshot["plan"]
         default = environments.get(plan.get("target_environment_id"), "")
-        for case in snapshot.get("cases") or []:
+        cases = [
+            {**case, "host_baselines": decoded(case.get("host_baselines"), [])}
+            for case in snapshot.get("cases") or []
+        ]
+        for case, baselines in zip(cases, stored_fan_out(cases)):
             names = case_target_envs(case) or ([default] if default else [])
             if names and not set(names).intersection(environment_names):
                 continue
             if not environment_names and not dynamic:
                 continue
-            baselines = decoded(case.get("host_baselines"), []) or [None]
             destinations = sorted(
                 set(names).intersection(environment_names)
                 if names

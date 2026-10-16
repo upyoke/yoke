@@ -148,6 +148,8 @@ def _pool(pool: PoolCheck) -> str:
         text += f" split {pool.workers + 1} ways = {int(round(pool.share_percent))}%"
     if pool.resets_at:
         text += f", resets {format_reset_utc(pool.resets_at)}"
+    if pool.remaining_percent <= 0 and pool.extra_label:
+        text += f"; {pool.extra_label}"
     return text
 
 

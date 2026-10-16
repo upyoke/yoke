@@ -17,9 +17,6 @@ def test_byte_ceiling_omission_leaves_the_report_delivery_record_unspent(
     port = FakePort(empty_lease=True, report=report)
     monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
     monkeypatch.setattr(
-        "yoke_core.hooks.fleet_watcher_presence.list_process_cmdlines", lambda: ()
-    )
-    monkeypatch.setattr(
         "yoke_contracts.hook_context_compose.inline_context_bytes_for_harness",
         lambda harness: 1000,
     )
@@ -52,9 +49,6 @@ def test_absent_denied_or_malformed_report_never_confirms_delivery(
 ):
     port = FakePort(empty_lease=True, report=f"{REPORT_BEGIN}\n{REPORT_END}")
     monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
-    monkeypatch.setattr(
-        "yoke_core.hooks.fleet_watcher_presence.list_process_cmdlines", lambda: ()
-    )
     decision = delivery.evaluate(hook_context())
     delivery.settle_after_render(
         [decision], rendered_text=rendered, denied=denied, port=port
