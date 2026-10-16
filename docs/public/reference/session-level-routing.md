@@ -120,6 +120,10 @@ yoke workflows item-posture amend PREFIX-N --key level \
 yoke workflows item-posture amend PREFIX-N --key level --clear --reason R
 ```
 
+The item's work-claim holder or a live steering seat covering the item may
+run the amendment, so steering can restaff an item a worker holds; any other
+caller is refused with `claim_required`.
+
 The value is `{shift, min, max, reason}`: `shift` moves the level up
 (positive) or down (negative) by that many levels, `min` and `max` name
 levels the result is clamped to, and `reason` is required. At least one of
@@ -133,8 +137,8 @@ pin may refuse the amendment, or a level-named launch's recording of it. Read
 `yoke workflows item get PREFIX-N` for its actual allowlist. The control-plane
 operator must select a compatible published version and preview `yoke
 workflows item migrate PREFIX-N --version N --preview` before applying the
-migration and retrying the amendment. This requires a live steering seat
-covering the target project or document; workers cannot self-authorize it. `yoke workflows item-posture amend --help` carries the
+migration and retrying the amendment. The migration requires a live steering
+seat covering the target project or document; workers cannot self-authorize it. `yoke workflows item-posture amend --help` carries the
 recovery decision tree. Publishing a definition never blanket-repins items.
 
 The override applies once to an automatic stage default: shift first, then

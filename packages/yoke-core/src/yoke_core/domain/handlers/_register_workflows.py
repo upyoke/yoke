@@ -260,6 +260,7 @@ def register(registry) -> None:
             "non_terminal_stage_only",
             "recorded_evidence_preserved",
             "path_claims_amend_accepts_covering_steering",
+            "level_amend_accepts_covering_steering",
         ],
         adapter_status="live",
         claim_required_kind="item",
