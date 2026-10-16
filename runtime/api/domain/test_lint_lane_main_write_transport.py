@@ -18,6 +18,7 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
 )
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import lint_lane_main_write
+from yoke_harness.hooks.client_write_targets import write_targets_fact
 
 
 @pytest.fixture
@@ -35,7 +36,10 @@ def repo(tmp_path):
 
 def _seed_lane(conn, repo, *, session_id="sid-lane", item_id=2013, mkdir=True):
     seed_item(
-        conn, item_id=item_id, branch=f"YOK-{item_id}", status="implementing",
+        conn,
+        item_id=item_id,
+        branch=f"YOK-{item_id}",
+        status="implementing",
         repo_path=repo,
     )
     seed_item_claim(conn, session_id, item_id=item_id)
@@ -60,11 +64,13 @@ class TestHttpsShapeDeniesRecordedLane:
         assert wt.is_dir() is False
         target = repo / "runtime/api/foo.py"
         with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
-            verdict = lint_lane_main_write.evaluate_pre_tool_use({
-                "session_id": "sid-lane",
-                "tool_name": "Write",
-                "tool_input": {"file_path": str(target)},
-            })
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(
+                {
+                    "session_id": "sid-lane",
+                    "tool_name": "Write",
+                    "tool_input": {"file_path": str(target)},
+                }
+            )
         assert verdict.allow is False
         assert str(wt) in verdict.reason
         assert str(target) in verdict.reason
@@ -73,37 +79,43 @@ class TestHttpsShapeDeniesRecordedLane:
 class TestWriteClassification:
     def test_heredoc_without_path_write_allows(self, conn, repo):
         _seed_lane(conn, repo)
-        verdict = lint_lane_main_write.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Bash",
-            "cwd": str(repo),
-            "tool_input": {"command": "python3 - <<'PY'\nprint('hi')\nPY"},
-        })
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Bash",
+                "cwd": str(repo),
+                "tool_input": {"command": "python3 - <<'PY'\nprint('hi')\nPY"},
+            }
+        )
         assert verdict.allow is True
 
     def test_glued_redirect_to_main_denies(self, conn, repo):
         _seed_lane(conn, repo)
         target = repo / "AGENTS.md"
         with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
-            verdict = lint_lane_main_write.evaluate_pre_tool_use({
-                "session_id": "sid-lane",
-                "tool_name": "Bash",
-                "cwd": str(repo),
-                "tool_input": {"command": f"echo x >{target}"},
-            })
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(
+                {
+                    "session_id": "sid-lane",
+                    "tool_name": "Bash",
+                    "cwd": str(repo),
+                    "tool_input": {"command": f"echo x >{target}"},
+                }
+            )
         assert verdict.allow is False
         assert str(target) in verdict.reason
 
     def test_stderr_fd_dup_does_not_deny(self, conn, repo):
         _seed_lane(conn, repo)
-        verdict = lint_lane_main_write.evaluate_pre_tool_use({
-            "session_id": "sid-lane",
-            "tool_name": "Bash",
-            "cwd": str(repo),
-            "tool_input": {
-                "command": "echo x >/tmp/lane-main-write-out 2>&1",
-            },
-        })
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-lane",
+                "tool_name": "Bash",
+                "cwd": str(repo),
+                "tool_input": {
+                    "command": "echo x >/tmp/lane-main-write-out 2>&1",
+                },
+            }
+        )
         assert verdict.allow is True
 
 
@@ -113,14 +125,17 @@ class TestStrandedAdvisoryBounds:
         wt.rmdir()
         _stale_claim(conn)
         with mock.patch.object(
-            lint_lane_main_write, "emit_stranded_lane_advisory",
+            lint_lane_main_write,
+            "emit_stranded_lane_advisory",
         ) as emit_advisory:
-            verdict = lint_lane_main_write.evaluate_pre_tool_use({
-                "session_id": "sid-lane",
-                "tool_name": "Bash",
-                "cwd": str(repo),
-                "tool_input": {"command": "ls"},
-            })
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(
+                {
+                    "session_id": "sid-lane",
+                    "tool_name": "Bash",
+                    "cwd": str(repo),
+                    "tool_input": {"command": "ls"},
+                }
+            )
         assert verdict.allow is True
         emit_advisory.assert_not_called()
 
@@ -136,11 +151,35 @@ class TestStrandedAdvisoryBounds:
             "tool_name": "Write",
             "tool_input": {"file_path": str(target)},
         }
+        payload.update(write_targets_fact(payload))
         with mock.patch.object(
-            lint_lane_main_write, "emit_stranded_lane_advisory",
+            lint_lane_main_write,
+            "emit_stranded_lane_advisory",
         ) as emit_advisory:
             first = lint_lane_main_write.evaluate_pre_tool_use(payload)
             second = lint_lane_main_write.evaluate_pre_tool_use(payload)
         assert first.allow is True
         assert second.allow is True
         assert emit_advisory.call_count == 2
+        assert emit_advisory.call_args.kwargs["lane_path"] == str(wt)
+
+    def test_lane_absence_needs_the_client_worktree_list(self, conn, repo):
+        """Without the client's worktree list a missing lane is not proven."""
+        wt = _seed_lane(conn, repo)
+        target = repo / "runtime/api/foo.py"
+        wt.rmdir()
+        _stale_claim(conn)
+        payload = {
+            "session_id": "sid-lane",
+            "tool_name": "Write",
+            "tool_input": {"file_path": str(target)},
+        }
+        with (
+            mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None),
+            mock.patch.object(
+                lint_lane_main_write, "emit_stranded_lane_advisory"
+            ) as emit_advisory,
+        ):
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(payload)
+        assert verdict.allow is False
+        emit_advisory.assert_not_called()

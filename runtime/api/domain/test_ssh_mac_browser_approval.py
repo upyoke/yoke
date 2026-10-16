@@ -113,3 +113,70 @@ def test_approval_refuses_noncanonical_or_unrelated_tabs(starting_url) -> None:
     )
     assert result.error_code == "machine_browser_tab_missing"
     assert starting_url not in commands[1]
+
+
+@pytest.mark.parametrize("result_url", [ENTRY_URL, REDIRECT_URL])
+def test_visible_connected_confirmation_accepts_only_the_same_allowed_tab(result_url):
+    from yoke_harness.machine_browser_approval import approval_outcome
+
+    result = approval_outcome(
+        browser="Safari",
+        state="approved_in_place",
+        starting_url=ENTRY_URL,
+        result_url=result_url,
+        allowed_urls=[ENTRY_URL, REDIRECT_URL],
+        expected_origin="https://app.stage.upyoke.com",
+    )
+    assert result.ok is (result_url == ENTRY_URL)
+    if result.ok:
+        assert result.evidence["visible_confirmation"] == "Machine connected"
+
+
+def test_safari_waits_for_visible_confirmation_after_pressing_the_control():
+    from yoke_harness.ssh_mac_browser_approval import _script
+
+    script = "\n".join(_script(allowed_urls=[ENTRY_URL]))
+    assert script.index("AXPress") < script.index("Machine connected")
+    assert '"AXHeading", "AXStaticText"' in script
+    assert '"AXWebArea"' in script
+    assert 'return "approved_in_place|"' in script
+
+
+@pytest.mark.parametrize("confirmed", [False, True])
+def test_chromium_confirms_the_heading_on_the_exact_clicked_page(
+    monkeypatch, confirmed
+):
+    from contextlib import nullcontext
+    from yoke_harness import linux_desktop_chromium as browser
+
+    expressions = []
+
+    class Page:
+        def __init__(self, _url):
+            pass
+
+        def call(self, _method, **kwargs):
+            expressions.append(kwargs["expression"])
+            return {
+                "result": {"value": "pressed" if len(expressions) == 1 else confirmed}
+            }
+
+    monkeypatch.setattr(browser, "_port", lambda: 1234)
+    monkeypatch.setattr(
+        browser,
+        "_pages",
+        lambda _port: [
+            {"id": "bound", "url": ENTRY_URL, "webSocketDebuggerUrl": "fixture"}
+        ],
+    )
+    monkeypatch.setattr(browser, "urlopen", lambda *a, **k: nullcontext())
+    monkeypatch.setattr(browser, "DevToolsPage", Page)
+    monkeypatch.setattr(browser, "NAVIGATION_ATTEMPTS", 1)
+    monkeypatch.setattr(browser.time, "sleep", lambda _seconds: None)
+    result = browser.approve([ENTRY_URL], "Approve machine")
+    assert result["state"] == (
+        "approved_in_place" if confirmed else "approval_navigation_missing"
+    )
+    assert "location.href === " in expressions[1]
+    assert ENTRY_URL in expressions[1]
+    assert "getClientRects().length" in expressions[1]

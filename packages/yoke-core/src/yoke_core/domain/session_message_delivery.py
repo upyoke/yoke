@@ -103,6 +103,11 @@ def expire_due_recipients(conn: Any, *, now: datetime | None = None) -> int:
         )
 
         withdraw_deployment_qa_wait_wakes(conn, now=stamp)
+        from yoke_core.domain.qa_plan_settled_review import (
+            withdraw_settled_agent_review_wakes,
+        )
+
+        withdraw_settled_agent_review_wakes(conn, now=stamp)
         conn.commit()
         return count
     except Exception:

@@ -19,6 +19,7 @@ roster and quick/full/E2E/smoke commands, Browser URL/branch/SHA, task baseline,
 dependency interfaces/downstream bodies, current coverage and prior attempts.
 Retries include exact feedback and attempt/budget. First work uses this lane;
 commit incrementally and verify through registered project commands, not guesses.
+Optional UI self-check, never a merge or QA requirement (Yoke source repo only): the render-proof review server in `docs/source-dev-doctrine.md` serves this lane against a disposable local universe and refuses prod and remote connections. Formal Browser QA runs post-deploy on production.
 
 Anticipated path coverage (pre-authorized) fills _anticipated_paths_block_{_task_id}
 only from persisted ## Anticipated Paths in task body. Absent block omits heading;

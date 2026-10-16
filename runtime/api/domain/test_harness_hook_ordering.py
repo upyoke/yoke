@@ -284,6 +284,7 @@ class TestNonPreEvents(unittest.TestCase):
             chain,
             [
                 "yoke_core.hooks.session_dispatch",
+                "yoke_core.hooks.session_resume_block",
                 "yoke_core.hooks.session_message_delivery",
                 "yoke_core.hooks.session_launch_attestation",
                 "yoke_core.hooks.session_broker_wake",
@@ -307,6 +308,7 @@ class TestNonPreEvents(unittest.TestCase):
             chain,
             [
                 "yoke_core.hooks.session_dispatch",
+                "yoke_core.hooks.session_resume_block",
                 "yoke_core.hooks.session_message_delivery",
                 "yoke_core.hooks.session_launch_attestation",
                 "yoke_core.hooks.session_broker_wake",

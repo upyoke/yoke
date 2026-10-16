@@ -58,6 +58,13 @@ def _fetch_denials(db_path: str) -> list[dict]:
     return [dict(row) for row in rows]
 
 
+def _main_commit_facts(branch: str) -> dict:
+    """The client's git report for a commit staging one implementation file."""
+    from runtime.api.domain.test_lint_main_commit import git_facts
+
+    return git_facts(branch, ["runtime/api/domain/foo.py"])
+
+
 # ---------------------------------------------------------------------------
 # Core: each denier emits exactly one HarnessToolCallDenied row
 # ---------------------------------------------------------------------------
@@ -72,15 +79,9 @@ class TestHarnessToolCallDeniedEndToEnd:
         identifier, reason)."""
         from yoke_core.domain import lint_main_commit as lmc
 
-        # Force the deny branch: pretend current branch is main, staged files
-        # contain non-bookkeeping paths, and at least one active worktree item
+        # Force the deny branch: the client reports branch main with a
+        # non-bookkeeping staged path, and at least one active worktree item
         # exists. ``_active_worktree_items`` returns ``"id|title"`` strings.
-        monkeypatch.setattr(lmc, "_current_branch", lambda: "main")
-        monkeypatch.setattr(
-            lmc,
-            "_staged_files",
-            lambda: ["runtime/api/domain/foo.py"],
-        )
         monkeypatch.setattr(
             lmc,
             "_active_worktree_items",
@@ -88,6 +89,7 @@ class TestHarnessToolCallDeniedEndToEnd:
         )
 
         payload = {
+            **_main_commit_facts("main"),
             "session_id": "sess-lmc-1",
             "tool_use_id": "tu-lmc-1",
             "tool_name": "Bash",
@@ -216,9 +218,9 @@ class TestHarnessToolCallDeniedEndToEnd:
         """Happy path: no emit when the lint allows the call."""
         from yoke_core.domain import lint_main_commit as lmc
 
-        # Simulate an allow: non-main branch short-circuits.
-        monkeypatch.setattr(lmc, "_current_branch", lambda: "feature-branch")
+        # Simulate an allow: the client reports a non-main branch.
         payload = {
+            **_main_commit_facts("feature-branch"),
             "session_id": "sess-none",
             "tool_name": "Bash",
             "tool_input": {"command": "git commit -m 'ok'"},
@@ -248,12 +250,6 @@ class TestSingleEmitPerDenier:
     ) -> None:
         from yoke_core.domain import lint_main_commit as lmc
 
-        monkeypatch.setattr(lmc, "_current_branch", lambda: "main")
-        monkeypatch.setattr(
-            lmc,
-            "_staged_files",
-            lambda: ["runtime/api/domain/foo.py"],
-        )
         monkeypatch.setattr(
             lmc,
             "_active_worktree_items",
@@ -261,6 +257,7 @@ class TestSingleEmitPerDenier:
         )
 
         payload = {
+            **_main_commit_facts("main"),
             "session_id": "sess-single",
             "tool_use_id": "tu-single",
             "tool_name": "Bash",

@@ -12,6 +12,7 @@ from contextlib import redirect_stdout
 
 import pytest
 
+from yoke_contracts.hook_runner.client_facts import MACHINE_SETTINGS_KEY, client_fact
 from yoke_core.domain import hint_monitor_relay
 from yoke_core.domain.hint_monitor_relay import (
     DEFAULT_REMINDER,
@@ -65,6 +66,11 @@ def _write_machine_config(tmp_path, monkeypatch, value: str) -> None:
         encoding="utf-8",
     )
     select_machine_config_file(monkeypatch, config_path)
+
+
+def _settings_fact(value: str) -> dict:
+    """The client's machine-settings fact carrying one reminder override."""
+    return client_fact(MACHINE_SETTINGS_KEY, {hint_monitor_relay.CONFIG_KEY: value})
 
 
 def test_monitor_payload_emits_pretooluse_hookspecificoutput() -> None:
@@ -134,33 +140,42 @@ def test_main_returns_zero_on_empty_stdin(monkeypatch) -> None:
     assert buf.getvalue() == ""
 
 
-def test_config_override_replaces_default_reminder(tmp_path, monkeypatch) -> None:
-    _write_machine_config(tmp_path, monkeypatch, "custom relay reminder")
-    text = hint_monitor_relay.resolve_reminder_text()
+def test_client_setting_replaces_default_reminder() -> None:
+    text = hint_monitor_relay.resolve_reminder_text(
+        _settings_fact("custom relay reminder")
+    )
     assert text == "custom relay reminder"
     assert text != hint_monitor_relay.DEFAULT_REMINDER
 
 
-def test_blank_config_override_falls_back_to_default(tmp_path, monkeypatch) -> None:
-    _write_machine_config(tmp_path, monkeypatch, "   ")
+def test_blank_client_setting_falls_back_to_default() -> None:
     assert (
-        hint_monitor_relay.resolve_reminder_text()
+        hint_monitor_relay.resolve_reminder_text(_settings_fact("   "))
         == hint_monitor_relay.DEFAULT_REMINDER
     )
 
 
-def test_missing_config_falls_back_to_default(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("YOKE_TARGET_REPO_ROOT", str(tmp_path))
-    monkeypatch.delenv("YOKE_REPO_ROOT", raising=False)
+def test_missing_client_fact_falls_back_to_default() -> None:
     assert (
-        hint_monitor_relay.resolve_reminder_text()
+        hint_monitor_relay.resolve_reminder_text({})
         == hint_monitor_relay.DEFAULT_REMINDER
     )
 
 
-def test_run_uses_resolved_text_for_monitor_payload(tmp_path, monkeypatch) -> None:
-    _write_machine_config(tmp_path, monkeypatch, "alt-reminder-XYZ")
-    payload = json.dumps({"tool_name": "Monitor", "tool_input": {}})
+def test_server_machine_config_is_never_read(tmp_path, monkeypatch) -> None:
+    """Only the client's fact carries the override; the evaluator's own
+    machine config does not."""
+    _write_machine_config(tmp_path, monkeypatch, "evaluator-local-text")
+    assert (
+        hint_monitor_relay.resolve_reminder_text({})
+        == hint_monitor_relay.DEFAULT_REMINDER
+    )
+
+
+def test_run_uses_resolved_text_for_monitor_payload() -> None:
+    payload = json.dumps(
+        {"tool_name": "Monitor", "tool_input": {}, **_settings_fact("alt-reminder-XYZ")}
+    )
     raw = _captured_run(payload)
     out = json.loads(raw)
     assert out["hookSpecificOutput"]["additionalContext"] == "alt-reminder-XYZ"
@@ -288,10 +303,10 @@ class TestReminderSingleSourceOfTruth(unittest.TestCase):
 
 
 class TestDefaultReminderConstantParity(unittest.TestCase):
-    """``DEFAULT_REMINDER`` and ``resolve_reminder_text()`` agree without override."""
+    """``DEFAULT_REMINDER`` and ``resolve_reminder_text({})`` agree without override."""
 
     def test_default_resolves_when_no_override(self) -> None:
-        text = resolve_reminder_text()
+        text = resolve_reminder_text({})
         self.assertTrue(
             text == DEFAULT_REMINDER or text.strip() == DEFAULT_REMINDER.strip()
         )

@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import subprocess
-from pathlib import Path
-
 import pytest
+from yoke_contracts.hook_runner.client_facts import MAIN_HEAD_KEY, client_fact
 
 from yoke_core.domain import db_backend
 from runtime.api.fixtures.file_test_db import (
@@ -37,32 +35,14 @@ def drift_db(tmp_path):
         yield db_path
 
 
-@pytest.fixture()
-def git_repo(tmp_path) -> Path:
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    _git(repo, "init", "-b", "main")
-    _git(repo, "config", "user.email", "test@example.com")
-    _git(repo, "config", "user.name", "Test User")
-    _commit(repo, "first")
-    return repo
+SHA_FIRST = "1" * 40
+SHA_SECOND = "2" * 40
+SHA_THIRD = "3" * 40
 
 
-def _git(repo: Path, *args: str) -> str:
-    return subprocess.check_output(
-        ["git", "-C", str(repo), *args],
-        text=True,
-        stderr=subprocess.DEVNULL,
-    ).strip()
-
-
-def _commit(repo: Path, message: str) -> str:
-    marker = repo / "marker.txt"
-    prior = marker.read_text(encoding="utf-8") if marker.exists() else ""
-    marker.write_text(prior + message + "\n", encoding="utf-8")
-    _git(repo, "add", "marker.txt")
-    _git(repo, "commit", "-m", message)
-    return _git(repo, "rev-parse", "main")
+def _head(*commits: tuple[str, str]) -> dict:
+    """The client's main-head fact: newest commit first."""
+    return client_fact(MAIN_HEAD_KEY, {"commits": [list(c) for c in commits]})
 
 
 def _session_row(db_path: str):
@@ -76,70 +56,90 @@ def _session_row(db_path: str):
         conn.close()
 
 
-def test_first_observation_records_main_without_advisory(drift_db, git_repo) -> None:
-    current = _git(git_repo, "rev-parse", "main")
-
+def test_first_observation_records_main_without_advisory(drift_db) -> None:
     advisory = check_drift(
         "sess-drift",
-        repo_path=str(git_repo),
+        _head((SHA_FIRST, "first")),
         now="2026-01-01T00:00:00Z",
     )
 
     assert advisory is None
-    assert _session_row(drift_db)["last_seen_main_sha"] == current
+    assert _session_row(drift_db)["last_seen_main_sha"] == SHA_FIRST
 
 
-def test_changed_main_returns_advisory_and_updates_seen_sha(drift_db, git_repo) -> None:
-    check_drift(
-        "sess-drift",
-        repo_path=str(git_repo),
-        now="2026-01-01T00:00:00Z",
-    )
-    new_sha = _commit(git_repo, "second")
+def test_changed_main_returns_advisory_and_updates_seen_sha(drift_db) -> None:
+    check_drift("sess-drift", _head((SHA_FIRST, "first")), now="2026-01-01T00:00:00Z")
 
     advisory = check_drift(
         "sess-drift",
-        repo_path=str(git_repo),
+        _head((SHA_SECOND, "second"), (SHA_FIRST, "first")),
         now="2026-01-01T00:02:00Z",
     )
 
     assert advisory is not None
     assert advisory.commits_ahead == 1
-    assert "second" in advisory.oneline_summary
-    assert _session_row(drift_db)["last_seen_main_sha"] == new_sha
+    assert advisory.oneline_summary == f"{SHA_SECOND[:10]} second"
+    assert _session_row(drift_db)["last_seen_main_sha"] == SHA_SECOND
 
 
-def test_same_sha_and_throttle_return_no_advisory(drift_db, git_repo) -> None:
-    check_drift(
+def test_previous_head_outside_window_counts_whole_window(drift_db) -> None:
+    check_drift("sess-drift", _head((SHA_FIRST, "first")), now="2026-01-01T00:00:00Z")
+
+    advisory = check_drift(
         "sess-drift",
-        repo_path=str(git_repo),
-        now="2026-01-01T00:00:00Z",
-    )
-    _commit(git_repo, "second")
-
-    throttled = check_drift(
-        "sess-drift",
-        repo_path=str(git_repo),
-        now="2026-01-01T00:00:30Z",
+        _head((SHA_THIRD, "third"), (SHA_SECOND, "second")),
+        now="2026-01-01T00:02:00Z",
     )
 
+    assert advisory is not None
+    assert advisory.commits_ahead == 2
+    assert advisory.oneline_summary == (
+        f"{SHA_THIRD[:10]} third; {SHA_SECOND[:10]} second"
+    )
+
+
+def test_same_sha_and_throttle_return_no_advisory(drift_db) -> None:
+    check_drift("sess-drift", _head((SHA_FIRST, "first")), now="2026-01-01T00:00:00Z")
+    moved = _head((SHA_SECOND, "second"), (SHA_FIRST, "first"))
+
+    throttled = check_drift("sess-drift", moved, now="2026-01-01T00:00:30Z")
     assert throttled is None
 
+    same = check_drift(
+        "sess-drift", _head((SHA_FIRST, "first")), now="2026-01-01T00:05:00Z"
+    )
+    assert same is None
 
-def test_observe_pre_prints_drift_advisory(monkeypatch, capsys) -> None:
+
+def test_missing_main_head_fact_is_no_advisory(drift_db) -> None:
+    assert check_drift("sess-drift", {}, now="2026-01-01T00:00:00Z") is None
+    assert _session_row(drift_db)["last_seen_main_sha"] is None
+
+
+def test_observe_pre_returns_drift_advisory_as_context(monkeypatch) -> None:
     from yoke_core.domain import observe_pre
     from yoke_core.domain.session_main_drift import DriftAdvisory
+    from yoke_core.hooks.types import HookContext, Outcome
 
     monkeypatch.setattr(
         "yoke_core.domain.session_main_drift.check_drift",
         lambda *_, **__: DriftAdvisory("sess-drift", 2, "abc123 one; def456 two"),
     )
+    monkeypatch.setattr(observe_pre, "_process_payload", lambda *_, **__: True)
+    expected = "# advisory: another session committed 2 new commits to main:"
 
-    observe_pre._try_check_session_main_drift(
+    advisory = observe_pre._session_main_drift_advisory(
         {"session_id": "sess-drift", "cwd": "/tmp/repo"},
     )
+    assert advisory.startswith(expected)
 
-    assert (
-        "# advisory: another session committed 2 new commits to main:"
-        in capsys.readouterr().err
+    decision = observe_pre.evaluate(
+        HookContext(
+            event_name="PreToolUse",
+            executor_family="claude",
+            executor_surface="claude",
+            payload={"session_id": "sess-drift", "cwd": "/tmp/repo"},
+        )
     )
+    assert decision.outcome is Outcome.NOOP
+    assert decision.audit_fields["additionalContext"].startswith(expected)

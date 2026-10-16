@@ -99,8 +99,9 @@ one canonical `selection=all` or a comma-separated list of unique positive
 project IDs. Unknown, repeated, empty or encoded query parameters, extra path
 segments, fragments and other origins refuse.
 The helper presses the visible approval control only in an exact validated
-tab and requires navigation from that tab's own starting URL. An unchanged
-redirect page is not approval evidence. Full hosted setup still requires the
+tab, then observes same-origin navigation or the visible "Machine connected"
+confirmation in that same tab. An unchanged page without that confirmation
+is not approval evidence. Full hosted setup still requires the
 run-bound case verdict and independent inspection review.
 
 On Linux the gate first starts the fixture desktop and its Chromium with a
@@ -112,6 +113,19 @@ always attaches a desktop screenshot. A host without a desktop refuses
 list every refusal and its recovery.
 
 ## Local universe birth
+
+State checks inherit directly from the journey that creates their subject:
+`token-perms` follows the hosted cold-start Apply, and `universe-born` follows
+the local Apply handoff. Token existence, secrets-directory mode 700 and each
+token's mode 600 are separate checks with named output; they never print token
+contents. A pending browser authorization or pre-Apply Review is not a token
+creation prerequisite.
+
+The Review inspection selects "Show all changes" and captures the actual
+pending-write names, then backs out without Apply. Category counts alone do
+not satisfy that inspection. Saved and frozen cases need the registered
+source sync and exact-owner refresh before execution; prior failed captures
+remain evidence, and another campaign still requires its own admission.
 
 The local Apply journey chooses Start fresh, waits for `What's your name?`,
 and submits a validated first-admin name before `Connect GitHub?`. Command-based

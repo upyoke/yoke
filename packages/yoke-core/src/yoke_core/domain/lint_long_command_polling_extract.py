@@ -13,56 +13,29 @@ effects.
 from __future__ import annotations
 
 import re
-from typing import Optional
+from dataclasses import dataclass
+from functools import lru_cache
+from typing import Optional, Sequence
 
 from yoke_core.domain.lint_long_command_polling_constants import (
     MONITOR_DUPLICATE_SUPPRESSION_TOKEN,
     SUPPRESSION_TOKEN,
-)
-from yoke_core.domain.lint_long_command_polling_extract_scratch import (
-    scratch_path_roots,
 )
 from yoke_core.domain.lint_command_extract import (  # noqa: F401
     extract_command as _extract_command,
 )
 
 
-def _temp_dir_prefixes() -> list[str]:
-    """Return path prefixes the redirect/peek regexes accept.
-
-    Delegates to
-    :func:`lint_long_command_polling_extract_scratch.scratch_path_roots`
-    so the polling lint, the waiter rule, and downstream denial
-    messages all agree on which paths count as Yoke scratch (the
-    helper-resolved root plus the legacy ``/tmp`` / ``/private/tmp`` /
-    ``tempfile.gettempdir()`` prefixes the regexes already accept).
-    Also returns the ``/private`` canonical equivalent for any
-    ``/var/...`` legacy prefix on macOS where ``/tmp`` is a symlink to
-    ``/private/tmp``.
-    """
-    prefixes: list[str] = []
-    for root in scratch_path_roots():
-        if root not in prefixes:
-            prefixes.append(root)
-        if root.startswith("/var/"):
-            canonical = "/private" + root
-            if canonical not in prefixes:
-                prefixes.append(canonical)
-    return prefixes
-
-
-_TEMP_PREFIXES = _temp_dir_prefixes()
-_TEMP_PREFIX_GROUP = "(?:" + "|".join(re.escape(p) for p in _TEMP_PREFIXES) + ")"
+#: Matches nothing: with no client scratch roots no path counts as a capture.
+_NO_ROOT = "(?!)"
 
 # Peek verbs: any reading verb against a capture file is a peek (audit
 # evidence showed `grep`/`wc`/`ls`/`awk`/`sed`/`stat` etc. were used to
 # peek unblocked). `[^;&]*?` (no pipe exclusion) so `grep -E "p|f" path`
 # still matches. `(?<![-/=])` rejects `--body-file /tmp/x` shapes.
-_PEEK_VERB_RE = re.compile(
-    rf"(?<![-/=])\b(tail|head|cat|wc|grep|egrep|fgrep|rg|ls|awk|sed|less|more|file|stat|nl|cut|sort|uniq)\b[^;&]*?({_TEMP_PREFIX_GROUP}/[\w./-]+)",
-)
-_REDIRECT_TO_CAPTURE_RE = re.compile(
-    rf">>?\s*({_TEMP_PREFIX_GROUP}/[\w./-]+)",
+PEEK_VERB_ALT = (
+    "tail|head|cat|wc|grep|egrep|fgrep|rg|ls|awk|sed|less|more|file|stat|"
+    "nl|cut|sort|uniq"
 )
 # Watcher-arg flag names are unique to our wrappers — the flag IS the
 # discriminator, so the path argument can live in any tempdir.
@@ -70,20 +43,49 @@ _WATCHER_CAPTURE_ARG_RE = re.compile(
     r"--(?:raw-capture|progress-capture)(?:=|\s+)([^\s;&|<>]+)",
 )
 _SLEEP_THEN_PEEK_RE = re.compile(
-    r"\bsleep\s+(\d+)\s*(?:&&|;)\s*(?<![-/=])(?:cat|tail|head|wc|grep|egrep|fgrep|rg|ls|awk|sed|less|more|file|stat|nl|cut|sort|uniq)\b",
+    rf"\bsleep\s+(\d+)\s*(?:&&|;)\s*(?<![-/=])(?:{PEEK_VERB_ALT})\b",
 )
 # Monitor command: the watcher follower in either spelling (`yoke watch
-# tail`, or the module fallback) or bare `tail -f/-F`, against a /tmp
-# capture file. Trailing filters (`| grep ...`) are intentionally
-# ignored — capture-file equivalence is what matters.
+# tail`, or the module fallback) or bare `tail -f/-F`, against a capture
+# file. Trailing filters (`| grep ...`) are intentionally ignored —
+# capture-file equivalence is what matters.
 _WATCH_TAIL_ALTERNATION = (
     r"yoke\s+watch\s+tail"
     r"|python3\s+-m\s+(?:yoke_core|runtime\.api)\.tools\.watch_tail"
 )
-_MONITOR_CAPTURE_RE = re.compile(
-    rf"\b(?:{_WATCH_TAIL_ALTERNATION}|tail\s+-[FfnvqzN]+)"
-    rf"\s+({_TEMP_PREFIX_GROUP}/[\w./-]+)",
-)
+
+
+def capture_path_group(roots: Sequence[str]) -> str:
+    """Return the regex matching a path under one of *roots*.
+
+    *roots* are the client machine's scratch roots
+    (:func:`yoke_contracts.hook_runner.client_facts.capture_roots`). The
+    authority never substitutes its own: a capture lives where the client
+    wrote it.
+    """
+    alternation = "|".join(re.escape(r.rstrip("/")) for r in roots if r)
+    return f"(?:{alternation or _NO_ROOT})/[\\w./-]+"
+
+
+@dataclass(frozen=True)
+class CapturePatterns:
+    """Capture-path patterns compiled for one set of client scratch roots."""
+
+    peek_verb: re.Pattern[str]
+    redirect: re.Pattern[str]
+    monitor: re.Pattern[str]
+
+
+@lru_cache(maxsize=32)
+def capture_patterns(roots: tuple[str, ...]) -> CapturePatterns:
+    path = capture_path_group(roots)
+    return CapturePatterns(
+        peek_verb=re.compile(rf"(?<![-/=])\b({PEEK_VERB_ALT})\b[^;&]*?({path})"),
+        redirect=re.compile(rf">>?\s*({path})"),
+        monitor=re.compile(
+            rf"\b(?:{_WATCH_TAIL_ALTERNATION}|tail\s+-[FfnvqzN]+)\s+({path})",
+        ),
+    )
 
 
 def _extract_tool_input(payload: dict) -> dict:
@@ -157,24 +159,25 @@ def _is_stdin_feed_cat(command: str, match) -> bool:
     return consumer not in _PEEK_VERBS
 
 
-def _extract_peek_capture_file(command: str) -> Optional[str]:
+def _extract_peek_capture_file(command: str, roots: Sequence[str]) -> Optional[str]:
     """Return the /tmp capture-file path if *command* looks like a peek.
 
-    Any reading verb in :data:`_PEEK_VERB_RE` against a tempdir-prefixed
-    path is a peek. Carve-out: ``cat <tmpfile> | <substantive consumer>``
+    Any reading verb in :data:`PEEK_VERB_ALT` against a path under one of
+    the client's scratch *roots* is a peek. Carve-out: ``cat <tmpfile> | <substantive consumer>``
     is a stdin feed (see :func:`_is_stdin_feed_cat`).
     """
-    m = _PEEK_VERB_RE.search(command)
+    patterns = capture_patterns(tuple(roots))
+    m = patterns.peek_verb.search(command)
     if not m:
         return None
-    if _REDIRECT_TO_CAPTURE_RE.search(command):
+    if patterns.redirect.search(command):
         return None
     if _is_stdin_feed_cat(command, m):
         return None
     return m.group(2)
 
 
-def _peek_read_in_command_substitution(command: str) -> bool:
+def _peek_read_in_command_substitution(command: str, roots: Sequence[str]) -> bool:
     """True iff the peek-verb match sits inside a ``$(...)`` substitution.
 
     ``OUT=$(cat /tmp/ptr.txt); cd "$OUT" && ...`` consumes the file's
@@ -186,7 +189,7 @@ def _peek_read_in_command_substitution(command: str) -> bool:
     ``--raw-capture``/``--progress-capture``) stays a peek even when
     read through a substitution.
     """
-    m = _PEEK_VERB_RE.search(command)
+    m = capture_patterns(tuple(roots)).peek_verb.search(command)
     if not m:
         return False
     prefix = command[: m.start()]
@@ -207,7 +210,7 @@ def _extract_sleep_cadence(command: str) -> Optional[int]:
         return None
 
 
-def _extract_monitor_capture_file(command: str) -> Optional[str]:
+def _extract_monitor_capture_file(command: str, roots: Sequence[str]) -> Optional[str]:
     """Return the capture-file path a Monitor command targets, if any.
 
     Accepts the follower in either spelling (``yoke watch tail
@@ -220,16 +223,16 @@ def _extract_monitor_capture_file(command: str) -> Optional[str]:
     ``None`` when *command* does not match either shape
     or does not reference a tempdir path.
     """
-    match = _MONITOR_CAPTURE_RE.search(command)
+    match = capture_patterns(tuple(roots)).monitor.search(command)
     if not match:
         return None
     return match.group(1)
 
 
-def _extract_background_capture_files(command: str) -> list[str]:
+def _extract_background_capture_files(command: str, roots: Sequence[str]) -> list[str]:
     """Return capture files that indicate a long background command is active."""
     captures: list[str] = []
-    redirect = _REDIRECT_TO_CAPTURE_RE.search(command)
+    redirect = capture_patterns(tuple(roots)).redirect.search(command)
     if redirect:
         captures.append(redirect.group(1))
     captures.extend(

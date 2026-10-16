@@ -154,7 +154,15 @@ def _wake_suffix(entry: UndeliveredMessages) -> str:
     if entry.operator_wake:
         return ", operator wake needed — ask them to type in that chat"
     if entry.wake_escalation:
-        return f", wake escalated ({entry.wake_escalation})"
+        # An escalation is the relay resuming this same session from its
+        # transcript. A gone process is resumable, so the recovery is another
+        # resume; terminating it loses the session's identity, claims and lane.
+        return (
+            f", wake escalated ({entry.wake_escalation}) — the relay resumes this "
+            "same session; if nothing is delivered, re-run "
+            f"`yoke session-control session wake {entry.session_id}`; terminate "
+            "only when that wake reports the transcript gone"
+        )
     return ""
 
 

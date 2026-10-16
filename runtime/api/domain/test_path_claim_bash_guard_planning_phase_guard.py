@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from yoke_contracts.hook_runner.session_cwd import client_scratch_root_fact
 from yoke_core.domain import path_claim_bash_guard as bash_guard
 from yoke_core.domain.path_claim_bash_guard_planning_phase_test_helpers import (
     PROJECT_REPO_ROOT,
     RETIRED_DISPATCH_ROOT,
+    SCRATCH_ROOT,
     _dispatch_target,
     _seed,
 )
@@ -27,12 +29,13 @@ def _planned_no_wt_claim(item_id=1844) -> Dict[str, Any]:
     }
 
 
-def _payload(*, command, cwd, session_id) -> Dict[str, Any]:
+def _payload(*, command, cwd, session_id, scratch_root=SCRATCH_ROOT) -> Dict[str, Any]:
     return {
         "tool_name": "Bash",
         "tool_input": {"command": command},
         "cwd": cwd,
         "session_id": session_id,
+        **client_scratch_root_fact(scratch_root),
     }
 
 
@@ -48,7 +51,6 @@ def _patch_guard(monkeypatch, claim):
 def test_matrix_planning_session_scratch_allows(tmp_path, widener_db, monkeypatch):
     sid = "sess-mx-1"
     _seed(widener_db, session_id=sid, item_id=1844, status="refined-idea")
-    monkeypatch.setenv("YOKE_SESSION_ID", sid)
     _patch_guard(monkeypatch, _planned_no_wt_claim())
     target = _dispatch_target(item_id=1844)
     v = bash_guard.evaluate_payload(
@@ -59,10 +61,28 @@ def test_matrix_planning_session_scratch_allows(tmp_path, widener_db, monkeypatc
     assert v.outcome == "allow"
 
 
+def test_planning_scratch_without_client_scratch_root_fact_denies(
+    tmp_path, widener_db, monkeypatch
+):
+    sid = "sess-mx-no-root"
+    _seed(widener_db, session_id=sid, item_id=1844, status="refined-idea")
+    _patch_guard(monkeypatch, _planned_no_wt_claim())
+    target = _dispatch_target(item_id=1844)
+    v = bash_guard.evaluate_payload(
+        _payload(
+            command=f"printf '%s' \"$b\" > {target}",
+            cwd=str(tmp_path),
+            session_id=sid,
+            scratch_root="",
+        )
+    )
+    assert v.outcome == "deny"
+    assert v.failure_mode == "worktree-unresolved"
+
+
 def test_matrix_planning_session_code_edit_denies(tmp_path, widener_db, monkeypatch):
     sid = "sess-mx-2"
     _seed(widener_db, session_id=sid, item_id=1844, status="refined-idea")
-    monkeypatch.setenv("YOKE_SESSION_ID", sid)
     _patch_guard(monkeypatch, _planned_no_wt_claim())
     v = bash_guard.evaluate_payload(
         _payload(
@@ -79,7 +99,6 @@ def test_matrix_impl_session_scratch_outside_claim_denies(
 ):
     sid = "sess-mx-3"
     _seed(widener_db, session_id=sid, item_id=2024, status="implementing")
-    monkeypatch.setenv("YOKE_SESSION_ID", sid)
     wt = tmp_path / "YOK-2024"
     wt.mkdir()
     _patch_guard(
@@ -108,7 +127,6 @@ def test_matrix_impl_session_code_edit_inside_claim_allows(
 ):
     sid = "sess-mx-4"
     _seed(widener_db, session_id=sid, item_id=2024, status="implementing")
-    monkeypatch.setenv("YOKE_SESSION_ID", sid)
     wt = tmp_path / "YOK-2024"
     (wt / "runtime/api/domain").mkdir(parents=True)
     _patch_guard(
@@ -136,7 +154,6 @@ def test_planning_session_authors_scratch_for_unrelated_item(
 ):
     sid = "sess-cross"
     _seed(widener_db, session_id=sid, item_id=1848, status="refined-idea")
-    monkeypatch.setenv("YOKE_SESSION_ID", sid)
     _patch_guard(monkeypatch, _planned_no_wt_claim(item_id=1848))
     target = _dispatch_target(item_id=9999)
     v = bash_guard.evaluate_payload(
@@ -174,7 +191,6 @@ def test_original_worktree_unresolved_denial_no_longer_fires(
 ):
     sid = "sess-repro"
     _seed(widener_db, session_id=sid, item_id=1844, status="refined-idea")
-    monkeypatch.setenv("YOKE_SESSION_ID", sid)
     _patch_guard(monkeypatch, _planned_no_wt_claim())
     cmd = (
         f"printf '%s' \"$spec\" > "
@@ -195,7 +211,6 @@ def test_retired_data_sessions_path_hits_original_denial(
 ):
     sid = "sess-retired-repro"
     _seed(widener_db, session_id=sid, item_id=1844, status="refined-idea")
-    monkeypatch.setenv("YOKE_SESSION_ID", sid)
     _patch_guard(monkeypatch, _planned_no_wt_claim())
     cmd = (
         "printf '%s' \"$spec\" "

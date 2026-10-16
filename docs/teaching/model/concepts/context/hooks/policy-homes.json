@@ -1,0 +1,11 @@
+{
+ "id": "policy-homes",
+ "title": "Where each hook policy evaluates",
+ "status": "observed",
+ "plan_refs": ["FIRST-USER.P3"],
+ "surface_refs": ["global-hooks", "project-hooks"],
+ "note": "Every chain policy has one home: client, server, or server with named client facts. On HTTPS the client runs client-home policies and ships the facts the server-run policies read; in-process evaluation collects the same facts, so a verdict does not depend on install mode. A guard test fails on an unclassified local read in server-run code. Source/unit evidence is not deployed harness proof.",
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/hook_runner/policy_home.py", "packages/yoke-harness/src/yoke_harness/hooks/client_facts.py", "tests/hook_policy_homes/test_local_reads.py", "docs/hooks.md"],
+ "page": "context",
+ "position": 6
+}

@@ -93,11 +93,17 @@ def test_unknown_guard_names_its_declaration_recovery():
 
 
 @pytest.mark.parametrize("executor", ["claude-code", "codex", "cursor"])
-def test_unrelated_main_commit_is_allowed_and_managed_main_is_denied(
-    scope_repos, executor
-):
+def test_main_commit_facts_ship_only_for_the_managed_checkout(scope_repos, executor):
+    """The main-commit guard runs on the authority from the client's git facts.
+
+    The client never denies the commit itself; it ships the staged-commit
+    facts only when the checkout belongs to a project, so an unrelated
+    repository's main commit is never policed.
+    """
+    from yoke_contracts.hook_runner.main_commit import CLIENT_GIT_COMMIT_FACTS_KEY
+
     managed, other = scope_repos
-    for root, denied in ((other, False), (managed, True)):
+    for root, shipped in ((other, False), (managed, True)):
         payload = {
             "cwd": str(root),
             "tool_name": "Bash",
@@ -109,8 +115,10 @@ def test_unrelated_main_commit_is_allowed_and_managed_main_is_denied(
             executor,
             None,
             HookDeadline(budget_ms=3000, started_at=time.monotonic()),
+            collect_facts=True,
         )
-        assert result.denied is denied, result.stdout
+        assert result.denied is False, result.stdout
+        assert (CLIENT_GIT_COMMIT_FACTS_KEY in result.payload_extra) is shipped
 
 
 @pytest.mark.parametrize("command", ["git reset --hard", "git clean -fd"])

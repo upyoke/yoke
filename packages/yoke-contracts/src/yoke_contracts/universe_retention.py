@@ -79,6 +79,9 @@ class PruneRequest(BaseModel):
     cutoff: datetime | None = None
     expected_digest: str | None = None
     table_index: Annotated[int, Field(strict=True, ge=0)] = 0
+    # Tables this invocation has finished (nothing eligible under its fixed
+    # cutoff) or stopped retrying after repeated statement/lock limits.
+    skip_tables: list[str] = Field(default_factory=list, max_length=200)
 
     @field_validator("cutoff", mode="before")
     @classmethod
@@ -96,6 +99,7 @@ class RetentionResponse(BaseModel):
 
 class PruneResponse(RetentionResponse):
     tables: list[dict] = Field(default_factory=list)
+    skipped: list[dict] = Field(default_factory=list)
     next_table_index: int = 0
     cycle_complete: bool = False
     failure: dict | None = None

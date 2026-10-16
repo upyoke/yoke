@@ -13,11 +13,11 @@ from __future__ import annotations
 from yoke_core.domain.events_project_identity import working_project_for_event
 
 import json
-import os
 import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.hook_runner.session_cwd import client_scratch_root
 from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.domain.observe_normalization import (
     TOOL_KIND_BASH,
@@ -35,6 +35,7 @@ from yoke_core.domain.path_claim_bash_parser import (
     SUPPRESSION_TOKEN,
     extract_mutations,
 )
+from yoke_core.domain.path_claim_bash_client_home import expand_client_home
 from yoke_core.domain.path_claim_bash_parser_planning_phase import (
     drop_planning_scratch_mutations,
 )
@@ -65,12 +66,9 @@ class BashGuardVerdict:
     extra: Dict[str, Any] = field(default_factory=dict)
 
 
-def _resolve_cwd(record: ToolEventRecord) -> tuple[str, bool]:
-    """Return ``(cwd, fell_back_to_os_getcwd)``."""
-    cwd = (record.cwd or "").strip()
-    if cwd:
-        return cwd, False
-    return os.getcwd(), True
+def _resolve_cwd(record: ToolEventRecord) -> str:
+    """Return the payload's cwd; the evaluating process's own cwd is not it."""
+    return (record.cwd or "").strip()
 
 
 def evaluate_payload(
@@ -104,11 +102,13 @@ def evaluate_payload(
     # below depends on.
     mutations = drop_planning_scratch_mutations(
         mutations,
-        session_id=record.session_id,
+        session_id=record.session_id or "",
+        scratch_root=client_scratch_root(payload) if isinstance(payload, dict) else "",
         conn=conn,
     )
     if not mutations:
         return BashGuardVerdict(outcome="allow")
+    mutations = expand_client_home(mutations, payload)
 
     # Suppression token short-circuits — we record audit evidence
     # (``outcome=suppression_attempted``) and allow. The first mutation
@@ -126,7 +126,7 @@ def evaluate_payload(
         _emit_denial(record=record, verdict=verdict, conn=conn, suppression=True)
         return verdict
 
-    cwd, _ = _resolve_cwd(record)
+    cwd = _resolve_cwd(record)
 
     for mut in mutations:
         current_claim = resolve_claim_scope_for_target(
@@ -238,7 +238,7 @@ def _emit_denial(
             project=working_project_for_event(
                 conn=conn,
                 session_id=record.session_id,
-                directory=_resolve_cwd(record)[0] if conn is None else None,
+                directory=_resolve_cwd(record) if conn is None else None,
             ),
             context={
                 "bash_verb": verdict.bash_verb,

@@ -76,7 +76,7 @@ def _quiet_start():
             return_value=True,
         ),
         mock.patch(
-            "yoke_core.engines.main_checkout_sync.sync_main_checkout_at_session_start",
+            "yoke_harness.hooks.session_lifecycle.sync_session_main_checkout",
         ),
     ):
         yield
@@ -282,7 +282,7 @@ def test_local_session_start_sweeps_only_the_stale_claimless_session(
             return_value=True,
         ),
         mock.patch(
-            "yoke_core.engines.main_checkout_sync.sync_main_checkout_at_session_start",
+            "yoke_harness.hooks.session_lifecycle.sync_session_main_checkout",
         ),
         mock.patch(
             "yoke_core.hooks.session_dispatch._run_claude_session_start",

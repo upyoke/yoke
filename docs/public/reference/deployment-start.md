@@ -101,8 +101,14 @@ step’s elapsed time; a slower start still reports its measured difference.
 
 Source/provider and containment preparation precede item/run locks. The short
 commit phase rereads membership, workflow, evidence, flow and source pins;
-only an identical repository question reuses its prepared answer. A changed
-source question releases the transaction before new source work. QA occupancy
+only an identical repository question reuses its prepared answer. Carried-work
+attribution reads lane heads only for landed items, so workers committing in
+open lanes during preparation ask no new question. A changed source question
+(for example an item that landed meanwhile) rolls the transaction back, answers
+only that question with every lock released (timing step `start_source_refresh`)
+and retries the commit phase, up to eight preparations. After that the start
+refuses as `deployment_source_preparation_changed`, naming the exact source
+key; nothing was dispatched, so re-drive the same run. QA occupancy
 uses the first real blocker and shares peer-plan facts within that evaluation;
 full diagnostic reads still report all blockers. Item/run/target lock contention
 refuses as `deployment_start_lock_busy` after two seconds and names same-run
@@ -139,7 +145,7 @@ quotes in frozen member instructions remain part of the complete receipt;
 they cannot split its fields or displace source identities and timestamps.
 
 Timing records distinguish `start_source_preparation`, `start_item_run_locks`,
-`target_occupancy`, `composition_freeze`, `bound_source_provider`,
+`start_source_refresh`, `target_occupancy`, `composition_freeze`, `bound_source_provider`,
 `bound_source_composition`, `bound_source_item_run_locks`, `bound_source_commit`
 and `executing_stamp`. A lock timeout names the phase, not an invented blocker;
 missing response/timing evidence stays unknown. Real-run verification must name

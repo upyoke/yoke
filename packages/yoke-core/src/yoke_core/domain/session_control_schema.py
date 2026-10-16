@@ -186,6 +186,8 @@ def create_session_control_tables(conn: Any) -> None:
             ON session_launches(state, deadline_at);
         CREATE INDEX IF NOT EXISTS idx_session_launches_machine_state
             ON session_launches(assigned_machine_id, state);
+        CREATE INDEX IF NOT EXISTS idx_session_launches_message
+            ON session_launches(message_id);
 
         CREATE TABLE IF NOT EXISTS session_launch_attempts (
             attempt_id TEXT PRIMARY KEY,

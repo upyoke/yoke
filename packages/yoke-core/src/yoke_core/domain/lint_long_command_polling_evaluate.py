@@ -4,7 +4,7 @@ Owns ``evaluate_payload`` plus the I/O-touching helpers it consumes:
 
 - session-scoped DB lookup (``_db_available``,
   ``_recent_bash_commands``, ``_count_prior_peeks_in_window``)
-- the mtime "owning command still running" signal
+- the client-observed "owning command still running" signal
   (``_owning_command_still_running``)
 
 Pure command/payload introspection helpers live on the extract sibling.
@@ -15,15 +15,17 @@ entry-point — this module imports them.
 
 from __future__ import annotations
 
-import os
-import time
 from datetime import datetime, timedelta
 from yoke_contracts.timestamps import utc_now
 from yoke_core.domain.db_helpers import instant_parameter
-from typing import Optional
+from typing import Optional, Sequence
+
+from yoke_contracts.hook_runner.client_facts import (
+    capture_file_state,
+    capture_roots,
+)
 
 from yoke_core.domain import db_backend, db_helpers
-from yoke_core.domain.lint_long_command_polling_completion import capture_file_completed
 from yoke_core.domain.lint_long_command_polling_config import _read_lint_mode
 from yoke_core.domain.lint_long_command_polling_constants import (
     MTIME_ACTIVE_THRESHOLD_SECONDS,
@@ -107,6 +109,7 @@ def _count_prior_peeks_in_window(
     recent: list[tuple[str, datetime | None, str]],
     capture_file: str,
     current_tool_use_id: str,
+    roots: Sequence[str],
     window_turns: int = PEEK_WINDOW_TURNS,
 ) -> int:
     """Count prior Bash peeks targeting *capture_file* in the last *window_turns*.
@@ -124,14 +127,16 @@ def _count_prior_peeks_in_window(
             seen.append(tool_use_id)
             if len(seen) > window_turns:
                 break
-        peek_target = _extract_peek_capture_file(command)
+        peek_target = _extract_peek_capture_file(command, roots)
         if peek_target == capture_file:
             count += 1
     return count
 
 
 def _capture_registered_in_session(
-    recent: list[tuple[str, datetime | None, str]], capture_file: str
+    recent: list[tuple[str, datetime | None, str]],
+    capture_file: str,
+    roots: Sequence[str],
 ) -> bool:
     """True if a recent session command registered *capture_file* as a capture.
 
@@ -142,28 +147,29 @@ def _capture_registered_in_session(
     persisting a mktemp path across Bash subshells.
     """
     return any(
-        capture_file in _extract_background_capture_files(cmd)
+        capture_file in _extract_background_capture_files(cmd, roots)
         for _tool_use_id, _created_at, cmd in recent
     )
 
 
-def _owning_command_still_running(capture_file: str) -> bool:
+def _owning_command_still_running(payload: dict, capture_file: str) -> bool:
     """Return True if *capture_file*'s owning command is still running.
 
-    Checks the watcher exit sentinel first (:func:`capture_file_completed`):
-    once written the command has exited regardless of mtime, so the single
-    sanctioned post-completion ``tail -80 <raw-capture>`` is allowed
-    (ouroboros 8857 / 8873). Otherwise the mtime heuristic applies: a
-    capture touched within :data:`MTIME_ACTIVE_THRESHOLD_SECONDS` is still
-    being appended to, so a genuine mid-run peek stays denied.
+    Reads the client's observation of the capture
+    (:func:`yoke_contracts.watch_capture.capture_state`): once the watcher
+    exit sentinel is written the command has exited regardless of mtime, so
+    the single sanctioned post-completion ``tail -80 <raw-capture>`` is
+    allowed. Otherwise a capture touched within
+    :data:`MTIME_ACTIVE_THRESHOLD_SECONDS` is still being appended to, so a
+    genuine mid-run peek stays denied. A capture the client did not report,
+    or that does not exist there, is not running.
     """
-    if capture_file_completed(capture_file):
+    state = capture_file_state(payload, capture_file)
+    if state is None or state.get("completed") is True:
         return False
-    try:
-        stat_result = os.stat(capture_file)
-    except OSError:
+    age_seconds = state.get("age_seconds")
+    if not isinstance(age_seconds, (int, float)):
         return False
-    age_seconds = time.time() - stat_result.st_mtime
     return age_seconds < MTIME_ACTIVE_THRESHOLD_SECONDS
 
 
@@ -212,12 +218,13 @@ def evaluate_payload(payload: dict) -> Optional[tuple[str, str, dict]]:
         ctx = _build_context(tool_name or "Bash", command, None)
         return (mode, _format_sleep_reason(cadence, mode), ctx)
 
-    capture_file = _extract_peek_capture_file(command)
+    roots = capture_roots(payload)
+    capture_file = _extract_peek_capture_file(command, roots)
 
     # Capture-file peek: check if owning command still running and whether
     # this is a repeated peek within the window.
     if capture_file is not None:
-        still_running = _owning_command_still_running(capture_file)
+        still_running = _owning_command_still_running(payload, capture_file)
         if not still_running:
             # Owning command completed — post-capture inspection is allowed.
             return None
@@ -236,12 +243,12 @@ def evaluate_payload(payload: dict) -> Optional[tuple[str, str, dict]]:
         # not a progress peek (the mtime heuristic alone cannot tell a
         # freshly written pointer note from a live capture).
         if _peek_read_in_command_substitution(
-            command
-        ) and not _capture_registered_in_session(recent, capture_file):
+            command, roots
+        ) and not _capture_registered_in_session(recent, capture_file, roots):
             return None
 
         prior_peeks = _count_prior_peeks_in_window(
-            recent, capture_file, current_tool_use_id
+            recent, capture_file, current_tool_use_id, roots
         )
 
         if prior_peeks >= 1:

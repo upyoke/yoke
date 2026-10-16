@@ -44,14 +44,18 @@ def test_unattributed_runtime_cache_read_is_empty(monkeypatch):
     assert codex_payload.read_runtime_cache_field("session", "source") == ""
 
 
-def test_unattributed_planning_scratch_has_no_allowed_roots(monkeypatch):
+def test_planning_scratch_classification_needs_no_project(monkeypatch):
     from yoke_core.domain import path_claim_bash_parser_planning_phase as planning
 
     def refuse(*args, **kwargs):
         raise MissingProjectError("project_required: caller project missing")
 
     monkeypatch.setattr(project_scratch_dir, "dispatch_inputs_dir", refuse)
-    assert planning.planning_scratch_roots() == ()
+    monkeypatch.setattr(project_scratch_dir, "scratch_root", refuse)
+    target = "/tmp/yoke-scratch/7/sessions/s/runs/1/dispatch-inputs/spec.md"
+    assert planning.is_planning_scratch_path(target, "/tmp/yoke-scratch")
+    # Without the client's scratch root nothing is planning scratch.
+    assert not planning.is_planning_scratch_path(target, "")
 
 
 def test_unattributed_model_and_entrypoint_cache_reads_are_empty(monkeypatch):
@@ -74,7 +78,10 @@ def test_polling_lint_import_has_no_project_or_filesystem_resolution(monkeypatch
     monkeypatch.setattr(project_scratch_dir, "scratch_root", refuse)
     monkeypatch.setattr(project_scratch_dir, "global_scratch_root", refuse)
     importlib.reload(extract)
-    assert extract._TEMP_PREFIXES
+    assert extract._extract_peek_capture_file("tail /tmp/x.log", ("/tmp",)) == (
+        "/tmp/x.log"
+    )
+    assert extract._extract_peek_capture_file("tail /tmp/x.log", ()) is None
 
 
 def test_command_capture_uses_case_project_instead_of_server_context(

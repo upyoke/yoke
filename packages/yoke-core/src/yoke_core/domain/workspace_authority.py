@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import List, Optional, Sequence
 
 from yoke_core.domain.lint_session_cwd_path_authority import is_free_path
+
 SESSION_ID_ENV_VAR = "YOKE_SESSION_ID"
 
 # Where a Yoke source checkout keeps the ``yoke_core`` package. An installed
@@ -104,7 +105,9 @@ def _is_free_path(target: Path) -> bool:
 
 
 def _is_planning_scratch_allowed(
-    target: Path, *, current_item_before_implementation: Optional[bool],
+    target: Path,
+    *,
+    current_item_before_implementation: Optional[bool],
 ) -> bool:
     """Planning-phase carve-out for helper-resolved dispatch-inputs scratch.
 
@@ -117,8 +120,13 @@ def _is_planning_scratch_allowed(
     from yoke_core.domain.path_claim_bash_parser_planning_phase import (
         is_planning_scratch_path,
     )
+    from yoke_contracts.machine_config.runtime import effective_temp_root
+
+    # This guard runs in the writing process, on the machine that owns the
+    # scratch tree, so its own scratch root is the one to match.
+    scratch_root = effective_temp_root()
     candidates = {_resolve_for_display(target), str(target)}
-    if not any(is_planning_scratch_path(cand) for cand in candidates):
+    if not any(is_planning_scratch_path(cand, scratch_root) for cand in candidates):
         return False
     return current_item_before_implementation is True
 
@@ -184,9 +192,7 @@ def assert_target_under_session_work_authority(
 
     if _is_planning_scratch_allowed(
         target_path,
-        current_item_before_implementation=(
-            lookup.current_item_before_implementation
-        ),
+        current_item_before_implementation=(lookup.current_item_before_implementation),
     ):
         return
 
@@ -248,10 +254,7 @@ def assert_seed_source_under_target_root(
         return
     except ValueError:
         pass
-    if any(
-        part in {"site-packages", "dist-packages"}
-        for part in seed_path.parts
-    ):
+    if any(part in {"site-packages", "dist-packages"} for part in seed_path.parts):
         # An installed release is not a competing source checkout.
         return
     # External-project targets (an installed project repo with no Yoke
@@ -264,9 +267,7 @@ def assert_seed_source_under_target_root(
     # derived from the seed's package tail, allow the external case; an
     # unrecognized seed layout keeps the refusal posture.
     candidates = _seed_checkout_relative_candidates(seed_path)
-    if candidates and not any(
-        (root_path / rel).exists() for rel in candidates
-    ):
+    if candidates and not any((root_path / rel).exists() for rel in candidates):
         return
     raise RuntimeError(
         f"workspace_authority: seed-source mismatch for "

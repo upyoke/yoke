@@ -178,21 +178,21 @@ class TestStatusHelperFunctions:
             is False
         )
 
-    def test_read_mode_falls_back_to_default_when_workspace_missing(
-        self,
-        monkeypatch,
-    ):
-        # No workspace env vars; subprocess returns empty.
-        for var in ("CLAUDE_PROJECT_DIR", "CODEX_PROJECT_DIR"):
-            monkeypatch.delenv(var, raising=False)
-        monkeypatch.setattr(
-            lint_session_cwd_status,
-            "_toplevel",
-            lambda: "",
+    def test_read_mode_reads_the_client_machine_setting(self, monkeypatch):
+        from yoke_contracts.hook_runner.client_facts import (
+            MACHINE_SETTINGS_KEY,
+            client_fact,
         )
-        assert (
-            lint_session_cwd_status.read_mode() == lint_session_cwd_status.DEFAULT_MODE
-        )
+
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", "/nonexistent-project")
+        read_mode = lint_session_cwd_status.read_mode
+        key = lint_session_cwd_status.CONFIG_KEY_MODE
+        default = lint_session_cwd_status.DEFAULT_MODE
+        assert read_mode({}) == default
+        assert read_mode(client_fact(MACHINE_SETTINGS_KEY, {key: "warn"})) == "warn"
+        assert read_mode(client_fact(MACHINE_SETTINGS_KEY, {key: "deny"})) == "deny"
+        assert read_mode(client_fact(MACHINE_SETTINGS_KEY, {key: "loud"})) == default
+        assert read_mode(client_fact(MACHINE_SETTINGS_KEY, "warn")) == default
 
     def test_command_has_suppression_token_finds_token(self):
         token = lint_session_cwd_status.SUPPRESSION_TOKEN

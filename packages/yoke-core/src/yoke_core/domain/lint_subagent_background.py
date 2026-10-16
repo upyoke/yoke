@@ -62,7 +62,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
 from typing import Optional
@@ -135,11 +134,10 @@ def _agent_type_from_payload(payload: dict) -> Optional[str]:
 
 
 def _detect_agent_type(payload: dict, cli_agent_type: Optional[str]) -> Optional[str]:
+    # Every evaluation path carries the harness's agent type in the payload
+    # (relay and local entry both lift YOKE_HOOK_AGENT_TYPE into it).
     if cli_agent_type and cli_agent_type.strip():
         return cli_agent_type.strip()
-    env_value = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
-    if env_value:
-        return env_value
     return _agent_type_from_payload(payload)
 
 

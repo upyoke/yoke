@@ -98,6 +98,7 @@ def validate_targets(
     command: str = "",
     tool_name: str = "",
     path_uses: tuple[PathUse, ...] = (),
+    yoke_root: str = "",
 ) -> ValidationVerdict:
     """Validate every target path against the session's claim authority.
 
@@ -204,6 +205,7 @@ def validate_targets(
             read_only=read_only,
             path_uses=path_uses,
             external_reads_allowed=external_reads_allowed,
+            yoke_root=yoke_root,
         ):
             continue
         return ValidationVerdict(
@@ -252,6 +254,7 @@ def _is_target_authorised(
     read_only: bool,
     path_uses: tuple[PathUse, ...] = (),
     external_reads_allowed: bool = False,
+    yoke_root: str = "",
 ) -> bool:
     if _is_free_path(
         target,
@@ -286,9 +289,7 @@ def _is_target_authorised(
     # worktree claim it currently holds. Sibling-branch worktrees stay
     # claim-gated through ``_is_inside_control_plane``'s `.worktrees`
     # exclusion.
-    if is_under_yoke_control_plane(target):
-        return True
-    return False
+    return is_under_yoke_control_plane(target, yoke_root)
 
 
 def _is_free_path(
@@ -309,9 +310,10 @@ def _is_free_path(
         return True
     if claude_job_tmp_root and _is_inside(target, claude_job_tmp_root):
         return True
+    own = not watcher_capture_root and machine_home is None  # in-process caller
     return is_yoke_watcher_capture_path(
         target,
-        scratch_root=watcher_capture_root or None,
+        scratch_root=None if own else watcher_capture_root,
         session_id=session_id,
     )
 
