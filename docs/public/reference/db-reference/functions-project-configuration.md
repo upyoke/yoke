@@ -118,7 +118,7 @@ Site/environment create is idempotent by registered identity: an existing match
 is unchanged, ownership mismatch refuses. Updates preserve id/site and change
 only named fields. Settings use their narrow read/write surfaces; never dump
 environment containers. Pack publishing is immutable; installed files and
-project configuration keep their own authority. [Fleet policy](fleet-policy.md).
+project configuration keep their own authority. [Fleet policy](../../sessions/fleet-policy.md).
 
 Strategy documents are DB rows; `.yoke/strategy/` is a gitignored render.
 Every content write validates exactly one Summary and one State section with a

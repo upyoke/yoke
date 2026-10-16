@@ -52,7 +52,7 @@ def test_readiness_repair_verification_defers_to_project_command() -> None:
 
 def test_db_reference_rehearsal_commands_use_watcher() -> None:
     text = _read(
-        REPO / ".yoke" / "docs" / "reference" / "db-reference" / "items-and-epics.md"
+        REPO / ".yoke" / "docs" / "items" / "model" / "items.md"
     )
     assert (
         '"rehearsal_commands": ["yoke watch pytest -- <project-test-path>"]'

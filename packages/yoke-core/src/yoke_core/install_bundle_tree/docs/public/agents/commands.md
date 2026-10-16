@@ -95,7 +95,7 @@ The half-open interval owns entry, forward edges and handoff. Never route from
 a remembered workflow name or stage sequence. A handoff starts the next skill
 with its fresh claim; it does not extend the preceding skill's authority.
 The canonical procedure is `.agents/skills/yoke/{skill}/SKILL.md`; its phase
-map selects depth before that action. [Lifecycle](../reference/lifecycle.md) owns gates.
+map selects depth before that action. [Lifecycle](../workflows/lifecycle.md) owns gates.
 
 ### idea
 

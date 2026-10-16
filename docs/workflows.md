@@ -2,10 +2,10 @@
 
 Operator documentation moved to the public corpus:
 
-- [docs/public/workflows.md](public/workflows.md)
-- Lifecycle detail: [docs/public/reference/lifecycle.md](public/reference/lifecycle.md)
+- [docs/public/workflows/index.md](public/workflows/index.md)
+- Lifecycle detail: [docs/public/workflows/lifecycle.md](public/workflows/lifecycle.md)
 
 Create a Blitz with `/yoke idea --workflow blitz "{title}"` (`entry_surface:
 harness_skill`). Refinement must link exactly one execution strategy document
 before `/yoke blitz` begins. After install, the same pages live at
-`.yoke/docs/workflows.md` and `.yoke/docs/reference/lifecycle.md`.
+`.yoke/docs/workflows/index/index.md` and `.yoke/docs/workflows/lifecycle.md`.

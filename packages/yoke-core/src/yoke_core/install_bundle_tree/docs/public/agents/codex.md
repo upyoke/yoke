@@ -178,7 +178,7 @@ Codex hooks (when available) are optional enhancements that improve ergonomics a
 ## Lifecycle & Routing
 
 The canonical lifecycle guide is
-[.yoke/docs/reference/lifecycle.md](../reference/lifecycle.md). It explains how immutable
+[.yoke/docs/workflows/lifecycle.md](../workflows/lifecycle.md). It explains how immutable
 workflow versions own stages, transitions, target-stage gates, policies, and
 registered runner bindings. For a live item, read
 `yoke workflows item get PREFIX-N` and then
@@ -186,12 +186,12 @@ registered runner bindings. For a live item, read
 guide or a workflow-name branch, is the source of truth for which executor
 owns the current stage.
 
-Frontier computation lives in [.yoke/docs/reference/charge-frontier.md](../reference/charge-frontier.md). Yoke core derives Codex's supported-path set server-side from the shared registry plus any manifest limitations; the adapter does not self-report capabilities via `YOKE_SUPPORTED_PATHS`.
+Frontier computation lives in [.yoke/docs/strategy/charge-frontier.md](../strategy/charge-frontier.md). Yoke core derives Codex's supported-path set server-side from the shared registry plus any manifest limitations; the adapter does not self-report capabilities via `YOKE_SUPPORTED_PATHS`.
 
 ## Related docs
 
-- [Lifecycle & Command Boundaries](../reference/lifecycle.md) -- canonical human lifecycle guide
-- [Charge Frontier](../reference/charge-frontier.md) -- frontier computation and status-to-adapter map
+- [Lifecycle & Command Boundaries](../workflows/lifecycle.md) -- canonical human lifecycle guide
+- [Charge Frontier](../strategy/charge-frontier.md) -- frontier computation and status-to-adapter map
 
 ## Related
 

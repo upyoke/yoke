@@ -10,6 +10,6 @@
  "review": "Candidate source tests prove every declared surface delivers at its hook, intentional operator waits remain uncharged, exhausted native routes notify the original sender, and verified containment releases matching pending holds. Candidate recovery preserves process start-time evidence, supersedes old holds after a later delivered wake, and dates Fleet silence observations. Live release proof remains pending.",
  "recipes": ["yoke messages get MESSAGE-ID --json --full", "yoke messages cancel --help"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/items-and-sessions.md", "packages/yoke-cli/src/yoke_cli/commands/registry_session_control.py", "packages/yoke-core/src/yoke_core/domain/session_relay_versions.py"],
+ "sources": ["docs/public/sessions/inbox.md", "packages/yoke-cli/src/yoke_cli/commands/registry_session_control.py", "packages/yoke-core/src/yoke_core/domain/session_relay_versions.py"],
  "position": 2
 }

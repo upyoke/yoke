@@ -300,7 +300,7 @@ def test_authored_claim_docs_teach_canonical_conflicts_surface(body: str) -> Non
 
 def test_db_claim_docs_teach_required_apply_strategy_and_role_enum() -> None:
     paths = (
-        _REPO / ".yoke" / "docs" / "reference" / "db-reference" / "items-and-epics.md",
+        _REPO / ".yoke" / "docs" / "items" / "model" / "items.md",
         _REPO / ".agents" / "skills" / "yoke" / "idea" / "body-and-sync-functions.md",
         _REPO / ".agents" / "skills" / "yoke" / "refine" / "update-protocol.md",
     )

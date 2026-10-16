@@ -2,7 +2,7 @@
  "id": "merging",
  "title": "Git integration and landing",
  "status": "draft-copy",
- "sources": ["docs/public/github/merge-queue-landings.md", "docs/public/reference/db-reference/item-landings.md", ".agents/skills/yoke/usher/SKILL.md"],
+ "sources": ["docs/public/github/merge-queue-landings.md", "docs/public/items/model/landings.md", ".agents/skills/yoke/usher/SKILL.md"],
  "commands": ["yoke merge audit", "yoke merge item"],
  "functions": ["merge.lock.acquire", "merge.lock.list", "merge.lock.release", "merge.preflight.blocked_gate", "merge.preflight.dependency_gate", "merge.preflight.epic_task_statuses", "merge.prune.authority_verdict", "merge.prune.authority_verdicts", "merge.tests.post_rebase_requirement", "merge.tests.record_post_rebase_ci_run", "merge.tests.recorded_queue_receipt"],
  "page": "merging",

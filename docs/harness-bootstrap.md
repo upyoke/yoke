@@ -213,7 +213,7 @@ checkout. OS consent remains conditional on actual protected-content access.
 A local universe instead runs its installed launcher and has no served pin or
 distribution handshake. Missing launcher refuses with repair. Paired
 prod-flagged Postgres administration owns no second relay; the served HTTPS
-connection supplies it. [Linux relay](public/reference/linux-relay.md) owns its
+connection supplies it. [Linux relay](public/sessions/linux-relay.md) owns its
 user-service/login/logout/no-linger procedure and named systemd recovery.
 
 Fresh handshake alone triggers upgrade: install beside the active release,

@@ -3,7 +3,7 @@
     "AGENTS.md",
     "docs/OVERVIEW.md",
     ".yoke/docs/agents/commands.md",
-    ".yoke/docs/reference/lifecycle.md",
+    ".yoke/docs/workflows/lifecycle.md",
     "docs/harness-bootstrap.md",
     "docs/prompt-philosophy.md"
   ],

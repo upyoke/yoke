@@ -145,6 +145,73 @@ root:
         - title: Machine authorization
           summary: Connect a machine and inspect actor approval and hosted handoff.
           path: cli/machine-authorization.md
+    - title: Items
+      summary: Read and update backlog work, generated tasks and landing evidence.
+      path: items/index.md
+      children:
+        - title: Item model
+          summary: Read item fields, dependencies and database claims.
+          path: items/model/items.md
+        - title: Item dependency model
+          summary: Read dependency edges, gate satisfaction and the canonical blocker model.
+          path: items/model/dependencies.md
+        - title: Generated task model
+          summary: Read task graphs, dispatch chains and progress records.
+          path: items/model/tasks.md
+        - title: Landing model
+          summary: Inspect merge provenance and landing attribution.
+          path: items/model/landings.md
+    - title: Sessions
+      summary: Inspect live sessions, ownership, messages and steering reports.
+      path: sessions/index.md
+      children:
+        - title: Inbox and messaging
+          summary: Read decisions and send messages to their intended recipients.
+          path: sessions/inbox.md
+        - title: Steering report
+          summary: Inspect available work, holders and session delivery failures.
+          path: sessions/steering-report.md
+        - title: Steering report delivery
+          summary: Read deployment waits, shared capacity and report deltas.
+          path: sessions/steering-report-delivery.md
+        - title: Fleet policy
+          summary: Configure session launch and supervision policy.
+          path: sessions/fleet-policy.md
+        - title: Path claim model
+          summary: Read claim ownership, path coverage and overlap decisions.
+          path: sessions/model/path-claims.md
+        - title: Linux relay
+          summary: Keep relay delivery available across Linux logouts.
+          path: sessions/linux-relay.md
+    - title: Workflows
+      summary: Choose definitions and follow pinned lifecycle gates and transitions.
+      path: workflows/index.md
+      children:
+        - title: Lifecycle
+          summary: Read item stage authority and independent generated task progression.
+          path: workflows/lifecycle.md
+        - title: Transitions and routing
+          summary: Follow post-merge behavior, skill boundaries and staffing.
+          path: workflows/transitions.md
+        - title: Gates
+          summary: Read readiness and lifecycle gate requirements.
+          path: workflows/gates.md
+        - title: Status model
+          summary: Inspect stage truth, task status and dispatch records.
+          path: workflows/model/statuses.md
+    - title: Strategy
+      summary: Maintain project direction and select ready work from the frontier.
+      path: strategy/index.md
+      children:
+        - title: Frontier
+          summary: Read available, blocked, active and completed work.
+          path: strategy/frontier.md
+        - title: Charge frontier
+          summary: Understand dependency ranking and frontier data models.
+          path: strategy/charge-frontier.md
+        - title: Charge dispatch
+          summary: Read the frontier API and dispatch ranked work.
+          path: strategy/charge-dispatch.md
     - title: Documentation
       summary: Write, navigate and verify complete, concise teaching.
       path: documentation/index.md

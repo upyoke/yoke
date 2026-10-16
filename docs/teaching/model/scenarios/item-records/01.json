@@ -10,6 +10,6 @@
  "gap": "Existing operation references do not prove first-use discovery. Review question: should the human Work guide teach search-to-record-to-evidence with one real example?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER 35", "outside both"],
- "sources": ["docs/public/items-and-sessions.md", "docs/public/reference/db-reference/functions-items.md", "docs/public/agents/rules/item-writes.md"],
+ "sources": ["docs/public/items/index.md", "docs/public/reference/db-reference/functions-items.md", "docs/public/agents/rules/item-writes.md"],
  "position": 0
 }

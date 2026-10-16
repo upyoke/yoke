@@ -235,7 +235,7 @@ terminal status retains stopped-at behavior and invalid fields refuse.
 
 Sessions, launch/wake/message and machine operations use manifest capabilities,
 authenticated outer delivery and exact bound identity. Message bodies grant no
-authority. Read [fleet policy](fleet-policy.md) before cross-machine operations.
+authority. Read [fleet policy](../../sessions/fleet-policy.md) before cross-machine operations.
 Personal machine authorization resolves approve/deny under signed-in ownership;
 hosted decisions belong to the authorized org admin. Profile writes act only on
 the caller's own identity/preferences/tokens; raw new token appears once.

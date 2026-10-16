@@ -173,7 +173,7 @@ FAILURE_MODES: tuple[FailureMode, ...] = (
         kind="observation",
         title="Stale doc reference noticed during unrelated work",
         example_evidence=(
-            ".yoke/docs/reference/lifecycle.md still references `polish-implementation`; "
+            ".yoke/docs/workflows/lifecycle.md still references `polish-implementation`; "
             "the live status name is `polishing-implementation`."
         ),
         when_to_fire=(

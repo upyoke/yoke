@@ -2,7 +2,7 @@
  "id": "messaging",
  "title": "Inbox, messages and notifications",
  "status": "draft-copy",
- "sources": ["docs/public/items-and-sessions.md", "docs/public/reference/db-reference/steering-fleet-report.md", "docs/public/reference/db-reference/machine-local-evidence.md"],
+ "sources": ["docs/public/sessions/inbox.md", "docs/public/sessions/steering-report.md", "docs/public/reference/db-reference/machine-local-evidence.md"],
  "page": "messaging",
  "position": 24
 }

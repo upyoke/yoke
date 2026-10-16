@@ -193,7 +193,7 @@ def test_bundle_ships_universal_docs(conn) -> None:
         "index.md",
         "nav.yaml",
         "agents/commands.md",
-        "reference/lifecycle.md",
+        "workflows/lifecycle.md",
         "reference/db-reference.md",
         "reference/db-reference/functions.md",
         "reference/qa-platform/success-policy-schema.md",

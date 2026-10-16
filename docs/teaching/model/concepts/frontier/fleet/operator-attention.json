@@ -5,5 +5,5 @@
  "page": "frontier",
  "position": 5,
  "summary": "Landed-work custody reads current memberships and landing receipts each pass. Repository containment reuses definite answers for immutable full commit pairs; unknown comparisons retry and remain visible as unreadable custody.",
- "sources": ["docs/public/reference/db-reference/steering-fleet-report.md", "packages/yoke-core/src/yoke_core/domain/delivery_landing_custody.py", "packages/yoke-core/src/yoke_core/domain/deployment_run_candidate_containment.py"]
+ "sources": ["docs/public/sessions/steering-report-delivery.md", "packages/yoke-core/src/yoke_core/domain/delivery_landing_custody.py", "packages/yoke-core/src/yoke_core/domain/deployment_run_candidate_containment.py"]
 }

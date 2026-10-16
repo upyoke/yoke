@@ -48,7 +48,7 @@ Every item pins an immutable workflow version. Built-ins:
 | **Epic** | Architect decomposition + task lanes |
 | **Blitz** | Document-led plan as integrated slices |
 
-See [Workflows](../workflows.md) and [reference/lifecycle.md](../reference/lifecycle.md).
+See [Workflows](../workflows/index.md) and [workflows/lifecycle.md](../workflows/lifecycle.md).
 
 ## Workbench destinations
 

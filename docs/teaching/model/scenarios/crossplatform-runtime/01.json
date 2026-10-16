@@ -10,6 +10,6 @@
  "gap": "Coverage exists in several references but is not a complete tested scenario matrix. Review question: should FIRST-USER D/E expose per-platform evidence and offer only the active-platform recovery?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["FIRST-USER 11", "FIRST-USER 14", "FIRST-USER 26", "FIRST-USER D", "FIRST-USER E"],
- "sources": ["docs/public/start/windows-wsl.md", "docs/public/start/terminal-onboarding.md", "docs/public/reference/linux-desktop-apps.md", "docs/public/reference/linux-relay.md"],
+ "sources": ["docs/public/start/windows-wsl.md", "docs/public/start/terminal-onboarding.md", "docs/public/reference/linux-desktop-apps.md", "docs/public/sessions/linux-relay.md"],
  "position": 0
 }

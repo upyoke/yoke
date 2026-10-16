@@ -3,7 +3,7 @@
  "title": "Operating a relay machine",
  "status": "draft-copy",
  "audience": "Administrators",
- "sources": ["docs/public/reference/linux-relay.md", "docs/harness-bootstrap.md"],
+ "sources": ["docs/public/sessions/linux-relay.md", "docs/harness-bootstrap.md"],
  "page": "server-admin",
  "position": 4
 }

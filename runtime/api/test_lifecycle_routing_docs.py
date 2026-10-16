@@ -35,8 +35,8 @@ def _repo_root() -> Path:
 
 REPO = _repo_root()
 DOCS = REPO / "docs"
-# Reference docs shipped to managed projects live under .yoke/docs/reference.
-YOKE_DOCS = REPO / ".yoke" / "docs" / "reference"
+# Managed lifecycle guidance lives under .yoke/docs/workflows.
+YOKE_DOCS = REPO / ".yoke" / "docs" / "workflows"
 
 
 def _read(path: Path) -> str:
@@ -50,7 +50,7 @@ def _read(path: Path) -> str:
 
 
 class TestBootstrapSpec:
-    """Bootstrap must load yoke/.yoke/docs/reference/lifecycle.md."""
+    """Bootstrap must load yoke/.yoke/docs/workflows/lifecycle.md."""
 
     @pytest.fixture
     def spec(self) -> dict:
@@ -59,8 +59,8 @@ class TestBootstrapSpec:
 
     def test_required_files_includes_lifecycle(self, spec):
         required = spec.get("required_files", [])
-        assert ".yoke/docs/reference/lifecycle.md" in required, (
-            "bootstrap-spec.json must include yoke/.yoke/docs/reference/lifecycle.md in required_files"
+        assert ".yoke/docs/workflows/lifecycle.md" in required, (
+            "bootstrap-spec.json must include yoke/.yoke/docs/workflows/lifecycle.md in required_files"
         )
 
     def test_lifecycle_loaded_after_commands(self, spec):
@@ -68,7 +68,7 @@ class TestBootstrapSpec:
         vocabulary before the lifecycle tables that use it."""
         required = spec.get("required_files", [])
         assert ".yoke/docs/agents/commands.md" in required
-        assert required.index(".yoke/docs/reference/lifecycle.md") > required.index(
+        assert required.index(".yoke/docs/workflows/lifecycle.md") > required.index(
             ".yoke/docs/agents/commands.md"
         )
 
@@ -95,12 +95,18 @@ class TestLifecycleDoc:
         assert re.search(r"registered\s+skill bindings", text)
         assert "Do not copy a progression" in text
 
-    def test_executor_boundary_is_half_open(self, text):
+    @pytest.fixture
+    def transitions(self) -> str:
+        return _read(YOKE_DOCS / "transitions.md")
+
+    def test_executor_boundary_is_half_open(self, transitions):
+        text = transitions
         assert "## Registered Skill Boundaries" in text
         assert "from_stage_id <= current_stage < through_stage_id" in text
         assert "/yoke <skill_id>" in text
 
-    def test_shepherd_is_policy_bound(self, text):
+    def test_shepherd_is_policy_bound(self, transitions):
+        text = transitions
         assert "`shepherd`" in text
         assert "compatible generated-task policy" in text
         assert "epic-only" not in text.lower()
@@ -120,12 +126,14 @@ class TestLifecycleDoc:
         assert "release" in section
         assert "done" in section
 
-    def test_handoff_boundaries_require_fresh_entrypoints(self, text):
+    def test_handoff_boundaries_require_fresh_entrypoints(self, transitions):
+        text = transitions
         assert "fresh command entrypoints" in text or "fresh command entrypoint" in text
         assert "through_stage_id" in text
         assert "next skill" in text
 
-    def test_routes_to_canonical_routing_docs(self, text):
+    def test_routes_to_canonical_routing_docs(self, transitions):
+        text = transitions
         assert "session_launch_mandate" in text
         assert "charge-frontier.md" in text
 

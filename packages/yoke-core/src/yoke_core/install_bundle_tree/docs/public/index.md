@@ -42,5 +42,9 @@ item from the frontier for the current session.
 - [Projects](projects/index.md) — Add projects and configure their capabilities, guidance and shared files.
 - [GitHub](github/index.md) — Connect repository access, mirror issues and inspect merge evidence.
 - [CLI and config](cli/index.md) — Read command help, choose connections and configure your machine.
+- [Items](items/index.md) — Read and update backlog work, generated tasks and landing evidence.
+- [Sessions](sessions/index.md) — Inspect live sessions, ownership, messages and steering reports.
+- [Workflows](workflows/index.md) — Choose definitions and follow pinned lifecycle gates and transitions.
+- [Strategy](strategy/index.md) — Maintain project direction and select ready work from the frontier.
 - [Documentation](documentation/index.md) — Write, navigate and verify complete, concise teaching.
 <!-- /yoke:contents -->

@@ -63,11 +63,12 @@ _COMMAND_SECTION_RE = re.compile(r"^### ([a-z][a-z0-9_-]*)\s*$")
 _SKILL_ROOT = ".agents/skills/yoke"
 _GENERATED_COMMAND_DOC = ".yoke/docs/agents/commands.md"
 _GENERATED_SKILL_REFERENCE_DOCS = frozenset(
-    {_GENERATED_COMMAND_DOC, ".yoke/docs/reference/lifecycle.md"}
+    {_GENERATED_COMMAND_DOC, ".yoke/docs/workflows/lifecycle.md",
+     ".yoke/docs/workflows/transitions.md"}
 )
 _EXPLICIT_CITATION_ALIASES = {
-    (".yoke/docs/reference/lifecycle.md", "body-and-sync.md"): f"{_SKILL_ROOT}/idea/body-and-sync.md",
-    (".yoke/docs/reference/lifecycle.md", "infer-and-create.md"): f"{_SKILL_ROOT}/idea/infer-and-create.md",
+    (".yoke/docs/workflows/lifecycle.md", "body-and-sync.md"): f"{_SKILL_ROOT}/idea/body-and-sync.md",
+    (".yoke/docs/workflows/lifecycle.md", "infer-and-create.md"): f"{_SKILL_ROOT}/idea/infer-and-create.md",
     ("docs/harness-bootstrap.md", "manifest-schema.md"): "runtime/harness/manifest-schema.md",
     ("runtime/agents/boss.md", "db-reference.md"): ".yoke/docs/reference/db-reference.md",
     ("runtime/agents/engineer.md", "session.md"): "runtime/harness/claude/rules/session.md",
@@ -83,7 +84,7 @@ _NON_TEACHING_PATH_LABELS = frozenset({
 })
 _EXPLICIT_DIRECTION_EDGES = frozenset(
     {
-        ("AGENTS.md", ".yoke/docs/reference/lifecycle.md"),
+        ("AGENTS.md", ".yoke/docs/workflows/lifecycle.md"),
         ("AGENTS.md", "docs/harness-bootstrap.md"),
         ("runtime/harness/claude/rules/session.md", f"{_SKILL_ROOT}/idea/path-claim-blocking.md"),
         ("docs/OVERVIEW.md", f"{_SKILL_ROOT}/SKILL.md"),
@@ -257,7 +258,7 @@ def _is_sanctioned_direction_edge(citing: str, cited: str) -> bool:
     if citing == _GENERATED_COMMAND_DOC and cited.startswith(f"{_SKILL_ROOT}/"):
         return True
     if (
-        citing == ".yoke/docs/reference/lifecycle.md"
+        citing == ".yoke/docs/workflows/lifecycle.md"
         and cited.startswith(f"{_SKILL_ROOT}/idea/")
     ):
         return True

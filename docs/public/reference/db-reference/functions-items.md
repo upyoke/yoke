@@ -103,4 +103,4 @@ terminal status is pipeline-owned, never a scalar shortcut.
 ```
 
 Readiness and resync return observed evidence and named repairs; read-shaped
-previews never authorize an unrequested mutation. [Domain contract](items-and-epics.md).
+previews never authorize an unrequested mutation. [Domain contract](../../items/model/items.md).

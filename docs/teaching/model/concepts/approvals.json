@@ -2,7 +2,7 @@
  "id": "approvals",
  "title": "Approvals and human decisions",
  "status": "draft-copy",
- "sources": ["docs/public/reference/lifecycle-gates.md", "docs/public/reference/exploratory-qa.md", "docs/public/reference/db-reference/release-delivery.md", "docs/public/projects/execution-instructions.md"],
+ "sources": ["docs/public/workflows/gates.md", "docs/public/reference/exploratory-qa.md", "docs/public/reference/db-reference/release-delivery.md", "docs/public/projects/execution-instructions.md"],
  "skills": ["approve"],
  "page": "approvals",
  "position": 1

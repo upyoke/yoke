@@ -23,7 +23,7 @@ The main strategic paths are `/yoke steer` (staff work from strategy),
 `/yoke strategize` (guided research/synthesis), `/yoke feed` (frontier facts and
 materialization) and `/yoke charge` (rank and dispatch the active frontier).
 Their skill phase maps own checkpoints, staffing and execution; narrower item
-skills are downstream adapters. Read [frontier behavior](public/reference/charge-frontier.md).
+skills are downstream adapters. Read [frontier behavior](public/strategy/charge-frontier.md).
 
 Workflows can mix deterministic services, bounded structured judgment and
 open-ended agent execution. Prefer the cheapest sufficient executor. Future
@@ -45,7 +45,7 @@ and its named `yoke workflows version get WORKFLOW VERSION`. The live binding
 selects the skill; names or copied stage sequences do not. A skill autonomously
 executes its authorized segment with its declared human decisions, QA gates,
 retry bounds and handoffs. At a binding boundary enter the next skill freshly.
-[Lifecycle reference](public/reference/lifecycle.md) owns the transition contract.
+[Lifecycle reference](public/workflows/lifecycle.md) owns the transition contract.
 
 One item belongs to one deployment project. A contract consumed by another
 project requires linked companion work and exact-candidate consumer evidence.

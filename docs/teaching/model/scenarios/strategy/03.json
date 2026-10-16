@@ -10,6 +10,6 @@
  "gap": "JOURNEYS 15 names no current initiative-audit home. Review question: how should it coexist with Blitz automatically archiving its execution document on successful done?",
  "review": "Pending exact recipe proof.",
  "plan_notes": ["JOURNEYS row 15"],
- "sources": [".agents/skills/yoke/steer/close-out.md", ".agents/skills/yoke/wrapup/record-and-close.md", "docs/public/workflows.md"],
+ "sources": [".agents/skills/yoke/steer/close-out.md", ".agents/skills/yoke/wrapup/record-and-close.md", "docs/public/workflows/index.md"],
  "position": 2
 }

@@ -227,7 +227,7 @@ def test_cli_shape_bleed_cases(
 
 
 def test_module_path_resolution_confabulated_module(tmp_path, monkeypatch, conn):
-    rel = ".yoke/docs/reference/lifecycle.md"
+    rel = ".yoke/docs/workflows/lifecycle.md"
     _materialize(
         tmp_path,
         {rel: "See `yoke_core.domain.yoke_function_envelope` for the request shape.\n"},

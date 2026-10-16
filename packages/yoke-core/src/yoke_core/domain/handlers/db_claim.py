@@ -29,7 +29,7 @@ class AmendRequest(BaseModel):
     """Unified DB-claim amendment envelope payload.
 
     The ``claim`` dict is the unified payload documented in
-    ``.yoke/docs/reference/db-reference/items-and-epics.md`` under "DB Claim — the
+    ``.yoke/docs/items/model/items.md`` under "DB Claim — the
     unified amendment workflow." Both profile and attestation fields
     travel in a single dict; the domain layer demultiplexes and writes
     both stored fields atomically.

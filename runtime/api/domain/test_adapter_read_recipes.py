@@ -111,7 +111,7 @@ def test_command_help_stays_within_its_fixed_fixture_budget(
         f"Advisory help budget: {command}: {len(output)} characters; target {ceiling}"
     )
     if command in ("messages send", "say"):
-        assert ".yoke/docs/items-and-sessions.md" in output
+        assert ".yoke/docs/items/index.md" in output
 
 
 def test_startup_packet_points_at_the_help_that_carries_the_recipe() -> None:

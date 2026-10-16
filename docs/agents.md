@@ -33,7 +33,7 @@ supported on Claude and Codex; capability truth is the installed release manifes
 
 Shepherd and Conduct run inline as skills, invoking roles; Usher owns delivery
 inline too. They are not agents. The item's immutable workflow pin selects phase,
-gates and bindings: [lifecycle](../.yoke/docs/reference/lifecycle.md). Project
+gates and bindings: [lifecycle](../.yoke/docs/workflows/lifecycle.md). Project
 verification anchors are its `.yoke/test-inventory.md`, never a copied repo layout.
 
 ## Role owners and tool boundaries

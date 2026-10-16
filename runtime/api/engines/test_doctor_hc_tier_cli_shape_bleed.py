@@ -69,7 +69,7 @@ def test_check_b_mid_prose_doctor_passes(tmp_path, monkeypatch, conn):
 
 
 def test_check_b_anti_pattern_marker_passes(tmp_path, monkeypatch, conn):
-    rel = ".yoke/docs/reference/lifecycle.md"
+    rel = ".yoke/docs/workflows/lifecycle.md"
     body = "Anti-pattern: $ python3 -m yoke_core.engines.doctor\n"
     _setup(tmp_path, monkeypatch, {rel: body}, {rel: 2})
 

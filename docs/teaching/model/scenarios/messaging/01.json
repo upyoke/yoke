@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke say --preview --item PREFIX-N", "yoke sessions list --liveness active", "yoke messages list --recipient-session CURRENT-SESSION-ID --state unacknowledged"],
  "plan_notes": ["outside both"],
- "sources": ["docs/public/items-and-sessions.md", ".agents/skills/yoke/steer/worker-launch.md"],
+ "sources": ["docs/public/sessions/inbox.md", ".agents/skills/yoke/steer/worker-launch.md"],
  "position": 0
 }

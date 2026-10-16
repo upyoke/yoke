@@ -9,6 +9,6 @@
  "surface": "Public GitHub CI wake-up guidance linked from verification and Linux relay docs.",
  "review": "Relay observer and machine routing inspected; Linux no-linger contract checked in source. No cross-mode live wake proof claimed.",
  "plan_refs": ["FIRST-USER.32"],
- "sources": ["docs/public/github/index.md", "docs/public/reference/linux-relay.md", "docs/public/agents/rules/verification.md", "packages/yoke-core/src/yoke_core/domain/session_ci_wait_observer.py", "packages/yoke-core/src/yoke_core/domain/session_relay_wake_claim.py"],
+ "sources": ["docs/public/github/index.md", "docs/public/sessions/linux-relay.md", "docs/public/agents/rules/verification.md", "packages/yoke-core/src/yoke_core/domain/session_ci_wait_observer.py", "packages/yoke-core/src/yoke_core/domain/session_relay_wake_claim.py"],
  "position": 2
 }

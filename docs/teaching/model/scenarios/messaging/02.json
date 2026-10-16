@@ -10,6 +10,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke messages get MESSAGE-ID"],
  "plan_notes": ["outside both"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/main_agent_packet.py", "docs/public/items-and-sessions.md"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/main_agent_packet.py", "docs/public/sessions/inbox.md"],
  "position": 1
 }

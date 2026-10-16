@@ -2,7 +2,7 @@
  "id": "workflows",
  "title": "Workflows and lifecycle",
  "status": "draft-copy",
- "sources": ["docs/public/workflows.md", "docs/public/reference/lifecycle.md", "docs/public/reference/lifecycle-gates.md", "packages/yoke-core/src/yoke_core/domain/workflow_definition_validation.py"],
+ "sources": ["docs/public/workflows/index.md", "docs/public/workflows/lifecycle.md", "docs/public/workflows/transitions.md", "docs/public/workflows/gates.md", "packages/yoke-core/src/yoke_core/domain/workflow_definition_validation.py"],
  "page": "workflows",
  "position": 45
 }

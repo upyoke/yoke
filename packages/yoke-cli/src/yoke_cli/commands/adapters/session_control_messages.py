@@ -51,7 +51,7 @@ MESSAGE_LIST_USAGE = (
 MESSAGE_GET_USAGE = "yoke messages get MESSAGE-ID [field ...] [--full] [--json]"
 MESSAGE_ACKNOWLEDGE_USAGE = "yoke messages acknowledge MESSAGE-ID [--json]"
 MESSAGE_CANCEL_USAGE = "yoke messages cancel MESSAGE-ID [--json]"
-MESSAGE_WORKFLOW_HELP = "Messaging workflow: .yoke/docs/items-and-sessions.md"
+MESSAGE_WORKFLOW_HELP = "Messaging workflow: .yoke/docs/items/index.md"
 
 
 def _refuse_subagent_message_operation(operation: str) -> int | None:

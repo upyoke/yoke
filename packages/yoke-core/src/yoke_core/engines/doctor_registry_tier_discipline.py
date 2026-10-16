@@ -43,7 +43,8 @@ TIER_GLOBS: dict[int, tuple[str, ...]] = {
     # Tier 2 — orientation docs, read on demand.
     2: (
         "docs/OVERVIEW.md",
-        ".yoke/docs/reference/lifecycle.md",
+        ".yoke/docs/workflows/lifecycle.md",
+        ".yoke/docs/workflows/transitions.md",
         ".yoke/docs/agents/commands.md",
         ".yoke/docs/agents/maintenance-commands.md",
         "docs/harness-substrate.md",
@@ -94,7 +95,13 @@ TIER_3_GLOBS: tuple[str, ...] = (
     ".yoke/docs/reference/db-reference.md",
     ".yoke/docs/reference/db-reference/*.md",
     "docs/state-management.md",
-    ".yoke/docs/reference/charge-frontier.md",
+    ".yoke/docs/strategy/charge-frontier.md",
+    ".yoke/docs/strategy/charge-dispatch.md",
+    ".yoke/docs/items/model/*.md",
+    ".yoke/docs/sessions/model/*.md",
+    ".yoke/docs/workflows/model/*.md",
+    ".yoke/docs/sessions/steering-report*.md",
+    ".yoke/docs/sessions/fleet-policy.md",
     # The deep homes the rules files point at. Each is read before the
     # operation it governs rather than at startup, which is what makes it a
     # tier-3 reference rather than tier-0 rules text.

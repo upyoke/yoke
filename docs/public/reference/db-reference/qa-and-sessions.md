@@ -242,7 +242,7 @@ Shell access: item/process targets use `yoke claims work`; steering uses `yoke c
 
 ### Steering fleet report
 
-What a steering session cannot see from inside its own turn: available work, quiet claim holders, and four failures that arrive as silence, composed server-side and appended to the messages that session already receives. See [steering-fleet-report.md](steering-fleet-report.md).
+What a steering session cannot see from inside its own turn: available work, quiet claim holders, and four failures that arrive as silence, composed server-side and appended to the messages that session already receives. See [Steering report](../../sessions/steering-report.md).
 
 ### Live claim-holder lookup
 

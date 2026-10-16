@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke workflows version get --help"],
  "plan_notes": ["JOURNEYS row 11", "outside both"],
- "sources": [".agents/skills/yoke/idea/infer-and-create.md", ".agents/skills/yoke/dash/SKILL.md", "docs/public/workflows.md", "docs/public/agents/commands.md"],
+ "sources": [".agents/skills/yoke/idea/infer-and-create.md", ".agents/skills/yoke/dash/SKILL.md", "docs/public/workflows/index.md", "docs/public/agents/commands.md"],
  "position": 0
 }

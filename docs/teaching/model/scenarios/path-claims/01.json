@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke claims path coordination-decision-build --help"],
  "plan_notes": ["JOURNEYS row 11", "JOURNEYS row 14", "FIRST-USER 35"],
- "sources": ["docs/public/agents/rules/lanes-and-claims.md", ".agents/skills/yoke/idea/path-claim-blocking.md", "docs/public/frontier.md"],
+ "sources": ["docs/public/agents/rules/lanes-and-claims.md", ".agents/skills/yoke/idea/path-claim-blocking.md", "docs/public/strategy/frontier.md"],
  "position": 0
 }

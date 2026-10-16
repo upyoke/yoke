@@ -203,7 +203,7 @@ def test_idea_to_blitz_route_dispatches_the_typed_create_payload(monkeypatch):
     idea = _skill_corpus("idea")
     infer = (ROOT / ".agents/skills/yoke/idea/infer-and-create.md").read_text()
     # Install/dogfood corpus (stub at docs/workflows.md only points here).
-    workflows = (ROOT / ".yoke/docs/workflows.md").read_text()
+    workflows = (ROOT / ".yoke/docs/workflows/index/index.md").read_text()
     for content in (idea, infer):
         assert "/yoke idea --workflow blitz" in content
         assert "harness_skill" in content

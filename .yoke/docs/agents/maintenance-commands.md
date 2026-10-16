@@ -13,7 +13,7 @@ Use these operator and internal commands to maintain Yoke, inspect project conte
 Read the evaluated runnable frontier, show ranked reasons and adapter
 classification, apply its operator selection gate and dispatch the bound skill.
 Use the explicit project/scope and WIP policy; no guessed project. Read
-[frontier details](../reference/charge-frontier.md) before selection.
+[frontier details](../strategy/charge-frontier.md) before selection.
 
 ### feed
 
@@ -29,7 +29,7 @@ Review the SML against current reality with source-backed research. Follow its
 operator checkpoints for refresh, framing, research, proposed strategy changes,
 frontier implications and actual tradeoff conflicts. DB strategy rows are
 authority; rendered `.yoke/strategy/` files are views. Preserve decision and
-checkpoint history. See [strategy](../strategy.md).
+checkpoint history. See [strategy](../strategy/index.md).
 
 ### onboard
 

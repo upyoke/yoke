@@ -5,5 +5,5 @@
  "page": "frontier",
  "position": 0,
  "need": "Hook and watcher reserve one composition interval before building. Failed delivery retains the old fingerprint and retries in the next interval; full and JSON reads include inventories, while digest reads retain alarms and stranded-session plan limits.",
- "sources": ["docs/public/reference/db-reference/steering-fleet-report.md"]
+ "sources": ["docs/public/sessions/steering-report-delivery.md"]
 }

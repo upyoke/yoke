@@ -11,7 +11,7 @@ of how an item's landing is recorded. Two corrections, either or both:
     immutable, and that is deliberate: the ordinary scalar-write path
     requires a work claim, and a terminal item cannot be claimed. This is
     the single named exception, so it stays narrow — it fills an unset
-    value and nothing else. See ``.yoke/docs/reference/lifecycle.md``.
+    value and nothing else. See ``.yoke/docs/workflows/lifecycle.md``.
 
 ``--pr-number``
     For an item pointing at a pull request that never merged while a

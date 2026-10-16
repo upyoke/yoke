@@ -3,7 +3,7 @@
  "title": "Worktrees and conflicting work",
  "status": "draft-copy",
  "summary": "Required-per-task readiness defers claim parity before generated tasks exist, then shares the claim gates' persisted task-budget coverage and names uncovered task paths.",
- "sources": ["docs/public/agents/rules/lanes-and-claims.md", "docs/public/reference/db-reference/path-claims.md", "docs/public/reference/db-reference/functions-claims.md", "docs/public/reference/db-reference/functions-worktrees.md"],
+ "sources": ["docs/public/agents/rules/lanes-and-claims.md", "docs/public/sessions/model/path-claims.md", "docs/public/reference/db-reference/functions-claims.md", "docs/public/reference/db-reference/functions-worktrees.md"],
  "page": "coordination",
  "position": 9
 }

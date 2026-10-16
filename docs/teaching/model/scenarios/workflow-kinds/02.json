@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke workflows item get --help", "yoke workflows version get --help"],
  "plan_notes": ["FIRST-USER 35", "outside both"],
- "sources": ["docs/public/reference/lifecycle.md", "docs/public/reference/lifecycle-gates.md", "docs/public/reference/db-reference/functions-workflows.md", ".agents/skills/yoke/steer/SKILL.md"],
+ "sources": ["docs/public/workflows/lifecycle.md", "docs/public/workflows/gates.md", "docs/public/reference/db-reference/functions-workflows.md", ".agents/skills/yoke/steer/SKILL.md"],
  "position": 1
 }

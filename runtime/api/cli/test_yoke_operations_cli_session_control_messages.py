@@ -243,10 +243,10 @@ def test_say_help_points_to_the_complete_top_level_workflow(capsys) -> None:
 
     assert exit_info.value.code == 0
     rendered = capsys.readouterr().out
-    assert ".yoke/docs/items-and-sessions.md" in rendered
+    assert ".yoke/docs/items/index.md" in rendered
     assert len(rendered) <= 4300
     rendered = (
-        find_repo_root(Path(__file__)) / "docs/public/items-and-sessions.md"
+        find_repo_root(Path(__file__)) / "docs/public/items/index.md"
     ).read_text()
     assert "yoke sessions list --liveness active" in rendered
     assert "yoke say --preview --item PREFIX-N" in rendered

@@ -104,13 +104,13 @@ class TestExtractFileBudgetPaths:
         spec = (
             "## File Budget\n\n"
             "- `runtime/api/domain/foo.py` — helper.\n"
-            "- `.yoke/docs/reference/lifecycle.md` — operator note.\n"
+            "- `.yoke/docs/workflows/lifecycle.md` — operator note.\n"
             "- `runtime/harness/claude/settings.json` — hook wire-up.\n"
             "- `.yoke/strategy/WISPS.md` — flip state.\n"
         )
         assert extract_file_budget_paths(spec) == [
             "runtime/api/domain/foo.py",
-            ".yoke/docs/reference/lifecycle.md",
+            ".yoke/docs/workflows/lifecycle.md",
             "runtime/harness/claude/settings.json",
             ".yoke/strategy/WISPS.md",
         ]

@@ -177,7 +177,7 @@ and surface; keep following a live watcher's continuation handle until it exits.
 
 On Linux, stay logged in: the systemd user relay stops after the last logout.
 Yoke requires linger to be disabled. If setup reports `relay_linger_enabled`,
-follow the [Linux relay recovery](../reference/linux-relay.md) before retrying.
+follow the [Linux relay recovery](../sessions/linux-relay.md) before retrying.
 That page owns the logout and linger procedure.
 
 ## Sync modes

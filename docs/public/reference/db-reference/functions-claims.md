@@ -55,7 +55,7 @@ seat/document conflict rolls back both, and release clears the pair together.
 Path scope stays complete through conflicts. Registration resolves physical
 files and their typed owners; widen before editing an uncovered sibling.
 Authoring roles and Dash work holders at survey/isolation attest independent
-overlaps; other runtime collisions route to Refine. Overrides need operator authority. See [path claims](path-claims.md).
+overlaps; other runtime collisions route to Refine. Overrides need operator authority. See [path claims](../../sessions/model/path-claims.md).
 
 Acquire the project deployment coordination claim before creating/executing runs,
 heartbeat while driving, release afterward. Stranded holds are human recovery.
@@ -65,7 +65,7 @@ candidate evidence; a worker cannot approve its own merge-review request.
 DB claim amendment atomically writes mutation profile and compatibility
 attestation; reviewed safe claims need their four authored safety fields.
 Use the stored-item prose check for relayed diagnostics or its local stdin mode
-for intake. Full payload: [items and epics](items-and-epics.md).
+for intake. Full payload: [items and epics](../../items/model/items.md).
 
 Claimless catalog entries still enforce actor/project permissions and ownership.
 Read each operation's `--help` before mutation; [envelope](functions.md).

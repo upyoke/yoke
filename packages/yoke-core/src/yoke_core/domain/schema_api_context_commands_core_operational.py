@@ -75,7 +75,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
         "notes": (
             "Same shape for any non-terminal transition. Status "
-            "vocabulary in .yoke/docs/reference/lifecycle.md. The function id "
+            "vocabulary in .yoke/docs/workflows/lifecycle.md. The function id "
             "`lifecycle.transition.execute` fires status gates, "
             "cascades, and GitHub sync."
         ),

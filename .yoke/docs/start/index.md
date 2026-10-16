@@ -83,7 +83,7 @@ yoke items list --project P --limit 5
 
 Expected: the create reply names a new item ref and status, and the list shows
 it. This records work; use the project's declared workflow to carry it through
-implementation and verification. See [items and sessions](../items-and-sessions.md)
+implementation and verification. See [items and sessions](../items/index.md)
 for the next supported action.
 
 <!-- yoke:contents -->

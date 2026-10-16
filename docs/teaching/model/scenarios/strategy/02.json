@@ -11,6 +11,6 @@
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke strategy doc get --help"],
  "plan_notes": ["JOURNEYS row 11", "FIRST-USER 32"],
- "sources": [".agents/skills/yoke/steer/SKILL.md", ".agents/skills/yoke/steer/scope-and-authority.md", ".agents/skills/yoke/steer/loop.md", "docs/public/strategy.md", ".agents/skills/yoke/strategize/SKILL.md"],
+ "sources": [".agents/skills/yoke/steer/SKILL.md", ".agents/skills/yoke/steer/scope-and-authority.md", ".agents/skills/yoke/steer/loop.md", "docs/public/strategy/index.md", ".agents/skills/yoke/strategize/SKILL.md"],
  "position": 1
 }
