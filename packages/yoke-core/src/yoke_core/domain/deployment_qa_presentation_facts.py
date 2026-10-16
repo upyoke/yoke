@@ -20,12 +20,7 @@ def member_presentation(function):
         items = tuple(sorted({item for _, item, _ in subjects}))
         runs = tuple(sorted({run for run, _, _ in subjects}))
         outer = _MEMBERS.get()
-        if (
-            outer is not None
-            and outer[0] is conn
-            and set(items) <= set(outer[1])
-            and set(runs) <= set(outer[2])
-        ):
+        if outer and outer[0] is conn and {*items, *runs} <= {*outer[1], *outer[2]}:
             return function(conn, subjects)
         token = _MEMBERS.set((conn, items, runs))
         try:
