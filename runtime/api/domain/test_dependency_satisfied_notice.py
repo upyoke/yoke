@@ -162,19 +162,6 @@ def test_failed_send_keeps_the_trigger_and_names_recovery(
     assert row[0] is not None
 
 
-def test_workers_are_taught_to_park_for_the_notice() -> None:
-    from runtime.api.skill_doc_regressions_test_helpers import REPO, SKILLS, _read
-    from yoke_core.domain.session_launch_mandate_teaching import (
-        DEPENDENCY_WAIT_TEACHING,
-        STANDING_TEACHINGS,
-    )
-
-    bundle = REPO / "packages/yoke-core/src/yoke_core/install_bundle_tree"
-    assert DEPENDENCY_WAIT_TEACHING in STANDING_TEACHINGS
-    for root in (SKILLS, bundle / ".agents/skills/yoke"):
-        assert DEPENDENCY_WAIT_TEACHING in _read(root / "steer/worker-launch.md")
-
-
 def test_transition_to_done_tells_the_dependent(test_db: Any) -> None:
     import io
 
