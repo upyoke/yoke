@@ -3,10 +3,8 @@
 import secrets
 from typing import Any
 
-from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.machine_authorization_codes import (
     MachineAuthorizationError,
-    _now,
     _p,
 )
 
@@ -27,13 +25,14 @@ def normalize_match_code(value: str) -> str:
 
 def allocate_match_code(conn: Any, *, attempts: int = MATCH_CODE_ATTEMPTS) -> str:
     """Allocate under start's transaction lock, before its matching insert."""
-    p, now = _p(conn), instant_parameter(conn, _now())
+    p = _p(conn)
     for _ in range(attempts):
         code = generate_match_code()
+        # Rows that expire after cleanup still reserve their unique code.
         if (
             conn.execute(
-                f"SELECT 1 FROM machine_authorization_codes WHERE user_code={p} AND expires_at>{p}",
-                (code, now),
+                f"SELECT 1 FROM machine_authorization_codes WHERE user_code={p}",
+                (code,),
             ).fetchone()
             is None
         ):
