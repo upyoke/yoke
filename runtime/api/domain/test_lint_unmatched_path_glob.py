@@ -287,3 +287,41 @@ def test_home_glob_repair_enumerates_expanded_parent(tmp_path: Path, monkeypatch
     assert str(notes) in reason
     assert f"'{downloads}'" in reason
     assert "Checked pattern:" in reason
+
+
+def test_cd_and_unexpanded_globs_follow_the_segment_base(tmp_path: Path) -> None:
+    from yoke_harness.hooks.local_policy_common import DENY
+    from yoke_harness.hooks.unmatched_path_glob import lint_unmatched_path_glob
+
+    other = tmp_path / "other"
+    (other / "infra").mkdir(parents=True)
+    (other / "infra" / "Pulumi.prod.yaml").write_text("x\n", encoding="utf-8")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "deploy.md").write_text("ok\n", encoding="utf-8")
+    checked = str(other.resolve())
+    cases = [
+        (f"cd {other} && ls infra/Pulumi*.yaml*", True, ""),
+        (f"cd {other} && ls nomatch/*", False, checked),
+        (f"cd {other} && ls docs/deploy*", False, checked),
+        ("S=/x; wc -l $S/*.md", True, ""),
+        ("wc -l ${S}/*.md", True, ""),
+        ("cd $D && ls a/*", True, ""),
+        ("wc -l `pwd`/*.md", True, ""),
+        ("rg -n PATTERN docs/missing* 2>/dev/null", False, "2>/dev/null"),
+        ("rg -n PATTERN docs/missing* >out.txt", False, ">out.txt"),
+        ("rg -n PATTERN docs/missing* <in.txt", False, "<in.txt"),
+    ]
+    for command, allowed, marker in cases:
+        for hook in ("core", "client"):
+            if hook == "core":
+                result = _eval(command, cwd=str(tmp_path))
+                denied = result is not None
+                reason = result[1] if result else ""
+            else:
+                verdict = lint_unmatched_path_glob(_payload(command, cwd=str(tmp_path)))
+                denied = verdict.outcome == DENY
+                reason = verdict.message
+            assert denied is not allowed, command
+            if marker:
+                assert marker in reason, command
+                assert f"'{marker}'" not in reason, command

@@ -8,8 +8,9 @@ from yoke_contracts.hook_runner.shell_guard_repairs import (
     RIPGREP_REPLACE_CHECK_ID,
     executing_shell,
     expanded_glob_path,
-    path_glob_is_unmatched,
     glob_repair,
+    glob_segment_bases,
+    path_glob_is_unmatched,
     ripgrep_replace_repair,
 )
 from yoke_harness.hooks.local_policy_common import DENY, NOOP, PolicyResult
@@ -114,20 +115,21 @@ def _unquoted_tokens(command: str) -> list[str]:
     return tokens
 
 
-def _unmatched(command: str, cwd: str) -> str:
+def _unmatched(command: str, cwd: str) -> tuple[str, str]:
     if not cwd:
-        return ""
-    for token in _unquoted_tokens(command):
-        path = token
-        for prefix in _REDIRECT_PREFIXES:
-            if path.startswith(prefix):
-                path = path[len(prefix) :]
-                break
-        if "/" not in path or not any(char in path for char in _GLOB_CHARS):
-            continue
-        if path_glob_is_unmatched(path, cwd):
-            return path
-    return ""
+        return "", ""
+    for piece, base in glob_segment_bases(_strip_heredoc_bodies(command), cwd):
+        for token in _unquoted_tokens(piece):
+            path = token
+            for prefix in _REDIRECT_PREFIXES:
+                if path.startswith(prefix):
+                    path = path[len(prefix) :]
+                    break
+            if "/" not in path or not any(char in path for char in _GLOB_CHARS):
+                continue
+            if path_glob_is_unmatched(path, base or ""):
+                return path, base or ""
+    return "", ""
 
 
 def lint_unmatched_path_glob(payload: dict) -> PolicyResult:
@@ -146,18 +148,18 @@ def lint_unmatched_path_glob(payload: dict) -> PolicyResult:
     if executing_shell(payload) != "zsh":
         return PolicyResult(NOOP)
     cwd = _execution_cwd(payload)
-    token = _unmatched(command, cwd)
+    token, checked = _unmatched(command, cwd)
     if not token:
         return PolicyResult(NOOP)
     reason = (
         "BLOCKED: unquoted path glob matches no files after home and cwd resolution.\n\n"
         f"Detected: `{token}`\n"
-        f"Checked pattern: `{expanded_glob_path(token, cwd)}`\n"
-        f"Checked tree: `{cwd}`\n\n"
+        f"Checked pattern: `{expanded_glob_path(token, checked)}`\n"
+        f"Checked tree: `{checked}`\n\n"
         "zsh NOMATCH aborts the command before the tool runs. Enumerate "
         "candidates with `rg --files`, or quote a pattern the tool consumes."
     )
-    repair = glob_repair(command, token, cwd)
+    repair = glob_repair(command, token, checked)
     if repair is not None:
         repaired, matches = repair
         reason += "\n\nRepaired command: `" + repaired + "`"
