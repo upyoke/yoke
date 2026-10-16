@@ -55,6 +55,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("recent_item_recorded_at", "TIMESTAMPTZ"),
             ("actor_id", "INTEGER"),
             ("project_id", "INTEGER"),
+            ("org_id", "INTEGER"),
             ("offered_at", "TIMESTAMPTZ"),
             ("last_heartbeat", "TIMESTAMPTZ"),
             ("turn_posture", "TEXT"),
@@ -81,7 +82,12 @@ CLAIMS_TABLES: dict[str, dict] = {
             "harness_sessions.native_process_gone_at (TIMESTAMPTZ), last_tool_call_at "
             "and last_heartbeat. A launch-only fixture does not contain these "
             "relay liveness columns; include them before testing resume admission "
-            "rather than assuming launch_connection is a complete session schema."
+            "rather than assuming launch_connection is a complete session schema. "
+            "Relay report/probe and vendor recovery readers select nullable org_id and "
+            "actor_id. Wrong guess: a project-only launch/message fixture can omit org_id; "
+            "include the nullable column even when every seeded session has project_id. "
+            "Project sessions set org_id NULL; org sessions set project_id NULL and retain "
+            "their authenticated actor_id."
         ),
     },
     "session_tool_calls": {
