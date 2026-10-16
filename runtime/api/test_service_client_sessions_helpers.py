@@ -42,6 +42,7 @@ _SESSION_SCHEMA_DDL = f"""
         executor_version TEXT, machine_id TEXT,
         workspace TEXT,
         project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),
+        org_id INTEGER,
         mode TEXT NOT NULL DEFAULT 'wait',
         offered_at TIMESTAMPTZ NOT NULL,
         last_heartbeat TIMESTAMPTZ NOT NULL,

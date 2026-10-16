@@ -83,22 +83,19 @@ def resolve_session_project_id(conn: Any, explicit: int) -> int:
     from yoke_core.domain import db_backend
     from yoke_core.domain.sessions import SessionError
 
-    if explicit is None:
-        raise SessionError(
-            "PROJECT_ID_REQUIRED",
-            "Session registration requires a resolved project_id.",
-        )
     try:
         project_id = int(explicit)
     except (TypeError, ValueError):
         raise SessionError(
             "PROJECT_ID_INVALID",
-            "Session registration project_id must be a positive integer.",
+            "Session registration project_id must be a positive integer. "
+            "Recovery: use the registered project's numeric id or request machine scope.",
         )
     if project_id <= 0:
         raise SessionError(
             "PROJECT_ID_INVALID",
-            "Session registration project_id must be a positive integer.",
+            "Session registration project_id must be a positive integer. "
+            "Recovery: use the registered project's numeric id or request machine scope.",
         )
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     try:
@@ -109,12 +106,14 @@ def resolve_session_project_id(conn: Any, explicit: int) -> int:
     except db_backend.operational_error_types(conn):
         raise SessionError(
             "PROJECTS_TABLE_REQUIRED",
-            "Session registration requires the projects table.",
+            "Session registration requires the projects table. "
+            "Recovery: restore the authority's schema and retry.",
         )
     if not found:
         raise SessionError(
             "PROJECT_NOT_FOUND",
-            f"Session registration project_id {project_id} was not found.",
+            f"Session registration project_id {project_id} was not found. "
+            "Recovery: register the project or start a new session outside any project folder.",
         )
     return project_id
 
@@ -167,7 +166,7 @@ def existing_registration_row(
     thread_select = ", native_thread_id" if include_native_thread else ""
     return conn.execute(
         "SELECT ended_at, terminated_at, " + ", ".join(MODEL_COLUMNS) + ", "
-        "actor_id, execution_level, project_id, executor, executor_version, "
+        "actor_id, execution_level, project_id, org_id, executor, executor_version, "
         f"machine_id, executor_surface{thread_select} "
         f"FROM harness_sessions WHERE session_id = {placeholder}",
         (session_id,),

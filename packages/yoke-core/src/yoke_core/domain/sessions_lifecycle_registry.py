@@ -23,14 +23,15 @@ from .sessions_ended_recovery import session_ended_message
 from .sessions_lifecycle_canonicalize import (
     canonicalize_executor as _canonicalize_executor,
 )
-from .session_model_columns import MODEL_COLUMNS, facts_values, merged_facts
+from .session_model_columns import merged_facts
+from .session_scope_identity import resolve_registration_scope
+from .sessions_registration_write import insert_registration, reactivate_registration
 from .sessions_lifecycle_identity import (
     existing_registration_row,
     normalize_observed_identity,
     refresh_active_duplicate_identity,
     resolve_reactivation_executor_version,
     resolve_session_actor_id,
-    resolve_session_project_id,
 )
 from .sessions_lifecycle_reactivation import emit_reactivated_with_released_claims
 from .sessions_started_event import session_started_context
@@ -83,7 +84,8 @@ def register_session(
     model_facts: SessionModelFacts,
     execution_level: str = UNRESOLVED_EXECUTION_LEVEL,
     workspace: str,
-    project_id: int,
+    project_id: int | None,
+    machine_scope: bool = False,
     mode: str = "wait",
     offer_envelope: Optional[Dict[str, Any]] = None,
     entrypoint: Optional[str] = None,
@@ -122,7 +124,12 @@ def register_session(
     now = instant_parameter(conn, utc_now())
     envelope_json = json.dumps(offer_envelope) if offer_envelope else None
     resolved_actor_id = resolve_session_actor_id(conn, actor_id, launch_id=launch_id)
-    resolved_project_id = resolve_session_project_id(conn, project_id)
+    scope = resolve_registration_scope(
+        conn,
+        actor_id=resolved_actor_id,
+        project_id=project_id,
+        machine_scope=machine_scope,
+    )
     executor_version, machine_id = normalize_observed_identity(
         executor_version, machine_id
     )
@@ -132,26 +139,6 @@ def register_session(
     # AND reactivation); introspection tolerates minimal fixtures.
     has_episode_col = episode_column_present(conn)
     has_thread_col = native_thread_id_column_present(conn)
-    insert_cols = (
-        "session_id, executor, executor_surface, executor_version, machine_id, "
-        "provider, " + ", ".join(MODEL_COLUMNS) + ", execution_level, workspace, "
-        "mode, offered_at, last_heartbeat, ended_at, offer_envelope, actor_id, "
-        "project_id"
-    )
-    # fmt: off
-    insert_values: List[Any] = [
-        session_id, canonical_executor, display_name, executor_version, machine_id,
-        provider, *facts_values(model_facts), execution_level, workspace, mode,
-        now, now, None, envelope_json, resolved_actor_id, resolved_project_id,
-    ]
-    # fmt: on
-    if has_thread_col:
-        insert_cols += ", native_thread_id"
-        insert_values.append(native_thread_id)
-    if has_episode_col:
-        insert_cols += ", episode_started_at"
-        insert_values.append(now)
-    insert_placeholders = ", ".join([p] * len(insert_values))
     # Populated only on the reactivation branch below; a fresh insert leaves
     # the event context untouched.
     reactivation_driver: Dict[str, Any] = {}
@@ -159,10 +146,26 @@ def register_session(
     resolved_facts = model_facts
 
     try:
-        conn.execute(
-            f"INSERT INTO harness_sessions ({insert_cols}) "
-            f"VALUES ({insert_placeholders})",
-            tuple(insert_values),
+        insert_registration(
+            conn,
+            placeholder=p,
+            session_id=session_id,
+            executor=canonical_executor,
+            surface=display_name,
+            executor_version=executor_version,
+            machine_id=machine_id,
+            provider=provider,
+            model_facts=model_facts,
+            execution_level=execution_level,
+            workspace=workspace,
+            mode=mode,
+            now=now,
+            envelope_json=envelope_json,
+            actor_id=resolved_actor_id,
+            scope=scope,
+            native_thread_id=native_thread_id,
+            has_native_thread=has_thread_col,
+            has_episode=has_episode_col,
         )
         execution_level = refresh_session_execution_level(conn, session_id)
         conn.commit()
@@ -181,6 +184,16 @@ def register_session(
             raise SessionError(
                 "SESSION_TERMINATED",
                 f"Session '{session_id}' is permanently terminated.",
+            )
+        if (
+            existing is not None
+            and existing["project_id"] is not None
+            and scope.project_id is not None
+            and existing["project_id"] != scope.project_id
+        ):
+            raise SessionError(
+                "SESSION_SCOPE_IMMUTABLE",
+                "A session cannot change its registered project. Recovery: open a new session in that folder.",
             )
         if existing is None or existing["ended_at"] is None:
             refresh_active_duplicate_identity(
@@ -207,52 +220,25 @@ def register_session(
         executor_version = resolve_reactivation_executor_version(
             existing, incoming_surface=display_name, incoming_version=driver_version
         )
-        # An explicitly supplied or inherited-from-launch actor overwrites;
-        # a resolved operating actor only fills a row that carries none, so a
-        # session that registered under a named actor keeps it.
-        actor_clause = (
-            f", actor_id = {p}"
-            if actor_id is not None or launch_id
-            else f", actor_id = COALESCE(actor_id, {p})"
-        )
-
-        episode_clause = f", episode_started_at = {p}" if has_episode_col else ""
-        thread_clause = (
-            f", native_thread_id = COALESCE({p}, native_thread_id)"
-            if has_thread_col
-            else ""
-        )
-        model_assignments = ", ".join(f"{column} = {p}" for column in MODEL_COLUMNS)
-        # fmt: off
-        params: List[Any] = [
-            provider, *facts_values(resolved_facts), resolved_level, workspace, mode,
-            envelope_json, executor_version, machine_id,
-        ]
-        # fmt: on
-        if thread_clause:
-            params.append(native_thread_id)
-        if episode_clause:
-            params.append(now)
-        params.append(resolved_actor_id)
-        project_clause = f", project_id = {p}"
-        params.append(resolved_project_id)
-        params.append(session_id)
-
         # Registration/reactivation is a probe, not session activity.
-        cursor = conn.execute(
-            f"""UPDATE harness_sessions
-               SET provider = {p},
-                   {model_assignments},
-                   execution_level = {p},
-                   workspace = {p},
-                   mode = {p},
-                   ended_at = NULL,
-                   offer_envelope = {p},
-                   executor_version = {p},
-                   machine_id = {p}
-                   {thread_clause}{episode_clause}{actor_clause}{project_clause}
-               WHERE session_id = {p} AND ended_at IS NOT NULL""",
-            tuple(params),
+        cursor = reactivate_registration(
+            conn,
+            placeholder=p,
+            session_id=session_id,
+            provider=provider,
+            model_facts=resolved_facts,
+            execution_level=resolved_level,
+            workspace=workspace,
+            mode=mode,
+            envelope_json=envelope_json,
+            executor_version=executor_version,
+            machine_id=machine_id,
+            native_thread_id=native_thread_id,
+            now=now,
+            actor_id=resolved_actor_id,
+            replace_actor=actor_id is not None or bool(launch_id),
+            has_native_thread=has_thread_col,
+            has_episode=has_episode_col,
         )
         if getattr(cursor, "rowcount", 1) == 0:
             raise SessionError(
@@ -297,7 +283,7 @@ def register_session(
         mode=mode,
         executor_version=executor_version,
         machine_id=machine_id,
-        project_id=resolved_project_id,
+        project_id=scope.project_id,
         entrypoint=entrypoint,
         reactivation_driver=reactivation_driver,
     )

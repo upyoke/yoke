@@ -53,9 +53,16 @@ class SessionIdentity:
     execution_level: str
     capabilities: List[str] = field(default_factory=list)
     project_id: Optional[int] = None
+    org_id: Optional[int] = None
     actor_id: Optional[int] = None
     mode: Optional[str] = None
     ended_at: Optional[datetime] = None
+
+    @property
+    def scope_kind(self) -> str:
+        from yoke_core.domain.session_scope_identity import SessionScope
+
+        return SessionScope(self.project_id, self.org_id).kind
 
 
 def _text(value: Any) -> str:
@@ -84,7 +91,7 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
     row = conn.execute(
         "SELECT executor, executor_surface, executor_version, machine_id, "
         "provider, model, requested_model, workspace, execution_level, "
-        "project_id, actor_id, mode, ended_at, reasoning_effort, requested_reasoning_effort "
+        "project_id, actor_id, mode, ended_at, reasoning_effort, requested_reasoning_effort, org_id "
         f"FROM harness_sessions WHERE session_id = {_p(conn)}",
         (session_id,),
     ).fetchone()
@@ -128,6 +135,7 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
         execution_level=execution_level,
         capabilities=[str(value) for value in derived["downstream_paths"]],
         project_id=_optional_int(row[9]),
+        org_id=_optional_int(row[15]),
         actor_id=_optional_int(row[10]),
         mode=(str(row[11]) if row[11] is not None else None),
         ended_at=(parse_instant(row[12]) if row[12] is not None else None),

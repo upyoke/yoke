@@ -91,7 +91,11 @@ CLAIMS_TABLES: dict[str, dict] = {
             "harness_sessions.actor_id. Wrong guess: a project-only relay fixture may "
             "omit its session actor; seed the authenticated fixture actor. "
             "Shared and file-backed relay tests use "
-            "session_launch_test_support.relay_connection, which owns this column."
+            "session_launch_test_support.relay_connection, which owns this column. "
+            "Registration inserts and duplicate/reactivation projections also require nullable org_id "
+            "in project-only fixtures. DDL owners: sessions_schema_test_ddl._SESSIONS_AND_CLAIMS_DDL, "
+            "test_sessions_lifecycle_reactivation_claims._CREATE_SESSIONS, "
+            "test_service_client_sessions_helpers._SESSION_SCHEMA_DDL and sessions_api_test_support.ACTIVE_SESSIONS_SCHEMA."
         ),
     },
     "session_tool_calls": {

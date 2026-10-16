@@ -51,6 +51,7 @@ CREATE TABLE harness_sessions (
     executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL,
     project_id INTEGER NOT NULL REFERENCES projects(id),
+    org_id INTEGER,
     mode TEXT DEFAULT 'wait',
     offered_at TIMESTAMPTZ NOT NULL,
     last_heartbeat TIMESTAMPTZ NOT NULL,

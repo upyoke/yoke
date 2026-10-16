@@ -36,7 +36,8 @@ class BeginRequest(BaseModel):
     reasoning_effort: Optional[str] = None
     context_window_tokens: Optional[int] = None
     workspace: str
-    project_id: int
+    project_id: int | None = None
+    machine_scope: bool = False
     mode: str = "wait"
     entrypoint: Optional[str] = None
     executor_version: Optional[str] = None
@@ -83,6 +84,12 @@ def handle_begin(request: FunctionCallRequest) -> HandlerOutcome:
         body = BeginRequest.model_validate(request.payload or {})
     except Exception as exc:
         return _err("payload_invalid", f"begin payload invalid: {exc}")
+    if (body.project_id is not None) == body.machine_scope:
+        return _err(
+            "session_scope_ambiguous",
+            "Choose a project or machine scope, exclusively. Recovery: open a new "
+            "session in a registered project folder or request machine scope.",
+        )
     sid = _session_id(request)
     if not sid:
         return _err("session_required", "session id is required")
@@ -100,6 +107,7 @@ def handle_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 model_facts=facts_from_mapping(body.model_dump()),
                 workspace=body.workspace,
                 project_id=body.project_id,
+                machine_scope=body.machine_scope,
                 mode=body.mode,
                 entrypoint=body.entrypoint,
                 executor_version=body.executor_version,
