@@ -1,12 +1,12 @@
-# Actors, Members, Billing, Universe settings
+# Team, Members, Billing, Universe settings
 
-## Actors
+## Team
 
 Who and what may act on the universe and per project: machine connect,
 approvals, tokens. On Cloud, CLI connect and machine authorization start
 at the platform routes (`/connect`, `/machine`).
 
-The dashboard's **Actors** page reads the live actor roster in two groups:
+The dashboard's **Team** page reads the live actor roster in two groups:
 **People** (human actors) and **Machine accounts** (system actors). Each row
 shows the actor's active or disabled state and every unrevoked API key by
 name, ID, last use, and machine association. A person's row also shows
@@ -24,7 +24,7 @@ mode adds a **Member email** column to People: the linked sign-in email when
 one exists. Disabled actors are hidden by default; **Show disabled (N)** names
 how many are hidden and reveals them. Every column but Action sorts from its
 header, and the chosen sort is saved to your actor's preferences under the
-Actors screen, the same store the Items table uses, so it follows you across
+actor roster, the same store the Items table uses, so it follows you across
 tabs, browsers, and reloads rather than staying in one browser. An org admin
 can disable or enable a human actor other than themselves. The last active
 org admin cannot be disabled. A retired system actor can be disabled through
@@ -47,7 +47,7 @@ local, self-hosted, and Cloud alike:
 | `operator` | Normal Yoke work across every project in the org. |
 | `viewer` | Read items and events. |
 
-An org admin changes a person's role from the role control in the Actors
+An org admin changes a person's role from the role control in the Team
 roster, or with `yoke actors role set ACTOR-ID --role ROLE` (or
 `--member EMAIL` to name the person by the email they sign in with). The new
 role replaces the old one. The change is refused, with the reason named,
@@ -84,8 +84,8 @@ universe's first `initial-admin` token.
 
 ## Members (Cloud)
 
-Platform-fed. People in the organization, seats, invites. Not present as a
-product concern in pure local mode.
+Platform keeps seats here. People, roles, and invites live on **Team**.
+Members is not a product concern in pure local mode.
 
 A member's account name is what the universe calls them. Each membership
 admits its person through the universe's own sign-in ladder, and that

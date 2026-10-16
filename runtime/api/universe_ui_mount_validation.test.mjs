@@ -144,7 +144,7 @@ test("every nav destination declares how it takes project scope", () => {
   // These destinations do not filter by project. Shared chrome hides the
   // selector on them; remembered selection restores on a scoped page.
   for (const view of [
-    "profile", "projects", "actors", "packs", "organization", "levels",
+    "profile", "projects", "team", "packs", "organization", "levels",
     "workflows", "machines",
   ]) {
     assert.equal(universeNavScope(view), "none");

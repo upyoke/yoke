@@ -30,7 +30,7 @@ def test_every_nav_destination_is_routable_and_scoped():
         "workflows",
         "projects",
         "github",
-        "actors",
+        "team",
         "members",
         "billing",
         "items",

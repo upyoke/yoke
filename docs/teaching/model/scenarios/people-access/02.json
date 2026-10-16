@@ -6,7 +6,7 @@
  "when": "Before disabling an actor or changing the last admin",
  "need": "Disabling revokes keys and browser sessions; enabling does not restore keys. Last active admin and protected service identities have restrictions. Recover through the named authorized operation, then sign in/reconnect where necessary.",
  "disclosure": "current cue",
- "surface": "Actors confirmation/role refusal documented in public guide; actor CLI help.",
+ "surface": "Team confirmation/role refusal documented in public guide; actor CLI help.",
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke actors state set --help", "yoke actors role set --help"],
  "plan_notes": ["outside both"],

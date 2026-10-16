@@ -27,7 +27,7 @@ import {
 } from "./universe_views_items.js";
 import { renderOrganizationView } from "./universe_views_organization.js";
 import { renderLevelsView } from "./universe_views_levels.js";
-import { renderActorsView } from "./universe_views_actors.js";
+import { renderTeamView } from "./universe_views_team.js";
 import { renderProfileView } from "./universe_views_profile.js";
 import {
   renderOuroborosEntryDetailView,
@@ -129,7 +129,7 @@ export const VIEW_RENDERERS = {
 
   organization: renderOrganizationView,
   levels: renderLevelsView,
-  actors: renderActorsView,
+  team: renderTeamView,
   workflows: renderWorkflowsView,
   projects: renderProjectsView,
   github: renderGithubView,

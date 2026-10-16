@@ -6,7 +6,7 @@
  "when": "Before granting access or explaining a permission refusal",
  "need": "Org roles admin/operator/viewer and project grants are distinct. Cloud membership/billing is platform-fed; machine-only service roles are not human roles. Machine admission does not automatically grant unrelated authority.",
  "disclosure": "current cue",
- "surface": "Docs sidebar -> Actors/Members/Billing -> documented Actors and Machines surfaces.",
+ "surface": "Docs sidebar -> Team/Members/Billing -> documented Team and Machines surfaces.",
  "review": "Pending exact recipe proof.",
  "recipes": ["yoke actors role set --help"],
  "plan_notes": ["FIRST-USER item 33"],

@@ -28,7 +28,7 @@ const html = `<!doctype html><html><head><meta name="viewport" content="width=de
 .sample-row{display:flex;gap:10px;margin:8px 0}.sample-row>.long{flex-basis:100%}</style></head>
 <body><main class="universe-app-root"><div class="content">
 <h1>Populated dashboard layout evidence</h1><div id="session" class="proof sessions-view"></div>
-<div id="launches" class="proof"></div><div id="projects" class="proof"></div><div id="strategy" class="proof"></div><div id="actors" class="proof"></div>
+<div id="launches" class="proof"></div><div id="projects" class="proof"></div><div id="strategy" class="proof"></div><div id="team" class="proof"></div>
 <div id="workflows" class="proof"></div><div id="card" class="proof"></div>
 <div id="item" class="proof"></div><div id="actions" class="proof"></div><div id="rows"></div>
 <footer>Candidate assets · populated deterministic fixtures · no control-plane universe</footer>
@@ -39,7 +39,7 @@ import { launchFilters } from "/assets/universe_session_launch_filters.js";
 import { renderProjectsView } from "/assets/universe_views_projects.js";
 import { sessionCard } from "/assets/universe_views_sessions.js";
 import { strategyDocumentCard } from "/assets/universe_strategy_cards.js";
-import { renderActorsView } from "/assets/universe_views_actors.js";
+import { renderTeamView } from "/assets/universe_views_team.js";
 import { renderMechanics } from "/assets/workflow_view_mechanics.js";
 import { appendItemDelivery } from "/assets/universe_item_deployment.js";
 import { itemDeliveryPanel } from "/assets/item_view_delivery.js";
@@ -58,7 +58,7 @@ const context={document,isMounted:()=>true,capabilities:{data:{portability:{mode
 const launches=launchFilters(document,()=>{});launches.offer([{state:"succeeded",selected_surface:"codex-cli",assigned_machine_id:"fixture-machine"}]);
 document.querySelector("#launches").append(launches.host);
 renderProjectsView(context,document.querySelector("#projects"));
-await renderActorsView(context,document.querySelector("#actors"));
+await renderTeamView(context,document.querySelector("#team"));
 document.querySelector("#workflows").append(renderMechanics(document,{id:"dash",name:"Dash",
  definition:{policies:{qa:"optional_item_attachment"},skill_bindings:[{skill_id:"dash"}]}},{editTesting:()=>{}}));
 appendItemDelivery(document,document.querySelector("#card"),{id:1,completion_flow:${JSON.stringify(flow)}},new Map());
@@ -190,7 +190,7 @@ try{
    await menuPage.screenshot({path:path.join(output,"menu-390.png"),fullPage:false});
    await menuPage.close();
   }
-  console.log(`${sourceRoot?"before":"after"} ${width}px: populated cards, Actors, Workflows, ${rows.length} row classes, both Delivery surfaces`);
+  console.log(`${sourceRoot?"before":"after"} ${width}px: populated cards, Team, Workflows, ${rows.length} row classes, both Delivery surfaces`);
  }
  await captureAlignmentProof({freshPage,output,baseline:Boolean(sourceRoot)});
 }finally{await browser.close();await new Promise((resolve)=>server.close(resolve));}
