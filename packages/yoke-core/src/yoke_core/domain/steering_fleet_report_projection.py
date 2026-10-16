@@ -24,10 +24,8 @@ from yoke_core.domain.steering_fleet_report_undelivered import (
     UndeliveredMessages,
 )
 from yoke_core.domain.steering_fleet_report_detectors import UnregisteredLaunch
-from yoke_core.domain.steering_fleet_report_landed_open import (
-    LandedItem,
-    landed_recovery,
-)
+from yoke_core.domain.steering_fleet_report_landed_open import LandedItem
+from yoke_core.domain.steering_fleet_report_landed_phrases import landed_recovery
 from yoke_core.domain.steering_fleet_report_vendor_errors import VendorErrorSession
 from yoke_core.domain.steering_fleet_report_stranded import stranded_dicts
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits

@@ -66,6 +66,17 @@ def owed_requirements(conn: Any, item_id: int) -> tuple[OwedRequirement, ...]:
     )
 
 
+def owed_on_other_targets(
+    conn: Any, item_id: int, environment: str
+) -> tuple[OwedRequirement, ...]:
+    """The open done blockers a delivery to ``environment`` cannot answer."""
+    return tuple(
+        entry
+        for entry in owed_requirements(conn, item_id)
+        if entry.target != environment
+    )
+
+
 def owes_only_other_targets(conn: Any, *, run_id: str, item_id: int) -> bool:
     """Whether this run answered the member and only other targets remain.
 
@@ -192,11 +203,7 @@ def _notify_set_aside(
     from yoke_core.domain.merge_queue_landing_notice import push_notice
 
     item_id = int(member["item_id"])
-    owed = tuple(
-        entry
-        for entry in owed_requirements(conn, item_id)
-        if entry.target != environment
-    )
+    owed = owed_on_other_targets(conn, item_id, environment)
     if not owed:
         return
     public_ref = str(member["public_ref"])
@@ -268,6 +275,7 @@ __all__ = [
     "close_after_other_target_acceptance",
     "OwedRequirement",
     "SET_ASIDE_KEY_PREFIX",
+    "owed_on_other_targets",
     "owed_requirements",
     "notify_set_aside_members",
     "owes_only_other_targets",

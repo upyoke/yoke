@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from yoke_core.domain.delivery_landing_custody import HELD
-from yoke_core.domain.steering_fleet_report_landed_open import (
+from yoke_core.domain.steering_fleet_report_landed_phrases import (
     custody_phrase,
     holder_phrase,
     landed_recovery,
@@ -32,7 +32,7 @@ def landed_lines(rows: ProjectRows, *, idle_after_seconds: int) -> list[str]:
     for entry in visible[:SECTION_LIMIT]:
         if entry.delivery_wait and entry.custody_run_id not in troubled_runs:
             delivery = (
-                f"delivering in {entry.custody_run_id}"
+                custody_phrase(entry)
                 if entry.custody_state == HELD
                 else "awaiting deployment run"
             )

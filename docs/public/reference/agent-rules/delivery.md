@@ -136,7 +136,9 @@ requires accepted admitted copies for every stage and production obligation,
 so passing production cannot hide a failed or pending stage case. A run
 settles on its own target: the production run succeeds once its own
 obligations pass, leaving a member that still owes post-deploy QA or manual
-acceptance on another named target at its release wait with `deployed_to` stamped. That member closes against the production
+acceptance on another named target at its release wait with `deployed_to` stamped. Once settlement
+commits, its claim holder (or the project's steering seat) gets one notice
+naming each owed requirement, its environment and how to run it. That member closes against the production
 delivery when the stage run accepts its obligation; a member red on the
 run's own target or an untargeted manual acceptance still holds the run.
 No deferral passes, waives or retracts acceptance. Refusals identify the item,

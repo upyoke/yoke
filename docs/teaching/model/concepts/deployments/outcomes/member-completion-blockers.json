@@ -2,10 +2,10 @@
  "id": "member-completion-blockers",
  "title": "Member closure",
  "status": "observed",
- "text": "Run-bound QA counts and item closure debt are separate populations. Settlement diagnostics reuse current canonical membership and completion checks, name requirement, phase and target, distinguish independent blockers from atomic siblings and other-target deferrals, and never execute close-out during a read. Zero run-bound QA cannot establish that member closure or finalization effects have finished.",
+ "text": "Run-bound QA counts and item closure debt are separate populations. Settlement diagnostics reuse current canonical membership and completion checks, name requirement, phase and target, distinguish independent blockers from atomic siblings and other-target deferrals, and never execute close-out during a read. Zero run-bound QA cannot establish that member closure or finalization effects have finished. A run that settles on its own target sets aside a member owing another environment's acceptance: it stamps deployed_to, then sends the member's claim holder (or the project's steering seat) one notice naming each owed requirement, its environment and how to run it. The fleet report row reads `delivered to ENV; owes #N on ENV` once that run succeeded, never `delivering in RUN`.",
  "commands": ["yoke deployment-runs get"],
  "functions": ["deployment_runs.get"],
- "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_run_completion_preview.py", "runtime/api/domain/test_deployment_run_completion_preview.py", "docs/public/reference/db-reference/steering-fleet-report.md"],
+ "sources": ["packages/yoke-core/src/yoke_core/domain/deployment_run_completion_preview.py", "runtime/api/domain/test_deployment_run_completion_preview.py", "docs/public/reference/db-reference/steering-fleet-report.md", "packages/yoke-core/src/yoke_core/domain/deployment_run_other_target_members.py", "packages/yoke-core/src/yoke_core/domain/steering_fleet_report_landed_phrases.py", "runtime/api/domain/test_run_settles_on_own_target.py"],
  "page": "delivery-outcomes",
  "position": 5
 }

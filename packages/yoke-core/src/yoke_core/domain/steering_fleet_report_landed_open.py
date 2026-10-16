@@ -5,22 +5,8 @@ project delivers through releases it owes a delivery first — so this section
 exists to name the gap between "the code is on the base branch" and "the item
 is done".
 
-Three facts decide what the seat does about one row:
-
-* **Who holds the item, and whether they are waiting.** Close-out is a
-  claim-holding step, so a seat can only run it on a landing no live session
-  holds — against a live holder the command is refused by name. A holder that
-  is parked is waiting on the delivery its own close-out needs, and that row
-  is healthy.
-* **Which release holds the landing.** A row waiting on a delivery that is
-  actually coming needs nothing from anybody. A row no release is carrying
-  needs a release, and nothing will produce one on its own. Until these read
-  differently the two were indistinguishable, and three items sat stranded for
-  a day because the only way to tell them apart was a person noticing that the
-  rows had not changed.
-* **Which workflow the item pins.** An evidence-gated terminal transition
-  refuses the bare close-out command, so a row that recommends one names the
-  flags it needs.
+What a seat reads and does about each row is
+:mod:`steering_fleet_report_landed_phrases`.
 
 The custody answer comes from :mod:`delivery_landing_custody`, which run
 enrollment reads too. That sharing is the point: what the report calls
@@ -44,7 +30,6 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Any, Sequence
 
-from yoke_core.domain.close_out_evidence_gate import close_out_command
 from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow_facts
 from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
 from yoke_core.domain import db_backend
@@ -52,13 +37,18 @@ from yoke_core.domain.delivery_landing_custody import (
     ENROLLABLE_CUSTODY_STATES,
     HELD,
     REMERGED,
-    UNDETERMINED as CUSTODY_UNDETERMINED,
     UNHELD,
     landed_at,
     landing_custody,
     merged_open_items,
 )
+from yoke_core.domain.deployment_run_member_targeting import run_environment_name
+from yoke_core.domain.deployment_run_other_target_members import (
+    owed_on_other_targets,
+)
 from yoke_core.domain.item_ref_render import render_item_refs
+from yoke_core.domain.runs import RunStatus
+from yoke_core.domain.session_item_stage_rework import items_returned_after_landing
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds
 from yoke_core.domain.steering_fleet_report_holders import ClaimHolder
 
@@ -105,6 +95,17 @@ class LandedItem:
     holder_process_phrase: str = ""
     #: A message resumes the holder's exited native from its transcript.
     holder_resumable: bool = False
+    #: Where a succeeded holder run delivered this landing, ``""`` otherwise,
+    #: and each requirement it still owes elsewhere as (id, environment).
+    delivered_to: str = ""
+    owed_elsewhere: tuple[tuple[int, str], ...] = ()
+    #: The item's current status was entered after this landing.
+    returned_after_landing: bool = False
+
+    @property
+    def relanding_owed(self) -> bool:
+        """Rework sent the landed item back before release; it must land again."""
+        return self.returned_after_landing and self.status != "release"
 
     @property
     def delivery_wait(self) -> bool:
@@ -126,94 +127,6 @@ class LandedItem:
     def stranded(self) -> bool:
         """True when no release is carrying this landing to an environment."""
         return self.custody_state in ENROLLABLE_CUSTODY_STATES
-
-
-def _holder_is_quiet(entry: LandedItem, idle_after_seconds: int | None) -> bool:
-    """True when both holder silence and landing age reach the idle threshold."""
-    if entry.delivery_wait or not entry.holder_session_id or idle_after_seconds is None:
-        return False
-    threshold = int(idle_after_seconds)
-    return entry.holder_idle_seconds >= threshold and entry.landed_seconds >= threshold
-
-
-def holder_phrase(entry: LandedItem, *, idle_after_seconds: int | None = None) -> str:
-    """Who holds the item, and whether they are waiting, working, or quiet.
-
-    A parked release holder waits by design, so tool silence during that
-    wait is expected. Working holders must be quiet and landed for the full
-    idle threshold.
-    """
-    if not entry.holder_session_id:
-        return "no live holder"
-    held = f"held by {entry.holder_session_id}"
-    if entry.holder_process_phrase:
-        return f"{held}, {entry.holder_process_phrase}"
-    if _holder_is_quiet(entry, idle_after_seconds):
-        quiet = f"quiet {entry.holder_idle_seconds // 60}m"
-        parked = ", parked" if entry.holder_parked else ""
-        reason = f" — {entry.holder_quiet_reason}" if entry.holder_quiet_reason else ""
-        return f"{held}, {quiet}{parked}{reason}; holder is not driving this"
-    if not entry.holder_parked:
-        return f"{held}, working"
-    return f"{held}, parked — {entry.holder_quiet_reason or 'waiting on delivery'}"
-
-
-def landed_recovery(entry: LandedItem, *, idle_after_seconds: int | None = None) -> str:
-    """What a seat does about this row, or ``""`` when it needs nothing.
-
-    Close-out is a claim-holding step, so a seat can only run it on a landing
-    no live session holds; against a live holder the command is refused by
-    name, and against a parked one there is nothing to recover from — it is
-    waiting on the delivery its close-out needs. Both get silence, because a
-    correct command offered for a situation that needs no command is still
-    noise, and it costs every reader the time it takes to try.
-
-    Outside a declared release wait, a holder quiet for the idle threshold
-    after landing is not that live owner. The claim still blocks close-out
-    until the sweep releases it, so the row names a
-    wake (the holder may yet return) and the close-out that runs once the
-    claim is free.
-
-    Where a seat can act, the command is composed for the item's own workflow.
-    An evidence-gated terminal transition refuses the bare form, so the row
-    names the flags rather than leaving them to be discovered through the
-    denial.
-    """
-    command = close_out_command(entry.public_ref, workflow_id=entry.workflow_id)
-    if entry.holder_native_process_gone:
-        if entry.holder_resumable:
-            return f"message the holder `yoke say --item {entry.public_ref} --stdin`"
-        return f"finish close-out with `{command}` once the claim is free"
-    if entry.status == "release" and not entry.completion_flow_available:
-        return (
-            "no active completion flow; repair the item's deployment flow or "
-            "project workflow delivery default, then compose its release"
-        )
-    if _holder_is_quiet(entry, idle_after_seconds):
-        return (
-            f"wake `yoke say --item {entry.public_ref} --stdin`; "
-            f"if the holder is gone, finish close-out with `{command}` "
-            "once the claim is free"
-        )
-    if entry.holder_session_id:
-        return ""
-    return f"finish close-out with `{command}`; do not wait on status"
-
-
-def custody_phrase(entry: LandedItem) -> str:
-    """Say who is delivering this landing, in the words the seat needs.
-
-    A stranded row has to read differently from one mid-delivery, and the two
-    stranded shapes are different findings: nothing ever named the item, or
-    something named it and the item has merged again since.
-    """
-    if entry.custody_state == HELD:
-        return f"delivering in {entry.custody_run_id}"
-    if entry.custody_state == REMERGED:
-        return f"merged again since {entry.custody_run_id} — no release holds it"
-    if entry.custody_state == CUSTODY_UNDETERMINED:
-        return "release custody unreadable — no source could compare its merge"
-    return "no release holds it"
 
 
 def landed_without_closeout(
@@ -263,6 +176,9 @@ def landed_without_closeout(
             (int(project_id), FLOW_STATUS_ACTIVE),
         ).fetchall()
     }
+    returned = items_returned_after_landing(
+        conn, {int(record["id"]): record for record in records}
+    )
     landed = []
     for record in records:
         stamp = landed_at(record)
@@ -271,6 +187,12 @@ def landed_without_closeout(
         item_id = int(record["id"])
         held = custody[item_id]
         holder = held_by.get(item_id)
+        delivered_to = ""
+        if held.state == HELD and held.run_status == RunStatus.SUCCEEDED.value:
+            delivered_to = run_environment_name(conn, held.run_id) or ""
+        owed = (
+            owed_on_other_targets(conn, item_id, delivered_to) if delivered_to else ()
+        )
         landed.append(
             LandedItem(
                 item_id=item_id,
@@ -291,6 +213,9 @@ def landed_without_closeout(
                 holder_native_process_gone=bool(holder and holder.native_process_gone),
                 holder_process_phrase=holder.process_phrase() if holder else "",
                 holder_resumable=bool(holder and holder.resumable_from_transcript),
+                delivered_to=delivered_to,
+                owed_elsewhere=tuple((o.requirement_id, o.target) for o in owed),
+                returned_after_landing=item_id in returned,
             )
         )
     return tuple(
@@ -300,8 +225,5 @@ def landed_without_closeout(
 
 __all__ = [
     "LandedItem",
-    "custody_phrase",
-    "holder_phrase",
-    "landed_recovery",
     "landed_without_closeout",
 ]
