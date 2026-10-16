@@ -102,6 +102,11 @@ authoring refuses `stage_reason_required` otherwise. Each such case enrolls its
 item on the stage run, so a read-only check that production can prove belongs
 on production alone.
 
+A case that can only be judged after real production traffic sets
+`wake_path: manual` with a one-line `wake_evidence` a registered read can
+confirm. Its stage does not wake the owner; steering does, once the evidence
+exists ([cases that wait for real traffic](../qa-platform/standalone-plans.md#cases-that-wait-for-real-traffic)).
+
 A release pair can admit the same item to both target runs. A supplemental
 persistent-environment run enrolls only members with explicit post-deploy
 obligations for that environment; untargeted cases remain with final delivery.

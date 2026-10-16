@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 
+from yoke_core.domain.qa_plan_execution_abort_reason import case_failed_reason
 from yoke_core.domain.qa_plan_execution_result_state import (
     QaPlanExecutionError,
     aggregate_state as _aggregate_state,
+    case_failed,
     plan_order as _plan_order,
 )
 from yoke_core.domain.qa_plan_execution_continuation import continuation_abort_reason
-from yoke_core.domain.qa_plan_chain_followers import block_chain_followers
 
 
 def execute_begun_plan(
@@ -43,8 +44,12 @@ def execute_begun_plan(
     recorded_results = begun.recorded_results
     results = [dict(result) for result in recorded_results]
     state = "passed"
+    failed_cases: list[int] = []
+    raised = False
     for recorded in recorded_results:
         state = _aggregate_state(state, recorded)
+        if case_failed(recorded):
+            failed_cases.append(int(recorded["requirement_id"]))
     from yoke_core.domain.qa_case_execution import execute_case_context
 
     for ordinal in range(cursor, len(requirements)):
@@ -163,36 +168,31 @@ def execute_begun_plan(
             if not isinstance(exc, Exception):
                 raise
             state = "error"
+            raised = True
             break
         results.append(normalized)
         state = _aggregate_state(state, normalized)
-        if (
-            state in {"failed", "error"}
-            or normalized.get("execution_status") == "capture_failed"
-        ):
-            results.extend(
-                block_chain_followers(
-                    requirements,
-                    ordinal,
-                    execution_id=execution_id,
-                    actor=resolved_actor,
-                    machine_options=machine_options,
-                )
-            )
-            _call_plan_function(
-                function_id="qa.plan_execution.abort",
-                target=target,
-                payload={
-                    "execution_id": execution_id,
-                    "reason": f"qa-plan-case-{requirement_id}-failed",
-                },
-                actor=resolved_actor,
-            )
-            if state not in {"failed", "error"}:
-                state = "failed"
+        # A failed case's inheriting followers still pass through here: the
+        # server records each one blocked without touching the machine, and
+        # the next named-baseline or as-is chain runs from its own reset.
+        if case_failed(normalized):
+            failed_cases.append(requirement_id)
+        if _aggregate_state("passed", normalized) == "waiting":
+            state = "waiting"
             break
-        if state in {"error", "waiting"}:
-            break
+
+    if failed_cases and not raised and state != "waiting":
+        _call_plan_function(
+            function_id="qa.plan_execution.abort",
+            target=target,
+            payload={
+                "execution_id": execution_id,
+                "reason": case_failed_reason(failed_cases),
+            },
+            actor=resolved_actor,
+        )
+        if state not in {"failed", "error"}:
+            state = "failed"
 
     review_bundle = None
     if len(results) == len(requirements) and state not in {
@@ -251,12 +251,27 @@ def execute_begun_plan(
         "executed_count": len(results),
         "results": results,
         "review_bundle": review_bundle,
-        "recovery": (
-            "QA execution closed after a failed capture or runner result. "
-            "Correct the case or plan and rerun yoke qa plan run; no manual abort is needed."
-            if state in {"failed", "error"}
-            else results[-1].get("recovery")
-            if state == "waiting" and results
-            else None
-        ),
+        "recovery": _recovery(state, failed_cases, results, raised=raised),
     }
+
+
+def _recovery(
+    state: str, failed_cases: list[int], results: list[dict], *, raised: bool
+) -> str | None:
+    if state == "waiting" and results:
+        return results[-1].get("recovery")
+    if state not in {"failed", "error"}:
+        return None
+    rerun = (
+        "Correct the case or plan and rerun yoke qa plan run; "
+        "no manual abort is needed."
+    )
+    if raised or not failed_cases:
+        return f"QA execution closed after a case raised while running. {rerun}"
+    named = ", ".join(str(requirement_id) for requirement_id in failed_cases)
+    return (
+        f"QA execution ran every independent chain and closed after failed "
+        f"case requirements {named}. Cases chained behind a failed case are "
+        f"recorded blocked (inherited_predecessor_not_passed) and did not run. "
+        f"{rerun}"
+    )

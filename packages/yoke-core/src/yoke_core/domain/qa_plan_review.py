@@ -136,6 +136,28 @@ def _execution_capture_run_id(
     return run_id
 
 
+def _chain_blocked(
+    roster: list[Mapping[str, Any]],
+    recorded: Mapping[int, Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Cases never run because the case whose machine they inherit failed."""
+    from yoke_core.domain.qa_plan_case_chain import INHERITED_PREDECESSOR_NOT_PASSED
+
+    blocked = []
+    for case in roster:
+        result = recorded.get(int(case["requirement_id"])) or {}
+        if result.get("error_code") == INHERITED_PREDECESSOR_NOT_PASSED:
+            blocked.append(
+                {
+                    "requirement_id": int(case["requirement_id"]),
+                    "case_key": str(case["case_key"]),
+                    "error_code": INHERITED_PREDECESSOR_NOT_PASSED,
+                    "reason": str(result.get("error") or ""),
+                }
+            )
+    return blocked
+
+
 def _public_bundle(conn: Any, stored: Mapping[str, Any]) -> dict[str, Any]:
     payload = _json_object(stored["bundle_json"])
     result = {
@@ -234,6 +256,7 @@ def begin_plan_review(
             )
         },
         "cases": cases,
+        "chain_blocked": _chain_blocked(execution["roster"], recorded),
     }
     encoded = canonical(payload)
     digest = hashlib.sha256(encoded.encode("utf-8")).hexdigest()

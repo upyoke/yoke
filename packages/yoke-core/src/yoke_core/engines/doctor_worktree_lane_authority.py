@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Tuple
 
 from yoke_core.domain.control_plane_transport import relay
+from yoke_core.engines.prune_authority_batch import LANE_INVALID
 
 
 ACTIVE_AUTHORITY_BLOCK = "cleanup authority is active"
@@ -118,6 +119,8 @@ def _verdict_block(verdict: object) -> str:
     reason = str(verdict.get("reason") or "")
     if reason == "active_authority":
         return ACTIVE_AUTHORITY_BLOCK
+    if reason.startswith(f"{LANE_INVALID}:"):
+        return reason
     return f"no unique terminal owner ({reason or 'unproven'})"
 
 

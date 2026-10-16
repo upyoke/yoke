@@ -33,6 +33,10 @@ from yoke_core.domain.qa_requirement_transition_update import (
 from yoke_core.domain.qa_requirement_method_config_update import (
     _prepare_method_config,
 )
+from yoke_core.domain.qa_requirement_wake_path_update import (
+    WAKE_FIELDS,
+    prepare_wake_field,
+)
 from yoke_core.domain.qa_replacement_scope_guard import (
     LINK_SCOPE_FIELDS,
     LINKED_SCOPE_CHANGE_CODE,
@@ -63,6 +67,7 @@ UPDATABLE_REQUIREMENT_FIELDS: tuple[str, ...] = (
     "qa_phase",
     "workflow_transition_id",
     METHOD_CONFIG_FIELD,
+    *WAKE_FIELDS,
 )
 
 
@@ -195,6 +200,16 @@ def apply_requirement_update(
                 jsonpath="$.payload.value",
             )
         value = bind_correction_identity(existing["method_config"], prepared)
+    if field in WAKE_FIELDS:
+        value, error = prepare_wake_field(conn, int(req_id), field, value)
+        if error:
+            return _fail(
+                code="payload_invalid",
+                message=error,
+                req_id=req_id,
+                field=field,
+                jsonpath="$.payload.value",
+            )
     if field == "workflow_transition_id":
         prepared_transition, error = _prepare_workflow_transition(conn, existing, value)
         if error:

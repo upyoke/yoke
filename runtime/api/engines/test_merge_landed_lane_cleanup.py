@@ -18,6 +18,7 @@ from runtime.api.engines._merge_landed_lane_test_helpers import (
     _remote_branches,
     _run_git,
 )
+from yoke_core.engines.git_worktree_registry import detached_lane_branch
 from yoke_core.engines.merge_landed_lane_cleanup import (
     prune_landed_lane,
     release_lane_row,
@@ -248,4 +249,65 @@ def test_locked_worktree_is_preserved_with_git_reason_named(landed_lane):
     assert len(preserved) == 1
     assert "worktree is locked (initializing)" in preserved[0]
     assert landed_lane.worktree.is_dir()
+    assert landed_lane.worktree.exists()
+
+
+def _detach(worktree) -> str:
+    sha = _git(worktree, "rev-parse", "HEAD").stdout.strip()
+    _git(worktree, "checkout", "--detach", sha)
+    return sha
+
+
+def test_clean_detached_lane_on_main_is_retired(landed_lane):
+    """A checkout with no branch still retires when its commit is on main."""
+    _land_on_main(landed_lane.repo)
+    marker = detached_lane_branch(_detach(landed_lane.worktree))
+
+    preserved = prune_landed_lane(
+        repo_root=str(landed_lane.repo),
+        branch=marker,
+        target="main",
+        release_branch=BRANCH,
+        run_git=_run_git,
+        emit=lambda *_a, **_kw: None,
+    )
+
+    assert preserved == ()
+    assert not landed_lane.worktree.exists()
+
+
+def test_dirty_detached_lane_is_preserved_with_the_reason_named(landed_lane):
+    _land_on_main(landed_lane.repo)
+    _detach(landed_lane.worktree)
+    (landed_lane.worktree / "scratch.txt").write_text("wip\n", encoding="utf-8")
+    marker = detached_lane_branch(
+        _git(landed_lane.worktree, "rev-parse", "HEAD").stdout.strip()
+    )
+
+    preserved = prune_landed_lane(
+        repo_root=str(landed_lane.repo),
+        branch=marker,
+        target="main",
+        run_git=_run_git,
+        emit=lambda *_a, **_kw: None,
+    )
+
+    assert len(preserved) == 1
+    assert "scratch.txt" in preserved[0]
+    assert landed_lane.worktree.exists()
+
+
+def test_unmerged_detached_lane_is_preserved_with_the_reason_named(landed_lane):
+    marker = detached_lane_branch(_detach(landed_lane.worktree))
+
+    preserved = prune_landed_lane(
+        repo_root=str(landed_lane.repo),
+        branch=marker,
+        target="main",
+        run_git=_run_git,
+        emit=lambda *_a, **_kw: None,
+    )
+
+    assert len(preserved) == 1
+    assert "not merged into origin/main" in preserved[0]
     assert landed_lane.worktree.exists()

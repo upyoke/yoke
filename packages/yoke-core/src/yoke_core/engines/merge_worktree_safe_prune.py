@@ -22,11 +22,9 @@ cancelling discards the work, so ``cancelled_lane_discard`` deletes its
 worktree and branches without the landing and residue proofs. This is how a
 cancel reaches every machine other than the one that ran it.
 
-The sweep also covers the one managed worktree that is not an item lane: a
-self-deploy run's detached driver tree, retired by
-``deploy_run_worktree_retirement`` once its run is over. Being detached it is
-invisible to the branch-bearing registry the lane pass reads, so this is the
-only landing boundary that can reach it.
+The sweep also retires a self-deploy run's detached driver tree through
+``deploy_run_worktree_retirement`` once the run is over, before the item
+pass. A driver path has no item owner, so that pass leaves it alone.
 """
 
 from __future__ import annotations
