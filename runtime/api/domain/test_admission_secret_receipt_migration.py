@@ -18,7 +18,7 @@ from yoke_core.domain.migration_serving_version import NEXT_RELEASE, declared_mi
 from yoke_core.domain.yoke_function_idempotency_scope import idempotency_payload_checksum
 
 
-ENTRY_NAME = "0078_scrub_admission_secret_receipts"
+ENTRY_NAME = "0079_scrub_admission_secret_receipts"
 FUNCTION = "profile.token.create"
 SECRET = "yk_fixture_only_one_time_token"
 REDACTED = {"result_redacted": ONE_TIME_SECRET_GUARDRAIL}
