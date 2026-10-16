@@ -38,7 +38,10 @@ Create is safe to repeat under one --idempotency-key. A create that yielded
 or went quiet is usually still running: continue that same invocation and
 read its output. Only once it has really exited without printing a run id,
 repeat the identical command with the SAME key — it returns the run the
-first call created instead of minting another. The same key with any
+first call created instead of minting another. When the server accepts
+the create but does not answer within 60 seconds, the command repeats it
+once under the same key and reports the run it recovered; if that repeat
+also times out, repeat the identical command yourself. The same key with any
 changed input refuses `idempotency_key_conflict`, naming the run and the
 differing fields. A deliberate second run of the same candidate takes a
 NEW key. A control plane whose database has not yet converged the
