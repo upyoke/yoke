@@ -101,7 +101,7 @@ and only through `/v1/functions/call`. Handoff checks the exact target
 code store. Handoff never approves a code or issues a credential; service polling
 reuses the existing atomic delivery after a member approves, with one-time
 result and replay protections. Both calls require explicit engine org scope. See the
-[hosted handoff contract](public/reference/machine-authorization.md#hosted-code-handoff)
+[hosted handoff contract](public/cli/machine-authorization.md#hosted-code-handoff)
 for its payload, serving floor and named refusals.
 
 - Any other function is refused at dispatch, including the baseline every
