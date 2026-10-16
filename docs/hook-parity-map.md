@@ -30,13 +30,13 @@ restate one of these facts on a document's own authority.
 
 | Harness | Idle wake (resume an ended turn) | Timer wake | Verified on |
 |---|---|---|---|
-| `claude-code` | supported (`Monitor`) | supported (`ScheduleWakeup`) | `claude-cli` |
+| `claude-code` | supported (`Monitor`), each subscription ending within 30 minutes (`timeout_ms`); re-arm the same tail on the expiry notice | supported (`ScheduleWakeup`) | `claude-cli` |
 | `codex` | none | none | `codex-cli` |
 | `cursor` | supported (`notify_on_output`) | none | `cursor-cli` |
 
 Evidence behind each row:
 
-- `claude-code` — Monitor and ScheduleWakeup are first-class model-facing tools. Every stdout line a Monitor filter matches resumes the turn, which is what the main-session long-command rule is built on.
+- `claude-code` — Monitor and ScheduleWakeup are first-class model-facing tools. Every stdout line a Monitor filter matches resumes the turn, which is what the main-session long-command rule is built on. A Monitor ends at its timeout_ms deadline (default 5 minutes, capped at 30) with one expiry notice and its watcher killed; re-arming the same tail then continues the watch.
 - `codex` — Live probe: foreground exec_command/PTY output streams only while the turn stays active; backgrounding with (...) & returns a prompt but stdout does not resume the model; a detached nohup child vanished when its command invocation ended and wrote zero lines. Continuations are an exec_command session_id plus explicit write_stdin polling; none resumes a turn after it ends.
 - `cursor` — Live probe: the session ends its turn after a Shell call with block_until_ms=0 and a notify_on_output pattern, then receives system_notification pattern matches while idle — a working equivalent of Claude's Monitor. No timer wake was observed.
 <!-- END GENERATED: harness-wake-capability -->

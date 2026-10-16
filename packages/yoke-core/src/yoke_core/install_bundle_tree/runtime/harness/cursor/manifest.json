@@ -133,7 +133,9 @@
     "timer_wake": "none",
     "timer_wake_mechanism": "",
     "verified_on_surface": "cursor-cli",
-    "evidence": "Live probe: the session ends its turn after a Shell call with block_until_ms=0 and a notify_on_output pattern, then receives system_notification pattern matches while idle — a working equivalent of Claude's Monitor. No timer wake was observed."
+    "evidence": "Live probe: the session ends its turn after a Shell call with block_until_ms=0 and a notify_on_output pattern, then receives system_notification pattern matches while idle — a working equivalent of Claude's Monitor. No timer wake was observed.",
+    "idle_wake_subscription_limit_seconds": null,
+    "idle_wake_deadline_parameter": ""
   },
   "turn_record": {
     "source": "yoke_contracts.harness_turn_record_capability.HARNESS_TURN_RECORD_CAPABILITIES",

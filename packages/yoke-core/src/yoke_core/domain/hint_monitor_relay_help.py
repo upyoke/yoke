@@ -12,20 +12,27 @@ HELP_REMINDER = """\
 <system-reminder>
 Monitor is a SUBSCRIPTION, not a poll. Frame this in your head before
 your first call: you arm Monitor ONCE per background command, and
-matched lines arrive as wake events for the rest of that command's
-lifetime. You do not call Monitor again to "continue tailing" - that
-is the wake-loop bug.
+matched lines arrive as wake events until the command ends or the
+subscription expires. You do not call Monitor again to "continue
+tailing" a live subscription - that is the wake-loop bug.
+
+A Monitor subscription lives at most its timeout_ms deadline (the
+capped maximum is the manifest's agent_wake
+idle_wake_subscription_limit_seconds). Arm a long tail at that maximum.
+When the expiry notice arrives and the background command still runs,
+re-arm the SAME tail against the SAME capture; the tail resumes after
+the last line it delivered. Never relaunch the wrapper.
 
 Descriptions like "Continue tail" / "Continue tailing X" / "Tail
 again" all describe the polling-loop misuse. Use subscription
 framing instead: "Tail pytest progress" on the first (and only)
 arm, then relay events as they arrive. The very FIRST Monitor call
-on a capture is the only one you will make in this session for that
-capture.
+on a capture is the only one you will make for that capture until its
+expiry notice.
 
 A second Monitor against the same capture file is denied at
-PreToolUse, for the whole session - not just while a Monitor is
-still armed. The deny is structural
+PreToolUse while an earlier one could still be subscribed - whether
+or not its tool call has completed. The deny is structural
 (``yoke_core.domain.lint_long_command_polling.evaluate_duplicate_monitor``):
 identical re-arms, different-filter re-arms, post-completion re-arms,
 and bare ``tail -f ... | grep ...`` rewrites are all caught.

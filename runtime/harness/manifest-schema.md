@@ -230,6 +230,8 @@ same resumption the session schedules for itself.
 | `timer_wake_mechanism` | string | Named primitive that performs the timer wake. Empty when the class is not `supported`. |
 | `verified_on_surface` | string | Session surface the probe ran against. Empty when unverified. |
 | `evidence` | string | How the answer was established — what was measured, and what the measurement showed. |
+| `idle_wake_subscription_limit_seconds` | integer \| null | Longest one idle-wake subscription lives before the harness ends it with an expiry notice; `null` when a subscription lasts as long as what it watches. On the notice, re-arm the same tail against the same capture; never relaunch the watcher. |
+| `idle_wake_deadline_parameter` | string | Arming parameter that sets the subscription deadline (for example, `timeout_ms`); empty without a limit. |
 
 `unverified` is a first-class value and the default for an unknown harness id:
 a harness nobody has probed says so rather than inheriting a neighbour's
