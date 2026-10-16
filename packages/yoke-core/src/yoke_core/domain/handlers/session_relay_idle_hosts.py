@@ -41,6 +41,7 @@ def handle_relay_idle_hosts(request: FunctionCallRequest) -> HandlerOutcome:
             )
             outcome = apply_idle_host_report(
                 conn,
+                relay_actor_id=actor_id,
                 machine_id=payload.machine_id,
                 authorized_projects=payload.projects,
                 hosts=[host.model_dump(mode="json") for host in payload.hosts],

@@ -50,8 +50,10 @@ def _project_clause(
     p = _p(conn)
     project_ids = sorted({int(project_id) for project_id in projects})
     actor_branch = (
-        "EXISTS (SELECT 1 FROM actor_message_recipients pa "
-        f"WHERE pa.message_id=m.message_id AND pa.recipient_kind={p})"
+        "(EXISTS (SELECT 1 FROM actor_message_recipients pa "
+        f"WHERE pa.message_id=m.message_id AND pa.recipient_kind={p}) OR "
+        "EXISTS (SELECT 1 FROM session_message_recipients po "
+        "WHERE po.message_id=m.message_id AND po.org_id IS NOT NULL))"
     )
     if not project_ids:
         return actor_branch, [ACTOR_KIND]

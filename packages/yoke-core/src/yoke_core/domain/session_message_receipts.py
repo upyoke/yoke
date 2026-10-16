@@ -156,34 +156,53 @@ def cancel_message(
     details = message_details(conn, message_id)
     sender = details["sender_actor_id"] == actor_id
     project_ids = {
-        int(recipient["project_id"])
+        recipient["project_id"]
         for recipient in details.get("recipients", [])
         if recipient.get("project_id") is not None
+    }
+    org_ids = {
+        recipient["org_id"]
+        for recipient in details.get("recipients", [])
+        if recipient.get("org_id") is not None
     }
     if not sender:
         from yoke_core.domain.actor_permissions import (
             PERM_PROJECT_ADMIN,
+            PERM_ORG_ADMIN,
             permission_decision,
+            org_permission_decision,
         )
 
-        administers_all = bool(project_ids) and all(
-            permission_decision(
-                conn,
-                actor_id=actor_id,
-                project_id=project_id,
-                permission_key=PERM_PROJECT_ADMIN,
-            ).allowed
-            for project_id in project_ids
+        administers_all = (
+            bool(project_ids or org_ids)
+            and all(
+                permission_decision(
+                    conn,
+                    actor_id=actor_id,
+                    project_id=project_id,
+                    permission_key=PERM_PROJECT_ADMIN,
+                ).allowed
+                for project_id in project_ids
+            )
+            and all(
+                org_permission_decision(
+                    conn,
+                    actor_id=actor_id,
+                    org_id=org_id,
+                    permission_key=PERM_ORG_ADMIN,
+                ).allowed
+                for org_id in org_ids
+            )
         )
     else:
         administers_all = False
     if not sender and not administers_all:
         raise SessionMessageError(
             "cancel_forbidden",
-            "only the sender or an administrator of every target project may cancel",
+            "only the sender or an administrator of every recipient scope may cancel",
         )
     if administers_all and reason == "cancelled_by_sender":
-        reason = "cancelled_by_project_admin"
+        reason = "cancelled_by_org_admin" if org_ids else "cancelled_by_project_admin"
     cancelled = cancel_message_rows(
         conn,
         message_id=message_id,

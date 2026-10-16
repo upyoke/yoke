@@ -1,8 +1,8 @@
-"""Route a refused or exhausted message wake to its covering steering seat.
+"""Route failed wakes to project steering or the original sender.
 
 The original receipt and its bounded retries remain authoritative. This is
-only a failure notice, recorded through the existing role-addressed message
-store so a seat handoff cannot lose it. A notice never raises another notice.
+only a failure notice, recorded through the existing message store. Org-owned
+engine messages notify the affected session's actor. A notice never raises another.
 """
 
 from __future__ import annotations
@@ -14,7 +14,11 @@ from typing import Any, Mapping
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_contracts.session_control.wake_delivery import delivery_attempt_diagnostic
 from yoke_core.domain.session_item_scope import session_item_scope
-from yoke_core.domain.session_message_authorization import project_policy
+from yoke_core.domain.session_message_recipient_scope import (
+    owner_key,
+    recipient_owner,
+    recipient_policy,
+)
 from yoke_core.domain.session_message_steering import (
     resolve_steering_address,
     seat_session_id,
@@ -98,30 +102,38 @@ def notify_failed_wake(
     key = f"{NOTICE_PREFIX}:{message_id}:{session_id}:{failure}"
     if idempotent_message(conn, sender_actor_id=None, idempotency_key=key) is not None:
         return None
-    held = session_item_scope(conn, session_id)
-    project_id = held.project_id if held is not None else int(row["project_id"])
-    selector = RecipientSelector(
-        steering=True, steering_scope={"project_id": project_id}
-    )
-    address = resolve_steering_address(
-        conn,
-        selector,
-        sender_session_id=session_id,
-    )
-    policy = project_policy(conn, project_id)
-    seat_id, seat = seat_session_id(conn, address)
-    recipients = (
-        resolve_recipients(
-            conn, selector, now=now, steering_target=address.coverage_target()
+    project_id, _ = recipient_owner(row)
+    policy = recipient_policy(conn, row)
+    address, seat_id, seat = None, None, None
+    recipients = []
+    if project_id is not None:
+        held = session_item_scope(conn, session_id)
+        project_id = held.project_id if held is not None else project_id
+        selector = RecipientSelector(
+            steering=True, steering_scope={"project_id": project_id}
         )
-        if seat_id
-        else []
-    )
+        address = resolve_steering_address(conn, selector, sender_session_id=session_id)
+        seat_id, seat = seat_session_id(conn, address)
+        if seat_id:
+            recipients = resolve_recipients(
+                conn, selector, now=now, steering_target=address.coverage_target()
+            )
     sender_session = str(original[3] or "")
     sender_actor = original[4]
+    actor_reason = "original_sender"
+    if project_id is None and sender_actor is None:
+        sender_session = ""
+        owner = conn.execute(
+            f"SELECT actor_id FROM harness_sessions WHERE session_id={p}", (session_id,)
+        ).fetchone()
+        sender_actor = owner[0] if owner is not None else None
+        actor_reason = "affected_session_actor"
     if sender_session:
         senders = resolve_recipients(
-            conn, RecipientSelector(session_ids=[sender_session]), now=now
+            conn,
+            RecipientSelector(session_ids=[sender_session]),
+            now=now,
+            actor_id=sender_actor,
         )
         recipients = list({r.session_id: r for r in [*recipients, *senders]}.values())
     actors = []
@@ -129,13 +141,17 @@ def notify_failed_wake(
         actor = conn.execute(
             f"SELECT kind FROM actors WHERE id={p}", (sender_actor,)
         ).fetchone()
-        if actor is not None and actor[0] == "human":
-            org = conn.execute(
-                f"SELECT org_id FROM projects WHERE id={p}", (project_id,)
-            ).fetchone()
+        if actor is not None and (project_id is None or actor[0] == "human"):
+            org_id = policy.org_id
+            if project_id is not None:
+                org_id = int(
+                    conn.execute(
+                        f"SELECT org_id FROM projects WHERE id={p}", (project_id,)
+                    ).fetchone()[0]
+                )
             actors = [
                 ResolvedActorRecipient(
-                    int(sender_actor), None, {int(org[0])}, ["original_sender"]
+                    int(sender_actor), None, {org_id}, [actor_reason]
                 )
             ]
     details, created = insert_message(
@@ -151,8 +167,7 @@ def notify_failed_wake(
             "relaunching the holder through the existing session-control path."
         ),
         selector_snapshot={
-            "steering": True,
-            "steering_scope": address.scope,
+            **({"steering": True, "steering_scope": address.scope} if address else {}),
             "session_ids": [sender_session] if sender_session else [],
             "actors": [str(sender_actor)] if actors else [],
         },
@@ -162,22 +177,20 @@ def notify_failed_wake(
         expires_at=now + timedelta(hours=policy.expiry_hours),
         recipients=recipients,
         actor_recipients=actors,
-        wake_after_by_project={
-            project_id: now,
-            **{r.project_id: now for r in recipients},
-        },
+        wake_after_by_owner={owner_key(r.routing_snapshot()): now for r in recipients},
     )
     if not created:
         return None
     notice_id = str(details["message_id"])
-    record_steering_recipient(
-        conn,
-        message_id=notice_id,
-        scope=address.scope,
-        project_id=project_id,
-        sender_item_id=address.sender_item_id,
-        seat_session_id=seat_id,
-        seat_claim_id=int(seat["claim_id"]) if seat else None,
-        created_at=now,
-    )
+    if address is not None:
+        record_steering_recipient(
+            conn,
+            message_id=notice_id,
+            scope=address.scope,
+            project_id=project_id,
+            sender_item_id=address.sender_item_id,
+            seat_session_id=seat_id,
+            seat_claim_id=int(seat["claim_id"]) if seat else None,
+            created_at=now,
+        )
     return notice_id

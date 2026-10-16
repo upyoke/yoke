@@ -24,6 +24,7 @@ from yoke_contracts.machine_config.scratch_roots import (
 
 
 ENV_KEY = "YOKE_SCRATCH_ROOT"
+MACHINE_SCOPE_DIRNAME = "_machine-"
 
 
 class ScratchRootResolutionError(RuntimeError):
@@ -64,6 +65,7 @@ def ensure_writable_dir(path: Path) -> bool:
 
 __all__ = [
     "ENV_KEY",
+    "MACHINE_SCOPE_DIRNAME",
     "fallback_scratch_root",
     "ScratchRootResolutionError",
     "ensure_writable_dir",

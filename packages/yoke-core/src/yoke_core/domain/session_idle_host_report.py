@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Mapping, Sequence
 
+from yoke_core.domain.session_scope_identity import relay_serves_scope
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_message_types import row_dict, timestamp, utc_now
 
@@ -26,7 +27,9 @@ from yoke_core.domain.session_message_types import row_dict, timestamp, utc_now
 EVENT_NATIVE_HOST_RECLAIMED = "HarnessSessionNativeHostReclaimed"
 SESSION_LIVE_STATUS = "session_live"
 
-_SESSION_COLUMNS = "session_id, project_id, machine_id, ended_at, terminated_at"
+_SESSION_COLUMNS = (
+    "session_id, project_id, org_id, actor_id, machine_id, ended_at, terminated_at"
+)
 
 
 def _p(conn: Any) -> str:
@@ -46,13 +49,21 @@ def _skip_reason(
     *,
     machine_id: str,
     authorized_projects: Sequence[int],
+    relay_actor_id: int | None = None,
 ) -> str | None:
     if row is None:
         return "session_not_found"
     if str(row.get("machine_id") or "") != machine_id:
         return "machine_mismatch"
-    project_id = row.get("project_id")
-    if project_id is None or int(project_id) not in set(authorized_projects):
+    if not relay_serves_scope(
+        relay_machine_id=machine_id,
+        relay_actor_id=relay_actor_id,
+        advertised_project_ids=authorized_projects,
+        row_machine_id=row.get("machine_id"),
+        row_project_id=row.get("project_id"),
+        row_org_id=row.get("org_id"),
+        row_actor_id=row.get("actor_id"),
+    ):
         return "project_unauthorized"
     return None
 
@@ -91,6 +102,7 @@ def apply_idle_host_report(
     authorized_projects: Iterable[int],
     hosts: Iterable[Mapping[str, Any]],
     reclaimed: Iterable[Mapping[str, Any]],
+    relay_actor_id: int | None = None,
 ) -> Dict[str, Any]:
     """Name the ended sessions among ``hosts``; record every ``reclaimed`` host.
 
@@ -108,7 +120,12 @@ def apply_idle_host_report(
         if not session_id:
             continue
         row = _session_row(conn, session_id)
-        status = _skip_reason(row, machine_id=machine_id, authorized_projects=projects)
+        status = _skip_reason(
+            row,
+            machine_id=machine_id,
+            authorized_projects=projects,
+            relay_actor_id=relay_actor_id,
+        )
         if status is None and row is not None:
             if row.get("ended_at") or row.get("terminated_at"):
                 ended.append(session_id)
@@ -120,7 +137,12 @@ def apply_idle_host_report(
         if not session_id:
             continue
         row = _session_row(conn, session_id)
-        status = _skip_reason(row, machine_id=machine_id, authorized_projects=projects)
+        status = _skip_reason(
+            row,
+            machine_id=machine_id,
+            authorized_projects=projects,
+            relay_actor_id=relay_actor_id,
+        )
         if status is not None:
             skipped.append({"session_id": session_id, "status": status})
             continue

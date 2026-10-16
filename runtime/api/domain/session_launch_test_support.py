@@ -26,6 +26,7 @@ def launch_connection() -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(
         """
+        CREATE TABLE organizations (id INTEGER PRIMARY KEY, settings TEXT NOT NULL);
         CREATE TABLE actors (
             status TEXT NOT NULL DEFAULT 'active', id INTEGER PRIMARY KEY,
             kind TEXT NOT NULL DEFAULT 'human', system_component TEXT,
@@ -38,6 +39,7 @@ def launch_connection() -> sqlite3.Connection:
         CREATE TABLE harness_sessions (
             session_id TEXT PRIMARY KEY,
             project_id INTEGER NOT NULL,
+            org_id INTEGER,
             workspace TEXT NOT NULL DEFAULT '"""
         + SESSION_WORKSPACE
         + """',
@@ -110,10 +112,10 @@ def relay_connection(
 ) -> sqlite3.Connection:
     """Launch fixture widened with the session columns relay claiming reads."""
     conn = launch_connection()
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN actor_id INTEGER DEFAULT 1")
     # The role-delivery ledger references items even for itemless notices.
     conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY)")
     conn.execute("ALTER TABLE projects ADD COLUMN org_id INTEGER DEFAULT 1")
-    conn.execute("CREATE TABLE organizations (id INTEGER PRIMARY KEY, settings TEXT)")
     conn.execute(
         "INSERT INTO organizations VALUES (1, ?)",
         (json.dumps(org_settings or {}),),

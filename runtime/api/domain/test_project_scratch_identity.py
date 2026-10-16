@@ -27,6 +27,10 @@ def lookup(monkeypatch):
     monkeypatch.setattr(
         project_selection, "default_project_for_directory", lambda p: "7"
     )
+    monkeypatch.setattr(
+        "yoke_contracts.project_defaults.default_project_for_directory",
+        lambda p: "7",
+    )
     monkeypatch.delenv("YOKE_PROJECT", raising=False)
     return calls
 

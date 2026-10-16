@@ -11,11 +11,11 @@ one resolver every adapter receives its ``checkout`` from.
 from __future__ import annotations
 
 from pathlib import Path
-
 import pytest
 
 from yoke_cli.config.machine_config import ConfiguredProject
 from yoke_harness import session_relay_runtime as runtime
+from yoke_harness import session_relay_working_directory as directories
 
 
 PROJECT_ID = 10
@@ -27,7 +27,7 @@ def registered_checkout(monkeypatch, tmp_path: Path) -> Path:
     checkout = tmp_path / "beta-checkout"
     checkout.mkdir()
     monkeypatch.setattr(
-        runtime.machine_config,
+        directories.machine_config,
         "configured_projects",
         lambda **_kwargs: [ConfiguredProject(checkout, PROJECT_ID, {})],
     )

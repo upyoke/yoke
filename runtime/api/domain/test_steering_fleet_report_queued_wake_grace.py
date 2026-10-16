@@ -25,7 +25,7 @@ from runtime.api.steering_fleet_test_helpers import (
     seed_session,
 )
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
-from yoke_core.domain.session_message_authorization import project_policy
+from yoke_core.domain.session_message_authorization import scope_policy
 from yoke_contracts.timestamps import format_instant, parse_instant
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_message_types import parse_timestamp
@@ -54,7 +54,7 @@ def _queued_wake(conn, message_id: str, *, at: str | datetime) -> None:
 
 
 def _releasable_at(conn, sent_at: str | datetime) -> datetime:
-    grace = project_policy(conn, PROJECT_ID).wake_ack_grace_seconds
+    grace = scope_policy(conn, project_id=PROJECT_ID).wake_ack_grace_seconds
     return parse_timestamp(sent_at) + timedelta(seconds=grace)
 
 

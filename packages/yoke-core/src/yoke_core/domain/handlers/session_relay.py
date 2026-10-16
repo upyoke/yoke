@@ -117,6 +117,7 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 machine_id=payload.machine_id,
                 projects=payload.projects,
+                actor_id=actor_id,
             )
             resume_vendor_error_sessions(
                 conn,
@@ -154,6 +155,7 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 machine_id=payload.machine_id,
                 projects=payload.projects,
+                actor_id=actor_id,
             )
         except (SessionRelayError, ValueError) as exc:
             return _failure(getattr(exc, "code", "relay_claim_failed"), str(exc))
@@ -213,6 +215,7 @@ def handle_relay_turn_end(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 machine_id=payload.machine_id,
                 authorized_projects=payload.projects,
+                relay_actor_id=actor_id,
                 reports=[entry.model_dump(mode="json") for entry in payload.turn_ends],
             )
             conn.commit()
@@ -259,6 +262,7 @@ def handle_relay_liveness(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 machine_id=payload.machine_id,
                 authorized_projects=payload.projects,
+                relay_actor_id=actor_id,
                 reports=[report.model_dump(mode="json") for report in payload.sessions],
             )
             # The launches reported here never bound a session, so they carry

@@ -141,7 +141,11 @@ AUTH_TABLES: dict[str, dict] = {
             "project scope: an org admin grant on a project's owning org implies "
             "every permission on every project in that org; a project grant "
             "applies to that one project; allowed if either scope carries it. "
-            "Composite PK (actor_id, org_id, role_id)."
+            "Composite PK (actor_id, org_id, role_id). "
+            "Public permission APIs are actor_permissions.permission_decision and "
+            "actor_permissions.org_permission_decision. Wrong guess: importing "
+            "actor_permission_checks first; it imports actor_permissions, whose "
+            "decision reexports require the public owner to initialize first."
         ),
     },
 }

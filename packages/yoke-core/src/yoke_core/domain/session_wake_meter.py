@@ -39,6 +39,7 @@ from yoke_core.domain.steering_fleet_report_limits import (
 
 
 METER_EXHAUSTED_CODE = "meter_exhausted"
+ORG_METER_UNAVAILABLE_CODE = "wake_meter_org_limits_unavailable"
 SKIP_METER_EXHAUSTED = "skipped_meter_exhausted"
 SKIP_REASON_METER_EXHAUSTED = "model_meter_exhausted"
 BLOCKED_METER_RESUME = "blocked-meter-exhausted"
@@ -193,8 +194,14 @@ def meter_wall(
     surface = str(row.get("executor_surface") or "").strip()
     machine_id = str(row.get("machine_id") or "").strip()
     project_id = row.get("project_id")
-    if not model or not surface or not machine_id or project_id is None:
+    if not model or not surface or not machine_id:
         return None
+    if project_id is None:
+        raise SessionMessageError(
+            ORG_METER_UNAVAILABLE_CODE,
+            "Organization-scoped plan limits are unavailable. Recovery: open a session "
+            "in the project folder to use that project's published plan limits.",
+        )
     rows = (
         limits
         if limits is not None
@@ -211,20 +218,31 @@ def meter_wall(
     )
 
 
+def _meter_result(
+    conn: Any, session_id: str, now: datetime | str
+) -> MeterWall | SessionMessageError | None:
+    try:
+        return meter_wall(conn, session_id, now)
+    except SessionMessageError as exc:
+        if exc.code != ORG_METER_UNAVAILABLE_CODE:
+            raise
+        return exc
+
+
 def refuse_exhausted_wake(
     conn: Any, session_id: str, now: datetime | str
 ) -> SessionMessageError | None:
     """Named refusal for an operator-issued wake, or None when the meter allows it."""
-    wall = meter_wall(conn, session_id, now)
-    if wall is None:
-        return None
+    wall = _meter_result(conn, session_id, now)
+    if wall is None or isinstance(wall, SessionMessageError):
+        return wall
     return SessionMessageError(METER_EXHAUSTED_CODE, wall.refusal_message())
 
 
-def record_meter_exhausted_skip(
+def record_wake_meter_skip(
     conn: Any,
     candidate: Mapping[str, Any],
-    wall: MeterWall,
+    wall: MeterWall | SessionMessageError,
     *,
     now: datetime | str,
 ) -> None:
@@ -233,6 +251,8 @@ def record_meter_exhausted_skip(
     message_id = str(candidate["message_id"])
     session_id = str(candidate["session_id"])
     placeholder = marker(conn)
+    refused = isinstance(wall, SessionMessageError)
+    code = wall.code if refused else SKIP_METER_EXHAUSTED
     conn.execute(
         "INSERT INTO session_message_attempts "
         "(attempt_id,message_id,target_session_id,attempt_kind,adapter_revision,"
@@ -249,14 +269,18 @@ def record_meter_exhausted_skip(
             _SKIP_ADAPTER_REVISION,
             instant_parameter(conn, now),
             instant_parameter(conn, now),
-            SKIP_METER_EXHAUSTED,
+            code,
             redacted_evidence(
                 {
-                    "result_code": SKIP_METER_EXHAUSTED,
-                    "skip_reason": SKIP_REASON_METER_EXHAUSTED,
-                    "requested_model": wall.model,
-                    "surface": wall.surface,
-                    "probe_detail": wall.detail(),
+                    "result_code": code,
+                    "skip_reason": code if refused else SKIP_REASON_METER_EXHAUSTED,
+                    "requested_model": pinned_model(candidate)
+                    if refused
+                    else wall.model,
+                    "surface": candidate.get("executor_surface")
+                    if refused
+                    else wall.surface,
+                    "probe_detail": str(wall) if refused else wall.detail(),
                 }
             ),
         ),
@@ -268,10 +292,10 @@ def skip_exhausted_wake(
 ) -> bool:
     """True when this wake must not start; the skip is recorded when so."""
     stamp = parse_instant(now)
-    wall = meter_wall(conn, str(candidate["session_id"]), stamp)
+    wall = _meter_result(conn, str(candidate["session_id"]), stamp)
     if wall is None:
         return False
-    record_meter_exhausted_skip(conn, candidate, wall, now=stamp)
+    record_wake_meter_skip(conn, candidate, wall, now=stamp)
     return True
 
 
@@ -284,8 +308,11 @@ def overlay_resume_state(
     """Name a resumed death that will recur, leaving a transient death as-is."""
     if resume_state != "resumed-died":
         return resume_state
-    if meter_wall(conn, session_id, now if now is not None else utc_now()) is None:
+    result = _meter_result(conn, session_id, now if now is not None else utc_now())
+    if result is None:
         return resume_state
+    if isinstance(result, SessionMessageError):
+        return "blocked-org-limits-unavailable"
     return BLOCKED_METER_RESUME
 
 
@@ -299,7 +326,7 @@ __all__ = [
     "meter_wall",
     "overlay_resume_state",
     "pinned_model",
-    "record_meter_exhausted_skip",
+    "record_wake_meter_skip",
     "refuse_exhausted_wake",
     "skip_exhausted_wake",
 ]

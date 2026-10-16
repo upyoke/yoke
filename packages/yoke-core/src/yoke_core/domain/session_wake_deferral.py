@@ -43,7 +43,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
-from yoke_core.domain.session_message_authorization import project_policy
+from yoke_core.domain.session_message_recipient_scope import recipient_policy
 from yoke_contracts.timestamps import parse_instant
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_relay_storage import marker
@@ -92,13 +92,13 @@ def restore_deferred_wake_budget(
     current = parse_instant(now)
     p = marker(conn)
     row = conn.execute(
-        f"SELECT project_id FROM session_message_recipients WHERE message_id={p} "
+        f"SELECT project_id,org_id FROM session_message_recipients WHERE message_id={p} "
         f"AND session_id={p}",
         (message_id, session_id),
     ).fetchone()
     if row is None:
         return
-    policy = project_policy(conn, int(row[0]))
+    policy = recipient_policy(conn, dict(row))
     backoff = instant_parameter(
         conn, current + timedelta(seconds=policy.wake_after_idle_seconds)
     )

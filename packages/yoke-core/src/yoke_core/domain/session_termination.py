@@ -116,7 +116,8 @@ def _queue_reap(
         )
     values = (
         str(target["session_id"]),
-        int(target["project_id"]),
+        target.get("project_id"),
+        target.get("org_id"),
         machine_id,
         str(target.get("executor_surface") or "") or None,
         native_id,
@@ -127,11 +128,11 @@ def _queue_reap(
     )
     conn.execute(
         "INSERT INTO session_termination_reaps "
-        "(target_session_id,project_id,machine_id,executor_surface,"
+        "(target_session_id,project_id,org_id,machine_id,executor_surface,"
         "target_native_thread_id,launch_id,state,requested_at,evidence) VALUES ("
         + ",".join(marker for _ in values)
         + ") ON CONFLICT(target_session_id) DO UPDATE SET "
-        "project_id=excluded.project_id,machine_id=excluded.machine_id,"
+        "project_id=excluded.project_id,org_id=excluded.org_id,machine_id=excluded.machine_id,"
         "executor_surface=excluded.executor_surface,"
         "target_native_thread_id=excluded.target_native_thread_id,"
         "launch_id=excluded.launch_id,state=excluded.state,"

@@ -173,9 +173,33 @@ class TestEveryTierOneFamilyDispatches:
         assert req.target.public_ref == "YOK-1819"
         assert req.payload == {}
 
-    def test_claims_work_acquire_dispatches_item(self) -> None:
+    def test_claims_work_acquire_dispatches_item(self, tmp_path, monkeypatch) -> None:
+        import json
+        from yoke_contracts.machine_config import paths
+
+        config = tmp_path / "config.json"
+        config.write_text(
+            json.dumps({"projects": [{"project_id": 1, "checkout": str(tmp_path)}]})
+        )
+        monkeypatch.delenv(paths.HOME_ENV, raising=False)
+        monkeypatch.setenv(paths.CONFIG_FILE_ENV, str(config))
+        monkeypatch.chdir(tmp_path)
+
+        def stub(request):
+            response = _stub_dispatch_ok(request)
+            if request.function == "items.get.run":
+                return response.model_copy(
+                    update={
+                        "result": {
+                            "public_ref": "YOK-1819",
+                            "fields": {"project_id": 1, "title": "Plant trees"},
+                        }
+                    }
+                )
+            return response
+
         rc = _run_with_dispatch(
-            _stub_dispatch_ok,
+            stub,
             "claims",
             "work",
             "acquire",

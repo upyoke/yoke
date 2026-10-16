@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.org_schema import create_organization_table
+from yoke_core.domain.schema_common import _add_column_if_not_exists, _table_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.session_turn_posture import (
     TURN_POSTURE_INSTANT_COLUMN_DDL,
@@ -37,6 +38,7 @@ from yoke_core.domain.steering_fleet_report_read import (
 
 
 def create_session_tables(conn: Any) -> None:
+    create_organization_table(conn)
     executor_values = ", ".join(
         f"'{executor}'" for executor in sorted(CANONICAL_HARNESS_IDS)
     )
@@ -72,7 +74,8 @@ def create_session_tables(conn: Any) -> None:
           usage_totals TEXT DEFAULT NULL,
           execution_level TEXT NOT NULL DEFAULT 'primary',
           workspace TEXT NOT NULL,
-          project_id INTEGER NOT NULL REFERENCES projects(id),
+          project_id INTEGER REFERENCES projects(id),
+          org_id INTEGER REFERENCES organizations(id),
           mode TEXT DEFAULT 'wait',
           quiet_reason TEXT DEFAULT NULL,
           offered_at TIMESTAMPTZ NOT NULL,
@@ -102,7 +105,11 @@ def create_session_tables(conn: Any) -> None:
           last_checkpoint_at TIMESTAMPTZ DEFAULT NULL,
           last_steering_report_at TIMESTAMPTZ DEFAULT NULL,
 {recovery_columns}          last_steering_report_fingerprint TEXT DEFAULT NULL,
-          {READ_FINGERPRINTS_COLUMN} {READ_FINGERPRINTS_DDL}
+          {READ_FINGERPRINTS_COLUMN} {READ_FINGERPRINTS_DDL},
+          CONSTRAINT harness_sessions_scope_exactly_one CHECK (
+            (project_id IS NOT NULL AND org_id IS NULL)
+            OR (project_id IS NULL AND org_id IS NOT NULL)
+          )
         );
         CREATE INDEX IF NOT EXISTS idx_harness_sessions_heartbeat ON harness_sessions(last_heartbeat);
         CREATE INDEX IF NOT EXISTS idx_harness_sessions_project ON harness_sessions(project_id);
@@ -150,6 +157,12 @@ def create_session_tables(conn: Any) -> None:
           ON work_claims(session_id, released_at);
         CREATE INDEX IF NOT EXISTS idx_work_claims_heartbeat ON work_claims(last_heartbeat);
     """,
+    )
+    _add_column_if_not_exists(
+        conn, "harness_sessions", "org_id", "INTEGER REFERENCES organizations(id)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_harness_sessions_org ON harness_sessions(org_id)"
     )
     # This DDL runs on every boot, before the migration history renames an
     # existing universe's ``execution_lane`` column; that entry creates the

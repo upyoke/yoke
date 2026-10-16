@@ -15,6 +15,7 @@ from yoke_contracts.session_control.wake_instruction import (
     native_wake_instruction_sha256,
 )
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_scope_identity import relay_serves_scope
 from yoke_core.domain.db_helpers import instant_parameter
 from yoke_core.domain.session_broker_wake_settlement import (
     settle_broker_wake_losses,
@@ -174,7 +175,7 @@ def _adopt_attempt(
             machine_id=heartbeat.machine_id,
             surface=execution[0],
             surface_version=execution[1],
-            project_id=int(candidate["project_id"]),
+            project_id=candidate.get("project_id"),
             native_instruction=instruction,
             message_id=message_id,
             target_session_id=str(candidate["session_id"]),
@@ -242,7 +243,23 @@ def claim_broker_wake_job(
         if candidate is None:
             _close_with_code(conn, str(attempt_id), "broker_target_changed", current)
             continue
-        if int(candidate["project_id"]) not in projects:
+        if not relay_serves_scope(
+            relay_machine_id=heartbeat.machine_id,
+            relay_actor_id=heartbeat.actor_id,
+            advertised_project_ids=projects,
+            row_machine_id=candidate.get("machine_id"),
+            row_project_id=candidate.get("project_id"),
+            row_org_id=candidate.get("org_id"),
+            row_actor_id=candidate.get("actor_id"),
+        ):
+            continue
+        if (
+            candidate.get("project_id") is None
+            and not str(candidate.get("session_workspace") or "").strip()
+        ):
+            _close_with_code(
+                conn, str(attempt_id), "session_workspace_unrecorded", current
+            )
             continue
         execution, qualification = authorize_wake_candidate(
             conn, candidate, heartbeat, route="broker"

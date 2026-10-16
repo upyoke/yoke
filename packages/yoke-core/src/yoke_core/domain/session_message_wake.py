@@ -20,7 +20,7 @@ from yoke_core.domain.session_activity_state import (
     session_mode_column_present,
 )
 from yoke_core.domain.session_tool_call_projections import open_tool_call_select
-from yoke_core.domain.session_message_authorization import project_policy
+from yoke_core.domain.session_message_recipient_scope import recipient_policy
 from yoke_core.domain.session_message_delivery import (
     _begin_mutation,
     _expire_rows,
@@ -154,7 +154,7 @@ def wake_eligible_recipients(
         open_call_select = open_tool_call_select(conn, session_alias="hs")
         rows = conn.execute(
             "SELECT r.*,m.created_at AS message_created_at,m.expires_at,"
-            "hs.executor,hs.execution_level,hs.last_heartbeat,"
+            "hs.actor_id,hs.executor,hs.execution_level,hs.last_heartbeat,"
             "hs.workspace AS session_workspace,"
             "hs.last_tool_call_at,hs.ended_at,hs.terminated_at,hs.turn_posture,"
             f"hs.turn_posture_at{thread_select}{mode_select}"
@@ -191,7 +191,7 @@ def wake_eligible_recipients(
             row = row_dict(raw)
             if skip_ended_recipient(conn, row, now=current):
                 continue
-            policy = project_policy(conn, int(row["project_id"]))
+            policy = recipient_policy(conn, row)
             notify_failed_wake(
                 conn, row, now=current, max_attempts=policy.max_wake_attempts
             )
@@ -211,16 +211,14 @@ def wake_eligible_recipients(
                 continue
             if explicit_wake and attempt_count > 0:
                 continue
-            # Desktop recipients need an operator notice at the grace window;
-            # their unreachable wake route does not choose when it is due.
+            # Desktop notices are due at grace regardless of their wake route.
             notify_operator_to_wake(
                 conn,
                 row,
                 now=current,
                 grace_seconds=policy.wake_ack_grace_seconds,
             )
-            # Activity can age during a live call; its return still runs a
-            # hook. Ended sessions and verified orphaned calls can recover.
+            # Live calls still owe hooks; ended/orphaned calls can recover.
             if (
                 not explicit_wake
                 and liveness != "ended"
@@ -280,6 +278,7 @@ def wake_eligible_recipients(
                 relay_routes,
                 machine_id=row["machine_id"],
                 project_id=row["project_id"],
+                session_actor_id=row["actor_id"],
             )
             operation = wake_operation(
                 wake_mode.value, liveness, row["executor_surface"]
@@ -311,9 +310,10 @@ def wake_eligible_recipients(
                 {
                     "message_id": str(row["message_id"]),
                     "session_id": str(row["session_id"]),
-                    "project_id": int(row["project_id"]),
+                    "project_id": row["project_id"],
+                    "org_id": row["org_id"],
+                    "actor_id": row["actor_id"],
                     "parked": session_is_parked(row.get("mode")),
-                    # Message project vs session workspace: resume the latter.
                     "session_workspace": str(row["session_workspace"] or ""),
                     "machine_id": row["machine_id"],
                     "executor_surface": row["executor_surface"],

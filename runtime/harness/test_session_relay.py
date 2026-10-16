@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
-
 import pytest
 
 from yoke_cli.config.machine_config import ConfiguredProject
 from yoke_harness import session_relay
 from yoke_harness import session_relay_inventory as inventory_module
 from yoke_harness import session_relay_runtime as runtime
+from yoke_harness import session_relay_working_directory as directories
 from yoke_harness.session_relay_inventory import RelayInventory
 from yoke_harness.session_relay_runtime import RelayAdapterResult
 from yoke_harness.session_relay_schedule import (
@@ -40,7 +40,7 @@ def test_execution_context_parses_only_authorized_wake_modes(
     expected,
 ) -> None:
     monkeypatch.setattr(
-        runtime.machine_config,
+        directories.machine_config,
         "configured_projects",
         lambda **_kwargs: [ConfiguredProject(tmp_path, 10, {})],
     )
@@ -110,7 +110,7 @@ def test_registered_adapter_receives_attestation_only_in_dedicated_field(
 ) -> None:
     runtime.reset_relay_adapters_for_tests()
     monkeypatch.setattr(
-        runtime.machine_config,
+        directories.machine_config,
         "configured_projects",
         lambda **_kwargs: [ConfiguredProject(tmp_path, 10, {})],
     )
@@ -155,7 +155,7 @@ def test_missing_adapter_is_registered_lazily_before_job_execution(
 
     runtime.reset_relay_adapters_for_tests()
     monkeypatch.setattr(
-        runtime.machine_config,
+        directories.machine_config,
         "configured_projects",
         lambda **_kwargs: [ConfiguredProject(tmp_path, 10, {})],
     )

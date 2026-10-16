@@ -7,7 +7,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, cast
 
-from yoke_cli.config import machine_config
+from yoke_harness.session_relay_working_directory import (
+    RelayJobSurfaceError,
+    working_directory,
+)
 from yoke_contracts.timestamps import parse_instant
 from yoke_contracts.session_control.private_route_qualification import (
     PrivateRouteQualificationGrant,
@@ -46,7 +49,7 @@ class RelayExecutionContext:
     job_id: str
     lease_id: str
     surface: str
-    project_id: int
+    project_id: int | None
     checkout: Path
     native_instruction: str
     surface_version: str | None = None
@@ -153,56 +156,9 @@ def reset_relay_adapters_for_tests() -> None:
     _ADAPTERS.clear()
 
 
-class RelayJobSurfaceError(ValueError):
-    """A job whose working directory this machine cannot supply.
-
-    Carries the named ``result_code`` the report wire should show, so the
-    relay says which directory was missing rather than reporting every
-    unusable surface as an absent project checkout.
-    """
-
-    def __init__(self, result_code: str, message: str) -> None:
-        super().__init__(message)
-        self.result_code = result_code
-
-
-def _checkout_for_project(project_id: int) -> Path | None:
-    for configured in machine_config.configured_projects(existing_only=True):
-        if configured.project_id == project_id:
-            return configured.checkout
-    return None
-
-
-def _working_directory(job: Mapping[str, Any], project_id: int) -> Path:
-    """Launch from the project checkout; wake from the session's own workspace.
-
-    Claude keys its transcript on that path. A session may work across
-    projects, so the project's checkout cannot stand in for its workspace.
-    """
-    workspace = str(job.get("target_workspace") or "").strip()
-    if workspace:
-        candidate = Path(workspace)
-        if not candidate.is_dir():
-            raise RelayJobSurfaceError(
-                "session_workspace_missing",
-                "target session workspace is not a directory on this machine: "
-                f"{workspace} — restore that directory, or terminate the "
-                "session deliberately if its lane is gone",
-            )
-        return candidate
-    checkout = _checkout_for_project(project_id)
-    if checkout is None:
-        raise RelayJobSurfaceError(
-            "checkout_unavailable",
-            "relay job project has no registered checkout — register it with "
-            "`yoke project register <checkout> --project-id <id>`",
-        )
-    return checkout
-
-
 def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
-    project_id = int(job.get("project_id") or 0)
-    checkout = _working_directory(job, project_id)
+    project_id = job.get("project_id")
+    checkout = working_directory(job, project_id)
     raw_qualification = job.get("private_route_qualification")
     qualification = (
         PrivateRouteQualificationGrant.model_validate(raw_qualification)

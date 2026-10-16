@@ -9,7 +9,11 @@ from yoke_core.domain.actor_message_recipient_schema import (
     RECIPIENT_KIND_STATE_PREDICATE,
 )
 from yoke_core.domain.machine_registry_schema import ensure_machine_registry_schema
+from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.session_message_recipient_schema import (
+    create_session_message_recipient_table,
+)
 from yoke_contracts.session_control.launch_origin import ORIGIN_COLUMN_DDL
 from yoke_core.domain.session_control_schema_convergence import (
     SENDER_SURFACE_VALUES_SQL,
@@ -66,39 +70,12 @@ def create_session_control_tables(conn: Any) -> None:
         CREATE INDEX IF NOT EXISTS idx_session_messages_created
             ON session_messages(created_at);
 
-        CREATE TABLE IF NOT EXISTS session_message_recipients (
-            message_id TEXT NOT NULL REFERENCES session_messages(message_id),
-            session_id TEXT NOT NULL REFERENCES harness_sessions(session_id),
-            project_id INTEGER NOT NULL REFERENCES projects(id),
-            resolution_evidence TEXT NOT NULL,
-            routing_snapshot TEXT NOT NULL,
-            executor_surface TEXT,
-            executor_version TEXT,
-            machine_id TEXT,
-            state TEXT NOT NULL DEFAULT 'pending'
-                CHECK(state IN ('pending','injected','acknowledged','expired','cancelled')),
-            created_at TIMESTAMPTZ NOT NULL,
-            wake_after TIMESTAMPTZ NOT NULL,
-            injection_lease_id TEXT,
-            injection_leased_at TIMESTAMPTZ,
-            injection_lease_expires_at TIMESTAMPTZ,
-            injection_count INTEGER NOT NULL DEFAULT 0,
-            last_injected_at TIMESTAMPTZ,
-            acknowledged_at TIMESTAMPTZ,
-            expired_at TIMESTAMPTZ,
-            cancelled_at TIMESTAMPTZ,
-            wake_attempt_count INTEGER NOT NULL DEFAULT 0,
-            last_wake_at TIMESTAMPTZ,
-            wake_escalation TEXT,
-            PRIMARY KEY (message_id, session_id)
-        );
-        CREATE INDEX IF NOT EXISTS idx_session_message_recipients_session_state
-            ON session_message_recipients(session_id, state, created_at);
-        CREATE INDEX IF NOT EXISTS idx_session_message_recipients_wake
-            ON session_message_recipients(state, wake_after);
-        CREATE INDEX IF NOT EXISTS idx_session_message_recipients_project
-            ON session_message_recipients(project_id, state);
-
+        """,
+    )
+    create_session_message_recipient_table(conn)
+    execute_schema_script(
+        conn,
+        f"""
         CREATE TABLE IF NOT EXISTS actor_message_recipients (
             message_id TEXT NOT NULL REFERENCES session_messages(message_id),
             recipient_kind TEXT NOT NULL DEFAULT 'actor',
@@ -261,7 +238,8 @@ def create_session_control_tables(conn: Any) -> None:
 
         CREATE TABLE IF NOT EXISTS session_termination_reaps (
             target_session_id TEXT PRIMARY KEY REFERENCES harness_sessions(session_id),
-            project_id INTEGER NOT NULL REFERENCES projects(id),
+            project_id INTEGER REFERENCES projects(id),
+            org_id INTEGER REFERENCES organizations(id),
             machine_id TEXT,
             executor_surface TEXT,
             target_native_thread_id TEXT,
@@ -273,7 +251,11 @@ def create_session_control_tables(conn: Any) -> None:
             lease_expires_at TIMESTAMPTZ,
             completed_at TIMESTAMPTZ,
             result_code TEXT,
-            evidence TEXT
+            evidence TEXT,
+            CONSTRAINT session_termination_reaps_scope_exactly_one CHECK (
+                (project_id IS NOT NULL AND org_id IS NULL)
+                OR (project_id IS NULL AND org_id IS NOT NULL)
+            )
         );
         CREATE INDEX IF NOT EXISTS idx_session_termination_reaps_machine_state
             ON session_termination_reaps(machine_id, state, requested_at);
@@ -282,7 +264,8 @@ def create_session_control_tables(conn: Any) -> None:
             fetch_id TEXT PRIMARY KEY,
             target_session_id TEXT NOT NULL
                 REFERENCES harness_sessions(session_id),
-            project_id INTEGER NOT NULL REFERENCES projects(id),
+            project_id INTEGER REFERENCES projects(id),
+            org_id INTEGER REFERENCES organizations(id),
             machine_id TEXT NOT NULL,
             kind TEXT,
             file_name TEXT,
@@ -301,7 +284,11 @@ def create_session_control_tables(conn: Any) -> None:
             selected_file TEXT,
             content TEXT,
             content_bytes INTEGER,
-            truncated INTEGER
+            truncated INTEGER,
+            CONSTRAINT session_evidence_fetches_scope_exactly_one CHECK (
+                (project_id IS NOT NULL AND org_id IS NULL)
+                OR (project_id IS NULL AND org_id IS NOT NULL)
+            )
         );
         CREATE INDEX IF NOT EXISTS idx_session_evidence_fetches_machine_state
             ON session_evidence_fetches(machine_id, state, requested_at);
@@ -328,6 +315,11 @@ def create_session_control_tables(conn: Any) -> None:
             ON session_surface_policies(machine_id, created_at);
     """,
     )
+    for table in ("session_termination_reaps", "session_evidence_fetches"):
+        _add_column_if_not_exists(
+            conn, table, "org_id", "INTEGER REFERENCES organizations(id)"
+        )
+        conn.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_org ON {table}(org_id)")
     converge_session_control_schema(conn)
 
 

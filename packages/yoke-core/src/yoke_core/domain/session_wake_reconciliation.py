@@ -29,7 +29,7 @@ from yoke_contracts.session_control.wake_delivery import (
 )
 from yoke_core.domain import json_helper
 from yoke_core.domain.organization_settings import OrganizationSettingsError
-from yoke_core.domain.session_message_authorization import project_policy
+from yoke_core.domain.session_message_recipient_scope import owner_key, recipient_policy
 from yoke_core.domain.session_message_types import (
     SessionMessageError,
     parse_timestamp,
@@ -48,24 +48,25 @@ def _after(value: object, boundary) -> object | None:
 
 
 def _delivery_grace_seconds(
-    conn: Any, project_id: int, cache: dict[int, int]
+    conn: Any, row: dict[str, Any], cache: dict[tuple[str, int], int]
 ) -> int | None:
     """Seconds an undelivered envelope may wait before the route is judged.
 
     The same window the wake ladder waits before trying again: settling any
     sooner would name a wake undelivered while it is still the only one
-    entitled to deliver. A project whose policy cannot be read leaves its
+    entitled to deliver. A scope whose policy cannot be read leaves its
     attempts open rather than settling them against a guessed window; every
     receipt reached this table through that same policy, so in a live plane
     the lookup is already proven to resolve.
     """
-    if project_id not in cache:
+    key = owner_key(row)
+    if key not in cache:
         try:
-            policy = project_policy(conn, project_id)
+            policy = recipient_policy(conn, row)
         except (SessionMessageError, OrganizationSettingsError):
             return None
-        cache[project_id] = int(policy.wake_ack_grace_seconds)
-    return cache[project_id]
+        cache[key] = int(policy.wake_ack_grace_seconds)
+    return cache[key]
 
 
 def _delivery_outcome(
@@ -190,7 +191,7 @@ def reconcile_spawned_wake_attempts(conn: Any, *, now: str) -> int:
     unverified = tuple(sorted(WAKE_DELIVERY_UNVERIFIED_RESULTS))
     rows = conn.execute(
         "SELECT a.attempt_id,a.message_id,a.target_session_id,a.started_at,"
-        "a.evidence,a.result_code,hs.project_id,hs.turn_posture,"
+        "a.evidence,a.result_code,hs.project_id,hs.org_id,hs.turn_posture,"
         "hs.turn_posture_at,hs.last_tool_call_at,r.state AS receipt_state,"
         "r.injection_count,r.last_injected_at,r.acknowledged_at "
         "FROM session_message_attempts a JOIN harness_sessions hs "
@@ -203,15 +204,13 @@ def reconcile_spawned_wake_attempts(conn: Any, *, now: str) -> int:
         unverified,
     ).fetchall()
     changed = 0
-    grace_cache: dict[int, int] = {}
+    grace_cache: dict[tuple[str, int], int] = {}
     for raw in rows:
         row = row_dict(raw)
         settled = _delivery_outcome(
             row,
             current=current,
-            grace_seconds=_delivery_grace_seconds(
-                conn, int(row["project_id"]), grace_cache
-            ),
+            grace_seconds=_delivery_grace_seconds(conn, row, grace_cache),
         )
         if settled is None:
             continue

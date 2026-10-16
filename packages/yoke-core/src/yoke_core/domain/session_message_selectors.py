@@ -13,6 +13,11 @@ from typing import Any, Mapping
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_contracts.session_control.liveness import holds_work_claim_sql
 from yoke_core.domain import db_backend
+from yoke_core.domain.actor_permissions import PERM_ITEMS_WRITE
+from yoke_core.domain.session_scope_identity import (
+    actor_may_operate_session,
+    session_scope_of,
+)
 from yoke_core.domain.project_identity import resolve_project_slug
 from yoke_core.domain.session_message_anchors import anchor_hits
 from yoke_core.domain.session_message_candidates import candidate_identities
@@ -54,7 +59,7 @@ def _session_rows(conn: Any, session_ids) -> dict[str, dict[str, Any]]:
         if name in columns
     )
     rows = conn.execute(
-        "SELECT session_id, project_id, executor, executor_surface, "
+        "SELECT session_id, project_id, org_id, actor_id, executor, executor_surface, "
         f"executor_version, machine_id, execution_level, {mode_select}"
         f"last_heartbeat, last_tool_call_at, ended_at, terminated_at, {extra}"
         f"{holds_work_claim_sql('harness_sessions')} AS holds_work_claim "
@@ -77,7 +82,8 @@ def _claim_rows(conn: Any) -> list[dict[str, Any]]:
     project_id = scope_int_sql(conn, "wc.scope", "project_id")
     process_key = scope_text_sql(conn, "wc.scope", "process_key")
     rows = conn.execute(
-        f"SELECT wc.session_id, wc.target_kind, {item_id} AS item_id, "
+        "SELECT wc.session_id, wc.target_kind, hs.project_id AS session_project_id, "
+        f"{item_id} AS item_id, "
         f"{epic_id} AS epic_id, {task_num} AS task_num, "
         f"{process_key} AS process_key, "
         f"COALESCE(item.project_id, epic.project_id, {project_id}, "
@@ -156,6 +162,7 @@ def resolve_recipients(
     selector: RecipientSelector,
     *,
     now: datetime | None = None,
+    actor_id: int | None = None,
     steering_target: Mapping[str, Any] | None = None,
 ) -> list[ResolvedRecipient]:
     """Resolve unioned anchors, then intersect filters and deduplicate.
@@ -188,17 +195,32 @@ def resolve_recipients(
         if session_id in excluded or session_id not in sessions:
             continue
         row = sessions[session_id]
-        projects = {project_id for _evidence, project_id in hits[session_id]}
-        session_project = int(row["project_id"])
+        projects = {pid for _evidence, pid in hits[session_id] if pid is not None}
+        session_project = row["project_id"]
         primary_project = (
-            session_project if session_project in projects else min(projects)
+            session_project
+            if session_project in projects
+            else min(projects)
+            if projects
+            else None
         )
+        if primary_project is None and not actor_may_operate_session(
+            conn,
+            actor_id=actor_id,
+            scope=session_scope_of(row),
+            session_actor_id=row["actor_id"],
+            permission_key=PERM_ITEMS_WRITE,
+        ):
+            continue
         liveness = session_liveness(row, now=current)
         roles, worktree_lanes = _claim_metadata(claims, session_id)
         recipient = ResolvedRecipient(
             session_id=session_id,
             project_id=primary_project,
-            project=resolve_project_slug(conn, primary_project),
+            org_id=row["org_id"] if primary_project is None else None,
+            project=resolve_project_slug(conn, primary_project)
+            if primary_project is not None
+            else "",
             executor=str(row.get("executor") or ""),
             executor_surface=str(row.get("executor_surface") or "") or None,
             executor_version=str(row.get("executor_version") or "") or None,
@@ -211,10 +233,11 @@ def resolve_recipients(
                     relay_routes,
                     machine_id=row.get("machine_id"),
                     project_id=row.get("project_id"),
+                    session_actor_id=row.get("actor_id"),
                 ),
             ),
             resolution=[evidence for evidence, _project in hits[session_id]],
-            authorized_project_ids=projects,
+            authorized_project_ids=projects if primary_project is not None else set(),
             work_roles=roles,
             worktree_lanes=worktree_lanes,
             execution_level=str(row.get("execution_level") or ""),
