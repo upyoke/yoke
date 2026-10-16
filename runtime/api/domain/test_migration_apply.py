@@ -313,7 +313,7 @@ class TestRehearseFailures:
 
         outcomes, error = verify._run_rehearsal_commands(
             [f"{sys.executable} -c \"import time; time.sleep(0.1); print('done')\""],
-            env_var="YOKE_DB",
+            env_var="YOKE_DB", module_identifier="sample_migration",
             validation_db_path=str(tmp_path / "validation.db"),
             cwd=tmp_path,
         )
@@ -340,7 +340,7 @@ class TestRehearseFailures:
 
         outcomes, error = verify._run_rehearsal_commands(
             [f'{sys.executable} -c "import time; time.sleep(2)"'],
-            env_var="YOKE_DB",
+            env_var="YOKE_DB", module_identifier="sample_migration",
             validation_db_path=str(tmp_path / "validation.db"),
             cwd=tmp_path,
         )

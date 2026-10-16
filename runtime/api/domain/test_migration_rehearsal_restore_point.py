@@ -40,6 +40,7 @@ def test_one_exact_private_baseline_covers_batch_and_all_verification(
     establish = Mock(wraps=runner.establish)
     monkeypatch.setattr(runner, "establish", establish)
     seen = []
+    verified_modules = []
     dispatch = runner.dispatch_handle
 
     def assert_archive(operation, identifier):
@@ -76,13 +77,15 @@ def test_one_exact_private_baseline_covers_batch_and_all_verification(
         assert kwargs["env_var"] == "YOKE_PG_DSN"
         assert kwargs["validation_db_path"] == apply_env["validation_dsn"]
         assert kwargs["cwd"] == apply_env["worktree"]
-        assert_archive("commands", "sample_migration")
+        verified_modules.append(kwargs["module_identifier"])
+        assert_archive("commands", kwargs["module_identifier"])
         return [], None
 
     monkeypatch.setattr(runner, "_run_rehearsal_commands", verify)
     result = _run(apply_env)
 
     assert result.all_succeeded
+    assert verified_modules == ["sample_migration", "other_migration"]
     establish.assert_called_once()
     assert establish.call_args.kwargs == {
         "backup_root": apply_env["worktree"] / ".yoke" / "backups",
@@ -174,6 +177,7 @@ def test_author_commands_inherit_the_retained_restore_point(monkeypatch, tmp_pat
     with named_restore_point(archive):
         outcomes, error = migration_apply_verify.run_rehearsal_commands(
             ["verify-copy"], env_var="YOKE_PG_DSN", validation_db_path="fixture-copy",
+            module_identifier="sample_migration",
             cwd=tmp_path,
         )
     assert error is None and outcomes[0]["returncode"] == 0
