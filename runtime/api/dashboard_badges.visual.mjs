@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { alignmentFixture, captureAlignmentProof } from "./dashboard_alignment.visual.mjs";
@@ -11,6 +12,9 @@ const [modulePath, output, sourceRoot] = process.argv.slice(2);
 assert(modulePath && output, "Name PLAYWRIGHT_MODULE and OUTPUT_DIR.");
 const { chromium } = createRequire(import.meta.url)(modulePath);
 const root = sourceRoot || fileURLToPath(new URL("../../packages/yoke-core/src/yoke_core/ui/static/", import.meta.url));
+const checkout = fileURLToPath(new URL("../../", import.meta.url));
+const head = execFileSync("git", ["-C", checkout, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+assert.equal(execFileSync("git", ["-C", checkout, "status", "--porcelain"], { encoding: "utf8" }).trim(), "", "Commit the capture source first.");
 const styles = [...(await readFile(path.join(root, "index.html"), "utf8"))
   .matchAll(/href="(?:\.\/|\/)assets\/([^\"]+\.css)"/g)].map((m) => m[1]);
 assert(styles.length, "Source index must declare its stylesheet roster.");
@@ -29,6 +33,7 @@ const html = `<!doctype html><html><head><meta name="viewport" content="width=de
 <body><main class="universe-app-root"><div class="content">
 <h1>Populated dashboard layout evidence</h1><div id="session" class="proof sessions-view"></div>
 <div id="launches" class="proof"></div><div id="projects" class="proof"></div><div id="strategy" class="proof"></div><div id="actors" class="proof"></div>
+<section id="machines-proof" class="proof"><h2>Machines</h2><div id="machines"></div><footer>Source fixtures · no live universe · ${head}</footer></section>
 <div id="workflows" class="proof"></div><div id="card" class="proof"></div>
 <div id="item" class="proof"></div><div id="actions" class="proof"></div><div id="rows"></div>
 <footer>Candidate assets · populated deterministic fixtures · no control-plane universe</footer>
@@ -40,6 +45,8 @@ import { renderProjectsView } from "/assets/universe_views_projects.js";
 import { sessionCard } from "/assets/universe_views_sessions.js";
 import { strategyDocumentCard } from "/assets/universe_strategy_cards.js";
 import { renderActorsView } from "/assets/universe_views_actors.js";
+import { renderMachinesView } from "/assets/universe_views_machines.js";
+import { renderMachineApproval } from "/assets/machine_approval.js";
 import { renderMechanics } from "/assets/workflow_view_mechanics.js";
 import { appendItemDelivery } from "/assets/universe_item_deployment.js";
 import { itemDeliveryPanel } from "/assets/item_view_delivery.js";
@@ -52,13 +59,31 @@ document.querySelector("#strategy").append(strategyDocumentCard(document,{slug:"
 const actor={id:1,name:"Deployment reviewer",kind:"human",status:"active",roles:{org:[{role:"admin"}]},
  tokens:[{name:"release_automation_credential_inventory_for_production_deployment",token_id:7,last_used_at:"2026-10-05T12:00:00Z",
  machine_id:"fixture-machine",machine_name:"Production deployment workstation"}]};
-const context={document,isMounted:()=>true,capabilities:{data:{portability:{mode:"hosted"}}},
- client:{call:async(request)=>({status:200,envelope:{success:true,result:request.function==="actors.roster"
- ? {rows:[actor],current_actor_id:1,can_manage_actors:false}:{rows:[]}}})}};
+let requests=[{code:"K7F2",machine:"New laptop",platform:"macOS",machine_id:"4f2c9a1e-80d6-4b2c-a447-123456789abc",
+ requested_by:{name:"Morgan",actor_id:9},expires_at:new Date(Date.now()+540000).toISOString(),state:"pending"},
+ {code:"G8P3",machine:"Another workstation with a long name",platform:"Linux",machine_id:"741a2682-3340-4be7-80fb-0123456789ab",
+ requested_by:null,expires_at:new Date(Date.now()+300000).toISOString(),state:"pending"},
+ {code:"D4N6",machine:"Expired request",requested_by:null,expires_at:new Date(Date.now()-1000).toISOString(),state:"expired"}];
+const viewer={name:"Morgan",actor_id:9}, authorizations=[...requests];
+const context={document,isMounted:()=>true,projects:()=>[project],capabilities:{data:{portability:{mode:"hosted"}}},
+ client:{call:async(request)=>{
+ const ok=result=>({status:200,envelope:{success:true,result}});
+ if(request.function==="machine_authorization.pending")return ok({requests,viewer});
+ if(request.function==="machine_authorization.get")return ok({authorization:{...authorizations.find(row=>row.code===request.payload.code),viewer,decision:null}});
+ if(request.function==="machine_authorization.resolve"){
+  requests=requests.filter(row=>row.code!==request.payload.code);return ok({authorization:{decision:request.payload.action}});
+ }
+ if(request.function==="machine.list")return ok({machines:[{machine_id:"fixture-machine",name:"Registered workstation",retired_at:null}],count:1});
+ if(request.function==="session_control.relay.list")return ok({relays:[]});
+ if(request.function==="organizations.get")return ok({name:"Example team"});
+ return ok(request.function==="actors.roster" ? {rows:[actor],current_actor_id:1,can_manage_actors:false}:{rows:[]});
+ }}};
 const launches=launchFilters(document,()=>{});launches.offer([{state:"succeeded",selected_surface:"codex-cli",assigned_machine_id:"fixture-machine"}]);
 document.querySelector("#launches").append(launches.host);
 renderProjectsView(context,document.querySelector("#projects"));
 await renderActorsView(context,document.querySelector("#actors"));
+renderMachinesView(context,document.querySelector("#machines"));
+window.approvalRoute=code=>renderMachineApproval(context,document.querySelector("#machines"),null,code);
 document.querySelector("#workflows").append(renderMechanics(document,{id:"dash",name:"Dash",
  definition:{policies:{qa:"optional_item_attachment"},skill_bindings:[{skill_id:"dash"}]}},{editTesting:()=>{}}));
 appendItemDelivery(document,document.querySelector("#card"),{id:1,completion_flow:${JSON.stringify(flow)}},new Map());
@@ -114,7 +139,8 @@ const freshPage=async(width)=>{
  await page.goto(`http://127.0.0.1:${server.address().port}/`);
  await page.waitForFunction(()=>window.proofReady && document.querySelector(".actors-key")
    && document.querySelector(".item-delivery-flow a") && document.querySelector(".session-harness")
-   && document.querySelector(".strategy-doc-state")?.textContent==="ACTIVE");
+   && document.querySelector(".strategy-doc-state")?.textContent==="ACTIVE"
+   && document.querySelector("#machines .machine-pending tbody tr"));
  assert.deepEqual(errors,[]);
  assert.equal(await page.evaluate(()=>matchMedia("(hover: none)").matches),width<1280);
  return page;
@@ -193,4 +219,34 @@ try{
   console.log(`${sourceRoot?"before":"after"} ${width}px: populated cards, Actors, Workflows, ${rows.length} row classes, both Delivery surfaces`);
  }
  await captureAlignmentProof({freshPage,output,baseline:Boolean(sourceRoot)});
+ const captures=[];
+ for(const width of [1280,375])for(const theme of ["light","dark"]){
+  const page=await freshPage(width);await page.emulateMedia({colorScheme:theme});
+  const proof=page.locator("#machines-proof");
+  const capture=async(state)=>{
+   const values=await proof.evaluate(n=>({width:n.clientWidth,scroll:n.scrollWidth,
+    table:n.querySelector("table")?.className,headings:[...n.querySelectorAll("h1")].map(h=>h.textContent)}));
+   assert(values.scroll<=values.width+1,"Waiting machines overflow their container");
+   const file=state+"-"+width+"-"+theme+".png";
+   await proof.screenshot({path:path.join(output,file)});captures.push({state,width,theme,file,...values});
+  };
+  await capture("machines-waiting");
+  await proof.getByRole("button",{name:"Review",exact:true}).first().click();
+  await proof.getByRole("button",{name:"Approve machine",exact:true}).waitFor();
+  assert.equal(new URL(page.url()).pathname,"/machine-approval/K7F2");
+  assert.equal(await page.evaluate(()=>document.activeElement?.tagName),"H2");
+  await capture("machines-review");
+  await proof.getByRole("button",{name:"Approve machine",exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector("#machines .machine-approval-next"));
+  assert.equal(await proof.locator("tbody tr").count(),2);
+  await capture("machines-approved");
+  await page.evaluate(()=>window.approvalRoute("G8P3"));
+  await capture("approval-others");
+  await page.evaluate(()=>window.approvalRoute(null));
+  assert.equal(await proof.locator("input,form").count(),0);
+  await capture("approval-list");
+  await page.close();
+ }
+ await writeFile(path.join(output,"machines-measurements.json"),JSON.stringify({head_sha:head,data_source:"source fixtures; no live universe",captures},null,2));
+ console.log("Captured "+captures.length+" Machines and approval source fixtures on "+head);
 }finally{await browser.close();await new Promise((resolve)=>server.close(resolve));}

@@ -84,6 +84,7 @@ async function renderView(handlers) {
   renderMachinesView({
     document: documentNode,
     client,
+    capabilities: { data: { portability: { mode: "hosted" } } },
     isMounted: () => true,
     projects: () => [{ id: 1, slug: "yoke", name: "Yoke" }],
   }, main);
@@ -92,6 +93,7 @@ async function renderView(handlers) {
 
 function fastMachines(openHandler) {
   return {
+    "machine_authorization.pending": () => ok({ requests: [] }),
     "machine.list": () => ok({
       machines: [machineRow("m1", "studio")],
       count: 1,
@@ -182,6 +184,7 @@ test("a large open roster keeps every session in the machine totals", async () =
     }));
   }
   const { main } = await renderView({
+    "machine_authorization.pending": () => ok({ requests: [] }),
     "machine.list": () => ok({
       machines: [machineRow("alpha", "alpha-box"), machineRow("beta", "beta-box")],
       count: 2,
@@ -207,6 +210,26 @@ test("a large open roster keeps every session in the machine totals", async () =
   assert.equal(byClass(main, "machine-work-rest")[0].children.length, 3);
 });
 
+for (const failedRead of ["session_control.relay.list", "sessions.list"]) {
+  test(`waiting machines remain visible when ${failedRead} fails`, async () => {
+    const handlers = fastMachines(() => ok({ rows: [] }));
+    handlers[failedRead] = () => fail("telemetry unavailable");
+    handlers["machine_authorization.pending"] = () => ok({ requests: [{
+      code: "K7F2", machine: "New laptop", requested_by: null,
+      expires_at: new Date(Date.now() + 540000).toISOString(), state: "pending",
+    }] });
+    const { main, client } = await renderView(handlers);
+    await settle();
+    const panel = byClass(main, "machine-pending")[0];
+    assert.equal(panel.hidden, false);
+    assert.match(panel.textContent, /New laptop.*Review/);
+    assert.equal(main.children[1].contains(panel), true);
+    assert.equal(main.children[0].className, "sessions-action-status");
+    assert.equal(main.children[2].className, "machine-roster-stats-host");
+    assert.equal(client.requests.filter((r) => r.function === "machine_authorization.pending").length, 1);
+  });
+}
+
 test("initial machine roster failure offers an in-place retry", async () => {
   let attempts = 0;
   const handlers = fastMachines(() => ok({ rows: [] }));
@@ -218,6 +241,18 @@ test("initial machine roster failure offers an in-place retry", async () => {
   byClass(main, "machines-retry")[0].dispatchEvent(new Event("click"));
   await settle();
   assert.equal(attempts, 2);
+  assert.equal(byClass(main, "machine-card").length, 1);
+});
+
+test("a pending relay read does not delay waiting machines", async () => {
+  const held = deferred(), handlers = fastMachines(() => ok({ rows: [] }));
+  handlers["session_control.relay.list"] = () => held.promise;
+  handlers["machine_authorization.pending"] = () => ok({ requests: [{ code: "K7F2",
+    machine: "New laptop", expires_at: new Date(Date.now() + 540000).toISOString() }] });
+  const { main } = await renderView(handlers); await settle();
+  assert.equal(byClass(main, "machine-card").length, 0);
+  assert.match(byClass(main, "machine-pending")[0].textContent, /New laptop.*Review/);
+  held.resolve(ok({ relays: [] })); await settle();
   assert.equal(byClass(main, "machine-card").length, 1);
 });
 

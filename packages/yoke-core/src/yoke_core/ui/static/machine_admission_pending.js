@@ -12,12 +12,13 @@ export function renderPendingMachines(context, host, { selectedCode, compact = f
   const body = el(doc, "div", "panel-body");
   const list = el(doc, "div");
   const card = el(doc, "div", "machine-pending-card");
+  card.id = "machine-pending-card";
   const status = el(doc, "p", "machine-pending-status");
   status.setAttribute("role", "status");
   status.setAttribute("aria-live", "polite");
   header.appendChild(heading);
-  body.append(list, status, card);
-  panel.append(header, body);
+  [list, status, card].forEach((node) => body.appendChild(node));
+  [header, body].forEach((node) => panel.appendChild(node));
   panel.hidden = true;
   host.replaceChildren(panel);
   if (portabilityMode(context.capabilities) === "local") {
@@ -50,7 +51,6 @@ export function renderPendingMachines(context, host, { selectedCode, compact = f
     clock.history.replaceState(clock.history.state, "", href);
     if (onSelect) onSelect(code);
     else {
-      card.id = `machine-pending-card-${code}`;
       renderApprovalCard(context, card, code, { embedded: true, onDecided: reload });
     }
     paint();
@@ -79,9 +79,10 @@ export function renderPendingMachines(context, host, { selectedCode, compact = f
     }
     if (!shown.length) {
       if (compact && !selected) {
-        status.append(el(doc, "span", null, "No machines are waiting. Run "),
+        [el(doc, "span", null, "No machines are waiting. Run "),
           el(doc, "code", null, "yoke connect <server>"),
-          el(doc, "span", null, " on the new machine, then open the link it prints."));
+          el(doc, "span", null, " on the new machine, then open the link it prints.")]
+          .forEach((node) => status.appendChild(node));
       }
       return;
     }
@@ -97,7 +98,7 @@ export function renderPendingMachines(context, host, { selectedCode, compact = f
       tr.appendChild(th);
     }
     thead.appendChild(tr);
-    table.append(thead, tbody);
+    [thead, tbody].forEach((node) => table.appendChild(node));
     let nextExpiry = Infinity;
     for (const request of shown) {
       const row = el(doc, "tr");
@@ -129,7 +130,7 @@ export function renderPendingMachines(context, host, { selectedCode, compact = f
         const review = el(doc, "button", "item-button primary", "Review");
         review.type = "button";
         review.setAttribute("aria-expanded", String(request.code === selected));
-        review.setAttribute("aria-controls", onSelect ? "machine-approval-selected" : `machine-pending-card-${request.code}`);
+        review.setAttribute("aria-controls", onSelect ? "machine-approval-selected" : card.id);
         review.addEventListener("click", () => select(request.code));
         cells[4].appendChild(review);
       }
@@ -149,6 +150,7 @@ export function renderPendingMachines(context, host, { selectedCode, compact = f
       const reply = await callFunction(context.client, "machine_authorization.pending", {});
       if (!reply.envelope?.success) throw reply.envelope?.error || {};
       if (current !== sequence || !active()) return;
+      if (!Array.isArray(reply.envelope.result?.requests)) throw new Error("Pending requests unavailable");
       rows = reply.envelope.result.requests;
       failure = null;
     } catch (error) {

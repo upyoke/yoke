@@ -91,8 +91,8 @@ function facts(doc, authorization, org, approved) {
 export async function renderMachineApproval(context, main, _scope, code, page = {}) {
   main.replaceChildren();
   if (page.setPageHead) page.setPageHead({ title: "Connect your machine" });
-  else main.appendChild(el(context.document, "h1", "title", "Connect your machine"));
   if (portabilityMode(context.capabilities) === "local") {
+    if (!page.setPageHead) main.appendChild(el(context.document, "h1", "title", "Connect your machine"));
     const card = el(context.document, "section", "machine-approval-card");
     card.appendChild(localReachabilityNotice(context.document, { variant: "full" }));
     main.appendChild(card);
@@ -101,9 +101,12 @@ export async function renderMachineApproval(context, main, _scope, code, page = 
   const selected = el(context.document, "div");
   selected.id = "machine-approval-selected";
   const pending = el(context.document, "div");
-  main.append(selected, pending);
-  const open = (value) => renderApprovalCard(context, selected, value, { page, onDecided: () => list.reload() });
-  const list = renderPendingMachines(context, pending, { selectedCode: code, compact: true, onSelect: open });
+  main.appendChild(selected);
+  main.appendChild(pending);
+  if (!code && !page.setPageHead) selected.appendChild(el(context.document, "h1", "title", "Connect your machine"));
+  const mountedContext = { ...context, isMounted: () => context.isMounted() && main.isConnected !== false && main.contains(selected) };
+  const open = (value) => renderApprovalCard(mountedContext, selected, value, { page, onDecided: () => list.reload() });
+  const list = renderPendingMachines(mountedContext, pending, { selectedCode: code, compact: true, onSelect: open });
   if (code) return open(code);
 }
 
