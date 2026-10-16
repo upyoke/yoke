@@ -14,6 +14,18 @@ def test_command_accepts_a_declared_host():
     assert normalize_config_machine("command", config) == "linux-lab"
 
 
+def test_declared_host_command_cannot_run_as_host_free_work():
+    from yoke_core.domain.qa_plan_host_free_cases import is_host_free_case
+
+    assert is_host_free_case({"runner_id": "worktree_run", "method_config": {}})
+    assert not is_host_free_case(
+        {
+            "runner_id": "worktree_run",
+            "method_config": {"machine": "linux-lab"},
+        }
+    )
+
+
 @pytest.fixture
 def owned_plan(monkeypatch):
     execution = {

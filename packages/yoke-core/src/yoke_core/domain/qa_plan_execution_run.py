@@ -142,24 +142,22 @@ def execute_begun_plan(
                 )
                 advance_result = False
             else:
+                result = None
                 if requirement.get("runner_id") == "worktree_run" and (
                     requirement.get("method_config") or {}
                 ).get("machine"):
                     from yoke_core.domain.qa_plan_command_case import begin_command_host
 
-                    waiting = begin_command_host(
+                    result = begin_command_host(
                         requirement,
                         execution_id=execution_id,
                         ordinal=ordinal,
                         target=target,
                         actor=resolved_actor,
                     )
-                    if waiting is not None:
-                        results.append({**order, **waiting})
-                        state = "waiting"
-                        break
-                result = _execute_local(requirement)
-                advance_result = True
+                advance_result = result is None
+                if advance_result:
+                    result = _execute_local(requirement)
             if int(result.get("requirement_id") or 0) != requirement_id:
                 raise QaPlanExecutionError(
                     f"case runner returned the wrong requirement for {requirement_id}"
