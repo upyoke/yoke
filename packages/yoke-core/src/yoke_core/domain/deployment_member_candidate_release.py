@@ -7,6 +7,11 @@ from typing import Any
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.project_identity import render_item_ref
 
+#: Removal source for a failed member whose recorded correction already
+#: landed outside this run's frozen lineage: its rework is done, so the
+#: owner waits on the later release instead of classifying the failure.
+CORRECTION_RELEASE_REMOVED_BY = "item QA failure"
+
 
 def candidate_exclusions(
     conn: Any, run_id: str, members: list[dict[str, Any]], *, include_lane_head: bool
@@ -111,7 +116,7 @@ def release_failed_member(conn: Any, *, run_id: str, stage: str, item_id: int) -
         return False
     reason = "failed item QA cannot pass against this run's frozen lineage; recorded merge is not contained; awaiting a later release"
     ref = remove_member_on(
-        conn, run_id, item_id, reason=reason, removed_by="item QA failure"
+        conn, run_id, item_id, reason=reason, removed_by=CORRECTION_RELEASE_REMOVED_BY
     )
     conn.commit()
     print(f"Released {ref} from run {run_id}: {reason}.")
