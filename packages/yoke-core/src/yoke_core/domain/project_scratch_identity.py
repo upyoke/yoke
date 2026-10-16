@@ -86,7 +86,9 @@ def machine_scope_namespace() -> tuple[str, ...]:
     )
     # Encode separators and the actor delimiter without merging distinct names.
     key = quote(authority, safe="").replace("-", "%2D").replace(".", "%2E")
-    return (MACHINE_SCOPE_DIRNAME + safe_segment(key),)
+    # Named connections are distinct from the unnamed local/offline modes.
+    mode = "env-" if env else ""
+    return (MACHINE_SCOPE_DIRNAME + mode + safe_segment(key),)
 
 
 def resolve_scratch_namespace(

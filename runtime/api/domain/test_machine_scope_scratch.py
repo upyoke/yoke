@@ -88,13 +88,45 @@ def test_authorities_isolated(monkeypatch, authority):
     assert identity.machine_scope_namespace() != namespace
 
 
+@pytest.mark.parametrize("authority", ["local", "offline"])
+@pytest.mark.parametrize("local_dsn", [False, True])
+def test_named_authorities_do_not_alias_fallback_modes(
+    monkeypatch, authority, local_dsn
+):
+    def paths_for_authority():
+        unbound = (
+            identity.resolve_scratch_namespace(None, bound_project=None),
+            scratch.hook_marker_path("ready"),
+            scratch.harness_runtime_cache_path("cache.json"),
+            scratch.scratch_root(),
+        )
+        with scratch.scratch_machine_owner(11):
+            return unbound + (
+                identity.resolve_scratch_namespace(None, bound_project=None),
+                scratch.hook_marker_path("ready"),
+                scratch.harness_runtime_cache_path("cache.json"),
+                scratch.scratch_root(),
+            )
+
+    monkeypatch.setattr(db_backend, "pg_dsn_is_bound", lambda: local_dsn)
+    fallback_paths = paths_for_authority()
+    monkeypatch.setattr(
+        yoke_connected_env,
+        "load_active",
+        lambda: SimpleNamespace(environment=authority),
+    )
+    named_paths = paths_for_authority()
+    for fallback, named in zip(fallback_paths, named_paths, strict=True):
+        assert fallback != named
+
+
 def test_local_dsn_authority(monkeypatch):
     monkeypatch.setattr(db_backend, "pg_dsn_is_bound", lambda: True)
     assert identity.machine_scope_namespace() == ("_machine-local",)
     monkeypatch.setattr(
         yoke_connected_env, "load_active", lambda: SimpleNamespace(environment="prod")
     )
-    assert identity.machine_scope_namespace() == ("_machine-prod",)
+    assert identity.machine_scope_namespace() == ("_machine-env-prod",)
 
 
 def test_machine_owner_binding_isolates_actors():
