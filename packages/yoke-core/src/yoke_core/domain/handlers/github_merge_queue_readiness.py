@@ -66,7 +66,9 @@ def handle_readiness(request: FunctionCallRequest) -> HandlerOutcome:
 
     project = item.get("project") or {}
     target = str(project.get("default_branch") or "main")
-    pr_number = str((item.get("merge_queue") or {}).get("pr_number") or "")
+    from yoke_contracts.merge_queue_status import in_flight_landing
+
+    pr_number = in_flight_landing(item.get("merge_queue"))["pr_number"]
     if pr_number:
         ctx = MergeContext(
             args=MergeArgs(branch="", target=target),

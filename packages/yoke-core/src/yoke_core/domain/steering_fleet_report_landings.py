@@ -53,14 +53,22 @@ def _candidates(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
     marker = _marker(conn)
     terminal = tuple(sorted(TERMINAL_STATUSES))
     terminal_slots = ",".join(marker for _ in terminal)
+    # An open re-land attempt is the item's landing in flight; the current
+    # landing it would replace is already delivered and is not shown.
     rows = conn.execute(
         "SELECT i.id, i.project_sequence, i.status, "
-        "i.merge_queue_pr_number, i.merge_queue_enqueued_at, i.merge_queue_notified_at, "
+        "COALESCE(a.pr_number, i.merge_queue_pr_number) AS merge_queue_pr_number, "
+        "CASE WHEN a.item_id IS NULL THEN i.merge_queue_enqueued_at "
+        "ELSE a.enqueued_at END AS merge_queue_enqueued_at, "
+        "CASE WHEN a.item_id IS NULL THEN i.merge_queue_notified_at END "
+        "AS merge_queue_notified_at, "
         "p.slug, p.public_item_prefix, "
         "p.default_branch FROM items i JOIN projects p ON p.id=i.project_id "
+        "LEFT JOIN merge_queue_landing_attempts a "
+        "ON a.item_id=i.id AND a.closed_at IS NULL "
         f"WHERE i.project_id={marker} "
-        "AND i.merge_queue_pr_number IS NOT NULL "
-        "AND (i.merge_queue_landed_at IS NULL OR i.merge_queue_notified_at IS NULL) "
+        "AND (a.item_id IS NOT NULL OR (i.merge_queue_pr_number IS NOT NULL "
+        "AND (i.merge_queue_landed_at IS NULL OR i.merge_queue_notified_at IS NULL))) "
         f"AND i.status NOT IN ({terminal_slots}) ORDER BY i.id",
         (int(project_id), *terminal),
     ).fetchall()

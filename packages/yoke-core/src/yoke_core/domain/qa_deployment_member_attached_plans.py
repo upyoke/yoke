@@ -94,6 +94,7 @@ def _read_attached_member_plan_ids(
     environment its flow deploys to.
     """
     from yoke_core.domain.deployment_qa_presentation_facts import attachment_rows
+    from yoke_core.domain.deployment_qa_presentation_reads import presentation_read
 
     rows = attachment_rows(conn, int(member_item_id))
     if rows is not None:
@@ -122,14 +123,41 @@ def _read_attached_member_plan_ids(
             from yoke_core.domain.qa_plan_case_definition import plan_cases
             from yoke_core.domain.qa_plan_case_targets import case_target_envs
 
-            environment = conn.execute(
-                "SELECT name FROM environments WHERE id=%s", (environment_id,)
-            ).fetchone()
+            environment = presentation_read(
+                conn,
+                ("qa_attachment_environment", environment_id),
+                lambda: conn.execute(
+                    "SELECT name FROM environments WHERE id=%s", (environment_id,)
+                ).fetchone(),
+            )
             name = str(environment[0]) if environment else ""
-            if not any(
-                name in case_target_envs(case)
-                for case in plan_cases(conn, int(row["plan_id"]))
-            ):
+            plan_id = int(row["plan_id"])
+
+            def read_cases():
+                from yoke_core.domain.deployment_qa_shared_plan_reads import (
+                    presented_plan_rows,
+                )
+                from yoke_core.domain.qa_plan_case_definition import (
+                    materialized_plan_cases,
+                )
+
+                batch = presented_plan_rows(conn, plan_id)
+                if batch is None:
+                    return plan_cases(conn, plan_id)
+                return materialized_plan_cases(
+                    [
+                        {"plan_slug": batch[0]["slug"], **dict(case)}
+                        for case in batch[1]
+                    ],
+                    plan_id,
+                )
+
+            cases = presentation_read(
+                conn,
+                ("qa_attachment_cases", plan_id),
+                read_cases,
+            )
+            if not any(name in case_target_envs(case) for case in cases):
                 continue
         selected.append(int(row["plan_id"]))
     return selected

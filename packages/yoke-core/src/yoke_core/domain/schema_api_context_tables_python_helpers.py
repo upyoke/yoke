@@ -107,8 +107,8 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
     "yoke_core.domain.merge_queue_landing_record_schema": {
         "columns": [("ensure_merge_queue_landing_record_schema", "callable")],
         "notes": (
-            "This production schema owner creates merge_queue_landing_records "
-            "and merge_queue_landing_refreshes. Wrong guess: the relaxed test_db "
+            "This production schema owner creates merge_queue_landing_records, "
+            "merge_queue_landing_attempts and merge_queue_landing_refreshes. Wrong guess: the relaxed test_db "
             "fixture already contains these landing tables. "
             "Call this owner before converting those landing clocks in a test; "
             "do not invent replacement table DDL or apply schema to a live database."

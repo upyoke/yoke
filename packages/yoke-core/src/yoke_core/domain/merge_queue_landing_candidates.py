@@ -38,6 +38,10 @@ def pending_landing_rows(conn: Any, project_ids: Iterable[int]) -> list[dict[str
     because the admission exists on only one of the two landing routes. The
     set stays bounded by live work: a notified landing drops out at once,
     and close-out clears the pull request number outright.
+
+    An open re-land attempt stands in for the item's current landing: its
+    pull request and arming episode are read, with no landing yet, and the
+    row says ``attempt`` so the observer settles it on the attempt record.
     """
     projects = tuple(sorted({int(value) for value in project_ids}))
     if not projects or not _column_exists(conn, "items", "merge_queue_enqueued_at"):
@@ -46,19 +50,26 @@ def pending_landing_rows(conn: Any, project_ids: Iterable[int]) -> list[dict[str
     slots = ",".join(marker for _ in projects)
     terminal = sorted(TERMINAL_STATUSES)
     terminal_slots = ",".join(marker for _ in terminal)
+    pr = "COALESCE(a.pr_number, i.merge_queue_pr_number)"
     rows = conn.execute(
-        "SELECT i.id, i.project_id, i.project_sequence, i.merge_queue_pr_number, "
-        "i.merge_queue_enqueued_at, i.merge_queue_landed_at, "
-        f"CASE WHEN l.pr_number=i.merge_queue_pr_number AND l.state={marker} AND "
+        f"SELECT i.id, i.project_id, i.project_sequence, {pr} AS merge_queue_pr_number, "
+        "CASE WHEN a.item_id IS NULL THEN i.merge_queue_enqueued_at "
+        "ELSE a.enqueued_at END AS merge_queue_enqueued_at, "
+        "CASE WHEN a.item_id IS NULL THEN i.merge_queue_landed_at END "
+        "AS merge_queue_landed_at, "
+        "CASE WHEN a.item_id IS NULL THEN 0 ELSE 1 END AS attempt, "
+        f"CASE WHEN l.pr_number={pr} AND l.state={marker} AND "
         f"(l.merge_when_ready={marker} OR l.queue_holding={marker}) "
         "THEN 1 ELSE 0 END AS previously_held, "
         "l.observed_at AS previous_observed_at, p.slug, "
         "p.public_item_prefix, p.default_branch "
         "FROM items i JOIN projects p ON p.id=i.project_id "
+        "LEFT JOIN merge_queue_landing_attempts a "
+        "ON a.item_id=i.id AND a.closed_at IS NULL "
         "LEFT JOIN merge_queue_landing_records l ON l.item_id=i.id "
         f"WHERE i.project_id IN ({slots}) "
-        "AND i.merge_queue_pr_number IS NOT NULL "
-        "AND NULLIF(CAST(i.merge_queue_notified_at AS TEXT),'') IS NULL "
+        "AND (a.item_id IS NOT NULL OR (i.merge_queue_pr_number IS NOT NULL "
+        "AND NULLIF(CAST(i.merge_queue_notified_at AS TEXT),'') IS NULL)) "
         f"AND i.status NOT IN ({terminal_slots}) ORDER BY i.id",
         (PENDING, MERGE_WHEN_READY_ARMED, ENQUEUED, *projects, *terminal),
     ).fetchall()

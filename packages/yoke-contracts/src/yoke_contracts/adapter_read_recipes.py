@@ -105,11 +105,13 @@ RECIPES: tuple[ReadRecipe, ...] = (
     ReadRecipe(
         want="Specific rows",
         recipe=(
-            'yoke db read "SELECT id, status FROM items ORDER BY id DESC LIMIT 20"'
+            'yoke db read "SELECT r.public_ref, i.status FROM items i '
+            'JOIN item_refs r ON r.item_id = i.id ORDER BY i.id DESC LIMIT 20"'
         ),
         note=(
             "The columns, the filter, and the row count are all part of the "
-            "question; --format lines serves pipe-delimited rows."
+            "question; item_refs turns item ids into PREFIX-N refs; "
+            "--format lines serves pipe-delimited rows."
         ),
     ),
     ReadRecipe(

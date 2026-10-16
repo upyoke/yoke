@@ -1,8 +1,9 @@
-"""Route failed wakes to project steering or the original sender.
+"""Route failed wakes to project steering or org sender/actor notices.
 
 The original receipt and its bounded retries remain authoritative. This is
-only a failure notice, recorded through the existing message store. Org-owned
-engine messages notify the affected session's actor. A notice never raises another.
+only a failure notice, recorded through the existing message store. Project
+notices reach only steering; org notices reach the human sender or affected
+actor for engine messages. A notice never raises another.
 """
 
 from __future__ import annotations
@@ -118,8 +119,8 @@ def notify_failed_wake(
             recipients = resolve_recipients(
                 conn, selector, now=now, steering_target=address.coverage_target()
             )
-    sender_session = str(original[3] or "")
-    sender_actor = original[4]
+    sender_session = str(original[3] or "") if project_id is None else ""
+    sender_actor = original[4] if project_id is None else None
     actor_reason = "original_sender"
     if project_id is None and sender_actor is None:
         sender_session = ""
@@ -141,14 +142,8 @@ def notify_failed_wake(
         actor = conn.execute(
             f"SELECT kind FROM actors WHERE id={p}", (sender_actor,)
         ).fetchone()
-        if actor is not None and (project_id is None or actor[0] == "human"):
+        if actor is not None:
             org_id = policy.org_id
-            if project_id is not None:
-                org_id = int(
-                    conn.execute(
-                        f"SELECT org_id FROM projects WHERE id={p}", (project_id,)
-                    ).fetchone()[0]
-                )
             actors = [
                 ResolvedActorRecipient(
                     int(sender_actor), None, {org_id}, [actor_reason]

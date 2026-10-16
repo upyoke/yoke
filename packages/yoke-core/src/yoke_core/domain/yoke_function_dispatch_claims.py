@@ -6,8 +6,8 @@ maps to one verification predicate:
 
 - ``"item"`` / ``"epic"`` — consult the canonical session-claim lookup
   for the target item / epic id; require the actor's ``session_id`` to
-  match the active claim row. Path-claim posture amendments also accept a
-  covering live steering seat.
+  match the active claim row. ``STEERING_ITEM_WRITES`` (path-claim and level
+  posture amendments) also accept a covering live steering seat.
 - ``"self_only"`` — read ``work_claims`` by id; require the actor to own
   the claim row.
 - ``"steering"`` — require a live steering seat covering the target scope.
@@ -47,6 +47,12 @@ from yoke_core.domain.yoke_function_dispatch_claims_resolve import (
 )
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
+# (function, posture key) writes a covering live steering seat may make on an
+# item another session holds; every other item write needs the holder's claim.
+STEERING_ITEM_WRITES = frozenset(
+    ("workflows.item_posture.amend", key) for key in ("path_claims", "level")
+)
 
 
 def who_claims_for_item(item_id: int) -> Optional[Dict[str, Any]]:
@@ -197,10 +203,7 @@ def verify_claim(
         row = who_claims_for_item(int(target_id))
         claim_session = str((row or {}).get("session_id") or "")
         if not row or claim_session != actor_session:
-            if (
-                fid == "workflows.item_posture.amend"
-                and request.payload.get("key") == "path_claims"
-            ):
+            if (fid, request.payload.get("key")) in STEERING_ITEM_WRITES:
                 seat, _ = steering_seat_for_request(entry, request)
                 if seat is not None:
                     allow_claim_verification(
@@ -270,12 +273,7 @@ def verify_claim(
                     "first: yoke claims work acquire",
                 )
             # Lookup filters on actor session — resolution is ownership proof.
-            _allow_resolved_self_claim(
-                evidence,
-                target,
-                actor_session,
-                resolved,
-            )
+            _allow_resolved_self_claim(evidence, target, actor_session, resolved)
             return None
         if claim_id is None:
             return _claim_error(

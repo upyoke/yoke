@@ -1,4 +1,9 @@
-"""Durable merge-queue landing observations and project refresh cadence."""
+"""Durable merge-queue landing observations, re-land attempts, and refresh cadence.
+
+An attempt is a pull request opened for an item that already landed. It is
+kept here rather than on the item's ``merge_queue_*`` columns so the item's
+current landing stays intact until the new pull request actually merges.
+"""
 
 from __future__ import annotations
 
@@ -28,6 +33,18 @@ CREATE TABLE IF NOT EXISTS merge_queue_landing_records (
 );
 CREATE INDEX IF NOT EXISTS idx_merge_queue_landing_records_project
   ON merge_queue_landing_records(project_id, observed_at);
+CREATE TABLE IF NOT EXISTS merge_queue_landing_attempts (
+  item_id INTEGER NOT NULL REFERENCES items(id),
+  project_id INTEGER NOT NULL REFERENCES projects(id),
+  pr_number TEXT NOT NULL,
+  enqueued_at TIMESTAMPTZ,
+  opened_at TIMESTAMPTZ NOT NULL,
+  closed_at TIMESTAMPTZ,
+  closed_reason TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (item_id, pr_number)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_merge_queue_landing_attempts_open
+  ON merge_queue_landing_attempts(item_id) WHERE closed_at IS NULL;
 CREATE TABLE IF NOT EXISTS merge_queue_landing_refreshes (
   project_id INTEGER PRIMARY KEY REFERENCES projects(id),
   started_at TIMESTAMPTZ NOT NULL,

@@ -12,6 +12,7 @@ from yoke_contracts.machine_qa_execution import (
     REQUIRED_SESSION_CONTEXT_FIELD,
 )
 from yoke_contracts.machine_qa_failures import (
+    SSH_UNAVAILABLE,
     HostControlLocalError,
     bounded_machine_qa_diagnostic,
 )
@@ -62,7 +63,11 @@ class SshMacTransport(SshTestMachineTransport):
         )
         if result.returncode:
             raise HostControlLocalError(
-                code="host_control_connection_failed",
+                code=(
+                    SSH_UNAVAILABLE
+                    if result.returncode in (124, 255)
+                    else "host_control_connection_failed"
+                ),
                 phase="host_facts_ssh",
                 detail="SSH could not collect test-machine host facts",
                 exit_code=int(result.returncode),
@@ -98,7 +103,7 @@ class SshMacTransport(SshTestMachineTransport):
         result = self._run("/usr/bin/true", timeout=20)
         return HostActionResult(
             ok=result.returncode == 0,
-            error_code=None if result.returncode == 0 else "ssh_unavailable",
+            error_code=None if result.returncode == 0 else SSH_UNAVAILABLE,
             evidence={
                 "transport": "ssh",
                 "host": self._host,

@@ -1,5 +1,7 @@
 """Proof command scoping follows the current registered CLI response contract."""
 
+import sqlite3
+
 import pytest
 
 from runtime.api.tools import materialization_deadline_proof as proof
@@ -51,13 +53,41 @@ def test_member_project_and_public_ref_identity_are_required(
         }, 0.1
 
     monkeypatch.setattr(proof, "call", call)
-    if count < 44:
-        with pytest.raises(RuntimeError, match="materialization_proof_population"):
-            proof.main()
-        assert len(calls) == 1  # no materialization below representative population
-    elif returned_member != member:
+    if returned_member != member:
         with pytest.raises(RuntimeError, match="materialization_proof_member"):
             proof.main()
     else:
         proof.main()
         assert sum(args[:3] == ("qa", "plan", "materialize") for args in calls) == 2
+
+
+def test_execution_count_ignores_other_members_stages_and_runs():
+    conn = sqlite3.connect(":memory:")
+    conn.executescript("""
+        CREATE TABLE deployment_run_items(run_id TEXT, item_id INTEGER);
+        CREATE TABLE item_refs(item_id INTEGER, public_ref TEXT);
+        CREATE TABLE items(id INTEGER, project_id INTEGER);
+        CREATE TABLE projects(id INTEGER, slug TEXT);
+        CREATE TABLE qa_plan_executions(
+            deployment_run_id TEXT, deployment_stage TEXT,
+            deployment_member_item_id INTEGER);
+        INSERT INTO projects VALUES(1, 'member-project');
+        INSERT INTO items VALUES(1,1),(2,1);
+        INSERT INTO item_refs VALUES(1,'EX-7'),(2,'EX-8');
+        INSERT INTO deployment_run_items VALUES('current',1),('current',2);
+        INSERT INTO qa_plan_executions VALUES('current','item-qa',1);
+    """)
+    query = proof.population_query("current", "item-qa", "EX-7")
+    before = conn.execute(query).fetchone()
+    conn.executemany(
+        "INSERT INTO qa_plan_executions VALUES(?,?,?)",
+        [
+            ("current", "item-qa", 2),
+            ("current", "other-stage", 1),
+            ("other-run", "item-qa", 1),
+            ("current", "item-qa", None),
+        ],
+    )
+    assert conn.execute(query).fetchone() == before == (2, 1, "EX-7", "member-project")
+    conn.execute("INSERT INTO qa_plan_executions VALUES('current','item-qa',1)")
+    assert conn.execute(query).fetchone() == (2, 2, "EX-7", "member-project")

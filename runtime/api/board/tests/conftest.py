@@ -58,6 +58,17 @@ _SCHEMA_DDL = textwrap.dedent("""\
         merge_queue_landed_at TIMESTAMPTZ
     );
 
+    CREATE TABLE merge_queue_landing_attempts (
+        item_id INTEGER NOT NULL,
+        project_id INTEGER NOT NULL,
+        pr_number TEXT NOT NULL,
+        enqueued_at TIMESTAMPTZ,
+        opened_at TIMESTAMPTZ NOT NULL,
+        closed_at TIMESTAMPTZ,
+        closed_reason TEXT NOT NULL DEFAULT '',
+        PRIMARY KEY (item_id, pr_number)
+    );
+
     CREATE TABLE projects (
         id INTEGER PRIMARY KEY,
         slug TEXT NOT NULL UNIQUE,

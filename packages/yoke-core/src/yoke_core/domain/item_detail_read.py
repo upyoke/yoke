@@ -27,6 +27,7 @@ from yoke_core.domain.item_page_claims import active_item_claims
 from yoke_core.domain.item_detail_qa import qa_plan_attachments, qa_rows
 from yoke_core.domain.item_terminal_resources import terminal_stage_ids
 from yoke_core.domain.item_worktrees import list_item_worktrees
+from yoke_core.domain.merge_queue_landing_attempt import read_latest_attempt
 from yoke_core.domain.render_body import build_body
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.workflow_behavior import worktree_lane_policy
@@ -54,6 +55,33 @@ _MERGE_QUEUE_COLUMNS = (
     "merge_queue_landed_at",
     "merge_queue_notified_at",
 )
+
+
+def _merge_queue(conn: Any, item_id: int, row: dict[str, Any]) -> dict[str, Any]:
+    """The item's current landing, plus its latest re-land attempt.
+
+    ``pr_number`` and the stamps name the current landing. ``attempt`` is
+    the open re-land attempt, or the last closed one with its reason; the
+    status label follows the open attempt, which is the landing in flight.
+    """
+    attempt = (
+        read_latest_attempt(conn, item_id)
+        if _table_exists(conn, "merge_queue_landing_attempts")
+        else None
+    )
+    in_flight = attempt is not None and attempt["closed_at"] is None
+    return {
+        "pr_number": str(row.get("merge_queue_pr_number") or ""),
+        "enqueued_at": row.get("merge_queue_enqueued_at"),
+        "landed_at": row.get("merge_queue_landed_at"),
+        "notified_at": row.get("merge_queue_notified_at"),
+        "attempt": attempt,
+        "status": render_merge_queue_status(
+            attempt["enqueued_at"] if in_flight else row.get("merge_queue_enqueued_at"),
+            None if in_flight else row.get("merge_queue_landed_at"),
+            item_status=row.get("status"),
+        ),
+    }
 
 
 def _p(conn: Any) -> str:
@@ -224,17 +252,7 @@ def get_item_detail(item_id: int, *, include: Sequence[str] = ()) -> dict[str, A
             "deployment_flow": flow,
             "completion_flow": flow["value"],
             "completion_flow_source": flow["source"],
-            "merge_queue": {
-                "pr_number": str(row.get("merge_queue_pr_number") or ""),
-                "enqueued_at": row.get("merge_queue_enqueued_at"),
-                "landed_at": row.get("merge_queue_landed_at"),
-                "notified_at": row.get("merge_queue_notified_at"),
-                "status": render_merge_queue_status(
-                    row.get("merge_queue_enqueued_at"),
-                    row.get("merge_queue_landed_at"),
-                    item_status=row.get("status"),
-                ),
-            },
+            "merge_queue": _merge_queue(conn, item_id, row),
             "project": {
                 "id": int(row["project_id"]),
                 "slug": str(row["project"]),
