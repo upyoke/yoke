@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import io
+import os
+import socket
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from yoke_contracts import platform_file_lock
 
 from yoke_cli.commands.adapters import hooks
 from yoke_cli import hook_resident_client as client
@@ -31,7 +34,8 @@ def test_warning_claim_survives_separate_hook_processes(tmp_path):
         for _ in range(3)
     ]
     assert answers == ["True", "False", "False"]
-    assert (tmp_path / "fallback-warning").stat().st_mode & 0o777 == 0o600
+    if os.name != "nt":
+        assert (tmp_path / "fallback-warning").stat().st_mode & 0o777 == 0o600
 
 
 def test_concurrent_hook_process_handles_claim_only_one_warning(tmp_path):
@@ -104,11 +108,12 @@ def test_repeated_hooks_warn_once_and_preserve_fallback_verdict(
 
 
 def test_warning_lock_contention_does_not_block(tmp_path):
-    import fcntl
-
     with (tmp_path / "fallback-warning").open("w", encoding="utf-8") as state:
-        fcntl.flock(state, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        assert not health.claim_fallback_warning(tmp_path)
+        platform_file_lock.acquire_exclusive_nonblocking(state.fileno())
+        try:
+            assert not health.claim_fallback_warning(tmp_path)
+        finally:
+            platform_file_lock.release_exclusive(state.fileno())
 
 
 def test_warning_state_failure_preserves_hook_fallback(monkeypatch, tmp_path, capsys):
@@ -182,10 +187,12 @@ def test_missing_unix_socket_transport_reaches_canonical_fallback(
         ("unknown", "unknown", "", "", "YOKE_HOOK_REVISION_UNKNOWN"),
     ],
 )
+@pytest.mark.skipif(
+    not hasattr(socket, "AF_UNIX"), reason="resident health requires Unix sockets"
+)
 def test_health_reads_identity_without_evaluating_or_restarting(
     monkeypatch, loaded, expected, version, installed, reason
 ):
-    import socket
     import tempfile
     import threading
     from pathlib import Path
