@@ -3,5 +3,6 @@
  "title": "Waiver",
  "status": "draft-copy",
  "page": "qa-evidence",
- "position": 1
+ "position": 1,
+ "summary": "A waiver settles a requirement that still counts. Waiving a retracted, superseded or replaced row refuses with requirement_not_live and names the live copy of the same case to waive instead."
 }

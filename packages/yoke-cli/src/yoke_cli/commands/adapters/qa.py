@@ -139,7 +139,10 @@ def qa_requirement_waive(args: List[str]) -> int:
             "Record the operator's decision with --source operator and its rationale. "
             "The recorder must hold the item work claim, a live steering seat covering "
             "the item, or be the live driver of its requirement's run. Agent-sourced "
-            "waivers retain the normal QA subject claim rule."
+            "waivers retain the normal QA subject claim rule. A retracted, superseded "
+            "or replaced requirement no longer counts: waiving it refuses with "
+            "requirement_not_live and names the live copy of the same case to waive "
+            "instead, or says none is left."
         ),
     )
     parser.add_argument(

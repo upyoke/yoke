@@ -248,7 +248,9 @@ needs its item claim, a covering steering seat (including document membership),
 or the live driver of the run holding it. Steering can record the rationale while
 worker keeps item custody; re-drive that run. Another run's driver or an unrelated
 item grants nothing. Agent waivers keep normal QA subject-claim authority.
-Read `yoke qa requirement waive --help`.
+A retracted, superseded or replaced requirement no longer counts, so waiving it
+refuses with `requirement_not_live` and names the live copy of the same case to
+waive instead (or says none is left). Read `yoke qa requirement waive --help`.
 
 **Supersession:** corrected blocking case needs same run/stage/member/target
 (item: same item/transition/phase/target) and its own qualifying pass. History
