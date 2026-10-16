@@ -50,7 +50,6 @@ def _steering_notice(conn):
     ref = render_item_ref(conn, ITEM)
     assert f"{ref} was removed from run {RUN} by steering" in body
     assert "cancelled (not passed)" in body
-    assert "re-park" in body
     assert not _still_member(conn)
     assert (
         conn.execute(
@@ -71,7 +70,9 @@ def test_red_member_removal_keeps_the_rework_instruction(test_db):
         f"failed item QA requirement(s) #{requirement} still need classification"
         in body
     )
-    assert "start rework, or record its blocker" in body
+    assert "rework, then re-land through `yoke merge item`" in body
+    assert "park only after landing" in body
+    assert "record its blocker" in body
     assert "rides a later release" not in body
 
 
@@ -84,6 +85,7 @@ def test_member_without_a_red_verdict_rides_a_later_release(test_db):
     body = _steering_notice(test_db)
 
     assert "rides a later release; do not attempt close-out" in body
+    assert "re-park" in body
     assert "classification" not in body
 
 

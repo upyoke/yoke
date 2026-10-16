@@ -17,6 +17,13 @@ from yoke_core.domain.deployment_run_target_takeover import TAKEOVER_REMOVED_BY
 from yoke_core.domain.qa_latest_execution import latest_executions
 
 _SEND_SAVEPOINT = "_yoke_removed_member_notice"
+#: A fixable failure re-lands before the owner waits on delivery; parking
+#: right after a rework commit would leave the fix unlanded.
+_REWORK = (
+    "for a fixable failure, rework, then re-land through `yoke merge item`; "
+    "park only after landing. For an external failure, record its blocker. "
+    "Keep the work claim either way and park with "
+)
 #: Removals whose member QA continues elsewhere or whose newer candidate
 #: already moved past this run: a red verdict here owes no new rework.
 _NO_REWORK_SOURCES = frozenset(
@@ -65,16 +72,14 @@ def removal_notice_body(
         return (
             lead + "Its cancelled verdicts could not be read; inspect "
             f"`yoke qa requirement list --deployment-run-id {run_id}` before parking. "
-            "A failed requirement still needs classification: start rework, "
-            f"or record its blocker and re-park with {park}."
+            "A failed requirement still needs classification: " + _REWORK + park + "."
         )
     if red:
         failed = ", ".join(f"#{value}" for value in red)
         return (
             lead + f"Its failed item QA requirement(s) {failed} still need "
             "classification; recovery: `yoke qa plan run --help`. Classify the "
-            "failure and start rework, or record its blocker, keep the work claim "
-            f"and re-park with {park}. Do not attempt close-out from this run."
+            "failure: " + _REWORK + park + ". Do not attempt close-out from this run."
         )
     return (
         lead + "The item rides a later release; do not attempt close-out or re-run "
