@@ -4,9 +4,15 @@ from pathlib import Path
 import shutil
 
 import pytest
+import yaml
 
 from yoke_core.domain import documentation_render as render
-from yoke_core.domain.documentation_navigation import iter_nodes, load_navigation
+from yoke_core.domain.documentation_links import links, resolve_link, validate_links
+from yoke_core.domain.documentation_navigation import (
+    iter_nodes,
+    load_navigation,
+    validate_navigation,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures/documentation_corpus"
 
@@ -121,3 +127,76 @@ def test_measure_counts_wrapping_and_advisory_without_gate(corpus, capsys):
 def test_measure_refuses_missing_root(tmp_path, capsys):
     assert render.main(["measure", "--root", str(tmp_path / "absent")]) == 1
     assert "NAV_SCHEMA" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "my page",
+        "tab\tpage",
+        "line\npage",
+        "literal%20page",
+        "literal%2Fpage",
+        "close)page",
+        "café page",
+    ],
+    ids=[
+        "space",
+        "tab",
+        "newline",
+        "percent-space",
+        "percent-slash",
+        "parenthesis",
+        "unicode",
+    ],
+)
+def test_contents_and_breadcrumb_destinations_round_trip(tmp_path, monkeypatch, name):
+    category = f"guide-{name}/index.md"
+    leaf = f"articles/{name}.md"
+    leaf_node = dict(title="Leaf", summary="Read the leaf.", path=leaf)
+    category_node = dict(
+        title="Guide", summary="Read the guide.", path=category, children=[leaf_node]
+    )
+    root_node = dict(
+        title="Root", summary="Start here.", path="index.md", children=[category_node]
+    )
+    (tmp_path / "nav.yaml").write_text(
+        yaml.safe_dump({"root": root_node}), encoding="utf-8"
+    )
+    titles = {"index.md": "Root", category: "Guide", leaf: "Leaf"}
+    for page, title in titles.items():
+        path = tmp_path / page
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"# {title}\n", encoding="utf-8")
+    assert validate_navigation(tmp_path, complete=True) == []
+    monkeypatch.setattr(
+        render, "assert_target_under_session_work_authority", lambda path: None
+    )
+    assert render.main(["write", "--root", str(tmp_path)]) == 0
+
+    # Keep the category in a separate directory so its filename survives in
+    # both the root contents and the leaf's ancestor breadcrumb destination.
+    expected = {
+        "index.md": [category],
+        category: ["index.md", leaf],
+        leaf: ["index.md", category],
+    }
+    for page, destinations in expected.items():
+        parsed = links((tmp_path / page).read_text(encoding="utf-8"))
+        assert len(parsed) == len(destinations)
+        for link, destination in zip(parsed, destinations, strict=True):
+            resolved = resolve_link(page, link.target)
+            assert not resolved.external
+            assert (resolved.path, resolved.query, resolved.fragment) == (
+                destination,
+                "",
+                "",
+            )
+            assert (tmp_path / resolved.path).read_text(encoding="utf-8").splitlines()[
+                0
+            ] == f"# {titles[destination]}"
+    assert validate_links(tmp_path, expected) == []
+    before = {page: (tmp_path / page).read_bytes() for page in expected}
+    assert render.main(["write", "--root", str(tmp_path)]) == 0
+    assert before == {page: (tmp_path / page).read_bytes() for page in expected}
+    assert render.main(["check", "--root", str(tmp_path)]) == 0

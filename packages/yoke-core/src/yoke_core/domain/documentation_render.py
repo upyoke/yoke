@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import posixpath
 import tempfile
+from urllib.parse import quote
 
 from markdown_it import MarkdownIt
 from yoke_cli.transport.response_evidence import wrapped_lines
@@ -24,7 +25,7 @@ from yoke_core.domain.workspace_authority import (
 
 
 def _relative(page: str, target: str) -> str:
-    return posixpath.relpath(target, posixpath.dirname(page) or ".")
+    return quote(posixpath.relpath(target, posixpath.dirname(page) or "."), safe="/")
 
 
 def _block(name: str, body: str) -> str:
