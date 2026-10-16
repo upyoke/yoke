@@ -84,6 +84,8 @@ class DeltaState:
 
     active_alarms: set[str] = field(default_factory=set)
     unowned_since: dict[str, datetime] = field(default_factory=dict)
+    #: Last unstaffed-ready emit per item, so a repeat waits out the threshold.
+    unstaffed_emitted_at: dict[str, datetime] = field(default_factory=dict)
 
 
 def _raise_once(state: DeltaState, key: str, line: str) -> list[str]:
