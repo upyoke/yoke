@@ -193,8 +193,14 @@ def meter_wall(
     surface = str(row.get("executor_surface") or "").strip()
     machine_id = str(row.get("machine_id") or "").strip()
     project_id = row.get("project_id")
-    if not model or not surface or not machine_id or project_id is None:
+    if not model or not surface or not machine_id:
         return None
+    if project_id is None:
+        raise SessionMessageError(
+            "wake_meter_org_limits_unavailable",
+            "Organization-scoped plan limits are unavailable. Recovery: open a session "
+            "in the project folder to use that project's published plan limits.",
+        )
     rows = (
         limits
         if limits is not None
