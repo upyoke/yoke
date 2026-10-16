@@ -37,6 +37,7 @@ from yoke_contracts.project_contract.changed_path_scope import (
 from yoke_contracts.project_contract.file_line_git_scope import (
     resolve_file_line_git_scope,
 )
+from yoke_contracts import terminal_detached_process
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 LIMIT = DEFAULT_LIMIT
@@ -103,7 +104,7 @@ class CheckVerdict:
 def run_git(
     args: list[str], *, repo_root: pathlib.Path
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return terminal_detached_process.run(
         ["git", "-C", str(repo_root), *args],
         capture_output=True,
         text=True,

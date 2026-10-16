@@ -22,6 +22,7 @@ from yoke_contracts.self_host_handoff import (
     HANDOFF_CLIENT_MODULE,
     HANDOFF_TIMEOUT_SECONDS,
 )
+from yoke_contracts import terminal_detached_process
 
 #: How long ``docker compose up --wait`` may take for one service to be healthy.
 HEALTH_WAIT_SECONDS = 120
@@ -79,7 +80,7 @@ def compose(
 ) -> bytes:
     """Keep all Docker output private; surface only a named recovery on failure."""
     try:
-        result = subprocess.run(
+        result = terminal_detached_process.run(
             (executable, "compose", *args),
             cwd=directory,
             input=input,
@@ -185,7 +186,7 @@ def _receive_token(directory: Path, executable: str, header: bytes) -> None:
     )
     process = None
     try:
-        process = subprocess.Popen(
+        process = terminal_detached_process.popen(
             command,
             cwd=directory,
             stdin=subprocess.PIPE,
@@ -246,7 +247,7 @@ def import_universe(directory: Path, *, archive=None, recover: bool = False) -> 
     process = None
     errors = []
     try:
-        process = subprocess.Popen(
+        process = terminal_detached_process.popen(
             (
                 "docker",
                 "exec",
@@ -280,7 +281,7 @@ def import_universe(directory: Path, *, archive=None, recover: bool = False) -> 
         sender.start()
         output, _ = process.communicate(timeout=HANDOFF_TIMEOUT_SECONDS)
         sender.join(timeout=HANDOFF_TIMEOUT_SECONDS)
-        completion = subprocess.run(
+        completion = terminal_detached_process.run(
             ("docker", "wait", name),
             capture_output=True,
             timeout=HANDOFF_TIMEOUT_SECONDS,
@@ -301,6 +302,6 @@ def import_universe(directory: Path, *, archive=None, recover: bool = False) -> 
         if process is not None and process.poll() is None:
             process.kill()
             process.communicate()
-        subprocess.run(
+        terminal_detached_process.run(
             ("docker", "rm", "-f", name), capture_output=True, timeout=30, check=False
         )

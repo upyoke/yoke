@@ -1,0 +1,8 @@
+{
+ "id": "setup-helper-terminal-live-proof",
+ "title": "Prove released hosted setup keeps its terminal on the Linux Test Machine",
+ "status": "observed",
+ "text": "Unit and POSIX PTY tests prove wizard helper processes run detached from the terminal and that interactive sudo is refused inside the wizard. The released cold-start hosted Machine QA case on the Linux Test Machine must still reach the Open and One-time code screen with terminal ownership intact; the release's item QA owns that proof.",
+ "plan_refs": ["FIRST-USER.14"],
+ "sources": ["docs/public/guides/terminal-onboarding.md", "runtime/api/cli/test_onboard_terminal_ownership.py"]
+}

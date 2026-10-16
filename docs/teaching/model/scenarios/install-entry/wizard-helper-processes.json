@@ -1,0 +1,14 @@
+{
+ "id": "wizard-helper-processes",
+ "title": "Keep the setup wizard's terminal while it runs helper processes",
+ "status": "observed",
+ "audience": "human",
+ "when": "The setup wizard probes login-shell PATH, checks or opens a browser, or installs packages",
+ "need": "Helper processes started by the wizard read /dev/null and run in their own session with no controlling terminal, so an interactive login-shell probe cannot become the terminal's foreground job. Interactive sudo refuses with setup_wizard_sudo_refused while the wizard is open; setup's preparation step asks for the password before the wizard opens. A setup_terminal_ownership_lost message names the job-control signal, the foreground process group and its command, and the errno of a failed check.",
+ "disclosure": "Only when a helper would need the terminal, or ownership is lost",
+ "surface": "Setup TUI and the terminal onboarding guide",
+ "gap": "Live released proof on the Linux Test Machine is pending: see the setup-helper-terminal-live-proof gap.",
+ "review": "Before the change, a linux-lab strace of the public installer showed setup's fresh-login probe `bash -lic` issue TIOCSPGRP, then SIGTTOU stopped setup before the first wizard input; zsh -lic takes the foreground the same way on macOS. POSIX PTY regressions run the real probe for bash and zsh inside the wizard driver and assert ownership stays intact; the unfixed zsh probe failed with the enriched diagnostic naming the foreground job.",
+ "plan_refs": ["FIRST-USER.14"],
+ "sources": ["packages/yoke-contracts/src/yoke_contracts/terminal_detached_process.py", "packages/yoke-cli/src/yoke_cli/config/onboard_terminal_driver.py", "packages/yoke-harness/src/yoke_harness/system_privileges.py", "runtime/api/cli/test_onboard_terminal_ownership.py", "docs/public/guides/terminal-onboarding.md"]
+}

@@ -15,6 +15,7 @@ from yoke_cli.config.project_git_install_advice import (
     IsRoot,
     Which,
 )
+from yoke_contracts import terminal_detached_process
 
 
 class MissingGitError(RuntimeError):
@@ -74,7 +75,7 @@ def finalize_git_install(
     platform_name: str | None = None,
     which: Which | None = None,
     is_root: IsRoot | None = None,
-    runner: Runner = subprocess.run,
+    runner: Runner = terminal_detached_process.run,
     timeout: int = 120,
 ) -> None:
     if (platform_name or sys.platform).lower() != "darwin":
@@ -91,13 +92,15 @@ def git_available(
     *,
     platform_name: str | None = None,
     which: Which | None = None,
-    runner: Runner = subprocess.run,
+    runner: Runner = terminal_detached_process.run,
     timeout: int = 10,
 ) -> bool:
     git_path = _which(which)("git")
     if git_path is None:
         return False
-    if (platform_name or sys.platform).lower() == "darwin" and git_path == "/usr/bin/git":
+    if (
+        platform_name or sys.platform
+    ).lower() == "darwin" and git_path == "/usr/bin/git":
         return project_git_macos_tools.developer_git_ready(
             runner=runner,
             timeout=timeout,
@@ -152,11 +155,13 @@ def missing_git_message(
     which: Which | None = None,
     is_root: IsRoot | None = None,
 ) -> str:
-    details = " ".join(missing_git_detail_lines(
-        platform_name=platform_name,
-        which=which,
-        is_root=is_root,
-    ))
+    details = " ".join(
+        missing_git_detail_lines(
+            platform_name=platform_name,
+            which=which,
+            is_root=is_root,
+        )
+    )
     return f"git is required for project setup but was not found on PATH. {details}"
 
 
@@ -168,11 +173,13 @@ def require_git_available(
 ) -> None:
     if git_available(platform_name=platform_name, which=which):
         return
-    raise MissingGitError(missing_git_message(
-        platform_name=platform_name,
-        which=which,
-        is_root=is_root,
-    ))
+    raise MissingGitError(
+        missing_git_message(
+            platform_name=platform_name,
+            which=which,
+            is_root=is_root,
+        )
+    )
 
 
 def install_git(
@@ -180,8 +187,8 @@ def install_git(
     platform_name: str | None = None,
     which: Which | None = None,
     is_root: IsRoot | None = None,
-    runner: Runner = subprocess.run,
-    probe_runner: Runner = subprocess.run,
+    runner: Runner = terminal_detached_process.run,
+    probe_runner: Runner = terminal_detached_process.run,
     timeout: int = 900,
 ) -> GitInstallAdvice:
     """Install git with the detected platform command, then verify it exists."""
@@ -224,8 +231,7 @@ def install_git(
     raise GitInstallError(
         "The git install command finished, but git is still not on PATH. "
         "Open a new shell if the installer changed PATH, or run this manually: "
-        f"{advice.command}."
-        + (f" Last output: {detail}" if detail else "")
+        f"{advice.command}." + (f" Last output: {detail}" if detail else "")
     )
 
 
@@ -249,9 +255,7 @@ def _run_install_step(
             f"Could not run {' '.join(step)} because {step[0]} was not found."
         ) from exc
     except subprocess.TimeoutExpired as exc:
-        raise GitInstallError(
-            f"Timed out while running {' '.join(step)}."
-        ) from exc
+        raise GitInstallError(f"Timed out while running {' '.join(step)}.") from exc
     if result.returncode != 0:
         detail = _command_failure_detail(result)
         raise GitInstallError(

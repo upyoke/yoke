@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+from yoke_contracts import terminal_detached_process
 
 MINIMUM_WSL_VERSION = (2, 5, 4)
 RECOVERY = "Run wsl --update from Windows, then rerun yoke wsl setup in Ubuntu."
@@ -36,7 +37,7 @@ def _decode(output: bytes) -> str:
 
 def _run(command: list[str]) -> str:
     try:
-        result = subprocess.run(command, capture_output=True, timeout=30)
+        result = terminal_detached_process.run(command, capture_output=True, timeout=30)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise RuntimeError(
             f"wsl_windows_command_unavailable: {command[0]}: {exc}. {INTEROP_RECOVERY}"

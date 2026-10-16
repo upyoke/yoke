@@ -15,7 +15,7 @@ import subprocess
 import sys
 from contextlib import contextmanager
 
-from yoke_cli import terminal_detached_process
+from yoke_contracts import terminal_detached_process
 from yoke_cli.config.onboard_terminal import (
     SetupTerminalError,
     require_foreground_terminal,

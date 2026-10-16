@@ -6,6 +6,7 @@ import os
 import subprocess
 from pathlib import Path
 from typing import Optional
+from yoke_contracts import terminal_detached_process
 
 
 def resolve_repo_root_from_cwd(cwd: str | None = None) -> Optional[str]:
@@ -20,7 +21,7 @@ def resolve_repo_root_from_cwd(cwd: str | None = None) -> Optional[str]:
 
 def _git_toplevel(cwd: str) -> Optional[str]:
     try:
-        result = subprocess.run(
+        result = terminal_detached_process.run(
             ["git", "-C", cwd, "rev-parse", "--show-toplevel"],
             capture_output=True,
             text=True,

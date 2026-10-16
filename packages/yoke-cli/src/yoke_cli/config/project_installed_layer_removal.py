@@ -27,6 +27,7 @@ from yoke_contracts.project_contract.managed_block import block_span
 from yoke_cli.config import project_installed_layer as layer
 from yoke_cli.config.project_git_transport import non_interactive_git_env
 from yoke_cli.project_install.checkout_gate import commit_identity_args
+from yoke_contracts import terminal_detached_process
 
 REMOVAL_COMMIT_MESSAGE = "Remove the existing Yoke operating layer"
 
@@ -171,7 +172,7 @@ def _commit_removal(checkout: Path, removed_paths: list[str]) -> bool:
 
 
 def _git(checkout: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return terminal_detached_process.run(
         ["git", "-C", str(checkout), *args],
         capture_output=True,
         text=True,

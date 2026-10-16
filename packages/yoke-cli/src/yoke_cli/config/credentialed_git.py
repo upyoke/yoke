@@ -15,6 +15,7 @@ from yoke_cli.config.credentialed_git_command import (
     is_network_command,
 )
 from yoke_contracts.github_auth_transience import GITHUB_AUTH_RETRY_RECIPE
+from yoke_contracts import terminal_detached_process
 
 # Return refusals in Git's existing failed-command shape.
 REFUSAL_EXIT_CODE = 128
@@ -309,7 +310,7 @@ def _run(
         kwargs["stdout"] = subprocess.PIPE
         kwargs["stderr"] = subprocess.PIPE
     try:
-        return subprocess.run(argv, **kwargs)
+        return terminal_detached_process.run(argv, **kwargs)
     except subprocess.TimeoutExpired as exc:
         partial = exc.stderr if isinstance(exc.stderr, str) else ""
         detail = (

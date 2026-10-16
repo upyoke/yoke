@@ -11,12 +11,13 @@ import subprocess
 from typing import Any, Mapping
 
 from yoke_contracts.packs import validate_pack_prerequisites
+from yoke_contracts import terminal_detached_process
 
 
 PROBE_TIMEOUT_SECONDS = 15.0
 READY_STATUS = "ready"
 _VERSION = re.compile(r"(?<![0-9])(\d+(?:\.\d+){1,3})(?![0-9])")
-_RUN = subprocess.run
+_RUN = terminal_detached_process.run
 _SYSTEM = platform.system
 _WHICH = shutil.which
 

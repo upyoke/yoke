@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Sequence
 
-from yoke_cli import terminal_detached_process
+from yoke_contracts import terminal_detached_process
 from yoke_cli.config.path_harness_clis import (
     HarnessCliResolution,
     managed_path_directories,

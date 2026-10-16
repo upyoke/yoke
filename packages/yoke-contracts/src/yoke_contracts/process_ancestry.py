@@ -47,7 +47,7 @@ import sys
 from dataclasses import dataclass
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
-from yoke_contracts import linux_process_snapshot
+from yoke_contracts import linux_process_snapshot, terminal_detached_process
 
 HARNESS_PROCESS_BASENAMES = frozenset({"claude", "claude-code"})
 #: The process title of a Claude daemon spare, which becomes one session's host.
@@ -99,7 +99,7 @@ class ProcessAnchor:
 def ps_lines(args: List[str]) -> List[str]:
     """Run ``ps`` with ``args`` and return stdout lines; [] on any failure."""
     try:
-        result = subprocess.run(
+        result = terminal_detached_process.run(
             ["ps", *args],
             capture_output=True,
             text=True,

@@ -10,6 +10,7 @@ from typing import Iterable
 
 from yoke_cli.self_host import atomic_file
 from yoke_cli.self_host import secure_layout
+from yoke_contracts import terminal_detached_process
 
 
 GITIGNORE_MANAGED_BEGIN = "# >>> BEGIN YOKE SELF-HOST SECRET PROTECTION >>>"
@@ -190,7 +191,7 @@ def _tracked_sensitive_paths(target: Path) -> tuple[str, ...]:
         raise SelfHostProtectionError(
             "self-host bundle path is outside its lexical Git worktree"
         ) from None
-    result = subprocess.run(
+    result = terminal_detached_process.run(
         [
             "git",
             "-C",
@@ -223,7 +224,7 @@ def _absolute_without_symlink_resolution(path: Path) -> Path:
 def _lexical_git_root(selected: Path) -> Path | None:
     for anchor in (selected, *selected.parents):
         try:
-            result = subprocess.run(
+            result = terminal_detached_process.run(
                 ["git", "-C", str(anchor), "rev-parse", "--show-toplevel"],
                 check=False,
                 stdout=subprocess.PIPE,

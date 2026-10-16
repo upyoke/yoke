@@ -20,12 +20,13 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import List, Optional
+from yoke_contracts import terminal_detached_process
 
 
 def _core_hooks_path(root: Path) -> Optional[str]:
     """Return the configured ``core.hooksPath`` for ``root``, or None."""
     try:
-        completed = subprocess.run(
+        completed = terminal_detached_process.run(
             ["git", "-C", str(root), "config", "--get", "core.hooksPath"],
             capture_output=True,
             text=True,

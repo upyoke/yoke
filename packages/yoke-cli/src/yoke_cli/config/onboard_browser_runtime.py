@@ -11,7 +11,8 @@ import shutil
 import subprocess
 from typing import Mapping
 
-from yoke_cli import browser_node_toolchain, terminal_detached_process
+from yoke_cli import browser_node_toolchain
+from yoke_contracts import terminal_detached_process
 from yoke_harness import browser_runtime_home, browser_setup
 
 OPEN_TIMEOUT_SECONDS = 20

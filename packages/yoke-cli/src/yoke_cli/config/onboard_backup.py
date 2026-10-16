@@ -13,6 +13,7 @@ from yoke_contracts.self_host_bootstrap_output import redact_api_tokens
 from yoke_cli.config import machine_config, existing_project_lookup
 from yoke_cli.config import onboard_self_host_server as server
 from yoke_cli.self_host import runtime
+from yoke_contracts import terminal_detached_process
 
 
 class BackupSetupError(RuntimeError):
@@ -27,7 +28,7 @@ def command(
     for key in ("YOKE_SESSION_ID", "YOKE_ACTOR_ID"):
         environment.pop(key, None)
     try:
-        result = subprocess.run(
+        result = terminal_detached_process.run(
             [
                 sys.executable,
                 "-m",

@@ -7,6 +7,7 @@ import subprocess
 import sys
 
 from yoke_cli.config import browser_executable
+from yoke_contracts import terminal_detached_process
 
 LAUNCH_PROBE_JS = r"""
 const { chromium } = require('playwright');
@@ -71,7 +72,7 @@ def candidates(saved: str | None = None) -> list[str]:
 
 def probe_installed(browser, toolchain, env, executable):
     """Prove the selected executable can open a sandboxed test page."""
-    return subprocess.run(
+    return terminal_detached_process.run(
         [str(toolchain.node), "-e", LAUNCH_PROBE_JS, executable],
         cwd=str(browser),
         env=env,

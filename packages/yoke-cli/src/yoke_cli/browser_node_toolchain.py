@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping, Optional
 
-from yoke_cli import terminal_detached_process
+from yoke_contracts import terminal_detached_process
 from yoke_cli.config import machine_config
 from yoke_cli.resilient_fetch import FetchError, FetchVerificationError, fetch_file
 

@@ -19,6 +19,7 @@ from yoke_cli.project_install.installed_output_paths import (
     manifest_owned_paths,
     managed_region_paths,
 )
+from yoke_contracts import terminal_detached_process
 
 FALLBACK_DEFAULT_BRANCH = "main"
 INSTALL_COMMIT_PREFIX = "Install Yoke operating layer "
@@ -311,7 +312,7 @@ def _commit_message(operation: str, version: str) -> str:
 
 
 def run_git(repo_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return terminal_detached_process.run(
         ["git", "-C", str(repo_root), *args],
         capture_output=True,
         text=True,
@@ -320,11 +321,9 @@ def run_git(repo_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 def run_git_input(
-    repo_root: Path,
-    stdin: str,
-    *args: str,
+    repo_root: Path, stdin: str, *args: str
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return terminal_detached_process.run(
         ["git", "-C", str(repo_root), *args],
         input=stdin,
         capture_output=True,

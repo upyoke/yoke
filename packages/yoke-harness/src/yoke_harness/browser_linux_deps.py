@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
 import sys
 from pathlib import Path
+from yoke_contracts import terminal_detached_process
 
 
 AMAZON_LINUX_CHROMIUM_DEPS = (
@@ -42,7 +42,7 @@ def _packages_installed() -> bool:
     rpm = shutil.which("rpm")
     if not rpm:
         return False
-    result = subprocess.run(
+    result = terminal_detached_process.run(
         [rpm, "-q", *AMAZON_LINUX_CHROMIUM_DEPS],
         capture_output=True,
         text=True,

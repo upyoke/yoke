@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from yoke_cli import terminal_detached_process
+from yoke_contracts import terminal_detached_process
 from yoke_harness.system_privileges import command_authority
 
 RESTRICTION = Path("/proc/sys/kernel/apparmor_restrict_unprivileged_userns")

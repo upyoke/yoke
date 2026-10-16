@@ -16,6 +16,7 @@ from typing import Any, Callable, Mapping
 from yoke_cli.config import onboard_apply_progress, onboard_relay_supervisor
 from yoke_cli.config.github_response_safety import terminal_safe_text
 from yoke_cli.config.onboard_apply_report_metadata import sanitize_text
+from yoke_contracts import terminal_detached_process
 
 
 RELAY_INSTALL_TIMEOUT_SECONDS = 300
@@ -166,7 +167,9 @@ def is_satisfied(
     *,
     config_path: str | Path | None = None,
     environment: str | None = None,
-    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+    runner: Callable[
+        ..., subprocess.CompletedProcess[str]
+    ] = terminal_detached_process.run,
 ) -> bool:
     """Whether this relay already needs no lifecycle write.
 
@@ -193,7 +196,9 @@ def install(
     local_destination: bool,
     config_path: str | Path | None = None,
     environment: str | None = None,
-    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+    runner: Callable[
+        ..., subprocess.CompletedProcess[str]
+    ] = terminal_detached_process.run,
 ) -> RelayInstallOutcome:
     if not is_supported(local_destination=local_destination):
         return RelayInstallOutcome(installed=False, reused=False)

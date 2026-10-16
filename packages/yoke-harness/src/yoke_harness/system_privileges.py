@@ -6,7 +6,7 @@ import os
 import shutil
 import sys
 
-from yoke_cli import terminal_detached_process
+from yoke_contracts import terminal_detached_process
 from yoke_cli.config.onboard_terminal import wizard_terminal_owned
 
 

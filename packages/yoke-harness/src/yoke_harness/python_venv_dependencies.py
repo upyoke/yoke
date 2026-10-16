@@ -9,6 +9,7 @@ import subprocess
 import sys
 
 from yoke_harness.system_privileges import command_authority
+from yoke_contracts import terminal_detached_process
 
 
 _PROBE = """
@@ -23,7 +24,7 @@ print(json.dumps({
 
 def _probe(python: str | Path) -> dict:
     try:
-        result = subprocess.run(
+        result = terminal_detached_process.run(
             [str(python), "-I", "-c", _PROBE], capture_output=True, text=True
         )
         data = json.loads(result.stdout) if result.returncode == 0 else None
@@ -66,9 +67,9 @@ def ensure_venv_support(python: str | Path | None = None, *, emit=print) -> None
     emit(f"Installing {package} for the machine relay...")
     try:
         for command in ([apt, "update"], [apt, "install", "-y", package]):
-            result = subprocess.run(
-                [*prefix, *command], text=True, capture_output=not interactive
-            )
+            # Only a sudo password prompt keeps the terminal.
+            run = subprocess.run if interactive else terminal_detached_process.run
+            result = run([*prefix, *command], text=True, capture_output=not interactive)
             if result.returncode:
                 reason = result.stderr or result.stdout or f"exit {result.returncode}"
                 raise RuntimeError(

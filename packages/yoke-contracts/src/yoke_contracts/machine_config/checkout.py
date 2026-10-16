@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 
 from yoke_contracts.machine_config.schema_connections import MachineConfigContractError
+from yoke_contracts import terminal_detached_process
 
 
 # A checkout's primary never changes while the checkout exists, and the
@@ -31,7 +32,7 @@ def main_checkout(root: str | Path) -> Path:
 
 def _git_main_checkout(root: Path) -> Path:
     try:
-        result = subprocess.run(
+        result = terminal_detached_process.run(
             ["git", "-C", str(root), "worktree", "list", "--porcelain", "-z"],
             capture_output=True,
             text=True,

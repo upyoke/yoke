@@ -8,7 +8,6 @@ reading file contents is the scanner's job and happens per ref afterwards.
 from __future__ import annotations
 
 import os
-import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -21,6 +20,7 @@ from yoke_cli.project_snapshot.scanner import (
     scan_ref,
 )
 from yoke_contracts.path_snapshot import PathSnapshotSyncPayload
+from yoke_contracts import terminal_detached_process
 
 
 @dataclass(frozen=True)
@@ -93,7 +93,7 @@ def identity_sync_payload(
 
 
 def _default_integration_target(repo_root: Path) -> str:
-    proc = subprocess.run(
+    proc = terminal_detached_process.run(
         [
             "git",
             "-C",
@@ -138,7 +138,7 @@ def _resolve_integration_ref(
 
 
 def _try_rev_parse(repo_root: Path, ref: str) -> Optional[str]:
-    proc = subprocess.run(
+    proc = terminal_detached_process.run(
         ["git", "-C", str(repo_root), "rev-parse", "--verify", "--quiet", ref],
         capture_output=True,
         text=True,
@@ -150,7 +150,7 @@ def _try_rev_parse(repo_root: Path, ref: str) -> Optional[str]:
 
 
 def _is_ancestor(repo_root: Path, ancestor: str, descendant: str) -> bool:
-    proc = subprocess.run(
+    proc = terminal_detached_process.run(
         [
             "git",
             "-C",

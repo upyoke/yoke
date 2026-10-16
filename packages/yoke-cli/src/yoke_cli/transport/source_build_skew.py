@@ -22,6 +22,7 @@ import subprocess
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Optional
+from yoke_contracts import terminal_detached_process
 
 #: Relationships between a local checkout and a server's build. ``UNKNOWN``
 #: is a real answer and never collapses into ``EQUAL``: not knowing whether
@@ -53,7 +54,7 @@ class BuildComparison:
 def _git(repo_root: str, *args: str) -> Optional[str]:
     """Run one read-only git command, or ``None`` when it cannot answer."""
     try:
-        completed = subprocess.run(
+        completed = terminal_detached_process.run(
             ["git", "-C", repo_root, *args],
             capture_output=True,
             text=True,

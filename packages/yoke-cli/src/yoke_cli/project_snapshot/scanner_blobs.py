@@ -5,6 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 from typing import Callable, Dict, Optional, Sequence, Tuple
+from yoke_contracts import terminal_detached_process
 
 BLOB_BATCH_SIZE = 250
 
@@ -40,7 +41,7 @@ def _blob_sources_batch(
 ) -> Dict[str, str]:
     sources: Dict[str, str] = {}
     try:
-        proc = subprocess.Popen(
+        proc = terminal_detached_process.popen(
             ["git", "-C", str(repo_root), "cat-file", "--batch"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,

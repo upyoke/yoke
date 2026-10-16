@@ -7,7 +7,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from yoke_cli import browser_node_toolchain, terminal_detached_process
+from yoke_cli import browser_node_toolchain
+from yoke_contracts import terminal_detached_process
 from yoke_cli.config import browser_executable
 from yoke_cli.config import machine_config
 from yoke_cli.config.machine_config_file import ensure_owner_only_directory
