@@ -82,7 +82,7 @@ def register(registry) -> None:
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["verified_actor", "org_membership"],
-        adapter_status="internal",
+        adapter_status="live",
         claim_required_kind=None,
         ambient_session_required=False,
         minimum_serving_version="next-release",

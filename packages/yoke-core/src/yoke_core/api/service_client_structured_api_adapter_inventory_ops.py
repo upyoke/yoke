@@ -42,14 +42,6 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke events performance detail --since ISO --until ISO [--project-ids ID,ID] [--family FAMILY] [--offset N] [--limit N]",
     ),
     _read_entry(
-        function_id="machine_authorization.get",
-        cli_invocation="yoke machine-authorization get CODE [--json]",
-    ),
-    AdapterEntry(
-        function_id="machine_authorization.resolve",
-        cli_invocation="yoke machine-authorization resolve CODE --action approve|deny [--json]",
-    ),
-    _read_entry(
         function_id="decision_requests.get",
         cli_invocation="yoke decision-requests get REQUEST_ID [--json]",
     ),

@@ -40,6 +40,7 @@ from yoke_cli.commands.registry_items_flags import ITEMS_FLAGS_SUBCOMMAND_REGIST
 from yoke_cli.commands.registry_projects import PROJECTS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_qa import QA_SUBCOMMAND_REGISTRY
 from yoke_cli.commands import registry_product_surfaces as _product_surfaces
+from yoke_cli.commands import registry_admission as _admission
 from yoke_cli.commands.registry_db_claim import DB_CLAIM_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_readiness import READINESS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands import registry_item_dependency as _dependencies
@@ -52,6 +53,7 @@ from yoke_cli.commands.registry_workflows import WORKFLOW_SUBCOMMAND_REGISTRY
 AdapterFn = Callable[[List[str]], int]
 # (cli_tokens) -> (function_id, adapter_fn)
 SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
+    **_admission.ADMISSION_SUBCOMMAND_REGISTRY,
     ("items", "create"): ("items.create", _adapters.items_create),
     ("items", "get"): ("items.get.run", _adapters.items_get),
     ("items", "list"): ("items.list.run", _adapters.items_list),
