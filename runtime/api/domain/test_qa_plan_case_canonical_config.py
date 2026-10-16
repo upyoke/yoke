@@ -6,6 +6,8 @@ requirement minted from it hold the one normalized form, byte for byte.
 
 from __future__ import annotations
 
+import json
+
 from runtime.api.domain.machine_qa_host_test_support import _terminal_recipe
 from runtime.api.domain.qa_plan_execution_test_support import TEST_ITEM_ID
 from runtime.api.fixtures.backlog_inserts import insert_item
@@ -14,6 +16,10 @@ from runtime.api.qa_plan_edit_test_support import _edit, _updated_at
 from yoke_core.domain.qa_plan_attachments import (
     materialize_for_item,
     set_project_default,
+)
+from yoke_core.domain.qa_deployment_case_content_refresh import (
+    case_content_digest,
+    plan_case_content_digest,
 )
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
 
@@ -78,3 +84,26 @@ def test_integer_timeouts_store_the_form_materialization_copies() -> None:
         materialize_for_item(conn, item_id=TEST_ITEM_ID, transition_id="implemented")
         copies = _copies(conn, plan["id"])
     assert copies and all(copy == stored for copy in copies)
+
+
+def _command_case(command: str) -> dict:
+    return {
+        "case_key": "probe",
+        "method_id": "command",
+        "config_contract_id": "command",
+        "method_config": {"command": command},
+        "instructions": "Run the probe.",
+        "expected_outcome": "It exits zero.",
+    }
+
+
+def test_a_plan_case_stored_by_an_older_build_matches_its_normalized_copy():
+    stored = _command_case("  true  ")
+    copy = {**stored, "method_config": json.dumps({"command": "true"})}
+    assert case_content_digest(stored) != case_content_digest(copy)
+    assert plan_case_content_digest(stored) == case_content_digest(copy)
+
+
+def test_a_changed_plan_case_still_reads_as_changed_content():
+    copy = {**_command_case("true"), "method_config": {"command": "true"}}
+    assert plan_case_content_digest(_command_case("false")) != case_content_digest(copy)

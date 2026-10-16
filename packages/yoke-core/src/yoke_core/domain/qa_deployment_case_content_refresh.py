@@ -93,6 +93,19 @@ def case_content_digest(case: Mapping[str, Any]) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:_DIGEST_LENGTH]
 
 
+def plan_case_content_digest(case: Mapping[str, Any]) -> str:
+    """Identity of a plan case as it materializes, not as it was stored.
+
+    A stored plan case keeps the form the build that wrote it produced; its
+    copies hold the form the materializing build's validator returns. Deriving
+    the case through that same validator first makes the two comparable
+    whatever release stored the plan.
+    """
+    from yoke_core.domain.qa_plan_case_definition import require_runnable_case
+
+    return case_content_digest({**case, "method_config": require_runnable_case(case)})
+
+
 def base_case_key(plan_case_key: str) -> str:
     """The authored key behind a possibly-refreshed one."""
     return str(plan_case_key).split(REFRESH_KEY_SEPARATOR, 1)[0]
@@ -208,7 +221,7 @@ def refreshed_case_keys(
         if not materialized:
             # Never materialized here; ordinary insertion handles it.
             continue
-        digest = case_content_digest(case)
+        digest = plan_case_content_digest(case)
         if any(case_content_digest(row) == digest for row in materialized):
             # This exact content is already present, discharged or not.
             continue
@@ -303,6 +316,7 @@ __all__ = [
     "declare_refreshed_replacements",
     "base_case_key",
     "case_content_digest",
+    "plan_case_content_digest",
     "refreshed_case_key",
     "refreshed_case_keys",
 ]

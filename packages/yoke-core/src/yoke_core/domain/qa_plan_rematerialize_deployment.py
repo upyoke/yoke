@@ -18,6 +18,7 @@ from yoke_core.domain.qa_deployment_case_content_refresh import (
     carried_by_declared_replacement,
     case_content_digest,
     declare_refreshed_replacements,
+    plan_case_content_digest,
     refreshed_case_key,
 )
 from yoke_core.domain.qa_obligation_settlement import (
@@ -103,7 +104,7 @@ def _needs_corrected_row(
         return True
     if carried_by_declared_replacement(conn, group):
         return False
-    digest = case_content_digest(case)
+    digest = plan_case_content_digest(case)
     if any(case_content_digest(row) == digest for row in group):
         return False
     return all(
@@ -285,7 +286,7 @@ def rematerialize_for_deployment_stage(
                     continue
                 key = str(case["case_key"])
                 if group:
-                    key = refreshed_case_key(key, case_content_digest(case))
+                    key = refreshed_case_key(key, plan_case_content_digest(case))
                 created.append(
                     _insert_case(
                         conn,
