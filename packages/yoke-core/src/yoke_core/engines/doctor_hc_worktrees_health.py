@@ -158,6 +158,15 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
         and lane.branch in local_branches
         and lane.branch not in live_branches
     ]
+    roots = declared_disposable_roots(repo_root) if repo_root else None
+    paths = [e["path"] for e in lane_entries if Path(e["path"]).is_dir()]
+
+    def read_residue(path):
+        root = root_for(path)
+        lane_roots = roots if roots is not None else declared_disposable_roots(root)
+        return assess_lane_residue(_git_for_repo(root), path, lane_roots)
+
+    residues = dict(zip(paths, bounded_read_map(read_residue, paths)))
     retirer = TerminalLaneRetirer(
         [
             *(
@@ -169,6 +178,8 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
         ],
         fix=args.fix,
         git_for_repo=_git_for_repo,
+        residues=residues,
+        checkouts=entries,
     )
     if retirer.authority_failure:
         issues.append(
@@ -177,16 +188,6 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
             "is preserved; rerun this check with --fix once the control plane "
             "answers it"
         )
-
-    roots = declared_disposable_roots(repo_root) if repo_root else None
-    paths = [e["path"] for e in lane_entries if Path(e["path"]).is_dir()]
-
-    def read_residue(path):
-        root = root_for(path)
-        lane_roots = roots if roots is not None else declared_disposable_roots(root)
-        return assess_lane_residue(_git_for_repo(root), path, lane_roots)
-
-    residues = dict(zip(paths, bounded_read_map(read_residue, paths)))
 
     for entry in lane_entries:
         wt_path = entry["path"]
